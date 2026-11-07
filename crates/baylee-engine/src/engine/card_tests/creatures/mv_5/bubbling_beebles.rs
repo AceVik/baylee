@@ -9,7 +9,7 @@ fn bubbling_beebles() -> CardIndex {
 
 #[test]
 fn bubbling_beebles_reads_only_the_player_it_is_attacking() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for defender_has_enchantment in [false, true] {
         let defender_board = if defender_has_enchantment {
@@ -53,7 +53,7 @@ fn bubbling_beebles_reads_only_the_player_it_is_attacking() {
 
 #[test]
 fn creature_body_remains_playable() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[bubbling_beebles()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 6)]);
     cast_with_floating(&mut engine, lk::P0, bubbling_beebles());

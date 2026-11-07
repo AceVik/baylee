@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::NumberPrompt;
+use baylee_engine::choice::NumberPrompt;
 
 /// The same {2}{W} paid with three Plains is one color. The target was
 /// legal — the condition is not part of the targeting — so the spell

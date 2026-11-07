@@ -90,7 +90,7 @@ fn starnheim_unleashed_foretold_pays_both_x_symbols_and_creates_x_tokens() {
         spell
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::Foretold { .. }))
+            .any(|r| matches!(r, baylee_engine::object::Rider::Foretold { .. }))
     );
     assert_eq!(
         engine.state().players[0].mana_pool.total(),

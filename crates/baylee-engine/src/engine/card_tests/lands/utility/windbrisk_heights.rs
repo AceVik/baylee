@@ -15,7 +15,7 @@ fn windbrisk_heights_enters_tapped_and_taps_for_white() {
     reach_main_phase(&mut engine, p0);
 
     let land = play_land(&mut engine, p0, windbrisk_heights());
-    crate::engine::card_tests::hidden_exile::finish_hideaway(&mut engine);
+    baylee_card_testkit::card_tests::hidden_exile::finish_hideaway(&mut engine);
     assert!(entered_tapped(&engine, land));
 
     pass_until(&mut engine, |e| {

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit::damage_on;
+use baylee_card_testkit::card_tests::legends_kit::damage_on;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);

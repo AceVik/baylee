@@ -29,7 +29,7 @@ fn endoskeleton_grants_plus_zero_plus_three_while_tapped() {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             }
         )
@@ -50,7 +50,7 @@ fn endoskeleton_grants_plus_zero_plus_three_while_tapped() {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             }
         )

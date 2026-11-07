@@ -61,7 +61,7 @@ fn evendo_stations_off_the_tapped_creatures_power() {
     keep_mulligans(&mut engine);
     let evendo = on_battlefield(&engine, p0, evendo_waking_haven()).expect("Evendo");
     let elves = all_on_battlefield(&engine, p0, llanowar_elves());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up"),
@@ -160,7 +160,7 @@ fn evendo_at_twelve_adds_green_for_each_creature_you_control() {
     let evendo = on_battlefield(&engine, p0, evendo_waking_haven()).expect("Evendo");
     let land = on_battlefield(&engine, p0, forest()).expect("the Forest");
     let elves = all_on_battlefield(&engine, p0, llanowar_elves());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up"),

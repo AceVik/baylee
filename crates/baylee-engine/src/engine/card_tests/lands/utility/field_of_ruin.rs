@@ -75,14 +75,14 @@ fn field_of_ruin_destroys_opponent_nonbasic_land_and_each_player_searches() {
     for player in [p0, p1] {
         pass_until(
             &mut engine,
-            crate::engine::card_tests::library_choices::searched,
+            baylee_card_testkit::card_tests::library_choices::searched,
         );
         assert_eq!(engine.pending().asked(), Some(player));
         let Pending::ChooseCards { options, .. } = engine.pending() else {
             unreachable!()
         };
         let found = options[0];
-        crate::engine::card_tests::library_choices::choose(&mut engine, vec![found]);
+        baylee_card_testkit::card_tests::library_choices::choose(&mut engine, vec![found]);
     }
     pass_until(&mut engine, stack_is_empty);
 

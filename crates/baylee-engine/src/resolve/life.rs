@@ -1258,7 +1258,7 @@ pub(super) fn gain_life(state: &mut GameState, player: PlayerId, n: i32) {
     state.change_life(player, n, Cause::Effect);
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn deal_to_object_with_loyalty(
     state: &mut GameState,
     target: ObjectId,
@@ -1280,7 +1280,7 @@ pub(super) fn deal_to_object_with_loyalty(
     );
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: PlayerId, n: i16) {
     let assignment = Assignment {
         source,

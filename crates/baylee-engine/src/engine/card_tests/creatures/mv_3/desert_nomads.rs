@@ -107,7 +107,7 @@ fn desert_nomads_takes_no_damage_from_deserts_but_other_damage_still_hits() {
         .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
     });
     for target in [nomads, ogre] {

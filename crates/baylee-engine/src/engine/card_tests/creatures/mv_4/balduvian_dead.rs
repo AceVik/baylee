@@ -42,8 +42,8 @@ fn balduvian_dead_is_a_two_three_without_the_token_ability_it_cannot_yet_play_co
         .move_object(
             corpse,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();

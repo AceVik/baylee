@@ -203,7 +203,11 @@ fn lose_focus_replicated_once_counters_a_second_spell_with_its_copy() {
         &[first],
         "aimed where p0 turned it"
     );
-    assert!(copied.riders.contains(&crate::object::Rider::SpellCopy));
+    assert!(
+        copied
+            .riders
+            .contains(&baylee_engine::object::Rider::SpellCopy)
+    );
     assert!(
         !copied.cast_history.was_from_hand(),
         "a copy is put on the stack, not cast"
@@ -213,7 +217,7 @@ fn lose_focus_replicated_once_counters_a_second_spell_with_its_copy() {
         .journal
         .entries()
         .iter()
-        .filter(|e| matches!(e.event, crate::event::GameEvent::SpellCast { .. }))
+        .filter(|e| matches!(e.event, baylee_engine::event::GameEvent::SpellCast { .. }))
         .count();
     assert_eq!(
         casts, 3,
@@ -412,7 +416,7 @@ fn lose_focus_replicated_eighteen_times_is_paid_and_copied_eighteen_times() {
             .filter(|id| engine
                 .state()
                 .object(**id)
-                .is_some_and(|o| o.riders.contains(&crate::object::Rider::SpellCopy)))
+                .is_some_and(|o| o.riders.contains(&baylee_engine::object::Rider::SpellCopy)))
             .count(),
         18,
         "every payment made its copy"

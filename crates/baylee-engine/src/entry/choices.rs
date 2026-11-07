@@ -45,7 +45,8 @@ fn accept_sacrifice(
 
 /// Run entry work until all moves have completed or a player must decide.
 #[allow(clippy::too_many_lines)]
-pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
+#[doc(hidden)]
+pub fn advance(state: &mut GameState) -> Option<Pending> {
     // Co-arrivals are one instruction. Decisions and payments resume through
     // this entry point; committing each body needs no whole-board projection.
     if !state.entries.pending.is_empty() {
@@ -267,7 +268,8 @@ fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pendin
 
 /// The engine validates the offered seat, cardinality and membership before entering here.
 #[allow(clippy::too_many_lines)]
-pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
+#[doc(hidden)]
+pub fn answer(state: &mut GameState, action: &PlayerAction) {
     let question = state.entries.question.take().expect("entry question");
     if equilibrium::answer_special(state, &question, action) {
         return;
@@ -435,7 +437,8 @@ pub(super) fn select(
 }
 
 /// Re-publish a second question of the same entry after its previous answer.
-pub(crate) fn next_question(state: &GameState) -> Option<Pending> {
+#[doc(hidden)]
+pub fn next_question(state: &GameState) -> Option<Pending> {
     let entry = state.entries.pending.front()?;
     let player = entry.controller;
     match state.entries.question.as_ref()? {

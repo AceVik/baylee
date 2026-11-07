@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn burgeoning() -> CardIndex {
     card_index("88cf4c1a-5863-45fc-b76d-7ad33b175b2b")

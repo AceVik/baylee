@@ -104,7 +104,7 @@ fn a_landing_borg_queen_assimilates_their_creature_card_and_pumps_only_artifact_
         .expect("the assimilated card is still an object");
     assert_eq!(
         assimilated.zone,
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
         "it was put onto the battlefield"
     );
     assert_eq!(
@@ -242,12 +242,12 @@ fn the_borrower_flashes_out_of_its_adventure_but_cannot_block_a_ground_creature(
     assert!(
         options
             .iter()
-            .any(|o| matches!(o.kind, crate::choice::CastModeKind::Normal)),
+            .any(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Normal)),
         "the creature is one way to cast the card: {options:?}"
     );
     let adventure = options
         .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+        .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
         .expect("and Petty Theft is the other");
     engine
         .apply(p0, PlayerAction::ChooseMode(adventure))
@@ -281,7 +281,10 @@ fn the_borrower_flashes_out_of_its_adventure_but_cannot_block_a_ground_creature(
             },
         )
         .expect("the permanent the theft is aimed at");
-    let stack = engine.state().zones.list(crate::zone::ZoneLocation::Stack);
+    let stack = engine
+        .state()
+        .zones
+        .list(baylee_engine::zone::ZoneLocation::Stack);
     let spell = stack.last().copied().expect("a spell on the stack");
     let obj = engine.state().object(spell).expect("the spell exists");
     assert_eq!(obj.face_index, 1, "the adventure is the back face");
@@ -304,7 +307,7 @@ fn the_borrower_flashes_out_of_its_adventure_but_cannot_block_a_ground_creature(
     let exiled = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Exile(p0))
+        .list(baylee_engine::zone::ZoneLocation::Exile(p0))
         .iter()
         .copied()
         .find(|id| {
@@ -318,7 +321,7 @@ fn the_borrower_flashes_out_of_its_adventure_but_cannot_block_a_ground_creature(
         engine.state().object(exiled).is_some_and(|o| o
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::Adventure(_)))),
+            .any(|r| matches!(r, baylee_engine::object::Rider::Adventure(_)))),
         "wearing the rider that says it may be cast from there"
     );
 
@@ -560,7 +563,7 @@ fn another_creature_or_planeswalker_entering_mills_you_two_and_liliana_herself_m
     let graveyard_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Graveyard(p0))
+        .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
         .len();
 
     // Her own entry first. The Forest is the one land kept back, because it
@@ -611,7 +614,7 @@ fn another_creature_or_planeswalker_entering_mills_you_two_and_liliana_herself_m
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .len(),
         graveyard_before + 4,
         "milled, so the four are in your graveyard and nowhere else"
@@ -935,7 +938,7 @@ fn a_hasty_wizard_flashes_back_a_spent_swords_and_swings_the_turn_it_lands() {
         &engine,
         p1,
         llanowar_elves(),
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
     );
     assert_eq!(elves.len(), 2, "one Elf per cast of the same Swords");
     let life_before = engine.state().players[1].life;
@@ -974,7 +977,7 @@ fn a_hasty_wizard_flashes_back_a_spent_swords_and_swings_the_turn_it_lands() {
             &engine,
             p1,
             llanowar_elves(),
-            crate::zone::Zone::Battlefield
+            baylee_engine::zone::Zone::Battlefield
         )
         .len(),
         1,
@@ -1065,7 +1068,7 @@ fn a_hasty_wizard_flashes_back_a_spent_swords_and_swings_the_turn_it_lands() {
             &engine,
             p1,
             llanowar_elves(),
-            crate::zone::Zone::Battlefield
+            baylee_engine::zone::Zone::Battlefield
         )
         .is_empty(),
         "one Swords, cast twice, exiled both Elves",
@@ -1082,7 +1085,7 @@ fn a_hasty_wizard_flashes_back_a_spent_swords_and_swings_the_turn_it_lands() {
     let exiled = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Exile(p0))
+        .list(baylee_engine::zone::ZoneLocation::Exile(p0))
         .iter()
         .any(|id| {
             engine
@@ -1130,7 +1133,7 @@ fn trumpeting_carnosaur_declined_puts_the_card_into_the_hand() {
     assert!(matches!(
         engine.pending(),
         Pending::YesNo {
-            prompt: crate::choice::YesNoPrompt::Discover { .. },
+            prompt: baylee_engine::choice::YesNoPrompt::Discover { .. },
             ..
         }
     ));

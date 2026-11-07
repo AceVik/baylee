@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::color::Color;
 use baylee_core::generated::subtypes;
 
@@ -50,7 +50,7 @@ fn goblin_marshal_creates_two_goblins_on_etb_and_two_more_when_sacrificed_to_ech
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 6)]);
@@ -79,7 +79,7 @@ fn goblin_marshal_paying_echo_keeps_it_and_bouncing_does_not_trigger_dies() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 6)]);

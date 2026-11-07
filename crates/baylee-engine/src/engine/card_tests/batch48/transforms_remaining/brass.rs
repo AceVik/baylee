@@ -75,7 +75,7 @@ fn batch48_tecutlan_discovers_the_cast_spells_mana_value_using_actual_source_man
             RegistryLookup.card(index::BRASS_S_TUNNEL_GRINDER).unwrap(),
             1,
         );
-        e.sync_static_effects();
+        e.sync_static_effects_for_tests();
         let found = in_hand(&e, P0, index::SEWER_RATS).unwrap();
         e.state
             .move_object(
@@ -144,7 +144,7 @@ fn brass_does_not_descend_from_nonpermanent_discard_or_previous_turn() {
         choose(&mut e, vec![discarded]);
         pass_until(&mut e, stack_is_empty);
         pass_until(&mut e, |e| {
-            e.state.turn.step == crate::turn::Step::End
+            e.state.turn.step == baylee_engine::turn::Step::End
                 && stack_is_empty(e)
                 && matches!(e.pending(), Pending::Priority { .. })
         });
@@ -160,7 +160,7 @@ fn brass_does_not_descend_from_nonpermanent_discard_or_previous_turn() {
         pass_until(&mut e, |e| {
             e.state.turn.number > turn
                 && e.state.turn.active == P0
-                && e.state.turn.step == crate::turn::Step::End
+                && e.state.turn.step == baylee_engine::turn::Step::End
                 && stack_is_empty(e)
                 && matches!(e.pending(), Pending::Priority { .. })
         });
@@ -199,7 +199,7 @@ fn brass_descend_remembers_discarded_land_after_it_leaves_graveyard_fixture() {
         .unwrap();
     e.refresh_offer();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::End
+        e.state.turn.step == baylee_engine::turn::Step::End
             && stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { .. })
     });

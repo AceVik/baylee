@@ -143,7 +143,7 @@ fn twists_and_turns_triggered_twice_at_once_transforms_once() {
             .state()
             .object(enchantment)
             .map(|o| (o.zone, o.face_index)),
-        Some((crate::zone::Zone::Battlefield, 1)),
+        Some((baylee_engine::zone::Zone::Battlefield, 1)),
         "turned over once, and the second trigger did not turn it back"
     );
     assert_eq!(
@@ -200,8 +200,8 @@ fn twists_and_turns_etb_scries_before_exploring_and_mycoid_maze_finds_creature()
         .move_object(
             lib_creature,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine
@@ -210,8 +210,8 @@ fn twists_and_turns_etb_scries_before_exploring_and_mycoid_maze_finds_creature()
         .move_object(
             top_spell,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
 
@@ -266,7 +266,7 @@ fn twists_and_turns_etb_scries_before_exploring_and_mycoid_maze_finds_creature()
     );
     assert_eq!(
         engine.state().object(top_spell).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
 
     // Play the 7th land to transform Twists and Turns into Mycoid Maze.
@@ -294,6 +294,6 @@ fn twists_and_turns_etb_scries_before_exploring_and_mycoid_maze_finds_creature()
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine.state().object(lib_creature).unwrap().zone,
-        crate::zone::Zone::Hand
+        baylee_engine::zone::Zone::Hand
     );
 }

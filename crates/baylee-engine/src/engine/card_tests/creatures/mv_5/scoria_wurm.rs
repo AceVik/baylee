@@ -21,7 +21,7 @@ fn scoria_wurm_returns_exactly_when_its_own_upkeep_flip_is_lost() {
             .entries()
             .iter()
             .filter_map(|entry| match entry.event {
-                crate::event::GameEvent::CoinFlipped { player, won } => Some((player, won)),
+                baylee_engine::event::GameEvent::CoinFlipped { player, won } => Some((player, won)),
                 _ => None,
             })
             .collect();
@@ -38,7 +38,12 @@ fn scoria_wurm_returns_exactly_when_its_own_upkeep_flip_is_lost() {
             .journal
             .entries()
             .iter()
-            .filter(|entry| matches!(entry.event, crate::event::GameEvent::CoinFlipped { .. }))
+            .filter(|entry| {
+                matches!(
+                    entry.event,
+                    baylee_engine::event::GameEvent::CoinFlipped { .. }
+                )
+            })
             .count();
         assert_eq!(count, 1, "no flip in the opponent's upkeep");
     }

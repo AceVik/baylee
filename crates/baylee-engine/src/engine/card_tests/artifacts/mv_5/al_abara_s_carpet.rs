@@ -43,12 +43,12 @@ fn carpet_prevents_only_attacking_ground_sources_only_to_its_controller() {
         (flyer, p0, true, 1),
     ] {
         let state = e.dev_state_mut(p0).unwrap();
-        let mut work = crate::damage::DamageWork::new(
+        let mut work = baylee_engine::damage::DamageWork::new(
             state,
-            vec![crate::damage::Assignment {
+            vec![baylee_engine::damage::Assignment {
                 source,
                 source_version: Some(state.object(source).unwrap().version),
-                recipient: crate::event::DamageTarget::Player(recipient),
+                recipient: baylee_engine::event::DamageTarget::Player(recipient),
                 amount: 1,
                 is_combat: combat,
             }],
@@ -100,12 +100,12 @@ fn carpet_does_not_prevent_damage_from_a_ground_creature_that_is_not_attacking()
         (home, "the Bears that stayed home", 2),
     ] {
         let state = e.dev_state_mut(p0).unwrap();
-        let mut work = crate::damage::DamageWork::new(
+        let mut work = baylee_engine::damage::DamageWork::new(
             state,
-            vec![crate::damage::Assignment {
+            vec![baylee_engine::damage::Assignment {
                 source,
                 source_version: Some(state.object(source).unwrap().version),
-                recipient: crate::event::DamageTarget::Player(p0),
+                recipient: baylee_engine::event::DamageTarget::Player(p0),
                 amount: 2,
                 is_combat: false,
             }],

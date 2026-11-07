@@ -283,7 +283,7 @@ impl<T> Arena<T> {
     }
 
     /// How many chunks no clone shares. For the tests of the sharing.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn unshared_chunks(&self) -> usize {
         self.chunks
             .iter()

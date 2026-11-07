@@ -22,7 +22,7 @@ fn underdome_pays_a_source_linked_asp_debt_after_actual_source_destruction() {
         e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
             .unwrap();
         pass_until(&mut e, |e| {
-            e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+            e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
         });
         // Destroy the actual source with a real spell after its trigger created
         // the debt. The source's physical facts must remain available via LKI.
@@ -40,7 +40,7 @@ fn underdome_pays_a_source_linked_asp_debt_after_actual_source_destruction() {
         assert_eq!(e.state.object(asp).unwrap().zone, Zone::Graveyard);
         pass_until(&mut e, |e| {
             e.state.turn.active == P1
-                && e.state.turn.step == crate::turn::Step::Upkeep
+                && e.state.turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { player: P1, .. })
         });
         pool(&mut e, P1, &[]);
@@ -53,7 +53,7 @@ fn underdome_pays_a_source_linked_asp_debt_after_actual_source_destruction() {
             .find(|o| {
                 matches!(
                     o.effect,
-                    crate::choice::GrantedActionKind::CancelDelayedLifeLoss { amount: 1 }
+                    baylee_engine::choice::GrantedActionKind::CancelDelayedLifeLoss { amount: 1 }
                 )
             })
             .expect("independent debt while mana sources remain available")
@@ -82,7 +82,7 @@ fn underdome_pays_a_source_linked_asp_debt_after_actual_source_destruction() {
         }
         pass_until(&mut e, |e| {
             e.state.turn.active == P1
-                && e.state.turn.step == crate::turn::Step::Draw
+                && e.state.turn.step == baylee_engine::turn::Step::Draw
                 && matches!(e.pending(), Pending::Priority { .. })
         });
         if !is_un {

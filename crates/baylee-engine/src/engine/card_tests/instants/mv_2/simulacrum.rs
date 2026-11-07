@@ -122,7 +122,7 @@ fn simulacrum_gains_life_equal_to_all_the_damage_dealt_this_turn_no_matter_what_
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[0],
@@ -145,8 +145,8 @@ fn simulacrum_gains_life_equal_to_all_the_damage_dealt_this_turn_no_matter_what_
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    state.change_life(p0, -2, crate::event::Cause::DevCommand);
-    state.change_life(p0, 5, crate::event::Cause::DevCommand);
+    state.change_life(p0, -2, baylee_engine::event::Cause::DevCommand);
+    state.change_life(p0, 5, baylee_engine::event::Cause::DevCommand);
     engine.refresh_offer();
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[0],
@@ -218,7 +218,7 @@ fn simulacrum_does_not_count_damage_from_an_earlier_turn() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[0],
@@ -314,9 +314,9 @@ fn simulacrum_marks_its_target_with_the_same_damage_and_kills_it_only_if_thats_l
         assert!(
             engine.state().journal.entries().iter().any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::DamageDealt {
+                baylee_engine::event::GameEvent::DamageDealt {
                     source: Some(source),
-                    target: crate::event::DamageTarget::Object(hit),
+                    target: baylee_engine::event::DamageTarget::Object(hit),
                     amount: 3,
                     is_combat: false,
                 } if source == spell && hit == target
@@ -397,8 +397,8 @@ fn simulacrum_does_nothing_if_its_only_target_is_gone_before_it_resolves() {
         .move_object(
             elf,
             ZoneLocation::Exile(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("the harness moves a card");
     engine.refresh_offer();

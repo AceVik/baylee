@@ -32,7 +32,7 @@ fn defiling_tears_recolors_pumps_and_grants_black_regeneration_until_eot() {
         ColorSet::from_slice(&[Color::Black])
     );
 
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[(ManaColor::Black, 1), (ManaColor::Red, 1)],
@@ -44,7 +44,7 @@ fn defiling_tears_recolors_pumps_and_grants_black_regeneration_until_eot() {
             p0,
             PlayerAction::ActivateAbility {
                 source: bears_id,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .unwrap();

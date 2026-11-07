@@ -274,9 +274,9 @@ fn juxtapose_uses_current_controller_and_can_exchange_hexproof_creatures() {
     let tyrant = on_battlefield(&e, p1, index::CARNAGE_TYRANT).unwrap();
     let hunter = on_battlefield(&e, p1, fangren_hunter()).unwrap();
     let ogre = on_battlefield(&e, p0, gray_ogre()).unwrap();
-    crate::resolve::gain_control(e.dev_state_mut(p0).unwrap(), &[(hunter, p0)]);
+    baylee_engine::resolve::gain_control(e.dev_state_mut(p0).unwrap(), &[(hunter, p0)]);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     cast_at(&mut e, p1);
     pass_until(&mut e, stack_is_empty);

@@ -44,6 +44,12 @@ pub use targets::{
     stack_target_options_relative, target_options, target_options_with_context,
     target_player_options, target_player_options_from, targeted_players,
 };
+#[cfg(feature = "test-support")]
+pub use targets::{
+    spell_target_options_for, spell_target_options_relative, stack_retarget_options,
+    target_options_in_domain,
+};
+#[cfg(not(feature = "test-support"))]
 pub(crate) use targets::{
     spell_target_options_for, spell_target_options_relative, stack_retarget_options,
     target_options_in_domain,

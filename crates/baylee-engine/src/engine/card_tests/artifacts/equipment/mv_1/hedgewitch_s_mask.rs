@@ -7,7 +7,11 @@ fn hedgewitch_s_mask() -> CardIndex {
     card_index("c74f6a83-a280-450e-969d-6b3fa28c8744")
 }
 
-fn can_block(blocks: &[crate::choice::BlockOption], blocker: ObjectId, attacker: ObjectId) -> bool {
+fn can_block(
+    blocks: &[baylee_engine::choice::BlockOption],
+    blocker: ObjectId,
+    attacker: ObjectId,
+) -> bool {
     blocks
         .iter()
         .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))

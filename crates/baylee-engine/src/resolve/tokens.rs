@@ -397,7 +397,8 @@ pub(super) fn apply_copy_mod_with_text(
 /// than copying the definition and editing it is what keeps the token's
 /// identity — a copy is a different `TokenDef` with no registry entry, and
 /// the art key would be lost.
-pub(crate) fn create_tokens(
+#[doc(hidden)]
+pub fn create_tokens(
     state: &mut GameState,
     controller: PlayerId,
     token: &'static baylee_cards_dsl::TokenDef,

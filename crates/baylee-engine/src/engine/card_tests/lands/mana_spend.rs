@@ -3,9 +3,9 @@
 use super::*;
 use baylee_core::generated::index;
 
-use crate::event::Cause;
-use crate::zone::ZonePosition;
 use baylee_cards_dsl::KeywordSet;
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 
 fn float(e: &mut Engine<RegistryLookup>, color: ManaColor, amount: u32) {
     e.dev_state_mut(PlayerId::new(0)).unwrap().players[0]
@@ -22,7 +22,7 @@ fn blink(e: &mut Engine<RegistryLookup>, object: ObjectId) {
         Cause::Effect,
     )
     .unwrap();
-    s.object_mut(object).unwrap().kind = crate::object::ObjectKind::Permanent;
+    s.object_mut(object).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
     s.move_object(
         object,
         ZoneLocation::Battlefield,
@@ -179,7 +179,7 @@ fn study_hall_scries_four_above_the_spell_after_its_mana_source_has_left() {
         panic!("scry question")
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(cards.len(), 4);
     assert_eq!(e.state().object(commander).unwrap().zone, Zone::Stack);
     e.apply(
@@ -225,8 +225,8 @@ fn bandit_haste_follows_the_spell_indefinitely_but_not_a_blink() {
 
 #[test]
 fn crossroads_pays_life_and_restricts_colored_mana_to_devoid_spells() {
-    use crate::casting::{SpendFor, pay_mana_for, spendable_units};
     use baylee_core::mana::ManaCost;
+    use baylee_engine::casting::{SpendFor, pay_mana_for, spendable_units};
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .battlefield(0, &[index::CORRUPTED_CROSSROADS])
@@ -296,7 +296,7 @@ fn cavern_uncounterability_does_not_follow_a_bounced_card_into_its_next_cast() {
             .object(bear)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable)
+            .contains(&baylee_engine::object::Rider::Uncounterable)
     );
     pass_until(&mut e, stack_is_empty);
     assert!(
@@ -304,7 +304,7 @@ fn cavern_uncounterability_does_not_follow_a_bounced_card_into_its_next_cast() {
             .object(bear)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable)
+            .contains(&baylee_engine::object::Rider::Uncounterable)
     );
     e.dev_state_mut(p0)
         .unwrap()
@@ -322,7 +322,7 @@ fn cavern_uncounterability_does_not_follow_a_bounced_card_into_its_next_cast() {
             .object(bear)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable)
+            .contains(&baylee_engine::object::Rider::Uncounterable)
     );
 }
 
@@ -361,8 +361,8 @@ fn transferred_path_mana_still_uses_its_original_controller_for_the_trigger() {
 
 #[test]
 fn bandit_haste_uses_layer_six_timestamp_order_instead_of_becoming_a_printed_keyword() {
-    use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     use baylee_cards_dsl::{Duration, Modifier};
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     let p0 = PlayerId::new(0);
     for removal_is_newer in [false, true] {
         let mut e = Duel::new(SEED, forest())

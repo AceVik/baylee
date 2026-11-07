@@ -25,8 +25,8 @@ fn bone_harvest_puts_creature_card_on_top_of_library_and_draws_next_upkeep() {
         .move_object(
             bear,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();
@@ -62,8 +62,8 @@ fn bone_harvest_offers_only_creature_cards_from_your_own_graveyard() {
         .move_object(
             land,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     seed_graveyard(&mut engine, p0, 1);

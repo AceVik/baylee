@@ -91,7 +91,7 @@ fn urban_retreat_returns_only_a_tapped_friendly_creature_as_a_cost() {
 /// window nor the opponent's turn.
 #[test]
 fn urban_retreat_hand_ability_is_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut e = kit::game(
         954,

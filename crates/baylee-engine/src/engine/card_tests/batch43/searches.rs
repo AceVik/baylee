@@ -131,7 +131,7 @@ fn batch43_transmute_sacrifices_only_on_resolution_then_pays_the_difference() {
         choose(&mut e, vec![card]);
         if found == index::WINTER_ORB {
             assert!(
-                matches!(e.pending(),Pending::YesNo{prompt:crate::choice::YesNoPrompt::PayMana{cost},..} if *cost == baylee_core::mana::ManaCost::from_symbol_generic(1))
+                matches!(e.pending(),Pending::YesNo{prompt:baylee_engine::choice::YesNoPrompt::PayMana{cost},..} if *cost == baylee_core::mana::ManaCost::from_symbol_generic(1))
             );
             yes(&mut e, pay);
         }
@@ -227,7 +227,7 @@ fn batch43_field_does_not_search_when_its_only_target_became_illegal() {
             land,
             ZoneLocation::Hand(P1),
             ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

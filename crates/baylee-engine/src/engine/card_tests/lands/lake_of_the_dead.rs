@@ -83,7 +83,7 @@ fn lake_of_the_dead_sacrifices_a_swamp_for_four_black() {
     assert_eq!(player, p0, "the activating seat is asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost, not a search"
     );
     assert_eq!((min, max), (1, 1), "exactly one Swamp");

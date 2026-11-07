@@ -22,8 +22,8 @@ fn groffskithur_returns_its_namesake_from_graveyard_when_blocked() {
         .move_object(
             copy,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -75,8 +75,8 @@ fn groffskithur_cannot_target_the_opponent_s_graveyard() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(seat),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         buried.push(id);

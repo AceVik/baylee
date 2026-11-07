@@ -2,14 +2,14 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::float;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w2c_kit::float;
+use baylee_engine::turn::Step;
 
 /// Rebuilds the projections after a test rewrote the board behind the
 /// engine's back (a tap, a destroyed permanent), as the layers would have.
 fn resync(engine: &mut Engine<RegistryLookup>) {
     engine.state.invalidate_projections();
-    engine.sync_static_effects();
+    engine.sync_static_effects_for_tests();
     engine.refresh_offer();
 }
 

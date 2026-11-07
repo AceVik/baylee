@@ -1,13 +1,13 @@
 //! Actual payments, countered originals and source-independent delayed copies.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::{Cause, GameEvent};
+use baylee_engine::event::{Cause, GameEvent};
 
 fn back(e: &mut Engine<RegistryLookup>, card: CardIndex) -> ObjectId {
     let id = on_battlefield(e, P0, card).unwrap();
     e.state
         .switch_face(id, RegistryLookup.card(card).unwrap(), 1);
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     id
 }
@@ -32,7 +32,7 @@ fn settle(e: &mut Engine<RegistryLookup>) {
             Pending::ChooseTargets {
                 player,
                 min: 0,
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             } => {
                 e.apply(
@@ -74,7 +74,7 @@ fn batch46_primal_reduces_only_generic_and_removes_all_counters_on_optional_tran
         e.state.players[0].mana_pool.add(ManaColor::Colorless, 2);
         let spell = in_hand(&e, P0, index::COUNSEL_OF_THE_SORATAMI).unwrap();
         assert!(
-            crate::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_err(),
+            baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_err(),
             "blue is still required"
         );
         e.state.players[0].mana_pool = ManaPool::new();
@@ -247,7 +247,7 @@ fn settle_retargeting(
             Pending::ChooseTargets {
                 player,
                 min: 0,
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             } => {
                 prompts += 1;

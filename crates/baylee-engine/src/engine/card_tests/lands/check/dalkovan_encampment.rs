@@ -15,7 +15,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::creature;
 
@@ -201,7 +201,7 @@ fn dalkovan_encampment_warriors_are_sacrificed_at_the_beginning_of_the_next_end_
     );
 
     pass_until(&mut engine, |e| {
-        matches!(e.state().turn.step, crate::turn::Step::End)
+        matches!(e.state().turn.step, baylee_engine::turn::Step::End)
     });
     kit::resolve_the_stack(&mut engine, |_, _| None);
     assert!(

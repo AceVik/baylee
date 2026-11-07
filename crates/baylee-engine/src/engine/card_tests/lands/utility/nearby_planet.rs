@@ -93,7 +93,7 @@ fn nearby_planet_has_all_land_types_and_produces_each_color_but_not_colorless() 
             .object_mut(planet)
             .unwrap()
             .status
-            .remove(crate::object::Status::TAPPED);
+            .remove(baylee_engine::object::Status::TAPPED);
         e.refresh_offer();
         e.apply(p0, PlayerAction::ActivateManaAbility { source: planet })
             .unwrap();

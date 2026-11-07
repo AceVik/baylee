@@ -25,7 +25,7 @@ fn obsidian_acolyte_has_protection_from_black_and_grants_it_to_target_creature()
     let bears_id = on_battlefield(&engine, p0, grizzly_bears()).expect("Grizzly Bears on board");
     let giant_id = on_battlefield(&engine, p1, index::HILL_GIANT).expect("Hill Giant on board");
 
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[(ManaColor::White, 1), (ManaColor::Black, 1)],

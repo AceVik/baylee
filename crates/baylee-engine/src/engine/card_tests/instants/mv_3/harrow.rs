@@ -66,7 +66,7 @@ fn harrow_sacrifices_a_land_and_may_find_zero_one_or_two_basic_lands() {
 
 #[test]
 fn harrow_requires_a_land_even_with_enough_mana() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[], &[], &[harrow()], &[]);
     lk::float(&mut e, P0, &[(ManaColor::Green, 3)]);
     assert!(!lk::castable(&e, P0, harrow()));

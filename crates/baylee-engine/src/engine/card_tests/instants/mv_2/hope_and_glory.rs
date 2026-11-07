@@ -23,14 +23,14 @@ fn hope_and_glory_untaps_two_target_creatures_and_pumps_each() {
         .object_mut(c1)
         .unwrap()
         .status
-        .insert(crate::object::Status::TAPPED);
+        .insert(baylee_engine::object::Status::TAPPED);
     engine
         .dev_state_mut(p0)
         .unwrap()
         .object_mut(c2)
         .unwrap()
         .status
-        .insert(crate::object::Status::TAPPED);
+        .insert(baylee_engine::object::Status::TAPPED);
 
     let wrong = on_battlefield(&engine, p0, plains()).unwrap();
     cast_from_hand(&mut engine, p0, hope_and_glory());

@@ -117,7 +117,7 @@ fn fallen_askari_flanking_shrinks_the_blocker() {
     assert_eq!(pt(&engine, bear), (1, 1), "-1/-1 from flanking");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
     assert_eq!(

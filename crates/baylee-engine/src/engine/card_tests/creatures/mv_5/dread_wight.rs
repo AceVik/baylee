@@ -5,7 +5,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::counters;
 use baylee_core::generated::index;
 
@@ -31,11 +31,9 @@ fn granted_on(engine: &Engine<RegistryLookup>, id: ObjectId) -> Option<(ObjectId
     let Pending::Priority { legal, .. } = engine.pending() else {
         return None;
     };
-    legal
-        .abilities
-        .iter()
-        .copied()
-        .find(|(source, index)| *source == id && crate::choice::granted_slot(*index).is_some())
+    legal.abilities.iter().copied().find(|(source, index)| {
+        *source == id && baylee_engine::choice::granted_slot(*index).is_some()
+    })
 }
 
 #[test]

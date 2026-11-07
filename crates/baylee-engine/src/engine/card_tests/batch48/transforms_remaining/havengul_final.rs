@@ -118,7 +118,7 @@ fn havengul_failed_reanimation_cannot_link_a_later_incarnation_of_its_target() {
             .unwrap()
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::ReanimatedCreature { .. }))
+            .any(|r| matches!(r, baylee_engine::object::Rider::ReanimatedCreature { .. }))
     );
     e.state
         .move_object(
@@ -136,8 +136,8 @@ fn havengul_failed_reanimation_cannot_link_a_later_incarnation_of_its_target() {
             Cause::Effect,
         )
         .unwrap();
-    e.after_action(P0);
-    e.collect_triggers();
+    e.after_action_for_tests(P0);
+    e.collect_triggers_for_tests();
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         face(&e, lab),
@@ -171,8 +171,8 @@ fn havengul_simultaneous_source_and_linked_creature_departure_uses_predeparture_
             bear_departure,
         )
         .unwrap();
-    e.after_action(P0);
-    e.collect_triggers();
+    e.after_action_for_tests(P0);
+    e.collect_triggers_for_tests();
     assert!(
         e.state.zones.list(ZoneLocation::Stack).iter().any(|id| e
             .state

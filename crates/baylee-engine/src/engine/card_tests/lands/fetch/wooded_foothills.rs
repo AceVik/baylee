@@ -72,7 +72,7 @@ fn wooded_foothills_pays_its_own_tap_life_and_sacrifice_for_a_forest_out_of_the_
     assert_eq!(player, p0, "the seat that cracked the fetch searches");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "\"search your library\" is the search prompt and not a generic selection"
     );
     assert!(

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 // oracle_id = "d6bf5e22-8d33-43a9-8824-435068e0a87a"
 fn reincarnation() -> CardIndex {

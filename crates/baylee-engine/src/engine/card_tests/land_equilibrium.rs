@@ -152,7 +152,7 @@ fn equilibrium_entry_then_sacrifice_preserves_landfall() {
     // Glimmerpost counts Loci on resolution: its own departure leaves zero.
     assert_eq!(e.state().players[0].life, life);
     assert!(e.state().journal.entries().iter().any(|entry|
-        matches!(entry.event, crate::event::GameEvent::ZoneChanged { object, to: Zone::Battlefield, .. } if object == land)));
+        matches!(entry.event, baylee_engine::event::GameEvent::ZoneChanged { object, to: Zone::Battlefield, .. } if object == land)));
 }
 
 #[test]

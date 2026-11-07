@@ -33,7 +33,7 @@ fn desert_after_attack(banded: bool) -> (Engine<RegistryLookup>, ObjectId, Objec
         .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
     });
     for target in [camel_id, minotaur, wurm] {

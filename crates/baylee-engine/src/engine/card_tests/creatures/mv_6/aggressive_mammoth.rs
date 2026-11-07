@@ -39,7 +39,7 @@ fn aggressive_mammoth_grants_trample_that_changes_combat_damage() {
     )
     .expect("the Elf blocks the Hill Giant");
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         e.state().players[1].life,

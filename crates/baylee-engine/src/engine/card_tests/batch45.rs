@@ -5,11 +5,11 @@ use super::{
     counter_resources::prepared,
     library_choices::{choose, library},
 };
-use crate::event::Cause;
-use crate::object::Rider;
-use crate::zone::ZonePosition;
 use baylee_core::generated::{index, subtypes};
 use baylee_core::mana::ManaPool;
+use baylee_engine::event::Cause;
+use baylee_engine::object::Rider;
+use baylee_engine::zone::ZonePosition;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 mod boundaries;
@@ -53,7 +53,7 @@ fn pool(e: &mut Engine<RegistryLookup>, color: ManaColor, amount: u32) {
     e.refresh_offer();
 }
 fn castable(e: &Engine<RegistryLookup>, card: ObjectId) -> bool {
-    crate::casting::can_cast(e.state(), &RegistryLookup, P0, card).is_ok()
+    baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, card).is_ok()
 }
 fn exile_choice(e: &Engine<RegistryLookup>) -> bool {
     matches!(

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::life;
+use baylee_card_testkit::card_tests::partials_w2c_kit::life;
 
 fn royal_decree() -> CardIndex {
     card_index("fca14cbd-5ffc-441f-bccb-7ec22b03acbb")
@@ -11,7 +11,7 @@ fn royal_decree() -> CardIndex {
 /// The price the pending "pay?" question names, as a mana value.
 fn price(engine: &Engine<RegistryLookup>) -> u32 {
     let Pending::YesNo {
-        prompt: crate::choice::YesNoPrompt::PayMana { cost },
+        prompt: baylee_engine::choice::YesNoPrompt::PayMana { cost },
         ..
     } = engine.pending()
     else {

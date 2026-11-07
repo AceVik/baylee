@@ -6,7 +6,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -48,7 +48,7 @@ fn hot_springs_grants_land_tap_ability_to_prevent_one_damage() {
     lk::aim(&mut engine, &[land], &[]);
     lk::settle(&mut engine);
 
-    let grant = crate::effects::granted_activated(engine.state(), land)
+    let grant = baylee_engine::effects::granted_activated(engine.state(), land)
         .next()
         .unwrap()
         .id;

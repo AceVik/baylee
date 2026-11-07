@@ -48,8 +48,8 @@ fn spark_buried_under(above: &[CardIndex]) -> Engine<RegistryLookup> {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

@@ -41,7 +41,7 @@ fn skyshroud_ranger_taps_at_sorcery_speed_to_put_a_land_from_hand_onto_battlefie
 
 #[test]
 fn ranger_is_sorcery_only_and_may_decline_but_cannot_put_a_creature() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

@@ -26,8 +26,8 @@ fn moriok_scavenger_may_return_an_artifact_creature() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -77,8 +77,8 @@ fn moriok_scavenger_cannot_target_the_opponent_s_graveyard() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(seat),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         buried.push(id);

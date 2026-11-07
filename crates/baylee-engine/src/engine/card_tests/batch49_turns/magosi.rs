@@ -22,7 +22,7 @@ fn batch49_magosi_counter_skip_then_bounce_cost_extra_turn_are_all_real() {
     // P0's next turn is omitted: the next reached main is P1 again.
     pass_until(&mut e, |e| {
         e.state.turn.number > opponent_turn
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { .. })
     });
     assert_eq!(e.state.turn.active, P1);
@@ -38,7 +38,7 @@ fn batch49_magosi_counter_skip_then_bounce_cost_extra_turn_are_all_real() {
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| {
         e.state.turn.number > turn
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { .. })
     });
     assert_eq!(e.state.turn.active, P0, "extra turn follows this one");

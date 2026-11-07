@@ -220,7 +220,7 @@ fn karn_minus_two_never_offers_the_library() {
 /// CR 400.7: what comes back is a new object with no memory of the old
 /// one, and nothing cleared the old one's status, so the tapped bit rode
 /// through the exile zone and back. The fix is in
-/// [`crate::state::GameState::move_object`], which is the door every zone
+/// [`baylee_engine::state::GameState::move_object`], which is the door every zone
 /// change goes through, so a bounced creature and a reanimated one are
 /// covered by the same three lines.
 #[test]
@@ -911,7 +911,7 @@ fn wrenn_and_realmbreaker_minus_two_mills_three_and_takes_a_permanent_card() {
         "the milled permanent cards, and not the Bolt"
     );
     assert_eq!((min, max), (0, 1), "\"you may put a … card\"");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::PutIntoHand);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::PutIntoHand);
     let zone = |e: &Engine<RegistryLookup>, id: ObjectId| e.state().object(id).map(|o| o.zone);
     assert_eq!(zone(&engine, bolt), Some(Zone::Graveyard), "milled");
 
@@ -1032,14 +1032,15 @@ fn wrenn_and_realmbreaker_grants_your_lands_any_colour_mana() {
     assert!(
         legal
             .abilities
-            .contains(&(my_forest, crate::choice::GRANTED_ABILITY)),
+            .contains(&(my_forest, baylee_engine::choice::GRANTED_ABILITY)),
         "a land this seat controls is offered the granted any-colour ability"
     );
     assert!(
         !legal
             .abilities
             .iter()
-            .any(|(id, index)| *id == opp_mountain && *index == crate::choice::GRANTED_ABILITY),
+            .any(|(id, index)| *id == opp_mountain
+                && *index == baylee_engine::choice::GRANTED_ABILITY),
         "and a land across the table is not — \"lands you control\""
     );
 
@@ -1048,7 +1049,7 @@ fn wrenn_and_realmbreaker_grants_your_lands_any_colour_mana() {
             p0,
             PlayerAction::ActivateAbility {
                 source: my_forest,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("the granted mana ability activates");

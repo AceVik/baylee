@@ -72,7 +72,7 @@ fn ojer_axonil_deepest_might_dies_and_returns_as_temple_of_power() {
     );
 }
 
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);

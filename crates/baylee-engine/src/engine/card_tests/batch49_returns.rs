@@ -2,9 +2,9 @@
 use super::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::Cause;
-use crate::zone::ZonePosition;
 use baylee_core::generated::index;
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -26,7 +26,7 @@ fn main_after(e: &mut Engine<RegistryLookup>, player: PlayerId, after: u32) {
     pass_until(e, |e| {
         e.state.turn.number > after
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { player: p, .. } if *p == player)
     });
 }
@@ -77,7 +77,7 @@ fn blink(e: &mut Engine<RegistryLookup>, id: ObjectId, owner: PlayerId) {
         )
         .unwrap();
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 

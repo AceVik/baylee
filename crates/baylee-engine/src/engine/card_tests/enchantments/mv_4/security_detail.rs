@@ -45,7 +45,7 @@ fn security_detail_makes_one_soldier_when_i_control_no_creature() {
 
     float(&mut engine, p0, ManaColor::White, 2);
     assert!(!offered(&engine, detail), "I control a creature now");
-    crate::sba::destroy(engine.dev_state_mut(p0).expect("harness"), soldiers[0]);
+    baylee_engine::sba::destroy(engine.dev_state_mut(p0).expect("harness"), soldiers[0]);
     resync(&mut engine);
     assert!(tokens_of(&engine, p0).is_empty(), "the Soldier is gone");
     assert!(

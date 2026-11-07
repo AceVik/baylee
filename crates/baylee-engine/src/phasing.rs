@@ -25,7 +25,8 @@ impl GameState {
     /// Phases out every permanent of `direct` that is on the battlefield and
     /// phased in, and with each everything attached to it, transitively (an
     /// Aura on an Equipment on a creature).
-    pub(crate) fn phase_out(&mut self, direct: &[ObjectId]) {
+    #[doc(hidden)]
+    pub fn phase_out(&mut self, direct: &[ObjectId]) {
         let named: Vec<ObjectId> = direct
             .iter()
             .copied()
@@ -130,7 +131,8 @@ impl GameState {
 
     /// Phases `id` in, and with it everything that phased out indirectly
     /// attached to it, transitively.
-    pub(crate) fn phase_in(&mut self, id: ObjectId) {
+    #[doc(hidden)]
+    pub fn phase_in(&mut self, id: ObjectId) {
         if !self.object(id).is_some_and(|object| {
             object.zone == crate::zone::Zone::Battlefield
                 && object.status.contains(Status::PHASED_OUT)

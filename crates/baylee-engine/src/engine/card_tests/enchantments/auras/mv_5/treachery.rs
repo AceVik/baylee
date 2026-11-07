@@ -32,7 +32,7 @@ fn treachery_steals_the_creature_and_untaps_the_lands_that_paid() {
                 e.state().object(**id).is_some_and(|o| {
                     o.controller == p0
                         && o.characteristics().types.contains(TypeSet::LAND)
-                        && o.status.contains(crate::object::Status::TAPPED)
+                        && o.status.contains(baylee_engine::object::Status::TAPPED)
                 })
             })
             .copied()

@@ -32,8 +32,9 @@ mod permissions;
 mod player_locks;
 mod pricing;
 mod source_cost;
-#[cfg(test)]
-pub(crate) use pricing::spell_increase;
+#[cfg(any(test, feature = "test-support"))]
+#[doc(hidden)]
+pub use pricing::spell_increase;
 pub(crate) use source_cost::*;
 #[cfg(test)]
 mod tests;
@@ -42,7 +43,16 @@ pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
 pub use intrinsic::*;
 pub use lands::*;
 pub(crate) use payment::*;
+#[cfg(feature = "test-support")]
+pub use payment::{SpellForm, SpendFor, pay_mana_for, spendable_units};
 pub(crate) use permissions::*;
+#[cfg(feature = "test-support")]
+pub use pricing::{
+    SpellAdjustment, activation_increase, component_affordable, face_adjustment,
+    normal_spell_affordable, north_star_effect, north_star_face_allowed, projected_spell,
+    spell_adjustment, spell_mana_spending,
+};
+#[cfg(not(feature = "test-support"))]
 pub(crate) use pricing::{
     SpellAdjustment, activation_increase, component_affordable, face_adjustment,
     normal_spell_affordable, north_star_effect, north_star_face_allowed, projected_spell,
@@ -643,7 +653,8 @@ pub(crate) fn requirement_is_reachable_for(
 /// exist until it is cast, so nothing could have granted it anything — and
 /// still wants the two player-scoped effects above, which is the whole
 /// reason this is one function and not two.
-pub(crate) fn timing_allows(
+#[doc(hidden)]
+pub fn timing_allows(
     state: &GameState,
     player: PlayerId,
     types: TypeSet,

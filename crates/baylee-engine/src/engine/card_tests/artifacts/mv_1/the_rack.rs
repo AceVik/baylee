@@ -27,10 +27,10 @@ fn the_rack_deals_three_minus_the_chosen_opponents_hand() {
         engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
         pass_until(&mut engine, stack_is_empty);
         pass_until(&mut engine, |e| {
-            e.state().turn.active == p1 && e.state().turn.step == crate::turn::Step::Upkeep
+            e.state().turn.active == p1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
         });
         pass_until(&mut engine, |e| {
-            e.state().turn.step != crate::turn::Step::Upkeep
+            e.state().turn.step != baylee_engine::turn::Step::Upkeep
         });
         assert_eq!(engine.state().players[1].life, 20 - damage, "{cards} cards");
         assert_eq!(engine.state().players[0].life, 20);
@@ -58,10 +58,10 @@ fn the_rack_ignores_its_controllers_upkeep() {
     // Through p1's whole turn and into p0's next upkeep.
     pass_until(&mut engine, |e| e.state().turn.active == p1);
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(&mut engine, |e| {
-        e.state().turn.step != crate::turn::Step::Upkeep
+        e.state().turn.step != baylee_engine::turn::Step::Upkeep
     });
     assert_eq!(engine.state().players[0].life, 20);
     assert_eq!(engine.state().players[1].life, 20, "p1 had 3+ cards");

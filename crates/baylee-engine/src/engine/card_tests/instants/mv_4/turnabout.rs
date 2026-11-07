@@ -59,7 +59,7 @@ fn turnabout_taps_all_creatures_target_player_controls() {
 
 #[test]
 fn turnabout_partial_creature_tap_excludes_other_players_and_noncreatures() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

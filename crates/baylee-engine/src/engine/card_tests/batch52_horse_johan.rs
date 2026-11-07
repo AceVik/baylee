@@ -247,7 +247,7 @@ fn bronze_horse_copied_spell_uses_new_selected_targets() {
         // Check the live spell target set after the actual retarget action; merely
         // retaining the original's target would silently protect the wrong source.
         assert_eq!(
-            crate::eval::matches(
+            baylee_engine::eval::matches(
                 &baylee_cards_dsl::Filter::SpellTargetingAffected,
                 e.state(),
                 e.state.object(copy).unwrap(),

@@ -55,19 +55,19 @@ fn ring_cast_grants_protection_and_blink_does_not_regrant() {
         .move_object(
             ring,
             ZoneLocation::Exile(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.state
         .move_object(
             ring,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, stack_is_empty);
     e.state.set_tapped(sorcerer, false);
@@ -106,7 +106,7 @@ fn teferi_phases_all_permanents_preserves_incarnations_and_exiles_spell() {
                 .object(id)
                 .unwrap()
                 .status
-                .contains(crate::object::Status::PHASED_OUT)
+                .contains(baylee_engine::object::Status::PHASED_OUT)
         );
     }
     assert_eq!(e.state.object(spell).unwrap().zone, Zone::Exile);
@@ -117,7 +117,7 @@ fn teferi_phases_all_permanents_preserves_incarnations_and_exiles_spell() {
             .object(bear)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 }
 #[test]
@@ -140,8 +140,8 @@ fn teferi_protection_stops_untargeted_damage() {
             .any(|entry| entry.seq > before
                 && matches!(
                     entry.event,
-                    crate::event::GameEvent::DamageDealt {
-                        target: crate::event::DamageTarget::Player(P0),
+                    baylee_engine::event::GameEvent::DamageDealt {
+                        target: baylee_engine::event::DamageTarget::Player(P0),
                         amount: 1..,
                         ..
                     }
@@ -156,8 +156,8 @@ fn teferi_protection_stops_untargeted_damage() {
             .any(|entry| entry.seq > before
                 && matches!(
                     entry.event,
-                    crate::event::GameEvent::DamageDealt {
-                        target: crate::event::DamageTarget::Player(P1),
+                    baylee_engine::event::GameEvent::DamageDealt {
+                        target: baylee_engine::event::DamageTarget::Player(P1),
                         amount: 1,
                         ..
                     }
@@ -172,13 +172,16 @@ fn teferi_life_lock_rejects_gain_loss_and_payment_at_shared_life_door() {
     pass_until(&mut e, stack_is_empty);
     let life = e.state.players[0].life;
     // Transparent central-door fixture: all printed effect was established by real spell cast.
-    e.state.change_life(P0, 3, crate::event::Cause::Effect);
+    e.state
+        .change_life(P0, 3, baylee_engine::event::Cause::Effect);
     assert_eq!(e.state.players[0].life, life);
-    e.state.change_life(P0, -3, crate::event::Cause::Effect);
+    e.state
+        .change_life(P0, -3, baylee_engine::event::Cause::Effect);
     assert_eq!(e.state.players[0].life, life);
     assert!(!e.state.can_pay_life(P0, 1));
     next_main(&mut e, P0);
     assert!(e.state.can_pay_life(P0, 1));
-    e.state.change_life(P0, 3, crate::event::Cause::Effect);
+    e.state
+        .change_life(P0, 3, baylee_engine::event::Cause::Effect);
     assert_eq!(e.state.players[0].life, life + 3);
 }

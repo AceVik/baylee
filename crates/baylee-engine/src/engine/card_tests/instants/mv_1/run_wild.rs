@@ -40,7 +40,7 @@ fn run_wild_grants_trample_and_regenerate_activated_ability() {
             p0,
             PlayerAction::ActivateAbility {
                 source: bears,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .unwrap();

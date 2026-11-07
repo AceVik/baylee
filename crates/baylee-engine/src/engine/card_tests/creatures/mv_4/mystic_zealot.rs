@@ -26,8 +26,8 @@ fn mystic_zealot_gains_plus_one_plus_one_and_flying_with_threshold() {
             .move_object(
                 f,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -45,8 +45,8 @@ fn mystic_zealot_gains_plus_one_plus_one_and_flying_with_threshold() {
         .move_object(
             forests[6],
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.apply(p0, PlayerAction::PassPriority).unwrap();

@@ -82,7 +82,7 @@ fn shizo_is_legendary_and_the_survivor_still_taps_for_black() {
 
 #[test]
 fn shizo_grants_fear_with_the_printed_blocking_exceptions_until_end_of_turn() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
     let mut engine = kit::game(
         920,
@@ -108,7 +108,7 @@ fn shizo_grants_fear_with_the_printed_blocking_exceptions_until_end_of_turn() {
     ] {
         let blocker = kit::obj(&engine, kit::P1, card);
         assert_eq!(
-            crate::combat::can_block(engine.state(), kit::P1, blocker, target),
+            baylee_engine::combat::can_block(engine.state(), kit::P1, blocker, target),
             allowed
         );
     }
@@ -122,7 +122,7 @@ fn shizo_grants_fear_with_the_printed_blocking_exceptions_until_end_of_turn() {
 /// legendary, on either side.
 #[test]
 fn shizo_offers_legendary_creatures_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
     let mut engine = kit::game(

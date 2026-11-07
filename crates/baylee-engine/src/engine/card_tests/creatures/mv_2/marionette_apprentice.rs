@@ -5,7 +5,7 @@ use baylee_core::generated::index;
 
 #[test]
 fn fabricate_is_chosen_on_resolution_and_doubles_either_result() {
-    use crate::engine::card_tests::token_helpers::named;
+    use baylee_card_testkit::card_tests::token_helpers::named;
     let p0 = PlayerId::new(0);
     for case in 0..3 {
         let mut e = Duel::new(SEED, forest())

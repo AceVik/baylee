@@ -52,7 +52,7 @@ fn treefolk_mystic_destroys_all_auras_attached_to_blocked_creature() {
 
 #[test]
 fn treefolk_mystic_also_destroys_auras_when_it_is_blocked() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let aura = baylee_core::generated::index::GRANITE_GRIP;
     let mut engine = lk::game(
         SEED,

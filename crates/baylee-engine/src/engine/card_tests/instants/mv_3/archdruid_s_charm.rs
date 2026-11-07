@@ -34,7 +34,7 @@ fn archdruids_charm_puts_a_found_land_onto_the_battlefield_tapped_and_a_creature
             elves,
             ZoneLocation::Library(p0),
             ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("into the library");
     engine.refresh_offer();
@@ -63,7 +63,7 @@ fn archdruids_charm_puts_a_found_land_onto_the_battlefield_tapped_and_a_creature
             .entries()
             .iter()
             .filter_map(|e| match &e.event {
-                crate::event::GameEvent::Revealed { cards, .. } => Some(cards.clone()),
+                baylee_engine::event::GameEvent::Revealed { cards, .. } => Some(cards.clone()),
                 _ => None,
             })
             .collect()

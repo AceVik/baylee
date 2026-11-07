@@ -52,7 +52,7 @@ fn helios_one_without_mana_only_offers_its_free_colorless_tap() {
 /// in combat.
 #[test]
 fn helios_one_at_zero_targets_the_token_not_the_land_and_only_as_a_sorcery() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let mut e = kit::game(
@@ -86,7 +86,7 @@ fn helios_one_at_zero_targets_the_token_not_the_land_and_only_as_a_sorcery() {
         "main phase, empty stack, {{3}} floating, zero energy: offered"
     );
 
-    kit::to_step(&mut e, p0, crate::turn::Step::CombatBegin);
+    kit::to_step(&mut e, p0, baylee_engine::turn::Step::CombatBegin);
     kit::float(&mut e, p0, &[(ManaColor::Colorless, 3)]);
     assert!(
         !kit::offered(&e, helios_one(), p0, 2),

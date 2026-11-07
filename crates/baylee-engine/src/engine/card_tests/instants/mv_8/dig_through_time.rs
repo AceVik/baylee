@@ -97,8 +97,8 @@ fn dig_through_time_flashed_back_does_not_offer_itself_to_its_own_delve() {
         .move_object(
             dig,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Cost,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Cost,
         )
         .expect("the Dig goes to the graveyard");
     engine.refresh_offer();
@@ -162,8 +162,8 @@ fn dig_retains_both_selected_commanders_across_individual_replacement_answers() 
             .move_object(
                 card,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -186,7 +186,7 @@ fn dig_retains_both_selected_commanders_across_individual_replacement_answers() 
     .unwrap();
     for (card, home) in [(chosen[0], true), (chosen[1], false)] {
         assert!(
-            matches!(e.pending(),Pending::YesNo{prompt:crate::choice::YesNoPrompt::CommanderReplace{card:asked,to_library:false},..} if *asked==card)
+            matches!(e.pending(),Pending::YesNo{prompt:baylee_engine::choice::YesNoPrompt::CommanderReplace{card:asked,to_library:false},..} if *asked==card)
         );
         // Neither card moves before both replacement answers are known.
         assert!(

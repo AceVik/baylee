@@ -39,9 +39,11 @@ fn retained_sacrifice_arm_preserves_token_identity_and_sacrifice_provenance() {
         e.state
             .object_mut(source)
             .unwrap()
-            .take_abilities(crate::object::AbilityList {
+            .take_abilities(baylee_engine::object::AbilityList {
                 acquisition,
-                abilities: crate::copiable_abilities::AbilityDefs::from_static(RETAINED_ARM),
+                abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(
+                    RETAINED_ARM,
+                ),
                 printed: None,
                 token: None,
             });
@@ -50,7 +52,7 @@ fn retained_sacrifice_arm_preserves_token_identity_and_sacrifice_provenance() {
             e.state.object_mut(victim).unwrap().card = None;
         }
         e.state.invalidate_projections();
-        e.sync_static_effects();
+        e.sync_static_effects_for_tests();
         e.refresh_offer();
         pass_until(&mut e, |e| {
             matches!(e.pending(), Pending::ChooseCards { .. })
@@ -78,7 +80,7 @@ fn retained_sacrifice_arm_preserves_token_identity_and_sacrifice_provenance() {
         pass_until(&mut e, stack_is_empty);
         assert_eq!(e.state.players[0].life, before - 3);
         assert!(e.journal().entries().iter().any(|entry| {
-            matches!(entry.event, crate::event::GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. } if object == victim)
+            matches!(entry.event, baylee_engine::event::GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. } if object == victim)
                 && entry.departure.as_ref().is_some_and(|departure| departure.sacrificed)
         }));
         if token {

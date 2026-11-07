@@ -26,18 +26,20 @@ fn wall_of_tombstones_freezes_upkeep_graveyard_count_without_setting_power() {
     ];
     let state = e.dev_state_mut(p0).unwrap();
     let timestamp = state.next_timestamp();
-    let filter = crate::effects::EffectFilter::object(state, wall);
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: p0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::PtSet,
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::SetPower(7),
-    });
+    let filter = baylee_engine::effects::EffectFilter::object(state, wall);
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: p0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::PtSet,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::SetPower(7),
+        });
     bury(&mut e, &dead);
     e.dev_state_mut(p0)
         .unwrap()
@@ -52,8 +54,8 @@ fn wall_of_tombstones_freezes_upkeep_graveyard_count_without_setting_power() {
         .move_object(
             dead[0],
             ZoneLocation::Exile(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     assert_eq!(

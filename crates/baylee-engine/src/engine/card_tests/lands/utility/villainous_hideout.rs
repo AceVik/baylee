@@ -70,7 +70,7 @@ fn hideout_green_mana(nexus: bool, spell: CardIndex) -> (Engine<RegistryLookup>,
 fn villainous_hideout_mana_casts_a_villain_spell() {
     let (e, elves) = hideout_green_mana(true, index::LLANOWAR_ELVES);
     assert_eq!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, PlayerId::new(0), elves),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, PlayerId::new(0), elves),
         Ok(()),
         "a Villain spell may be cast with the Hideout's mana"
     );
@@ -82,8 +82,8 @@ fn villainous_hideout_mana_casts_a_villain_spell() {
 fn villainous_hideout_mana_does_not_cast_a_spell_that_is_not_a_villain() {
     let (e, elves) = hideout_green_mana(false, index::LLANOWAR_ELVES);
     assert_eq!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, PlayerId::new(0), elves),
-        Err(crate::casting::CastError::NotEnoughMana),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, PlayerId::new(0), elves),
+        Err(baylee_engine::casting::CastError::NotEnoughMana),
         "an Elf is no Villain: the restricted green pays for nothing"
     );
 }
@@ -97,8 +97,8 @@ fn villainous_hideout_mana_does_not_cast_a_non_creature_spell_even_with_nexus() 
     let p0 = PlayerId::new(0);
     let (mut e, fog) = hideout_green_mana(true, index::FOG);
     assert_eq!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, p0, fog),
-        Err(crate::casting::CastError::NotEnoughMana),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, p0, fog),
+        Err(baylee_engine::casting::CastError::NotEnoughMana),
         "Fog is no Villain, Nexus or not"
     );
     e.dev_state_mut(p0).unwrap().players[0]
@@ -106,7 +106,7 @@ fn villainous_hideout_mana_does_not_cast_a_non_creature_spell_even_with_nexus() 
         .add(ManaColor::Green, 1);
     e.refresh_offer();
     assert_eq!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, p0, fog),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, p0, fog),
         Ok(()),
         "control: unrestricted green pays Fog's {{G}}"
     );

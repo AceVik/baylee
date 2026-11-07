@@ -5,7 +5,7 @@ fn shivan_raptor() -> CardIndex {
     card_index("bc01d36b-dea3-47d4-afdf-0dbbba7ca7b2")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn shivan_raptor_echo_is_due_once_next_upkeep_and_requires_payment() {
@@ -18,7 +18,7 @@ fn shivan_raptor_echo_is_due_once_next_upkeep_and_requires_payment() {
         reach_their_main_phase(&mut e, p1);
         assert!(on_battlefield(&e, p0, shivan_raptor()).is_some());
         pass_until(&mut e, |e| {
-            e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+            e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
         });
         lk::float(&mut e, p0, &[(ManaColor::Red, 3)]);
         pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));

@@ -68,9 +68,9 @@ fn platinum_angel_stops_an_opponent_s_effect_win() {
     pass_until(&mut e, |e| e.state().game_end.is_some());
     assert_eq!(
         e.state().game_end,
-        Some(crate::win::GameResult {
-            winner: Some(crate::win::Victor::Player(p1)),
-            reason: crate::win::EndReason::EffectWin,
+        Some(baylee_engine::win::GameResult {
+            winner: Some(baylee_engine::win::Victor::Player(p1)),
+            reason: baylee_engine::win::EndReason::EffectWin,
         })
     );
 }

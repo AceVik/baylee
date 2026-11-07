@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -157,6 +157,6 @@ fn slaughter_paid_with_the_last_four_life_loses_the_game() {
     let Pending::GameOver(result) = engine.pending().clone() else {
         panic!("expected the end of the game, got {:?}", engine.pending())
     };
-    assert_eq!(result.winner, Some(crate::win::Victor::Player(P1)));
+    assert_eq!(result.winner, Some(baylee_engine::win::Victor::Player(P1)));
     assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_some());
 }

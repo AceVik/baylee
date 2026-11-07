@@ -128,7 +128,7 @@ fn sustenance_trades_a_land_for_one_more_power_on_the_creature_it_targets() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell them apart"
     );
     assert_eq!((min, max), (1, 1), "one land, no more and no fewer");

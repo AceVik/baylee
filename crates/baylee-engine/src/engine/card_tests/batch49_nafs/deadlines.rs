@@ -14,7 +14,7 @@ fn asp_payment_before_draw_prevents_loss_but_deadline_rejects_even_with_mana() {
         if pay {
             e.apply(P1, PlayerAction::TakeGrantedAction { id }).unwrap();
             pass_until(&mut e, |e| {
-                e.state.turn.step == crate::turn::Step::Draw
+                e.state.turn.step == baylee_engine::turn::Step::Draw
                     && matches!(e.pending(), Pending::Priority { .. })
             });
             assert!(stack_is_empty(&e));
@@ -52,7 +52,7 @@ fn actual_tidebinder_counters_unpaid_asp_draw_trigger_without_retry() {
     pass_until(&mut e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == P1
-            && e.state.turn.step == crate::turn::Step::Draw
+            && e.state.turn.step == baylee_engine::turn::Step::Draw
             && matches!(e.pending(), Pending::Priority { .. })
     });
     assert!(stack_is_empty(&e));
@@ -70,7 +70,7 @@ fn replacing_draw_with_island_sanctuary_does_not_skip_asp_deadline() {
             e.pending(),
             Pending::YesNo {
                 player: P1,
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )
@@ -92,8 +92,8 @@ fn skipped_draw_step_fixture_retains_payment_until_next_actual_draw_step() {
     let id = debts(&e)[0];
     // Explicit scheduling fixture: no implemented card skips an entire draw step.
     // Omit this step, preserving actual turn start, cleanup, debt and next-turn progression.
-    e.state.turn.phase = crate::turn::Phase::FirstMain;
-    e.state.turn.step = crate::turn::Step::Main;
+    e.state.turn.phase = baylee_engine::turn::Phase::FirstMain;
+    e.state.turn.step = baylee_engine::turn::Step::Main;
     e.refresh_offer();
     assert_eq!(debts(&e), vec![id]);
     let life = e.state.players[1].life;

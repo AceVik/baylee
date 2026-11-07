@@ -81,7 +81,7 @@ fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
         // `this` is the entering permanent, which is what `controls_at_least`
         // passes — so a filter that did say `Another` answers `false` here for
         // the same reason the skipped line would have made it moot.
-        if crate::eval::matches(filter, engine.state(), obj, p0, obj.id) {
+        if baylee_engine::eval::matches(filter, engine.state(), obj, p0, obj.id) {
             counts_itself.push(*name);
         }
     }
@@ -797,7 +797,7 @@ fn fell_mire_asks_for_three_life_after_the_face_is_chosen_and_obeys_both_answers
             .expect("the back face is a land drop");
 
         let Pending::YesNo {
-            prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount },
+            prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount },
             ..
         } = engine.pending().clone()
         else {

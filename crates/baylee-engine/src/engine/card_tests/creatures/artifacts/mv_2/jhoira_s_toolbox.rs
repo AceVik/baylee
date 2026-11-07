@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn jhoira_s_toolbox() -> CardIndex {
     card_index("a08475a6-1fac-4a3f-b343-aed16a61bc16")

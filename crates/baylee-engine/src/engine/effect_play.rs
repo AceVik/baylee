@@ -5,7 +5,8 @@ use crate::resolve::{AwaitingOp, Flow, Resolution};
 
 /// A nested cast has not finished the spell or ability that instructed it.
 #[derive(Clone, Debug)]
-pub(super) struct EffectPlay {
+#[doc(hidden)]
+pub struct EffectPlay {
     resolution: Box<Resolution>,
     control: Option<(PlayerId, PlayerId, ObjectId)>,
     linked: Option<LinkedPlay>,

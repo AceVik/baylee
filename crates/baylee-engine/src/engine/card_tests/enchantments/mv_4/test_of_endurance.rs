@@ -29,9 +29,9 @@ fn test_of_endurance_wins_the_game_at_your_upkeep_with_fifty_or_more_life() {
 
     pass_until(&mut engine, |e| {
         e.state().game_end
-            == Some(crate::win::GameResult {
-                winner: Some(crate::win::Victor::Player(p0)),
-                reason: crate::win::EndReason::EffectWin,
+            == Some(baylee_engine::win::GameResult {
+                winner: Some(baylee_engine::win::Victor::Player(p0)),
+                reason: baylee_engine::win::EndReason::EffectWin,
             })
     });
 }

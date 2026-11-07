@@ -22,8 +22,8 @@ fn zombie_assassin_exiles_two_graveyard_cards_and_itself_to_destroy_nonblack_cre
             .move_object(
                 s,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

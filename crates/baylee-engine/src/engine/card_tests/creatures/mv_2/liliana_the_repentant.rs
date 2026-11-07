@@ -145,8 +145,8 @@ fn liliana_exhaust_targets_only_creature_or_planeswalker_cards_in_your_graveyard
                 .move_object(
                     card,
                     ZoneLocation::Graveyard(owner),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Setup,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Setup,
                 )
                 .unwrap();
         }

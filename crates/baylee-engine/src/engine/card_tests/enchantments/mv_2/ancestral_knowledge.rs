@@ -69,7 +69,7 @@ fn ancestral_knowledge_cumulative_upkeep_grows_and_its_sacrifice_shuffles() {
             .iter()
             .skip(since as usize)
             .filter(|entry| {
-                matches!(entry.event, crate::event::GameEvent::Shuffled { player, .. } if player == p0)
+                matches!(entry.event, baylee_engine::event::GameEvent::Shuffled { player, .. } if player == p0)
             })
             .count()
     };

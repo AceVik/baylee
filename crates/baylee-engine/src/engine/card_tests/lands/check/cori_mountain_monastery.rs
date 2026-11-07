@@ -86,11 +86,11 @@ fn cori_permission_survives_source_departure_and_the_whole_next_turn() {
         if !on_opponents_turn {
             reach_their_main_phase(&mut e, p1);
         }
-        assert!(crate::casting::play_permission(e.state(), p0, card).is_some());
+        assert!(baylee_engine::casting::play_permission(e.state(), p0, card).is_some());
         reach_their_main_phase(&mut e, p0);
         assert!(priority_offer(&e).lands.contains(&card));
         reach_their_main_phase(&mut e, p1);
-        assert!(crate::casting::play_permission(e.state(), p0, card).is_none());
+        assert!(baylee_engine::casting::play_permission(e.state(), p0, card).is_none());
         assert_eq!(e.state().object(card).unwrap().zone, Zone::Exile);
     }
 }
@@ -129,10 +129,10 @@ fn cori_offers_both_land_and_paid_spell_faces_without_lending_the_permission_to_
             .move_object(
                 card,
                 ZoneLocation::Exile(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
-        assert!(crate::casting::play_permission(e.state(), p0, card).is_none());
+        assert!(baylee_engine::casting::play_permission(e.state(), p0, card).is_none());
     }
 }

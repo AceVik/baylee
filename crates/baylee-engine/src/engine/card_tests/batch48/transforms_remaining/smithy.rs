@@ -79,7 +79,7 @@ fn batch48_smithy_first_main_optional_payment_requires_five_distinct_permanents(
             assert!(options.iter().all(|id| is_tapped(&e, *id)));
         }
         pass_until(&mut e, |e| {
-            e.state.turn.phase == crate::turn::Phase::SecondMain
+            e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
         });
         assert_eq!(face(&e, smithy), u8::from(accept), "no second-main trigger");
     }
@@ -101,7 +101,7 @@ fn batch48_barracks_actual_mana_payment_creates_one_gnome_for_a_creature_spell()
         RegistryLookup.card(index::THOUSAND_MOONS_SMITHY).unwrap(),
         1,
     );
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
     e.refresh_offer();
     ability(&mut e, P0, index::THOUSAND_MOONS_SMITHY, 0);
@@ -180,19 +180,21 @@ fn smithy_gnome_cda_is_overridden_by_later_base_size_effect_fixture() {
     let modifier = baylee_cards_dsl::Modifier::SetPT(1, 1);
     let version = e.state.object(gnome).unwrap().version;
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::ObjectIs(gnome, version),
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::ObjectIs(gnome, version),
+            modifier,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(
         pt(&e, gnome),
@@ -212,7 +214,7 @@ fn barracks_out(e: &mut Engine<RegistryLookup>) -> ObjectId {
         RegistryLookup.card(index::THOUSAND_MOONS_SMITHY).unwrap(),
         1,
     );
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
     e.refresh_offer();
     smithy

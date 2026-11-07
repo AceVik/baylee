@@ -20,6 +20,9 @@
 
 pub(crate) mod counter_order;
 mod counters;
+#[cfg(feature = "test-support")]
+pub use counters::{can_move_counter, move_counter};
+#[cfg(not(feature = "test-support"))]
 pub(crate) use counters::{can_move_counter, move_counter};
 pub use counters::{
     counter_multiplier, put_counters, put_counters_bounded_by, put_counters_by, record_counters,
@@ -31,7 +34,7 @@ pub(crate) mod counter_limits;
 pub(crate) mod departure;
 
 use crate::eval;
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 use crate::event::GameEvent;
 use crate::state::GameState;
 use baylee_core::ids::{ObjectId, PlayerId};
@@ -77,7 +80,7 @@ pub(crate) fn graveyard_destination(
             .iter()
             .any(|entry| return_hand_rule(&entry))
     {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(entry) = state.replacement_rules.iter().find(return_hand_rule) {
             crate::ability_log::replaced(entry);
         }
@@ -105,7 +108,7 @@ pub(crate) fn graveyard_destination(
         && card.riders.contains(&Rider::ExileInsteadOfGraveyard))
         || state.replacement_rules.iter().any(|entry| own_rule(&entry))
     {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(entry) = state.replacement_rules.iter().find(own_rule) {
             crate::ability_log::replaced(entry);
         }
@@ -128,7 +131,7 @@ pub(crate) fn graveyard_destination(
                 .object(entry.source)
                 .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
         {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::replaced(entry);
             return (ZoneLocation::Exile(card.owner), counter, false);
         }
@@ -213,7 +216,7 @@ pub fn token_multiplier(
                 entry.source,
             )
         {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::replaced(entry);
             count = count.checked_mul(factor)?;
         }

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::hill_giant;
+use baylee_card_testkit::card_tests::partials_w2c_kit::hill_giant;
 
 #[test]
 fn caverns_of_despair_caps_attackers_and_blockers_at_two_each_combat() {

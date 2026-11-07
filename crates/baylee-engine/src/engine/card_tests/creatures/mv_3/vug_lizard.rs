@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn vug_lizard() -> CardIndex {
     card_index("ac9ec838-fbad-4f01-846b-3084e1d37a44")
@@ -44,7 +44,7 @@ fn vug_lizard_echo_can_be_paid_and_is_not_due_twice() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut engine, p0, &[(ManaColor::Red, 3)]);
@@ -74,7 +74,7 @@ fn vug_lizard_mountainwalk_changes_the_block_offer() {
         reach_their_main_phase(&mut engine, p1);
         pass_until(&mut engine, |e| {
             e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { .. })
         });
         lk::float(&mut engine, p0, &[(ManaColor::Red, 3)]);

@@ -13,7 +13,7 @@ fn dervish_reads_damage_history_of_its_current_incarnation_and_current_controlle
         keep_mulligans(&mut e);
         reach_main_phase(&mut e, p0);
         let source = on_battlefield(&e, p0, index::WHIRLING_DERVISH).unwrap();
-        crate::engine::card_tests::history_helpers::damage_player(
+        baylee_card_testkit::card_tests::history_helpers::damage_player(
             &mut e,
             source,
             if case == 1 { p0 } else { p1 },
@@ -32,21 +32,21 @@ fn dervish_reads_damage_history_of_its_current_incarnation_and_current_controlle
             s.move_object(
                 source,
                 ZoneLocation::Exile(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
-            s.object_mut(source).unwrap().kind = crate::object::ObjectKind::Permanent;
+            s.object_mut(source).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
             s.move_object(
                 source,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         }
         pass_until(&mut e, |e| {
-            e.state().turn.step == crate::turn::Step::End && stack_is_empty(e)
+            e.state().turn.step == baylee_engine::turn::Step::End && stack_is_empty(e)
         });
         assert_eq!(
             counters_on(&e, source, CounterKind::P1P1),

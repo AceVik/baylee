@@ -45,7 +45,7 @@ fn urza_s_blueprints_taps_to_draw_a_card() {
 /// Echo is paid once on the next upkeep, or the permanent is sacrificed.
 #[test]
 fn echo_can_be_paid_or_declined() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     for pay in [false, true] {
         let mut engine = lk::game(SEED, &[plains(); 6], &[], &[urza_s_blueprints()], &[]);
@@ -62,7 +62,7 @@ fn echo_can_be_paid_or_declined() {
         pass_until(&mut engine, stack_is_empty);
         pass_until(&mut engine, |e| {
             e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { .. })
         });
         tap_all_mana(&mut engine, p0);

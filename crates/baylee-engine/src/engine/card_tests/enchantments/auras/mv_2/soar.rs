@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_engine::turn::Step;
 
 fn soar() -> CardIndex {
     card_index("acee6f4f-8b66-495d-bb0e-71c339e7dc49")

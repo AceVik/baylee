@@ -41,7 +41,7 @@ fn spontaneous_combustion_sacrifices_a_creature_and_deals_three_damage_to_each_c
 
 #[test]
 fn no_creature_means_the_additional_cost_cannot_be_paid() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[], &[], &[spontaneous_combustion()], &[]);
     lk::float(&mut e, p0, &[(ManaColor::Black, 5), (ManaColor::Red, 5)]);

@@ -29,8 +29,8 @@ fn aboshan_s_desire_grants_flying_and_shroud_only_with_threshold() {
             .move_object(
                 f,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -60,8 +60,8 @@ fn aboshan_s_desire_grants_flying_and_shroud_only_with_threshold() {
         .move_object(
             forests[6],
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     reach_their_main_phase(&mut e, p1);

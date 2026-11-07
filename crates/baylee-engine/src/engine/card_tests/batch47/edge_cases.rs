@@ -182,7 +182,7 @@ fn batch47_lands_edge_copy_keeps_discard_lki_after_card_leaves_graveyard() {
         if let Pending::ChooseCastMode { options, .. } = e.pending().clone() {
             let adventure = options
                 .iter()
-                .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+                .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
                 .unwrap();
             e.apply(P0, PlayerAction::ChooseMode(adventure)).unwrap();
         }
@@ -191,7 +191,7 @@ fn batch47_lands_edge_copy_keeps_discard_lki_after_card_leaves_graveyard() {
             matches!(
                 e.pending(),
                 Pending::ChooseTargets {
-                    reason: crate::choice::TargetPrompt::Retarget { .. },
+                    reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                     ..
                 }
             )
@@ -225,19 +225,21 @@ fn batch47_power_artifact_applies_its_minimum_after_cost_increases_and_reduction
     // No registered artifact activation-tax card supplies this combination.
     // Isolate only the independent increase using the existing continuous-effect API.
     let modifier = baylee_cards_dsl::Modifier::AbilitiesCostMore(2);
-    let filter = crate::effects::EffectFilter::object(&e.state, artifact);
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, artifact);
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter,
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier,
+        });
     e.state.invalidate_projections();
     e.state.set_tapped(land, true);
     set_pool(&mut e, P0, &[(ManaColor::Colorless, 1)]);

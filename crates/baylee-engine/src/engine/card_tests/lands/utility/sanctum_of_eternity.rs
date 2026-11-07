@@ -45,7 +45,7 @@ fn sanctum_bounces_your_commander_during_combat_but_not_an_opponents_turn() {
     let sanctum = on_battlefield(&e, p0, sanctum_of_eternity()).unwrap();
     e.dev_state_mut(p0).unwrap().set_tapped(sanctum, false);
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatBegin
+        e.state().turn.step == baylee_engine::turn::Step::CombatBegin
     });
     e.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
@@ -60,13 +60,13 @@ fn sanctum_bounces_your_commander_during_combat_but_not_an_opponents_turn() {
     reach_their_main_phase(&mut e, p1);
     // A valid target is on the battlefield again; only the turn bars this activation.
     let state = e.dev_state_mut(p0).unwrap();
-    state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+    state.object_mut(commander).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
     state
         .move_object(
             commander,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     state.set_tapped(sanctum, false);
@@ -106,13 +106,13 @@ fn sanctum_offers_only_commanders_its_controller_owns() {
     let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
     let state = e.dev_state_mut(p0).unwrap();
     for commander in [mine, theirs] {
-        state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+        state.object_mut(commander).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
         state
             .move_object(
                 commander,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

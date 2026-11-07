@@ -363,7 +363,7 @@ pub fn walk_past<L: CardLookup>(engine: &mut Engine<L>, pending: &Pending) -> bo
         Pending::ChooseNumber {
             player,
             max,
-            reason: crate::choice::NumberPrompt::CombatDamage { .. },
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
             ..
         } => {
             engine

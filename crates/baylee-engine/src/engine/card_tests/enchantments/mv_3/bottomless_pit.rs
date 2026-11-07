@@ -26,7 +26,7 @@ fn one_random_discard(seed: u64) -> CardIndex {
         let other_before = game.state().zones.list(ZoneLocation::Hand(other)).clone();
         pass_until(&mut game, |e| {
             e.state().turn.active == active
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && !stack_is_empty(e)
         });
         assert_eq!(
@@ -89,7 +89,7 @@ fn one_card_is_discarded_and_an_empty_hand_is_safe_next_upkeep() {
     pass_until(&mut game, stack_is_empty);
     pass_until(&mut game, |e| {
         e.state().turn.active == p1
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && !stack_is_empty(e)
     });
     pass_until(&mut game, stack_is_empty);
@@ -100,7 +100,7 @@ fn one_card_is_discarded_and_an_empty_hand_is_safe_next_upkeep() {
     pass_until(&mut game, |e| {
         e.state().turn.number > turn
             && e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(game.state().zones.list(ZoneLocation::Hand(p0)).is_empty());
     let grave = game.state().zones.list(ZoneLocation::Graveyard(p0)).clone();

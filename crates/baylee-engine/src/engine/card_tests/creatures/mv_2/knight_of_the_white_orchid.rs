@@ -73,8 +73,8 @@ fn knight_finds_only_plains_cards_and_needs_an_opponent_ahead_on_lands() {
             .move_object(
                 card,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

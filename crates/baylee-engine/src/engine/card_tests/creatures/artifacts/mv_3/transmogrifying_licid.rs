@@ -1,8 +1,8 @@
 //! The supported creature body is played; unsupported abilities are omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn transmogrifying_licid() -> CardIndex {
     card_index("4f484927-0e8e-493d-93bc-ed190965dad9")

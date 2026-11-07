@@ -168,11 +168,13 @@ impl GameState {
         self.damage_source(source.object, Some(source.version))
     }
 
-    pub(crate) fn source_identity(&self, id: ObjectId) -> Option<DamageSourceRef> {
+    #[doc(hidden)]
+    pub fn source_identity(&self, id: ObjectId) -> Option<DamageSourceRef> {
         self.object_or_departed(id).map(identity)
     }
 
-    pub(crate) fn recorded_ability_source(&self, holder: ObjectId) -> Option<DamageSourceRef> {
+    #[doc(hidden)]
+    pub fn recorded_ability_source(&self, holder: ObjectId) -> Option<DamageSourceRef> {
         self.source_identity(holder)
             .and_then(|r| self.source_memory.stack.get(&r))
             .and_then(|refs| refs.get(&Slot::Source))
@@ -653,7 +655,7 @@ impl GameState {
         true
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn recorded_stack_target(
         &self,
         holder: ObjectId,

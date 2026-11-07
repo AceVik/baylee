@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 // oracle_id = "ed1e5d24-c8a8-48fe-a88f-1003ad432477"
 fn hurkyl_s_recall() -> CardIndex {

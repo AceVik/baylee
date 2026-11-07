@@ -81,7 +81,7 @@ fn thran_weaponry_pumps_all_creatures_while_tapped() {
 /// Echo is paid once on the next upkeep, or the permanent is sacrificed.
 #[test]
 fn echo_can_be_paid_or_declined() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     for pay in [false, true] {
         let mut engine = lk::game(SEED, &[plains(); 4], &[], &[thran_weaponry()], &[]);
@@ -98,7 +98,7 @@ fn echo_can_be_paid_or_declined() {
         pass_until(&mut engine, stack_is_empty);
         pass_until(&mut engine, |e| {
             e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { .. })
         });
         tap_all_mana(&mut engine, p0);
@@ -126,7 +126,7 @@ fn echo_can_be_paid_or_declined() {
 
 #[test]
 fn thran_weaponry_may_stay_tapped_or_untap_normally() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[gray_ogre(), plains(), plains(), plains(), plains()],
@@ -159,7 +159,7 @@ fn thran_weaponry_may_stay_tapped_or_untap_normally() {
     assert!(is_tapped(&engine, weapon));
     pass_until(&mut engine, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, lk::P0);

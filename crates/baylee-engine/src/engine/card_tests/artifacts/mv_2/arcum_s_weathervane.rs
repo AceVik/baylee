@@ -132,16 +132,16 @@ fn weathervane_does_not_change_a_land_that_left_and_returned_before_resolution()
         .move_object(
             target,
             ZoneLocation::Exile(P1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     state
         .move_object(
             target,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);

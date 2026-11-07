@@ -58,7 +58,7 @@ fn order_of_yawgmoth_makes_damaged_player_discard_a_card() {
 
 #[test]
 fn order_of_yawgmoth_fear_allows_artifact_and_black_blockers_only() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

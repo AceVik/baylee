@@ -21,7 +21,7 @@ fn lazotep_quarry_sacrifices_creature_to_produce_colored_mana() {
     else {
         panic!("expected sacrifice choice, got {:?}", engine.pending());
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert!(options.contains(&elf));
 
     engine

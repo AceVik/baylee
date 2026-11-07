@@ -74,7 +74,7 @@ fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_th
     assert_eq!(player, p0, "the seat that searched is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a library search and not a discard, a scry or a cost"
     );
     assert!(
@@ -180,7 +180,7 @@ fn chord_of_calling_is_convoked_with_green_creatures_for_its_green_mana() {
     else {
         panic!("convoke asks for its taps, got {:?}", engine.pending())
     };
-    assert_eq!(reason, crate::choice::TargetPrompt::Convoke);
+    assert_eq!(reason, baylee_engine::choice::TargetPrompt::Convoke);
     assert_eq!(options.len(), 3, "every Bear may be the one tapped");
     assert_eq!(max, 3, "the Bears may pay all three green symbols");
     let tapped: Vec<ObjectId> = options.iter().copied().take(2).collect();

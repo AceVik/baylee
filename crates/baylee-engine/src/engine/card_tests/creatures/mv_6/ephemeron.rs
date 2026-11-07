@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -33,7 +33,7 @@ fn ephemeron_discards_a_card_to_return_itself_to_owners_hand() {
 
 #[test]
 fn ephemeron_requires_a_discard_and_flies_over_ground_blockers() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut e = lk::game(

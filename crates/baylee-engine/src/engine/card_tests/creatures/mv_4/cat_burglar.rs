@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -36,7 +36,7 @@ fn cat_burglar_causes_target_player_to_discard_at_sorcery_speed() {
 
 #[test]
 fn cat_burglar_cannot_activate_with_a_spell_on_stack_or_during_opponents_turn() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[cat_burglar()],

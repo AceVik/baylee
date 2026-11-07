@@ -36,8 +36,8 @@ fn sustainer_of_the_realm_gets_toughness_when_blocking() {
     reach_their_main_phase(&mut engine, p0);
     assert_eq!(pt(&engine, sustainer), (2, 3), "bonus expires");
     let ground = on_battlefield(&engine, p1, earth_elemental()).unwrap();
-    let offer = crate::engine::card_tests::legends_kit::attack(&mut engine, &[sustainer]);
-    assert!(!crate::engine::card_tests::legends_kit::may_block(
+    let offer = baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[sustainer]);
+    assert!(!baylee_card_testkit::card_tests::legends_kit::may_block(
         &offer, ground, sustainer
     ));
     assert_eq!(

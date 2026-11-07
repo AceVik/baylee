@@ -34,7 +34,7 @@ fn flamekin_harbinger_searches_library_for_elemental_and_puts_on_top() {
         panic!("expected ChooseCards prompt, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
     assert_eq!((min, max), (0, 1), "\"you may search\" is min 0 max 1");
     assert!(
         !options.is_empty(),

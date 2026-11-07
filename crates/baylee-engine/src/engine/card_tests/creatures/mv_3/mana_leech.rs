@@ -5,7 +5,7 @@ fn mana_leech() -> CardIndex {
     card_index("cad05528-917b-4296-9d23-ba9433612709")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn mana_leech_locks_only_its_land_until_it_chooses_to_untap() {
@@ -33,7 +33,7 @@ fn mana_leech_locks_only_its_land_until_it_chooses_to_untap() {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             }
         )
@@ -52,7 +52,7 @@ fn mana_leech_locks_only_its_land_until_it_chooses_to_untap() {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             }
         )

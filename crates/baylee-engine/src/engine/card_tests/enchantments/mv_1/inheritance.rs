@@ -14,7 +14,7 @@ fn inheritance_draws_when_i_pay_and_not_when_i_decline() {
         let mut e = table(7211, &[], &[inheritance()], &[index::GRIZZLY_BEARS]);
         let victim = on_battlefield(&e, P1, index::GRIZZLY_BEARS).unwrap();
         let hand = hand_size(&e, P0);
-        crate::sba::destroy(e.dev_state_mut(P0).unwrap(), victim);
+        baylee_engine::sba::destroy(e.dev_state_mut(P0).unwrap(), victim);
         let Pending::Priority { player, .. } = e.pending().clone() else {
             panic!("priority expected")
         };

@@ -57,7 +57,7 @@ fn nantuko_husk_eats_a_creature_you_control_to_grow_itself() {
     assert_eq!(player, p0, "the activating seat is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");

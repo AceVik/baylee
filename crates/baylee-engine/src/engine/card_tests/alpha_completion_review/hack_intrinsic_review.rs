@@ -164,14 +164,14 @@ fn hack_intrinsic_review_lantern_grant_still_produces_green_on_hacked_island() {
     assert!(
         legal
             .abilities
-            .contains(&(land, crate::choice::GRANTED_ABILITY))
+            .contains(&(land, baylee_engine::choice::GRANTED_ABILITY))
     );
     engine
         .apply(
             USER,
             PlayerAction::ActivateAbility {
                 source: land,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .unwrap();

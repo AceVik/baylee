@@ -113,7 +113,7 @@ fn trample_into_a_banding_blocker_divides_among_the_blockers_and_none_tramples_o
     assert_eq!((min, max), (0, 4), "the Giant's whole power, any of it");
     assert_eq!(
         reason,
-        crate::choice::NumberPrompt::CombatDamage {
+        baylee_engine::choice::NumberPrompt::CombatDamage {
             source: giant,
             recipient: wolves,
             index: 0,
@@ -180,7 +180,7 @@ fn two_headed_giant_of_foriys_blocks_an_additional_creature_and_divides_its_dama
     };
     assert_eq!(
         capacity,
-        vec![crate::choice::BlockCapacity {
+        vec![baylee_engine::choice::BlockCapacity {
             blocker: giant,
             most: Some(2)
         }],
@@ -231,7 +231,7 @@ fn two_headed_giant_of_foriys_blocks_an_additional_creature_and_divides_its_dama
     let Pending::ChooseNumber {
         player,
         min,
-        reason: crate::choice::NumberPrompt::CombatDamage { source, .. },
+        reason: baylee_engine::choice::NumberPrompt::CombatDamage { source, .. },
         ..
     } = next_combat_question(&mut engine)
     else {

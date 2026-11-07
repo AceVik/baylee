@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::{bears, hill_giant};
+use baylee_card_testkit::card_tests::partials_w2c_kit::{bears, hill_giant};
 use baylee_cards_dsl::counters;
 
 fn all_hallow_s_eve() -> CardIndex {
@@ -41,8 +41,8 @@ fn bury_from_hand(
         .move_object(
             held,
             ZoneLocation::Graveyard(seat),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("move to graveyard");
     engine.refresh_offer();

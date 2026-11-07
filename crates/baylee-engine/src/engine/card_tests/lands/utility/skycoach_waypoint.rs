@@ -38,7 +38,7 @@ fn waypoint_prepares_a_target_with_a_prepare_spell_but_never_an_ordinary_creatur
             .object_mut(target)
             .unwrap()
             .riders
-            .retain(|r| *r != crate::object::Rider::Prepared);
+            .retain(|r| *r != baylee_engine::object::Rider::Prepared);
         state.players[0].mana_pool.add(ManaColor::Black, 5);
         e.refresh_offer();
         activate(&mut e, p0, index::SKYCOACH_WAYPOINT, 1);
@@ -48,7 +48,7 @@ fn waypoint_prepares_a_target_with_a_prepare_spell_but_never_an_ordinary_creatur
                 .object(target)
                 .unwrap()
                 .riders
-                .contains(&crate::object::Rider::Prepared)
+                .contains(&baylee_engine::object::Rider::Prepared)
         );
         pass_until(&mut e, stack_is_empty);
         let prepared = card == index::EMERITUS_OF_WOE;
@@ -57,7 +57,7 @@ fn waypoint_prepares_a_target_with_a_prepare_spell_but_never_an_ordinary_creatur
                 .object(target)
                 .unwrap()
                 .riders
-                .contains(&crate::object::Rider::Prepared),
+                .contains(&baylee_engine::object::Rider::Prepared),
             prepared
         );
         assert!(
@@ -65,7 +65,7 @@ fn waypoint_prepares_a_target_with_a_prepare_spell_but_never_an_ordinary_creatur
                 .object(source)
                 .unwrap()
                 .riders
-                .contains(&crate::object::Rider::Prepared)
+                .contains(&baylee_engine::object::Rider::Prepared)
         );
         let Pending::Priority { legal, .. } = e.pending() else {
             panic!("priority")
@@ -73,7 +73,7 @@ fn waypoint_prepares_a_target_with_a_prepare_spell_but_never_an_ordinary_creatur
         assert_eq!(
             legal
                 .abilities
-                .contains(&(target, crate::choice::PREPARED_CAST)),
+                .contains(&(target, baylee_engine::choice::PREPARED_CAST)),
             prepared
         );
     }

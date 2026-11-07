@@ -5,7 +5,7 @@ use baylee_core::generated::index;
 
 #[test]
 fn living_weapon_chooses_one_doubled_germ_before_state_based_actions() {
-    use crate::engine::card_tests::token_helpers::named;
+    use baylee_card_testkit::card_tests::token_helpers::named;
     let p0 = PlayerId::new(0);
     for removed in [false, true] {
         let mut e = Duel::new(SEED, forest())
@@ -60,7 +60,7 @@ fn living_weapon_chooses_one_doubled_germ_before_state_based_actions() {
 
 #[test]
 fn an_animated_living_weapon_does_not_attach_while_it_is_a_creature() {
-    use crate::engine::card_tests::token_helpers::named;
+    use baylee_card_testkit::card_tests::token_helpers::named;
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .hand(0, &[index::NETTLECYST])

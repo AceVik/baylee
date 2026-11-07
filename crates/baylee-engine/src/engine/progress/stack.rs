@@ -775,7 +775,7 @@ impl<L: CardLookup> Engine<L> {
                 this_way_from: None,
                 coin_stake: None,
             };
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -848,7 +848,7 @@ impl<L: CardLookup> Engine<L> {
                 this_way_from: None,
                 coin_stake: None,
             };
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -863,7 +863,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::resolved(&self.state, &self.lookup, top);
             if !self.ask_spell_ending(top) {
                 self.finalize_spell(top, None);
@@ -1066,7 +1066,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if res.mana_ability {
             crate::ability_log::mana_finished(&self.lookup, res.source);
         } else {

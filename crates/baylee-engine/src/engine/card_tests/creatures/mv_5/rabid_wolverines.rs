@@ -1,5 +1,5 @@
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn rabid_wolverines() -> CardIndex {
     card_index("ed076c39-9bfc-424a-8ce8-8572f7c0de73")
@@ -56,7 +56,7 @@ fn rabid_wolverines_gets_plus_1_plus_1_for_each_blocking_creature() {
         |_, pending| match pending {
             Pending::ChooseNumber {
                 max,
-                reason: crate::choice::NumberPrompt::CombatDamage { .. },
+                reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
                 ..
             } => Some(PlayerAction::ChooseNumber(*max)),
             _ => None,

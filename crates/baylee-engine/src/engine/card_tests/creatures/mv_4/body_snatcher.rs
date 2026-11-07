@@ -9,7 +9,7 @@ fn body_snatcher() -> CardIndex {
 
 #[test]
 fn body_snatcher_requires_a_creature_discard_and_reanimates_on_death() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     for pay in [false, true] {
         let mut engine = lk::game(
             SEED,
@@ -79,7 +79,7 @@ fn body_snatcher_requires_a_creature_discard_and_reanimates_on_death() {
 
 #[test]
 fn body_snatcher_exiles_when_there_is_no_creature_to_discard() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[body_snatcher(), forest()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Black, 4)]);
     cast_with_floating(&mut engine, lk::P0, body_snatcher());
@@ -90,7 +90,7 @@ fn body_snatcher_exiles_when_there_is_no_creature_to_discard() {
 
 #[test]
 fn body_snatcher_may_target_itself_but_does_not_return_after_exile() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[body_snatcher()], &[], &[], &[]);
     let snatcher = lk::obj(&engine, lk::P0, body_snatcher());
     bury(&mut engine, &[snatcher]);

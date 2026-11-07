@@ -32,7 +32,7 @@ fn same_incarnation_rules_copy_without_song_does_not_retain_stale_song_registrat
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(
         !e.state
@@ -57,22 +57,24 @@ fn cold_granted_song_static_is_retained_without_a_recipient_registration_sweep()
     // Transparent GrantStatic fixture; no invented card coverage. Register only
     // the granting effect, never sync_granted_statics before the bearer leaves.
     let timestamp = e.state.next_timestamp();
-    let filter = crate::effects::EffectFilter::object(&e.state, bearer);
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, bearer);
     let modifier = Modifier::GrantStatic {
         filter: &Filter::ARTIFACT,
         modifier: &SONG,
     };
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: Duration::UntilEndOfTurn,
-        filter,
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: Duration::UntilEndOfTurn,
+            filter,
+            modifier,
+        });
     e.state
         .move_object(
             bearer,
@@ -81,7 +83,7 @@ fn cold_granted_song_static_is_retained_without_a_recipient_registration_sweep()
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(
         pt(&e, ring),
@@ -123,22 +125,24 @@ fn song_ability_loss_reorders_a_keyword_dependent_grant_even_with_older_timestam
     // Narrow layer-dependency fixture: an older effect grants flying to
     // artifacts without indestructible. Song changes that predicate in layer 6.
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::Ability,
-        timestamp,
-        duration: Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::Dsl(&Filter::And(&[
-            Filter::ARTIFACT,
-            Filter::Not(&Filter::HasKeyword(KeywordSet::INDESTRUCTIBLE)),
-        ])),
-        modifier: Modifier::AddKeyword(KeywordSet::FLYING),
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Ability,
+            timestamp,
+            duration: Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::Dsl(&Filter::And(&[
+                Filter::ARTIFACT,
+                Filter::Not(&Filter::HasKeyword(KeywordSet::INDESTRUCTIBLE)),
+            ])),
+            modifier: Modifier::AddKeyword(KeywordSet::FLYING),
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(!keywords(&e, ingot).contains(KeywordSet::FLYING));
     cast(&mut e, index::TITANIA_S_SONG);

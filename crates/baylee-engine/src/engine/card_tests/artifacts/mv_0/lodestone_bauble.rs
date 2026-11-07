@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::turn::Step;
 use baylee_core::generated::index::GRIZZLY_BEARS;
+use baylee_engine::turn::Step;
 
 fn lodestone_bauble() -> CardIndex {
     card_index("6048b9ac-7d5e-4486-a89a-30adb45aab27")
@@ -35,8 +35,8 @@ fn lodestone_bauble_puts_target_basic_land_on_top_and_draws_next_upkeep() {
                 .move_object(
                     card,
                     ZoneLocation::Graveyard(owner),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         }

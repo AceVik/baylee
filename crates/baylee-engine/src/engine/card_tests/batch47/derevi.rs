@@ -21,7 +21,10 @@ fn batch47_derevi_command_activation_ignores_existing_tax_and_is_not_a_cast() {
     let forest = on_battlefield(&e, P0, index::FOREST).unwrap();
     e.state.commander_casts[0] = 4;
     e.state.commanders[0][0].casts = 4;
-    assert_eq!(crate::casting::commander_tax(e.state(), P0, derevi), 8);
+    assert_eq!(
+        baylee_engine::casting::commander_tax(e.state(), P0, derevi),
+        8
+    );
     set_pool(
         &mut e,
         P0,

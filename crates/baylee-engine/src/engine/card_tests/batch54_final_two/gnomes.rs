@@ -49,7 +49,7 @@ fn batch54_gnomes_replaces_white_indefinitely_but_not_new_incarnation() {
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     reset(&mut e);
     tap_source(&mut e, P0, plains);
     assert_eq!(e.state.players[0].mana_pool.available(ManaColor::White), 1);
@@ -74,7 +74,7 @@ fn batch54_gnomes_preserves_nonwhite_mana_from_granted_ability() {
     target(&mut e, plains);
     pass_until(&mut e, stack_is_empty);
     reset(&mut e);
-    let grant = crate::effects::granted_activated(e.state(), plains)
+    let grant = baylee_engine::effects::granted_activated(e.state(), plains)
         .next()
         .unwrap()
         .id;

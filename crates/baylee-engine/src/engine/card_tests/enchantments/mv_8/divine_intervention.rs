@@ -12,8 +12,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::win::EndReason;
 use baylee_core::generated::index;
+use baylee_engine::win::EndReason;
 
 fn divine_intervention() -> CardIndex {
     card_index("0158a440-6573-4f12-958b-a5f0cf190d5b")
@@ -45,7 +45,7 @@ fn with_divine_intervention_resolved(seats: usize) -> Engine<RegistryLookup> {
 
 /// Passes priority until the game is over and answers the result.
 #[track_caller]
-fn play_to_the_end(engine: &mut Engine<RegistryLookup>) -> crate::win::GameResult {
+fn play_to_the_end(engine: &mut Engine<RegistryLookup>) -> baylee_engine::win::GameResult {
     pass_until(engine, |e| matches!(e.pending(), Pending::GameOver(_)));
     let Pending::GameOver(result) = engine.pending().clone() else {
         unreachable!("pass_until stopped on the end of the game")
@@ -269,7 +269,7 @@ fn divine_intervention_draws_the_game_when_nesting_grounds_moves_its_last_counte
         let slot = options
             .iter()
             .position(|o| {
-                matches!(o.kind, crate::choice::CastModeKind::Counter(kind)
+                matches!(o.kind, baylee_engine::choice::CastModeKind::Counter(kind)
                     if kind == counters::INTERVENTION)
             })
             .expect("the intervention counter is the kind on offer");

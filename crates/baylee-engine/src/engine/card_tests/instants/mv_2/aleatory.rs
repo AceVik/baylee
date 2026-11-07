@@ -32,7 +32,7 @@ fn aleatory_flips_coin_after_blockers_and_draws_next_upkeep() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
 
@@ -72,7 +72,7 @@ fn aleatory_game(seed: u64) -> bool {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     cast_from_hand(&mut engine, p0, aleatory());
@@ -84,7 +84,7 @@ fn aleatory_game(seed: u64) -> bool {
         .entries()
         .iter()
         .filter_map(|entry| match entry.event {
-            crate::event::GameEvent::CoinFlipped { won, .. } => Some(won),
+            baylee_engine::event::GameEvent::CoinFlipped { won, .. } => Some(won),
             _ => None,
         })
         .collect();
@@ -147,7 +147,7 @@ fn aleatory_is_castable_only_in_combat_after_blockers_are_declared() {
         "not before blockers are declared"
     );
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     assert!(castable(&engine, spell), "after blockers are declared");

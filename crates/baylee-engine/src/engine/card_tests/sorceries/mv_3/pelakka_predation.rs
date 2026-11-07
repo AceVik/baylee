@@ -37,7 +37,7 @@ fn pelakka_caverns_enters_tapped_and_taps_for_black_mana() {
 
 #[test]
 fn pelakka_predation_reveals_the_hand_and_discards_only_a_card_of_mana_value_at_least_three() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         930,
         &[],

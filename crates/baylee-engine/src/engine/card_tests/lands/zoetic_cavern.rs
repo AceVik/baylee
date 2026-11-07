@@ -56,7 +56,7 @@ fn zoetic_cavern_casts_face_down_with_morph_and_turns_face_up_for_two_mana() {
             p0,
             PlayerAction::ActivateAbility {
                 source: cavern,
-                ability_index: crate::choice::TURN_FACE_UP,
+                ability_index: baylee_engine::choice::TURN_FACE_UP,
             },
         )
         .expect("turn Zoetic Cavern face up for {2}");

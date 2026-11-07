@@ -120,7 +120,7 @@ fn aura_fracture_trades_a_land_for_the_enchantment_it_names() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one land, no more and no fewer");

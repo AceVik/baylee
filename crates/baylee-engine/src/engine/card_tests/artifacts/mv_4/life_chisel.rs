@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 fn life_chisel() -> CardIndex {
     card_index("2493fe65-2ecb-418f-8e4e-797f83475c73")

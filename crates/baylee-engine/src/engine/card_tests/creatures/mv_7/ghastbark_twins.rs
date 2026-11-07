@@ -76,7 +76,7 @@ fn ghastbark_twins_block_two_attackers() {
                 || (e.state().turn.phase == Phase::SecondMain && stack_is_empty(e))
         });
         let Pending::ChooseNumber {
-            reason: crate::choice::NumberPrompt::CombatDamage { left, .. },
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { left, .. },
             ..
         } = engine.pending().clone()
         else {
@@ -150,7 +150,7 @@ fn next_share(engine: &mut Engine<RegistryLookup>) -> (ObjectId, u32, u32, Optio
         min,
         max,
         reason:
-            crate::choice::NumberPrompt::CombatDamage {
+            baylee_engine::choice::NumberPrompt::CombatDamage {
                 recipient, lethal, ..
             },
         ..
@@ -206,8 +206,8 @@ fn ghastbark_twins_with_nothing_to_reach_divide_it_all_among_the_blockers() {
         .move_object(
             oko,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the walker leaves");
     assert_eq!(next_share(&mut engine), (ogres[0], 0, 7, None));

@@ -8,12 +8,12 @@
 //! the preset/mulligan helpers into another `*_tests.rs`.
 
 use super::*;
-use crate::state::CardLookup;
 use baylee_core::ids::{CardIndex, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
     SeatSpec,
 };
+use baylee_engine::state::CardLookup;
 
 mod main_phase;
 pub use main_phase::walk_to_own_main;
@@ -23,6 +23,7 @@ pub use main_phase::walk_to_own_main;
 pub struct RegistryLookup;
 impl CardLookup for RegistryLookup {
     fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+        let _ = baylee_engine::ability_log::POOL.set(baylee_cards::by_index);
         baylee_cards::by_index(index)
     }
 }
@@ -305,7 +306,7 @@ pub fn pass_until(
             // and never gets here.
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             } => {
                 engine
@@ -318,7 +319,7 @@ pub fn pass_until(
             // A test whose subject is paying the echo answers it itself.
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::PayMana { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayMana { .. },
                 source: Some(source),
             } if matches!(
                 baylee_cards::by_index(source.card)
@@ -342,12 +343,12 @@ pub fn pass_until(
             Pending::ChooseCards {
                 player,
                 max: 0,
-                prompt: crate::choice::ChoicePrompt::SearchLibrary,
+                prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
                 ..
             }
             | Pending::ChooseCards {
                 player,
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             } => {
                 engine
@@ -361,7 +362,7 @@ pub fn pass_until(
             // the limit lets through, the first ones offered.
             Pending::ChooseCards {
                 player,
-                prompt: crate::choice::ChoicePrompt::Untap,
+                prompt: baylee_engine::choice::ChoicePrompt::Untap,
                 options,
                 max,
                 ..
@@ -377,7 +378,7 @@ pub fn pass_until(
             Pending::Arrange {
                 player,
                 cards,
-                prompt: crate::choice::ArrangePrompt::Surveil,
+                prompt: baylee_engine::choice::ArrangePrompt::Surveil,
                 ..
             } => {
                 engine
@@ -437,7 +438,7 @@ pub fn on_battlefield(
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .iter()
         .copied()
         .find(|id| {
@@ -475,7 +476,7 @@ pub fn in_hand(
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(seat))
+        .list(baylee_engine::zone::ZoneLocation::Hand(seat))
         .iter()
         .copied()
         .find(|id| {
@@ -501,7 +502,7 @@ pub fn in_graveyard(
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Graveyard(seat))
+        .list(baylee_engine::zone::ZoneLocation::Graveyard(seat))
         .iter()
         .copied()
         .find(|id| {
@@ -530,7 +531,7 @@ pub fn on_stack(
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .iter()
         .copied()
         .find(|id| {
@@ -650,7 +651,7 @@ fn untapped_mana_land(
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .iter()
         .copied()
         .find(|id| {
@@ -662,13 +663,13 @@ fn untapped_mana_land(
             };
             let chars = obj.characteristics();
             if obj.controller != seat
-                || obj.status.contains(crate::object::Status::TAPPED)
+                || obj.status.contains(baylee_engine::object::Status::TAPPED)
                 || !chars.types.contains(TypeSet::LAND)
                 || chars.types.contains(TypeSet::CREATURE)
             {
                 return false;
             }
-            crate::casting::intrinsic_mana(engine.state(), *id).is_some()
+            baylee_engine::casting::intrinsic_mana(engine.state(), *id).is_some()
                 || obj
                     .card
                     .and_then(|c| baylee_cards::by_index(c.index))
@@ -825,7 +826,7 @@ pub fn seed_graveyard(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: us
         .expect("the harness may set boards up");
     let cards: Vec<baylee_core::ids::ObjectId> = state
         .zones
-        .list(crate::zone::ZoneLocation::Library(seat))
+        .list(baylee_engine::zone::ZoneLocation::Library(seat))
         .iter()
         .rev()
         .take(n)
@@ -840,9 +841,9 @@ pub fn seed_graveyard(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: us
         state
             .move_object(
                 card,
-                crate::zone::ZoneLocation::Graveyard(seat),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZoneLocation::Graveyard(seat),
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .expect("the harness moves a card");
     }
@@ -879,7 +880,7 @@ pub fn stack_is_empty(engine: &Engine<RegistryLookup>) -> bool {
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .is_empty()
 }
 
@@ -948,7 +949,7 @@ pub fn play_land_face_facing(
         let slot = options
             .iter()
             .position(
-                |o| matches!(o.kind, crate::choice::CastModeKind::PlayLandFace(f) if f == face),
+                |o| matches!(o.kind, baylee_engine::choice::CastModeKind::PlayLandFace(f) if f == face),
             )
             .ok_or_else(|| format!("was never offered its own land face {face}"))?;
         engine
@@ -961,7 +962,7 @@ pub fn play_land_face_facing(
     if matches!(
         engine.pending(),
         Pending::ChooseTargets {
-            reason: crate::choice::TargetPrompt::CopyOf,
+            reason: baylee_engine::choice::TargetPrompt::CopyOf,
             ..
         }
     ) {
@@ -978,8 +979,8 @@ pub fn play_land_face_facing(
     // the exact life/counter entry question for callers that test pay versus decline.
     // Other unresolved entry states still fail the checks below.
     if matches!(engine.pending(), Pending::YesNo {
-        player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. }
-            | crate::choice::YesNoPrompt::EnterTappedForCounters { .. }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { .. }
+            | baylee_engine::choice::YesNoPrompt::EnterTappedForCounters { .. }, ..
     } if *player == seat)
         && engine.state.entries.contains(object)
     {
@@ -989,7 +990,7 @@ pub fn play_land_face_facing(
         .state()
         .object(object)
         .ok_or("was played and then vanished")?;
-    if landed.zone != crate::zone::Zone::Battlefield {
+    if landed.zone != baylee_engine::zone::Zone::Battlefield {
         return Err(format!("was played and is in {:?}", landed.zone));
     }
     if usize::from(landed.face_index) != face {
@@ -1054,7 +1055,7 @@ pub fn placed_face(
         .state()
         .object(object)
         .ok_or("was placed and then vanished")?;
-    if placed.zone != crate::zone::Zone::Battlefield {
+    if placed.zone != baylee_engine::zone::Zone::Battlefield {
         return Err(format!("was placed and is in {:?}", placed.zone));
     }
     if usize::from(placed.face_index) != face {
@@ -1356,12 +1357,12 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // choosing nothing exercises nothing.
             // Crew is the other: one creature may be short of the total, and
             // every creature offered is the answer most likely to reach it.
-            let want = if prompt == crate::choice::ChoicePrompt::LeaveTapped {
+            let want = if prompt == baylee_engine::choice::ChoicePrompt::LeaveTapped {
                 0
             } else if matches!(
                 prompt,
-                crate::choice::ChoicePrompt::CostCrew { .. }
-                    | crate::choice::ChoicePrompt::CostSaddle { .. }
+                baylee_engine::choice::ChoicePrompt::CostCrew { .. }
+                    | baylee_engine::choice::ChoicePrompt::CostSaddle { .. }
             ) {
                 usize::from(max)
             } else {
@@ -1384,7 +1385,7 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             let hand = engine
                 .state()
                 .zones
-                .list(crate::zone::ZoneLocation::Hand(player))
+                .list(baylee_engine::zone::ZoneLocation::Hand(player))
                 .clone();
             (
                 player,
@@ -1415,10 +1416,8 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
         // permanent or resolving spell is itself printed with is always a
         // card of the pool.
         Pending::ChooseCardName { player, .. } => {
-            let own = match engine.pending_plan {
-                Some(super::PlanKind::ChooseCardName { object }) => {
-                    engine.state().object(object).and_then(|o| o.card)
-                }
+            let own = match engine.card_name_chooser() {
+                Some(object) => engine.state().object(object).and_then(|o| o.card),
                 _ => engine
                     .resolution
                     .as_ref()
@@ -1461,7 +1460,7 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             piles,
             ..
         } => {
-            let Some(piles) = crate::choice::default_arrangement(&cards, &piles) else {
+            let Some(piles) = baylee_engine::choice::default_arrangement(&cards, &piles) else {
                 return Err(Rest::Unanswered("Arrange"));
             };
             (player, PlayerAction::Arrange { piles })
@@ -1709,7 +1708,7 @@ mod tests {
                 .object(mouth)
                 .expect("the Mouth is still there")
                 .status
-                .contains(crate::object::Status::TAPPED),
+                .contains(baylee_engine::object::Status::TAPPED),
             "the one it was told to keep is still standing"
         );
     }
@@ -1766,8 +1765,8 @@ mod tests {
 /// The piles a scry of `n` looked-at cards is asked with: the top, then the
 /// bottom, each able to take any of them.
 #[must_use]
-pub fn scry_piles(n: u32) -> Vec<crate::choice::ArrangePile> {
-    use crate::choice::{ArrangePile, ArrangePlace};
+pub fn scry_piles(n: u32) -> Vec<baylee_engine::choice::ArrangePile> {
+    use baylee_engine::choice::{ArrangePile, ArrangePlace};
     vec![
         ArrangePile::up_to(ArrangePlace::LibraryTop, n),
         ArrangePile::up_to(ArrangePlace::LibraryBottom, n),
@@ -1777,8 +1776,8 @@ pub fn scry_piles(n: u32) -> Vec<crate::choice::ArrangePile> {
 /// The piles a surveil of `n` looked-at cards is asked with: the top, then
 /// the graveyard.
 #[must_use]
-pub fn surveil_piles(n: u32) -> Vec<crate::choice::ArrangePile> {
-    use crate::choice::{ArrangePile, ArrangePlace};
+pub fn surveil_piles(n: u32) -> Vec<baylee_engine::choice::ArrangePile> {
+    use baylee_engine::choice::{ArrangePile, ArrangePlace};
     vec![
         ArrangePile::up_to(ArrangePlace::LibraryTop, n),
         ArrangePile::up_to(ArrangePlace::Graveyard, n),
@@ -1808,7 +1807,7 @@ pub fn pay_life_ward(engine: &mut Engine<RegistryLookup>, payer: PlayerId, amoun
     pass_until(engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
     assert!(
         matches!(engine.pending(), Pending::YesNo {
-        player, prompt: crate::choice::YesNoPrompt::PayLife { amount: offered }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLife { amount: offered }, ..
     } if *player == payer && *offered == u32::from(amount)),
         "{:?}",
         engine.pending()

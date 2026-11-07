@@ -2,7 +2,7 @@
 //! Oracle: Whenever this creature attacks alone, it gets +2/+0 until end of turn.
 
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn rogue_kavu_gets_plus_two_power_only_when_it_attacks_alone() {

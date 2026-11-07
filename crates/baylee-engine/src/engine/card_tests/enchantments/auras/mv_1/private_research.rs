@@ -59,7 +59,7 @@ fn private_research_accumulates_page_counters_and_draws_when_enchanted_creature_
             && matches!(
                 e.pending(),
                 Pending::YesNo {
-                    prompt: crate::choice::YesNoPrompt::MayDo,
+                    prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                     ..
                 }
             )
@@ -69,7 +69,12 @@ fn private_research_accumulates_page_counters_and_draws_when_enchanted_creature_
     assert_eq!(counters_on(&engine, aura, counters::PAGE), 1);
 
     // Put a second page counter on Private Research so we verify multiple-card draw.
-    crate::replacement::put_counters(engine.dev_state_mut(p0).unwrap(), aura, counters::PAGE, 1);
+    baylee_engine::replacement::put_counters(
+        engine.dev_state_mut(p0).unwrap(),
+        aura,
+        counters::PAGE,
+        1,
+    );
     assert_eq!(counters_on(&engine, aura, counters::PAGE), 2);
 
     // Negative boundary: killing an unenchanted creature (Llanowar Elves) does not trigger Private Research.

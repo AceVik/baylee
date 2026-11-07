@@ -81,7 +81,7 @@ fn skyshroud_poacher_taps_and_three_mana_to_put_an_elf_card_onto_the_battlefield
     assert_eq!(player, p0, "the seat that activated does the searching");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "the tutor's own question, and not a scry or a discard"
     );
     assert_eq!(

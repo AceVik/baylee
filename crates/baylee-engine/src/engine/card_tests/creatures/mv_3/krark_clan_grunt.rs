@@ -82,7 +82,7 @@ fn krark_clan_grunt_eats_its_own_artifacts_to_pump_itself_one_at_a_time() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one artifact, no more and no fewer");

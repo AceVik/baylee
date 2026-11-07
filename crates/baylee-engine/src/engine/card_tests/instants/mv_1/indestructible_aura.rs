@@ -24,12 +24,12 @@ fn indestructible_aura_prevents_combat_and_noncombat_damage_until_cleanup() {
         }
         let state = e.dev_state_mut(p0).unwrap();
         let source_version = Some(state.object(source).unwrap().version);
-        let mut work = crate::damage::DamageWork::new(
+        let mut work = baylee_engine::damage::DamageWork::new(
             state,
-            vec![crate::damage::Assignment {
+            vec![baylee_engine::damage::Assignment {
                 source,
                 source_version,
-                recipient: crate::event::DamageTarget::Object(protected),
+                recipient: baylee_engine::event::DamageTarget::Object(protected),
                 amount: 1,
                 is_combat: combat,
             }],

@@ -17,8 +17,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::{Phase, Step};
 use baylee_cards_dsl::Modifier;
+use baylee_engine::turn::{Phase, Step};
 use std::collections::VecDeque;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -200,7 +200,7 @@ fn offered_attackers(engine: &Engine<RegistryLookup>) -> Vec<ObjectId> {
 fn attack_p0_with(
     engine: &mut Engine<RegistryLookup>,
     attacker: ObjectId,
-) -> Result<(), crate::engine::EngineError> {
+) -> Result<(), baylee_engine::engine::EngineError> {
     engine
         .apply(
             P1,
@@ -558,8 +558,8 @@ fn island_sanctuary_restriction_outlives_the_sanctuary() {
         .move_object(
             sanctuary,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();

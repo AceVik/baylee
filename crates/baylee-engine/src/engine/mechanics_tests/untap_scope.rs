@@ -178,3 +178,38 @@ fn an_affected_controller_restriction_still_follows_control_changes() {
     to_main(&mut engine, them());
     assert!(!tapped(&engine, victim));
 }
+
+#[test]
+fn deep_spawn_untaps_for_a_new_controller() {
+    assert_untaps_after_control_change(crate::engine::testkit::card_index(
+        "d1aba343-d85a-4829-bdfe-db31fcb3c320",
+    ));
+}
+
+#[test]
+fn samite_alchemist_untaps_for_a_new_controller() {
+    assert_untaps_after_control_change(crate::engine::testkit::card_index(
+        "120b565a-e22b-4d5d-9841-b11750b4ee49",
+    ));
+}
+
+#[test]
+fn reveka_wizard_savant_untaps_for_a_new_controller() {
+    assert_untaps_after_control_change(crate::engine::testkit::card_index(
+        "7085d5c6-da96-465e-90cf-8469fcacb474",
+    ));
+}
+
+#[test]
+fn homarid_warrior_untaps_for_a_new_controller() {
+    assert_untaps_after_control_change(crate::engine::testkit::card_index(
+        "6facb0f6-fa49-4ce6-9f95-15bb3ce4bcf2",
+    ));
+}
+
+#[test]
+fn spectral_bears_untaps_for_a_new_controller() {
+    assert_untaps_after_control_change(crate::engine::testkit::card_index(
+        "539899f3-f3f2-4f7a-a6f6-e80d4a39f753",
+    ));
+}

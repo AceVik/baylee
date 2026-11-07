@@ -36,7 +36,7 @@ fn hostile_desert_exiles_a_land_from_the_graveyard_to_become_a_three_four_elemen
     // has to leave off the menu — without it the menu below would be the
     // whole graveyard and would say nothing about the filter.
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("an Elf on the table");
-    crate::sba::destroy(
+    baylee_engine::sba::destroy(
         engine
             .dev_state_mut(p0)
             .expect("the test kit grants dev commands"),
@@ -111,7 +111,7 @@ fn hostile_desert_exiles_a_land_from_the_graveyard_to_become_a_three_four_elemen
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostExile,
+        baylee_engine::choice::ChoicePrompt::CostExile,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one card, no more and no fewer");

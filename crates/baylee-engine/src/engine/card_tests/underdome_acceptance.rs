@@ -55,29 +55,31 @@ fn impose(e: &mut Engine<RegistryLookup>, source: ObjectId, modifier: Modifier) 
         e,
         source,
         modifier,
-        crate::effects::EffectFilter::Dsl(&Filter::Any),
+        baylee_engine::effects::EffectFilter::Dsl(&Filter::Any),
     );
 }
 fn impose_on(
     e: &mut Engine<RegistryLookup>,
     source: ObjectId,
     modifier: Modifier,
-    filter: crate::effects::EffectFilter,
+    filter: baylee_engine::effects::EffectFilter,
 ) {
     // Provenance-only fixture: no implemented registered Un-card imposes this
     // generic increase. The source's real rules and mana ability stay intact.
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: Some(source),
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: Duration::WhileSourceOnBattlefield,
-        filter,
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(source),
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: Duration::WhileSourceOnBattlefield,
+            filter,
+            modifier,
+        });
     e.state.invalidate_projections();
     e.refresh_offer();
 }

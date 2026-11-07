@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ChoicePrompt;
+use baylee_engine::choice::ChoicePrompt;
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -80,7 +80,7 @@ fn necropolis_has_defender_and_cannot_be_declared_an_attacker() {
     assert!(keywords(&e, necro).contains(KeywordSet::DEFENDER));
 
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareAttackers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
     });
     let Pending::ChooseAttackers { attackers, .. } = e.pending().clone() else {
         panic!("expected the attack question, got {:?}", e.pending())

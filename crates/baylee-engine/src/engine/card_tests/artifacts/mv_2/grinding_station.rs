@@ -105,7 +105,7 @@ fn grinding_station_mills_three_for_an_artifact_and_untaps_for_one_entering() {
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );

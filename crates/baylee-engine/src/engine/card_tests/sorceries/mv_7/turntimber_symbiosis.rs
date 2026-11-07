@@ -17,7 +17,7 @@ fn turntimber_serpentine_wood_enters_tapped_on_declined_life_and_taps_for_green(
     let (mut engine, land) =
         play_land_face(turntimber_symbiosis(), 1).expect("plays as Turntimber, Serpentine Wood");
     assert!(matches!(engine.pending(), Pending::YesNo {
-        player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
     } if *player == p0));
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);

@@ -55,7 +55,7 @@ fn feldon_s_cane_exiles_itself_to_shuffle_the_graveyard_back_in() {
             .iter()
             .any(|entry| matches!(
                 entry.event,
-                crate::event::GameEvent::Shuffled {
+                baylee_engine::event::GameEvent::Shuffled {
                     player,
                     zone: Zone::Library
                 } if player == p0

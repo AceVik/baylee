@@ -36,7 +36,7 @@ fn fend_off_prevents_combat_damage_dealt_by_target_creature() {
 
 #[test]
 fn cycling_discards_for_two_and_draws_one() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[fend_off()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 2)]);
     let before = engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len();
@@ -52,7 +52,7 @@ fn cycling_discards_for_two_and_draws_one() {
 
 #[test]
 fn fend_off_prevents_a_blockers_damage_and_expires_next_turn() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[gray_ogre()],

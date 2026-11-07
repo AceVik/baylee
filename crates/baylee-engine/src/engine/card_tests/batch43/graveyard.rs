@@ -76,7 +76,7 @@ fn batch43_drafna_illegal_card_target_does_not_block_the_remaining_targets() {
             b,
             ZoneLocation::Hand(P0),
             ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -119,7 +119,7 @@ fn batch43_drafna_copy_retargets_the_player_and_all_dependent_graveyard_cards() 
         matches!(
             e.pending(),
             Pending::ChooseTargets {
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             }
         )

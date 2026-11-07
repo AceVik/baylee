@@ -41,7 +41,7 @@ fn ur_drago_and_lord_magnus_ignore_only_the_named_landwalk_while_present() {
             state.object_mut(attacker).unwrap().base_mut().keywords = ignored.union(extra);
             state.refresh_characteristics();
             assert_eq!(
-                crate::combat::can_block(e.state(), p1, blocker, attacker),
+                baylee_engine::combat::can_block(e.state(), p1, blocker, attacker),
                 allowed
             );
             assert!(keywords(&e, attacker).contains(ignored));
@@ -49,9 +49,19 @@ fn ur_drago_and_lord_magnus_ignore_only_the_named_landwalk_while_present() {
         let state = e.dev_state_mut(p0).unwrap();
         state.object_mut(attacker).unwrap().base_mut().keywords = ignored;
         state.refresh_characteristics();
-        assert!(crate::combat::can_block(e.state(), p1, blocker, attacker));
+        assert!(baylee_engine::combat::can_block(
+            e.state(),
+            p1,
+            blocker,
+            attacker
+        ));
         kill(&mut e, source);
-        assert!(!crate::combat::can_block(e.state(), p1, blocker, attacker));
+        assert!(!baylee_engine::combat::can_block(
+            e.state(),
+            p1,
+            blocker,
+            attacker
+        ));
         assert!(keywords(&e, attacker).contains(ignored));
     }
 }

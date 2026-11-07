@@ -7,7 +7,7 @@ use baylee_core::generated::index;
 fn ring_of_immortals_requires_an_instant_or_aura_targeting_your_current_permanent() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for case in 0..6 {
-        let (mut e, spell, host) = crate::engine::card_tests::counter_helpers::spell_fixture(
+        let (mut e, spell, host) = baylee_card_testkit::card_tests::counter_helpers::spell_fixture(
             index::RING_OF_IMMORTALS,
             case,
         );
@@ -16,16 +16,16 @@ fn ring_of_immortals_requires_an_instant_or_aura_targeting_your_current_permanen
             s.move_object(
                 host,
                 ZoneLocation::Exile(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
-            s.object_mut(host).unwrap().kind = crate::object::ObjectKind::Permanent;
+            s.object_mut(host).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
             s.move_object(
                 host,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         }

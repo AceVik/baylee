@@ -32,7 +32,7 @@ fn bubbling_muck_causes_swamps_to_add_an_additional_black_mana_this_turn() {
 
 #[test]
 fn bubbling_muck_affects_both_players_swamps_for_this_turn_only() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[swamp(), forest()],

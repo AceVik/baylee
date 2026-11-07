@@ -44,7 +44,7 @@ fn gerrard_s_battle_cry_pumps_your_creatures_only() {
 
 #[test]
 fn gerrards_battle_cry_does_not_pump_opponents_and_expires() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let mut e = lk::game(
         SEED,

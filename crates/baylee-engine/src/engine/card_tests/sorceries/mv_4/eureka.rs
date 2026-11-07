@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::{bears, hill_giant};
+use baylee_card_testkit::card_tests::partials_w2c_kit::{bears, hill_giant};
 
 fn eureka() -> CardIndex {
     card_index("917f2b4b-79ec-4ded-b4c8-cbcf363cb23b")

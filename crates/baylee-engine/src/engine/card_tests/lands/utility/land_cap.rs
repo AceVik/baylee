@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn land_cap_skips_one_untap_then_recovers() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(926, &[land_cap()], &[], &[], &[]);
     let land = kit::obj(&engine, kit::P0, land_cap());
     activate(&mut engine, kit::P0, land_cap(), 0);
@@ -25,7 +25,7 @@ fn land_cap_skips_one_untap_then_recovers() {
 
 #[test]
 fn land_cap_offers_exactly_white_or_blue_and_pools_the_one_chosen() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for (chosen, other) in [
         (ManaColor::White, ManaColor::Blue),
         (ManaColor::Blue, ManaColor::White),

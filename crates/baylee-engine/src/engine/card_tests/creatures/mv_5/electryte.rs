@@ -25,7 +25,7 @@ fn electryte_partial_keeps_its_body_but_does_not_use_an_overbroad_damage_trigger
 
 #[test]
 fn electryte_does_not_sweep_blockers_when_combat_damage_is_redirected_to_a_nondefender() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
@@ -72,7 +72,7 @@ fn electryte_does_not_sweep_blockers_when_combat_damage_is_redirected_to_a_nonde
     lk::float(&mut engine, p0, &[(ManaColor::Green, 1)]);
     lk::cast_at(&mut engine, p0, index::MENDING_TOUCH, &[elec], &[]);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert_eq!(engine.state().players[0].life, 19);
     assert!(on_battlefield(&engine, p0, electryte()).is_some());

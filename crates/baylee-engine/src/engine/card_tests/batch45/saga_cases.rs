@@ -89,7 +89,7 @@ fn batch45_saga_counter_events_keep_the_departed_incarnation_and_abilities() {
     let (mut e, saga, _) = welcome(false);
     let version = e.state.object(saga).unwrap().version;
     let since = e.state.journal.last_seq();
-    crate::replacement::put_counters_by(&mut e.state, P0, saga, CounterKind::Lore, 1);
+    baylee_engine::replacement::put_counters_by(&mut e.state, P0, saga, CounterKind::Lore, 1);
     e.state
         .move_object(
             saga,
@@ -106,7 +106,7 @@ fn batch45_saga_counter_events_keep_the_departed_incarnation_and_abilities() {
             Cause::Effect,
         )
         .unwrap();
-    let triggers = crate::trigger::collect(&e.state, &RegistryLookup, since);
+    let triggers = baylee_engine::trigger::collect(&e.state, &RegistryLookup, since);
     let chapters: Vec<_> = triggers
         .iter()
         .filter(|trigger| trigger.source == saga)
@@ -126,9 +126,9 @@ fn batch45_saga_counter_events_keep_the_departed_incarnation_and_abilities() {
 fn batch45_saga_counter_removal_and_zero_placement_never_trigger_a_chapter() {
     let (mut e, saga, _) = welcome(false);
     let since = e.state.journal.last_seq();
-    crate::replacement::remove_counters(&mut e.state, saga, CounterKind::Lore, 1);
-    crate::replacement::record_counters(&mut e.state, saga, CounterKind::Lore, 0);
-    assert!(crate::trigger::collect(&e.state, &RegistryLookup, since).is_empty());
+    baylee_engine::replacement::remove_counters(&mut e.state, saga, CounterKind::Lore, 1);
+    baylee_engine::replacement::record_counters(&mut e.state, saga, CounterKind::Lore, 0);
+    assert!(baylee_engine::trigger::collect(&e.state, &RegistryLookup, since).is_empty());
 }
 
 #[test]

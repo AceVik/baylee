@@ -18,7 +18,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::draw_kit as kit;
+use baylee_card_testkit::card_tests::draw_kit as kit;
 
 /// Chains plus the board for a single draw.
 fn chains_and_tome() -> Vec<CardIndex> {

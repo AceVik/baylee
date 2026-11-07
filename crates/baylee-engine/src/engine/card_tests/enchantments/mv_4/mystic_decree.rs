@@ -42,7 +42,7 @@ fn mystic_decree_strips_flying_and_islandwalk_from_all_creatures() {
     );
 
     let decree = on_battlefield(&engine, p0, mystic_decree()).expect("seated");
-    crate::sba::destroy(engine.dev_state_mut(p0).expect("the harness"), decree);
+    baylee_engine::sba::destroy(engine.dev_state_mut(p0).expect("the harness"), decree);
     resync(&mut engine);
     assert!(
         keywords(&engine, angel).contains(flying),

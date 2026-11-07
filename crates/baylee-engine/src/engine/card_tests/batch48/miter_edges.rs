@@ -21,7 +21,7 @@ fn miter_rewards_a_destroyed_artifact_token() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     let treasure = e
         .state

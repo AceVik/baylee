@@ -195,7 +195,7 @@ fn ragavan_does_not_let_its_controller_play_an_exiled_land() {
     );
     assert_eq!(engine.state().players[0].lands_played_this_turn, 0);
     assert!(
-        crate::casting::play_permission(engine.state(), p0, theirs).is_some(),
+        baylee_engine::casting::play_permission(engine.state(), p0, theirs).is_some(),
         "the permission is there, for casting"
     );
     let offer = priority_offer(&engine);

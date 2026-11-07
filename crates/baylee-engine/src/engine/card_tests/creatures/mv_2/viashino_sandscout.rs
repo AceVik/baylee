@@ -21,10 +21,10 @@ fn viashino_sandscout_has_haste_and_returns_to_hand_at_end_step() {
     pass_until(&mut engine, stack_is_empty);
 
     let scout = on_battlefield(&engine, p0, viashino_sandscout()).unwrap();
-    crate::engine::card_tests::legends_kit::attack(&mut engine, &[scout]);
+    baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[scout]);
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     pass_until(&mut engine, stack_is_empty);
 

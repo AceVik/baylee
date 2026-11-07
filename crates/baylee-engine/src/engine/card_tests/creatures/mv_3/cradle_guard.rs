@@ -41,7 +41,7 @@ fn cradle_guard_echo_can_be_paid_and_is_not_due_again() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);
@@ -83,7 +83,7 @@ fn cradle_guard_is_sacrificed_when_echo_is_unpaid() {
 
 #[test]
 fn cradle_guard_tramples_over_a_small_blocker() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -93,7 +93,7 @@ fn cradle_guard_tramples_over_a_small_blocker() {
     keep_mulligans(&mut engine);
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);
@@ -107,7 +107,7 @@ fn cradle_guard_tramples_over_a_small_blocker() {
     lk::attack(&mut engine, &[guard]);
     lk::block(&mut engine, &[(elf, guard)]);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert_eq!(engine.state().players[1].life, 17);
     assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());

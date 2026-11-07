@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn necrologia() -> CardIndex {
     card_index("925f11c3-fd32-4aa7-a130-6554b81ad3eb")
@@ -30,7 +30,7 @@ fn necrologia_pays_x_life_and_draws_x_cards() {
             .is_err()
     );
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
@@ -53,7 +53,7 @@ fn necrologia_is_not_castable_in_an_opponents_end_step() {
     let mut e = lk::game(SEED, &[], &[], &[necrologia()], &[]);
     pass_until(&mut e, |e| {
         e.state().turn.active == p1
-            && e.state().turn.step == crate::turn::Step::End
+            && e.state().turn.step == baylee_engine::turn::Step::End
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     lk::float(&mut e, p0, &[(ManaColor::Black, 10)]);

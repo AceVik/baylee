@@ -762,7 +762,8 @@ impl Status {
     /// Historical bookkeeping, not a status of CR 110.5: this exact
     /// incarnation was present and untapped when the current turn began.
     /// Reset on departure and every turn boundary, hidden from the wire.
-    pub(crate) const UNTAPPED_AT_TURN_START: Self = Self(32);
+    #[doc(hidden)]
+    pub const UNTAPPED_AT_TURN_START: Self = Self(32);
 
     /// Whether all bits of `other` are set.
     #[must_use]

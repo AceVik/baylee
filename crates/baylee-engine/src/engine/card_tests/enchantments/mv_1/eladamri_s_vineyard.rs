@@ -41,7 +41,7 @@ fn eladamri_s_vineyard_adds_two_green_at_each_players_first_main_phase() {
 
 #[test]
 fn eladamris_vineyard_does_not_add_mana_in_second_main() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[eladamri_s_vineyard()], &[], &[], &[]);
     lk::settle(&mut e);
     assert_eq!(lk::pool_of(&e, lk::P0, ManaColor::Green), 2);

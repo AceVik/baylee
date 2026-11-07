@@ -55,7 +55,7 @@ fn ojer_taq_deepest_foundation_attacks_with_vigilance_and_remains_untapped() {
 
 #[test]
 fn ojer_taq_triples_own_creature_tokens_and_multiplies_with_doubling_season() {
-    use crate::engine::card_tests::token_helpers::named;
+    use baylee_card_testkit::card_tests::token_helpers::named;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     for own in [false, true] {
@@ -113,7 +113,7 @@ fn ojer_taq_returns_tapped_as_land_and_can_transform_after_three_attackers() {
         assert_eq!(e.state().object(god).unwrap().face_index, 1);
         assert!(is_tapped(&e, god));
         assert!(types(&e, god).contains(TypeSet::LAND));
-        assert!(!e.state().journal.entries().iter().any(|entry|matches!(entry.event,crate::event::GameEvent::Transformed{object,..}if object==god)));
+        assert!(!e.state().journal.entries().iter().any(|entry|matches!(entry.event,baylee_engine::event::GameEvent::Transformed{object,..}if object==god)));
         pass_until(&mut e, |e| {
             matches!(e.pending(), Pending::ChooseAttackers { .. })
         });
@@ -166,16 +166,16 @@ fn copied_god_returns_a_double_faced_card_but_not_an_ordinary_card() {
         reach_main_phase(&mut e, p0);
         let source = on_battlefield(&e, p0, card).unwrap();
         let target = on_battlefield(&e, PlayerId::new(1), ojer_taq_deepest_foundation()).unwrap();
-        assert!(crate::copiable_abilities::apply_copy(
+        assert!(baylee_engine::copiable_abilities::apply_copy(
             e.dev_state_mut(p0).unwrap(),
-            crate::copiable_abilities::CopyApplication {
+            baylee_engine::copiable_abilities::CopyApplication {
                 source,
                 target,
                 mods: &[],
                 copy_index: 0,
                 until_eot: false,
                 resolving: None,
-                text: crate::text_changes::TextChangeMap::IDENTITY,
+                text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
             }
         ));
         kill(&mut e, source);

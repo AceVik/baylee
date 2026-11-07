@@ -53,8 +53,8 @@ fn radiant_archangel_scales_with_other_flyers() {
     reach_their_main_phase(&mut engine, p1);
     reach_their_main_phase(&mut engine, p0);
     let ground = on_battlefield(&engine, p1, gray_ogre()).unwrap();
-    let offer = crate::engine::card_tests::legends_kit::attack(&mut engine, &[radiant]);
-    assert!(!crate::engine::card_tests::legends_kit::may_block(
+    let offer = baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[radiant]);
+    assert!(!baylee_card_testkit::card_tests::legends_kit::may_block(
         &offer, ground, radiant
     ));
     assert!(

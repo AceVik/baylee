@@ -2,19 +2,21 @@
 use super::*;
 
 fn steal(e: &mut Engine<RegistryLookup>, source: ObjectId, controller: PlayerId) {
-    let filter = crate::effects::EffectFilter::object(&e.state, source);
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, source);
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::Control,
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::GainControl,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
     e.state.refresh_characteristics();
     e.refresh_offer();
 }
@@ -140,7 +142,7 @@ fn hidden_exile_land_play_obeys_turn_and_drop_limit_but_not_main_phase_timing() 
                 .contains(Status::FACE_DOWN),
             !(own_turn && remaining)
         );
-        assert!(crate::casting::play_permission(&e.state, P0, card).is_none());
+        assert!(baylee_engine::casting::play_permission(&e.state, P0, card).is_none());
         assert!(
             !e.state
                 .object(card)

@@ -27,7 +27,7 @@ fn meteor_storm_discards_two_at_random_and_deals_four_damage() {
         0
     );
 
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[

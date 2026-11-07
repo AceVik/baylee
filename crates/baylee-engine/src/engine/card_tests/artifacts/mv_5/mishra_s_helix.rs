@@ -5,7 +5,7 @@ fn mishra_s_helix() -> CardIndex {
     card_index("6b1552f2-df64-485a-8509-b1916edf19cf")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn mishras_helix_uses_exactly_x_distinct_land_targets_including_zero() {

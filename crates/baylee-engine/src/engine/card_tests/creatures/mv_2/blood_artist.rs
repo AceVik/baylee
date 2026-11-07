@@ -95,7 +95,7 @@ fn blood_artist_drains_the_player_it_names_for_every_creature_that_dies() {
             engine.pending()
         )
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert_eq!((min, max), (1, 1), "one creature pays the cost");
     assert_eq!(
         options.len(),

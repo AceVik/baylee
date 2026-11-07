@@ -90,7 +90,7 @@ fn angel_of_condemnation_gone_before_its_exert_ability_resolves_exiles_nothing()
     tap_all_mana(&mut e, p0);
     activate(&mut e, p0, angel_of_condemnation(), 1);
     aim_at(&mut e, p0, ogre);
-    crate::sba::destroy(e.dev_state_mut(p0).expect("dev board"), angel);
+    baylee_engine::sba::destroy(e.dev_state_mut(p0).expect("dev board"), angel);
     pass_until(&mut e, stack_is_empty);
     assert!(on_battlefield(&e, p0, angel_of_condemnation()).is_none());
     assert_eq!(on_battlefield(&e, p1, gray_ogre()), Some(ogre));

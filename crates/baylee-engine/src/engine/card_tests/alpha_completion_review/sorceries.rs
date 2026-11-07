@@ -42,8 +42,8 @@ fn drain_life_independent_creature_cap_reads_toughness_after_damage_prevention()
         engine.journal().entries()[before..].iter().any(|entry| {
             matches!(
                 entry.event,
-                crate::event::GameEvent::DamageDealt {
-                    target: crate::event::DamageTarget::Object(target),
+                baylee_engine::event::GameEvent::DamageDealt {
+                    target: baylee_engine::event::DamageTarget::Object(target),
                     amount: 1,
                     ..
                 } if target == hydra

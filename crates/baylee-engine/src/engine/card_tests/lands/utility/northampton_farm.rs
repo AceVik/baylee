@@ -94,7 +94,7 @@ fn northampton_farm_taps_for_colorless_and_exiles_owned_creature() {
         .object_mut(farm)
         .unwrap()
         .status
-        .remove(crate::object::Status::TAPPED);
+        .remove(baylee_engine::object::Status::TAPPED);
     engine.refresh_offer();
     activate(&mut engine, p0, northampton_farm(), 1);
     engine
@@ -115,7 +115,7 @@ fn northampton_farm_taps_for_colorless_and_exiles_owned_creature() {
         .object_mut(farm)
         .unwrap()
         .status
-        .remove(crate::object::Status::TAPPED);
+        .remove(baylee_engine::object::Status::TAPPED);
     engine.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
         .add(ManaColor::Colorless, 2);

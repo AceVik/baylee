@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::KeywordSet;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -83,7 +83,7 @@ fn mist_dragon_gains_and_loses_flying_indefinitely_and_phases_out() {
             .object(dragon)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 }
 
@@ -129,7 +129,7 @@ fn mist_dragon_phases_in_at_its_controllers_next_untap_step() {
             .object(dragon)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     };
 
     lk::float(

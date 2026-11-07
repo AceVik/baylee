@@ -53,7 +53,7 @@ fn ability_offered(e: &Engine<RegistryLookup>, quest: ObjectId) -> bool {
 
 /// Destroys `victim`, then answers the "may" with `yes`.
 fn kill_asking(e: &mut Engine<RegistryLookup>, victim: ObjectId, yes: bool) {
-    crate::sba::destroy(e.dev_state_mut(P0).unwrap(), victim);
+    baylee_engine::sba::destroy(e.dev_state_mut(P0).unwrap(), victim);
     let Pending::Priority { player, .. } = e.pending().clone() else {
         panic!("priority expected")
     };

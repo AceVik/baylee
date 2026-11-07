@@ -13,11 +13,11 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::NumberPrompt;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::KeywordSet;
 use baylee_core::generated::index;
+use baylee_engine::choice::NumberPrompt;
+use baylee_engine::turn::Step;
 
 // oracle_id = "20fa17d4-9c3e-470b-9993-a4a2799e33d1"
 fn wall_of_caltrops() -> CardIndex {

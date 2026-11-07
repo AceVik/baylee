@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn hunting_moa() -> CardIndex {
     card_index("102d73bc-94ed-4a57-9872-6f7b9bf282f9")
@@ -50,7 +50,7 @@ fn hunting_moa_puts_plus_one_counter_on_etb_and_on_dies_when_echo_declined() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Green, 3)]);
@@ -88,7 +88,7 @@ fn hunting_moa_survives_when_echo_is_paid() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Green, 3)]);

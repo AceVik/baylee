@@ -32,7 +32,7 @@ fn at_the_may() -> Engine<RegistryLookup> {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )

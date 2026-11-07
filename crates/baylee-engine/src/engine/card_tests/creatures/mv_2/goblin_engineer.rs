@@ -103,7 +103,7 @@ fn goblin_engineer_trades_an_artifact_for_the_lantern_in_his_own_graveyard() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one artifact, no more and no fewer");
@@ -185,7 +185,7 @@ fn engineer_may_decline_without_shuffling_or_search_an_artifact_into_its_graveya
             matches!(
                 e.pending(),
                 Pending::YesNo {
-                    prompt: crate::choice::YesNoPrompt::MayDo,
+                    prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                     ..
                 }
             )
@@ -198,7 +198,7 @@ fn engineer_may_decline_without_shuffling_or_search_an_artifact_into_its_graveya
             else {
                 panic!("search")
             };
-            assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+            assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
             let found = options[0];
             e.apply(
                 p0,
@@ -238,8 +238,8 @@ fn engineer_search_offers_only_artifact_cards() {
         .move_object(
             stone,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.dev_state_mut(p0).unwrap().players[0]
@@ -251,7 +251,7 @@ fn engineer_search_offers_only_artifact_cards() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )
@@ -263,7 +263,7 @@ fn engineer_search_offers_only_artifact_cards() {
     else {
         panic!("the search asks which card: {:?}", e.pending())
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
     assert_eq!(
         options,
         vec![stone],
@@ -307,8 +307,8 @@ fn engineer_reanimation_leaves_a_mana_value_four_artifact_in_the_graveyard() {
         .move_object(
             tome,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

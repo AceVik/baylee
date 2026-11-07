@@ -130,7 +130,7 @@ fn soratami_rainshaper_returns_a_tapped_land_to_give_a_creature_shroud() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostReturn,
+        baylee_engine::choice::ChoicePrompt::CostReturn,
         "a land given up to pay, and not a search and not a tap"
     );
     assert_eq!((min, max), (1, 1), "one land, no more and no fewer");

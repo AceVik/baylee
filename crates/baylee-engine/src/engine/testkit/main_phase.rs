@@ -86,7 +86,7 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
             },
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
                 ..
             } => engine.apply(player, PlayerAction::YesNo(true)).is_err(),
             // Decline optional upkeep effects, including Lotus Blossom's
@@ -96,9 +96,9 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
             Pending::YesNo {
                 player,
                 prompt:
-                    crate::choice::YesNoPrompt::PayTax { .. }
-                    | crate::choice::YesNoPrompt::PayMana { .. }
-                    | crate::choice::YesNoPrompt::MayDo,
+                    baylee_engine::choice::YesNoPrompt::PayTax { .. }
+                    | baylee_engine::choice::YesNoPrompt::PayMana { .. }
+                    | baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             } => engine.apply(player, PlayerAction::YesNo(false)).is_err(),
             _ => return false,

@@ -21,8 +21,8 @@ fn zombie_cannibal_exiles_target_card_from_damaged_players_graveyard() {
         .move_object(
             bear,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

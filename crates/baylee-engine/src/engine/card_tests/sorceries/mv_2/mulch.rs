@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -34,9 +34,9 @@ fn mulch_puts_revealed_lands_into_hand_and_rest_into_graveyard() {
 
 #[test]
 fn nonlands_go_to_graveyard_and_only_four_cards_are_revealed() {
-    use crate::event::Cause;
-    use crate::zone::ZonePosition;
     use baylee_core::generated::index;
+    use baylee_engine::event::Cause;
+    use baylee_engine::zone::ZonePosition;
     let mut e = Duel::new(SEED, index::GRIZZLY_BEARS)
         .hand(0, &[mulch(), forest(), plains()])
         .start();

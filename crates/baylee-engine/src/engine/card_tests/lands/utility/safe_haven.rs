@@ -190,7 +190,7 @@ fn a_card_cast_out_of_safe_havens_exile_and_exiled_again_stays_exiled() {
         .object_mut(wolf)
         .expect("the Wolf in exile")
         .riders
-        .push(crate::object::Rider::PlayableFromExileFor(p0));
+        .push(baylee_engine::object::Rider::PlayableFromExileFor(p0));
     engine.refresh_offer();
     tap_mana_where(&mut engine, p0, |id| id == forests[2]);
     engine

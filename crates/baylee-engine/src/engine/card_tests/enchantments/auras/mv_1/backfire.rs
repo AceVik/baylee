@@ -21,7 +21,7 @@ fn backfire_reads_the_damaging_creatures_controller_on_resolution_and_retains_it
         cast_with_floating(&mut e, p0, index::BACKFIRE);
         aim_at(&mut e, p0, bear);
         pass_until(&mut e, stack_is_empty);
-        crate::engine::card_tests::history_helpers::damage_player(
+        baylee_card_testkit::card_tests::history_helpers::damage_player(
             &mut e,
             bear,
             if case == 3 { p1 } else { p0 },
@@ -41,16 +41,16 @@ fn backfire_reads_the_damaging_creatures_controller_on_resolution_and_retains_it
             s.move_object(
                 bear,
                 ZoneLocation::Exile(p1),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
-            s.object_mut(bear).unwrap().kind = crate::object::ObjectKind::Permanent;
+            s.object_mut(bear).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
             s.move_object(
                 bear,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
             s.object_mut(bear).unwrap().set_controller(p2);
@@ -109,7 +109,9 @@ fn backfire_answers_only_the_enchanted_creature_in_combat_and_out_of_it() {
         );
 
         let source = if from_enchanted { enchanted } else { bystander };
-        crate::engine::card_tests::history_helpers::damage_player(&mut e, source, p0, 3, combat);
+        baylee_card_testkit::card_tests::history_helpers::damage_player(
+            &mut e, source, p0, 3, combat,
+        );
         e.apply(p0, PlayerAction::PassPriority).unwrap();
         pass_until(&mut e, stack_is_empty);
 

@@ -15,12 +15,12 @@ fn axelrod_death_trigger_gains_one_and_damages_only_its_legal_target() {
     let source = on_battlefield(&e, p0, index::AXELROD_GUNNARSON).unwrap();
     let bear = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
     let state = e.dev_state_mut(p0).unwrap();
-    let mut damage = crate::damage::DamageWork::new(
+    let mut damage = baylee_engine::damage::DamageWork::new(
         state,
-        vec![crate::damage::Assignment {
+        vec![baylee_engine::damage::Assignment {
             source,
             source_version: Some(state.object(source).unwrap().version),
-            recipient: crate::event::DamageTarget::Object(bear),
+            recipient: baylee_engine::event::DamageTarget::Object(bear),
             amount: 1,
             is_combat: false,
         }],

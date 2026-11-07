@@ -242,7 +242,10 @@ fn doubling_season_doubles_age_counters_and_the_whole_life_price() {
     let Pending::YesNo { prompt, .. } = e.pending() else {
         unreachable!()
     };
-    assert_eq!(*prompt, crate::choice::YesNoPrompt::PayLife { amount: 4 });
+    assert_eq!(
+        *prompt,
+        baylee_engine::choice::YesNoPrompt::PayLife { amount: 4 }
+    );
     assert_eq!(
         e.state
             .object(chasm)
@@ -292,7 +295,10 @@ fn countering_cumulative_upkeep_adds_no_age_and_demands_no_payment() {
     let Pending::YesNo { prompt, .. } = e.pending() else {
         unreachable!()
     };
-    assert_eq!(*prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 });
+    assert_eq!(
+        *prompt,
+        baylee_engine::choice::YesNoPrompt::PayLife { amount: 2 }
+    );
     answer(&mut e, true);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state.players[0].life, life - 2);
@@ -324,7 +330,7 @@ fn large_chasm_upkeep_never_truncates_the_full_life_price() {
             };
             assert_eq!(
                 *prompt,
-                crate::choice::YesNoPrompt::PayLife { amount: 65_536 }
+                baylee_engine::choice::YesNoPrompt::PayLife { amount: 65_536 }
             );
             answer(&mut e, true);
             pass_until(&mut e, stack_is_empty);

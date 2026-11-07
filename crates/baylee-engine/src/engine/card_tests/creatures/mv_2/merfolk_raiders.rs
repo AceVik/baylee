@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::KeywordSet;
 use baylee_core::generated::index;
 use baylee_core::ids::Defender;
@@ -42,7 +42,7 @@ fn merfolk_raiders_has_islandwalk_and_phasing() {
             .object(raiders)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 
     // Advance through P1's turn to P0's next turn -> Merfolk Raiders phases back in.
@@ -54,7 +54,7 @@ fn merfolk_raiders_has_islandwalk_and_phasing() {
             .object(raiders)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 
     pass_until(&mut engine, |e| {

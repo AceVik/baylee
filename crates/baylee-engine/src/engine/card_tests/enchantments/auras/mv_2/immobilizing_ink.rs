@@ -53,7 +53,7 @@ fn immobilizing_ink_stops_untapping_and_grants_discard_to_untap_ability() {
     );
 
     tap_all_mana(&mut e, p0);
-    let grant = crate::effects::granted_activated(e.state(), bears)
+    let grant = baylee_engine::effects::granted_activated(e.state(), bears)
         .next()
         .unwrap()
         .id;

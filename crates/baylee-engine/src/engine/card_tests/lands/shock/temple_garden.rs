@@ -31,7 +31,7 @@ fn a_shockland_pays_two_life_to_enter_untapped_and_costs_nothing_to_decline() {
             assert_eq!(player, p0, "the controller is asked");
             assert_eq!(
                 prompt,
-                crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 2 },
+                baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 2 },
                 "{name} prints two life"
             );
 

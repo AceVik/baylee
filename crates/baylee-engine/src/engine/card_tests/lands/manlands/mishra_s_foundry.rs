@@ -100,7 +100,7 @@ fn mishra_s_foundry_pumps_an_attacking_assembly_worker_only() {
         .unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-            && e.state().turn.step == crate::turn::Step::DeclareAttackers
+            && e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
     });
     tap_mana_where(&mut engine, p0, |id| id == forests[1]);
     activate(&mut engine, p0, foundry, 2);

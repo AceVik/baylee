@@ -112,7 +112,7 @@ fn rashka_the_slayer_does_not_pump_when_blocking_a_creature_that_is_not_black() 
 /// High Ground allows two blocks; "one or more" still creates just one pump.
 #[test]
 fn rashka_pumps_once_when_blocking_two_black_creatures() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
@@ -154,7 +154,7 @@ fn rashka_pumps_once_when_blocking_two_black_creatures() {
 /// The grouped block-or-become-blocked vocabulary must keep the printed direction.
 #[test]
 fn attacking_rashka_does_not_pump_when_a_black_creature_blocks_it() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

@@ -64,7 +64,7 @@ fn watchdog_reduces_attackers_power_while_untapped_and_must_block_if_able() {
 
 #[test]
 fn tapped_watchdog_neither_weakens_attackers_nor_has_to_block() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(SEED, &[watchdog()], &[GRIZZLY_BEARS], &[], &[]);
     let dog = on_battlefield(&e, p0, watchdog()).unwrap();

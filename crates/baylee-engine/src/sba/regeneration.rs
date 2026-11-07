@@ -6,7 +6,8 @@ use std::collections::VecDeque;
 
 /// Ordinary games pay one empty pointer; only competing replacements allocate.
 #[derive(Clone, Debug, Default, Hash)]
-pub(crate) struct RegenerationChoices(Option<Box<Queue>>);
+#[doc(hidden)]
+pub struct RegenerationChoices(Option<Box<Queue>>);
 
 #[derive(Clone, Debug, Default, Hash)]
 struct Queue {
@@ -21,13 +22,15 @@ impl RegenerationChoices {
         queue.ordered = false;
     }
 
-    #[cfg(test)]
-    pub(crate) fn is_empty(&self) -> bool {
+    #[cfg(any(test, feature = "test-support"))]
+    #[doc(hidden)]
+    pub fn is_empty(&self) -> bool {
         self.0.is_none()
     }
 
-    #[cfg(test)]
-    pub(crate) fn len(&self) -> usize {
+    #[cfg(feature = "test-support")]
+    #[doc(hidden)]
+    pub fn len(&self) -> usize {
         self.0.as_ref().map_or(0, |queue| queue.entries.len())
     }
 

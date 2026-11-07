@@ -58,7 +58,7 @@ fn sylvan_scrying_finds_a_land_in_the_library_and_puts_it_into_hand() {
     assert_eq!(player, p0, "the caster searches their own library");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a tutor, and not a discard or a scry, is all a client has to tell these apart"
     );
     assert!(

@@ -23,7 +23,7 @@ fn midsummer_revel_adds_verse_counter_and_sacrifices_for_beast_tokens() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
             .len(),
         2
     );
@@ -31,7 +31,7 @@ fn midsummer_revel_adds_verse_counter_and_sacrifices_for_beast_tokens() {
 
 #[test]
 fn midsummer_revel_uses_sacrificed_sources_last_counter_count_including_zero() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     for n in [0, 2] {
         let mut e = lk::game_with(SEED, &[midsummer_revel()], &[], &[], &[], |e| {

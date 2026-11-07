@@ -17,7 +17,7 @@ fn prevented_asp_combat_damage_creates_no_debt() {
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| {
         e.state.turn.number == turn
-            && e.state.turn.step == crate::turn::Step::Draw
+            && e.state.turn.step == baylee_engine::turn::Step::Draw
             && matches!(e.pending(), Pending::Priority { .. })
     });
     assert!(stack_is_empty(&e));
@@ -37,11 +37,11 @@ fn actual_agatha_granted_ping_is_asp_noncombat_damage_and_two_hits_create_two_de
         .move_object(
             donor,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     activate(&mut e, P0, index::AGATHA_S_SOUL_CAULDRON, 2);
     targets(&mut e, vec![donor], vec![]);
@@ -50,7 +50,7 @@ fn actual_agatha_granted_ping_is_asp_noncombat_damage_and_two_hits_create_two_de
     });
     targets(&mut e, vec![source], vec![]);
     pass_until(&mut e, stack_is_empty);
-    let abilities: Vec<_> = crate::effects::granted_activated(e.state(), source)
+    let abilities: Vec<_> = baylee_engine::effects::granted_activated(e.state(), source)
         .map(|a| a.id)
         .collect();
     assert_eq!(abilities.len(), 1);

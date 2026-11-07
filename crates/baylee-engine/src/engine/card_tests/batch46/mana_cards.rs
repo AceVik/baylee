@@ -1,12 +1,12 @@
 //! Five mana cards played through production, spending and linked choices.
-use crate::engine::card_tests::counter_resources::prepared;
+use baylee_card_testkit::card_tests::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
-use crate::engine::card_tests::*;
-use crate::event::Cause;
-use crate::zone::ZonePosition;
+use baylee_card_testkit::card_tests::*;
 use baylee_cards_dsl::{Filter, ManaSource};
 use baylee_core::generated::{index, subtypes};
 use baylee_core::mana::{ManaCost, ManaPool};
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -61,7 +61,7 @@ fn choose(e: &mut Engine<RegistryLookup>, objects: Vec<ObjectId>) {
 
 fn no_mana_to_cast(e: &Engine<RegistryLookup>, card: ObjectId) {
     assert_eq!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, P0, card),
-        Err(crate::casting::CastError::NotEnoughMana)
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, card),
+        Err(baylee_engine::casting::CastError::NotEnoughMana)
     );
 }

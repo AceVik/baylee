@@ -30,7 +30,7 @@ fn predatory_hunger_puts_p1p1_counter_on_enchanted_creature_when_opponent_casts_
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Green, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Green, 1)]);
     cast_with_floating(&mut engine, p0, llanowar_elves());
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(

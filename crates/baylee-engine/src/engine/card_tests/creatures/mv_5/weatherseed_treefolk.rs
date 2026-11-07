@@ -39,7 +39,7 @@ fn weatherseed_treefolk_returns_to_owners_hand_when_it_dies() {
 
 #[test]
 fn weatherseed_treefolk_tramples_past_a_chump() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[weatherseed_treefolk()],

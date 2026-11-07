@@ -41,7 +41,11 @@ fn tapped_mana_tokens_are_doubled_and_preserve_their_own_characteristics() {
         assert_eq!(tokens.len(), 2);
         for id in tokens {
             let object = e.state().object(id).unwrap();
-            assert!(object.status.contains(crate::object::Status::TAPPED));
+            assert!(
+                object
+                    .status
+                    .contains(baylee_engine::object::Status::TAPPED)
+            );
             assert!(std::ptr::eq(object.token.unwrap(), definition));
             assert_eq!(
                 object
@@ -216,7 +220,11 @@ fn sokenzan_discounts_only_owned_legends_and_grants_temporary_haste_to_every_cre
         assert_eq!(tokens.len(), 4);
         for id in &tokens {
             let object = e.state().object(*id).unwrap();
-            assert!(!object.status.contains(crate::object::Status::TAPPED));
+            assert!(
+                !object
+                    .status
+                    .contains(baylee_engine::object::Status::TAPPED)
+            );
             assert_eq!(pt(&e, *id), (1, 1));
             assert!(
                 object

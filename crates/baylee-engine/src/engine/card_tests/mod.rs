@@ -22,195 +22,154 @@
 //! moves `#[test]` functions and nothing else, which is also what makes it
 //! reviewable: no item was rewritten, only re-filed.
 
-mod activation_cost_bounds;
-mod alpha_completion_review;
-mod archon_kismet;
-mod artifacts;
-mod aura_kit;
-mod batch43;
-mod batch45;
-mod batch46;
-mod batch47;
-mod batch48;
-mod batch48_activations;
-mod batch49_nafs;
-mod batch49_turns;
-mod batch49_turtle;
-mod batch49_untap;
-mod batch49_wall;
-mod batch52_horse_johan;
-mod batch52_protection;
-mod batch53_cards;
-mod battle_damage_kit;
-mod battles;
-mod counted_activation_costs;
-mod counter_movement;
-mod counter_resources;
-mod creature_count_combat;
-mod creatures;
-mod draw_kit;
-mod enchantments;
-mod entry_replacements;
-mod hidden_exile;
-mod instants;
-mod land_equilibrium;
-mod lands;
-mod legends_ids;
-mod legends_kit;
-mod library_choices;
-mod library_followups;
-mod luna_oracle_pilot;
-mod planeswalkers;
-mod printed_costs;
-mod radiation;
-mod rules;
-mod sacrifice_outcomes;
-mod sorceries;
-mod spell_endings;
-mod stun_counters;
+pub mod aura_kit;
+pub mod battle_damage_kit;
+pub mod draw_kit;
+pub mod legends_ids;
+pub mod legends_kit;
 
-use super::testkit::*;
+pub use super::testkit::*;
 
-use super::*;
+pub use super::*;
 
-use crate::choice::{
+pub use baylee_cards_dsl::{CounterKind, KeywordSet};
+pub use baylee_core::ids::{CardIndex, Defender, ObjectId};
+pub use baylee_core::mana::ManaColor;
+pub use baylee_core::types::{SupertypeSet, TypeSet};
+pub use baylee_engine::choice::{
     ArrangePile, ArrangePlace, ArrangePrompt, CastModeKind, ChoicePrompt, YesNoPrompt,
 };
-use crate::object::Status;
-use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{CounterKind, KeywordSet};
-use baylee_core::ids::{CardIndex, Defender, ObjectId};
-use baylee_core::mana::ManaColor;
-use baylee_core::types::{SupertypeSet, TypeSet};
+pub use baylee_engine::object::Status;
+pub use baylee_engine::zone::{Zone, ZoneLocation};
 
-fn crib_swap() -> CardIndex {
+pub fn crib_swap() -> CardIndex {
     card_index("2987c385-011a-4032-a516-a46d1e9dc9e8")
 }
 
-fn forest() -> CardIndex {
+pub fn forest() -> CardIndex {
     card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
 }
 
-fn plains() -> CardIndex {
+pub fn plains() -> CardIndex {
     card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
 }
 
-fn sol_ring() -> CardIndex {
+pub fn sol_ring() -> CardIndex {
     card_index("6ad8011d-3471-4369-9d68-b264cc027487")
 }
 
-fn island() -> CardIndex {
+pub fn island() -> CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
 }
 
-fn earth_king_s_lieutenant() -> CardIndex {
+pub fn earth_king_s_lieutenant() -> CardIndex {
     card_index("9da9248d-1201-447f-b6c2-2b64af4f71c4")
 }
 
-fn ondu_cleric() -> CardIndex {
+pub fn ondu_cleric() -> CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
 }
 
 /// `{1}{U}{U}` sorcery: "you may waterbend {6}", then draw two, or shuffle
 /// the graveyard back and draw seven.
-fn spirit_water_revival() -> CardIndex {
+pub fn spirit_water_revival() -> CardIndex {
     card_index("68979160-b5ce-4787-8a1e-1f40e614c3b0")
 }
 
 /// `{2}{W}{W}` instant with convoke: any number of target nonland permanents
 /// you control phase out.
-fn clever_concealment() -> CardIndex {
+pub fn clever_concealment() -> CardIndex {
     card_index("42bb7ea9-f6e4-4551-8d93-3b1eae84b865")
 }
 
 /// `{2}` artifact with no mana ability: waterbend may tap it, convoke may not.
-fn darksteel_pendant() -> CardIndex {
+pub fn darksteel_pendant() -> CardIndex {
     card_index("431838a8-f020-4e4e-a6f4-2d4ca27c56df")
 }
 
 /// The question a convoke or waterbend cast asks for its taps, if it asked
 /// one: `(options, max)`.
-fn tap_to_pay_question(engine: &Engine<RegistryLookup>) -> Option<(Vec<ObjectId>, u32)> {
+pub fn tap_to_pay_question(engine: &Engine<RegistryLookup>) -> Option<(Vec<ObjectId>, u32)> {
     match engine.pending() {
         Pending::ChooseTargets {
             options,
             max,
-            reason: crate::choice::TargetPrompt::Convoke,
+            reason: baylee_engine::choice::TargetPrompt::Convoke,
             ..
         } => Some((options.clone(), *max)),
         _ => None,
     }
 }
 
-fn counterspell() -> CardIndex {
+pub fn counterspell() -> CardIndex {
     card_index("cc187110-1148-4090-bbb8-e205694a39f5")
 }
 
-fn silence() -> CardIndex {
+pub fn silence() -> CardIndex {
     card_index("8aed54cb-d1bb-45ad-adbe-38e55d84ff31")
 }
 
-fn drannith_magistrate() -> CardIndex {
+pub fn drannith_magistrate() -> CardIndex {
     card_index("aadd10d0-6dd0-4bdc-8d93-ff08e29a5863")
 }
 
-fn jin_gitaxias() -> CardIndex {
+pub fn jin_gitaxias() -> CardIndex {
     card_index("f5daadc1-98ff-480a-82bb-fe7bfaa7b60e")
 }
 
-fn unsummon() -> CardIndex {
+pub fn unsummon() -> CardIndex {
     card_index("837182db-1bf3-4a2c-bd01-1af9d9873561")
 }
 
-fn swords_to_plowshares() -> CardIndex {
+pub fn swords_to_plowshares() -> CardIndex {
     card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }
 
-fn heroic_intervention() -> CardIndex {
+pub fn heroic_intervention() -> CardIndex {
     card_index("24882fa2-3fe9-4c1b-aa3d-0e6488b9db27")
 }
 
-fn banishing_stroke() -> CardIndex {
+pub fn banishing_stroke() -> CardIndex {
     card_index("a6898364-c29e-4b97-a500-344efa3ec24a")
 }
 
-fn katara_the_fearless() -> CardIndex {
+pub fn katara_the_fearless() -> CardIndex {
     card_index("0972d46e-423b-454e-87c7-a2d40fb6fb6d")
 }
 
-fn curse_of_the_swine() -> CardIndex {
+pub fn curse_of_the_swine() -> CardIndex {
     card_index("5669ea7c-c4fc-494c-896b-4bce9b494817")
 }
 
-fn giant_growth() -> CardIndex {
+pub fn giant_growth() -> CardIndex {
     card_index("5748ebf1-24e3-499d-ab7c-c2cebd462a24")
 }
 
-fn ephemerate() -> CardIndex {
+pub fn ephemerate() -> CardIndex {
     card_index("0fd57894-b917-41c8-a394-360d1d31b236")
 }
 
 /// A permanent's projected power, which is what a pump is visible in.
-fn power_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<i16> {
+pub fn power_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<i16> {
     engine
         .state()
         .object(object)
         .and_then(|o| o.characteristics().power)
 }
 
-fn storm_of_saruman() -> CardIndex {
+pub fn storm_of_saruman() -> CardIndex {
     card_index("cf5f4860-e805-46a3-9352-a2c583e33403")
 }
 
-fn karn_the_great_creator() -> CardIndex {
+pub fn karn_the_great_creator() -> CardIndex {
     card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
 }
 
-fn spark_double() -> CardIndex {
+pub fn spark_double() -> CardIndex {
     card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
 }
 
-fn dig_through_time() -> CardIndex {
+pub fn dig_through_time() -> CardIndex {
     card_index("f8b17b89-26ce-4208-874a-9e1d66514640")
 }
 
@@ -218,7 +177,7 @@ fn dig_through_time() -> CardIndex {
 /// and has it enter as a copy of `original`, a permanent that seat controls.
 /// Answers the copy, which is still Spark Double's card.
 #[track_caller]
-fn spark_double_copying(
+pub fn spark_double_copying(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     original: ObjectId,
@@ -241,39 +200,39 @@ fn spark_double_copying(
     on_battlefield(engine, seat, spark_double()).expect("the copy entered")
 }
 
-fn chromatic_lantern() -> CardIndex {
+pub fn chromatic_lantern() -> CardIndex {
     card_index("539f5396-d99a-417d-a84c-dff7930b5900")
 }
 
-fn abraded_bluffs() -> CardIndex {
+pub fn abraded_bluffs() -> CardIndex {
     card_index("ca7d093c-0533-493f-9ad3-8af30118fbfc")
 }
 
-fn treetop_village() -> CardIndex {
+pub fn treetop_village() -> CardIndex {
     card_index("b53f216d-1592-4eee-b204-502a805fbc8c")
 }
 
-fn great_divide_guide() -> CardIndex {
+pub fn great_divide_guide() -> CardIndex {
     card_index("79e69a91-d580-47fb-be76-1e32c50d2fa0")
 }
 
-fn swamp() -> CardIndex {
+pub fn swamp() -> CardIndex {
     card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
 }
 
-fn badlands() -> CardIndex {
+pub fn badlands() -> CardIndex {
     card_index("13ff3222-91cb-4796-a34e-899ed817694c")
 }
 
-fn lightning_greaves() -> CardIndex {
+pub fn lightning_greaves() -> CardIndex {
     card_index("ca204b66-8d0c-431a-8d34-282f7c2d17da")
 }
 
-fn llanowar_elves() -> CardIndex {
+pub fn llanowar_elves() -> CardIndex {
     card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
 }
 
-fn festering_goblin() -> CardIndex {
+pub fn festering_goblin() -> CardIndex {
     card_index("66fb4764-d309-4c30-a2a4-474f9030dc87")
 }
 
@@ -281,7 +240,7 @@ fn festering_goblin() -> CardIndex {
 /// hexproof, which is what makes it the creature every "it can't be
 /// regenerated" test kills.
 // oracle_id = "61b1d7e5-6155-4204-b110-35a890551ec8"
-fn lotleth_troll() -> CardIndex {
+pub fn lotleth_troll() -> CardIndex {
     card_index("61b1d7e5-6155-4204-b110-35a890551ec8")
 }
 
@@ -293,7 +252,7 @@ fn lotleth_troll() -> CardIndex {
 /// cards are on it, and what proves the claim is the cards that are there
 /// beside the one that is not.
 #[track_caller]
-fn pass_until_targets(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn pass_until_targets(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     pass_until(engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
@@ -320,19 +279,19 @@ fn pass_until_targets(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Ve
 /// Every caller seats creatures that print no dies trigger, which is what
 /// makes the shortcut honest rather than merely convenient.
 #[track_caller]
-fn bury(engine: &mut Engine<RegistryLookup>, ids: &[ObjectId]) {
+pub fn bury(engine: &mut Engine<RegistryLookup>, ids: &[ObjectId]) {
     let state = engine
         .dev_state_mut(PlayerId::new(0))
         .expect("the harness may set boards up");
     for id in ids {
-        crate::sba::destroy(state, *id);
+        baylee_engine::sba::destroy(state, *id);
     }
 }
 
 /// Answers a spell's buyback question (CR 702.27a), and fails if something
 /// else is what the cast is asking.
 #[track_caller]
-fn answer_buyback(engine: &mut Engine<RegistryLookup>, seat: PlayerId, pay: bool) {
+pub fn answer_buyback(engine: &mut Engine<RegistryLookup>, seat: PlayerId, pay: bool) {
     assert!(
         matches!(
             engine.pending(),
@@ -349,7 +308,7 @@ fn answer_buyback(engine: &mut Engine<RegistryLookup>, seat: PlayerId, pay: bool
 
 /// The spell came home: in its owner's hand, not in their graveyard.
 #[track_caller]
-fn assert_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: CardIndex) {
+pub fn assert_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: CardIndex) {
     assert!(
         in_hand(engine, owner, spell).is_some(),
         "the spell is back in its owner's hand"
@@ -359,7 +318,7 @@ fn assert_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: C
 
 /// The spell did not: in its owner's graveyard, not in their hand.
 #[track_caller]
-fn assert_not_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: CardIndex) {
+pub fn assert_not_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: CardIndex) {
     assert!(
         in_graveyard(engine, owner, spell).is_some(),
         "the spell is in its owner's graveyard"
@@ -371,7 +330,7 @@ fn assert_not_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spel
 /// their hand, their lands untapped, and `caster` holding priority over it
 /// (CR 701.6a). Runs the stack out.
 #[track_caller]
-fn counter_the_top_spell(
+pub fn counter_the_top_spell(
     engine: &mut Engine<RegistryLookup>,
     caster: PlayerId,
     answering: PlayerId,
@@ -406,11 +365,11 @@ fn counter_the_top_spell(
 /// The same helper with the pass taken out is `undying_tests::kill`, where
 /// the rule itself is read.
 #[track_caller]
-fn kill(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
+pub fn kill(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
     let state = engine
         .dev_state_mut(PlayerId::new(0))
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, id);
+    baylee_engine::sba::destroy(state, id);
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -428,7 +387,7 @@ fn kill(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
 /// put there by the harness rather than by a card, because then nothing in
 /// the test has read the rule at all.
 #[track_caller]
-fn raise_a_shield(
+pub fn raise_a_shield(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     source: ObjectId,
@@ -455,19 +414,19 @@ fn raise_a_shield(
     );
 }
 
-fn wild_elephant() -> CardIndex {
+pub fn wild_elephant() -> CardIndex {
     card_index("3b2ce431-7101-4256-827d-a14de9f867fd")
 }
 
-fn fangren_hunter() -> CardIndex {
+pub fn fangren_hunter() -> CardIndex {
     card_index("c5dc5546-e9e5-4b5b-b812-5716d4bdee0e")
 }
 
-fn wild_colos() -> CardIndex {
+pub fn wild_colos() -> CardIndex {
     card_index("cb6b8ce3-9f9d-418c-94b0-c4469a254938")
 }
 
-fn rib_cage_spider() -> CardIndex {
+pub fn rib_cage_spider() -> CardIndex {
     card_index("906cba93-3dac-4720-a482-987cf1b4e786")
 }
 
@@ -479,7 +438,11 @@ fn rib_cage_spider() -> CardIndex {
 /// proves only that the engine accepted it, and a filter reaching one
 /// creature too far looks exactly the same from the outside.
 #[track_caller]
-fn aim_at(engine: &mut Engine<RegistryLookup>, seat: PlayerId, target: ObjectId) -> Vec<ObjectId> {
+pub fn aim_at(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    target: ObjectId,
+) -> Vec<ObjectId> {
     let Pending::ChooseTargets {
         player,
         options,
@@ -504,83 +467,83 @@ fn aim_at(engine: &mut Engine<RegistryLookup>, seat: PlayerId, target: ObjectId)
     options
 }
 
-fn aurochs() -> CardIndex {
+pub fn aurochs() -> CardIndex {
     card_index("3961ef7c-4eb4-482e-9cda-d49d6a29c5a9")
 }
 
-fn rootbreaker_wurm() -> CardIndex {
+pub fn rootbreaker_wurm() -> CardIndex {
     card_index("d3edbb47-6892-4853-badc-cc01499d4e55")
 }
 
-fn muscle_burst() -> CardIndex {
+pub fn muscle_burst() -> CardIndex {
     card_index("97487ea5-2bbd-4ef6-a870-7e9f2db5e5e0")
 }
 
-fn time_sieve() -> CardIndex {
+pub fn time_sieve() -> CardIndex {
     card_index("3da5977a-36d4-4f32-ab9b-8b93809d818d")
 }
 
-fn the_meathook_massacre() -> CardIndex {
+pub fn the_meathook_massacre() -> CardIndex {
     card_index("127de52b-df75-4342-95a0-20d84c5bf916")
 }
 
-fn underworld_breach() -> CardIndex {
+pub fn underworld_breach() -> CardIndex {
     card_index("27e0948b-9916-473b-8d8c-a51bdfbc7457")
 }
 
-fn profane_procession() -> CardIndex {
+pub fn profane_procession() -> CardIndex {
     card_index("a656ad7f-133f-4d93-919a-43bcf1f815f3")
 }
 
-fn retreat_to_kazandu() -> CardIndex {
+pub fn retreat_to_kazandu() -> CardIndex {
     card_index("3f8e5ff1-af89-427e-924c-19a44f9a3788")
 }
 
-fn temur_ascendancy() -> CardIndex {
+pub fn temur_ascendancy() -> CardIndex {
     card_index("e68dc47c-692f-4420-9799-eee104017273")
 }
 
-fn virtue_of_knowledge() -> CardIndex {
+pub fn virtue_of_knowledge() -> CardIndex {
     card_index("f0bbcabf-29e7-4c7e-893f-86b64d3620a9")
 }
 
-fn badgermole_cub() -> CardIndex {
+pub fn badgermole_cub() -> CardIndex {
     card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
 }
 
-fn pinnacle_monk() -> CardIndex {
+pub fn pinnacle_monk() -> CardIndex {
     card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
 }
 
-fn desert_of_the_indomitable() -> CardIndex {
+pub fn desert_of_the_indomitable() -> CardIndex {
     card_index("852d4dc3-404d-4565-99e9-1eac8f6eca5e")
 }
 
-fn boomerang() -> CardIndex {
+pub fn boomerang() -> CardIndex {
     card_index("dc4a4996-108a-4aac-850f-2d9f76403446")
 }
 
-fn erode() -> CardIndex {
+pub fn erode() -> CardIndex {
     card_index("2e467fab-e808-44d3-99bf-e3621baeb7cb")
 }
 
-fn malakir_rebirth() -> CardIndex {
+pub fn malakir_rebirth() -> CardIndex {
     card_index("a731e87b-8d99-4b64-8ee3-8e540d652366")
 }
 
-fn revitalizing_repast() -> CardIndex {
+pub fn revitalizing_repast() -> CardIndex {
     card_index("8dd6d060-d023-48a6-85cb-7a5521b6257b")
 }
 
-fn spikefield_hazard() -> CardIndex {
+pub fn spikefield_hazard() -> CardIndex {
     card_index("81036c9f-fe0a-45a7-bcd5-0d344f31055a")
 }
 
-fn vastwood_fortification() -> CardIndex {
+pub fn vastwood_fortification() -> CardIndex {
     card_index("ce148a0c-6c63-49d5-a156-99efae4e367a")
 }
 
-fn hero_s_downfall() -> CardIndex {
+pub fn hero_s_downfall() -> CardIndex {
     card_index("03df6a57-37c9-46d3-83b3-4a6240100714")
 }
 
@@ -591,7 +554,7 @@ fn hero_s_downfall() -> CardIndex {
 /// test that meant the spell has to say so rather than take whatever the
 /// first option happens to be.
 #[track_caller]
-fn cast_front_face(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
+pub fn cast_front_face(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
     cast_with_floating(engine, seat, card);
     if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
         let slot = options
@@ -604,153 +567,153 @@ fn cast_front_face(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ca
     }
 }
 
-fn sphinx_of_the_final_word() -> CardIndex {
+pub fn sphinx_of_the_final_word() -> CardIndex {
     card_index("d4246e4d-390d-4925-a5a8-89cd096a237c")
 }
 
-fn tyrranax_rex() -> CardIndex {
+pub fn tyrranax_rex() -> CardIndex {
     card_index("6e42da0c-151e-468d-91cb-5a5b117a9298")
 }
 
-fn maelstrom_wanderer() -> CardIndex {
+pub fn maelstrom_wanderer() -> CardIndex {
     card_index("ad9b7fbc-61c8-43ee-a65c-99206fd1e4df")
 }
 
-fn rancor() -> CardIndex {
+pub fn rancor() -> CardIndex {
     card_index("9d2d6479-531c-4ce1-b52b-00e36fa63b64")
 }
 
-fn fastbond() -> CardIndex {
+pub fn fastbond() -> CardIndex {
     card_index("e27193b7-1a47-4555-865d-b1fd4c6d597f")
 }
 
-fn mirri_s_guile() -> CardIndex {
+pub fn mirri_s_guile() -> CardIndex {
     card_index("7f89c0ee-b914-406c-8a3f-98424a52ae14")
 }
 
-fn arguel_s_blood_fast() -> CardIndex {
+pub fn arguel_s_blood_fast() -> CardIndex {
     card_index("be2a4bc4-8af6-48c5-9421-32d26272e71a")
 }
 
-fn steely_resolve() -> CardIndex {
+pub fn steely_resolve() -> CardIndex {
     card_index("48c127f0-2857-4c36-97bc-1291b6fe4a82")
 }
 
-fn sterling_grove() -> CardIndex {
+pub fn sterling_grove() -> CardIndex {
     card_index("2c275a85-5a15-46cd-a6e7-add63f9b853d")
 }
 
-fn sylvan_library() -> CardIndex {
+pub fn sylvan_library() -> CardIndex {
     card_index("92eed395-62ca-4293-882b-8565c40daab5")
 }
 
-fn oboro_envoy() -> CardIndex {
+pub fn oboro_envoy() -> CardIndex {
     card_index("be70c6e8-6f9f-49fb-ab40-c6ce0ec2077c")
 }
 
-fn thrun_the_last_troll() -> CardIndex {
+pub fn thrun_the_last_troll() -> CardIndex {
     card_index("1149e5ac-554a-41b1-84ae-bac42579c1aa")
 }
 
-fn world_shaper() -> CardIndex {
+pub fn world_shaper() -> CardIndex {
     card_index("3c075bb6-1831-4521-bd8d-4ed2825ae796")
 }
 
-fn ashaya_soul_of_the_wild() -> CardIndex {
+pub fn ashaya_soul_of_the_wild() -> CardIndex {
     card_index("162572f2-1757-42e9-bd97-e6bd9a762c0e")
 }
 
-fn thrun_breaker_of_silence() -> CardIndex {
+pub fn thrun_breaker_of_silence() -> CardIndex {
     card_index("789b7af5-ac15-40b6-b5b7-f3fcdcfb52e1")
 }
 
-fn aesi_tyrant_of_gyre_strait() -> CardIndex {
+pub fn aesi_tyrant_of_gyre_strait() -> CardIndex {
     card_index("6511f317-bd38-46d0-b800-7125a3f420da")
 }
 
-fn disciple_of_freyalise() -> CardIndex {
+pub fn disciple_of_freyalise() -> CardIndex {
     card_index("2699005b-a471-429f-a9d8-fbf2077ee2fd")
 }
 
-fn lumra_bellow_of_the_woods() -> CardIndex {
+pub fn lumra_bellow_of_the_woods() -> CardIndex {
     card_index("97a84e9d-bfc4-4ca2-b1e8-908dba56ccdb")
 }
 
-fn muldrotha_the_gravetide() -> CardIndex {
+pub fn muldrotha_the_gravetide() -> CardIndex {
     card_index("e4625704-1d52-44e4-804f-2f45644d76ac")
 }
 
-fn primeval_titan() -> CardIndex {
+pub fn primeval_titan() -> CardIndex {
     card_index("ae83ef2c-960f-4c5b-97cc-52465c687c18")
 }
 
-fn drowner_of_truth() -> CardIndex {
+pub fn drowner_of_truth() -> CardIndex {
     card_index("db19a27a-ee22-4931-ae3c-0ce21f456ea6")
 }
 
-fn irradiate() -> CardIndex {
+pub fn irradiate() -> CardIndex {
     card_index("84d45389-a085-44bc-a3fb-1a5f7cc6cbe0")
 }
 
-fn feeding_frenzy() -> CardIndex {
+pub fn feeding_frenzy() -> CardIndex {
     card_index("d14fa263-a6ae-4ab4-b391-2f1ff356fa54")
 }
 
-fn wirewood_pride() -> CardIndex {
+pub fn wirewood_pride() -> CardIndex {
     card_index("ff19f10c-777c-4688-b1ab-99e53afaf629")
 }
 
-fn thopter_foundry() -> CardIndex {
+pub fn thopter_foundry() -> CardIndex {
     card_index("88bef744-550e-4f33-b1ff-a8ee990ec754")
 }
 
-fn walking_ballista() -> CardIndex {
+pub fn walking_ballista() -> CardIndex {
     card_index("4b515bb0-f275-4400-8032-3173b799ab40")
 }
 
-fn swan_song() -> CardIndex {
+pub fn swan_song() -> CardIndex {
     card_index("8ddfc283-c9b4-41a5-af88-cf0068e986cc")
 }
 
-fn gamble() -> CardIndex {
+pub fn gamble() -> CardIndex {
     card_index("a54f0869-94c8-42af-9080-166efb9486a4")
 }
 
-fn teferis_protection() -> CardIndex {
+pub fn teferis_protection() -> CardIndex {
     card_index("0d4ecdb1-ec90-497f-a7a4-1c68092b8757")
 }
 
-fn young_wolf() -> CardIndex {
+pub fn young_wolf() -> CardIndex {
     card_index("8b492764-10b6-4506-be11-22daa9220a91")
 }
 
-fn theorist_s_proxy() -> CardIndex {
+pub fn theorist_s_proxy() -> CardIndex {
     card_index("0089acfe-da66-4dd7-b1e5-4d7407f58257")
 }
 
-fn thorin_oakenshield() -> CardIndex {
+pub fn thorin_oakenshield() -> CardIndex {
     card_index("bdd41af0-bbd1-4ecd-a699-99f006f5e5ce")
 }
 
-fn fellwar_stone() -> CardIndex {
+pub fn fellwar_stone() -> CardIndex {
     card_index("95560508-7ac9-4be9-8a3f-3c7d5b52807b")
 }
 
-fn an_offer_you_cant_refuse() -> CardIndex {
+pub fn an_offer_you_cant_refuse() -> CardIndex {
     card_index("234a734b-ba28-4f1b-9d01-3c3e7d516590")
 }
 
-fn dark_ritual() -> CardIndex {
+pub fn dark_ritual() -> CardIndex {
     card_index("53f7c868-b03e-4fc2-8dcf-a75bbfa3272b")
 }
 
-fn past_in_flames() -> CardIndex {
+pub fn past_in_flames() -> CardIndex {
     card_index("37a18736-5fe2-4897-809b-013497bdd890")
 }
 
 /// Activates printed ability `index` of `card`.
 #[track_caller]
-fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex, index: u32) {
+pub fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex, index: u32) {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -779,7 +742,7 @@ fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex
 
 /// The keywords a battlefield object has *after* the layer system has run,
 /// which is the only reading that can see a granted one.
-fn keywords(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_dsl::KeywordSet {
+pub fn keywords(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_dsl::KeywordSet {
     engine
         .state()
         .object(object)
@@ -788,31 +751,31 @@ fn keywords(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_d
         .keywords
 }
 
-fn rogue_s_passage() -> CardIndex {
+pub fn rogue_s_passage() -> CardIndex {
     card_index("f29dc596-2121-4421-8463-15f6c2e8b9b3")
 }
 
-fn mox_opal() -> CardIndex {
+pub fn mox_opal() -> CardIndex {
     card_index("de2440de-e948-4811-903c-0bbe376ff64d")
 }
 
-fn liquimetal_coating() -> CardIndex {
+pub fn liquimetal_coating() -> CardIndex {
     card_index("f4bdc551-c2eb-4a34-a3e3-b4a017c925af")
 }
 
-fn sunken_hollow() -> CardIndex {
+pub fn sunken_hollow() -> CardIndex {
     card_index("cd2c90ac-2b04-461c-92f3-939871b6b6a3")
 }
 
 /// `Land — Plains Island`, and **nonbasic**: the bystander that separates
 /// "an Island" from "a basic land".
-fn irrigated_farmland() -> CardIndex {
+pub fn irrigated_farmland() -> CardIndex {
     card_index("406eabe2-df62-49e2-bb39-c0227509d875")
 }
 
 /// Whether the land `seat` just played came in tapped.
 #[track_caller]
-fn entered_tapped(engine: &Engine<RegistryLookup>, land: ObjectId) -> bool {
+pub fn entered_tapped(engine: &Engine<RegistryLookup>, land: ObjectId) -> bool {
     engine
         .state()
         .object(land)
@@ -828,7 +791,7 @@ fn entered_tapped(engine: &Engine<RegistryLookup>, land: ObjectId) -> bool {
 /// while this is unanswered: it is neither tapped nor untapped until the
 /// question is settled, and every assertion about it before that reads a
 /// half-built permanent.
-fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+pub fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
     engine
         .apply(
             seat,
@@ -841,7 +804,7 @@ fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ob
 
 /// What the player holding priority may do now.
 #[track_caller]
-fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalActions {
+pub fn priority_offer(engine: &Engine<RegistryLookup>) -> baylee_engine::choice::LegalActions {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -851,7 +814,7 @@ fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalAction
 /// Whether `object`'s activated ability `index` is offered at this priority,
 /// payable now (`abilities`) or once its mana is made (`unpaid_abilities`):
 /// an offer test that floats no mana reads the second list.
-fn ability_offered(engine: &Engine<RegistryLookup>, object: ObjectId, index: u32) -> bool {
+pub fn ability_offered(engine: &Engine<RegistryLookup>, object: ObjectId, index: u32) -> bool {
     let legal = priority_offer(engine);
     legal.abilities.contains(&(object, index))
         || legal
@@ -863,7 +826,11 @@ fn ability_offered(engine: &Engine<RegistryLookup>, object: ObjectId, index: u32
 /// Casts the object `card` (wherever it is) off floating mana and lets it
 /// resolve.
 #[track_caller]
-fn cast_object_and_resolve(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+pub fn cast_object_and_resolve(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: ObjectId,
+) {
     engine
         .apply(seat, PlayerAction::CastSpell { card })
         .expect("the offer listed the card");
@@ -876,7 +843,7 @@ fn cast_object_and_resolve(engine: &mut Engine<RegistryLookup>, seat: PlayerId, 
 }
 
 /// Puts `card` from `seat`'s hand on top of its library, the harness way.
-fn hand_to_library_top(
+pub fn hand_to_library_top(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -886,7 +853,7 @@ fn hand_to_library_top(
 
 /// Puts `card` from `seat`'s hand into its graveyard, the harness way, and
 /// refreshes the offer the graveyard is now part of.
-fn hand_to_graveyard(
+pub fn hand_to_graveyard(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -896,7 +863,7 @@ fn hand_to_graveyard(
     id
 }
 
-fn hand_to(
+pub fn hand_to(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -908,8 +875,8 @@ fn hand_to(
         .move_object(
             id,
             to,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the harness moves a card");
     id
@@ -917,7 +884,7 @@ fn hand_to(
 
 /// Plays `card` out of `seat`'s hand and answers with the object it became.
 #[track_caller]
-fn play_land(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> ObjectId {
+pub fn play_land(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> ObjectId {
     let land = in_hand(engine, seat, card).expect("the land is in hand");
     engine
         .apply(seat, PlayerAction::PlayLand { card: land })
@@ -925,7 +892,7 @@ fn play_land(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardInde
     land
 }
 
-fn deserted_beach() -> CardIndex {
+pub fn deserted_beach() -> CardIndex {
     card_index("f0ec8681-da50-466b-8cdd-1dc710deccd9")
 }
 
@@ -939,7 +906,7 @@ fn deserted_beach() -> CardIndex {
 /// cycle on a land early and the other off a land early. Twenty-five cards
 /// ride on the skip in `Engine::controls_count`, and Cave of the Frost
 /// Dragon rides on it printing the bound as its complement.
-const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
+pub const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Blackcleave Cliffs",
     "Blooming Marsh",
     "Botanical Sanctum",
@@ -970,13 +937,13 @@ const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Witch's Cottage",
 ];
 
-fn skyclave_apparition() -> CardIndex {
+pub fn skyclave_apparition() -> CardIndex {
     card_index("d90af00a-d322-4265-9954-7b1e80702e18")
 }
 
 /// Casts the Apparition on p0's first main phase and leaves it on the
 /// stack, with `their_board` standing across the table.
-fn a_skyclave_over(their_board: &[CardIndex]) -> Engine<RegistryLookup> {
+pub fn a_skyclave_over(their_board: &[CardIndex]) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(201, forest())
         .battlefield(0, &[plains(), plains(), plains()])
@@ -1000,31 +967,31 @@ fn a_skyclave_over(their_board: &[CardIndex]) -> Engine<RegistryLookup> {
     engine
 }
 
-fn eerie_interlude() -> CardIndex {
+pub fn eerie_interlude() -> CardIndex {
     card_index("0634091a-a74c-4cea-b6d1-7324a725554a")
 }
 
-fn nephalia_drownyard() -> CardIndex {
+pub fn nephalia_drownyard() -> CardIndex {
     card_index("6429b4ed-1845-4643-9a3d-85f7c12f2bba")
 }
 
-fn blighted_gorge() -> CardIndex {
+pub fn blighted_gorge() -> CardIndex {
     card_index("c2cb0afd-781f-4cfa-b680-ed1edfa81868")
 }
 
-fn mountain() -> CardIndex {
+pub fn mountain() -> CardIndex {
     card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
 }
 
-fn library_size(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+pub fn library_size(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
     engine.state().zones.list(ZoneLocation::Library(seat)).len()
 }
 
-fn wizard_class() -> CardIndex {
+pub fn wizard_class() -> CardIndex {
     card_index("36f68aa3-9955-46f1-bc87-497f16ef5222")
 }
 
-fn bleachbone_verge() -> CardIndex {
+pub fn bleachbone_verge() -> CardIndex {
     card_index("2b8144a0-08d2-4c28-9fd7-5d90f90105e4")
 }
 
@@ -1033,7 +1000,11 @@ fn bleachbone_verge() -> CardIndex {
 ///
 /// [`tap_mana_except`] keeps one object; this keeps a whole printing, which
 /// is how a test says "leave the Plains for the instant I am holding".
-fn tap_all_mana_but(engine: &mut Engine<RegistryLookup>, seat: PlayerId, skip: Option<CardIndex>) {
+pub fn tap_all_mana_but(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    skip: Option<CardIndex>,
+) {
     let printed: Vec<(ObjectId, Option<CardIndex>)> = engine
         .state()
         .zones
@@ -1059,32 +1030,32 @@ fn tap_all_mana_but(engine: &mut Engine<RegistryLookup>, seat: PlayerId, skip: O
     });
 }
 
-fn baleful_strix() -> CardIndex {
+pub fn baleful_strix() -> CardIndex {
     card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
 }
 
-fn veteran_bodyguard() -> CardIndex {
+pub fn veteran_bodyguard() -> CardIndex {
     card_index("d29078c0-1fb8-437a-81d1-bb319f646941")
 }
 
-fn earth_elemental() -> CardIndex {
+pub fn earth_elemental() -> CardIndex {
     card_index("3c97c311-7ad5-47ec-b421-f6c3bfbda9fb")
 }
 
-fn gray_ogre() -> CardIndex {
+pub fn gray_ogre() -> CardIndex {
     card_index("83c8a3a6-2e1a-4e26-8847-6d066f42d906")
 }
 
 /// Every `DamageDealt` event recorded in the journal from index `from` on:
 /// source, target, amount, whether it was combat damage.
-fn damage_events(
+pub fn damage_events(
     engine: &Engine<RegistryLookup>,
     from: usize,
-) -> Vec<(ObjectId, crate::event::DamageTarget, u32, bool)> {
+) -> Vec<(ObjectId, baylee_engine::event::DamageTarget, u32, bool)> {
     engine.journal().entries()[from..]
         .iter()
         .filter_map(|e| match e.event {
-            crate::event::GameEvent::DamageDealt {
+            baylee_engine::event::GameEvent::DamageDealt {
                 source: Some(source),
                 target,
                 amount,
@@ -1095,7 +1066,7 @@ fn damage_events(
         .collect()
 }
 
-fn tishanas_tidebinder() -> CardIndex {
+pub fn tishanas_tidebinder() -> CardIndex {
     card_index("2993dc7d-723d-4a9b-94bd-4bb02a9f7243")
 }
 
@@ -1105,7 +1076,7 @@ fn tishanas_tidebinder() -> CardIndex {
 ///
 /// p0 keeps a Plains and Swords to Plowshares in reserve, for the half of
 /// the sentence that asks what happens when the Tidebinder leaves.
-fn a_strix_the_tidebinder_answered() -> (Engine<RegistryLookup>, PlayerId, PlayerId, ObjectId) {
+pub fn a_strix_the_tidebinder_answered() -> (Engine<RegistryLookup>, PlayerId, PlayerId, ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(23, island())
         .battlefield(0, &[island(), swamp(), plains()])
@@ -1162,7 +1133,10 @@ fn a_strix_the_tidebinder_answered() -> (Engine<RegistryLookup>, PlayerId, Playe
 }
 
 /// The keywords of `object`, as the layers project them.
-fn keywords_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_dsl::KeywordSet {
+pub fn keywords_of(
+    engine: &Engine<RegistryLookup>,
+    object: ObjectId,
+) -> baylee_cards_dsl::KeywordSet {
     engine
         .state()
         .object(object)
@@ -1171,12 +1145,12 @@ fn keywords_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_card
         .keywords
 }
 
-fn path_to_exile() -> CardIndex {
+pub fn path_to_exile() -> CardIndex {
     card_index("d683d985-9888-4d21-8b5f-69e69ce4a03b")
 }
 
 /// Every land `seat` controls, in battlefield order.
-fn lands_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn lands_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine
         .state()
         .zones
@@ -1191,23 +1165,23 @@ fn lands_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
         .collect()
 }
 
-fn bojuka_bog() -> CardIndex {
+pub fn bojuka_bog() -> CardIndex {
     card_index("04b7362d-0490-4cb0-b5d7-2a7732f659ce")
 }
 
-fn aang_and_katara() -> CardIndex {
+pub fn aang_and_katara() -> CardIndex {
     card_index("481c3e14-b670-4fab-aa9f-6ce5b514096d")
 }
 
-fn wartime_protestors() -> CardIndex {
+pub fn wartime_protestors() -> CardIndex {
     card_index("6557813b-4ee7-4881-a37c-10c8ea097360")
 }
 
-fn wretched_anurid() -> CardIndex {
+pub fn wretched_anurid() -> CardIndex {
     card_index("f8beeb0a-750f-4afa-a244-10011342bbeb")
 }
 
-fn aminatou() -> CardIndex {
+pub fn aminatou() -> CardIndex {
     card_index("3a30089d-cd2d-49be-9b06-7a2454117692")
 }
 
@@ -1219,7 +1193,7 @@ fn aminatou() -> CardIndex {
 /// She enters with her printed three loyalty (CR 306.5b), so the harness
 /// puts seven on her first, and she survives the −6 with one.
 #[track_caller]
-fn activate_aminatou_minus_six(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+pub fn activate_aminatou_minus_six(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
     let walker = on_battlefield(engine, seat, aminatou()).expect("Aminatou is out");
     engine
         .dev_state_mut(seat)
@@ -1233,7 +1207,7 @@ fn activate_aminatou_minus_six(engine: &mut Engine<RegistryLookup>, seat: Player
 }
 
 /// The tokens `seat` controls, in arrival order.
-fn tokens_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn tokens_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine
         .state()
         .zones
@@ -1249,7 +1223,7 @@ fn tokens_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
         .collect()
 }
 
-fn aether_channeler() -> CardIndex {
+pub fn aether_channeler() -> CardIndex {
     card_index("fb220f46-f8b8-4804-baa4-e7d50b4871f7")
 }
 
@@ -1264,7 +1238,7 @@ fn aether_channeler() -> CardIndex {
 /// and was never asked about: the card resolved, nothing happened, and no
 /// error was reported (entry 34).
 #[track_caller]
-fn a_modal_trigger_asks(seed: u64, opponent_board: &[CardIndex]) -> Engine<RegistryLookup> {
+pub fn a_modal_trigger_asks(seed: u64, opponent_board: &[CardIndex]) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(seed, island())
         .battlefield(0, &[island(), island(), island()])
@@ -1292,19 +1266,19 @@ fn a_modal_trigger_asks(seed: u64, opponent_board: &[CardIndex]) -> Engine<Regis
     panic!("the modal trigger never asked for its mode")
 }
 
-fn ertai_resurrected() -> CardIndex {
+pub fn ertai_resurrected() -> CardIndex {
     card_index("3d038f7c-95fa-4b71-8f74-b9b4dd45cde0")
 }
 
-fn panharmonicon() -> CardIndex {
+pub fn panharmonicon() -> CardIndex {
     card_index("76678885-3674-443d-b9a2-2a460cf6aac0")
 }
 
-fn umara_raptor() -> CardIndex {
+pub fn umara_raptor() -> CardIndex {
     card_index("a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98")
 }
 
-fn solitude() -> CardIndex {
+pub fn solitude() -> CardIndex {
     card_index("dcb9c2a7-ae54-4ddc-a567-640bf4bf4366")
 }
 
@@ -1312,7 +1286,7 @@ fn solitude() -> CardIndex {
 ///
 /// [`on_battlefield`] answers the first; this answers all of them, which is
 /// what taps *some* of a seat's lands and leaves the rest untapped.
-fn all_on_battlefield(
+pub fn all_on_battlefield(
     engine: &Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -1341,11 +1315,11 @@ fn all_on_battlefield(
 /// and nothing else. The attack has to be declared first, because the offer
 /// does not exist until there is something to block.
 #[track_caller]
-fn attack_and_collect_blocks(
+pub fn attack_and_collect_blocks(
     engine: &mut Engine<RegistryLookup>,
     attacker: ObjectId,
     defender: PlayerId,
-) -> Vec<crate::choice::BlockOption> {
+) -> Vec<baylee_engine::choice::BlockOption> {
     pass_until(engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
@@ -1388,7 +1362,11 @@ fn attack_and_collect_blocks(
 /// the effect read. Only the Islands are tapped for the Raptor — a pool of
 /// eight mana pays `{2}` with whatever it likes, and it spent the white the
 /// second spell needs.
-fn a_two_two_raptor(seed: u64, spell: CardIndex, extra: &[CardIndex]) -> Engine<RegistryLookup> {
+pub fn a_two_two_raptor(
+    seed: u64,
+    spell: CardIndex,
+    extra: &[CardIndex],
+) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
     let mut board = vec![
         island(),
@@ -1434,48 +1412,48 @@ fn a_two_two_raptor(seed: u64, spell: CardIndex, extra: &[CardIndex]) -> Engine<
     engine
 }
 
-fn inspirit_flagship_vessel() -> CardIndex {
+pub fn inspirit_flagship_vessel() -> CardIndex {
     card_index("554df866-3dbb-4811-8573-6033481591aa")
 }
 
-fn sheoldred_the_apocalypse() -> CardIndex {
+pub fn sheoldred_the_apocalypse() -> CardIndex {
     card_index("34f34409-326d-4994-a0ea-1a69aa278f03")
 }
 
-fn toxic_deluge() -> CardIndex {
+pub fn toxic_deluge() -> CardIndex {
     card_index("afaef788-34d1-460b-b884-9d7ae6ddeb18")
 }
 
-fn darksteel_forge() -> CardIndex {
+pub fn darksteel_forge() -> CardIndex {
     card_index("9b3bec05-441f-4fdf-8b51-69fa8613fcd4")
 }
 
-fn primaris_eliminator() -> CardIndex {
+pub fn primaris_eliminator() -> CardIndex {
     card_index("7d679591-f8ea-4c4c-ab98-7b9e3438cf57")
 }
 
-fn mystical_tutor() -> CardIndex {
+pub fn mystical_tutor() -> CardIndex {
     card_index("fb81f95c-70f8-4eb7-8d15-15d0ae23ec03")
 }
 
-fn halimar_excavator() -> CardIndex {
+pub fn halimar_excavator() -> CardIndex {
     card_index("fd3e37c9-93bf-4f3e-a279-22afbffd8d43")
 }
 
-fn hagra_diabolist() -> CardIndex {
+pub fn hagra_diabolist() -> CardIndex {
     card_index("5e2c1e0e-0a10-416a-9b50-96ee0cbbc24e")
 }
 
-fn vendilion_clique() -> CardIndex {
+pub fn vendilion_clique() -> CardIndex {
     card_index("244d4807-0802-41bc-9460-55ac38a28a72")
 }
 
-fn loran_of_the_third_path() -> CardIndex {
+pub fn loran_of_the_third_path() -> CardIndex {
     card_index("b3d81980-76f2-44e2-b1c9-01e30c726312")
 }
 
 /// A Hagra Diabolist cast and its rally trigger waiting on a target.
-fn hagra_on_the_table() -> Engine<RegistryLookup> {
+pub fn hagra_on_the_table() -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(19, swamp())
         .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp()])
@@ -1490,15 +1468,15 @@ fn hagra_on_the_table() -> Engine<RegistryLookup> {
     engine
 }
 
-fn luminarch_ascension() -> CardIndex {
+pub fn luminarch_ascension() -> CardIndex {
     card_index("90076bf5-aa9a-4a6e-9035-9aa97fd5561e")
 }
 
-fn lightning_bolt() -> CardIndex {
+pub fn lightning_bolt() -> CardIndex {
     card_index("4457ed35-7c10-48c8-9776-456485fdf070")
 }
 
-fn mana_confluence() -> CardIndex {
+pub fn mana_confluence() -> CardIndex {
     card_index("d0ee5bdc-2b69-4b73-9a20-ffcc18783b29")
 }
 
@@ -1508,7 +1486,7 @@ fn mana_confluence() -> CardIndex {
 /// Two tests over one builder rather than two arms of one, for the reason
 /// the Hagra pair has: the second answer wants the same open board the
 /// first one spent.
-fn a_cleric_asking() -> Engine<RegistryLookup> {
+pub fn a_cleric_asking() -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(41, plains())
         .battlefield(0, &[plains(), plains()])
@@ -1529,17 +1507,17 @@ fn a_cleric_asking() -> Engine<RegistryLookup> {
     engine
 }
 
-fn jace_the_mind_sculptor() -> CardIndex {
+pub fn jace_the_mind_sculptor() -> CardIndex {
     card_index("7f77a84e-5a4b-4834-aefa-3cecc175ae8e")
 }
 
-fn venser_the_sojourner() -> CardIndex {
+pub fn venser_the_sojourner() -> CardIndex {
     card_index("a8bf8ff8-d924-4fd2-b5ed-05b38f55325a")
 }
 
 /// The types an object has after the layer system has run — the only
 /// reading that can see a type a continuous effect added.
-fn types(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_core::types::TypeSet {
+pub fn types(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_core::types::TypeSet {
     engine
         .state()
         .object(object)
@@ -1548,35 +1526,35 @@ fn types(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_core::type
         .types
 }
 
-fn mycosynth_lattice() -> CardIndex {
+pub fn mycosynth_lattice() -> CardIndex {
     card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805")
 }
 
-fn brainstorm() -> CardIndex {
+pub fn brainstorm() -> CardIndex {
     card_index("36cd2364-d113-47d1-b2c4-b088d9eb88dd")
 }
 
-fn enlightened_tutor() -> CardIndex {
+pub fn enlightened_tutor() -> CardIndex {
     card_index("c5229c17-b7be-4b05-b683-f2277edc4849")
 }
 
-fn arid_mesa() -> CardIndex {
+pub fn arid_mesa() -> CardIndex {
     card_index("c5acf2a5-40f4-433d-a74d-1cb56c521464")
 }
 
-fn gaea_s_cradle() -> CardIndex {
+pub fn gaea_s_cradle() -> CardIndex {
     card_index("7c427c3d-ecd8-45ef-bebd-8f10f4a311db")
 }
 
-fn prairie_stream() -> CardIndex {
+pub fn prairie_stream() -> CardIndex {
     card_index("5330e24a-8568-446e-840a-594cd08bd1bc")
 }
 
-fn orcish_bowmasters() -> CardIndex {
+pub fn orcish_bowmasters() -> CardIndex {
     card_index("ea5103f5-27e0-4eb1-902c-7f34652d6bf3")
 }
 
-fn mikokoro() -> CardIndex {
+pub fn mikokoro() -> CardIndex {
     card_index("a4580a1d-141e-449b-9018-e0258130634b")
 }
 
@@ -1587,7 +1565,7 @@ fn mikokoro() -> CardIndex {
 /// Orcish Bowmasters: a loop that merely tolerates `ChooseTargets` passes
 /// whether the question is asked or not, which is how the card sat in the
 /// pool marked `Implemented` and pointed at nobody.
-fn settle_aiming_at(engine: &mut Engine<RegistryLookup>, face: PlayerId) -> bool {
+pub fn settle_aiming_at(engine: &mut Engine<RegistryLookup>, face: PlayerId) -> bool {
     let mut asked = false;
     for _ in 0..40 {
         match engine.pending().clone() {
@@ -1613,26 +1591,15 @@ fn settle_aiming_at(engine: &mut Engine<RegistryLookup>, face: PlayerId) -> bool
     panic!("settle_aiming_at did not reach quiet priority within forty actions")
 }
 
-#[test]
-fn issue_173_settling_at_quiet_priority_does_not_pass_it() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(173, forest()).start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-    let before = engine.snapshot_hash();
-    assert!(!settle_aiming_at(&mut engine, p0));
-    assert_eq!(engine.snapshot_hash(), before);
-}
-
-fn myr_retriever() -> CardIndex {
+pub fn myr_retriever() -> CardIndex {
     card_index("d07d3be3-f69d-4484-8467-cffd43871788")
 }
 
-fn vindicate() -> CardIndex {
+pub fn vindicate() -> CardIndex {
     card_index("63c1ac21-e3d8-40c2-8c09-3f31c52992ef")
 }
 
-fn ashnods_altar() -> CardIndex {
+pub fn ashnods_altar() -> CardIndex {
     card_index("4d18bcba-a346-445e-a182-6cc30b7e066d")
 }
 
@@ -1648,7 +1615,7 @@ fn ashnods_altar() -> CardIndex {
 /// modules need belongs where both can see it rather than being written a
 /// second time with the same words.
 #[track_caller]
-fn counters_on(
+pub fn counters_on(
     engine: &Engine<RegistryLookup>,
     id: ObjectId,
     kind: baylee_cards_dsl::CounterKind,
@@ -1666,7 +1633,7 @@ fn counters_on(
 /// same, so comparing handles alone cannot tell a transform from an exile
 /// and a return.
 #[track_caller]
-fn identity(engine: &Engine<RegistryLookup>, id: ObjectId) -> (ObjectId, u32) {
+pub fn identity(engine: &Engine<RegistryLookup>, id: ObjectId) -> (ObjectId, u32) {
     (id, engine.state().object(id).expect("an object").version)
 }
 
@@ -1675,7 +1642,7 @@ fn identity(engine: &Engine<RegistryLookup>, id: ObjectId) -> (ObjectId, u32) {
 /// Panics when the object is gone, deliberately: every caller is asking
 /// about a permanent it has just put on the table, so a missing object is a
 /// broken assumption and not the answer `false`.
-fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+pub fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
     engine
         .state()
         .object(id)
@@ -1684,71 +1651,71 @@ fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
         .contains(Status::TAPPED)
 }
 
-fn basilisk_collar() -> CardIndex {
+pub fn basilisk_collar() -> CardIndex {
     card_index("f5f4dd28-f4ae-4d39-b9b8-6ebfd63c93fe")
 }
 
-fn omnath_locus_of_rage() -> CardIndex {
+pub fn omnath_locus_of_rage() -> CardIndex {
     card_index("1816eede-c5bd-49df-958f-a3af64cb2932")
 }
 
-fn reclamation_sage() -> CardIndex {
+pub fn reclamation_sage() -> CardIndex {
     card_index("032ec6e2-6cc3-4a97-9cc7-3233f5e11904")
 }
 
-fn their_enchantment() -> CardIndex {
+pub fn their_enchantment() -> CardIndex {
     card_index("90076bf5-aa9a-4a6e-9035-9aa97fd5561e")
 }
 
-fn sylvan_caryatid() -> CardIndex {
+pub fn sylvan_caryatid() -> CardIndex {
     card_index("13d4c46b-c2d6-44cc-a252-4a991d471854")
 }
 
-fn tatyova_benthic_druid() -> CardIndex {
+pub fn tatyova_benthic_druid() -> CardIndex {
     card_index("0715e860-3b3b-4331-9718-207973e94fee")
 }
 
-fn crop_rotation() -> CardIndex {
+pub fn crop_rotation() -> CardIndex {
     card_index("28b46183-c62f-47b1-9fee-3ba148202cab")
 }
 
-fn natural_order() -> CardIndex {
+pub fn natural_order() -> CardIndex {
     card_index("8c1fe337-375a-4add-93b6-0ac39ed72b4f")
 }
 
-fn eldritch_evolution() -> CardIndex {
+pub fn eldritch_evolution() -> CardIndex {
     card_index("0f77c0c9-4dc4-489a-b547-e93287c4d1a5")
 }
 
-fn neoform() -> CardIndex {
+pub fn neoform() -> CardIndex {
     card_index("420c6dcf-966d-4a4c-a0ef-23037ab8b325")
 }
 
-fn birthing_pod() -> CardIndex {
+pub fn birthing_pod() -> CardIndex {
     card_index("f8b9dd54-0837-47f4-ad14-7a0322d46d5f")
 }
 
-fn imperial_recruiter() -> CardIndex {
+pub fn imperial_recruiter() -> CardIndex {
     card_index("4d6a1391-817a-4ddc-840d-886b138eeb3f")
 }
 
-fn bribery() -> CardIndex {
+pub fn bribery() -> CardIndex {
     card_index("6d194882-ca37-49bb-ac9f-a751c53850a8")
 }
 
 /// Ornithopter: a creature of mana value 0, the smallest a sacrifice can
 /// hand a "plus the sacrificed creature's mana value" bound.
-fn ornithopter() -> CardIndex {
+pub fn ornithopter() -> CardIndex {
     card_index("a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba")
 }
 
 /// Canopy Spider: a green creature of mana value 2.
-fn canopy_spider() -> CardIndex {
+pub fn canopy_spider() -> CardIndex {
     card_index("37f3733e-cc4e-4d84-b29b-d474f6e254a2")
 }
 
 /// Land Leeches: a green creature of mana value 3 and power 2.
-fn land_leeches() -> CardIndex {
+pub fn land_leeches() -> CardIndex {
     card_index("228f0afa-146b-4564-a380-71595cdf1ef4")
 }
 
@@ -1757,7 +1724,7 @@ fn land_leeches() -> CardIndex {
 /// Not `pass_until`: that walker answers or panics on a library search, and
 /// the search is what these tests are about.
 #[track_caller]
-fn pass_to_card_choice(engine: &mut Engine<RegistryLookup>) -> Pending {
+pub fn pass_to_card_choice(engine: &mut Engine<RegistryLookup>) -> Pending {
     for _ in 0..20 {
         match engine.pending().clone() {
             choice @ Pending::ChooseCards { .. } => return choice,
@@ -1770,1482 +1737,1482 @@ fn pass_to_card_choice(engine: &mut Engine<RegistryLookup>) -> Pending {
     panic!("no card choice was asked within twenty passes")
 }
 
-fn heroes_downfall() -> CardIndex {
+pub fn heroes_downfall() -> CardIndex {
     card_index("03df6a57-37c9-46d3-83b3-4a6240100714")
 }
 
-fn grim_tutor() -> CardIndex {
+pub fn grim_tutor() -> CardIndex {
     card_index("e62f8d69-a559-4f13-a5c9-5fb750b4af2c")
 }
 
-fn sylvan_scrying() -> CardIndex {
+pub fn sylvan_scrying() -> CardIndex {
     card_index("ee24bf27-484d-4e1c-998e-6a74e3d3f6c4")
 }
 
-fn bazaar_of_baghdad() -> CardIndex {
+pub fn bazaar_of_baghdad() -> CardIndex {
     card_index("54022a10-c9f0-458d-a0ed-228843cd9a40")
 }
 
-fn carnage_tyrant() -> CardIndex {
+pub fn carnage_tyrant() -> CardIndex {
     card_index("8c411f4e-a091-447c-9450-d895b10b4985")
 }
 
-fn city_of_traitors() -> CardIndex {
+pub fn city_of_traitors() -> CardIndex {
     card_index("f161111d-9747-47b3-bb10-3c8bded32e21")
 }
 
-fn desolate_lighthouse() -> CardIndex {
+pub fn desolate_lighthouse() -> CardIndex {
     card_index("aa6dbdf2-2379-4ff5-8a6c-70258784dc35")
 }
 
-fn elephant_graveyard() -> CardIndex {
+pub fn elephant_graveyard() -> CardIndex {
     card_index("8ada7388-fd8b-434c-a17a-bce19cf3e615")
 }
 
-fn geier_reach_sanitarium() -> CardIndex {
+pub fn geier_reach_sanitarium() -> CardIndex {
     card_index("7b9fafe7-d26a-4ed5-b4c4-ce13763770b5")
 }
 
-fn great_defender() -> CardIndex {
+pub fn great_defender() -> CardIndex {
     card_index("c84496bc-6421-4930-a118-b0f9ee7e13f6")
 }
 
-fn mana_leak() -> CardIndex {
+pub fn mana_leak() -> CardIndex {
     card_index("c61fe162-2202-4e56-9ba0-393547f9875f")
 }
 
-fn oboro_palace_in_the_clouds() -> CardIndex {
+pub fn oboro_palace_in_the_clouds() -> CardIndex {
     card_index("645fb11b-d684-4bec-8532-8fa97e8f7b28")
 }
 
-fn scavenger_grounds() -> CardIndex {
+pub fn scavenger_grounds() -> CardIndex {
     card_index("5ece7d03-9ee7-4953-a06e-9d8e41874903")
 }
 
-fn shivan_gorge() -> CardIndex {
+pub fn shivan_gorge() -> CardIndex {
     card_index("e90a1381-c9c1-4f57-928c-5d19dc065274")
 }
 
-fn throne_of_the_high_city() -> CardIndex {
+pub fn throne_of_the_high_city() -> CardIndex {
     card_index("9684447a-5955-4bc7-8ad0-8bb8b316873b")
 }
 
-fn treasure_vault() -> CardIndex {
+pub fn treasure_vault() -> CardIndex {
     card_index("3c43efd6-b1a8-452c-ae20-9a936c3340ab")
 }
 
-fn watermarket() -> CardIndex {
+pub fn watermarket() -> CardIndex {
     card_index("84d89a3d-4b28-4e19-8298-737ec6a06238")
 }
 
-fn wheel_of_fortune() -> CardIndex {
+pub fn wheel_of_fortune() -> CardIndex {
     card_index("a8abd966-de7b-46a3-8ac7-8747ab35653a")
 }
 
-fn witch_s_clinic() -> CardIndex {
+pub fn witch_s_clinic() -> CardIndex {
     card_index("05899372-9784-4bdb-9c28-504c71fed906")
 }
 
-fn yavimaya_hollow() -> CardIndex {
+pub fn yavimaya_hollow() -> CardIndex {
     card_index("53d6113d-acdb-4754-9641-f7991a96c7b9")
 }
 
-fn access_tunnel() -> CardIndex {
+pub fn access_tunnel() -> CardIndex {
     card_index("ed9cc560-f30b-4b60-a094-ccf93ed656a7")
 }
 
-fn alchemist_s_refuge() -> CardIndex {
+pub fn alchemist_s_refuge() -> CardIndex {
     card_index("357ed28b-899f-404b-94ff-6fb2ef81d87b")
 }
 
-fn auriok_bladewarden() -> CardIndex {
+pub fn auriok_bladewarden() -> CardIndex {
     card_index("2884e332-707c-4a97-adc1-e1317a513ff4")
 }
 
-fn bloom_tender() -> CardIndex {
+pub fn bloom_tender() -> CardIndex {
     card_index("0c23fefe-9891-4dd8-9bb1-eebdb3274e31")
 }
 
-fn cinder_marsh() -> CardIndex {
+pub fn cinder_marsh() -> CardIndex {
     card_index("6f8cc374-e76c-4bfa-bf20-28dea0bfefbe")
 }
 
-fn cloudcrest_lake() -> CardIndex {
+pub fn cloudcrest_lake() -> CardIndex {
     card_index("8df14d53-472c-416e-93c6-6c0b7f9b614e")
 }
 
-fn drownyard_temple() -> CardIndex {
+pub fn drownyard_temple() -> CardIndex {
     card_index("c30f9be4-c274-4ad0-b5d7-7d3421aa4277")
 }
 
-fn forgotten_monument() -> CardIndex {
+pub fn forgotten_monument() -> CardIndex {
     card_index("71393988-ad6f-43fd-9978-c0de15ae8e87")
 }
 
-fn gavony_township() -> CardIndex {
+pub fn gavony_township() -> CardIndex {
     card_index("8a44e4e7-dfa2-427b-bbff-11c398fa60bb")
 }
 
-fn hammerheim() -> CardIndex {
+pub fn hammerheim() -> CardIndex {
     card_index("c7476beb-7923-4994-8476-bc69187ecb72")
 }
 
-fn hunger_of_the_nim() -> CardIndex {
+pub fn hunger_of_the_nim() -> CardIndex {
     card_index("1af3c6ff-2884-4d8c-a01f-6f74d8ea10cc")
 }
 
-fn imperial_seal() -> CardIndex {
+pub fn imperial_seal() -> CardIndex {
     card_index("16cd0b90-f70c-4efa-b252-8de8784ef9a3")
 }
 
-fn labyrinth_of_skophos() -> CardIndex {
+pub fn labyrinth_of_skophos() -> CardIndex {
     card_index("9ec5a487-d8ed-459a-8f58-56f6e9a2dfe8")
 }
 
-fn lantern_lit_graveyard() -> CardIndex {
+pub fn lantern_lit_graveyard() -> CardIndex {
     card_index("73a39a1b-2fb7-4328-8718-18569ae28e9e")
 }
 
-fn library_of_alexandria() -> CardIndex {
+pub fn library_of_alexandria() -> CardIndex {
     card_index("2111588d-9af5-4a33-989e-b074d83f0463")
 }
 
-fn mogg_hollows() -> CardIndex {
+pub fn mogg_hollows() -> CardIndex {
     card_index("1745fd57-467c-45f9-a46e-b9a2af87ec87")
 }
 
-fn novijen_heart_of_progress() -> CardIndex {
+pub fn novijen_heart_of_progress() -> CardIndex {
     card_index("b3b5137d-0225-4dba-9231-d235ab0f137c")
 }
 
-fn pillar_of_the_paruns() -> CardIndex {
+pub fn pillar_of_the_paruns() -> CardIndex {
     card_index("677b8ce7-f922-4ee3-b311-f199da9b352b")
 }
 
-fn pinecrest_ridge() -> CardIndex {
+pub fn pinecrest_ridge() -> CardIndex {
     card_index("d8ef7c7b-0201-4978-ac73-fd376a19830f")
 }
 
-fn rix_maadi_dungeon_palace() -> CardIndex {
+pub fn rix_maadi_dungeon_palace() -> CardIndex {
     card_index("a1bee68d-135b-4e30-8830-48a3315d13a9")
 }
 
-fn rootwater_depths() -> CardIndex {
+pub fn rootwater_depths() -> CardIndex {
     card_index("2d28c83a-7415-4eb0-95a6-6245f2169d17")
 }
 
-fn stensia_bloodhall() -> CardIndex {
+pub fn stensia_bloodhall() -> CardIndex {
     card_index("8220c5fa-28dc-40d0-a38a-d8eefc2795d6")
 }
 
-fn strength_of_cedars() -> CardIndex {
+pub fn strength_of_cedars() -> CardIndex {
     card_index("61b29c75-00d0-4ddb-9e27-cfd47302830e")
 }
 
-fn sunscorched_desert() -> CardIndex {
+pub fn sunscorched_desert() -> CardIndex {
     card_index("256b8c23-589e-429d-9e6e-433d55079eb4")
 }
 
-fn thalakos_lowlands() -> CardIndex {
+pub fn thalakos_lowlands() -> CardIndex {
     card_index("5a54d6a3-b1d0-42fe-9531-604b34d197f1")
 }
 
-fn tomb_of_the_spirit_dragon() -> CardIndex {
+pub fn tomb_of_the_spirit_dragon() -> CardIndex {
     card_index("22f6391e-2634-440f-af1b-9581d1bff818")
 }
 
-fn tranquil_garden() -> CardIndex {
+pub fn tranquil_garden() -> CardIndex {
     card_index("d9dfef08-b824-4d56-a0e9-3dcefb7e4612")
 }
 
-fn trenchpost() -> CardIndex {
+pub fn trenchpost() -> CardIndex {
     card_index("42f1ccb8-eda0-4828-ac07-82d4e950d7e1")
 }
 
-fn underdome() -> CardIndex {
+pub fn underdome() -> CardIndex {
     card_index("8375aaaa-edc2-4a0c-98f6-af07d61ebd0a")
 }
 
-fn urborg() -> CardIndex {
+pub fn urborg() -> CardIndex {
     card_index("b6114962-035e-4e7f-9009-4739bf83a05a")
 }
 
-fn urza_s_power_plant() -> CardIndex {
+pub fn urza_s_power_plant() -> CardIndex {
     card_index("e11966cd-2ee3-4df4-b099-abf42dcdf0db")
 }
 
-fn vec_townships() -> CardIndex {
+pub fn vec_townships() -> CardIndex {
     card_index("b0a4680f-9707-431c-b5d5-7d4424783602")
 }
 
-fn waterveil_cavern() -> CardIndex {
+pub fn waterveil_cavern() -> CardIndex {
     card_index("3debfa0d-9945-4a85-a714-7c3d3d74de4e")
 }
 
-fn winding_canyons() -> CardIndex {
+pub fn winding_canyons() -> CardIndex {
     card_index("622e2561-48b1-4aca-9abb-9a3c284dcceb")
 }
 
-fn barkchannel_pathway() -> CardIndex {
+pub fn barkchannel_pathway() -> CardIndex {
     card_index("59d22de5-e310-44d7-89cf-ef3529e40cef")
 }
 
-fn blighted_fen() -> CardIndex {
+pub fn blighted_fen() -> CardIndex {
     card_index("b8f3da11-7c8f-4846-98a6-204bfd8d572b")
 }
 
-fn blighted_steppe() -> CardIndex {
+pub fn blighted_steppe() -> CardIndex {
     card_index("db16a2fb-dc42-4086-9928-52076043097f")
 }
 
-fn blightstep_pathway() -> CardIndex {
+pub fn blightstep_pathway() -> CardIndex {
     card_index("e580a229-e800-4746-9d37-c32fcef8de28")
 }
 
-fn bonders_enclave() -> CardIndex {
+pub fn bonders_enclave() -> CardIndex {
     card_index("f33ce38a-34ec-4b65-a0fc-160484a02007")
 }
 
-fn branchloft_pathway() -> CardIndex {
+pub fn branchloft_pathway() -> CardIndex {
     card_index("7c304547-a4b1-46c9-baed-16d2bfbe16eb")
 }
 
-fn command_beacon() -> CardIndex {
+pub fn command_beacon() -> CardIndex {
     card_index("7e8c2a18-e404-40ff-a9e0-ec3eeb6d576e")
 }
 
-fn cragcrown_pathway() -> CardIndex {
+pub fn cragcrown_pathway() -> CardIndex {
     card_index("727ca426-f4cc-4218-8ae5-8c427af2e816")
 }
 
-fn crypt_of_agadeem() -> CardIndex {
+pub fn crypt_of_agadeem() -> CardIndex {
     card_index("4fe8af73-c84a-44bd-9739-ee5c8b027874")
 }
 
-fn darkbore_pathway() -> CardIndex {
+pub fn darkbore_pathway() -> CardIndex {
     card_index("868e6e68-4367-4073-a864-235d5961ae56")
 }
 
-fn drannith_ruins() -> CardIndex {
+pub fn drannith_ruins() -> CardIndex {
     card_index("d1f10cca-8dfa-4ea5-b227-4446cd8514a8")
 }
 
-fn dread_statuary() -> CardIndex {
+pub fn dread_statuary() -> CardIndex {
     card_index("a9789ce4-69cf-435c-b99a-78a21609830c")
 }
 
-fn eiganjo_castle() -> CardIndex {
+pub fn eiganjo_castle() -> CardIndex {
     card_index("895a0e00-20a9-44f8-9215-66edcdf016b7")
 }
 
-fn emergence_zone() -> CardIndex {
+pub fn emergence_zone() -> CardIndex {
     card_index("7536eb66-959d-4dca-9b75-895572ef733c")
 }
 
-fn ghost_town() -> CardIndex {
+pub fn ghost_town() -> CardIndex {
     card_index("f2c861d3-b302-4e84-b647-099551007269")
 }
 
-fn hall_of_heliod_s_generosity() -> CardIndex {
+pub fn hall_of_heliod_s_generosity() -> CardIndex {
     card_index("2fc070dc-f2f7-4648-8069-31d74790a39c")
 }
 
-fn kessig_wolf_run() -> CardIndex {
+pub fn kessig_wolf_run() -> CardIndex {
     card_index("c6911265-54ef-4c16-bcf2-1ffb24b7d426")
 }
 
-fn miren_the_moaning_well() -> CardIndex {
+pub fn miren_the_moaning_well() -> CardIndex {
     card_index("03fe19bb-8e22-4030-8299-2ddd2d5a7eb2")
 }
 
-fn needleverge_pathway() -> CardIndex {
+pub fn needleverge_pathway() -> CardIndex {
     card_index("a9b8d020-4d72-4934-8942-df29ef19fc1d")
 }
 
-fn ominous_cemetery() -> CardIndex {
+pub fn ominous_cemetery() -> CardIndex {
     card_index("d002391f-1dad-4966-ac36-56cc3ec015b2")
 }
 
-fn petrified_field() -> CardIndex {
+pub fn petrified_field() -> CardIndex {
     card_index("c4bc5bc4-e589-42c5-91fa-2ebc96448e85")
 }
 
-fn prahv_spires_of_order() -> CardIndex {
+pub fn prahv_spires_of_order() -> CardIndex {
     card_index("37ff5ba6-0763-4c73-85bf-66856e67b8f3")
 }
 
-fn rainbow_vale() -> CardIndex {
+pub fn rainbow_vale() -> CardIndex {
     card_index("76695b15-d0ba-41eb-85f1-52ba5d14b8ba")
 }
 
-fn rhystic_cave() -> CardIndex {
+pub fn rhystic_cave() -> CardIndex {
     card_index("609fbc2c-514a-4feb-aaad-b9e6dcfd335c")
 }
 
-fn riftstone_portal() -> CardIndex {
+pub fn riftstone_portal() -> CardIndex {
     card_index("8d7e05ba-5406-4d5e-bb8f-a4a6f3b0eaa7")
 }
 
-fn riverglide_pathway() -> CardIndex {
+pub fn riverglide_pathway() -> CardIndex {
     card_index("4924b3a4-a218-4783-8a4d-82361fdecc78")
 }
 
-fn sandstorm_verge() -> CardIndex {
+pub fn sandstorm_verge() -> CardIndex {
     card_index("de417a82-8f03-4d7e-aee7-48f7d7eba61a")
 }
 
-fn smoldering_spires() -> CardIndex {
+pub fn smoldering_spires() -> CardIndex {
     card_index("cfa3288d-e521-4a13-bcb3-7950a94e1746")
 }
 
-fn soulstone_sanctuary() -> CardIndex {
+pub fn soulstone_sanctuary() -> CardIndex {
     card_index("3c0f99b8-0222-4fac-932a-eb5d77826564")
 }
 
-fn terrain_generator() -> CardIndex {
+pub fn terrain_generator() -> CardIndex {
     card_index("a949c96c-362c-45a3-bd5c-ce5ce153ee9e")
 }
 
-fn the_tabernacle_at_pendrell_vale() -> CardIndex {
+pub fn the_tabernacle_at_pendrell_vale() -> CardIndex {
     card_index("69b409b3-fa16-4c79-8b46-215a7036ed46")
 }
 
-fn thespian_s_stage() -> CardIndex {
+pub fn thespian_s_stage() -> CardIndex {
     card_index("b01e698b-608a-4fc7-8073-b01d044743ec")
 }
 
-fn unholy_grotto() -> CardIndex {
+pub fn unholy_grotto() -> CardIndex {
     card_index("c28211c6-a5ee-40c3-bb6a-da3e7e73fd95")
 }
 
-fn unstable_frontier() -> CardIndex {
+pub fn unstable_frontier() -> CardIndex {
     card_index("495214b5-2eab-4fe4-8879-a30a57a67163")
 }
 
-fn untaidake_the_cloud_keeper() -> CardIndex {
+pub fn untaidake_the_cloud_keeper() -> CardIndex {
     card_index("362f25a6-01ff-4c53-be52-c6346a9b0065")
 }
 
-fn urza_s_mine() -> CardIndex {
+pub fn urza_s_mine() -> CardIndex {
     card_index("33e85a8a-86df-4cdc-a9cc-8cbabe92c3c0")
 }
 
-fn urza_s_tower() -> CardIndex {
+pub fn urza_s_tower() -> CardIndex {
     card_index("32fbb638-ab14-4e8b-a07a-d4c44e3496f2")
 }
 
-fn vault_of_the_archangel() -> CardIndex {
+pub fn vault_of_the_archangel() -> CardIndex {
     card_index("eeaac65a-3480-475a-bb28-e6375d53f487")
 }
 
-fn wintermoon_mesa() -> CardIndex {
+pub fn wintermoon_mesa() -> CardIndex {
     card_index("a4a6f95e-856c-4eb5-82ba-b2406be22b23")
 }
 
-fn aether_hub() -> CardIndex {
+pub fn aether_hub() -> CardIndex {
     card_index("61c89b11-65c9-4fda-bbcd-d84de25df801")
 }
 
-fn agna_qel_a() -> CardIndex {
+pub fn agna_qel_a() -> CardIndex {
     card_index("22d0a848-2126-48f0-9050-38daaf93b1d0")
 }
 
-fn ancient_amphitheater() -> CardIndex {
+pub fn ancient_amphitheater() -> CardIndex {
     card_index("7211221d-d4d8-4bbe-9d2a-b82e005bfe8a")
 }
 
-fn auntie_s_hovel() -> CardIndex {
+pub fn auntie_s_hovel() -> CardIndex {
     card_index("245469ff-72b6-4846-8a82-a1d29f4d09bb")
 }
 
-fn cradle_of_the_accursed() -> CardIndex {
+pub fn cradle_of_the_accursed() -> CardIndex {
     card_index("36d06c91-5080-4f97-8e4c-ca8ac390e808")
 }
 
-fn crucible_of_worlds() -> CardIndex {
+pub fn crucible_of_worlds() -> CardIndex {
     card_index("33c722cf-b4bf-431f-aefd-ee96241a7fbf")
 }
 
-fn dark_fortress() -> CardIndex {
+pub fn dark_fortress() -> CardIndex {
     card_index("40760bfa-a423-487c-ba29-043b2d00c736")
 }
 
-fn desert() -> CardIndex {
+pub fn desert() -> CardIndex {
     card_index("195107ad-879d-4b02-a44a-a3ba70fedf88")
 }
 
-fn dunes_of_the_dead() -> CardIndex {
+pub fn dunes_of_the_dead() -> CardIndex {
     card_index("c761f71c-785c-4533-a2b7-2da3667688b8")
 }
 
-fn exploration() -> CardIndex {
+pub fn exploration() -> CardIndex {
     card_index("0c2841bb-038c-4fbf-8360-bc0a1522b58d")
 }
 
-fn gathering_place() -> CardIndex {
+pub fn gathering_place() -> CardIndex {
     card_index("36b58705-c5a5-4547-8d8b-a7c35e1f69ae")
 }
 
-fn gilt_leaf_palace() -> CardIndex {
+pub fn gilt_leaf_palace() -> CardIndex {
     card_index("85573a3d-2993-491a-8f8d-bbdb844fa84e")
 }
 
-fn gleaming_bastion() -> CardIndex {
+pub fn gleaming_bastion() -> CardIndex {
     card_index("7785ffd4-f169-475d-9558-ce4877b3378a")
 }
 
-fn glimmervoid() -> CardIndex {
+pub fn glimmervoid() -> CardIndex {
     card_index("b92e9854-4527-4133-8615-e282a213e7e3")
 }
 
-fn gods_eye_gate_to_the_reikai() -> CardIndex {
+pub fn gods_eye_gate_to_the_reikai() -> CardIndex {
     card_index("a66008c9-1ede-4dcf-8d35-6c0ed2390996")
 }
 
-fn gond_gate() -> CardIndex {
+pub fn gond_gate() -> CardIndex {
     card_index("4306938b-c0db-4e63-a4fb-61628e5ff41f")
 }
 
-fn grasping_dunes() -> CardIndex {
+pub fn grasping_dunes() -> CardIndex {
     card_index("47d16c11-3033-44f3-9a12-2daf3453cc5b")
 }
 
-fn great_hall_of_the_citadel() -> CardIndex {
+pub fn great_hall_of_the_citadel() -> CardIndex {
     card_index("b3e28bcf-0ed0-4406-b615-68ddc55b349a")
 }
 
-fn hall_of_the_bandit_lord() -> CardIndex {
+pub fn hall_of_the_bandit_lord() -> CardIndex {
     card_index("32fe7ac4-86f5-44af-9f73-ee8f6a9ce2ba")
 }
 
-fn haunted_fengraf() -> CardIndex {
+pub fn haunted_fengraf() -> CardIndex {
     card_index("7c6143f3-ad2c-4d7f-9041-aa59f01d8fb7")
 }
 
-fn hidden_lair() -> CardIndex {
+pub fn hidden_lair() -> CardIndex {
     card_index("7069d241-4e66-40bf-afd1-551a4a5457f0")
 }
 
-fn lotus_field() -> CardIndex {
+pub fn lotus_field() -> CardIndex {
     card_index("134d5b82-7940-4b33-a922-7f9d1f403e50")
 }
 
-fn moorland_haunt() -> CardIndex {
+pub fn moorland_haunt() -> CardIndex {
     card_index("5324192b-6687-41e4-8e56-326b21a5dbf3")
 }
 
-fn mutavault() -> CardIndex {
+pub fn mutavault() -> CardIndex {
     card_index("6b3cc59a-7ea5-4eb5-9bf9-5a9c07f80e2b")
 }
 
-fn oran_rief_the_vastwood() -> CardIndex {
+pub fn oran_rief_the_vastwood() -> CardIndex {
     card_index("e88027a6-24cc-4a8b-86db-734f26149ea8")
 }
 
-fn quicksand() -> CardIndex {
+pub fn quicksand() -> CardIndex {
     card_index("ef2bb4fa-f292-4d19-aaa4-cfbe445caf45")
 }
 
-fn ramunap_excavator() -> CardIndex {
+pub fn ramunap_excavator() -> CardIndex {
     card_index("4f819ba4-52ef-4fdd-8e4c-5ae3b2f44db5")
 }
 
-fn ramunap_ruins() -> CardIndex {
+pub fn ramunap_ruins() -> CardIndex {
     card_index("d0d35864-1edc-4af1-9b89-3d7e94908011")
 }
 
-fn sanctum_of_eternity() -> CardIndex {
+pub fn sanctum_of_eternity() -> CardIndex {
     card_index("c7d9ff27-f1fc-42e4-a47b-d2e6d68e4035")
 }
 
-fn sapseep_forest() -> CardIndex {
+pub fn sapseep_forest() -> CardIndex {
     card_index("8d4dcab0-86e5-4ff8-a90f-78a062664e16")
 }
 
-fn sea_gate_wreckage() -> CardIndex {
+pub fn sea_gate_wreckage() -> CardIndex {
     card_index("91f34686-cb96-49c0-b4a7-49dd1fd076e2")
 }
 
-fn secluded_glen() -> CardIndex {
+pub fn secluded_glen() -> CardIndex {
     card_index("09f52275-99e6-45e0-b2db-cafe26d5fb91")
 }
 
-fn secret_base() -> CardIndex {
+pub fn secret_base() -> CardIndex {
     card_index("1017088c-08a3-45d9-a7f7-01fb2f309717")
 }
 
-fn skycoach_waypoint() -> CardIndex {
+pub fn skycoach_waypoint() -> CardIndex {
     card_index("2ac2b815-2d72-48e6-b43a-18884a74bf95")
 }
 
-fn stalking_stones() -> CardIndex {
+pub fn stalking_stones() -> CardIndex {
     card_index("f3658894-3d3d-4cd4-b0ac-c53e1d08747c")
 }
 
-fn thran_quarry() -> CardIndex {
+pub fn thran_quarry() -> CardIndex {
     card_index("57b4da3f-361a-4cbe-b77f-190ec33eefd8")
 }
 
-fn training_compound() -> CardIndex {
+pub fn training_compound() -> CardIndex {
     card_index("99c70f4e-de8a-426d-99aa-17b2f87625ba")
 }
 
-fn war_room() -> CardIndex {
+pub fn war_room() -> CardIndex {
     card_index("71c52bf5-2a5d-488e-8b15-7ef290e4b77d")
 }
 
-fn arcane_lighthouse() -> CardIndex {
+pub fn arcane_lighthouse() -> CardIndex {
     card_index("30ac68e6-160a-41f9-9f0f-0e0eef383150")
 }
 
-fn boseiju_who_shelters_all() -> CardIndex {
+pub fn boseiju_who_shelters_all() -> CardIndex {
     card_index("36937483-30cb-449a-8028-75017a124922")
 }
 
-fn castle_embereth() -> CardIndex {
+pub fn castle_embereth() -> CardIndex {
     card_index("91fbb25b-8521-483f-88b0-77778d25f7fd")
 }
 
-fn cathedral_of_war() -> CardIndex {
+pub fn cathedral_of_war() -> CardIndex {
     card_index("5ff647e4-730a-498f-8f2c-5bd64d5a9780")
 }
 
-fn choked_estuary() -> CardIndex {
+pub fn choked_estuary() -> CardIndex {
     card_index("d473b507-8c33-4118-bc10-b0a268776074")
 }
 
-fn corrupted_crossroads() -> CardIndex {
+pub fn corrupted_crossroads() -> CardIndex {
     card_index("6276a985-7630-476d-a94f-6c6adc88f6c4")
 }
 
-fn eldrazi_temple() -> CardIndex {
+pub fn eldrazi_temple() -> CardIndex {
     card_index("7fab8d65-af51-47d3-8f10-2676bf6e8ba3")
 }
 
-fn forbidden_orchard() -> CardIndex {
+pub fn forbidden_orchard() -> CardIndex {
     card_index("cfd60d1f-9832-4408-b84e-0fd3018b015b")
 }
 
-fn foreboding_ruins() -> CardIndex {
+pub fn foreboding_ruins() -> CardIndex {
     card_index("5c87e2fa-77f1-4978-b25f-f14d227301d1")
 }
 
-fn fortified_village() -> CardIndex {
+pub fn fortified_village() -> CardIndex {
     card_index("56f1a16a-9f41-41fb-b580-c200bca27cd6")
 }
 
-fn frostboil_snarl() -> CardIndex {
+pub fn frostboil_snarl() -> CardIndex {
     card_index("7137aae6-260d-41de-8b4e-42a8cf752697")
 }
 
-fn furycalm_snarl() -> CardIndex {
+pub fn furycalm_snarl() -> CardIndex {
     card_index("651dea9c-2375-4e44-8e65-ba8e40f0c0ef")
 }
 
-fn game_trail() -> CardIndex {
+pub fn game_trail() -> CardIndex {
     card_index("00de57d2-7cb6-4337-9bc6-f6711e4dfabf")
 }
 
-fn halimar_depths() -> CardIndex {
+pub fn halimar_depths() -> CardIndex {
     card_index("42d121a2-5266-483a-ab16-e0a8073cd6a3")
 }
 
-fn hostile_desert() -> CardIndex {
+pub fn hostile_desert() -> CardIndex {
     card_index("41459587-7509-404e-bd7d-fb8831dee789")
 }
 
-fn leechridden_swamp() -> CardIndex {
+pub fn leechridden_swamp() -> CardIndex {
     card_index("d83c86c1-126d-49e9-9b13-9e55784c49c5")
 }
 
-fn madblind_mountain() -> CardIndex {
+pub fn madblind_mountain() -> CardIndex {
     card_index("0ee0b090-3f1e-49d6-bcad-91e0cf1d12ae")
 }
 
-fn memorial_to_folly() -> CardIndex {
+pub fn memorial_to_folly() -> CardIndex {
     card_index("2bc38f14-0314-4351-8138-e2b8bf041404")
 }
 
-fn mortuary_mire() -> CardIndex {
+pub fn mortuary_mire() -> CardIndex {
     card_index("1b3fb20a-e090-4286-9c03-6b71c27c45be")
 }
 
-fn mouth_of_ronom() -> CardIndex {
+pub fn mouth_of_ronom() -> CardIndex {
     card_index("7c05d239-39fc-4d34-a853-e3d591f4a235")
 }
 
-fn necroblossom_snarl() -> CardIndex {
+pub fn necroblossom_snarl() -> CardIndex {
     card_index("761ee6f9-b0fa-43c9-8d1f-9591ea18e52d")
 }
 
-fn nesting_grounds() -> CardIndex {
+pub fn nesting_grounds() -> CardIndex {
     card_index("d27bb97d-286b-4947-8d7b-443e4df93319")
 }
 
-fn port_town() -> CardIndex {
+pub fn port_town() -> CardIndex {
     card_index("458d2b12-f578-4392-98d3-c3bc83f316c4")
 }
 
-fn roadside_reliquary() -> CardIndex {
+pub fn roadside_reliquary() -> CardIndex {
     card_index("2fb13687-0518-4ba0-a5ae-dd609464b026")
 }
 
-fn secret_tunnel() -> CardIndex {
+pub fn secret_tunnel() -> CardIndex {
     card_index("632e2979-d88a-482e-9bb8-57b683c5310f")
 }
 
-fn sequestered_stash() -> CardIndex {
+pub fn sequestered_stash() -> CardIndex {
     card_index("b6fe779f-b20d-49cc-96dd-54f1ffb312e1")
 }
 
-fn shineshadow_snarl() -> CardIndex {
+pub fn shineshadow_snarl() -> CardIndex {
     card_index("c9fc13d6-bd10-47bc-b2b6-7f67a1f3371e")
 }
 
-fn shrine_of_the_forsaken_gods() -> CardIndex {
+pub fn shrine_of_the_forsaken_gods() -> CardIndex {
     card_index("8ea46945-d5ab-4209-b473-4769e7b8b962")
 }
 
-fn springjack_pasture() -> CardIndex {
+pub fn springjack_pasture() -> CardIndex {
     card_index("9eaadbbc-818b-4c21-9d4b-1bba48504d38")
 }
 
-fn starting_town() -> CardIndex {
+pub fn starting_town() -> CardIndex {
     card_index("d04e0975-f401-41b8-a9db-9bcf9cbbce66")
 }
 
-fn tectonic_edge() -> CardIndex {
+pub fn tectonic_edge() -> CardIndex {
     card_index("4927150d-7ff6-4232-b20e-d2ea245ac710")
 }
 
-fn the_gold_saucer() -> CardIndex {
+pub fn the_gold_saucer() -> CardIndex {
     card_index("93e38650-ce22-4ab9-b79d-cc7b6477c075")
 }
 
-fn the_grey_havens() -> CardIndex {
+pub fn the_grey_havens() -> CardIndex {
     card_index("a1a9695e-073b-4a65-b3ec-2cfddc23202a")
 }
 
-fn undiscovered_paradise() -> CardIndex {
+pub fn undiscovered_paradise() -> CardIndex {
     card_index("76c33d54-ce55-400e-bec5-79d33a5a20fb")
 }
 
-fn urza_s_workshop() -> CardIndex {
+pub fn urza_s_workshop() -> CardIndex {
     card_index("71099427-e110-488f-ab29-7867241fc7f0")
 }
 
-fn vineglimmer_snarl() -> CardIndex {
+pub fn vineglimmer_snarl() -> CardIndex {
     card_index("33f52df8-4b44-4422-8b0a-37fead9c894b")
 }
 
-fn wanderwine_hub() -> CardIndex {
+pub fn wanderwine_hub() -> CardIndex {
     card_index("c3b46bd6-b3ef-452d-a916-995c44f1da07")
 }
 
-fn zoetic_cavern() -> CardIndex {
+pub fn zoetic_cavern() -> CardIndex {
     card_index("3763de30-28e1-4689-a71c-07d2fea3a466")
 }
 
-fn adagia_windswept_bastion() -> CardIndex {
+pub fn adagia_windswept_bastion() -> CardIndex {
     card_index("70d35dbd-1d91-4a2a-a643-6870d168f4f5")
 }
 
-fn avengers_tower() -> CardIndex {
+pub fn avengers_tower() -> CardIndex {
     card_index("c5fc8e7c-a87e-4586-a13c-d30e0a3aafbf")
 }
 
-fn ba_sing_se() -> CardIndex {
+pub fn ba_sing_se() -> CardIndex {
     card_index("de1ae205-ca5b-4d26-8194-ca85f1406e53")
 }
 
-fn balamb_garden_see_d_academy() -> CardIndex {
+pub fn balamb_garden_see_d_academy() -> CardIndex {
     card_index("8b84fec5-617c-4088-8250-2ba1f1f9479a")
 }
 
-fn bucolic_ranch() -> CardIndex {
+pub fn bucolic_ranch() -> CardIndex {
     card_index("8f5902bf-4bc4-4d0c-84ea-a425307a4eb2")
 }
 
-fn chocobo_camp() -> CardIndex {
+pub fn chocobo_camp() -> CardIndex {
     card_index("ed77fdf2-59c0-4310-9b12-80d28beeaeef")
 }
 
-fn demolition_field() -> CardIndex {
+pub fn demolition_field() -> CardIndex {
     card_index("93953926-a644-49bb-9b5a-4c8f19114c7e")
 }
 
-fn diamond_city() -> CardIndex {
+pub fn diamond_city() -> CardIndex {
     card_index("88e29d50-1680-495d-be84-b92b4c9e636f")
 }
 
-fn forsaken_crossroads() -> CardIndex {
+pub fn forsaken_crossroads() -> CardIndex {
     card_index("c70598e1-30c6-4f92-a265-34a7a73bc2b8")
 }
 
-fn frostwalk_bastion() -> CardIndex {
+pub fn frostwalk_bastion() -> CardIndex {
     card_index("ae4a18ec-70a3-4d21-b9e5-b13ab4901600")
 }
 
-fn glacial_chasm() -> CardIndex {
+pub fn glacial_chasm() -> CardIndex {
     card_index("73e7a2ad-d11c-4867-b97d-f971809da778")
 }
 
-fn great_hall_of_the_biblioplex() -> CardIndex {
+pub fn great_hall_of_the_biblioplex() -> CardIndex {
     card_index("a8c70dab-1e27-4a9c-bd2d-910d5720d02d")
 }
 
-fn hall_of_storm_giants() -> CardIndex {
+pub fn hall_of_storm_giants() -> CardIndex {
     card_index("087c8c0e-a91c-4e3c-8387-9312db01f343")
 }
 
-fn havengul_laboratory() -> CardIndex {
+pub fn havengul_laboratory() -> CardIndex {
     card_index("e71ac446-02a4-4468-8d29-f28b21617665")
 }
 
-fn hidden_cataract() -> CardIndex {
+pub fn hidden_cataract() -> CardIndex {
     card_index("927979d7-9b5c-4448-aef0-baf2907a89f1")
 }
 
-fn hidden_courtyard() -> CardIndex {
+pub fn hidden_courtyard() -> CardIndex {
     card_index("e19d5071-4ea1-4883-b067-a21e553f96e0")
 }
 
-fn hidden_necropolis() -> CardIndex {
+pub fn hidden_necropolis() -> CardIndex {
     card_index("f780ee53-62b0-4c32-b5b7-047651f48e5f")
 }
 
-fn hidden_nursery() -> CardIndex {
+pub fn hidden_nursery() -> CardIndex {
     card_index("1a26e2d6-6bfc-4cdc-9bd6-8b37a9be2961")
 }
 
-fn hidden_volcano() -> CardIndex {
+pub fn hidden_volcano() -> CardIndex {
     card_index("a1c7cd7a-0795-4135-b787-effeb981d95b")
 }
 
-fn hostile_hostel() -> CardIndex {
+pub fn hostile_hostel() -> CardIndex {
     card_index("1b340f71-502f-48e9-85ed-9af62f356115")
 }
 
-fn kavaron_memorial_world() -> CardIndex {
+pub fn kavaron_memorial_world() -> CardIndex {
     card_index("4fa826ca-d361-4391-ad0d-989ebcfa4a91")
 }
 
-fn lupinflower_village() -> CardIndex {
+pub fn lupinflower_village() -> CardIndex {
     card_index("b6c7c708-5212-4100-b954-b77855b27915")
 }
 
-fn monumental_henge() -> CardIndex {
+pub fn monumental_henge() -> CardIndex {
     card_index("c48df45c-3513-4d56-aed6-30c2f3a759cd")
 }
 
-fn mosswort_bridge() -> CardIndex {
+pub fn mosswort_bridge() -> CardIndex {
     card_index("7cb9e29f-835f-4155-a2a5-4b778866c773")
 }
 
-fn shelldock_isle() -> CardIndex {
+pub fn shelldock_isle() -> CardIndex {
     card_index("f748b2fb-6c2a-400a-8e96-fa4e4a1dfe80")
 }
 
-fn spawning_pool() -> CardIndex {
+pub fn spawning_pool() -> CardIndex {
     card_index("f3bf22cf-0a6f-4fb6-ba82-63ce290308d6")
 }
 
-fn spymaster_s_vault() -> CardIndex {
+pub fn spymaster_s_vault() -> CardIndex {
     card_index("69ddca4b-5cc0-45f3-b2e6-a047c8d601be")
 }
 
-fn susur_secundi_void_altar() -> CardIndex {
+pub fn susur_secundi_void_altar() -> CardIndex {
     card_index("50d6cadc-07e4-479e-90f4-e3a20f769bab")
 }
 
-fn the_world_tree() -> CardIndex {
+pub fn the_world_tree() -> CardIndex {
     card_index("3437d504-bf62-4c27-b15f-f6330182ff7e")
 }
 
-fn villainous_hideout() -> CardIndex {
+pub fn villainous_hideout() -> CardIndex {
     card_index("cd2888aa-71f3-47ee-ba33-7bb95d5bc836")
 }
 
-fn voldaren_estate() -> CardIndex {
+pub fn voldaren_estate() -> CardIndex {
     card_index("fb0c0426-f1a6-4e52-9242-627786d3119a")
 }
 
-fn windbrisk_heights() -> CardIndex {
+pub fn windbrisk_heights() -> CardIndex {
     card_index("3589bcfc-42b0-414a-adce-bc690dc631c8")
 }
 
-fn archway_of_innovation() -> CardIndex {
+pub fn archway_of_innovation() -> CardIndex {
     card_index("bfa20bc7-4626-4a52-87f4-6e2763cb8ed5")
 }
 
-fn arena_of_glory() -> CardIndex {
+pub fn arena_of_glory() -> CardIndex {
     card_index("63dfe794-5f56-41ec-9883-5523b41cc3e0")
 }
 
-fn balduvian_trading_post() -> CardIndex {
+pub fn balduvian_trading_post() -> CardIndex {
     card_index("7647940e-c99c-401c-ad1d-9ec730f66b6f")
 }
 
-fn blast_zone() -> CardIndex {
+pub fn blast_zone() -> CardIndex {
     card_index("393a254f-be31-431a-9341-a51286f8cbce")
 }
 
-fn branch_of_vitu_ghazi() -> CardIndex {
+pub fn branch_of_vitu_ghazi() -> CardIndex {
     card_index("7a30316b-dcd5-4a4b-b959-eecde7ca92e7")
 }
 
-fn cactus_preserve() -> CardIndex {
+pub fn cactus_preserve() -> CardIndex {
     card_index("8da29533-f389-4bc2-ab9b-b469f893a362")
 }
 
-fn clive_s_hideaway() -> CardIndex {
+pub fn clive_s_hideaway() -> CardIndex {
     card_index("283f743f-6e79-49de-b7ed-08e6ffb64cc6")
 }
 
-fn country_roads() -> CardIndex {
+pub fn country_roads() -> CardIndex {
     card_index("c5a39f76-dd1b-442c-9f52-08561ecb91ad")
 }
 
-fn dalkovan_encampment() -> CardIndex {
+pub fn dalkovan_encampment() -> CardIndex {
     card_index("33a90122-7280-4481-9b97-5879194cae40")
 }
 
-fn den_of_the_bugbear() -> CardIndex {
+pub fn den_of_the_bugbear() -> CardIndex {
     card_index("f451b8f0-1ff5-4e8d-9f30-9352d83ed687")
 }
 
-fn eclipsed_realms() -> CardIndex {
+pub fn eclipsed_realms() -> CardIndex {
     card_index("5715ed43-395c-4877-99a7-8e28e7bf9dce")
 }
 
-fn fertile_thicket() -> CardIndex {
+pub fn fertile_thicket() -> CardIndex {
     card_index("7ba580c9-f933-43d9-b03d-a349faa6c641")
 }
 
-fn foul_roads() -> CardIndex {
+pub fn foul_roads() -> CardIndex {
     card_index("d4e4c8a5-e97b-4295-a403-d17834f73502")
 }
 
-fn gallifrey_council_chamber() -> CardIndex {
+pub fn gallifrey_council_chamber() -> CardIndex {
     card_index("26e4b49e-77e7-41d9-94c5-924669a82591")
 }
 
-fn hellion_crucible() -> CardIndex {
+pub fn hellion_crucible() -> CardIndex {
     card_index("c238ef51-4b46-43d5-a70b-40270a96a1fd")
 }
 
-fn hive_of_the_eye_tyrant() -> CardIndex {
+pub fn hive_of_the_eye_tyrant() -> CardIndex {
     card_index("d17163d4-dd43-4de6-b7cf-576448160b7f")
 }
 
-fn lazotep_quarry() -> CardIndex {
+pub fn lazotep_quarry() -> CardIndex {
     card_index("0d2fa39a-9cac-4a1f-bb1e-b6162e6d5169")
 }
 
-fn memorial_to_unity() -> CardIndex {
+pub fn memorial_to_unity() -> CardIndex {
     card_index("a74494ef-aa35-4830-9b4c-47bff5270efc")
 }
 
-fn minas_morgul_dark_fortress() -> CardIndex {
+pub fn minas_morgul_dark_fortress() -> CardIndex {
     card_index("867dbd5a-c3cf-41ce-980b-c9babc6f30f2")
 }
 
-fn mirrex() -> CardIndex {
+pub fn mirrex() -> CardIndex {
     card_index("5502741a-e3b9-454e-8121-4360a6db6750")
 }
 
-fn mirrorpool() -> CardIndex {
+pub fn mirrorpool() -> CardIndex {
     card_index("57b86d5c-3269-44bc-a838-3c5439d820d9")
 }
 
-fn opal_palace() -> CardIndex {
+pub fn opal_palace() -> CardIndex {
     card_index("aa6723a2-75da-49f5-a1ba-cbfa82c55301")
 }
 
-fn plaza_of_heroes() -> CardIndex {
+pub fn plaza_of_heroes() -> CardIndex {
     card_index("9c58d241-4d9f-4b46-b8ee-f4587f9acfd6")
 }
 
-fn primal_beyond() -> CardIndex {
+pub fn primal_beyond() -> CardIndex {
     card_index("541744d9-449d-420a-a5a1-2fffba18450f")
 }
 
-fn reef_roads() -> CardIndex {
+pub fn reef_roads() -> CardIndex {
     card_index("32438050-5ae7-4c19-bcaf-5a07a673e0e0")
 }
 
-fn restless_cottage() -> CardIndex {
+pub fn restless_cottage() -> CardIndex {
     card_index("7e16595f-bdeb-422e-b99a-bfc0ed52e9f8")
 }
 
-fn restless_fortress() -> CardIndex {
+pub fn restless_fortress() -> CardIndex {
     card_index("8b3726f1-20b8-42ec-8f9b-b361515c3f05")
 }
 
-fn restless_prairie() -> CardIndex {
+pub fn restless_prairie() -> CardIndex {
     card_index("c071257a-63e7-48d0-a677-0b396a09b624")
 }
 
-fn restless_ridgeline() -> CardIndex {
+pub fn restless_ridgeline() -> CardIndex {
     card_index("4c0f4a63-586a-4dde-9621-b0dd9118b2e5")
 }
 
-fn restless_spire() -> CardIndex {
+pub fn restless_spire() -> CardIndex {
     card_index("0ca4e80e-c19c-4b74-b531-c5a4dc5a8ba9")
 }
 
-fn restless_vents() -> CardIndex {
+pub fn restless_vents() -> CardIndex {
     card_index("696e7ddb-bdc7-40ee-bc5c-59e98f4a7401")
 }
 
-fn restless_vinestalk() -> CardIndex {
+pub fn restless_vinestalk() -> CardIndex {
     card_index("0935faa2-fb90-48db-8a92-906ba0f374c7")
 }
 
-fn rocky_roads() -> CardIndex {
+pub fn rocky_roads() -> CardIndex {
     card_index("a659c29f-aaca-44c5-8426-cdafcb195f86")
 }
 
-fn shifting_woodland() -> CardIndex {
+pub fn shifting_woodland() -> CardIndex {
     card_index("7c2a4fe5-43e8-4e20-bef2-0278d18afc4b")
 }
 
-fn sunken_palace() -> CardIndex {
+pub fn sunken_palace() -> CardIndex {
     card_index("c098c507-5154-423a-a70b-f6dfd4959cf6")
 }
 
-fn the_biblioplex() -> CardIndex {
+pub fn the_biblioplex() -> CardIndex {
     card_index("86ed6073-c35c-4d29-9911-5fe191dd875f")
 }
 
-fn thran_portal() -> CardIndex {
+pub fn thran_portal() -> CardIndex {
     card_index("926ce6a2-7bdd-4380-ac65-bc902ba0c284")
 }
 
-fn trenzalore_clocktower() -> CardIndex {
+pub fn trenzalore_clocktower() -> CardIndex {
     card_index("69143645-97b6-4c7c-9fa2-844fb3b99822")
 }
 
-fn wild_roads() -> CardIndex {
+pub fn wild_roads() -> CardIndex {
     card_index("36fbc8ba-bb4c-4e5e-9031-78c36e376851")
 }
 
-fn ash_barrens() -> CardIndex {
+pub fn ash_barrens() -> CardIndex {
     card_index("58257464-278e-45fa-8e0b-bcd9a7500bc1")
 }
 
-fn big_apple_3_a_m() -> CardIndex {
+pub fn big_apple_3_a_m() -> CardIndex {
     card_index("dd01ef1f-f6be-498f-82e0-dc04833e685f")
 }
 
-fn captivating_cave() -> CardIndex {
+pub fn captivating_cave() -> CardIndex {
     card_index("4c77767a-8133-43bc-b7a5-09a73259d354")
 }
 
-fn cave_of_temptation() -> CardIndex {
+pub fn cave_of_temptation() -> CardIndex {
     card_index("75540897-53f6-433b-bd70-9851551df6ef")
 }
 
-fn crawling_barrens() -> CardIndex {
+pub fn crawling_barrens() -> CardIndex {
     card_index("dfe1a112-97aa-4e81-8431-81552ba2cdcf")
 }
 
-fn daily_bugle_building() -> CardIndex {
+pub fn daily_bugle_building() -> CardIndex {
     card_index("483e0c6c-8131-486c-b482-cc3396c9786b")
 }
 
-fn eden_seat_of_the_sanctum() -> CardIndex {
+pub fn eden_seat_of_the_sanctum() -> CardIndex {
     card_index("84856b92-5ce8-47f3-9a1c-78d6a3e26aca")
 }
 
-fn elvenking_s_halls() -> CardIndex {
+pub fn elvenking_s_halls() -> CardIndex {
     card_index("a91e0154-14a9-4681-8236-04db231592a4")
 }
 
-fn eye_of_ugin() -> CardIndex {
+pub fn eye_of_ugin() -> CardIndex {
     card_index("10d13ff6-c4d0-4753-8939-a8a90f0e92bb")
 }
 
-fn fabled_passage() -> CardIndex {
+pub fn fabled_passage() -> CardIndex {
     card_index("0c85b8f7-0bd0-4680-9ec5-d4b110460a54")
 }
 
-fn forsaken_city() -> CardIndex {
+pub fn forsaken_city() -> CardIndex {
     card_index("6bb00a28-8b5a-4049-93b7-3db02de88aeb")
 }
 
-fn goblin_town() -> CardIndex {
+pub fn goblin_town() -> CardIndex {
     card_index("98d20908-6d68-4d31-b719-207f93c9b402")
 }
 
-fn interplanar_beacon() -> CardIndex {
+pub fn interplanar_beacon() -> CardIndex {
     card_index("073169f2-da3a-4a93-8c01-b3fd8558d225")
 }
 
-fn karn_s_bastion() -> CardIndex {
+pub fn karn_s_bastion() -> CardIndex {
     card_index("9fb8cd81-403a-4988-8f1c-b8eccf8abd9c")
 }
 
-fn keldon_megaliths() -> CardIndex {
+pub fn keldon_megaliths() -> CardIndex {
     card_index("ec0ea7f7-52ce-40d1-b34c-e36dd4b26120")
 }
 
-fn krosan_verge() -> CardIndex {
+pub fn krosan_verge() -> CardIndex {
     card_index("d9a10971-f32b-4978-952d-fed0a5bc9e36")
 }
 
-fn lindblum_industrial_regency() -> CardIndex {
+pub fn lindblum_industrial_regency() -> CardIndex {
     card_index("4cc014f3-05e0-442e-9dee-03eab1aa65a3")
 }
 
-fn llanowar_reborn() -> CardIndex {
+pub fn llanowar_reborn() -> CardIndex {
     card_index("92acb789-0e42-465c-ac16-40fefec48805")
 }
 
-fn mariposa_military_base() -> CardIndex {
+pub fn mariposa_military_base() -> CardIndex {
     card_index("f1e03d99-024a-430b-9342-ffd2268bd103")
 }
 
-fn minas_tirith() -> CardIndex {
+pub fn minas_tirith() -> CardIndex {
     card_index("7b0d7e62-0287-454a-8702-b0bfa7b41245")
 }
 
-fn mishra_s_factory() -> CardIndex {
+pub fn mishra_s_factory() -> CardIndex {
     card_index("5963e0ef-e0bc-4611-ad4f-813a4c0eacfb")
 }
 
-fn moonring_island() -> CardIndex {
+pub fn moonring_island() -> CardIndex {
     card_index("cf620c66-7db1-4db8-ae56-ee4bc2f77d74")
 }
 
-fn nephalia_academy() -> CardIndex {
+pub fn nephalia_academy() -> CardIndex {
     card_index("3b7e7a11-bf59-413d-8796-640d17c2c1c6")
 }
 
-fn pendelhaven() -> CardIndex {
+pub fn pendelhaven() -> CardIndex {
     card_index("f70e72e1-9abe-485b-9fea-e8b35352f5b3")
 }
 
-fn plaza_of_harmony() -> CardIndex {
+pub fn plaza_of_harmony() -> CardIndex {
     card_index("5ff1d6d8-8cea-4a25-90d9-b575f4c99bc8")
 }
 
-fn power_depot() -> CardIndex {
+pub fn power_depot() -> CardIndex {
     card_index("64687880-03f9-4f38-985b-1027c797e33f")
 }
 
-fn river_of_tears() -> CardIndex {
+pub fn river_of_tears() -> CardIndex {
     card_index("8a83d284-75a0-4901-b7d9-c4b7586ee327")
 }
 
-fn valakut_the_molten_pinnacle() -> CardIndex {
+pub fn valakut_the_molten_pinnacle() -> CardIndex {
     card_index("1bc44216-4e06-4f66-89b7-5c327004604e")
 }
 
-fn baxter_building() -> CardIndex {
+pub fn baxter_building() -> CardIndex {
     card_index("71bc69a5-7cec-4abd-b97d-13f8e1f9afac")
 }
 
-fn brotherhood_headquarters() -> CardIndex {
+pub fn brotherhood_headquarters() -> CardIndex {
     card_index("0d3a06d5-5bb9-4733-a55b-9e2c75de6b6e")
 }
 
-fn castle_garenbrig() -> CardIndex {
+pub fn castle_garenbrig() -> CardIndex {
     card_index("de75e5dd-8a52-406c-b55c-96d686885500")
 }
 
-fn castle_locthwain() -> CardIndex {
+pub fn castle_locthwain() -> CardIndex {
     card_index("be811e70-aaaa-41f3-bf9e-5d3f9f719b49")
 }
 
-fn contested_cliffs() -> CardIndex {
+pub fn contested_cliffs() -> CardIndex {
     card_index("b891a683-2ebc-4e9c-b402-5dd9c1b42b69")
 }
 
-fn contested_war_zone() -> CardIndex {
+pub fn contested_war_zone() -> CardIndex {
     card_index("ed73de2b-d7f4-48d9-9be2-aa9d111b7aa7")
 }
 
-fn dragon_cursed_halls() -> CardIndex {
+pub fn dragon_cursed_halls() -> CardIndex {
     card_index("5be7a4d5-33b7-464b-8851-d4ad35302e62")
 }
 
-fn endless_sands() -> CardIndex {
+pub fn endless_sands() -> CardIndex {
     card_index("c4033d97-769f-4811-8b11-f85b8817b7a2")
 }
 
-fn flagstones_of_trokair() -> CardIndex {
+pub fn flagstones_of_trokair() -> CardIndex {
     card_index("f73979bb-91a5-4388-b70b-0cd7a4e14291")
 }
 
-fn flamekin_village() -> CardIndex {
+pub fn flamekin_village() -> CardIndex {
     card_index("34a1eb04-08f6-49d8-a1d1-b987a76bd8b1")
 }
 
-fn forge_of_heroes() -> CardIndex {
+pub fn forge_of_heroes() -> CardIndex {
     card_index("77807103-bcd5-479f-bedd-f5d97aa6d3d2")
 }
 
-fn ghost_quarter() -> CardIndex {
+pub fn ghost_quarter() -> CardIndex {
     card_index("2ec4288e-34c6-4831-a2c0-ba1ca1d9d1dc")
 }
 
-fn great_arashin_city() -> CardIndex {
+pub fn great_arashin_city() -> CardIndex {
     card_index("f40f374b-acaf-459d-9ccd-b0b22d1a3f28")
 }
 
-fn guildmages_forum() -> CardIndex {
+pub fn guildmages_forum() -> CardIndex {
     card_index("ace6403d-9fac-4d0f-a6ea-eb2ff3da259d")
 }
 
-fn helios_one() -> CardIndex {
+pub fn helios_one() -> CardIndex {
     card_index("cfb1a656-0bf1-484d-b099-33087914250b")
 }
 
-fn ifnir_deadlands() -> CardIndex {
+pub fn ifnir_deadlands() -> CardIndex {
     card_index("af698bd5-5f56-4d2a-9f02-8c3e781210cd")
 }
 
-fn iron_hills() -> CardIndex {
+pub fn iron_hills() -> CardIndex {
     card_index("a71e8d07-1a49-47a0-834e-de87d750a200")
 }
 
-fn maze_of_shadows() -> CardIndex {
+pub fn maze_of_shadows() -> CardIndex {
     card_index("b7b51ab1-403e-4640-8827-b04965aa6760")
 }
 
-fn mines_of_moria() -> CardIndex {
+pub fn mines_of_moria() -> CardIndex {
     card_index("583cdebe-0195-45be-bd2e-5765f07cb902")
 }
 
-fn mirkwood() -> CardIndex {
+pub fn mirkwood() -> CardIndex {
     card_index("cd49aa99-bf84-4edd-aecc-6dae78b73412")
 }
 
-fn mistrise_village() -> CardIndex {
+pub fn mistrise_village() -> CardIndex {
     card_index("339f5334-b65a-445a-a016-20e997e0b4bb")
 }
 
-fn murmuring_bosk() -> CardIndex {
+pub fn murmuring_bosk() -> CardIndex {
     card_index("42b9d383-3fe2-4fc8-ab86-f80a288d502b")
 }
 
-fn mystifying_maze() -> CardIndex {
+pub fn mystifying_maze() -> CardIndex {
     card_index("58bd67a8-1833-4827-aa33-1c141568f481")
 }
 
-fn nivix_aerie_of_the_firemind() -> CardIndex {
+pub fn nivix_aerie_of_the_firemind() -> CardIndex {
     card_index("9c482f1d-08b4-4882-918c-448a556d3fbe")
 }
 
-fn nomad_stadium() -> CardIndex {
+pub fn nomad_stadium() -> CardIndex {
     card_index("4034bec6-e3c7-4d3f-81df-7c903977a606")
 }
 
-fn pit_of_offerings() -> CardIndex {
+pub fn pit_of_offerings() -> CardIndex {
     card_index("044d2788-6daa-4849-a813-1f577eef9295")
 }
 
-fn public_thoroughfare() -> CardIndex {
+pub fn public_thoroughfare() -> CardIndex {
     card_index("de5b995c-9691-4555-9070-66bcbc29f955")
 }
 
-fn ruins_of_oran_rief() -> CardIndex {
+pub fn ruins_of_oran_rief() -> CardIndex {
     card_index("7140f396-1bfa-4b28-ba28-fa15eba74652")
 }
 
-fn sejiri_steppe() -> CardIndex {
+pub fn sejiri_steppe() -> CardIndex {
     card_index("3dfbf95e-a91b-429c-96e2-95ac777e7027")
 }
 
-fn shefet_dunes() -> CardIndex {
+pub fn shefet_dunes() -> CardIndex {
     card_index("8305715e-f711-47d6-8efe-d0efe4ced418")
 }
 
-fn skyline_cascade() -> CardIndex {
+pub fn skyline_cascade() -> CardIndex {
     card_index("79301ae1-8c9c-4723-be21-dc27e1646f35")
 }
 
-fn surtland_frostpyre() -> CardIndex {
+pub fn surtland_frostpyre() -> CardIndex {
     card_index("965aa666-3919-4053-8584-b773bdd54f0b")
 }
 
-fn the_mycosynth_gardens() -> CardIndex {
+pub fn the_mycosynth_gardens() -> CardIndex {
     card_index("03f5c566-825c-4c46-9c01-a2f9b1e70a13")
 }
 
-fn throne_of_makindi() -> CardIndex {
+pub fn throne_of_makindi() -> CardIndex {
     card_index("7e8198e9-0f3b-420b-ab09-74f13f4fd548")
 }
 
-fn tolaria() -> CardIndex {
+pub fn tolaria() -> CardIndex {
     card_index("9879a4f3-3b9c-45cf-af03-7f2ae4c689b4")
 }
 
-fn unclaimed_territory() -> CardIndex {
+pub fn unclaimed_territory() -> CardIndex {
     card_index("584b15f2-6ae9-413a-8b8d-9244dbea4878")
 }
 
-fn dwarven_armorer() -> CardIndex {
+pub fn dwarven_armorer() -> CardIndex {
     card_index("5bbd27b1-0afd-4d98-a73c-c348c8f08625")
 }
 
-fn hashep_oasis() -> CardIndex {
+pub fn hashep_oasis() -> CardIndex {
     card_index("eab70fff-6a9f-4f9f-89a2-b6910c199e46")
 }
 
-fn immersturm_skullcairn() -> CardIndex {
+pub fn immersturm_skullcairn() -> CardIndex {
     card_index("354a7376-fb4b-424d-8964-93727302dccb")
 }
 
-fn lake_town() -> CardIndex {
+pub fn lake_town() -> CardIndex {
     card_index("717c6beb-81c6-43ed-aab0-aedfc1cbac33")
 }
 
-fn mech_hangar() -> CardIndex {
+pub fn mech_hangar() -> CardIndex {
     card_index("abc04775-171d-41f3-83ea-4b4eb72723d5")
 }
 
-fn smugglers_copter() -> CardIndex {
+pub fn smugglers_copter() -> CardIndex {
     card_index("49136bdc-bc50-49a2-999a-1ef9c16ea130")
 }
 
-fn mistveil_plains() -> CardIndex {
+pub fn mistveil_plains() -> CardIndex {
     card_index("bb5c1817-ac22-4779-9005-251bc354f181")
 }
 
-fn talon_gates_of_madara() -> CardIndex {
+pub fn talon_gates_of_madara() -> CardIndex {
     card_index("8c45bf9d-a017-43bf-9e32-67810a8a217b")
 }
 
-fn turtle_lair() -> CardIndex {
+pub fn turtle_lair() -> CardIndex {
     card_index("eb002bbc-08df-4bf0-bea3-46494ad261b6")
 }
 
-fn axgard_armory() -> CardIndex {
+pub fn axgard_armory() -> CardIndex {
     card_index("bce30fd0-ed1e-495d-9149-6a4c81c45c7b")
 }
 
-fn cabaretti_courtyard() -> CardIndex {
+pub fn cabaretti_courtyard() -> CardIndex {
     card_index("65424bea-fd53-4f85-9757-0b91a6d40ba4")
 }
 
-fn cavernous_maw() -> CardIndex {
+pub fn cavernous_maw() -> CardIndex {
     card_index("952ab8fe-f7d3-4673-89de-8c6d3f8a081f")
 }
 
-fn elven_passage() -> CardIndex {
+pub fn elven_passage() -> CardIndex {
     card_index("97a2cd39-6b54-496b-b3ac-dab9dfed7edc")
 }
 
-fn escape_tunnel() -> CardIndex {
+pub fn escape_tunnel() -> CardIndex {
     card_index("0056fc91-4398-471c-b561-7ff99750ac8a")
 }
 
-fn fire_nation_palace() -> CardIndex {
+pub fn fire_nation_palace() -> CardIndex {
     card_index("f2000fb8-39c6-4ad6-a020-5245faaa1eba")
 }
 
-fn hobbit_hole() -> CardIndex {
+pub fn hobbit_hole() -> CardIndex {
     card_index("17492186-9814-4c41-8111-1f000a96c212")
 }
 
-fn realm_of_koh() -> CardIndex {
+pub fn realm_of_koh() -> CardIndex {
     card_index("bb9ce416-eef1-49e8-89a0-2b6837505070")
 }
 
-fn sunken_citadel() -> CardIndex {
+pub fn sunken_citadel() -> CardIndex {
     card_index("508189e1-9cef-4f9c-8ff1-078c99a0f603")
 }
 
-fn volatile_fault() -> CardIndex {
+pub fn volatile_fault() -> CardIndex {
     card_index("95c44f28-f7fa-4785-83b9-0d81be0db0c8")
 }
 
-fn blinkmoth_nexus() -> CardIndex {
+pub fn blinkmoth_nexus() -> CardIndex {
     card_index("40d45c02-6416-4e19-8fe3-0ddadf5ba627")
 }
 
-fn creeping_tar_pit() -> CardIndex {
+pub fn creeping_tar_pit() -> CardIndex {
     card_index("250cb58b-2924-4dff-92fe-ac0ebbbeb218")
 }
 
-fn faceless_haven() -> CardIndex {
+pub fn faceless_haven() -> CardIndex {
     card_index("f74107d5-fb4a-464b-9251-42b84d91775d")
 }
 
-fn horizon_of_progress() -> CardIndex {
+pub fn horizon_of_progress() -> CardIndex {
     card_index("59a82f57-fe2f-4834-a4ee-4b948eef1e12")
 }
 
-fn lake_of_the_dead() -> CardIndex {
+pub fn lake_of_the_dead() -> CardIndex {
     card_index("bdf476e5-1d57-4b17-b45b-d52fd75aadeb")
 }
 
-fn lotus_vale() -> CardIndex {
+pub fn lotus_vale() -> CardIndex {
     card_index("01fc5bb3-ebd7-4ab4-8aef-2ece1e1d9b7c")
 }
 
-fn maestros_theater() -> CardIndex {
+pub fn maestros_theater() -> CardIndex {
     card_index("9464ddf2-4bcb-44f6-b945-89a132544de6")
 }
 
-fn riveteers_overlook() -> CardIndex {
+pub fn riveteers_overlook() -> CardIndex {
     card_index("5548ff43-e5f6-4a63-8562-a2b1de06d6f5")
 }
 
-fn sanctum_of_ugin() -> CardIndex {
+pub fn sanctum_of_ugin() -> CardIndex {
     card_index("72cb5dcd-9b24-435c-921a-3766108374c4")
 }
 
-fn the_black_gate() -> CardIndex {
+pub fn the_black_gate() -> CardIndex {
     card_index("40eb9904-dea3-47cf-963a-04821f98ba64")
 }
 
-fn evasive_action() -> CardIndex {
+pub fn evasive_action() -> CardIndex {
     card_index("4543a99d-eefa-470d-976d-11250524ae28")
 }
 
-fn gaea_s_might() -> CardIndex {
+pub fn gaea_s_might() -> CardIndex {
     card_index("73b26f12-78eb-4d01-9dd6-ee643c7a80a8")
 }
 
 // oracle_id = "1423b8e6-9165-4a89-a6ed-18085f460bca"
-fn power_armor() -> CardIndex {
+pub fn power_armor() -> CardIndex {
     card_index("1423b8e6-9165-4a89-a6ed-18085f460bca")
 }
 
 // oracle_id = "6789a170-f2c5-4fc0-8a45-2b2361e67410"
-fn chord_of_calling() -> CardIndex {
+pub fn chord_of_calling() -> CardIndex {
     card_index("6789a170-f2c5-4fc0-8a45-2b2361e67410")
 }
 
-fn green_suns_zenith() -> CardIndex {
+pub fn green_suns_zenith() -> CardIndex {
     card_index("0d96b60b-a060-48ee-bb83-93f1c4a10669")
 }
 
-fn midgar_city_of_mako() -> CardIndex {
+pub fn midgar_city_of_mako() -> CardIndex {
     card_index("4e34a49d-f031-48ac-a458-97b79124b76c")
 }
 
-fn agatha_s_soul_cauldron() -> CardIndex {
+pub fn agatha_s_soul_cauldron() -> CardIndex {
     card_index("c259e16f-2a44-4552-8678-815f757a02e8")
 }
 
-fn wishclaw_talisman() -> CardIndex {
+pub fn wishclaw_talisman() -> CardIndex {
     card_index("81c70ae7-3c18-4c9b-8505-e4db9e0e6518")
 }
 
-fn dragonback_assault() -> CardIndex {
+pub fn dragonback_assault() -> CardIndex {
     card_index("413fb2db-f1a1-4d22-ac37-a52821d35ca2")
 }
 
-fn twists_and_turns() -> CardIndex {
+pub fn twists_and_turns() -> CardIndex {
     card_index("740aa9d9-91a9-431e-8bf9-1344e5273e27")
 }
 
-fn brokers_hideout() -> CardIndex {
+pub fn brokers_hideout() -> CardIndex {
     card_index("bd002797-a545-4bee-88bf-b878436e7cca")
 }
 
-fn basilisk_gate() -> CardIndex {
+pub fn basilisk_gate() -> CardIndex {
     card_index("8733a4fc-4068-4af4-9598-dc3d895e8556")
 }
 
-fn blighted_woodland() -> CardIndex {
+pub fn blighted_woodland() -> CardIndex {
     card_index("02679a2e-303d-412f-87d8-0a37a8ca259c")
 }
 
-fn cori_mountain_monastery() -> CardIndex {
+pub fn cori_mountain_monastery() -> CardIndex {
     card_index("35c60b66-8c85-432e-90fe-99c19d21ed15")
 }
 
-fn arid_archway() -> CardIndex {
+pub fn arid_archway() -> CardIndex {
     card_index("3be3d7e6-7860-438a-b8c8-ef154c18c163")
 }
 
-fn scorched_ruins() -> CardIndex {
+pub fn scorched_ruins() -> CardIndex {
     card_index("6ee68855-c8c5-422b-88da-163c09a96416")
 }
 
-fn cryptic_spires() -> CardIndex {
+pub fn cryptic_spires() -> CardIndex {
     card_index("6d6a25fb-0432-4c7d-b0e6-e787ddc71218")
 }
 
-fn dakmor_salvage() -> CardIndex {
+pub fn dakmor_salvage() -> CardIndex {
     card_index("cdc4048a-73ec-4ec1-a179-2b36c397bf1a")
 }
 
-fn shizo_death_s_storehouse() -> CardIndex {
+pub fn shizo_death_s_storehouse() -> CardIndex {
     card_index("008f2698-1721-45a3-8353-10f2f400dc8f")
 }
 
-fn spinerock_knoll() -> CardIndex {
+pub fn spinerock_knoll() -> CardIndex {
     card_index("690c7f8e-fea2-4920-afa7-02ff120701a1")
 }
 
-fn vesuva() -> CardIndex {
+pub fn vesuva() -> CardIndex {
     card_index("4001b868-ada1-43f4-92e2-27ab0e80c913")
 }
 
-fn obscura_storefront() -> CardIndex {
+pub fn obscura_storefront() -> CardIndex {
     card_index("dc31a6f8-6228-4a25-b937-5d8d78514333")
 }
 
-fn barad_dur() -> CardIndex {
+pub fn barad_dur() -> CardIndex {
     card_index("88159872-d37d-4847-b048-e4a9af6437bd")
 }
 
-fn jidoor_aristocratic_capital() -> CardIndex {
+pub fn jidoor_aristocratic_capital() -> CardIndex {
     card_index("bd513d9d-5aa2-4860-bd86-8b5d9430f133")
 }
 
-fn dungeon_descent() -> CardIndex {
+pub fn dungeon_descent() -> CardIndex {
     card_index("f086a63c-0c62-4674-bd27-82e7aed12b1a")
 }
 
-fn howltooth_hollow() -> CardIndex {
+pub fn howltooth_hollow() -> CardIndex {
     card_index("463fc699-f4fc-4112-a6b3-6dcb642203e6")
 }
 
-fn grove_of_the_guardian() -> CardIndex {
+pub fn grove_of_the_guardian() -> CardIndex {
     card_index("f746612a-fbed-44ca-b2cc-5928e10cf4bb")
 }
 
-fn collector_ouphe() -> CardIndex {
+pub fn collector_ouphe() -> CardIndex {
     card_index("0c4bc9ea-a5fd-4f44-96a1-5448eee228c4")
 }
 
-fn reshape() -> CardIndex {
+pub fn reshape() -> CardIndex {
     card_index("42a3855d-25ab-45b3-9e5d-9a0f3da35a05")
 }
 
-fn finale_of_devastation() -> CardIndex {
+pub fn finale_of_devastation() -> CardIndex {
     card_index("69872a9a-fe54-4e58-940c-89395af71acd")
 }
 
-fn whir_of_invention() -> CardIndex {
+pub fn whir_of_invention() -> CardIndex {
     card_index("152b91c9-cc07-4ca8-944f-9bc2242a2283")
 }
 
-fn land_cap() -> CardIndex {
+pub fn land_cap() -> CardIndex {
     card_index("bfec4d0a-3792-4bc3-bae1-e639da5bb9a6")
 }
 
-fn archdruid_s_charm() -> CardIndex {
+pub fn archdruid_s_charm() -> CardIndex {
     card_index("3c1ef404-e2c6-486d-a5a2-d5779c71d498")
 }
 
-fn walk_in_closet() -> CardIndex {
+pub fn walk_in_closet() -> CardIndex {
     card_index("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
 }
 
-fn naturalize() -> CardIndex {
+pub fn naturalize() -> CardIndex {
     card_index("bdb3ca68-ec1f-4e16-81cc-d23f8f52c728")
 }
 
 /// The doors of the Room `room`, as the permanent holds them.
-fn doors_of(engine: &Engine<RegistryLookup>, room: ObjectId) -> crate::object::Doors {
+pub fn doors_of(engine: &Engine<RegistryLookup>, room: ObjectId) -> baylee_engine::object::Doors {
     engine
         .state()
         .object(room)
@@ -3254,7 +3221,7 @@ fn doors_of(engine: &Engine<RegistryLookup>, room: ObjectId) -> crate::object::D
 }
 
 /// Which halves of `room` the priority offer unlocks, 0 the left.
-fn unlocks_offered(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u8> {
+pub fn unlocks_offered(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u8> {
     let Pending::Priority { legal, .. } = engine.pending() else {
         return Vec::new();
     };
@@ -3262,13 +3229,13 @@ fn unlocks_offered(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u8> {
         .abilities
         .iter()
         .filter(|(source, _)| *source == room)
-        .filter_map(|&(_, index)| crate::choice::door_to_unlock(index))
+        .filter_map(|&(_, index)| baylee_engine::choice::door_to_unlock(index))
         .collect()
 }
 
 /// Unlocks `half` of `room` the way a player does: the offered special
 /// action.
-fn unlock(
+pub fn unlock(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     room: ObjectId,
@@ -3278,13 +3245,13 @@ fn unlock(
         seat,
         PlayerAction::ActivateAbility {
             source: room,
-            ability_index: crate::choice::unlock_door(half),
+            ability_index: baylee_engine::choice::unlock_door(half),
         },
     )
 }
 
 /// The indices of the abilities on the stack whose source is `room`.
-fn room_abilities_on_stack(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u32> {
+pub fn room_abilities_on_stack(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u32> {
     engine
         .state()
         .zones
@@ -3297,7 +3264,7 @@ fn room_abilities_on_stack(engine: &Engine<RegistryLookup>, room: ObjectId) -> V
 }
 
 /// The name, mana value and colours `object` has now.
-fn name_value_colors(
+pub fn name_value_colors(
     engine: &Engine<RegistryLookup>,
     object: ObjectId,
 ) -> (String, u32, baylee_core::color::ColorSet) {
@@ -3311,7 +3278,7 @@ fn name_value_colors(
 }
 
 /// `seat`'s Forests on the battlefield, the first `n` of them.
-fn forests(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+pub fn forests(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
     let forests: Vec<ObjectId> = engine
         .state()
         .zones
@@ -3332,188 +3299,188 @@ fn forests(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<Obj
 }
 
 /// Taps `n` of `seat`'s untapped Forests for mana.
-fn float_green(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
+pub fn float_green(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
     let these = forests(engine, seat, n);
     tap_mana_where(engine, seat, |id| these.contains(&id));
 }
 
-fn legion_s_landing() -> CardIndex {
+pub fn legion_s_landing() -> CardIndex {
     card_index("f7d8b91b-6541-4d3e-af51-7e000eac69c1")
 }
 
-fn mizzix_s_mastery() -> CardIndex {
+pub fn mizzix_s_mastery() -> CardIndex {
     card_index("40362fe0-a1a9-4d76-8c35-eac474b91af5")
 }
 
-fn ojer_pakpatiq_deepest_epoch() -> CardIndex {
+pub fn ojer_pakpatiq_deepest_epoch() -> CardIndex {
     card_index("34ef174e-1b3d-43d5-9f72-3d35befbdd7f")
 }
 
-fn fatehold_chronologist() -> CardIndex {
+pub fn fatehold_chronologist() -> CardIndex {
     card_index("1063822f-47d3-42e9-8a21-f62b12609fe1")
 }
 
-fn assassin_s_trophy() -> CardIndex {
+pub fn assassin_s_trophy() -> CardIndex {
     card_index("ac10d218-f9a6-4058-9cda-a15ca1b0b7b5")
 }
 
-fn beyeen_veil() -> CardIndex {
+pub fn beyeen_veil() -> CardIndex {
     card_index("b03de49d-246f-44e2-9487-9e4e43ec7be4")
 }
 
-fn fire() -> CardIndex {
+pub fn fire() -> CardIndex {
     card_index("ae92942b-919c-4ea9-b693-85fcef765d5a")
 }
 
-fn ghoul_s_feast() -> CardIndex {
+pub fn ghoul_s_feast() -> CardIndex {
     card_index("042e0533-faf4-475e-be7b-438d23c6e605")
 }
 
-fn jwari_disruption() -> CardIndex {
+pub fn jwari_disruption() -> CardIndex {
     card_index("941a4b14-ea2a-4bd0-8cc2-d609f80df32c")
 }
 
-fn kabira_takedown() -> CardIndex {
+pub fn kabira_takedown() -> CardIndex {
     card_index("0bb73c07-0220-4ba9-8d85-3c357c223833")
 }
 
-fn legion_leadership() -> CardIndex {
+pub fn legion_leadership() -> CardIndex {
     card_index("ad225ec2-ff3a-48f6-81a7-dfdd1b75e1f7")
 }
 
-fn lose_focus() -> CardIndex {
+pub fn lose_focus() -> CardIndex {
     card_index("1cea6439-7ae5-4887-8c33-7da9fb36e2d4")
 }
 
-fn razorgrass_ambush() -> CardIndex {
+pub fn razorgrass_ambush() -> CardIndex {
     card_index("5da954fa-9001-4557-825c-1462035d21ed")
 }
 
-fn sejiri_shelter() -> CardIndex {
+pub fn sejiri_shelter() -> CardIndex {
     card_index("d54e4e37-042b-44a5-918d-757308545d4d")
 }
 
-fn tear_asunder() -> CardIndex {
+pub fn tear_asunder() -> CardIndex {
     card_index("610af0f7-b5e3-43fb-9d02-7c59bd99034c")
 }
 
-fn fell_the_profane() -> CardIndex {
+pub fn fell_the_profane() -> CardIndex {
     card_index("053a69d8-2b5e-4f14-8b02-ca405891dc4a")
 }
 
-fn hagra_mauling() -> CardIndex {
+pub fn hagra_mauling() -> CardIndex {
     card_index("37783ce6-af58-4ef6-8ab4-587079970307")
 }
 
-fn inner_calm_outer_strength() -> CardIndex {
+pub fn inner_calm_outer_strength() -> CardIndex {
     card_index("b7bdbae5-549f-403b-83ca-4f9a1ac93e93")
 }
 
-fn kazuul_s_fury() -> CardIndex {
+pub fn kazuul_s_fury() -> CardIndex {
     card_index("f8410804-632b-4f18-9a73-6dccc7e4582d")
 }
 
-fn khalni_ambush() -> CardIndex {
+pub fn khalni_ambush() -> CardIndex {
     card_index("37a55560-6e32-4f54-b9a8-fd157aea6eb5")
 }
 
-fn krosan_grip() -> CardIndex {
+pub fn krosan_grip() -> CardIndex {
     card_index("3e39224c-72ce-4ecc-aa17-12c071ea1f3e")
 }
 
-fn rush_of_inspiration() -> CardIndex {
+pub fn rush_of_inspiration() -> CardIndex {
     card_index("bbd569cc-bc21-46df-b8eb-5b5bcd8fe762")
 }
 
-fn silundi_vision() -> CardIndex {
+pub fn silundi_vision() -> CardIndex {
     card_index("b0182ca0-f353-4012-9121-6f4ac9f7a046")
 }
 
-fn sink_into_stupor() -> CardIndex {
+pub fn sink_into_stupor() -> CardIndex {
     card_index("bcc6eece-75ea-494c-b33a-d4477d504e0b")
 }
 
-fn sultai_charm() -> CardIndex {
+pub fn sultai_charm() -> CardIndex {
     card_index("46ed38d1-e642-4cea-99ed-a9c17fd982b1")
 }
 
-fn valakut_awakening() -> CardIndex {
+pub fn valakut_awakening() -> CardIndex {
     card_index("ff0ab867-b710-4b1a-baed-95fc3cf68f79")
 }
 
-fn agadeem_s_awakening() -> CardIndex {
+pub fn agadeem_s_awakening() -> CardIndex {
     card_index("562d71b9-1646-474e-9293-55da6947a758")
 }
 
-fn bala_ged_recovery() -> CardIndex {
+pub fn bala_ged_recovery() -> CardIndex {
     card_index("d2075f58-b0e9-4e85-b7e6-0523a27a1d5b")
 }
 
-fn bridgeworks_battle() -> CardIndex {
+pub fn bridgeworks_battle() -> CardIndex {
     card_index("9d581188-ce80-494e-bd38-f411e1f4efb5")
 }
 
-fn maelstrom_pulse() -> CardIndex {
+pub fn maelstrom_pulse() -> CardIndex {
     card_index("95ce305f-34bc-4d6d-b7ba-ffd4b2a25336")
 }
 
-fn makindi_stampede() -> CardIndex {
+pub fn makindi_stampede() -> CardIndex {
     card_index("342e08f9-d4d0-4408-8621-66e087058616")
 }
 
-fn pelakka_predation() -> CardIndex {
+pub fn pelakka_predation() -> CardIndex {
     card_index("b0fd6889-20b4-439b-aa97-2e90aca1675a")
 }
 
-fn stump_stomp() -> CardIndex {
+pub fn stump_stomp() -> CardIndex {
     card_index("eb7b1284-0b2c-4b6a-a389-b2b932838083")
 }
 
-fn sundering_eruption() -> CardIndex {
+pub fn sundering_eruption() -> CardIndex {
     card_index("c95309e9-5c2f-4518-b2fd-825d3d0a4ae0")
 }
 
-fn thoughtseize() -> CardIndex {
+pub fn thoughtseize() -> CardIndex {
     card_index("edd8d1e8-be43-4c38-bb3a-83081fbaf0b5")
 }
 
-fn waterlogged_teachings() -> CardIndex {
+pub fn waterlogged_teachings() -> CardIndex {
     card_index("e6ad1be9-f13d-4590-b3db-e2d0fff46f03")
 }
 
-fn yawgmoth_s_will() -> CardIndex {
+pub fn yawgmoth_s_will() -> CardIndex {
     card_index("322f0459-f394-44f0-977b-55fd0cbe0712")
 }
 
-fn dowsing_dagger() -> CardIndex {
+pub fn dowsing_dagger() -> CardIndex {
     card_index("df34a6ad-ae1c-4470-8c9e-49815bba1973")
 }
 
-fn dowsing_device() -> CardIndex {
+pub fn dowsing_device() -> CardIndex {
     card_index("2f4374f6-c695-4a5d-a6d6-0e41eaa587ca")
 }
 
-fn emeria_s_call() -> CardIndex {
+pub fn emeria_s_call() -> CardIndex {
     card_index("6ec2a242-9068-4ee2-8ac8-8341cc570f56")
 }
 
-fn ondu_inversion() -> CardIndex {
+pub fn ondu_inversion() -> CardIndex {
     card_index("15fc4e74-300e-4c2d-8ed7-004553b2f7c2")
 }
 
-fn sea_gate_restoration() -> CardIndex {
+pub fn sea_gate_restoration() -> CardIndex {
     card_index("4a8d41fe-e04d-484b-a7d1-19be311e6ca7")
 }
 
-fn song_mad_treachery() -> CardIndex {
+pub fn song_mad_treachery() -> CardIndex {
     card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
 }
 
-fn restoration_angel() -> CardIndex {
+pub fn restoration_angel() -> CardIndex {
     card_index("dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa")
 }
 
-fn werefox_bodyguard() -> CardIndex {
+pub fn werefox_bodyguard() -> CardIndex {
     card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
 }
 
@@ -3522,7 +3489,7 @@ fn werefox_bodyguard() -> CardIndex {
 /// over the owner's own default, which is what a stolen creature is. The
 /// board's other lands stay untapped for whatever the test casts next.
 #[track_caller]
-fn steal_with_song_mad_treachery(
+pub fn steal_with_song_mad_treachery(
     engine: &mut Engine<RegistryLookup>,
     thief: PlayerId,
     victim: ObjectId,
@@ -3566,1959 +3533,1959 @@ fn steal_with_song_mad_treachery(
     );
 }
 
-fn suppression_ray() -> CardIndex {
+pub fn suppression_ray() -> CardIndex {
     card_index("b592568b-11b0-4081-90a7-30cfb9c1ba80")
 }
 
-fn tarrian_s_journal() -> CardIndex {
+pub fn tarrian_s_journal() -> CardIndex {
     card_index("a75b02ba-b0c8-47e3-a05c-e9ba221a7578")
 }
 
-fn thaumatic_compass() -> CardIndex {
+pub fn thaumatic_compass() -> CardIndex {
     card_index("f9085e55-2833-41b7-9100-a35dc04dee93")
 }
 
-fn treasure_map() -> CardIndex {
+pub fn treasure_map() -> CardIndex {
     card_index("0b55eac6-a745-4bf4-8926-5ce83bc38d7d")
 }
 
-fn zof_consumption() -> CardIndex {
+pub fn zof_consumption() -> CardIndex {
     card_index("d9f11985-e460-425d-b083-9cb0edf1983a")
 }
 
-fn aclazotz_deepest_betrayal() -> CardIndex {
+pub fn aclazotz_deepest_betrayal() -> CardIndex {
     card_index("fcdfe9d5-2743-4d3e-ab57-bf0f96beaa15")
 }
 
-fn brass_s_tunnel_grinder() -> CardIndex {
+pub fn brass_s_tunnel_grinder() -> CardIndex {
     card_index("af1553eb-4f9f-4335-9078-56649bd8d8fc")
 }
 
-fn conqueror_s_galleon() -> CardIndex {
+pub fn conqueror_s_galleon() -> CardIndex {
     card_index("88b18901-50cd-461c-b1bc-be900210be8e")
 }
 
-fn fanatic_of_rhonas() -> CardIndex {
+pub fn fanatic_of_rhonas() -> CardIndex {
     card_index("7973820b-fdaf-46ec-9e3e-d4c0e77b5067")
 }
 
-fn matzalantli_the_great_door() -> CardIndex {
+pub fn matzalantli_the_great_door() -> CardIndex {
     card_index("16182e01-22ff-4786-985d-919b47c4aa4d")
 }
 
-fn nissa_resurgent_animist() -> CardIndex {
+pub fn nissa_resurgent_animist() -> CardIndex {
     card_index("c1fc5923-c3cd-448a-98d1-c154661c2812")
 }
 
-fn ojer_axonil_deepest_might() -> CardIndex {
+pub fn ojer_axonil_deepest_might() -> CardIndex {
     card_index("d3b7b541-6f05-46c1-8031-c848c4bd4635")
 }
 
-fn ojer_taq_deepest_foundation() -> CardIndex {
+pub fn ojer_taq_deepest_foundation() -> CardIndex {
     card_index("486bb9a5-73f1-4cec-b097-fb07ac80b72e")
 }
 
-fn primal_amulet() -> CardIndex {
+pub fn primal_amulet() -> CardIndex {
     card_index("8e4d0da0-c7d8-4a20-9bfd-02c1331a7a49")
 }
 
-fn the_one_ring() -> CardIndex {
+pub fn the_one_ring() -> CardIndex {
     card_index("3aa83ed2-f48b-4ce6-a614-2c54ddf50538")
 }
 
-fn thousand_moons_smithy() -> CardIndex {
+pub fn thousand_moons_smithy() -> CardIndex {
     card_index("32af5f7b-a970-484a-9aff-226749551d32")
 }
 
-fn druid_class() -> CardIndex {
+pub fn druid_class() -> CardIndex {
     card_index("dcbcbf42-4654-487a-acad-21f2606d229b")
 }
 
-fn garruk_s_uprising() -> CardIndex {
+pub fn garruk_s_uprising() -> CardIndex {
     card_index("3127ae9b-a7a7-43ec-89d7-688f8445b33d")
 }
 
-fn grasping_shadows() -> CardIndex {
+pub fn grasping_shadows() -> CardIndex {
     card_index("522a4b02-24c7-45d2-9097-2803cc9fffad")
 }
 
-fn growing_rites_of_itlimoc() -> CardIndex {
+pub fn growing_rites_of_itlimoc() -> CardIndex {
     card_index("ea9c459a-6047-43aa-968f-a582be4000e8")
 }
 
-fn hadana_s_climb() -> CardIndex {
+pub fn hadana_s_climb() -> CardIndex {
     card_index("93b91d18-6acf-42e5-9a31-bc6e01f90c1f")
 }
 
-fn journey_to_eternity() -> CardIndex {
+pub fn journey_to_eternity() -> CardIndex {
     card_index("7d6ccd0b-df16-40b2-930b-bcde0b6ef73f")
 }
 
-fn path_of_mettle() -> CardIndex {
+pub fn path_of_mettle() -> CardIndex {
     card_index("db9ea3f9-c723-422f-98cc-a3ef7ca2c290")
 }
 
-fn search_for_azcanta() -> CardIndex {
+pub fn search_for_azcanta() -> CardIndex {
     card_index("f74c4d96-bc4a-4d32-9519-a753d192144e")
 }
 
-fn sidequest_catch_a_fish() -> CardIndex {
+pub fn sidequest_catch_a_fish() -> CardIndex {
     card_index("bd7c328e-0380-46f8-bb85-7bf4e201b7ac")
 }
 
-fn storm_the_vault() -> CardIndex {
+pub fn storm_the_vault() -> CardIndex {
     card_index("72205fac-a94a-45cc-94c6-40ece2fdce0e")
 }
 
-fn vance_s_blasting_cannons() -> CardIndex {
+pub fn vance_s_blasting_cannons() -> CardIndex {
     card_index("5e7eca9c-a7b8-4b7b-a0a0-e8937530145a")
 }
 
-fn bloodsoaked_insight() -> CardIndex {
+pub fn bloodsoaked_insight() -> CardIndex {
     card_index("c52fc8a1-43c6-41f8-b010-03be7c89ef1d")
 }
 
-fn fable_of_the_mirror_breaker() -> CardIndex {
+pub fn fable_of_the_mirror_breaker() -> CardIndex {
     card_index("c0957e5e-c71b-439c-931c-9f55d2f76ace")
 }
 
-fn grist_the_hunger_tide() -> CardIndex {
+pub fn grist_the_hunger_tide() -> CardIndex {
     card_index("0efb0d7e-dea0-4817-a243-15066e9ef333")
 }
 
-fn oko_thief_of_crowns() -> CardIndex {
+pub fn oko_thief_of_crowns() -> CardIndex {
     card_index("60c60923-ff1b-43f7-8768-731499fcffc9")
 }
 
-fn shatterskull_smashing() -> CardIndex {
+pub fn shatterskull_smashing() -> CardIndex {
     card_index("78301998-fd9b-4cd5-afad-dbcb43cac2a7")
 }
 
-fn turntimber_symbiosis() -> CardIndex {
+pub fn turntimber_symbiosis() -> CardIndex {
     card_index("403b59f3-7ade-4bc2-a3e6-de0c3c700f18")
 }
 
-fn welcome_to() -> CardIndex {
+pub fn welcome_to() -> CardIndex {
     card_index("a4b37d16-95b3-4143-a0b2-ad9f2aba91f8")
 }
 
-fn wrenn_and_realmbreaker() -> CardIndex {
+pub fn wrenn_and_realmbreaker() -> CardIndex {
     card_index("4566fb92-448e-4b3f-9045-9d74323c35d1")
 }
 
-fn jayemdae_tome() -> CardIndex {
+pub fn jayemdae_tome() -> CardIndex {
     card_index("39ee576a-0803-4063-9c84-f2b537e4d44c")
 }
 
-fn rod_of_ruin() -> CardIndex {
+pub fn rod_of_ruin() -> CardIndex {
     card_index("c29a04ab-4e14-45d8-a993-3fffd0e2f6eb")
 }
 
-fn sisay_s_ring() -> CardIndex {
+pub fn sisay_s_ring() -> CardIndex {
     card_index("8f5822ae-651f-410e-9316-5522eeb52d72")
 }
 
-fn thran_dynamo() -> CardIndex {
+pub fn thran_dynamo() -> CardIndex {
     card_index("a699c663-8131-4045-9265-a83e86609374")
 }
 
-fn tower_of_champions() -> CardIndex {
+pub fn tower_of_champions() -> CardIndex {
     card_index("f7880784-e1dc-4250-812e-eda41fe91e36")
 }
 
-fn tower_of_fortunes() -> CardIndex {
+pub fn tower_of_fortunes() -> CardIndex {
     card_index("dfb23df9-f912-4daa-9842-01bd12b4a72a")
 }
 
-fn ambush_party() -> CardIndex {
+pub fn ambush_party() -> CardIndex {
     card_index("454ed336-362d-46d9-96d5-8fcaa8a1c543")
 }
 
-fn angel_of_mercy() -> CardIndex {
+pub fn angel_of_mercy() -> CardIndex {
     card_index("a2daaf32-dbfe-4618-892e-0da24f63a44a")
 }
 
-fn benalish_knight() -> CardIndex {
+pub fn benalish_knight() -> CardIndex {
     card_index("32b401e9-163f-4917-a728-fc63b25ef602")
 }
 
-fn briarknit_kami() -> CardIndex {
+pub fn briarknit_kami() -> CardIndex {
     card_index("913dcf97-0804-4b21-8daa-f2b481dc0f2f")
 }
 
-fn crowd_favorites() -> CardIndex {
+pub fn crowd_favorites() -> CardIndex {
     card_index("1ead750f-14a6-4f25-9eb8-9472c2fdac35")
 }
 
-fn deadly_insect() -> CardIndex {
+pub fn deadly_insect() -> CardIndex {
     card_index("98273b0d-2b41-486b-9498-30a692c03982")
 }
 
-fn fire_snake() -> CardIndex {
+pub fn fire_snake() -> CardIndex {
     card_index("e96542ed-1931-4da1-9d9e-d10878c4ae6b")
 }
 
-fn iron_tusk_elephant() -> CardIndex {
+pub fn iron_tusk_elephant() -> CardIndex {
     card_index("a299470a-72ea-4848-833b-dc894db7be15")
 }
 
-fn juzam_djinn() -> CardIndex {
+pub fn juzam_djinn() -> CardIndex {
     card_index("4e81596c-9225-43d1-bd35-798212144f2c")
 }
 
-fn killer_whale() -> CardIndex {
+pub fn killer_whale() -> CardIndex {
     card_index("5ace3817-5a98-4eee-b6b9-8c105cea302f")
 }
 
-fn lightning_elemental() -> CardIndex {
+pub fn lightning_elemental() -> CardIndex {
     card_index("58aee5cb-7b88-446e-ab10-9f83c10d7227")
 }
 
-fn nettletooth_djinn() -> CardIndex {
+pub fn nettletooth_djinn() -> CardIndex {
     card_index("f1d300b6-f9cf-40a9-8520-d78cd7d813cf")
 }
 
-fn norwood_archers() -> CardIndex {
+pub fn norwood_archers() -> CardIndex {
     card_index("4e4e96aa-2f05-4f1d-96f8-6c42cd3be589")
 }
 
-fn pardic_collaborator() -> CardIndex {
+pub fn pardic_collaborator() -> CardIndex {
     card_index("9b06cfae-1655-4b0e-a160-9b32f27c7c9a")
 }
 
-fn pendrell_drake() -> CardIndex {
+pub fn pendrell_drake() -> CardIndex {
     card_index("8d8981df-4cdc-4fd4-acd8-095fa3281281")
 }
 
-fn ramirez_de_pietro() -> CardIndex {
+pub fn ramirez_de_pietro() -> CardIndex {
     card_index("48b9c510-03ed-41cb-8c17-16110d447490")
 }
 
-fn seahunter() -> CardIndex {
+pub fn seahunter() -> CardIndex {
     card_index("59e1899f-a9e8-48aa-b3fb-0b7d9fd6859c")
 }
 
-fn shock_troops() -> CardIndex {
+pub fn shock_troops() -> CardIndex {
     card_index("fdf2a8da-2933-44c5-b483-f035144da752")
 }
 
-fn shu_soldier_farmers() -> CardIndex {
+pub fn shu_soldier_farmers() -> CardIndex {
     card_index("174cf7cd-3e8c-4f90-abc1-a78a0ce832d2")
 }
 
-fn slinking_skirge() -> CardIndex {
+pub fn slinking_skirge() -> CardIndex {
     card_index("82875793-b264-4ceb-8525-ef3b6d086072")
 }
 
-fn sliver_queen() -> CardIndex {
+pub fn sliver_queen() -> CardIndex {
     card_index("b8376cca-ea96-478a-8e98-c4482031300a")
 }
 
-fn spotted_griffin() -> CardIndex {
+pub fn spotted_griffin() -> CardIndex {
     card_index("4916773d-5ccb-48ff-8aa3-09771ae88e81")
 }
 
-fn steelshaper_apprentice() -> CardIndex {
+pub fn steelshaper_apprentice() -> CardIndex {
     card_index("bf325b3a-0b28-4660-8b51-4334b59a9034")
 }
 
-fn talruum_minotaur() -> CardIndex {
+pub fn talruum_minotaur() -> CardIndex {
     card_index("c5661500-c48f-4f6d-bbe7-c8bd7118d862")
 }
 
-fn tuknir_deathlock() -> CardIndex {
+pub fn tuknir_deathlock() -> CardIndex {
     card_index("0b6fa658-a344-4202-866b-e19997e32ff2")
 }
 
-fn vulshok_berserker() -> CardIndex {
+pub fn vulshok_berserker() -> CardIndex {
     card_index("694f7e51-7b8b-4f00-bd77-a52eded4aaa1")
 }
 
-fn wirewood_channeler() -> CardIndex {
+pub fn wirewood_channeler() -> CardIndex {
     card_index("8badfd34-9b63-4ada-8012-b8cddaf5b492")
 }
 
-fn zuberi_golden_feather() -> CardIndex {
+pub fn zuberi_golden_feather() -> CardIndex {
     card_index("5a43b164-61a4-4dcb-9397-45356ad4260e")
 }
 
-fn mental_discipline() -> CardIndex {
+pub fn mental_discipline() -> CardIndex {
     card_index("b22080d6-a9ed-4bdd-a604-058e0e3e9463")
 }
 
-fn night_of_souls_betrayal() -> CardIndex {
+pub fn night_of_souls_betrayal() -> CardIndex {
     card_index("916bd025-c44f-49c9-8d76-4b7b2f9a8ba3")
 }
 
-fn overgrown_estate() -> CardIndex {
+pub fn overgrown_estate() -> CardIndex {
     card_index("4d52c4a5-e5c8-4fb4-be50-78d5482dd1ae")
 }
 
-fn inspiration() -> CardIndex {
+pub fn inspiration() -> CardIndex {
     card_index("8f32ceb2-92c2-4dde-bf73-40bb79c3fcef")
 }
 
-fn lightning_blast() -> CardIndex {
+pub fn lightning_blast() -> CardIndex {
     card_index("91fd731c-e076-4f2d-9f22-872880c3cc3d")
 }
 
-fn searing_wind() -> CardIndex {
+pub fn searing_wind() -> CardIndex {
     card_index("b196045d-ece1-46ac-a647-b65f04225c10")
 }
 
-fn adventurers_inn() -> CardIndex {
+pub fn adventurers_inn() -> CardIndex {
     card_index("232bd88c-ecdb-43dd-b34a-d381cb3bedf2")
 }
 
-fn griffin_canyon() -> CardIndex {
+pub fn griffin_canyon() -> CardIndex {
     card_index("ba642c8b-9ade-4501-8393-672fd53d4955")
 }
 
-fn memorial_to_genius() -> CardIndex {
+pub fn memorial_to_genius() -> CardIndex {
     card_index("81763d7d-3897-4be9-bbf6-f6f5dee366ff")
 }
 
-fn memorial_to_war() -> CardIndex {
+pub fn memorial_to_war() -> CardIndex {
     card_index("f98db69c-b330-4560-ac53-10857674466b")
 }
 
-fn racers_ring() -> CardIndex {
+pub fn racers_ring() -> CardIndex {
     card_index("7e2eb4d5-22a3-43c1-8cf3-e85723da1b61")
 }
 
-fn radiant_fountain() -> CardIndex {
+pub fn radiant_fountain() -> CardIndex {
     card_index("6db442e5-fbcc-4456-a4c5-bea1aee3fc8e")
 }
 
-fn yavimaya_cradle_of_growth() -> CardIndex {
+pub fn yavimaya_cradle_of_growth() -> CardIndex {
     card_index("8dd5f5af-d2d8-4356-8617-8381081b930c")
 }
 
-fn break_asunder() -> CardIndex {
+pub fn break_asunder() -> CardIndex {
     card_index("d2c53737-c265-46e3-a779-52c6b4f82d7d")
 }
 
-fn brilliant_plan() -> CardIndex {
+pub fn brilliant_plan() -> CardIndex {
     card_index("d83e1a42-11d1-412a-b66c-850c7a528777")
 }
 
-fn icatian_town() -> CardIndex {
+pub fn icatian_town() -> CardIndex {
     card_index("aa8b60b6-cf55-4aaa-9caa-2b17942d8269")
 }
 
-fn soul_feast() -> CardIndex {
+pub fn soul_feast() -> CardIndex {
     card_index("8186fd80-015f-470c-9e1c-cbf45764a057")
 }
 
-fn spoils_of_victory() -> CardIndex {
+pub fn spoils_of_victory() -> CardIndex {
     card_index("852bd598-6e48-43c8-9211-740ae9e0c42e")
 }
 
-fn tidings() -> CardIndex {
+pub fn tidings() -> CardIndex {
     card_index("72897780-094d-4a21-8b1c-419a9defd2fb")
 }
 
-fn unyaro_bee_sting() -> CardIndex {
+pub fn unyaro_bee_sting() -> CardIndex {
     card_index("a500313b-35e3-4ebc-9144-e9486784757b")
 }
 
-fn fodder_cannon() -> CardIndex {
+pub fn fodder_cannon() -> CardIndex {
     card_index("aaf171bd-a4bb-4ce4-836a-da193c94f42e")
 }
 
-fn skull_catapult() -> CardIndex {
+pub fn skull_catapult() -> CardIndex {
     card_index("eef931d8-4048-4c33-bd8c-0f67d1083ee6")
 }
 
-fn tower_of_eons() -> CardIndex {
+pub fn tower_of_eons() -> CardIndex {
     card_index("74a71bbd-c307-481c-b0cf-70e24b0c8ad4")
 }
 
-fn ur_golem_s_eye() -> CardIndex {
+pub fn ur_golem_s_eye() -> CardIndex {
     card_index("fb34fc00-e60d-41fc-9393-ca4248ec0a1c")
 }
 
-fn air_elemental() -> CardIndex {
+pub fn air_elemental() -> CardIndex {
     card_index("7744bae4-a8b7-44a5-9b4c-0048ad4cc448")
 }
 
-fn aven_brigadier() -> CardIndex {
+pub fn aven_brigadier() -> CardIndex {
     card_index("910ae0ca-257d-4b45-b039-f26e7b2f3d5c")
 }
 
-fn azami_lady_of_scrolls() -> CardIndex {
+pub fn azami_lady_of_scrolls() -> CardIndex {
     card_index("0f8b97fe-3e5e-47c2-9a9d-7f77482aa159")
 }
 
-fn boa_constrictor() -> CardIndex {
+pub fn boa_constrictor() -> CardIndex {
     card_index("f0ab6ca6-098a-416a-89b2-9a93c9d0e60b")
 }
 
-fn deathcurse_ogre() -> CardIndex {
+pub fn deathcurse_ogre() -> CardIndex {
     card_index("0d40bc98-28e7-4fa5-b848-1cbac5345c12")
 }
 
-fn flowstone_wyvern() -> CardIndex {
+pub fn flowstone_wyvern() -> CardIndex {
     card_index("13459bf3-fcdc-4838-9669-918f97113054")
 }
 
-fn giant_warthog() -> CardIndex {
+pub fn giant_warthog() -> CardIndex {
     card_index("0eb41c36-5910-41fd-97fc-1cae2332e5c5")
 }
 
-fn harmattan_efreet() -> CardIndex {
+pub fn harmattan_efreet() -> CardIndex {
     card_index("84b1d4e1-ca8a-4eed-b5c4-364876938aee")
 }
 
-fn jhovall_rider() -> CardIndex {
+pub fn jhovall_rider() -> CardIndex {
     card_index("84750c9a-ddf7-4ee1-b93b-3dc9ab73e4d5")
 }
 
-fn kodama_of_the_north_tree() -> CardIndex {
+pub fn kodama_of_the_north_tree() -> CardIndex {
     card_index("15d8f129-2518-45f4-9f34-a4fcd4d859af")
 }
 
-fn plated_spider() -> CardIndex {
+pub fn plated_spider() -> CardIndex {
     card_index("15163c99-9388-4225-b707-4e057b2adfbc")
 }
 
-fn sire_of_the_storm() -> CardIndex {
+pub fn sire_of_the_storm() -> CardIndex {
     card_index("68f1db12-82fb-4bf1-908d-db38fd67efe5")
 }
 
-fn spiritual_guardian() -> CardIndex {
+pub fn spiritual_guardian() -> CardIndex {
     card_index("d03860b4-c663-4230-9200-6b89fa849ae7")
 }
 
-fn striped_bears() -> CardIndex {
+pub fn striped_bears() -> CardIndex {
     card_index("ac856e91-1b88-464b-9420-dc311ce814ea")
 }
 
-fn thriss_nantuko_primus() -> CardIndex {
+pub fn thriss_nantuko_primus() -> CardIndex {
     card_index("19ed8616-5d27-4f21-88a9-2af7cf5034ca")
 }
 
-fn trenching_steed() -> CardIndex {
+pub fn trenching_steed() -> CardIndex {
     card_index("31136103-535a-4d11-819a-1cbd57ad48a4")
 }
 
-fn field_of_souls() -> CardIndex {
+pub fn field_of_souls() -> CardIndex {
     card_index("4d7a5b14-8fce-41f2-a0d5-fff3d15f41f6")
 }
 
-fn altars_light() -> CardIndex {
+pub fn altars_light() -> CardIndex {
     card_index("fa9b6be2-b88c-4302-b7e2-faf25a60bcb9")
 }
 
-fn might_of_oaks() -> CardIndex {
+pub fn might_of_oaks() -> CardIndex {
     card_index("8331f281-819b-4a0b-bad7-bd86dbedb877")
 }
 
-fn opportunity() -> CardIndex {
+pub fn opportunity() -> CardIndex {
     card_index("1f544a9f-c238-4858-be19-d6cd7d023dcc")
 }
 
-fn encroaching_wastes() -> CardIndex {
+pub fn encroaching_wastes() -> CardIndex {
     card_index("43144f06-079b-4515-a03a-01ea3e90d586")
 }
 
-fn guadosalam_farplane_gateway() -> CardIndex {
+pub fn guadosalam_farplane_gateway() -> CardIndex {
     card_index("849c97e4-df15-4ecb-bdf8-283bb497d90c")
 }
 
-fn looming_spires() -> CardIndex {
+pub fn looming_spires() -> CardIndex {
     card_index("7d09b136-525f-49dd-a3a2-dfaca4e8e9a8")
 }
 
-fn misty_palms_oasis() -> CardIndex {
+pub fn misty_palms_oasis() -> CardIndex {
     card_index("dfd2c57a-4557-4df1-8f6f-da2cbd317f12")
 }
 
-fn serpent_s_pass() -> CardIndex {
+pub fn serpent_s_pass() -> CardIndex {
     card_index("f715f701-a735-42ab-b31a-8e1bd04ac5ff")
 }
 
-fn skarrg_the_rage_pits() -> CardIndex {
+pub fn skarrg_the_rage_pits() -> CardIndex {
     card_index("92bac34e-2045-4331-842f-185711c1ac56")
 }
 
-fn tramway_station() -> CardIndex {
+pub fn tramway_station() -> CardIndex {
     card_index("e90e519d-023e-4d19-85ad-9972a76df3ba")
 }
 
-fn white_lotus_hideout() -> CardIndex {
+pub fn white_lotus_hideout() -> CardIndex {
     card_index("2cdbfda3-98fc-4108-b551-c7049168924e")
 }
 
-fn diabolic_tutor() -> CardIndex {
+pub fn diabolic_tutor() -> CardIndex {
     card_index("14589b6b-1814-46f9-a364-83cc15dacac2")
 }
 
-fn vampiric_feast() -> CardIndex {
+pub fn vampiric_feast() -> CardIndex {
     card_index("1980ca2e-a415-4de1-ac30-7055507e82a2")
 }
 
-fn jedit_s_dragoons() -> CardIndex {
+pub fn jedit_s_dragoons() -> CardIndex {
     card_index("3f6df152-a0b9-441a-a8aa-8bb77f70d491")
 }
 
-fn mana_geyser() -> CardIndex {
+pub fn mana_geyser() -> CardIndex {
     card_index("a8dba58b-2956-492e-ae30-49db2ae68e53")
 }
 
-fn the_hive() -> CardIndex {
+pub fn the_hive() -> CardIndex {
     card_index("87a77482-f286-4fb1-b179-85b2095bb768")
 }
 
-fn tower_of_murmurs() -> CardIndex {
+pub fn tower_of_murmurs() -> CardIndex {
     card_index("c383b28c-b319-49cd-acf1-4721a1301bbb")
 }
 
-fn border_patrol() -> CardIndex {
+pub fn border_patrol() -> CardIndex {
     card_index("fa5e2575-51bb-448e-9aaf-0e0f5956ac98")
 }
 
-fn djinn_of_the_lamp() -> CardIndex {
+pub fn djinn_of_the_lamp() -> CardIndex {
     card_index("72b42c63-fe4d-4823-9692-30fb5bab384a")
 }
 
-fn firescreamer() -> CardIndex {
+pub fn firescreamer() -> CardIndex {
     card_index("b86c0c23-bb29-4af0-bbd4-50b3ae634375")
 }
 
-fn flame_spirit() -> CardIndex {
+pub fn flame_spirit() -> CardIndex {
     card_index("123bfa86-4265-448f-97cd-2c0614212862")
 }
 
-fn flowstone_charger() -> CardIndex {
+pub fn flowstone_charger() -> CardIndex {
     card_index("a19e0a7f-d356-4d2c-8414-70a40ce18674")
 }
 
-fn flowstone_crusher() -> CardIndex {
+pub fn flowstone_crusher() -> CardIndex {
     card_index("cc18fcfc-bfe8-41d8-9037-5ff05b2a9c44")
 }
 
-fn goblin_commando() -> CardIndex {
+pub fn goblin_commando() -> CardIndex {
     card_index("76c02534-35e3-4950-b4b3-90c679cdf6a7")
 }
 
-fn halberdier() -> CardIndex {
+pub fn halberdier() -> CardIndex {
     card_index("1c3c23b5-b771-4117-83b5-febf7e96281a")
 }
 
-fn joven() -> CardIndex {
+pub fn joven() -> CardIndex {
     card_index("9e767d44-feff-449a-bed9-0866c7bce846")
 }
 
-fn kami_of_tattered_shoji() -> CardIndex {
+pub fn kami_of_tattered_shoji() -> CardIndex {
     card_index("a7cb1da6-e56a-42b6-8087-cf822783373f")
 }
 
-fn kavu_climber() -> CardIndex {
+pub fn kavu_climber() -> CardIndex {
     card_index("91320afd-1d42-4cb5-ae40-4eed2fa91dfe")
 }
 
-fn kavu_mauler() -> CardIndex {
+pub fn kavu_mauler() -> CardIndex {
     card_index("6ffbcaba-5437-4fb6-a2d6-e94b1e6dc1d2")
 }
 
-fn keening_banshee() -> CardIndex {
+pub fn keening_banshee() -> CardIndex {
     card_index("56b69e46-a1e4-4545-99e2-ee4385b7e429")
 }
 
-fn lava_hounds() -> CardIndex {
+pub fn lava_hounds() -> CardIndex {
     card_index("86c0dc85-d146-4dfa-819e-f78835bfffff")
 }
 
-fn lithophage() -> CardIndex {
+pub fn lithophage() -> CardIndex {
     card_index("b4eb3d7e-a234-4ed5-8611-fcb818686fcf")
 }
 
-fn macetail_hystrodon() -> CardIndex {
+pub fn macetail_hystrodon() -> CardIndex {
     card_index("2f1e2742-d7df-4893-abc8-cb927c500569")
 }
 
-fn megatog() -> CardIndex {
+pub fn megatog() -> CardIndex {
     card_index("bde427fa-8a00-4eff-9371-81324bc75364")
 }
 
-fn moorish_cavalry() -> CardIndex {
+pub fn moorish_cavalry() -> CardIndex {
     card_index("bccdc42f-9e55-4f8e-a29e-ef39f38add6a")
 }
 
-fn phyrexian_plaguelord() -> CardIndex {
+pub fn phyrexian_plaguelord() -> CardIndex {
     card_index("aff9e844-9e03-490b-b44f-10d385738cc6")
 }
 
-fn plated_slagwurm() -> CardIndex {
+pub fn plated_slagwurm() -> CardIndex {
     card_index("4aec7624-e406-45a4-b2b6-2e8d29f6268a")
 }
 
-fn riven_turnbull() -> CardIndex {
+pub fn riven_turnbull() -> CardIndex {
     card_index("2742d506-897f-4d30-ba43-ce0374984849")
 }
 
-fn rummaging_wizard() -> CardIndex {
+pub fn rummaging_wizard() -> CardIndex {
     card_index("99002f0c-762b-4714-afe3-5b011350aefd")
 }
 
-fn skirge_familiar() -> CardIndex {
+pub fn skirge_familiar() -> CardIndex {
     card_index("ba95f24d-42da-48ce-bcf1-1b7c4b3c45b5")
 }
 
-fn skyhunter_patrol() -> CardIndex {
+pub fn skyhunter_patrol() -> CardIndex {
     card_index("aadcff6f-9207-4d90-a12d-4913c96867e2")
 }
 
-fn skyshroud_poacher() -> CardIndex {
+pub fn skyshroud_poacher() -> CardIndex {
     card_index("4f5921c1-b932-4d6b-bb8e-01992578abdc")
 }
 
-fn snapping_drake() -> CardIndex {
+pub fn snapping_drake() -> CardIndex {
     card_index("e15060c3-3773-4548-8747-ff59dcf2b519")
 }
 
-fn trench_wurm() -> CardIndex {
+pub fn trench_wurm() -> CardIndex {
     card_index("9cf65178-6408-46da-a940-f5cb0960b61f")
 }
 
-fn verdant_force() -> CardIndex {
+pub fn verdant_force() -> CardIndex {
     card_index("7a21ea22-3cd7-4c11-8895-5943c0d93a0d")
 }
 
-fn vigilant_drake() -> CardIndex {
+pub fn vigilant_drake() -> CardIndex {
     card_index("4f5eaf5a-dd52-4d48-91b5-d48763d13159")
 }
 
-fn wind_spirit() -> CardIndex {
+pub fn wind_spirit() -> CardIndex {
     card_index("d4c22b68-c4cb-447a-97df-431e2f1e31f2")
 }
 
-fn zephid() -> CardIndex {
+pub fn zephid() -> CardIndex {
     card_index("88aa710c-26ed-490d-9a4b-4a2b48df1733")
 }
 
-fn castle() -> CardIndex {
+pub fn castle() -> CardIndex {
     card_index("f3179c3c-7e53-44d2-b579-b9e677efe9d9")
 }
 
-fn embargo() -> CardIndex {
+pub fn embargo() -> CardIndex {
     card_index("edadd0bf-15c8-4e9c-810e-2edfd77a9d01")
 }
 
-fn narcissism() -> CardIndex {
+pub fn narcissism() -> CardIndex {
     card_index("59cd56d2-42f3-44de-b1b8-a5f9105dcaa8")
 }
 
-fn noble_steeds() -> CardIndex {
+pub fn noble_steeds() -> CardIndex {
     card_index("d6005e47-d545-4c16-b54a-bfe1dde61a98")
 }
 
-fn opposition() -> CardIndex {
+pub fn opposition() -> CardIndex {
     card_index("bf0b252d-1295-44e4-bac3-113b5732a2a9")
 }
 
-fn phyrexian_arena() -> CardIndex {
+pub fn phyrexian_arena() -> CardIndex {
     card_index("ee579a32-a048-4335-b966-231ba731cdea")
 }
 
-fn spiritual_asylum() -> CardIndex {
+pub fn spiritual_asylum() -> CardIndex {
     card_index("91924536-7a2b-44ec-9835-2efa402c83f9")
 }
 
-fn regress() -> CardIndex {
+pub fn regress() -> CardIndex {
     card_index("2fa763ad-4d94-4c3a-a099-13ac22c09ce4")
 }
 
-fn volcanic_geyser() -> CardIndex {
+pub fn volcanic_geyser() -> CardIndex {
     card_index("846a4f9c-d955-403f-8a08-5c7c3d32e180")
 }
 
-fn zap() -> CardIndex {
+pub fn zap() -> CardIndex {
     card_index("56115482-3fd4-45fb-b800-be68c5509cf2")
 }
 
-fn baron_airship_kingdom() -> CardIndex {
+pub fn baron_airship_kingdom() -> CardIndex {
     card_index("cc710da0-5a2e-4bc4-8fdd-d90e7bc1f224")
 }
 
-fn duskmantle_house_of_shadow() -> CardIndex {
+pub fn duskmantle_house_of_shadow() -> CardIndex {
     card_index("67b2cd0c-ecc8-4129-b1ac-820c9924190c")
 }
 
-fn orzhova_the_church_of_deals() -> CardIndex {
+pub fn orzhova_the_church_of_deals() -> CardIndex {
     card_index("8551a9cf-c54b-42d4-92d6-550f4890a3d7")
 }
 
-fn sandstone_bridge() -> CardIndex {
+pub fn sandstone_bridge() -> CardIndex {
     card_index("08911e8e-cd67-4960-a927-958c33632469")
 }
 
-fn savai_triome() -> CardIndex {
+pub fn savai_triome() -> CardIndex {
     card_index("00625242-9348-4ef4-b975-f2ac82fee21d")
 }
 
-fn soaring_seacliff() -> CardIndex {
+pub fn soaring_seacliff() -> CardIndex {
     card_index("a37544b6-0048-4213-8e40-76ba8a0b6d1b")
 }
 
-fn spara_s_headquarters() -> CardIndex {
+pub fn spara_s_headquarters() -> CardIndex {
     card_index("3123ec89-8e95-4761-ba17-747ec667509f")
 }
 
-fn vector_imperial_capital() -> CardIndex {
+pub fn vector_imperial_capital() -> CardIndex {
     card_index("8dcba63c-4701-4dc9-81f5-ca8e8933a3ba")
 }
 
-fn windurst_federation_center() -> CardIndex {
+pub fn windurst_federation_center() -> CardIndex {
     card_index("e198126a-f280-47f7-8bd0-3dc9f5ff05a0")
 }
 
-fn desert_twister() -> CardIndex {
+pub fn desert_twister() -> CardIndex {
     card_index("6f880348-6dc8-4cf8-9313-9893c41a70a3")
 }
 
-fn ice_storm() -> CardIndex {
+pub fn ice_storm() -> CardIndex {
     card_index("a0b97e33-2d0c-4800-a9f5-9cd9be651ea8")
 }
 
-fn screaming_fury() -> CardIndex {
+pub fn screaming_fury() -> CardIndex {
     card_index("eaded717-e0e2-4def-be7e-6bfb137628c2")
 }
 
-fn vengeance() -> CardIndex {
+pub fn vengeance() -> CardIndex {
     card_index("1d001145-5d14-43a9-bf3b-3ce5c20b2a46")
 }
 
-fn dread_reaper() -> CardIndex {
+pub fn dread_reaper() -> CardIndex {
     card_index("bd73ab86-0ac9-4ce0-be41-f4ad257e74f6")
 }
 
-fn furnace_whelp() -> CardIndex {
+pub fn furnace_whelp() -> CardIndex {
     card_index("8422f1e0-00ca-4ffb-a6b2-e2c9f96d7f23")
 }
 
-fn giant_crab() -> CardIndex {
+pub fn giant_crab() -> CardIndex {
     card_index("780f029f-e2e1-431b-9a8b-a1af51d7da77")
 }
 
-fn goblin_berserker() -> CardIndex {
+pub fn goblin_berserker() -> CardIndex {
     card_index("5f71f205-9551-416a-bba6-55bc65d11c85")
 }
 
-fn krosan_groundshaker() -> CardIndex {
+pub fn krosan_groundshaker() -> CardIndex {
     card_index("1300dc30-a089-41f5-b1a7-e4779ebb73ef")
 }
 
-fn ogre_berserker() -> CardIndex {
+pub fn ogre_berserker() -> CardIndex {
     card_index("9e6f76dc-b7db-49b6-a61e-3495b81e61d7")
 }
 
-fn pavel_maliki() -> CardIndex {
+pub fn pavel_maliki() -> CardIndex {
     card_index("41026872-3c7b-40c7-8d0b-9d2f9b6c3e91")
 }
 
-fn ravenous_baloth() -> CardIndex {
+pub fn ravenous_baloth() -> CardIndex {
     card_index("ee771e66-72f8-480f-9920-92c68ab93c3b")
 }
 
-fn sabertooth_wyvern() -> CardIndex {
+pub fn sabertooth_wyvern() -> CardIndex {
     card_index("acaae632-3203-4867-ad03-32619c3fcfe6")
 }
 
-fn serra_angel() -> CardIndex {
+pub fn serra_angel() -> CardIndex {
     card_index("4b7ac066-e5c7-43e6-9e7e-2739b24a905d")
 }
 
-fn silver_erne() -> CardIndex {
+pub fn silver_erne() -> CardIndex {
     card_index("6ca90451-861d-4aa8-93e7-3f3e02385530")
 }
 
-fn storm_spirit() -> CardIndex {
+pub fn storm_spirit() -> CardIndex {
     card_index("6a413d09-dd67-4c3e-b81b-7bfe8b864dc9")
 }
 
-fn vedalken_entrancer() -> CardIndex {
+pub fn vedalken_entrancer() -> CardIndex {
     card_index("04cc5292-a485-4bb8-a143-9364229d480f")
 }
 
-fn infernal_tribute() -> CardIndex {
+pub fn infernal_tribute() -> CardIndex {
     card_index("a8bf79d2-29fd-4d2f-ac07-2e61d3886bc0")
 }
 
-fn seismic_assault() -> CardIndex {
+pub fn seismic_assault() -> CardIndex {
     card_index("8ad4f2fe-6d98-4279-a331-3817d40ae46d")
 }
 
-fn mystic_denial() -> CardIndex {
+pub fn mystic_denial() -> CardIndex {
     card_index("d2bd23a6-4f77-4d6e-bf8f-339cb7a4184d")
 }
 
-fn pull_under() -> CardIndex {
+pub fn pull_under() -> CardIndex {
     card_index("b99ddb27-a59a-4cd3-88b1-97c759ddbd93")
 }
 
-fn smash() -> CardIndex {
+pub fn smash() -> CardIndex {
     card_index("1602f8c7-fe00-4bc9-b4fc-b26b7223ac75")
 }
 
-fn verdigris() -> CardIndex {
+pub fn verdigris() -> CardIndex {
     card_index("fb41ea1d-3491-4193-a390-8eb202fbae12")
 }
 
-fn ally_encampment() -> CardIndex {
+pub fn ally_encampment() -> CardIndex {
     card_index("9d293b69-12b7-4b50-a0a7-c4f493dee30b")
 }
 
-fn okina_temple_to_the_grandfathers() -> CardIndex {
+pub fn okina_temple_to_the_grandfathers() -> CardIndex {
     card_index("3ad69bfb-2e51-4fe9-8d2f-7d071a4f1c69")
 }
 
-fn teetering_peaks() -> CardIndex {
+pub fn teetering_peaks() -> CardIndex {
     card_index("4a9437a6-4e61-48b6-8194-1c6ba6432250")
 }
 
-fn woodland_stream() -> CardIndex {
+pub fn woodland_stream() -> CardIndex {
     card_index("e887fb3f-d4c9-4022-8f75-1de6ec94af96")
 }
 
-fn zhalfirin_void() -> CardIndex {
+pub fn zhalfirin_void() -> CardIndex {
     card_index("13aab4fc-4c89-45e6-8275-b074b00d0ee9")
 }
 
-fn ziatora_s_proving_ground() -> CardIndex {
+pub fn ziatora_s_proving_ground() -> CardIndex {
     card_index("f7e7b78c-c769-4720-8585-1874773eb342")
 }
 
-fn ancient_craving() -> CardIndex {
+pub fn ancient_craving() -> CardIndex {
     card_index("78725353-9274-420a-b722-add0f43c444e")
 }
 
-fn bee_sting() -> CardIndex {
+pub fn bee_sting() -> CardIndex {
     card_index("f637d525-2f29-488a-9269-8e5aa377fbb7")
 }
 
-fn lava_flow() -> CardIndex {
+pub fn lava_flow() -> CardIndex {
     card_index("91c0a76e-3992-437f-b85a-97b0b4adbb84")
 }
 
-fn natural_spring() -> CardIndex {
+pub fn natural_spring() -> CardIndex {
     card_index("f7571a2e-aaf3-4148-ab76-2a2e35273c70")
 }
 
-fn touch_of_brilliance() -> CardIndex {
+pub fn touch_of_brilliance() -> CardIndex {
     card_index("6365aba1-78d3-416c-89cd-9449578eedbf")
 }
 
-fn princess_lucrezia() -> CardIndex {
+pub fn princess_lucrezia() -> CardIndex {
     card_index("dd1d21f5-f5cd-43e4-8155-3cca85da80a9")
 }
 
-fn sharlayan_nation_of_scholars() -> CardIndex {
+pub fn sharlayan_nation_of_scholars() -> CardIndex {
     card_index("564bdbdd-8392-4ee1-a132-1a17a67b2110")
 }
 
-fn kormus_bell() -> CardIndex {
+pub fn kormus_bell() -> CardIndex {
     card_index("d2d477a5-f055-4d47-a852-26e8239f2a01")
 }
 
-fn myr_matrix() -> CardIndex {
+pub fn myr_matrix() -> CardIndex {
     card_index("46a07fdd-0ca3-4654-9caa-a88fae80c414")
 }
 
-fn power_matrix() -> CardIndex {
+pub fn power_matrix() -> CardIndex {
     card_index("4355507e-e3a4-4c49-a1f7-344150213a2f")
 }
 
-fn archangel() -> CardIndex {
+pub fn archangel() -> CardIndex {
     card_index("9971697b-2acc-4bc2-a44e-074d03a51df7")
 }
 
-fn arrogant_vampire() -> CardIndex {
+pub fn arrogant_vampire() -> CardIndex {
     card_index("5edfe083-391b-41ae-ac4d-d648042cfa5e")
 }
 
-fn aven_flock() -> CardIndex {
+pub fn aven_flock() -> CardIndex {
     card_index("fcf0bb85-bca9-4f4c-b954-ca3bc5f91dd8")
 }
 
-fn barkhide_mauler() -> CardIndex {
+pub fn barkhide_mauler() -> CardIndex {
     card_index("84a18b1f-5f9f-4e2b-87cd-c437bdf4d278")
 }
 
-fn ekundu_griffin() -> CardIndex {
+pub fn ekundu_griffin() -> CardIndex {
     card_index("852b6e19-4594-41ea-9267-0911df643af5")
 }
 
-fn folk_of_the_pines() -> CardIndex {
+pub fn folk_of_the_pines() -> CardIndex {
     card_index("6cd8cf2a-972f-41b7-ab0c-b4953accc2fe")
 }
 
-fn herd_gnarr() -> CardIndex {
+pub fn herd_gnarr() -> CardIndex {
     card_index("89cf4d99-64e9-4e5c-9edc-ea077a193332")
 }
 
-fn highway_robber() -> CardIndex {
+pub fn highway_robber() -> CardIndex {
     card_index("5de0769e-5141-42d5-aaa6-549cfc154de8")
 }
 
-fn hundroog() -> CardIndex {
+pub fn hundroog() -> CardIndex {
     card_index("ade82acb-80c0-4033-aa02-4fa3d69aad69")
 }
 
-fn hyalopterous_lemure() -> CardIndex {
+pub fn hyalopterous_lemure() -> CardIndex {
     card_index("bc3576fb-3c08-456e-b3b6-9eb01b2366d6")
 }
 
-fn jungle_barrier() -> CardIndex {
+pub fn jungle_barrier() -> CardIndex {
     card_index("dcf65293-14a0-46a5-a0b0-ca2b7fda8bef")
 }
 
-fn kongming_sleeping_dragon() -> CardIndex {
+pub fn kongming_sleeping_dragon() -> CardIndex {
     card_index("21e9e1a9-5d6d-473e-adab-6a1e8e2b0ebd")
 }
 
-fn smugglers_copter_for_kongming() -> CardIndex {
+pub fn smugglers_copter_for_kongming() -> CardIndex {
     card_index("49136bdc-bc50-49a2-999a-1ef9c16ea130")
 }
 
-fn lightning_angel() -> CardIndex {
+pub fn lightning_angel() -> CardIndex {
     card_index("2be85439-4606-4e1e-8be7-56d9e31f77c4")
 }
 
-fn mawcor() -> CardIndex {
+pub fn mawcor() -> CardIndex {
     card_index("4c0384d6-21cb-4645-b7a4-3af133e8a9a8")
 }
 
-fn morphling() -> CardIndex {
+pub fn morphling() -> CardIndex {
     card_index("19f233b2-8be6-4172-abf9-b132fc3393d9")
 }
 
-fn mystic_snake() -> CardIndex {
+pub fn mystic_snake() -> CardIndex {
     card_index("161b6d06-e6a7-488e-9f9c-d266c1402a3a")
 }
 
-fn nightscape_master() -> CardIndex {
+pub fn nightscape_master() -> CardIndex {
     card_index("e5f9bd6b-0aa6-4f61-b101-ec194af6d632")
 }
 
-fn raging_minotaur() -> CardIndex {
+pub fn raging_minotaur() -> CardIndex {
     card_index("4cfd04b3-57bd-4860-8b47-57a0fd0a23fa")
 }
 
-fn reclusive_wight() -> CardIndex {
+pub fn reclusive_wight() -> CardIndex {
     card_index("dbde53c1-c6b7-4775-87d3-e95166392e60")
 }
 
-fn serpentine_kavu() -> CardIndex {
+pub fn serpentine_kavu() -> CardIndex {
     card_index("cf252d71-77e7-438f-b774-28e5ab2f09f6")
 }
 
-fn skyshroud_troopers() -> CardIndex {
+pub fn skyshroud_troopers() -> CardIndex {
     card_index("b5a40cd8-e1f9-4294-99ef-26fb455d4f95")
 }
 
-fn starlit_angel() -> CardIndex {
+pub fn starlit_angel() -> CardIndex {
     card_index("e66e3450-bddb-46ac-bc7e-c7732e258374")
 }
 
-fn thing_from_the_deep() -> CardIndex {
+pub fn thing_from_the_deep() -> CardIndex {
     card_index("9542bd7f-bb99-4b59-a4e3-b88ed9f798bf")
 }
 
-fn vengeful_dead() -> CardIndex {
+pub fn vengeful_dead() -> CardIndex {
     card_index("277c8ee9-0157-4e45-96ad-1b67716955ee")
 }
 
-fn vile_deacon() -> CardIndex {
+pub fn vile_deacon() -> CardIndex {
     card_index("123147b4-57d0-44cd-bdd5-a449ac86c1cb")
 }
 
-fn war_mammoth() -> CardIndex {
+pub fn war_mammoth() -> CardIndex {
     card_index("b2a8fcf9-2ec2-40a9-9955-90f8605b11a3")
 }
 
-fn yavimaya_wurm() -> CardIndex {
+pub fn yavimaya_wurm() -> CardIndex {
     card_index("93514874-41e8-49e7-8935-d06e852dd1e3")
 }
 
-fn dispersing_orb() -> CardIndex {
+pub fn dispersing_orb() -> CardIndex {
     card_index("dabc4ba1-3f90-4cea-a737-d41537cce729")
 }
 
-fn lifegift() -> CardIndex {
+pub fn lifegift() -> CardIndex {
     card_index("c99d4be7-244c-4fb5-877a-8aee961a2666")
 }
 
-fn spidersilk_armor() -> CardIndex {
+pub fn spidersilk_armor() -> CardIndex {
     card_index("ad73e5eb-197c-45a3-9d20-a406ba126c79")
 }
 
-fn absorb() -> CardIndex {
+pub fn absorb() -> CardIndex {
     card_index("132ca99a-a3c7-4ed6-b4d0-0edcd7140ca2")
 }
 
-fn ember_shot() -> CardIndex {
+pub fn ember_shot() -> CardIndex {
     card_index("1f300320-ad98-4812-b34b-54885a86aee9")
 }
 
-fn rend_flesh() -> CardIndex {
+pub fn rend_flesh() -> CardIndex {
     card_index("079d4698-dc11-4d29-91b6-725d78dfb75d")
 }
 
-fn reviving_dose() -> CardIndex {
+pub fn reviving_dose() -> CardIndex {
     card_index("ad470afc-d1a5-4e64-8192-fb6308ed9bfe")
 }
 
-fn scrap() -> CardIndex {
+pub fn scrap() -> CardIndex {
     card_index("0ad3b788-eb3d-4876-9c89-893429595e0e")
 }
 
-fn sudden_strength() -> CardIndex {
+pub fn sudden_strength() -> CardIndex {
     card_index("8df51012-b334-475f-b70d-af4f2b3840a0")
 }
 
-fn tel_jilad_justice() -> CardIndex {
+pub fn tel_jilad_justice() -> CardIndex {
     card_index("6c853b95-3d98-44fd-b05a-02d05d5eb0b8")
 }
 
-fn wipe_clean() -> CardIndex {
+pub fn wipe_clean() -> CardIndex {
     card_index("f5cbc4f3-4e73-405f-9daf-e5b7c73fa6ee")
 }
 
-fn blighted_cataract() -> CardIndex {
+pub fn blighted_cataract() -> CardIndex {
     card_index("4d722521-0396-48f9-88b2-08b6249f970d")
 }
 
-fn goblin_burrows() -> CardIndex {
+pub fn goblin_burrows() -> CardIndex {
     card_index("ad65bb8e-57de-49f3-ba7c-be62cf3fe3df")
 }
 
-fn kyoshi_village() -> CardIndex {
+pub fn kyoshi_village() -> CardIndex {
     card_index("da81b78b-89fd-4fc1-9395-b5b01b96be70")
 }
 
-fn minamo_school_at_water_s_edge() -> CardIndex {
+pub fn minamo_school_at_water_s_edge() -> CardIndex {
     card_index("17784f90-89a1-47a5-83ef-ae60dfc30bd1")
 }
 
-fn omashu_city() -> CardIndex {
+pub fn omashu_city() -> CardIndex {
     card_index("6f9a4bb2-5959-4a5c-83af-c2729e6673df")
 }
 
-fn seraph_sanctuary() -> CardIndex {
+pub fn seraph_sanctuary() -> CardIndex {
     card_index("0b504dc6-61cc-4a72-907c-145fa4c72466")
 }
 
-fn shinka_the_bloodsoaked_keep() -> CardIndex {
+pub fn shinka_the_bloodsoaked_keep() -> CardIndex {
     card_index("255b937f-c9c9-4ae9-815e-17418eba0602")
 }
 
-fn slayers_stronghold() -> CardIndex {
+pub fn slayers_stronghold() -> CardIndex {
     card_index("2de7367b-a5a4-43f4-8f8f-b931ea28150d")
 }
 
-fn tournament_grounds() -> CardIndex {
+pub fn tournament_grounds() -> CardIndex {
     card_index("a3ed5d7f-c554-4d46-86e5-7bb8df2693f6")
 }
 
-fn unknown_shores() -> CardIndex {
+pub fn unknown_shores() -> CardIndex {
     card_index("82c5ec8e-27be-475a-9921-ad61209fd022")
 }
 
-fn aftershock() -> CardIndex {
+pub fn aftershock() -> CardIndex {
     card_index("e6bef0c4-3dfc-49a8-8fec-22b2570b704b")
 }
 
-fn creeping_mold() -> CardIndex {
+pub fn creeping_mold() -> CardIndex {
     card_index("59180e94-ccdf-4d9f-9a4a-fe55497d0d63")
 }
 
-fn demolish() -> CardIndex {
+pub fn demolish() -> CardIndex {
     card_index("08c6d2fd-d9ae-4f95-bb9d-7e16b1039814")
 }
 
-fn dosan_s_oldest_chant() -> CardIndex {
+pub fn dosan_s_oldest_chant() -> CardIndex {
     card_index("59aeeb18-d263-426f-aebc-0f687b09801b")
 }
 
-fn essence_drain() -> CardIndex {
+pub fn essence_drain() -> CardIndex {
     card_index("4bf5402f-7bba-4c0c-aebd-1b231768f2b2")
 }
 
-fn lay_waste() -> CardIndex {
+pub fn lay_waste() -> CardIndex {
     card_index("04cc9d99-69a9-499b-91bc-f2f30d217bdd")
 }
 
-fn rain_of_tears() -> CardIndex {
+pub fn rain_of_tears() -> CardIndex {
     card_index("72cecab3-519e-4a23-9623-b423a5c5a251")
 }
 
-fn aladdin_s_ring() -> CardIndex {
+pub fn aladdin_s_ring() -> CardIndex {
     card_index("7810915f-df4d-445a-8ba8-fe6ed3abf1ae")
 }
 
-fn flying_carpet() -> CardIndex {
+pub fn flying_carpet() -> CardIndex {
     card_index("453524fb-2ffa-421f-883c-b77ae2850c52")
 }
 
-fn wand_of_the_elements() -> CardIndex {
+pub fn wand_of_the_elements() -> CardIndex {
     card_index("b4931b44-815e-40b5-b239-682d350f3347")
 }
 
-fn disease_carriers() -> CardIndex {
+pub fn disease_carriers() -> CardIndex {
     card_index("ccdd6376-9b74-4d13-9f80-87d0bd3d4a2a")
 }
 
-fn fighting_drake() -> CardIndex {
+pub fn fighting_drake() -> CardIndex {
     card_index("b13cc6be-ee35-491e-a437-f7fc191f24c7")
 }
 
-fn flowstone_overseer() -> CardIndex {
+pub fn flowstone_overseer() -> CardIndex {
     card_index("89a3a6a3-e5f9-4e28-8372-99219db3f976")
 }
 
-fn goblin_clearcutter() -> CardIndex {
+pub fn goblin_clearcutter() -> CardIndex {
     card_index("08a01139-1b1e-4a32-bb00-3a9660cce1ef")
 }
 
-fn grandmother_sengir() -> CardIndex {
+pub fn grandmother_sengir() -> CardIndex {
     card_index("4f92804f-a231-4406-9a16-f4e102517b06")
 }
 
-fn hawkeater_moth() -> CardIndex {
+pub fn hawkeater_moth() -> CardIndex {
     card_index("e3f4bc4c-e747-4bc1-bfba-4ecfa0a5d17f")
 }
 
-fn luminous_angel() -> CardIndex {
+pub fn luminous_angel() -> CardIndex {
     card_index("8d7cf56c-94fd-47d8-9e0f-cd3163688983")
 }
 
-fn needleshot_gourna() -> CardIndex {
+pub fn needleshot_gourna() -> CardIndex {
     card_index("8a04fd45-6526-4c73-8b38-5e40a2380451")
 }
 
-fn oyobi_who_split_the_heavens() -> CardIndex {
+pub fn oyobi_who_split_the_heavens() -> CardIndex {
     card_index("df5c1f34-94e4-4f89-b1af-943c430862d0")
 }
 
-fn phantom_monster() -> CardIndex {
+pub fn phantom_monster() -> CardIndex {
     card_index("bbd30183-524c-4b93-b953-90853ec3f39f")
 }
 
-fn phyrexian_gargantua() -> CardIndex {
+pub fn phyrexian_gargantua() -> CardIndex {
     card_index("a3925dfd-62b0-44ef-8545-7bee92cad5a2")
 }
 
-fn ravenous_baboons() -> CardIndex {
+pub fn ravenous_baboons() -> CardIndex {
     card_index("1d9bd0a5-3ba0-44e5-9cb3-966f6b9dc14a")
 }
 
-fn renegade_troops() -> CardIndex {
+pub fn renegade_troops() -> CardIndex {
     card_index("83a81308-4a15-49cd-b2f6-51431cca79e9")
 }
 
-fn seismic_mage() -> CardIndex {
+pub fn seismic_mage() -> CardIndex {
     card_index("a1f7e43a-f126-47d8-bd59-339ae052e81b")
 }
 
-fn souldrinker() -> CardIndex {
+pub fn souldrinker() -> CardIndex {
     card_index("624d4bda-448f-43d1-92b6-53a77afe2374")
 }
 
-fn centaur_glade() -> CardIndex {
+pub fn centaur_glade() -> CardIndex {
     card_index("369c3b6c-6715-4b6a-89d2-e7542400ba8f")
 }
 
-fn greed() -> CardIndex {
+pub fn greed() -> CardIndex {
     card_index("1ff62220-be95-4901-b8d8-812b9a1a1b0a")
 }
 
-fn still_life() -> CardIndex {
+pub fn still_life() -> CardIndex {
     card_index("55159adc-36f0-4088-8930-5d9b45f76365")
 }
 
-fn ferocious_charge() -> CardIndex {
+pub fn ferocious_charge() -> CardIndex {
     card_index("a7796af7-d41c-42a6-9033-a4d79dee84d6")
 }
 
-fn blinkmoth_well() -> CardIndex {
+pub fn blinkmoth_well() -> CardIndex {
     card_index("dd3fd7cd-d8a1-48e2-861d-c7c40086dc75")
 }
 
-fn rabanastre_royal_city() -> CardIndex {
+pub fn rabanastre_royal_city() -> CardIndex {
     card_index("bd39e333-b0b8-4a85-8645-d77f4a3941db")
 }
 
-fn rumble_arena() -> CardIndex {
+pub fn rumble_arena() -> CardIndex {
     card_index("83f2470e-2114-4cd9-ab1a-21b76e9cdf63")
 }
 
-fn skybridge_towers() -> CardIndex {
+pub fn skybridge_towers() -> CardIndex {
     card_index("46466819-3c8b-4f7e-82c2-93cb0118a6e6")
 }
 
-fn sun_blessed_peak() -> CardIndex {
+pub fn sun_blessed_peak() -> CardIndex {
     card_index("d188a397-c7d9-4f16-bc21-d9e1b5ffc951")
 }
 
-fn treno_dark_city() -> CardIndex {
+pub fn treno_dark_city() -> CardIndex {
     card_index("6d5bb714-1bf4-4f75-9ea8-bdbd18b0425b")
 }
 
-fn turntimber_grove() -> CardIndex {
+pub fn turntimber_grove() -> CardIndex {
     card_index("62934aab-b6fa-41b2-ac05-d3fa0e3c5a79")
 }
 
-fn wooded_ridgeline() -> CardIndex {
+pub fn wooded_ridgeline() -> CardIndex {
     card_index("c2ca3e20-23ca-4d2a-88a1-5e98ff884abb")
 }
 
-fn goblin_cannon() -> CardIndex {
+pub fn goblin_cannon() -> CardIndex {
     card_index("c939e74d-4206-4ad1-bdaa-84103db0ac41")
 }
 
-fn mightstone() -> CardIndex {
+pub fn mightstone() -> CardIndex {
     card_index("2f578020-9b39-4c61-8b0b-6d29187e022a")
 }
 
-fn staff_of_zegon() -> CardIndex {
+pub fn staff_of_zegon() -> CardIndex {
     card_index("52c53132-146a-4912-8e0f-1d4d9937fff3")
 }
 
-fn angel_of_retribution() -> CardIndex {
+pub fn angel_of_retribution() -> CardIndex {
     card_index("248dcf69-b99e-4a71-b9b3-7fd865f873ab")
 }
 
-fn ardent_militia() -> CardIndex {
+pub fn ardent_militia() -> CardIndex {
     card_index("23625877-b6db-480c-8885-a62b7d0457df")
 }
 
-fn boris_devilboon() -> CardIndex {
+pub fn boris_devilboon() -> CardIndex {
     card_index("913aed6d-60c3-4d08-baf8-359e2c41a797")
 }
 
-fn charging_bandits() -> CardIndex {
+pub fn charging_bandits() -> CardIndex {
     card_index("0c67133b-be15-47d7-8cf6-79987a42044d")
 }
 
-fn coastal_hornclaw() -> CardIndex {
+pub fn coastal_hornclaw() -> CardIndex {
     card_index("27d672a7-f73b-483d-80a3-a4cd2a9855f2")
 }
 
-fn flanking_troops() -> CardIndex {
+pub fn flanking_troops() -> CardIndex {
     card_index("47bbb630-2bf7-47a2-93bb-266e491803c3")
 }
 
-fn flowstone_mauler() -> CardIndex {
+pub fn flowstone_mauler() -> CardIndex {
     card_index("ea205569-b5a0-4c86-b825-67cd48d3b2e8")
 }
 
-fn hoar_shade() -> CardIndex {
+pub fn hoar_shade() -> CardIndex {
     card_index("23c74c42-11bd-4fba-b1cb-93b96f5a11fb")
 }
 
-fn keeneye_aven() -> CardIndex {
+pub fn keeneye_aven() -> CardIndex {
     card_index("86b7ff68-0bd9-4fc9-9803-fde2d4a2f59b")
 }
 
-fn king_cheetah() -> CardIndex {
+pub fn king_cheetah() -> CardIndex {
     card_index("f9ca35e1-24c5-46f4-a666-0dfe2c920e8b")
 }
 
-fn leonin_abunas() -> CardIndex {
+pub fn leonin_abunas() -> CardIndex {
     card_index("10064324-34a0-47eb-a58e-01db10234ed9")
 }
 
-fn mahamoti_djinn() -> CardIndex {
+pub fn mahamoti_djinn() -> CardIndex {
     card_index("c39ea5f9-6ec0-4697-897b-779e326754a7")
 }
 
-fn meloku_the_clouded_mirror() -> CardIndex {
+pub fn meloku_the_clouded_mirror() -> CardIndex {
     card_index("3b96b8c3-b9c8-4712-a3b1-243a67cc013a")
 }
 
-fn moggcatcher() -> CardIndex {
+pub fn moggcatcher() -> CardIndex {
     card_index("4845dc21-7534-4896-b298-4d44cd7a3b27")
 }
 
-fn muscle_sliver() -> CardIndex {
+pub fn muscle_sliver() -> CardIndex {
     card_index("06e0459f-d691-4470-884a-27c09b6612d2")
 }
 
-fn ore_gorger() -> CardIndex {
+pub fn ore_gorger() -> CardIndex {
     card_index("e5a9d34b-c7d4-4682-8e26-dd82e38ee84e")
 }
 
-fn phyrexian_defiler() -> CardIndex {
+pub fn phyrexian_defiler() -> CardIndex {
     card_index("bed87e57-d410-478f-ae9d-2d7d00831e5e")
 }
 
-fn pixie_queen() -> CardIndex {
+pub fn pixie_queen() -> CardIndex {
     card_index("38a7d4ef-d296-4896-9b6b-2fd3ad518243")
 }
 
-fn plated_rootwalla() -> CardIndex {
+pub fn plated_rootwalla() -> CardIndex {
     card_index("e20b80f2-9913-4886-a61b-04f3fd27c2ad")
 }
 
-fn primoc_escapee() -> CardIndex {
+pub fn primoc_escapee() -> CardIndex {
     card_index("28a1e053-eb14-4fbf-afd1-bfb6117a839a")
 }
 
-fn razorfoot_griffin() -> CardIndex {
+pub fn razorfoot_griffin() -> CardIndex {
     card_index("c7ecb785-2bfc-4953-b356-db7c27406dbb")
 }
 
-fn roc_of_kher_ridges() -> CardIndex {
+pub fn roc_of_kher_ridges() -> CardIndex {
     card_index("01f07ab9-3c3e-4fea-9cd6-543a5b7056b8")
 }
 
-fn rorix_bladewing() -> CardIndex {
+pub fn rorix_bladewing() -> CardIndex {
     card_index("48fe0f52-1676-49d5-acf6-5476081e8e1b")
 }
 
-fn sandbar_serpent() -> CardIndex {
+pub fn sandbar_serpent() -> CardIndex {
     card_index("30fce201-03a8-4afc-a1ad-7a9b3fd59836")
 }
 
-fn siege_gang_commander() -> CardIndex {
+pub fn siege_gang_commander() -> CardIndex {
     card_index("ddc7f59a-bbb1-4ba1-82c8-6813fd191940")
 }
 
-fn soul_of_magma() -> CardIndex {
+pub fn soul_of_magma() -> CardIndex {
     card_index("1566af29-bd7b-41bb-a589-499348fbd32c")
 }
 
-fn staunch_defenders() -> CardIndex {
+pub fn staunch_defenders() -> CardIndex {
     card_index("ec8bf245-4b2c-432b-9b2a-8d7b9224258c")
 }
 
-fn sunastian_falconer() -> CardIndex {
+pub fn sunastian_falconer() -> CardIndex {
     card_index("3d6314b5-3ace-4793-9549-7b17db2a735d")
 }
 
-fn talas_air_ship() -> CardIndex {
+pub fn talas_air_ship() -> CardIndex {
     card_index("8cb3f047-bd8b-4a34-8a2b-ced2cc0487eb")
 }
 
-fn tolarian_serpent() -> CardIndex {
+pub fn tolarian_serpent() -> CardIndex {
     card_index("684e18bf-1390-4d12-8e7a-e8562db64dbb")
 }
 
-fn ursapine() -> CardIndex {
+pub fn ursapine() -> CardIndex {
     card_index("fcf92abb-6c06-42d2-a3d1-f44ec997d56d")
 }
 
-fn vampiric_spirit() -> CardIndex {
+pub fn vampiric_spirit() -> CardIndex {
     card_index("dbd1fc9c-6316-4c89-a971-f2e08ca291a4")
 }
 
-fn vedalken_archmage() -> CardIndex {
+pub fn vedalken_archmage() -> CardIndex {
     card_index("568cf486-0261-4634-ac36-a6507101b2d0")
 }
 
-fn vermiculos() -> CardIndex {
+pub fn vermiculos() -> CardIndex {
     card_index("88cadf97-4b24-481a-9136-96c017fd96e9")
 }
 
-fn vulshok_war_boar() -> CardIndex {
+pub fn vulshok_war_boar() -> CardIndex {
     card_index("4641e86f-5370-4b25-bd76-07bea856c032")
 }
 
-fn living_lands() -> CardIndex {
+pub fn living_lands() -> CardIndex {
     card_index("8f0179fe-6d7d-49cc-ab06-d3b402c6fc8d")
 }
 
-fn moonlit_wake() -> CardIndex {
+pub fn moonlit_wake() -> CardIndex {
     card_index("c93965a8-c527-4b1f-8322-b043f910ffb7")
 }
 
-fn think_tank() -> CardIndex {
+pub fn think_tank() -> CardIndex {
     card_index("c13b9ee5-cf4f-47bc-a6e8-1dbf98df3d9c")
 }
 
-fn daring_leap() -> CardIndex {
+pub fn daring_leap() -> CardIndex {
     card_index("10bc00f7-d501-46e3-9f23-af1ddc3f6c4c")
 }
 
-fn exclude() -> CardIndex {
+pub fn exclude() -> CardIndex {
     card_index("a8c9f91a-b1e7-451d-b6db-ae865e2b853c")
 }
 
-fn repulse() -> CardIndex {
+pub fn repulse() -> CardIndex {
     card_index("6f7ef1d1-c441-41ba-b7d6-6b7727ffcf04")
 }
 
-fn rescind() -> CardIndex {
+pub fn rescind() -> CardIndex {
     card_index("3f487c8e-a923-4031-b0a7-04f778544fe0")
 }
 
-fn airship_engine_room() -> CardIndex {
+pub fn airship_engine_room() -> CardIndex {
     card_index("01ed9139-293d-4477-a145-3c6fe59266c7")
 }
 
-fn boiling_rock_prison() -> CardIndex {
+pub fn boiling_rock_prison() -> CardIndex {
     card_index("6caabc45-4644-4941-a2f3-f04ee7b50a89")
 }
 
-fn botanical_plaza() -> CardIndex {
+pub fn botanical_plaza() -> CardIndex {
     card_index("19e6ebaf-7148-428f-8c79-1e9e57a4e659")
 }
 
-fn capital_city() -> CardIndex {
+pub fn capital_city() -> CardIndex {
     card_index("2c96ab90-155b-4bf4-acc9-65a2f0cd3189")
 }
 
-fn foggy_bottom_swamp() -> CardIndex {
+pub fn foggy_bottom_swamp() -> CardIndex {
     card_index("b56bb8cb-457e-4b85-9bf9-5e891e79f1dd")
 }
 
-fn gohn_town_of_ruin() -> CardIndex {
+pub fn gohn_town_of_ruin() -> CardIndex {
     card_index("13fbd525-c9ee-4bd6-b269-94fb264024b6")
 }
 
-fn gongaga_reactor_town() -> CardIndex {
+pub fn gongaga_reactor_town() -> CardIndex {
     card_index("ac4e1818-4873-4143-9b99-46f205d006d9")
 }
 
-fn rishadan_port() -> CardIndex {
+pub fn rishadan_port() -> CardIndex {
     card_index("f3e8dc56-2810-474e-a6a7-9c3555f94ae9")
 }
 
-fn strip_mine() -> CardIndex {
+pub fn strip_mine() -> CardIndex {
     card_index("d21a89eb-7c5b-459a-acc7-12b20b13bf79")
 }
 
-fn xanders_lounge() -> CardIndex {
+pub fn xanders_lounge() -> CardIndex {
     card_index("8291543f-d086-48aa-b2b7-5481ca8c9198")
 }
 
-fn ambition_s_cost() -> CardIndex {
+pub fn ambition_s_cost() -> CardIndex {
     card_index("84de4fec-2f38-4293-93d3-b3882c5aac14")
 }
 
-fn stone_rain() -> CardIndex {
+pub fn stone_rain() -> CardIndex {
     card_index("6e880df6-fc00-43d2-a9c8-f575f40b78c6")
 }
 
-fn untamed_wilds() -> CardIndex {
+pub fn untamed_wilds() -> CardIndex {
     card_index("b3b4c21d-f8d7-455f-be46-d5eb909d54df")
 }
 
-fn gilded_lotus() -> CardIndex {
+pub fn gilded_lotus() -> CardIndex {
     card_index("9a02a9a7-39d9-4763-85d3-747a0540b60b")
 }
 
-fn barbarian_riftcutter() -> CardIndex {
+pub fn barbarian_riftcutter() -> CardIndex {
     card_index("e9612e4c-1527-4255-9f2f-b8d8cee65cc6")
 }
 
-fn desert_drake() -> CardIndex {
+pub fn desert_drake() -> CardIndex {
     card_index("ce8f4eb4-08b8-404b-9147-1e28c1b14a65")
 }
 
-fn endless_wurm() -> CardIndex {
+pub fn endless_wurm() -> CardIndex {
     card_index("ce4d714c-c22b-47be-a372-a3139c4e5b1c")
 }
 
-fn firefly() -> CardIndex {
+pub fn firefly() -> CardIndex {
     card_index("6b151418-092f-4a43-8b21-3de64ea80cab")
 }
 
-fn gerrard_s_irregulars() -> CardIndex {
+pub fn gerrard_s_irregulars() -> CardIndex {
     card_index("595cbe23-4969-4fc2-8386-e5f3e6adfd5f")
 }
 
-fn giant_spider() -> CardIndex {
+pub fn giant_spider() -> CardIndex {
     card_index("e740ce2f-2134-473c-afa1-1b6d2d1e38ef")
 }
 
-fn gruul_nodorog() -> CardIndex {
+pub fn gruul_nodorog() -> CardIndex {
     card_index("68fc3611-8d82-4f87-ab50-603790a27455")
 }
 
-fn karplusan_giant() -> CardIndex {
+pub fn karplusan_giant() -> CardIndex {
     card_index("f0fac3bc-a566-448e-a9a2-10927a49f182")
 }
 
-fn lovisa_coldeyes() -> CardIndex {
+pub fn lovisa_coldeyes() -> CardIndex {
     card_index("720879dc-7593-41c0-ab3d-936069f26930")
 }
 
-fn ogre_arsonist() -> CardIndex {
+pub fn ogre_arsonist() -> CardIndex {
     card_index("00af96af-5eae-4044-a2f7-a08cd0699d1e")
 }
 
-fn phyrexian_debaser() -> CardIndex {
+pub fn phyrexian_debaser() -> CardIndex {
     card_index("554de904-086c-428c-9f32-b0b2498a6fd5")
 }
 
-fn shivan_hellkite() -> CardIndex {
+pub fn shivan_hellkite() -> CardIndex {
     card_index("069be6a0-9545-4fdc-ad40-957fe307db7a")
 }
 
-fn volcanic_dragon() -> CardIndex {
+pub fn volcanic_dragon() -> CardIndex {
     card_index("994db177-03f5-43dd-bf7b-2994e8d430d3")
 }
 
-fn mobilization() -> CardIndex {
+pub fn mobilization() -> CardIndex {
     card_index("6b8119e9-a9a9-4349-be32-adcb84b8eb79")
 }
 
-fn righteous_cause() -> CardIndex {
+pub fn righteous_cause() -> CardIndex {
     card_index("218f835b-4195-4ee8-a4ef-e5ba58fa5374")
 }
 
-fn afflict() -> CardIndex {
+pub fn afflict() -> CardIndex {
     card_index("471f6ad3-cf01-42dd-a519-ea8e13039fea")
 }
 
-fn negate() -> CardIndex {
+pub fn negate() -> CardIndex {
     card_index("3407fe41-fdd3-4119-8f70-4bc4590a379f")
 }
 
-fn rend_spirit() -> CardIndex {
+pub fn rend_spirit() -> CardIndex {
     card_index("cca698b3-b86f-45a2-aa3f-bab7d5a56e8a")
 }
 
-fn crumbling_vestige() -> CardIndex {
+pub fn crumbling_vestige() -> CardIndex {
     card_index("3c1fe86a-3696-4634-bc26-cd45846529ec")
 }
 
-fn insomnia_crown_city() -> CardIndex {
+pub fn insomnia_crown_city() -> CardIndex {
     card_index("b7140f72-91b6-4be4-8d71-c019e64c2351")
 }
 
-fn north_pole_gates() -> CardIndex {
+pub fn north_pole_gates() -> CardIndex {
     card_index("3fcd1432-66d0-40e1-85ef-b57a6fa94b7c")
 }
 
-fn piranha_marsh() -> CardIndex {
+pub fn piranha_marsh() -> CardIndex {
     card_index("6bc8fd7e-7616-484a-ac23-04d37c93733b")
 }
 
-fn wirewood_lodge() -> CardIndex {
+pub fn wirewood_lodge() -> CardIndex {
     card_index("1275653f-de4e-4fe9-aad8-88555fa11680")
 }
 
-fn wizards_school() -> CardIndex {
+pub fn wizards_school() -> CardIndex {
     card_index("51635f96-af1d-4b33-9118-432495aaf07f")
 }
 
-fn cinder_storm() -> CardIndex {
+pub fn cinder_storm() -> CardIndex {
     card_index("c7971968-c4ee-4437-92ec-1238bce1935f")
 }
 
-fn last_caress() -> CardIndex {
+pub fn last_caress() -> CardIndex {
     card_index("620b13cf-b8ea-48b7-8300-3c48390e32e3")
 }
 
-fn rejuvenate() -> CardIndex {
+pub fn rejuvenate() -> CardIndex {
     card_index("35069cdb-e5bd-4224-a1a8-b329054e003b")
 }
 
-fn spring_of_eternal_peace() -> CardIndex {
+pub fn spring_of_eternal_peace() -> CardIndex {
     card_index("6fcdb870-a1b6-49fe-8b5c-cdde074a7f7d")
 }
 
-fn winter_s_grasp() -> CardIndex {
+pub fn winter_s_grasp() -> CardIndex {
     card_index("e9b8679d-52a9-4f0f-9365-f3e4b7a69805")
 }
 
-fn goblin_settler() -> CardIndex {
+pub fn goblin_settler() -> CardIndex {
     card_index("04dd449f-ff3a-4ed7-8241-244d58b371dc")
 }
 
-fn crystal_grotto() -> CardIndex {
+pub fn crystal_grotto() -> CardIndex {
     card_index("f15fb0cc-8e96-4f03-94d0-b51410415afd")
 }
 
-fn planar_portal() -> CardIndex {
+pub fn planar_portal() -> CardIndex {
     card_index("d4b10505-2b7a-4099-aacb-ff2359b24310")
 }
 
-fn blizzard_elemental() -> CardIndex {
+pub fn blizzard_elemental() -> CardIndex {
     card_index("dd489f30-d1cf-4236-8390-9c21cd8659e0")
 }
 
-fn crash_of_rhinos() -> CardIndex {
+pub fn crash_of_rhinos() -> CardIndex {
     card_index("b2d7251e-2848-4b85-8d99-7c43be163dfb")
 }
 
-fn crazed_skirge() -> CardIndex {
+pub fn crazed_skirge() -> CardIndex {
     card_index("72a53d9e-0645-4024-a90f-73b05c2284c6")
 }
 
-fn dakmor_ghoul() -> CardIndex {
+pub fn dakmor_ghoul() -> CardIndex {
     card_index("6b25b7d7-ebb1-474c-9898-e027dbf0bbdd")
 }
 
-fn fallen_angel() -> CardIndex {
+pub fn fallen_angel() -> CardIndex {
     card_index("1869a326-8b48-4331-b969-5ce83cf4ff8a")
 }
 
-fn flametongue_kavu() -> CardIndex {
+pub fn flametongue_kavu() -> CardIndex {
     card_index("b215196a-3716-451f-bdbd-d16c05ace5b4")
 }
 
-fn flowstone_hellion() -> CardIndex {
+pub fn flowstone_hellion() -> CardIndex {
     card_index("69ea4ef2-794d-4c76-904f-0435b0efd6a0")
 }
 
-fn fountain_watch() -> CardIndex {
+pub fn fountain_watch() -> CardIndex {
     card_index("e6527ba3-3293-4a29-a2f9-7a81f8f27b7c")
 }
 
-fn glintwing_invoker() -> CardIndex {
+pub fn glintwing_invoker() -> CardIndex {
     card_index("c8a9bdaa-55ef-4baa-9dfa-9068583360f6")
 }
 
-fn glowing_anemone() -> CardIndex {
+pub fn glowing_anemone() -> CardIndex {
     card_index("52305f9d-2bfd-4b35-92b3-c08cdd758cde")
 }
 
-fn goblin_gardener() -> CardIndex {
+pub fn goblin_gardener() -> CardIndex {
     card_index("29781b19-0917-4d8f-abe3-df0b7e96d8a6")
 }
 
-fn kamahl_pit_fighter() -> CardIndex {
+pub fn kamahl_pit_fighter() -> CardIndex {
     card_index("153bb46f-ee8a-4da3-aab4-ae884f6ff403")
 }
 
-fn krosan_archer() -> CardIndex {
+pub fn krosan_archer() -> CardIndex {
     card_index("be886ff5-e004-420f-b7d5-01f1ab5021cb")
 }
 
-fn lightning_hounds() -> CardIndex {
+pub fn lightning_hounds() -> CardIndex {
     card_index("b50c2f63-750c-4cfc-8a74-5a7a3d9b46c4")
 }
 
-fn loxodon_mystic() -> CardIndex {
+pub fn loxodon_mystic() -> CardIndex {
     card_index("f3e22884-a9ca-4479-b400-df1c1d2fd153")
 }
 
-fn ridgetop_raptor() -> CardIndex {
+pub fn ridgetop_raptor() -> CardIndex {
     card_index("600a8c9e-e158-4fff-8c4d-c3a1bfd006e8")
 }
 
-fn savage_gorilla() -> CardIndex {
+pub fn savage_gorilla() -> CardIndex {
     card_index("6c876a57-c567-4d26-8ab6-a9c051e83ace")
 }
 
-fn a_seven_five() -> CardIndex {
+pub fn a_seven_five() -> CardIndex {
     card_index("d3a5a830-cd14-49da-9412-c50049c74c92")
 }
 
-fn scaled_hulk() -> CardIndex {
+pub fn scaled_hulk() -> CardIndex {
     card_index("ce4570eb-f637-45d1-afbc-f11357c09bf9")
 }
 
-fn seasoned_marshal() -> CardIndex {
+pub fn seasoned_marshal() -> CardIndex {
     card_index("0c7239bf-dc8a-4d79-867e-7a4225568c49")
 }
 
-fn soratami_mindsweeper() -> CardIndex {
+pub fn soratami_mindsweeper() -> CardIndex {
     card_index("2ef6f4d6-f755-4402-8339-2a9b6c86f96c")
 }
 
-fn tangle_spider() -> CardIndex {
+pub fn tangle_spider() -> CardIndex {
     card_index("597bd341-c5a0-47a3-9864-1fccab8a2a00")
 }
 
-fn totem_speaker() -> CardIndex {
+pub fn totem_speaker() -> CardIndex {
     card_index("61aa0e56-e8d9-4223-895f-e54cdc5a3f0f")
 }
 
-fn volcano_imp() -> CardIndex {
+pub fn volcano_imp() -> CardIndex {
     card_index("d2b1b4dd-e860-40d8-8e07-1dee5be65bc4")
 }
 
-fn wall_of_swords() -> CardIndex {
+pub fn wall_of_swords() -> CardIndex {
     card_index("eb098958-50d3-4476-ba74-382033703ff9")
 }
 
-fn day_of_destiny() -> CardIndex {
+pub fn day_of_destiny() -> CardIndex {
     card_index("64247fcb-0e1b-48c9-bdac-769d7edd8d1d")
 }
 
-fn dragon_roost() -> CardIndex {
+pub fn dragon_roost() -> CardIndex {
     card_index("6dc98143-7c4c-4b75-9bbb-5226d800b1d6")
 }
 
-fn levitation() -> CardIndex {
+pub fn levitation() -> CardIndex {
     card_index("94b703c4-5584-4913-8365-7e9f2f535c2d")
 }
 
-fn natures_revolt() -> CardIndex {
+pub fn natures_revolt() -> CardIndex {
     card_index("0df0503b-25e7-499b-a703-a867f2da790c")
 }
 
-fn pegasus_refuge() -> CardIndex {
+pub fn pegasus_refuge() -> CardIndex {
     card_index("07462467-e4a3-409e-bcef-9cc92ca4c299")
 }
 
-fn reckless_assault() -> CardIndex {
+pub fn reckless_assault() -> CardIndex {
     card_index("320820e4-3c7e-4e4d-b23c-63bf13a68e73")
 }
 
-fn sacred_mesa() -> CardIndex {
+pub fn sacred_mesa() -> CardIndex {
     card_index("8776d14f-a5a2-4ef3-98d0-e1148e579e4d")
 }
 
-fn teferis_care() -> CardIndex {
+pub fn teferis_care() -> CardIndex {
     card_index("6c5c7b26-9cd6-4f29-bbb2-a0745153ee5d")
 }
 
-fn treasure_trove() -> CardIndex {
+pub fn treasure_trove() -> CardIndex {
     card_index("3c4a6b34-a9bb-426d-908c-7ae0011591df")
 }
 
-fn flash_counter() -> CardIndex {
+pub fn flash_counter() -> CardIndex {
     card_index("75b2dd64-a2f5-4032-a19f-5b485dc44b16")
 }
 
-fn second_thoughts() -> CardIndex {
+pub fn second_thoughts() -> CardIndex {
     card_index("41bfef9f-6eb7-49c7-9b90-ff9f385ba670")
 }
 
-fn seething_song() -> CardIndex {
+pub fn seething_song() -> CardIndex {
     card_index("64bf8929-f5f2-4d50-8667-13b1d007bcfc")
 }
 
-fn shatter() -> CardIndex {
+pub fn shatter() -> CardIndex {
     card_index("84d32e68-72b9-432d-a023-7bc6a26b8ad0")
 }
 
-fn strength_in_numbers() -> CardIndex {
+pub fn strength_in_numbers() -> CardIndex {
     card_index("23195903-04e1-4461-a4ac-f0ce39f21c20")
 }
 
-fn animal_sanctuary() -> CardIndex {
+pub fn animal_sanctuary() -> CardIndex {
     card_index("f3c40943-1d7c-4ea2-b34f-8df8b6775701")
 }
 
-fn daru_encampment() -> CardIndex {
+pub fn daru_encampment() -> CardIndex {
     card_index("29f27482-724d-4c15-b177-13337246d007")
 }
 
-fn jetmirs_garden() -> CardIndex {
+pub fn jetmirs_garden() -> CardIndex {
     card_index("f5896356-5744-4f7e-a4e5-1cc36dde5958")
 }
 
-fn ketria_triome() -> CardIndex {
+pub fn ketria_triome() -> CardIndex {
     card_index("6bae00e8-06cf-4ac4-a1cc-757e454109fe")
 }
 
-fn meditation_pools() -> CardIndex {
+pub fn meditation_pools() -> CardIndex {
     card_index("66208129-20fb-4cb4-8f00-8d4574c9c653")
 }
 
-fn sunhome_fortress_of_the_legion() -> CardIndex {
+pub fn sunhome_fortress_of_the_legion() -> CardIndex {
     card_index("a9f8344c-1705-4254-81d6-aa05e0c69c29")
 }
 
-fn waterfront_district() -> CardIndex {
+pub fn waterfront_district() -> CardIndex {
     card_index("18b0b583-d17b-4c67-bc67-c4d9aad155c7")
 }
 
-fn concentrate() -> CardIndex {
+pub fn concentrate() -> CardIndex {
     card_index("a3d287ec-1a39-4f91-acf1-7c1d2c00ed89")
 }
 
-fn sunder_from_within() -> CardIndex {
+pub fn sunder_from_within() -> CardIndex {
     card_index("09f75f28-09b9-4a6e-a1b0-671208d274d3")
 }
 
-fn symbol_of_unsummoning() -> CardIndex {
+pub fn symbol_of_unsummoning() -> CardIndex {
     card_index("c44f1a81-269b-4f05-8ff2-e7ce19a93937")
 }
 
-fn hair_strung_koto() -> CardIndex {
+pub fn hair_strung_koto() -> CardIndex {
     card_index("f7944c30-d226-4cb9-931d-6e9f2fe5cb42")
 }
 
-fn weakstone() -> CardIndex {
+pub fn weakstone() -> CardIndex {
     card_index("004584f8-fd89-4a3e-9782-c117dbe1532b")
 }
 
-fn dungeon_shade() -> CardIndex {
+pub fn dungeon_shade() -> CardIndex {
     card_index("953a1a07-1bf2-480e-81a3-f2d5f19f6df5")
 }
 
-fn fetid_horror() -> CardIndex {
+pub fn fetid_horror() -> CardIndex {
     card_index("4863e1cf-3ef2-4c2d-a0ea-b73ca60c660d")
 }
 
-fn flowstone_giant() -> CardIndex {
+pub fn flowstone_giant() -> CardIndex {
     card_index("f9558fa5-2513-47e0-9af9-85db5cae4146")
 }
 
-fn giant_mantis() -> CardIndex {
+pub fn giant_mantis() -> CardIndex {
     card_index("481ede6a-3ac3-45bc-85aa-311b3dbefc40")
 }
 
-fn glimmering_angel() -> CardIndex {
+pub fn glimmering_angel() -> CardIndex {
     card_index("9629ab26-f231-481d-8392-e2450ca02b67")
 }
 
-fn grassland_crusader() -> CardIndex {
+pub fn grassland_crusader() -> CardIndex {
     card_index("b4cff81a-0c60-417d-acf9-2170ebdbea14")
 }
 
-fn indrik_stomphowler() -> CardIndex {
+pub fn indrik_stomphowler() -> CardIndex {
     card_index("de47a1e8-9c69-4af6-9d72-1bdd41352b32")
 }
 
-fn jhovall_queen() -> CardIndex {
+pub fn jhovall_queen() -> CardIndex {
     card_index("e1a48505-acbe-4eb4-8e83-3c76cf7a8829")
 }
 
-fn kavu_monarch() -> CardIndex {
+pub fn kavu_monarch() -> CardIndex {
     card_index("98cc734d-16d5-4c3c-98ca-a45efad27127")
 }
 
-fn moss_kami() -> CardIndex {
+pub fn moss_kami() -> CardIndex {
     card_index("3ddd58a3-85f6-40ba-812f-057c0c4417a7")
 }
 
-fn nantuko_disciple() -> CardIndex {
+pub fn nantuko_disciple() -> CardIndex {
     card_index("230be0f8-03a4-4452-84c1-ea14cfe49737")
 }
 
-fn rushwood_elemental() -> CardIndex {
+pub fn rushwood_elemental() -> CardIndex {
     card_index("d98edd47-c9de-46e9-a184-ba3bc0be42c4")
 }
 
-fn stinging_barrier() -> CardIndex {
+pub fn stinging_barrier() -> CardIndex {
     card_index("b56f375f-35b3-4d96-9749-c059c2d29c8b")
 }
 
-fn thunder_spirit() -> CardIndex {
+pub fn thunder_spirit() -> CardIndex {
     card_index("6efad3d6-4886-4b62-a4ff-bc0622f9672a")
 }
 
-fn thundering_giant() -> CardIndex {
+pub fn thundering_giant() -> CardIndex {
     card_index("d23329e2-4134-4e49-b9b6-5febef2bce31")
 }
 
-fn tormented_angel() -> CardIndex {
+pub fn tormented_angel() -> CardIndex {
     card_index("176eeafd-0482-4fa4-9174-10f8b9494d9b")
 }
 
-fn viashino_grappler() -> CardIndex {
+pub fn viashino_grappler() -> CardIndex {
     card_index("74c5bfb0-1375-46e9-9a6c-1b9fada2913b")
 }
 
-fn viridian_lorebearers() -> CardIndex {
+pub fn viridian_lorebearers() -> CardIndex {
     card_index("080c0557-59ee-4c46-afd9-5baabf0dc3d3")
 }
 
-fn blood_rites() -> CardIndex {
+pub fn blood_rites() -> CardIndex {
     card_index("69757aaf-182e-41a0-a5b4-4404e4c81c45")
 }
 
-fn knighthood() -> CardIndex {
+pub fn knighthood() -> CardIndex {
     card_index("22f008b3-c263-4dcc-855f-403da9ca4cd9")
 }
 
-fn living_plane() -> CardIndex {
+pub fn living_plane() -> CardIndex {
     card_index("30e99293-3212-4e3f-b543-b1c7c416575d")
 }
 
-fn unspeakable_symbol() -> CardIndex {
+pub fn unspeakable_symbol() -> CardIndex {
     card_index("a5690d5f-633c-4a1e-afba-5fd79dcbf20e")
 }
 
-fn dismiss() -> CardIndex {
+pub fn dismiss() -> CardIndex {
     card_index("5c828a5e-10ae-4f63-86fd-2f160af43cc3")
 }
 
-fn fanatical_fever() -> CardIndex {
+pub fn fanatical_fever() -> CardIndex {
     card_index("f1231def-96fb-4408-a0c9-25d6932d7ead")
 }
 
-fn soothing_balm() -> CardIndex {
+pub fn soothing_balm() -> CardIndex {
     card_index("1f493e26-a556-4ca0-bb44-5408800ccf82")
 }
 
-fn woodland_chasm() -> CardIndex {
+pub fn woodland_chasm() -> CardIndex {
     card_index("bf5482b6-dd3e-4fb7-bc62-29e23b417a5f")
 }
 
-fn channel_the_suns() -> CardIndex {
+pub fn channel_the_suns() -> CardIndex {
     card_index("d1b1be96-b2aa-4386-97d2-eb0a8cc47210")
 }
 
-fn implode() -> CardIndex {
+pub fn implode() -> CardIndex {
     card_index("bfde73b2-46bd-4fdb-9468-35819af609f7")
 }
 
-fn terohs_faithful() -> CardIndex {
+pub fn terohs_faithful() -> CardIndex {
     card_index("875c96ce-f6e4-438b-929d-de53afdd99a1")
 }
 
-fn book_of_rass() -> CardIndex {
+pub fn book_of_rass() -> CardIndex {
     card_index("a5e3ca74-ec33-4679-9366-8b1a45048783")
 }
 
-fn serra_zealot() -> CardIndex {
+pub fn serra_zealot() -> CardIndex {
     card_index("989a7353-8d3d-4ea2-ab5e-8535d95dddae")
 }
 
-fn archaeomancer() -> CardIndex {
+pub fn archaeomancer() -> CardIndex {
     card_index("a91a3266-cadd-47a0-9b20-160307f14c07")
 }
 
-fn bird_admirer() -> CardIndex {
+pub fn bird_admirer() -> CardIndex {
     card_index("58bd02ae-2676-4c9c-b24e-2bd51be8bde7")
 }
 
-fn fearful_villager() -> CardIndex {
+pub fn fearful_villager() -> CardIndex {
     card_index("5fd09dbc-8bcd-4fe0-91b5-b00e721fa7eb")
 }
 
-fn gilded_drake() -> CardIndex {
+pub fn gilded_drake() -> CardIndex {
     card_index("7f06c098-6482-4bf3-a9a1-110d6d5b5703")
 }
 
-fn harvesttide_infiltrator() -> CardIndex {
+pub fn harvesttide_infiltrator() -> CardIndex {
     card_index("8669f2e1-3e98-4fa5-ba4f-a0860b92c609")
 }
 
-fn opposition_agent() -> CardIndex {
+pub fn opposition_agent() -> CardIndex {
     card_index("1f438b8f-fe23-4f3b-ab2e-f6c33676c462")
 }
 
-fn palace_jailer() -> CardIndex {
+pub fn palace_jailer() -> CardIndex {
     card_index("180eda7c-fca2-403b-85cd-8ffebaf9f408")
 }
 
-fn progenitor_mimic() -> CardIndex {
+pub fn progenitor_mimic() -> CardIndex {
     card_index("88929ea9-900f-4dbb-b16c-cf3bad4e410c")
 }
 
-fn recruiter_of_the_guard() -> CardIndex {
+pub fn recruiter_of_the_guard() -> CardIndex {
     card_index("d521a329-a53a-4962-810a-2abed80df260")
 }
 
-fn roaming_throne() -> CardIndex {
+pub fn roaming_throne() -> CardIndex {
     card_index("3640c29b-1534-4952-b297-619ade948431")
 }
 
-fn soulherder() -> CardIndex {
+pub fn soulherder() -> CardIndex {
     card_index("92019547-f6db-4ea6-8356-d0a90ace5662")
 }
 
-fn spellseeker() -> CardIndex {
+pub fn spellseeker() -> CardIndex {
     card_index("47a785ed-8095-4685-8daa-02c4e2b0ffcd")
 }
 
-fn tuktuk_scrapper() -> CardIndex {
+pub fn tuktuk_scrapper() -> CardIndex {
     card_index("85cf2403-b419-4364-8ac9-67dd1ceddf9e")
 }
 
-fn venser_shaper_savant() -> CardIndex {
+pub fn venser_shaper_savant() -> CardIndex {
     card_index("0f41cefc-d6ff-4db7-ba35-502b7e081de1")
 }
 
@@ -5531,7 +5498,7 @@ fn venser_shaper_savant() -> CardIndex {
 /// the board a "target spell or permanent" is asked over while the stack
 /// holds an ability and no spell (CR 113.9: abilities on the stack aren't
 /// spells).
-fn an_opponents_trigger_on_the_stack(
+pub fn an_opponents_trigger_on_the_stack(
     lands: &[CardIndex],
     hand: &[CardIndex],
 ) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
@@ -5567,159 +5534,159 @@ fn an_opponents_trigger_on_the_stack(
     };
     assert_eq!(
         engine.state().object(trigger).map(|o| o.kind),
-        Some(crate::object::ObjectKind::AbilityOnStack),
+        Some(baylee_engine::object::ObjectKind::AbilityOnStack),
         "and it is an ability, not a spell"
     );
     let bowmasters = on_battlefield(&engine, p1, orcish_bowmasters()).expect("the Bowmasters");
     (engine, trigger, bowmasters)
 }
 
-fn everybody_lives() -> CardIndex {
+pub fn everybody_lives() -> CardIndex {
     card_index("39213de3-6a4a-4879-a7f9-70f45013765e")
 }
 
-fn fierce_guardianship() -> CardIndex {
+pub fn fierce_guardianship() -> CardIndex {
     card_index("d09c9cba-fdd2-479b-ad5d-d05181c3e3f9")
 }
 
-fn heliods_intervention() -> CardIndex {
+pub fn heliods_intervention() -> CardIndex {
     card_index("e7564d66-767c-4cd9-a5f0-0f2488a4a74b")
 }
 
-fn mana_drain() -> CardIndex {
+pub fn mana_drain() -> CardIndex {
     card_index("74d3277a-38e5-4732-afed-084a56148f20")
 }
 
-fn misdirection() -> CardIndex {
+pub fn misdirection() -> CardIndex {
     card_index("c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5")
 }
 
-fn pact_of_negation() -> CardIndex {
+pub fn pact_of_negation() -> CardIndex {
     card_index("f3e213a4-ba5a-468a-93b3-c0a34e1bd725")
 }
 
-fn vanishing_verse() -> CardIndex {
+pub fn vanishing_verse() -> CardIndex {
     card_index("5b8f0cdf-572d-4025-b930-79291f7c35be")
 }
 
-fn void_rend() -> CardIndex {
+pub fn void_rend() -> CardIndex {
     card_index("713f16db-95ec-479e-a48c-7a69f7668d7f")
 }
 
-fn maze_of_ith() -> CardIndex {
+pub fn maze_of_ith() -> CardIndex {
     card_index("38a12bd7-4394-44a8-91a0-6a4ff7fa4f71")
 }
 
-fn commander_s_sphere() -> CardIndex {
+pub fn commander_s_sphere() -> CardIndex {
     card_index("0b67c4e2-f88b-4e01-85a1-9d5f5b8db13b")
 }
 
-fn liquimetal_torque() -> CardIndex {
+pub fn liquimetal_torque() -> CardIndex {
     card_index("b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad")
 }
 
-fn machine_god_s_effigy() -> CardIndex {
+pub fn machine_god_s_effigy() -> CardIndex {
     card_index("64ebdd6f-acde-4aab-a86b-2798bad5f70c")
 }
 
-fn sensei_s_divining_top() -> CardIndex {
+pub fn sensei_s_divining_top() -> CardIndex {
     card_index("13575cf9-65c1-4861-b21e-eb2155e07766")
 }
 
-fn the_everflowing_well() -> CardIndex {
+pub fn the_everflowing_well() -> CardIndex {
     card_index("1f57a9f1-6b95-4395-bdf0-c5289b786ab1")
 }
 
-fn thought_vessel() -> CardIndex {
+pub fn thought_vessel() -> CardIndex {
     card_index("9965d9c5-2ebf-4a6c-930e-55c5890979be")
 }
 
-fn ojer_kaslem_deepest_growth() -> CardIndex {
+pub fn ojer_kaslem_deepest_growth() -> CardIndex {
     card_index("eda11077-b2ce-408b-b982-def2da8fe599")
 }
 
-fn rhystic_study() -> CardIndex {
+pub fn rhystic_study() -> CardIndex {
     card_index("53236dd7-845a-444c-96d5-f41ed7325d8f")
 }
 
-fn root_cage() -> CardIndex {
+pub fn root_cage() -> CardIndex {
     card_index("14c3a43c-cdb1-45d1-8eba-8e6d16bd7643")
 }
 
-fn tribute_to_the_world_tree() -> CardIndex {
+pub fn tribute_to_the_world_tree() -> CardIndex {
     card_index("72deedab-7c17-4505-aeca-4bc8596d80a5")
 }
 
-fn arcane_sanctum() -> CardIndex {
+pub fn arcane_sanctum() -> CardIndex {
     card_index("7d7cf15c-06b9-4062-a1eb-32614c458a3b")
 }
 
-fn echoing_deeps() -> CardIndex {
+pub fn echoing_deeps() -> CardIndex {
     card_index("2ef88214-f46d-473e-a55b-795a647e2f03")
 }
 
-fn homeward_path() -> CardIndex {
+pub fn homeward_path() -> CardIndex {
     card_index("cb8ec2e4-8223-4172-8f2c-37c918a573fa")
 }
 
-fn jasmine_dragon_tea_shop() -> CardIndex {
+pub fn jasmine_dragon_tea_shop() -> CardIndex {
     card_index("d9a24444-289f-473f-9985-8df275257555")
 }
 
-fn kor_haven() -> CardIndex {
+pub fn kor_haven() -> CardIndex {
     card_index("276cece9-f9f2-46e6-ae76-daddaa2fb9ab")
 }
 
-fn path_of_ancestry() -> CardIndex {
+pub fn path_of_ancestry() -> CardIndex {
     card_index("b473e293-59e3-4e04-acf2-622604aeb25f")
 }
 
-fn snapcaster_mage() -> CardIndex {
+pub fn snapcaster_mage() -> CardIndex {
     card_index("2bb2eda7-3b38-4c56-870f-c3218a1056f5")
 }
 
-fn sakura_tribe_elder() -> CardIndex {
+pub fn sakura_tribe_elder() -> CardIndex {
     card_index("e3afc704-220f-498f-9eaa-0821b17dc24c")
 }
 
-fn counsel_of_the_soratami() -> CardIndex {
+pub fn counsel_of_the_soratami() -> CardIndex {
     card_index("62ddc5ae-ced9-4319-854c-1a114c6afc3f")
 }
 
-fn tower_of_the_magistrate() -> CardIndex {
+pub fn tower_of_the_magistrate() -> CardIndex {
     card_index("ac08fae8-208c-4602-8d39-9bfd29b53a5e")
 }
 
-fn ashiok_dream_render() -> CardIndex {
+pub fn ashiok_dream_render() -> CardIndex {
     card_index("93723b12-db34-4047-885e-8606415b1553")
 }
 
-fn kodama_s_reach() -> CardIndex {
+pub fn kodama_s_reach() -> CardIndex {
     card_index("1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90")
 }
 
-fn rampant_growth() -> CardIndex {
+pub fn rampant_growth() -> CardIndex {
     card_index("8539f295-5d58-4436-a73a-b9277c4c7795")
 }
 
-fn despotic_scepter() -> CardIndex {
+pub fn despotic_scepter() -> CardIndex {
     card_index("34a85d7f-d4ea-4a0f-aa4c-bf0b0f4987bf")
 }
 
-fn farewell() -> CardIndex {
+pub fn farewell() -> CardIndex {
     card_index("4eb813fd-2d5a-4b02-8193-662681ef4e7d")
 }
 
-fn final_showdown() -> CardIndex {
+pub fn final_showdown() -> CardIndex {
     card_index("7e7ec3d6-a84f-4cc3-93f4-4d181d41e126")
 }
 
-fn three_steps_ahead() -> CardIndex {
+pub fn three_steps_ahead() -> CardIndex {
     card_index("282dfeaa-6243-4f92-838a-5cb54fa85184")
 }
 
 /// An artifact creature with flying and indestructible, printed.
-fn darksteel_gargoyle() -> CardIndex {
+pub fn darksteel_gargoyle() -> CardIndex {
     card_index("73010421-374f-458e-aa88-248ef8ae4f8b")
 }
 
@@ -5727,11 +5694,11 @@ fn darksteel_gargoyle() -> CardIndex {
 /// with the set `set` names (bit `i` is mode `i`), as a player presses its
 /// row, and returns every row that was offered.
 #[track_caller]
-fn choose_modes(
+pub fn choose_modes(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     set: u8,
-) -> Vec<crate::choice::CastModeDesc> {
+) -> Vec<baylee_engine::choice::CastModeDesc> {
     let Pending::ChooseCastMode {
         player, options, ..
     } = engine.pending().clone()
@@ -5747,14 +5714,14 @@ fn choose_modes(
     options
 }
 
-fn cryptic_command() -> CardIndex {
+pub fn cryptic_command() -> CardIndex {
     card_index("a3e51a35-09df-4189-b131-08a21e6a557d")
 }
 
 /// The slot of the cast option of `kind` in the cast-mode question that is
 /// out, for a test that picks one way of casting among several.
 #[track_caller]
-fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usize {
+pub fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usize {
     let Pending::ChooseCastMode { options, .. } = engine.pending() else {
         panic!("expected the cast options, got {:?}", engine.pending())
     };
@@ -5778,7 +5745,7 @@ fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usiz
 /// shells that sat here, Camouflage and Raging River, are written now; a
 /// new one asserts its coverage beside this call.)
 #[track_caller]
-fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
+pub fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, land)
         .battlefield(0, &vec![land; lands])
@@ -5826,42 +5793,22 @@ fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
     }
     zone
 }
-mod hack_mana_routes;
 
-mod counter_helpers;
-mod history_helpers;
-mod token_helpers;
+pub mod counter_helpers;
+pub mod history_helpers;
+pub mod token_helpers;
 
-mod keyword_counters;
+pub mod partials_w1b_kit;
 
-mod counter_auras;
+pub mod partials_w2c_kit;
 
-mod hone_counters;
-
-mod counter_limits;
-
-mod death_returns;
-
-mod divided_spells;
-
-mod storm;
-
-mod looting;
-
-mod batch49_returns;
-
-mod batch54_gond;
-
-mod batch54_final_two;
-mod batch54_riftstone;
-
-mod batch52_wall;
-
-mod batch52_guardian;
-
-mod batch52_song;
-
-mod partials_w1b_kit;
-mod underdome_acceptance;
-
-mod partials_w2c_kit;
+pub mod artifacts;
+pub mod counter_resources;
+pub mod creature_count_combat;
+pub mod creatures;
+pub mod enchantments;
+pub mod hidden_exile;
+pub mod instants;
+pub mod lands;
+pub mod library_choices;
+pub mod sorceries;

@@ -82,7 +82,7 @@ fn secluded_starforge_taps_for_colorless() {
 /// opponent's turn.
 #[test]
 fn secluded_starforge_pump_is_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut e = kit::game(
         952,

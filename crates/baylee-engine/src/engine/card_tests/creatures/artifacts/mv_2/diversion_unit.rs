@@ -31,7 +31,7 @@ fn shock_met_by_the_unit(pay: bool) -> Engine<RegistryLookup> {
     let spell = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .last()
         .copied()
         .expect("Shock is on the stack");
@@ -102,7 +102,7 @@ fn diversion_unit_lets_the_spell_resolve_when_the_tax_is_paid() {
     let spell = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .last()
         .copied()
         .expect("on the stack");

@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn lava_tubes_skips_one_untap_then_recovers() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(926, &[lava_tubes()], &[], &[], &[]);
     let land = kit::obj(&engine, kit::P0, lava_tubes());
     activate(&mut engine, kit::P0, lava_tubes(), 0);
@@ -25,7 +25,7 @@ fn lava_tubes_skips_one_untap_then_recovers() {
 
 #[test]
 fn lava_tubes_offers_exactly_black_or_red_and_pools_the_one_chosen() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for (chosen, other) in [
         (ManaColor::Black, ManaColor::Red),
         (ManaColor::Red, ManaColor::Black),

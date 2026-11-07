@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn iron_maiden() -> CardIndex {
     card_index("e0351638-9224-4779-8f7c-f2b11d134a5f")

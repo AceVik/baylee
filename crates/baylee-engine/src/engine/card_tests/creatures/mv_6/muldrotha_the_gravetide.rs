@@ -126,8 +126,8 @@ fn muldrotha_allows_one_permanent_of_each_type_from_the_graveyard_a_turn() {
     reach_their_main_phase(&mut engine, p1);
     let elf = engine.state().object(second_elf).expect("the Elves");
     assert!(
-        crate::casting::graveyard_cast_permission(engine.state(), p0, elf).is_none()
-            && crate::casting::graveyard_land_permission(engine.state(), p0).is_none(),
+        baylee_engine::casting::graveyard_cast_permission(engine.state(), p0, elf).is_none()
+            && baylee_engine::casting::graveyard_land_permission(engine.state(), p0).is_none(),
         "\"during each of your turns\": not the opponent's"
     );
 

@@ -32,7 +32,11 @@ fn treasure_map_activates_to_scry_one_and_put_a_landmark_counter() {
         unreachable!("pass_until only stops on card choice")
     };
     assert_eq!(player, p0, "the map's controller scries");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry, "prompt is Scry");
+    assert_eq!(
+        prompt,
+        baylee_engine::choice::ArrangePrompt::Scry,
+        "prompt is Scry"
+    );
     assert_eq!(piles, scry_piles(1), "Scry 1 allows bottoming 0 or 1 cards");
     assert_eq!(cards.len(), 1, "top card of library is inspected");
     let top_card = cards[0];
@@ -48,7 +52,7 @@ fn treasure_map_activates_to_scry_one_and_put_a_landmark_counter() {
     let library = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     assert_eq!(
         library.first().copied(),
@@ -125,8 +129,8 @@ fn treasure_map_removes_all_landmarks_and_doubles_only_the_created_treasures() {
     let map = on_battlefield(&e, p0, treasure_map()).unwrap();
     let version = e.state().object(map).unwrap().version;
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::put_counters(state, map, baylee_cards_dsl::counters::LANDMARK, 1);
-    crate::replacement::put_counters(state, map, CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(state, map, baylee_cards_dsl::counters::LANDMARK, 1);
+    baylee_engine::replacement::put_counters(state, map, CounterKind::P1P1, 1);
     tap_all_mana_but(&mut e, p0, Some(treasure_map()));
     activate(&mut e, p0, treasure_map(), 0);
     pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
@@ -156,7 +160,7 @@ fn treasure_cove_sacrifices_a_treasure_to_draw_a_card() {
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, p0);
     let map = on_battlefield(&e, p0, treasure_map()).unwrap();
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         e.dev_state_mut(p0).unwrap(),
         map,
         baylee_cards_dsl::counters::LANDMARK,

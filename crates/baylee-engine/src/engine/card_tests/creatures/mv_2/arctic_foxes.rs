@@ -12,7 +12,11 @@ fn arctic_foxes() -> CardIndex {
 }
 
 /// Whether the blockers question offers `blocker` against `attacker`.
-fn may_block(blocks: &[crate::choice::BlockOption], blocker: ObjectId, attacker: ObjectId) -> bool {
+fn may_block(
+    blocks: &[baylee_engine::choice::BlockOption],
+    blocker: ObjectId,
+    attacker: ObjectId,
+) -> bool {
     blocks
         .iter()
         .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))

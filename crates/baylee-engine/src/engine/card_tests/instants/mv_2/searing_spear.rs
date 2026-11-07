@@ -148,7 +148,7 @@ fn searing_spear_marks_exactly_three_damage_on_a_surviving_creature() {
 
 #[test]
 fn battle_target_loses_exact_defense_without_harming_bystanders() {
-    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    use baylee_card_testkit::card_tests::battle_damage_kit as battle_kit;
     let p0 = PlayerId::new(0);
     let (mut e, battle) = battle_kit::game(6906, &[], &[searing_spear_card()]);
     battle_kit::float(&mut e, ManaColor::Red, 2);

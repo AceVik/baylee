@@ -15,7 +15,7 @@ fn clive_s_hideaway_taps_for_colorless() {
     reach_main_phase(&mut engine, p0);
 
     let land = play_land(&mut engine, p0, clive_s_hideaway());
-    crate::engine::card_tests::hidden_exile::finish_hideaway(&mut engine);
+    baylee_card_testkit::card_tests::hidden_exile::finish_hideaway(&mut engine);
     assert!(!entered_tapped(&engine, land));
 
     activate(&mut engine, p0, clive_s_hideaway(), 0);

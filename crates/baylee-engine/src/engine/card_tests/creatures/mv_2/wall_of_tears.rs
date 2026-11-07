@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -29,7 +29,7 @@ fn wall_of_tears_returns_blocked_creature_to_hand_at_end_of_combat() {
     kit::declare_attack(&mut engine, &[attacker], P1);
     kit::drive(
         &mut engine,
-        |e| e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e),
+        |e| e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e),
         |_, p| match p {
             Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
                 blockers: vec![(wall, attacker)],

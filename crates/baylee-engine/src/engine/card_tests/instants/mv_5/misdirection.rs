@@ -416,8 +416,8 @@ fn misdirection_leaves_the_swords_on_the_only_creature_even_once_it_is_gone() {
                 .move_object(
                     theirs,
                     ZoneLocation::Exile(p1),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .expect("the harness moves the Elves");
             engine.refresh_offer();

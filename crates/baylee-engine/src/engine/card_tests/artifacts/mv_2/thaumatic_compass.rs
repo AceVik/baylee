@@ -7,7 +7,7 @@ use super::*;
 /// untaps an opposing attacker and removes it from combat on the following turn.
 #[test]
 fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lands() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(249, forest())
         .battlefield(
@@ -47,7 +47,7 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "search library prompt"
     );
     assert!(
@@ -143,7 +143,7 @@ fn thaumatic_compass_does_not_transform_with_only_six_lands() {
     assert_eq!(lands_of(&engine, p0).len(), 6, "exactly one short of seven");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
             && e.state().turn.active == p0
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
@@ -176,7 +176,7 @@ fn thaumatic_compass_does_not_transform_with_only_six_lands() {
 /// that stayed home and not my own.
 #[test]
 fn spires_of_orazca_offers_only_the_attacking_creature_of_an_opponent() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(249, forest())
         .battlefield(0, &[thaumatic_compass(), llanowar_elves()])
@@ -190,7 +190,7 @@ fn spires_of_orazca_offers_only_the_attacking_creature_of_an_opponent() {
         .dev_state_mut(p0)
         .unwrap()
         .switch_face(spires, def, 1);
-    engine.sync_static_effects();
+    engine.sync_static_effects_for_tests();
     let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves");
     let theirs = all_on_battlefield(&engine, p1, llanowar_elves());
     assert_eq!(theirs.len(), 2, "two Elves across the table");
@@ -231,7 +231,7 @@ fn spires_of_orazca_offers_only_the_attacking_creature_of_an_opponent() {
 /// attacker is mine, Spires has nothing to aim at and the ability is not offered.
 #[test]
 fn spires_of_orazca_cannot_aim_at_my_own_attacker() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(249, forest())
         .battlefield(0, &[thaumatic_compass(), llanowar_elves()])
@@ -245,7 +245,7 @@ fn spires_of_orazca_cannot_aim_at_my_own_attacker() {
         .dev_state_mut(p0)
         .unwrap()
         .switch_face(spires, def, 1);
-    engine.sync_static_effects();
+    engine.sync_static_effects_for_tests();
     engine.refresh_offer();
     let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves");
     assert!(

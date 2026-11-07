@@ -59,7 +59,7 @@ fn rayne_triggers_when_opponent_targets_you_or_your_permanent_and_ignores_own_ta
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )
@@ -81,7 +81,7 @@ fn rayne_triggers_when_opponent_targets_you_or_your_permanent_and_ignores_own_ta
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )

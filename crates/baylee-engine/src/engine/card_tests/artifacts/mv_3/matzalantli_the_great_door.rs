@@ -71,7 +71,7 @@ fn matzalantli_the_great_door_draws_and_discards_with_insufficient_permanent_typ
     assert_eq!((min, max), (1, 1), "must discard exactly one card");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::Generic,
+        baylee_engine::choice::ChoicePrompt::Generic,
         "prompt is ChoicePrompt::Generic"
     );
     assert_eq!(

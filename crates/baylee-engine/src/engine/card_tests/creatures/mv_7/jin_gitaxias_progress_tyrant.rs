@@ -36,7 +36,9 @@ fn a_copied_rebound_spell_does_not_schedule_a_cast_of_a_vanished_copy() {
         .delayed
         .iter()
         .filter_map(|d| match d.action {
-            crate::state::DelayedAction::CastFromExileWithoutPaying { card, .. } => Some(card),
+            baylee_engine::state::DelayedAction::CastFromExileWithoutPaying { card, .. } => {
+                Some(card)
+            }
             _ => None,
         })
         .collect();

@@ -17,10 +17,10 @@ fn storm_world_deals_four_minus_the_active_players_hand() {
             .start();
         keep_mulligans(&mut engine);
         pass_until(&mut engine, |e| {
-            e.state().turn.active == p1 && e.state().turn.step == crate::turn::Step::Upkeep
+            e.state().turn.active == p1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
         });
         pass_until(&mut engine, |e| {
-            e.state().turn.step != crate::turn::Step::Upkeep
+            e.state().turn.step != baylee_engine::turn::Step::Upkeep
         });
         assert_eq!(engine.state().players[1].life, 20 - damage, "{cards} cards");
     }
@@ -38,16 +38,16 @@ fn storm_world_also_damages_its_controller_at_their_upkeep() {
         .start();
     keep_mulligans(&mut engine);
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p1 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(&mut engine, |e| e.state().turn.active == p0);
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     let before = engine.state().players[0].life;
     let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     pass_until(&mut engine, |e| {
-        e.state().turn.step != crate::turn::Step::Upkeep
+        e.state().turn.step != baylee_engine::turn::Step::Upkeep
     });
     let expected = before - 4i32.saturating_sub(i32::try_from(hand).unwrap()).max(0);
     assert_eq!(engine.state().players[0].life, expected);

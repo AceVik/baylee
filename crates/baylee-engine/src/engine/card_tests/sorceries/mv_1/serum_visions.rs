@@ -47,7 +47,7 @@ fn serum_visions_draws_a_card_and_then_scries_two() {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the caster does the looking");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(
         cards,
         vec![second, third],

@@ -346,15 +346,15 @@ fn personal_review_negative_owner_life_is_not_halved_or_raised() {
     engine
         .state
         .effects
-        .register(crate::effects::ContinuousEffect {
+        .register(baylee_engine::effects::ContinuousEffect {
             id: baylee_core::ids::EffectId::new(0),
             source: None,
             controller: OWNER,
-            origin: crate::effects::EffectOrigin::Resolution,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
             layer: baylee_cards_dsl::Layer::Ability,
             timestamp,
             duration: baylee_cards_dsl::Duration::Indefinitely,
-            filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+            filter: baylee_engine::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
             modifier: baylee_cards_dsl::Modifier::PlayersCantLose,
         });
     engine.state.players[0].life = -10;

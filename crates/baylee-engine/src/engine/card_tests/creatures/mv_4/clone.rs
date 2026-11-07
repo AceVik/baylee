@@ -77,7 +77,7 @@ fn the_rectors_enchantment_arrives_only_when_it_exiles_itself() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Exile(p0))
+            .list(baylee_engine::zone::ZoneLocation::Exile(p0))
             .iter()
             .copied()
             .any(|id| engine
@@ -92,7 +92,7 @@ fn the_rectors_enchantment_arrives_only_when_it_exiles_itself() {
             .object(found)
             .expect("the card the search found")
             .zone,
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
         "the enchantment is put onto the battlefield, not into hand"
     );
     assert!(
@@ -101,7 +101,7 @@ fn the_rectors_enchantment_arrives_only_when_it_exiles_itself() {
             .object(found)
             .expect("the card the search found")
             .status
-            .contains(crate::object::Status::TAPPED),
+            .contains(baylee_engine::object::Status::TAPPED),
         "and it is put onto the battlefield, not onto the battlefield tapped \
          — the printed sentence names no tapping, and `Find::BATTLEFIELD` is \
          the half of the pair that says so"
@@ -226,7 +226,7 @@ fn deathrite_shaman_eats_a_land_out_of_either_graveyard_and_pays_a_colour_it_is_
     let exiled: Vec<baylee_core::ids::ObjectId> = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Exile(p1))
+        .list(baylee_engine::zone::ZoneLocation::Exile(p1))
         .iter()
         .copied()
         .filter(|id| {
@@ -249,7 +249,7 @@ fn deathrite_shaman_eats_a_land_out_of_either_graveyard_and_pays_a_colour_it_is_
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Exile(p0))
+            .list(baylee_engine::zone::ZoneLocation::Exile(p0))
             .is_empty(),
         "my own graveyard was on the offer and was not the answer"
     );
@@ -267,7 +267,7 @@ fn deathrite_shaman_eats_a_land_out_of_either_graveyard_and_pays_a_colour_it_is_
             .object(shaman)
             .expect("the Shaman is still there")
             .status
-            .contains(crate::object::Status::TAPPED),
+            .contains(baylee_engine::object::Status::TAPPED),
         "paying {{T}} left it tapped"
     );
     assert!(
@@ -276,7 +276,7 @@ fn deathrite_shaman_eats_a_land_out_of_either_graveyard_and_pays_a_colour_it_is_
             .object(land)
             .expect("the Forest is still there")
             .status
-            .contains(crate::object::Status::TAPPED),
+            .contains(baylee_engine::object::Status::TAPPED),
         "the Forest never paid for any of this, so the mana in the pool is \
          the Shaman's"
     );
@@ -296,7 +296,7 @@ fn derevi_can_be_cast_from_command_while_its_activation_is_also_offered() {
     let command_zone = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Command(p0))
+        .list(baylee_engine::zone::ZoneLocation::Command(p0))
         .clone();
     assert_eq!(command_zone.len(), 1, "Derevi starts in the command zone");
     let derevi = command_zone[0];
@@ -428,7 +428,7 @@ fn an_opponents_artifact_dying_takes_a_life_from_the_targeted_opponent_only() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )
@@ -610,7 +610,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
     let held = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     engine
         .apply(
@@ -630,7 +630,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .is_empty(),
         "the card it named left the graveyard",
     );
@@ -638,7 +638,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         held + 1,
         "and arrived in hand",
@@ -649,7 +649,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
     let held = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     engine
         .apply(
@@ -670,7 +670,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .contains(&buried),
         "nothing was named, so the card stayed where it lay",
     );
@@ -678,7 +678,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         held,
         "and no hand grew",
@@ -775,8 +775,8 @@ fn a_dying_thug_puts_its_own_corpse_on_top_and_declining_the_dredge_draws() {
     );
     let well = on_battlefield(&engine, p0, mikokoro()).expect("Mikokoro is out");
     tap_mana_except(&mut engine, p0, well);
-    let hand_before = cards_in(&engine, crate::zone::ZoneLocation::Hand(p0));
-    let yard_before = cards_in(&engine, crate::zone::ZoneLocation::Graveyard(p0));
+    let hand_before = cards_in(&engine, baylee_engine::zone::ZoneLocation::Hand(p0));
+    let yard_before = cards_in(&engine, baylee_engine::zone::ZoneLocation::Graveyard(p0));
     engine
         .apply(
             p0,
@@ -811,10 +811,10 @@ fn a_dying_thug_puts_its_own_corpse_on_top_and_declining_the_dredge_draws() {
         .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
         .expect("dredge is optional: naming none declines");
     pass_until(&mut engine, |e| {
-        cards_in(e, crate::zone::ZoneLocation::Hand(p0)) > hand_before
+        cards_in(e, baylee_engine::zone::ZoneLocation::Hand(p0)) > hand_before
     });
     assert_eq!(
-        cards_in(&engine, crate::zone::ZoneLocation::Hand(p0)),
+        cards_in(&engine, baylee_engine::zone::ZoneLocation::Hand(p0)),
         hand_before + 1,
         "declining dredge is drawing: the card was drawn"
     );
@@ -824,7 +824,7 @@ fn a_dying_thug_puts_its_own_corpse_on_top_and_declining_the_dredge_draws() {
         "the Thug stayed in the graveyard instead of coming back to hand"
     );
     assert_eq!(
-        cards_in(&engine, crate::zone::ZoneLocation::Graveyard(p0)),
+        cards_in(&engine, baylee_engine::zone::ZoneLocation::Graveyard(p0)),
         yard_before,
         "and nothing was milled: a dredge would have put four cards here"
     );
@@ -837,7 +837,7 @@ fn a_dying_thug_puts_its_own_corpse_on_top_and_declining_the_dredge_draws() {
     let top = *engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .last()
         .expect("p0 still has a library");
     assert!(
@@ -1003,7 +1003,7 @@ fn a_thought_monitor_has_affinity_and_draws_two() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     let library_before = library_size(&engine, p0);
 
@@ -1028,7 +1028,7 @@ fn a_thought_monitor_has_affinity_and_draws_two() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before + 1,
         "the Monitor left the hand and its own trigger put two cards back",
@@ -1449,7 +1449,7 @@ fn clone_declined_enters_as_a_zero_zero_and_dies() {
 
 #[test]
 fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let (p0, p1) = (kit::P0, kit::P1);
     let mut engine = Duel::new(916, quiet_artifact())
         .battlefield(0, &[emry_lurker_of_the_loch()])
@@ -1472,7 +1472,7 @@ fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
         &[],
     );
     assert!(
-        crate::casting::graveyard_cast_permission(
+        baylee_engine::casting::graveyard_cast_permission(
             engine.state(),
             p0,
             engine.state().object(cards[0]).unwrap()
@@ -1480,14 +1480,17 @@ fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
         .is_some()
     );
     assert!(
-        crate::casting::graveyard_cast_permission(
+        baylee_engine::casting::graveyard_cast_permission(
             engine.state(),
             p0,
             engine.state().object(cards[1]).unwrap()
         )
         .is_none()
     );
-    assert!(!crate::casting::flashback_granted(engine.state(), cards[0]));
+    assert!(!baylee_engine::casting::flashback_granted(
+        engine.state(),
+        cards[0]
+    ));
     kit::float(&mut engine, p0, &[(ManaColor::Blue, 1)]);
     engine
         .apply(p0, PlayerAction::CastSpell { card: cards[0] })
@@ -1505,7 +1508,7 @@ fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
         "Emry does not create a flashback exile rider"
     );
     assert!(
-        crate::casting::graveyard_cast_permission(engine.state(), p0, card).is_none(),
+        baylee_engine::casting::graveyard_cast_permission(engine.state(), p0, card).is_none(),
         "the returned card is a new object"
     );
 }
@@ -1537,7 +1540,7 @@ fn an_adventure_copied_on_entry_is_recognized_until_the_copy_leaves() {
     .unwrap();
     pass_until(&mut e, stack_is_empty);
     let has_adventure = |e: &Engine<RegistryLookup>, id| {
-        crate::eval::matches(
+        baylee_engine::eval::matches(
             &baylee_cards_dsl::Filter::HasAdventure,
             e.state(),
             e.state().object(id).unwrap(),

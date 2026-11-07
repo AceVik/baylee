@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ChoicePrompt;
+use baylee_engine::choice::ChoicePrompt;
 
 fn plasmancer() -> CardIndex {
     card_index("b3ff8da4-f2cc-41c3-8950-9cc531854b78")

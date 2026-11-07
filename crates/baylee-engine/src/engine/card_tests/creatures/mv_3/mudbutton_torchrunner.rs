@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn mudbutton_torchrunner() -> CardIndex {
     card_index("045b2b84-96bd-46fb-8aae-a33968e741c7")

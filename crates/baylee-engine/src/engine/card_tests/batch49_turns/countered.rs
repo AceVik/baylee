@@ -108,7 +108,7 @@ fn magosi_turn_obligation_overflow_reports_numeric_failure_without_wrapping() {
         let player = *player;
         let before = e.snapshot_hash();
         match e.apply(player, PlayerAction::PassPriority) {
-            Err(crate::engine::EngineError::NumericCapacity(
+            Err(baylee_engine::engine::EngineError::NumericCapacity(
                 "turn skip obligations exceed u32",
             )) => {
                 assert_eq!(

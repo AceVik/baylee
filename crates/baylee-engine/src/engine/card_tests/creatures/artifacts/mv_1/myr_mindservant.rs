@@ -21,7 +21,7 @@ fn myr_mindservant_taps_and_shuffles_the_library() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(library_size(&e, p0), before);
     assert!(e.state().journal.entries()[events..].iter().any(|entry| {
-        matches!(entry.event, crate::event::GameEvent::Shuffled { player, .. } if player == p0)
+        matches!(entry.event, baylee_engine::event::GameEvent::Shuffled { player, .. } if player == p0)
     }));
     assert!(is_tapped(
         &e,

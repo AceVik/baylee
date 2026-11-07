@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn ghitu_fire_eater() -> CardIndex {
     card_index("3e792338-4a21-4a06-ad94-39931118e06c")

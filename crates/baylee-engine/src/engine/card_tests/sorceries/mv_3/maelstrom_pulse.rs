@@ -65,7 +65,7 @@ fn maelstrom_pulse_destroys_its_target_and_every_permanent_of_that_name() {
     let battlefield = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .clone();
     assert!(
         !battlefield.contains(&their_elves[0]),

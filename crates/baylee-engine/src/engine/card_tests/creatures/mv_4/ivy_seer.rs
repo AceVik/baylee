@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn ivy_seer() -> CardIndex {
     card_index("f61591d5-0f2a-48cd-a091-863d2e93e019")

@@ -46,12 +46,12 @@ fn glyph_prevents_damage_for_the_turn_then_destroys_its_remembered_wall() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(pt(&e, wall), (10, 3));
     let state = e.dev_state_mut(p0).unwrap();
-    let mut work = crate::damage::DamageWork::new(
+    let mut work = baylee_engine::damage::DamageWork::new(
         state,
-        vec![crate::damage::Assignment {
+        vec![baylee_engine::damage::Assignment {
             source: bear,
             source_version: Some(state.object(bear).unwrap().version),
-            recipient: crate::event::DamageTarget::Object(wall),
+            recipient: baylee_engine::event::DamageTarget::Object(wall),
             amount: 100,
             is_combat: false,
         }],
@@ -70,7 +70,7 @@ fn glyph_prevents_damage_for_the_turn_then_destroys_its_remembered_wall() {
 /// caster's Wall that is not blocking are offered.
 #[test]
 fn glyph_targets_only_a_wall_that_is_blocking() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let glyph = index::GLYPH_OF_DESTRUCTION;
     let mut e = kit::game(
         957,
@@ -133,7 +133,7 @@ fn glyph_targets_only_a_wall_that_is_blocking() {
 /// blocks is not the caster's.
 #[test]
 fn glyph_cannot_target_an_opponents_blocking_wall() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let glyph = index::GLYPH_OF_DESTRUCTION;
     let mut e = kit::game(
         958,

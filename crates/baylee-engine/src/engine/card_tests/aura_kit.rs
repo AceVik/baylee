@@ -12,18 +12,18 @@
 use super::*;
 
 /// Every permanent on the battlefield, in zone order.
-pub(super) fn battlefield(engine: &Engine<RegistryLookup>) -> Vec<ObjectId> {
+pub fn battlefield(engine: &Engine<RegistryLookup>) -> Vec<ObjectId> {
     engine.state().zones.list(ZoneLocation::Battlefield).clone()
 }
 
 /// What `object` is attached to, if anything.
-pub(super) fn attached_to(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<ObjectId> {
+pub fn attached_to(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<ObjectId> {
     engine.state().object(object).and_then(|o| o.attached_to)
 }
 
 /// Who controls `object` right now.
 #[track_caller]
-pub(super) fn controller_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
+pub fn controller_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
     engine
         .state()
         .object(object)
@@ -33,7 +33,7 @@ pub(super) fn controller_of(engine: &Engine<RegistryLookup>, object: ObjectId) -
 
 /// Who owns `object`.
 #[track_caller]
-pub(super) fn owner_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
+pub fn owner_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
     engine
         .state()
         .object(object)
@@ -42,11 +42,7 @@ pub(super) fn owner_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Pla
 }
 
 /// How many cards printed as `card` sit in `zone`.
-pub(super) fn count_in(
-    engine: &Engine<RegistryLookup>,
-    zone: ZoneLocation,
-    card: CardIndex,
-) -> usize {
+pub fn count_in(engine: &Engine<RegistryLookup>, zone: ZoneLocation, card: CardIndex) -> usize {
     engine
         .state()
         .zones
@@ -62,7 +58,7 @@ pub(super) fn count_in(
 }
 
 /// Whether `object` is still on the battlefield.
-pub(super) fn on_the_table(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
+pub fn on_the_table(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
     engine
         .state()
         .object(object)
@@ -71,7 +67,7 @@ pub(super) fn on_the_table(engine: &Engine<RegistryLookup>, object: ObjectId) ->
 
 /// The zone `object` is in now.
 #[track_caller]
-pub(super) fn zone_now(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zone {
+pub fn zone_now(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zone {
     engine
         .state()
         .object(object)
@@ -88,7 +84,7 @@ pub(super) fn zone_now(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zon
 /// When `host` is not among the targets the spell offers, or the spell does
 /// not end up attached to it.
 #[track_caller]
-pub(super) fn cast_aura(
+pub fn cast_aura(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     aura: CardIndex,
@@ -150,7 +146,7 @@ pub(super) fn cast_aura(
 /// When no such question is pending, it is put to a seat other than
 /// `chooser`, or `pick` is not on the menu.
 #[track_caller]
-pub(super) fn choose_among(
+pub fn choose_among(
     engine: &mut Engine<RegistryLookup>,
     chooser: PlayerId,
     pick: ObjectId,
@@ -198,7 +194,7 @@ pub(super) fn choose_among(
 }
 
 /// Whether the engine is asking a choice among permanents right now.
-pub(super) fn asks_for_a_permanent(engine: &Engine<RegistryLookup>) -> bool {
+pub fn asks_for_a_permanent(engine: &Engine<RegistryLookup>) -> bool {
     matches!(
         engine.pending(),
         Pending::ChooseCards { .. } | Pending::ChooseTargets { .. }

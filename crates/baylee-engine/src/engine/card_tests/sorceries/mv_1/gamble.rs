@@ -40,7 +40,7 @@ fn gamble_discards_its_only_hand_card_after_searching() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "search prompt indicates library tutor"
     );
     assert_eq!(

@@ -56,7 +56,7 @@ fn grim_lavamancer_exiles_two_graveyard_cards_to_deal_two_damage_to_any_target()
                 game.pending()
             );
         };
-        assert_eq!(prompt, crate::choice::ChoicePrompt::CostExile);
+        assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostExile);
         assert_eq!((min, max), (1, 1));
         assert!(options.contains(&card_to_exile));
         game.apply(

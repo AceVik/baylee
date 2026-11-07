@@ -9,7 +9,7 @@ fn reconnaissance_removes_attacking_creature_from_combat_and_untaps_it() {
     let mut e = table(SEED, &[], &[reconnaissance(), gray_ogre()], &[]);
     let ogre = on_battlefield(&e, P0, gray_ogre()).unwrap();
     assert!(
-        crate::engine::card_tests::partials_w1b_kit::offered(
+        baylee_card_testkit::card_tests::partials_w1b_kit::offered(
             &e,
             on_battlefield(&e, P0, reconnaissance()).unwrap()
         )

@@ -36,7 +36,7 @@ fn voldaren_estate_pays_life_for_restricted_vampire_mana() {
 
 #[test]
 fn voldaren_estate_counts_your_vampires_and_creates_blood() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let vampire = card_index("310f141c-7f37-4729-aed6-dd9c09db448d");
     let mut engine = kit::game(
         938,

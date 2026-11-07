@@ -53,16 +53,16 @@ fn rainbow_vale_defers_an_untargeted_opponent_choice_until_the_end_step() {
                 .move_object(
                     vale,
                     ZoneLocation::Exile(p0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
             state
                 .move_object(
                     vale,
                     ZoneLocation::Battlefield,
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         }

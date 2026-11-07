@@ -22,7 +22,7 @@ fn crimson_acolyte_has_protection_from_red_and_grants_it_to_target_creature() {
     let acolyte_id = on_battlefield(&engine, p0, acolyte).expect("Crimson Acolyte on battlefield");
     let bears_id = on_battlefield(&engine, p0, grizzly_bears()).expect("Grizzly Bears on board");
 
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[(ManaColor::White, 1), (ManaColor::Red, 1)],

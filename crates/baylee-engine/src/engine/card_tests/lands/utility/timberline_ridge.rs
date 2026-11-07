@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn timberline_ridge_skips_one_untap_then_recovers() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(926, &[timberline_ridge()], &[], &[], &[]);
     let land = kit::obj(&engine, kit::P0, timberline_ridge());
     activate(&mut engine, kit::P0, timberline_ridge(), 0);
@@ -27,7 +27,7 @@ fn timberline_ridge_skips_one_untap_then_recovers() {
 /// the one chosen is the one added.
 #[test]
 fn timberline_ridge_offers_exactly_red_or_green_and_adds_the_chosen_one() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(927, &[timberline_ridge()], &[], &[], &[]);
     activate(&mut engine, kit::P0, timberline_ridge(), 0);
     let Pending::ChooseColor { options, .. } = engine.pending().clone() else {

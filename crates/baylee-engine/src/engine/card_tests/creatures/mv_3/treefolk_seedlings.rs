@@ -5,7 +5,7 @@ fn treefolk_seedlings() -> CardIndex {
     card_index("87285539-29c8-4cc7-a22c-4a4b96a61e82")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn treefolk_seedlings_tracks_only_your_forests_as_lands_are_played() {

@@ -85,7 +85,7 @@ fn hostile_hostel_sacrifices_three_creatures_to_transform_and_creeping_inn_drain
             .object_mut(hostel)
             .unwrap()
             .status
-            .remove(crate::object::Status::TAPPED);
+            .remove(baylee_engine::object::Status::TAPPED);
         e.dev_state_mut(p0).unwrap().players[0]
             .mana_pool
             .add(ManaColor::Colorless, 1);
@@ -172,6 +172,6 @@ fn hostile_hostel_sacrifices_three_creatures_to_transform_and_creeping_inn_drain
             .object(hostel)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 }

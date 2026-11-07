@@ -52,7 +52,7 @@ fn follower_can_choose_a_land_as_its_permanent_target() {
     let lands: Vec<_> = e
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .iter()
         .copied()
         .filter(|id| {

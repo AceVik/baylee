@@ -45,8 +45,8 @@ fn verdant_catacombs_fetches_a_forest_onto_the_battlefield_for_one_life() {
         .move_object(
             island_card,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the harness moves a card");
     engine.refresh_offer();

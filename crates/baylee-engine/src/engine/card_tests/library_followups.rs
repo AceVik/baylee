@@ -5,8 +5,8 @@ use super::{
     counter_resources::prepared,
     library_choices::{choose, library, searched},
 };
-use crate::event::{Cause, GameEvent};
 use baylee_core::generated::index;
+use baylee_engine::event::{Cause, GameEvent};
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
@@ -193,7 +193,7 @@ fn library_followups_behold_does_not_untap_a_different_incarnation() {
         .move_object(
             found,
             ZoneLocation::Hand(P0),
-            crate::zone::ZonePosition::Top,
+            baylee_engine::zone::ZonePosition::Top,
             Cause::Effect,
         )
         .unwrap();
@@ -201,7 +201,7 @@ fn library_followups_behold_does_not_untap_a_different_incarnation() {
         .move_object(
             found,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
+            baylee_engine::zone::ZonePosition::Top,
             Cause::Effect,
         )
         .unwrap();

@@ -32,7 +32,7 @@ fn dragon_s_rage_channeler_surveils_on_noncreature_cast() {
         panic!("expected a surveil arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Surveil);
     assert_eq!(piles, surveil_piles(1));
     assert!(!cards.is_empty());
 
@@ -86,8 +86,8 @@ fn channeler_delirium_requires_four_types_and_forces_an_attack() {
                 .move_object(
                     id,
                     ZoneLocation::Graveyard(p0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         }
@@ -172,7 +172,7 @@ fn channeler_does_not_surveil_when_a_creature_spell_is_cast() {
     assert_eq!(player, p0);
     assert_eq!(
         prompt,
-        crate::choice::ArrangePrompt::Surveil,
+        baylee_engine::choice::ArrangePrompt::Surveil,
         "control: the noncreature spell surveils"
     );
 }

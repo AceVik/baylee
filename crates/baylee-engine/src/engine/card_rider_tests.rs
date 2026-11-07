@@ -13,9 +13,9 @@ use super::testkit::{
     Duel, RegistryLookup, card_index, keep_mulligans, pt, reach_main_phase, tap_all_mana,
 };
 use super::*;
-use crate::zone::ZoneLocation;
 use baylee_core::ids::{CardIndex, ObjectId};
 use baylee_core::mana::ManaColor;
+use baylee_engine::zone::ZoneLocation;
 
 fn island() -> CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
@@ -333,7 +333,7 @@ fn force_of_negation_exiles_the_spell_it_counters() {
     {
         let normal = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Normal))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Normal))
             .expect("the printed cost is affordable");
         engine
             .apply(player, PlayerAction::ChooseMode(normal))

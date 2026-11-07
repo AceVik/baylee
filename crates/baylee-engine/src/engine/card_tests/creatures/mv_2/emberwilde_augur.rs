@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
+use baylee_engine::turn::Step;
 
 fn emberwilde_augur() -> CardIndex {
     card_index("39bf60b2-eeee-48f3-b7b0-6cc2e038afb1")

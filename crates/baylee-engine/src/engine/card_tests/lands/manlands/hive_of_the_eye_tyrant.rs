@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 /// Hive of the Eye Tyrant: "{3}{B}: Until end of turn, this land becomes a 3/3
 /// black Beholder creature with menace and ... It's still a land."

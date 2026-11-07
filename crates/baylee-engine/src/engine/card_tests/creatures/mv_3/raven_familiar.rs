@@ -71,7 +71,7 @@ fn raven_familiar_etb_picks_one_of_top_three() {
     // Its echo upkeep is a real price, even after its entry benefit resolved.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);
@@ -85,7 +85,7 @@ fn raven_familiar_etb_picks_one_of_top_three() {
 
 #[test]
 fn flying_prevents_a_ground_creature_from_blocking() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[raven_familiar(), island(), island(), island()])
@@ -94,7 +94,7 @@ fn flying_prevents_a_ground_creature_from_blocking() {
     keep_mulligans(&mut engine);
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

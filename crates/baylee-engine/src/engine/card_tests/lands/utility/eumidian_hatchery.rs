@@ -67,12 +67,12 @@ fn hatchery_uses_its_departure_count_and_token_multipliers_after_returning() {
     e.apply(p0, PlayerAction::PassPriority).unwrap();
     {
         let s = e.dev_state_mut(p0).unwrap();
-        s.object_mut(land).unwrap().kind = crate::object::ObjectKind::Permanent;
+        s.object_mut(land).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
         s.move_object(
             land,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     }

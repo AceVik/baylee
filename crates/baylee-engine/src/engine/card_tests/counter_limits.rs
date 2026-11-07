@@ -1,10 +1,10 @@
 //! Counter limits and beginning-of-turn history, exercised with Rasputin.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 use baylee_cards_dsl::{Duration, Modifier, counters};
 use baylee_core::generated::index;
 use baylee_core::ids::EffectId;
+use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 
 fn setup(doubled: bool) -> (Engine<RegistryLookup>, ObjectId) {
     let mut cards = vec![index::RASPUTIN_DREAMWEAVER];
@@ -39,7 +39,7 @@ fn rasputin_caps_doubled_entry_and_placement_but_counter_costs_are_not_doubled()
         };
         assert!(!legal.abilities.contains(&(source, 0)));
         let state = e.dev_state_mut(p0).unwrap();
-        crate::replacement::put_counters(state, source, counters::DREAM, 10);
+        baylee_engine::replacement::put_counters(state, source, counters::DREAM, 10);
         assert_eq!(
             state.object(source).unwrap().counters.get(counters::DREAM),
             7
@@ -52,7 +52,7 @@ fn rasputin_checks_before_untapping_and_history_is_hidden_from_the_public_status
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let (mut e, source) = setup(false);
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::remove_counters(state, source, counters::DREAM, 2);
+    baylee_engine::replacement::remove_counters(state, source, counters::DREAM, 2);
     state.set_tapped(source, true);
     reach_their_main_phase(&mut e, p1);
     assert!(walk_to_own_main(&mut e, p0));
@@ -73,16 +73,16 @@ fn rasputin_checks_before_untapping_and_history_is_hidden_from_the_public_status
         .move_object(
             source,
             ZoneLocation::Hand(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Setup,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
         )
         .unwrap();
     state
         .move_object(
             source,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Setup,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
         )
         .unwrap();
     assert!(
@@ -106,7 +106,7 @@ fn gaining_rasputins_counter_limit_removes_excess_and_overlapping_caps_do_not_ad
     };
     e.apply(player, PlayerAction::PassPriority).unwrap();
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::put_counters(state, source, counters::DREAM, 18);
+    baylee_engine::replacement::put_counters(state, source, counters::DREAM, 18);
     assert_eq!(
         state.object(source).unwrap().counters.get(counters::DREAM),
         25
@@ -142,12 +142,12 @@ fn gaining_rasputins_counter_limit_removes_excess_and_overlapping_caps_do_not_ad
 fn hit(e: &mut Engine<RegistryLookup>, source: ObjectId, victim: ObjectId, amount: u32) -> u32 {
     let state = e.dev_state_mut(PlayerId::new(0)).unwrap();
     let source_version = Some(state.object(source).unwrap().version);
-    let mut work = crate::damage::DamageWork::new(
+    let mut work = baylee_engine::damage::DamageWork::new(
         state,
-        vec![crate::damage::Assignment {
+        vec![baylee_engine::damage::Assignment {
             source,
             source_version,
-            recipient: crate::event::DamageTarget::Object(victim),
+            recipient: baylee_engine::event::DamageTarget::Object(victim),
             amount,
             is_combat: false,
         }],

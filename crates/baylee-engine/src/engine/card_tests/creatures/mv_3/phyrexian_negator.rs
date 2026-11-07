@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn phyrexian_negator() -> CardIndex {
     card_index("f22fcd17-bc24-41df-81ce-6d11208861b9")

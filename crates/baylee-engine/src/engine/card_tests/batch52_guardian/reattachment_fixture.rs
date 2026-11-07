@@ -2,7 +2,7 @@
 //! These fixtures exercise engine actions; they do not implement the rules under test.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::synthetic::{self, SyntheticLookup};
+use baylee_card_testkit::synthetic::{self, SyntheticLookup};
 use baylee_cards_dsl::{AbilityDef, CardDef, Cost, Effect, Filter, TargetSpec};
 use baylee_core::generated::index;
 const P0: PlayerId = PlayerId::new(0);
@@ -66,7 +66,7 @@ fn setup(def: &'static CardDef, hand: &[u32], battlefield: &[u32]) -> Engine<Syn
     let mut e = Engine::new(&preset, SyntheticLookup::new(vec![def])).unwrap();
     synthetic::keep_mulligans(&mut e);
     walk(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::FirstMain
+        e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..}if *player==P0)
     });
     for c in ManaColor::ALL {

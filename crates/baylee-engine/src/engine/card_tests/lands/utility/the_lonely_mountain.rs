@@ -60,7 +60,7 @@ fn the_lonely_mountain_enters_tapped_without_equipment_and_taps_for_red() {
 
 #[test]
 fn lonely_mountain_creates_a_dwarf_with_the_equipment_discount() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         936,
         &[
@@ -103,7 +103,7 @@ fn lonely_mountain_creates_a_dwarf_with_the_equipment_discount() {
 /// opponent's turn.
 #[test]
 fn the_lonely_mountain_dwarf_is_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(
         955,
         &[

@@ -15,8 +15,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
-use crate::event::GameEvent;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
+use baylee_engine::event::GameEvent;
 
 /// Worn Powerstone: an artifact of mana value 3 for the search to find or
 /// leave.
@@ -124,7 +124,7 @@ fn whir_of_invention_is_an_instant_and_finds_an_artifact_within_its_x() {
     // 117.3a), so the walk is to the pass after that and not to the phase.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p1
-            && matches!(e.state().turn.phase, crate::turn::Phase::FirstMain)
+            && matches!(e.state().turn.phase, baylee_engine::turn::Phase::FirstMain)
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     tap_all_mana(&mut engine, p0);

@@ -44,7 +44,7 @@ fn anti_magic_aura_stops_spells_but_allows_activated_abilities() {
     );
     assert!(!legal.castable.contains(&aura));
     assert!(
-        crate::eval::spell_target_options_for(
+        baylee_engine::eval::spell_target_options_for(
             &baylee_cards_dsl::TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
             e.state(),
             p0,

@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::{NumberPrompt, TargetRef};
 use baylee_core::generated::index;
+use baylee_engine::choice::{NumberPrompt, TargetRef};
 
 fn violent_eruption() -> CardIndex {
     card_index("842578ca-0a86-4e96-bfd5-45931488f7c1")

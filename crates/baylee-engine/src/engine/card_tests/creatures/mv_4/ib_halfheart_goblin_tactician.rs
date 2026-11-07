@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::event::DamageTarget;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
+use baylee_engine::event::DamageTarget;
 
 fn ib() -> CardIndex {
     card_index("6742c4b9-8fa6-439f-844d-04a09fa20c45")

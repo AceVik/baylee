@@ -97,7 +97,7 @@ fn flood_plain_enters_tapped_and_trades_itself_for_a_plains_onto_the_battlefield
     assert_eq!(player, p0, "the land's controller is the one searching");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a library search and not a mill or a discard"
     );
     assert!(

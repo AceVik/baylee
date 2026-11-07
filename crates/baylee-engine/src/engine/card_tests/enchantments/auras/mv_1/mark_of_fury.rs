@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn mark_of_fury() -> CardIndex {
     card_index("1c350891-8810-4c14-b8ea-84486864637b")
@@ -72,7 +72,7 @@ fn mark_of_fury_also_returns_at_opponents_end_step() {
     // Walk to P0's end step when Mark of Fury's return trigger is on the stack,
     // and counter that trigger with Tishana's Tidebinder.
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     let trigger_on_stack = e.state().zones.list(ZoneLocation::Stack)[0];
     lk::float(&mut e, lk::P0, &[(ManaColor::Blue, 3)]);

@@ -37,8 +37,8 @@ fn tapped_entry_then_basic_search_or_fail_and_shuffle() {
                     .move_object(
                         id,
                         ZoneLocation::Library(p0),
-                        crate::zone::ZonePosition::Bottom,
-                        crate::event::Cause::Effect,
+                        baylee_engine::zone::ZonePosition::Bottom,
+                        baylee_engine::event::Cause::Effect,
                     )
                     .unwrap();
                 excluded.push(id);
@@ -103,9 +103,9 @@ fn tapped_entry_then_basic_search_or_fail_and_shuffle() {
                 assert!(e.state().zones.list(ZoneLocation::Hand(p0)).contains(id));
             }
             let events = &e.journal().entries()[usize::try_from(since).unwrap()..];
-            assert!(events.iter().any(|x| matches!(x.event,crate::event::GameEvent::Shuffled{player,zone:Zone::Library} if player==p0)));
+            assert!(events.iter().any(|x| matches!(x.event,baylee_engine::event::GameEvent::Shuffled{player,zone:Zone::Library} if player==p0)));
             if !selected.is_empty() {
-                assert!(events.iter().any(|x| matches!(&x.event,crate::event::GameEvent::Revealed{player,cards} if *player==p0 && cards==&selected)));
+                assert!(events.iter().any(|x| matches!(&x.event,baylee_engine::event::GameEvent::Revealed{player,cards} if *player==p0 && cards==&selected)));
             }
         }
     }

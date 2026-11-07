@@ -133,7 +133,7 @@ impl<L: CardLookup> Engine<L> {
     /// And of the payment rather than of the pool's size for a second
     /// reason since the price may have colour in it: two floating red do
     /// not pay Phantasmal Forces' `{U}`.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(super) fn pool_pays_tax(
         &self,
         player: PlayerId,
@@ -327,7 +327,8 @@ impl<L: CardLookup> Engine<L> {
 
     /// Where a window `player` is about to pay in begins
     /// ([`WindowStart`]).
-    pub(super) fn window_start(&self, player: PlayerId) -> WindowStart {
+    #[doc(hidden)]
+    pub fn window_start(&self, player: PlayerId) -> WindowStart {
         WindowStart {
             journal: self.state.journal.len(),
             pool: self.state.players[usize::from(player.get())]

@@ -42,7 +42,7 @@ fn eiganjo_seat_of_the_empire_taps_for_white_and_channel_requires_combat() {
 
 #[test]
 fn eiganjo_channel_hits_attackers_or_blockers_and_counts_only_your_legends() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     for target_blocker in [false, true] {
         let mut e = kit::game(
@@ -83,7 +83,7 @@ fn eiganjo_channel_hits_attackers_or_blockers_and_counts_only_your_legends() {
 /// exactly the attacker and the blocker.
 #[test]
 fn eiganjo_channel_target_options_are_exactly_the_attacker_and_the_blocker() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut e = kit::game(
         975,

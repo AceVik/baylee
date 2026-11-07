@@ -119,7 +119,7 @@ fn quagmire_druid_trades_a_creature_and_a_forest_for_an_enchantment_across_the_t
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one creature, and the cost asks once");

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::power_toughness;
+use baylee_card_testkit::card_tests::partials_w2c_kit::power_toughness;
 use baylee_core::generated::subtypes;
 
 /// Nemata, Grove Guardian — {4}{G}{G} Legendary Creature — Treefolk 4/5

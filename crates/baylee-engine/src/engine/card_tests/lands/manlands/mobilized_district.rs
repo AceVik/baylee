@@ -52,7 +52,7 @@ fn mobilized_district_animates_into_a_vigilant_citizen() {
 
 #[test]
 fn mobilized_district_counts_legendary_creatures_and_planeswalkers_once_each() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
     let mut engine = kit::game(
         934,

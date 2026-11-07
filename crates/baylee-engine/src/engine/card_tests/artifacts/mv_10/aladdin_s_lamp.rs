@@ -16,7 +16,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::draw_kit as kit;
+use baylee_card_testkit::card_tests::draw_kit as kit;
 
 /// The Lamp, the Tome, and `forests` Forests to pay for both.
 fn lamp_and_tome(forests: usize) -> Vec<CardIndex> {

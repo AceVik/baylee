@@ -47,7 +47,7 @@ fn segmented_wurm_gets_a_minus_one_minus_one_counter_when_targeted() {
 
 #[test]
 fn targeting_another_creature_does_not_trigger_but_an_ability_on_the_wurm_does() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(

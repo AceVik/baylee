@@ -48,7 +48,7 @@ fn thalakos_scout_discards_a_card_to_return_itself_to_hand() {
 
 #[test]
 fn shadow_limits_both_blocking_and_being_blocked() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let subject = card_index("c8877da5-7008-4b47-955e-d205220c91e6");
     let mut e = lk::game(

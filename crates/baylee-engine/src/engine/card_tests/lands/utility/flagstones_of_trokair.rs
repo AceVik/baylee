@@ -63,7 +63,7 @@ fn flagstones_of_trokair_bins_its_legend_twin_and_fetches_a_tapped_plains() {
             Pending::ChooseCards {
                 player,
                 options,
-                prompt: crate::choice::ChoicePrompt::SearchLibrary,
+                prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
                 ..
             } => {
                 let choice = *options.first().expect("a Plains deck has a Plains to find");

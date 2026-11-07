@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -46,11 +46,15 @@ fn mystic_might_enchants_only_your_land_grants_tap_pump_and_has_cumulative_upkee
         .find(|&id| id != first_island)
         .unwrap();
     assert!(
-        ability_offered(&engine, my_forest, crate::choice::GRANTED_ABILITY),
+        ability_offered(&engine, my_forest, baylee_engine::choice::GRANTED_ABILITY),
         "the enchanted land has the granted ability"
     );
     assert!(
-        !ability_offered(&engine, other_island, crate::choice::GRANTED_ABILITY),
+        !ability_offered(
+            &engine,
+            other_island,
+            baylee_engine::choice::GRANTED_ABILITY
+        ),
         "a land that is not enchanted does not"
     );
 
@@ -60,7 +64,7 @@ fn mystic_might_enchants_only_your_land_grants_tap_pump_and_has_cumulative_upkee
             P0,
             PlayerAction::ActivateAbility {
                 source: my_forest,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .unwrap();

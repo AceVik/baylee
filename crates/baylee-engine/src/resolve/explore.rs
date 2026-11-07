@@ -24,7 +24,7 @@ pub(super) fn start(
                         .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
             })
             .inspect(|#[cfg_attr(not(test), allow(unused_variables))] entry| {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced(entry);
             })
             .count(),

@@ -68,7 +68,7 @@ fn sleeper_s_guile_grants_fear_and_returns_to_hand() {
 
 #[test]
 fn fear_allows_black_and_artifact_blockers_only() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let artifact_creature = card_index("963de959-848d-48df-90fa-88a6d988b9fe");
     let mut engine = lk::game(
         SEED,

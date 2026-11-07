@@ -53,7 +53,7 @@ fn think_tank_surveils_one_on_its_controllers_upkeep() {
     );
     assert_eq!(
         prompt,
-        crate::choice::ArrangePrompt::Surveil,
+        baylee_engine::choice::ArrangePrompt::Surveil,
         "surveil is not scry: the card either stays on top or goes to a graveyard"
     );
     assert_eq!(

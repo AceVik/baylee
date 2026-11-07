@@ -9,7 +9,7 @@ fn suspicious_bookcase() -> CardIndex {
 
 /// A Bears attacks into a Wall of Stone; `unblockable` first pays the
 /// Bookcase's `{3}` and `{T}` to aim "can't be blocked" at the Bears.
-fn bears_attack(unblockable: bool) -> Option<Vec<crate::choice::BlockOption>> {
+fn bears_attack(unblockable: bool) -> Option<Vec<baylee_engine::choice::BlockOption>> {
     let p0 = PlayerId::new(0);
     let mut engine = table(
         &[],

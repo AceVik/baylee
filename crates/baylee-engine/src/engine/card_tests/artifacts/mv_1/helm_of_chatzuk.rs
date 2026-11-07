@@ -150,7 +150,7 @@ fn helm_of_chatzuks_grant_lets_a_creature_lead_a_band_this_turn() {
         let asked = matches!(
             engine.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::Band { with },
+                prompt: baylee_engine::choice::ChoicePrompt::Band { with },
                 ..
             } if *with == giant
         );

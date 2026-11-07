@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -76,7 +76,7 @@ fn goblin_rock_sled_that_attacked_stays_tapped_for_one_untap_step() {
     )
     .expect("the Sled attacks");
     pass_until(&mut e, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(e.state().players[1].life, 17, "3 unblocked damage");
     assert!(is_tapped(&e, sled), "attacking tapped it");

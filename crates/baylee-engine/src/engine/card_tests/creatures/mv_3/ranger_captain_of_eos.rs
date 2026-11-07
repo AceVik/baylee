@@ -56,7 +56,7 @@ fn ranger_captain_of_eos_searches_up_a_one_mana_creature_and_is_never_offered_it
     assert_eq!(player, p0, "the searching seat is the one choosing");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a library search, and not a scry, a discard or a sacrifice"
     );
     assert_eq!(

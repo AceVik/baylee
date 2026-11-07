@@ -45,7 +45,7 @@ fn fabricate_tutors_an_artifact_card_out_of_the_library_into_hand() {
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "the tutor's own question, and not a scry or a discard"
     );
     assert!(

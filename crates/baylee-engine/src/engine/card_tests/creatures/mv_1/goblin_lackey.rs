@@ -68,7 +68,7 @@ fn goblin_lackey_puts_goblin_from_hand_onto_battlefield_on_player_damage() {
 
 #[test]
 fn goblin_lackey_triggers_on_noncombat_player_damage_and_can_put_nothing() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     for accept in [false, true] {
         let p0 = PlayerId::new(0);
@@ -90,7 +90,7 @@ fn goblin_lackey_triggers_on_noncombat_player_damage_and_can_put_nothing() {
                 p0,
                 PlayerAction::ActivateAbility {
                     source: lackey,
-                    ability_index: crate::choice::GRANTED_ABILITY,
+                    ability_index: baylee_engine::choice::GRANTED_ABILITY,
                 },
             )
             .unwrap();

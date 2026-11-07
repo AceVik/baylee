@@ -43,7 +43,7 @@ fn blaze_of_glory_is_castable_only_before_blockers_are_declared() {
     );
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatBegin
+        e.state().turn.step == baylee_engine::turn::Step::CombatBegin
     });
     float_one_white(&mut engine, p0);
     engine
@@ -94,7 +94,7 @@ fn blaze_of_glory_is_castable_only_before_blockers_are_declared() {
     // The Bear cannot block a flier, so `pass_until`'s own default answer
     // of no blocks at all is legal here, and crosses this question safely.
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     float_one_white(&mut engine, p0);
@@ -128,7 +128,7 @@ fn blaze_of_glory_is_castable_by_the_defending_player_with_no_attackers_declared
     // `pass_until`'s own default answers `ChooseAttackers` with nobody,
     // which is a real choice here: the Bear on p0's board could attack.
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareAttackers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
     });
     let p0_bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
@@ -172,7 +172,7 @@ fn blaze_of_glory_is_castable_by_the_defending_player_with_no_attackers_declared
     // CombatEnd — mana floating, the Bear still standing as a legal
     // target — the second copy is refused all the same.
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
     });
     float_one_white(&mut engine, p1);
@@ -211,7 +211,7 @@ fn blaze_of_glorys_target_must_block_every_attacker_it_can() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatBegin
+        e.state().turn.step == baylee_engine::turn::Step::CombatBegin
     });
 
     let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
@@ -273,7 +273,7 @@ fn blaze_of_glorys_target_must_block_every_attacker_it_can() {
     };
     assert_eq!(
         capacity,
-        vec![crate::choice::BlockCapacity {
+        vec![baylee_engine::choice::BlockCapacity {
             blocker: unicorn,
             most: None
         }],
@@ -374,7 +374,7 @@ fn blaze_of_glory_lasts_one_turn() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatBegin
+        e.state().turn.step == baylee_engine::turn::Step::CombatBegin
     });
 
     let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
@@ -426,7 +426,7 @@ fn blaze_of_glory_lasts_one_turn() {
     };
     assert_eq!(
         capacity,
-        vec![crate::choice::BlockCapacity {
+        vec![baylee_engine::choice::BlockCapacity {
             blocker: wall,
             most: None
         }],

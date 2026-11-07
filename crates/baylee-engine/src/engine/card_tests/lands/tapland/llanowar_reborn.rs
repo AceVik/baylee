@@ -60,17 +60,17 @@ fn graft_moves_one_counter_only_between_the_two_original_permanents() {
             s.move_object(
                 object,
                 ZoneLocation::Exile(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
             if case >= 3 {
-                s.object_mut(object).unwrap().kind = crate::object::ObjectKind::Permanent;
+                s.object_mut(object).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
                 s.move_object(
                     object,
                     ZoneLocation::Battlefield,
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
             }
@@ -82,7 +82,7 @@ fn graft_moves_one_counter_only_between_the_two_original_permanents() {
                 matches!(
                     e.pending(),
                     Pending::YesNo {
-                        prompt: crate::choice::YesNoPrompt::MayDo,
+                        prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                         ..
                     }
                 )
@@ -93,7 +93,7 @@ fn graft_moves_one_counter_only_between_the_two_original_permanents() {
             matches!(
                 e.pending(),
                 Pending::YesNo {
-                    prompt: crate::choice::YesNoPrompt::MayDo,
+                    prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                     ..
                 }
             )
@@ -126,7 +126,7 @@ fn graft_moves_the_only_counter_once_and_offers_nothing_when_the_land_has_none()
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )

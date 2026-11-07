@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn bouncing_beebles() -> CardIndex {
     card_index("4fa46972-d953-4328-9c31-96e134234133")

@@ -202,13 +202,13 @@ fn sword_observes_entries_while_its_own_incarnation_was_in_the_graveyard() {
             e.refresh_offer();
         }
         let state = e.dev_state_mut(p0).unwrap();
-        state.object_mut(elf).unwrap().kind = crate::object::ObjectKind::Permanent;
+        state.object_mut(elf).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
         state
             .move_object(
                 elf,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         if there_during_entry {
@@ -216,8 +216,8 @@ fn sword_observes_entries_while_its_own_incarnation_was_in_the_graveyard() {
                 .move_object(
                     sword,
                     ZoneLocation::Exile(p0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         } else {
@@ -225,8 +225,8 @@ fn sword_observes_entries_while_its_own_incarnation_was_in_the_graveyard() {
                 .move_object(
                     sword,
                     ZoneLocation::Graveyard(p0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         }
@@ -267,13 +267,13 @@ fn sword_ignores_a_one_one_that_enters_under_an_opponents_control() {
         bury(&mut e, &[sword]);
         e.refresh_offer();
         let state = e.dev_state_mut(p0).unwrap();
-        state.object_mut(elf).unwrap().kind = crate::object::ObjectKind::Permanent;
+        state.object_mut(elf).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
         state
             .move_object(
                 elf,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         assert_eq!(
@@ -308,19 +308,19 @@ fn leave_and_return(e: &mut Engine<RegistryLookup>, id: ObjectId, destination: Z
         .move_object(
             id,
             ZoneLocation::Exile(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     if destination == ZoneLocation::Battlefield {
-        state.object_mut(id).unwrap().kind = crate::object::ObjectKind::Permanent;
+        state.object_mut(id).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
     }
     state
         .move_object(
             id,
             destination,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
 }

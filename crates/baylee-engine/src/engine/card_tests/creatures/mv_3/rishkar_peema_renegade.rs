@@ -47,7 +47,7 @@ fn rishkar_peema_renegade_distributes_counters_and_grants_mana_to_ready_creature
     assert_eq!(counters_on(&engine, wolf, CounterKind::P1P1), 1);
     assert_eq!(pt(&engine, rishkar), (3, 3));
     assert_eq!(pt(&engine, wolf), (2, 2));
-    let grant = crate::effects::granted_activated(engine.state(), wolf)
+    let grant = baylee_engine::effects::granted_activated(engine.state(), wolf)
         .next()
         .unwrap()
         .id;
@@ -100,7 +100,7 @@ fn rishkar_grants_for_any_counter_but_only_to_your_creatures() {
             .add(CounterKind::Charge, 1);
     }
     e.refresh_offer();
-    let grant = crate::effects::granted_activated(e.state(), own)
+    let grant = baylee_engine::effects::granted_activated(e.state(), own)
         .next()
         .unwrap()
         .id;

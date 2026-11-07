@@ -30,7 +30,7 @@ fn gallifrey_council_chamber_surveils_and_produces_restricted_mana() {
         panic!("expected a surveil arrangement, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Surveil);
     engine.apply(p0, look_answer(&cards, &[])).unwrap();
 
     pass_until(&mut engine, stack_is_empty);

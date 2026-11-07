@@ -24,7 +24,7 @@ fn cinder_shade_pumps_and_sacrifices_to_deal_damage_equal_to_its_last_known_powe
         on_battlefield(&engine, p1, index::HILL_GIANT).expect("Hill Giant on battlefield");
     assert_eq!(pt(&engine, shade_id), (1, 1));
 
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[(ManaColor::Black, 2), (ManaColor::Red, 1)],

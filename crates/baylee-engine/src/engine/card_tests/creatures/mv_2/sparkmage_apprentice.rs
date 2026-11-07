@@ -121,7 +121,7 @@ fn any_target_creatures_and_planeswalkers_resolve_exact_damage() {
 
 #[test]
 fn battle_target_loses_exact_defense_without_harming_bystanders() {
-    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    use baylee_card_testkit::card_tests::battle_damage_kit as battle_kit;
     let p0 = PlayerId::new(0);
     let (mut e, battle) = battle_kit::game(6902, &[], &[subject()]);
     battle_kit::float(&mut e, ManaColor::Red, 2);

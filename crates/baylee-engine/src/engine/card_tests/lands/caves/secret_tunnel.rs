@@ -153,7 +153,7 @@ fn secret_tunnel_uses_departed_targets_last_creature_types() {
         } else {
             (second, first)
         };
-        crate::sba::destroy(e.dev_state_mut(p0).unwrap(), departed);
+        baylee_engine::sba::destroy(e.dev_state_mut(p0).unwrap(), departed);
         pass_until(&mut e, stack_is_empty);
         assert!(keywords(&e, survivor).contains(KeywordSet::UNBLOCKABLE));
     }
@@ -230,7 +230,7 @@ fn secret_tunnel_rechecks_creature_types_on_resolution() {
     e.state.object_mut(second).unwrap().base_mut().subtypes =
         baylee_core::types::SubtypeSet::from_slice(&[subtypes::creature::BEAR]);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, stack_is_empty);
     assert!(!keywords(&e, first).contains(KeywordSet::UNBLOCKABLE));
@@ -239,8 +239,8 @@ fn secret_tunnel_rechecks_creature_types_on_resolution() {
 
 #[test]
 fn secret_tunnel_requires_four_mana_and_an_untapped_land() {
-    use crate::object::Status;
     use baylee_core::generated::index;
+    use baylee_engine::object::Status;
     let p0 = PlayerId::new(0);
     for tapped in [false, true] {
         let mut e = Duel::new(SEED, forest())
@@ -301,7 +301,7 @@ fn secret_tunnel_itself_cannot_be_blocked_when_it_is_a_creature() {
     base.power = Some(2);
     base.toughness = Some(2);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let blocks = super::super::super::legends_kit::attack(&mut e, &[tunnel, ogre]);
     assert!(!super::super::super::legends_kit::may_block(
@@ -340,7 +340,7 @@ fn secret_tunnel_does_not_count_empty_or_noncreature_subtypes_as_shared() {
             e.state.object_mut(wolf).unwrap().base_mut().subtypes = subtype;
         }
         e.state.invalidate_projections();
-        e.sync_static_effects();
+        e.sync_static_effects_for_tests();
         e.dev_state_mut(p0).unwrap().players[0]
             .mana_pool
             .add(ManaColor::Colorless, 4);

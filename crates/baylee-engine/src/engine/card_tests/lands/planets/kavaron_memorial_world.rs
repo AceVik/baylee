@@ -31,7 +31,7 @@ fn kavaron_memorial_world_enters_tapped_and_taps_for_red() {
 
 #[test]
 fn kavaron_stations_by_power_then_unlocks_its_robot_and_team_pump() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         940,
         &[
@@ -98,7 +98,7 @@ fn kavaron_stations_by_power_then_unlocks_its_robot_and_team_pump() {
 /// not in p1's turn, while the 12+ ability is on offer in both.
 #[test]
 fn kavaron_station_is_sorcery_timing_only_but_its_twelve_plus_ability_is_not() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(
         982,
         &[kavaron_memorial_world(), serra_angel(), forest()],
@@ -107,7 +107,7 @@ fn kavaron_station_is_sorcery_timing_only_but_its_twelve_plus_ability_is_not() {
         &[],
     );
     let planet = kit::obj(&e, kit::P0, kavaron_memorial_world());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         e.dev_state_mut(kit::P0).unwrap(),
         planet,
         CounterKind::Charge,

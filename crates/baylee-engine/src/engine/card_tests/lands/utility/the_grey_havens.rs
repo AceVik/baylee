@@ -76,7 +76,7 @@ fn grey_havens_reads_only_legendary_creatures_in_your_graveyard_and_pool_sees_th
     pass_until(&mut e, stack_is_empty);
     let havens = on_battlefield(&e, p0, index::THE_GREY_HAVENS).unwrap();
     let pool = on_battlefield(&e, p0, index::REFLECTING_POOL).unwrap();
-    let options = crate::resolve::colors_of(
+    let options = baylee_engine::resolve::colors_of(
         e.state(),
         p0,
         baylee_cards_dsl::ManaSource::LandColor {

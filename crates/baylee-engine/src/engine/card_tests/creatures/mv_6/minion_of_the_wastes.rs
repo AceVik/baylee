@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::power_toughness;
+use baylee_card_testkit::card_tests::partials_w2c_kit::power_toughness;
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -43,7 +43,7 @@ fn minion_of_the_wastes_sets_power_and_toughness_to_chosen_number() {
 
 #[test]
 fn paying_zero_life_is_a_legal_entry_choice_and_gives_zero_toughness() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[], &[], &[minion_of_the_wastes()], &[]);
     lk::float(&mut e, P0, &[(ManaColor::Black, 6)]);
     cast_with_floating(&mut e, P0, minion_of_the_wastes());

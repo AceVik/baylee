@@ -32,7 +32,7 @@ fn nalathni_dragon_pumps_and_is_sacrificed_after_four_activations() {
     assert_eq!(pt(&engine, dragon), (5, 1), "+1/+0 four times");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert_eq!(
         engine.state().object(dragon).map(|o| o.zone),

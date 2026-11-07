@@ -27,7 +27,7 @@ fn alpha_eval_stone_giant_throws_only_a_smaller_friendly_creature() {
     pass_until(&mut engine, stack_is_empty);
     assert!(keywords(&engine, elf).contains(KeywordSet::FLYING));
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert!(!stack_is_empty(&engine));
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());

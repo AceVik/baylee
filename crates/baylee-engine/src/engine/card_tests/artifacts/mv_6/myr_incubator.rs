@@ -91,8 +91,8 @@ fn myr_incubator_does_not_find_a_non_artifact_card() {
             .move_object(
                 id,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         rings.push(moved);

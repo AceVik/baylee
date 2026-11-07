@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // Shared canonical-card harness.
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -136,7 +136,7 @@ fn batch57_forethought_upkeep_requires_exactly_three_or_sacrifice() {
         pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
         let Pending::YesNo {
             player,
-            prompt: crate::choice::YesNoPrompt::PayTax { mana },
+            prompt: baylee_engine::choice::YesNoPrompt::PayTax { mana },
             ..
         } = e.pending()
         else {

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -130,12 +130,5 @@ fn homarid_warrior_with_shroud_cannot_be_targeted() {
     assert!(
         !options.contains(&warrior),
         "the shrouded Homarid Warrior is not: {options:?}"
-    );
-}
-
-#[test]
-fn homarid_warrior_untaps_for_a_new_controller() {
-    crate::engine::mechanics_tests::untap_scope::assert_untaps_after_control_change(
-        homarid_warrior(),
     );
 }

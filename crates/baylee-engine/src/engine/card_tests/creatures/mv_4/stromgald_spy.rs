@@ -17,7 +17,7 @@ fn reveals(engine: &Engine<RegistryLookup>, who: PlayerId) -> usize {
         .filter(|entry| {
             matches!(
                 entry.event,
-                crate::event::GameEvent::Revealed { player, .. } if player == who
+                baylee_engine::event::GameEvent::Revealed { player, .. } if player == who
             )
         })
         .count()

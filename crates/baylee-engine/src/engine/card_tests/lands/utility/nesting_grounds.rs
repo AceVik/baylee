@@ -28,7 +28,7 @@ fn nesting_grounds_taps_for_colorless_mana() {
 /// neither the stack-holding window nor the opponent's turn.
 #[test]
 fn nesting_grounds_counter_move_is_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut e = kit::game(
         951,
@@ -39,7 +39,7 @@ fn nesting_grounds_counter_move_is_sorcery_timing_only() {
     );
     let grounds = kit::obj(&e, kit::P0, nesting_grounds());
     let bear = kit::obj(&e, kit::P0, index::GRIZZLY_BEARS);
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         e.dev_state_mut(kit::P0).unwrap(),
         bear,
         CounterKind::Charge,

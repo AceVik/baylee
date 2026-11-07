@@ -67,7 +67,7 @@ fn batch49_glaciers_search_and_cleanup_return_are_separate_stack_resolutions() {
     assert!(is_tapped(&e, basic));
     assert_eq!(e.state.object(land).unwrap().zone, Zone::Battlefield);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::Cleanup && !stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::Cleanup && !stack_is_empty(e)
     });
     assert_eq!(e.state.object(land).unwrap().zone, Zone::Battlefield);
     assert!(matches!(e.pending(), Pending::Priority { .. }));
@@ -98,7 +98,7 @@ fn batch49_maze_exiles_only_opponents_attacker_and_returns_it_tapped_next_end() 
     assert_eq!(e.state.object(bear).unwrap().zone, Zone::Exile);
     let life = e.state.players[0].life;
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     assert_eq!(e.state.object(bear).unwrap().zone, Zone::Exile);
     pass_until(&mut e, stack_is_empty);

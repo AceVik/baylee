@@ -424,7 +424,8 @@ impl GameState {
     }
 
     /// Battlefield information before a simultaneous destruction starts.
-    pub(crate) fn departure_snapshot(
+    #[doc(hidden)]
+    pub fn departure_snapshot(
         &self,
         id: ObjectId,
     ) -> Option<crate::damage_history::BattlefieldDeparture> {
@@ -472,7 +473,8 @@ impl GameState {
     /// A batch move supplies the battlefield information captured before any
     /// member of the simultaneous event left.
     #[allow(clippy::too_many_lines)] // one reset per field CR 400.7 clears
-    pub(crate) fn move_object_with_departure(
+    #[doc(hidden)]
+    pub fn move_object_with_departure(
         &mut self,
         id: ObjectId,
         to: ZoneLocation,

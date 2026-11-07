@@ -22,7 +22,7 @@ fn phase_out_uses_one_controlled_set_and_direct_aura_can_leave_opponents_host_pr
                 .object(id)
                 .unwrap()
                 .status
-                .contains(crate::object::Status::PHASED_OUT)
+                .contains(baylee_engine::object::Status::PHASED_OUT)
         );
     }
     assert!(
@@ -30,7 +30,7 @@ fn phase_out_uses_one_controlled_set_and_direct_aura_can_leave_opponents_host_pr
             .object(theirs)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
     next_main(&mut e, P1);
     assert!(
@@ -38,7 +38,7 @@ fn phase_out_uses_one_controlled_set_and_direct_aura_can_leave_opponents_host_pr
             .object(aura)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT),
+            .contains(baylee_engine::object::Status::PHASED_OUT),
         "opponent's turn does not end the duration or phase in your Aura"
     );
     next_main(&mut e, P0);
@@ -49,6 +49,6 @@ fn phase_out_uses_one_controlled_set_and_direct_aura_can_leave_opponents_host_pr
             .object(aura)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 }

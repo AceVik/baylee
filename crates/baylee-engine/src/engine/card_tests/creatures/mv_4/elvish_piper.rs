@@ -46,7 +46,7 @@ fn elvish_piper_puts_creature_card_from_hand_onto_battlefield() {
 
 #[test]
 fn elvish_piper_may_put_no_creature_into_play() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[elvish_piper()], &[], &[earth_elemental()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Green, 1)]);
     activate(&mut engine, lk::P0, elvish_piper(), 0);

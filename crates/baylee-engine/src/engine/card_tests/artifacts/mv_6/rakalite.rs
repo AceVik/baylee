@@ -66,7 +66,7 @@ fn rakalite_prevents_one_damage_and_returns_at_the_next_end_step() {
     assert!(engine.state().shields.is_empty(), "and the shield is spent");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert!(
         !stack_is_empty(&engine),
@@ -128,7 +128,7 @@ fn rakalite_that_left_the_battlefield_does_not_return() {
     );
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(

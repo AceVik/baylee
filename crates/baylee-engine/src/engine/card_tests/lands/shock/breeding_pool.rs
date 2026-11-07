@@ -96,7 +96,7 @@ fn breeding_pool_under_chromatic_lantern_taps_for_either_colour_through_either_d
                 panic!("expected priority, got {:?}", engine.pending())
             };
             let press = if granted {
-                let grant = crate::effects::granted_activated(engine.state(), land)
+                let grant = baylee_engine::effects::granted_activated(engine.state(), land)
                     .next()
                     .unwrap()
                     .id;

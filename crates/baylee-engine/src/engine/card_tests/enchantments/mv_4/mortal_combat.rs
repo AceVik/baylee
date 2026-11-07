@@ -38,5 +38,5 @@ fn mortal_combat_does_not_trigger_with_nineteen_creatures_and_wins_game_with_twe
     let Pending::GameOver(result) = game.pending().clone() else {
         panic!("expected GameOver");
     };
-    assert_eq!(result.winner, Some(crate::win::Victor::Player(p0)));
+    assert_eq!(result.winner, Some(baylee_engine::win::Victor::Player(p0)));
 }

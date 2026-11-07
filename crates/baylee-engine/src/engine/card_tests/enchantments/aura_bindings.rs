@@ -67,8 +67,8 @@ fn animate_setup(creature: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
         .move_object(
             host,
             ZoneLocation::Graveyard(P1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();
@@ -106,7 +106,7 @@ fn animate_dead_enchants_graveyard_then_returns_under_your_control_and_reduces_p
     assert_eq!(pt(&engine, host), (1, 2));
     assert_eq!(engine.state().object(aura).unwrap().attached_to, Some(host));
     assert!(!engine.journal().entries().iter().any(|entry| {
-        matches!(entry.event, crate::event::GameEvent::ZoneChanged { object, to: Zone::Graveyard, .. } if object == aura)
+        matches!(entry.event, baylee_engine::event::GameEvent::ZoneChanged { object, to: Zone::Graveyard, .. } if object == aura)
     }));
 }
 

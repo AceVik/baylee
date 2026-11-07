@@ -109,7 +109,7 @@ fn waterfront_bouncer_pitches_a_card_to_bounce_a_creature_to_its_owners_hand() {
     assert_eq!(player, p0, "the activating seat pays its own price");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostDiscard,
+        baylee_engine::choice::ChoicePrompt::CostDiscard,
         "a cost and not a cleanup discard, which is all a client has to tell \
          the two apart"
     );

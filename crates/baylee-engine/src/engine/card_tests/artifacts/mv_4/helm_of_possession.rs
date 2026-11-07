@@ -46,7 +46,7 @@ fn helm_of_possession_sacrifices_creature_to_steal_target_while_tapped() {
 
 #[test]
 fn helm_of_possession_control_lasts_only_while_the_helm_stays_tapped() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     for keep_tapped in [false, true] {
         let mut e = lk::game(
             SEED,

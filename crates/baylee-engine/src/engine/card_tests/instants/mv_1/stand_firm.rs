@@ -79,7 +79,7 @@ fn stand_firm_pumps_the_creature_it_names_and_scries_two() {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the caster does the looking");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
         piles,

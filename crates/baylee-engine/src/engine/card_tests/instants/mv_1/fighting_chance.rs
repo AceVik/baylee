@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 fn fighting_chance() -> CardIndex {
     card_index("fece632b-d8d5-4d3d-a4a7-643293b67538")
 }

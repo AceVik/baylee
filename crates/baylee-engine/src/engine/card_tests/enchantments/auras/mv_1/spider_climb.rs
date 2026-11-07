@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT, SERRA_ANGEL};
+use baylee_engine::turn::Step;
 
 fn spider_climb() -> CardIndex {
     card_index("2636aafa-83f9-4b72-b729-04e1c3aa0eec")

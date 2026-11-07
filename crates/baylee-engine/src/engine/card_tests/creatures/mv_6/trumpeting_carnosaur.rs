@@ -20,7 +20,7 @@ fn trumpeting_carnosaur_discovers_past_a_land_and_a_six_and_casts_for_free() {
             engine.pending(),
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::Discover { card },
+                prompt: baylee_engine::choice::YesNoPrompt::Discover { card },
                 ..
             } if *player == p0 && *card == elves
         ),

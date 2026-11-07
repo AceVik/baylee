@@ -60,7 +60,7 @@ fn werefox_bodyguard_holds_a_creature_until_it_leaves_the_battlefield() {
         !back
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::Linked { .. })),
+            .any(|r| matches!(r, baylee_engine::object::Rider::Linked { .. })),
         "and linked to nothing any more"
     );
 

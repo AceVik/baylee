@@ -18,7 +18,7 @@ fn reprocess_sacrifices_permanent_and_draws_card() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     let bear_id = on_battlefield(&engine, p0, gray_ogre()).expect("ogre on bf");
     cast_from_hand(&mut engine, p0, reprocess());
@@ -41,7 +41,7 @@ fn reprocess_sacrifices_permanent_and_draws_card() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before
     );
@@ -49,7 +49,7 @@ fn reprocess_sacrifices_permanent_and_draws_card() {
 
 #[test]
 fn reprocess_partial_may_decline_and_cannot_sacrifice_opponents_or_enchantments() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
@@ -79,7 +79,7 @@ fn reprocess_partial_may_decline_and_cannot_sacrifice_opponents_or_enchantments(
     assert!(
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .is_empty()
     );
     assert!(on_battlefield(&e, p0, gray_ogre()).is_some());

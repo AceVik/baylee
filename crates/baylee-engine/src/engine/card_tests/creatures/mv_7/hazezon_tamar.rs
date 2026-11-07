@@ -5,7 +5,7 @@ use baylee_core::generated::index;
 
 #[test]
 fn hazezon_counts_lands_at_next_own_upkeep_even_after_leaving() {
-    use crate::engine::card_tests::token_helpers::named;
+    use baylee_card_testkit::card_tests::token_helpers::named;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for departed in [false, true] {
         for doubled in [false, true] {

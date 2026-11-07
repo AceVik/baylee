@@ -209,7 +209,7 @@ fn misdirection_offers_path_another_creature_and_never_a_plains() {
         .object_mut(raptor)
         .expect("the Raptor exists")
         .status
-        .insert(crate::object::Status::PHASED_OUT);
+        .insert(baylee_engine::object::Status::PHASED_OUT);
     engine.refresh_offer();
 
     let path = aimed(&mut engine, p0, path_to_exile(), &[theirs], &[]);

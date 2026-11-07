@@ -14,12 +14,12 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::aura_kit as kit;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::object::ObjectKind;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::aura_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::CounterKind;
 use baylee_core::generated::index;
+use baylee_engine::object::ObjectKind;
+use baylee_engine::turn::Step;
 
 // oracle_id = "b4faba1a-23db-4678-9ce6-a7816105f22a"
 fn infinite_authority() -> CardIndex {

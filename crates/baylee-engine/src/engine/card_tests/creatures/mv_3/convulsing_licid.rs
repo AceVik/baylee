@@ -1,7 +1,7 @@
 //! The supported creature body is played; omitted abilities are not invented.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn supported_body_attacks_without_an_invented_activation() {

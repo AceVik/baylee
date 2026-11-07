@@ -133,7 +133,7 @@ fn shefet_dunes_taps_for_its_two_mana_and_pumps_the_team_for_a_desert() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one Desert, and the cost asks once");
@@ -183,7 +183,7 @@ fn shefet_dunes_taps_for_its_two_mana_and_pumps_the_team_for_a_desert() {
 
     assert_eq!(
         engine.state().object(fodder).map(|o| o.zone),
-        Some(crate::zone::Zone::Graveyard),
+        Some(baylee_engine::zone::Zone::Graveyard),
         "a sacrificed Desert goes to its owner's graveyard"
     );
     assert_eq!(

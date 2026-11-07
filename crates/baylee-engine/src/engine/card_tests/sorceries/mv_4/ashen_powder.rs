@@ -26,8 +26,8 @@ fn ashen_powder_reanimates_opponent_creature_under_your_control() {
         .move_object(
             bear,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();
@@ -59,8 +59,8 @@ fn ashen_powder_offers_only_creature_cards_from_an_opponents_graveyard() {
         .move_object(
             land,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     seed_graveyard(&mut engine, p0, 1);

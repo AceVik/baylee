@@ -22,12 +22,12 @@ fn spirit_link_gains_the_aura_controller_life_for_combat_and_other_damage() {
         let other = e.state().players[1].life;
         let state = e.dev_state_mut(p0).unwrap();
         let source_version = Some(state.object(bear).unwrap().version);
-        let mut work = crate::damage::DamageWork::new(
+        let mut work = baylee_engine::damage::DamageWork::new(
             state,
-            vec![crate::damage::Assignment {
+            vec![baylee_engine::damage::Assignment {
                 source: bear,
                 source_version,
-                recipient: crate::event::DamageTarget::Player(p0),
+                recipient: baylee_engine::event::DamageTarget::Player(p0),
                 amount: 3,
                 is_combat: combat,
             }],
@@ -69,7 +69,7 @@ fn spirit_link_gains_only_for_the_enchanted_creatures_damage() {
         } else {
             (theirs, p0)
         };
-        crate::engine::card_tests::history_helpers::damage_player(
+        baylee_card_testkit::card_tests::history_helpers::damage_player(
             &mut e, source, victim, 3, combat,
         );
         e.apply(p0, PlayerAction::PassPriority).unwrap();

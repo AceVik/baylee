@@ -66,13 +66,13 @@ fn amulet_searches_and_puts_a_basic_land_into_hand() {
     .expect("choose basic land");
     assert!(
         e.journal().entries()[since..].iter().any(|entry| {
-            matches!(entry.event, crate::event::GameEvent::Revealed { cards: ref revealed, .. } if revealed.len() == 1 && revealed[0] == basic)
+            matches!(entry.event, baylee_engine::event::GameEvent::Revealed { cards: ref revealed, .. } if revealed.len() == 1 && revealed[0] == basic)
         }),
         "the chosen basic land itself is revealed"
     );
     assert!(
         e.journal().entries()[since..].iter().any(
-            |entry| matches!(entry.event,crate::event::GameEvent::Shuffled{player,..} if player==p0)
+            |entry| matches!(entry.event,baylee_engine::event::GameEvent::Shuffled{player,..} if player==p0)
         ),
         "the library is shuffled"
     );

@@ -40,7 +40,7 @@ fn phyrexian_colossus_pays_eight_life_to_untap_itself() {
 
 #[test]
 fn phyrexian_colossus_stays_tapped_through_its_untap_step() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(SEED, &[phyrexian_colossus()], &[], &[], &[]);
     let colossus = lk::obj(&e, p0, phyrexian_colossus());

@@ -137,11 +137,11 @@ fn gloom_waived_mana_cost_still_pays_the_tax() {
         .unwrap();
     add_mana(&mut e, p, ManaColor::Colorless, 2);
     assert!(!e.free_cast_possible(p, card));
-    assert!(e.start_free_cast(p, card).is_err());
+    assert!(e.start_free_cast_for_tests(p, card).is_err());
     assert_eq!(e.state().players[0].mana_pool.total(), 2);
     add_mana(&mut e, p, ManaColor::Colorless, 1);
     assert!(e.free_cast_possible(p, card));
-    e.start_free_cast(p, card).unwrap();
+    e.start_free_cast_for_tests(p, card).unwrap();
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
     assert_eq!(e.state().object(card).unwrap().zone, Zone::Stack);
     pass_until(&mut e, stack_is_empty);
@@ -268,7 +268,7 @@ fn gloom_granted_mana_ability_is_taxed_at_offer_and_payment() {
     reach_main_phase(&mut e, p);
     let land = on_battlefield(&e, p, plains()).unwrap();
     white_enchantment(&mut e, p, land);
-    let ability_index = crate::choice::GRANTED_ABILITY;
+    let ability_index = baylee_engine::choice::GRANTED_ABILITY;
     add_mana(&mut e, p, ManaColor::Colorless, 2);
     assert!(
         !priority_offer(&e)
@@ -365,16 +365,18 @@ fn gloom_play_permission_and_paid_effect_cast_each_charge_once() {
             .unwrap();
         let version = e.state.object(card).unwrap().version;
         if free {
-            e.state.play_permissions.push(crate::state::PlayPermission {
-                player: p,
-                card,
-                version,
-                free: true,
-                mana_any_type: false,
-                cast_only: true,
-                spell_types: None,
-                window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),
-            });
+            e.state
+                .play_permissions
+                .push(baylee_engine::state::PlayPermission {
+                    player: p,
+                    card,
+                    version,
+                    free: true,
+                    mana_any_type: false,
+                    cast_only: true,
+                    spell_types: None,
+                    window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),
+                });
             add_mana(&mut e, p, ManaColor::Colorless, 2);
             assert!(!priority_offer(&e).castable.contains(&card));
             add_mana(&mut e, p, ManaColor::Colorless, 1);
@@ -384,7 +386,7 @@ fn gloom_play_permission_and_paid_effect_cast_each_charge_once() {
             add_mana(&mut e, p, ManaColor::White, 1);
             add_mana(&mut e, p, ManaColor::Colorless, 3);
             let opened = Box::new(e.window_start(p));
-            e.start_paid_cast(p, card, version, false, false, opened)
+            e.start_paid_cast_for_tests(p, card, version, false, false, opened)
                 .unwrap();
         }
         assert_eq!(e.state().players[0].mana_pool.total(), 0);
@@ -463,17 +465,19 @@ fn gloom_multicolor_and_flashback_costs_are_taxed() {
             .unwrap();
     }
     add_mana(&mut e, p, ManaColor::White, 1);
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: p,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::Ability,
-        timestamp: 999,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::object(&e.state, reclaim),
-        modifier: baylee_cards_dsl::Modifier::GrantsFlashback,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: p,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Ability,
+            timestamp: 999,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::object(&e.state, reclaim),
+            modifier: baylee_cards_dsl::Modifier::GrantsFlashback,
+        });
     add_mana(&mut e, p, ManaColor::Colorless, 4);
     assert!(!priority_offer(&e).castable.contains(&reclaim));
     add_mana(&mut e, p, ManaColor::Colorless, 1);
@@ -518,7 +522,7 @@ fn gloom_cost_increases_are_applied_before_activation_reductions() {
 
 #[test]
 fn gloom_casting_forms_use_the_announced_color() {
-    use crate::casting::SpellForm;
+    use baylee_engine::casting::SpellForm;
     let p = PlayerId::new(0);
     let mut e = Duel::new(1063, forest())
         .battlefield(0, &[gloom()])

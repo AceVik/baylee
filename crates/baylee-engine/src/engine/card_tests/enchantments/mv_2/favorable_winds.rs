@@ -45,7 +45,7 @@ fn favorable_winds_buffs_only_flying_creatures_its_controller_controls() {
     e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .expect("the opponent has no legal block");
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         e.state().players[1].life,

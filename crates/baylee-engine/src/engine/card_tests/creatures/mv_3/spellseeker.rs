@@ -47,8 +47,8 @@ fn spellseeker_searches_out_a_cheap_instant_and_declines_the_rest() {
                 .move_object(
                     card,
                     ZoneLocation::Library(p0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .expect("the harness moves a card");
         }

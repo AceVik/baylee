@@ -87,7 +87,7 @@ fn wandering_fumarole_enters_tapped_and_animates_into_an_elemental() {
 /// Under `Coverage::Implemented`, the granted switch ability is implemented via `Modifier::GrantActivated`.
 /// This test plays the land tapped, passes to the next turn so it untaps, floats `{{2}}{{U}}{{R}}` with `tap_all_mana_but`,
 /// animates the land into a 1/4 blue and red Elemental land creature, and activates the granted `{{0}}` ability at
-/// `crate::choice::GRANTED_ABILITY` to switch its power and toughness to 4/1 and back to 1/4.
+/// `baylee_engine::choice::GRANTED_ABILITY` to switch its power and toughness to 4/1 and back to 1/4.
 #[test]
 fn wandering_fumarole_enters_tapped_animates_and_switches_pt() {
     let p0 = PlayerId::new(0);
@@ -151,7 +151,7 @@ fn wandering_fumarole_enters_tapped_animates_and_switches_pt() {
         legal
             .abilities
             .iter()
-            .any(|(id, index)| *id == land && *index == crate::choice::GRANTED_ABILITY),
+            .any(|(id, index)| *id == land && *index == baylee_engine::choice::GRANTED_ABILITY),
         "the granted {{0}} switch ability is offered"
     );
 
@@ -161,7 +161,7 @@ fn wandering_fumarole_enters_tapped_animates_and_switches_pt() {
             p0,
             PlayerAction::ActivateAbility {
                 source: land,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("the switch ability activates");
@@ -178,7 +178,7 @@ fn wandering_fumarole_enters_tapped_animates_and_switches_pt() {
             p0,
             PlayerAction::ActivateAbility {
                 source: land,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("the switch ability activates a second time");

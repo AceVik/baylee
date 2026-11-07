@@ -62,7 +62,7 @@ fn always_watching_buffs_only_nontoken_creatures_and_grants_working_vigilance() 
     e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .expect("the opponent declines to block");
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert!(!is_tapped(&e, elf), "vigilance prevents tapping to attack");
 

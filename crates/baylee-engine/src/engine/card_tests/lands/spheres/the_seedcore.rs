@@ -74,7 +74,7 @@ fn seedcore_requires_an_opponents_poison_and_exactly_one_one_at_both_target_chec
         assert!(!options.contains(&bear));
         aim_at(&mut e, p0, elf);
         if change {
-            crate::replacement::put_counters(
+            baylee_engine::replacement::put_counters(
                 e.dev_state_mut(p0).unwrap(),
                 elf,
                 CounterKind::P1P1,

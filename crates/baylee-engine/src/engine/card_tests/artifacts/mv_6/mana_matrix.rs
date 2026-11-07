@@ -50,7 +50,7 @@ fn mana_matrix_prices_spree_modes_as_one_total_cost() {
     };
     let option = options
         .iter()
-        .find(|option| option.kind == crate::choice::CastModeKind::Modes(3))
+        .find(|option| option.kind == baylee_engine::choice::CastModeKind::Modes(3))
         .unwrap();
     assert_eq!(option.cost, baylee_core::mana!("{W}"));
     e.apply(
@@ -76,7 +76,7 @@ fn mana_matrix_reduces_the_instants_its_controller_casts() {
     let matrix = on_battlefield(&e, p0, index::MANA_MATRIX).unwrap();
     let instant = in_hand(&e, p0, index::DISENCHANT).unwrap();
     assert!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, p0, instant).is_err(),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, p0, instant).is_err(),
         "with nothing floating the instant is not castable"
     );
     e.dev_state_mut(p0).unwrap().players[0]
@@ -84,7 +84,7 @@ fn mana_matrix_reduces_the_instants_its_controller_casts() {
         .add(ManaColor::White, 1);
     e.refresh_offer();
     assert!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, p0, instant).is_ok(),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, p0, instant).is_ok(),
         "{{1}}{{W}} less {{2}} is {{W}}: one white mana casts the instant"
     );
     cast_with_floating(&mut e, p0, index::DISENCHANT);
@@ -114,7 +114,7 @@ fn mana_matrix_does_not_reduce_an_opponents_instant() {
         .add(ManaColor::White, 1);
     e.refresh_offer();
     assert!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, p1, instant).is_err(),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, p1, instant).is_err(),
         "the opponent pays the full {{1}}{{W}}: my Matrix does not discount it, so {{W}} alone is one short"
     );
     e.dev_state_mut(p1).unwrap().players[1]
@@ -122,7 +122,7 @@ fn mana_matrix_does_not_reduce_an_opponents_instant() {
         .add(ManaColor::Colorless, 1);
     e.refresh_offer();
     assert!(
-        crate::casting::can_cast(e.state(), &RegistryLookup, p1, instant).is_ok(),
+        baylee_engine::casting::can_cast(e.state(), &RegistryLookup, p1, instant).is_ok(),
         "with the full {{1}}{{W}} the same instant is castable (control: only the price was short)"
     );
 }

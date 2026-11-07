@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn wand_of_denial() -> CardIndex {
     card_index("9d32da71-60e5-4eb3-97ca-ae76e2f5df57")

@@ -63,7 +63,7 @@ fn modular_uses_departure_counters_even_if_the_source_returns_and_may_target_an_
             assert_eq!(counters_on(&e, source, CounterKind::P1P1), 2);
             {
                 let s = e.dev_state_mut(p0).unwrap();
-                crate::replacement::put_counters(s, source, CounterKind::P1P1, 2);
+                baylee_engine::replacement::put_counters(s, source, CounterKind::P1P1, 2);
             }
             assert_eq!(counters_on(&e, source, CounterKind::P1P1), 6);
             bury(&mut e, &[source]);
@@ -74,12 +74,12 @@ fn modular_uses_departure_counters_even_if_the_source_returns_and_may_target_an_
             aim_at(&mut e, player, target);
             {
                 let s = e.dev_state_mut(p0).unwrap();
-                s.object_mut(source).unwrap().kind = crate::object::ObjectKind::Permanent;
+                s.object_mut(source).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
                 s.move_object(
                     source,
                     ZoneLocation::Battlefield,
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
             }
@@ -87,7 +87,7 @@ fn modular_uses_departure_counters_even_if_the_source_returns_and_may_target_an_
                 matches!(
                     e.pending(),
                     Pending::YesNo {
-                        prompt: crate::choice::YesNoPrompt::MayDo,
+                        prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                         ..
                     }
                 )

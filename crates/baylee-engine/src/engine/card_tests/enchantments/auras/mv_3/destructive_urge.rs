@@ -65,7 +65,7 @@ fn destructive_urge_makes_damaged_player_sacrifice_land() {
 
 #[test]
 fn destructive_urge_does_not_trigger_on_noncombat_damage() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
@@ -89,7 +89,7 @@ fn destructive_urge_does_not_trigger_on_noncombat_damage() {
             p0,
             PlayerAction::ActivateAbility {
                 source: host,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .unwrap();

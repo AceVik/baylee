@@ -34,18 +34,20 @@ fn sentinel_sets_only_its_own_toughness_and_keeps_a_negative_targets_power() {
         if negative {
             let state = e.dev_state_mut(p0).unwrap();
             let timestamp = state.next_timestamp();
-            let filter = crate::effects::EffectFilter::object(state, blocker);
-            state.effects.register(crate::effects::ContinuousEffect {
-                id: baylee_core::ids::EffectId::new(0),
-                source: None,
-                controller: p0,
-                origin: crate::effects::EffectOrigin::Resolution,
-                layer: baylee_cards_dsl::Layer::PtModify,
-                timestamp,
-                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-                filter,
-                modifier: baylee_cards_dsl::Modifier::ModifyPT(-4, 0),
-            });
+            let filter = baylee_engine::effects::EffectFilter::object(state, blocker);
+            state
+                .effects
+                .register(baylee_engine::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: None,
+                    controller: p0,
+                    origin: baylee_engine::effects::EffectOrigin::Resolution,
+                    layer: baylee_cards_dsl::Layer::PtModify,
+                    timestamp,
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    filter,
+                    modifier: baylee_cards_dsl::Modifier::ModifyPT(-4, 0),
+                });
             state.refresh_characteristics();
             assert_eq!(pt(&e, blocker), (-2, 2));
         }

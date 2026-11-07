@@ -87,7 +87,7 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd && !stack_is_empty(e)
     });
     assert_eq!(
         engine.state().object(vanguard).unwrap().zone,

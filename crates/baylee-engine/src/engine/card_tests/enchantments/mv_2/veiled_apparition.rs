@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn veiled_apparition() -> CardIndex {
     card_index("4187fd6d-5660-4ea7-a9dd-402487ec8721")
@@ -48,7 +48,7 @@ fn veiled_apparition_can_pay_its_colored_upkeep_cost_after_animation() {
     lk::cast_at(&mut engine, p1, gray_ogre(), &[], &[]);
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

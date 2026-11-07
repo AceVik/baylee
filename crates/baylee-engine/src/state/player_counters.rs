@@ -48,7 +48,8 @@ impl GameState {
     }
 
     /// Pays exactly the requested energy, without making a partial payment.
-    pub(crate) fn pay_energy(&mut self, player: PlayerId, amount: u32) -> bool {
+    #[doc(hidden)]
+    pub fn pay_energy(&mut self, player: PlayerId, amount: u32) -> bool {
         if self.has_left(player)
             || self
                 .players

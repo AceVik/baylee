@@ -20,6 +20,9 @@ fuzz = []
 # crates turns it on.
 simulation = []
 
+# Card test crates.
+test-support = ["fuzz"]
+
 [dependencies]
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true

@@ -53,7 +53,7 @@ fn eerie_procession_tutors_an_arcane_card_out_of_the_library_into_hand() {
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a tutor's own question, and not a scry, a discard or a sacrifice"
     );
     assert!(

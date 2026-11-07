@@ -46,7 +46,7 @@ fn windstorm_drake_boosts_only_its_controllers_other_flyers() {
     e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .expect("the opponent has no legal block");
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         e.state().players[1].life,

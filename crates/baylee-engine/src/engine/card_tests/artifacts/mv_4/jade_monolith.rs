@@ -50,7 +50,7 @@ fn jade_monolith_sends_a_blocked_attackers_combat_damage_to_its_controller_inste
         .expect("the Elf blocks");
     pass_until(
         &mut engine,
-        priority_in(crate::turn::Step::DeclareBlockers, p1),
+        priority_in(baylee_engine::turn::Step::DeclareBlockers, p1),
     );
 
     engine
@@ -111,8 +111,18 @@ fn jade_monolith_sends_a_blocked_attackers_combat_damage_to_its_controller_inste
     assert_eq!(
         damage_events(&engine, before_journal),
         vec![
-            (giant, crate::event::DamageTarget::Player(p1), 3, true),
-            (elf, crate::event::DamageTarget::Object(giant), 1, true),
+            (
+                giant,
+                baylee_engine::event::DamageTarget::Player(p1),
+                3,
+                true
+            ),
+            (
+                elf,
+                baylee_engine::event::DamageTarget::Object(giant),
+                1,
+                true
+            ),
         ],
         "the Giant's redirected hop to the player, and the Elf's own untouched hit back"
     );
@@ -143,7 +153,10 @@ fn jade_monolith_sends_a_targeted_lightning_bolts_damage_to_its_controller() {
     assert!(menu.contains(&elf));
     let bolt_id = on_stack(&engine, lightning_bolt()).expect("the Bolt is on the stack");
 
-    pass_until(&mut engine, priority_in(crate::turn::Step::Main, p1));
+    pass_until(
+        &mut engine,
+        priority_in(baylee_engine::turn::Step::Main, p1),
+    );
     engine
         .apply(p1, PlayerAction::ActivateManaAbility { source: land })
         .expect("a Forest pays for the {1}");
@@ -203,7 +216,10 @@ fn a_shield_for_another_source_leaves_a_targeted_lightning_bolts_damage_on_the_c
     cast_from_hand(&mut engine, p0, lightning_bolt());
     aim_at(&mut engine, p0, elf);
 
-    pass_until(&mut engine, priority_in(crate::turn::Step::Main, p1));
+    pass_until(
+        &mut engine,
+        priority_in(baylee_engine::turn::Step::Main, p1),
+    );
     engine
         .apply(p1, PlayerAction::ActivateManaAbility { source: land })
         .expect("a Forest pays for the {1}");
@@ -285,7 +301,7 @@ fn a_shield_for_another_source_leaves_the_blocked_attackers_damage_on_the_creatu
         .expect("the Elf blocks");
     pass_until(
         &mut engine,
-        priority_in(crate::turn::Step::DeclareBlockers, p1),
+        priority_in(baylee_engine::turn::Step::DeclareBlockers, p1),
     );
 
     engine
@@ -467,7 +483,7 @@ fn jade_monoliths_you_is_its_controller_not_the_targeted_creatures() {
         .expect("p0's Giant blocks");
     pass_until(
         &mut engine,
-        priority_in(crate::turn::Step::DeclareBlockers, p1),
+        priority_in(baylee_engine::turn::Step::DeclareBlockers, p1),
     );
 
     engine
@@ -551,7 +567,7 @@ fn veteran_bodyguard_and_jade_monolith_together_the_bodyguard_does_not_take_back
         .expect("no blocks: the Ogre is unblocked, so the Bodyguard would take it");
     pass_until(
         &mut engine,
-        priority_in(crate::turn::Step::DeclareBlockers, p1),
+        priority_in(baylee_engine::turn::Step::DeclareBlockers, p1),
     );
 
     engine
@@ -590,7 +606,12 @@ fn veteran_bodyguard_and_jade_monolith_together_the_bodyguard_does_not_take_back
     );
     assert_eq!(
         damage_events(&engine, before_journal),
-        vec![(ogre, crate::event::DamageTarget::Player(p1), 2, true)],
+        vec![(
+            ogre,
+            baylee_engine::event::DamageTarget::Player(p1),
+            2,
+            true
+        )],
         "one hop: from the Ogre straight to the player, never marked on the Bodyguard along the way"
     );
 }

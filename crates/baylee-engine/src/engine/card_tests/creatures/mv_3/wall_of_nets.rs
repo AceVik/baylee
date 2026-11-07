@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 fn wall_of_nets() -> CardIndex {
     card_index("cd112962-b297-403c-bede-c8b587f379b3")
 }

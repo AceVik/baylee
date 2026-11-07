@@ -12,7 +12,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit as kit;
+use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
 use baylee_core::generated::index;
 
 // oracle_id = "80734bb0-5032-4355-9304-49f4a4557aba"

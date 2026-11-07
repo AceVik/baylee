@@ -76,8 +76,8 @@ fn put_target_in_graveyard(engine: &mut Engine<RegistryLookup>, owner: PlayerId,
         .move_object(
             target,
             ZoneLocation::Graveyard(owner),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the target moves to its owner's graveyard");
     engine.refresh_offer();

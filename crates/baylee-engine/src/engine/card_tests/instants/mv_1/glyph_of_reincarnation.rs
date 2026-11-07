@@ -20,10 +20,10 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
 use baylee_core::generated::index;
 use baylee_core::mana::ManaColor;
+use baylee_engine::turn::Step;
 
 // oracle_id = "93d9a1c6-9f6f-487f-a46c-bfd80946ccdf"
 fn glyph_of_reincarnation() -> CardIndex {

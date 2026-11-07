@@ -40,8 +40,8 @@ fn urborg_uprising_returns_two_creatures_from_graveyard_and_draws_a_card() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -50,8 +50,8 @@ fn urborg_uprising_returns_two_creatures_from_graveyard_and_draws_a_card() {
         .move_object(
             ogre,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -104,8 +104,8 @@ fn urborg_uprising_can_choose_zero_targets_and_still_draw_a_card() {
         .move_object(
             bears,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

@@ -45,13 +45,13 @@ fn fact_or_fiction_takes_the_pile_its_caster_chooses() {
     for card in &rest {
         assert_eq!(
             engine.state().object(*card).map(|o| o.zone),
-            Some(crate::zone::Zone::Hand),
+            Some(baylee_engine::zone::Zone::Hand),
             "the chosen pile went to the hand"
         );
     }
     assert_eq!(
         engine.state().object(alone).map(|o| o.zone),
-        Some(crate::zone::Zone::Graveyard),
+        Some(baylee_engine::zone::Zone::Graveyard),
         "the other pile went to the graveyard"
     );
     assert!(in_graveyard(&engine, p0, fact_or_fiction()).is_some());

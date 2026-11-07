@@ -56,7 +56,7 @@ fn mental_discipline_spends_mana_and_a_card_to_draw_a_card() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostDiscard,
+        baylee_engine::choice::ChoicePrompt::CostDiscard,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one card, no more and no fewer");

@@ -10,7 +10,7 @@ fn rogue_skycaptain() -> CardIndex {
 /// The price the pending "pay?" question names, as a mana value.
 fn price(engine: &Engine<RegistryLookup>) -> u32 {
     let Pending::YesNo {
-        prompt: crate::choice::YesNoPrompt::PayMana { cost },
+        prompt: baylee_engine::choice::YesNoPrompt::PayMana { cost },
         ..
     } = engine.pending()
     else {

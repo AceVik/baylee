@@ -160,7 +160,7 @@ fn sphere_review_real_mana_payment_omits_and_atomically_refuses_activation() {
         .find(|offer| {
             matches!(
                 offer.effect,
-                crate::choice::GrantedActionKind::PreventNextDamage { .. }
+                baylee_engine::choice::GrantedActionKind::PreventNextDamage { .. }
             )
         })
         .unwrap()

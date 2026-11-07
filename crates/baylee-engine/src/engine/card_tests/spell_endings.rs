@@ -9,10 +9,10 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::{CastModeKind, SpellEnding};
-use crate::engine::card_tests::legends_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as kit;
 use baylee_cards_dsl::counters::VOID;
 use baylee_core::generated::index;
+use baylee_engine::choice::{CastModeKind, SpellEnding};
 
 const P0: PlayerId = kit::P0;
 const P1: PlayerId = kit::P1;
@@ -119,7 +119,7 @@ fn choosing_the_hand_over_rebound_brings_the_card_home_and_nothing_rebounds() {
             .object(in_hand(&e, P0, index::CAPSIZE).unwrap())
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Rebound)
+            .contains(&baylee_engine::object::Rider::Rebound)
     );
 }
 
@@ -141,7 +141,7 @@ fn choosing_rebound_over_the_hand_exiles_it_and_casts_it_free_next_upkeep() {
             && e.state().turn.active == P0
             && matches!(e.pending(), Pending::ChooseTargets { .. })
     });
-    assert_eq!(e.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::Upkeep);
     let ojer = kit::obj(&e, P0, index::OJER_PAKPATIQ_DEEPEST_EPOCH);
     kit::aim(&mut e, &[ojer], &[]);
     kit::settle(&mut e);
@@ -227,8 +227,8 @@ fn a_spell_that_loses_its_target_is_not_asked_where_it_goes() {
         .move_object(
             bears,
             ZoneLocation::Hand(P1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -384,7 +384,7 @@ fn choosing_the_adventure_over_rebound_leaves_the_creature_castable() {
         object
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::Adventure(_)))
+            .any(|r| matches!(r, baylee_engine::object::Rider::Adventure(_)))
     );
     assert!(e.state().delayed.is_empty(), "nothing rebounds");
 }
@@ -402,7 +402,7 @@ fn choosing_rebound_over_the_adventure_casts_it_free_next_upkeep() {
         !object
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::Adventure(_))),
+            .any(|r| matches!(r, baylee_engine::object::Rider::Adventure(_))),
         "it is not on an adventure"
     );
     assert_eq!(e.state().delayed.len(), 1, "the free cast waits");
@@ -414,7 +414,7 @@ fn choosing_rebound_over_the_adventure_casts_it_free_next_upkeep() {
     });
     assert_eq!(e.state().turn.active, P0);
     assert_eq!(e.state().turn.number, turn + 2, "p0's next turn");
-    assert_eq!(e.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::Upkeep);
 }
 
 /// A controlled player's choices are their controller's (CR 723.5), and this

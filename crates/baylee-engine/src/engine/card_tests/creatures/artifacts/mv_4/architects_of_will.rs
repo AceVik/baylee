@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ArrangePrompt;
+use baylee_engine::choice::ArrangePrompt;
 
 fn architects_of_will() -> CardIndex {
     card_index("79d290ea-c095-4135-9711-f3ce089dae43")

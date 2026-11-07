@@ -301,7 +301,7 @@ fn flier() -> CardIndex {
 fn their_attack_blocks(
     engine: &mut Engine<RegistryLookup>,
     attacker: ObjectId,
-) -> Vec<crate::choice::BlockOption> {
+) -> Vec<baylee_engine::choice::BlockOption> {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     pass_until(
         engine,

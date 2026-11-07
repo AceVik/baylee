@@ -88,7 +88,10 @@ fn decomposition_gives_cumulative_upkeep_pay_life_and_sacrifices_when_unpaid() {
         unreachable!()
     };
     assert_eq!(player, P1);
-    assert_eq!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 1 });
+    assert_eq!(
+        prompt,
+        baylee_engine::choice::YesNoPrompt::PayLife { amount: 1 }
+    );
     engine.apply(P1, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.state().players[1].life, 19);
     assert!(on_battlefield(&engine, P1, BOG_IMP).is_some());
@@ -101,7 +104,10 @@ fn decomposition_gives_cumulative_upkeep_pay_life_and_sacrifices_when_unpaid() {
         unreachable!()
     };
     assert_eq!(player, P1);
-    assert_eq!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 });
+    assert_eq!(
+        prompt,
+        baylee_engine::choice::YesNoPrompt::PayLife { amount: 2 }
+    );
     engine.apply(P1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

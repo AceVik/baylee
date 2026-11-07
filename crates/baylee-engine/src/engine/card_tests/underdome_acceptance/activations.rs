@@ -47,7 +47,7 @@ fn underdome_pays_only_the_un_imposed_part_of_an_ordinary_activation() {
         let tax = on_battlefield(&e, P0, index::BLACK_LOTUS).unwrap();
         print_fact(&mut e, staff, false);
         print_fact(&mut e, tax, silver_tax);
-        let filter = crate::effects::EffectFilter::object(&e.state, staff);
+        let filter = baylee_engine::effects::EffectFilter::object(&e.state, staff);
         impose_on(&mut e, tax, Modifier::AbilitiesCostMore(1), filter);
         e.state.set_tapped(tax, true);
         e.state.set_tapped(staff, true);
@@ -93,7 +93,7 @@ fn underdome_un_activation_base_does_not_admit_restricted_mana_for_a_black_tax()
     e.state.set_tapped(land, false);
     e.refresh_offer();
     restricted(&mut e, P0, ManaColor::Red);
-    let filter = crate::effects::EffectFilter::object(&e.state, staff);
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, staff);
     impose_on(&mut e, tax, Modifier::AbilitiesCostMore(1), filter);
     e.state.set_tapped(tax, true);
     e.state.set_tapped(staff, true);
@@ -145,7 +145,7 @@ fn underdome_both_real_mana_abilities_pay_imposed_life_or_reject_atomically() {
             let land = on_battlefield(&e, P0, index::UNDERDOME).unwrap();
             let tax = on_battlefield(&e, P0, index::SOL_RING).unwrap();
             // Narrow imposed-price fixture; no fictional printed rule on Ring.
-            let filter = crate::effects::EffectFilter::object(&e.state, land);
+            let filter = baylee_engine::effects::EffectFilter::object(&e.state, land);
             impose_on(&mut e, tax, Modifier::ManaAbilitiesCostLife(2), filter);
             pool(&mut e, P0, &[]);
             e.state.set_tapped(tax, true);

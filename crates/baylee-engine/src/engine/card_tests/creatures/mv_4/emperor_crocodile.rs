@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn emperor_crocodile() -> CardIndex {
     card_index("26eb7ee3-c0b6-4be0-bc80-92952f55a6f9")

@@ -151,7 +151,7 @@ fn deathmantle_table(theirs: &[CardIndex]) -> Engine<RegistryLookup> {
 /// is when a trigger of that death is put on the stack.
 #[track_caller]
 fn destroy_and_pass(engine: &mut Engine<RegistryLookup>, victim: ObjectId) {
-    crate::sba::destroy(engine.dev_state_mut(PlayerId::new(0)).unwrap(), victim);
+    baylee_engine::sba::destroy(engine.dev_state_mut(PlayerId::new(0)).unwrap(), victim);
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };

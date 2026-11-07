@@ -176,7 +176,7 @@ fn tamiyo_inquisitive_student_investigates_on_attack_and_transforms_on_third_dra
         P0,
         PlayerAction::ActivateAbility {
             source: emeritus,
-            ability_index: crate::choice::PREPARED_CAST,
+            ability_index: baylee_engine::choice::PREPARED_CAST,
         },
     )
     .unwrap();
@@ -242,7 +242,7 @@ fn emeritus_of_ideation_enters_prepared_casts_ancestral_recall_and_reprepares_on
             .object(emeritus)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Prepared),
+            .contains(&baylee_engine::object::Rider::Prepared),
         "Emeritus of Ideation enters prepared"
     );
 
@@ -253,7 +253,7 @@ fn emeritus_of_ideation_enters_prepared_casts_ancestral_recall_and_reprepares_on
         P0,
         PlayerAction::ActivateAbility {
             source: emeritus,
-            ability_index: crate::choice::PREPARED_CAST,
+            ability_index: baylee_engine::choice::PREPARED_CAST,
         },
     )
     .unwrap();
@@ -270,7 +270,7 @@ fn emeritus_of_ideation_enters_prepared_casts_ancestral_recall_and_reprepares_on
             .object(emeritus)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Prepared),
+            .contains(&baylee_engine::object::Rider::Prepared),
         "Emeritus became unprepared after casting its prepared spell"
     );
 
@@ -315,7 +315,7 @@ fn emeritus_of_ideation_enters_prepared_casts_ancestral_recall_and_reprepares_on
             .object(emeritus)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Prepared),
+            .contains(&baylee_engine::object::Rider::Prepared),
         "Emeritus of Ideation became prepared again when it attacked and exiled 8 graveyard cards"
     );
 }

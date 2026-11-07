@@ -183,7 +183,7 @@ fn starlit_sanctum_counts_a_plus_one_counter() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, priest, baylee_cards_dsl::CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(state, priest, baylee_cards_dsl::CounterKind::P1P1, 1);
     reach_their_main_phase(&mut engine, PlayerId::new(1));
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
     assert_eq!(pt(&engine, priest), (2, 3), "a +1/+1 counter");

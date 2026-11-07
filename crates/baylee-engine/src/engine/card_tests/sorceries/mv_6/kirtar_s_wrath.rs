@@ -70,8 +70,8 @@ fn kirtar_s_wrath_with_threshold_destroys_all_creatures_and_creates_two_spirits(
             .move_object(
                 f,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

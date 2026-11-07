@@ -19,7 +19,7 @@ fn a_granted_mana_ability_is_activatable_the_way_it_is_offered() {
     reach_main_phase(&mut engine, p0);
 
     let guide = on_battlefield(&engine, p0, great_divide_guide()).expect("the guide is out");
-    let grant = crate::effects::granted_activated(engine.state(), guide)
+    let grant = baylee_engine::effects::granted_activated(engine.state(), guide)
         .next()
         .unwrap()
         .id;

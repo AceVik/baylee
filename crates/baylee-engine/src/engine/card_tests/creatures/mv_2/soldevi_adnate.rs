@@ -56,7 +56,7 @@ fn soldevi_adnate_sacrifices_black_creature_to_add_black_mana_equal_to_mana_valu
         )
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert!(options.contains(&vampire), "a black creature: {options:?}");
     assert!(
         !options.contains(&bears),

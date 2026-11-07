@@ -47,13 +47,13 @@ fn hidden_cave_discovers(card: CardIndex, color: ManaColor, cast: bool) {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::Discover { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::Discover { .. },
                 ..
             }
         )
     });
     assert!(
-        matches!(e.pending(), Pending::YesNo { prompt: crate::choice::YesNoPrompt::Discover { card }, .. } if *card==bear)
+        matches!(e.pending(), Pending::YesNo { prompt: baylee_engine::choice::YesNoPrompt::Discover { card }, .. } if *card==bear)
     );
     let library = e.state().zones.list(ZoneLocation::Library(p0));
     assert!(library[..2].contains(&angel) && library[..2].contains(&mountain));

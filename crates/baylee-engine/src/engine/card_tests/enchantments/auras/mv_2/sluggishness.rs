@@ -68,7 +68,7 @@ fn sluggishness_grants_cant_block_and_returns_to_hand() {
 
 #[test]
 fn only_the_enchanted_creature_cannot_block() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[gray_ogre(), earth_elemental()],

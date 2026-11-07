@@ -71,7 +71,7 @@ fn precognition_looks_at_opponents_top_card_on_upkeep_and_may_bottom_or_keep_it(
 
 #[test]
 fn precognition_may_decline_the_look_or_keep_the_top_card() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for look in [false, true] {
         let mut e = Duel::new(SEED, forest())

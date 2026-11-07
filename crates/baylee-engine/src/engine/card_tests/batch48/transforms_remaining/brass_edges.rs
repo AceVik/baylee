@@ -16,7 +16,7 @@ fn tecutlan_discover_captures_chosen_x_and_survives_countered_triggering_spell()
         RegistryLookup.card(index::BRASS_S_TUNNEL_GRINDER).unwrap(),
         1,
     );
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
     let found = in_hand(&e, P0, index::HILL_GIANT).unwrap();
     e.state
@@ -90,7 +90,7 @@ fn brass_leng_replaced_discard_draws_selected_count_but_does_not_descend() {
     assert!(matches!(
         e.pending(),
         Pending::Arrange {
-            prompt: crate::choice::ArrangePrompt::DiscardToLibrary,
+            prompt: baylee_engine::choice::ArrangePrompt::DiscardToLibrary,
             ..
         }
     ));
@@ -109,7 +109,7 @@ fn brass_leng_replaced_discard_draws_selected_count_but_does_not_descend() {
     );
     let grinder = source(&e, P0, index::BRASS_S_TUNNEL_GRINDER);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::End
+        e.state.turn.step == baylee_engine::turn::Step::End
             && stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { .. })
     });

@@ -50,8 +50,8 @@ fn thicket_keeps_one_basic_on_top_and_orders_the_other_four_on_bottom() {
         .move_object(
             chosen,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     let bear = hand_to_library_top(&mut e, p0, index::GRIZZLY_BEARS);

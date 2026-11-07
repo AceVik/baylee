@@ -75,7 +75,7 @@ fn clever_concealment_phases_out_every_target() {
         engine
             .state()
             .object(id)
-            .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+            .is_some_and(|o| o.status.contains(baylee_engine::object::Status::PHASED_OUT))
     };
     assert!(phased(&engine, clerics[0]), "the first target phased out");
     assert!(
@@ -86,7 +86,7 @@ fn clever_concealment_phases_out_every_target() {
     let indirectly = |engine: &Engine<RegistryLookup>, id| {
         engine.state().object(id).is_some_and(|o| {
             o.status
-                .contains(crate::object::Status::PHASED_OUT_INDIRECTLY)
+                .contains(baylee_engine::object::Status::PHASED_OUT_INDIRECTLY)
         })
     };
     assert!(

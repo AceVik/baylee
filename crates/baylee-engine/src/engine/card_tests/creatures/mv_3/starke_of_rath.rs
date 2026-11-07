@@ -43,7 +43,7 @@ fn starke_of_rath_destroys_target_creature_and_gives_its_controller_control_of_s
 
 #[test]
 fn starke_can_destroy_an_artifact_but_cannot_target_a_land() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

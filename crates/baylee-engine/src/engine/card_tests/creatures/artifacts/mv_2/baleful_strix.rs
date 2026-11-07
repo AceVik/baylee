@@ -61,7 +61,7 @@ fn emiel_blinks_another_creature_you_control_and_puts_no_counter_on_it() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     engine
         .apply(
@@ -112,7 +112,7 @@ fn emiel_blinks_another_creature_you_control_and_puts_no_counter_on_it() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before + 1,
         "it entered: \"When this creature enters, draw a card\" fired",

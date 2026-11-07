@@ -164,7 +164,7 @@ fn counter_movement_identical_or_stale_endpoints_preserve_both_totals() {
         object: to,
         version: s.object(to).unwrap().version,
     };
-    crate::replacement::move_counter(s, P0, source, source, CounterKind::Charge);
+    baylee_engine::replacement::move_counter(s, P0, source, source, CounterKind::Charge);
     assert_eq!(s.object(from).unwrap().counters.get(CounterKind::Charge), 1);
     s.move_object(to, ZoneLocation::Hand(P1), ZonePosition::Top, Cause::Effect)
         .unwrap();
@@ -175,7 +175,7 @@ fn counter_movement_identical_or_stale_endpoints_preserve_both_totals() {
         Cause::Effect,
     )
     .unwrap();
-    crate::replacement::move_counter(s, P0, source, target, CounterKind::Charge);
+    baylee_engine::replacement::move_counter(s, P0, source, target, CounterKind::Charge);
     assert_eq!(s.object(from).unwrap().counters.get(CounterKind::Charge), 1);
     assert_eq!(s.object(to).unwrap().counters.get(CounterKind::Charge), 0);
 }

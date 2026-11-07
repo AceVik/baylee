@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -42,7 +42,7 @@ fn cunning_grants_plus_3_plus_3_and_sacrifices_itself_at_next_cleanup_when_encha
 
 #[test]
 fn cunning_on_an_opponents_blocker_sacrifices_the_aura_and_leaves_the_host() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[index::GRIZZLY_BEARS],
@@ -63,7 +63,7 @@ fn cunning_on_an_opponents_blocker_sacrifices_the_aura_and_leaves_the_host() {
 }
 #[test]
 fn cunning_stays_when_its_creature_did_not_attack_or_block() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[index::GRIZZLY_BEARS], &[], &[cunning()], &[]);
     let host = lk::obj(&e, P0, index::GRIZZLY_BEARS);
     lk::float(&mut e, P0, &[(ManaColor::Blue, 2)]);

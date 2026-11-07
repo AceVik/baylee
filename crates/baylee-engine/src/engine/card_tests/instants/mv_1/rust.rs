@@ -7,7 +7,7 @@ use baylee_core::generated::index;
 fn rust_counters_the_activated_ability_of_an_artifact_sacrificed_as_its_cost() {
     let p0 = PlayerId::new(0);
     let (mut e, ability) =
-        crate::engine::card_tests::counter_helpers::artifact_activation(index::RUST);
+        baylee_card_testkit::card_tests::counter_helpers::artifact_activation(index::RUST);
     let before = e
         .state()
         .zones
@@ -49,9 +49,9 @@ fn rust_excludes_triggered_abilities_and_nonartifact_sources_but_reads_a_changed
     let stone = on_battlefield(&e, p1, index::MIND_STONE).unwrap();
     let dragon = on_battlefield(&e, p1, index::SHIVAN_DRAGON).unwrap();
     let solemn = on_battlefield(&e, p1, index::SOLEMN_SIMULACRUM).unwrap();
-    let artifact = e.push_ability_to_stack(p1, stone, 1, smallvec::SmallVec::new());
-    let creature = e.push_ability_to_stack(p1, dragon, 0, smallvec::SmallVec::new());
-    let trigger = e.push_ability_to_stack(p1, solemn, 0, smallvec::SmallVec::new());
+    let artifact = e.push_ability_to_stack_for_tests(p1, stone, 1, smallvec::SmallVec::new());
+    let creature = e.push_ability_to_stack_for_tests(p1, dragon, 0, smallvec::SmallVec::new());
+    let trigger = e.push_ability_to_stack_for_tests(p1, solemn, 0, smallvec::SmallVec::new());
     e.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
         .add(ManaColor::Green, 1);
@@ -68,7 +68,7 @@ fn rust_excludes_triggered_abilities_and_nonartifact_sources_but_reads_a_changed
     let s = e.dev_state_mut(p0).unwrap();
     s.object_mut(stone).unwrap().base_mut().types = baylee_core::types::TypeSet::CREATURE;
     let source = in_hand(&e, p0, index::RUST).unwrap_or(stone);
-    assert!(!crate::eval::matches(
+    assert!(!baylee_engine::eval::matches(
         &Filter::ActivatedAbilityFrom(&Filter::ARTIFACT),
         e.state(),
         e.state().object(artifact).unwrap(),

@@ -83,12 +83,12 @@ fn ishgard_returns_two_qualified_cards_then_plays_from_exile_once() {
         .move_object(
             card,
             ZoneLocation::Exile(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     assert!(
-        !crate::casting::land_card_open(e.state(), p0, card),
+        !baylee_engine::casting::land_card_open(e.state(), p0, card),
         "a later exile does not inherit permission"
     );
 }
@@ -115,7 +115,11 @@ fn countered_land_adventure_goes_to_graveyard_without_a_play_permission() {
     aim_at(&mut e, p1, card);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().object(card).unwrap().zone, Zone::Graveyard);
-    assert!(!crate::casting::adventure_permission(e.state(), p0, card));
+    assert!(!baylee_engine::casting::adventure_permission(
+        e.state(),
+        p0,
+        card
+    ));
 }
 
 /// Faith & Grief returns cards "from your graveyard": an artifact or an

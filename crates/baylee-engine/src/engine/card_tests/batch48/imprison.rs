@@ -49,7 +49,7 @@ fn batch48_imprison_paid_attack_trigger_removes_creature_from_combat() {
     pass_until(&mut e, stack_is_empty);
     assert!(!e.state.combat.is_attacking(bear));
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(e.state.players[1].life, before);
     assert!(on_battlefield(&e, P0, index::IMPRISON).is_some());
@@ -120,7 +120,7 @@ fn imprison_declined_attack_payment_leaves_attacker_in_combat() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(e.state.players[1].life, before - 2);
     assert!(on_battlefield(&e, P0, index::IMPRISON).is_none());
@@ -156,7 +156,7 @@ fn imprison_only_unblocks_attackers_that_had_exactly_one_blocker_this_combat() {
         assert_eq!(e.pending().asked(), Some(P0), "Aura controller pays");
         imprison_payment(&mut e, true);
         pass_until(&mut e, |e| {
-            e.state.turn.step == crate::turn::Step::CombatEnd
+            e.state.turn.step == baylee_engine::turn::Step::CombatEnd
         });
         assert_eq!(
             e.state.players[1].life,
@@ -198,7 +198,7 @@ fn imprison_does_not_reclassify_a_formerly_multiple_blocked_attacker_as_sole_blo
     pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
     imprison_payment(&mut e, true);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(e.state.players[1].life, before);
     assert!(is_tapped(&e, enchanted));
@@ -234,7 +234,7 @@ fn imprison_counters_the_original_activation_without_countering_its_copy() {
     if let Pending::ChooseCastMode { options, .. } = e.pending() {
         let mode = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
             .unwrap();
         e.apply(P0, PlayerAction::ChooseMode(mode)).unwrap();
     }
@@ -243,7 +243,7 @@ fn imprison_counters_the_original_activation_without_countering_its_copy() {
         matches!(
             e.pending(),
             Pending::ChooseTargets {
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             }
         )
@@ -292,7 +292,7 @@ fn imprison_ignores_intrinsic_mana_activation_and_resulting_triggered_mana_abili
             .iter()
             .filter(|entry| matches!(
                 entry.event,
-                crate::event::GameEvent::AbilityActivated { .. }
+                baylee_engine::event::GameEvent::AbilityActivated { .. }
             ))
             .count(),
         1

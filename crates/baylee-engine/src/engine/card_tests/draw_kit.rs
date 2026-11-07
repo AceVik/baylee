@@ -15,57 +15,57 @@
 
 #[allow(clippy::wildcard_imports)] // the card tests' own vocabulary
 use super::*;
-use crate::turn::{Phase, Step};
+use baylee_engine::turn::{Phase, Step};
 
-pub(super) const P0: PlayerId = PlayerId::new(0);
-pub(super) const P1: PlayerId = PlayerId::new(1);
+pub const P0: PlayerId = PlayerId::new(0);
+pub const P1: PlayerId = PlayerId::new(1);
 
 /// Golgari Thug: {1}{B} 1/1, "When this creature dies, put target creature
 /// card from your graveyard on top of your library." and Dredge 4.
-pub(super) fn thug() -> CardIndex {
+pub fn thug() -> CardIndex {
     card_index("a426a258-fd8b-489c-8642-9868ee47de85")
 }
 
 /// Dakmor Salvage: a land that enters tapped, taps for {B}, and has Dredge 2.
-pub(super) fn salvage() -> CardIndex {
+pub fn salvage() -> CardIndex {
     card_index("cdc4048a-73ec-4ec1-a179-2b36c397bf1a")
 }
 
 /// Chains of Mephistopheles: {1}{B} enchantment.
-pub(super) fn chains() -> CardIndex {
+pub fn chains() -> CardIndex {
     card_index("eae87919-6322-4bd2-ae9c-b1ce25d686da")
 }
 
 /// Aladdin's Lamp: {10} artifact, "{X}, {T}: the next time you would draw a
 /// card this turn, instead look at the top X cards ..."
-pub(super) fn lamp() -> CardIndex {
+pub fn lamp() -> CardIndex {
     card_index("2aa2f96b-5784-4767-b9ea-b8d9222cb1de")
 }
 
 /// Ancestral Recall: "Target player draws three cards."
-pub(super) fn recall() -> CardIndex {
+pub fn recall() -> CardIndex {
     card_index("550c74d4-1fcb-406a-b02a-639a760a4380")
 }
 
 /// Jayemdae Tome: "{4}, {T}: Draw a card."
-pub(super) fn tome() -> CardIndex {
+pub fn tome() -> CardIndex {
     card_index("39ee576a-0803-4063-9c84-f2b537e4d44c")
 }
 
 /// Howling Mine: each player's draw step, that player draws an additional
 /// card.
-pub(super) fn mine() -> CardIndex {
+pub fn mine() -> CardIndex {
     card_index("d26b27db-a567-4631-b4b6-7294222fbdd1")
 }
 
 /// Phyrexian Arena: "At the beginning of your upkeep, you draw a card and
 /// you lose 1 life."
-pub(super) fn arena() -> CardIndex {
+pub fn arena() -> CardIndex {
     card_index("ee579a32-a048-4335-b966-231ba731cdea")
 }
 
 /// Grizzly Bears: a plain creature card.
-pub(super) fn bears() -> CardIndex {
+pub fn bears() -> CardIndex {
     card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
 }
 
@@ -76,7 +76,7 @@ pub(super) fn bears() -> CardIndex {
 /// A duel over a Forest library, at player 0's first main phase (turn 1), with
 /// the boards and opening hands as given.
 #[track_caller]
-pub(super) fn duel(
+pub fn duel(
     seed: u64,
     p0_board: &[CardIndex],
     p0_hand: &[CardIndex],
@@ -97,7 +97,7 @@ pub(super) fn duel(
 
 /// The board for a single draw in the main phase: the Tome and the four lands
 /// that pay its {4}.
-pub(super) fn tome_board() -> Vec<CardIndex> {
+pub fn tome_board() -> Vec<CardIndex> {
     vec![tome(), forest(), forest(), forest(), forest()]
 }
 
@@ -106,12 +106,12 @@ pub(super) fn tome_board() -> Vec<CardIndex> {
 // ---------------------------------------------------------------------------
 
 /// The cards in a seat's hand.
-pub(super) fn hand(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn hand(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine.state().zones.list(ZoneLocation::Hand(seat)).clone()
 }
 
 /// The cards in a seat's graveyard.
-pub(super) fn graveyard(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn graveyard(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine
         .state()
         .zones
@@ -120,7 +120,7 @@ pub(super) fn graveyard(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<
 }
 
 /// A seat's library, bottom first: the top card is the last one.
-pub(super) fn library(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn library(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine
         .state()
         .zones
@@ -129,7 +129,7 @@ pub(super) fn library(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<Ob
 }
 
 /// The top `n` cards of a seat's library, the top card first.
-pub(super) fn top(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+pub fn top(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
     library(engine, seat)
         .iter()
         .rev()
@@ -139,14 +139,14 @@ pub(super) fn top(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> 
 }
 
 /// The same objects, in sorted order, to compare as sets.
-pub(super) fn sorted(objects: &[ObjectId]) -> Vec<ObjectId> {
+pub fn sorted(objects: &[ObjectId]) -> Vec<ObjectId> {
     let mut out = objects.to_vec();
     out.sort_unstable();
     out
 }
 
 /// The card an object is.
-pub(super) fn card_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<CardIndex> {
+pub fn card_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Option<CardIndex> {
     engine
         .state()
         .object(object)
@@ -155,7 +155,7 @@ pub(super) fn card_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Opti
 }
 
 /// Every permanent of `seat` that is `card`, on the battlefield.
-pub(super) fn permanents(
+pub fn permanents(
     engine: &Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -177,7 +177,7 @@ pub(super) fn permanents(
 
 /// Cards a seat has drawn this turn, as the engine counts them: a draw a
 /// replacement took away is not one.
-pub(super) fn drawn_this_turn(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u32 {
+pub fn drawn_this_turn(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u32 {
     engine.state().per_turn.draws[usize::from(seat.get())]
 }
 
@@ -187,7 +187,7 @@ pub(super) fn drawn_this_turn(engine: &Engine<RegistryLookup>, seat: PlayerId) -
 
 /// A `Pending::ChooseCards`, taken apart.
 #[derive(Debug, Clone)]
-pub(super) struct Question {
+pub struct Question {
     /// Who is asked: the player drawing, always.
     pub player: PlayerId,
     /// What may be named.
@@ -201,13 +201,13 @@ pub(super) struct Question {
 }
 
 /// Whether the engine is waiting on a card question.
-pub(super) fn is_asking(engine: &Engine<RegistryLookup>) -> bool {
+pub fn is_asking(engine: &Engine<RegistryLookup>) -> bool {
     matches!(engine.pending(), Pending::ChooseCards { .. })
 }
 
 /// The card question on the table.
 #[track_caller]
-pub(super) fn question(engine: &Engine<RegistryLookup>) -> Question {
+pub fn question(engine: &Engine<RegistryLookup>) -> Question {
     match engine.pending() {
         Pending::ChooseCards {
             player,
@@ -229,7 +229,7 @@ pub(super) fn question(engine: &Engine<RegistryLookup>) -> Question {
 
 /// Answers the card question on the table as the player it is put to.
 #[track_caller]
-pub(super) fn reply(engine: &mut Engine<RegistryLookup>, objects: &[ObjectId]) {
+pub fn reply(engine: &mut Engine<RegistryLookup>, objects: &[ObjectId]) {
     let asked = question(engine);
     engine
         .apply(
@@ -248,7 +248,7 @@ pub(super) fn reply(engine: &mut Engine<RegistryLookup>, objects: &[ObjectId]) {
 /// Passes priority (both players) until the stack is empty, or until a card
 /// question is asked about something the stack is resolving.
 #[track_caller]
-pub(super) fn run_stack(engine: &mut Engine<RegistryLookup>) {
+pub fn run_stack(engine: &mut Engine<RegistryLookup>) {
     for _ in 0..60 {
         match engine.pending().clone() {
             Pending::ChooseCards { .. } => return,
@@ -268,7 +268,7 @@ pub(super) fn run_stack(engine: &mut Engine<RegistryLookup>) {
 /// until `stop` holds or a card question is asked. `stop` is tried first.
 /// Says whether a question stopped it.
 #[track_caller]
-pub(super) fn play_until(
+pub fn play_until(
     engine: &mut Engine<RegistryLookup>,
     stop: impl Fn(&Engine<RegistryLookup>) -> bool,
 ) -> bool {
@@ -297,7 +297,7 @@ pub(super) fn play_until(
 }
 
 /// The first main phase of `turn`, played by `seat`.
-pub(super) fn first_main_of(seat: PlayerId, turn: u32) -> impl Fn(&Engine<RegistryLookup>) -> bool {
+pub fn first_main_of(seat: PlayerId, turn: u32) -> impl Fn(&Engine<RegistryLookup>) -> bool {
     move |e| {
         e.state().turn.number == turn
             && e.state().turn.active == seat
@@ -307,7 +307,7 @@ pub(super) fn first_main_of(seat: PlayerId, turn: u32) -> impl Fn(&Engine<Regist
 }
 
 /// Whether the engine stands in `seat`'s draw step.
-pub(super) fn in_draw_step_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> bool {
+pub fn in_draw_step_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> bool {
     engine.state().turn.active == seat && engine.state().turn.step == Step::Draw
 }
 
@@ -320,7 +320,7 @@ pub(super) fn in_draw_step_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -
 /// "{4}, {T}: Draw a card": one draw, which is what a replacement is asked
 /// about.
 #[track_caller]
-pub(super) fn tome_draw(engine: &mut Engine<RegistryLookup>) {
+pub fn tome_draw(engine: &mut Engine<RegistryLookup>) {
     activate(engine, P0, tome(), 0);
     run_stack(engine);
 }
@@ -329,7 +329,7 @@ pub(super) fn tome_draw(engine: &mut Engine<RegistryLookup>) {
 /// player 0's mana for it) and plays the stack on up to the first question.
 /// "Target player draws three cards": three draws, each its own event.
 #[track_caller]
-pub(super) fn recall_at(engine: &mut Engine<RegistryLookup>, target: PlayerId) {
+pub fn recall_at(engine: &mut Engine<RegistryLookup>, target: PlayerId) {
     cast_from_hand(engine, P0, recall());
     engine
         .apply(P0, PlayerAction::ChoosePlayer(target))
@@ -340,7 +340,7 @@ pub(super) fn recall_at(engine: &mut Engine<RegistryLookup>, target: PlayerId) {
 /// Whether the player holding priority is offered ability `index` of
 /// `source` right now.
 #[track_caller]
-pub(super) fn offered(engine: &Engine<RegistryLookup>, source: ObjectId, index: u32) -> bool {
+pub fn offered(engine: &Engine<RegistryLookup>, source: ObjectId, index: u32) -> bool {
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -353,7 +353,7 @@ pub(super) fn offered(engine: &Engine<RegistryLookup>, source: ObjectId, index: 
 /// "{T}" of "{X}, {T}" is paid: the Lamp is tapped by the time the ability is
 /// on the stack and is not offered again. Returns the Lamp that was lit.
 #[track_caller]
-pub(super) fn light_the_lamp(engine: &mut Engine<RegistryLookup>, x: u32) -> ObjectId {
+pub fn light_the_lamp(engine: &mut Engine<RegistryLookup>, x: u32) -> ObjectId {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -408,7 +408,7 @@ pub(super) fn light_the_lamp(engine: &mut Engine<RegistryLookup>, x: u32) -> Obj
 /// Taps the given mana sources of player 0 and nothing else: mana of one kind
 /// of land, for a test that spends it in parts.
 #[track_caller]
-pub(super) fn tap_lands_of(engine: &mut Engine<RegistryLookup>, lands: &[ObjectId]) {
+pub fn tap_lands_of(engine: &mut Engine<RegistryLookup>, lands: &[ObjectId]) {
     let lands = lands.to_vec();
     tap_mana_where(engine, P0, move |id| lands.contains(&id));
 }

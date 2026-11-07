@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn hulking_ogre() -> CardIndex {
     card_index("a95aa9ba-fa61-4a3d-a493-1ea790bd20ad")

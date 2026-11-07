@@ -174,7 +174,7 @@ fn batch47_clock_accepts_zero_counter_removal_during_upkeep_and_damages_in_draw(
     let clock = on_battlefield(&e, P0, index::ARMAGEDDON_CLOCK).unwrap();
     let before = [e.state.players[0].life, e.state.players[1].life];
     pass_until(&mut e, |e| {
-        e.state.turn.active == P0 && e.state.turn.step == crate::turn::Step::Upkeep
+        e.state.turn.active == P0 && e.state.turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert_eq!(counters_on(&e, clock, baylee_cards_dsl::counters::DOOM), 0);
     set_pool(&mut e, P1, &[(ManaColor::Colorless, 4)]);
@@ -189,12 +189,12 @@ fn batch47_clock_accepts_zero_counter_removal_during_upkeep_and_damages_in_draw(
     pass_until(&mut e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == P0
-            && e.state.turn.step == crate::turn::Step::Upkeep
+            && e.state.turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(&mut e, stack_is_empty);
     assert_eq!(counters_on(&e, clock, baylee_cards_dsl::counters::DOOM), 2);
     pass_until(&mut e, |e| {
-        e.state.turn.active == P0 && e.state.turn.step == crate::turn::Step::Draw
+        e.state.turn.active == P0 && e.state.turn.step == baylee_engine::turn::Step::Draw
     });
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
@@ -231,7 +231,7 @@ fn batch47_clock_removes_counters_as_an_effect_during_an_opponents_upkeep() {
     let before = [e.state.players[0].life, e.state.players[1].life];
     pass_until(&mut e, |e| {
         e.state.turn.active == P1
-            && e.state.turn.step == crate::turn::Step::Upkeep
+            && e.state.turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player: P1, .. })
     });
     assert_eq!(
@@ -250,11 +250,13 @@ fn batch47_clock_removes_counters_as_an_effect_during_an_opponents_upkeep() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(counters_on(&e, clock, baylee_cards_dsl::counters::DOOM), 1);
     pass_until(&mut e, |e| {
-        e.state.turn.active == P0 && e.state.turn.step == crate::turn::Step::Upkeep
+        e.state.turn.active == P0 && e.state.turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(&mut e, stack_is_empty);
     assert_eq!(counters_on(&e, clock, baylee_cards_dsl::counters::DOOM), 2);
-    pass_until(&mut e, |e| e.state.turn.step == crate::turn::Step::Draw);
+    pass_until(&mut e, |e| {
+        e.state.turn.step == baylee_engine::turn::Step::Draw
+    });
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         [e.state.players[0].life, e.state.players[1].life],

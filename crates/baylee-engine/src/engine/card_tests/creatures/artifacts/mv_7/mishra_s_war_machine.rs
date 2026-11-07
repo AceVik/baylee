@@ -10,7 +10,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 fn mishra_s_war_machine() -> CardIndex {
     card_index("18b1f96f-de35-4f0a-8b0e-81576471fd15")
@@ -147,7 +147,12 @@ fn mishra_s_war_machine_deals_three_to_its_controller_and_taps_when_they_decline
     assert_eq!(life_of(&engine, p0), 17, "3 damage to its controller");
     assert_eq!(
         damage_events(&engine, from),
-        vec![(machine, crate::event::DamageTarget::Player(p0), 3, false)],
+        vec![(
+            machine,
+            baylee_engine::event::DamageTarget::Player(p0),
+            3,
+            false
+        )],
         "the War Machine itself dealt exactly 3 noncombat damage to p0"
     );
     assert!(
@@ -228,7 +233,7 @@ fn mishra_s_war_machine_stays_untapped_when_the_damage_is_prevented() {
     };
     let slot = options
         .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(1)))
+        .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Mode(1)))
         .expect("the prevention mode is offered");
     engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
     engine

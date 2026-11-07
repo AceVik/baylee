@@ -59,10 +59,9 @@ fn boseiju_pays_for_a_creature_spell_and_leaves_it_counterable() {
     cast_with_floating(&mut engine, p0, sakura_tribe_elder());
     let elder = on_stack(&engine, sakura_tribe_elder()).expect("the Elder is cast");
     assert!(
-        !engine
-            .state()
-            .object(elder)
-            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable)),
+        !engine.state().object(elder).is_some_and(|o| o
+            .riders
+            .contains(&baylee_engine::object::Rider::Uncounterable)),
         "a creature spell is not what the rider names"
     );
     assert_eq!(engine.state().players[0].mana_pool.total(), 0);
@@ -84,10 +83,8 @@ fn boseiju_makes_a_sorcery_it_pays_for_uncounterable() {
     activate(&mut engine, p0, island(), 0);
     cast_with_floating(&mut engine, p0, counsel_of_the_soratami());
     let counsel = on_stack(&engine, counsel_of_the_soratami()).expect("Counsel is cast");
-    assert!(
-        engine
-            .state()
-            .object(counsel)
-            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
-    );
+    assert!(engine.state().object(counsel).is_some_and(|o| {
+        o.riders
+            .contains(&baylee_engine::object::Rider::Uncounterable)
+    }));
 }

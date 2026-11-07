@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn river_delta_skips_one_untap_then_recovers() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(926, &[river_delta()], &[], &[], &[]);
     let land = kit::obj(&engine, kit::P0, river_delta());
     activate(&mut engine, kit::P0, river_delta(), 0);
@@ -27,7 +27,7 @@ fn river_delta_skips_one_untap_then_recovers() {
 /// the one chosen is the one added.
 #[test]
 fn river_delta_offers_exactly_blue_or_black_and_adds_the_chosen_one() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(927, &[river_delta()], &[], &[], &[]);
     activate(&mut engine, kit::P0, river_delta(), 0);
     let Pending::ChooseColor { options, .. } = engine.pending().clone() else {

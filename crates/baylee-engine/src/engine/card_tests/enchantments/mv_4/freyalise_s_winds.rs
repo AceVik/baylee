@@ -6,7 +6,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -71,7 +71,7 @@ fn ordinary_untap_preserves_wind_and_untap_steps_remove_all_wind_before_untappin
 
     tap_for_mana(&mut engine, P0, land);
     assert_eq!(counters_on(&engine, land, counters::WIND), 2);
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         engine.dev_state_mut(P0).expect("the harness may set up"),
         land,
         CounterKind::Charge,

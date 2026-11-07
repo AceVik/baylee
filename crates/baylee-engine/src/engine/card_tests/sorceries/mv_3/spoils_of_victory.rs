@@ -55,7 +55,7 @@ fn spoils_of_victory_fetches_a_land_card_with_a_basic_land_type_onto_the_battlef
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a tutor's own question, and not a scry or a discard"
     );
     assert!(

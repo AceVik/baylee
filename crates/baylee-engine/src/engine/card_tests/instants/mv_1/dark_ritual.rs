@@ -152,14 +152,14 @@ fn a_declined_flusterstorm_copy_counters_the_spell() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::PayTax { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayTax { .. },
                 ..
             }
         )
     });
     let Pending::YesNo {
         player,
-        prompt: crate::choice::YesNoPrompt::PayTax { mana },
+        prompt: baylee_engine::choice::YesNoPrompt::PayTax { mana },
         ..
     } = engine.pending()
     else {
@@ -235,7 +235,7 @@ fn a_paid_flusterstorm_tax_takes_one_mana_and_leaves_the_spell_standing() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::PayTax { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayTax { .. },
                 ..
             }
         )
@@ -243,7 +243,7 @@ fn a_paid_flusterstorm_tax_takes_one_mana_and_leaves_the_spell_standing() {
     pass_until(&mut engine, tax_is_asked);
     let Pending::YesNo {
         player,
-        prompt: crate::choice::YesNoPrompt::PayTax { mana },
+        prompt: baylee_engine::choice::YesNoPrompt::PayTax { mana },
         ..
     } = engine.pending().clone()
     else {
@@ -326,7 +326,7 @@ fn vantress_visions_copies_a_prowess_trigger() {
     let prowess = top_of_stack(&engine);
     assert_eq!(
         engine.state().object(prowess).map(|o| o.kind),
-        Some(crate::object::ObjectKind::AbilityOnStack),
+        Some(baylee_engine::object::ObjectKind::AbilityOnStack),
         "prowess triggered over the Ritual"
     );
     for &island in &islands {
@@ -349,7 +349,7 @@ fn keep_storm_copy_targets(engine: &mut Engine<RegistryLookup>, player: PlayerId
         matches!(
             e.pending(),
             Pending::ChooseTargets {
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             }
         )

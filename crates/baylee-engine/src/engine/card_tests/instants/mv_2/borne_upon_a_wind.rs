@@ -16,7 +16,7 @@ fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
     let library_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     let top = *library_before
         .last()
@@ -24,7 +24,7 @@ fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     assert!(
         in_hand(&engine, p0, borne_upon_a_wind()).is_some(),
@@ -47,7 +47,7 @@ fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .contains(&top),
         "the card drawn is the one that was on top of the library"
     );
@@ -55,7 +55,7 @@ fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before,
         "the spell left the hand and one card replaced it — a draw of zero \
@@ -143,7 +143,7 @@ fn borne_upon_a_winds_flash_ends_with_the_turn() {
     pass_until(&mut e, |e| {
         e.state().turn.number > turn
             && e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && priority_for_p0(e)
     });
     float(&mut e, ManaColor::Green, 1);

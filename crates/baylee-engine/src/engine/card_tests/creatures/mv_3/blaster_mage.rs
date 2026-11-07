@@ -113,7 +113,7 @@ fn blaster_mage_discards_and_taps_to_kill_the_wall_it_names() {
                 assert_eq!(player, p0, "the activating seat gives up its own card");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostDiscard,
+                    baylee_engine::choice::ChoicePrompt::CostDiscard,
                     "a cost and not a cleanup, which is all a client has to tell \
                      the two apart"
                 );

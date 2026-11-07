@@ -93,7 +93,7 @@ fn batch46_brotherhood_rejects_other_spells_and_other_sources_even_with_freerunn
         base.keywords = base.keywords.union(presence);
     }
     e.refresh_offer();
-    assert!(crate::casting::can_cast(e.state(), &RegistryLookup, P0, goblin).is_ok());
+    assert!(baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, goblin).is_ok());
     assert!(
         e.apply(
             P0,

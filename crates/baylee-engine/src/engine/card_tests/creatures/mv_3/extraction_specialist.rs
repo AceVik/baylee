@@ -147,7 +147,7 @@ fn extraction_specialist_phased_out_lets_the_creature_go() {
         engine
             .state()
             .object(specialist)
-            .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT)),
+            .is_some_and(|o| o.status.contains(baylee_engine::object::Status::PHASED_OUT)),
         "the Specialist phased out"
     );
     assert!(!held_back(&engine, elves), "it phased out");
@@ -158,7 +158,7 @@ fn extraction_specialist_phased_out_lets_the_creature_go() {
         engine
             .state()
             .object(specialist)
-            .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT)),
+            .is_some_and(|o| !o.status.contains(baylee_engine::object::Status::PHASED_OUT)),
         "the Specialist phased in at seat 0's untap step"
     );
     assert!(

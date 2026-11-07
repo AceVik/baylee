@@ -50,7 +50,7 @@ fn stormscape_master_grants_protection_from_chosen_color_and_drains_two_life() {
         .unwrap();
 
     // Grizzly Bears now has protection from red and cannot be targeted by Lightning Bolt.
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
     cast_with_floating(&mut engine, p0, index::LIGHTNING_BOLT);
     let Pending::ChooseTargets { options, .. } = engine.pending() else {
         panic!("expected target choice for Lightning Bolt");

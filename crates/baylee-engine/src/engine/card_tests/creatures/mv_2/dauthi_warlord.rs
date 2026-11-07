@@ -38,7 +38,7 @@ fn dauthi_warlord_power_equals_number_of_creatures_with_shadow_on_battlefield() 
 
 #[test]
 fn shadow_limits_both_blocking_and_being_blocked() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let subject = card_index("42bb6537-fa54-43b7-84f2-dea41adc35fd");
     let mut e = lk::game(

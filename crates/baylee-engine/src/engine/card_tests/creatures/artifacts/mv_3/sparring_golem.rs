@@ -2,7 +2,7 @@
 //! Oracle: Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it.
 
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 #[test]

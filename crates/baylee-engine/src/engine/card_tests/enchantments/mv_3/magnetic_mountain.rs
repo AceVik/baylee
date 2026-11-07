@@ -16,8 +16,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
+use baylee_engine::turn::Step;
 
 // oracle_id = "5c28fc22-7da6-4f15-b02b-6ff10981466c"
 fn magnetic_mountain() -> CardIndex {

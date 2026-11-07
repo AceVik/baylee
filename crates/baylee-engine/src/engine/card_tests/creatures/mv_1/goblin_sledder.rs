@@ -101,7 +101,7 @@ fn goblin_sledder_eats_a_goblin_to_pump_any_target() {
     assert_eq!(player, p0, "the seat that pays is the seat that chose");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "the variant is what tells a client this is a cost and not a search"
     );
     assert_eq!((min, max), (1, 1), "one Goblin, and the cost asks once");

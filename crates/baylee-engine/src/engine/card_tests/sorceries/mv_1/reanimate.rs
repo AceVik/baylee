@@ -27,8 +27,8 @@ fn reanimate_takes_the_mana_value_the_card_had_in_the_graveyard() {
         .move_object(
             clone,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Setup,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
         )
         .expect("Clone goes to the graveyard");
     engine.refresh_offer();

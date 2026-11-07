@@ -1,8 +1,8 @@
 //! The supported creature body is played; unsupported abilities are omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn crashing_boars() -> CardIndex {
     card_index("a4c59feb-e76a-4e08-b296-21c3e61cfc64")

@@ -18,11 +18,11 @@ pub(crate) use source_credits::{
     ReceiptRequirement, SourceCredits, SourcePayment, payment_with_source_credits,
     payment_with_source_receipts,
 };
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 mod source_credit_extra;
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 mod source_credit_oracle;
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 mod source_receipt_oracle;
 
 /// Actual mana colors permitted for a specified generic component.

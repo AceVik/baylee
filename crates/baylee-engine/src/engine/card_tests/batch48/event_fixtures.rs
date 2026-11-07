@@ -3,7 +3,7 @@
 //! they do not add synthetic card definitions or claim full combat legality.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::{DamageTarget, GameEvent};
+use baylee_engine::event::{DamageTarget, GameEvent};
 
 fn bears(e: &Engine<RegistryLookup>) -> Vec<ObjectId> {
     e.state
@@ -31,7 +31,7 @@ fn landing_events(e: &mut Engine<RegistryLookup>, declared: &[ObjectId]) -> usiz
             defending: Defender::Player(P1),
         });
     }
-    crate::trigger::collect(&e.state, &e.lookup, from)
+    baylee_engine::trigger::collect(&e.state, &e.lookup, from)
         .iter()
         .filter(|t| t.source == landing)
         .count()
@@ -78,7 +78,7 @@ fn landing_creature_put_attacking_does_not_count_as_declared() {
     // the battlefield attacking. Such an effect does not emit BecameAttacker.
     e.state
         .combat
-        .declare_attackers([crate::combat::AttackerInfo {
+        .declare_attackers([baylee_engine::combat::AttackerInfo {
             creature: creatures[0],
             defending: Defender::Player(P1),
             blocked: false,
@@ -86,16 +86,14 @@ fn landing_creature_put_attacking_does_not_count_as_declared() {
         }]);
     e.state
         .combat
-        .declare_attackers(
-            creatures[1..]
-                .iter()
-                .map(|&creature| crate::combat::AttackerInfo {
-                    creature,
-                    defending: Defender::Player(P1),
-                    blocked: false,
-                    band: None,
-                }),
-        );
+        .declare_attackers(creatures[1..].iter().map(|&creature| {
+            baylee_engine::combat::AttackerInfo {
+                creature,
+                defending: Defender::Player(P1),
+                blocked: false,
+                band: None,
+            }
+        }));
     assert_eq!(
         e.state.combat.attackers().len(),
         3,
@@ -136,7 +134,7 @@ fn storm_groups_from_first_matching_damage_source_not_first_any_source() {
                 is_combat: true,
             });
         }
-        let triggers = crate::trigger::collect(&e.state, &e.lookup, from);
+        let triggers = baylee_engine::trigger::collect(&e.state, &e.lookup, from);
         let matching: Vec<_> = triggers.iter().filter(|t| t.source == vault).collect();
         assert_eq!(
             matching.len(),

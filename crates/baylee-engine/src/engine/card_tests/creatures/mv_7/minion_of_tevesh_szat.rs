@@ -35,7 +35,7 @@ fn at_the_upkeep_payment(board: &[CardIndex], theirs: &[CardIndex]) -> Engine<Re
         matches!(
             engine.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::PayMana { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayMana { .. },
                 ..
             }
         ),

@@ -85,7 +85,7 @@ fn goblin_cadets_gives_control_to_opponent_when_blocked() {
     assert!(on_battlefield(&engine, p1, goblin_cadets()).is_some());
     assert!(!engine.state().combat.is_attacking(cadets));
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert_eq!(engine.state().players[1].life, 20);
     assert_eq!(engine.state().object(bear).unwrap().damage, 0);

@@ -61,7 +61,7 @@ fn the_world_tree_colours_your_lands_from_the_sixth_on() {
             p0,
             PlayerAction::ActivateAbility {
                 source: first,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("the granted mana ability activates");

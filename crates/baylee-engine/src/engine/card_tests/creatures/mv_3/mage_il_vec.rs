@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn mage_il_vec() -> CardIndex {
     card_index("adea7db6-634c-4c5d-be40-264b4acffc53")
@@ -32,7 +32,7 @@ fn mage_il_vec_discards_random_card_to_deal_one_damage() {
 
 #[test]
 fn mage_il_vec_cannot_activate_without_a_card_to_discard() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let e = lk::game(SEED, &[mage_il_vec()], &[], &[], &[]);
     let mage = lk::obj(&e, p0, mage_il_vec());

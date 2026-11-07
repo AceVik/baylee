@@ -31,7 +31,9 @@ fn resplendent_angel_rewards_five_life_and_temporarily_pumps_with_lifelink() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(pt(&e, angel), (5, 5));
     assert!(keywords(&e, angel).contains(KeywordSet::LIFELINK));
-    pass_until(&mut e, |e| e.state().turn.step == crate::turn::Step::End);
+    pass_until(&mut e, |e| {
+        e.state().turn.step == baylee_engine::turn::Step::End
+    });
     pass_until(&mut e, stack_is_empty);
     let tokens = tokens_of(&e, p0);
     assert_eq!(
@@ -66,7 +68,9 @@ fn resplendent_angel_rewards_five_life_and_temporarily_pumps_with_lifelink() {
         "the pump lasts only until end of turn"
     );
     assert!(!keywords(&e, angel).contains(KeywordSet::LIFELINK));
-    pass_until(&mut e, |e| e.state().turn.step == crate::turn::Step::End);
+    pass_until(&mut e, |e| {
+        e.state().turn.step == baylee_engine::turn::Step::End
+    });
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         tokens_of(&e, p0).len(),

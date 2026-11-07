@@ -25,7 +25,7 @@ fn karn_silver_golem_animates_noncreature_artifact_with_pt_equal_to_cmc() {
 
 #[test]
 fn karn_animates_only_noncreature_artifacts_until_cleanup() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,
@@ -67,7 +67,7 @@ fn karn_animates_only_noncreature_artifacts_until_cleanup() {
 
 #[test]
 fn karn_blocks_or_becomes_blocked_once_even_by_two_creatures() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for attacking in [false, true] {
         let mut e = lk::game(

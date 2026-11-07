@@ -3,8 +3,8 @@
 //! point of damage costs, and the game it ends when it leaves.
 #[allow(clippy::wildcard_imports)] // Shared real-card test vocabulary.
 use super::*;
-use crate::event::{Cause, LossReason};
 use baylee_core::generated::index;
+use baylee_engine::event::{Cause, LossReason};
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -34,7 +34,7 @@ fn lose_everything_but_one_swamp(engine: &mut Engine<RegistryLookup>, lich: Obje
             .move_object(
                 *land,
                 ZoneLocation::Graveyard(P0),
-                crate::zone::ZonePosition::Top,
+                baylee_engine::zone::ZonePosition::Top,
                 Cause::Effect,
             )
             .unwrap();
@@ -117,9 +117,13 @@ fn lich_turns_a_life_gain_into_that_many_draws() {
     assert_eq!(engine.state().players[0].life, 0, "no life is gained");
     assert_eq!(hand_size(&engine), before + 3, "three cards instead");
     assert!(
-        !engine.state().journal.entries().iter().any(
-            |e| e.seq > since && matches!(e.event, crate::event::GameEvent::LifeChanged { .. })
-        ),
+        !engine
+            .state()
+            .journal
+            .entries()
+            .iter()
+            .any(|e| e.seq > since
+                && matches!(e.event, baylee_engine::event::GameEvent::LifeChanged { .. })),
         "a replaced gain is no gain for a trigger to read"
     );
 }

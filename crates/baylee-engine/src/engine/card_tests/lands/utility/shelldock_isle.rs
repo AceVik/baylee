@@ -15,7 +15,7 @@ fn shelldock_isle_enters_tapped_and_taps_for_blue() {
     reach_main_phase(&mut engine, p0);
 
     let land = play_land(&mut engine, p0, shelldock_isle());
-    crate::engine::card_tests::hidden_exile::finish_hideaway(&mut engine);
+    baylee_card_testkit::card_tests::hidden_exile::finish_hideaway(&mut engine);
     assert!(entered_tapped(&engine, land));
 
     pass_until(&mut engine, |e| {
@@ -45,7 +45,7 @@ fn trim_library(e: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
 /// the exiled card stays, and with twenty in either one it is offered.
 #[test]
 fn shelldock_isle_plays_the_exiled_card_only_if_a_library_has_twenty_or_fewer() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let p0 = PlayerId::new(0);
     for (mine, theirs, offered) in [(21, 21, false), (21, 20, true), (20, 21, true)] {
         let mut e = Duel::new(SEED, forest())

@@ -16,7 +16,7 @@ fn umbral_mantle_grants_the_untap_pump() {
     let mut r = rig(umbral_mantle(), llanowar_elves(), 3);
     tap_all_mana(&mut r.engine, p0);
     assert_eq!(r.pool(), 4, "three Forests and the Elf");
-    let ability = crate::choice::granted_ability(0);
+    let ability = baylee_engine::choice::granted_ability(0);
     let offered = |r: &Rig| {
         let Pending::Priority { legal, .. } = r.engine.pending().clone() else {
             panic!("expected priority, got {:?}", r.engine.pending())

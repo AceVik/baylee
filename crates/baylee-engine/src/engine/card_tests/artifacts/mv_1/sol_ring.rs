@@ -38,7 +38,7 @@ fn conduit_of_worlds_casts_a_graveyard_card_and_locks_further_spells() {
     assert_eq!(player, p0);
     assert_eq!(
         prompt,
-        crate::choice::YesNoPrompt::CastPaying { card: elves },
+        baylee_engine::choice::YesNoPrompt::CastPaying { card: elves },
         "\"you may cast that card\""
     );
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();

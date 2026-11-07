@@ -31,7 +31,7 @@ fn madblind_mountain_enters_tapped_and_taps_for_red() {
 
 #[test]
 fn madblind_mountain_requires_two_red_permanents_and_shuffles_without_moving_cards() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for count in 0..=2 {
         let mut board = vec![madblind_mountain()];
         board.extend(std::iter::repeat_n(wild_colos(), count));

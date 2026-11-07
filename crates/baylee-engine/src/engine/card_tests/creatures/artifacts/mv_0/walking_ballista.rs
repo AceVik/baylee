@@ -15,7 +15,7 @@ use super::*;
 /// about the two activated abilities: paying {4} adds a counter (growing it to 2/2),
 /// and removing a counter pays the cost to deal 1 damage to the opponent.
 ///
-/// [`enter_tests`]: crate::engine::enter_tests
+/// [`enter_tests`]: baylee_engine::engine::enter_tests
 #[test]
 fn walking_ballista_grows_with_mana_and_removes_a_counter_to_deal_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -36,7 +36,7 @@ fn walking_ballista_grows_with_mana_and_removes_a_counter_to_deal_damage() {
         let state = engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
-        crate::replacement::put_counters(state, ballista, CounterKind::P1P1, 1);
+        baylee_engine::replacement::put_counters(state, ballista, CounterKind::P1P1, 1);
     }
 
     keep_mulligans(&mut engine);

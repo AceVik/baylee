@@ -207,3 +207,19 @@ impl<L: CardLookup> Engine<L> {
         id
     }
 }
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn push_ability_to_stack_for_tests(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+    ) -> ObjectId {
+        self.push_ability_to_stack(controller, source, ability_index, targets)
+    }
+}

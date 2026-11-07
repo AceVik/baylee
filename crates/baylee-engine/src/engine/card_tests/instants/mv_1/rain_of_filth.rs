@@ -5,7 +5,7 @@ fn rain_of_filth() -> CardIndex {
     card_index("aa77980d-0434-40f0-990f-1c8c50610174")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana_ability() {
@@ -31,7 +31,8 @@ fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana
         .iter()
         .copied()
         .filter(|(id, ability_index)| {
-            (*id == mine || *id == other) && crate::choice::granted_slot(*ability_index).is_some()
+            (*id == mine || *id == other)
+                && baylee_engine::choice::granted_slot(*ability_index).is_some()
         })
         .collect();
     assert_eq!(grants.len(), 2);
@@ -46,7 +47,7 @@ fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana
             .abilities
             .iter()
             .any(|(id, ability_index)| *id == later
-                && crate::choice::granted_slot(*ability_index).is_some())
+                && baylee_engine::choice::granted_slot(*ability_index).is_some())
     );
     let (source, ability_index) = grants[0];
     e.apply(
@@ -61,7 +62,7 @@ fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana
     assert!(stack_is_empty(&e), "a mana ability resolves immediately");
     assert_eq!(
         e.state().object(source).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     pass_until(
         &mut e,
@@ -75,7 +76,7 @@ fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana
             .abilities
             .iter()
             .any(|(id, ability_index)| *id == theirs
-                && crate::choice::granted_slot(*ability_index).is_some()),
+                && baylee_engine::choice::granted_slot(*ability_index).is_some()),
         "opponent's land never receives the sacrifice ability"
     );
     reach_their_main_phase(&mut e, p1);
@@ -88,6 +89,6 @@ fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana
             .abilities
             .iter()
             .any(|(id, ability_index)| (*id == mine || *id == other)
-                && crate::choice::granted_slot(*ability_index).is_some())
+                && baylee_engine::choice::granted_slot(*ability_index).is_some())
     );
 }

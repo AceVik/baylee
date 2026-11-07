@@ -36,17 +36,18 @@ fn control_duration_ends_permanently_on_untap_blink_or_phase_out() {
                     .move_object(
                         source,
                         ZoneLocation::Exile(p0),
-                        crate::zone::ZonePosition::Top,
-                        crate::event::Cause::Effect,
+                        baylee_engine::zone::ZonePosition::Top,
+                        baylee_engine::event::Cause::Effect,
                     )
                     .unwrap();
-                state.object_mut(source).unwrap().kind = crate::object::ObjectKind::Permanent;
+                state.object_mut(source).unwrap().kind =
+                    baylee_engine::object::ObjectKind::Permanent;
                 state
                     .move_object(
                         source,
                         ZoneLocation::Battlefield,
-                        crate::zone::ZonePosition::Top,
-                        crate::event::Cause::Effect,
+                        baylee_engine::zone::ZonePosition::Top,
+                        baylee_engine::event::Cause::Effect,
                     )
                     .unwrap();
                 state.set_tapped(source, true);
@@ -82,7 +83,7 @@ fn control_duration_ends_permanently_on_untap_blink_or_phase_out() {
             .object_mut(source)
             .unwrap()
             .status
-            .remove(crate::object::Status::PHASED_OUT);
+            .remove(baylee_engine::object::Status::PHASED_OUT);
         state
             .object_mut(target)
             .unwrap()

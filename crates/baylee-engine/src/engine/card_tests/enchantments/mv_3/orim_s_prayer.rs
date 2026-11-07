@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit::life;
+use baylee_card_testkit::card_tests::legends_kit::life;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -49,7 +49,7 @@ fn orim_s_prayer_gains_one_life_per_attacking_creature() {
 
 #[test]
 fn your_own_attack_does_not_gain_life() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[orim_s_prayer(), index::GRIZZLY_BEARS],

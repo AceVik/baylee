@@ -125,7 +125,7 @@ fn syphon_soul_gains_only_the_damage_that_was_actually_dealt() {
     };
     let slot = options
         .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(1)))
+        .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Mode(1)))
         .expect("the prevention mode is offered");
     engine.apply(p1, PlayerAction::ChooseMode(slot)).unwrap();
     engine

@@ -68,7 +68,7 @@ fn cuombajj_witches_targets_are_chosen_in_order_by_different_players() {
 
 #[test]
 fn cuombajj_witches_each_damage_can_hit_a_creature_with_the_same_source() {
-    use crate::event::DamageTarget;
+    use baylee_engine::event::DamageTarget;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for same in [false, true] {
         let mut e = Duel::new(SEED, index::FOREST)
@@ -178,7 +178,7 @@ fn cuombajj_witches_surviving_target_resolves_when_either_target_leaves() {
         activate(&mut e, p0, cuombajj_witches(), 0);
         choose(&mut e, p0, Some(first), None);
         choose(&mut e, p1, Some(second), None);
-        crate::sba::destroy(
+        baylee_engine::sba::destroy(
             e.dev_state_mut(p0).unwrap(),
             if remove_first { first } else { second },
         );
@@ -195,7 +195,7 @@ fn cuombajj_witches_surviving_target_resolves_when_either_target_leaves() {
 
 #[test]
 fn cuombajj_witches_tapped_or_summoning_sick_cannot_activate() {
-    use crate::object::Status;
+    use baylee_engine::object::Status;
     let p0 = PlayerId::new(0);
     for sick in [false, true] {
         let mut e = Duel::new(SEED, index::FOREST)
@@ -246,12 +246,12 @@ fn cuombajj_witches_opponent_chooses_targets_for_the_controllers_ability() {
     reach_main_phase(&mut e, p0);
     let original_own = on_battlefield(&e, p0, index::CARNAGE_TYRANT).unwrap();
     let original_enemy = on_battlefield(&e, p1, index::CARNAGE_TYRANT).unwrap();
-    crate::resolve::gain_control(
+    baylee_engine::resolve::gain_control(
         e.dev_state_mut(p0).unwrap(),
         &[(original_own, p1), (original_enemy, p0)],
     );
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let (own, enemy) = (original_enemy, original_own);
     assert_eq!(e.state().object(own).unwrap().owner, p1);
@@ -299,7 +299,7 @@ fn cuombajj_witches_ability_remains_after_the_source_leaves() {
     activate(&mut e, p0, cuombajj_witches(), 0);
     choose(&mut e, p0, None, Some(p1));
     choose(&mut e, p1, None, Some(p0));
-    crate::sba::destroy(e.dev_state_mut(p0).unwrap(), source);
+    baylee_engine::sba::destroy(e.dev_state_mut(p0).unwrap(), source);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[0].life, 19);
     assert_eq!(e.state().players[1].life, 19);
@@ -334,7 +334,7 @@ fn cuombajj_witches_controller_selects_the_opponent_independently_of_first_targe
 
 #[test]
 fn cuombajj_witches_either_slot_and_both_slots_can_damage_a_real_siege() {
-    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    use baylee_card_testkit::card_tests::battle_damage_kit as battle_kit;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for mode in 0..3 {
         let (mut e, battle) = battle_kit::game(6910 + mode, &[cuombajj_witches()], &[]);
@@ -380,7 +380,7 @@ fn cuombajj_witches_either_slot_and_both_slots_can_damage_a_real_siege() {
 
 #[test]
 fn cuombajj_witches_same_siege_target_defeats_it_and_casts_its_actual_back() {
-    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    use baylee_card_testkit::card_tests::battle_damage_kit as battle_kit;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for cast_back in [false, true] {
         let (mut e, battle) = battle_kit::game(6913, &[cuombajj_witches()], &[lightning_bolt()]);

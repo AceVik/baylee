@@ -51,7 +51,10 @@ fn discordant_dirge_sacrifices_to_reveal_target_opponent_hand() {
     };
     assert_eq!(player, p0);
     assert_eq!((min, max), (0, 0));
-    assert!(matches!(prompt, crate::choice::ChoicePrompt::LookAtHand));
+    assert!(matches!(
+        prompt,
+        baylee_engine::choice::ChoicePrompt::LookAtHand
+    ));
     assert!(options.contains(&in_hand(&engine, p1, grizzly_bears()).unwrap()));
     engine
         .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })

@@ -126,8 +126,8 @@ fn disturbed_burial_that_loses_its_target_goes_to_the_graveyard() {
         .move_object(
             bears,
             ZoneLocation::Exile(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);

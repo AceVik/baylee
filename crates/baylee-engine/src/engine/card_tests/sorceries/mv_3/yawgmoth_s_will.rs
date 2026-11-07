@@ -57,7 +57,7 @@ fn yawgmoth_s_will_allows_playing_land_from_graveyard() {
 
 #[test]
 fn yawgmoths_will_casts_from_the_graveyard_and_exiles_only_your_cards_this_turn() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = Duel::new(958, dark_ritual())
         .hand(0, &[yawgmoth_s_will()])
         .start();
@@ -69,7 +69,10 @@ fn yawgmoths_will_casts_from_the_graveyard_and_exiles_only_your_cards_this_turn(
     kit::float(&mut engine, kit::P0, &[(ManaColor::Black, 4)]);
     kit::cast_at(&mut engine, kit::P0, yawgmoth_s_will(), &[], &[]);
     assert_eq!(engine.state().object(will).unwrap().zone, Zone::Exile);
-    assert!(!crate::casting::flashback_granted(engine.state(), ritual));
+    assert!(!baylee_engine::casting::flashback_granted(
+        engine.state(),
+        ritual
+    ));
     engine
         .apply(kit::P0, PlayerAction::CastSpell { card: ritual })
         .unwrap();

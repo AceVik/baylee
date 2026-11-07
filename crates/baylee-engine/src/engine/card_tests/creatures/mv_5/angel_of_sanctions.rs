@@ -143,7 +143,7 @@ fn angel_of_sanctions_gone_before_its_trigger_resolves_exiles_nothing() {
     aim_at(&mut e, p0, ring);
     let angel = on_battlefield(&e, p0, angel_of_sanctions()).expect("the Angel");
     // The trigger is on the stack; the Angel dies in response.
-    crate::sba::destroy(e.dev_state_mut(p0).expect("dev board"), angel);
+    baylee_engine::sba::destroy(e.dev_state_mut(p0).expect("dev board"), angel);
     pass_until(&mut e, stack_is_empty);
     assert!(on_battlefield(&e, p0, angel_of_sanctions()).is_none());
     assert_eq!(on_battlefield(&e, p1, sol_ring()), Some(ring));

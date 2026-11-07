@@ -110,7 +110,7 @@ fn mesa_pegasus_blocking_divides_the_attackers_damage_for_its_own_controller() {
     assert_eq!((min, max), (0, 6), "the Wurm's whole power, any of it");
     assert_eq!(
         reason,
-        crate::choice::NumberPrompt::CombatDamage {
+        baylee_engine::choice::NumberPrompt::CombatDamage {
             source: wurm,
             recipient: pegasus,
             index: 0,
@@ -185,7 +185,7 @@ fn mesa_pegasus_bands_attacking_so_a_single_blocker_divides_for_the_active_playe
     assert_eq!((min, max), (0, 2), "the ogre's power, any of it");
     assert_eq!(
         reason,
-        crate::choice::NumberPrompt::CombatDamage {
+        baylee_engine::choice::NumberPrompt::CombatDamage {
             source: ogre,
             recipient: lions,
             index: 0,

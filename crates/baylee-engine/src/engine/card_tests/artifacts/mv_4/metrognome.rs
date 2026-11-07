@@ -17,7 +17,7 @@ fn metrognome_creates_gnome_token_when_activated() {
     let before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .len();
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, metrognome(), 1);
@@ -27,7 +27,7 @@ fn metrognome_creates_gnome_token_when_activated() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
             .len(),
         before + 1
     );
@@ -35,7 +35,7 @@ fn metrognome_creates_gnome_token_when_activated() {
 
 #[test]
 fn metrognome_triggers_only_when_opponents_spell_discards_this_card() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for (opponent, discard_this) in [(false, true), (true, false), (true, true)] {

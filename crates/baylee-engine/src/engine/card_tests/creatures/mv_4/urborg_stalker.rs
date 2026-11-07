@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index::{GRIZZLY_BEARS, LIGHTNING_BOLT, SCATHE_ZOMBIES};
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);

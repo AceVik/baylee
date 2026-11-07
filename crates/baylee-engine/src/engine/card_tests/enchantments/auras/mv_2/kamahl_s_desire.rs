@@ -26,8 +26,8 @@ fn kamahl_s_desire_grants_first_strike_and_plus_three_power_with_threshold() {
             .move_object(
                 f,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -52,8 +52,8 @@ fn kamahl_s_desire_grants_first_strike_and_plus_three_power_with_threshold() {
         .move_object(
             forests[6],
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.apply(p0, PlayerAction::PassPriority).unwrap();

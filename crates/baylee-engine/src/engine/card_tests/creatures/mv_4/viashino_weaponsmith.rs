@@ -1,7 +1,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn viashino_weaponsmith() -> CardIndex {
     card_index("f4d17f41-efd6-4173-ab6e-28b6fbcee10d")
@@ -63,7 +63,7 @@ fn viashino_weaponsmith_triggers_once_per_blocker_and_pump_expires() {
         |_, pending| match pending {
             Pending::ChooseNumber {
                 max,
-                reason: crate::choice::NumberPrompt::CombatDamage { .. },
+                reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
                 ..
             } => Some(PlayerAction::ChooseNumber(*max)),
             _ => None,

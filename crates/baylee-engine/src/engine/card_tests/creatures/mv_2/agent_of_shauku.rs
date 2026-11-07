@@ -107,7 +107,7 @@ fn agent_of_shauku_sacrifices_a_land_to_pump_the_creature_it_names() {
     assert_eq!(player, p0, "the seat paying the cost is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one land, no more and no fewer");

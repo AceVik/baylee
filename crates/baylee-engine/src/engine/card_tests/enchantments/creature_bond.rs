@@ -1,8 +1,8 @@
 //! Creature Bond's death trigger, including last known information.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::{Cause, DamageTarget, GameEvent};
 use baylee_core::generated::index;
+use baylee_engine::event::{Cause, DamageTarget, GameEvent};
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -107,7 +107,7 @@ fn creature_bond_deals_toughness_to_creatures_controller_from_the_aura() {
 fn creature_bond_uses_counters_and_ignores_marked_damage() {
     let (mut e, creature, aura) = setup();
     let state = e.dev_state_mut(P0).unwrap();
-    crate::replacement::put_counters(state, creature, CounterKind::P1P1, 2);
+    baylee_engine::replacement::put_counters(state, creature, CounterKind::P1P1, 2);
     state.object_mut(creature).unwrap().damage = 4;
     state.refresh_characteristics();
     kill(&mut e, creature);
@@ -149,7 +149,7 @@ fn creature_bond_triggers_when_aura_and_creature_die_together() {
 fn creature_bond_keeps_death_values_when_creature_returns_before_resolution() {
     let (mut e, creature, aura) = setup();
     let state = e.dev_state_mut(P0).unwrap();
-    crate::replacement::put_counters(state, creature, CounterKind::P1P1, 2);
+    baylee_engine::replacement::put_counters(state, creature, CounterKind::P1P1, 2);
     state.refresh_characteristics();
     move_to(&mut e, creature, ZoneLocation::Graveyard(P1));
     collect(&mut e);
@@ -172,7 +172,7 @@ fn creature_bond_keeps_death_values_when_creature_returns_before_resolution() {
 fn creature_bond_keeps_death_values_when_creature_returns_in_the_same_resolution() {
     let (mut e, creature, aura) = setup();
     let state = e.dev_state_mut(P0).unwrap();
-    crate::replacement::put_counters(state, creature, CounterKind::P1P1, 2);
+    baylee_engine::replacement::put_counters(state, creature, CounterKind::P1P1, 2);
     state.refresh_characteristics();
     move_to(&mut e, creature, ZoneLocation::Graveyard(P1));
     move_to(&mut e, creature, ZoneLocation::Battlefield);
@@ -185,19 +185,21 @@ fn creature_bond_keeps_death_values_when_creature_returns_in_the_same_resolution
 fn creature_bond_uses_last_controller_not_owner_after_a_stolen_creature_returns() {
     let (mut e, creature, aura) = setup();
     let state = e.dev_state_mut(P0).unwrap();
-    let filter = crate::effects::EffectFilter::object(state, creature);
+    let filter = baylee_engine::effects::EffectFilter::object(state, creature);
     let timestamp = state.next_timestamp();
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::Control,
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::GainControl,
-    });
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
     state.refresh_characteristics();
     assert_eq!(state.object(creature).unwrap().controller, P0);
     move_to(&mut e, creature, ZoneLocation::Graveyard(P1));
@@ -215,7 +217,7 @@ fn creature_bond_handles_zero_and_negative_toughness_without_damage_or_life_gain
         let (mut e, creature, aura) = setup();
         let life = e.state().players[1].life;
         let state = e.dev_state_mut(P0).unwrap();
-        crate::replacement::put_counters(state, creature, CounterKind::M1M1, counters);
+        baylee_engine::replacement::put_counters(state, creature, CounterKind::M1M1, counters);
         state.refresh_characteristics();
         collect(&mut e);
         pass_until(&mut e, stack_is_empty);
@@ -250,9 +252,9 @@ fn creature_bond_event_context_changes_the_stack_hash() {
     let rider = object
         .riders
         .iter_mut()
-        .find(|r| matches!(r, crate::object::Rider::EventDeparture(..)))
+        .find(|r| matches!(r, baylee_engine::object::Rider::EventDeparture(..)))
         .unwrap();
-    *rider = crate::object::Rider::EventDeparture(P0, 6);
+    *rider = baylee_engine::object::Rider::EventDeparture(P0, 6);
     assert_ne!(before.0, e.state().snapshot_hash());
     assert_ne!(before.1, e.state().loop_signature());
     pass_until(&mut e, stack_is_empty);
@@ -268,20 +270,22 @@ fn creature_bond_real_removal_deals_untargeted_preventable_damage() {
         who: baylee_cards_dsl::PlayerRel::You,
     };
     let timestamp = state.next_timestamp();
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P1,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
-        modifier,
-    });
-    state.shields.push(crate::prevention::Shield {
-        protects: crate::prevention::Shielded::Player(P1),
-        kind: crate::prevention::ShieldKind::Next(2),
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P1,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+            modifier,
+        });
+    state.shields.push(baylee_engine::prevention::Shield {
+        protects: baylee_engine::prevention::Shielded::Player(P1),
+        kind: baylee_engine::prevention::ShieldKind::Next(2),
         controller: P1,
     });
     state.players[0].mana_pool.add(ManaColor::Black, 2);

@@ -703,3 +703,18 @@ impl LandSource {
             .unwrap_or(0)
     }
 }
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn remember_controlled_spell_for_tests(
+        &mut self,
+        card: ObjectId,
+        controller: PlayerId,
+        player: PlayerId,
+    ) {
+        self.remember_controlled_spell(card, controller, player);
+    }
+}

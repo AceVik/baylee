@@ -60,7 +60,7 @@ fn thran_entering_after_teferi_cannot_pay_life_for_intrinsic_or_granted_mana() {
     pass_until(&mut e, stack_is_empty);
     let portal = enter_forest(&mut e);
     reset(&mut e);
-    let grant = crate::effects::granted_activated(e.state(), portal)
+    let grant = baylee_engine::effects::granted_activated(e.state(), portal)
         .next()
         .unwrap()
         .id;

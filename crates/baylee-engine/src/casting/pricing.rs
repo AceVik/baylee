@@ -75,11 +75,8 @@ pub fn ability_mana_spending(
 }
 
 /// Spending permission follows the exact exiled card incarnation, not its owner.
-pub(crate) fn spell_mana_spending(
-    state: &GameState,
-    player: PlayerId,
-    card: ObjectId,
-) -> ManaSpending {
+#[doc(hidden)]
+pub fn spell_mana_spending(state: &GameState, player: PlayerId, card: ObjectId) -> ManaSpending {
     if state.object(card).is_some_and(|object| {
         state.play_permissions.iter().any(|permission| {
             permission.player == player
@@ -359,7 +356,8 @@ pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32
 
 /// Generic adjustments combine before clamping: increases first (CR 601.2f).
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct SpellAdjustment {
+#[doc(hidden)]
+pub struct SpellAdjustment {
     pub increase: u32,
     pub eligible_increase: u32,
     pub reduction: u32,
@@ -404,7 +402,8 @@ fn has_spell_adjustments(state: &GameState) -> bool {
 }
 
 /// Match the projected stack characteristics, including alternative faces.
-pub(crate) fn projected_spell(
+#[doc(hidden)]
+pub fn projected_spell(
     state: &GameState,
     player: PlayerId,
     object: &crate::object::GameObject,
@@ -419,7 +418,8 @@ pub(crate) fn projected_spell(
     spell
 }
 
-pub(crate) fn spell_adjustment(
+#[doc(hidden)]
+pub fn spell_adjustment(
     state: &GameState,
     player: PlayerId,
     object: &crate::object::GameObject,
@@ -494,7 +494,8 @@ pub(crate) fn spell_adjustment(
     adjustment
 }
 
-pub(crate) fn face_adjustment(
+#[doc(hidden)]
+pub fn face_adjustment(
     state: &GameState,
     player: PlayerId,
     card: ObjectId,
@@ -529,8 +530,9 @@ pub(crate) fn face_adjustment(
 }
 
 /// The public view still reports positive taxes separately from printed costs.
-#[cfg(test)]
-pub(crate) fn spell_increase(
+#[cfg(any(test, feature = "test-support"))]
+#[doc(hidden)]
+pub fn spell_increase(
     state: &GameState,
     player: PlayerId,
     object: &crate::object::GameObject,
@@ -542,7 +544,8 @@ pub(crate) fn spell_increase(
 /// Additional generic mana for activating an ability of this object. The
 /// filter's normal zone boundary deliberately excludes white enchantment
 /// *cards* cycling in hand; Gloom names enchantments, i.e. permanents.
-pub(crate) fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
+#[doc(hidden)]
+pub fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
     if !state.effects.may_change_or_forbid_abilities() {
         return 0;
     }
@@ -564,7 +567,8 @@ pub(crate) fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
 }
 
 /// One activation may pay one ordinary mana cost; additional costs stay exact.
-pub(crate) fn north_star_effect(
+#[doc(hidden)]
+pub fn north_star_effect(
     state: &GameState,
     player: PlayerId,
 ) -> Option<baylee_core::ids::EffectId> {
@@ -581,7 +585,8 @@ pub(crate) fn north_star_effect(
         .map(|effect| effect.id)
 }
 
-pub(crate) fn north_star_face_allowed(
+#[doc(hidden)]
+pub fn north_star_face_allowed(
     state: &GameState,
     player: PlayerId,
     card: ObjectId,
@@ -594,7 +599,8 @@ pub(crate) fn north_star_face_allowed(
 }
 
 /// Price already includes increases, reductions and additional costs.
-pub(crate) fn normal_spell_affordable(
+#[doc(hidden)]
+pub fn normal_spell_affordable(
     state: &GameState,
     player: PlayerId,
     what: SpendFor,
@@ -613,7 +619,8 @@ pub(crate) fn normal_spell_affordable(
 }
 
 #[allow(clippy::too_many_arguments)] // component conversion preserves the same explicit source scope
-pub(crate) fn component_affordable(
+#[doc(hidden)]
+pub fn component_affordable(
     state: &GameState,
     player: PlayerId,
     what: SpendFor,

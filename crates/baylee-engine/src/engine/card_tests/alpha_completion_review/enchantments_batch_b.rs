@@ -27,7 +27,7 @@ fn leak_walk<L: CardLookup>(engine: &mut Engine<L>, pred: impl Fn(&Engine<L>) ->
         }
         let pending = engine.pending().clone();
         assert!(
-            super::super::super::synthetic::walk_past(engine, &pending),
+            baylee_card_testkit::synthetic::walk_past(engine, &pending),
             "unexpected pending: {pending:?}"
         );
     }
@@ -205,7 +205,7 @@ fn power_leak_independent_source_or_attachment_removed_preserves_trigger_player_
     }
 }
 
-use super::super::super::synthetic::{self, SyntheticLookup};
+use baylee_card_testkit::synthetic::{self, SyntheticLookup};
 use baylee_cards_dsl::{
     AbilityDef, Cost, Duration, Effect, Filter, Modifier, TargetSpec, activated, static_ability,
 };
@@ -354,7 +354,7 @@ fn power_leak_independent_paid_prevention_tracks_its_damage_through_redirection(
                 .find(|option| {
                     matches!(
                         option.kind,
-                        crate::choice::DamageEffectKind::Redirect { .. }
+                        baylee_engine::choice::DamageEffectKind::Redirect { .. }
                     )
                 })
                 .unwrap()
@@ -487,12 +487,12 @@ fn power_leak_independent_reverse_damage_requires_a_prevention_order_choice() {
                 if paid_first {
                     matches!(
                         option.kind,
-                        crate::choice::DamageEffectKind::PreventThisEvent { .. }
+                        baylee_engine::choice::DamageEffectKind::PreventThisEvent { .. }
                     )
                 } else {
                     matches!(
                         option.kind,
-                        crate::choice::DamageEffectKind::PreventFromSource {
+                        baylee_engine::choice::DamageEffectKind::PreventFromSource {
                             gain_life: true,
                             ..
                         }

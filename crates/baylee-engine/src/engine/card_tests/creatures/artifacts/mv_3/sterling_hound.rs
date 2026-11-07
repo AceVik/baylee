@@ -28,7 +28,7 @@ fn sterling_hound_surveils_two_on_entering() {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Surveil);
     let looked: Vec<ObjectId> = before.iter().rev().take(2).copied().collect();
     assert_eq!(cards, looked);
     assert_eq!(piles, surveil_piles(2));

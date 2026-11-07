@@ -66,7 +66,7 @@ fn zhalfirin_knight_gains_first_strike_and_flanks_blocker() {
     assert_eq!(pt(&engine, bear), (1, 1));
     // First strike: the 1/1 Bears dies before it can deal its damage.
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
     assert_eq!(

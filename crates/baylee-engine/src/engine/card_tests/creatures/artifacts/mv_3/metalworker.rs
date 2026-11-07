@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn metalworker() -> CardIndex {
     card_index("9ed9accb-9f0c-40fa-aeea-2d1e1c9d1bd1")

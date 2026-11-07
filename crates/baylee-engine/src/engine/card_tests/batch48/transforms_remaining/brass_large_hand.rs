@@ -89,12 +89,12 @@ fn brass_paged_discard_accumulates_all_pages_before_discarding_and_draws_full_co
 fn assert_page_selections_change_continuation_hash(e: &mut Engine<RegistryLookup>) {
     // Engine has no Clone API. Its complete decision checkpoint provides
     // the same exact first-page branch point, including the continuation.
-    let checkpoint = crate::engine::checkpoint::Checkpoint::capture(e);
+    let checkpoint = baylee_engine::engine::checkpoint::Checkpoint::capture(e);
     let Pending::ChooseCards { options, .. } = e.pending().clone() else {
         unreachable!()
     };
     let selected_card = options[0];
-    let restart = crate::engine::checkpoint::Checkpoint::capture(e);
+    let restart = baylee_engine::engine::checkpoint::Checkpoint::capture(e);
     let untouched_state = e.state.snapshot_hash();
     choose(e, vec![]);
     let empty_engine_hash = e.snapshot_hash();

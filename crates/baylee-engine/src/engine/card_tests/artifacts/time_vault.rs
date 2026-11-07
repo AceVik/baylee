@@ -6,10 +6,10 @@
 //! step, phase, or turn to actually occur" (CR 614.10b).
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::YesNoPrompt;
-use crate::event::{Cause, GameEvent};
 use baylee_core::generated::index;
 use baylee_core::ids::AbilityRef;
+use baylee_engine::choice::YesNoPrompt;
+use baylee_engine::event::{Cause, GameEvent};
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -123,7 +123,7 @@ fn time_vault_enters_tapped_and_takes_an_extra_turn() {
     assert_eq!(to_skip_offer(&mut engine), (P0, vault));
     engine.apply(P0, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.number == turn + 1 && e.state().turn.step == crate::turn::Step::Main
+        e.state().turn.number == turn + 1 && e.state().turn.step == baylee_engine::turn::Step::Main
     });
     assert_eq!(engine.state().turn.active, P0, "the extra turn is p0's");
     assert!(is_tapped(&engine, vault), "and it did not untap");

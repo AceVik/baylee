@@ -36,7 +36,7 @@ fn interdict_counters_target_activated_ability_and_draws_a_card() {
         )
         .unwrap();
     let sorcerer = on_battlefield(&engine, P1, index::PRODIGAL_SORCERER).unwrap();
-    crate::engine::card_tests::legends_kit::float(&mut engine, P1, &[(ManaColor::Green, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, P1, &[(ManaColor::Green, 1)]);
     cast_with_floating(&mut engine, P1, index::GIANT_GROWTH);
     aim_at(&mut engine, P1, sorcerer);
     let growth = in_hand(&engine, P1, index::GIANT_GROWTH);

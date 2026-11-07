@@ -37,7 +37,7 @@ fn volrath_s_stronghold_is_not_offered_one_mana_short() {
         let state = engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
-        crate::sba::destroy(state, hierarch);
+        baylee_engine::sba::destroy(state, hierarch);
         engine.refresh_offer();
 
         let land = on_battlefield(&engine, p0, volrath_s_stronghold())

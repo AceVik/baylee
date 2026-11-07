@@ -1,8 +1,8 @@
 //! Every offered first card must select a payable graveyard, never a hidden group constraint.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::object::AbilityList;
 use baylee_cards_dsl::{AbilityDef, Amount, Cost, CostPart, Effect, Filter, ManaCost};
+use baylee_engine::object::AbilityList;
 
 fn payment(count: u8, other_count: u8) -> Engine<RegistryLookup> {
     let mut engine = Duel::new(SEED, swamp())
@@ -127,7 +127,7 @@ fn every_first_card_selects_one_graveyard_and_costs_remain_atomic() {
             let bad = PlayerAction::ChooseObjects { objects: mixed };
             assert_eq!(
                 engine.pending().answer_fault(&bad),
-                Some(crate::choice::AnswerFault::NotOffered)
+                Some(baylee_engine::choice::AnswerFault::NotOffered)
             );
             assert!(engine.apply(P0, bad).is_err());
             assert_eq!(engine.state().snapshot_hash(), before);

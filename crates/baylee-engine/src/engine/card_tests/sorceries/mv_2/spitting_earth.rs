@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::event::DamageTarget;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
+use baylee_engine::event::DamageTarget;
 
 fn spitting_earth() -> CardIndex {
     card_index("0c3bf4e1-d91e-4dd3-a800-e40971222c71")

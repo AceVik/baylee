@@ -23,7 +23,7 @@ fn teferis_isle_enters_tapped_and_taps_for_two_blue() {
             .object(land)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
     assert!(is_tapped(&engine, land), "phasing precedes untapping");
     let version = engine.state().object(land).unwrap().version;
@@ -34,7 +34,7 @@ fn teferis_isle_enters_tapped_and_taps_for_two_blue() {
             .object(land)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
     reach_their_main_phase(&mut engine, p0);
     assert!(
@@ -43,7 +43,7 @@ fn teferis_isle_enters_tapped_and_taps_for_two_blue() {
             .object(land)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
     assert_eq!(engine.state().object(land).unwrap().version, version);
     assert!(!is_tapped(&engine, land));

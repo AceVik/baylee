@@ -105,7 +105,7 @@ fn slobad_sacrifices_an_artifact_to_make_another_indestructible() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell them apart"
     );
     assert_eq!((min, max), (1, 1), "one artifact, no more and no fewer");

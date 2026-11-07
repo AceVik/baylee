@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -47,7 +47,7 @@ fn shard_phoenix_sacrifices_to_damage_nonfliers_and_returns_during_upkeep() {
     reach_their_main_phase(&mut engine, lk::P1);
     pass_until(&mut engine, |e| {
         e.state().turn.active == P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
     lk::float(&mut engine, P0, &[(ManaColor::Red, 3)]);

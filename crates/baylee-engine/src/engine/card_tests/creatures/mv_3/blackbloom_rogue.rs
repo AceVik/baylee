@@ -150,8 +150,8 @@ fn a_blackbloom_rogue_gains_three_power_at_eight_cards() {
         .move_object(
             card,
             ZoneLocation::Hand(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.apply(p0, PlayerAction::PassPriority).unwrap();

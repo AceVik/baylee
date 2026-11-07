@@ -57,7 +57,7 @@ fn labyrinth_needs_a_combat_target_even_when_its_cost_is_affordable() {
 
 #[test]
 fn labyrinth_removes_attackers_or_blockers_without_unblocking_or_untapping() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for remove_blocker in [false, true] {
         let mut engine = kit::game(
             944,
@@ -100,7 +100,7 @@ fn labyrinth_removes_attackers_or_blockers_without_unblocking_or_untapping() {
 /// that is removed deals no combat damage.
 #[test]
 fn labyrinth_offers_only_combatants_and_a_removed_attacker_deals_no_damage() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut engine = kit::game(
         946,

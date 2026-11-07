@@ -1,9 +1,9 @@
 //! Exact death objects, granted return abilities and changing reanimation.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::Cause;
-use crate::zone::ZonePosition;
 use baylee_core::generated::{index, subtypes};
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -27,11 +27,11 @@ fn granted_undying_survives_simultaneous_death_but_not_prior_loss() {
         let elf = on_battlefield(&e, P0, index::LLANOWAR_ELVES).unwrap();
         let state = e.dev_state_mut(P0).unwrap();
         if simultaneous {
-            crate::sba::destroy_all(state, &[source, elf], false);
+            baylee_engine::sba::destroy_all(state, &[source, elf], false);
         } else {
-            crate::sba::destroy(state, source);
+            baylee_engine::sba::destroy(state, source);
             state.refresh_characteristics();
-            crate::sba::destroy(state, elf);
+            baylee_engine::sba::destroy(state, elf);
         }
         advance(&mut e);
         pass_until(&mut e, stack_is_empty);
@@ -50,7 +50,7 @@ fn printed_and_granted_undying_trigger_independently_but_return_only_once() {
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, P0);
     let wolf = on_battlefield(&e, P0, index::YOUNG_WOLF).unwrap();
-    crate::sba::destroy(e.dev_state_mut(P0).unwrap(), wolf);
+    baylee_engine::sba::destroy(e.dev_state_mut(P0).unwrap(), wolf);
     advance(&mut e);
     assert_eq!(e.state().zones.list(ZoneLocation::Stack).len(), 2);
     pass_until(&mut e, stack_is_empty);
@@ -127,11 +127,11 @@ fn deathmantle_returns_its_death_card_then_attaches_if_still_present() {
         let mantle = on_battlefield(&e, P0, index::NIM_DEATHMANTLE).unwrap();
         let elf = on_battlefield(&e, P0, index::LLANOWAR_ELVES).unwrap();
         tap_all_mana_but(&mut e, P0, Some(index::LLANOWAR_ELVES));
-        crate::sba::destroy(e.dev_state_mut(P0).unwrap(), elf);
+        baylee_engine::sba::destroy(e.dev_state_mut(P0).unwrap(), elf);
         advance(&mut e);
         let state = e.dev_state_mut(P0).unwrap();
         if !equipment_stays {
-            crate::sba::destroy(state, mantle);
+            baylee_engine::sba::destroy(state, mantle);
         }
         if !same_card {
             state
@@ -229,7 +229,7 @@ fn assimilation_replaces_creature_types_doubles_entry_counters_and_outlives_quee
     assert_eq!(counters_on(&e, elf, CounterKind::P1P1), 2);
     assert_eq!(pt(&e, elf), (5, 3));
     let queen = on_battlefield(&e, P0, index::BORG_QUEEN_PERFECTION_MANIFEST).unwrap();
-    crate::sba::destroy(e.dev_state_mut(P0).unwrap(), queen);
+    baylee_engine::sba::destroy(e.dev_state_mut(P0).unwrap(), queen);
     advance(&mut e);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(pt(&e, elf), (3, 3));
@@ -288,7 +288,7 @@ fn removing_granted_undying_before_death_prevents_the_return() {
     let state = e.dev_state_mut(P0).unwrap();
     super::keyword_counters::remove_abilities(state, elf);
     state.refresh_characteristics();
-    crate::sba::destroy(state, elf);
+    baylee_engine::sba::destroy(state, elf);
     advance(&mut e);
     assert!(stack_is_empty(&e));
     assert!(in_graveyard(&e, P0, index::LLANOWAR_ELVES).is_some());
@@ -303,7 +303,7 @@ fn an_undying_token_triggers_but_cannot_return_from_the_graveyard() {
     let name = state.names.intern("Undying token");
     let token = state.create_bare(
         P0,
-        crate::object::ObjectKind::Permanent,
+        baylee_engine::object::ObjectKind::Permanent,
         name,
         ZoneLocation::Battlefield,
     );
@@ -314,13 +314,13 @@ fn an_undying_token_triggers_but_cannot_return_from_the_graveyard() {
     base.keywords = KeywordSet::UNDYING;
     state.invalidate_projections();
     state.refresh_characteristics();
-    crate::sba::destroy(state, token);
+    baylee_engine::sba::destroy(state, token);
     advance(&mut e);
     assert_eq!(e.state().zones.list(ZoneLocation::Stack).len(), 1);
     pass_until(&mut e, stack_is_empty);
     assert!(
         e.state()
             .object(token)
-            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+            .is_none_or(|o| o.zone != baylee_engine::zone::Zone::Battlefield)
     );
 }

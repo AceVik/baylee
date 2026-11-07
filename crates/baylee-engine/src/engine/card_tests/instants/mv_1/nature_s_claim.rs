@@ -110,7 +110,7 @@ fn natures_claim_gains_no_life_when_its_only_target_has_already_been_destroyed()
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .len(),
         2
     );

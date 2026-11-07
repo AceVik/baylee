@@ -52,7 +52,7 @@ fn kindle_deals_two_plus_the_number_of_kindles_in_all_graveyards() {
 
 #[test]
 fn kindle_counts_the_opponents_graveyard_but_not_other_card_names() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let mut e = lk::game(SEED, &[index::GRIZZLY_BEARS], &[], &[kindle()], &[kindle()]);
     let bears = lk::obj(&e, P0, index::GRIZZLY_BEARS);

@@ -93,7 +93,7 @@ fn q_next_main(e: &mut Engine<RegistryLookup>, p: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == p
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..} if *player==p)
     });
 }
@@ -189,12 +189,12 @@ fn lighthouse_resolved_cohort_survives_noncreature_interval() {
     let original = e.state.object(tyrant).unwrap().characteristics().types;
     e.state.object_mut(tyrant).unwrap().base_mut().types = TypeSet::LAND;
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(!keywords(&e, tyrant).contains(KeywordSet::HEXPROOF));
     e.state.object_mut(tyrant).unwrap().base_mut().types = original;
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(
         !keywords(&e, tyrant).contains(KeywordSet::HEXPROOF),

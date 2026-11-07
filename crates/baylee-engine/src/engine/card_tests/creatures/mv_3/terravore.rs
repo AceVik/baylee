@@ -33,8 +33,8 @@ fn terravore_power_and_toughness_equal_land_cards_in_all_graveyards() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -45,8 +45,8 @@ fn terravore_power_and_toughness_equal_land_cards_in_all_graveyards() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(p1),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

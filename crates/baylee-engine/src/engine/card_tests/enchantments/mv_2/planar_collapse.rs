@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn planar_collapse() -> CardIndex {
     card_index("82bccc9f-f700-4f1f-b89e-bea63d973161")

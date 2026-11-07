@@ -32,7 +32,7 @@ fn stonefury_deals_damage_equal_to_the_lands_you_control() {
         .filter(|(_, _, amount, _)| *amount > 0)
         .collect();
     assert_eq!(hits.len(), 1, "one hit: {hits:?}");
-    assert!(matches!(hits[0].1, crate::event::DamageTarget::Object(o) if o == big));
+    assert!(matches!(hits[0].1, baylee_engine::event::DamageTarget::Object(o) if o == big));
     assert_eq!(hits[0].2, 7, "seven lands of mine, not eight with theirs");
     assert!(in_graveyard(&engine, them(), earth_elemental()).is_some());
 }

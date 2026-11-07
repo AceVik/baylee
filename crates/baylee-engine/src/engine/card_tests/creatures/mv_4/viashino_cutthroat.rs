@@ -23,10 +23,10 @@ fn viashino_cutthroat_has_haste_and_returns_to_hand_at_end_step() {
     let cutthroat = on_battlefield(&engine, p0, viashino_cutthroat()).unwrap();
     assert!(keywords(&engine, cutthroat).contains(KeywordSet::HASTE));
     assert_eq!(pt(&engine, cutthroat), (5, 3));
-    crate::engine::card_tests::legends_kit::attack(&mut engine, &[cutthroat]);
+    baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[cutthroat]);
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     pass_until(&mut engine, stack_is_empty);
 

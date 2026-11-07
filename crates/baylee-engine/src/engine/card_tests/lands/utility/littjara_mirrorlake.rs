@@ -103,7 +103,7 @@ fn littjara_mirrorlake_enters_tapped_and_creates_creature_copy() {
 
 #[test]
 fn mirrorlake_doubles_tokens_and_entry_counters_but_counters_are_not_copiable() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut e = kit::game(
         982,
@@ -117,7 +117,7 @@ fn mirrorlake_doubles_tokens_and_entry_counters_but_counters_are_not_copiable() 
         &[],
     );
     let elf = kit::obj(&e, kit::P0, llanowar_elves());
-    crate::replacement::put_counters(&mut e.state, elf, CounterKind::P1P1, 3);
+    baylee_engine::replacement::put_counters(&mut e.state, elf, CounterKind::P1P1, 3);
     kit::float(
         &mut e,
         kit::P0,
@@ -158,7 +158,7 @@ fn mirrorlake_doubles_tokens_and_entry_counters_but_counters_are_not_copiable() 
 /// and is offered in a main phase with an empty stack.
 #[test]
 fn mirrorlake_copy_ability_is_offered_only_as_a_sorcery() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let mut e = kit::game(
@@ -188,7 +188,7 @@ fn mirrorlake_copy_ability_is_offered_only_as_a_sorcery() {
         "main phase, empty stack, cost floating: offered"
     );
 
-    kit::to_step(&mut e, p0, crate::turn::Step::CombatBegin);
+    kit::to_step(&mut e, p0, baylee_engine::turn::Step::CombatBegin);
     kit::float(&mut e, p0, &price);
     assert!(
         !kit::offered(&e, littjara_mirrorlake(), p0, 1),

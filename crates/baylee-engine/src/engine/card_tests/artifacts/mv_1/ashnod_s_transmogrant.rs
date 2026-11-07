@@ -80,7 +80,7 @@ fn ashnod_s_transmogrant_adds_a_counter_and_a_lasting_artifact_type() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::remove_counters(state, elf, CounterKind::P1P1, 1);
+    baylee_engine::replacement::remove_counters(state, elf, CounterKind::P1P1, 1);
     state.refresh_characteristics();
     engine.refresh_offer();
     assert_eq!(

@@ -35,7 +35,7 @@ fn hand_to_hand_prevents_players_from_casting_instants_during_combat() {
     engine
         .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
         .unwrap();
-    crate::engine::card_tests::legends_kit::float(&mut engine, P0, &[(ManaColor::Green, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, P0, &[(ManaColor::Green, 1)]);
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("expected Priority");
     };

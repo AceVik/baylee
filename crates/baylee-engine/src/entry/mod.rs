@@ -9,6 +9,9 @@ mod departure;
 mod equilibrium;
 mod forms;
 mod tapping;
+#[cfg(feature = "test-support")]
+pub use choices::{advance, answer, next_question};
+#[cfg(not(feature = "test-support"))]
 pub(crate) use choices::{advance, answer, next_question};
 use commit::{finish, sacrifice};
 use copying::{answer_copy, copy_question};
@@ -32,7 +35,8 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct Entries {
+#[doc(hidden)]
+pub struct Entries {
     pending: VecDeque<Attempt>,
     /// Fully decided co-arrivals, retained until the whole counter transaction is ready.
     ready: VecDeque<Attempt>,
@@ -171,7 +175,8 @@ impl Hash for Entries {
 }
 
 impl Entries {
-    pub(crate) fn begin_event(&mut self, _seq: u64, putter: Option<PlayerId>) {
+    #[doc(hidden)]
+    pub fn begin_event(&mut self, _seq: u64, putter: Option<PlayerId>) {
         if self.pending.is_empty() && self.ready.is_empty() && self.question.is_none() {
             self.event_objects.clear();
             self.counter_transaction = false;
@@ -199,7 +204,8 @@ impl Entries {
     pub(crate) fn waiting(&self) -> bool {
         self.question.is_some()
     }
-    pub(crate) fn contains(&self, id: ObjectId) -> bool {
+    #[doc(hidden)]
+    pub fn contains(&self, id: ObjectId) -> bool {
         self.pending_objects.contains(&id)
     }
 }

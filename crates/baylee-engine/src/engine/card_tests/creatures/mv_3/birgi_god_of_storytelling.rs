@@ -136,7 +136,7 @@ fn harnfel_discards_as_cost_exiles_two_and_requires_normal_spell_payment() {
         "only the front produces spell mana"
     );
     reach_their_main_phase(&mut e, PlayerId::new(1));
-    assert!(crate::casting::play_permission(e.state(), p0, exiled[1]).is_none());
+    assert!(baylee_engine::casting::play_permission(e.state(), p0, exiled[1]).is_none());
 }
 
 fn give_boast(e: &mut Engine<RegistryLookup>, creature: ObjectId) {
@@ -146,12 +146,9 @@ fn give_boast(e: &mut Engine<RegistryLookup>, creature: ObjectId) {
         &[Effect::gain_life(1)],
         limit = ActivationLimit::Boast
     )];
-    e.state
-        .object_mut(creature)
-        .unwrap()
-        .take_abilities(crate::object::AbilityList::from_static(
-            ABILITIES, None, None,
-        ));
+    e.state.object_mut(creature).unwrap().take_abilities(
+        baylee_engine::object::AbilityList::from_static(ABILITIES, None, None),
+    );
     e.refresh_offer();
 }
 
@@ -279,7 +276,7 @@ fn birgi_does_not_double_boast_on_an_opponents_turn_after_control_changes() {
 }
 
 fn harnfel_table() -> Engine<RegistryLookup> {
-    use crate::choice::CastModeKind;
+    use baylee_engine::choice::CastModeKind;
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, grizzly_bears())
         .hand(0, &[birgi_god_of_storytelling(), forest()])

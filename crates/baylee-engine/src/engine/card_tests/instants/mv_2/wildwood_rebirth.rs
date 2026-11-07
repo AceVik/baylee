@@ -34,8 +34,8 @@ fn returns_creature_card_from_graveyard_to_hand() {
         .move_object(
             c,
             ZoneLocation::Graveyard(p),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     g.dev_state_mut(p)
@@ -43,8 +43,8 @@ fn returns_creature_card_from_graveyard_to_hand() {
         .move_object(
             noncreature,
             ZoneLocation::Graveyard(p),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     g.dev_state_mut(p)
@@ -52,8 +52,8 @@ fn returns_creature_card_from_graveyard_to_hand() {
         .move_object(
             foe_creature,
             ZoneLocation::Graveyard(PlayerId::new(1)),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     g.refresh_offer();

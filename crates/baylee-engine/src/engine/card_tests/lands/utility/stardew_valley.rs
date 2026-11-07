@@ -148,7 +148,7 @@ fn stardew_valley_does_not_draw_when_its_target_left() {
         },
     )
     .unwrap();
-    crate::sba::destroy(e.dev_state_mut(p0).unwrap(), target);
+    baylee_engine::sba::destroy(e.dev_state_mut(p0).unwrap(), target);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state().zones.list(ZoneLocation::Hand(p0)).len(),
@@ -233,7 +233,7 @@ fn stardew_valley_draw_target_is_controlled_and_not_restricted_to_lands() {
 
 #[test]
 fn stardew_valley_food_requires_mana_untapped_land_and_untapped_controlled_creature() {
-    use crate::object::Status;
+    use baylee_engine::object::Status;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for missing in 0..3 {
         let mut e = Duel::new(SEED, forest())
@@ -363,7 +363,7 @@ fn stardew_valley_controller_chooses_another_player_after_drawing() {
 
 #[test]
 fn stardew_valley_draw_costs_three_and_an_untapped_land() {
-    use crate::object::Status;
+    use baylee_engine::object::Status;
     let p0 = PlayerId::new(0);
     for tapped in [false, true] {
         let mut e = Duel::new(SEED, forest())
@@ -426,9 +426,9 @@ fn stardew_valley_target_losing_control_prevents_the_draw_and_transfer() {
         },
     )
     .unwrap();
-    crate::resolve::gain_control(e.dev_state_mut(p0).unwrap(), &[(target, p1)]);
+    baylee_engine::resolve::gain_control(e.dev_state_mut(p0).unwrap(), &[(target, p1)]);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, stack_is_empty);
     assert_eq!(

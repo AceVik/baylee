@@ -24,9 +24,9 @@ fn epic_struggle_wins_the_game_at_your_upkeep_with_twenty_creatures() {
     pass_until(&mut engine, |e| e.state().game_end.is_some());
     assert_eq!(
         engine.state().game_end,
-        Some(crate::win::GameResult {
-            winner: Some(crate::win::Victor::Player(p0)),
-            reason: crate::win::EndReason::EffectWin,
+        Some(baylee_engine::win::GameResult {
+            winner: Some(baylee_engine::win::Victor::Player(p0)),
+            reason: baylee_engine::win::EndReason::EffectWin,
         })
     );
 }

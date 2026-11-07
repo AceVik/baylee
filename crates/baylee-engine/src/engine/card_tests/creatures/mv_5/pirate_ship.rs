@@ -259,7 +259,7 @@ fn pirate_ship_sacrifices_itself_when_its_last_island_is_destroyed() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::AbilityTriggered {
+                baylee_engine::event::GameEvent::AbilityTriggered {
                     source,
                     ability_index: 1,
                     ..
@@ -341,7 +341,7 @@ fn a_new_island_while_the_sacrifice_trigger_waits_does_not_save_the_pirate_ship(
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::AbilityTriggered {
+                baylee_engine::event::GameEvent::AbilityTriggered {
                     source,
                     ability_index: 1,
                     ..
@@ -358,7 +358,7 @@ fn a_new_island_while_the_sacrifice_trigger_waits_does_not_save_the_pirate_ship(
             fresh_island,
             ZoneLocation::Battlefield,
             ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("the harness moves a card");
     assert!(

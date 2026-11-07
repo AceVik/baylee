@@ -45,7 +45,7 @@ fn benevolent_geist_is_disturbed_shields_noncreature_spells_and_is_exiled() {
             card,
             ZoneLocation::Graveyard(p0),
             ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("into the graveyard");
     // Six blue float: three for the disturb cost, three for the sorcery.
@@ -75,7 +75,7 @@ fn benevolent_geist_is_disturbed_shields_noncreature_spells_and_is_exiled() {
         engine
             .state()
             .object(warden_trigger)
-            .is_some_and(crate::object::GameObject::can_be_countered),
+            .is_some_and(baylee_engine::object::GameObject::can_be_countered),
         "an ability is no noncreature spell"
     );
     pass_until(&mut engine, stack_is_empty);

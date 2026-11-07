@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::life;
+use baylee_card_testkit::card_tests::partials_w2c_kit::life;
 
 fn phyrexian_war_beast() -> CardIndex {
     card_index("0c93c418-e10b-4a6d-bddb-3b786bb6a928")

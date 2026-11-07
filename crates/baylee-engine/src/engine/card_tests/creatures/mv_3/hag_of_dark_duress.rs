@@ -38,7 +38,7 @@ fn own_upkeep_makes_opponent_discard_exactly_one() {
         unreachable!()
     };
     assert_eq!(game.state().turn.active, p0);
-    assert_eq!(game.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(game.state().turn.step, baylee_engine::turn::Step::Upkeep);
     assert_eq!(player, p1);
     assert_eq!((min, max), (1, 1));
     let chosen = in_hand(&game, p1, wild_elephant()).unwrap();

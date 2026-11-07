@@ -1,7 +1,7 @@
 //! A source-bound cast trigger differs from a delayed mana-spend trigger.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::Cause;
+use baylee_engine::event::Cause;
 
 #[test]
 fn batch46_pools_copies_actual_announced_x_and_preserves_cast_decisions_after_countering() {
@@ -64,7 +64,7 @@ fn pools(e: &mut Engine<RegistryLookup>) -> ObjectId {
         RegistryLookup.card(index::THE_EVERFLOWING_WELL).unwrap(),
         1,
     );
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     source
 }
@@ -96,7 +96,7 @@ fn batch46_pools_copies_once_for_two_spent_units_and_reverts_at_cleanup() {
     cast(&mut e, spell);
     target(&mut e, vec![ring], vec![]);
     pass_until(&mut e, stack_is_empty);
-    let copied = crate::layers::copiable_values(e.state(), ring).unwrap();
+    let copied = baylee_engine::layers::copiable_values(e.state(), ring).unwrap();
     assert_eq!(copied.name, copied_name);
     assert_eq!(
         e.state
@@ -109,7 +109,7 @@ fn batch46_pools_copies_once_for_two_spent_units_and_reverts_at_cleanup() {
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| e.state.turn.number > turn);
     assert_eq!(
-        crate::layers::copiable_values(e.state(), ring)
+        baylee_engine::layers::copiable_values(e.state(), ring)
             .unwrap()
             .name,
         original_name
@@ -183,7 +183,7 @@ fn batch46_well_descend_counts_eight_permanent_cards_and_rechecks_on_resolution(
         let well = on_battlefield(&e, P0, index::THE_EVERFLOWING_WELL).unwrap();
         seed_graveyard(&mut e, P0, count);
         pass_until(&mut e, |e| {
-            e.state.turn.active == P0 && e.state.turn.step == crate::turn::Step::Upkeep
+            e.state.turn.active == P0 && e.state.turn.step == baylee_engine::turn::Step::Upkeep
         });
         if remove {
             let card = e.state.zones.list(ZoneLocation::Graveyard(P0))[0];
@@ -216,16 +216,16 @@ fn batch46_pools_recognizes_mana_produced_before_it_gained_the_ability() {
     let target_card = on_battlefield(&e, P0, index::FOREST).unwrap();
     reset_pool(&mut e);
     activate(&mut e, P0, index::SOL_RING, 0);
-    assert!(crate::copiable_abilities::apply_copy(
+    assert!(baylee_engine::copiable_abilities::apply_copy(
         &mut e.state,
-        crate::copiable_abilities::CopyApplication {
+        baylee_engine::copiable_abilities::CopyApplication {
             source,
             target: original,
             mods: &[],
             copy_index: 0,
             until_eot: true,
             resolving: None,
-            text: crate::text_changes::TextChangeMap::IDENTITY,
+            text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
         }
     ));
     // Keep only one legendary Pools before the next state-based action.
@@ -237,7 +237,7 @@ fn batch46_pools_recognizes_mana_produced_before_it_gained_the_ability() {
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.players[0].mana_pool.add(ManaColor::Colorless, 1);
     let spell = in_hand(&e, P0, index::WORN_POWERSTONE).unwrap();
     let name = e.state.object(spell).unwrap().base.name;
@@ -245,7 +245,7 @@ fn batch46_pools_recognizes_mana_produced_before_it_gained_the_ability() {
     target(&mut e, vec![target_card], vec![]);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
-        crate::layers::copiable_values(e.state(), target_card)
+        baylee_engine::layers::copiable_values(e.state(), target_card)
             .unwrap()
             .name,
         name
@@ -278,10 +278,10 @@ fn batch46_pools_copies_the_exact_spell_after_it_is_countered() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(spell).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     assert_eq!(
-        crate::layers::copiable_values(e.state(), ring)
+        baylee_engine::layers::copiable_values(e.state(), ring)
             .unwrap()
             .name,
         name
@@ -302,25 +302,25 @@ fn batch46_pools_cleanup_restores_a_previous_permanent_copy_and_its_activated_bo
     pools(&mut e);
     let ring = on_battlefield(&e, P0, index::SOL_RING).unwrap();
     let tome = on_battlefield(&e, P0, index::JAYEMDAE_TOME).unwrap();
-    assert!(crate::copiable_abilities::apply_copy(
+    assert!(baylee_engine::copiable_abilities::apply_copy(
         &mut e.state,
-        crate::copiable_abilities::CopyApplication {
+        baylee_engine::copiable_abilities::CopyApplication {
             source: ring,
             target: tome,
             mods: &[],
             copy_index: 0,
             until_eot: false,
             resolving: None,
-            text: crate::text_changes::TextChangeMap::IDENTITY,
+            text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
         }
     ));
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state
         .object_mut(ring)
         .unwrap()
         .counters
         .add(CounterKind::P1P1, 1);
-    let name = crate::layers::copiable_values(e.state(), ring)
+    let name = baylee_engine::layers::copiable_values(e.state(), ring)
         .unwrap()
         .name;
     reset_pool(&mut e);
@@ -336,7 +336,7 @@ fn batch46_pools_cleanup_restores_a_previous_permanent_copy_and_its_activated_bo
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| e.state.turn.number > turn);
     assert_eq!(
-        crate::layers::copiable_values(e.state(), ring)
+        baylee_engine::layers::copiable_values(e.state(), ring)
             .unwrap()
             .name,
         name
@@ -395,7 +395,7 @@ fn batch46_pools_two_temporary_overlays_restore_the_pre_first_copy_rules_and_cho
     target(&mut e, vec![ring], vec![]);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
-        crate::layers::copiable_values(e.state(), ring)
+        baylee_engine::layers::copiable_values(e.state(), ring)
             .unwrap()
             .name,
         first_name
@@ -414,7 +414,7 @@ fn batch46_pools_two_temporary_overlays_restore_the_pre_first_copy_rules_and_cho
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| e.state.turn.number > turn);
     assert_eq!(
-        crate::layers::copiable_values(e.state(), ring)
+        baylee_engine::layers::copiable_values(e.state(), ring)
             .unwrap()
             .name,
         original_name
@@ -455,19 +455,19 @@ fn batch46_pools_cleanup_does_not_restore_old_copy_rules_onto_a_returned_recipie
     let ring = on_battlefield(&e, P0, index::SOL_RING).unwrap();
     let tome = on_battlefield(&e, P0, index::JAYEMDAE_TOME).unwrap();
     // Establish a prior permanent rules bundle, as in the restoration regression.
-    assert!(crate::copiable_abilities::apply_copy(
+    assert!(baylee_engine::copiable_abilities::apply_copy(
         &mut e.state,
-        crate::copiable_abilities::CopyApplication {
+        baylee_engine::copiable_abilities::CopyApplication {
             source: ring,
             target: tome,
             mods: &[],
             copy_index: 0,
             until_eot: false,
             resolving: None,
-            text: crate::text_changes::TextChangeMap::IDENTITY,
+            text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
         }
     ));
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state
         .object_mut(ring)
         .unwrap()
@@ -499,7 +499,7 @@ fn batch46_pools_cleanup_does_not_restore_old_copy_rules_onto_a_returned_recipie
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     assert_ne!(e.state.object(ring).unwrap().version, old_version);
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| e.state.turn.number > turn);

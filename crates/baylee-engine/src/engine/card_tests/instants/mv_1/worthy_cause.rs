@@ -59,7 +59,7 @@ fn worthy_cause_sacrifices_a_creature_and_gains_life_equal_to_its_toughness() {
 
 #[test]
 fn no_creature_means_the_additional_cost_cannot_be_paid() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[], &[], &[worthy_cause()], &[]);
     lk::float(&mut e, P0, &[(ManaColor::White, 5)]);
     let card = in_hand(&e, P0, worthy_cause()).unwrap();

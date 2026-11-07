@@ -66,7 +66,7 @@ fn fable_transforms_and_its_reflection_copies_another_creature_until_the_end_ste
         engine
             .state()
             .object(copy)
-            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield),
+            .is_none_or(|o| o.zone != baylee_engine::zone::Zone::Battlefield),
         "sacrificed at the beginning of the next end step"
     );
     assert_eq!(
@@ -94,19 +94,21 @@ fn a_stolen_fable_returns_under_the_thiefs_control() {
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
         // A lasting layer-2 steal, written by the harness.
-        let filter = crate::effects::EffectFilter::object(state, saga);
+        let filter = baylee_engine::effects::EffectFilter::object(state, saga);
         let timestamp = state.next_timestamp();
-        state.effects.register(crate::effects::ContinuousEffect {
-            id: baylee_core::ids::EffectId::new(0),
-            source: None,
-            controller: p1,
-            origin: crate::effects::EffectOrigin::Resolution,
-            layer: baylee_cards_dsl::Layer::Control,
-            timestamp,
-            duration: baylee_cards_dsl::Duration::Indefinitely,
-            filter,
-            modifier: baylee_cards_dsl::Modifier::GainControl,
-        });
+        state
+            .effects
+            .register(baylee_engine::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: None,
+                controller: p1,
+                origin: baylee_engine::effects::EffectOrigin::Resolution,
+                layer: baylee_cards_dsl::Layer::Control,
+                timestamp,
+                duration: baylee_cards_dsl::Duration::Indefinitely,
+                filter,
+                modifier: baylee_cards_dsl::Modifier::GainControl,
+            });
         state.refresh_characteristics();
     }
     engine.refresh_offer();
@@ -119,7 +121,7 @@ fn a_stolen_fable_returns_under_the_thiefs_control() {
         let back = engine
             .state()
             .object(saga)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.face_index == 1);
+            .is_some_and(|o| o.zone == baylee_engine::zone::Zone::Battlefield && o.face_index == 1);
         if back && stack_is_empty(&engine) {
             break;
         }
@@ -144,7 +146,7 @@ fn a_stolen_fable_returns_under_the_thiefs_control() {
         .expect("Reflection of Kiki-Jiki");
     assert_eq!(
         (kiki.zone, kiki.face_index),
-        (crate::zone::Zone::Battlefield, 1),
+        (baylee_engine::zone::Zone::Battlefield, 1),
         "chapter III turned it over"
     );
     assert_eq!(

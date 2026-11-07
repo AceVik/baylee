@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn venomous_fangs() -> CardIndex {
     card_index("a1ee715e-bab5-4edc-89ba-610cf71bb048")

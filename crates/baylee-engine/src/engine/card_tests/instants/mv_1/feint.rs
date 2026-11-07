@@ -10,8 +10,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
+use baylee_engine::turn::Step;
 
 // oracle_id = "1bb8fe05-abb3-40a8-9e80-5d99ed0e4284"
 fn feint() -> CardIndex {

@@ -2,8 +2,8 @@
 use super::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::GameEvent;
 use baylee_core::generated::index;
+use baylee_engine::event::GameEvent;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
@@ -48,7 +48,7 @@ fn stun_ray_only_counts_actual_taps_and_allows_overpayment_without_targeting_cre
         Pending::ChooseNumber {
             min: 0,
             max: 9,
-            reason: crate::choice::NumberPrompt::EnergyPayment { candidates: 1 },
+            reason: baylee_engine::choice::NumberPrompt::EnergyPayment { candidates: 1 },
             ..
         }
     ));
@@ -232,7 +232,7 @@ fn stun_replaces_each_effect_untap_but_leaves_untapped_and_reversed_actions_alon
 
 #[test]
 fn stun_untap_symbol_needs_tapped_state_but_a_replaced_payment_still_pays_the_cost() {
-    use crate::engine::synthetic::{self, SyntheticLookup};
+    use baylee_card_testkit::synthetic::{self, SyntheticLookup};
     use baylee_cards_dsl::{AbilityDef, Amount, Effect};
     static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::activated!(
         baylee_cards_dsl::cost!("", UntapSelf),

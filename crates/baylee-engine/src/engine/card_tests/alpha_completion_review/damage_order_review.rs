@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // Shared behavioral card-test vocabulary.
 use super::*;
-use crate::choice::{DamageChoiceId, DamageEffectKind};
-use crate::event::DamageTarget;
+use baylee_engine::choice::{DamageChoiceId, DamageEffectKind};
+use baylee_engine::event::DamageTarget;
 
 fn leak() -> CardIndex {
     card_index("dc2f0000-870b-487f-9623-618fc8eb9765")
@@ -501,7 +501,7 @@ fn healing_salve_simultaneous_sources_allow_deathtouch_or_lifelink_to_be_prevent
                 }
                 Pending::ChooseNumber {
                     player,
-                    reason: crate::choice::NumberPrompt::CombatDamage { recipient, .. },
+                    reason: baylee_engine::choice::NumberPrompt::CombatDamage { recipient, .. },
                     ..
                 } => {
                     engine

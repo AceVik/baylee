@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn pattern_of_rebirth() -> CardIndex {
     card_index("4b8856f8-3cd1-450c-a71b-eb0026e8e179")

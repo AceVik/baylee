@@ -105,7 +105,7 @@ fn living_artifact_counts_one_trigger_per_damage_event_and_none_for_a_creature_o
         )
         .expect("Tyrranax Rex may block the Elf");
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[0],
@@ -172,7 +172,7 @@ fn living_artifact_counts_one_trigger_per_damage_event_and_none_for_a_creature_o
     // and the Bolt put there, for what the attack below is about.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(
                 e.pending(),
                 Pending::YesNo {
@@ -197,7 +197,7 @@ fn living_artifact_counts_one_trigger_per_damage_event_and_none_for_a_creature_o
         .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
         .expect("declining every block is legal");
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[1],
@@ -268,7 +268,7 @@ fn living_artifact_gets_a_separate_trigger_for_each_combat_damage_step() {
         .unwrap();
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamageFirst && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamageFirst && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[0],
@@ -287,7 +287,7 @@ fn living_artifact_gets_a_separate_trigger_for_each_combat_damage_step() {
     );
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().per_turn.damage_dealt_to[0],
@@ -340,7 +340,7 @@ fn living_artifact_offers_to_remove_a_vitality_counter_only_in_its_controllers_u
     let reach_upkeep = |engine: &mut Engine<RegistryLookup>, seat: PlayerId| {
         pass_until(engine, |e| {
             e.state().turn.active == seat
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && (stack_is_empty(e)
                     || matches!(
                         e.pending(),
@@ -418,7 +418,7 @@ fn living_artifact_offers_to_remove_a_vitality_counter_only_in_its_controllers_u
     // Escape this same upkeep before asking for the next one, or the pass
     // would stop on the very spot it already stands on.
     pass_until(&mut engine, |e| {
-        !(e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep)
+        !(e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep)
     });
 
     // Turn 7, p0's own upkeep again (turn 6 is p1's), still 3 counters: this

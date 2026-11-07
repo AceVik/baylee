@@ -151,7 +151,7 @@ fn mana_vault_untaps_for_four_at_upkeep() {
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && !stack_is_empty(e)
     });
     assert!(is_tapped(&engine, vault), "its own untap step left it down");
@@ -174,7 +174,7 @@ fn mana_vault_untaps_for_four_at_upkeep() {
         "{{4}} spent"
     );
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Main
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Main
     });
     assert_eq!(
         engine.state().players[0].life,

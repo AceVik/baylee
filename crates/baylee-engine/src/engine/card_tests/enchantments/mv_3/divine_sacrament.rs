@@ -28,8 +28,8 @@ fn divine_sacrament_pumps_white_creatures_and_adds_bonus_with_threshold() {
             .move_object(
                 f,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -49,8 +49,8 @@ fn divine_sacrament_pumps_white_creatures_and_adds_bonus_with_threshold() {
         .move_object(
             forests[6],
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.apply(p0, PlayerAction::PassPriority).unwrap();

@@ -140,7 +140,8 @@ impl Cleanup {
 /// debt it was activated to pay (#167). Only mana abilities are offered;
 /// passing settles this payment instead of passing ordinary priority.
 #[derive(Clone, Debug)]
-struct PaymentWindow {
+#[doc(hidden)]
+pub struct PaymentWindow {
     /// The seat that said it would pay.
     player: PlayerId,
     /// The resolution waiting for that payment.
@@ -221,7 +222,8 @@ enum PaymentContinuation {
 /// one, so the journal is not cut back: what was made is taken back, and
 /// what was tapped is untapped.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct WindowStart {
+#[doc(hidden)]
+pub struct WindowStart {
     /// The journal's length when the window opened: every entry after it
     /// was written in the window.
     journal: usize,
@@ -372,9 +374,18 @@ impl Fingerprint {
 // enum would make each one lie about the others.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Engine<L: CardLookup> {
+    #[cfg(feature = "test-support")]
+    pub lookup: L,
+    #[cfg(not(feature = "test-support"))]
     lookup: L,
+    #[cfg(feature = "test-support")]
+    pub state: GameState,
+    #[cfg(not(feature = "test-support"))]
     state: GameState,
     pending: Pending,
+    #[cfg(feature = "test-support")]
+    pub house_rules: HouseRules,
+    #[cfg(not(feature = "test-support"))]
     house_rules: HouseRules,
     /// Consecutive priority passes since the last non-pass action.
     passes: u8,
@@ -414,12 +425,21 @@ pub struct Engine<L: CardLookup> {
     cleanup: Cleanup,
     /// Planeswalker incarnations (object and version, CR 400.7) that already
     /// used a loyalty ability this turn (CR 606.3).
+    #[cfg(feature = "test-support")]
+    pub loyalty_used_this_turn: Vec<baylee_core::ids::DamageSourceRef>,
+    #[cfg(not(feature = "test-support"))]
     loyalty_used_this_turn: Vec<baylee_core::ids::DamageSourceRef>,
     /// `true` while the current pending request is unanswered — the
     /// progression machine must never overwrite a fresh pending.
     awaiting_answer: bool,
     /// A suspended effect resolution (choice continuation).
+    #[cfg(feature = "test-support")]
+    pub resolution: Option<Resolution>,
+    #[cfg(not(feature = "test-support"))]
     resolution: Option<Resolution>,
+    #[cfg(feature = "test-support")]
+    pub effect_plays: Vec<effect_play::EffectPlay>,
+    #[cfg(not(feature = "test-support"))]
     effect_plays: Vec<effect_play::EffectPlay>,
     player_control: player_control::PlayerControl,
     /// A combat damage step suspended before any damage results or SBAs.
@@ -451,8 +471,14 @@ pub struct Engine<L: CardLookup> {
     /// and not the price. The price is already in that resolution's
     /// `AwaitingOp::PlayerMayPay`, and a second copy of it here would be a
     /// number that could disagree with the one actually charged.
+    #[cfg(feature = "test-support")]
+    pub mana_window: Option<PaymentWindow>,
+    #[cfg(not(feature = "test-support"))]
     mana_window: Option<PaymentWindow>,
     /// Journal sequence number up to which triggers were collected.
+    #[cfg(feature = "test-support")]
+    pub trigger_scan_seq: u64,
+    #[cfg(not(feature = "test-support"))]
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
     pending_plan: Option<PlanKind>,
@@ -556,6 +582,9 @@ pub struct Engine<L: CardLookup> {
     /// pushes.
     ///
     /// [`Engine::hand_over_trigger_abilities`]: crate::engine::Engine
+    #[cfg(feature = "test-support")]
+    pub activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    #[cfg(not(feature = "test-support"))]
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
     activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     /// What each seat may do beyond answering its own choices.
@@ -574,12 +603,21 @@ pub struct Engine<L: CardLookup> {
     entry_questions: VecDeque<(ObjectId, PlayerId, progress::EntryAsk)>,
     /// Delayed actions come due, each with the player who controls it
     /// (CR 603.7d), which [`Self::process_delayed`] reads as it performs it.
+    #[cfg(feature = "test-support")]
+    pub delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
+    #[cfg(not(feature = "test-support"))]
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
     /// Synthetic keyword-trigger effects by stack object (prowess).
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
+    #[cfg(feature = "test-support")]
+    pub cast_wizard: Option<cast_wizard::CastWizard>,
+    #[cfg(not(feature = "test-support"))]
     cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
+    #[cfg(feature = "test-support")]
+    pub trigger_queue: VecDeque<trigger::PendingTrigger>,
+    #[cfg(not(feature = "test-support"))]
     trigger_queue: VecDeque<trigger::PendingTrigger>,
     /// Every player still in the game accepted a draw offer (CR 104.4i).
     agreed_draw: bool,
@@ -1079,6 +1117,17 @@ impl<L: CardLookup> Engine<L> {
     #[must_use]
     pub fn pending(&self) -> &Pending {
         &self.pending
+    }
+
+    /// The object a card-name choice is asked for: what the test kit answers it with.
+    #[cfg(any(test, feature = "test-support"))]
+    #[doc(hidden)]
+    #[must_use]
+    pub fn card_name_chooser(&self) -> Option<ObjectId> {
+        match self.pending_plan {
+            Some(PlanKind::ChooseCardName { object }) => Some(object),
+            _ => None,
+        }
     }
 
     /// The ballots of the vote in progress, in the order they were cast,
@@ -1969,6 +2018,9 @@ mod ascend;
 mod attack_sacrifice;
 mod banding;
 mod camouflage;
+#[cfg(feature = "test-support")]
+pub mod decision;
+#[cfg(not(feature = "test-support"))]
 mod decision;
 pub(crate) mod disguise;
 mod division;
@@ -1983,6 +2035,9 @@ mod announcement_context;
 mod buyback_tests;
 mod cancel_cast;
 pub(crate) mod cast_wizard;
+#[cfg(feature = "test-support")]
+pub mod checkpoint;
+#[cfg(not(feature = "test-support"))]
 mod checkpoint;
 #[cfg(test)]
 mod checkpoint_tests;
@@ -2006,6 +2061,9 @@ mod payment_window;
 mod player_control;
 #[cfg(test)]
 mod player_control_tests;
+#[cfg(feature = "test-support")]
+pub mod progress;
+#[cfg(not(feature = "test-support"))]
 mod progress;
 // Training and evaluation lookahead (`Engine::fork_for`); feature
 // `simulation`, never in a hosting build.
@@ -2048,10 +2106,6 @@ mod block_requirement_tests;
 mod camouflage_tests;
 #[cfg(test)]
 mod capability_tests;
-#[cfg(test)]
-mod card_rider_tests;
-#[cfg(test)]
-mod card_tests;
 #[cfg(test)]
 mod cast_face_tests;
 #[cfg(test)]
@@ -2306,6 +2360,7 @@ mod tax_window_tests;
 #[cfg(test)]
 mod team_tests;
 #[cfg(test)]
+#[allow(dead_code)] // part of it is for the card test crates (`baylee-card-testkit`)
 pub(crate) mod testkit;
 #[cfg(test)]
 mod tests;
@@ -2331,8 +2386,6 @@ mod twin_pump_tests;
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;
-#[cfg(test)]
-mod verification_tests;
 #[cfg(test)]
 mod vocabulary_tests;
 #[cfg(test)]

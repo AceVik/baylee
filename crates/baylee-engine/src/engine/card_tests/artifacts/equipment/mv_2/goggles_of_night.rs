@@ -31,7 +31,7 @@ fn goggles_of_night_scry_then_draw_on_combat_damage() {
         unreachable!("pass_until stops on the scry")
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(cards.len(), 1, "scry 1 looks at one card");
     assert_eq!(r.hand_size(), 0, "the draw comes after the scry");
     let looked_at = cards[0];

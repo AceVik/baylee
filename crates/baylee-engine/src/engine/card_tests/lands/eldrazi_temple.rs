@@ -30,9 +30,9 @@ fn eldrazi_temple_adds_restricted_colorless_mana() {
 /// Eldrazi (a changeling is every creature type, Eldrazi too), a green non-Eldrazi.
 #[test]
 fn eldrazi_temple_double_colorless_pays_only_for_colorless_eldrazi_spells() {
-    use crate::casting::{SpendFor, pay_mana_for, spendable_units};
     use baylee_core::generated::index;
     use baylee_core::mana::ManaCost;
+    use baylee_engine::casting::{SpendFor, pay_mana_for, spendable_units};
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .battlefield(0, &[index::ELDRAZI_TEMPLE])
@@ -107,8 +107,8 @@ fn eldrazi_temple_double_colorless_pays_only_for_colorless_eldrazi_spells() {
 /// non-Eldrazi (Walking Ballista, Mind Stone) and a green non-Eldrazi may not.
 #[test]
 fn eldrazi_temple_double_colorless_pays_only_for_abilities_of_colorless_eldrazi() {
-    use crate::casting::{SpendFor, spendable_units};
     use baylee_core::generated::index;
+    use baylee_engine::casting::{SpendFor, spendable_units};
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .battlefield(
@@ -153,8 +153,8 @@ fn eldrazi_temple_double_colorless_pays_only_for_abilities_of_colorless_eldrazi(
 /// may not.
 #[test]
 fn eldrazi_temple_double_colorless_refuses_a_colored_eldrazi_even_under_maskwood_nexus() {
-    use crate::casting::{SpendFor, spendable_units};
     use baylee_core::generated::index;
+    use baylee_engine::casting::{SpendFor, spendable_units};
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .battlefield(

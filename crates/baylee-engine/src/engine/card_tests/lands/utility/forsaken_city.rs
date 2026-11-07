@@ -38,7 +38,7 @@ fn forsaken_city_adds_any_color_and_does_not_untap_during_untap_step() {
     pass_until(&mut engine, |e| {
         e.state().turn.number > from
             && e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(is_tapped(&engine, land));
 }

@@ -63,7 +63,12 @@ fn an_unblocked_attackers_combat_damage_marks_the_untapped_bodyguard_and_not_its
     );
     assert_eq!(
         damage_events(&engine, before_journal),
-        vec![(ogre, crate::event::DamageTarget::Object(guard), 2, true)],
+        vec![(
+            ogre,
+            baylee_engine::event::DamageTarget::Object(guard),
+            2,
+            true
+        )],
         "one event of combat damage, from the Ogre to the Bodyguard"
     );
 }

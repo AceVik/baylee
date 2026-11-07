@@ -75,7 +75,7 @@ fn batch46_beacon_ignores_loyalty_activations_and_opponents_planeswalker_casts()
     assert_eq!(e.state.players[0].life, life);
     pass_until(&mut e, |e| {
         e.state.turn.active == P1
-            && matches!(e.state.turn.phase, crate::turn::Phase::FirstMain)
+            && matches!(e.state.turn.phase, baylee_engine::turn::Phase::FirstMain)
             && matches!(e.pending(), Pending::Priority { player: P1, .. })
     });
     for color in [ManaColor::White, ManaColor::Blue, ManaColor::Black] {

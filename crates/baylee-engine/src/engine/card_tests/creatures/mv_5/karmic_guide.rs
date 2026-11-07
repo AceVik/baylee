@@ -53,7 +53,7 @@ fn karmic_guide_reanimates_and_its_echo_takes_it_when_unpaid() {
         e.state().turn.active == p0
             && !matches!(
                 e.state().turn.step,
-                crate::turn::Step::Untap | crate::turn::Step::Upkeep
+                baylee_engine::turn::Step::Untap | baylee_engine::turn::Step::Upkeep
             )
     });
     assert!(

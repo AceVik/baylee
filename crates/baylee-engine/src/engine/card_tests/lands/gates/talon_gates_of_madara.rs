@@ -234,8 +234,8 @@ fn gates_hand_activation_enters_without_a_land_drop_and_respects_source_incarnat
                     .move_object(
                         gate,
                         zone,
-                        crate::zone::ZonePosition::Top,
-                        crate::event::Cause::Effect,
+                        baylee_engine::zone::ZonePosition::Top,
+                        baylee_engine::event::Cause::Effect,
                     )
                     .unwrap();
             }

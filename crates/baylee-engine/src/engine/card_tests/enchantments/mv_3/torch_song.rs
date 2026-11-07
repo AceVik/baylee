@@ -50,7 +50,7 @@ fn torch_song_adds_verse_counter_and_deals_damage() {
 
 #[test]
 fn torch_song_declined_counter_and_zero_damage_do_not_become_a_free_point() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game_with(SEED, &[torch_song()], &[], &[], &[], |e| {
         lk::yes_no(e, false);

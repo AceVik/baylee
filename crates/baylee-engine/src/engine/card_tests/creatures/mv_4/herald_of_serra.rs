@@ -41,7 +41,7 @@ fn herald_of_serra_echo_can_be_paid_and_is_not_due_again() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);
@@ -83,7 +83,7 @@ fn herald_of_serra_is_sacrificed_when_echo_is_unpaid() {
 
 #[test]
 fn herald_of_serra_attacks_without_tapping_and_requires_a_flying_blocker() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, plains())
@@ -96,7 +96,7 @@ fn herald_of_serra_attacks_without_tapping_and_requires_a_flying_blocker() {
     keep_mulligans(&mut engine);
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

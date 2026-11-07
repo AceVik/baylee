@@ -5,7 +5,7 @@ use super::*;
 
 #[test]
 fn sejiri_shelter_chooses_protection_during_resolution_and_stops_a_red_spell() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         950,
         &[llanowar_elves()],
@@ -39,10 +39,18 @@ fn sejiri_shelter_chooses_protection_during_resolution_and_stops_a_red_spell() {
     kit::settle(&mut engine);
     assert_eq!(engine.state().object(elf).unwrap().zone, Zone::Battlefield);
     assert_eq!(kit::damage_on(&engine, elf), 0);
-    assert!(crate::eval::protected_from(engine.state(), elf, bolt));
+    assert!(baylee_engine::eval::protected_from(
+        engine.state(),
+        elf,
+        bolt
+    ));
     let turn = engine.state().turn.number;
     pass_until(&mut engine, |e| e.state().turn.number > turn);
-    assert!(!crate::eval::protected_from(engine.state(), elf, bolt));
+    assert!(!baylee_engine::eval::protected_from(
+        engine.state(),
+        elf,
+        bolt
+    ));
 }
 
 #[test]

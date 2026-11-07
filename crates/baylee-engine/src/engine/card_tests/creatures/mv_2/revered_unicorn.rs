@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::counters;
 use baylee_core::mana::ManaColor;
 
@@ -54,7 +54,9 @@ fn pay_with_a_plains(e: &mut Engine<RegistryLookup>) {
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![crate::choice::PaymentStep::ActivateManaAbility { source: plains_id }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility {
+                source: plains_id,
+            }],
         },
     )
     .expect("the Plains pays");

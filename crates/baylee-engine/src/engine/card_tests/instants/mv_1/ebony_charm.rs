@@ -138,12 +138,12 @@ fn ebony_charm_exiles_at_most_one_card_from_a_graveyard() {
 
     assert_eq!(
         engine.state().object(theirs[0]).map(|o| o.zone),
-        Some(crate::zone::Zone::Exile)
+        Some(baylee_engine::zone::Zone::Exile)
     );
     for &card in theirs[1..].iter().chain(&mine) {
         assert_eq!(
             engine.state().object(card).map(|o| o.zone),
-            Some(crate::zone::Zone::Graveyard),
+            Some(baylee_engine::zone::Zone::Graveyard),
             "only the named card is exiled"
         );
     }

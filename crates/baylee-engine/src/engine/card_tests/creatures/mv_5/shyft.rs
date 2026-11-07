@@ -136,16 +136,16 @@ fn shyfts_old_upkeep_trigger_does_not_change_a_returned_shyft() {
         .move_object(
             source,
             ZoneLocation::Exile(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     state
         .move_object(
             source,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.apply(P0, PlayerAction::YesNo(true)).unwrap();

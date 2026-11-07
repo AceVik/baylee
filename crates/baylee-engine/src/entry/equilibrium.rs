@@ -151,7 +151,7 @@ fn apply(state: &GameState, entry: &mut Attempt, source: ObjectId) {
     else {
         return;
     };
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     if let Some(registered) = state
         .replacement_rules
         .iter()

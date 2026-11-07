@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::event::GameEvent;
 use baylee_cards_dsl::KeywordSet;
+use baylee_engine::event::GameEvent;
 
 fn ydwen_efreet() -> CardIndex {
     card_index("15b9b0cc-47ef-4147-aba7-a7adae41921b")

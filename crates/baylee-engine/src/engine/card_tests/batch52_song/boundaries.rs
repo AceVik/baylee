@@ -14,7 +14,7 @@ fn song_entry_and_departure_before_first_static_sync_still_continues() {
     // Narrow instruction-boundary fixture: a permanent can enter and leave during
     // one resolving instruction sequence, before the next engine static sync.
     // No replacement Song abilities, retained effects or projection are installed.
-    e.state.object_mut(song).unwrap().kind = crate::object::ObjectKind::Permanent;
+    e.state.object_mut(song).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
     e.state
         .move_object(
             song,
@@ -31,7 +31,7 @@ fn song_entry_and_departure_before_first_static_sync_still_continues() {
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(
         pt(&e, ring),
@@ -94,7 +94,7 @@ fn song_two_actual_sources_depart_before_one_sync_and_continuations_are_not_dedu
             )
             .unwrap();
     }
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let ring = obj(&e, P0, index::SOL_RING);
     let thopter = obj(&e, P0, index::ORNITHOPTER);
@@ -106,7 +106,7 @@ fn song_two_actual_sources_depart_before_one_sync_and_continuations_are_not_dedu
     pass_until(&mut e, stack_is_empty);
     assert_eq!(pt(&e, late), (1, 1));
     let hash = e.snapshot_hash();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.snapshot_hash(), hash);
     next_main(&mut e, P1);

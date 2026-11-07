@@ -3,9 +3,9 @@
 
 #[allow(clippy::wildcard_imports)] // Shared card-test vocabulary.
 use super::*;
-use crate::choice::{TargetPrompt, YesNoPrompt};
-use crate::engine::card_tests::legends_kit as kit;
-use crate::event::GameEvent;
+use baylee_card_testkit::card_tests::legends_kit as kit;
+use baylee_engine::choice::{TargetPrompt, YesNoPrompt};
+use baylee_engine::event::GameEvent;
 
 fn subject() -> CardIndex {
     card_index("8785f42f-87b9-4a0a-89ce-ea423649ba9c")
@@ -227,8 +227,8 @@ fn an_illegal_original_target_stops_damage_payment_and_copying() {
         .move_object(
             target,
             ZoneLocation::Hand(kit::P1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -319,7 +319,7 @@ fn the_targets_current_controller_decides_rather_than_its_owner() {
 
 #[test]
 fn battle_controller_pays_rather_than_protector_and_the_copy_can_defeat_it() {
-    use crate::engine::card_tests::battle_damage_kit as battle_kit;
+    use baylee_card_testkit::card_tests::battle_damage_kit as battle_kit;
     let (mut e, battle) = battle_kit::game(6914, &[], &[subject()]);
     assert_eq!(e.state().object(battle).unwrap().controller, kit::P0);
     assert_eq!(battle_kit::protector(&e, battle), kit::P1);

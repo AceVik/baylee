@@ -174,8 +174,8 @@ fn gilded_drake_still_resolves_and_is_sacrificed_when_its_target_leaves() {
     let _ = state.move_object(
         their_elf,
         ZoneLocation::Hand(p1),
-        crate::zone::ZonePosition::Top,
-        crate::event::Cause::Effect,
+        baylee_engine::zone::ZonePosition::Top,
+        baylee_engine::event::Cause::Effect,
     );
     pass_until(&mut engine, stack_is_empty);
 

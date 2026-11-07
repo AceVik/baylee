@@ -1,7 +1,7 @@
 //! Free copies still obey additional costs and explicit timing restrictions.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::NumberPrompt;
+use baylee_engine::choice::NumberPrompt;
 
 #[test]
 fn batch45_mastery_copy_pays_a_chosen_nonmana_x_for_toxic_deluge() {
@@ -85,5 +85,5 @@ fn batch45_north_star_replication_pays_the_base_flexibly_and_each_extra_normally
     assert_eq!(e.state.object(focus).unwrap().zone, Zone::Stack);
     assert_eq!(e.state.object(focus).unwrap().replicated, 1);
     assert_eq!(e.state.players[0].mana_pool.total(), 0);
-    assert!(crate::casting::north_star_effect(&e.state, P0).is_none());
+    assert!(baylee_engine::casting::north_star_effect(&e.state, P0).is_none());
 }

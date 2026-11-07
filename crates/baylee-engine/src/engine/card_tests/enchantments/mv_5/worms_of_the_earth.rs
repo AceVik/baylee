@@ -49,8 +49,8 @@ fn put_onto_battlefield(
         .move_object(
             card,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the move is attempted")
 }
@@ -156,7 +156,7 @@ fn worms_of_the_earth_is_destroyed_when_a_player_takes_five() {
     };
     assert_eq!(player, p0, "the active player is asked first");
     assert!(
-        matches!(prompt, crate::choice::YesNoPrompt::Generic),
+        matches!(prompt, baylee_engine::choice::YesNoPrompt::Generic),
         "one land cannot be sacrificed twice, so only the damage is offered: {prompt:?}"
     );
     engine
@@ -213,7 +213,7 @@ fn worms_of_the_earth_is_destroyed_when_a_player_sacrifices_two_lands() {
     assert!(
         matches!(
             prompt,
-            crate::choice::YesNoPrompt::SacrificeToEnter { count: 2 }
+            baylee_engine::choice::YesNoPrompt::SacrificeToEnter { count: 2 }
         ),
         "asked whether to sacrifice two lands: {prompt:?}"
     );

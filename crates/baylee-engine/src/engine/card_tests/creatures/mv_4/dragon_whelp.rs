@@ -32,7 +32,7 @@ fn dragon_whelp_pumps_and_is_sacrificed_after_four_activations() {
     assert_eq!(pt(&engine, whelp), (6, 3), "+1/+0 four times");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert_eq!(
         engine.state().object(whelp).map(|o| o.zone),

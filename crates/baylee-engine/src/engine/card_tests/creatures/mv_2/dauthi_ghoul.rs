@@ -67,7 +67,7 @@ fn dauthi_ghoul_grows_only_when_a_shadow_creature_dies() {
 
 #[test]
 fn dauthi_ghoul_grows_for_opponents_shadow_creatures_and_shadow_limits_blocks() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[dauthi_ghoul()],

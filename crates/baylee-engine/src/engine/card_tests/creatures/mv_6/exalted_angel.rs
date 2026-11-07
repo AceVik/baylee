@@ -76,7 +76,7 @@ fn exalted_angel_casts_face_down_and_turns_face_up_for_her_morph_cost() {
         p0,
         PlayerAction::ActivateAbility {
             source: angel,
-            ability_index: crate::choice::TURN_FACE_UP,
+            ability_index: baylee_engine::choice::TURN_FACE_UP,
         },
     )
     .expect("the four floating mana pay morph {2}{W}{W}");

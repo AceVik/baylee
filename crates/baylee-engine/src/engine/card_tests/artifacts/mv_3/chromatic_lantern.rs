@@ -56,7 +56,7 @@ fn simulacrum_synthesizer_scries_on_arrival_and_builds_only_for_another_artifact
     let library_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     let top = *library_before.last().expect("p0 has a library");
     let second = library_before[library_before.len() - 2];
@@ -75,7 +75,7 @@ fn simulacrum_synthesizer_scries_on_arrival_and_builds_only_for_another_artifact
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the Synthesizer's controller does the looking");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
         piles,
@@ -91,7 +91,7 @@ fn simulacrum_synthesizer_scries_on_arrival_and_builds_only_for_another_artifact
     let library = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     assert_eq!(
         library.first().copied(),

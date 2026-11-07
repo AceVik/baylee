@@ -95,7 +95,7 @@ fn buried_alive_takes_up_to_three_and_shuffles() {
             .entries()
             .iter()
             .skip(since as usize)
-            .any(|e| matches!(e.event, crate::event::GameEvent::Shuffled { player, .. } if player == p0)),
+            .any(|e| matches!(e.event, baylee_engine::event::GameEvent::Shuffled { player, .. } if player == p0)),
         "then shuffle"
     );
 }

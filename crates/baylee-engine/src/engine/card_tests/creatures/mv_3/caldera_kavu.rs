@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::power_toughness;
+use baylee_card_testkit::card_tests::partials_w2c_kit::power_toughness;
 use baylee_core::color::{Color, ColorSet};
 
 /// Caldera Kavu — {2}{R} Creature — Kavu 2/2
@@ -63,7 +63,7 @@ fn caldera_kavu_pumps_itself_and_becomes_chosen_color_until_end_of_turn() {
     let blue = ColorSet::of(Color::Blue);
     let mode_idx = options
         .iter()
-        .find(|opt| opt.kind == crate::choice::CastModeKind::Colors(blue))
+        .find(|opt| opt.kind == baylee_engine::choice::CastModeKind::Colors(blue))
         .expect("Blue color option present")
         .index;
     engine

@@ -64,7 +64,7 @@ fn peace_of_mind_discards_a_card_for_white_and_three_life() {
     assert_eq!(player, p0, "the activating seat gives the card up");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostDiscard,
+        baylee_engine::choice::ChoicePrompt::CostDiscard,
         "a cost and not an effect, which is all a client has to tell them apart"
     );
     assert_eq!((min, max), (1, 1), "one card, no more and no fewer");

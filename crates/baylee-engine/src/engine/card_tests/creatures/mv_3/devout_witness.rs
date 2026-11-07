@@ -114,7 +114,7 @@ fn devout_witness_discards_and_taps_to_destroy_the_artifact_it_names() {
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostDiscard,
+                    baylee_engine::choice::ChoicePrompt::CostDiscard,
                     "a cost and not a loot: the card is given up, not cycled"
                 );
                 assert_eq!((min, max), (1, 1), "exactly one card, no more and no fewer");

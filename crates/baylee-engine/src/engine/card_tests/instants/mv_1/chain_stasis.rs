@@ -6,9 +6,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::{TargetPrompt, YesNoPrompt};
-use crate::engine::card_tests::legends_kit as kit;
-use crate::event::GameEvent;
+use baylee_card_testkit::card_tests::legends_kit as kit;
+use baylee_engine::choice::{TargetPrompt, YesNoPrompt};
+use baylee_engine::event::GameEvent;
 
 fn chain_stasis() -> CardIndex {
     card_index("1ec365f8-bfb8-416f-b4db-868a8f5d042a")

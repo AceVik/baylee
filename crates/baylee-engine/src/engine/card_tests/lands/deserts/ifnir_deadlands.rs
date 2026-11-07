@@ -114,7 +114,7 @@ fn ifnir_deadlands_eats_itself_for_two_minus_counters_on_the_opponents_creature(
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );

@@ -1,7 +1,7 @@
 //! Heartwood Dryad's body remains playable without an unprinted actual shadow ability.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 fn heartwood_dryad() -> CardIndex {
     card_index("976968c5-7ef4-4451-86ff-03a011bbcca7")

@@ -1,0 +1,36 @@
+[package]
+name = "baylee-card-testkit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "What every card test crate shares"
+
+[lints]
+workspace = true
+
+[lib]
+doctest = false
+
+# Off by default: `cargo build --workspace` builds this crate too, and a dependency
+# with its features on would unify `test-support` into every binary that ships. Only
+# the test crates' dev-dependencies turn this on.
+[features]
+enabled = [
+    "dep:baylee-engine",
+    "dep:baylee-cards",
+    "dep:baylee-cards-dsl",
+    "dep:baylee-core",
+    "dep:serde_json",
+    "dep:smallvec",
+    "dep:uuid",
+]
+
+[dependencies]
+baylee-engine = { workspace = true, features = ["test-support"], optional = true }
+baylee-cards = { workspace = true, features = ["mutate"], optional = true }
+baylee-cards-dsl = { workspace = true, optional = true }
+baylee-core = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+smallvec = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }

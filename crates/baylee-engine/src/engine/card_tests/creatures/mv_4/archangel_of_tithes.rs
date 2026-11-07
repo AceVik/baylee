@@ -21,7 +21,7 @@ fn archangel_of_tithes_taxes_attacks_only_while_untapped() {
         assert!(keywords(&e, angel).contains(KeywordSet::FLYING));
         if tapped {
             e.state.set_tapped(angel, true);
-            e.sync_static_effects();
+            e.sync_static_effects_for_tests();
             e.refresh_offer();
         }
         reach_their_main_phase(&mut e, p1);

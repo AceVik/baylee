@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::GameEvent;
+use baylee_engine::event::GameEvent;
 
 fn sirocco() -> CardIndex {
     card_index("a9bdf857-0c6b-4afa-afbb-aff7e4b61b09")

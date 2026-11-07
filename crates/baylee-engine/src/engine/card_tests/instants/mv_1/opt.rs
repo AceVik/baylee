@@ -48,7 +48,7 @@ fn opt_scries_the_top_card_to_the_bottom_and_draws_the_one_beneath_it() {
     assert_eq!(player, p0, "der Wirkende schaut");
     assert_eq!(
         prompt,
-        crate::choice::ArrangePrompt::Scry,
+        baylee_engine::choice::ArrangePrompt::Scry,
         "ein Scry, kein Surgeil"
     );
     assert_eq!(

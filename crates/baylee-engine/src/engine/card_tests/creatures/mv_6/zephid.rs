@@ -137,7 +137,7 @@ fn zephid_flies_and_its_shroud_declines_its_own_controllers_swords() {
             && engine
                 .state()
                 .object(the_zephid)
-                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield),
+                .is_some_and(|o| o.zone == baylee_engine::zone::Zone::Battlefield),
         "the shroud held: the creature is still the printed 3/4 it was cast as"
     );
     assert_eq!(

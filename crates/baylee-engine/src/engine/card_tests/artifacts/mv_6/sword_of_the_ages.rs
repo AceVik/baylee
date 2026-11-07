@@ -19,7 +19,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 // oracle_id = "201f2434-96b3-408c-a5ce-74d0675920ed"
 fn sword_of_the_ages() -> CardIndex {
@@ -273,7 +273,7 @@ fn sword_of_the_ages_deals_the_total_power_of_the_sacrificed_creatures_then_exil
     assert_eq!(hits.len(), 1, "one damage event, got {hits:?}");
     let (source, target, amount, combat) = hits[0];
     assert_eq!(source, sword, "the Sword is the source of the damage");
-    assert!(matches!(target, crate::event::DamageTarget::Player(p) if p == p1));
+    assert!(matches!(target, baylee_engine::event::DamageTarget::Player(p) if p == p1));
     assert_eq!((amount, combat), (5, false), "5 damage, not combat damage");
 
     for (id, what) in [

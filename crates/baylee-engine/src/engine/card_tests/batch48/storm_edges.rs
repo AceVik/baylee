@@ -22,7 +22,7 @@ fn storm_separates_first_strike_and_regular_damage_batches() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert_eq!(token_count(&e, subtypes::artifact::TREASURE), 2);
 }
@@ -45,7 +45,7 @@ fn storm_prevented_combat_damage_creates_no_treasure() {
     cast(&mut e, index::FOG);
     pass_until(&mut e, stack_is_empty);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert_eq!(e.state.players[1].life, before);
     assert_eq!(token_count(&e, subtypes::artifact::TREASURE), 0);
@@ -68,7 +68,7 @@ fn storm_rechecks_five_artifacts_when_transform_trigger_resolves() {
     let vault = source(&e, P0, index::STORM_THE_VAULT);
     let ring = source(&e, P0, index::SOL_RING);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::End
+        e.state.turn.step == baylee_engine::turn::Step::End
             && !stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
@@ -121,7 +121,7 @@ fn storm_simultaneous_combat_damage_groups_separately_for_each_recipient() {
     .unwrap();
     // The generic helper declines every defender's blockers in turn.
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert_eq!(e.state.players[1].life, before[0] - 2);
     assert_eq!(e.state.players[2].life, before[1] - 4);

@@ -93,7 +93,7 @@ fn theorist_s_proxy_flashes_in_empowers_jace_and_protects_the_next_spell() {
             .object(second)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable)
+            .contains(&baylee_engine::object::Rider::Uncounterable)
     );
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(tokens_of(&engine, p0), vec![jace]);

@@ -44,10 +44,10 @@ fn apprentice_necromancer_reanimates_creature_with_haste_and_sacrifices_at_end_s
         in_graveyard(&engine, p0, apprentice_necromancer()).is_some(),
         "the source was paid as a cost"
     );
-    crate::engine::card_tests::legends_kit::attack(&mut engine, &[reanimated]);
+    baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[reanimated]);
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     pass_until(&mut engine, stack_is_empty);
 

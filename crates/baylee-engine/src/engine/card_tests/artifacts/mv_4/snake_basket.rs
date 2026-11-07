@@ -2,10 +2,10 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::{Color, ColorSet};
 use baylee_core::generated::subtypes;
+use baylee_engine::turn::Step;
 
 fn snake_basket() -> CardIndex {
     card_index("12236231-7c6e-4edc-87dc-737115843185")

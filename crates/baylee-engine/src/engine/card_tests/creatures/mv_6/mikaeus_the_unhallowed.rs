@@ -23,7 +23,7 @@ fn mikaeus_grants_undying_to_other_nonhumans_and_only_once_without_counters() {
     assert!(keywords(&e, elf).contains(KeywordSet::UNDYING));
     assert_eq!(pt(&e, elf), (2, 2));
     for returns in [true, false] {
-        crate::sba::destroy(e.dev_state_mut(p0).unwrap(), elf);
+        baylee_engine::sba::destroy(e.dev_state_mut(p0).unwrap(), elf);
         let Pending::Priority { player, .. } = e.pending().clone() else {
             panic!("priority")
         };

@@ -12,8 +12,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::aura_kit as kit;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::aura_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 // oracle_id = "c80935bf-c17f-4940-ad9f-3f4e3e8f71bc"

@@ -116,7 +116,7 @@ fn grove_of_the_guardian_taps_two_creatures_and_itself_for_an_eight_eight_elemen
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostTap,
+        baylee_engine::choice::ChoicePrompt::CostTap,
         "a cost and not an effect, which is all a client has to tell the two apart"
     );
     assert_eq!(
@@ -159,7 +159,7 @@ fn grove_of_the_guardian_taps_two_creatures_and_itself_for_an_eight_eight_elemen
         panic!("the second tap cost asks again, got {:?}", engine.pending())
     };
     assert_eq!(player, p0, "the same seat answers the same cost");
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostTap);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostTap);
     assert_eq!(
         (min, max),
         (1, 1),

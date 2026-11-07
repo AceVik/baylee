@@ -55,7 +55,7 @@ fn ring_of_gix_taps_target_creature() {
 /// Echo is paid once on the next upkeep, or the permanent is sacrificed.
 #[test]
 fn echo_can_be_paid_or_declined() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     for pay in [false, true] {
         let mut engine = lk::game(SEED, &[plains(); 3], &[], &[ring_of_gix()], &[]);
@@ -72,7 +72,7 @@ fn echo_can_be_paid_or_declined() {
         pass_until(&mut engine, stack_is_empty);
         pass_until(&mut engine, |e| {
             e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { .. })
         });
         tap_all_mana(&mut engine, p0);
@@ -101,7 +101,7 @@ fn echo_can_be_paid_or_declined() {
 /// All three printed target types are legal; enchantments alone are not.
 #[test]
 fn ring_taps_artifacts_creatures_and_lands_but_not_enchantments() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     for card in [sol_ring(), gray_ogre(), forest()] {
         let mut engine = lk::game(SEED, &[], &[card, sylvan_library()], &[ring_of_gix()], &[]);
         lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 4)]);

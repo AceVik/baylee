@@ -65,7 +65,7 @@ fn path_of_annihilation_lets_my_eldrazi_tap_for_mana() {
     let bears = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
 
     let legal = priority_offer(&engine);
-    let granted = crate::choice::GRANTED_ABILITY;
+    let granted = baylee_engine::choice::GRANTED_ABILITY;
     assert!(
         legal.abilities.contains(&(eldrazi, granted)),
         "the Eldrazi is offered the granted ability: {:?}",

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn mirozel() -> CardIndex {
     card_index("c35111ce-4325-4547-b954-08275a268060")
@@ -30,7 +30,7 @@ fn mirozel_returns_to_hand_when_targeted() {
 
 #[test]
 fn mirozel_flies_over_ground_blockers_and_returns_for_opponents_targets() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

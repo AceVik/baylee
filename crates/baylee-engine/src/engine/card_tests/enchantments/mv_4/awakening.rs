@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -64,7 +64,7 @@ fn upkeep_untaps_creatures_and_lands_on_both_sides_but_not_artifacts() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && !stack_is_empty(e)
     });
     for id in [mine, my_land, artifact, theirs, their_land] {

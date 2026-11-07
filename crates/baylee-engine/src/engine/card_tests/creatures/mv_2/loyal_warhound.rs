@@ -71,8 +71,8 @@ fn loyal_warhound_finds_only_a_basic_plains_and_needs_an_opponent_ahead() {
             .move_object(
                 card,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

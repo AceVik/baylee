@@ -1,10 +1,10 @@
 //! Divided damage is announced, paid, copied and resolved without redistribution.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::{NumberPrompt, TargetRef};
-use crate::event::Cause;
-use crate::zone::ZonePosition;
 use baylee_core::generated::index;
+use baylee_engine::choice::{NumberPrompt, TargetRef};
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);

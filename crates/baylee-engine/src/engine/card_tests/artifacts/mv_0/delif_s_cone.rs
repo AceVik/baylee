@@ -28,7 +28,7 @@ fn life(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
 fn declare(engine: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     pass_until(engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareAttackers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
     });
     engine
         .apply(
@@ -47,7 +47,7 @@ fn declare(engine: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) {
 #[track_caller]
 fn block(engine: &mut Engine<RegistryLookup>, blockers: Vec<(ObjectId, ObjectId)>) {
     pass_until(engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
     });
     engine
         .apply(PlayerId::new(1), PlayerAction::DeclareBlockers { blockers })
@@ -105,7 +105,7 @@ fn delif_s_cone_gains_life_and_stops_the_damage_of_its_unblocked_creature() {
     );
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(
         life(&engine, p0),
@@ -132,7 +132,7 @@ fn delif_s_cone_declined_changes_nothing() {
     });
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(life(&engine, p0), 20, "no life gained");
     assert_eq!(life(&engine, p1), 18, "the Bears dealt their 2");
@@ -152,7 +152,7 @@ fn delif_s_cone_does_nothing_when_the_creature_is_blocked() {
     declare(&mut engine, &[bears]);
     block(&mut engine, vec![(giant, bears)]);
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(life(&engine, p0), 20, "no life was gained");
     assert_eq!(life(&engine, p1), 20, "the Bears were blocked");

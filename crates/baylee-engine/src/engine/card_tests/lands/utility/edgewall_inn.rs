@@ -88,8 +88,8 @@ fn edgewall_inn_returns_only_an_adventure_card_from_its_own_graveyard() {
             .move_object(
                 card,
                 ZoneLocation::Graveyard(owner),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

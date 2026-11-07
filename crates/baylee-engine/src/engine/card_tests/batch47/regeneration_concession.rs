@@ -34,7 +34,7 @@ fn batch47_regeneration_concession_preserves_other_choices_and_remaining_effects
         matches!(
             engine.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::UseRegenerationShield { .. },
                 ..
             }
         )
@@ -43,7 +43,7 @@ fn batch47_regeneration_concession_preserves_other_choices_and_remaining_effects
     // Isolate a second destruction in the same decision-free instruction,
     // followed by another instruction. The actual Vindicate establishes the
     // resolution and the actual Clergy establish both replacement choices.
-    crate::sba::destroy(&mut e.state, second);
+    baylee_engine::sba::destroy(&mut e.state, second);
     let life = e.state.players[0].life;
     e.resolution
         .as_mut()
@@ -60,7 +60,7 @@ fn batch47_regeneration_concession_preserves_other_choices_and_remaining_effects
         e.pending(),
         Pending::YesNo {
             player,
-            prompt: crate::choice::YesNoPrompt::UseRegenerationShield { permanent },
+            prompt: baylee_engine::choice::YesNoPrompt::UseRegenerationShield { permanent },
             ..
         } if *player == p2 && *permanent == second
     ));

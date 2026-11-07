@@ -119,7 +119,7 @@ fn orgg_cannot_block_a_creature_with_power_three_but_blocks_a_smaller_one() {
     let bears = on_battlefield(&e, P1, grizzly_bears()).expect("Grizzly Bears is out");
 
     pass_until(&mut e, |e| {
-        e.state().turn.active == P1 && e.state().turn.phase == crate::turn::Phase::FirstMain
+        e.state().turn.active == P1 && e.state().turn.phase == baylee_engine::turn::Phase::FirstMain
     });
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })

@@ -35,7 +35,7 @@ fn drownyard_temple_taps_for_colorless_but_cannot_return_from_the_battlefield() 
 
 #[test]
 fn temple_returns_tapped_without_using_a_land_play_and_cannot_follow_a_zone_change() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for exile_in_response in [false, true] {
         let mut e = kit::game(972, &[drownyard_temple()], &[], &[], &[]);
         let card = kit::obj(&e, kit::P0, drownyard_temple());

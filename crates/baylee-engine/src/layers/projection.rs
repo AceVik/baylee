@@ -120,7 +120,7 @@ pub(super) fn recompute_observing<'a>(
                     if carried && layer == Layer::Type {
                         animations.push(idx);
                     }
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "test-support"))]
                     crate::ability_log::static_applied(fx);
                     let c_mut = c.to_mut();
                     apply(

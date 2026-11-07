@@ -49,7 +49,7 @@ fn damage_from(engine: &Engine<RegistryLookup>, source: ObjectId) -> u32 {
         .entries()
         .iter()
         .filter_map(|e| match e.event {
-            crate::event::GameEvent::DamageDealt {
+            baylee_engine::event::GameEvent::DamageDealt {
                 source: Some(s),
                 amount,
                 ..

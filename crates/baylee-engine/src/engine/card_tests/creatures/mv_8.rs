@@ -50,7 +50,7 @@ fn cannot_cast(engine: &mut Engine<RegistryLookup>, card: CardIndex) {
 fn attack_player(
     engine: &mut Engine<RegistryLookup>,
     attacker: ObjectId,
-) -> Vec<crate::choice::BlockOption> {
+) -> Vec<baylee_engine::choice::BlockOption> {
     attack_and_collect_blocks(engine, attacker, PlayerId::new(1))
 }
 

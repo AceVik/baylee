@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -49,12 +49,12 @@ fn lowland_basilisk_destroys_creature_dealt_combat_damage_at_end_of_combat() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatDamage && stack_is_empty(e)
     });
     assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_some());
     assert_eq!(lk::damage_on(&engine, giant), 1);
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
 
     assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_none());

@@ -18,7 +18,7 @@ fn shuffles(engine: &Engine<RegistryLookup>, who: PlayerId) -> usize {
         .filter(|entry| {
             matches!(
                 entry.event,
-                crate::event::GameEvent::Shuffled { player, .. } if player == who
+                baylee_engine::event::GameEvent::Shuffled { player, .. } if player == who
             )
         })
         .count()

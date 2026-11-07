@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 fn song_of_serenity() -> CardIndex {
     card_index("4c543799-1b72-4f32-a5be-475c0134ac0f")
 }

@@ -40,8 +40,8 @@ fn farseek_fetches_the_land_types_it_names_and_puts_one_down_tapped() {
             .move_object(
                 stowed,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .expect("the harness moves a card");
     }

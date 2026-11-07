@@ -303,7 +303,7 @@ pub(crate) fn commit_plan(state: &mut GameState, plan: CounterPlacementPlan) {
     {
         return;
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     if plan.applied_doubling {
         let object = state
             .object(plan.recipient.object)

@@ -86,7 +86,7 @@ fn prismatic_ward_prevents_damage_from_chosen_color_and_not_from_other_colors() 
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain && stack_is_empty(e)
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain && stack_is_empty(e)
     });
     assert_eq!(
         engine.state().object(giant).unwrap().damage,

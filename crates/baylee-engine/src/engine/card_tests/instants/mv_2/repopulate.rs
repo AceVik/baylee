@@ -9,7 +9,7 @@ fn repopulate() -> CardIndex {
 
 #[test]
 fn repopulate_cycles_for_two_and_discards_itself() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[repopulate()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 2)]);
     let before = engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len();

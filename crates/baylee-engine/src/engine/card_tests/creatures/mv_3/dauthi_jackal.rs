@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -58,7 +58,7 @@ fn dauthi_jackal_sacrifices_itself_to_destroy_target_blocking_creature() {
 
 #[test]
 fn shadow_limits_both_blocking_and_being_blocked() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let subject = card_index("8847b057-8896-4c72-a11f-3c183b1cc60e");
     let mut e = lk::game(

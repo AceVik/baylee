@@ -8,7 +8,7 @@
 use super::super::legends_kit::*;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::testkit::{Deed, Rest, arena, drive_to_rest, presses};
+use baylee_card_testkit::testkit::{Deed, Rest, arena, drive_to_rest, presses};
 #[allow(unused_imports)]
 use baylee_cards_dsl::{CounterKind, counters};
 use baylee_core::color::{Color, ColorSet};

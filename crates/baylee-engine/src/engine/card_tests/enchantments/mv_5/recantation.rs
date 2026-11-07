@@ -49,7 +49,7 @@ fn recantation_adds_verse_counter_and_bounces_target_permanent() {
 
 #[test]
 fn recantation_partial_never_uses_a_target_without_a_verse_counter() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game_with(
         SEED,

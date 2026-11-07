@@ -66,7 +66,7 @@ fn pay_with_forests(e: &mut Engine<RegistryLookup>, n: usize) {
         PlayerAction::PayWindow {
             steps: forests
                 .into_iter()
-                .map(|source| crate::choice::PaymentStep::ActivateManaAbility { source })
+                .map(|source| baylee_engine::choice::PaymentStep::ActivateManaAbility { source })
                 .collect(),
         },
     )

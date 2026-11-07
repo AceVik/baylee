@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::NumberPrompt;
+use baylee_engine::choice::NumberPrompt;
 
 /// Finale of Devastation — {X}{G}{G}: "Search your library and/or graveyard
 /// for a creature card with mana value X or less and put it onto the
@@ -103,7 +103,7 @@ fn finale_of_devastation_takes_a_creature_from_the_graveyard_without_a_shuffle()
     else {
         unreachable!("cast_finale stops on a card choice")
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::FromGraveyard);
     assert_eq!(options, vec![buried], "within X = 1, and a creature");
     assert_eq!((min, max), (0, 1));
     engine
@@ -152,7 +152,7 @@ fn finale_of_devastation_searches_the_library_when_the_graveyard_is_passed_over(
     let Pending::ChooseCards { prompt, .. } = cast_finale(&mut engine, p0, 1) else {
         unreachable!("cast_finale stops on a card choice")
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::FromGraveyard);
     engine
         .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
         .unwrap();
@@ -162,7 +162,7 @@ fn finale_of_devastation_searches_the_library_when_the_graveyard_is_passed_over(
     else {
         panic!("the library search, got {:?}", engine.pending())
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
     let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
     assert!(options.iter().all(|id| library.contains(id)));
     let journal_from = engine.state().journal.len();
@@ -222,7 +222,7 @@ fn finale_of_devastation_at_ten_or_more_pumps_and_hastes_your_creatures() {
         else {
             unreachable!("cast_finale stops on a card choice")
         };
-        assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+        assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
         let fetched = options[0];
         engine
             .apply(
@@ -317,7 +317,7 @@ fn finale_of_devastation_off_two_green_and_a_white_is_announced_at_one() {
     else {
         unreachable!("the predicate just matched")
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::FromGraveyard);
     assert_eq!(
         options,
         vec![buried],

@@ -69,13 +69,17 @@ fn ba_sing_se_enters_untapped_and_animates_land() {
     pass_until(&mut engine, |e| {
         stack_is_empty(e)
             && e.journal().entries().iter().any(|entry| {
-                matches!(entry.event, crate::event::GameEvent::ZoneChanged {
-                    object, from: crate::zone::Zone::Graveyard, to: crate::zone::Zone::Battlefield, ..
+                matches!(entry.event, baylee_engine::event::GameEvent::ZoneChanged {
+                    object, from: baylee_engine::zone::Zone::Graveyard, to: baylee_engine::zone::Zone::Battlefield, ..
                 } if object == land)
             })
     });
     let back = engine.state().object(land).expect("Ba Sing Se");
-    assert_eq!(back.zone, crate::zone::Zone::Battlefield, "it came back");
+    assert_eq!(
+        back.zone,
+        baylee_engine::zone::Zone::Battlefield,
+        "it came back"
+    );
     assert!(is_tapped(&engine, land), "tapped");
     assert!(
         !back.characteristics().types.contains(TypeSet::CREATURE),

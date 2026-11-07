@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn marshal() -> CardIndex {
     card_index("7b8f4879-578e-40e4-863a-41d0c32c6bdd")
@@ -32,7 +32,7 @@ fn mogg_war_marshal_echo_paid_survives_without_dying_trigger() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 2)]);

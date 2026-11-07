@@ -86,8 +86,8 @@ fn blast_zone_sweeps_its_last_known_counter_value_after_paying_the_sacrifice() {
         let two = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
         let land = on_battlefield(&e, p1, forest()).unwrap();
         let state = e.dev_state_mut(p0).unwrap();
-        crate::replacement::remove_counters(state, zone, CounterKind::Charge, 1);
-        crate::replacement::put_counters(state, zone, CounterKind::Charge, charge);
+        baylee_engine::replacement::remove_counters(state, zone, CounterKind::Charge, 1);
+        baylee_engine::replacement::put_counters(state, zone, CounterKind::Charge, charge);
         tap_all_mana_but(&mut e, p0, Some(blast_zone()));
         activate(&mut e, p0, blast_zone(), 2);
         assert_eq!(e.state().object(zone).unwrap().zone, Zone::Graveyard);

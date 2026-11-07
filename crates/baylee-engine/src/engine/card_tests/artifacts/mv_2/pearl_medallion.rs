@@ -30,7 +30,7 @@ fn pearl_medallion_reduces_white_spell_cost_by_one() {
 /// The reduction belongs to its controller and to the printed spell color.
 #[test]
 fn reduction_does_not_help_the_opponent_or_other_colors() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index as cards;
     for (seat, spell, color, amount) in [
         (PlayerId::new(1), cards::MESA_PEGASUS, ManaColor::White, 1),

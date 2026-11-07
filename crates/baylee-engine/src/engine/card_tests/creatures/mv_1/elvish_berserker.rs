@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -52,7 +52,7 @@ fn elvish_berserker_gets_plus_1_plus_1_for_each_creature_blocking_it() {
         |_, pending| match pending {
             Pending::ChooseNumber {
                 max,
-                reason: crate::choice::NumberPrompt::CombatDamage { .. },
+                reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
                 ..
             } => Some(PlayerAction::ChooseNumber(*max)),
             _ => None,

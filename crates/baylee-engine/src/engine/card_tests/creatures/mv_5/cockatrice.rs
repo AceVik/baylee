@@ -36,7 +36,7 @@ fn cockatrice_destroys_a_non_wall_creature_it_blocks_at_end_of_combat() {
         )
         .expect("the pairing came out of the list that offered it");
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         engine.state().object(attacker).map(|o| o.zone),
@@ -86,7 +86,7 @@ fn cockatrice_destroys_a_non_wall_creature_that_blocks_it() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         engine.state().object(spider).map(|o| o.zone),

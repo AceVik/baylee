@@ -262,7 +262,7 @@ fn fireball_independent_extra_target_can_be_paid_after_targets_with_untapped_lan
 
 #[test]
 fn fireball_independent_any_number_includes_256_distinct_creatures() {
-    use super::super::super::synthetic::{self, SyntheticLookup};
+    use baylee_card_testkit::synthetic::{self, SyntheticLookup};
     use baylee_cards_dsl::{AbilityDef, Effect, mana_ability};
     const SOURCE: u32 = 4_000_033;
     static MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Red, 256)])];

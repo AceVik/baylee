@@ -22,7 +22,7 @@ fn sparring_construct_hands_a_counter_to_a_creature_you_control_when_it_dies() {
     let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("elves");
     let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("ogre");
 
-    crate::sba::destroy(
+    baylee_engine::sba::destroy(
         engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up"),

@@ -70,7 +70,7 @@ fn diamond_valley_counts_a_plus_one_counter_in_the_toughness() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, lions, baylee_cards_dsl::CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(state, lions, baylee_cards_dsl::CounterKind::P1P1, 1);
     // The counter was written behind the engine's back; the next turn's
     // refresh projects it.
     reach_their_main_phase(&mut engine, PlayerId::new(1));

@@ -52,7 +52,7 @@ fn smoke_limits_untapping_to_one_creature_and_never_touches_lands() {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::Untap,
+                prompt: baylee_engine::choice::ChoicePrompt::Untap,
                 ..
             }
         )
@@ -137,7 +137,7 @@ fn smoke_limits_each_player_to_one_creature_of_their_own() {
             matches!(
                 e.pending(),
                 Pending::ChooseCards {
-                    prompt: crate::choice::ChoicePrompt::Untap,
+                    prompt: baylee_engine::choice::ChoicePrompt::Untap,
                     ..
                 }
             )

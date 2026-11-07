@@ -26,7 +26,7 @@ fn jackalope_herd_returns_to_hand_when_you_cast_a_spell() {
 
 #[test]
 fn jackalope_herd_ignores_an_opponents_spell_but_returns_for_your_spell() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

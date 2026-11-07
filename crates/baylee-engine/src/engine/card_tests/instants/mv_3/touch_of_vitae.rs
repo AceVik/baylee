@@ -6,7 +6,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::GRANTED_ABILITY;
+use baylee_engine::choice::GRANTED_ABILITY;
 
 fn touch_of_vitae() -> CardIndex {
     card_index("84f1e596-f56f-48c9-9bff-2c0bb2cea2d3")

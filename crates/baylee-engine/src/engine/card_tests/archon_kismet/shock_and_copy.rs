@@ -12,14 +12,14 @@ fn install_untap_fixture(e: &mut Engine<RegistryLookup>, source: ObjectId) {
     e.state
         .object_mut(source)
         .unwrap()
-        .take_abilities(crate::object::AbilityList {
+        .take_abilities(baylee_engine::object::AbilityList {
             acquisition,
-            abilities: crate::copiable_abilities::AbilityDefs::from_static(GATE_UNTAP),
+            abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(GATE_UNTAP),
             printed: None,
             token: None,
         });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 fn replacement(e: &mut Engine<RegistryLookup>, source: ObjectId) {
@@ -28,7 +28,7 @@ fn replacement(e: &mut Engine<RegistryLookup>, source: ObjectId) {
         options,
         min,
         max,
-        prompt: crate::choice::ChoicePrompt::EntryReplacement,
+        prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
         ..
     } = e.pending()
     else {
@@ -65,7 +65,7 @@ fn paying_real_shockland_life_does_not_override_existing_kismet() {
     if matches!(
         e.pending(),
         Pending::ChooseCards {
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         }
     ) {
@@ -78,13 +78,13 @@ fn paying_real_shockland_life_does_not_override_existing_kismet() {
         .unwrap();
     }
     assert!(
-        matches!(e.pending(),Pending::YesNo{player,prompt:crate::choice::YesNoPrompt::PayLifeOrEnterTapped{amount:2},..} if *player==P1)
+        matches!(e.pending(),Pending::YesNo{player,prompt:baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped{amount:2},..} if *player==P1)
     );
     e.apply(P1, PlayerAction::YesNo(true)).unwrap();
     if matches!(
         e.pending(),
         Pending::ChooseCards {
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         }
     ) {
@@ -150,7 +150,7 @@ fn copied_guildgate_printed_tap_is_ordered_with_external_untap_fixture() {
     if matches!(
         e.pending(),
         Pending::ChooseCards {
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         }
     ) {
@@ -182,17 +182,17 @@ fn replacement_choice_checkpoint_resumes_the_same_remaining_order() {
     assert!(matches!(
         e.pending(),
         Pending::ChooseCards {
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         }
     ));
     let hash = e.snapshot_hash();
-    let checkpoint = crate::engine::checkpoint::Checkpoint::capture(&e);
+    let checkpoint = baylee_engine::engine::checkpoint::Checkpoint::capture(&e);
     replacement(&mut e, kismet);
     if matches!(
         e.pending(),
         Pending::ChooseCards {
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         }
     ) {
@@ -206,7 +206,7 @@ fn replacement_choice_checkpoint_resumes_the_same_remaining_order() {
     if matches!(
         e.pending(),
         Pending::ChooseCards {
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         }
     ) {
@@ -240,22 +240,22 @@ fn kismet_arriving_in_same_entry_event_does_not_tap_its_companion() {
         .move_object(
             kismet,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     // Recompute rules between internal commits deliberately: the event boundary,
     // rather than absence of a sync, must exclude its newly arrived replacement.
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state
         .move_object(
             bear,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, stack_is_empty);
     assert!(
@@ -297,31 +297,31 @@ fn coarriving_ability_removal_does_not_disable_an_existing_archons_entry_replace
         .move_object(
             fixture,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
-    assert!(crate::entry::advance(&mut e.state).is_none());
+    assert!(baylee_engine::entry::advance(&mut e.state).is_none());
     assert_eq!(
         e.state.object(fixture).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     let acquisition = e.state.next_timestamp();
     e.state
         .object_mut(fixture)
         .unwrap()
-        .take_abilities(crate::object::AbilityList {
+        .take_abilities(baylee_engine::object::AbilityList {
             acquisition,
-            abilities: crate::copiable_abilities::AbilityDefs::from_static(
+            abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(
                 COARRIVING_CREATURE_ABILITY_LOSS,
             ),
             printed: None,
             token: None,
         });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.refresh_characteristics();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     assert!(
         e.state
             .object(archon)
@@ -335,22 +335,22 @@ fn coarriving_ability_removal_does_not_disable_an_existing_archons_entry_replace
         .move_object(
             land,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
-    assert!(crate::entry::advance(&mut e.state).is_none());
+    assert!(baylee_engine::entry::advance(&mut e.state).is_none());
     assert_eq!(
         e.state.object(land).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     assert!(
         is_tapped(&e, land),
         "the existing Archon applies before the co-arriving ability-loss static exists"
     );
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.refresh_characteristics();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     assert!(
         e.state
             .object(archon)

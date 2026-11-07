@@ -35,7 +35,7 @@ fn retaliation_pumps_your_creature_when_blocked() {
 
 #[test]
 fn retaliation_triggers_per_blocker_and_is_not_granted_to_opponents() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for mine in [false, true] {

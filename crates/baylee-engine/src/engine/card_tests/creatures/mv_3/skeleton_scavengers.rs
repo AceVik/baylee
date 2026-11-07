@@ -1,7 +1,7 @@
 //! Entry counter and supported body, played.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 #[test]
 fn enters_with_one_counter_and_no_underpriced_regeneration() {
     let subject = card_index("88782913-bfba-4300-b26c-405e6a45537c");

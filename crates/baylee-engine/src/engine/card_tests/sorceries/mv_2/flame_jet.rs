@@ -40,7 +40,7 @@ fn flame_jet_deals_three_damage_to_target_player() {
 
 #[test]
 fn cycling_discards_for_two_and_draws_one() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[flame_jet()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 2)]);
     let before = engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len();

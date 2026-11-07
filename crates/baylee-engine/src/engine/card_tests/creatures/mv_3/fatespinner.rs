@@ -33,7 +33,7 @@ fn fatespinner_makes_opponent_choose_and_skip_draw_step_on_their_turn() {
     );
 }
 
-fn fatespinner_turn(choice: u32, stop: crate::turn::Step) -> (bool, bool) {
+fn fatespinner_turn(choice: u32, stop: baylee_engine::turn::Step) -> (bool, bool) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let spinner = fatespinner();
     let mut engine = Duel::new(SEED, island()).battlefield(0, &[spinner]).start();
@@ -49,10 +49,10 @@ fn fatespinner_turn(choice: u32, stop: crate::turn::Step) -> (bool, bool) {
     let mut saw_main = false;
     let mut saw_combat = false;
     for _ in 0..80 {
-        if e_state_matches(&engine, p1, crate::turn::Step::Main) {
+        if e_state_matches(&engine, p1, baylee_engine::turn::Step::Main) {
             saw_main = true;
         }
-        if e_state_matches(&engine, p1, crate::turn::Step::CombatBegin) {
+        if e_state_matches(&engine, p1, baylee_engine::turn::Step::CombatBegin) {
             saw_combat = true;
         }
         if e_state_matches(&engine, p1, stop) {
@@ -76,21 +76,21 @@ fn fatespinner_turn(choice: u32, stop: crate::turn::Step) -> (bool, bool) {
 fn e_state_matches(
     engine: &Engine<RegistryLookup>,
     player: PlayerId,
-    step: crate::turn::Step,
+    step: baylee_engine::turn::Step,
 ) -> bool {
     engine.state().turn.active == player && engine.state().turn.step == step
 }
 
 #[test]
 fn fatespinner_skips_both_main_phases_but_not_combat() {
-    let (saw_main, saw_combat) = fatespinner_turn(1, crate::turn::Step::End);
+    let (saw_main, saw_combat) = fatespinner_turn(1, baylee_engine::turn::Step::End);
     assert!(!saw_main, "both main phases were skipped");
     assert!(saw_combat, "the combat phase still happened");
 }
 
 #[test]
 fn fatespinner_skips_combat_but_keeps_the_main_phases() {
-    let (saw_main, saw_combat) = fatespinner_turn(2, crate::turn::Step::Main);
+    let (saw_main, saw_combat) = fatespinner_turn(2, baylee_engine::turn::Step::Main);
     assert!(saw_main, "the first main phase still happened");
     assert!(!saw_combat, "the combat phase was skipped");
 }

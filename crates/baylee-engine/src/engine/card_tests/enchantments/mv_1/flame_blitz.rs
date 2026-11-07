@@ -24,7 +24,7 @@ fn flame_blitz_burns_every_planeswalker_at_my_end_step() {
         "alive in main"
     );
     pass_until(&mut e, |e| {
-        e.state().turn.phase == crate::turn::Phase::Ending
+        e.state().turn.phase == baylee_engine::turn::Phase::Ending
     });
     pass_until(&mut e, stack_is_empty);
     assert!(

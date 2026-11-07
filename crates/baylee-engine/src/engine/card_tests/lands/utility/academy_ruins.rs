@@ -48,7 +48,7 @@ fn academy_ruins_reach_only_the_artifacts_in_your_own_graveyard() {
     let state = engine
         .dev_state_mut(p1)
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, stone);
+    baylee_engine::sba::destroy(state, stone);
     seed_graveyard(&mut engine, p0, 1);
 
     reach_main_phase(&mut engine, p0);
@@ -85,7 +85,7 @@ fn academy_ruins_reach_only_the_artifacts_in_your_own_graveyard() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, greaves);
+    baylee_engine::sba::destroy(state, greaves);
     engine.refresh_offer();
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())

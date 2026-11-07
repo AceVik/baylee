@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -54,7 +54,7 @@ fn pendrell_mists_taxes_every_creature_at_its_own_controllers_upkeep() {
             e.apply(
                 P0,
                 PlayerAction::PayWindow {
-                    steps: vec![crate::choice::PaymentStep::ActivateManaAbility {
+                    steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility {
                         source: island_id,
                     }],
                 },

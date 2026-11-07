@@ -81,7 +81,7 @@ fn thopter_squadron_spawns_and_sacrifices_thopter_tokens() {
         engine
             .state()
             .object(token)
-            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+            .is_none_or(|o| o.zone != baylee_engine::zone::Zone::Battlefield)
     );
     let p1 = PlayerId::new(1);
     reach_their_main_phase(&mut engine, p1);
@@ -89,9 +89,13 @@ fn thopter_squadron_spawns_and_sacrifices_thopter_tokens() {
         &mut engine,
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
     );
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Colorless, 2)]);
+    baylee_card_testkit::card_tests::legends_kit::float(
+        &mut engine,
+        p0,
+        &[(ManaColor::Colorless, 2)],
+    );
     assert!(
-        crate::engine::card_tests::partials_w1b_kit::offered(&engine, squadron).is_empty(),
+        baylee_card_testkit::card_tests::partials_w1b_kit::offered(&engine, squadron).is_empty(),
         "both activations are sorcery only"
     );
 }

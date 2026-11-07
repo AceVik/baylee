@@ -41,7 +41,7 @@ fn songstitcher_prevents_combat_damage_from_attacking_flyer() {
 
 #[test]
 fn songstitcher_excludes_ground_attackers_and_idle_flyers() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

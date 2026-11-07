@@ -42,7 +42,7 @@ fn uthros_titanic_godcore_enters_tapped_and_taps_for_blue() {
 
 #[test]
 fn uthros_stations_to_twelve_and_counts_only_your_artifacts() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         952,
         &[
@@ -57,7 +57,7 @@ fn uthros_stations_to_twelve_and_counts_only_your_artifacts() {
     );
     let land = kit::obj(&engine, kit::P0, uthros_titanic_godcore());
     let elf = kit::obj(&engine, kit::P0, llanowar_elves());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         engine.dev_state_mut(kit::P0).unwrap(),
         land,
         CounterKind::Charge,
@@ -81,7 +81,7 @@ fn uthros_stations_to_twelve_and_counts_only_your_artifacts() {
 /// in p1's turn, while the 12+ mana ability is on offer in both.
 #[test]
 fn uthros_station_is_sorcery_timing_only_but_its_twelve_plus_mana_ability_is_not() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(
         984,
         &[uthros_titanic_godcore(), llanowar_elves(), sol_ring()],
@@ -90,7 +90,7 @@ fn uthros_station_is_sorcery_timing_only_but_its_twelve_plus_mana_ability_is_not
         &[],
     );
     let planet = kit::obj(&e, kit::P0, uthros_titanic_godcore());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         e.dev_state_mut(kit::P0).unwrap(),
         planet,
         CounterKind::Charge,

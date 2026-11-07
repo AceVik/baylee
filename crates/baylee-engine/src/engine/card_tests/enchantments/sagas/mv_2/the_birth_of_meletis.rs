@@ -27,8 +27,8 @@ fn birth_of_meletis_plays_all_chapters_then_sacrifices_itself() {
             .move_object(
                 card,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

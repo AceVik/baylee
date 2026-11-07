@@ -59,7 +59,7 @@ fn black_vise_counts_only_the_chosen_opponents_hand_at_upkeep() {
         pass_until(&mut engine, |e| {
             e.state().turn.active == p1 && !stack_is_empty(e)
         });
-        assert_eq!(engine.state().turn.step, crate::turn::Step::Upkeep);
+        assert_eq!(engine.state().turn.step, baylee_engine::turn::Step::Upkeep);
         pass_until(&mut engine, stack_is_empty);
         assert_eq!(engine.state().players[1].life, 20 - damage);
         assert_eq!(engine.state().players[0].life, 20);
@@ -215,7 +215,7 @@ fn black_vise_reentry_makes_a_fresh_choice() {
     });
     engine.apply(p0, PlayerAction::ChoosePlayer(p2)).unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p1 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(
         stack_is_empty(&engine),

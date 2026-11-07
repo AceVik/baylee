@@ -35,7 +35,7 @@ fn attack_and_scry(engine: &mut Engine<RegistryLookup>, sunscribe: ObjectId) -> 
         unreachable!()
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(piles, scry_piles(1));
     assert_eq!(cards.len(), 1);
     cards
@@ -57,7 +57,7 @@ fn attentive_sunscribe_scries_one_when_it_becomes_tapped() {
     let library = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     assert_eq!(
         library.first().copied(),
@@ -78,7 +78,7 @@ fn attentive_sunscribe_may_keep_the_card_on_top() {
     let library = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     assert_eq!(library.last().copied(), Some(cards[0]), "still on top");
 }

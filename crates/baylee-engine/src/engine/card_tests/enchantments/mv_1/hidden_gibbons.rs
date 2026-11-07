@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn hidden_gibbons() -> CardIndex {
     card_index("2315b044-bfd2-40dd-a73e-4cf064b36999")

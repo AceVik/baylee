@@ -72,7 +72,7 @@ fn root_maze_causes_artifacts_and_lands_to_enter_tapped() {
 
 #[test]
 fn opponents_lands_also_enter_tapped() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(SEED, &[root_maze()], &[], &[], &[island()]);
     reach_their_main_phase(&mut e, p1);

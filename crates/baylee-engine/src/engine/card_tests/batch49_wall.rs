@@ -4,9 +4,9 @@
 use super::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::Cause;
-use crate::zone::ZonePosition;
 use baylee_core::generated::index;
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -42,7 +42,7 @@ fn next_main(e: &mut Engine<RegistryLookup>, player: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { player: p, .. } if *p == player)
     });
 }
@@ -131,7 +131,7 @@ fn blink(e: &mut Engine<RegistryLookup>, bear: ObjectId) {
         )
         .unwrap();
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 
@@ -225,7 +225,7 @@ fn wall_does_not_restrict_a_second_combat_in_the_current_turn() {
     let (_, bear) = block(&mut e);
     pass_until(&mut e, stack_is_empty);
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
             && matches!(e.pending(), Pending::Priority { player: P1, .. })
     });
     let turn = e.state.turn.number;
@@ -233,10 +233,10 @@ fn wall_does_not_restrict_a_second_combat_in_the_current_turn() {
     // fixture: normal CombatEnd already cleared combat state. No Implemented
     // extra-combat helper exists. Actual attack declarations are still used.
     e.state.set_tapped(bear, false);
-    e.state.turn.phase = crate::turn::Phase::Combat;
-    e.state.turn.step = crate::turn::Step::CombatBegin;
+    e.state.turn.phase = baylee_engine::turn::Phase::Combat;
+    e.state.turn.step = baylee_engine::turn::Step::CombatBegin;
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     attack_offer(&mut e, P1, bear, true);
     assert_eq!(e.state.turn.number, turn);
@@ -261,11 +261,11 @@ fn wall_active_restriction_stays_for_whole_bound_turn_after_control_change() {
     object.base_mut().keywords = keywords;
     e.state.set_tapped(bear, false);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
-    assert!(!crate::combat::can_attack(&e.state, P0, bear));
+    assert!(!baylee_engine::combat::can_attack(&e.state, P0, bear));
     next_main(&mut e, P0);
-    assert!(crate::combat::can_attack(&e.state, P0, bear));
+    assert!(baylee_engine::combat::can_attack(&e.state, P0, bear));
 }
 
 mod boundary;

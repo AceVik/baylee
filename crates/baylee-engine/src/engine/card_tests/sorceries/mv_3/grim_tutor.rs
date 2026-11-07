@@ -58,7 +58,7 @@ fn grim_tutor_finds_the_card_it_names_and_charges_three_life() {
                 assert_eq!(player, p0, "the caster searches their own library");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::SearchLibrary,
+                    baylee_engine::choice::ChoicePrompt::SearchLibrary,
                     "a tutor is a search and not a discard or a scry"
                 );
                 assert!(min >= 1 && max >= 1, "a card is found, not looked at");

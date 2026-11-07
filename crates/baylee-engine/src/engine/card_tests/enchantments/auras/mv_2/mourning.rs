@@ -26,7 +26,7 @@ fn mourning_shrinks_enchanted_creature_and_returns_to_hand() {
     let mourning_id = on_battlefield(&engine, p0, mourning).expect("Mourning on battlefield");
     assert_eq!(pt(&engine, bears_id), (0, 2));
 
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Black, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Black, 1)]);
     engine
         .apply(
             p0,

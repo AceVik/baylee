@@ -1,7 +1,7 @@
 //! Magmasaur pays its upkeep by removing a counter or sacrifices and explodes.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 fn magmasaur() -> CardIndex {
     card_index("da38bfdf-b4c8-4ffe-ad53-b42c317cae5f")

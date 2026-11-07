@@ -82,7 +82,7 @@ fn fault_riders_eats_a_land_for_two_power_and_first_strike_once_a_turn() {
     assert_eq!(player, p0, "the activating seat pays its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one land, no more and no fewer");

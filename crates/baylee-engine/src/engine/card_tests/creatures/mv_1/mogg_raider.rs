@@ -89,7 +89,7 @@ fn mogg_raider_eats_a_goblin_to_pump_the_creature_it_targets() {
                 assert_eq!(player, p0, "the activating seat pays the cost");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );

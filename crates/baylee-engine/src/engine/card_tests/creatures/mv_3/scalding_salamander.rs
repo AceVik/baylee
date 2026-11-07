@@ -1,8 +1,8 @@
 //! The supported creature body is played; unsupported abilities are omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn scalding_salamander() -> CardIndex {
     card_index("fcca3c9d-a2b6-4f29-b43c-2f061074a332")

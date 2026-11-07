@@ -26,7 +26,7 @@ fn powder_keg_upkeep_may_add_or_decline_a_fuse_counter() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )
@@ -42,7 +42,7 @@ fn powder_keg_upkeep_may_add_or_decline_a_fuse_counter() {
             && matches!(
                 e.pending(),
                 Pending::YesNo {
-                    prompt: crate::choice::YesNoPrompt::MayDo,
+                    prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                     ..
                 }
             )
@@ -87,7 +87,7 @@ fn powder_keg_sweeps_artifacts_and_creatures_matching_lki_fuse_counters() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )

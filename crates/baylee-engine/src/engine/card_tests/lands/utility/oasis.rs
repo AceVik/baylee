@@ -55,8 +55,8 @@ fn oasis_prevents_the_next_point_of_damage_to_a_creature_and_no_more() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::DamageDealt {
-                    target: crate::event::DamageTarget::Object(hit),
+                baylee_engine::event::GameEvent::DamageDealt {
+                    target: baylee_engine::event::DamageTarget::Object(hit),
                     amount: 2,
                     ..
                 } if hit == giant
@@ -90,8 +90,8 @@ fn oasis_prevents_the_next_point_of_damage_to_a_creature_and_no_more() {
     assert!(
         bare.journal().entries()[before..].iter().any(|e| matches!(
             e.event,
-            crate::event::GameEvent::DamageDealt {
-                target: crate::event::DamageTarget::Object(hit),
+            baylee_engine::event::GameEvent::DamageDealt {
+                target: baylee_engine::event::DamageTarget::Object(hit),
                 amount: 3,
                 ..
             } if hit == giant

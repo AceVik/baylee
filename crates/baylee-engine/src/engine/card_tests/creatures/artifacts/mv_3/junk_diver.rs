@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn junk_diver() -> CardIndex {
     card_index("08c595da-9305-42a9-b72f-5ccc546edc01")

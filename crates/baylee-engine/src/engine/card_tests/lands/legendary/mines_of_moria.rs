@@ -122,7 +122,7 @@ fn mines_of_moria_enters_untapped_beside_a_legendary_creature_and_buys_two_treas
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostExile,
+                    baylee_engine::choice::ChoicePrompt::CostExile,
                     "a cost and not a search, which is all a client has to tell apart"
                 );
                 assert_eq!((min, max), (1, 1), "one card per part");

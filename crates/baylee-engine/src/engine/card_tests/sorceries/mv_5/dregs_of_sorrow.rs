@@ -79,7 +79,7 @@ fn dregs_of_sorrow_destroys_x_nonblack_creatures_and_draws_x_cards() {
 
 #[test]
 fn dregs_of_sorrow_for_zero_has_no_targets_and_draws_nothing() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[], &[], &[dregs_of_sorrow()], &[]);
     lk::float(&mut e, P0, &[(ManaColor::Black, 5)]);
     cast_with_floating(&mut e, P0, dregs_of_sorrow());

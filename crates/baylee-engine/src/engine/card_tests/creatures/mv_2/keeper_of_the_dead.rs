@@ -1,8 +1,8 @@
 //! The supported creature body is played; unsupported abilities are omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn keeper_of_the_dead() -> CardIndex {
     card_index("50ddd513-e06e-4728-b6cd-981839d0fba6")

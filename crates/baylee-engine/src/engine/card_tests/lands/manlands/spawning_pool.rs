@@ -57,7 +57,7 @@ fn spawning_pool_animates_into_a_skeleton_that_can_regenerate_itself() {
     assert!(
         legal
             .abilities
-            .contains(&(pool, crate::choice::GRANTED_ABILITY)),
+            .contains(&(pool, baylee_engine::choice::GRANTED_ABILITY)),
         "the animation granted an activated ability, and it is on offer: {:?}",
         legal.abilities
     );
@@ -67,7 +67,7 @@ fn spawning_pool_animates_into_a_skeleton_that_can_regenerate_itself() {
             p0,
             PlayerAction::ActivateAbility {
                 source: pool,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("a black is still floating for the grant");

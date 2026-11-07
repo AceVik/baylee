@@ -45,7 +45,7 @@ fn lay_of_the_land_finds_a_basic_land_and_puts_it_into_hand() {
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a tutor's own question, and not a scry or a discard"
     );
     assert!(

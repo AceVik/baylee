@@ -17,7 +17,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::draw_kit as kit;
+use baylee_card_testkit::card_tests::draw_kit as kit;
 
 /// Destroys the Thug on the battlefield the way a state-based action does and
 /// lets the engine take its step. Says what the dies trigger asked, if it
@@ -29,7 +29,7 @@ fn the_thug_dies(engine: &mut Engine<RegistryLookup>) -> Option<Vec<ObjectId>> {
     let state = engine
         .dev_state_mut(kit::P0)
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, thug);
+    baylee_engine::sba::destroy(state, thug);
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };

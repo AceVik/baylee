@@ -194,7 +194,7 @@ fn trade_routes_bounces_a_land_then_trades_one_for_a_card() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostDiscard,
+        baylee_engine::choice::ChoicePrompt::CostDiscard,
         "a cost and not a search, which is all a client has to tell them apart"
     );
     assert_eq!((min, max), (1, 1), "one land card, no more and no fewer");

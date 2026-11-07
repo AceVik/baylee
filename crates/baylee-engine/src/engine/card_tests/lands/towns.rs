@@ -57,7 +57,7 @@ fn begin_town_adventure(
 fn assert_adventure_exiled(e: &Engine<RegistryLookup>, player: PlayerId, card: ObjectId) {
     assert_eq!(e.state().object(card).unwrap().zone, Zone::Exile);
     assert_eq!(e.state().object(card).unwrap().face_index, 0);
-    assert!(crate::casting::adventure_permission(
+    assert!(baylee_engine::casting::adventure_permission(
         e.state(),
         player,
         card

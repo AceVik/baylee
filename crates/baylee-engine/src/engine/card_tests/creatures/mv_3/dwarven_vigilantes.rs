@@ -112,7 +112,7 @@ fn dwarven_vigilantes_blocked_does_not_trigger() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
     assert!(in_graveyard(&engine, p0, dwarven_vigilantes()).is_some());

@@ -55,7 +55,7 @@ fn tinker_sacrifices_artifact_and_tutors_artifact_to_battlefield() {
 
 #[test]
 fn tinker_cannot_sacrifice_an_opponents_artifact() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[sol_ring()], &[tinker()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 3)]);
     let spell = in_hand(&engine, lk::P0, tinker()).unwrap();

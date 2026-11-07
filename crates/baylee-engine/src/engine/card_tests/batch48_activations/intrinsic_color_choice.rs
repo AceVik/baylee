@@ -4,8 +4,8 @@ use super::*;
 
 #[test]
 fn artifact_multitype_intrinsic_mana_taps_and_activates_exactly_once() {
-    use crate::event::GameEvent;
     use baylee_core::generated::subtypes::land;
+    use baylee_engine::event::GameEvent;
     let mut e = prepared(&[], &[index::HAUNTING_WIND, index::SOL_RING], &[]);
     let ring = source(&e, P0, index::SOL_RING);
     // Isolate the intrinsic two-color shortcut without relying on printed

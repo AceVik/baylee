@@ -79,7 +79,7 @@ fn claws_of_gix_eats_a_permanent_you_control_for_one_life() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell them apart"
     );
     assert_eq!((min, max), (1, 1), "one permanent, no more and no fewer");

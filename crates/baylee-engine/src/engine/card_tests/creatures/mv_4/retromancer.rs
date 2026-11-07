@@ -28,7 +28,7 @@ fn retromancer_deals_three_damage_to_targeting_spells_controller() {
 
 #[test]
 fn retromancer_also_punishes_targeted_abilities_and_its_own_controllers_spells() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

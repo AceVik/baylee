@@ -61,7 +61,7 @@ fn slow_motion_sacrifices_unpaid_and_returns_to_hand() {
 
 #[test]
 fn slow_motion_allows_the_creatures_controller_to_pay() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[gray_ogre()], &[slow_motion()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 3)]);
     let ogre = lk::obj(&engine, lk::P1, gray_ogre());

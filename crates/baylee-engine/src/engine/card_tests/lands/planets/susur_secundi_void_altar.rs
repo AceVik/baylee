@@ -31,7 +31,7 @@ fn susur_secundi_void_altar_enters_tapped_and_taps_for_black() {
 
 #[test]
 fn susur_stations_then_draws_the_sacrificed_creatures_power() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         954,
         &[susur_secundi_void_altar(), serra_angel()],
@@ -41,7 +41,7 @@ fn susur_stations_then_draws_the_sacrificed_creatures_power() {
     );
     let land = kit::obj(&engine, kit::P0, susur_secundi_void_altar());
     let angel = kit::obj(&engine, kit::P0, serra_angel());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         engine.dev_state_mut(kit::P0).unwrap(),
         land,
         CounterKind::Charge,
@@ -88,7 +88,7 @@ fn susur_stations_then_draws_the_sacrificed_creatures_power() {
 /// in p1's turn.
 #[test]
 fn susur_station_and_its_twelve_plus_ability_are_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(
         983,
         &[susur_secundi_void_altar(), serra_angel()],
@@ -97,7 +97,7 @@ fn susur_station_and_its_twelve_plus_ability_are_sorcery_timing_only() {
         &[],
     );
     let planet = kit::obj(&e, kit::P0, susur_secundi_void_altar());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         e.dev_state_mut(kit::P0).unwrap(),
         planet,
         CounterKind::Charge,

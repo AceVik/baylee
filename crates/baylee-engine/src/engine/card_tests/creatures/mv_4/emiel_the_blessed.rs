@@ -120,17 +120,17 @@ fn emiel_uses_current_subtypes_but_not_a_new_incarnation_of_the_entering_creatur
                 .move_object(
                     bear,
                     ZoneLocation::Exile(p0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
-            state.object_mut(bear).unwrap().kind = crate::object::ObjectKind::Permanent;
+            state.object_mut(bear).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
             state
                 .move_object(
                     bear,
                     ZoneLocation::Battlefield,
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
             // The new entry creates its own trigger. Decline that trigger,

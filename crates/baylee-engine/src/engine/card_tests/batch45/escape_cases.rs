@@ -57,7 +57,7 @@ fn batch45_escape_uses_a_graveyard_dinosaurs_adventure_cost_and_return_permissio
     let park = on_battlefield(&e, P0, index::WELCOME_TO).unwrap();
     let def = RegistryLookup.card(index::WELCOME_TO).unwrap();
     e.state.switch_face(park, def, 1);
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     let adventure = hand_to_graveyard(&mut e, P0, index::BRAZEN_BORROWER);
     // A Dinosaur Adventure is the relevant rules case; the pool currently has
     // none, so change only this fixture's front characteristics in the graveyard.
@@ -95,7 +95,7 @@ fn batch45_escape_uses_a_graveyard_dinosaurs_adventure_cost_and_return_permissio
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state.object(ring).unwrap().zone, Zone::Hand);
     assert_eq!(e.state.object(adventure).unwrap().zone, Zone::Exile);
-    assert!(crate::casting::adventure_permission(
+    assert!(baylee_engine::casting::adventure_permission(
         &e.state, P0, adventure
     ));
 }
@@ -107,7 +107,7 @@ fn grant_snapcaster(e: &mut Engine<RegistryLookup>, spell: ObjectId) {
     });
     target(e, vec![spell], vec![]);
     pass_until(e, stack_is_empty);
-    assert!(crate::casting::flashback_granted(&e.state, spell));
+    assert!(baylee_engine::casting::flashback_granted(&e.state, spell));
 }
 
 #[test]

@@ -35,7 +35,7 @@ fn cloak_of_mists_makes_enchanted_creature_unblockable() {
 
 #[test]
 fn cloak_of_mists_excludes_its_host_from_the_block_offer_only() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = lk::game(

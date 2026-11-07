@@ -16,7 +16,7 @@ fn tomb() -> CardIndex {
 fn upkeep(e: &mut Engine<RegistryLookup>, p: PlayerId) {
     pass_until(e, |e| {
         e.state().turn.active == p
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p)
     });
 }
@@ -58,7 +58,7 @@ fn kill(e: &mut Engine<RegistryLookup>, id: ObjectId) {
             id,
             ZoneLocation::Graveyard(p0()),
             ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -103,7 +103,7 @@ fn cyclopean_tomb_requires_own_upkeep_two_mana_tap_and_non_swamp_land() {
             .object(source)
             .unwrap()
             .status
-            .contains(crate::object::Status::TAPPED)
+            .contains(baylee_engine::object::Status::TAPPED)
     );
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().object(land).unwrap().counters.get(MIRE), 1);
@@ -115,7 +115,7 @@ fn cyclopean_tomb_requires_own_upkeep_two_mana_tap_and_non_swamp_land() {
         .object_mut(source)
         .unwrap()
         .status
-        .remove(crate::object::Status::TAPPED);
+        .remove(baylee_engine::object::Status::TAPPED);
     mana(&mut e, 2);
     assert!(!priority_offer(&e).abilities.contains(&(source, 0)));
     upkeep(&mut e, p1());
@@ -145,15 +145,15 @@ fn cyclopean_tomb_duration_survives_source_exile_but_ends_permanently_at_zero() 
             source,
             ZoneLocation::Exile(p0()),
             ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
     assert!(is_swamp(&e, land));
     assert!(e.state().delayed.is_empty());
     let state = e.dev_state_mut(p0()).unwrap();
-    crate::replacement::put_counters(state, land, MIRE, 1);
-    crate::replacement::remove_counters(state, land, MIRE, 1);
+    baylee_engine::replacement::put_counters(state, land, MIRE, 1);
+    baylee_engine::replacement::remove_counters(state, land, MIRE, 1);
     state.refresh_characteristics();
     assert!(
         state
@@ -163,9 +163,9 @@ fn cyclopean_tomb_duration_survives_source_exile_but_ends_permanently_at_zero() 
             .subtypes
             .contains(subtypes::land::SWAMP)
     );
-    crate::replacement::remove_counters(state, land, MIRE, 1);
+    baylee_engine::replacement::remove_counters(state, land, MIRE, 1);
     // No intervening engine step: the effect cannot restart.
-    crate::replacement::put_counters(state, land, MIRE, 1);
+    baylee_engine::replacement::put_counters(state, land, MIRE, 1);
     e.dev_state_mut(p0()).unwrap().refresh_characteristics();
     e.refresh_offer();
     assert!(!is_swamp(&e, land));
@@ -182,7 +182,7 @@ fn cyclopean_tomb_cleanup_repeats_and_removes_all_counters_from_one_land() {
     upkeep(&mut e, p0());
     mark(&mut e, source, island);
     pass_until(&mut e, stack_is_empty);
-    crate::replacement::put_counters(e.dev_state_mut(p0()).unwrap(), forest, MIRE, 3);
+    baylee_engine::replacement::put_counters(e.dev_state_mut(p0()).unwrap(), forest, MIRE, 3);
     kill(&mut e, source);
     pass_until(&mut e, stack_is_empty);
     assert!(is_swamp(&e, forest));
@@ -204,7 +204,7 @@ fn cyclopean_tomb_cleanup_repeats_and_removes_all_counters_from_one_land() {
     assert!(!is_swamp(&e, forest));
     assert!(is_swamp(&e, island));
     // This instance already cleaned Forest, even if someone adds mire again.
-    crate::replacement::put_counters(e.dev_state_mut(p0()).unwrap(), forest, MIRE, 1);
+    baylee_engine::replacement::put_counters(e.dev_state_mut(p0()).unwrap(), forest, MIRE, 1);
     reach_their_main_phase(&mut e, p1());
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
@@ -250,7 +250,12 @@ fn cyclopean_tomb_blinked_source_does_not_inherit_the_old_instances_lands() {
     let state = e.dev_state_mut(p0()).unwrap();
     for zone in [ZoneLocation::Exile(p0()), ZoneLocation::Battlefield] {
         state
-            .move_object(source, zone, ZonePosition::Top, crate::event::Cause::Effect)
+            .move_object(
+                source,
+                zone,
+                ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
             .unwrap();
     }
     e.refresh_offer();
@@ -290,7 +295,7 @@ fn cyclopean_tomb_dead_source_can_return_before_its_death_trigger_resolves() {
             source,
             ZoneLocation::Battlefield,
             ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     pass_until(&mut e, stack_is_empty);
@@ -322,10 +327,15 @@ fn cyclopean_tomb_blinked_land_does_not_keep_its_type_or_cleanup_eligibility() {
     let state = e.dev_state_mut(p0()).unwrap();
     for zone in [ZoneLocation::Exile(p1()), ZoneLocation::Battlefield] {
         state
-            .move_object(land, zone, ZonePosition::Top, crate::event::Cause::Effect)
+            .move_object(
+                land,
+                zone,
+                ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
             .unwrap();
     }
-    crate::replacement::put_counters(state, land, MIRE, 2);
+    baylee_engine::replacement::put_counters(state, land, MIRE, 2);
     state.refresh_characteristics();
     assert!(!is_swamp(&e, land));
     kill(&mut e, source);
@@ -389,7 +399,7 @@ fn cyclopean_tomb_history_is_part_of_snapshot_and_loop_hashes() {
     assert_ne!(before.0, e.state().snapshot_hash());
     assert_ne!(before.1, e.state().loop_signature());
     let state = e.dev_state_mut(p0()).unwrap();
-    crate::replacement::remove_counters(state, land, MIRE, u16::MAX);
+    baylee_engine::replacement::remove_counters(state, land, MIRE, u16::MAX);
     state.refresh_characteristics();
     assert!(
         !is_swamp(&e, land),
@@ -468,7 +478,12 @@ fn cyclopean_tomb_same_resolution_return_keeps_the_departing_identity() {
     // Two moves in one mutation batch, before any trigger collection.
     for zone in [ZoneLocation::Graveyard(p0()), ZoneLocation::Battlefield] {
         state
-            .move_object(source, zone, ZonePosition::Top, crate::event::Cause::Effect)
+            .move_object(
+                source,
+                zone,
+                ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
             .unwrap();
     }
     e.apply(p0(), PlayerAction::PassPriority).unwrap();

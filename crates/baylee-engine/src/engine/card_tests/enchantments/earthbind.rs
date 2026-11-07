@@ -2,11 +2,11 @@
 //! gained by the Aura rather than a permanent change to its first creature.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
-use crate::event::{Cause, DamageTarget, GameEvent};
 use baylee_cards_dsl::{Duration, Filter, KeywordSet, Modifier};
 use baylee_core::generated::index;
 use baylee_core::ids::EffectId;
+use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+use baylee_engine::event::{Cause, DamageTarget, GameEvent};
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -80,7 +80,7 @@ fn modify(e: &mut Engine<RegistryLookup>, object: ObjectId, modifier: Modifier) 
 }
 
 fn settle(e: &mut Engine<RegistryLookup>) {
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.dev_state_mut(P0).unwrap().refresh_characteristics();
 }
 
@@ -157,7 +157,7 @@ fn earthbind_deals_damage_before_removing_flying_even_when_that_prevents_the_dam
     let (mut e, host, aura) = setup(index::WALL_OF_AIR);
     let state = e.dev_state_mut(P0).unwrap();
     let timestamp = state.next_timestamp();
-    crate::replacement::put_counters(state, host, CounterKind::Charge, 2);
+    baylee_engine::replacement::put_counters(state, host, CounterKind::Charge, 2);
     state.effects.register(ContinuousEffect {
         id: EffectId::new(0),
         source: None,
@@ -256,7 +256,7 @@ fn earthbind_old_trigger_does_not_grant_an_ability_to_a_returned_aura() {
         .object_mut(aura)
         .unwrap()
         .own_abilities =
-        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
+        Some(baylee_engine::object::AbilityList::from_static(&[], None, None).into_bundle());
     pass_until(&mut e, stack_is_empty);
     assert_eq!(damage(&e, aura), vec![(host, 2)]);
     assert!(flying(&e, host));

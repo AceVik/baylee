@@ -72,8 +72,8 @@ fn memorial_inspects_the_printed_count_and_reveals_only_the_matching_card() {
 
 #[test]
 fn memorial_reveals_its_selected_commander_before_asking_about_the_command_zone() {
-    use crate::event::GameEvent;
     use baylee_core::generated::index;
+    use baylee_engine::event::GameEvent;
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .battlefield(0, &[memorial_to_unity()])
@@ -88,8 +88,8 @@ fn memorial_reveals_its_selected_commander_before_asking_about_the_command_zone(
         .move_object(
             commander,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     state.set_tapped(memorial, false);
@@ -108,7 +108,7 @@ fn memorial_reveals_its_selected_commander_before_asking_about_the_command_zone(
     )
     .unwrap();
     assert!(
-        matches!(e.pending(),Pending::YesNo{prompt:crate::choice::YesNoPrompt::CommanderReplace{card,..},..} if *card==commander)
+        matches!(e.pending(),Pending::YesNo{prompt:baylee_engine::choice::YesNoPrompt::CommanderReplace{card,..},..} if *card==commander)
     );
     let reveals = |e: &Engine<RegistryLookup>| {
         e.state().journal.entries()[since..].iter().filter(|entry|

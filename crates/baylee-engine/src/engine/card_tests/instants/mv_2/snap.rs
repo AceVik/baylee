@@ -48,7 +48,7 @@ fn snap_bounces_creature_and_untaps_two_lands() {
 
 #[test]
 fn snap_untap_is_optional_and_can_choose_an_opponents_land() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     for pick in [false, true] {
         let mut engine = lk::game(SEED, &[forest()], &[island(), gray_ogre()], &[snap()], &[]);
         let mine = lk::obj(&engine, lk::P0, forest());

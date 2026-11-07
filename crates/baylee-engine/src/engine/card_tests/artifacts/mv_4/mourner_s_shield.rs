@@ -25,8 +25,8 @@ fn mourner_s_shield_prevents_matching_color_damage_only() {
         .move_object(
             bolt,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

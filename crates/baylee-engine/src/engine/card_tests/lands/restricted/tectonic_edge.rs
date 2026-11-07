@@ -47,7 +47,7 @@ fn tectonic_edge_destroys_a_nonbasic_land_only_once_an_opponent_has_four() {
         let name = state.names.intern("Extra Island");
         let id = state.create_bare(
             p1,
-            crate::object::ObjectKind::Permanent,
+            baylee_engine::object::ObjectKind::Permanent,
             name,
             ZoneLocation::Battlefield,
         );

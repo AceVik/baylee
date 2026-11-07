@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::BlockOption;
+use baylee_engine::choice::BlockOption;
 
 fn war_barge() -> CardIndex {
     card_index("fd57331f-1cfa-4f88-a925-fc171738c3c0")

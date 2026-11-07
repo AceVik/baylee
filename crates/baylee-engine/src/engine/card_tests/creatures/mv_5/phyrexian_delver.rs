@@ -2,7 +2,7 @@
 //! Oracle: When this creature enters, return target creature card from your graveyard to the battlefield. You lose life equal to that card's mana value.
 
 use super::*;
-use crate::engine::card_tests::legends_kit::life;
+use baylee_card_testkit::card_tests::legends_kit::life;
 
 #[test]
 fn phyrexian_delver_returns_creature_from_graveyard_and_loses_life_equal_to_cmc() {

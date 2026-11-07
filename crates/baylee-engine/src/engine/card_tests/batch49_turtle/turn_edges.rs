@@ -9,7 +9,7 @@ fn turtle_restriction_applies_to_immediately_following_extra_own_turn() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
             && matches!(e.pending(), Pending::Priority { player: P0, .. })
     });
     turn_walk(&mut e);
@@ -26,7 +26,7 @@ fn turtle_blink_discards_previous_incarnations_attack_history() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
             && matches!(e.pending(), Pending::Priority { .. })
     });
     // Existing transparent exact-incarnation fixture; target card's attack is actual.

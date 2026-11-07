@@ -46,7 +46,7 @@ fn turn_vigilante_face_up(
             player,
             PlayerAction::ActivateAbility {
                 source: vigilante,
-                ability_index: crate::choice::TURN_FACE_UP,
+                ability_index: baylee_engine::choice::TURN_FACE_UP,
             },
         )
         .expect("the floating {1}{G} pays morph");

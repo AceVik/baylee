@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -83,7 +83,7 @@ fn bears_returned_on_opponents_end_step(
     assert_eq!(lk::zone_of(&engine, vampire), Zone::Battlefield);
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert!(
         !stack_is_empty(&engine),
@@ -128,7 +128,7 @@ fn krovikan_vampire_ignores_a_death_it_did_not_damage() {
     lk::cast_at(&mut engine, P0, index::LIGHTNING_BOLT, &[bears], &[]);
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
 
-    lk::to_step(&mut engine, P0, crate::turn::Step::End);
+    lk::to_step(&mut engine, P0, baylee_engine::turn::Step::End);
     assert!(
         stack_is_empty(&engine),
         "a death without damage from the Vampire does not trigger it"
@@ -163,7 +163,7 @@ fn krovikan_vampire_forgets_damage_from_an_earlier_turn() {
     lk::cast_at(&mut engine, P1, index::SHOCK, &[spider], &[]);
     assert!(in_graveyard(&engine, P1, index::GIANT_SPIDER).is_some());
 
-    lk::to_step(&mut engine, P1, crate::turn::Step::End);
+    lk::to_step(&mut engine, P1, baylee_engine::turn::Step::End);
     assert!(
         stack_is_empty(&engine),
         "last turn's damage does not qualify this turn's death"
@@ -245,7 +245,7 @@ fn krovikan_vampire_returns_a_creature_it_killed_on_its_own_turn_at_its_own_end_
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     lk::settle(&mut engine);
     assert_eq!(lk::zone_of(&engine, bears), Zone::Battlefield);

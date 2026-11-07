@@ -206,7 +206,7 @@ fn benalish_heros_band_divides_a_blockers_damage_by_the_active_player() {
             assert_eq!((min, max), (0, 2), "the ogre's power, any of it");
             assert_eq!(
                 reason,
-                crate::choice::NumberPrompt::CombatDamage {
+                baylee_engine::choice::NumberPrompt::CombatDamage {
                     source: ogre,
                     recipient: lions,
                     index: 0,

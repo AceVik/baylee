@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 // oracle_id = "ddb021df-ae4a-4ac1-8353-d0b375761714": first strike.
 fn white_knight() -> CardIndex {

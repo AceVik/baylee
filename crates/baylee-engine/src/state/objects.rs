@@ -27,7 +27,8 @@ impl GameState {
     /// Only [`GameObject::controlled_since`] moves. A change of control is
     /// not one of the events CR 613.7 gives an object a new timestamp for,
     /// so the order its static abilities' effects apply in stays as it was.
-    pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
+    #[doc(hidden)]
+    pub fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
             obj.controlled_since = ts;
@@ -117,7 +118,8 @@ impl GameState {
     /// Attach an Aura or Equipment to a new permanent. A new attachment
     /// gives it and its static effects a new timestamp (CR 613.7a, 613.7e).
     /// Reattaching to the same object does nothing (CR 701.3b).
-    pub(crate) fn attach(&mut self, source: ObjectId, host: ObjectId) {
+    #[doc(hidden)]
+    pub fn attach(&mut self, source: ObjectId, host: ObjectId) {
         let Some(object) = self.object(source) else {
             return;
         };

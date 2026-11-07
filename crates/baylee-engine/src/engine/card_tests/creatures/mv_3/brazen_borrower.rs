@@ -19,15 +19,18 @@ fn borrower_blocks_flying_but_not_reach_or_ground_creatures() {
         (giant_spider(), false),
     ] {
         let a = on_battlefield(&e, p1, card).unwrap();
-        assert_eq!(crate::combat::can_block(e.state(), p0, b, a), allowed);
+        assert_eq!(
+            baylee_engine::combat::can_block(e.state(), p0, b, a),
+            allowed
+        );
     }
     assert!(keywords(&e, b).contains(KeywordSet::FLASH.union(KeywordSet::FLYING)));
 }
 
 #[test]
 fn petty_theft_targets_as_an_instant_in_both_offer_and_target_choice() {
-    use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     use baylee_cards_dsl::{Duration, Filter, Modifier};
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for (protection, legal) in [
         (&Filter::CREATURE, true),
@@ -60,7 +63,13 @@ fn petty_theft_targets_as_an_instant_in_both_offer_and_target_choice() {
         give_mana(&mut e, p0, ManaColor::Blue, 3);
         let card = in_hand(&e, p0, brazen_borrower()).unwrap();
         assert_eq!(
-            crate::casting::face_has_a_legal_target(e.state(), &RegistryLookup, p0, card, 1),
+            baylee_engine::casting::face_has_a_legal_target(
+                e.state(),
+                &RegistryLookup,
+                p0,
+                card,
+                1
+            ),
             legal
         );
         if !legal {

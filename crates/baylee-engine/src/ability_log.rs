@@ -45,11 +45,13 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 /// The environment variable naming the directory.
-pub(crate) const VAR: &str = "BAYLEE_ABILITY_LOG";
+#[doc(hidden)]
+pub const VAR: &str = "BAYLEE_ABILITY_LOG";
 
 /// How an ability fired: the `kind` field of a line.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub(crate) enum Kind {
+#[doc(hidden)]
+pub enum Kind {
     Spell,
     Activated,
     Triggered,
@@ -59,7 +61,8 @@ pub(crate) enum Kind {
 }
 
 impl Kind {
-    pub(crate) const fn name(self) -> &'static str {
+    #[doc(hidden)]
+    pub const fn name(self) -> &'static str {
         match self {
             Self::Spell => "spell",
             Self::Activated => "activated",
@@ -73,7 +76,8 @@ impl Kind {
     /// The kind an entry of a card's ability list fires as, or `None` for
     /// the variants no door here logs (`docs/verification-hooks.md` names
     /// them).
-    pub(crate) const fn of(ability: &AbilityDef) -> Option<Self> {
+    #[doc(hidden)]
+    pub const fn of(ability: &AbilityDef) -> Option<Self> {
         Some(match ability {
             AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. } => Self::Spell,
             AbilityDef::Activated {
@@ -108,7 +112,8 @@ impl Kind {
 }
 
 /// The directory, when the variable names one; read once per process.
-pub(crate) fn dir() -> Option<&'static PathBuf> {
+#[doc(hidden)]
+pub fn dir() -> Option<&'static PathBuf> {
     static DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
     DIR.get_or_init(|| {
         let dir = PathBuf::from(std::env::var_os(VAR).filter(|v| !v.is_empty())?);
@@ -136,7 +141,8 @@ fn test_name() -> String {
 }
 
 /// Where the lines of an unnamed thread go.
-pub(crate) const UNNAMED: &str = "unnamed-thread";
+#[doc(hidden)]
+pub const UNNAMED: &str = "unnamed-thread";
 
 /// What this process has written, so each test gets each line once and its
 /// file is started afresh on its first line.
@@ -154,7 +160,8 @@ fn written() -> &'static Mutex<Written> {
 /// The file a test's lines go to: the test's name, which is a Rust path and
 /// so safe on every file system but one — Windows refuses `:` in a name.
 /// The one place a name is made: a reader asks here too.
-pub(crate) fn file_name(test: &str) -> String {
+#[doc(hidden)]
+pub fn file_name(test: &str) -> String {
     let stem: String = if cfg!(windows) {
         test.replace(':', "_")
     } else {
@@ -164,7 +171,8 @@ pub(crate) fn file_name(test: &str) -> String {
 }
 
 /// A JSON string literal.
-pub(crate) fn json_str(s: &str) -> String {
+#[doc(hidden)]
+pub fn json_str(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     for c in s.chars() {
@@ -214,13 +222,27 @@ fn fired(card: CardIndex, index: u32, kind: Kind) {
         .unwrap_or_else(|e| panic!("{VAR}: cannot write {}: {e}", path.display()));
 }
 
+/// The pool, as a test crate names it: the engine does not link the cards.
+pub static POOL: std::sync::OnceLock<fn(CardIndex) -> Option<&'static baylee_cards_dsl::CardDef>> =
+    std::sync::OnceLock::new();
+
+#[cfg(test)]
+fn pool_card(card: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+    baylee_cards::by_index(card)
+}
+
+#[cfg(not(test))]
+fn pool_card(card: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+    POOL.get().and_then(|pool| pool(card))
+}
+
 /// Whether `card` is the compiled pool's card, as the engine's lookup has it.
 ///
 /// A test may play a card it made up under an index the pool also uses
 /// (`m2_tests`, `synthetic`); crediting the pool's card with what the made-up
 /// one did would be evidence for the wrong card.
 fn from_pool(lookup: &impl CardLookup, card: CardIndex) -> bool {
-    match (lookup.card(card), baylee_cards::by_index(card)) {
+    match (lookup.card(card), pool_card(card)) {
         (Some(ours), Some(pool)) => std::ptr::eq(ours, pool),
         _ => false,
     }

@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn quicksilver_amulet() -> CardIndex {
     card_index("e1096a98-a631-43f5-97d8-325001d608b3")

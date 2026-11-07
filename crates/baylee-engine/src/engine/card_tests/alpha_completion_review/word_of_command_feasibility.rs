@@ -315,7 +315,7 @@ fn a_way_of_casting_the_lands_cannot_pay_is_not_offered() {
         assert!(
             options
                 .iter()
-                .all(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1))),
+                .all(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1))),
             "the creature's price is beyond the lands: {options:?}"
         );
         engine.apply(USER, PlayerAction::ChooseMode(0)).unwrap();

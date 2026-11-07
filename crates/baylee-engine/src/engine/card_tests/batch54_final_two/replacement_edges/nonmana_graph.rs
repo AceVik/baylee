@@ -27,7 +27,7 @@ fn gnomes_does_not_rewrite_targeted_nonmana_ability_or_its_reflected_type() {
         land,
         Modifier::GrantActivatedDefinition(&TARGETED_MANA),
     );
-    let grant = crate::effects::granted_activated(e.state(), land)
+    let grant = baylee_engine::effects::granted_activated(e.state(), land)
         .next()
         .unwrap()
         .id;

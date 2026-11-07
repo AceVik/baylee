@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn jasmine_seer() -> CardIndex {
     card_index("d934a7f0-eb46-4a2c-b0fd-e3071e23da4a")

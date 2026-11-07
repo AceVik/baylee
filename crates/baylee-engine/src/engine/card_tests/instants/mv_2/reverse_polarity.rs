@@ -7,9 +7,9 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
 use baylee_core::generated::index;
+use baylee_engine::turn::Step;
 
 // oracle_id = "c7076e2c-81f1-44ad-a4dd-45a01802d364"
 fn reverse_polarity() -> CardIndex {

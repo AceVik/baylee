@@ -258,7 +258,7 @@ fn demonic_hordes_independent_control_magic_moves_upkeep_obligation_to_new_contr
 
 #[test]
 fn demonic_hordes_independent_control_change_in_response_keeps_original_payment_and_land_owner() {
-    use super::super::super::synthetic::{self, SyntheticLookup};
+    use baylee_card_testkit::synthetic::{self, SyntheticLookup};
     use baylee_cards_dsl::{
         AbilityDef, Cost, Duration, Effect, Filter, Modifier, TargetSpec, activated,
     };

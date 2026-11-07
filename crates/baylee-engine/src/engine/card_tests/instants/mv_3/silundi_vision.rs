@@ -81,7 +81,7 @@ fn silundi_vision_privately_inspects_six_but_only_reveals_an_optional_spell() {
             .iter()
             .filter(|entry| entry.seq > seq)
             .filter_map(|entry| {
-                if let crate::event::GameEvent::Revealed { cards, .. } = &entry.event {
+                if let baylee_engine::event::GameEvent::Revealed { cards, .. } = &entry.event {
                     Some(cards.clone())
                 } else {
                     None
@@ -115,8 +115,8 @@ fn silundi_with_a_short_library_and_no_eligible_card_still_shows_every_inspected
             .move_object(
                 *id,
                 ZoneLocation::Exile(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

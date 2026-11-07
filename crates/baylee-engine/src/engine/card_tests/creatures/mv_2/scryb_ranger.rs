@@ -125,7 +125,7 @@ fn scryb_ranger_trades_a_forest_for_one_untap_and_then_its_limit_bites() {
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostReturn,
+                    baylee_engine::choice::ChoicePrompt::CostReturn,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );

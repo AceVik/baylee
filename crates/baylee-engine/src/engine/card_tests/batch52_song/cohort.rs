@@ -82,11 +82,11 @@ fn song_zero_mana_noncreature_dies_but_zero_mana_artifact_creature_keeps_abiliti
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(lotus).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     assert_eq!(
         e.state.object(thopter).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     assert!(keywords(&e, thopter).contains(KeywordSet::FLYING));
     assert_eq!(pt(&e, thopter), (0, 2));
@@ -108,12 +108,12 @@ fn song_cross_layer_effect_survives_its_own_source_ability_loss() {
     let types = e.state.object(song).unwrap().characteristics().types;
     e.state.object_mut(song).unwrap().base_mut().types = types.union(TypeSet::ARTIFACT);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(pt(&e, song), (4, 4));
     assert_eq!(pt(&e, ring), (1, 1));
     let hash = e.snapshot_hash();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(
         e.snapshot_hash(),
@@ -144,7 +144,7 @@ fn song_real_lattice_dependency_removes_own_ability_without_oscillation() {
     assert_eq!(pt(&e, lattice), (6, 6));
     assert_eq!(pt(&e, ring), (1, 1));
     let hash = e.snapshot_hash();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.snapshot_hash(), hash);
     cast_target(&mut e, index::DISENCHANT, song);

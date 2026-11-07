@@ -76,7 +76,7 @@ fn dauthi_mindripper_sacrifices_when_unblocked_to_make_defender_discard_three() 
 
 #[test]
 fn dauthi_mindripper_may_decline_and_does_not_trigger_when_blocked() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     for blocked in [false, true] {
         let mut e = lk::game(

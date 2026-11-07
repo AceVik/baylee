@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ChoicePrompt;
+use baylee_engine::choice::ChoicePrompt;
 
 fn masticore() -> CardIndex {
     card_index("621476a4-44bf-4f55-adb1-880cdd213f38")

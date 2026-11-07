@@ -25,7 +25,7 @@ fn life_changes(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
         .journal()
         .entries()
         .iter()
-        .filter(|e| matches!(e.event, crate::event::GameEvent::LifeChanged { player, .. } if player == seat))
+        .filter(|e| matches!(e.event, baylee_engine::event::GameEvent::LifeChanged { player, .. } if player == seat))
         .count()
 }
 

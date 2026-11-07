@@ -27,7 +27,7 @@ fn board() -> Engine<RegistryLookup> {
 
 /// Passes priority until p0 holds it in p1's `step`.
 #[track_caller]
-fn to_their_step(engine: &mut Engine<RegistryLookup>, step: crate::turn::Step) {
+fn to_their_step(engine: &mut Engine<RegistryLookup>, step: baylee_engine::turn::Step) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     pass_until(engine, |e| {
         e.state().turn.active == p1
@@ -77,7 +77,7 @@ fn festival_in_an_opponents_upkeep_stops_every_attack_that_turn() {
     let mut engine = board();
     let golem = on_battlefield(&engine, p1, obsianus_golem()).expect("the Golem is out");
 
-    to_their_step(&mut engine, crate::turn::Step::Upkeep);
+    to_their_step(&mut engine, baylee_engine::turn::Step::Upkeep);
     cast_from_hand(&mut engine, PlayerId::new(0), festival());
     pass_until(&mut engine, stack_is_empty);
 
@@ -116,7 +116,7 @@ fn festival_cannot_be_cast_outside_an_opponents_upkeep() {
         "not in my own main phase"
     );
 
-    to_their_step(&mut engine, crate::turn::Step::Draw);
+    to_their_step(&mut engine, baylee_engine::turn::Step::Draw);
     assert!(
         engine.apply(p0, PlayerAction::CastSpell { card }).is_err(),
         "not in the opponent's draw step"

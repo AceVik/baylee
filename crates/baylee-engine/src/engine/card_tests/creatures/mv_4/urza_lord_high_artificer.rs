@@ -96,7 +96,7 @@ fn urza_builds_a_construct_that_counts_your_artifacts_and_taps_one_for_blue() {
     assert_eq!(player, p0, "the activating seat is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostTap,
+        baylee_engine::choice::ChoicePrompt::CostTap,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one artifact, and the cost asks once");
@@ -224,8 +224,8 @@ fn urza_free_adventure_can_choose_either_spell_and_a_single_instant_option_stays
             .unwrap();
         if instant_only {
             // A priority opportunity outside a main phase; no alternative-cost timing waiver.
-            e.state.turn.phase = crate::turn::Phase::Ending;
-            e.state.turn.step = crate::turn::Step::End;
+            e.state.turn.phase = baylee_engine::turn::Phase::Ending;
+            e.state.turn.step = baylee_engine::turn::Step::End;
             e.refresh_offer();
         }
         e.apply(p0, PlayerAction::CastSpell { card }).unwrap();
@@ -236,11 +236,11 @@ fn urza_free_adventure_can_choose_either_spell_and_a_single_instant_option_stays
             assert!(
                 options
                     .iter()
-                    .any(|o| o.kind == crate::choice::CastModeKind::Normal)
+                    .any(|o| o.kind == baylee_engine::choice::CastModeKind::Normal)
             );
             let which = options
                 .iter()
-                .position(|o| o.kind == crate::choice::CastModeKind::Face(1))
+                .position(|o| o.kind == baylee_engine::choice::CastModeKind::Face(1))
                 .unwrap();
             e.apply(p0, PlayerAction::ChooseMode(which)).unwrap();
         }
@@ -315,7 +315,7 @@ fn urza_free_adventure_tax_cannot_use_mana_restricted_to_its_creature_front() {
             };
             let which = options
                 .iter()
-                .position(|o| o.kind == crate::choice::CastModeKind::Face(1))
+                .position(|o| o.kind == baylee_engine::choice::CastModeKind::Face(1))
                 .unwrap();
             e.apply(p0, PlayerAction::ChooseMode(which)).unwrap();
             let bear = on_battlefield(&e, p0, grizzly_bears()).unwrap();

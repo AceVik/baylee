@@ -372,7 +372,8 @@ impl GameState {
     /// Makes the waiting draws nothing can replace, in order, applies the
     /// replacements nobody has to choose about, and stops at the first
     /// question: `(player, question)`. `None` once the queue is empty.
-    pub(crate) fn next_draw_offer(&mut self) -> Option<(PlayerId, DrawReplacement)> {
+    #[doc(hidden)]
+    pub fn next_draw_offer(&mut self) -> Option<(PlayerId, DrawReplacement)> {
         while let Some(&(player, n)) = self.draws_to_offer.front() {
             if n == 0
                 || self.has_left(player)
@@ -476,7 +477,7 @@ impl GameState {
         self.draw_front.replaced = true;
         match replacement {
             Mandatory::RevealMatch(source, filter) => {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced_by(
                     source,
                     ReplacementRule::RevealDrawPutMatchingInGraveyard(filter),
@@ -499,7 +500,7 @@ impl GameState {
             }
             Mandatory::RevealDeny(source, life) => self.apply_draw_denial(player, source, life),
             Mandatory::Chains(source) => {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced_by(
                     source,
                     ReplacementRule::DiscardInsteadOfLaterDraws,
@@ -528,7 +529,7 @@ impl GameState {
                 token,
             } => {
                 let _ = source;
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced_by(
                     source,
                     ReplacementRule::OpponentsExtraDrawsCreateToken(token),
@@ -575,7 +576,7 @@ impl GameState {
         source: ObjectId,
         life: u8,
     ) -> Option<DrawReplacement> {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         crate::ability_log::replaced_by(source, ReplacementRule::RevealDrawOthersMayPayLife(life));
         self.draw_front.applied.push(source);
         if let Some(card) = self.reveal_draw_top(player) {
@@ -622,7 +623,7 @@ impl GameState {
         let Some(n) = self.dredge_count(card) else {
             return;
         };
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         crate::ability_log::replaced_by(card, ReplacementRule::Dredge(n));
         self.draws_replaced = self.draws_replaced.wrapping_add(1);
         self.mill_top(player, usize::from(n));
@@ -681,7 +682,7 @@ impl GameState {
                 None
             });
             if let Some(life) = gain {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced_by(
                     source,
                     ReplacementRule::MaySkipDrawStepGainLife(life),
@@ -690,7 +691,7 @@ impl GameState {
                 self.change_life(player, i32::from(life), crate::event::Cause::Effect);
                 self.take_front_draw();
             } else {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced_by(source, ReplacementRule::MaySkipDrawStepDraw);
                 self.draws_replaced = self.draws_replaced.wrapping_add(1);
                 self.restrict_attacks_after_skipped_draw(player, source);

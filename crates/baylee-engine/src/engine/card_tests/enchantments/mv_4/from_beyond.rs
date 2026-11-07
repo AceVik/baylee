@@ -113,7 +113,7 @@ fn pass_until_choice(engine: &mut Engine<RegistryLookup>) {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::SearchLibrary,
+                prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
                 ..
             }
         )

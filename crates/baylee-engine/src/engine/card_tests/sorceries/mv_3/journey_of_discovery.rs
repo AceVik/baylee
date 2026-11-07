@@ -96,7 +96,7 @@ fn journey_of_discovery_reveals_the_lands_it_finds() {
         .iter()
         .filter(|entry| entry.seq > since)
         .filter_map(|entry| match &entry.event {
-            crate::event::GameEvent::Revealed { player, cards } if *player == p0 => {
+            baylee_engine::event::GameEvent::Revealed { player, cards } if *player == p0 => {
                 Some(cards.clone())
             }
             _ => None,

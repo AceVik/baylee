@@ -38,7 +38,7 @@ fn tainted_aether_makes_controller_sacrifice_creature_or_land_when_creature_ente
 
 #[test]
 fn tainted_aether_uses_entrants_controller_and_accepts_land_but_not_artifact() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

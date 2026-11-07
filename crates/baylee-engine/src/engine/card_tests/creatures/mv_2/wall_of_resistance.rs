@@ -84,7 +84,7 @@ fn wall_of_resistance_gets_its_counter_at_the_opponents_end_step_too() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(pt(&engine, wall), (0, 3), "damaged, counter not yet earned");
 

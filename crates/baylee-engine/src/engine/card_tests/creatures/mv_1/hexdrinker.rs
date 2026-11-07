@@ -125,7 +125,7 @@ fn hexdrinker_at_level_eight_is_a_six_six_that_sheds_its_equipment() {
         let state = engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
-        crate::replacement::put_counters(state, snake, CounterKind::Level, 6);
+        baylee_engine::replacement::put_counters(state, snake, CounterKind::Level, 6);
     }
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

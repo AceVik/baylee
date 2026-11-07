@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::event::GameEvent;
+use baylee_engine::event::GameEvent;
 
 fn goblin_artisans() -> CardIndex {
     card_index("ec85a375-fe38-4b11-af0e-f2b466181dd7")

@@ -37,7 +37,7 @@ fn bristly_bill_spine_sower_triggers_landfall_counter_and_doubles_its_own() {
         on_battlefield(&engine, p0, bristly_bill_spine_sower()).expect("bill on battlefield");
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
     let theirs = on_battlefield(&engine, p1, aurochs()).expect("the opponent's Aurochs");
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         engine
             .dev_state_mut(p0)
             .expect("the harness sets boards up"),

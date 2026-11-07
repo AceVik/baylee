@@ -40,7 +40,7 @@ pub(crate) fn x_bounded(
 /// That is [`phyrexian_affordable`] with nothing settled yet: the cast
 /// wizard's Phyrexian question asks the same reader with its answers so
 /// far, so the offer and the question cannot disagree.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn affordable(
     state: &GameState,
     player: PlayerId,
@@ -53,7 +53,7 @@ pub(crate) fn affordable(
 /// [`affordable`] with the first `settled.len()` Phyrexian symbols already
 /// announced (`true` = 2 life, CR 601.2b) and every way of announcing the
 /// rest tried. A cost with no Phyrexian symbol is the pool's question alone.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn phyrexian_affordable(
     state: &GameState,
     player: PlayerId,
@@ -133,7 +133,7 @@ fn phyrexian_payable(
 
 /// Pays a nonspell cost, admitting mana whose restriction allows such payments.
 /// Spell and activation payments use [`pay_mana_for`].
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn pay_mana(state: &mut GameState, player: PlayerId, cost: &ManaCost) -> bool {
     if !admitted(state, player, SpendFor::Other).is_empty() {
         return pay_mana_for(state, player, SpendFor::Other, cost).is_some();
@@ -218,7 +218,8 @@ pub(crate) fn record_mana_payment(
 /// is offered in `LegalActions` and refused the moment it is taken.
 /// Characteristics used to announce a special casting form, before payment.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum SpellForm {
+#[doc(hidden)]
+pub enum SpellForm {
     Prototype(baylee_cards_dsl::Prototype),
     Disguise,
     /// A foretold card is announced face up with its printed characteristics.
@@ -226,7 +227,8 @@ pub(crate) enum SpellForm {
 }
 
 impl SpellForm {
-    pub(crate) fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
+    #[doc(hidden)]
+    pub fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
         let mut object = object.clone();
         if matches!(self, Self::Foretell(_)) {
             if let Some(original) = &object.original_base {
@@ -281,7 +283,8 @@ impl SpellForm {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum SpendFor {
+#[doc(hidden)]
+pub enum SpendFor {
     /// Casting this spell (CR 601.2h).
     Spell(ObjectId),
     /// A different face announced before the card physically reaches the stack.
@@ -358,7 +361,7 @@ pub(super) fn spending_object(
 /// never whether the mana may be spent. Ability restrictions match the
 /// actual source, including sources outside the battlefield. The walk is over the pool's list and never over the map, which
 /// is keyed by a hash.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn admitted(state: &GameState, player: PlayerId, what: SpendFor) -> ManaEntries {
     admitted_from_pool(
         state,
@@ -526,7 +529,8 @@ pub(crate) fn planning_pool(
 
 /// Mana units this payment can spend, without counting the restricted
 /// entries a second time after merging them into the plain counters.
-pub(crate) fn spendable_units(state: &GameState, player: PlayerId, what: SpendFor) -> u32 {
+#[doc(hidden)]
+pub fn spendable_units(state: &GameState, player: PlayerId, what: SpendFor) -> u32 {
     let merged = spendable_pool(state, player, what);
     let pool = merged
         .as_ref()
@@ -579,7 +583,8 @@ pub(crate) fn greatest_affordable(mut upper: u32, mut affordable: impl FnMut(u32
 /// it. Three {C} from a Workshop were all taken for a {1}. A restricted {G}
 /// that matched no pip was taken and lost. Under Mycosynth Lattice it
 /// matched colours literally, so it refused what the Lattice made payable.
-pub(crate) fn pay_mana_for(
+#[doc(hidden)]
+pub fn pay_mana_for(
     state: &mut GameState,
     player: PlayerId,
     what: SpendFor,

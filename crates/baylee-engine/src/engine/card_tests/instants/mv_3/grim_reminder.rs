@@ -58,7 +58,7 @@ fn grim_reminder_punishes_an_opponent_once_then_returns_from_graveyard() {
     reach_their_main_phase(&mut e, p1);
     pass_until(&mut e, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut e, p0);
@@ -88,8 +88,8 @@ fn grim_reminder_revealing_another_name_costs_the_opponent_nothing() {
         .move_object(
             bolt,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -139,8 +139,8 @@ fn grim_reminder_return_is_refused_in_the_opponent_s_upkeep() {
         .move_object(
             card,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -152,7 +152,7 @@ fn grim_reminder_return_is_refused_in_the_opponent_s_upkeep() {
     };
     pass_until(&mut e, |e| {
         e.state().turn.active == p1
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     // An ability is offered only while its mana is floating, so both
@@ -162,7 +162,7 @@ fn grim_reminder_return_is_refused_in_the_opponent_s_upkeep() {
     assert!(!offered(&e), "not during the opponent's upkeep");
     pass_until(&mut e, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     tap_all_mana(&mut e, p0);

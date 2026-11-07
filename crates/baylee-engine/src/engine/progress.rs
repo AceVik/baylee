@@ -1252,3 +1252,13 @@ static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
     }],
     otherwise: &[],
 }];
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn on_loop_detected_for_tests(&mut self, period: u64) -> bool {
+        self.on_loop_detected(period)
+    }
+}

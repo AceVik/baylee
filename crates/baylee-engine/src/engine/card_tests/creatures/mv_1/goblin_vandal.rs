@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -56,7 +56,7 @@ fn goblin_vandal_paid_destroys_their_artifact_and_deals_no_combat_damage() {
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![crate::choice::PaymentStep::ActivateManaAbility {
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility {
                 source: mountain_id,
             }],
         },
@@ -71,7 +71,10 @@ fn goblin_vandal_paid_destroys_their_artifact_and_deals_no_combat_damage() {
     );
     assert_eq!(lk::life(&e, P1), 20, "and no combat damage went through");
     assert!(on_battlefield(&e, P0, goblin_vandal()).is_some());
-    assert_ne!(lk::zone_of(&e, vandal), crate::zone::Zone::Graveyard);
+    assert_ne!(
+        lk::zone_of(&e, vandal),
+        baylee_engine::zone::Zone::Graveyard
+    );
 }
 
 /// Goblin Vandal — "you may pay {R}": declined, the artifact stays and the

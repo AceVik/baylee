@@ -1,7 +1,7 @@
 //! Shared assertions on the real tokens produced by card resolutions.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-pub(super) fn named(e: &Engine<RegistryLookup>, name: &str) -> Vec<ObjectId> {
+pub fn named(e: &Engine<RegistryLookup>, name: &str) -> Vec<ObjectId> {
     e.state()
         .zones
         .list(ZoneLocation::Battlefield)
@@ -14,7 +14,7 @@ pub(super) fn named(e: &Engine<RegistryLookup>, name: &str) -> Vec<ObjectId> {
         })
         .collect()
 }
-pub(super) fn attack(e: &mut Engine<RegistryLookup>, token: ObjectId) {
+pub fn attack(e: &mut Engine<RegistryLookup>, token: ObjectId) {
     let p1 = PlayerId::new(1);
     let chars = e
         .dev_state_mut(PlayerId::new(0))
@@ -26,5 +26,7 @@ pub(super) fn attack(e: &mut Engine<RegistryLookup>, token: ObjectId) {
     attack_and_collect_blocks(e, token, p1);
     e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
-    pass_until(e, |e| e.state().turn.step == crate::turn::Step::CombatEnd);
+    pass_until(e, |e| {
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
+    });
 }

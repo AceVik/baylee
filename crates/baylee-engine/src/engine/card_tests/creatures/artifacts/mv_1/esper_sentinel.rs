@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::PriorityHold;
+use baylee_engine::choice::PriorityHold;
 
 fn esper_sentinel_card() -> CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")

@@ -9,9 +9,9 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
 use baylee_core::generated::index;
+use baylee_engine::turn::Step;
 
 // oracle_id = "a3b3e02f-c75d-4cd6-8c57-d85ce00975fb"
 fn glyph_of_doom() -> CardIndex {

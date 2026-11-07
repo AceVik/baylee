@@ -28,7 +28,7 @@ fn opal_titan_becomes_4_4_giant_when_opponent_casts_creature() {
 /// and further creature spells once the Opal has become a creature.
 #[test]
 fn opal_titan_respects_opponent_creature_and_enchantment_conditions() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,
@@ -67,7 +67,10 @@ fn opal_titan_respects_opponent_creature_and_enchantment_conditions() {
     assert_eq!(pt(&e, opal), (4, 4));
     cast_with_floating(&mut e, p1, grizzly_bears());
     assert_eq!(
-        e.state().zones.list(crate::zone::ZoneLocation::Stack).len(),
+        e.state()
+            .zones
+            .list(baylee_engine::zone::ZoneLocation::Stack)
+            .len(),
         1,
         "intervening if prevents another trigger"
     );

@@ -27,11 +27,11 @@ fn enduring_vitality_has_vigilance_and_grants_mana_ability_to_controlled_creatur
     assert_eq!(pt(&engine, vitality), (3, 3));
     assert!(keywords(&engine, vitality).contains(KeywordSet::VIGILANCE));
 
-    let wolf_grant = crate::effects::granted_activated(engine.state(), my_wolf)
+    let wolf_grant = baylee_engine::effects::granted_activated(engine.state(), my_wolf)
         .next()
         .unwrap()
         .id;
-    let vitality_grant = crate::effects::granted_activated(engine.state(), vitality)
+    let vitality_grant = baylee_engine::effects::granted_activated(engine.state(), vitality)
         .next()
         .unwrap()
         .id;
@@ -132,7 +132,7 @@ fn enduring_vitality_returns_as_an_enchantment_and_only_once() {
         "Soul Warden saw no creature enter"
     );
     assert!(walk_to_own_main(&mut engine, p0), "p0's turn comes");
-    let warden_grant = crate::effects::granted_activated(engine.state(), warden)
+    let warden_grant = baylee_engine::effects::granted_activated(engine.state(), warden)
         .next()
         .unwrap()
         .id;

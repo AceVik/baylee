@@ -68,14 +68,14 @@ fn rune_of_protection_artifacts_prevents_next_damage_from_chosen_artifact() {
 
 #[test]
 fn rune_of_protection_artifacts_cycles_from_hand_for_two_and_draws_one() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[], &[], &[rune_of_protection_artifacts()], &[]);
     lk::float(&mut e, p0, &[(ManaColor::Colorless, 2)]);
     let before = e
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .len();
     activate(&mut e, p0, rune_of_protection_artifacts(), 1);
     assert!(in_graveyard(&e, p0, rune_of_protection_artifacts()).is_some());
@@ -83,17 +83,17 @@ fn rune_of_protection_artifacts_cycles_from_hand_for_two_and_draws_one() {
     assert_eq!(
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Library(p0))
+            .list(baylee_engine::zone::ZoneLocation::Library(p0))
             .len(),
         before - 1
     );
     assert_eq!(
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         1
     );
     assert_eq!(lk::pool_total(&e, p0), 0);
-    assert!(e.state().journal.entries().iter().any(|entry| matches!(entry.event, crate::event::GameEvent::Cycled { player, .. } if player == p0)));
+    assert!(e.state().journal.entries().iter().any(|entry| matches!(entry.event, baylee_engine::event::GameEvent::Cycled { player, .. } if player == p0)));
 }

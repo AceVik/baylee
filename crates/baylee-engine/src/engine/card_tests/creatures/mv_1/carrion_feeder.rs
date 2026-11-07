@@ -77,7 +77,7 @@ fn carrion_feeder_eats_a_creature_of_yours_for_a_counter_and_may_not_eat_theirs(
     assert_eq!(player, p0, "the activating seat is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "the variant is the whole of what tells a client this is a cost being \
          paid and not a search"
     );

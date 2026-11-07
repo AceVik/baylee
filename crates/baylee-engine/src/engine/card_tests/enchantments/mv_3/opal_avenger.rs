@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn opal_avenger() -> CardIndex {
     card_index("13a85c9f-f653-4d90-bea6-94022ee82527")

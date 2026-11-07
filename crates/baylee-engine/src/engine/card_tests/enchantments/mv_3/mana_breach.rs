@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 fn mana_breach() -> CardIndex {
@@ -31,7 +31,7 @@ fn mana_breach_returns_a_land_to_hand_when_a_player_casts_a_spell() {
 
 #[test]
 fn mana_breach_asks_an_opponent_to_return_their_own_land_when_they_cast() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

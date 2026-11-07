@@ -49,7 +49,7 @@ fn oubliette_source_phasing_is_not_leaving_before_resolution() {
                 .object(bear)
                 .unwrap()
                 .status
-                .contains(crate::object::Status::PHASED_OUT),
+                .contains(baylee_engine::object::Status::PHASED_OUT),
             !leaves
         );
     }
@@ -91,7 +91,7 @@ fn oubliette_phases_target_out_across_untap_and_phases_it_in_tapped_when_oubliet
             .object(bear)
             .expect("bear object")
             .status
-            .contains(crate::object::Status::PHASED_OUT),
+            .contains(baylee_engine::object::Status::PHASED_OUT),
         "Oubliette's ETB trigger phases the target creature out"
     );
 
@@ -105,7 +105,7 @@ fn oubliette_phases_target_out_across_untap_and_phases_it_in_tapped_when_oubliet
             .object(bear)
             .expect("bear object")
             .status
-            .contains(crate::object::Status::PHASED_OUT),
+            .contains(baylee_engine::object::Status::PHASED_OUT),
         "creature phased out by Oubliette does not phase in during untap step"
     );
 
@@ -123,11 +123,15 @@ fn oubliette_phases_target_out_across_untap_and_phases_it_in_tapped_when_oubliet
 
     let bear_obj = engine.state().object(bear).expect("bear object");
     assert!(
-        !bear_obj.status.contains(crate::object::Status::PHASED_OUT),
+        !bear_obj
+            .status
+            .contains(baylee_engine::object::Status::PHASED_OUT),
         "creature phases back in immediately when Oubliette leaves the battlefield"
     );
     assert!(
-        bear_obj.status.contains(crate::object::Status::TAPPED),
+        bear_obj
+            .status
+            .contains(baylee_engine::object::Status::TAPPED),
         "creature is tapped as it phases in this way"
     );
 }

@@ -348,7 +348,7 @@ impl<L: CardLookup> Engine<L> {
                 coin_stake: None,
             };
             let flow = resolve::run(&mut self.state, &mut res);
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::mana_activated(
                 &self.state,
                 &self.lookup,

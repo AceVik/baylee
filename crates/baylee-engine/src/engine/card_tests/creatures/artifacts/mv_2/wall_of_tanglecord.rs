@@ -10,7 +10,9 @@ fn wall_of_tanglecord() -> CardIndex {
 /// The opponent's Storm Crow attacks seat 0, whose Wall of Tanglecord may
 /// pay `{G}` for reach once the attack is declared. Returns the Wall, the
 /// Bears beside it and the blockers the question then offers.
-fn crow_attacks(pay_for_reach: bool) -> (ObjectId, ObjectId, Vec<crate::choice::BlockOption>) {
+fn crow_attacks(
+    pay_for_reach: bool,
+) -> (ObjectId, ObjectId, Vec<baylee_engine::choice::BlockOption>) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = table(
         &[],

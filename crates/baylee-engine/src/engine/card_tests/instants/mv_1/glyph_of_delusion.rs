@@ -12,8 +12,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
+use baylee_engine::turn::Step;
 
 // oracle_id = "e23ba169-4eb5-4083-a199-ac7e3026e67f"
 fn glyph_of_delusion() -> CardIndex {

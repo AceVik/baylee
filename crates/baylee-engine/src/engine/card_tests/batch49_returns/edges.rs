@@ -48,7 +48,7 @@ fn maze_returns_stolen_attacker_under_owner_control_and_tapped() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state.object(bear).unwrap().zone, Zone::Exile);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state.object(bear).unwrap().zone, Zone::Battlefield);

@@ -110,7 +110,7 @@ fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() 
         assert_eq!((min, max), (0, 6), "the Wurm's whole power, any of it");
         assert_eq!(
             reason,
-            crate::choice::NumberPrompt::CombatDamage {
+            baylee_engine::choice::NumberPrompt::CombatDamage {
                 source: wurm,
                 recipient: wolves,
                 index: 0,

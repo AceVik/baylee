@@ -54,7 +54,7 @@ fn hone_follows_attachments_survives_ability_loss_and_requires_equipment() {
     let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
     let elf = on_battlefield(&e, p0, llanowar_elves()).unwrap();
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::put_counters(state, equipment, CounterKind::Hone, 3);
+    baylee_engine::replacement::put_counters(state, equipment, CounterKind::Hone, 3);
     state.attach(equipment, bear);
     state.refresh_characteristics();
     assert_eq!(pt(&e, bear), (7, 2));
@@ -81,11 +81,11 @@ fn hone_follows_attachments_survives_ability_loss_and_requires_equipment() {
     state.refresh_characteristics();
     assert_eq!(pt(&e, elf), (1, 1));
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::remove_counters(state, equipment, CounterKind::Hone, 3);
+    baylee_engine::replacement::remove_counters(state, equipment, CounterKind::Hone, 3);
     assert!(
         !state
             .effects
             .iter()
-            .any(|fx| fx.origin == crate::effects::EffectOrigin::Counter(CounterKind::Hone))
+            .any(|fx| fx.origin == baylee_engine::effects::EffectOrigin::Counter(CounterKind::Hone))
     );
 }

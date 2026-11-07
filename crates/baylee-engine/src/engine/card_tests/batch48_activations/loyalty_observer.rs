@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn haunting_wind_observes_artifact_loyalty_only_after_target_completion() {
-    use crate::event::GameEvent;
+    use baylee_engine::event::GameEvent;
     let mut e = prepared(
         &[],
         &[

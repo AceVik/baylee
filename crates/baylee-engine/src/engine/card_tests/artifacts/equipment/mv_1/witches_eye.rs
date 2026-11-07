@@ -17,7 +17,7 @@ fn witches_eye_grants_a_scry_ability() {
     let p0 = PlayerId::new(0);
     let poets = all_on_battlefield(&engine, p0, creature);
     let (host, other) = (poets[0], poets[1]);
-    let granted = crate::choice::granted_ability(0);
+    let granted = baylee_engine::choice::granted_ability(0);
     let offers = |e: &Engine<RegistryLookup>, who: ObjectId| {
         priority_offer(e).abilities.contains(&(who, granted))
     };

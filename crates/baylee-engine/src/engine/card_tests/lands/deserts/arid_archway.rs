@@ -170,7 +170,7 @@ fn archway_bouncing(
                 assert_eq!(player, p0, "the Archway's controller surveils");
                 assert_eq!(
                     prompt,
-                    crate::choice::ArrangePrompt::Surveil,
+                    baylee_engine::choice::ArrangePrompt::Surveil,
                     "the question is a surveil"
                 );
                 engine

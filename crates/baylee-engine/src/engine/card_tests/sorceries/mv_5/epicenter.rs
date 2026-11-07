@@ -60,8 +60,8 @@ fn epicenter_with_threshold_makes_each_player_sacrifice_all_lands() {
             .move_object(
                 p,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

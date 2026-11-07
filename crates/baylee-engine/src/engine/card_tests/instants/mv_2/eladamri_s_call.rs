@@ -35,8 +35,8 @@ fn eladamri_s_call_finds_the_one_creature_card_in_a_library_of_lands() {
         .move_object(
             elf,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the harness moves a card");
     // The offer was computed when priority was granted, which was before the
@@ -67,7 +67,7 @@ fn eladamri_s_call_finds_the_one_creature_card_in_a_library_of_lands() {
     assert_eq!(player, p0, "the caster searches their own library");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "the tutor's own question, and not a scry or a discard"
     );
     assert_eq!(

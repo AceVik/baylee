@@ -156,7 +156,7 @@ fn batch43_old_naming_trigger_keeps_its_link_while_a_temporary_copy_is_active() 
         "the copied Forest has no linked name"
     );
     pass_until(&mut e, |e| {
-        e.state().turn.active == P1 && e.state().turn.step == crate::turn::Step::Main
+        e.state().turn.active == P1 && e.state().turn.step == baylee_engine::turn::Step::Main
     });
     let object = e.state().object(source).unwrap();
     assert_eq!(object.rules_acquisition(), 0);

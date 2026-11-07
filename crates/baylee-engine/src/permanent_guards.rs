@@ -92,7 +92,8 @@ fn guards(
 }
 
 /// Existing attachments remain legal; a stack spell's intended host is not one.
-pub(crate) fn permits_new_enchantment(state: &GameState, host: ObjectId, aura: ObjectId) -> bool {
+#[doc(hidden)]
+pub fn permits_new_enchantment(state: &GameState, host: ObjectId, aura: ObjectId) -> bool {
     if !state.effects.may_guard_permanents() {
         return true;
     }
@@ -114,7 +115,8 @@ pub(crate) fn permits_new_enchantment(state: &GameState, host: ObjectId, aura: O
 }
 
 /// Check a newly resolving control instruction before registering its effect.
-pub(crate) fn can_gain_control(state: &GameState, id: ObjectId, player: PlayerId) -> bool {
+#[doc(hidden)]
+pub fn can_gain_control(state: &GameState, id: ObjectId, player: PlayerId) -> bool {
     state.object(id).is_some_and(|object| {
         !state.has_left(player)
             && permitted_controller(state, object, object.characteristics(), player) == player

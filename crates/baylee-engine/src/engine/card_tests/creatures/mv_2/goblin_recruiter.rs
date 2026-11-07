@@ -35,8 +35,8 @@ fn goblin_recruiter_etb_searches_goblins_to_top_of_library() {
         .move_object(
             rider_in_hand,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Bottom,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Bottom,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
 
@@ -95,8 +95,8 @@ fn goblin_recruiter_finds_any_number_of_goblins_and_only_goblins() {
             .move_object(
                 card,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Bottom,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Bottom,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

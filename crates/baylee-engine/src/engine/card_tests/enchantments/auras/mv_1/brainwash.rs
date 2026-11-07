@@ -156,7 +156,7 @@ fn brainwash_is_paid_with_lands_tapped_as_the_attack_is_declared() {
     assert_eq!(e.state().players[0].mana_pool.total(), 0, "{{3}} spent");
 
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(e.state().players[1].life, 18, "two damage through");
 }

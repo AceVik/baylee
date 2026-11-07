@@ -22,11 +22,11 @@ fn batch45_north_star_is_optional_once_and_cannot_reduce_colored_mana_to_zero() 
         }
     ));
     e.apply(P0, PlayerAction::CancelCast).unwrap();
-    assert!(crate::casting::north_star_effect(&e.state, P0).is_some());
+    assert!(baylee_engine::casting::north_star_effect(&e.state, P0).is_some());
     cast(&mut e, bear);
     yes(&mut e, true);
     assert_eq!(e.state.players[0].mana_pool.total(), 0);
-    assert!(crate::casting::north_star_effect(&e.state, P0).is_none());
+    assert!(baylee_engine::casting::north_star_effect(&e.state, P0).is_none());
     pass_until(&mut e, stack_is_empty);
     pool(&mut e, ManaColor::Red, 3);
     assert!(!castable(
@@ -57,7 +57,7 @@ fn batch45_north_star_keeps_kicker_colored_and_cancellation_preserves_the_grant(
         mode(&mut e, CastModeKind::Normal);
     }
     e.apply(P0, PlayerAction::CancelCast).unwrap();
-    assert!(crate::casting::north_star_effect(&e.state, P0).is_some());
+    assert!(baylee_engine::casting::north_star_effect(&e.state, P0).is_some());
     e.state.players[0].mana_pool.add(ManaColor::Black, 1);
     cast(&mut e, spell);
     mode(&mut e, CastModeKind::Kicked);

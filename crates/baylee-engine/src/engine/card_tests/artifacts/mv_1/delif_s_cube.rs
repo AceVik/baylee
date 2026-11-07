@@ -78,7 +78,7 @@ fn cube_aimed_at_the_bears(
 #[track_caller]
 fn attack_with(engine: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) {
     pass_until(engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareAttackers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
     });
     engine
         .apply(
@@ -96,7 +96,7 @@ fn attack_with(engine: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) {
 #[track_caller]
 fn blocks(engine: &mut Engine<RegistryLookup>, blockers: Vec<(ObjectId, ObjectId)>) {
     pass_until(engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
     });
     engine
         .apply(PlayerId::new(1), PlayerAction::DeclareBlockers { blockers })
@@ -105,7 +105,7 @@ fn blocks(engine: &mut Engine<RegistryLookup>, blockers: Vec<(ObjectId, ObjectId
 
 fn to_second_main(engine: &mut Engine<RegistryLookup>) {
     pass_until(engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
 }
 

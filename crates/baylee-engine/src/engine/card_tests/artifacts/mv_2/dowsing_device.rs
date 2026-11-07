@@ -74,7 +74,7 @@ fn dowsing_device_triggers_on_entry_to_pump_and_grant_haste_to_controlled_creatu
 
 #[test]
 fn dowsing_transforms_without_a_target_but_not_with_an_illegal_chosen_target() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for invalid_target in [false, true] {
         let mut e = kit::game(
             976,

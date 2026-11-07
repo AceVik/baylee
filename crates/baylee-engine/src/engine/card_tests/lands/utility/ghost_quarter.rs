@@ -103,7 +103,7 @@ fn ghost_quarter_sacrifices_itself_to_destroy_a_land_and_its_controller_gets_the
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a library search, which is what the card says"
     );
     assert!(

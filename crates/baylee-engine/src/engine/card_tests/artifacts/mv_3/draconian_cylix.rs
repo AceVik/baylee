@@ -108,8 +108,8 @@ fn bury_hand(engine: &mut Engine<RegistryLookup>, cards: &[ObjectId]) {
             .move_object(
                 card,
                 ZoneLocation::Graveyard(PlayerId::new(0)),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .expect("the harness moves a card");
     }
@@ -133,7 +133,7 @@ fn draconian_cylix_shield_saves_the_creature_in_combat() {
             pass_until(&mut engine, stack_is_empty);
         }
         pass_until(&mut engine, |e| {
-            e.state().turn.step == crate::turn::Step::DeclareAttackers
+            e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
         });
         engine
             .apply(
@@ -144,7 +144,7 @@ fn draconian_cylix_shield_saves_the_creature_in_combat() {
             )
             .unwrap();
         pass_until(&mut engine, |e| {
-            e.state().turn.step == crate::turn::Step::DeclareBlockers
+            e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
         });
         engine
             .apply(
@@ -155,7 +155,7 @@ fn draconian_cylix_shield_saves_the_creature_in_combat() {
             )
             .unwrap();
         pass_until(&mut engine, |e| {
-            e.state().turn.phase == crate::turn::Phase::SecondMain
+            e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
         });
         assert_eq!(
             on_battlefield(&engine, p0, grizzly_bears()).is_some(),

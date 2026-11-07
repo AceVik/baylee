@@ -1,9 +1,9 @@
 //! Printed behavior and adversarial resolution cases.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as kit;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as kit;
 use baylee_core::generated::index;
+use baylee_engine::turn::Step;
 
 #[test]
 fn lesser_werewolf_checks_power_on_resolution_and_shrinks_only_its_combat_partner() {

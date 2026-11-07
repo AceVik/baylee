@@ -57,14 +57,14 @@ fn intuition_searches_for_three_cards_and_splits_two_to_graveyard_and_one_to_han
 
     assert_eq!(
         engine.state().object(found[0]).map(|o| o.zone),
-        Some(crate::zone::Zone::Graveyard)
+        Some(baylee_engine::zone::Zone::Graveyard)
     );
     assert_eq!(
         engine.state().object(found[1]).map(|o| o.zone),
-        Some(crate::zone::Zone::Graveyard)
+        Some(baylee_engine::zone::Zone::Graveyard)
     );
     assert_eq!(
         engine.state().object(found[2]).map(|o| o.zone),
-        Some(crate::zone::Zone::Hand)
+        Some(baylee_engine::zone::Zone::Hand)
     );
 }

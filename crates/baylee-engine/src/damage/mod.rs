@@ -28,7 +28,8 @@ mod tests;
 
 /// Damage assigned before any replacement or prevention is applied.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct Assignment {
+#[doc(hidden)]
+pub struct Assignment {
     pub source: ObjectId,
     pub source_version: Option<u32>,
     pub recipient: DamageTarget,
@@ -76,7 +77,8 @@ struct Candidate {
 
 /// A damage event suspended only on its own replacement decisions.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct DamageWork {
+#[doc(hidden)]
+pub struct DamageWork {
     id: u64,
     step: u64,
     parts: Vec<Part>,
@@ -123,7 +125,8 @@ impl DamageWork {
             || matches!(self.question, Some(PendingDamage::OptionalRedirect { .. }))
     }
 
-    pub(crate) fn new(state: &mut GameState, assignments: Vec<Assignment>) -> Self {
+    #[doc(hidden)]
+    pub fn new(state: &mut GameState, assignments: Vec<Assignment>) -> Self {
         let id = state.next_damage_batch;
         state.next_damage_batch = id.checked_add(1).expect("damage identity exhausted");
         let parts = assignments
@@ -237,7 +240,8 @@ impl DamageWork {
     }
 
     /// Continue until a meaningful player decision, or until damage is dealt.
-    pub(crate) fn advance(&mut self, state: &mut GameState) -> Option<Pending> {
+    #[doc(hidden)]
+    pub fn advance(&mut self, state: &mut GameState) -> Option<Pending> {
         if self.complete {
             return None;
         }
@@ -734,7 +738,8 @@ impl DamageWork {
     }
 
     /// Damage actually dealt, after redirection and prevention.
-    pub(crate) fn dealt(&self) -> u32 {
+    #[doc(hidden)]
+    pub fn dealt(&self) -> u32 {
         self.parts
             .iter()
             .map(|p| p.view.amount)

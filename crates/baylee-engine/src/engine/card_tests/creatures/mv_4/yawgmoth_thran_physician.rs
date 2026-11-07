@@ -109,7 +109,7 @@ fn yawgmoth_pays_a_life_and_another_creature_for_a_minus_counter_and_a_card() {
                 assert_eq!(player, p0, "the activating seat pays");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to tell the two apart"
                 );
                 assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");

@@ -48,7 +48,7 @@ fn end_step_delays(engine: &Engine<RegistryLookup>) -> usize {
         .state()
         .delayed
         .iter()
-        .filter(|trigger| trigger.when == crate::state::DelayedWhen::NextEndStep)
+        .filter(|trigger| trigger.when == baylee_engine::state::DelayedWhen::NextEndStep)
         .count()
 }
 
@@ -179,7 +179,7 @@ fn self_review_whelp_old_and_new_activation_counts_are_separate() {
             "old resolutions read the old incarnation's four activations; its delays cannot sacrifice the returned Whelp"
         );
         pass_until(&mut engine, |e| {
-            e.state().turn.step == crate::turn::Step::End
+            e.state().turn.step == baylee_engine::turn::Step::End
         });
         pass_until(&mut engine, stack_is_empty);
         assert_eq!(
@@ -229,7 +229,7 @@ fn self_review_whelp_delayed_sacrifice_cannot_follow_a_later_blink() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, whelp), (2, 3));
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
@@ -258,7 +258,7 @@ fn self_review_whelp_five_sequential_activations_create_two_delays() {
     assert_eq!(pt(&engine, whelp), (7, 3));
     assert_eq!(end_step_delays(&engine), 2);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().object(whelp).unwrap().zone, Zone::Graveyard);

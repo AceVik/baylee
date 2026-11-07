@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn multani_s_decree() -> CardIndex {
     card_index("b233473d-d22b-45e4-9fe7-55d1170a788b")
@@ -108,7 +108,7 @@ fn multanis_decree_counts_destroyed_enchantments_exiled_instead_of_dying() {
         .filter(|entry| {
             matches!(
                 entry.event,
-                crate::event::GameEvent::LifeChanged { player, old, new, .. }
+                baylee_engine::event::GameEvent::LifeChanged { player, old, new, .. }
                     if player == lk::P0 && new > old
             )
         })

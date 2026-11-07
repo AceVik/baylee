@@ -55,7 +55,7 @@ fn chalice_of_the_void_enters_with_x_charge_counters_and_counters_matching_mana_
 /// enter replacement, and gained two.
 #[test]
 fn a_chalice_on_the_battlefield_has_mana_value_zero() {
-    use crate::engine::card_tests::partials_w2c_kit as kit;
+    use baylee_card_testkit::card_tests::partials_w2c_kit as kit;
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &kit::lands(plains(), 4))
         .hand(

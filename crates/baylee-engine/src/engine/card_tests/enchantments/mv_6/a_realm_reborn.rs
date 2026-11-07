@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::granted_ability;
+use baylee_engine::choice::granted_ability;
 
 fn a_realm_reborn() -> CardIndex {
     card_index("fd230ab5-874e-4827-9b5c-6d39d079cee6")

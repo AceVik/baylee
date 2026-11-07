@@ -34,8 +34,8 @@ fn blocking_removes_defender_across_turns_but_not_zone_changes() {
         .move_object(
             wurm,
             ZoneLocation::Hand(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     assert!(

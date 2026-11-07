@@ -35,8 +35,8 @@ fn arc_lightning_deals_three_damage_divided_among_targets() {
 
 #[test]
 fn arc_lightning_divides_positive_damage_between_two_or_three_distinct_targets() {
-    use crate::choice::{NumberPrompt, TargetRef};
     use baylee_core::generated::index;
+    use baylee_engine::choice::{NumberPrompt, TargetRef};
     for three in [false, true] {
         let p0 = PlayerId::new(0);
         let p1 = PlayerId::new(1);

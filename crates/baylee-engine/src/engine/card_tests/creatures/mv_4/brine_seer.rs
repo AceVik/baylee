@@ -9,7 +9,7 @@ fn brine_seer() -> CardIndex {
 
 #[test]
 fn brine_seer_does_not_counter_from_an_unrevealed_hand() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[mountain(), mountain(), mountain()],
@@ -27,7 +27,7 @@ fn brine_seer_does_not_counter_from_an_unrevealed_hand() {
 
 #[test]
 fn creature_body_remains_playable() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[brine_seer()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 6)]);
     cast_with_floating(&mut engine, lk::P0, brine_seer());

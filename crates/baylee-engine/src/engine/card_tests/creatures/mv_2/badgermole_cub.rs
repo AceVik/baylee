@@ -74,7 +74,10 @@ fn badgermole_cub_earthbends_a_forest_that_then_taps_for_two() {
     assert!(
         !engine.journal().entries()[before..]
             .iter()
-            .any(|e| matches!(e.event, crate::event::GameEvent::AbilityTriggered { .. })),
+            .any(|e| matches!(
+                e.event,
+                baylee_engine::event::GameEvent::AbilityTriggered { .. }
+            )),
         "nothing was put on the stack to resolve later"
     );
 }
@@ -128,7 +131,10 @@ fn badgermole_cub_adds_for_a_creature_tapped_for_mana_and_not_for_an_attack() {
     assert!(
         !engine.journal().entries()[before..]
             .iter()
-            .any(|e| matches!(e.event, crate::event::GameEvent::ManaProduced { .. })),
+            .any(|e| matches!(
+                e.event,
+                baylee_engine::event::GameEvent::ManaProduced { .. }
+            )),
         "tapped to attack is not tapped for mana"
     );
 }
@@ -175,7 +181,7 @@ fn badgermole_cub_s_land_comes_back_tapped_when_it_dies() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::AbilityTriggered { ability_index, .. }
+                baylee_engine::event::GameEvent::AbilityTriggered { ability_index, .. }
                     if ability_index == baylee_core::ids::AbilityRef::SYNTHETIC
             )),
         "a delayed triggered ability, on the stack"

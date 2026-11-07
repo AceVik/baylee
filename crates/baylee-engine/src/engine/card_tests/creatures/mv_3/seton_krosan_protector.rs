@@ -64,7 +64,7 @@ fn seton_krosan_protector_taps_a_druid_you_control_for_one_green() {
     assert_eq!(player, p0, "the activating seat answers its own cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostTap,
+        baylee_engine::choice::ChoicePrompt::CostTap,
         "a tap being paid for, and not a search"
     );
     assert_eq!((min, max), (1, 1), "one Druid, no more and no fewer");

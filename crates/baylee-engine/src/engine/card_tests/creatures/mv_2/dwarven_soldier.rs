@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -136,7 +136,7 @@ fn dwarven_soldier_bonus_survives_a_lone_orcs_damage_but_not_for_the_next_turn()
     // 2/1 would die.
     let (mut e, soldier) = soldier_attacks(&[card_index("0d058991-3751-4afe-80c9-79f0c6e10282")]);
     pass_until(&mut e, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert!(
         on_battlefield(&e, P0, card_index("88f9075c-ea96-4f8d-b0d1-e5e244e824c1")).is_some(),

@@ -34,7 +34,10 @@ fn pithing_needle_naming_a_room_leaves_its_doors_to_unlock() {
         "the Needle names the Room, and the unlock is not an ability it stops"
     );
     unlock(&mut engine, p0, room, 1).expect("Forgotten Cellar unlocks under the Needle");
-    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+    assert_eq!(
+        doors_of(&engine, room),
+        baylee_engine::object::Doors::room(0b11)
+    );
 }
 
 /// Pithing Needle: "As this artifact enters, choose a card name. Activated

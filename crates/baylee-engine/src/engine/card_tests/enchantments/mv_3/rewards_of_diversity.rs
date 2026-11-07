@@ -2,7 +2,7 @@
 //! Oracle: Whenever an opponent casts a multicolored spell, you gain 4 life.
 
 use super::*;
-use crate::engine::card_tests::legends_kit::life;
+use baylee_card_testkit::card_tests::legends_kit::life;
 use baylee_core::generated::index;
 
 #[test]
@@ -23,7 +23,7 @@ fn rewards_of_diversity_gains_four_life_when_opponent_casts_multicolored_spell()
     assert!(on_battlefield(&engine, p0, rewards).is_some());
 
     reach_their_main_phase(&mut engine, p1);
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p1,
         &[(ManaColor::Colorless, 1), (ManaColor::Green, 1)],
@@ -33,7 +33,7 @@ fn rewards_of_diversity_gains_four_life_when_opponent_casts_multicolored_spell()
     // Monocolored spell does not trigger Rewards of Diversity.
     assert_eq!(life(&engine, p0), 20);
 
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p1,
         &[(ManaColor::Red, 1), (ManaColor::Green, 1)],

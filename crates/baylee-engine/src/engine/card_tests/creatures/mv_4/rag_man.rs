@@ -79,7 +79,7 @@ fn revealed_by(engine: &Engine<RegistryLookup>, from: usize, player: PlayerId) -
         .any(|entry| {
             matches!(
                 &entry.event,
-                crate::event::GameEvent::Revealed { player: who, .. } if *who == player
+                baylee_engine::event::GameEvent::Revealed { player: who, .. } if *who == player
             )
         })
 }

@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index::{JAYEMDAE_TOME, SHATTER};
+use baylee_engine::turn::Step;
 
 fn relic_ward() -> CardIndex {
     card_index("c6321de2-80b0-4679-93cf-97df75344e97")

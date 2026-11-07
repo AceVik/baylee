@@ -40,7 +40,7 @@ fn nomads_en_kor_enters_and_deals_combat_damage() {
         .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
 
     assert_eq!(engine.state().players[1].life, 19);

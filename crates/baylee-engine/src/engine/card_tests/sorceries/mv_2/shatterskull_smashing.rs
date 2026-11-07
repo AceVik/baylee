@@ -10,7 +10,7 @@ fn shatterskull_the_hammer_pass_pays_three_life_to_enter_untapped_and_taps_for_r
     let (mut engine, land) =
         play_land_face(shatterskull_smashing(), 1).expect("plays as Shatterskull, the Hammer Pass");
     assert!(matches!(engine.pending(), Pending::YesNo {
-        player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
     } if *player == p0));
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);

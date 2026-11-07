@@ -5,8 +5,9 @@ use baylee_cards_dsl::Modifier;
 use baylee_core::ids::EffectId;
 
 impl GameState {
-    #[cfg(test)]
-    pub(crate) fn draw_wish_effect(
+    #[cfg(any(test, feature = "test-support"))]
+    #[doc(hidden)]
+    pub fn draw_wish_effect(
         &self,
         player: PlayerId,
         source: Option<ObjectId>,

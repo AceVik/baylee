@@ -94,7 +94,7 @@ fn coiling_oracle_puts_a_revealed_nonland_into_the_hand() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .iter()
             .any(|id| engine
                 .state()

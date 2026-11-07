@@ -69,7 +69,7 @@ fn fortified_beachhead_pump_reaches_only_your_soldiers_present_now_until_end_of_
     // The seeded land still asks its entry question; reveal nothing.
     if let Pending::ChooseCards {
         player,
-        prompt: crate::choice::ChoicePrompt::RevealOrEnterTapped,
+        prompt: baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped,
         ..
     } = e.pending().clone()
     {

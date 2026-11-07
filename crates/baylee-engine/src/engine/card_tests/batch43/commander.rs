@@ -1,7 +1,7 @@
 //! Commander replacements retain the operation's selected cards and follow-up.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::{event::Cause, zone::ZonePosition};
+use baylee_engine::{event::Cause, zone::ZonePosition};
 
 fn setup(
     hand: &[CardIndex],
@@ -63,7 +63,7 @@ fn batch43_drafna_collects_all_commander_replacements_before_moving_ordered_card
         .unwrap();
         for (card, home) in cards.iter().zip(redirect) {
             assert!(matches!(e.pending(), Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::CommanderReplace { card: asked, to_library: true }, ..
+                prompt: baylee_engine::choice::YesNoPrompt::CommanderReplace { card: asked, to_library: true }, ..
             } if asked == card));
             assert!(
                 cards
@@ -123,7 +123,7 @@ fn batch43_sidequest_commander_redirect_does_not_create_food_or_transform() {
         let before = e.state().battlefield_seen().count();
         choose(&mut e, vec![card]);
         assert!(matches!(e.pending(), Pending::YesNo {
-            prompt: crate::choice::YesNoPrompt::CommanderReplace { card: asked, to_library: false }, ..
+            prompt: baylee_engine::choice::YesNoPrompt::CommanderReplace { card: asked, to_library: false }, ..
         } if *asked == card));
         yes(&mut e, redirect);
         pass_until(&mut e, stack_is_empty);

@@ -31,7 +31,7 @@ fn delney_doubles_the_triggers_of_small_creatures_only() {
     let lands_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .len();
     tap_mana_where(&mut engine, p0, |_| true);
     cast_with_floating(&mut engine, p0, coiling_oracle());
@@ -39,7 +39,7 @@ fn delney_doubles_the_triggers_of_small_creatures_only() {
     let after_oracle = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .len();
     assert_eq!(
         after_oracle,

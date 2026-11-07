@@ -131,7 +131,7 @@ fn cabal_archon_sacrifices_a_cleric_to_drain_two_life_and_gain_two() {
                 assert_eq!(player, p0, "der aktivierende Platz zahlt seine Kosten");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a question of cost and not a search, that is all a \
                      client can use to distinguish the two"
                 );

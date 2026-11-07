@@ -79,7 +79,7 @@ fn lure_forces_every_able_creature_to_block_it_but_spares_a_second_attacker() {
     ] {
         assert_eq!(
             question.answer_fault(&PlayerAction::DeclareBlockers { blockers: short }),
-            Some(crate::choice::AnswerFault::MustBlock)
+            Some(baylee_engine::choice::AnswerFault::MustBlock)
         );
     }
     assert_eq!(

@@ -109,7 +109,7 @@ fn omnath_makes_a_token_for_a_land_and_answers_that_elementals_death_with_three(
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "the variant is what tells a client this is a cost and not a search"
     );
     assert_eq!((min, max), (1, 1), "one creature, and the cost asks once");

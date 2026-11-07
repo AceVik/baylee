@@ -57,7 +57,7 @@ fn pressure_counters_and_hellions_both_use_replacement_effects() {
     activate(&mut e, p0, index::HELLION_CRUCIBLE, 2);
     assert_eq!(e.state().object(land).unwrap().zone, Zone::Graveyard);
     pass_until(&mut e, stack_is_empty);
-    let tokens = crate::engine::card_tests::token_helpers::named(&e, "Hellion");
+    let tokens = baylee_card_testkit::card_tests::token_helpers::named(&e, "Hellion");
     assert_eq!(tokens.len(), 2);
     for token in tokens {
         assert_eq!(pt(&e, token), (4, 4));

@@ -46,7 +46,7 @@ fn tarrians_journal_taps_and_sacrifices_another_creature_to_draw_card() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "the cost prompt is ChoicePrompt::CostSacrifice"
     );
     assert_eq!((min, max), (1, 1), "costs exactly one sacrifice");
@@ -93,7 +93,7 @@ fn tarrians_journal_taps_and_sacrifices_another_creature_to_draw_card() {
 /// sorcery.**" Offered in my main phase with an empty stack, not in my end step.
 #[test]
 fn tarrians_journal_draw_ability_is_not_offered_in_the_end_step() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(126, swamp())
         .battlefield(0, &[swamp(), tarrian_s_journal(), quiet_creature()])
@@ -106,7 +106,7 @@ fn tarrians_journal_draw_ability_is_not_offered_in_the_end_step() {
     );
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
             && e.state().turn.active == p0
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });

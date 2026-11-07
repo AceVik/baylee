@@ -21,7 +21,7 @@ fn select_both(e: &mut Engine<SyntheticLookup>) {
     if let Pending::ChooseCastMode { options, .. } = e.pending().clone() {
         let both = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Modes(3)))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Modes(3)))
             .expect("selected two-mode set");
         e.apply(P0, PlayerAction::ChooseMode(both)).unwrap();
     }
@@ -79,7 +79,7 @@ fn selected_wall_and_optional_artifact_modes_allow_shadows_even_without_artifact
         walk(&mut e, empty);
         assert_eq!(
             e.state.object(shadow).unwrap().zone,
-            crate::zone::Zone::Battlefield
+            baylee_engine::zone::Zone::Battlefield
         );
     }
 }
@@ -109,7 +109,7 @@ fn kicked_wall_first_and_optional_artifact_second_keep_full_domain() {
     cast(&mut e, KICK_EDGE);
     match e.pending().clone() {
         Pending::YesNo {
-            prompt: crate::choice::YesNoPrompt::Kicker,
+            prompt: baylee_engine::choice::YesNoPrompt::Kicker,
             ..
         } => {
             e.apply(P0, PlayerAction::YesNo(true)).unwrap();
@@ -117,7 +117,7 @@ fn kicked_wall_first_and_optional_artifact_second_keep_full_domain() {
         Pending::ChooseCastMode { options, .. } => {
             let kicked = options
                 .iter()
-                .position(|o| matches!(o.kind, crate::choice::CastModeKind::Kicked))
+                .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Kicked))
                 .expect("kicked offer");
             e.apply(P0, PlayerAction::ChooseMode(kicked)).unwrap();
         }
@@ -160,7 +160,7 @@ fn copied_two_mode_spell_keeps_broad_domain_on_its_wall_retarget_menu() {
         matches!(
             e.pending(),
             Pending::ChooseTargets {
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             }
         )
@@ -179,6 +179,6 @@ fn copied_two_mode_spell_keeps_broad_domain_on_its_wall_retarget_menu() {
     walk(&mut e, empty);
     assert_eq!(
         e.state.object(shadow).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }

@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn devout_harpist() -> CardIndex {
     card_index("f57901c2-80c6-49d6-8de3-c96aaeb72bbf")

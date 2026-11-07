@@ -103,21 +103,29 @@ fn unholy_citadel_gives_black_legends_you_control_bands_with_other_legends() {
                 continue;
             }
             assert_eq!(
-                crate::combat::can_band_with_other(engine.state(), mine[leader], mine[mate]),
+                baylee_engine::combat::can_band_with_other(
+                    engine.state(),
+                    mine[leader],
+                    mine[mate]
+                ),
                 granted.contains(&leader),
                 "legend {leader} bands with legend {mate} exactly when it is black"
             );
             assert!(
-                !crate::combat::can_band_with_other(engine.state(), theirs[leader], theirs[mate]),
+                !baylee_engine::combat::can_band_with_other(
+                    engine.state(),
+                    theirs[leader],
+                    theirs[mate]
+                ),
                 "the opponent's legends {leader} and {mate} get nothing from my land"
             );
         }
         assert!(
-            !crate::combat::can_band_with_other(engine.state(), mine[leader], bears),
+            !baylee_engine::combat::can_band_with_other(engine.state(), mine[leader], bears),
             "a nonlegendary creature is never a mate (legend {leader})"
         );
         assert!(
-            !crate::combat::can_band_with_other(engine.state(), bears, mine[leader]),
+            !baylee_engine::combat::can_band_with_other(engine.state(), bears, mine[leader]),
             "and the Bears have no ability to band with anyone"
         );
     }
@@ -152,7 +160,7 @@ fn unholy_citadel_lets_its_legend_attack_in_a_band_that_is_blocked_as_a_group() 
     assert_eq!(player, p0, "the attacking player announces bands");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::Band { with: leader },
+        baylee_engine::choice::ChoicePrompt::Band { with: leader },
         "asked of the legend that has the ability"
     );
     assert_eq!(options, vec![mate], "the other legend may join the band");

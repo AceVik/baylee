@@ -47,7 +47,7 @@ fn pariah_redirects_damage_dealt_to_you_to_enchanted_creature() {
         .unwrap();
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
 
     assert_eq!(engine.state().players[0].life, 20);
@@ -56,7 +56,7 @@ fn pariah_redirects_damage_dealt_to_you_to_enchanted_creature() {
 
 #[test]
 fn pariah_redirects_only_its_controllers_damage_even_on_an_opponents_creature() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

@@ -84,7 +84,7 @@ fn dart_pays_costs_before_its_three_damage_resolves_on_a_creature() {
     assert!(
         e.state().journal.entries().iter().any(|entry| matches!(
             &entry.event,
-            crate::event::GameEvent::AbilityActivated { tap_cost: true, .. }
+            baylee_engine::event::GameEvent::AbilityActivated { tap_cost: true, .. }
         )),
         "the activation records a tap cost"
     );

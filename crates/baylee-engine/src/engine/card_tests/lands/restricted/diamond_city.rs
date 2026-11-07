@@ -22,7 +22,7 @@ fn diamond_city_enters_untapped_and_taps_for_colorless() {
     assert!(is_tapped(&engine, land));
 }
 
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);

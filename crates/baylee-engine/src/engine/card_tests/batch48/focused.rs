@@ -138,7 +138,7 @@ fn batch48_storm_makes_one_treasure_per_damaged_player_in_one_damage_step() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert_eq!(e.state.players[1].life, before - 4);
     assert_eq!(token_count(&e, subtypes::artifact::TREASURE), 1);

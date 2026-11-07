@@ -111,7 +111,7 @@ fn otawara_channels_from_hand_to_bounce_a_creature_and_discards_itself() {
 
 #[test]
 fn otawara_counts_only_your_legendary_creatures_for_channel() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
     let mut engine = kit::game(
         932,

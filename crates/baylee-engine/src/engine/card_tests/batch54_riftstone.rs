@@ -2,21 +2,21 @@
 use super::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::{event::Cause, zone::ZonePosition};
 use baylee_core::{generated::index, mana::ManaPool};
+use baylee_engine::{event::Cause, zone::ZonePosition};
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 fn obj(e: &Engine<RegistryLookup>, p: PlayerId, c: CardIndex) -> ObjectId {
     on_battlefield(e, p, c).unwrap()
 }
 fn grants(e: &Engine<RegistryLookup>, id: ObjectId) -> Vec<u32> {
-    crate::effects::granted_activated(e.state(), id)
+    baylee_engine::effects::granted_activated(e.state(), id)
         .map(|grant| grant.id)
         .collect()
 }
 fn refresh(e: &mut Engine<RegistryLookup>) {
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 fn reset(e: &mut Engine<RegistryLookup>) {
@@ -59,7 +59,7 @@ fn real_discard_grants_owner_lands_and_coexists_with_intrinsic_mana() {
     pass_until(&mut e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == P0
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..}if *player==P0)
     });
     reset(&mut e);

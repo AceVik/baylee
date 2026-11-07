@@ -26,7 +26,7 @@ fn subtlety_lets_the_owner_put_the_spell_on_top() {
     );
     assert!(matches!(
         prompt,
-        crate::choice::YesNoPrompt::TopOfLibrary { card } if card == guard
+        baylee_engine::choice::YesNoPrompt::TopOfLibrary { card } if card == guard
     ));
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);

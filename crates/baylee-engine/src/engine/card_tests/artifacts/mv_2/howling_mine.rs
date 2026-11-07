@@ -28,7 +28,7 @@ fn howling_mine_doubles_the_draw_only_while_untapped() {
 
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && stack_is_empty(e)
     });
     let mine = on_battlefield(&engine, p0, howling_mine()).expect("seated");

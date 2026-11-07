@@ -22,7 +22,7 @@ fn the_hand_is_discarded_at_my_end_step() {
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 2);
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End && e.state().turn.active == p0
+        e.state().turn.step == baylee_engine::turn::Step::End && e.state().turn.active == p0
     });
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
@@ -42,12 +42,12 @@ fn the_hand_is_discarded_at_my_end_step() {
         .move_object(
             card,
             ZoneLocation::Hand(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the harness moves a card");
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End && e.state().turn.active == p1
+        e.state().turn.step == baylee_engine::turn::Step::End && e.state().turn.active == p1
     });
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(

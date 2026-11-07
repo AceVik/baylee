@@ -156,7 +156,7 @@ fn surtland_frostpyre_enters_tapped_then_scries_two_and_burns_every_creature_for
         unreachable!("pass_until stops on nothing else here")
     };
     assert_eq!(player, p0, "the land's controller does the looking");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(cards, vec![top, second], "the top two cards, top first");
     assert_eq!(
         piles,

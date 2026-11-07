@@ -50,7 +50,7 @@ fn batch48_havengul_three_actual_clue_sacrifices_reanimate_and_link_one_creature
     // Wait for our next main phase: the same linked creature's departure
     // must flip Mystery back without making the returning lab enter again.
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::FirstMain && e.state.turn.active == P0
+        e.state.turn.phase == baylee_engine::turn::Phase::FirstMain && e.state.turn.active == P0
     });
     priority(&mut e, P0);
     for c in ManaColor::ALL {
@@ -156,7 +156,7 @@ fn havengul_source_reentry_cannot_inherit_the_previous_mysterys_link() {
     pass_until(&mut e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == P0
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { player: P0, .. })
     });
     e.apply(P0, PlayerAction::PlayLand { card: lab }).unwrap();
@@ -180,19 +180,21 @@ fn havengul_departure_does_not_trigger_when_back_face_has_lost_its_abilities_fix
     let modifier = baylee_cards_dsl::Modifier::LoseAllAbilities;
     let version = e.state.object(lab).unwrap().version;
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::ObjectIs(lab, version),
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::ObjectIs(lab, version),
+            modifier,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     cast(&mut e, index::UNSUMMON);
     targets(&mut e, vec![bear], vec![]);

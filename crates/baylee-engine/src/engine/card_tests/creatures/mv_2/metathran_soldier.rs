@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn metathran_soldier() -> CardIndex {
     card_index("b723fcec-f208-4397-a178-e1e47b729cf1")

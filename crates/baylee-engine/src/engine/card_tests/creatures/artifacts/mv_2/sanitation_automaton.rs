@@ -29,7 +29,7 @@ fn sanitation_automaton_surveils_one_when_it_enters() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .contains(&cards[0])
     );
 }

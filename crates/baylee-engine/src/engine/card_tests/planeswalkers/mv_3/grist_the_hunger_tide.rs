@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::color::Color;
 use baylee_core::generated::subtypes::{creature, planeswalker};
 
@@ -755,9 +755,9 @@ fn grist_resolves_as_a_noncreature_planeswalker_and_becomes_a_creature_card_agai
         .state
         .move_object(
             grist,
-            crate::zone::ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Destroy,
+            baylee_engine::zone::ZoneLocation::Graveyard(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Destroy,
         )
         .unwrap();
     engine.state.refresh_characteristics();
@@ -782,9 +782,9 @@ fn grist_resolves_as_a_noncreature_planeswalker_and_becomes_a_creature_card_agai
         .state
         .move_object(
             grist,
-            crate::zone::ZoneLocation::Exile(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZoneLocation::Exile(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.state.refresh_characteristics();

@@ -34,7 +34,7 @@ fn flicker_exiles_and_immediately_returns_target_nontoken_permanent() {
         .unwrap()
         .set_controller(PlayerId::new(1));
     let version = engine.state().object(ogre).unwrap().version;
-    let token = crate::resolve::tokens::create_tokens(
+    let token = baylee_engine::resolve::tokens::create_tokens(
         engine.dev_state_mut(p0).unwrap(),
         p0,
         &baylee_cards::tokens::SOLDIER_1_1_WHITE,

@@ -104,7 +104,7 @@ fn malevolent_hermit_taxes_a_noncreature_spell_and_pays_for_it_with_itself() {
     );
     assert_eq!(
         prompt,
-        crate::choice::YesNoPrompt::PayTax { mana: 3 },
+        baylee_engine::choice::YesNoPrompt::PayTax { mana: 3 },
         "the printed {{3}}"
     );
     assert_eq!(
@@ -160,7 +160,7 @@ fn a_disturbed_geist_has_the_hermits_mana_value() {
             card,
             ZoneLocation::Graveyard(p0),
             ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("into the graveyard");
     tap_all_mana(&mut engine, p0);

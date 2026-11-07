@@ -81,9 +81,9 @@ fn eclipsed_realms_chooses_subtype_on_entry_and_produces_colored_mana() {
 /// chosen type" and does take it.
 #[test]
 fn eclipsed_realms_any_color_mana_pays_only_for_the_chosen_type() {
-    use crate::casting::{SpendFor, pay_mana_for, spendable_units};
     use baylee_core::generated::index;
     use baylee_core::mana::ManaCost;
+    use baylee_engine::casting::{SpendFor, pay_mana_for, spendable_units};
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, forest())
         .battlefield(

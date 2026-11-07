@@ -5,7 +5,7 @@ fn sanctum_guardian() -> CardIndex {
     card_index("eb7fe094-2237-40c8-b831-93498c93b768")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn sanctum_guardian_partial_body_can_be_cast_and_attack() {

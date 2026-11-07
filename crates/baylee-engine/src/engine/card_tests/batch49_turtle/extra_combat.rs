@@ -9,7 +9,7 @@ fn turtle_may_attack_in_second_combat_of_same_turn_when_previous_turn_had_no_att
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
             && matches!(e.pending(), Pending::Priority { player: P0, .. })
     });
     let turn = e.state.turn.number;
@@ -17,10 +17,10 @@ fn turtle_may_attack_in_second_combat_of_same_turn_when_previous_turn_had_no_att
     // exists in the pool. Prior combat, history and both attack declarations are real.
     // CombatEnd already cleared CombatState and combat_declared in normal progression.
     e.state.set_tapped(turtle, false);
-    e.state.turn.phase = crate::turn::Phase::Combat;
-    e.state.turn.step = crate::turn::Step::CombatBegin;
+    e.state.turn.phase = baylee_engine::turn::Phase::Combat;
+    e.state.turn.step = baylee_engine::turn::Step::CombatBegin;
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_attack_offer(&mut e, P0, turtle, true);
     assert_eq!(

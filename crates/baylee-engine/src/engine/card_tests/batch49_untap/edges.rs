@@ -37,7 +37,7 @@ fn cascade_consumes_its_step_even_if_target_already_untapped() {
     e.apply(P0, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert!(is_tapped(&e, bear));
     let turn = e.state.turn.number;

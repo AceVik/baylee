@@ -21,10 +21,10 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::aura_kit as kit;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::aura_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
+use baylee_engine::turn::Step;
 
 // oracle_id = "fa879d99-3d2b-4a9a-a17f-d5ac109f8f44"
 fn remove_enchantments() -> CardIndex {
@@ -109,7 +109,7 @@ fn change_hands(engine: &mut Engine<RegistryLookup>, to_me: &[ObjectId], to_them
         .map(|id| (*id, P0))
         .chain(to_them.iter().map(|id| (*id, P1)))
         .collect();
-    crate::resolve::gain_control(
+    baylee_engine::resolve::gain_control(
         engine.dev_state_mut(P0).expect("the harness may set up"),
         &moves,
     );

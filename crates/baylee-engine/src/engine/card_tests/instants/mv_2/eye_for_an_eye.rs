@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // Shared canonical-card harness.
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -102,13 +102,13 @@ fn batch57_eye_reflects_only_the_next_chosen_source_event_and_preserves_sources(
     assert_eq!(e.state().players[1].life, 19);
     let log = &e.state().per_turn.damage_log;
     assert!(log.iter().any(|d| d.source.object == pyro
-        && d.to == crate::event::DamageTarget::Player(P0)
+        && d.to == baylee_engine::event::DamageTarget::Player(P0)
         && d.amount == 1));
     assert!(log.iter().any(|d| {
         d.snapshot
             .card
             .is_some_and(|c| c.index == index::EYE_FOR_AN_EYE)
-            && d.to == crate::event::DamageTarget::Player(P1)
+            && d.to == baylee_engine::event::DamageTarget::Player(P1)
             && d.amount == 1
     }));
     cast_aim(&mut e, P1, index::TWIDDLE, &[pyro], &[]);

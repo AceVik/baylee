@@ -142,7 +142,7 @@ fn a_stationed_spacecraft_becomes_the_creature_it_prints() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, vessel, CounterKind::Charge, 8);
+    baylee_engine::replacement::put_counters(state, vessel, CounterKind::Charge, 8);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
     assert!(
@@ -205,7 +205,7 @@ fn inspirit_protects_other_artifacts_only_at_eight_charge_counters() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, vessel, CounterKind::Charge, 7);
+    baylee_engine::replacement::put_counters(state, vessel, CounterKind::Charge, 7);
     engine.refresh_offer();
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
@@ -258,7 +258,7 @@ fn inspirit_protects_other_artifacts_only_at_eight_charge_counters() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::remove_counters(state, vessel, CounterKind::Charge, 1);
+    baylee_engine::replacement::remove_counters(state, vessel, CounterKind::Charge, 1);
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     assert!(
         !hexproof_and_indestructible(&engine, other),
@@ -292,7 +292,7 @@ fn inspirit_combat_trigger_needs_a_charge_counter_and_outlives_it() {
             .entries()
             .iter()
             .filter(|e| {
-                matches!(e.event, crate::event::GameEvent::AbilityTriggered { source, .. }
+                matches!(e.event, baylee_engine::event::GameEvent::AbilityTriggered { source, .. }
                     if source == vessel)
             })
             .count()
@@ -309,7 +309,7 @@ fn inspirit_combat_trigger_needs_a_charge_counter_and_outlives_it() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, vessel, CounterKind::Charge, 1);
+    baylee_engine::replacement::put_counters(state, vessel, CounterKind::Charge, 1);
     assert!(walk_to_own_main(&mut engine, p0), "p0's next main");
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCastMode { .. })
@@ -346,7 +346,7 @@ fn inspirit_combat_trigger_needs_a_charge_counter_and_outlives_it() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::remove_counters(state, vessel, CounterKind::Charge, 1);
+    baylee_engine::replacement::remove_counters(state, vessel, CounterKind::Charge, 1);
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine

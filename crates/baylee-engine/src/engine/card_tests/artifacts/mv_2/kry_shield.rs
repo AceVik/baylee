@@ -27,12 +27,12 @@ fn kry_shield_prevents_both_damage_kinds_and_freezes_the_mana_value_bonus() {
     assert_eq!(pt(&e, bear), (2, 4));
     for combat in [false, true] {
         let state = e.dev_state_mut(p0).unwrap();
-        let mut work = crate::damage::DamageWork::new(
+        let mut work = baylee_engine::damage::DamageWork::new(
             state,
-            vec![crate::damage::Assignment {
+            vec![baylee_engine::damage::Assignment {
                 source: bear,
                 source_version: Some(state.object(bear).unwrap().version),
-                recipient: crate::event::DamageTarget::Player(p1),
+                recipient: baylee_engine::event::DamageTarget::Player(p1),
                 amount: 3,
                 is_combat: combat,
             }],
@@ -43,12 +43,12 @@ fn kry_shield_prevents_both_damage_kinds_and_freezes_the_mana_value_bonus() {
     reach_their_main_phase(&mut e, p1);
     assert_eq!(pt(&e, bear), (2, 2));
     let state = e.dev_state_mut(p0).unwrap();
-    let mut work = crate::damage::DamageWork::new(
+    let mut work = baylee_engine::damage::DamageWork::new(
         state,
-        vec![crate::damage::Assignment {
+        vec![baylee_engine::damage::Assignment {
             source: bear,
             source_version: Some(state.object(bear).unwrap().version),
-            recipient: crate::event::DamageTarget::Player(p1),
+            recipient: baylee_engine::event::DamageTarget::Player(p1),
             amount: 1,
             is_combat: false,
         }],
@@ -110,12 +110,12 @@ fn kry_shield_prevents_only_the_targeted_creatures_damage() {
     ] {
         for combat in [false, true] {
             let state = e.dev_state_mut(p0).unwrap();
-            let mut work = crate::damage::DamageWork::new(
+            let mut work = baylee_engine::damage::DamageWork::new(
                 state,
-                vec![crate::damage::Assignment {
+                vec![baylee_engine::damage::Assignment {
                     source,
                     source_version: Some(state.object(source).unwrap().version),
-                    recipient: crate::event::DamageTarget::Player(recipient),
+                    recipient: baylee_engine::event::DamageTarget::Player(recipient),
                     amount: 3,
                     is_combat: combat,
                 }],

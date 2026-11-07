@@ -59,7 +59,7 @@ fn serra_s_hymn_adds_verse_counter_and_prevents_damage() {
 
 #[test]
 fn serras_hymn_single_target_partial_requires_positive_verse_counters() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for n in [0, 2] {
         let mut e = lk::game_with(

@@ -1,7 +1,7 @@
 //! Defender is played; the unsupported received-combat-damage trigger is omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 #[test]
 fn defender_cannot_attack_and_bolt_has_no_invented_noncombat_benefit() {

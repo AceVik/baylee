@@ -104,7 +104,7 @@ fn batch46_plaza_resolves_cyclic_gate_dependencies_without_inventing_colors() {
         mine: true,
         any_type: true,
     };
-    assert!(crate::resolve::colors_of(e.state(), P0, gate_mana, plaza).is_empty());
+    assert!(baylee_engine::resolve::colors_of(e.state(), P0, gate_mana, plaza).is_empty());
     play_land(&mut e, P0, index::FOREST);
     pool(&mut e, &[]);
     ability(&mut e, plaza, 2);
@@ -116,7 +116,7 @@ fn batch46_plaza_resolves_cyclic_gate_dependencies_without_inventing_colors() {
 fn batch46_reflecting_pool_does_not_invent_a_commanders_identity() {
     let e = prepared(&[], &[index::REFLECTING_POOL, index::COMMAND_TOWER], &[]);
     assert!(
-        crate::resolve::colors_of(
+        baylee_engine::resolve::colors_of(
             e.state(),
             P0,
             ManaSource::LandColor {

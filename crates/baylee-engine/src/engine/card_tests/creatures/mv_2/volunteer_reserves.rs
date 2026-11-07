@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::counters;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -54,7 +54,9 @@ fn volunteer_reserves_asks_one_more_each_of_its_controllers_upkeeps() {
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![crate::choice::PaymentStep::ActivateManaAbility { source: plains_id }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility {
+                source: plains_id,
+            }],
         },
     )
     .expect("a Plains pays {1}");

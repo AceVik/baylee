@@ -252,7 +252,7 @@ fn the_gold_saucer_eats_two_artifacts_for_a_card_and_taps_for_colorless() {
 
 #[test]
 fn saucer_coin_flip_is_replayable_and_only_a_win_creates_treasure() {
-    use crate::event::GameEvent;
+    use baylee_engine::event::GameEvent;
     let p0 = PlayerId::new(0);
     let mut outcomes = [false; 2];
     for seed in 1..=16 {

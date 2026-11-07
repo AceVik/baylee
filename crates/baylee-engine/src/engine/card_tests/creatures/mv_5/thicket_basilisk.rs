@@ -36,7 +36,7 @@ fn thicket_basilisk_destroys_a_non_wall_creature_that_blocks_it() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         engine.state().object(blocker).map(|o| o.zone),
@@ -119,7 +119,7 @@ fn thicket_basilisk_destroys_a_non_wall_creature_it_blocks() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(
         engine.state().object(attacker).map(|o| o.zone),

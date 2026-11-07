@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ChoicePrompt;
+use baylee_engine::choice::ChoicePrompt;
 
 fn molten_tail_masticore() -> CardIndex {
     card_index("15fb3a7a-a6c3-4bef-9f72-1d04b623063e")

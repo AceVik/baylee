@@ -555,3 +555,13 @@ impl<L: CardLookup> Engine<L> {
 #[cfg(test)]
 #[path = "delayed/announcement_tests.rs"]
 mod announcement_tests;
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn process_delayed_for_tests(&mut self) -> bool {
+        self.process_delayed()
+    }
+}

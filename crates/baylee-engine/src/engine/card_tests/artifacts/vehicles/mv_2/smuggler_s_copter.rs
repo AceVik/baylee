@@ -6,7 +6,7 @@ use super::*;
 /// Crew lasts one turn. Both attacking and blocking trigger optional draw/discard.
 #[test]
 fn smugglers_copter_crews_and_loots_on_attack_or_block() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for blocking in [false, true] {
         let mut e = kit::game(
             980,
@@ -80,7 +80,7 @@ fn sizes(e: &Engine<RegistryLookup>) -> Sizes {
 /// read **before** the attack or block is declared, so a draw that happened on
 /// the way to the question is a change like any other.
 fn copter_at_its_loot_question(blocking: bool) -> (Engine<RegistryLookup>, Sizes) {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(
         980,
         &[smugglers_copter(), llanowar_elves()],

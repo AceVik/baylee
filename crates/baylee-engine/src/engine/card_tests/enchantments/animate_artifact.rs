@@ -136,7 +136,12 @@ fn animate_artifact_zero_mana_value_dies_and_its_aura_follows() {
 #[test]
 fn animate_artifact_keeps_land_type_and_indestructible_with_a_counter() {
     let (mut e, land) = setup(index::DARKSTEEL_CITADEL, 0);
-    crate::replacement::put_counters(e.dev_state_mut(P0).unwrap(), land, CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(
+        e.dev_state_mut(P0).unwrap(),
+        land,
+        CounterKind::P1P1,
+        1,
+    );
     animate(&mut e, land);
     let c = e.state().object(land).unwrap().characteristics();
     assert!(
@@ -153,7 +158,12 @@ fn animate_artifact_keeps_land_type_and_indestructible_with_a_counter() {
 #[test]
 fn animate_artifact_base_power_precedes_counters_and_temporary_pumps() {
     let (mut e, ring) = setup(sol_ring(), 0);
-    crate::replacement::put_counters(e.dev_state_mut(P0).unwrap(), ring, CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(
+        e.dev_state_mut(P0).unwrap(),
+        ring,
+        CounterKind::P1P1,
+        1,
+    );
     animate(&mut e, ring);
     assert_eq!(pt(&e, ring), (2, 2));
     cast(&mut e, index::GIANT_GROWTH, Some(ring));
@@ -167,7 +177,12 @@ fn animate_artifact_base_power_precedes_counters_and_temporary_pumps() {
 #[test]
 fn animate_artifact_removal_restores_noncreature_without_losing_counters() {
     let (mut e, ring) = setup(sol_ring(), 0);
-    crate::replacement::put_counters(e.dev_state_mut(P0).unwrap(), ring, CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(
+        e.dev_state_mut(P0).unwrap(),
+        ring,
+        CounterKind::P1P1,
+        1,
+    );
     let aura = animate(&mut e, ring);
     cast(&mut e, index::DISENCHANT, Some(aura));
     assert!(!is_creature(&e, ring));
@@ -301,19 +316,21 @@ fn animate_artifact_continues_when_its_source_loses_abilities_in_layer_six() {
     // Explicit layer-six fixture; advance the engine to exercise static sync,
     // rather than only projecting an already populated effect table.
     let state = e.dev_state_mut(P0).unwrap();
-    let filter = crate::effects::EffectFilter::object(state, aura);
+    let filter = baylee_engine::effects::EffectFilter::object(state, aura);
     let timestamp = state.next_timestamp();
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::Ability,
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::LoseAllAbilities,
-    });
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Ability,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::LoseAllAbilities,
+        });
     e.apply(P0, PlayerAction::PassPriority).unwrap();
     assert!(
         e.state()
@@ -366,19 +383,21 @@ fn animate_artifact_two_auras_with_swift_between_continue_the_correct_setter() {
     // An independent P/T setter between the two Aura timestamps makes
     // which animation started observable; final creature type alone does not.
     let state = e.dev_state_mut(P0).unwrap();
-    let filter = crate::effects::EffectFilter::object(state, ring);
+    let filter = baylee_engine::effects::EffectFilter::object(state, ring);
     let timestamp = state.next_timestamp();
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::PtSet,
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::SetPT(2, 4),
-    });
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::PtSet,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::SetPT(2, 4),
+        });
     animate(&mut e, ring);
     assert!(is_creature(&e, ring));
     assert_eq!(

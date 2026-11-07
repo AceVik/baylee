@@ -69,7 +69,7 @@ fn to_the_upkeep_question(e: &mut Engine<RegistryLookup>) {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::PayMana { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayMana { .. },
                 ..
             }
         )
@@ -80,7 +80,7 @@ fn to_the_upkeep_question(e: &mut Engine<RegistryLookup>) {
     assert_eq!(player, P0, "\"your upkeep\" asks Dance's controller");
     assert_eq!(
         prompt,
-        crate::choice::YesNoPrompt::PayMana {
+        baylee_engine::choice::YesNoPrompt::PayMana {
             cost: baylee_core::mana!("{U}{U}")
         }
     );

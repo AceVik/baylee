@@ -46,7 +46,7 @@ fn walk_in_closet_lets_its_controller_play_a_land_out_of_the_graveyard() {
         .expect("the left half resolves to a Room on the battlefield");
     assert_eq!(
         doors_of(&engine, room),
-        crate::object::Doors::room(0b01),
+        baylee_engine::object::Doors::room(0b01),
         "cast as Walk-In Closet, that door is unlocked and Forgotten Cellar's is not"
     );
     assert!(
@@ -129,7 +129,7 @@ fn forgotten_cellar_cast_as_its_half_opens_that_door_and_exiles_what_would_reach
     let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Room entered");
     assert_eq!(
         doors_of(&engine, room),
-        crate::object::Doors::room(0b10),
+        baylee_engine::object::Doors::room(0b10),
         "cast as Forgotten Cellar, that door enters unlocked and the other locked (CR 709.5d)"
     );
     assert_eq!(
@@ -215,7 +215,10 @@ fn forgotten_cellar_cast_as_its_half_opens_that_door_and_exiles_what_would_reach
         "the Closet's door is offered"
     );
     unlock(&mut engine, p0, room, 0).expect("the left door unlocks for {2}{G}");
-    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+    assert_eq!(
+        doors_of(&engine, room),
+        baylee_engine::object::Doors::room(0b11)
+    );
     assert!(
         stack_is_empty(&engine),
         "unlocking Walk-In Closet is not unlocking Forgotten Cellar: the trigger is that door's"
@@ -312,7 +315,7 @@ fn forgotten_cellar_lets_its_controller_cast_spells_from_the_graveyard_this_turn
             .object(spell)
             .expect("the spell exists")
             .riders
-            .contains(&crate::object::Rider::Flashback),
+            .contains(&baylee_engine::object::Rider::Flashback),
         "a permission to cast from the graveyard is not flashback (CR 702.34a)"
     );
     pass_until(&mut engine, |e| at_rest(e, p0));
@@ -441,7 +444,7 @@ fn under_forgotten_cellar_a_flashback_card_is_offered_at_its_mana_cost_too() {
             .object(spell)
             .expect("the spell exists")
             .riders
-            .contains(&crate::object::Rider::Flashback),
+            .contains(&baylee_engine::object::Rider::Flashback),
         "the flashback cost was not paid (CR 702.34a)"
     );
 }
@@ -484,7 +487,10 @@ fn a_locked_door_unlocks_as_a_sorcery_for_its_mana_cost_and_its_trigger_hears_it
     cast_with_floating(&mut engine, p0, walk_in_closet());
     pass_until(&mut engine, |e| at_rest(e, p0));
     let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Closet resolved");
-    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b01));
+    assert_eq!(
+        doors_of(&engine, room),
+        baylee_engine::object::Doors::room(0b01)
+    );
     seed_graveyard(&mut engine, p0, 1);
     let buried = engine.state().zones.list(ZoneLocation::Graveyard(p0))[0];
 
@@ -527,7 +533,10 @@ fn a_locked_door_unlocks_as_a_sorcery_for_its_mana_cost_and_its_trigger_hears_it
         "the stack empty, the Cellar's {{3}}{{G}}{{G}} floating: the locked door, and only it"
     );
     unlock(&mut engine, p0, room, 1).expect("Forgotten Cellar unlocks");
-    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+    assert_eq!(
+        doors_of(&engine, room),
+        baylee_engine::object::Doors::room(0b11)
+    );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Stack).len(),
         1,
@@ -579,7 +588,7 @@ fn a_room_put_onto_the_battlefield_uncast_has_both_doors_locked() {
     let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Room is out");
     assert_eq!(
         doors_of(&engine, room),
-        crate::object::Doors::room(0),
+        baylee_engine::object::Doors::room(0),
         "not cast, so neither door is unlocked (CR 709.5d)"
     );
     assert_eq!(
@@ -648,7 +657,7 @@ fn a_room_put_onto_the_battlefield_uncast_has_both_doors_locked() {
     let gone = engine.state().object(card).expect("the exiled card");
     assert_eq!(
         (gone.doors, gone.face_index),
-        (crate::object::Doors::NONE, 0),
+        (baylee_engine::object::Doors::NONE, 0),
         "the designations were the permanent's (CR 400.7)"
     );
     assert_eq!(

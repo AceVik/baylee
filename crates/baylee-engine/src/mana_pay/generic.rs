@@ -18,7 +18,7 @@ fn sum(units: &[u32; 6]) -> u64 {
     units.iter().map(|&n| u64::from(n)).sum()
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn allocate(
     ordinary: Resources,
     restricted: Resources,

@@ -37,7 +37,7 @@ fn forcefield_lets_one_of_an_unblocked_creatures_damage_through() {
     );
     assert_eq!(
         engine.state().turn.step,
-        crate::turn::Step::DeclareAttackers
+        baylee_engine::turn::Step::DeclareAttackers
     );
     let spare = all_on_battlefield(&engine, p1, plains())[1];
     tap_mana_except(&mut engine, p1, spare);
@@ -82,7 +82,7 @@ fn forcefield_lets_one_of_an_unblocked_creatures_damage_through() {
         )
         .expect("off the list");
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(engine.state().players[1].life, 19, "1 of the Giant's 3");
     assert!(engine.state().shields.is_empty(), "and the shield is spent");

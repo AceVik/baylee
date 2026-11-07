@@ -94,7 +94,7 @@ fn merseine_enters_with_three_net_counters_and_keeps_the_creature_tapped() {
     assert!(is_tapped(&e, bears));
 
     pass_until(&mut e, |e| {
-        e.state().turn.active == P1 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == P1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(
         is_tapped(&e, bears),
@@ -157,7 +157,7 @@ fn merseine_releases_the_creature_only_after_the_last_net_counter_is_paid_off() 
     assert_eq!(net_counters(&e, aura), 1);
 
     pass_until(&mut e, |e| {
-        e.state().turn.active == P1 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == P1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(is_tapped(&e, bears), "one net counter left: still no untap");
 
@@ -165,10 +165,10 @@ fn merseine_releases_the_creature_only_after_the_last_net_counter_is_paid_off() 
     p1_pays_a_counter(&mut e, aura);
     assert_eq!(net_counters(&e, aura), 0, "the last counter is gone");
     pass_until(&mut e, |e| {
-        e.state().turn.active == P0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == P0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(&mut e, |e| {
-        e.state().turn.active == P1 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == P1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(
         !is_tapped(&e, bears),

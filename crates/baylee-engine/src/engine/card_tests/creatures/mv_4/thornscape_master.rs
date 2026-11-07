@@ -73,7 +73,7 @@ fn thornscape_master_deals_two_damage_to_target_creature_and_grants_protection_f
     pass_until(&mut engine, stack_is_empty);
 
     // Hill Giant now has protection from black and cannot be targeted by Terror.
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[(ManaColor::Colorless, 1), (ManaColor::Black, 1)],

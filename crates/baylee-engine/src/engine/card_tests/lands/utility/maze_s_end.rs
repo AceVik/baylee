@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::win::{EndReason, GameResult, Victor};
+use baylee_engine::win::{EndReason, GameResult, Victor};
 
 /// Maze's End prints `This land enters tapped.`, `{T}: Add {C}.`, and `{3}, {T}, Return this land to its owner's hand: Search your library for a Gate card, put it onto the battlefield, then shuffle. If you control ten or more Gates with different names, you win the game.`
 ///

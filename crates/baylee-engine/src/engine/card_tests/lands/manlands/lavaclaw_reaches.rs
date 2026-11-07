@@ -83,7 +83,7 @@ fn lavaclaw_reaches_enters_tapped_and_animates_into_an_elemental() {
 
 #[test]
 fn lavaclaw_granted_x_pump_announces_pays_and_expires() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(981, &[lavaclaw_reaches()], &[], &[], &[]);
     let land = kit::obj(&e, kit::P0, lavaclaw_reaches());
     // The animation replaces an existing color rather than accumulating it.
@@ -108,7 +108,7 @@ fn lavaclaw_granted_x_pump_announces_pays_and_expires() {
             .colors
             .contains(baylee_core::color::Color::Green)
     );
-    let ability = crate::choice::granted_ability(0);
+    let ability = baylee_engine::choice::granted_ability(0);
     assert!(priority_offer(&e).abilities.contains(&(land, ability)));
     e.apply(
         kit::P0,
@@ -127,7 +127,7 @@ fn lavaclaw_granted_x_pump_announces_pays_and_expires() {
     reach_their_main_phase(&mut e, kit::P1);
     assert!(!types(&e, land).contains(TypeSet::CREATURE));
     assert!(
-        crate::effects::granted_activated(e.state(), land)
+        baylee_engine::effects::granted_activated(e.state(), land)
             .next()
             .is_none()
     );

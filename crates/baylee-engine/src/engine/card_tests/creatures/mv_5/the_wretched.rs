@@ -70,7 +70,7 @@ fn wretched_after_combat_against(
             player,
             min,
             max,
-            reason: crate::choice::NumberPrompt::CombatDamage { recipient, .. },
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { recipient, .. },
         } = e.pending().clone()
         {
             let share = if recipient == damaged { max } else { min };

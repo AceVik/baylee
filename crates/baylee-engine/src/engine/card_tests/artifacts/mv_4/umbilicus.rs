@@ -5,7 +5,7 @@ fn umbilicus() -> CardIndex {
     card_index("c9132e72-d016-4cb7-8662-a16b7d932bef")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn umbilicus_each_active_player_may_pay_two_life_or_choose_their_own_permanent() {

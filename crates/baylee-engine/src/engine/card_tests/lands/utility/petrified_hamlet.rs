@@ -79,7 +79,7 @@ fn petrified_hamlet_gives_the_named_land_a_colorless_mana_ability() {
     assert!(
         legal
             .abilities
-            .contains(&(maze, crate::choice::GRANTED_ABILITY)),
+            .contains(&(maze, baylee_engine::choice::GRANTED_ABILITY)),
         "the granted {{T}}: Add {{C}} is on offer: {:?}",
         legal.abilities
     );
@@ -87,7 +87,7 @@ fn petrified_hamlet_gives_the_named_land_a_colorless_mana_ability() {
         p1,
         PlayerAction::ActivateAbility {
             source: maze,
-            ability_index: crate::choice::GRANTED_ABILITY,
+            ability_index: baylee_engine::choice::GRANTED_ABILITY,
         },
     )
     .expect("the granted mana ability activates");

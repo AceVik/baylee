@@ -116,7 +116,7 @@ fn lilypad_counts_simultaneous_nexus_and_creature_return_before_nexus_disappears
     e.state.object_mut(nexus).unwrap().base_mut().power = Some(1);
     e.state.object_mut(nexus).unwrap().base_mut().toughness = Some(1);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     cast(&mut e, index::EERIE_INTERLUDE);
     targets(&mut e, vec![nexus, bear], vec![]);
@@ -126,7 +126,7 @@ fn lilypad_counts_simultaneous_nexus_and_creature_return_before_nexus_disappears
     // automatically install an original_base copy rider).
     e.state.object_mut(nexus).unwrap().base = original_nexus;
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, |e| {
         e.state
@@ -162,7 +162,7 @@ fn lilypad_accepts_noncreature_kindred_subtype_entry_fixture() {
         )
         .unwrap();
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(
         !e.state
@@ -198,7 +198,7 @@ fn lilypad_retains_entry_and_departure_before_the_next_priority_capture_fixture(
         )
         .unwrap();
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     surveil_now(&mut e);
 }
@@ -215,7 +215,7 @@ fn lilypad_does_not_treat_same_incarnation_phasing_in_as_an_entry() {
         .status
         .insert(Status::PHASED_OUT);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     e.state
         .object_mut(rat)
@@ -223,7 +223,7 @@ fn lilypad_does_not_treat_same_incarnation_phasing_in_as_an_entry() {
         .status
         .remove(Status::PHASED_OUT);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.state.object(rat).unwrap().version, version);
     let village = source(&e, P0, index::LILYPAD_VILLAGE);

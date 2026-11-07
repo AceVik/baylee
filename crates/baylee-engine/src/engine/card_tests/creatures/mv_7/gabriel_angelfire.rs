@@ -42,7 +42,7 @@ fn gabriel_offers_all_four_abilities_until_the_next_upkeep() {
             assert!(keywords(&e, gabriel).contains(keyword));
         }
         assert_eq!(
-            crate::eval::matches(
+            baylee_engine::eval::matches(
                 &baylee_cards_dsl::Filter::HasRampage,
                 e.state(),
                 e.state().object(gabriel).unwrap(),
@@ -73,22 +73,23 @@ fn gabriel_offers_all_four_abilities_until_the_next_upkeep() {
             assert_eq!(pt(&e, gabriel), (7, 7));
         }
         for _ in 0..100 {
-            if e.state().turn.active == p1 && e.state().turn.phase == crate::turn::Phase::FirstMain
+            if e.state().turn.active == p1
+                && e.state().turn.phase == baylee_engine::turn::Phase::FirstMain
             {
                 break;
             }
-            let (player, action) = crate::engine::testkit::answer_one(&e).unwrap();
+            let (player, action) = baylee_card_testkit::testkit::answer_one(&e).unwrap();
             e.apply(player, action).unwrap();
         }
         assert_eq!(e.state().turn.active, p1);
-        assert_eq!(e.state().turn.phase, crate::turn::Phase::FirstMain);
+        assert_eq!(e.state().turn.phase, baylee_engine::turn::Phase::FirstMain);
         if mode < 3 {
             assert!(keywords(&e, gabriel).contains(keyword));
         }
         pass_until(&mut e, |e| {
-            e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+            e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
         });
-        assert!(!crate::eval::matches(
+        assert!(!baylee_engine::eval::matches(
             &baylee_cards_dsl::Filter::HasRampage,
             e.state(),
             e.state().object(gabriel).unwrap(),

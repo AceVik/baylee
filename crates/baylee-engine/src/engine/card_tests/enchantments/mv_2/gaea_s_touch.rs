@@ -122,7 +122,7 @@ fn gaea_s_touch_is_not_offered_outside_a_main_phase() {
     reach_their_main_phase(&mut e, P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
     assert!(!touch_offered(&e), "an upkeep is no time for a sorcery");

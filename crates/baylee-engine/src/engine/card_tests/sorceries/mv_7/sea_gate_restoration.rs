@@ -16,7 +16,7 @@ fn sea_gate_reborn_pays_three_life_to_enter_untapped_and_taps_for_blue() {
     let (mut engine, land) =
         play_land_face(sea_gate_restoration(), 1).expect("plays as Sea Gate, Reborn");
     assert!(matches!(engine.pending(), Pending::YesNo {
-        player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
     } if *player == p0));
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);

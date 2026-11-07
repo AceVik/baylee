@@ -86,8 +86,8 @@ fn greenseeker_discards_to_find_one_basic_land_for_hand() {
     assert_eq!(library_size(&e, p0), before - 1);
     assert!(on_battlefield(&e, p0, forest()).is_some());
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
-    assert!(e.state().journal.entries().iter().any(|entry| matches!(&entry.event, crate::event::GameEvent::Revealed { player, cards } if *player == p0 && cards == &vec![found])));
-    assert!(e.state().journal.entries().iter().any(|entry| matches!(entry.event, crate::event::GameEvent::Shuffled { player, .. } if player == p0)));
+    assert!(e.state().journal.entries().iter().any(|entry| matches!(&entry.event, baylee_engine::event::GameEvent::Revealed { player, cards } if *player == p0 && cards == &vec![found])));
+    assert!(e.state().journal.entries().iter().any(|entry| matches!(entry.event, baylee_engine::event::GameEvent::Shuffled { player, .. } if player == p0)));
 }
 
 #[test]

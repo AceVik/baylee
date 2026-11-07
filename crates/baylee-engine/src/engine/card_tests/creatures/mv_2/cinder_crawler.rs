@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -43,7 +43,7 @@ fn cinder_crawler_activates_only_when_blocked_to_pump_power() {
         )
         .unwrap();
 
-    crate::engine::card_tests::legends_kit::float(&mut engine, P0, &[(ManaColor::Red, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, P0, &[(ManaColor::Red, 1)]);
     kit::activate_object(&mut engine, P0, crawler, 0);
     kit::resolve_the_stack(&mut engine, |_, _| None);
 

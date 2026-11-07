@@ -22,7 +22,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 /// the step's first card and no other, so "draw three" that opens the step
 /// fires it twice. That is a subtraction, which is why the count of
 /// happenings is taken here rather than multiplied in by the callers.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn hits(
     trigger: &Trigger,
     event: &GameEvent,
@@ -312,7 +312,7 @@ pub(super) fn times_triggered_with_source(
                     entry.source,
                 ) =>
             {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced(entry);
                 count += 1;
             }
@@ -328,7 +328,7 @@ pub(super) fn times_triggered_with_source(
                     entry.source,
                 ) =>
             {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced(entry);
                 return 0;
             }

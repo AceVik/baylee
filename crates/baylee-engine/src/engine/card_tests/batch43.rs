@@ -5,8 +5,8 @@ use super::{
     counter_resources::prepared,
     library_choices::{choose, library, searched},
 };
-use crate::event::GameEvent;
 use baylee_core::generated::{index, subtypes};
+use baylee_engine::event::GameEvent;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
@@ -38,7 +38,7 @@ fn yes(e: &mut Engine<RegistryLookup>, answer: bool) {
 }
 fn next_upkeep(e: &mut Engine<RegistryLookup>) {
     pass_until(e, |e| {
-        e.state().turn.active == P0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == P0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
 }
 
@@ -49,19 +49,19 @@ fn copy_rules_fixture(
     temporary: bool,
 ) {
     // Isolate a copy acquisition while a real card's linked trigger is pending.
-    assert!(crate::copiable_abilities::apply_copy(
+    assert!(baylee_engine::copiable_abilities::apply_copy(
         &mut e.state,
-        crate::copiable_abilities::CopyApplication {
+        baylee_engine::copiable_abilities::CopyApplication {
             source,
             target,
             mods: &[],
             copy_index: 0,
             until_eot: temporary,
             resolving: None,
-            text: crate::text_changes::TextChangeMap::IDENTITY,
+            text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
         }
     ));
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.state.refresh_characteristics();
     e.refresh_offer();
 }

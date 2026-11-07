@@ -108,7 +108,7 @@ fn blighted_shaman_trades_a_swamp_for_one_and_a_creature_for_two() {
                 assert_eq!(player, p0, "the cost is the activator's to pay");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "the variant is what tells a client this is a cost and not \
                      a search"
                 );
@@ -212,7 +212,7 @@ fn blighted_shaman_trades_a_swamp_for_one_and_a_creature_for_two() {
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "the variant is what tells a client this is a cost and not \
                      a search"
                 );

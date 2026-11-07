@@ -171,7 +171,7 @@ fn the_reaper_asks_nothing_for_a_card_that_left_the_graveyard() {
         let state = engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
-        crate::sba::destroy(state, guard);
+        baylee_engine::sba::destroy(state, guard);
     }
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
@@ -187,8 +187,8 @@ fn the_reaper_asks_nothing_for_a_card_that_left_the_graveyard() {
             .move_object(
                 card,
                 ZoneLocation::Exile(p1),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -316,7 +316,7 @@ fn fury_loses_the_share_of_a_target_that_is_gone() {
             elves,
             ZoneLocation::Graveyard(p1),
             ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("the Elves leave");
     pass_until(&mut engine, stack_is_empty);

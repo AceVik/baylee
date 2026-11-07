@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -34,7 +34,7 @@ fn ritual_of_steel_pumps_toughness_and_draws_on_next_upkeep() {
 
     pass_until(&mut engine, |e| {
         e.state().turn.active == p1
-            && e.state().turn.step == crate::turn::Step::Draw
+            && e.state().turn.step == baylee_engine::turn::Step::Draw
             && stack_is_empty(e)
     });
     assert_eq!(

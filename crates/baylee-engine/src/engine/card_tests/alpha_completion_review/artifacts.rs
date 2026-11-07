@@ -19,7 +19,7 @@ fn clockwork_beast_independent_full_seven_and_zero_x_do_not_add_counters_and_foe
         let beast = on_battlefield(&engine, p0, clockwork_beast()).unwrap();
         pass_until(&mut engine, |e| {
             e.state().turn.active == p1
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
         });
         let Pending::Priority { legal, .. } = engine.pending() else {
@@ -31,7 +31,7 @@ fn clockwork_beast_independent_full_seven_and_zero_x_do_not_add_counters_and_foe
         );
         pass_until(&mut engine, |e| {
             e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
         });
         tap_all_mana(&mut engine, p0);
@@ -91,7 +91,7 @@ fn clockwork_beast_independent_external_counters_above_seven_are_not_clamped_by_
     pass_until(&mut engine, |e| {
         e.state().turn.number > turn
             && e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     tap_all_mana(&mut engine, p0);
@@ -174,7 +174,7 @@ fn clockwork_beast_independent_old_combat_trigger_does_not_remove_a_new_incarnat
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd && !stack_is_empty(e)
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd && !stack_is_empty(e)
     });
     assert_eq!(
         beast_counters(&engine, beast),
@@ -224,7 +224,7 @@ fn clockwork_beast_independent_upkeep_recharge_is_optional_and_capped_at_seven()
         pass_until(&mut engine, |e| {
             e.state().turn.number > turn
                 && e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::Upkeep
+                && e.state().turn.step == baylee_engine::turn::Step::Upkeep
                 && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
         });
         tap_all_mana(&mut engine, p0);

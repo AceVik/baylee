@@ -49,7 +49,7 @@ fn next_main(e: &mut Engine<RegistryLookup>, player: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player:p,..}if *p==player)
     });
 }
@@ -93,14 +93,14 @@ fn guardian_keeps_old_aura_but_refuses_new_aura_then_tapped_beast_allows_destruc
     cast_target(&mut e, index::SHATTER, ring);
     assert_eq!(
         e.state.object(ring).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     let beast = obj(&e, P0, index::GUARDIAN_BEAST);
     tap_with_twiddle(&mut e, beast);
     cast_target(&mut e, index::SHATTER, ring);
     assert_eq!(
         e.state.object(ring).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
 }
 
@@ -212,7 +212,7 @@ fn guardian_noncreature_protection_returns_after_real_animation_aura_leaves() {
     cast_target(&mut e, index::SHATTER, ring);
     assert_eq!(
         e.state.object(ring).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }
 
@@ -264,7 +264,7 @@ fn guardian_actual_entry_does_not_reverse_an_existing_control_gain() {
     );
     assert!(keywords(&e, ring).contains(KeywordSet::INDESTRUCTIBLE));
     let hash = e.snapshot_hash();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.snapshot_hash(), hash);
 }
@@ -288,11 +288,11 @@ fn guardian_source_control_change_rebinds_artifact_cohort_without_reversing_old_
     cast_target(&mut e, index::SHATTER, theirs);
     assert_eq!(
         e.state.object(theirs).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     assert_eq!(
         e.state.object(mine).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }
 
@@ -325,7 +325,7 @@ fn guardian_blocks_untargeted_aura_entry_from_actual_sun_titan_reanimation() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(aura).unwrap().zone,
-        crate::zone::Zone::Graveyard,
+        baylee_engine::zone::Zone::Graveyard,
         "no legal enchant host means Aura stays in its old zone"
     );
     assert_eq!(
@@ -367,7 +367,7 @@ fn guardian_failed_indefinite_aladdin_gain_does_not_wake_when_beast_taps() {
         P0,
         "failed resolving gain instruction must not leave a dormant indefinite effect"
     );
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.state.object(ring).unwrap().controller, P0);
 }
@@ -385,20 +385,22 @@ fn guardian_temporary_control_expiry_preserves_controller_only_while_protection_
     // absent. Register only a normal GainControl/UntilEndOfTurn effect, not the
     // Guardian protection or a controller-holding implementation under test.
     let timestamp = e.state.next_timestamp();
-    let filter = crate::effects::EffectFilter::object(&e.state, ring);
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: Some(source),
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Modifier::GainControl.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::GainControl,
-    });
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, ring);
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(source),
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Modifier::GainControl.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.state.object(ring).unwrap().controller, P0);
     cast(&mut e, index::GUARDIAN_BEAST);
@@ -411,7 +413,7 @@ fn guardian_temporary_control_expiry_preserves_controller_only_while_protection_
     );
     assert!(keywords(&e, ring).contains(KeywordSet::INDESTRUCTIBLE));
     let hash = e.snapshot_hash();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.snapshot_hash(), hash);
     let beast = obj(&e, P0, index::GUARDIAN_BEAST);
@@ -460,7 +462,7 @@ fn guardian_sun_titan_untargeted_aura_entry_chooses_only_unprotected_legal_host(
     assert!(options.contains(&legal));
     assert_eq!(
         e.state.object(aura).unwrap().zone,
-        crate::zone::Zone::Graveyard,
+        baylee_engine::zone::Zone::Graveyard,
         "host choice precedes entry"
     );
     assert_eq!(e.state.object(aura).unwrap().version, version);
@@ -474,7 +476,7 @@ fn guardian_sun_titan_untargeted_aura_entry_chooses_only_unprotected_legal_host(
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(aura).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     assert_eq!(e.state.object(aura).unwrap().attached_to, Some(legal));
     assert_ne!(e.state.object(aura).unwrap().version, version);

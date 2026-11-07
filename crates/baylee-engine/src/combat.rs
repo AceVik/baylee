@@ -616,7 +616,8 @@ pub(crate) fn bands_with_other_filters(
 
 /// Whether `leader` has an active "bands with other [quality]" ability that
 /// matches `mate` (CR 702.22c).
-pub(crate) fn can_band_with_other(state: &GameState, leader: ObjectId, mate: ObjectId) -> bool {
+#[doc(hidden)]
+pub fn can_band_with_other(state: &GameState, leader: ObjectId, mate: ObjectId) -> bool {
     if leader == mate {
         return false;
     }

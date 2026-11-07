@@ -25,7 +25,7 @@ fn batch46_watermarket_spends_only_on_a_verified_watermarked_spell() {
         activate(&mut e, P0, index::WATERMARKET, 0);
         assert_eq!(e.state.players[0].mana_pool.total(), 2);
         assert_eq!(
-            crate::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_ok(),
+            baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_ok(),
             marked
         );
         if marked {
@@ -50,7 +50,7 @@ fn batch46_secret_base_freezes_the_producing_watermark_in_its_mana() {
         // A later source fact cannot relabel mana already produced.
         printing(&mut e, base, Some(1), true);
         assert_eq!(
-            crate::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_ok(),
+            baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_ok(),
             target_mark == Some(0)
         );
         if target_mark == Some(0) {
@@ -67,7 +67,7 @@ fn batch46_unknown_printing_metadata_is_not_a_verified_empty_printing() {
     e.state.object_mut(spell).unwrap().physical_rules = None;
     reset_pool(&mut e);
     activate(&mut e, P0, index::WATERMARKET, 0);
-    assert!(crate::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_err());
+    assert!(baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_err());
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn batch46_underdome_pays_un_spell_and_un_activated_source_only() {
         e.apply(P0, PlayerAction::ChooseColor(ManaColor::Blue))
             .unwrap();
         assert_eq!(
-            crate::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_ok(),
+            baylee_engine::casting::can_cast(e.state(), &RegistryLookup, P0, spell).is_ok(),
             is_un
         );
         e.refresh_offer();
@@ -145,19 +145,19 @@ fn batch46_copy_retains_spires_circles_without_copying_physical_printing_facts()
     };
     printing(&mut e, spires, Some(0), true);
     printing(&mut e, copier, Some(1), false);
-    assert!(crate::copiable_abilities::apply_copy(
+    assert!(baylee_engine::copiable_abilities::apply_copy(
         &mut e.state,
-        crate::copiable_abilities::CopyApplication {
+        baylee_engine::copiable_abilities::CopyApplication {
             source: copier,
             target: spires,
             mods: &[],
             copy_index: 0,
             until_eot: false,
             resolving: None,
-            text: crate::text_changes::TextChangeMap::IDENTITY,
+            text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
         }
     ));
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     // Circles are copied text; a source's later choices cannot change a snapshot.
     e.state.object_mut(spires).unwrap().deck_choices = DeckChoices {
         circled_colors: Some(ColorPair::new(Color::White, Color::Black)),
@@ -233,7 +233,7 @@ fn batch46_two_spires_presets_keep_distinct_circles_through_hydration_and_activa
             pass_until(&mut e, |e| {
                 e.state.turn.number > turn
                     && e.state.turn.active == P0
-                    && e.state.turn.phase == crate::turn::Phase::FirstMain
+                    && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
                     && matches!(e.pending(), Pending::Priority { player: P0, .. })
             });
         }

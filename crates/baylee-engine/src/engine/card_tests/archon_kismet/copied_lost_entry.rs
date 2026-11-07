@@ -20,19 +20,21 @@ fn copied_artifact_creature_loses_its_copied_printed_tapped_entry_rule() {
     // its copy ability; prospective copied creature then loses all abilities.
     let modifier = baylee_cards_dsl::Modifier::LoseAllAbilities;
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Static,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::CREATURE),
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Static,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter: baylee_engine::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::CREATURE),
+            modifier,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let copy = in_hand(&e, P0, index::COPY_ARTIFACT).unwrap();
     cast(&mut e, P0, index::COPY_ARTIFACT);

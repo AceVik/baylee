@@ -63,9 +63,9 @@ fn realms_uncharted_lets_the_opponent_bin_two_of_four_lands() {
             .object(*card)
             .and_then(|o| o.zone_owner.map(|_| o.zone));
         let expected = if binned.contains(card) {
-            crate::zone::Zone::Graveyard
+            baylee_engine::zone::Zone::Graveyard
         } else {
-            crate::zone::Zone::Hand
+            baylee_engine::zone::Zone::Hand
         };
         assert_eq!(
             zone,
@@ -92,7 +92,7 @@ fn realms_uncharted_bins_everything_when_two_or_fewer_are_found() {
     for card in &found {
         assert_eq!(
             engine.state().object(*card).map(|o| o.zone),
-            Some(crate::zone::Zone::Graveyard)
+            Some(baylee_engine::zone::Zone::Graveyard)
         );
     }
 }
@@ -137,6 +137,6 @@ fn realms_uncharted_at_a_table_lets_the_caster_name_the_opponent() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine.state().object(found[2]).map(|o| o.zone),
-        Some(crate::zone::Zone::Hand)
+        Some(baylee_engine::zone::Zone::Hand)
     );
 }

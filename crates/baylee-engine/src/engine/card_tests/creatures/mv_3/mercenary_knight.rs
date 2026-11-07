@@ -66,7 +66,7 @@ fn mercenary_knight_keeps_itself_for_a_creature_card_and_is_sacrificed_without_o
                 assert_eq!(player, p0, "the seat that cast it pays its own price");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostDiscard,
+                    baylee_engine::choice::ChoicePrompt::CostDiscard,
                     "a cost and not a search, which is all a client has to tell the two apart"
                 );
                 assert_eq!(max, 1, "one card is the whole price");

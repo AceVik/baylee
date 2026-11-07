@@ -9,7 +9,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = kit::P0;
@@ -79,7 +79,7 @@ fn that_creature_has_haste_and_is_exiled_at_the_next_end_step() {
     let turn = e.state().turn.number;
     pass_until(&mut e, |e| exiled(e, index::GRIZZLY_BEARS));
     assert_eq!(e.state().turn.number, turn, "this turn's end step");
-    assert_eq!(e.state().turn.step, crate::turn::Step::End);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::End);
 }
 
 /// The exile is about the creature as it came back (CR 603.7c): out of play
@@ -95,8 +95,8 @@ fn a_creature_that_left_before_the_end_step_is_not_exiled() {
         .move_object(
             bears,
             ZoneLocation::Hand(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -204,7 +204,7 @@ fn the_owner_of_a_pile_that_fell_together_says_which_is_on_top() {
 fn a_dance_in_the_end_step_exiles_at_the_end_step_after_it() {
     let mut e = over_a_pile(&[index::GRIZZLY_BEARS]);
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
     let turn = e.state().turn.number;
@@ -219,5 +219,5 @@ fn a_dance_in_the_end_step_exiles_at_the_end_step_after_it() {
     );
     pass_until(&mut e, |e| exiled(e, index::GRIZZLY_BEARS));
     assert_eq!(e.state().turn.number, turn + 1);
-    assert_eq!(e.state().turn.step, crate::turn::Step::End);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::End);
 }

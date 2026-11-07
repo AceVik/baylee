@@ -81,8 +81,8 @@ fn archon_quota_applies_to_actual_graveyard_flashback_permission() {
         .move_object(
             growth,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

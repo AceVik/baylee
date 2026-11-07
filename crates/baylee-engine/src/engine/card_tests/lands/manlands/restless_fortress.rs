@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 /// Restless Fortress: "This land enters tapped." / "{2}{W}{B}: This land
 /// becomes a 1/4 white and black Nightmare creature until end of turn. It's

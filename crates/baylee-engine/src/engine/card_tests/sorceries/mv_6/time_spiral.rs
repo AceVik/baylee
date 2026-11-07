@@ -40,13 +40,13 @@ fn time_spiral_exiles_self_shuffles_draws_seven_and_untaps_up_to_six_lands() {
 
     assert_eq!(
         engine.state().object(spiral_id).unwrap().zone,
-        crate::zone::Zone::Exile
+        baylee_engine::zone::Zone::Exile
     );
     assert_eq!(
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         7
     );
@@ -55,7 +55,7 @@ fn time_spiral_exiles_self_shuffles_draws_seven_and_untaps_up_to_six_lands() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p1))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p1))
             .len(),
         7
     );
@@ -63,20 +63,20 @@ fn time_spiral_exiles_self_shuffles_draws_seven_and_untaps_up_to_six_lands() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .is_empty()
     );
     assert!(
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p1))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p1))
             .is_empty()
     );
     for land in engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
     {
         assert!(!is_tapped(&engine, *land), "all six chosen lands untapped");
     }

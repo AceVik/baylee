@@ -13,14 +13,14 @@ fn install_untap_fixture(e: &mut Engine<RegistryLookup>, source: ObjectId) {
     e.state
         .object_mut(source)
         .unwrap()
-        .take_abilities(crate::object::AbilityList {
+        .take_abilities(baylee_engine::object::AbilityList {
             acquisition,
-            abilities: crate::copiable_abilities::AbilityDefs::from_static(GATE_UNTAP),
+            abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(GATE_UNTAP),
             printed: None,
             token: None,
         });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 fn replacement(e: &mut Engine<RegistryLookup>, source: ObjectId) {
@@ -29,7 +29,7 @@ fn replacement(e: &mut Engine<RegistryLookup>, source: ObjectId) {
         options,
         min,
         max,
-        prompt: crate::choice::ChoicePrompt::EntryReplacement,
+        prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
         ..
     } = e.pending()
     else {
@@ -74,7 +74,7 @@ fn kismet_and_external_untap_and_printed_tapped_are_ordered_by_the_entering_cont
             if matches!(
                 e.pending(),
                 Pending::ChooseCards {
-                    prompt: crate::choice::ChoicePrompt::EntryReplacement,
+                    prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
                     ..
                 }
             ) {
@@ -85,7 +85,7 @@ fn kismet_and_external_untap_and_printed_tapped_are_ordered_by_the_entering_cont
         if matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::EntryReplacement,
+                prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
                 ..
             }
         ) {

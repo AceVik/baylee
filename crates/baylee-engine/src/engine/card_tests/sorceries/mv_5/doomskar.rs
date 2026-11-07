@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::object::Rider;
 use baylee_core::mana::ManaCost;
+use baylee_engine::object::Rider;
 
 fn doomskar() -> CardIndex {
     card_index("38ece0fa-2c94-4eae-b6ab-74b783862f3e")
@@ -95,7 +95,7 @@ fn doomskar_foretold_is_private_and_cast_for_its_alternative_cost_on_a_later_tur
         engine.state().turn.number,
         engine.state().players[0].mana_pool,
         engine.state().object(card).unwrap().riders,
-        crate::casting::can_cast(engine.state(), &RegistryLookup, p0, card),
+        baylee_engine::casting::can_cast(engine.state(), &RegistryLookup, p0, card),
         legal
     );
     engine

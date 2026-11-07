@@ -11,9 +11,9 @@
 #[allow(clippy::wildcard_imports)] // the card tests' own vocabulary
 use super::*;
 
-pub(super) const P0: PlayerId = PlayerId::new(0);
-pub(super) const P1: PlayerId = PlayerId::new(1);
-pub(super) const P2: PlayerId = PlayerId::new(2);
+pub const P0: PlayerId = PlayerId::new(0);
+pub const P1: PlayerId = PlayerId::new(1);
+pub const P2: PlayerId = PlayerId::new(2);
 
 /// The indices of `source`'s abilities the seat holding priority is offered,
 /// ascending — which is printed order, so a test that does not want to guess
@@ -21,7 +21,7 @@ pub(super) const P2: PlayerId = PlayerId::new(2);
 /// ability is the first one offered with nothing floating, a loyalty ability
 /// is the Nth of those offered at enough loyalty.
 #[track_caller]
-pub(super) fn offered(engine: &Engine<RegistryLookup>, source: ObjectId) -> Vec<u32> {
+pub fn offered(engine: &Engine<RegistryLookup>, source: ObjectId) -> Vec<u32> {
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -38,7 +38,7 @@ pub(super) fn offered(engine: &Engine<RegistryLookup>, source: ObjectId) -> Vec<
 
 /// Activates ability `ability_index` of the object `source`, as `seat`.
 #[track_caller]
-pub(super) fn activate_object(
+pub fn activate_object(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     source: ObjectId,
@@ -62,10 +62,10 @@ pub(super) fn activate_object(
 /// tapped"), `pay` being the answer, for as long as that is the question.
 /// Anything else asked is left alone.
 #[track_caller]
-pub(super) fn answer_the_entry_question(engine: &mut Engine<RegistryLookup>, pay: bool) {
+pub fn answer_the_entry_question(engine: &mut Engine<RegistryLookup>, pay: bool) {
     while let Pending::YesNo {
         player,
-        prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
+        prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
         ..
     } = engine.pending().clone()
     {
@@ -83,7 +83,7 @@ pub(super) fn answer_the_entry_question(engine: &mut Engine<RegistryLookup>, pay
 /// blockers). Any other question `answer` leaves alone is a panic naming it,
 /// because a test that did not expect a question has found a defect.
 #[track_caller]
-pub(super) fn drive(
+pub fn drive(
     engine: &mut Engine<RegistryLookup>,
     done: impl Fn(&Engine<RegistryLookup>) -> bool,
     mut answer: impl FnMut(&Engine<RegistryLookup>, &Pending) -> Option<PlayerAction>,
@@ -115,7 +115,7 @@ pub(super) fn drive(
 /// is already in its own first main phase, and it has the room to cross a
 /// table of three.
 #[track_caller]
-pub(super) fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+pub fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
     let began = engine.state().turn.number;
     drive(
         engine,
@@ -135,7 +135,7 @@ pub(super) fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: P
 /// zones) shows in the characteristics statics give only after the engine has
 /// run a pass of its own (CR 113.6).
 #[track_caller]
-pub(super) fn let_the_engine_step(engine: &mut Engine<RegistryLookup>) {
+pub fn let_the_engine_step(engine: &mut Engine<RegistryLookup>) {
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -149,7 +149,7 @@ pub(super) fn let_the_engine_step(engine: &mut Engine<RegistryLookup>) {
 /// so that the next player holds priority in the declare attackers step with
 /// the attack on the table. The way to act in an opponent's combat.
 #[track_caller]
-pub(super) fn attack_on_their_turn(
+pub fn attack_on_their_turn(
     engine: &mut Engine<RegistryLookup>,
     attacker: PlayerId,
     attackers: &[ObjectId],
@@ -179,7 +179,7 @@ pub(super) fn attack_on_their_turn(
 /// priority, which on an opponent's turn is not the seat that acted (the
 /// active player receives priority first after a resolution).
 #[track_caller]
-pub(super) fn resolve_the_stack(
+pub fn resolve_the_stack(
     engine: &mut Engine<RegistryLookup>,
     answer: impl FnMut(&Engine<RegistryLookup>, &Pending) -> Option<PlayerAction>,
 ) {
@@ -192,7 +192,7 @@ pub(super) fn resolve_the_stack(
 
 /// Answers a `ChooseCards` question with those of `wanted` it offers (at most
 /// `max` of them); every other question is left to the default.
-pub(super) fn choose_cards(pending: &Pending, wanted: &[ObjectId]) -> Option<PlayerAction> {
+pub fn choose_cards(pending: &Pending, wanted: &[ObjectId]) -> Option<PlayerAction> {
     let Pending::ChooseCards { options, max, .. } = pending else {
         return None;
     };
@@ -207,7 +207,7 @@ pub(super) fn choose_cards(pending: &Pending, wanted: &[ObjectId]) -> Option<Pla
 
 /// Answers a `ChooseTargets` question with `objects` and `players`; every
 /// other question is left to the default.
-pub(super) fn choose_targets(
+pub fn choose_targets(
     pending: &Pending,
     objects: &[ObjectId],
     players: &[PlayerId],
@@ -221,7 +221,7 @@ pub(super) fn choose_targets(
 /// Settles the stack: everything on it resolves and `seat` is back at a quiet
 /// priority, with `answer` taking the questions on the way.
 #[track_caller]
-pub(super) fn settle(
+pub fn settle(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     answer: impl FnMut(&Engine<RegistryLookup>, &Pending) -> Option<PlayerAction>,
@@ -232,7 +232,7 @@ pub(super) fn settle(
 /// Walks to the declare-attackers question and sends `attackers` at
 /// `defender`, every one of them.
 #[track_caller]
-pub(super) fn declare_attack(
+pub fn declare_attack(
     engine: &mut Engine<RegistryLookup>,
     attackers: &[ObjectId],
     defender: PlayerId,
@@ -276,7 +276,7 @@ pub(super) fn declare_attack(
 /// the seat holds in hand (the harness' way: a library cannot be seeded any
 /// other). Returns the objects, top card first.
 #[track_caller]
-pub(super) fn stack_library(
+pub fn stack_library(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     top_first: &[CardIndex],
@@ -293,7 +293,7 @@ pub(super) fn stack_library(
 /// Replaces `seat`'s library with exactly `top_first`, moved there from hand.
 /// Returns the new objects, top card first.
 #[track_caller]
-pub(super) fn replace_library(
+pub fn replace_library(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     top_first: &[CardIndex],
@@ -314,12 +314,12 @@ pub(super) fn replace_library(
 }
 
 /// `seat`'s life total.
-pub(super) fn life(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+pub fn life(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
     engine.state().players[usize::from(seat.get())].life
 }
 
 /// The objects in `seat`'s graveyard.
-pub(super) fn graveyard_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn graveyard_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine
         .state()
         .zones
@@ -328,7 +328,7 @@ pub(super) fn graveyard_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> V
 }
 
 /// The objects in `seat`'s library, bottom first, so the top card is last.
-pub(super) fn library_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+pub fn library_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine
         .state()
         .zones
@@ -338,37 +338,37 @@ pub(super) fn library_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec
 
 /// The zone `object` is in.
 #[track_caller]
-pub(super) fn zone_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zone {
+pub fn zone_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zone {
     engine.state().object(object).expect("an object").zone
 }
 
 /// The controller of a permanent.
 #[track_caller]
-pub(super) fn controller_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
+pub fn controller_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
     engine.state().object(object).expect("an object").controller
 }
 
 /// The owner of an object.
 #[track_caller]
-pub(super) fn owner_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
+pub fn owner_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> PlayerId {
     engine.state().object(object).expect("an object").owner
 }
 
 /// The face a double-faced permanent shows: 0 the front, 1 the back.
 #[track_caller]
-pub(super) fn face_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> u8 {
+pub fn face_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> u8 {
     engine.state().object(object).expect("an object").face_index
 }
 
 /// Damage marked on an object this turn.
 #[track_caller]
-pub(super) fn damage_on(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
+pub fn damage_on(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
     engine.state().object(object).expect("an object").damage
 }
 
 /// The colours an object has after the layers.
 #[track_caller]
-pub(super) fn colors_of(
+pub fn colors_of(
     engine: &Engine<RegistryLookup>,
     object: ObjectId,
 ) -> baylee_core::color::ColorSet {
@@ -382,7 +382,7 @@ pub(super) fn colors_of(
 
 /// Whether an object has the subtype after the layers.
 #[track_caller]
-pub(super) fn has_subtype(
+pub fn has_subtype(
     engine: &Engine<RegistryLookup>,
     object: ObjectId,
     subtype: baylee_core::ids::SubtypeId,
@@ -398,7 +398,7 @@ pub(super) fn has_subtype(
 
 /// Whether an object has the supertype after the layers.
 #[track_caller]
-pub(super) fn has_supertype(
+pub fn has_supertype(
     engine: &Engine<RegistryLookup>,
     object: ObjectId,
     supertype: SupertypeSet,
@@ -414,14 +414,14 @@ pub(super) fn has_supertype(
 
 /// Whether the object is on the battlefield.
 #[track_caller]
-pub(super) fn is_on_battlefield(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
+pub fn is_on_battlefield(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
     zone_of(engine, object) == Zone::Battlefield
 }
 
 /// Puts a double-faced permanent on its back face where it stands, the
 /// harness' way (the same placement `placed_face` makes).
 #[track_caller]
-pub(super) fn turn_over(
+pub fn turn_over(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     object: ObjectId,
@@ -442,7 +442,7 @@ pub(super) fn turn_over(
 /// refreshes the offer: a planeswalker placed on the battlefield rather than
 /// cast does not enter with a printed loyalty a test can rely on.
 #[track_caller]
-pub(super) fn set_loyalty(
+pub fn set_loyalty(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     object: ObjectId,
@@ -460,7 +460,7 @@ pub(super) fn set_loyalty(
 
 /// The loyalty counters on `object`.
 #[track_caller]
-pub(super) fn loyalty(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
+pub fn loyalty(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
     engine
         .state()
         .object(object)
@@ -473,7 +473,7 @@ pub(super) fn loyalty(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 
 /// `target` and stops there: the ability or spell is on the stack and nobody
 /// has passed, so a test can act in response.
 #[track_caller]
-pub(super) fn name_the_target(engine: &mut Engine<RegistryLookup>, target: ObjectId) {
+pub fn name_the_target(engine: &mut Engine<RegistryLookup>, target: ObjectId) {
     let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
         panic!("expected a target question, got {:?}", engine.pending())
     };

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::{bears as grizzly_bears, savannah_lions};
+use baylee_card_testkit::card_tests::partials_w2c_kit::{bears as grizzly_bears, savannah_lions};
 
 fn reign_of_terror() -> CardIndex {
     card_index("67d12a5a-9e0c-4550-86ad-cd1e173fea8f")

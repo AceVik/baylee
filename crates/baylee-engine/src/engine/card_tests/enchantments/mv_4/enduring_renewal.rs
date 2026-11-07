@@ -7,7 +7,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -41,8 +41,8 @@ fn enduring_renewal_reveals_only_its_controllers_hand() {
         .move_object(
             renewal,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Setup,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
         )
         .expect("remove Enduring Renewal");
     assert!(
@@ -74,8 +74,8 @@ fn enduring_renewal_reveals_each_draw_and_only_mills_creatures() {
             .move_object(
                 card,
                 ZoneLocation::Library(P0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Setup,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Setup,
             )
             .expect("stack the library");
     }
@@ -215,8 +215,8 @@ fn enduring_renewal_replaces_only_its_controllers_draw_step_draw() {
             .move_object(
                 card,
                 ZoneLocation::Library(seat),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Setup,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Setup,
             )
             .expect("stack the library");
     }

@@ -53,8 +53,18 @@ fn realm_spirits_restrict_both_sides_of_combat_by_current_creature_types() {
     assert_eq!(tokens.len(), 2);
     let spirit = tokens[0];
     let bear = on_battlefield(&e, q, index::GRIZZLY_BEARS).unwrap();
-    assert!(!crate::combat::can_block(e.state(), q, bear, spirit));
-    assert!(!crate::combat::can_block(e.state(), p, spirit, bear));
+    assert!(!baylee_engine::combat::can_block(
+        e.state(),
+        q,
+        bear,
+        spirit
+    ));
+    assert!(!baylee_engine::combat::can_block(
+        e.state(),
+        p,
+        spirit,
+        bear
+    ));
     e.dev_state_mut(p)
         .unwrap()
         .object_mut(bear)
@@ -63,6 +73,6 @@ fn realm_spirits_restrict_both_sides_of_combat_by_current_creature_types() {
         .subtypes
         .insert(creature::SPIRIT);
     e.apply(p, PlayerAction::PassPriority).unwrap();
-    assert!(crate::combat::can_block(e.state(), q, bear, spirit));
-    assert!(crate::combat::can_block(e.state(), p, spirit, bear));
+    assert!(baylee_engine::combat::can_block(e.state(), q, bear, spirit));
+    assert!(baylee_engine::combat::can_block(e.state(), p, spirit, bear));
 }

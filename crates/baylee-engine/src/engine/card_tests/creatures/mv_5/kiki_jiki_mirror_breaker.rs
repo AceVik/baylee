@@ -56,7 +56,7 @@ fn kiki_jiki_copies_a_nonlegendary_creature_with_haste_until_the_end_step() {
         engine
             .state()
             .object(copy)
-            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield),
+            .is_none_or(|o| o.zone != baylee_engine::zone::Zone::Battlefield),
         "sacrificed at the beginning of the next end step"
     );
     let left = tokens_of(&engine, p0);

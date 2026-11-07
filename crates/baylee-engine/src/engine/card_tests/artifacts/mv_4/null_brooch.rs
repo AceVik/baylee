@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn null_brooch() -> CardIndex {
     card_index("6f885041-3e57-4a69-84f2-fd207ff9f31b")
@@ -51,7 +51,7 @@ fn null_brooch_discards_hand_and_counters_target_noncreature_spell() {
 
 #[test]
 fn null_brooch_cannot_counter_a_creature_spell() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[null_brooch()], &[], &[gray_ogre(), forest()], &[]);
     lk::float(&mut e, p0, &[(ManaColor::Red, 10)]);

@@ -40,7 +40,7 @@ fn hidden_exile_mdfc_life_payment_suspends_and_resumes_remaining_linked_cards() 
         e.apply(P0, PlayerAction::ChooseMode(mode as usize))
             .unwrap();
         assert!(
-            matches!(e.pending(),Pending::YesNo{player,prompt:crate::choice::YesNoPrompt::PayLifeOrEnterTapped{amount:3},..} if *player==P0)
+            matches!(e.pending(),Pending::YesNo{player,prompt:baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped{amount:3},..} if *player==P0)
         );
         assert_eq!(
             e.state.object(land).unwrap().zone,

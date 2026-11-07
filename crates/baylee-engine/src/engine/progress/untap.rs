@@ -90,7 +90,7 @@ impl<L: CardLookup> Engine<L> {
                                 && crate::effects::applies_to(&self.state, fx, obj);
                         // Read here and never by the projection, so this is
                         // where the static is applied: the recorder's door.
-                        #[cfg(test)]
+                        #[cfg(any(test, feature = "test-support"))]
                         if applies {
                             crate::ability_log::static_applied(fx);
                         }

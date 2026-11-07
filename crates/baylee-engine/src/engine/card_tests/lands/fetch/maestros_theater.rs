@@ -48,7 +48,7 @@ fn maestros_theater_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
     assert_eq!(player, p0, "the controller searches");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a library search, not a cost"
     );
     // The filler deck is Swamps, so there must be options.
@@ -85,7 +85,7 @@ fn maestros_theater_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
             .len(),
         1,
         "exactly the fetched basic entered"
@@ -96,11 +96,11 @@ fn maestros_theater_sacrifices_itself_fetches_a_basic_and_gains_one_life() {
         .expect("the found land is an object");
     assert_eq!(
         obj.zone,
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
         "the fetched basic entered the battlefield"
     );
     assert!(
-        obj.status.contains(crate::object::Status::TAPPED),
+        obj.status.contains(baylee_engine::object::Status::TAPPED),
         "it enters tapped"
     );
     // Library shrank by one.

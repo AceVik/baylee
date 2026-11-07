@@ -40,7 +40,7 @@ fn green_suns_zenith_searches_within_x_and_shuffles_itself_back() {
             (0, 1),
             "a quality-constrained hidden search may fail to find"
         );
-        assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+        assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
         assert!(!options.is_empty(), "mana value one is less than X = two");
         assert!(
             options
@@ -114,7 +114,7 @@ fn zenith_search_menu(x: u32) -> (Vec<ObjectId>, [ObjectId; 4]) {
     else {
         panic!("library search")
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
     options.sort();
     (options, cards)
 }

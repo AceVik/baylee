@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn witch_engine() -> CardIndex {
     card_index("48adccf6-adb4-49b2-b013-4dc5e0fc7bcb")

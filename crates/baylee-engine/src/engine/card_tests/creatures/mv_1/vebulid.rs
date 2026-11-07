@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn vebulid() -> CardIndex {
     card_index("a887def5-c9e1-4cbb-8b08-79b7bd808deb")

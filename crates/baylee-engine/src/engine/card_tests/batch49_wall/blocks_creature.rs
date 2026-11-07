@@ -75,7 +75,7 @@ fn wall_blocks_two_creatures_with_independent_recipients_and_copied_trigger() {
         .delayed
         .iter()
         .filter_map(|d| match d.action {
-            crate::state::DelayedAction::RestrictAttacksForTurn { affected, .. } => {
+            baylee_engine::state::DelayedAction::RestrictAttacksForTurn { affected, .. } => {
                 Some(affected.object)
             }
             _ => None,
@@ -106,7 +106,7 @@ fn attacking_wall_becoming_blocked_does_not_trigger_its_blocks_creature_ability(
         .difference(baylee_cards_dsl::KeywordSet::DEFENDER);
     e.state.object_mut(wall).unwrap().base_mut().keywords = keywords;
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { player: P0, .. })
@@ -135,7 +135,7 @@ fn attacking_wall_becoming_blocked_does_not_trigger_its_blocks_creature_ability(
     );
     assert!(!e.state.delayed.iter().any(|d| matches!(
         d.action,
-        crate::state::DelayedAction::RestrictAttacksForTurn { .. }
+        baylee_engine::state::DelayedAction::RestrictAttacksForTurn { .. }
     )));
 }
 
@@ -145,19 +145,21 @@ fn allow_additional_block(e: &mut Engine<RegistryLookup>, wall: ObjectId) {
     let modifier = baylee_cards_dsl::Modifier::CanBlockAdditional(1);
     let version = e.state.object(wall).unwrap().version;
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter: crate::effects::EffectFilter::ObjectIs(wall, version),
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter: baylee_engine::effects::EffectFilter::ObjectIs(wall, version),
+            modifier,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 
@@ -173,7 +175,7 @@ fn copy_trigger(e: &mut Engine<RegistryLookup>, original: ObjectId) {
     if let Pending::ChooseCastMode { options, .. } = e.pending() {
         let face = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
             .unwrap();
         e.apply(P0, PlayerAction::ChooseMode(face)).unwrap();
     }

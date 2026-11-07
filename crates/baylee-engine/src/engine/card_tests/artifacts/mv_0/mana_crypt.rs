@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::event::GameEvent;
+use baylee_engine::event::GameEvent;
 
 fn mana_crypt() -> CardIndex {
     card_index("2c63e4e1-89d2-4bc6-a232-94e75c4b1c8a")

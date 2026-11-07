@@ -41,7 +41,7 @@ fn batch54_thran_lantern_grant_is_also_taxed() {
     let portal = play_land(&mut e, P0, index::THRAN_PORTAL);
     e.apply(P0, PlayerAction::ChooseSubtype(subtypes::land::FOREST))
         .unwrap();
-    let grant = crate::effects::granted_activated(e.state(), portal)
+    let grant = baylee_engine::effects::granted_activated(e.state(), portal)
         .next()
         .unwrap()
         .id;

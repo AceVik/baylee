@@ -1,7 +1,7 @@
 //! Each keyword transfer observes both target restrictions and cleanup.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 fn phyrexian_splicer() -> CardIndex {
     card_index("4433a5fd-2daa-440a-b9cc-4ad028358cbc")

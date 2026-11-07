@@ -25,7 +25,7 @@ fn eiganjo_castle_taps_for_white_mana() {
 
 #[test]
 fn eiganjo_prevents_exactly_two_damage_to_a_legendary_creature() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let emry = card_index("da3e7d3d-2ca0-40c3-9602-fca37c92f507");
     let mut engine = kit::game(
         918,

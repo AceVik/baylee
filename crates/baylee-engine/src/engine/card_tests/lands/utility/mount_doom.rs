@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 // oracle_id = "14c8f55d-d177-4c25-a931-ebeb9e6062a0"
 fn grizzly_bears() -> CardIndex {

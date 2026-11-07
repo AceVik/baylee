@@ -89,7 +89,7 @@ fn lotleth_troll_trades_a_creature_card_for_a_counter_and_regenerates() {
     assert_eq!(player, p0, "the activating seat pays the cost");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostDiscard,
+        baylee_engine::choice::ChoicePrompt::CostDiscard,
         "the variant is what tells a client this is a cost and not a search"
     );
     assert_eq!((min, max), (1, 1), "one card, and the cost asks once");

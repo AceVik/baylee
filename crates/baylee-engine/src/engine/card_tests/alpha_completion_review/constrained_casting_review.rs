@@ -825,12 +825,12 @@ fn mask_review_noncombat_prevention_order_controls_whether_recipient_turns_face_
                 if prevent_first {
                     matches!(
                         option.kind,
-                        crate::choice::DamageEffectKind::PreventNext { .. }
+                        baylee_engine::choice::DamageEffectKind::PreventNext { .. }
                     )
                 } else {
                     matches!(
                         option.kind,
-                        crate::choice::DamageEffectKind::TurnFaceUp { .. }
+                        baylee_engine::choice::DamageEffectKind::TurnFaceUp { .. }
                     )
                 }
             })
@@ -866,7 +866,7 @@ fn mask_review_noncombat_prevention_order_controls_whether_recipient_turns_face_
 }
 
 fn word_channel_fixture() -> (Engine<RegistryLookup>, baylee_core::ids::GrantedActionId) {
-    use crate::choice::GrantedActionKind;
+    use baylee_engine::choice::GrantedActionKind;
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[swamp(), swamp()])
         .hand(0, &[index::WORD_OF_COMMAND])
@@ -906,7 +906,7 @@ fn word_channel_fixture() -> (Engine<RegistryLookup>, baylee_core::ids::GrantedA
 
 #[test]
 fn word_review_channel_special_action_pays_commanded_spell_and_keeps_surplus() {
-    use crate::choice::GrantedActionKind;
+    use baylee_engine::choice::GrantedActionKind;
     let (mut engine, guardian) = word_channel_fixture();
     let juggernaut = word_select(&mut engine, index::JUGGERNAUT);
     assert_eq!(

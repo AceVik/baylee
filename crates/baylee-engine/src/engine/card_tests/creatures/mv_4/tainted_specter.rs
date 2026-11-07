@@ -42,7 +42,7 @@ fn tainted_specter_attacks_in_the_air_past_a_ground_creature() {
         .unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
-            || e.state().turn.step == crate::turn::Step::CombatEnd
+            || e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     // Either nobody was asked, because nobody could block, or the question
     // pairs no creature with the Specter.
@@ -57,7 +57,7 @@ fn tainted_specter_attacks_in_the_air_past_a_ground_creature() {
         "the Hill Giant has no reach: nothing may block the Specter"
     );
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(engine.state().players[1].life, 18, "two damage in the air");
 }

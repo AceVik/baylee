@@ -57,7 +57,7 @@ fn sidequest_catch_a_fish_looks_at_an_ineligible_land_without_transforming() {
         .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Main
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Main
     });
 
     assert_eq!(

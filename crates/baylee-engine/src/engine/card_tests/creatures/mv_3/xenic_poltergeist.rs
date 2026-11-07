@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 /// Xenic Poltergeist: "{T}: Until your next upkeep, target noncreature
 /// artifact becomes an artifact creature with power and toughness each equal
@@ -158,7 +158,7 @@ mod local_regressions {
         reach_their_main_phase(&mut e, p1);
         assert!(types(&e, target).contains(TypeSet::CREATURE));
         pass_until(&mut e, |e| {
-            e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+            e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
         });
         assert!(!types(&e, target).contains(TypeSet::CREATURE));
     }

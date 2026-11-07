@@ -19,7 +19,7 @@ fn hunger(e: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
 fn to_my_upkeep(e: &mut Engine<RegistryLookup>) {
     let p0 = PlayerId::new(0);
     pass_until(e, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(e, stack_is_empty);
 }
@@ -98,7 +98,7 @@ fn fasting_is_destroyed_when_you_draw_but_not_when_the_opponent_does() {
     // Turn two is the opponent's: they draw, Fasting stays.
     let p1 = PlayerId::new(1);
     pass_until(&mut e, |e| {
-        e.state().turn.active == p1 && e.state().turn.step == crate::turn::Step::Draw
+        e.state().turn.active == p1 && e.state().turn.step == baylee_engine::turn::Step::Draw
     });
     pass_until(&mut e, |e| e.state().turn.active == p0);
     assert!(

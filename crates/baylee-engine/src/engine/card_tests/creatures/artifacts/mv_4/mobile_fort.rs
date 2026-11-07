@@ -5,7 +5,7 @@ fn mobile_fort() -> CardIndex {
     card_index("0547e426-e23e-4c60-ba6b-cfd4b5ff8485")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn mobile_fort_attacks_only_after_activation_once_each_turn() {

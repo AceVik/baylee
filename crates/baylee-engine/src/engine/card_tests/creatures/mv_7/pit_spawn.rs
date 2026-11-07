@@ -7,7 +7,7 @@ fn pit_spawn() -> CardIndex {
 
 #[test]
 fn pit_spawn_has_first_strike_and_exiles_creatures_dealt_combat_damage() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
 
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
@@ -37,7 +37,7 @@ fn pit_spawn_has_first_strike_and_exiles_creatures_dealt_combat_damage() {
     assert!(on_battlefield(&engine, p1, index::WALL_OF_STONE).is_none());
     assert_eq!(
         engine.state().object(ogre).unwrap().zone,
-        crate::zone::Zone::Exile
+        baylee_engine::zone::Zone::Exile
     );
     assert!(
         in_graveyard(&engine, p1, index::WALL_OF_STONE).is_none(),
@@ -47,7 +47,7 @@ fn pit_spawn_has_first_strike_and_exiles_creatures_dealt_combat_damage() {
 
 #[test]
 fn pit_spawn_is_sacrificed_when_its_upkeep_cost_is_declined() {
-    use crate::engine::card_tests::partials_w1b_kit as kit;
+    use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
     let p0 = PlayerId::new(0);
     let mut e = Duel::new(SEED, swamp())
         .battlefield(0, &[pit_spawn()])

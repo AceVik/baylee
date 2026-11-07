@@ -105,7 +105,7 @@ fn plagued_rusalka_sacrifices_a_creature_and_a_black_to_shrink_a_one_one_to_deat
                 assert_eq!(player, p0, "the activating seat pays");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to \
                      tell the two apart"
                 );

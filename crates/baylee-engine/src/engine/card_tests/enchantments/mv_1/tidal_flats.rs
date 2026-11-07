@@ -35,7 +35,7 @@ fn combat(
     let flats = on_battlefield(&e, P1, flats_card()).expect("Tidal Flats");
 
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareAttackers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
     });
     e.apply(
         P0,
@@ -45,7 +45,7 @@ fn combat(
     )
     .expect("P0 attacks");
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
     });
     let blockers = if block {
         vec![(soldiers, ids[0])]

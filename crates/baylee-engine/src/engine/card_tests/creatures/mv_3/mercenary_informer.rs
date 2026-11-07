@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn mercenary_informer() -> CardIndex {
     card_index("245e26ec-39eb-4af8-99af-8cc22edbc261")

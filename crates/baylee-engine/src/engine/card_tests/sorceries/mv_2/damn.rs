@@ -49,13 +49,13 @@ fn damn_overloaded_sweeps_a_shielded_creature_away_with_an_unshielded_one() {
     assert!(
         options
             .iter()
-            .any(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(0))),
+            .any(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Mode(0))),
         "the normal mode is affordable too, so the overload below is a \
          choice and not the only thing left: {options:?}"
     );
     let overload = options
         .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(1)))
+        .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Mode(1)))
         .expect("the overload is the second mode and it is affordable");
     engine
         .apply(p0, PlayerAction::ChooseMode(overload))

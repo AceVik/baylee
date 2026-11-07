@@ -3,9 +3,9 @@
 
 #[allow(clippy::wildcard_imports)] // Shared card-test vocabulary.
 use super::*;
-use crate::choice::{TargetPrompt, YesNoPrompt};
-use crate::engine::card_tests::legends_kit as kit;
-use crate::event::GameEvent;
+use baylee_card_testkit::card_tests::legends_kit as kit;
+use baylee_engine::choice::{TargetPrompt, YesNoPrompt};
+use baylee_engine::event::GameEvent;
 
 fn subject() -> CardIndex {
     card_index("1b9f9f5b-8712-4f00-90cb-1b7b9970eccc")
@@ -234,8 +234,8 @@ fn an_illegal_original_graveyard_target_prevents_the_copy_offer() {
         .move_object(
             first,
             ZoneLocation::Exile(kit::P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -327,7 +327,7 @@ fn original_return_triggers_resolve_above_the_copy_after_retargeting() {
     assert_eq!(stack.len(), 2, "Soul Warden trigger above the copied spell");
     assert_eq!(
         e.state().object(*stack.last().unwrap()).unwrap().kind,
-        crate::object::ObjectKind::AbilityOnStack
+        baylee_engine::object::ObjectKind::AbilityOnStack
     );
     pass_until(&mut e, |e| kit::life(e, kit::P0) == 21);
     assert_eq!(

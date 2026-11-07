@@ -50,7 +50,7 @@ fn shocker_makes_damaged_player_discard_their_hand_and_draw_that_many_cards() {
 /// Damage need not be combat damage, and an empty hand draws zero.
 #[test]
 fn noncombat_damage_discards_and_redraws_the_victims_actual_hand() {
-    use crate::engine::card_tests::{legends_kit as lk, partials_w1b_kit as kit};
+    use baylee_card_testkit::card_tests::{legends_kit as lk, partials_w1b_kit as kit};
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for hand in [&[][..], &[GRIZZLY_BEARS, GRIZZLY_BEARS][..]] {

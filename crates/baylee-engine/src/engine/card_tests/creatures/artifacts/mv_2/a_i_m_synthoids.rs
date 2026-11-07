@@ -33,7 +33,7 @@ fn a_i_m_synthoids_surveils_two_when_it_enters() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .contains(&cards[0]),
         "the card sent away is in the graveyard"
     );
@@ -41,7 +41,7 @@ fn a_i_m_synthoids_surveils_two_when_it_enters() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Library(p0))
+            .list(baylee_engine::zone::ZoneLocation::Library(p0))
             .contains(&cards[1]),
         "the other stays in the library"
     );

@@ -26,7 +26,8 @@ mod x_value;
 /// beside its mana and source permissions. Owning the parts lets payment
 /// windows and counter continuations retain the exact announced price.
 #[derive(Clone, Debug)]
-pub(crate) struct ActivationPrice {
+#[doc(hidden)]
+pub struct ActivationPrice {
     pub mana: baylee_core::mana::ManaCost,
     pub parts: SmallVec<[CostPart; 4]>,
     /// Number of trailing parts imposed by continuous effects rather than
@@ -35,7 +36,7 @@ pub(crate) struct ActivationPrice {
     pub allowance: casting::SourceAllowance,
 }
 impl ActivationPrice {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(super) fn new(cost: &Cost, allowance: casting::SourceAllowance) -> Self {
         Self {
             mana: cost.mana,

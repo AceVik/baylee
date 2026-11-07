@@ -90,7 +90,7 @@ fn discard_rootwalla(engine: &mut Engine<RegistryLookup>, p0: PlayerId) -> Objec
             e.pending(),
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::Madness { card },
+                prompt: baylee_engine::choice::YesNoPrompt::Madness { card },
                 ..
             } if *player == p0 && *card == rootwalla
         )

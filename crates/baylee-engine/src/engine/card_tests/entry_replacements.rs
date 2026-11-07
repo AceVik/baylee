@@ -2,8 +2,8 @@
 use super::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::GameEvent;
 use baylee_core::generated::index;
+use baylee_engine::event::GameEvent;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
@@ -172,7 +172,7 @@ fn entry_wood_elemental_collects_three_hundred_forests_before_any_sacrifice() {
         Pending::ChooseNumber {
             min: 0,
             max: 300,
-            reason: crate::choice::NumberPrompt::Sacrifices,
+            reason: baylee_engine::choice::NumberPrompt::Sacrifices,
             ..
         }
     ));
@@ -479,7 +479,7 @@ fn entry_wood_elemental_offers_only_untapped_forests_of_its_controller() {
             Pending::ChooseNumber {
                 min: 0,
                 max: 3,
-                reason: crate::choice::NumberPrompt::Sacrifices,
+                reason: baylee_engine::choice::NumberPrompt::Sacrifices,
                 ..
             }
         ),

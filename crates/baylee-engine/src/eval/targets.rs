@@ -200,7 +200,8 @@ pub(crate) fn target_options_with_x(
 }
 
 /// Enumerate one instance using the complete selected targeting domain.
-pub(crate) fn target_options_in_domain(
+#[doc(hidden)]
+pub fn target_options_in_domain(
     spec: &TargetSpec,
     state: &GameState,
     you: PlayerId,
@@ -249,7 +250,8 @@ pub fn target_options_with_context(
 }
 
 /// Targeting with the characteristics of the chosen face and casting form.
-pub(crate) fn spell_target_options_for(
+#[doc(hidden)]
+pub fn spell_target_options_for(
     spec: &TargetSpec,
     state: &GameState,
     you: PlayerId,
@@ -265,7 +267,8 @@ pub(crate) fn spell_target_options_for(
 /// requirement names the first (`Filter::Reference` and its family, CR
 /// 601.2c chooses them in order): `reference` is the first target.
 #[allow(clippy::too_many_arguments)] // the face, the form and the domain are each the caller's
-pub(crate) fn spell_target_options_relative(
+#[doc(hidden)]
+pub fn spell_target_options_relative(
     spec: &TargetSpec,
     state: &GameState,
     you: PlayerId,
@@ -525,7 +528,8 @@ pub fn stack_target_options_relative(
 
 /// Candidate replacement targets, before joint restrictions are checked against
 /// the complete prospective target list by the retarget continuation.
-pub(crate) fn stack_retarget_options(
+#[doc(hidden)]
+pub fn stack_retarget_options(
     state: &GameState,
     obj: &GameObject,
     spec: &TargetSpec,

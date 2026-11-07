@@ -102,7 +102,7 @@ fn brad_boimler_deals_his_damage_to_a_blocker_and_his_controller_gains_that_much
     );
 }
 
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -361,7 +361,7 @@ fn batch57_brad_empower_resumes_after_token_entry_before_zero_loyalty_state_base
         let Pending::YesNo {
             player,
             prompt:
-                crate::choice::YesNoPrompt::ApplyAdditionalCountersNext {
+                baylee_engine::choice::YesNoPrompt::ApplyAdditionalCountersNext {
                     permanent,
                     additional,
                     kind: None,

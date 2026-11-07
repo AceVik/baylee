@@ -61,7 +61,7 @@ fn next_upkeep(engine: &mut Engine<RegistryLookup>) {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     assert_eq!(engine.state().turn.active, USER);
-    assert_eq!(engine.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(engine.state().turn.step, baylee_engine::turn::Step::Upkeep);
 }
 
 fn finish_copies(engine: &mut Engine<RegistryLookup>, target: ObjectId, accept: bool) -> usize {

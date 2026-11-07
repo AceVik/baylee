@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::hill_giant;
+use baylee_card_testkit::card_tests::partials_w2c_kit::hill_giant;
 
 // oracle_id = "52a61983-53e2-440f-af03-cebe57b102f2"
 fn ignoble_soldier() -> CardIndex {

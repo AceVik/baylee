@@ -24,7 +24,7 @@ fn radiant_s_dragoons_gains_5_life_on_etb() {
     // Its echo upkeep is a real price, even after its entry benefit resolved.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

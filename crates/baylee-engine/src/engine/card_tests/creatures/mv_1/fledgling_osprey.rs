@@ -27,15 +27,15 @@ fn fledgling_osprey_gains_flying_while_enchanted() {
 
     assert!(keywords(&engine, osprey).contains(KeywordSet::FLYING));
     let ground = on_battlefield(&engine, PlayerId::new(1), gray_ogre()).unwrap();
-    let offer = crate::engine::card_tests::legends_kit::attack(&mut engine, &[osprey]);
-    assert!(!crate::engine::card_tests::legends_kit::may_block(
+    let offer = baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[osprey]);
+    assert!(!baylee_card_testkit::card_tests::legends_kit::may_block(
         &offer, ground, osprey
     ));
 }
 
 #[test]
 fn unenchanted_osprey_can_be_blocked_on_the_ground() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[fledgling_osprey()], &[gray_ogre()], &[], &[]);
     let osprey = lk::obj(&engine, lk::P0, fledgling_osprey());
     let ground = lk::obj(&engine, lk::P1, gray_ogre());

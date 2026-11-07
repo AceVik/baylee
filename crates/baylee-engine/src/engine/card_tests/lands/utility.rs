@@ -321,7 +321,7 @@ fn assert_sorcery_timing_only(
     index: u32,
     price: &[(ManaColor, u32)],
 ) {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     kit::float(e, kit::P0, price);
     assert!(
         p0_offered(e, source, index),
@@ -383,14 +383,19 @@ fn flash_lands_unlock_their_printed_spell_types_until_cleanup() {
         e.refresh_offer();
         activate(&mut e, p0, land, 1);
         pass_until(&mut e, stack_is_empty);
-        assert!(crate::casting::timing_allows(
+        assert!(baylee_engine::casting::timing_allows(
             e.state(),
             p0,
             TypeSet::CREATURE,
             KeywordSet::EMPTY
         ));
         assert_eq!(
-            crate::casting::timing_allows(e.state(), p0, TypeSet::ARTIFACT, KeywordSet::EMPTY),
+            baylee_engine::casting::timing_allows(
+                e.state(),
+                p0,
+                TypeSet::ARTIFACT,
+                KeywordSet::EMPTY
+            ),
             scope.is_none()
         );
         pass_until(
@@ -403,7 +408,7 @@ fn flash_lands_unlock_their_printed_spell_types_until_cleanup() {
         assert_eq!(e.state().object(card).unwrap().zone, Zone::Battlefield);
         reach_their_main_phase(&mut e, p0);
         reach_their_main_phase(&mut e, p1);
-        assert!(!crate::casting::timing_allows(
+        assert!(!baylee_engine::casting::timing_allows(
             e.state(),
             p0,
             TypeSet::CREATURE,

@@ -19,7 +19,7 @@ fn lilting_refrain_adds_verse_counter_and_sacrifices_to_counter_spell() {
     let spell_id = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .last()
         .copied()
         .expect("spell on stack");
@@ -42,7 +42,7 @@ fn lilting_refrain_adds_verse_counter_and_sacrifices_to_counter_spell() {
 
 #[test]
 fn lilting_refrain_offers_payment_to_the_target_spells_controller() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for pay in [false, true] {
         let mut e = lk::game_with(
@@ -59,7 +59,7 @@ fn lilting_refrain_offers_payment_to_the_target_spells_controller() {
         let spell = *e
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Stack)
+            .list(baylee_engine::zone::ZoneLocation::Stack)
             .last()
             .unwrap();
         pass_until(

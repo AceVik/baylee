@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -31,7 +31,7 @@ fn reality_ripple_phases_out_target_creature() {
             .object(bears)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 }
 
@@ -54,7 +54,7 @@ fn reality_ripple_phases_the_creature_in_again_at_its_controllers_untap_step() {
             .object(bears)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
 
     reach_their_main_phase(&mut engine, P1);
@@ -64,7 +64,7 @@ fn reality_ripple_phases_the_creature_in_again_at_its_controllers_untap_step() {
             .object(bears)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT),
+            .contains(baylee_engine::object::Status::PHASED_OUT),
         "phased in at its controller's next untap step"
     );
 }

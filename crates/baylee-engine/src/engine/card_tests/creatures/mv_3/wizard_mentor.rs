@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn wizard_mentor() -> CardIndex {
     card_index("a1fb1b77-a49f-4447-bbe0-156407f192e2")

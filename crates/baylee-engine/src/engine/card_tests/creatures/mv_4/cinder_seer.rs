@@ -9,7 +9,7 @@ fn cinder_seer() -> CardIndex {
 
 #[test]
 fn cinder_seer_does_not_damage_from_an_unrevealed_hand() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[cinder_seer()],
@@ -24,7 +24,7 @@ fn cinder_seer_does_not_damage_from_an_unrevealed_hand() {
 
 #[test]
 fn creature_body_remains_playable() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[cinder_seer()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Red, 6)]);
     cast_with_floating(&mut engine, lk::P0, cinder_seer());

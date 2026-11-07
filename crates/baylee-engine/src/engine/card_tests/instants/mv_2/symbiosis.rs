@@ -37,7 +37,7 @@ fn symbiosis_pumps_two_target_creatures() {
 
 #[test]
 fn symbiosis_requires_two_distinct_creatures_and_ends_after_this_turn() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

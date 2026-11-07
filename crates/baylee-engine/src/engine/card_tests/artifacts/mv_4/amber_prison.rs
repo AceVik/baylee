@@ -138,7 +138,7 @@ fn amber_prison_keeps_its_lock_when_its_controller_chooses_not_to_untap_it() {
     for _ in 0..100 {
         if let Pending::ChooseCards {
             options,
-            prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
             ..
         } = engine.pending().clone()
         {

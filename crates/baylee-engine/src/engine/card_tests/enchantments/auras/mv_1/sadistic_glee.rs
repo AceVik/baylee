@@ -58,7 +58,7 @@ fn sadistic_glee_puts_a_plus_one_plus_one_counter_on_enchanted_creature_when_a_c
 
 #[test]
 fn your_creature_dying_also_grows_an_enchanted_opposing_creature() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

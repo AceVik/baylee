@@ -29,7 +29,10 @@ fn birthing_pod_finds_a_creature_one_mana_value_above_the_sacrifice() {
     let Pending::YesNo { prompt, .. } = engine.pending().clone() else {
         panic!("{{G/P}} asks 2 life or green, got {:?}", engine.pending())
     };
-    assert_eq!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 });
+    assert_eq!(
+        prompt,
+        baylee_engine::choice::YesNoPrompt::PayLife { amount: 2 }
+    );
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     let Pending::ChooseCards {
         options, prompt, ..
@@ -37,7 +40,7 @@ fn birthing_pod_finds_a_creature_one_mana_value_above_the_sacrifice() {
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert_eq!(options, vec![thopter]);
     engine
         .apply(
@@ -92,7 +95,7 @@ fn birthing_pod_pays_its_phyrexian_green_with_two_life() {
             engine.pending()
         )
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     engine
         .apply(
             p0,

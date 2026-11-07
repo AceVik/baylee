@@ -101,7 +101,7 @@ fn tablet_of_epityr_gains_nothing_when_declined_or_when_the_artifact_is_not_your
         let state = engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
-        crate::sba::destroy(state, theirs);
+        baylee_engine::sba::destroy(state, theirs);
     }
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     pass_until(&mut engine, stack_is_empty);

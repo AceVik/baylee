@@ -449,7 +449,7 @@ fn assign(
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
     let assignments = collect_combat_damage(state, first_strike_step);
     assert!(

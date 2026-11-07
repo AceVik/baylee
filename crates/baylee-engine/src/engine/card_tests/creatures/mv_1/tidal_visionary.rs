@@ -46,7 +46,7 @@ fn tidal_visionary_overwrites_target_creature_color_until_end_of_turn() {
     let black = ColorSet::of(Color::Black);
     let mode_idx = options
         .iter()
-        .find(|opt| opt.kind == crate::choice::CastModeKind::Colors(black))
+        .find(|opt| opt.kind == baylee_engine::choice::CastModeKind::Colors(black))
         .expect("Black color option present")
         .index;
     engine

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::hill_giant;
+use baylee_card_testkit::card_tests::partials_w2c_kit::hill_giant;
 
 // oracle_id = "5c8e5092-962e-49ef-ab82-8434e475e4e7"
 fn food_chain() -> CardIndex {

@@ -65,7 +65,7 @@ fn aysen_crusader_pt_equals_two_plus_soldiers_and_warriors_you_control() {
 /// A permanent with both named subtypes still contributes only one.
 #[test]
 fn aysen_crusader_counts_noncreature_kindred_soldiers_and_warriors_once_each() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::{generated::subtypes, types::SubtypeSet};
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

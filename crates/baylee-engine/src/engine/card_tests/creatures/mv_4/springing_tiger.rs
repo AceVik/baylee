@@ -22,8 +22,8 @@ fn springing_tiger_gets_plus_2_plus_2_with_threshold() {
             .move_object(
                 p,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -37,8 +37,8 @@ fn springing_tiger_gets_plus_2_plus_2_with_threshold() {
         .move_object(
             plains[6],
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.apply(p0, PlayerAction::PassPriority).unwrap();

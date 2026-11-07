@@ -75,7 +75,7 @@ fn sakura_tribe_elder_sacrifices_itself_for_a_basic_land_that_arrives_tapped() {
     assert_eq!(player, p0, "the seat that sacrificed the Elder searches");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a tutor and not a scry or a discard"
     );
     assert_eq!(

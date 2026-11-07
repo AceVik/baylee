@@ -5,7 +5,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -25,8 +25,8 @@ fn elkin_bottle_exiles_top_card_and_allows_playing_it() {
         .move_object(
             bears,
             ZoneLocation::Library(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("move Grizzly Bears to top of library");
     engine.refresh_offer();
@@ -71,8 +71,8 @@ fn elkin_bottle_allows_playing_an_exiled_land() {
         .move_object(
             forest,
             ZoneLocation::Library(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("move Forest to top of library");
     engine.refresh_offer();
@@ -103,8 +103,8 @@ fn elkin_bottle_permission_lasts_through_the_opponents_turn_and_expires_at_upkee
         .move_object(
             bolt,
             ZoneLocation::Library(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("move Lightning Bolt to top of library");
     engine.refresh_offer();
@@ -149,7 +149,7 @@ fn elkin_bottle_permission_lasts_through_the_opponents_turn_and_expires_at_upkee
     // P0's next upkeep: the permission ended before either player got priority.
     pass_until(&mut engine, |e| {
         e.state().turn.active == P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
     lk::float(&mut engine, P0, &[(ManaColor::Red, 1)]);

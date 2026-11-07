@@ -28,7 +28,7 @@ fn stasis_skips_every_players_untap_step() {
 
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     // The untap step always comes before the upkeep step, so reaching p0's
     // upkeep is itself proof their untap step already came and went.
@@ -56,7 +56,7 @@ fn stasis_skips_every_players_untap_step() {
 
     reach_their_main_phase(&mut bare, p1);
     pass_until(&mut bare, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p0 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     assert!(
         !is_tapped(&bare, bare_island),

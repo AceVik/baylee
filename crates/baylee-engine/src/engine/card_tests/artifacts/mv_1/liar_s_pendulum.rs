@@ -44,7 +44,7 @@ fn play(named: CardIndex, guess_in_hand: bool, reveal: bool) -> bool {
     // The name was chosen aloud: the guess names it, and whose hand.
     assert_eq!(
         prompt,
-        crate::choice::YesNoPrompt::GuessNamedCardInHand {
+        baylee_engine::choice::YesNoPrompt::GuessNamedCardInHand {
             holder: p0,
             card: named,
             face: 0,

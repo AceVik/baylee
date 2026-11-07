@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn keldon_vandals() -> CardIndex {
     card_index("0aa7bd6a-0a8d-4413-a9e8-b7a459300841")
@@ -48,7 +48,7 @@ fn keldon_vandals_destroys_target_artifact_on_etb_and_has_echo() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 3)]);
@@ -74,7 +74,7 @@ fn keldon_vandals_survives_when_echo_is_paid() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 3)]);

@@ -143,8 +143,8 @@ fn takenuma_preserves_its_selected_commander_across_the_replacement_question() {
             .move_object(
                 commander,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         state.players[0].mana_pool.add(ManaColor::Black, 4);
@@ -171,7 +171,7 @@ fn takenuma_preserves_its_selected_commander_across_the_replacement_question() {
         assert!(matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::CommanderReplace { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::CommanderReplace { .. },
                 ..
             }
         ));

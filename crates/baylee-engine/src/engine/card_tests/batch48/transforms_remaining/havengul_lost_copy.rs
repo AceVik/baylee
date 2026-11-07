@@ -12,19 +12,21 @@ fn havengul_simultaneous_departure_does_not_read_raw_copied_abilities_through_ab
     let version = e.state.object(lab).unwrap().version;
     let modifier = baylee_cards_dsl::Modifier::LoseAllAbilities;
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::ObjectIs(lab, version),
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::ObjectIs(lab, version),
+            modifier,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(
         e.state
@@ -70,8 +72,8 @@ fn havengul_simultaneous_departure_does_not_read_raw_copied_abilities_through_ab
             bear_departure,
         )
         .unwrap();
-    e.after_action(P0);
-    e.collect_triggers();
+    e.after_action_for_tests(P0);
+    e.collect_triggers_for_tests();
     assert!(
         !e.state.zones.list(ZoneLocation::Stack).iter().any(|id| e
             .state

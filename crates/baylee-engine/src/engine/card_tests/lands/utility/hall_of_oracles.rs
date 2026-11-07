@@ -104,8 +104,8 @@ fn hall_counts_a_cast_even_when_countered_but_not_an_artifact_or_a_previous_turn
             .move_object(
                 card,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         e.refresh_offer();
@@ -137,7 +137,7 @@ fn hall_counts_a_cast_even_when_countered_but_not_an_artifact_or_a_previous_turn
 /// in a main phase with the stack empty it is.
 #[test]
 fn hall_counter_ability_waits_for_an_empty_stack_in_a_main_phase() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let mut e = kit::game(
@@ -165,7 +165,7 @@ fn hall_counter_ability_waits_for_an_empty_stack_in_a_main_phase() {
         "main phase, empty stack, an instant cast this turn: offered"
     );
 
-    kit::to_step(&mut e, p0, crate::turn::Step::CombatBegin);
+    kit::to_step(&mut e, p0, baylee_engine::turn::Step::CombatBegin);
     assert!(
         !kit::offered(&e, hall_of_oracles(), p0, 2),
         "\"as a sorcery\": not in combat, though an instant was cast this turn"

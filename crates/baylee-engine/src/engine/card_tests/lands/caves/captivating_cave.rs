@@ -92,19 +92,19 @@ fn forgotten_monument_grants_mana_ability_to_other_caves_you_control() {
     assert!(
         legal
             .abilities
-            .contains(&(cave, crate::choice::GRANTED_ABILITY)),
+            .contains(&(cave, baylee_engine::choice::GRANTED_ABILITY)),
         "another controlled Cave receives the granted ability"
     );
     assert!(
         !legal
             .abilities
-            .contains(&(monument, crate::choice::GRANTED_ABILITY)),
+            .contains(&(monument, baylee_engine::choice::GRANTED_ABILITY)),
         "Forgotten Monument does not grant the ability to itself"
     );
     assert!(
         !legal
             .abilities
-            .contains(&(my_forest, crate::choice::GRANTED_ABILITY)),
+            .contains(&(my_forest, baylee_engine::choice::GRANTED_ABILITY)),
         "non-Cave land does not receive the granted ability"
     );
 
@@ -129,7 +129,7 @@ fn forgotten_monument_grants_mana_ability_to_other_caves_you_control() {
         &mut engine,
         p0,
         captivating_cave(),
-        crate::choice::GRANTED_ABILITY,
+        baylee_engine::choice::GRANTED_ABILITY,
     );
     assert_eq!(
         engine.state().players[0].life,
@@ -169,7 +169,7 @@ fn forgotten_monument_grants_mana_ability_to_other_caves_you_control() {
         !legal
             .abilities
             .iter()
-            .any(|(id, index)| *id == opp_cave && *index == crate::choice::GRANTED_ABILITY),
+            .any(|(id, index)| *id == opp_cave && *index == baylee_engine::choice::GRANTED_ABILITY),
         "opponent Cave does not receive the grant"
     );
 }

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -101,7 +101,7 @@ fn cinder_giant_upkeep_damage_resolves_after_the_source_is_removed() {
     let lions = lk::obj(&e, P1, savannah_lions());
     pass_until(&mut e, |e| {
         e.state().turn.number == 3
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && !stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });

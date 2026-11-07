@@ -85,6 +85,9 @@ mod amass;
 mod card_copies;
 mod empower;
 mod sacrifices;
+#[cfg(feature = "test-support")]
+pub mod tokens;
+#[cfg(not(feature = "test-support"))]
 pub(crate) mod tokens;
 mod zones;
 
@@ -968,7 +971,7 @@ pub(super) fn amount_for_player(
 /// lock would have nowhere to put the seat, and no card asks for one: only
 /// `Effect::PumpFilter` passes `only`, and `Modifier::ModifyPT` always
 /// locks.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(super) fn bound_now(
     state: &GameState,
     filter: &'static baylee_cards_dsl::Filter,
@@ -1850,7 +1853,8 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
 ///
 /// Summoning sickness restarts where control moved (CR 302.6), as the
 /// projection moves it; the journal says who has each object now.
-pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
+#[doc(hidden)]
+pub fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
     let timestamp = state.next_timestamp();
     for &(id, player) in changes {
         if state.has_left(player) || !crate::permanent_guards::can_gain_control(state, id, player) {

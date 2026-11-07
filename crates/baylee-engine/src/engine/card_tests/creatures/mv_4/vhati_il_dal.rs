@@ -47,7 +47,7 @@ fn vhati_il_dal_sets_target_creature_base_toughness_to_one_until_end_of_turn() {
 
 #[test]
 fn vhati_can_set_power_instead_and_the_effect_ends_at_cleanup() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(SEED, &[vhati_il_dal()], &[HILL_GIANT], &[], &[]);
     let giant = on_battlefield(&e, p1, HILL_GIANT).unwrap();

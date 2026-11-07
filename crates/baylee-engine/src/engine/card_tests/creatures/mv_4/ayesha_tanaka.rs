@@ -8,7 +8,9 @@ fn ayesha_counters_an_artifact_activation_unless_its_controller_pays_white() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for pay in [false, true] {
         let (mut e, ability) =
-            crate::engine::card_tests::counter_helpers::artifact_activation(index::AYESHA_TANAKA);
+            baylee_card_testkit::card_tests::counter_helpers::artifact_activation(
+                index::AYESHA_TANAKA,
+            );
         let before = hand_size(&e, p1);
         e.dev_state_mut(p0).unwrap().players[1]
             .mana_pool

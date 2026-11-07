@@ -35,7 +35,7 @@ fn rocket_launcher_deals_1_and_destroys_itself_at_the_next_end_step() {
     assert_eq!(life_of(&engine, p1), 19, "1 damage, the printed amount");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert!(
         !stack_is_empty(&engine),
@@ -116,7 +116,7 @@ fn a_rocket_launcher_that_left_and_came_back_is_not_destroyed() {
     let rebuilt = on_battlefield(&engine, p0, rocket_launcher()).expect("it came back");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(

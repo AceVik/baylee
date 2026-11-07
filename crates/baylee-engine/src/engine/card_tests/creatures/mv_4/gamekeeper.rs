@@ -9,7 +9,7 @@ fn gamekeeper() -> CardIndex {
 
 #[test]
 fn gamekeeper_does_not_use_the_wrong_reveal_destination() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[gamekeeper()], &[], &[], &[]);
     let keeper = lk::obj(&engine, lk::P0, gamekeeper());
     let library = engine
@@ -27,7 +27,7 @@ fn gamekeeper_does_not_use_the_wrong_reveal_destination() {
 
 #[test]
 fn creature_body_remains_playable() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[gamekeeper()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Green, 6)]);
     cast_with_floating(&mut engine, lk::P0, gamekeeper());

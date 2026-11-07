@@ -17,7 +17,7 @@ fn batch47_clergy_controller_chooses_which_regeneration_replacement_applies() {
                 matches!(
                     e.pending(),
                     Pending::YesNo {
-                        prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. },
+                        prompt: baylee_engine::choice::YesNoPrompt::UseRegenerationShield { .. },
                         ..
                     }
                 )

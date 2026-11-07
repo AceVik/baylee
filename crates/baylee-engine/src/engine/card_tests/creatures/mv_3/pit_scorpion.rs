@@ -13,7 +13,7 @@ fn scorpion_poisons_any_damaged_player_once_for_combat_or_noncombat_damage() {
         keep_mulligans(&mut e);
         reach_main_phase(&mut e, p0);
         let scorpion = on_battlefield(&e, p0, index::PIT_SCORPION).unwrap();
-        crate::engine::card_tests::history_helpers::damage_player(
+        baylee_card_testkit::card_tests::history_helpers::damage_player(
             &mut e, scorpion, player, amount, combat,
         );
         e.apply(p0, PlayerAction::PassPriority).unwrap();

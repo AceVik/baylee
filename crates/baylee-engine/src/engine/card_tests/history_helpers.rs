@@ -1,7 +1,7 @@
 //! Damage fixture shared by history and triggered-damage regressions.
 #[allow(clippy::wildcard_imports)] // shared card fixture vocabulary
 use super::*;
-pub(super) fn damage_player(
+pub fn damage_player(
     e: &mut Engine<RegistryLookup>,
     source: ObjectId,
     player: PlayerId,
@@ -10,12 +10,12 @@ pub(super) fn damage_player(
 ) {
     let state = e.dev_state_mut(PlayerId::new(0)).unwrap();
     let source_version = Some(state.object(source).unwrap().version);
-    let mut work = crate::damage::DamageWork::new(
+    let mut work = baylee_engine::damage::DamageWork::new(
         state,
-        vec![crate::damage::Assignment {
+        vec![baylee_engine::damage::Assignment {
             source,
             source_version,
-            recipient: crate::event::DamageTarget::Player(player),
+            recipient: baylee_engine::event::DamageTarget::Player(player),
             amount,
             is_combat: combat,
         }],

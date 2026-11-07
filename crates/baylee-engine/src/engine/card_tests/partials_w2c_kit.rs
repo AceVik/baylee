@@ -14,77 +14,77 @@
 
 #[allow(clippy::wildcard_imports)] // the card tests' own vocabulary
 use super::*;
-use crate::choice::NumberPrompt;
-use crate::turn::Step;
 use baylee_core::generated::index;
+use baylee_engine::choice::NumberPrompt;
+use baylee_engine::turn::Step;
 use std::collections::VecDeque;
 
-pub(super) const P0: PlayerId = PlayerId::new(0);
-pub(super) const P1: PlayerId = PlayerId::new(1);
-pub(super) const P2: PlayerId = PlayerId::new(2);
+pub const P0: PlayerId = PlayerId::new(0);
+pub const P1: PlayerId = PlayerId::new(1);
+pub const P2: PlayerId = PlayerId::new(2);
 
 /// Grizzly Bears: a vanilla 2/2, the creature every combat here is made of.
-pub(super) fn bears() -> CardIndex {
+pub fn bears() -> CardIndex {
     index::GRIZZLY_BEARS
 }
 
 /// Hill Giant: a vanilla 3/3.
-pub(super) fn hill_giant() -> CardIndex {
+pub fn hill_giant() -> CardIndex {
     index::HILL_GIANT
 }
 
 /// Savannah Lions: a vanilla 2/1, whose power and toughness differ.
-pub(super) fn savannah_lions() -> CardIndex {
+pub fn savannah_lions() -> CardIndex {
     index::SAVANNAH_LIONS
 }
 
 /// Wall of Wood: a 0/3 Wall with defender and nothing else.
-pub(super) fn wall_of_wood() -> CardIndex {
+pub fn wall_of_wood() -> CardIndex {
     index::WALL_OF_WOOD
 }
 
 /// Wall of Stone: a 0/8 Wall with defender and nothing else.
-pub(super) fn wall_of_stone() -> CardIndex {
+pub fn wall_of_stone() -> CardIndex {
     index::WALL_OF_STONE
 }
 
 /// Lotleth Troll: a 2/1 that shields itself for `{B}` (ability 1).
-pub(super) fn troll() -> CardIndex {
+pub fn troll() -> CardIndex {
     index::LOTLETH_TROLL
 }
 
 /// The `{B}: Regenerate` ability of Lotleth Troll.
-pub(super) const TROLL_REGENERATES: u32 = 1;
+pub const TROLL_REGENERATES: u32 = 1;
 
 /// Lightning Bolt: three damage to any target, at instant speed.
-pub(super) fn bolt() -> CardIndex {
+pub fn bolt() -> CardIndex {
     index::LIGHTNING_BOLT
 }
 
 /// Juggernaut: a 5/3 artifact creature that must attack.
-pub(super) fn juggernaut() -> CardIndex {
+pub fn juggernaut() -> CardIndex {
     index::JUGGERNAUT
 }
 
 /// Basic lands, by the colour they make.
-pub(super) fn lands(card: CardIndex, n: usize) -> Vec<CardIndex> {
+pub fn lands(card: CardIndex, n: usize) -> Vec<CardIndex> {
     vec![card; n]
 }
 
 /// A seat's life total.
-pub(super) fn life(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+pub fn life(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
     engine.state().players[usize::from(seat.get())].life
 }
 
 /// Damage marked on an object right now.
 #[track_caller]
-pub(super) fn damage_on(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
+pub fn damage_on(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
     engine.state().object(object).expect("an object").damage
 }
 
 /// An object's projected power and toughness, as a player would read them.
 #[track_caller]
-pub(super) fn power_toughness(engine: &Engine<RegistryLookup>, object: ObjectId) -> (i16, i16) {
+pub fn power_toughness(engine: &Engine<RegistryLookup>, object: ObjectId) -> (i16, i16) {
     let shown = engine
         .state()
         .object(object)
@@ -99,7 +99,7 @@ pub(super) fn power_toughness(engine: &Engine<RegistryLookup>, object: ObjectId)
 /// How many counters of the kinds that are not a +N/+N or -N/-N pair an object
 /// carries: what a glyph counter is, whichever name the card gives it.
 #[track_caller]
-pub(super) fn glyph_counters(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
+pub fn glyph_counters(engine: &Engine<RegistryLookup>, object: ObjectId) -> u16 {
     engine
         .state()
         .object(object)
@@ -119,18 +119,18 @@ pub(super) fn glyph_counters(engine: &Engine<RegistryLookup>, object: ObjectId) 
 
 /// The zone an object is in.
 #[track_caller]
-pub(super) fn zone_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zone {
+pub fn zone_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> Zone {
     engine.state().object(object).expect("an object").zone
 }
 
 /// Whether the object is on the battlefield.
 #[track_caller]
-pub(super) fn on_the_table(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
+pub fn on_the_table(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
     zone_of(engine, object) == Zone::Battlefield
 }
 
 /// Every battlefield object of `card` that `seat` controls, oldest first.
-pub(super) fn objects_of(
+pub fn objects_of(
     engine: &Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -151,7 +151,7 @@ pub(super) fn objects_of(
 }
 
 /// The objects in `seat`'s graveyard that are `card`.
-pub(super) fn graveyard_objects(
+pub fn graveyard_objects(
     engine: &Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -173,11 +173,7 @@ pub(super) fn graveyard_objects(
 
 /// Whether `seat` holds priority at `step` of the turn with nothing on the
 /// stack: the moment a player may act and nothing is in the way.
-pub(super) fn quiet_priority_at(
-    engine: &Engine<RegistryLookup>,
-    seat: PlayerId,
-    step: Step,
-) -> bool {
+pub fn quiet_priority_at(engine: &Engine<RegistryLookup>, seat: PlayerId, step: Step) -> bool {
     engine.state().turn.step == step && at_rest(engine, seat)
 }
 
@@ -186,7 +182,7 @@ pub(super) fn quiet_priority_at(
 /// castability at a step of its own choosing, where tapping a land would
 /// spend it for every later step of the turn.
 #[track_caller]
-pub(super) fn float(engine: &mut Engine<RegistryLookup>, seat: PlayerId, color: ManaColor, n: u32) {
+pub fn float(engine: &mut Engine<RegistryLookup>, seat: PlayerId, color: ManaColor, n: u32) {
     engine
         .dev_state_mut(seat)
         .expect("the harness may set boards up")
@@ -203,41 +199,41 @@ pub(super) fn float(engine: &mut Engine<RegistryLookup>, seat: PlayerId, color: 
 /// scripted panics naming it, because a test that did not expect a question
 /// has found a defect (or a card that asks one it should not).
 #[derive(Default)]
-pub(super) struct Answers {
+pub struct Answers {
     /// Object and player targets for the next target questions, in order.
-    aims: VecDeque<(Vec<ObjectId>, Vec<PlayerId>)>,
+    pub aims: VecDeque<(Vec<ObjectId>, Vec<PlayerId>)>,
     /// Targets of a spell whose target questions may come in either order: each
     /// question takes the first of these that is on its menu.
-    spread: Vec<ObjectId>,
+    pub spread: Vec<ObjectId>,
     /// The answer to a "you may" question, when one is expected.
-    may: Option<bool>,
+    pub may: Option<bool>,
     /// Cards to choose for the next card questions, in order.
-    picks: VecDeque<Vec<ObjectId>>,
+    pub picks: VecDeque<Vec<ObjectId>>,
     /// Players to choose for the next player questions, in order.
-    people: VecDeque<PlayerId>,
+    pub people: VecDeque<PlayerId>,
     /// The X announced for the next number question of that kind.
-    x: Option<u32>,
+    pub x: Option<u32>,
     /// Shares of combat damage, asked recipient by recipient.
-    shares: VecDeque<u32>,
+    pub shares: VecDeque<u32>,
     /// Whether a regeneration shield is used when the engine offers one.
-    shield: bool,
+    pub shield: bool,
     /// The cast mode, by kind, for the next mode questions.
-    modes: VecDeque<CastModeKind>,
+    pub modes: VecDeque<CastModeKind>,
     /// Every target menu the game published, in the order it did.
-    pub(super) menus: Vec<Vec<ObjectId>>,
+    pub menus: Vec<Vec<ObjectId>>,
     /// Every card menu the game published, in the order it did.
-    pub(super) card_menus: Vec<Vec<ObjectId>>,
+    pub card_menus: Vec<Vec<ObjectId>>,
     /// Every player menu the game published, in the order it did.
-    pub(super) player_menus: Vec<Vec<PlayerId>>,
+    pub player_menus: Vec<Vec<PlayerId>>,
     /// Who was asked each target question.
-    pub(super) askers: Vec<PlayerId>,
+    pub askers: Vec<PlayerId>,
     /// How many "you may" questions the game asked.
-    pub(super) may_questions: u32,
+    pub may_questions: u32,
 }
 
 impl Answers {
     /// Nothing scripted; the shield is used if the engine offers one.
-    pub(super) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             shield: true,
             ..Self::default()
@@ -245,7 +241,7 @@ impl Answers {
     }
 
     /// The next target question is answered with these objects.
-    pub(super) fn aim(mut self, objects: &[ObjectId]) -> Self {
+    pub fn aim(mut self, objects: &[ObjectId]) -> Self {
         self.aims.push_back((objects.to_vec(), Vec::new()));
         self
     }
@@ -253,55 +249,55 @@ impl Answers {
     /// The target questions after the scripted ones take, one each, the first
     /// of these objects that is on their menu: for a spell with two targets
     /// whose questions the test does not want to order.
-    pub(super) fn spread(mut self, objects: &[ObjectId]) -> Self {
+    pub fn spread(mut self, objects: &[ObjectId]) -> Self {
         self.spread = objects.to_vec();
         self
     }
 
     /// The next target question is answered with these players.
-    pub(super) fn aim_players(mut self, players: &[PlayerId]) -> Self {
+    pub fn aim_players(mut self, players: &[PlayerId]) -> Self {
         self.aims.push_back((Vec::new(), players.to_vec()));
         self
     }
 
     /// "You may" is answered with `yes`.
-    pub(super) fn may(mut self, yes: bool) -> Self {
+    pub fn may(mut self, yes: bool) -> Self {
         self.may = Some(yes);
         self
     }
 
     /// The next card question is answered with these cards.
-    pub(super) fn pick(mut self, cards: &[ObjectId]) -> Self {
+    pub fn pick(mut self, cards: &[ObjectId]) -> Self {
         self.picks.push_back(cards.to_vec());
         self
     }
 
     /// The next player question is answered with this player.
-    pub(super) fn person(mut self, player: PlayerId) -> Self {
+    pub fn person(mut self, player: PlayerId) -> Self {
         self.people.push_back(player);
         self
     }
 
     /// X is announced as `x`.
-    pub(super) fn x(mut self, x: u32) -> Self {
+    pub fn x(mut self, x: u32) -> Self {
         self.x = Some(x);
         self
     }
 
     /// The next share of combat damage to be divided is `n`.
-    pub(super) fn share(mut self, n: u32) -> Self {
+    pub fn share(mut self, n: u32) -> Self {
         self.shares.push_back(n);
         self
     }
 
     /// Whether a regeneration shield is used when offered.
-    pub(super) fn shield(mut self, use_it: bool) -> Self {
+    pub fn shield(mut self, use_it: bool) -> Self {
         self.shield = use_it;
         self
     }
 
     /// The next cast-mode question picks the option of this kind.
-    pub(super) fn mode(mut self, kind: CastModeKind) -> Self {
+    pub fn mode(mut self, kind: CastModeKind) -> Self {
         self.modes.push_back(kind);
         self
     }
@@ -312,7 +308,7 @@ impl Answers {
     /// # Panics
     /// On a question nobody scripted, or an answer that is not on the menu.
     #[track_caller]
-    fn answer_targets(
+    pub fn answer_targets(
         &mut self,
         player: PlayerId,
         options: &[ObjectId],
@@ -354,7 +350,7 @@ impl Answers {
     /// # Panics
     /// On a question nobody scripted.
     #[track_caller]
-    pub(super) fn answer(&mut self, pending: &Pending) -> Option<PlayerAction> {
+    pub fn answer(&mut self, pending: &Pending) -> Option<PlayerAction> {
         match pending {
             Pending::Priority { .. }
             | Pending::ChooseAttackers { .. }
@@ -366,7 +362,7 @@ impl Answers {
                 ..
             } => Some(self.answer_targets(*player, options, player_options)),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             } => {
                 self.may_questions += 1;
@@ -375,7 +371,7 @@ impl Answers {
                 })))
             }
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::UseRegenerationShield { .. },
                 ..
             } => Some(PlayerAction::YesNo(self.shield)),
             Pending::ChooseCards {
@@ -457,7 +453,7 @@ impl Answers {
 /// On a question nobody scripted, a refused answer, a game that ends, or a
 /// game that does not settle.
 #[track_caller]
-pub(super) fn drive_with(
+pub fn drive_with(
     engine: &mut Engine<RegistryLookup>,
     answers: &mut Answers,
     done: impl Fn(&Engine<RegistryLookup>) -> bool,
@@ -486,17 +482,14 @@ pub(super) fn drive_with(
 /// [`drive_with`] with nothing scripted: every question that is not priority or
 /// a declaration is a panic.
 #[track_caller]
-pub(super) fn drive(
-    engine: &mut Engine<RegistryLookup>,
-    done: impl Fn(&Engine<RegistryLookup>) -> bool,
-) {
+pub fn drive(engine: &mut Engine<RegistryLookup>, done: impl Fn(&Engine<RegistryLookup>) -> bool) {
     drive_with(engine, &mut Answers::new(), done);
 }
 
 /// Settles the stack: everything on it resolves and `seat` is back at a quiet
 /// priority, with `answers` taking the questions on the way.
 #[track_caller]
-pub(super) fn settle(engine: &mut Engine<RegistryLookup>, seat: PlayerId, answers: &mut Answers) {
+pub fn settle(engine: &mut Engine<RegistryLookup>, seat: PlayerId, answers: &mut Answers) {
     drive_with(engine, answers, |e| at_rest(e, seat));
 }
 
@@ -504,7 +497,7 @@ pub(super) fn settle(engine: &mut Engine<RegistryLookup>, seat: PlayerId, answer
 /// `defender`, every one of them. The other seat's declaration, if it comes
 /// first, is passed with nobody.
 #[track_caller]
-pub(super) fn attack(
+pub fn attack(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     attackers: &[ObjectId],
@@ -548,11 +541,7 @@ pub(super) fn attack(
 /// Walks to the declaration of blockers of `seat` and declares `blocks`, each
 /// as `(blocker, attacker)`.
 #[track_caller]
-pub(super) fn block(
-    engine: &mut Engine<RegistryLookup>,
-    seat: PlayerId,
-    blocks: &[(ObjectId, ObjectId)],
-) {
+pub fn block(engine: &mut Engine<RegistryLookup>, seat: PlayerId, blocks: &[(ObjectId, ObjectId)]) {
     drive(
         engine,
         |e| matches!(e.pending(), Pending::ChooseBlockers { player, .. } if *player == seat),
@@ -568,7 +557,7 @@ pub(super) fn block(
 }
 
 /// Whether `card` in `seat`'s hand is on the castable list right now.
-pub(super) fn castable(engine: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> bool {
+pub fn castable(engine: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> bool {
     let Some(id) = in_hand(engine, seat, card) else {
         return false;
     };
@@ -580,7 +569,7 @@ pub(super) fn castable(engine: &Engine<RegistryLookup>, seat: PlayerId, card: Ca
 /// turn. Unlike `walk_to_own_main`, it does not return at once for a seat that
 /// is already in its own first main phase.
 #[track_caller]
-pub(super) fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+pub fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
     let began = engine.state().turn.number;
     drive(engine, |e| {
         let turn = &e.state().turn;
@@ -594,7 +583,7 @@ pub(super) fn walk_to_next_own_main(engine: &mut Engine<RegistryLookup>, seat: P
 /// Walks until `seat` holds priority in the first main phase of its own turn
 /// number `turn`, declaring nobody on the way.
 #[track_caller]
-pub(super) fn walk_to_main_of_turn(engine: &mut Engine<RegistryLookup>, seat: PlayerId, turn: u32) {
+pub fn walk_to_main_of_turn(engine: &mut Engine<RegistryLookup>, seat: PlayerId, turn: u32) {
     drive(engine, |e| {
         let now = &e.state().turn;
         now.number == turn
@@ -606,7 +595,7 @@ pub(super) fn walk_to_main_of_turn(engine: &mut Engine<RegistryLookup>, seat: Pl
 
 /// Walks until `seat` holds priority with an empty stack at `step`.
 #[track_caller]
-pub(super) fn walk_to_quiet_priority(
+pub fn walk_to_quiet_priority(
     engine: &mut Engine<RegistryLookup>,
     answers: &mut Answers,
     seat: PlayerId,
@@ -618,7 +607,7 @@ pub(super) fn walk_to_quiet_priority(
 /// Walks until `seat` holds priority in its second main phase with an empty
 /// stack, declaring nobody.
 #[track_caller]
-pub(super) fn walk_to_second_main(
+pub fn walk_to_second_main(
     engine: &mut Engine<RegistryLookup>,
     answers: &mut Answers,
     seat: PlayerId,
@@ -632,7 +621,7 @@ pub(super) fn walk_to_second_main(
 /// answers what the cast asks (X, mode, targets) from `answers` until the spell
 /// is on the stack and `seat` holds priority again.
 #[track_caller]
-pub(super) fn cast(
+pub fn cast(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -653,7 +642,7 @@ pub(super) fn cast(
 /// that is already floating, and answers what the activation asks from
 /// `answers` until `seat` holds priority again.
 #[track_caller]
-pub(super) fn activate_ability(
+pub fn activate_ability(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     source: ObjectId,

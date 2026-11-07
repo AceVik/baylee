@@ -863,6 +863,271 @@ name = "baylee-build"
 version = "0.1.0-beta.9c"
 
 [[package]]
+name = "baylee-card-testkit"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-artifacts-1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-artifacts-2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-5"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-6"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-creatures-7"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-enchantments-1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-enchantments-2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-instants-1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-instants-2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-lands-1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-lands-2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-misc"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-sorceries"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-card-tests-verification"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-card-testkit",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-core",
+ "baylee-engine",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
 name = "baylee-cards"
 version = "0.1.0-beta.9c"
 dependencies = [

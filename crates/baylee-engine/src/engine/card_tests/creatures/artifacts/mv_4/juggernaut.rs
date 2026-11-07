@@ -92,7 +92,12 @@ fn martyrs_of_korlis_takes_artifact_damage_while_untapped_and_stops_when_tapped(
     );
     assert_eq!(
         damage_events(&engine, before),
-        vec![(jugg, crate::event::DamageTarget::Player(p0), 5, true)],
+        vec![(
+            jugg,
+            baylee_engine::event::DamageTarget::Player(p0),
+            5,
+            true
+        )],
         "one hop, from the Juggernaut to the player: the tapped Martyrs is \
          not in the damage's path"
     );

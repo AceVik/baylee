@@ -24,7 +24,8 @@ pub(crate) struct DamageRecord {
 
 /// One source as it existed immediately before a damaged object's death.
 #[derive(Clone, Debug)]
-pub(crate) struct DamageObserver {
+#[doc(hidden)]
+pub struct DamageObserver {
     pub object: GameObject,
     pub grants: Vec<(Modifier, TextChangeMap)>,
     pub text: TextChangeMap,
@@ -33,7 +34,8 @@ pub(crate) struct DamageObserver {
 
 /// Immutable lookback even if either card moves again before collection.
 #[derive(Clone, Debug)]
-pub(crate) struct DamageDeath {
+#[doc(hidden)]
+pub struct DamageDeath {
     pub seq: u64,
     pub victim: GameObject,
     pub sources: Vec<DamageObserver>,
@@ -41,7 +43,8 @@ pub(crate) struct DamageDeath {
 
 /// A simultaneous move retains both public event data and rules lookback.
 #[derive(Clone, Debug)]
-pub(crate) struct BattlefieldDeparture {
+#[doc(hidden)]
+pub struct BattlefieldDeparture {
     pub subtypes: baylee_core::types::SubtypeSet,
     pub event: crate::event::Departure,
     pub damage: Option<DamageDeath>,

@@ -39,9 +39,9 @@ fn steelshaper_apprentice_returns_itself_for_an_equipment_card_out_of_the_librar
     state
         .move_object(
             greaves,
-            crate::zone::ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZoneLocation::Library(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the harness moves a card");
     engine.refresh_offer();
@@ -111,7 +111,7 @@ fn steelshaper_apprentice_returns_itself_for_an_equipment_card_out_of_the_librar
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "the tutor's own question, and not a scry or a discard"
     );
     assert_eq!(

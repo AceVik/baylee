@@ -77,8 +77,8 @@ fn planar_nexus_has_every_nonbasic_land_type_in_every_zone_and_completes_tron() 
             .move_object(
                 nexus,
                 zone,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         assert_eq!(

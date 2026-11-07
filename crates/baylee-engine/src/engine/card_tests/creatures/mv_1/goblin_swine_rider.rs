@@ -97,7 +97,7 @@ fn goblin_swine_rider_hits_every_attacker_and_blocker_but_nobody_else() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
 
     assert_eq!(

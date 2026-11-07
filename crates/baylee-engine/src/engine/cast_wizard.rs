@@ -102,7 +102,8 @@ pub(crate) enum WizardStage {
 /// A spell being cast step by step.
 #[derive(Clone, Debug)]
 #[allow(clippy::struct_excessive_bools)] // independent casting facts (kicked, behold_paid_mana, free, masked)
-pub(crate) struct CastWizard {
+#[doc(hidden)]
+pub struct CastWizard {
     /// The card being cast.
     pub card: ObjectId,
     /// The casting player.
@@ -1015,7 +1016,8 @@ impl<L: CardLookup> Engine<L> {
     /// cannot be chosen (CR 601.2c), and an additional sacrifice with nothing
     /// to sacrifice (CR 601.2h). Timing is not one of them: a spell cast
     /// while something resolves ignores it (CR 608.2g).
-    pub(crate) fn free_cast_possible(&self, player: PlayerId, card: ObjectId) -> bool {
+    #[doc(hidden)]
+    pub fn free_cast_possible(&self, player: PlayerId, card: ObjectId) -> bool {
         let Some(obj) = self.state.object(card) else {
             return false;
         };
@@ -2002,3 +2004,35 @@ mod restricted_x_tests;
 
 #[cfg(test)]
 mod pool_x_tests;
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn start_free_cast_for_tests(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), EngineError> {
+        self.start_free_cast(player, card)
+    }
+}
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn start_paid_cast_for_tests(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+        then_no_more_spells: bool,
+        any_mana: bool,
+        opened: Box<super::WindowStart>,
+    ) -> Result<(), EngineError> {
+        self.start_paid_cast(player, card, version, then_no_more_spells, any_mana, opened)
+    }
+}

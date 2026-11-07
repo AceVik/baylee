@@ -105,11 +105,11 @@ fn weathered_wayfarer_finds_and_reveals_any_land() {
     );
     assert_eq!(library_size(&engine, p0), library_before - 1);
     assert!(engine.state().journal.entries().iter().any(|entry| {
-        matches!(&entry.event, crate::event::GameEvent::Revealed { player, cards }
+        matches!(&entry.event, baylee_engine::event::GameEvent::Revealed { player, cards }
             if *player == p0 && cards == &vec![nonbasic])
     }));
     assert!(engine.state().journal.entries().iter().any(|entry| {
-        matches!(entry.event, crate::event::GameEvent::Shuffled { player, .. } if player == p0)
+        matches!(entry.event, baylee_engine::event::GameEvent::Shuffled { player, .. } if player == p0)
     }));
 
     // Isolate {T} from the mana cost: even with white mana floating, the

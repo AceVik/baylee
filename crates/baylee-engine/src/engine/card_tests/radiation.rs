@@ -2,8 +2,8 @@
 use super::counter_resources::prepared;
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::GameEvent;
 use baylee_core::generated::index;
+use baylee_engine::event::GameEvent;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 

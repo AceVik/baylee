@@ -110,7 +110,7 @@ fn restless_spire_scries_one_when_it_attacks() {
         unreachable!()
     };
     assert_eq!(player, p0, "its controller scries");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(piles, scry_piles(1));
     assert_eq!(cards.len(), 1, "scry 1");
 }

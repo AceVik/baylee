@@ -9,7 +9,7 @@ mod kavaron_memorial_world;
 mod susur_secundi_void_altar;
 mod uthros_titanic_godcore;
 
-/// Walks a [`legends_kit`](crate::engine::card_tests::legends_kit) game from
+/// Walks a [`legends_kit`](baylee_card_testkit::card_tests::legends_kit) game from
 /// player 0's main phase to the first moment of player 1's turn at which
 /// player 0 holds priority: instant timing, never sorcery timing for p0
 /// (CR 307.1, 117.1a), with the board exactly as it was.

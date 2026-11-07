@@ -326,7 +326,7 @@ fn deflecting_swat_redirects_or_keeps_a_printed_ability_target() {
             damage_events(&engine, from),
             vec![(
                 rod,
-                crate::event::DamageTarget::Player(if redirect { p1 } else { p0 }),
+                baylee_engine::event::DamageTarget::Player(if redirect { p1 } else { p0 }),
                 1,
                 false
             )]

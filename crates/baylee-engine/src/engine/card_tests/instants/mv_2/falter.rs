@@ -52,7 +52,7 @@ fn falter_prevents_creatures_without_flying_from_blocking() {
     let Pending::ChooseBlockers { blockers, .. } = engine.pending() else {
         panic!("block offer");
     };
-    assert!(crate::engine::card_tests::legends_kit::may_block(
+    assert!(baylee_card_testkit::card_tests::legends_kit::may_block(
         blockers, flyer, bear
     ));
     engine
@@ -65,9 +65,9 @@ fn falter_prevents_creatures_without_flying_from_blocking() {
         .unwrap();
     reach_their_main_phase(&mut engine, p1);
     reach_their_main_phase(&mut engine, p0);
-    let blocks = crate::engine::card_tests::legends_kit::attack(&mut engine, &[bear]);
+    let blocks = baylee_card_testkit::card_tests::legends_kit::attack(&mut engine, &[bear]);
     assert!(
-        crate::engine::card_tests::legends_kit::may_block(&blocks, elephant, bear),
+        baylee_card_testkit::card_tests::legends_kit::may_block(&blocks, elephant, bear),
         "restriction expires after the turn"
     );
     engine

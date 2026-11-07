@@ -50,7 +50,7 @@ fn thopter_foundry_sacrifices_an_artifact_for_one_mana_and_gains_one_life() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "sacrifice prompt indicates cost payment"
     );
     assert_eq!((min, max), (1, 1), "sacrifice exactly one artifact");

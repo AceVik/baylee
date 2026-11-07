@@ -137,7 +137,7 @@ fn mana_vortex_makes_each_player_sacrifice_a_land_in_their_upkeep() {
     // p1's upkeep.
     pass_until(&mut e, asked_to_choose);
     assert_eq!(e.state().turn.active, P1);
-    assert_eq!(e.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::Upkeep);
     let Pending::ChooseCards {
         player,
         options,
@@ -175,7 +175,7 @@ fn mana_vortex_makes_each_player_sacrifice_a_land_in_their_upkeep() {
     pass_until(&mut e, |e| {
         asked_to_choose(e) && e.state().turn.active == P0
     });
-    assert_eq!(e.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::Upkeep);
     let Pending::ChooseCards {
         player, options, ..
     } = e.pending().clone()

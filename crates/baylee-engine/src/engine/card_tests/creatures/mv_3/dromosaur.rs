@@ -50,7 +50,7 @@ fn dromosaur_gets_plus_two_minus_two_when_blocked() {
 
 #[test]
 fn dromosaur_also_triggers_when_blocking_and_the_pump_expires() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = lk::game(

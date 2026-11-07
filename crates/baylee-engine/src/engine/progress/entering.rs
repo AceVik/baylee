@@ -915,7 +915,7 @@ impl<L: CardLookup> Engine<L> {
     /// Apply an entry copy through the same snapshot transaction as a
     /// resolving copy ability (CR 707.2, 707.9).
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         crate::ability_log::copied_on_entry(&self.state, &self.lookup, id);
         let Some(own) = self.state.printed_ability_list(id) else {
             return;

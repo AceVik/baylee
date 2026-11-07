@@ -8,7 +8,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::draw_kit as kit;
+use baylee_card_testkit::card_tests::draw_kit as kit;
 
 /// Three shelf lands with one printed sentence between them — "this land
 /// enters tapped" — and all of them a mana ability to go with it. They are

@@ -41,7 +41,7 @@ fn yavimaya_granger_searches_library_for_a_basic_land_tapped_on_entry() {
     // Its echo upkeep is a real price, even after its entry benefit resolved.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);
@@ -55,7 +55,7 @@ fn yavimaya_granger_searches_library_for_a_basic_land_tapped_on_entry() {
 
 #[test]
 fn yavimaya_granger_may_find_no_basic_land() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[], &[], &[yavimaya_granger()], &[]);
     lk::float(&mut engine, lk::P0, &[(ManaColor::Green, 3)]);
     cast_with_floating(&mut engine, lk::P0, yavimaya_granger());

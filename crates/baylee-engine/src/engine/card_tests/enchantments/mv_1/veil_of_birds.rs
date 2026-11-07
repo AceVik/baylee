@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn veil_of_birds() -> CardIndex {
     card_index("fc6278e5-7eb1-4590-880e-fe9efa0ec4d9")

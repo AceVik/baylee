@@ -190,16 +190,16 @@ fn ooze_rewards_only_a_creature_and_never_places_counters_on_a_new_source_incarn
             s.move_object(
                 ooze,
                 ZoneLocation::Exile(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
-            s.object_mut(ooze).unwrap().kind = crate::object::ObjectKind::Permanent;
+            s.object_mut(ooze).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
             s.move_object(
                 ooze,
                 ZoneLocation::Battlefield,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
         }
@@ -209,8 +209,8 @@ fn ooze_rewards_only_a_creature_and_never_places_counters_on_a_new_source_incarn
                 .move_object(
                     card,
                     ZoneLocation::Exile(p1),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         }

@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::{Phase, Step};
 use baylee_cards_dsl::counters;
+use baylee_engine::turn::{Phase, Step};
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -79,7 +79,7 @@ fn spore_flower_prevents_all_combat_damage_this_turn() {
 
     let mut engine = board();
     let flower = on_battlefield(&engine, P0, spore_flower()).expect("the Flower is out");
-    crate::replacement::put_counters(&mut engine.state, flower, counters::SPORE, 2);
+    baylee_engine::replacement::put_counters(&mut engine.state, flower, counters::SPORE, 2);
     engine.refresh_offer();
     assert_eq!(counters_on(&engine, flower, counters::SPORE), 3);
 
@@ -104,7 +104,7 @@ fn spore_flower_prevents_all_combat_damage_this_turn() {
 fn spore_flower_needs_three_counters_to_prevent_damage() {
     let mut engine = board();
     let flower = on_battlefield(&engine, P0, spore_flower()).expect("the Flower is out");
-    crate::replacement::put_counters(&mut engine.state, flower, counters::SPORE, 1);
+    baylee_engine::replacement::put_counters(&mut engine.state, flower, counters::SPORE, 1);
     engine.refresh_offer();
     assert_eq!(counters_on(&engine, flower, counters::SPORE), 2);
     assert!(

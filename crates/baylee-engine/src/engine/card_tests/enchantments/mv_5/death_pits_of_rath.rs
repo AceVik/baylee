@@ -35,7 +35,7 @@ fn death_pits_of_rath_destroys_a_creature_dealt_nonlethal_damage() {
 
 #[test]
 fn death_pits_of_rath_does_not_destroy_an_earlier_damaged_creature_again() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[

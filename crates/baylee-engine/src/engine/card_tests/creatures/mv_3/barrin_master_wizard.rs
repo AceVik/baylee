@@ -91,7 +91,7 @@ fn barrin_master_wizard_trades_a_permanent_for_an_opponents_creature() {
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to tell the two apart"
                 );
                 assert_eq!((min, max), (1, 1), "one permanent, no more and no fewer");

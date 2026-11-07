@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::mana::ManaColor;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -101,7 +101,7 @@ fn sylvan_hierophant_exiles_itself_and_returns_one_other_creature_card_of_yours(
 
     assert_eq!(
         lk::zone_of(&e, hierophant),
-        crate::zone::Zone::Exile,
+        baylee_engine::zone::Zone::Exile,
         "it exiles itself"
     );
     assert!(

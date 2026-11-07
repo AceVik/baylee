@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::BlockOption;
+use baylee_engine::choice::BlockOption;
 
 fn tower_of_coireall() -> CardIndex {
     card_index("f9afad36-933f-4d18-acb7-32e5cb5c8161")

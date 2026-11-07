@@ -30,7 +30,7 @@ fn rewind_counters_target_spell_and_untaps_up_to_four_lands() {
     let spell_id = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .last()
         .copied()
         .expect("spell on stack");
@@ -59,7 +59,7 @@ fn rewind_counters_target_spell_and_untaps_up_to_four_lands() {
     let untapped = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .iter()
         .filter(|id| !is_tapped(&engine, **id))
         .count();

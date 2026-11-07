@@ -19,7 +19,7 @@ fn risen_reef_puts_a_land_off_the_top_onto_the_battlefield_tapped() {
     let land = reef_question(&mut engine, p0, true);
     assert_eq!(
         engine.state().object(land).map(|o| o.zone),
-        Some(crate::zone::Zone::Battlefield)
+        Some(baylee_engine::zone::Zone::Battlefield)
     );
     assert!(is_tapped(&engine, land), "onto the battlefield tapped");
     assert_eq!(

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn nightshade_seer() -> CardIndex {
     card_index("9bcf66d0-8a4d-4c57-b4de-4cc35399465e")

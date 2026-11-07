@@ -57,7 +57,7 @@ fn auratog_eats_an_enchantment_you_control_and_grows_by_two() {
     assert_eq!(player, p0, "the activating seat is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one enchantment, no more and no fewer");

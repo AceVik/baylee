@@ -31,7 +31,11 @@ fn rainbow_crow_flies_and_becomes_chosen_color_until_end_of_turn() {
         ColorSet::from_slice(&[Color::Blue])
     );
 
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Colorless, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(
+        &mut engine,
+        p0,
+        &[(ManaColor::Colorless, 1)],
+    );
     engine
         .apply(
             p0,

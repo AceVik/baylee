@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn veldt_skips_one_untap_then_recovers() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(926, &[veldt()], &[], &[], &[]);
     let land = kit::obj(&engine, kit::P0, veldt());
     activate(&mut engine, kit::P0, veldt(), 0);

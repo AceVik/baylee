@@ -24,11 +24,11 @@ fn preset_ring_was_not_cast_and_graveyard_cast_was_cast() {
         .move_object(
             ring,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     cast(&mut e, P0, index::YAWGMOTH_S_WILL);
     pass_until(&mut e, stack_is_empty);
@@ -188,12 +188,12 @@ fn noncast_graveyard_return_does_not_grant_ring_protection() {
             .move_object(
                 ring,
                 zone,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(&mut e, stack_is_empty);
     bolt_can_hit_you(&mut e);
@@ -209,7 +209,7 @@ fn ring_upkeep_life_loss_reads_burdens_after_ring_leaves() {
     pass_until(&mut e, |e| {
         e.state.turn.number > old
             && e.state.turn.active == P0
-            && e.state.turn.step == crate::turn::Step::Upkeep
+            && e.state.turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(),Pending::Priority{player,..} if *player==P0)
     });
     let life = e.state.players[0].life;

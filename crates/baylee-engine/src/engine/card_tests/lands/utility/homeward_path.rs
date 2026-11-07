@@ -24,19 +24,21 @@ fn homeward_path_restores_creature_control_to_owner() {
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
     {
         let state = engine.dev_state_mut(p0).expect("harness sets up board");
-        let filter = crate::effects::EffectFilter::object(state, elf);
+        let filter = baylee_engine::effects::EffectFilter::object(state, elf);
         let timestamp = state.next_timestamp();
-        state.effects.register(crate::effects::ContinuousEffect {
-            id: baylee_core::ids::EffectId::new(0),
-            source: None,
-            controller: p1,
-            origin: crate::effects::EffectOrigin::Resolution,
-            layer: baylee_cards_dsl::Layer::Control,
-            timestamp,
-            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-            filter,
-            modifier: baylee_cards_dsl::Modifier::GainControl,
-        });
+        state
+            .effects
+            .register(baylee_engine::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: None,
+                controller: p1,
+                origin: baylee_engine::effects::EffectOrigin::Resolution,
+                layer: baylee_cards_dsl::Layer::Control,
+                timestamp,
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                filter,
+                modifier: baylee_cards_dsl::Modifier::GainControl,
+            });
         state.refresh_characteristics();
     }
     engine.refresh_offer();

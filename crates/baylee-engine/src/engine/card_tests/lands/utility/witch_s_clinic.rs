@@ -57,13 +57,13 @@ fn clinic_can_give_an_opposing_commander_lifelink_but_not_an_ordinary_creature()
     reach_main_phase(&mut e, p0);
     let commander = e.state().commanders[1][0].object;
     let state = e.dev_state_mut(p0).unwrap();
-    state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+    state.object_mut(commander).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
     state
         .move_object(
             commander,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     state.players[0].mana_pool.add(ManaColor::Colorless, 2);
@@ -94,13 +94,13 @@ fn clinic_lifelink_lasts_only_until_end_of_turn() {
     reach_main_phase(&mut e, p0);
     let commander = e.state().commanders[1][0].object;
     let state = e.dev_state_mut(p0).unwrap();
-    state.object_mut(commander).unwrap().kind = crate::object::ObjectKind::Permanent;
+    state.object_mut(commander).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
     state
         .move_object(
             commander,
             ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     state.players[0].mana_pool.add(ManaColor::Colorless, 2);

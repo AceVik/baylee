@@ -113,9 +113,9 @@ fn goblin_charbelcher_orders_the_bottom_cards_after_damage_replacement_choices()
             .dev_state_mut(p0)
             .unwrap()
             .shields
-            .push(crate::prevention::Shield {
-                protects: crate::prevention::Shielded::Player(p1),
-                kind: crate::prevention::ShieldKind::Next(1),
+            .push(baylee_engine::prevention::Shield {
+                protects: baylee_engine::prevention::Shielded::Player(p1),
+                kind: baylee_engine::prevention::ShieldKind::Next(1),
                 controller: p1,
             });
     }

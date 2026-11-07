@@ -76,14 +76,19 @@ fn sandstorm_deals_one_damage_to_each_attacking_creature_and_not_the_defender() 
     );
     for (target, label) in [(elf, "the attacking 1/1"), (spider, "the attacking 1/3")] {
         assert!(
-            events.contains(&(storm, crate::event::DamageTarget::Object(target), 1, false)),
+            events.contains(&(
+                storm,
+                baylee_engine::event::DamageTarget::Object(target),
+                1,
+                false
+            )),
             "{label} was dealt exactly the one non-combat damage: {events:?}"
         );
     }
     assert!(
-        !events
-            .iter()
-            .any(|(_, target, _, _)| *target == crate::event::DamageTarget::Object(defender)),
+        !events.iter().any(
+            |(_, target, _, _)| *target == baylee_engine::event::DamageTarget::Object(defender)
+        ),
         "the defender is not attacking, and no event reaches it: {events:?}"
     );
 

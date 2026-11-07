@@ -82,7 +82,7 @@ fn braidwood_sextant_eats_itself_for_a_basic_land_out_of_the_library() {
     assert_eq!(player, p0, "the seat that activated does the searching");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "the tutor's own question, and not a scry or a discard"
     );
     assert!(!options.is_empty(), "the library holds basic lands to find");

@@ -103,7 +103,7 @@ fn q_next_main(e: &mut Engine<RegistryLookup>, p: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == p
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..} if *player==p)
     });
 }
@@ -205,22 +205,26 @@ fn hammerheim_allows_later_nonbasic_landwalk_matching_grant() {
     // Transparent later grant exercises the nonbasic LandwalkMatching family,
     // for which this card set has no Implemented granting spell.
     let timestamp = e.state.next_timestamp();
-    let filter = crate::effects::EffectFilter::object(&e.state, nomads);
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P1,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: baylee_cards_dsl::Layer::Ability,
-        timestamp,
-        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::LandwalkMatching(
-            &baylee_cards_dsl::Filter::HasSubtype(baylee_core::generated::subtypes::land::DESERT),
-        ),
-    });
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, nomads);
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P1,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Ability,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::LandwalkMatching(
+                &baylee_cards_dsl::Filter::HasSubtype(
+                    baylee_core::generated::subtypes::land::DESERT,
+                ),
+            ),
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     pass_until(
         &mut e,
@@ -278,7 +282,7 @@ fn hammerheim_landwalk_loss_ends_with_the_turn() {
     // grants what it granted.
     let turn = e.state.turn.number;
     pass_until(&mut e, |e| {
-        e.state.turn.number > turn && e.state.turn.phase == crate::turn::Phase::FirstMain
+        e.state.turn.number > turn && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
     });
     assert!(
         keywords(&e, bear).contains(KeywordSet::ISLANDWALK),

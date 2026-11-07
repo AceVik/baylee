@@ -92,7 +92,12 @@ fn tribal_golem_regenerates_while_i_control_a_zombie() {
     reach_main_phase(&mut engine, p0);
     let golem = on_battlefield(&engine, p0, tribal_golem()).expect("seated");
     tap_all_mana(&mut engine, p0);
-    raise_a_shield(&mut engine, p0, golem, crate::choice::GRANTED_ABILITY);
+    raise_a_shield(
+        &mut engine,
+        p0,
+        golem,
+        baylee_engine::choice::GRANTED_ABILITY,
+    );
     kill(&mut engine, golem);
     assert_eq!(
         engine.state().object(golem).map(|o| o.zone),
@@ -110,7 +115,7 @@ fn tribal_golem_regenerates_while_i_control_a_zombie() {
     assert!(
         !priority_offer(&engine)
             .abilities
-            .contains(&(golem, crate::choice::GRANTED_ABILITY)),
+            .contains(&(golem, baylee_engine::choice::GRANTED_ABILITY)),
         "no Zombie, no regeneration"
     );
 }

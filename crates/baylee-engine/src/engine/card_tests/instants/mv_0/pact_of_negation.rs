@@ -101,13 +101,13 @@ fn pact_of_negation_counters_a_spell_now_and_charges_for_it_at_the_next_upkeep()
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::PayPact { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::PayPact { .. },
                 ..
             }
         )
     });
     assert!(engine.state().turn.number > cast_turn);
-    assert_eq!(engine.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(engine.state().turn.step, baylee_engine::turn::Step::Upkeep);
     assert_eq!(engine.state().players[0].mana_pool.total(), 0);
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(
@@ -164,7 +164,9 @@ fn price_due(
     during(&mut engine);
     pass_until(&mut engine, |e| {
         let turn = &e.state().turn;
-        turn.number > cast_turn && turn.active == P0 && turn.step == crate::turn::Step::Upkeep
+        turn.number > cast_turn
+            && turn.active == P0
+            && turn.step == baylee_engine::turn::Step::Upkeep
     });
     engine
 }
@@ -183,7 +185,7 @@ fn warned(engine: &Engine<RegistryLookup>) -> bool {
     matches!(
         engine.pending(),
         Pending::YesNo {
-            prompt: crate::choice::YesNoPrompt::PayPact { .. },
+            prompt: baylee_engine::choice::YesNoPrompt::PayPact { .. },
             ..
         }
     )
@@ -209,7 +211,10 @@ fn the_price_is_on_the_stack_and_both_players_hold_priority_over_it() {
         panic!("one object on the stack: {:?}", stack(&engine))
     };
     let object = engine.state().object(price).expect("it is an object");
-    assert_eq!(object.kind, crate::object::ObjectKind::AbilityOnStack);
+    assert_eq!(
+        object.kind,
+        baylee_engine::object::ObjectKind::AbilityOnStack
+    );
     assert_eq!(object.controller, P0);
     let location = object.ability.expect("it names an ability");
     assert_eq!(
@@ -322,7 +327,7 @@ fn the_controller_of_a_turn_decides_the_price_for_the_controlled_player() {
         engine
             .state
             .turn_controls
-            .push(crate::state::PlayerTurnControl {
+            .push(baylee_engine::state::PlayerTurnControl {
                 controller: P1,
                 player: P0,
                 turn: engine.state.turn.number + 1,
@@ -389,7 +394,7 @@ fn a_copied_pacts_price_outlives_the_copy() {
     let turn = engine.state().turn.number;
     pass_until(&mut engine, |e| {
         let now = &e.state().turn;
-        now.number > turn && now.active == P0 && now.step == crate::turn::Step::Upkeep
+        now.number > turn && now.active == P0 && now.step == baylee_engine::turn::Step::Upkeep
     });
 
     let [price] = stack(&engine)[..] else {

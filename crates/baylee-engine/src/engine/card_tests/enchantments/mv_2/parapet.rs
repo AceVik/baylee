@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index::GRIZZLY_BEARS;
+use baylee_engine::turn::Step;
 
 fn parapet() -> CardIndex {
     card_index("4e73634a-9df8-4c36-b1d2-f366eae902fc")

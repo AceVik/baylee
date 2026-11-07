@@ -24,8 +24,8 @@ fn disentomb_returns_the_chosen_own_creature_card() {
         .move_object(
             own,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     game.dev_state_mut(p1)
@@ -33,8 +33,8 @@ fn disentomb_returns_the_chosen_own_creature_card() {
         .move_object(
             theirs,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     let land = on_battlefield(&game, p0, forest()).unwrap();
@@ -43,8 +43,8 @@ fn disentomb_returns_the_chosen_own_creature_card() {
         .move_object(
             land,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     game.refresh_offer();

@@ -127,19 +127,21 @@ fn a_count_of_a_count_settles_in_the_refresh_that_moved_it() {
         p: 1,
         t: 1,
     };
-    let filter = crate::effects::EffectFilter::object(state, counter);
+    let filter = baylee_engine::effects::EffectFilter::object(state, counter);
     let timestamp = state.next_timestamp();
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: Some(counter),
-        controller: p0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: baylee_cards_dsl::Duration::Indefinitely,
-        filter,
-        modifier,
-    });
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(counter),
+            controller: p0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier,
+        });
     state.refresh_characteristics();
     assert_eq!(
         pt(&engine, ashaya),
@@ -216,8 +218,8 @@ fn a_drawn_ashaya_is_its_size_in_hand_at_once() {
         .move_object(
             card,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("onto the top of the library");
     reach_their_main_phase(&mut engine, PlayerId::new(1));

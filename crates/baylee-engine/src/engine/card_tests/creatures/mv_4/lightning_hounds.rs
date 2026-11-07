@@ -28,7 +28,7 @@ fn lightning_hounds_kills_a_three_three_in_the_first_strike_damage_step() {
     let state = engine
         .dev_state_mut(p1)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, blocker, CounterKind::P1P1, 2);
+    baylee_engine::replacement::put_counters(state, blocker, CounterKind::P1P1, 2);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
     assert_eq!(

@@ -111,7 +111,7 @@ fn eye_does_not_discount_a_colorless_non_eldrazi() {
 /// is every creature type, Eldrazi included.
 #[test]
 fn eye_does_not_discount_a_colored_eldrazi_spell() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let p0 = PlayerId::new(0);
     let mut e = kit::game(
         1300,
@@ -146,7 +146,7 @@ fn eye_does_not_discount_a_colored_eldrazi_spell() {
 /// full while our Eye stands.
 #[test]
 fn eye_does_not_discount_the_opponents_colorless_eldrazi_spell() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let p1 = PlayerId::new(1);
     let mut e = kit::game(1301, &[eye_of_ugin()], &[], &[], &[index::DROWNER_OF_TRUTH]);

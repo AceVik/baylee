@@ -1522,7 +1522,7 @@ impl<L: CardLookup> Engine<L> {
                     self.note_mana_activation(reference);
                 }
                 casting::add_intrinsic_mana(&mut self.state, player, source, color);
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::intrinsic_mana(&self.state, &self.lookup, source, color);
                 self.after_action(player);
                 Ok(())
@@ -1783,7 +1783,7 @@ impl<L: CardLookup> Engine<L> {
                         unreachable!()
                     };
                     if answer {
-                        #[cfg(test)]
+                        #[cfg(any(test, feature = "test-support"))]
                         crate::ability_log::replaced_by(
                             source,
                             baylee_cards_dsl::ReplacementRule::SkipTurnToUntapSelf,
@@ -2294,7 +2294,7 @@ impl<L: CardLookup> Engine<L> {
                     }
                     // Exactly one colour: nothing to ask.
                     casting::add_intrinsic_mana(&mut self.state, player, source, colors[0]);
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "test-support"))]
                     crate::ability_log::intrinsic_mana(
                         &self.state,
                         &self.lookup,
@@ -2420,4 +2420,14 @@ impl<L: CardLookup> Engine<L> {
     }
 
     // --------------------------------------------------------- turn steps
+}
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn after_action_for_tests(&mut self, player: PlayerId) {
+        self.after_action(player);
+    }
 }

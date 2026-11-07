@@ -46,7 +46,7 @@ fn flickering_ward_chooses_color_on_entry_and_bounces_for_white() {
 
 #[test]
 fn flickering_ward_protects_from_its_chosen_color_and_bouncing_ends_the_protection() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[index::GRIZZLY_BEARS, index::HILL_GIANT],

@@ -35,7 +35,8 @@ impl<L: CardLookup> Engine<L> {
     /// ability costs {1} less to activate for each legendary creature you
     /// control"). The offer and the activation both ask this, so an ability
     /// is never offered at one price and charged another.
-    pub(crate) fn activation_price(
+    #[doc(hidden)]
+    pub fn activation_price(
         &self,
         player: PlayerId,
         source: ObjectId,
@@ -478,7 +479,7 @@ impl<L: CardLookup> Engine<L> {
     /// making the play, has nothing to undo here: this engine pays out of the
     /// pool, and the mana abilities that filled it were activated before the
     /// play began, so their mana stays in the pool, as it would.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn pay_cost(
         &mut self,
         player: PlayerId,

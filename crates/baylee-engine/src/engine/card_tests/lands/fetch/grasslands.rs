@@ -78,7 +78,7 @@ fn grasslands_enters_tapped_and_trades_itself_for_a_land_onto_the_battlefield() 
     assert_eq!(player, p0, "the seat that sacrificed the land searches");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        baylee_engine::choice::ChoicePrompt::SearchLibrary,
         "a browse of the library, which is a different question from a cost"
     );
     assert!(

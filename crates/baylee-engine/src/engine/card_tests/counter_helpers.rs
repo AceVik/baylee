@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)] // card test vocabulary
 use super::*;
 use baylee_core::generated::index;
-pub(super) fn artifact_activation(counter: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
+pub fn artifact_activation(counter: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let friendly = if counter == index::AYESHA_TANAKA {
         vec![counter]
@@ -29,10 +29,7 @@ pub(super) fn artifact_activation(counter: CardIndex) -> (Engine<RegistryLookup>
     );
     (e, ability)
 }
-pub(super) fn spell_fixture(
-    counter: CardIndex,
-    case: u8,
-) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+pub fn spell_fixture(counter: CardIndex, case: u8) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let spell = match case {
         2 => index::CHAIN_LIGHTNING,

@@ -86,7 +86,7 @@ fn sylvan_safekeeper_trades_a_land_for_shroud_on_one_of_your_creatures() {
                 assert_eq!(player, p0, "the activating seat pays the cost");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );

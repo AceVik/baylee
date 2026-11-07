@@ -21,7 +21,7 @@ fn vodalian_hypnotist_makes_target_player_discard_a_card_at_sorcery_speed_only()
 
     // Cannot activate during P1's turn even with mana floating.
     assert!(walk_to_own_main(&mut engine, p1));
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[(ManaColor::Colorless, 2), (ManaColor::Black, 1)],

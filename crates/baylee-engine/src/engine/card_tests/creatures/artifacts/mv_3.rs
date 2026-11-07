@@ -59,7 +59,7 @@ fn answer_scry(engine: &mut Engine<RegistryLookup>, n: usize, bottom_all: bool) 
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the controller does the looking");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     let looked: Vec<ObjectId> = before.iter().rev().take(n).copied().collect();
     assert_eq!(cards, looked, "the top {n} cards, top first");
     assert_eq!(piles, scry_piles(u32::try_from(n).unwrap()));
@@ -100,7 +100,7 @@ fn assert_scried(engine: &Engine<RegistryLookup>, before: &[ObjectId], n: usize,
 fn attack_to_blocks(
     engine: &mut Engine<RegistryLookup>,
     attackers: &[ObjectId],
-) -> Vec<crate::choice::BlockOption> {
+) -> Vec<baylee_engine::choice::BlockOption> {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     pass_until(
         engine,
@@ -128,7 +128,7 @@ fn attack_to_blocks(
 
 /// Whether `blocker` may block `attacker` according to the offered options.
 fn may_block(
-    options: &[crate::choice::BlockOption],
+    options: &[baylee_engine::choice::BlockOption],
     blocker: ObjectId,
     attacker: ObjectId,
 ) -> bool {
@@ -148,7 +148,7 @@ fn evasion_probe(
 ) -> (
     Engine<RegistryLookup>,
     [ObjectId; 2],
-    Vec<crate::choice::BlockOption>,
+    Vec<baylee_engine::choice::BlockOption>,
 ) {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())

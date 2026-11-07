@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn wall_of_junk() -> CardIndex {
     card_index("22b0de2d-47a8-4269-ba21-4bc2b4b10b40")

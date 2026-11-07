@@ -31,7 +31,7 @@ fn spreading_algae_destroys_enchanted_swamp_when_tapped_and_returns_to_hand() {
 
 #[test]
 fn spreading_algae_rejects_non_swamps_and_ignores_another_lands_tap() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[swamp(), island()], &[], &[spreading_algae()], &[]);
     let enchanted = lk::obj(&e, p0, swamp());

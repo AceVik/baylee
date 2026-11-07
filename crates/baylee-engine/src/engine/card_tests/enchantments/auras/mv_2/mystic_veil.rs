@@ -2,9 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
-use crate::turn::Step;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT};
+use baylee_engine::turn::Step;
 
 fn mystic_veil() -> CardIndex {
     card_index("43c88fcd-aac9-4741-8fd6-31ac81c5bb6f")

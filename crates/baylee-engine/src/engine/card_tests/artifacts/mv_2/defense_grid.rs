@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn defense_grid() -> CardIndex {
     card_index("22ba474e-f6e6-450d-a4cf-0739f0b51079")

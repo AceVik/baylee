@@ -50,7 +50,7 @@ fn obliterate_cannot_be_countered_and_destroys_artifacts_creatures_and_lands() {
         .unwrap();
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
 
-    crate::engine::card_tests::legends_kit::float(&mut engine, p1, &[(ManaColor::Blue, 2)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p1, &[(ManaColor::Blue, 2)]);
     cast_with_floating(&mut engine, p1, index::COUNTERSPELL);
     aim_at(&mut engine, p1, spell_id);
     pass_until(&mut engine, stack_is_empty);

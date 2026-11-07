@@ -16,7 +16,7 @@ use super::*;
 /// be in the graveyard before the spell resolves.
 #[test]
 fn crop_rotation_sacrifices_a_land_to_put_a_land_from_the_library_onto_the_battlefield() {
-    use crate::choice::ChoicePrompt;
+    use baylee_engine::choice::ChoicePrompt;
 
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())

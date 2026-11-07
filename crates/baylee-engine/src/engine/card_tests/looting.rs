@@ -1,9 +1,9 @@
 //! Connive/recruit use completed draws, defined discard characteristics and exact incarnations.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::{Cause, GameEvent};
-use crate::zone::ZonePosition;
 use baylee_core::generated::index;
+use baylee_engine::event::{Cause, GameEvent};
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -341,7 +341,7 @@ fn looting_finishes_replacement_draw_questions_before_the_discard_choice() {
     );
     for _ in 0..200 {
         if e.state().turn.active == P0
-            && e.state().turn.step == crate::turn::Step::Draw
+            && e.state().turn.step == baylee_engine::turn::Step::Draw
             && matches!(e.pending(), Pending::Priority { player: P0, .. })
         {
             break;
@@ -360,7 +360,7 @@ fn looting_finishes_replacement_draw_questions_before_the_discard_choice() {
             other => panic!("unexpected {other:?}"),
         }
     }
-    assert_eq!(e.state().turn.step, crate::turn::Step::Draw);
+    assert_eq!(e.state().turn.step, baylee_engine::turn::Step::Draw);
     let state = e.dev_state_mut(P0).unwrap();
     state.per_turn.creatures_died = 2;
     state.players[0].mana_pool.add(ManaColor::Black, 1);
@@ -404,7 +404,7 @@ fn looting_second_spell_uses_its_event_ordinal_when_several_casts_are_collected_
         let name = state.names.intern("Test spell");
         let object = state.create_bare(
             caster,
-            crate::object::ObjectKind::Spell,
+            baylee_engine::object::ObjectKind::Spell,
             name,
             ZoneLocation::Stack,
         );
@@ -416,7 +416,7 @@ fn looting_second_spell_uses_its_event_ordinal_when_several_casts_are_collected_
         });
         state.per_turn.spells_cast[usize::from(caster.get())] = number;
     }
-    let triggers = crate::trigger::collect(state, &RegistryLookup, from);
+    let triggers = baylee_engine::trigger::collect(state, &RegistryLookup, from);
     assert_eq!(
         triggers.len(),
         2,

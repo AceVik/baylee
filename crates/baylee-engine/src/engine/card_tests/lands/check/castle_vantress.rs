@@ -50,7 +50,7 @@ fn castle_vantress_arrives_untapped_beside_an_island_and_scries_two_for_its_own_
     let library_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Arrange { .. })
@@ -65,7 +65,7 @@ fn castle_vantress_arrives_untapped_beside_an_island_and_scries_two_for_its_own_
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0, "the activating seat does the looking");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(
         piles,
         scry_piles(2),
@@ -90,7 +90,7 @@ fn castle_vantress_arrives_untapped_beside_an_island_and_scries_two_for_its_own_
     let library = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .clone();
     assert_eq!(library.len(), library_before.len(), "scry draws nothing");
     assert_eq!(

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::{bears, power_toughness};
+use baylee_card_testkit::card_tests::partials_w2c_kit::{bears, power_toughness};
 
 fn tawnos_s_coffin() -> CardIndex {
     card_index("05f20087-416f-4928-a0ab-6d0d2ca2ad05")

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit::{self as lk, P0, P1};
+use baylee_card_testkit::card_tests::legends_kit::{self as lk, P0, P1};
 use baylee_core::generated::{index, subtypes::land};
 use baylee_core::ids::SubtypeId;
 
@@ -34,7 +34,7 @@ fn assert_basic_type(engine: &Engine<RegistryLookup>, target: ObjectId, expected
 fn next_upkeep(engine: &mut Engine<RegistryLookup>, active: PlayerId) {
     pass_until(engine, |e| {
         e.state().turn.active == active
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { .. })
     });
@@ -123,7 +123,7 @@ fn jinx_chooses_each_basic_land_type_on_resolution_then_expires_and_draws_once()
         assert_eq!(lk::pool_of(&engine, P1, mana_colors[choice]), 1);
         assert_eq!(lk::pool_total(&engine, P1), 1);
         pass_until(&mut engine, |e| {
-            e.state().turn.active == P0 && e.state().turn.step == crate::turn::Step::End
+            e.state().turn.active == P0 && e.state().turn.step == baylee_engine::turn::Step::End
         });
         assert_eq!(
             hand_len(&engine, P0),

@@ -5,19 +5,21 @@ use baylee_cards_dsl::{Cost, Duration, Effect, Filter, Modifier, SpendRider};
 fn affect(e: &mut Engine<RegistryLookup>, land: ObjectId, modifier: Modifier) {
     let version = e.state.object(land).unwrap().version;
     let timestamp = e.state.next_timestamp();
-    e.state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: P0,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: Duration::Indefinitely,
-        filter: crate::effects::EffectFilter::ObjectIs(land, version),
-        modifier,
-    });
+    e.state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: Duration::Indefinitely,
+            filter: baylee_engine::effects::EffectFilter::ObjectIs(land, version),
+            modifier,
+        });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 fn curse(e: &mut Engine<RegistryLookup>, land: ObjectId) {
@@ -48,7 +50,7 @@ fn gnomes_rewrites_each_white_unit_preserving_other_colors_and_restrictions() {
             mana_ability: true,
         },
     );
-    let grant = crate::effects::granted_activated(e.state(), land)
+    let grant = baylee_engine::effects::granted_activated(e.state(), land)
         .next()
         .unwrap()
         .id;
@@ -114,7 +116,7 @@ fn gnomes_replacement_survives_loss_of_plains_type_and_later_white_grant() {
             mana_ability: true,
         },
     );
-    let grant = crate::effects::granted_activated(e.state(), land)
+    let grant = baylee_engine::effects::granted_activated(e.state(), land)
         .next()
         .unwrap()
         .id;
@@ -175,7 +177,7 @@ fn gnomes_does_not_rewrite_tapless_mana_even_when_the_land_is_tapped() {
     );
     e.state.set_tapped(land, true);
     e.refresh_offer();
-    let grant = crate::effects::granted_activated(e.state(), land)
+    let grant = baylee_engine::effects::granted_activated(e.state(), land)
         .next()
         .unwrap()
         .id;
@@ -212,7 +214,7 @@ fn gnomes_losing_plains_type_before_resolution_invalidates_its_target() {
             mana_ability: true,
         },
     );
-    let grant = crate::effects::granted_activated(e.state(), land)
+    let grant = baylee_engine::effects::granted_activated(e.state(), land)
         .next()
         .unwrap()
         .id;

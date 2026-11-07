@@ -174,15 +174,16 @@ fn gemrazer_underneath_preserves_body_and_both_cards_leave_together() {
     let _ = engine.state.move_object(
         elf,
         ZoneLocation::Hand(p0),
-        crate::zone::ZonePosition::Top,
-        crate::event::Cause::Effect,
+        baylee_engine::zone::ZonePosition::Top,
+        baylee_engine::event::Cause::Effect,
     );
     for id in [elf, card] {
         let obj = engine.state().object(id).unwrap();
         assert_eq!(obj.zone, Zone::Hand);
         assert!(!obj.riders.iter().any(|r| matches!(
             r,
-            crate::object::Rider::MergedInto(_) | crate::object::Rider::MergedComponent(_)
+            baylee_engine::object::Rider::MergedInto(_)
+                | baylee_engine::object::Rider::MergedComponent(_)
         )));
     }
     assert!(
@@ -212,7 +213,7 @@ fn mutate_target_ownership_follows_spell_owner_even_when_control_is_borrowed() {
     for (owner, expected) in [(p0, false), (p1, true)] {
         let elf = on_battlefield(&engine, owner, llanowar_elves()).unwrap();
         assert_eq!(
-            crate::eval::matches(
+            baylee_engine::eval::matches(
                 &baylee_cards_dsl::Filter::OwnedBySourceOwner,
                 &engine.state,
                 engine.state.object(elf).unwrap(),

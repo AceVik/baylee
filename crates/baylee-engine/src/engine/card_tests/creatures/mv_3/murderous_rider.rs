@@ -89,7 +89,7 @@ fn murderous_rider_swift_end_goes_on_an_adventure_and_the_rider_follows_from_exi
         engine.state().object(exiled).is_some_and(|o| o
             .riders
             .iter()
-            .any(|r| matches!(r, crate::object::Rider::Adventure(_)))),
+            .any(|r| matches!(r, baylee_engine::object::Rider::Adventure(_)))),
         "wearing the rider that says it may be cast from there"
     );
 

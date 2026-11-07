@@ -27,7 +27,7 @@ fn hermetic_study_grants_tap_ping_ability_to_enchanted_creature() {
         &mut engine,
         p0,
         grizzly_bears(),
-        crate::choice::GRANTED_ABILITY,
+        baylee_engine::choice::GRANTED_ABILITY,
     );
     if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
         engine
@@ -47,7 +47,7 @@ fn hermetic_study_grants_tap_ping_ability_to_enchanted_creature() {
 
 #[test]
 fn hermetic_study_grants_the_ability_to_an_opponents_creature_and_its_controller() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = lk::game(
@@ -66,7 +66,7 @@ fn hermetic_study_grants_the_ability_to_an_opponents_creature_and_its_controller
                 p0,
                 PlayerAction::ActivateAbility {
                     source: host,
-                    ability_index: crate::choice::GRANTED_ABILITY
+                    ability_index: baylee_engine::choice::GRANTED_ABILITY
                 }
             )
             .is_err()
@@ -80,7 +80,7 @@ fn hermetic_study_grants_the_ability_to_an_opponents_creature_and_its_controller
             p1,
             PlayerAction::ActivateAbility {
                 source: host,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .unwrap();

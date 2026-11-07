@@ -1,10 +1,10 @@
 //! Independent Guardian Angel: CR 116.2c, 400.7, 608.2b, and 702.61b.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::GrantedActionKind;
 use baylee_core::generated::index;
 use baylee_core::ids::{DamageSourceRef, GrantedActionId, TargetRef};
 use baylee_core::mana::ManaColor;
+use baylee_engine::choice::GrantedActionKind;
 
 const USER: PlayerId = PlayerId::new(0);
 const OTHER: PlayerId = PlayerId::new(1);

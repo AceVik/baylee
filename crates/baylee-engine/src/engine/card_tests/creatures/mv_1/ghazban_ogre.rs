@@ -27,7 +27,7 @@ fn stack_len(engine: &Engine<RegistryLookup>) -> usize {
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .len()
 }
 

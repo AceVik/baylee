@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
 use baylee_cards_dsl::counters;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -23,7 +23,7 @@ fn board() -> (Engine<RegistryLookup>, ObjectId) {
 }
 
 fn add_spores(engine: &mut Engine<RegistryLookup>, id: ObjectId, n: u16) {
-    crate::replacement::put_counters(&mut engine.state, id, counters::SPORE, n);
+    baylee_engine::replacement::put_counters(&mut engine.state, id, counters::SPORE, n);
     engine.refresh_offer();
 }
 

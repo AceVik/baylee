@@ -102,7 +102,7 @@ fn plague_witch_discards_a_card_and_a_swamp_to_shrink_the_creature_it_names() {
         assert_eq!(player, p0, "the activating seat gives up its own card");
         assert_eq!(
             prompt,
-            crate::choice::ChoicePrompt::CostDiscard,
+            baylee_engine::choice::ChoicePrompt::CostDiscard,
             "a cost and not a search, which is all a client has to tell them apart"
         );
         assert_eq!((min, max), (1, 1), "one card, and the cost asks once");

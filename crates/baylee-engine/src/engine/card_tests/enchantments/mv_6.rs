@@ -62,7 +62,9 @@ fn finish_combat(engine: &mut Engine<RegistryLookup>) {
 /// After the attack was declared: the blocks the defender is offered, or
 /// `None` when combat went by without asking (nothing could block).
 #[track_caller]
-fn blocks_offered(engine: &mut Engine<RegistryLookup>) -> Option<Vec<crate::choice::BlockOption>> {
+fn blocks_offered(
+    engine: &mut Engine<RegistryLookup>,
+) -> Option<Vec<baylee_engine::choice::BlockOption>> {
     for _ in 0..40 {
         match engine.pending().clone() {
             Pending::ChooseBlockers { blockers, .. } => return Some(blockers),
@@ -84,7 +86,7 @@ fn blocks_offered(engine: &mut Engine<RegistryLookup>) -> Option<Vec<crate::choi
 
 /// Whether `blocker` is offered the block of `attacker`.
 fn may_block(
-    offer: Option<&Vec<crate::choice::BlockOption>>,
+    offer: Option<&Vec<baylee_engine::choice::BlockOption>>,
     blocker: ObjectId,
     attacker: ObjectId,
 ) -> bool {

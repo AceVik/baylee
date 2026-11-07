@@ -6,18 +6,18 @@
 
 #[allow(clippy::wildcard_imports)] // the card tests' own vocabulary
 use super::*;
-use crate::choice::BlockOption;
-use crate::turn::Step;
+use baylee_engine::choice::BlockOption;
+use baylee_engine::turn::Step;
 
-pub(super) use super::legends_ids as ids;
+pub use super::legends_ids as ids;
 
-pub(super) const P0: PlayerId = PlayerId::new(0);
-pub(super) const P1: PlayerId = PlayerId::new(1);
+pub const P0: PlayerId = PlayerId::new(0);
+pub const P1: PlayerId = PlayerId::new(1);
 
 /// A duel at player 0's first main phase: boards and hands as given, a Forest
 /// library behind each seat.
 #[track_caller]
-pub(super) fn game(
+pub fn game(
     seed: u64,
     p0_board: &[CardIndex],
     p1_board: &[CardIndex],
@@ -36,7 +36,7 @@ pub(super) fn game(
 /// upkeep ("unless you pay", "unless you sacrifice"): every question that is
 /// not a plain priority is handed to `answer` until the main phase is reached.
 #[track_caller]
-pub(super) fn game_with(
+pub fn game_with(
     seed: u64,
     p0_board: &[CardIndex],
     p1_board: &[CardIndex],
@@ -70,7 +70,7 @@ pub(super) fn game_with(
 
 /// Answers the pending yes/no question.
 #[track_caller]
-pub(super) fn yes_no(e: &mut Engine<RegistryLookup>, yes: bool) {
+pub fn yes_no(e: &mut Engine<RegistryLookup>, yes: bool) {
     let Pending::YesNo { player, .. } = e.pending().clone() else {
         panic!("a yes/no question was expected, got {:?}", e.pending());
     };
@@ -80,7 +80,7 @@ pub(super) fn yes_no(e: &mut Engine<RegistryLookup>, yes: bool) {
 /// Adds mana straight to a seat's pool (the harness' own capability) and
 /// refreshes the offer, so the next question sees it.
 #[track_caller]
-pub(super) fn float(e: &mut Engine<RegistryLookup>, seat: PlayerId, mana: &[(ManaColor, u32)]) {
+pub fn float(e: &mut Engine<RegistryLookup>, seat: PlayerId, mana: &[(ManaColor, u32)]) {
     let state = e.dev_state_mut(seat).expect("the harness may set up");
     for (color, n) in mana {
         state.players[usize::from(seat.get())]
@@ -91,22 +91,22 @@ pub(super) fn float(e: &mut Engine<RegistryLookup>, seat: PlayerId, mana: &[(Man
 }
 
 /// The seat's pool holds this many mana of any colour.
-pub(super) fn pool_total(e: &Engine<RegistryLookup>, seat: PlayerId) -> u64 {
+pub fn pool_total(e: &Engine<RegistryLookup>, seat: PlayerId) -> u64 {
     e.state().players[usize::from(seat.get())].mana_pool.total()
 }
 
-pub(super) fn pool_of(e: &Engine<RegistryLookup>, seat: PlayerId, color: ManaColor) -> u32 {
+pub fn pool_of(e: &Engine<RegistryLookup>, seat: PlayerId, color: ManaColor) -> u32 {
     e.state().players[usize::from(seat.get())]
         .mana_pool
         .available(color)
 }
 
 #[track_caller]
-pub(super) fn obj(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> ObjectId {
+pub fn obj(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> ObjectId {
     on_battlefield(e, seat, card).expect("the card is on the battlefield")
 }
 
-pub(super) fn tapped(e: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+pub fn tapped(e: &Engine<RegistryLookup>, id: ObjectId) -> bool {
     e.state()
         .object(id)
         .expect("object exists")
@@ -114,17 +114,17 @@ pub(super) fn tapped(e: &Engine<RegistryLookup>, id: ObjectId) -> bool {
         .contains(Status::TAPPED)
 }
 
-pub(super) fn life(e: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+pub fn life(e: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
     e.state().players[usize::from(seat.get())].life
 }
 
-pub(super) fn damage_on(e: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+pub fn damage_on(e: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
     e.state().object(id).expect("object exists").damage
 }
 
 /// Answers the pending target choice.
 #[track_caller]
-pub(super) fn aim(e: &mut Engine<RegistryLookup>, objects: &[ObjectId], players: &[PlayerId]) {
+pub fn aim(e: &mut Engine<RegistryLookup>, objects: &[ObjectId], players: &[PlayerId]) {
     let Pending::ChooseTargets { player, .. } = e.pending().clone() else {
         panic!("a target choice was expected, got {:?}", e.pending());
     };
@@ -140,13 +140,13 @@ pub(super) fn aim(e: &mut Engine<RegistryLookup>, objects: &[ObjectId], players:
 
 /// Lets the stack empty (every pass is a pass; combat is declared empty).
 #[track_caller]
-pub(super) fn settle(e: &mut Engine<RegistryLookup>) {
+pub fn settle(e: &mut Engine<RegistryLookup>) {
     pass_until(e, stack_is_empty);
 }
 
 /// Casts `card` off floating mana, aims it, and lets it resolve.
 #[track_caller]
-pub(super) fn cast_at(
+pub fn cast_at(
     e: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -162,7 +162,7 @@ pub(super) fn cast_at(
 
 /// Activates `index` of `card` for `seat`, aims it if asked, resolves it.
 #[track_caller]
-pub(super) fn use_ability(
+pub fn use_ability(
     e: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -178,12 +178,7 @@ pub(super) fn use_ability(
 }
 
 /// Whether the ability is on the offer to `seat` right now.
-pub(super) fn offered(
-    e: &Engine<RegistryLookup>,
-    card: CardIndex,
-    seat: PlayerId,
-    index: u32,
-) -> bool {
+pub fn offered(e: &Engine<RegistryLookup>, card: CardIndex, seat: PlayerId, index: u32) -> bool {
     let Pending::Priority { legal, player } = e.pending() else {
         return false;
     };
@@ -198,7 +193,7 @@ pub(super) fn offered(
 
 /// Walks to the declare-attackers question and returns who may attack.
 #[track_caller]
-pub(super) fn attackers_offered(e: &mut Engine<RegistryLookup>) -> Vec<ObjectId> {
+pub fn attackers_offered(e: &mut Engine<RegistryLookup>) -> Vec<ObjectId> {
     pass_until(e, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
@@ -211,7 +206,7 @@ pub(super) fn attackers_offered(e: &mut Engine<RegistryLookup>) -> Vec<ObjectId>
 /// Declares attackers at the pending question; returns the blocks offered to
 /// the defender.
 #[track_caller]
-pub(super) fn declare(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) -> Vec<BlockOption> {
+pub fn declare(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) -> Vec<BlockOption> {
     let Pending::ChooseAttackers { player, .. } = e.pending().clone() else {
         panic!("no attacker question: {:?}", e.pending());
     };
@@ -239,7 +234,7 @@ pub(super) fn declare(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) ->
 
 /// Walks to the declare-attackers question, attacks, returns the blocks.
 #[track_caller]
-pub(super) fn attack(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) -> Vec<BlockOption> {
+pub fn attack(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) -> Vec<BlockOption> {
     let able = attackers_offered(e);
     for a in attackers {
         assert!(able.contains(a), "{a:?} is not offered as an attacker");
@@ -249,7 +244,7 @@ pub(super) fn attack(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) -> 
 
 /// Declares the given blocks (blocker, attacker) and nothing else.
 #[track_caller]
-pub(super) fn block(e: &mut Engine<RegistryLookup>, pairs: &[(ObjectId, ObjectId)]) {
+pub fn block(e: &mut Engine<RegistryLookup>, pairs: &[(ObjectId, ObjectId)]) {
     let Pending::ChooseBlockers { player, .. } = e.pending().clone() else {
         panic!("no block question: {:?}", e.pending());
     };
@@ -263,7 +258,7 @@ pub(super) fn block(e: &mut Engine<RegistryLookup>, pairs: &[(ObjectId, ObjectId
 }
 
 /// Whether `blocker` may block `attacker` per the offer.
-pub(super) fn may_block(offer: &[BlockOption], blocker: ObjectId, attacker: ObjectId) -> bool {
+pub fn may_block(offer: &[BlockOption], blocker: ObjectId, attacker: ObjectId) -> bool {
     offer
         .iter()
         .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
@@ -271,7 +266,7 @@ pub(super) fn may_block(offer: &[BlockOption], blocker: ObjectId, attacker: Obje
 
 /// Passes until the game is in `step` with `seat` holding priority.
 #[track_caller]
-pub(super) fn to_step(e: &mut Engine<RegistryLookup>, seat: PlayerId, step: Step) {
+pub fn to_step(e: &mut Engine<RegistryLookup>, seat: PlayerId, step: Step) {
     pass_until(e, |e| {
         e.state().turn.step == step
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == seat)
@@ -280,11 +275,11 @@ pub(super) fn to_step(e: &mut Engine<RegistryLookup>, seat: PlayerId, step: Step
 
 /// Passes until the second main phase.
 #[track_caller]
-pub(super) fn through_combat(e: &mut Engine<RegistryLookup>) {
+pub fn through_combat(e: &mut Engine<RegistryLookup>) {
     pass_until(e, |e| e.state().turn.phase == Phase::SecondMain);
 }
 
-pub(super) fn zone_of(e: &Engine<RegistryLookup>, id: ObjectId) -> Zone {
+pub fn zone_of(e: &Engine<RegistryLookup>, id: ObjectId) -> Zone {
     e.state().object(id).expect("object exists").zone
 }
 
@@ -292,7 +287,7 @@ pub(super) fn zone_of(e: &Engine<RegistryLookup>, id: ObjectId) -> Zone {
 /// or any card choice is the first of `pick` that the question offers; a
 /// yes/no is `yes`; a number is `x`.
 #[track_caller]
-pub(super) fn drive(e: &mut Engine<RegistryLookup>, pick: &[ObjectId], yes: bool, x: u32) {
+pub fn drive(e: &mut Engine<RegistryLookup>, pick: &[ObjectId], yes: bool, x: u32) {
     for _ in 0..12 {
         match e.pending().clone() {
             Pending::Priority { .. } => return,
@@ -337,7 +332,7 @@ pub(super) fn drive(e: &mut Engine<RegistryLookup>, pick: &[ObjectId], yes: bool
 /// the spell is modal), X (`x`) and targets the announcement asks for, and
 /// stops with the spell on the stack and priority back with the caster.
 #[track_caller]
-pub(super) fn announce(
+pub fn announce(
     e: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -354,7 +349,7 @@ pub(super) fn announce(
             } => {
                 let o = options
                     .iter()
-                    .find(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(m) if m == mode))
+                    .find(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Mode(m) if m == mode))
                     .unwrap_or_else(|| panic!("no mode {mode} in {options:?}"));
                 e.apply(
                     player,
@@ -378,7 +373,7 @@ pub(super) fn announce(
 
 /// `announce`, then let it resolve.
 #[track_caller]
-pub(super) fn cast_modal(
+pub fn cast_modal(
     e: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     card: CardIndex,
@@ -392,7 +387,7 @@ pub(super) fn cast_modal(
 }
 
 /// Whether `card` in `seat`'s hand is on the castable list right now.
-pub(super) fn castable(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> bool {
+pub fn castable(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> bool {
     let Some(id) = in_hand(e, seat, card) else {
         return false;
     };
@@ -401,7 +396,7 @@ pub(super) fn castable(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardInd
 
 /// The current priority holder passes once.
 #[track_caller]
-pub(super) fn pass_once(e: &mut Engine<RegistryLookup>) {
+pub fn pass_once(e: &mut Engine<RegistryLookup>) {
     let Pending::Priority { player, .. } = e.pending().clone() else {
         panic!("priority expected, got {:?}", e.pending());
     };

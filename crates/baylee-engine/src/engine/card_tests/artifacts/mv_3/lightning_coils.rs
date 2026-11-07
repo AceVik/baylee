@@ -81,7 +81,7 @@ fn lightning_coils_removes_five_counters_makes_tokens_and_exiles_them_at_end_ste
 
     pass_until(&mut e, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::End
+            && e.state().turn.step == baylee_engine::turn::Step::End
             && stack_is_empty(e)
     });
     assert_eq!(elementals(&e), 0);

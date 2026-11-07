@@ -2,7 +2,7 @@
 //! These fixtures exercise engine actions; they do not implement the rules under test.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::synthetic::{self, SyntheticLookup};
+use baylee_card_testkit::synthetic::{self, SyntheticLookup};
 use baylee_cards_dsl::{
     AbilityDef, CardDef, Effect, Filter, ModeCount, SpellMode, TargetReq, TargetSpec,
 };
@@ -76,7 +76,7 @@ fn setup(def: &'static CardDef, hand: &[u32], battlefield: &[u32]) -> Engine<Syn
     let mut e = Engine::new(&preset, SyntheticLookup::new(vec![def])).unwrap();
     synthetic::keep_mulligans(&mut e);
     walk(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::FirstMain
+        e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..}if *player==P0)
     });
     for c in ManaColor::ALL {
@@ -207,7 +207,7 @@ fn wall_permission_uses_all_effective_target_slots_including_player_alternatives
         walk(&mut e, empty);
         assert_eq!(
             e.state.object(shadow).unwrap().zone,
-            crate::zone::Zone::Battlefield
+            baylee_engine::zone::Zone::Battlefield
         );
     }
 }
@@ -242,7 +242,7 @@ fn stacked_granted_wall_ability() -> Engine<SyntheticLookup> {
     let recipient = object(&e, index::PRODIGAL_SORCERER.get());
     let shadow = object(&e, index::WALL_OF_SHADOWS.get());
     let stone = object(&e, index::WALL_OF_STONE.get());
-    let grant = crate::effects::granted_activated(&e.state, recipient)
+    let grant = baylee_engine::effects::granted_activated(&e.state, recipient)
         .next()
         .unwrap();
     assert_eq!(grant.definition, *borrowed);
@@ -288,14 +288,16 @@ fn granted_wall_only_definition_stays_frozen_after_recipient_and_grantor_leave_a
     e.state
         .object_mut(stone)
         .unwrap()
-        .take_abilities(crate::object::AbilityList {
+        .take_abilities(baylee_engine::object::AbilityList {
             acquisition,
-            abilities: crate::copiable_abilities::AbilityDefs::from_static(wall_def.abilities),
-            printed: crate::object::PrintedFace::new(index::WALL_OF_SHADOWS, 0),
+            abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(
+                wall_def.abilities,
+            ),
+            printed: baylee_engine::object::PrintedFace::new(index::WALL_OF_SHADOWS, 0),
             token: None,
         });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 
     // Actual responses remove both the granting permanent and activating
@@ -305,18 +307,18 @@ fn granted_wall_only_definition_stays_frozen_after_recipient_and_grantor_leave_a
         cast(&mut e, index::UNSUMMON.get());
         target(&mut e, source);
         walk(&mut e, |e| {
-            e.state.object(source).unwrap().zone == crate::zone::Zone::Hand
+            e.state.object(source).unwrap().zone == baylee_engine::zone::Zone::Hand
         });
         assert_eq!(
             e.state.object(original).unwrap().zone,
-            crate::zone::Zone::Stack
+            baylee_engine::zone::Zone::Stack
         );
     }
     cast(&mut e, index::VIRTUE_OF_KNOWLEDGE.get());
     if let Pending::ChooseCastMode { options, .. } = e.pending() {
         let mode = options
             .iter()
-            .position(|option| matches!(option.kind, crate::choice::CastModeKind::Face(1)))
+            .position(|option| matches!(option.kind, baylee_engine::choice::CastModeKind::Face(1)))
             .unwrap();
         e.apply(P0, PlayerAction::ChooseMode(mode)).unwrap();
     }
@@ -325,7 +327,7 @@ fn granted_wall_only_definition_stays_frozen_after_recipient_and_grantor_leave_a
         matches!(
             e.pending(),
             Pending::ChooseTargets {
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             }
         )
@@ -366,7 +368,7 @@ fn granted_wall_only_definition_stays_frozen_after_recipient_and_grantor_leave_a
     walk(&mut e, empty);
     assert_eq!(
         e.state.object(stone).unwrap().zone,
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
         "original and copy recheck newly acquired Wall protection using frozen definitions"
     );
 }

@@ -30,18 +30,21 @@ fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life
 }
 
-fn zone_count(engine: &Engine<RegistryLookup>, zone: crate::zone::ZoneLocation) -> usize {
+fn zone_count(engine: &Engine<RegistryLookup>, zone: baylee_engine::zone::ZoneLocation) -> usize {
     engine.state().zones.list(zone).len()
 }
 
 fn hand_count(engine: &Engine<RegistryLookup>, seat: u8) -> usize {
-    zone_count(engine, crate::zone::ZoneLocation::Hand(PlayerId::new(seat)))
+    zone_count(
+        engine,
+        baylee_engine::zone::ZoneLocation::Hand(PlayerId::new(seat)),
+    )
 }
 
 fn graveyard_count(engine: &Engine<RegistryLookup>, seat: u8) -> usize {
     zone_count(
         engine,
-        crate::zone::ZoneLocation::Graveyard(PlayerId::new(seat)),
+        baylee_engine::zone::ZoneLocation::Graveyard(PlayerId::new(seat)),
     )
 }
 
@@ -60,7 +63,7 @@ fn surveil_asked(engine: &mut Engine<RegistryLookup>, n: u32) -> Vec<ObjectId> {
         unreachable!("pass_until stopped on the Arrange question")
     };
     assert_eq!(player, PlayerId::new(0), "the controller surveils");
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Surveil);
     assert_eq!(piles, surveil_piles(n), "surveil {n}: top, then graveyard");
     assert_eq!(cards.len(), n as usize, "it looks at the top {n}");
     cards
@@ -266,7 +269,7 @@ fn settle_aiming_at_opponent(engine: &mut Engine<RegistryLookup>) -> bool {
 fn attack_block_options(
     engine: &mut Engine<RegistryLookup>,
     attacker: ObjectId,
-) -> Option<Vec<crate::choice::BlockOption>> {
+) -> Option<Vec<baylee_engine::choice::BlockOption>> {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     pass_until(engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })

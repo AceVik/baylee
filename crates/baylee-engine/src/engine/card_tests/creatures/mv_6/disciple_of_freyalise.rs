@@ -14,7 +14,7 @@ fn garden_of_freyalise_pays_three_life_to_arrive_untapped() {
     let (mut engine, land) =
         play_land_face(disciple_of_freyalise(), 1).expect("the back face is a land");
     assert!(matches!(engine.pending(), Pending::YesNo {
-        player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
     } if *player == p0));
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);
@@ -57,7 +57,12 @@ fn disciple_gains_and_draws_the_sacrificed_creatures_last_power_only_if_paid() {
         keep_mulligans(&mut e);
         reach_main_phase(&mut e, p0);
         let bear = on_battlefield(&e, p0, baylee_core::generated::index::GRIZZLY_BEARS).unwrap();
-        crate::replacement::put_counters(e.dev_state_mut(p0).unwrap(), bear, CounterKind::P1P1, 2);
+        baylee_engine::replacement::put_counters(
+            e.dev_state_mut(p0).unwrap(),
+            bear,
+            CounterKind::P1P1,
+            2,
+        );
         give_mana(&mut e, p0, ManaColor::Green, 6);
         cast_from_hand(&mut e, p0, disciple_of_freyalise());
         pass_until(&mut e, |e| {

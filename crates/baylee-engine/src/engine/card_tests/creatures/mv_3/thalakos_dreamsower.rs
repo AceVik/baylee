@@ -72,7 +72,7 @@ fn thalakos_dreamsower_taps_target_creature_on_damage_and_keeps_it_tapped_while_
 
 #[test]
 fn choosing_to_untap_the_source_releases_the_creature() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(SEED, &[thalakos_dreamsower()], &[GRIZZLY_BEARS], &[], &[]);
     let source = on_battlefield(&e, p0, thalakos_dreamsower()).unwrap();

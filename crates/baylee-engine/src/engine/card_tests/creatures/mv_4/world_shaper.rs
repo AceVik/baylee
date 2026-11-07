@@ -150,7 +150,7 @@ fn world_shaper_brings_back_every_land_in_your_graveyard_tapped_when_it_dies() {
             elves,
             ZoneLocation::Graveyard(p0),
             ZonePosition::Top,
-            crate::event::Cause::DevCommand,
+            baylee_engine::event::Cause::DevCommand,
         )
         .expect("into the graveyard");
     seed_graveyard(&mut engine, p0, 2);

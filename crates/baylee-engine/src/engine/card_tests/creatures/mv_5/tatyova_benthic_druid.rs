@@ -72,7 +72,7 @@ fn tatyova_pays_one_life_and_one_card_for_the_land_that_enters_after_her() {
         engine
             .state()
             .object(land)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield),
+            .is_some_and(|o| o.zone == baylee_engine::zone::Zone::Battlefield),
         "the Forest really is the land that entered"
     );
     assert_eq!(

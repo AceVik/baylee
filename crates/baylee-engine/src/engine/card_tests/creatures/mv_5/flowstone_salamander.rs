@@ -59,7 +59,7 @@ fn flowstone_salamander_deals_one_damage_to_target_creature_blocking_it() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
-        crate::engine::card_tests::legends_kit::damage_on(&engine, bears),
+        baylee_card_testkit::card_tests::legends_kit::damage_on(&engine, bears),
         1
     );
 }

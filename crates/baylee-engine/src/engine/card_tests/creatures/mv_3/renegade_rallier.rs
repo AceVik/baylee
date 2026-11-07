@@ -22,8 +22,8 @@ fn renegade_rallier_reanimates_a_cheap_permanent_card_after_revolt() {
         .move_object(
             departed,
             ZoneLocation::Hand(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     // Two cards the trigger may take, off the top of a deck of Forests.
@@ -100,7 +100,7 @@ fn renegade_rallier_reanimates_a_cheap_permanent_card_after_revolt() {
         .expect("the returned card is still an object");
     assert_eq!(
         landed.zone,
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
         "\"return target permanent card ... to the battlefield\""
     );
     assert_eq!(
@@ -146,7 +146,7 @@ fn revolt_requires_your_departure_in_this_turn_and_not_phasing_or_milling() {
                 .object_mut(bear)
                 .unwrap()
                 .status
-                .insert(crate::object::Status::PHASED_OUT);
+                .insert(baylee_engine::object::Status::PHASED_OUT);
         }
         if case == 3 {
             reach_their_main_phase(&mut e, p1);

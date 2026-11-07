@@ -44,7 +44,7 @@ fn catastrophe_destroys_all_creatures_when_creature_mode_chosen() {
 
 #[test]
 fn catastrophe_land_choice_stops_regeneration_of_a_land_creature() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);

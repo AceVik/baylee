@@ -40,7 +40,7 @@ fn maddening_imp_forces_active_opponents_non_wall_creatures_to_attack() {
 /// The unsupported delayed destruction must not kill unrelated late arrivals.
 #[test]
 fn unsupported_destruction_does_not_kill_creatures_entering_later() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[maddening_imp()],
@@ -75,7 +75,9 @@ fn unsupported_destruction_does_not_kill_creatures_entering_later() {
         },
     )
     .unwrap();
-    pass_until(&mut e, |e| e.state().turn.step == crate::turn::Step::End);
+    pass_until(&mut e, |e| {
+        e.state().turn.step == baylee_engine::turn::Step::End
+    });
     lk::settle(&mut e);
     assert!(
         on_battlefield(&e, P1, index::LLANOWAR_ELVES).is_some(),
@@ -98,12 +100,12 @@ fn unsupported_destruction_does_not_kill_creatures_entering_later() {
 
 #[test]
 fn imp_cannot_activate_on_its_controllers_turn_or_after_combat_begins() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(SEED, &[maddening_imp()], &[index::GRIZZLY_BEARS], &[], &[]);
     assert!(!lk::offered(&e, maddening_imp(), P0, 0));
     reach_their_main_phase(&mut e, P1);
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatBegin
+        e.state().turn.step == baylee_engine::turn::Step::CombatBegin
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
     assert!(!lk::offered(&e, maddening_imp(), P0, 0));

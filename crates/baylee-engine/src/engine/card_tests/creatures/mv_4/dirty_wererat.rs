@@ -36,8 +36,8 @@ fn dirty_wererat_regenerates_by_discarding_and_gains_threshold_stats_and_cant_bl
             .move_object(
                 f,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

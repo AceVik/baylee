@@ -54,7 +54,7 @@ fn maze_exile(e: &mut Engine<RegistryLookup>, attacker: ObjectId) {
 }
 fn next_end_trigger(e: &mut Engine<RegistryLookup>) {
     pass_until(e, |e| {
-        e.state.turn.step == crate::turn::Step::End && !stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::End && !stack_is_empty(e)
     });
 }
 
@@ -105,7 +105,7 @@ fn batch49_paradise_control_change_does_not_change_whose_next_untap_returns_it()
     // Transparent control-transfer fixture; no Implemented land exchange exists.
     e.state.object_mut(land).unwrap().set_controller(P1);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let turn = e.state.turn.number;
     main_after(&mut e, P1, turn);
@@ -129,10 +129,10 @@ fn batch49_glaciers_countered_cleanup_return_does_not_repeat_in_additional_clean
     activate(&mut e, P0, index::THAWING_GLACIERS, 0);
     search_fail(&mut e);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::Cleanup && !stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::Cleanup && !stack_is_empty(e)
     });
     counter_delayed(&mut e);
-    assert_eq!(e.state.turn.step, crate::turn::Step::Cleanup);
+    assert_eq!(e.state.turn.step, baylee_engine::turn::Step::Cleanup);
     assert_eq!(e.state.object(land).unwrap().zone, Zone::Battlefield);
     let turn = e.state.turn.number;
     main_after(&mut e, P1, turn);
@@ -243,7 +243,7 @@ fn batch49_glaciers_activated_on_opponents_turn_returns_in_that_turns_cleanup() 
     activate(&mut e, P0, index::THAWING_GLACIERS, 0);
     search_fail(&mut e);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::Cleanup && !stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::Cleanup && !stack_is_empty(e)
     });
     assert_eq!(e.state.turn.active, P1);
     assert_eq!(e.state.object(land).unwrap().zone, Zone::Battlefield);

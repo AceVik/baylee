@@ -117,6 +117,6 @@ fn aeronaut_admiral_grants_flying_to_its_controllers_vehicles() {
         Some(index::CONQUEROR_S_GALLEON)
     );
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
 }

@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn cessation() -> CardIndex {
     card_index("a8b3a35e-0172-4f7b-b50f-571e59d7ca5f")

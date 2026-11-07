@@ -16,9 +16,9 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ChoicePrompt;
 use baylee_core::generated::index;
 use baylee_core::ids::Defender;
+use baylee_engine::choice::ChoicePrompt;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -74,7 +74,7 @@ fn stack_len(engine: &Engine<RegistryLookup>) -> usize {
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .len()
 }
 

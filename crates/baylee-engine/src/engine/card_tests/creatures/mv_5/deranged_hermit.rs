@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn deranged_hermit() -> CardIndex {
     card_index("b9cd714b-2ad8-4fdb-a8aa-82b17730e071")
@@ -60,7 +60,7 @@ fn deranged_hermit_echo_can_be_paid_and_is_not_due_twice() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut engine, p0, &[(ManaColor::Green, 5)]);

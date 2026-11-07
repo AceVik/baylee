@@ -50,12 +50,12 @@ fn fog_bank_prevents_combat_damage_to_itself() {
         &mut engine,
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
     );
-    crate::engine::card_tests::legends_kit::float(&mut engine, p1, &[(ManaColor::Green, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p1, &[(ManaColor::Green, 1)]);
     cast_with_floating(&mut engine, p1, giant_growth());
     aim_at(&mut engine, p1, bank);
     pass_until(&mut engine, stack_is_empty);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::End
+        e.state().turn.step == baylee_engine::turn::Step::End
     });
     assert_eq!(
         engine.state().object(bear).unwrap().damage,
@@ -64,13 +64,13 @@ fn fog_bank_prevents_combat_damage_to_itself() {
     );
     assert_eq!(engine.state().object(bank).unwrap().damage, 0);
     reach_their_main_phase(&mut engine, p1);
-    let offered = crate::engine::card_tests::legends_kit::attackers_offered(&mut engine);
+    let offered = baylee_card_testkit::card_tests::legends_kit::attackers_offered(&mut engine);
     assert!(!offered.contains(&bank), "defender cannot attack");
     engine
         .apply(p1, PlayerAction::DeclareAttackers { attackers: vec![] })
         .unwrap();
     reach_their_main_phase(&mut engine, p0);
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
     cast_with_floating(&mut engine, p0, lightning_bolt());
     aim_at(&mut engine, p0, bank);
     pass_until(&mut engine, stack_is_empty);

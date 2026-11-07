@@ -123,7 +123,7 @@ fn mirrex_enters_untapped_adds_any_color_only_on_entry_turn() {
 
 #[test]
 fn mirrex_mites_are_artifacts_that_cannot_block_and_toxic_is_combat_only() {
-    use crate::engine::card_tests::token_helpers::{attack, named};
+    use baylee_card_testkit::card_tests::token_helpers::{attack, named};
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = Duel::new(SEED, forest())
@@ -142,7 +142,7 @@ fn mirrex_mites_are_artifacts_that_cannot_block_and_toxic_is_combat_only() {
     assert_eq!(mites.len(), 2);
     let chars = e.state().object(mites[0]).unwrap().characteristics();
     assert!(chars.types.contains(baylee_core::types::TypeSet::ARTIFACT));
-    crate::engine::card_tests::history_helpers::damage_player(&mut e, mites[0], p1, 1, false);
+    baylee_card_testkit::card_tests::history_helpers::damage_player(&mut e, mites[0], p1, 1, false);
     e.apply(p0, PlayerAction::PassPriority).unwrap();
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[1].poison, 0);

@@ -63,7 +63,7 @@ fn resolve_using_shields(engine: &mut Engine<RegistryLookup>) {
             }
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::UseRegenerationShield { .. },
+                prompt: baylee_engine::choice::YesNoPrompt::UseRegenerationShield { .. },
                 ..
             } => {
                 engine.apply(player, PlayerAction::YesNo(true)).unwrap();

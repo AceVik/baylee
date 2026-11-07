@@ -46,7 +46,7 @@ fn rebound_does_not_follow_a_card_out_of_exile_and_back() {
         .unwrap();
     engine.delayed_queue.push_back((p0, delayed));
     assert!(
-        !engine.process_delayed(),
+        !engine.process_delayed_for_tests(),
         "CR 400.7: the returning card is a new object"
     );
     assert!(engine.cast_wizard.is_none());
@@ -108,7 +108,10 @@ fn a_flashed_in_mage_copies_the_opponents_removal_and_points_it_back_at_them() {
         !stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
-    let swords_spell = engine.state().zones.list(crate::zone::ZoneLocation::Stack)[0];
+    let swords_spell = engine
+        .state()
+        .zones
+        .list(baylee_engine::zone::ZoneLocation::Stack)[0];
 
     // Flash. The mana goes first because `castable` is an affordability answer
     // too, and an untapped board would hide the timing question behind a price.
@@ -281,7 +284,7 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     assert_eq!(player, p0, "her controller decides what she eats");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "the question is part of a cost, and the variant is the only thing \
          that says so — it is not a search and it is not a target"
     );
@@ -359,7 +362,7 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ArrangePrompt::Scry,
+        baylee_engine::choice::ArrangePrompt::Scry,
         "the cost is behind her; this question is the effect she was paid for"
     );
     assert_eq!(cards, vec![top], "scry 1 looks at exactly the top card");
@@ -415,7 +418,7 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     else {
         panic!("paying asks which creature, got {:?}", engine.pending())
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert_eq!(
         options,
         vec![seer],
@@ -447,7 +450,7 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     let Pending::Arrange { cards, prompt, .. } = engine.pending().clone() else {
         unreachable!("the predicate just matched")
     };
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Scry);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Scry);
     assert_eq!(
         cards,
         vec![second],

@@ -2,12 +2,12 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
-use crate::engine::card_tests::partials_w2c_kit::{damage_on, hill_giant};
+use baylee_card_testkit::card_tests::partials_w2c_kit::{damage_on, hill_giant};
 
 fn sawback_manticore() -> CardIndex {
     card_index("9360d30c-4556-4b41-bd50-08b4367e5efb")

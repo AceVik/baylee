@@ -256,7 +256,7 @@ fn island_fish_jasconius_is_sacrificed_when_its_controller_has_no_islands() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::AbilityTriggered {
+                baylee_engine::event::GameEvent::AbilityTriggered {
                     source,
                     ability_index: 3,
                     ..

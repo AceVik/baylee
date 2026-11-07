@@ -21,7 +21,7 @@ fn divergent_growth_grants_lands_you_control_tap_for_any_color_until_end_of_turn
     cast_with_floating(&mut engine, p0, growth);
     pass_until(&mut engine, stack_is_empty);
 
-    let grant_id = crate::effects::granted_activated(engine.state(), forests[1])
+    let grant_id = baylee_engine::effects::granted_activated(engine.state(), forests[1])
         .next()
         .unwrap()
         .id;

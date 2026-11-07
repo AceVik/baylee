@@ -5,6 +5,22 @@
 //! M2 (layers, replacement chains, unusual casting, copy machinery).
 
 #![warn(missing_docs)]
+// The card test crates' build opens internals to them (`test-support`); the
+// shipped build is the one these lints hold.
+#![cfg_attr(
+    feature = "test-support",
+    allow(
+        dead_code,
+        missing_docs,
+        private_interfaces,
+        private_bounds,
+        unused_imports
+    )
+)]
+
+// The test kit names the engine `baylee_engine`, in the card test crates and here.
+#[cfg(test)]
+extern crate self as baylee_engine;
 
 /// Dense, generational, O(1)-clone object storage.
 pub mod arena;
@@ -82,12 +98,21 @@ pub mod loops;
 
 // Phasing out and in, with what is attached (CR 702.26): `GameState`
 // methods the resolver and the untap step share.
+#[cfg(feature = "test-support")]
+pub mod damage;
+#[cfg(not(feature = "test-support"))]
 mod damage;
 mod damage_history;
+#[cfg(feature = "test-support")]
+pub mod entry;
+#[cfg(not(feature = "test-support"))]
 mod entry;
 mod graveyard_order;
 mod hasher;
 mod mana_rules;
+#[cfg(feature = "test-support")]
+pub mod permanent_guards;
+#[cfg(not(feature = "test-support"))]
 mod permanent_guards;
 mod phasing;
 mod preparation;
@@ -95,8 +120,9 @@ mod sources;
 
 // The L4 firing recorder, `BAYLEE_ABILITY_LOG` (this crate's tests only;
 // `docs/verification-hooks.md`).
-#[cfg(test)]
-mod ability_log;
+#[cfg(any(test, feature = "test-support"))]
+#[doc(hidden)]
+pub mod ability_log;
 
 // NOTE: the roadmap items (pipeline formalization, replacement registry,
 // legality precompute, cost model, unusual casting, copy machinery, format

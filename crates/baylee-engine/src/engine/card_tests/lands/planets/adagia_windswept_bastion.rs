@@ -31,7 +31,7 @@ fn adagia_windswept_bastion_enters_tapped_and_taps_for_white() {
 
 #[test]
 fn adagia_stations_and_makes_a_legendary_copy_whose_supertype_is_copiable() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::types::SupertypeSet;
     let mut e = kit::game(
         978,
@@ -43,7 +43,7 @@ fn adagia_stations_and_makes_a_legendary_copy_whose_supertype_is_copiable() {
     let planet = kit::obj(&e, kit::P0, adagia_windswept_bastion());
     let angel = kit::obj(&e, kit::P0, serra_angel());
     let ring = kit::obj(&e, kit::P0, sol_ring());
-    crate::replacement::put_counters(&mut e.state, planet, CounterKind::Charge, 8);
+    baylee_engine::replacement::put_counters(&mut e.state, planet, CounterKind::Charge, 8);
     kit::float(&mut e, kit::P0, &[(ManaColor::White, 4)]);
     assert!(!priority_offer(&e).abilities.contains(&(planet, 2)));
     activate(&mut e, kit::P0, adagia_windswept_bastion(), 1);
@@ -125,7 +125,7 @@ fn adagia_stations_and_makes_a_legendary_copy_whose_supertype_is_copiable() {
 /// p1's turn.
 #[test]
 fn adagia_station_and_its_twelve_plus_ability_are_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(
         981,
         &[adagia_windswept_bastion(), serra_angel(), sol_ring()],
@@ -134,7 +134,7 @@ fn adagia_station_and_its_twelve_plus_ability_are_sorcery_timing_only() {
         &[],
     );
     let planet = kit::obj(&e, kit::P0, adagia_windswept_bastion());
-    crate::replacement::put_counters(
+    baylee_engine::replacement::put_counters(
         e.dev_state_mut(kit::P0).unwrap(),
         planet,
         CounterKind::Charge,

@@ -33,7 +33,7 @@ fn copied_imprison_trigger_keeps_original_activated_ability_identity() {
     if let Pending::ChooseCastMode { options, .. } = e.pending() {
         let mode = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
             .unwrap();
         e.apply(P0, PlayerAction::ChooseMode(mode)).unwrap();
     }
@@ -70,7 +70,7 @@ fn imprison_already_triggered_activation_counter_survives_actual_aura_departure(
     pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
     assert_eq!(
         e.state.object(aura).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     imprison_payment(&mut e, true);
     pass_until(&mut e, stack_is_empty);

@@ -1,8 +1,8 @@
 //! Independent card audit: Earthbind is cast and answered with real spells.
 #[allow(clippy::wildcard_imports)] // Shared card test vocabulary.
 use super::*;
-use crate::event::{DamageTarget, GameEvent};
 use baylee_core::generated::index;
+use baylee_engine::event::{DamageTarget, GameEvent};
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);

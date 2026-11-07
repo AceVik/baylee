@@ -31,7 +31,7 @@ fn wreckage_wickerfolk_flies_and_surveils_two() {
             engine
                 .state()
                 .zones
-                .list(crate::zone::ZoneLocation::Graveyard(p0))
+                .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
                 .contains(card)
         );
     }

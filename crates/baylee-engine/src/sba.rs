@@ -941,11 +941,8 @@ fn destroy_with_replacements(
 }
 
 /// Destroy a simultaneous set, retaining attachments before any member leaves.
-pub(crate) fn destroy_all(
-    state: &mut GameState,
-    objects: &[baylee_core::ids::ObjectId],
-    no_regen: bool,
-) {
+#[doc(hidden)]
+pub fn destroy_all(state: &mut GameState, objects: &[baylee_core::ids::ObjectId], no_regen: bool) {
     let departures: Vec<_> = objects
         .iter()
         .map(|id| {

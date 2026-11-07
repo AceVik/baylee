@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn enraging_licid() -> CardIndex {
     card_index("5ec9f317-887a-4e08-a165-e7cf15eb071d")

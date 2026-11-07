@@ -43,7 +43,7 @@ fn geistcatchers_rig_may_shoot_a_flyer_for_four() {
             matches!(
                 e.pending(),
                 Pending::YesNo {
-                    prompt: crate::choice::YesNoPrompt::MayDo,
+                    prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                     ..
                 }
             )

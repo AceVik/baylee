@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -40,7 +40,7 @@ fn dauthi_cutthroat_has_shadow_and_destroys_target_creature_with_shadow() {
 
 #[test]
 fn shadow_limits_both_blocking_and_being_blocked() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let subject = card_index("5fdde593-54cb-4186-974b-df4383f7efe2");
     let mut e = lk::game(

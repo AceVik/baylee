@@ -57,7 +57,7 @@ fn organ_grinder_exiles_three_graveyard_cards_to_make_target_player_lose_three_l
                 game.pending()
             );
         };
-        assert_eq!(prompt, crate::choice::ChoicePrompt::CostExile);
+        assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostExile);
         assert_eq!((min, max), (1, 1));
         assert!(options.contains(&card_to_exile));
         game.apply(

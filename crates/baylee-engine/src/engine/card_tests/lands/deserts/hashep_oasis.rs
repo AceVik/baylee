@@ -105,7 +105,7 @@ fn hashep_oasis_sacrifices_a_desert_for_three_three_on_the_creature_it_targets()
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostSacrifice,
+                    baylee_engine::choice::ChoicePrompt::CostSacrifice,
                     "the Desert is a cost being paid and not a search"
                 );
                 assert_eq!((min, max), (1, 1), "one Desert, no more and no fewer");

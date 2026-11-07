@@ -15,7 +15,7 @@ fn blinding_beam() -> CardIndex {
 /// Entwine {1}"
 #[test]
 fn blinding_beam_entwined_taps_two_creatures_and_prevents_next_untap() {
-    use crate::engine::card_tests::partials_w1b_kit as kit;
+    use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())

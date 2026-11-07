@@ -29,7 +29,7 @@ fn interlude(e: &mut Engine<RegistryLookup>, player: PlayerId, objects: Vec<Obje
 }
 fn group_end(e: &mut Engine<RegistryLookup>) {
     pass_until(e, |e| {
-        e.state.turn.step == crate::turn::Step::End
+        e.state.turn.step == baylee_engine::turn::Step::End
             && !stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { .. })
     });
@@ -67,7 +67,7 @@ fn eerie_multiple_cards_share_one_delayed_trigger_and_one_resolution() {
         assert_eq!(e.state.object(id).unwrap().zone, Zone::Battlefield);
         assert_eq!(e.state.object(id).unwrap().controller, P0);
     }
-    assert_eq!(e.state.turn.step, crate::turn::Step::End);
+    assert_eq!(e.state.turn.step, baylee_engine::turn::Step::End);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn copying_eerie_return_retains_entire_group_after_original_is_countered() {
     if let Pending::ChooseCastMode { options, .. } = e.pending() {
         let face = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
             .unwrap();
         e.apply(P0, PlayerAction::ChooseMode(face)).unwrap();
     }

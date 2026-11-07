@@ -54,7 +54,7 @@ fn gate_to_phyrexia_activates_only_in_its_controllers_upkeep_and_once_a_turn() {
     // The next upkeep is p0's own.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     assert!(
@@ -86,7 +86,7 @@ fn gate_to_phyrexia_activates_only_in_its_controllers_upkeep_and_once_a_turn() {
             engine.pending()
         )
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");
     assert!(
         options.contains(&elf) && options.contains(&spider),
@@ -143,7 +143,7 @@ fn gate_to_phyrexia_activates_only_in_its_controllers_upkeep_and_once_a_turn() {
     // "Your upkeep" is the controller's: the opponent's is not a window.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p1
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     assert!(
@@ -166,7 +166,7 @@ fn gate_to_phyrexia_activates_only_in_its_controllers_upkeep_and_once_a_turn() {
     // A new turn resets `PerTurn(1)`: the ability works again.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     assert!(

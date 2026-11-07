@@ -47,7 +47,7 @@ fn batch46_agatha_preserves_graveyard_activation_zone_and_ferocious_condition() 
         .counters
         .add(CounterKind::P1P1, 1);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let Pending::Priority { legal, .. } = e.pending() else {
         panic!("priority")

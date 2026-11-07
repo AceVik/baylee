@@ -25,7 +25,7 @@ fn main_after(e: &mut Engine<RegistryLookup>, player: PlayerId, after: u32) {
     pass_until(e, |e| {
         e.state.turn.number > after
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player:p,..} if *p==player)
     });
 }
@@ -61,7 +61,7 @@ fn vault_offer(e: &Engine<RegistryLookup>) -> bool {
     matches!(
         e.pending(),
         Pending::YesNo {
-            prompt: crate::choice::YesNoPrompt::SkipTurn { .. },
+            prompt: baylee_engine::choice::YesNoPrompt::SkipTurn { .. },
             ..
         }
     )
@@ -72,7 +72,7 @@ fn next_actual_main(e: &mut Engine<RegistryLookup>, accept_first_vault: &mut boo
         pass_until(e, |e| {
             vault_offer(e)
                 || (e.state.turn.number > turn
-                    && e.state.turn.phase == crate::turn::Phase::FirstMain
+                    && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
                     && matches!(e.pending(), Pending::Priority { .. }))
         });
         if vault_offer(e) {

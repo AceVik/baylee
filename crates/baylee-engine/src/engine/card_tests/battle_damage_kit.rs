@@ -2,11 +2,11 @@
 #[allow(clippy::wildcard_imports)] // The card tests' shared harness vocabulary.
 use super::*;
 
-pub(super) fn belenon() -> CardIndex {
+pub fn belenon() -> CardIndex {
     card_index("e462e78d-2d26-4a2d-8d8f-5f31abe5c924")
 }
 
-pub(super) fn game(
+pub fn game(
     seed: u64,
     board: &[CardIndex],
     hand: &[CardIndex],
@@ -44,14 +44,14 @@ pub(super) fn game(
     (e, battle)
 }
 
-pub(super) fn float(e: &mut Engine<RegistryLookup>, color: ManaColor, amount: u32) {
+pub fn float(e: &mut Engine<RegistryLookup>, color: ManaColor, amount: u32) {
     e.dev_state_mut(PlayerId::new(0)).unwrap().players[0]
         .mana_pool
         .add(color, amount);
     e.refresh_offer();
 }
 
-pub(super) fn defense(e: &Engine<RegistryLookup>, battle: ObjectId) -> u16 {
+pub fn defense(e: &Engine<RegistryLookup>, battle: ObjectId) -> u16 {
     e.state()
         .object(battle)
         .unwrap()
@@ -59,20 +59,20 @@ pub(super) fn defense(e: &Engine<RegistryLookup>, battle: ObjectId) -> u16 {
         .get(baylee_cards_dsl::CounterKind::Defense)
 }
 
-pub(super) fn protector(e: &Engine<RegistryLookup>, battle: ObjectId) -> PlayerId {
+pub fn protector(e: &Engine<RegistryLookup>, battle: ObjectId) -> PlayerId {
     e.state()
         .object(battle)
         .unwrap()
         .riders
         .iter()
         .find_map(|rider| match rider {
-            crate::object::Rider::BattleProtector(player) => Some(*player),
+            baylee_engine::object::Rider::BattleProtector(player) => Some(*player),
             _ => None,
         })
         .expect("Siege entered with a protector")
 }
 
-pub(super) fn knight(e: &Engine<RegistryLookup>) -> Option<ObjectId> {
+pub fn knight(e: &Engine<RegistryLookup>) -> Option<ObjectId> {
     e.state()
         .zones
         .list(ZoneLocation::Battlefield)
@@ -85,7 +85,7 @@ pub(super) fn knight(e: &Engine<RegistryLookup>) -> Option<ObjectId> {
         })
 }
 
-pub(super) fn assert_nonlethal(e: &Engine<RegistryLookup>, battle: ObjectId, damage: u16) {
+pub fn assert_nonlethal(e: &Engine<RegistryLookup>, battle: ObjectId, damage: u16) {
     assert_eq!(defense(e, battle), 5 - damage);
     assert_eq!(
         e.state().object(battle).unwrap().damage,
@@ -100,12 +100,12 @@ pub(super) fn assert_nonlethal(e: &Engine<RegistryLookup>, battle: ObjectId, dam
     assert_eq!(e.state().object(knight(e).unwrap()).unwrap().damage, 0);
 }
 
-pub(super) fn await_defeat_cast(e: &mut Engine<RegistryLookup>, battle: ObjectId) {
+pub fn await_defeat_cast(e: &mut Engine<RegistryLookup>, battle: ObjectId) {
     pass_until(e, |e| {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::PlayFromExile,
+                prompt: baylee_engine::choice::ChoicePrompt::PlayFromExile,
                 ..
             }
         )
@@ -113,7 +113,7 @@ pub(super) fn await_defeat_cast(e: &mut Engine<RegistryLookup>, battle: ObjectId
     assert!(
         matches!(e.pending(), Pending::ChooseCards {
         player, options, min: 0, max: 1,
-        prompt: crate::choice::ChoicePrompt::PlayFromExile, ..
+        prompt: baylee_engine::choice::ChoicePrompt::PlayFromExile, ..
     } if *player == PlayerId::new(0) && options.as_slice() == [battle]),
         "{:?}",
         e.pending()
@@ -125,7 +125,7 @@ pub(super) fn await_defeat_cast(e: &mut Engine<RegistryLookup>, battle: ObjectId
     );
 }
 
-pub(super) fn accept_back(e: &mut Engine<RegistryLookup>, battle: ObjectId) {
+pub fn accept_back(e: &mut Engine<RegistryLookup>, battle: ObjectId) {
     e.apply(
         PlayerId::new(0),
         PlayerAction::ChooseObjects {

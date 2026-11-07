@@ -54,7 +54,7 @@ fn flailing_drake_pumps_creature_it_blocks_by_plus_one_plus_one() {
 
 #[test]
 fn flailing_drake_pumps_only_its_blocker_and_only_until_end_of_turn() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[flailing_drake(), index::GRIZZLY_BEARS],

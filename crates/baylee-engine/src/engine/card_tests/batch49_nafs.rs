@@ -51,7 +51,7 @@ fn attacks_hit(e: &mut Engine<RegistryLookup>, asps: Vec<ObjectId>) {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
 }
 fn debts(e: &Engine<RegistryLookup>) -> Vec<GrantedActionId> {
@@ -64,7 +64,7 @@ fn debts(e: &Engine<RegistryLookup>) -> Vec<GrantedActionId> {
         .filter(|o| {
             matches!(
                 o.effect,
-                crate::choice::GrantedActionKind::CancelDelayedLifeLoss { amount: 1 }
+                baylee_engine::choice::GrantedActionKind::CancelDelayedLifeLoss { amount: 1 }
             )
         })
         .map(|o| o.id)
@@ -75,14 +75,14 @@ fn p1_upkeep(e: &mut Engine<RegistryLookup>) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == P1
-            && e.state.turn.step == crate::turn::Step::Upkeep
+            && e.state.turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player: P1, .. })
     });
 }
 fn draw_trigger(e: &mut Engine<RegistryLookup>) {
     pass_until(e, |e| {
         e.state.turn.active == P1
-            && e.state.turn.step == crate::turn::Step::Draw
+            && e.state.turn.step == baylee_engine::turn::Step::Draw
             && !stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { .. })
     });

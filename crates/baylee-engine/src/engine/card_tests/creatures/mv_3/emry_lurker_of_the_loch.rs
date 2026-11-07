@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::legends_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as kit;
 use baylee_core::generated::index;
 
 /// Whether Emry is on the castable list when `own` artifacts stand on the
@@ -138,8 +138,12 @@ fn emry_taps_for_her_permission_and_it_lapses_when_the_turn_ends() {
 
     kit::use_ability(&mut e, p0, index::EMRY_LURKER_OF_THE_LOCH, 1, &[stone], &[]);
     let permitted = |e: &Engine<RegistryLookup>| {
-        crate::casting::graveyard_cast_permission(e.state(), p0, e.state().object(stone).unwrap())
-            .is_some()
+        baylee_engine::casting::graveyard_cast_permission(
+            e.state(),
+            p0,
+            e.state().object(stone).unwrap(),
+        )
+        .is_some()
     };
     assert!(permitted(&e), "the chosen card may be cast this turn");
     assert!(kit::tapped(&e, emry), "{{T}} is the cost of the ability");

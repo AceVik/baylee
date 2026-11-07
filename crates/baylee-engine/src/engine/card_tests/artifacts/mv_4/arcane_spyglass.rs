@@ -32,7 +32,7 @@ fn sacrificing_a_land_draws_and_charges_the_spyglass() {
             engine.pending()
         )
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert!(
         !options.contains(&spyglass),
         "the Spyglass is no land: {options:?}"

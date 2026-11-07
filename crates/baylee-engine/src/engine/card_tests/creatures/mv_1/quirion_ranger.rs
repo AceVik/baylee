@@ -108,7 +108,7 @@ fn quirion_ranger_bounces_a_tapped_forest_and_only_once_a_turn() {
     assert_eq!(player, p0, "the activating seat is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostReturn,
+        baylee_engine::choice::ChoicePrompt::CostReturn,
         "not `CostSacrifice`: the Forest named here comes back to a hand, \
          and a player shown \"which one are you giving up\" would decline"
     );

@@ -1,7 +1,7 @@
 //! Escaped Shapeshifter conditional keywords, played.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 fn escaped_shapeshifter() -> CardIndex {
     card_index("17f2342b-4dd8-445a-a7c1-4a15a5688294")

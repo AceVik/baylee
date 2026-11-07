@@ -46,7 +46,7 @@ fn diabolic_edict_makes_target_player_sacrifice_a_creature() {
 
 #[test]
 fn diabolic_edict_can_target_you_but_only_you_choose_your_sacrifice() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[index::GRIZZLY_BEARS],

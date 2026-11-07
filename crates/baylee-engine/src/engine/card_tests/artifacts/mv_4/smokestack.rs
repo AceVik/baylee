@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ArrangePrompt;
 use baylee_cards_dsl::counters;
+use baylee_engine::choice::ArrangePrompt;
 
 fn smokestack() -> CardIndex {
     card_index("fda61506-ed79-47fd-badd-639185297913")
@@ -70,7 +70,7 @@ fn offer_soot_before_sacrifice(engine: &mut Engine<RegistryLookup>, stack: Objec
     let order: Vec<_> = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Stack)
+        .list(baylee_engine::zone::ZoneLocation::Stack)
         .iter()
         .rev()
         .map(|id| engine.state().object(*id).unwrap().ability.unwrap().index)

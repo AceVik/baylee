@@ -130,7 +130,7 @@ fn leovold_ignores_his_own_targeting_and_may_be_declined() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             }
         )

@@ -1,9 +1,9 @@
 //! Draw replacement ordering and boundary cases for Ring of Ma'rûf.
 #[allow(clippy::wildcard_imports)] // Shared batch fixtures and real-card helpers.
 use super::*;
-use crate::state::DrawReplacement;
-use crate::turn::Step;
 use baylee_cards_dsl::Modifier;
+use baylee_engine::state::DrawReplacement;
+use baylee_engine::turn::Step;
 
 fn table(rings: usize, sanctuary: bool, outside: &[CardIndex]) -> Engine<RegistryLookup> {
     let mut battlefield = vec![index::RING_OF_MA_RUF; rings];
@@ -132,7 +132,7 @@ fn batch45_ring_unused_replacement_expires_at_end_of_turn() {
     pass_until(&mut e, |e| e.state.turn.number > turn);
     assert_eq!(ring_effects(&e), 0);
     pass_until(&mut e, |e| {
-        e.state.turn.active == P0 && e.state.turn.phase == crate::turn::Phase::FirstMain
+        e.state.turn.active == P0 && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
     });
     pool(&mut e, ManaColor::Blue, 3);
     let before = e.state.per_turn.draws[0];
@@ -149,7 +149,7 @@ fn batch45_sanctuary_skip_preserves_ring_for_the_following_draw() {
     // permanents' replacement effects then compete for each individual draw.
     e.state.turn.step = Step::Draw;
     e.state.draw_cards(P0, 2);
-    assert!(e.offer_queued_draw());
+    assert!(e.offer_queued_draw_for_tests());
     assert!(skipping(&e));
     yes(&mut e, true);
     assert!(skipping(&e));
@@ -169,7 +169,7 @@ fn batch45_sanctuary_decline_with_no_wish_options_settles_the_draw() {
     let mut e = table(1, true, &[]);
     e.state.turn.step = Step::Draw;
     e.state.draw_cards(P0, 1);
-    assert!(e.offer_queued_draw());
+    assert!(e.offer_queued_draw_for_tests());
     assert!(skipping(&e));
     yes(&mut e, false);
     assert!(!wishing(&e));
@@ -200,7 +200,7 @@ fn batch45_same_source_identity_does_not_confuse_skip_and_wish_replacements() {
         e.state.next_draw_offer(),
         Some((P0, DrawReplacement::Skip(sanctuary)))
     );
-    assert!(e.offer_queued_draw());
+    assert!(e.offer_queued_draw_for_tests());
     assert!(skipping(&e));
     yes(&mut e, false);
     assert_eq!(e.state.draw_wish_effect(P0, None).unwrap().0, wish);
@@ -218,7 +218,7 @@ fn batch45_controlled_player_cannot_choose_an_outside_card() {
     cast(&mut e, spell);
     // Word of Command's resolution-control segment uses this registration:
     // the chosen card remains P0's, while P1 makes its resolving decisions.
-    e.remember_controlled_spell(spell, P1, P0);
+    e.remember_controlled_spell_for_tests(spell, P1, P0);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(ring_effects(&e), 0);
     assert_eq!(e.state.per_turn.draws[0], 1);

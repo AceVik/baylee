@@ -75,7 +75,7 @@ fn to_the_untap_question() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             }
         )

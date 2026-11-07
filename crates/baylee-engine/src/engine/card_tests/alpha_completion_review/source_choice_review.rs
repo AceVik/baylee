@@ -29,8 +29,8 @@ fn blink(engine: &mut Engine<RegistryLookup>, object: ObjectId) {
             .move_object(
                 object,
                 destination,
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

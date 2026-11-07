@@ -85,7 +85,7 @@ fn galleon_crews_and_returns_transformed_only_at_end_of_combat() {
     e.apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
             && matches!(e.pending(),Pending::Priority{player,..} if *player==p0)
     });
     assert_eq!(e.state().object(ship).unwrap().face_index, 1);

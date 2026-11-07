@@ -1,8 +1,8 @@
 //! Sengir Vampire's real combat, death triggers and later removal spells.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::GameEvent;
 use baylee_core::generated::index;
+use baylee_engine::event::GameEvent;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -105,7 +105,7 @@ fn sengir_vampire_gets_one_counter_for_each_damaged_blocker_that_dies() {
         matches!(e.pending(), Pending::ChooseNumber { .. })
     });
     assert!(matches!(e.pending(), Pending::ChooseNumber {
-        player, reason: crate::choice::NumberPrompt::CombatDamage { source, .. }, ..
+        player, reason: baylee_engine::choice::NumberPrompt::CombatDamage { source, .. }, ..
     } if *player == P0 && *source == vampire));
     e.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
     pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);

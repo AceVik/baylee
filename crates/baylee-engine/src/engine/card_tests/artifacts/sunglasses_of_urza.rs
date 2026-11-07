@@ -119,10 +119,10 @@ fn sunglasses_of_urza_only_functions_on_the_battlefield() {
                 glasses,
                 destination,
                 ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
-        e.sync_static_effects();
+        e.sync_static_effects_for_tests();
         e.refresh_offer();
         assert!(!offered(&e, P0, index::LIGHTNING_BOLT));
         assert_eq!(
@@ -139,11 +139,11 @@ fn sunglasses_of_urza_phasing_suspends_and_restores_its_permission() {
     let glasses = on_battlefield(&e, P0, GLASSES).unwrap();
     add_mana(&mut e, P0, ManaColor::White, 1);
     e.dev_state_mut(P0).unwrap().phase_out(&[glasses]);
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(!offered(&e, P0, index::LIGHTNING_BOLT));
     e.dev_state_mut(P0).unwrap().phase_in(glasses);
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert!(offered(&e, P0, index::LIGHTNING_BOLT));
 }

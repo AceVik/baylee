@@ -150,7 +150,7 @@ fn a_flashed_reconfiguration_makes_an_attacker_a_vehicle_that_cannot_be_declared
 /// The type rewrite removes creature subtypes; the granted crew ability restores creaturehood.
 #[test]
 fn a_reconfigured_elf_can_be_crewed_and_loses_its_old_creature_types() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::subtypes;
     let mut e = kit::game(
         979,
@@ -168,7 +168,7 @@ fn a_reconfigured_elf_can_be_crewed_and_loses_its_old_creature_types() {
     assert!(c.subtypes.contains(subtypes::artifact::VEHICLE));
     assert!(!c.subtypes.contains(subtypes::creature::ELF));
     assert!(!c.subtypes.contains(subtypes::creature::DRUID));
-    let ability = crate::choice::granted_ability(0);
+    let ability = baylee_engine::choice::granted_ability(0);
     assert!(priority_offer(&e).abilities.contains(&(host, ability)));
     e.apply(
         kit::P0,

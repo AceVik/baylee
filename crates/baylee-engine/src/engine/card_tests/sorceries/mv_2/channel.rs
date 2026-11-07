@@ -2,10 +2,10 @@
 //! 601.2g, 605.3a, and cleanup expiration.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::GrantedActionKind;
 use baylee_core::generated::index;
 use baylee_core::ids::GrantedActionId;
 use baylee_core::mana::ManaColor;
+use baylee_engine::choice::GrantedActionKind;
 
 // oracle_id = "d1b815d1-2848-40d4-a555-66822d1becbc"
 fn channel() -> CardIndex {
@@ -94,8 +94,8 @@ fn pay(engine: &mut Engine<RegistryLookup>, id: GrantedActionId) {
             .filter(|entry| entry.seq > since)
             .all(|entry| !matches!(
                 entry.event,
-                crate::event::GameEvent::AbilityTriggered { .. }
-                    | crate::event::GameEvent::SpellCast { .. }
+                baylee_engine::event::GameEvent::AbilityTriggered { .. }
+                    | baylee_engine::event::GameEvent::SpellCast { .. }
             )),
         "Channel is a special action, not casting or activating"
     );
@@ -245,15 +245,15 @@ fn channel_review_at_zero_life_cannot_pay_again_even_when_loss_is_forbidden() {
     engine
         .state
         .effects
-        .register(crate::effects::ContinuousEffect {
+        .register(baylee_engine::effects::ContinuousEffect {
             id: baylee_core::ids::EffectId::new(0),
             source: None,
             controller: USER,
-            origin: crate::effects::EffectOrigin::Resolution,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
             layer: modifier.layer(),
             timestamp,
             duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-            filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+            filter: baylee_engine::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
             modifier,
         });
     pay(&mut engine, action);

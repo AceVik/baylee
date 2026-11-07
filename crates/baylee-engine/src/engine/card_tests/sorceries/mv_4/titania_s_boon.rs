@@ -36,7 +36,7 @@ fn titania_s_boon_puts_plus_one_counter_on_each_creature_you_control() {
 
 #[test]
 fn titania_s_boon_excludes_opponents_creatures_and_your_noncreatures() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

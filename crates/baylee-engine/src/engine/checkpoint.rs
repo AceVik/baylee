@@ -8,7 +8,8 @@ use super::*;
 
 #[allow(clippy::struct_excessive_bools)] // Exact snapshot of the driver's independent latches.
 #[derive(Clone)]
-pub(super) struct Checkpoint {
+#[doc(hidden)]
+pub struct Checkpoint {
     /// The game without its journal, which only grows (`Journal`): its
     /// length is kept instead, and a restore cuts it back to that, as
     /// `GameState::roll_back` does. A shared journal would be copied whole
@@ -76,7 +77,8 @@ impl Checkpoint {
     }
 
     #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
-    pub(super) fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
+    #[doc(hidden)]
+    pub fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
         let Engine {
             lookup: _,
             state,
@@ -180,7 +182,8 @@ impl Checkpoint {
     }
 
     #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
-    pub(super) fn restore<L: CardLookup>(self, engine: &mut Engine<L>) {
+    #[doc(hidden)]
+    pub fn restore<L: CardLookup>(self, engine: &mut Engine<L>) {
         let Engine {
             lookup: _,
             state,

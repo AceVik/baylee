@@ -37,7 +37,7 @@ fn winter_orb_limits_untapping_to_one_land_while_it_is_itself_untapped() {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::Untap,
+                prompt: baylee_engine::choice::ChoicePrompt::Untap,
                 ..
             }
         )
@@ -114,13 +114,14 @@ fn a_tapped_winter_orb_lets_every_land_untap_with_no_question_asked() {
 
     reach_their_main_phase(&mut engine, p1);
     for _ in 0..60 {
-        if engine.state().turn.active == p0 && engine.state().turn.step == crate::turn::Step::Upkeep
+        if engine.state().turn.active == p0
+            && engine.state().turn.step == baylee_engine::turn::Step::Upkeep
         {
             break;
         }
         match engine.pending().clone() {
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::Untap,
+                prompt: baylee_engine::choice::ChoicePrompt::Untap,
                 ..
             } => panic!(
                 "Winter Orb was tapped as the untap step began: no question \
@@ -149,7 +150,7 @@ fn a_tapped_winter_orb_lets_every_land_untap_with_no_question_asked() {
     );
     assert_eq!(
         engine.state().turn.step,
-        crate::turn::Step::Upkeep,
+        baylee_engine::turn::Step::Upkeep,
         "and stopped at its upkeep, right after the untap step"
     );
     // Winter Orb's own untapping is never restricted — only how many

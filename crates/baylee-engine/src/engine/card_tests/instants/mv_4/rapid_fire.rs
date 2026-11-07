@@ -78,7 +78,10 @@ fn rapid_fire_is_castable_before_blockers_and_refused_after() {
         },
     )
     .unwrap();
-    assert_eq!(e.state().turn.step, crate::turn::Step::DeclareAttackers);
+    assert_eq!(
+        e.state().turn.step,
+        baylee_engine::turn::Step::DeclareAttackers
+    );
     float_white(&mut e);
     assert!(
         castable(&e),
@@ -99,7 +102,10 @@ fn rapid_fire_is_castable_before_blockers_and_refused_after() {
         &mut e,
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
     );
-    assert_eq!(e.state().turn.step, crate::turn::Step::DeclareBlockers);
+    assert_eq!(
+        e.state().turn.step,
+        baylee_engine::turn::Step::DeclareBlockers
+    );
     float_white(&mut e);
     assert!(
         e.state().players[0].mana_pool.available(ManaColor::White) >= 4,

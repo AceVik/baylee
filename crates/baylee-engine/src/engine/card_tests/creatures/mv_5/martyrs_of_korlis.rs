@@ -38,8 +38,8 @@ fn martyrs_of_korlis_lets_its_controller_choose_between_two_copies() {
     let destinations: Vec<ObjectId> = options
         .iter()
         .filter_map(|option| match option.kind {
-            crate::choice::DamageEffectKind::Redirect {
-                to: crate::event::DamageTarget::Object(id),
+            baylee_engine::choice::DamageEffectKind::Redirect {
+                to: baylee_engine::event::DamageTarget::Object(id),
             } => Some(id),
             _ => None,
         })
@@ -56,8 +56,8 @@ fn martyrs_of_korlis_lets_its_controller_choose_between_two_copies() {
         .find(|option| {
             matches!(
                 option.kind,
-                crate::choice::DamageEffectKind::Redirect {
-                    to: crate::event::DamageTarget::Object(id),
+                baylee_engine::choice::DamageEffectKind::Redirect {
+                    to: baylee_engine::event::DamageTarget::Object(id),
                 } if id == chosen
             )
         })

@@ -146,9 +146,9 @@ fn whim_of_volrath_that_loses_its_target_goes_to_the_graveyard() {
 /// untouched. The colour-word test above never plays this sentence.
 #[test]
 fn whim_of_volrath_changes_a_basic_land_type_until_end_of_turn() {
-    use crate::text_changes::TextReplacement;
     use baylee_cards_dsl::TextWordKind;
     use baylee_core::generated::subtypes::land;
+    use baylee_engine::text_changes::TextReplacement;
 
     let mut engine = a_knight_and_a_whim(2);
     let forests = all_on_battlefield(&engine, P0, forest());

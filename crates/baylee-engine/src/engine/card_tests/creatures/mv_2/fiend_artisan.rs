@@ -40,8 +40,8 @@ fn fiend_artisan_sacrifices_another_creature_and_finds_one_within_x() {
             .move_object(
                 guard,
                 ZoneLocation::Library(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }
@@ -65,7 +65,7 @@ fn fiend_artisan_sacrifices_another_creature_and_finds_one_within_x() {
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
     };
-    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::CostSacrifice);
     assert_eq!(options, vec![elves], "another creature: not the Artisan");
     engine
         .apply(

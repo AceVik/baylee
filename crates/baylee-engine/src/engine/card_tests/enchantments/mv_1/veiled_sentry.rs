@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn veiled_sentry() -> CardIndex {
     card_index("0b9b8e60-51eb-4d4a-95c1-48ca5b8153df")

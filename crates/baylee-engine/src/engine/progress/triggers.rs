@@ -366,7 +366,7 @@ impl<L: CardLookup> Engine<L> {
                 coin_stake: None,
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::triggered_mana(
                 &self.state,
                 &self.lookup,
@@ -1048,4 +1048,14 @@ fn is_graveyard_trigger(trigger: &crate::trigger::PendingTrigger) -> bool {
             )
         )
     })
+}
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn collect_triggers_for_tests(&mut self) {
+        self.collect_triggers();
+    }
 }

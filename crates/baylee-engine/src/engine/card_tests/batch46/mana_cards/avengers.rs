@@ -96,7 +96,7 @@ fn batch46_avengers_tower_reveals_a_hero_and_orders_only_the_rest() {
     assert!(
         e.journal().entries().iter().any(|entry| matches!(
             &entry.event,
-            crate::event::GameEvent::Revealed { player, cards }
+            baylee_engine::event::GameEvent::Revealed { player, cards }
                 if *player == P0 && cards == &[goblin]
         )),
         "the chosen Hero is publicly revealed before entering the hand"

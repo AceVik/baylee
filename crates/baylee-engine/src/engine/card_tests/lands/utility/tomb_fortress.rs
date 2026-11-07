@@ -98,7 +98,7 @@ fn tomb_fortress_finds_a_newly_milled_creature_untapped() {
 /// opponent's turn.
 #[test]
 fn tomb_fortress_reanimation_is_sorcery_timing_only() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(953, &[tomb_fortress()], &[], &[llanowar_elves()], &[]);
     let fortress = kit::obj(&e, kit::P0, tomb_fortress());
     assert_sorcery_timing_only(&mut e, fortress, 1, &[(ManaColor::Black, 5)]);

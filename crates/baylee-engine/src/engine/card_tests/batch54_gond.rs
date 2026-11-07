@@ -15,7 +15,7 @@ fn next_main(e: &mut Engine<RegistryLookup>, p: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == p
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..}if *player==p)
     });
 }
@@ -31,7 +31,7 @@ fn ordered_entry(
         if let Pending::ChooseCards {
             player,
             options,
-            prompt: crate::choice::ChoicePrompt::EntryReplacement,
+            prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
             ..
         } = e.pending()
         {
@@ -50,7 +50,7 @@ fn ordered_entry(
         !matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::EntryReplacement,
+                prompt: baylee_engine::choice::ChoicePrompt::EntryReplacement,
                 ..
             }
         ),

@@ -22,8 +22,8 @@ fn mirror_golem_prevents_combat_damage_from_the_imprinted_creature_type() {
         .move_object(
             copy,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();
@@ -93,8 +93,8 @@ fn mirror_golem_takes_damage_from_a_type_it_did_not_imprint() {
         .move_object(
             copy,
             ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

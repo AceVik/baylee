@@ -26,8 +26,8 @@ fn crashing_centaur_activates_trample_and_gains_stats_and_shroud_with_threshold(
             .move_object(
                 p,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

@@ -63,7 +63,7 @@ fn teferi_blocks_actual_nondamage_loss_and_actual_gain_but_not_sacrifice_cost() 
             .object(land)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT),
+            .contains(baylee_engine::object::Status::PHASED_OUT),
         "later entries are not covered by the one-shot phase-out"
     );
     activate(&mut e, index::ZURAN_ORB, 0);
@@ -113,9 +113,9 @@ fn life_lock_returns_before_arithmetic_and_does_not_record_life_loss() {
     let before = e.state.snapshot_hash();
     // Explicit central-door boundary fixture after actual spell resolution.
     e.state
-        .change_life(P0, i32::MAX, crate::event::Cause::Effect);
+        .change_life(P0, i32::MAX, baylee_engine::event::Cause::Effect);
     e.state
-        .change_life(P0, i32::MIN, crate::event::Cause::Effect);
+        .change_life(P0, i32::MIN, baylee_engine::event::Cause::Effect);
     assert_eq!(
         e.state.snapshot_hash(),
         before,
@@ -132,19 +132,21 @@ fn unpreventable_combat_damage_distinguishes_ring_protection_from_teferi_life_lo
         pass_until(&mut e, stack_is_empty);
         // Transparent independent unpreventability fixture; the protection comes from the actual card.
         let modifier = baylee_cards_dsl::Modifier::CombatDamageCantBePrevented;
-        let filter = crate::effects::EffectFilter::object(&e.state, bear);
+        let filter = baylee_engine::effects::EffectFilter::object(&e.state, bear);
         let timestamp = e.state.next_timestamp();
-        e.state.effects.register(crate::effects::ContinuousEffect {
-            id: baylee_core::ids::EffectId::new(0),
-            source: None,
-            controller: P1,
-            origin: crate::effects::EffectOrigin::Resolution,
-            layer: modifier.layer(),
-            timestamp,
-            duration: baylee_cards_dsl::Duration::Indefinitely,
-            filter,
-            modifier,
-        });
+        e.state
+            .effects
+            .register(baylee_engine::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: None,
+                controller: P1,
+                origin: baylee_engine::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp,
+                duration: baylee_cards_dsl::Duration::Indefinitely,
+                filter,
+                modifier,
+            });
         e.state.invalidate_projections();
         e.refresh_offer();
         pass_until(
@@ -170,8 +172,8 @@ fn unpreventable_combat_damage_distinguishes_ring_protection_from_teferi_life_lo
                 entry.seq > before
                     && matches!(
                         entry.event,
-                        crate::event::GameEvent::DamageDealt {
-                            target: crate::event::DamageTarget::Player(P0),
+                        baylee_engine::event::GameEvent::DamageDealt {
+                            target: baylee_engine::event::DamageTarget::Player(P0),
                             amount: 2,
                             ..
                         }

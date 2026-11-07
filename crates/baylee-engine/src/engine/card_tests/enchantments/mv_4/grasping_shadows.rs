@@ -137,7 +137,7 @@ fn shadows_lair_spends_a_dread_counter_to_draw_and_lose_one_life() {
         state.transform(lair, def, 1),
         "turned over to Shadows' Lair"
     );
-    crate::replacement::put_counters(state, lair, counters::DREAD, 1);
+    baylee_engine::replacement::put_counters(state, lair, counters::DREAD, 1);
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
@@ -152,7 +152,7 @@ fn shadows_lair_spends_a_dread_counter_to_draw_and_lose_one_life() {
     let hand = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
 
     // The Swamp pays {B}; the Lair's own {T} is part of the cost.
@@ -172,7 +172,7 @@ fn shadows_lair_spends_a_dread_counter_to_draw_and_lose_one_life() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand + 1,
         "into your hand"
@@ -181,13 +181,13 @@ fn shadows_lair_spends_a_dread_counter_to_draw_and_lose_one_life() {
 
 #[test]
 fn third_lone_attack_transforms_in_place_even_if_the_attacker_leaves() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for attacker_leaves in [false, true] {
         let mut e = kit::game(975, &[grasping_shadows(), llanowar_elves()], &[], &[], &[]);
         let shadows = kit::obj(&e, kit::P0, grasping_shadows());
         let elf = kit::obj(&e, kit::P0, llanowar_elves());
         let original = identity(&e, shadows);
-        crate::replacement::put_counters(&mut e.state, shadows, counters::DREAD, 2);
+        baylee_engine::replacement::put_counters(&mut e.state, shadows, counters::DREAD, 2);
         kit::attackers_offered(&mut e);
         e.apply(
             kit::P0,
@@ -233,11 +233,11 @@ fn shadows_lair_taps_for_exactly_one_black() {
 /// the second lone attack leaves two counters and the enchantment as it is.
 #[test]
 fn second_lone_attack_adds_a_dread_counter_and_does_not_transform() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(975, &[grasping_shadows(), llanowar_elves()], &[], &[], &[]);
     let shadows = kit::obj(&e, kit::P0, grasping_shadows());
     let elf = kit::obj(&e, kit::P0, llanowar_elves());
-    crate::replacement::put_counters(&mut e.state, shadows, counters::DREAD, 1);
+    baylee_engine::replacement::put_counters(&mut e.state, shadows, counters::DREAD, 1);
     kit::attackers_offered(&mut e);
     e.apply(
         kit::P0,

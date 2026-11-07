@@ -63,7 +63,7 @@ fn devouring_strossus_sacrifices_creature_on_upkeep_and_to_regenerate() {
     assert!(in_graveyard(&engine, p0, grizzly_bears()).is_some());
 
     // Destroy Devouring Strossus with Hero's Downfall: regeneration shield saves it.
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Black, 3)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Black, 3)]);
     cast_with_floating(&mut engine, p0, index::HERO_S_DOWNFALL);
     aim_at(&mut engine, p0, strossus_id);
     pass_until(&mut engine, stack_is_empty);

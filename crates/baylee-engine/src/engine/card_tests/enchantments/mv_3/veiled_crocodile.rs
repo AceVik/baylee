@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn veiled_crocodile() -> CardIndex {
     card_index("bdc3ff35-f8d8-477d-b042-94a9f8ed7243")
@@ -36,8 +36,8 @@ fn veiled_crocodile_becomes_crocodile_creature_when_hands_are_empty() {
                 .move_object(
                     id,
                     ZoneLocation::Graveyard(seat),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Setup,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Setup,
                 )
                 .unwrap();
         }

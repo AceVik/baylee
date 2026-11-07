@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -125,7 +125,7 @@ fn haunting_misery_exiles_the_chosen_creature_card_and_deals_one_damage() {
 
     assert_eq!(
         lk::zone_of(&e, bears),
-        crate::zone::Zone::Exile,
+        baylee_engine::zone::Zone::Exile,
         "the chosen card is exiled, not left in the graveyard"
     );
     assert!(

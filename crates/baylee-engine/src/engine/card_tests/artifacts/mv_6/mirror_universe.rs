@@ -5,8 +5,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
 use baylee_cards_dsl::{Duration, Filter, Modifier, PlayerRel};
+use baylee_engine::turn::Step;
 
 // oracle_id = "8d231d2f-5274-4b55-8262-9eb95654d183"
 fn mirror_universe() -> CardIndex {
@@ -121,17 +121,19 @@ fn cannot_lose_life(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
         who: PlayerRel::You,
     };
     let timestamp = state.next_timestamp();
-    state.effects.register(crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: None,
-        controller: seat,
-        origin: crate::effects::EffectOrigin::Resolution,
-        layer: modifier.layer(),
-        timestamp,
-        duration: Duration::UntilEndOfTurn,
-        filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
-        modifier,
-    });
+    state
+        .effects
+        .register(baylee_engine::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: seat,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: Duration::UntilEndOfTurn,
+            filter: baylee_engine::effects::EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
     engine.refresh_offer();
 }
 

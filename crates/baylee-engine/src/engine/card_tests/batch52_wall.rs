@@ -87,7 +87,7 @@ fn wall_only_spell_cannot_choose_shadows_but_broad_spell_can_when_only_walls_exi
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(shadow).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
 }
 
@@ -114,7 +114,7 @@ fn wall_only_activated_ability_excludes_shadows() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(shadow).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }
 
@@ -158,11 +158,11 @@ fn wall_prevents_all_damage_from_actual_creature_it_blocks() {
         "blocked source's activated noncombat damage is also prevented"
     );
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(
         e.state.object(wall).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }
 
@@ -219,7 +219,7 @@ fn wall_only_spell_copy_retains_restriction_when_retargeted() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(shadow).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }
 
@@ -275,7 +275,7 @@ fn wall_only_original_spell_cannot_be_retargeted_to_shadows() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(shadow).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
 }
 
@@ -317,7 +317,7 @@ fn wall_does_not_prevent_damage_from_a_creature_it_is_not_blocking() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(wall).unwrap().zone,
-        crate::zone::Zone::Graveyard,
+        baylee_engine::zone::Zone::Graveyard,
         "the Sorcerer is not a creature the Wall is blocking: its damage is dealt"
     );
 }
@@ -350,11 +350,11 @@ fn wall_takes_no_combat_damage_from_the_creature_it_blocks() {
     )
     .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(
         e.state.object(wall).unwrap().zone,
-        crate::zone::Zone::Battlefield,
+        baylee_engine::zone::Zone::Battlefield,
         "a 2-power creature it blocks cannot kill a 0/1 Wall of Shadows"
     );
     assert_eq!(e.state.object(wall).unwrap().damage, 0);

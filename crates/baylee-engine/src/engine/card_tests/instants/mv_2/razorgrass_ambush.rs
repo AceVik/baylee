@@ -96,7 +96,7 @@ fn razorgrass_ambush_burns_a_creature_that_is_attacking() {
 
 #[test]
 fn razorgrass_ambush_can_target_a_blocker() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut engine = kit::game(
         956,
         &[llanowar_elves()],
@@ -127,7 +127,7 @@ fn razorgrass_field_pay_three_life_enters_untapped_and_declining_enters_tapped()
         let (mut engine, land) =
             play_land_face(razorgrass_ambush(), 1).expect("plays as Razorgrass Field");
         assert!(matches!(engine.pending(), Pending::YesNo {
-            player, prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
+            player, prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 3 }, ..
         } if *player == p0));
         engine.apply(p0, PlayerAction::YesNo(pay)).unwrap();
         assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);

@@ -54,7 +54,7 @@ fn walking_sponge_removes_flying_from_target_creature_until_end_of_turn() {
 
 #[test]
 fn walking_sponge_can_choose_first_strike_or_trample_on_resolution() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     for (card, mode, keyword) in [
         (index::WHITE_KNIGHT, 1, KeywordSet::FIRST_STRIKE),

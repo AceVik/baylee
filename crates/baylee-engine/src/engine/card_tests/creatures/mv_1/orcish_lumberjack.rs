@@ -55,7 +55,7 @@ fn orcish_lumberjack_sacrifices_a_forest_of_yours_for_three_mana_in_any_combinat
     assert_eq!(player, p0, "the activating seat is the one asked");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "a cost and not a search, which is all a client has to tell the two apart"
     );
     assert_eq!((min, max), (1, 1), "one Forest, no more and no fewer");

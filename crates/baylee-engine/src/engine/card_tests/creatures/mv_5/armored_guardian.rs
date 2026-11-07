@@ -39,7 +39,7 @@ fn armored_guardian_grants_protection_from_chosen_color_and_self_shroud() {
     assert_eq!(pt(&engine, guardian_id), (2, 5));
 
     // Float ample white, blue, and red mana to test both activated abilities and protection.
-    crate::engine::card_tests::legends_kit::float(
+    baylee_card_testkit::card_tests::legends_kit::float(
         &mut engine,
         p0,
         &[

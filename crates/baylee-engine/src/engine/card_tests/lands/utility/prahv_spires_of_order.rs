@@ -92,7 +92,7 @@ fn q_next_main(e: &mut Engine<RegistryLookup>, p: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == p
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player,..} if *player==p)
     });
 }
@@ -113,7 +113,7 @@ fn prahv_chooses_shrouded_source_on_resolution_and_prevents_noncombat() {
     let original = keywords(&e, sorcerer);
     e.state.object_mut(sorcerer).unwrap().base_mut().keywords = original.union(KeywordSet::SHROUD);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     q_activate(&mut e, index::PRAHV_SPIRES_OF_ORDER, 1);
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseDamageSource { .. })
@@ -263,13 +263,13 @@ fn prahv_chosen_permanent_spell_prevents_combat_and_sacrificed_sources_damage() 
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(fanatic).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     // Haste fixture avoids changing turns (the actual shield expires at cleanup).
     let original = keywords(&e, fanatic);
     e.state.object_mut(fanatic).unwrap().base_mut().keywords = original.union(KeywordSet::HASTE);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let life = e.state.players[0].life;
     pass_until(
@@ -289,7 +289,7 @@ fn prahv_chosen_permanent_spell_prevents_combat_and_sacrificed_sources_damage() 
     e.apply(P0, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.phase == crate::turn::Phase::SecondMain
+        e.state.turn.phase == baylee_engine::turn::Phase::SecondMain
             && matches!(e.pending(),Pending::Priority{player,..}if *player==P1)
     });
     assert_eq!(
@@ -308,7 +308,7 @@ fn prahv_chosen_permanent_spell_prevents_combat_and_sacrificed_sources_damage() 
     q_targets(&mut e, vec![bear], vec![]);
     assert_eq!(
         e.state.object(fanatic).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     pass_until(&mut e, stack_is_empty);
     assert_eq!(

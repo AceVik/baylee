@@ -22,7 +22,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn equinox() -> CardIndex {
     card_index("0fa2cb01-476e-4e82-94e6-9639e53a7743")
@@ -71,7 +71,7 @@ fn the_mountain_wears_equinox(
 /// Whether a spell was countered, off the journal.
 fn countered(engine: &Engine<RegistryLookup>, spell: ObjectId) -> bool {
     engine.journal().entries().iter().any(|entry| {
-        matches!(entry.event, crate::event::GameEvent::SpellCountered { object } if object == spell)
+        matches!(entry.event, baylee_engine::event::GameEvent::SpellCountered { object } if object == spell)
     })
 }
 
@@ -83,7 +83,7 @@ fn countered(engine: &Engine<RegistryLookup>, spell: ObjectId) -> bool {
 fn granted_to(engine: &Engine<RegistryLookup>, land: ObjectId) -> Vec<u32> {
     kit::offered(engine, land)
         .into_iter()
-        .filter(|index| crate::choice::granted_slot(*index).is_some())
+        .filter(|index| baylee_engine::choice::granted_slot(*index).is_some())
         .collect()
 }
 
@@ -385,7 +385,7 @@ fn equinox_does_not_counter_damage_that_kills_an_animated_land() {
     pass_until(&mut engine, |e| {
         e.state().turn.number == 2
             && e.state().turn.active == kit::P1
-            && matches!(e.state().turn.step, crate::turn::Step::Upkeep)
+            && matches!(e.state().turn.step, baylee_engine::turn::Step::Upkeep)
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == kit::P0)
     });
     tap_mana_where(&mut engine, kit::P0, |id| id == swamp_land);
@@ -494,7 +494,7 @@ fn flash_flood_against_equinox(
     pass_until(&mut engine, |e| {
         e.state().turn.number == 2
             && e.state().turn.active == kit::P1
-            && matches!(e.state().turn.step, crate::turn::Step::Upkeep)
+            && matches!(e.state().turn.step, baylee_engine::turn::Step::Upkeep)
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == kit::P0)
     });
     tap_mana_where(&mut engine, kit::P0, |id| id != carrier && id != den);

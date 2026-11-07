@@ -188,7 +188,8 @@ impl<L: CardLookup> Engine<L> {
     }
 
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
+    #[doc(hidden)]
+    pub fn compute_legal(&self, player: PlayerId) -> LegalActions {
         let adjustments = self.spell_adjustments(player);
         let mut legal = LegalActions {
             can_pass: true,

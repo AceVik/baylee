@@ -1,15 +1,15 @@
 //! Shared played scenarios for the two "control more creatures" combat
 //! restrictions. Each card keeps its own tests and literal card id.
 
-use super::*;
+pub use super::*;
 
-const P0: PlayerId = PlayerId::new(0);
-const P1: PlayerId = PlayerId::new(1);
+pub const P0: PlayerId = PlayerId::new(0);
+pub const P1: PlayerId = PlayerId::new(1);
 
 /// Reach player 0's second attack declaration, when a preset creature is no
 /// longer summoning-sick. Other players declare no attackers on the way.
 #[track_caller]
-fn at_player_zeros_second_attack(engine: &mut Engine<RegistryLookup>) {
+pub fn at_player_zeros_second_attack(engine: &mut Engine<RegistryLookup>) {
     pass_until(
         engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
@@ -26,7 +26,7 @@ fn at_player_zeros_second_attack(engine: &mut Engine<RegistryLookup>) {
 /// Two against two is not "more" against player 1, but is more than player
 /// 2's zero. The offer must name only the latter, and `apply` must agree.
 #[track_caller]
-pub(crate) fn attack_compares_each_defender(card: CardIndex) {
+pub fn attack_compares_each_defender(card: CardIndex) {
     let p2 = PlayerId::new(2);
     let mut engine = Duel::table(SEED, forest(), 3)
         .battlefield(0, &[card, gray_ogre()])
@@ -83,7 +83,7 @@ pub(crate) fn attack_compares_each_defender(card: CardIndex) {
     assert!(engine.state().combat.is_attacking(creature));
 }
 
-fn controlled_creatures(engine: &Engine<RegistryLookup>, player: PlayerId) -> usize {
+pub fn controlled_creatures(engine: &Engine<RegistryLookup>, player: PlayerId) -> usize {
     engine
         .state()
         .battlefield_seen()
@@ -98,19 +98,19 @@ fn controlled_creatures(engine: &Engine<RegistryLookup>, player: PlayerId) -> us
 
 /// One board and what it must answer. `stolen` names the creature player 2
 /// takes with Ray of Command after attackers are declared, and whose it was.
-struct BlockCase<'a> {
-    attacking: &'a [CardIndex],
-    defending: &'a [CardIndex],
-    third: &'a [CardIndex],
-    stolen: Option<(PlayerId, CardIndex)>,
-    counts: [usize; 3],
-    legal: bool,
+pub struct BlockCase<'a> {
+    pub attacking: &'a [CardIndex],
+    pub defending: &'a [CardIndex],
+    pub third: &'a [CardIndex],
+    pub stolen: Option<(PlayerId, CardIndex)>,
+    pub counts: [usize; 3],
+    pub legal: bool,
 }
 
 /// Plays `case`: player 0 attacks with everything, player 2 steals if the case
 /// says so, and player 1 is offered and tries the block of player 0's Ogre.
 #[track_caller]
-fn play_block_case(card: CardIndex, case: &BlockCase<'_>) {
+pub fn play_block_case(card: CardIndex, case: &BlockCase<'_>) {
     let p2 = PlayerId::new(2);
     let ray_of_command = baylee_core::generated::index::RAY_OF_COMMAND;
     let third: Vec<CardIndex> = case.third.iter().copied().chain([island(); 4]).collect();
@@ -203,7 +203,7 @@ fn play_block_case(card: CardIndex, case: &BlockCase<'_>) {
 /// which the first two cases put on the other side of the answer, or a count
 /// from before the declaration, which the last two move with a real spell.
 #[track_caller]
-pub(crate) fn block_compares_the_attacking_player(card: CardIndex) {
+pub fn block_compares_the_attacking_player(card: CardIndex) {
     let bears = baylee_core::generated::index::GRIZZLY_BEARS;
     let cases = [
         // A tie with player 0 is not more, however few player 2 has.

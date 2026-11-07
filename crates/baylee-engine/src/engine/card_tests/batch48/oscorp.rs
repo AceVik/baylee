@@ -196,7 +196,7 @@ fn next_main(e: &mut Engine<RegistryLookup>, player: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { player: p, .. } if *p == player)
     });
 }
@@ -273,7 +273,7 @@ fn batch48_oscorp_leng_replaced_effect_discard_does_not_grant_graveyard_play() {
     assert!(matches!(
         e.pending(),
         Pending::Arrange {
-            prompt: crate::choice::ArrangePrompt::DiscardToLibrary,
+            prompt: baylee_engine::choice::ArrangePrompt::DiscardToLibrary,
             ..
         }
     ));

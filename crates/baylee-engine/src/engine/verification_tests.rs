@@ -12,11 +12,11 @@
 //! into the log directory when the recorder is on.
 
 use super::testkit::card_index;
-use crate::ability_log::{self, Kind, json_str};
 use baylee_cards_dsl::{AbilityDef, CardDef, FaceDef, ReplacementRule};
 use baylee_core::generated::subtypes::land;
 use baylee_core::ids::AbilityRef;
 use baylee_core::types::TypeSet;
+use baylee_engine::ability_log::{self, Kind, json_str};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -28,12 +28,14 @@ const SORCERER: &str = "5e961d15-5972-4e4b-9385-1cd7cd7c6bbe";
 const WARDEN: &str = "f3fad295-1af2-4ecc-8546-b121ad6be27b";
 const SEASON: &str = "01546b7d-a233-4176-8843-d732074dc5b6";
 
-const BOLT_TEST: &str = "engine::card_tests::instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player";
-const ANTHEM_TEST: &str = "engine::card_tests::enchantments::mv_3::glorious_anthem::glorious_anthem_pumps_every_creature_its_controller_has_and_no_other";
-const SORCERER_TEST: &str = "engine::card_tests::creatures::mv_3::prodigal_sorcerer::prodigal_sorcerer_taps_to_deal_one_damage_to_any_target";
-const WARDEN_TEST: &str = "engine::card_tests::creatures::mv_1::soul_warden::soul_warden_gains_life_for_another_creature_and_not_for_itself";
-const SEASON_TEST: &str =
-    "engine::card_rider_tests::doubling_season_doubles_a_walkers_starting_loyalty";
+const BOLT_TEST: &str =
+    "instants::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player";
+const ANTHEM_TEST: &str = "enchantments::glorious_anthem::glorious_anthem_pumps_every_creature_its_controller_has_and_no_other";
+const SORCERER_TEST: &str =
+    "creatures::prodigal_sorcerer::prodigal_sorcerer_taps_to_deal_one_damage_to_any_target";
+const WARDEN_TEST: &str =
+    "creatures::soul_warden::soul_warden_gains_life_for_another_creature_and_not_for_itself";
+const SEASON_TEST: &str = "card_rider_tests::doubling_season_doubles_a_walkers_starting_loyalty";
 
 /// Runs `tests` in a fresh copy of this test binary with `env` set (or, for
 /// `None`, removed), and returns its exit status and output.
@@ -437,9 +439,11 @@ fn pool_inventory() {
 const TEMPORAL_MASTERY: &str = "5c58b8e6-c572-461e-893e-a8c05f20ba17";
 const WARHAMMER: &str = "dba35ac5-7ad3-488a-a006-6b9a1d54eea5";
 const BOTTOMLESS_VAULT: &str = "e43413e4-be17-49af-978a-26210d05f52a";
-const MASTERY_TEST: &str = "engine::card_tests::sorceries::mv_7::temporal_mastery::temporal_mastery_takes_an_extra_turn_and_exiles_itself";
-const WARHAMMER_TEST: &str = "engine::card_tests::artifacts::equipment::mv_3::loxodon_warhammer::loxodon_warhammer_pumps_and_arms_the_creature_it_holds_and_no_other";
-const SILOS_TEST: &str = "engine::card_tests::lands::storage::bottomless_vault::a_storage_land_banks_a_counter_only_on_the_upkeeps_it_spent_tapped";
+const MASTERY_TEST: &str =
+    "sorceries::temporal_mastery::temporal_mastery_takes_an_extra_turn_and_exiles_itself";
+const WARHAMMER_TEST: &str = "artifacts::loxodon_warhammer::loxodon_warhammer_pumps_and_arms_the_creature_it_holds_and_no_other";
+const SILOS_TEST: &str =
+    "lands::bottomless_vault::a_storage_land_banks_a_counter_only_on_the_upkeeps_it_spent_tapped";
 
 /// Three doors the recorder used to miss (TODO.md, "Verification-hook
 /// findings"): a spell that exiles itself as it resolves left the stack
@@ -496,9 +500,11 @@ fn the_recorder_logs_a_self_exiling_spell_an_attached_grant_and_an_untap_static(
 const LICH: &str = "5b7515f2-7a5a-4e2a-9784-6cbacd768172";
 const TIME_VAULT: &str = "99d4d99d-cf56-45aa-aa39-a250695612f2";
 const ISLAND_SANCTUARY: &str = "7d1769d0-d942-45b3-a31c-2bbe45e68661";
-const LICH_TEST: &str = "engine::card_tests::enchantments::lich::lich_put_into_a_graveyard_loses_the_game_even_above_zero_life";
-const VAULT_TEST: &str = "engine::card_tests::artifacts::time_vault::skipping_a_turn_untaps_the_vault_as_the_next_turn_begins";
-const SANCTUARY_TEST: &str = "engine::card_tests::enchantments::mv_2::island_sanctuary::island_sanctuary_yes_skips_the_turn_based_draw_and_makes_the_restriction";
+const LICH_TEST: &str =
+    "enchantments::lich::lich_put_into_a_graveyard_loses_the_game_even_above_zero_life";
+const VAULT_TEST: &str =
+    "artifacts::time_vault::skipping_a_turn_untaps_the_vault_as_the_next_turn_begins";
+const SANCTUARY_TEST: &str = "enchantments::island_sanctuary::island_sanctuary_yes_skips_the_turn_based_draw_and_makes_the_restriction";
 
 /// Three more doors the recorder missed (Alpha's L4 measurement): a trigger
 /// whose own effect ends its controller's game is taken off the stack as

@@ -12,6 +12,9 @@ pub struct ManaProvenance {
     pub(crate) source_version: Option<u32>,
     pub(crate) controller: PlayerId,
     pub(crate) timestamp: u64,
+    #[cfg(feature = "test-support")]
+    pub restriction: ManaRestriction,
+    #[cfg(not(feature = "test-support"))]
     pub(crate) restriction: ManaRestriction,
     pub(crate) chosen_subtype: Option<SubtypeId>,
     pub(crate) source_watermark: Option<WatermarkId>,
@@ -215,7 +218,7 @@ pub(crate) fn deposit(
     true
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 impl
     From<(
         baylee_core::ids::ObjectId,

@@ -58,7 +58,7 @@ fn safeguard_prevents_all_combat_damage_dealt_by_target_attacking_creature_this_
 
 #[test]
 fn safeguard_does_not_prevent_the_creatures_noncombat_damage() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

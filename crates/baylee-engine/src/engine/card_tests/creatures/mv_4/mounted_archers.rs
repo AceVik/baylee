@@ -59,7 +59,7 @@ fn mounted_archers_can_block_an_additional_creature_after_activation() {
 /// Reach permits one flying blocker pairing without buying extra capacity.
 #[test]
 fn reach_does_not_allow_a_second_block_without_activation() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[mounted_archers()],

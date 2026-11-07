@@ -56,7 +56,7 @@ fn peer_review_is_cast_only_as_the_prepared_copy() {
     let bird = on_battlefield(&engine, p0, fatehold_chronologist()).unwrap();
     let copy = engine.state().prepared_copy(bird).unwrap();
     let object = engine.state().object(copy).unwrap();
-    assert_eq!(object.zone, crate::zone::Zone::Exile);
+    assert_eq!(object.zone, baylee_engine::zone::Zone::Exile);
     assert_eq!(engine.state().names.get(object.base.name), "Peer Review");
     assert_eq!(object.base.types, baylee_core::types::TypeSet::SORCERY);
     assert_eq!(
@@ -68,7 +68,7 @@ fn peer_review_is_cast_only_as_the_prepared_copy() {
             p0,
             PlayerAction::ActivateAbility {
                 source: bird,
-                ability_index: crate::choice::PREPARED_CAST,
+                ability_index: baylee_engine::choice::PREPARED_CAST,
             },
         )
         .unwrap();
@@ -112,6 +112,6 @@ fn peer_review_is_cast_only_as_the_prepared_copy() {
             .object(bird)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Prepared)
+            .contains(&baylee_engine::object::Rider::Prepared)
     );
 }

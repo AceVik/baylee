@@ -105,17 +105,17 @@ fn sejiri_steppe_protects_a_creature_from_the_color_its_controller_names() {
     let red = on_battlefield(&engine, p1, thundering_giant()).unwrap();
     let white = in_hand(&engine, p1, swords_to_plowshares()).unwrap();
     assert!(
-        crate::eval::protected_from(engine.state(), guard, red),
+        baylee_engine::eval::protected_from(engine.state(), guard, red),
         "protection from red"
     );
     assert!(
-        !crate::eval::protected_from(engine.state(), guard, white),
+        !baylee_engine::eval::protected_from(engine.state(), guard, white),
         "and from nothing else"
     );
 
     pass_until(&mut engine, |e| e.state().turn.active == p1);
     assert!(
-        !crate::eval::protected_from(engine.state(), guard, red),
+        !baylee_engine::eval::protected_from(engine.state(), guard, red),
         "until end of turn"
     );
 }

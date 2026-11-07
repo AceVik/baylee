@@ -44,7 +44,7 @@ fn wayward_soul_puts_itself_on_top_of_owners_library() {
 
 #[test]
 fn wayward_soul_flies_over_ground_creatures() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(

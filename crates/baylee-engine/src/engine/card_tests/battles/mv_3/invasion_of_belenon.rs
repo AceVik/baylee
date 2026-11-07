@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // Shared canonical-card vocabulary.
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::{index, subtypes};
 
@@ -34,7 +34,7 @@ fn cast_front(e: &mut Engine<RegistryLookup>) -> ObjectId {
     pass_until(e, stack_is_empty);
     let siege = on_battlefield(e, P0, index::INVASION_OF_BELENON).unwrap();
     assert_eq!(counters_on(e, siege, CounterKind::Defense), 5);
-    assert_eq!(crate::battle::protector(e.state(), siege), Some(P1));
+    assert_eq!(baylee_engine::battle::protector(e.state(), siege), Some(P1));
     siege
 }
 
@@ -79,7 +79,7 @@ fn defeat_to_cast_offer(e: &mut Engine<RegistryLookup>, siege: ObjectId) {
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::PlayFromExile,
+                prompt: baylee_engine::choice::ChoicePrompt::PlayFromExile,
                 ..
             }
         )
@@ -171,7 +171,7 @@ fn battle_belenon_defeat_exiles_then_casts_white_back_and_anthem_only_buffs_cont
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().object(siege).unwrap().zone, Zone::Battlefield);
     assert_eq!(counters_on(&e, siege, CounterKind::Defense), 0);
-    assert_eq!(crate::battle::protector(e.state(), siege), None);
+    assert_eq!(baylee_engine::battle::protector(e.state(), siege), None);
     assert_eq!(
         knights(&e),
         vec![knight],
@@ -225,7 +225,7 @@ fn battle_belenon_multiplayer_controller_chooses_opponent_before_entry_is_publis
     e.apply(P0, PlayerAction::ChoosePlayer(p2)).unwrap();
     pass_until(&mut e, stack_is_empty);
     let siege = on_battlefield(&e, P0, index::INVASION_OF_BELENON).unwrap();
-    assert_eq!(crate::battle::protector(e.state(), siege), Some(p2));
+    assert_eq!(baylee_engine::battle::protector(e.state(), siege), Some(p2));
     assert_eq!(counters_on(&e, siege, CounterKind::Defense), 5);
     assert_eq!(knights(&e).len(), 1);
 }

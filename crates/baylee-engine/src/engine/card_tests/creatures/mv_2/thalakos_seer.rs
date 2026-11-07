@@ -56,7 +56,7 @@ fn thalakos_seer_has_shadow_and_draws_a_card_when_it_leaves_the_battlefield() {
 
 #[test]
 fn leaving_for_the_hand_also_draws_a_card() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::generated::index;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[thalakos_seer()], &[], &[index::BOOMERANG], &[]);

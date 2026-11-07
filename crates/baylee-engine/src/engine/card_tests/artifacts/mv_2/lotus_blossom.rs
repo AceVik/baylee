@@ -5,7 +5,7 @@ fn lotus_blossom() -> CardIndex {
     card_index("32e66ea0-5f35-4df8-8d00-580403c51bb5")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn lotus_blossom_counts_only_accepted_own_upkeeps_and_makes_exact_mana() {

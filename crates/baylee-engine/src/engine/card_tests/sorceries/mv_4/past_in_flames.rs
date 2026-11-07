@@ -126,7 +126,7 @@ fn past_in_flames_grants_a_graveyard_ritual_flashback_and_that_cast_exiles_it() 
 
 #[test]
 fn past_in_flames_fixes_its_graveyard_set_and_uses_its_own_flashback_cost() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let p0 = kit::P0;
     let mut engine = Duel::new(914, dark_ritual())
         .hand(0, &[past_in_flames()])
@@ -138,9 +138,12 @@ fn past_in_flames_fixes_its_graveyard_set_and_uses_its_own_flashback_cost() {
     kit::float(&mut engine, p0, &[(ManaColor::Red, 9)]);
     let flames = in_hand(&engine, p0, past_in_flames()).unwrap();
     kit::cast_at(&mut engine, p0, past_in_flames(), &[], &[]);
-    assert!(crate::casting::flashback_granted(engine.state(), first));
+    assert!(baylee_engine::casting::flashback_granted(
+        engine.state(),
+        first
+    ));
     assert!(
-        !crate::casting::flashback_granted(engine.state(), flames),
+        !baylee_engine::casting::flashback_granted(engine.state(), flames),
         "it was still on the stack"
     );
     seed_graveyard(&mut engine, p0, 1);
@@ -151,7 +154,7 @@ fn past_in_flames_fixes_its_graveyard_set_and_uses_its_own_flashback_cost() {
         .last()
         .unwrap();
     assert!(
-        !crate::casting::flashback_granted(engine.state(), late),
+        !baylee_engine::casting::flashback_granted(engine.state(), late),
         "a later arrival gains nothing"
     );
     engine
@@ -165,7 +168,7 @@ fn past_in_flames_fixes_its_graveyard_set_and_uses_its_own_flashback_cost() {
         "four for the first cast, five for flashback"
     );
     assert!(
-        crate::casting::flashback_granted(engine.state(), late),
+        baylee_engine::casting::flashback_granted(engine.state(), late),
         "the second resolution sees it"
     );
 }

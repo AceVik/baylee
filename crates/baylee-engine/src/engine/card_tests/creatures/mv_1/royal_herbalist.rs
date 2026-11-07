@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::life;
+use baylee_card_testkit::card_tests::partials_w2c_kit::life;
 
 fn royal_herbalist() -> CardIndex {
     card_index("b3baf498-3be7-4a22-8fed-806d8d8ac748")

@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::aura_kit as kit;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::aura_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_cards_dsl::counters;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -63,7 +63,9 @@ fn mana_chains_asks_one_more_each_upkeep_of_the_enchanted_creatures_controller()
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![crate::choice::PaymentStep::ActivateManaAbility { source: island_id }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility {
+                source: island_id,
+            }],
         },
     )
     .expect("an Island pays {1}");

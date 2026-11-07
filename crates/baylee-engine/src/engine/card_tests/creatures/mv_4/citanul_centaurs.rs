@@ -21,7 +21,7 @@ fn citanul_centaurs_has_shroud_and_echo() {
     let obj = on_battlefield(&engine, p0, citanul_centaurs()).expect("seated");
     assert_eq!(pt(&engine, obj), (6, 3));
     assert!(keywords(&engine, obj).contains(KeywordSet::SHROUD));
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
     cast_with_floating(&mut engine, p0, lightning_bolt());
     let Pending::ChooseTargets { options, .. } = engine.pending() else {
         panic!("bolt target");
@@ -69,7 +69,7 @@ fn citanul_centaurs_echo_can_be_paid_and_is_not_due_again() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

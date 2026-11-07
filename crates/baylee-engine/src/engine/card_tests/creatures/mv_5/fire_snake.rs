@@ -50,7 +50,7 @@ fn fire_snake_destroys_a_land_of_either_player_when_it_dies() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, snake);
+    baylee_engine::sba::destroy(state, snake);
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
     };

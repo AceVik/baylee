@@ -54,7 +54,7 @@ fn batch45_pakpatiq_returns_to_its_owner_who_places_the_entry_counters() {
     assert_eq!(e.state.object(ojer).unwrap().controller, P1);
     assert_eq!(counters_on(&e, ojer, CounterKind::Time), 6);
     assert!(e.state.journal.entries().iter().any(|entry| matches!(entry.event,
-        crate::event::GameEvent::CounterChanged { object, kind: CounterKind::Time, by: Some(P1), new: 6, .. } if object == ojer)));
+        baylee_engine::event::GameEvent::CounterChanged { object, kind: CounterKind::Time, by: Some(P1), new: 6, .. } if object == ojer)));
 }
 
 #[test]
@@ -101,7 +101,7 @@ fn batch45_karn_in_commander_can_still_choose_face_up_exile_but_not_outside_card
         .object_mut(hidden)
         .unwrap()
         .status
-        .insert(crate::object::Status::FACE_DOWN);
+        .insert(baylee_engine::object::Status::FACE_DOWN);
     e.state.invalidate_projections();
     let visible = hand_to(&mut e, P0, index::SOL_RING, ZoneLocation::Exile(P0));
     e.refresh_offer();
@@ -152,8 +152,8 @@ fn batch45_mastery_card_copy_does_not_keep_lattices_continuous_color_change() {
     );
     // Remove the continuous effect while the copy still exists in exile:
     // only the original spell's copiable color may remain afterward.
-    crate::sba::destroy(&mut e.state, lattice);
-    e.sync_static_effects();
+    baylee_engine::sba::destroy(&mut e.state, lattice);
+    e.sync_static_effects_for_tests();
     e.state.refresh_characteristics();
     assert_eq!(
         e.state.object(copy).unwrap().characteristics().colors,

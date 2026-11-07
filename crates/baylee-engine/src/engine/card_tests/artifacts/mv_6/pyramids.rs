@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // Shared canonical-card vocabulary.
 use super::*;
-use crate::engine::card_tests::{aura_kit as ak, legends_kit as lk, partials_w1b_kit as kit};
+use baylee_card_testkit::card_tests::{aura_kit as ak, legends_kit as lk, partials_w1b_kit as kit};
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);

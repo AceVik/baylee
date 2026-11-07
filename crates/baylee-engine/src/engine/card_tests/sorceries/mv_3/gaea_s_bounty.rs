@@ -31,7 +31,7 @@ fn gaea_s_bounty_searches_library_for_up_to_two_forests_to_hand() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     cast_from_hand(&mut engine, p0, gaea_s_bounty());
     pass_until(&mut engine, |e| {
@@ -58,7 +58,7 @@ fn gaea_s_bounty_searches_library_for_up_to_two_forests_to_hand() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len()
             > hand_before
     );

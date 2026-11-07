@@ -49,14 +49,14 @@ fn telekinesis_duration_can_expire_while_creature_phased_out() {
         .object_mut(bear)
         .unwrap()
         .status
-        .insert(crate::object::Status::PHASED_OUT);
+        .insert(baylee_engine::object::Status::PHASED_OUT);
     e.state
         .object_mut(bear)
         .unwrap()
         .status
-        .insert(crate::object::Status::PHASED_OUT_INDIRECTLY);
+        .insert(baylee_engine::object::Status::PHASED_OUT_INDIRECTLY);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     for _ in 0..2 {
         let turn = e.state.turn.number;
         main_after(&mut e, P1, turn);
@@ -65,21 +65,21 @@ fn telekinesis_duration_can_expire_while_creature_phased_out() {
                 .object(bear)
                 .unwrap()
                 .status
-                .contains(crate::object::Status::PHASED_OUT)
+                .contains(baylee_engine::object::Status::PHASED_OUT)
         );
     }
     e.state
         .object_mut(bear)
         .unwrap()
         .status
-        .remove(crate::object::Status::PHASED_OUT);
+        .remove(baylee_engine::object::Status::PHASED_OUT);
     e.state
         .object_mut(bear)
         .unwrap()
         .status
-        .remove(crate::object::Status::PHASED_OUT_INDIRECTLY);
+        .remove(baylee_engine::object::Status::PHASED_OUT_INDIRECTLY);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     assert_eq!(
         e.state.object(bear).unwrap().version,
         version,
@@ -118,7 +118,7 @@ fn bastion_trigger_does_not_tap_or_suppress_victims_reentered_incarnation() {
     )
     .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatDamage
+        e.state.turn.step == baylee_engine::turn::Step::CombatDamage
             && !stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { player: P0, .. })
     });
@@ -142,7 +142,7 @@ fn bastion_trigger_does_not_tap_or_suppress_victims_reentered_incarnation() {
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     assert_ne!(e.state.object(turtle).unwrap().version, old);
     pass_until(&mut e, stack_is_empty);
     assert!(

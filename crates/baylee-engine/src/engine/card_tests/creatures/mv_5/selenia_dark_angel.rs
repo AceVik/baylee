@@ -35,7 +35,7 @@ fn selenia_dark_angel_flies_and_returns_to_owners_hand_for_two_life() {
 
 #[test]
 fn selenia_cannot_pay_two_life_with_only_one_life_available() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[selenia_dark_angel()], &[], &[], &[]);
     e.dev_state_mut(p0).unwrap().players[0].life = 1;

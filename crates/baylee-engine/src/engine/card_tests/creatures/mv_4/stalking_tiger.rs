@@ -39,7 +39,7 @@ fn stalking_tiger_is_cast_and_attacks_for_3() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert_eq!(engine.state().players[1].life, 17);
 }

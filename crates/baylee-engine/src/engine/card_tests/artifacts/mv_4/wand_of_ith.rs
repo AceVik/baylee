@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::YesNoPrompt;
+use baylee_engine::choice::YesNoPrompt;
 
 fn wand_of_ith() -> CardIndex {
     card_index("3ec1ccd7-4970-4032-be7a-9e76ca6a139e")
@@ -84,7 +84,7 @@ fn wand_on_p1_until_asked(engine: &mut Engine<RegistryLookup>) -> YesNoPrompt {
         entry.seq > seq_before
             && matches!(
                 entry.event,
-                crate::event::GameEvent::Revealed { player: revealed_by, .. } if revealed_by == p1
+                baylee_engine::event::GameEvent::Revealed { player: revealed_by, .. } if revealed_by == p1
             )
     });
     assert!(revealed, "the card was revealed");

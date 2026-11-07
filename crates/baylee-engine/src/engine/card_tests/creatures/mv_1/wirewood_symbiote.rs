@@ -78,7 +78,7 @@ fn wirewood_symbiote_trades_an_elf_for_an_untap_and_refuses_a_second_one() {
                 assert_eq!(player, p0, "the seat paying the cost is the one asked");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostReturn,
+                    baylee_engine::choice::ChoicePrompt::CostReturn,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );

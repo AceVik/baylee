@@ -27,7 +27,7 @@ fn emeritus_becomes_prepared_at_the_end_step_only_after_two_creature_deaths() {
                 .object(emeritus)
                 .unwrap()
                 .riders
-                .contains(&crate::object::Rider::Prepared)
+                .contains(&baylee_engine::object::Rider::Prepared)
         };
         // Unprepare it (as if its tutor had been cast), then let creatures die.
         e.dev_state_mut(p0)
@@ -35,12 +35,12 @@ fn emeritus_becomes_prepared_at_the_end_step_only_after_two_creature_deaths() {
             .object_mut(emeritus)
             .unwrap()
             .riders
-            .retain(|r| *r != crate::object::Rider::Prepared);
+            .retain(|r| *r != baylee_engine::object::Rider::Prepared);
         assert!(!prepared(&e));
         bury(&mut e, &victims[..deaths]);
         pass_until(&mut e, |e| {
             e.state().turn.active == p0
-                && e.state().turn.step == crate::turn::Step::End
+                && e.state().turn.step == baylee_engine::turn::Step::End
                 && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
         });
         let on_the_stack = e.state().zones.list(ZoneLocation::Stack).len();

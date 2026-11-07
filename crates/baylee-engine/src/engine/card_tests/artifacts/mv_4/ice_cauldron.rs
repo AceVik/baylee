@@ -6,7 +6,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -125,13 +125,13 @@ fn ice_cauldron_exiles_only_a_chosen_nonland_and_allows_declining() {
     assert_eq!(engine.state().object(ogre).unwrap().zone, Zone::Hand);
     assert_eq!(charge(&engine, cauldron), 1);
     assert!(
-        crate::casting::play_permission(engine.state(), P0, bears).is_some(),
+        baylee_engine::casting::play_permission(engine.state(), P0, bears).is_some(),
         "the permission belongs to the exact exiled incarnation"
     );
     assert!(
         object_permitted(&engine, bears),
         "the permission exists even before its mana cost is available: probe={:?}, pending={:?}",
-        crate::casting::can_cast(engine.state(), &RegistryLookup, P0, bears),
+        baylee_engine::casting::can_cast(engine.state(), &RegistryLookup, P0, bears),
         engine.pending()
     );
 
@@ -173,8 +173,8 @@ fn ice_cauldron_cast_permission_outlives_its_source_and_the_turn() {
         .move_object(
             cauldron,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();
@@ -292,7 +292,7 @@ fn ice_cauldron_second_cycle_replaces_only_the_mana_note_and_last_exile() {
         "the older exile keeps its permission"
     );
     assert!(
-        crate::casting::play_permission(engine.state(), P0, second_bears).is_none(),
+        baylee_engine::casting::play_permission(engine.state(), P0, second_bears).is_none(),
         "a same-named copy has no linked-exile permission"
     );
     assert!(
@@ -338,8 +338,8 @@ fn move_to(engine: &mut Engine<RegistryLookup>, card: ObjectId, to: ZoneLocation
         .move_object(
             card,
             to,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     engine.refresh_offer();
@@ -361,7 +361,7 @@ fn ice_cauldron_permission_and_payment_end_when_the_exile_moves() {
     assert_eq!(linked.object, bolt);
 
     move_to(&mut engine, bolt, ZoneLocation::Graveyard(P0));
-    assert!(crate::casting::play_permission(engine.state(), P0, bolt).is_none());
+    assert!(baylee_engine::casting::play_permission(engine.state(), P0, bolt).is_none());
     assert!(
         engine
             .apply(P0, PlayerAction::CastSpell { card: bolt })
@@ -376,7 +376,7 @@ fn ice_cauldron_permission_and_payment_end_when_the_exile_moves() {
     move_to(&mut engine, bolt, ZoneLocation::Exile(P0));
     assert_ne!(engine.state().object(bolt).unwrap().version, linked.version);
     assert!(
-        crate::casting::play_permission(engine.state(), P0, bolt).is_none(),
+        baylee_engine::casting::play_permission(engine.state(), P0, bolt).is_none(),
         "returning the physical card does not restore its old permission (CR 400.7)"
     );
     assert!(
@@ -406,12 +406,12 @@ fn ice_cauldron_a_new_source_incarnation_forgets_only_its_mana_note() {
     let bolt = in_hand(&engine, P0, index::LIGHTNING_BOLT).unwrap();
     activate_first(&mut engine, 0, true, Some(bolt));
     let old_version = engine.state().object(cauldron).unwrap().version;
-    assert!(crate::resolve::noted_activation_mana(engine.state(), cauldron).is_some());
+    assert!(baylee_engine::resolve::noted_activation_mana(engine.state(), cauldron).is_some());
 
     move_to(&mut engine, cauldron, ZoneLocation::Graveyard(P0));
-    assert!(crate::resolve::noted_activation_mana(engine.state(), cauldron).is_none());
+    assert!(baylee_engine::resolve::noted_activation_mana(engine.state(), cauldron).is_none());
     assert!(
-        crate::casting::play_permission(engine.state(), P0, bolt).is_some(),
+        baylee_engine::casting::play_permission(engine.state(), P0, bolt).is_some(),
         "the independent cast permission remains with the exiled card"
     );
 
@@ -421,10 +421,10 @@ fn ice_cauldron_a_new_source_incarnation_forgets_only_its_mana_note() {
         old_version
     );
     assert!(
-        crate::resolve::noted_activation_mana(engine.state(), cauldron).is_none(),
+        baylee_engine::resolve::noted_activation_mana(engine.state(), cauldron).is_none(),
         "a new permanent has no last noted mana (CR 400.7)"
     );
-    assert!(crate::casting::play_permission(engine.state(), P0, bolt).is_some());
+    assert!(baylee_engine::casting::play_permission(engine.state(), P0, bolt).is_some());
 }
 
 #[test]

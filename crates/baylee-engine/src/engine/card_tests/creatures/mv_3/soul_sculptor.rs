@@ -5,7 +5,7 @@ fn soul_sculptor() -> CardIndex {
     card_index("d407abd0-69a9-405d-ab69-75b379a45780")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn soul_sculptor_partial_body_can_be_cast_and_attack() {

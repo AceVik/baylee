@@ -98,7 +98,7 @@ fn sundering_eruption_destroys_land_and_gives_opponent_tapped_basic() {
         !engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
             .contains(&target_land),
         "the targeted land was destroyed — it is off the battlefield, not \
          out of the arena, because a destroyed permanent is still an object"

@@ -79,7 +79,7 @@ fn selesnya_evangel_taps_two_creatures_for_one_green_saproling() {
     );
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostTap,
+        baylee_engine::choice::ChoicePrompt::CostTap,
         "a cost and not a search: a tapped permanent is not destroyed"
     );
     assert_eq!((min, max), (1, 1), "exactly one creature");

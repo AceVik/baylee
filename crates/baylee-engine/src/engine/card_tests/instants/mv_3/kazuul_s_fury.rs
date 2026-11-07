@@ -182,7 +182,7 @@ fn kazuuls_fury_counts_a_counter_and_sacrifices_only_your_creature() {
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, lions, baylee_cards_dsl::CounterKind::P1P1, 1);
+    baylee_engine::replacement::put_counters(state, lions, baylee_cards_dsl::CounterKind::P1P1, 1);
     reach_their_main_phase(&mut engine, p1);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
     assert_eq!(pt(&engine, lions), (3, 2), "a +1/+1 counter");

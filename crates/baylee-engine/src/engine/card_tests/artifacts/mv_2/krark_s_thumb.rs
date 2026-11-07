@@ -50,7 +50,9 @@ fn flip_and_ignore(seed: u64, ignore_first: bool) -> Option<Engine<RegistryLooku
         .entries()
         .iter()
         .filter_map(|entry| match entry.event {
-            crate::event::GameEvent::CoinFlipped { player, won } if player == p0 => Some(won),
+            baylee_engine::event::GameEvent::CoinFlipped { player, won } if player == p0 => {
+                Some(won)
+            }
             _ => None,
         })
         .collect();

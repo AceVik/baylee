@@ -55,7 +55,7 @@ fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
         .find(|option| {
             matches!(
                 option.kind,
-                crate::choice::DamageEffectKind::PreventNext { .. }
+                baylee_engine::choice::DamageEffectKind::PreventNext { .. }
             )
         })
         .unwrap()
@@ -132,7 +132,7 @@ fn rock_hydra_s_counters_prevent_one_point_of_damage_each() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::CounterChanged {
+                baylee_engine::event::GameEvent::CounterChanged {
                     object,
                     kind: CounterKind::P1P1,
                     old: 3,
@@ -149,8 +149,8 @@ fn rock_hydra_s_counters_prevent_one_point_of_damage_each() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::DamageDealt {
-                    target: crate::event::DamageTarget::Object(hit),
+                baylee_engine::event::GameEvent::DamageDealt {
+                    target: baylee_engine::event::DamageTarget::Object(hit),
                     ..
                 } if hit == hydra
             )),
@@ -202,8 +202,8 @@ fn rock_hydra_s_counters_prevent_one_point_of_damage_each() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::DamageDealt {
-                    target: crate::event::DamageTarget::Object(hit),
+                baylee_engine::event::GameEvent::DamageDealt {
+                    target: baylee_engine::event::DamageTarget::Object(hit),
                     amount: 2,
                     ..
                 } if hit == hydra

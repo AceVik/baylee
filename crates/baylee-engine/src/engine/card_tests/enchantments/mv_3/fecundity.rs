@@ -24,7 +24,7 @@ fn fecundity_asks_the_dying_creatures_controller_and_allows_declining() {
         let other = PlayerId::new(1 - seat);
         let others_hand = engine.state().zones.list(ZoneLocation::Hand(other)).len();
         let bear = on_battlefield(&engine, dying_controller, grizzly_bears()).unwrap();
-        crate::sba::destroy(engine.dev_state_mut(p0).unwrap(), bear);
+        baylee_engine::sba::destroy(engine.dev_state_mut(p0).unwrap(), bear);
         engine.apply(p0, PlayerAction::PassPriority).unwrap();
         pass_until(&mut engine, |e| {
             matches!(e.pending(), Pending::YesNo { .. })

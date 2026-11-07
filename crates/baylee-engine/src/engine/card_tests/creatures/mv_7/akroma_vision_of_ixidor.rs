@@ -21,16 +21,16 @@ fn grant(
     target: ObjectId,
     modifier: baylee_cards_dsl::Modifier,
 ) {
-    let filter = crate::effects::EffectFilter::object(&engine.state, target);
+    let filter = baylee_engine::effects::EffectFilter::object(&engine.state, target);
     let timestamp = engine.state.next_timestamp();
     engine
         .state
         .effects
-        .register(crate::effects::ContinuousEffect {
+        .register(baylee_engine::effects::ContinuousEffect {
             id: baylee_core::ids::EffectId::new(0),
             source: None,
             controller: P0,
-            origin: crate::effects::EffectOrigin::Resolution,
+            origin: baylee_engine::effects::EffectOrigin::Resolution,
             layer: modifier.layer(),
             timestamp,
             duration: baylee_cards_dsl::Duration::Indefinitely,
@@ -38,7 +38,7 @@ fn grant(
             modifier,
         });
     engine.state.invalidate_projections();
-    engine.sync_static_effects();
+    engine.sync_static_effects_for_tests();
     engine.refresh_offer();
 }
 
@@ -118,7 +118,7 @@ fn akroma_counts_each_listed_ability_at_each_combat_and_binds_the_set() {
         )
         .unwrap();
     engine.state.invalidate_projections();
-    engine.sync_static_effects();
+    engine.sync_static_effects_for_tests();
     engine.refresh_offer();
     assert_eq!(pt(&engine, late), (4, 4), "the set was bound on resolution");
 

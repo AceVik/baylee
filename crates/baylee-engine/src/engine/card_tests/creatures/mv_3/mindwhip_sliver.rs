@@ -1,7 +1,7 @@
 //! Mindwhip Sliver's granted ability retains its target and timing.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::{legends_kit as lk, partials_w1b_kit as kit};
+use baylee_card_testkit::card_tests::{legends_kit as lk, partials_w1b_kit as kit};
 use baylee_core::generated::index;
 
 fn mindwhip_sliver() -> CardIndex {

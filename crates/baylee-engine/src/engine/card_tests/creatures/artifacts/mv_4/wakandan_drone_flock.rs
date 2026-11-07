@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ArrangePrompt;
+use baylee_engine::choice::ArrangePrompt;
 
 fn wakandan_drone_flock() -> CardIndex {
     card_index("282d6e61-3240-4f1e-9c2d-8ddb59b03af4")

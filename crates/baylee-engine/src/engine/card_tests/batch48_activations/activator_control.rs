@@ -5,7 +5,7 @@ use super::*;
 fn clock_upkeep(e: &mut Engine<RegistryLookup>, activator: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.active == P1
-            && e.state.turn.step == crate::turn::Step::Upkeep
+            && e.state.turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == activator)
     });
     for player in &mut e.state.players {

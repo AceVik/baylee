@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::GameEvent;
+use baylee_engine::event::GameEvent;
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -84,7 +84,11 @@ fn frenetic_efreet_phases_out_exactly_when_the_flip_is_won_and_is_sacrificed_whe
         let obj = engine.state().object(efreet).unwrap();
         if seen[0] {
             won_seen = true;
-            assert_eq!(obj.zone, crate::zone::Zone::Battlefield, "seed {seed}");
+            assert_eq!(
+                obj.zone,
+                baylee_engine::zone::Zone::Battlefield,
+                "seed {seed}"
+            );
             assert!(obj.status.contains(Status::PHASED_OUT), "seed {seed}");
 
             pass_until(&mut engine, |e| {
@@ -101,7 +105,11 @@ fn frenetic_efreet_phases_out_exactly_when_the_flip_is_won_and_is_sacrificed_whe
             );
         } else {
             lost_seen = true;
-            assert_eq!(obj.zone, crate::zone::Zone::Graveyard, "seed {seed}");
+            assert_eq!(
+                obj.zone,
+                baylee_engine::zone::Zone::Graveyard,
+                "seed {seed}"
+            );
         }
     }
     assert!(won_seen && lost_seen, "sixteen seeds show both sides");

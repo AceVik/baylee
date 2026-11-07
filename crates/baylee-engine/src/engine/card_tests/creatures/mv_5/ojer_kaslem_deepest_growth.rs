@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 /// "Trample": Ojer Kaslem is a 6/5 with trample and, attacking an opponent
 /// who does not block, deals 6 combat damage to them. The reveal clause is
@@ -570,7 +570,7 @@ fn temple_of_cultivation_turns_back_into_ojer_kaslem_where_it_stands() {
     );
     let god = engine.state().object(temple).expect("the god");
     assert!(
-        !crate::combat::summoning_sick(engine.state(), god),
+        !baylee_engine::combat::summoning_sick(engine.state(), god),
         "under p0's control since the turn began"
     );
 }

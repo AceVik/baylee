@@ -6,7 +6,7 @@ use super::*;
 /// The artifact is paid before the search; X limits what the search can find.
 #[test]
 fn reshape_pays_its_artifact_cost_and_searches_with_the_announced_x() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     for x in 0..=1 {
         let mut e = Duel::new(970, quiet_artifact())
             .battlefield(0, &[chromatic_lantern(), llanowar_elves()])
@@ -70,7 +70,7 @@ fn reshape_pays_its_artifact_cost_and_searches_with_the_announced_x() {
 
 #[test]
 fn reshape_without_an_artifact_is_not_castable_despite_enough_mana() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let mut e = kit::game(971, &[], &[chromatic_lantern()], &[reshape()], &[]);
     kit::float(&mut e, kit::P0, &[(ManaColor::Blue, 5)]);
     let card = in_hand(&e, kit::P0, reshape()).unwrap();

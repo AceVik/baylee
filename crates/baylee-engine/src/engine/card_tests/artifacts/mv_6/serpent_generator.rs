@@ -1,7 +1,7 @@
 //! Printed behavior and adversarial resolution cases.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as kit;
 use baylee_core::generated::index;
 
 #[test]
@@ -18,7 +18,7 @@ fn serpent_generator_poison_triggers_on_any_positive_player_damage() {
     e.refresh_offer();
     activate(&mut e, p0, index::SERPENT_GENERATOR, 0);
     pass_until(&mut e, stack_is_empty);
-    let snake = crate::engine::card_tests::token_helpers::named(&e, "Snake")[0];
+    let snake = baylee_card_testkit::card_tests::token_helpers::named(&e, "Snake")[0];
     assert_eq!(pt(&e, snake), (1, 1));
     assert!(
         e.state()
@@ -29,7 +29,7 @@ fn serpent_generator_poison_triggers_on_any_positive_player_damage() {
             .is_colorless()
     );
     for (recipient, amount, expected) in [(p1, 0, 0), (p1, 3, 1), (p0, 1, 1)] {
-        crate::engine::card_tests::history_helpers::damage_player(
+        baylee_card_testkit::card_tests::history_helpers::damage_player(
             &mut e, snake, recipient, amount, false,
         );
         e.apply(p0, PlayerAction::PassPriority).unwrap();
@@ -45,12 +45,12 @@ fn serpent_generator_poison_triggers_on_any_positive_player_damage() {
 fn damage_creature(e: &mut Engine<RegistryLookup>, source: ObjectId, recipient: ObjectId, n: u32) {
     let state = e.dev_state_mut(PlayerId::new(0)).unwrap();
     let source_version = Some(state.object(source).unwrap().version);
-    let mut work = crate::damage::DamageWork::new(
+    let mut work = baylee_engine::damage::DamageWork::new(
         state,
-        vec![crate::damage::Assignment {
+        vec![baylee_engine::damage::Assignment {
             source,
             source_version,
-            recipient: crate::event::DamageTarget::Object(recipient),
+            recipient: baylee_engine::event::DamageTarget::Object(recipient),
             amount: n,
             is_combat: false,
         }],
@@ -83,7 +83,7 @@ fn serpent_generator_snake_is_an_artifact_creature_and_hurting_a_creature_poison
     kit::float(&mut e, p0, &[(ManaColor::Colorless, 4)]);
     activate(&mut e, p0, index::SERPENT_GENERATOR, 0);
     pass_until(&mut e, stack_is_empty);
-    let snake = crate::engine::card_tests::token_helpers::named(&e, "Snake")[0];
+    let snake = baylee_card_testkit::card_tests::token_helpers::named(&e, "Snake")[0];
     let types = e.state().object(snake).unwrap().characteristics().types;
     assert!(
         types.contains(TypeSet::ARTIFACT) && types.contains(TypeSet::CREATURE),
@@ -120,10 +120,10 @@ fn serpent_generator_snake_poisons_only_for_its_own_damage() {
     kit::float(&mut e, p0, &[(ManaColor::Colorless, 4)]);
     activate(&mut e, p0, index::SERPENT_GENERATOR, 0);
     pass_until(&mut e, stack_is_empty);
-    let snake = crate::engine::card_tests::token_helpers::named(&e, "Snake")[0];
+    let snake = baylee_card_testkit::card_tests::token_helpers::named(&e, "Snake")[0];
     let bears = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
 
-    crate::engine::card_tests::history_helpers::damage_player(&mut e, bears, p1, 2, false);
+    baylee_card_testkit::card_tests::history_helpers::damage_player(&mut e, bears, p1, 2, false);
     settle_damage(&mut e, p0);
     assert_eq!(
         e.state().players[1].poison,
@@ -132,7 +132,7 @@ fn serpent_generator_snake_poisons_only_for_its_own_damage() {
     );
     assert_eq!(kit::life(&e, p1), 18, "the Bear's damage was dealt");
 
-    crate::engine::card_tests::history_helpers::damage_player(&mut e, snake, p1, 2, false);
+    baylee_card_testkit::card_tests::history_helpers::damage_player(&mut e, snake, p1, 2, false);
     settle_damage(&mut e, p0);
     assert_eq!(
         e.state().players[1].poison,
@@ -160,7 +160,7 @@ fn serpent_generator_costs_four_mana_and_taps_itself() {
     assert_eq!(kit::pool_total(&e, p0), 0, "all of {{4}} was paid");
     assert!(kit::tapped(&e, generator), "{{T}} is part of the cost");
     assert_eq!(
-        crate::engine::card_tests::token_helpers::named(&e, "Snake").len(),
+        baylee_card_testkit::card_tests::token_helpers::named(&e, "Snake").len(),
         1
     );
 

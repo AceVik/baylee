@@ -279,8 +279,8 @@ fn everybody_lives_keeps_every_life_total_whoever_resolves_the_loss() {
     assert!(
         engine.state().journal.entries().iter().any(|e| matches!(
             e.event,
-            crate::event::GameEvent::DamageDealt {
-                target: crate::event::DamageTarget::Player(hit),
+            baylee_engine::event::GameEvent::DamageDealt {
+                target: baylee_engine::event::DamageTarget::Player(hit),
                 amount: 3,
                 ..
             } if hit == p1
@@ -416,7 +416,7 @@ fn a_pact_left_unpaid_under_everybody_lives_costs_nothing() {
         let cast_turn = engine.state().turn.number;
         let (mut protected, mut asked) = (false, false);
         for _ in 0..600 {
-            if protected && engine.state().turn.step != crate::turn::Step::Upkeep {
+            if protected && engine.state().turn.step != baylee_engine::turn::Step::Upkeep {
                 break;
             }
             match engine.pending().clone() {
@@ -433,7 +433,7 @@ fn a_pact_left_unpaid_under_everybody_lives_costs_nothing() {
                     let the_upkeep_it_is_due = player == p0
                         && turn.active == p0
                         && turn.number > cast_turn
-                        && turn.step == crate::turn::Step::Upkeep;
+                        && turn.step == baylee_engine::turn::Step::Upkeep;
                     if the_upkeep_it_is_due && !protected {
                         tap_all_mana(&mut engine, p0);
                         cast_with_floating(&mut engine, p0, everybody_lives());

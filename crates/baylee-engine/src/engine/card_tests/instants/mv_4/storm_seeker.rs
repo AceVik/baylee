@@ -24,8 +24,8 @@ fn storm_seeker_uses_its_targets_current_hand_size() {
         .move_object(
             card,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     pass_until(&mut e, stack_is_empty);

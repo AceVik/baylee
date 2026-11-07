@@ -50,14 +50,14 @@ fn bolt_it(engine: &mut Engine<RegistryLookup>, objects: Vec<ObjectId>, players:
     let mountain_id = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .iter()
         .copied()
         .find(|&id| {
             engine.state().object(id).is_some_and(|o| {
                 o.controller == p0
                     && o.card.map(|c| c.index) == Some(mountain())
-                    && !o.status.contains(crate::object::Status::TAPPED)
+                    && !o.status.contains(baylee_engine::object::Status::TAPPED)
             })
         })
         .expect("an untapped Mountain");

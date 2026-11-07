@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn keldon_champion() -> CardIndex {
     card_index("1600b361-9298-49f0-8925-4c1aad363e1b")
@@ -51,7 +51,7 @@ fn keldon_champion_deals_three_to_player_on_etb_attacks_with_haste_and_sacrifice
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 4)]);
@@ -77,7 +77,7 @@ fn keldon_champion_survives_when_echo_is_paid() {
     reach_their_main_phase(&mut e, lk::P1);
     pass_until(&mut e, |e| {
         e.state().turn.active == lk::P0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut e, lk::P0, &[(ManaColor::Red, 4)]);

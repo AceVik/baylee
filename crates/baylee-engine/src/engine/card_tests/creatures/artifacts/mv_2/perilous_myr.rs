@@ -18,7 +18,7 @@ fn die_and_ask(
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, id);
+    baylee_engine::sba::destroy(state, id);
     pass_until(engine, |e| {
         matches!(
             e.pending(),

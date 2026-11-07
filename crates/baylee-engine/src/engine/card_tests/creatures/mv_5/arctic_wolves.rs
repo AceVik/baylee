@@ -53,7 +53,7 @@ fn wolves_upkeep_question(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -
     assert_eq!(player, seat, "the upkeep cost is asked of the controller");
     assert_eq!(
         engine.state().turn.step,
-        crate::turn::Step::Upkeep,
+        baylee_engine::turn::Step::Upkeep,
         "at the beginning of the upkeep"
     );
     mana

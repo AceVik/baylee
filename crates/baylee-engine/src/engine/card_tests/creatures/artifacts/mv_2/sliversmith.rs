@@ -22,7 +22,7 @@ fn sliversmith_discards_a_card_to_make_a_metallic_sliver() {
     activate(&mut engine, p0, sliversmith(), 0);
     let Pending::ChooseCards {
         player,
-        prompt: crate::choice::ChoicePrompt::CostDiscard,
+        prompt: baylee_engine::choice::ChoicePrompt::CostDiscard,
         options,
         ..
     } = engine.pending().clone()

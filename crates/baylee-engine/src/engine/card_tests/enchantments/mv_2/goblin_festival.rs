@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn goblin_festival() -> CardIndex {
     card_index("de21b90f-a268-46d6-b977-d5b0856176f3")
@@ -73,16 +73,16 @@ fn goblin_festival_new_incarnation_is_not_given_away_when_flip_loses() {
                 .move_object(
                     festival,
                     ZoneLocation::Exile(lk::P0),
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
             state
                 .move_object(
                     festival,
                     ZoneLocation::Battlefield,
-                    crate::zone::ZonePosition::Top,
-                    crate::event::Cause::Effect,
+                    baylee_engine::zone::ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
                 )
                 .unwrap();
         }

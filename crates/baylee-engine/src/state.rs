@@ -401,10 +401,16 @@ pub struct GameState {
     /// Choices owed for simultaneous graveyard arrivals.
     pub(crate) graveyard_order: crate::graveyard_order::Ordering,
     /// Moves suspended before battlefield entry and their exact continuations.
+    #[cfg(feature = "test-support")]
+    pub entries: crate::entry::Entries,
+    #[cfg(not(feature = "test-support"))]
     pub(crate) entries: crate::entry::Entries,
     /// Legend decisions waiting for their simultaneous SBA pass.
     pub(crate) sba_legend_decisions: Vec<crate::sba::LegendDecision>,
     /// Competing regeneration replacements awaiting the affected controller.
+    #[cfg(feature = "test-support")]
+    pub regeneration_choices: crate::sba::RegenerationChoices,
+    #[cfg(not(feature = "test-support"))]
     pub(crate) regeneration_choices: crate::sba::RegenerationChoices,
     /// Shield-counter replacement choices awaiting the affected controller.
     pub(crate) shield_choices: crate::sba::ShieldChoices,
@@ -787,6 +793,9 @@ pub struct GameState {
     /// Typed text substitutions on exact spell/permanent/ability incarnations.
     pub text_changes: crate::text_changes::TextChanges,
     /// A technical failure, consumed and rolled back at the Engine boundary.
+    #[cfg(feature = "test-support")]
+    pub numeric_failure: Option<&'static str>,
+    #[cfg(not(feature = "test-support"))]
     pub(crate) numeric_failure: Option<&'static str>,
     /// Exact mana obligations of nested controlled card plays.
     pub(crate) constrained_payments: Vec<crate::constrained_payment::ConstrainedPayment>,
@@ -1321,7 +1330,8 @@ impl GameState {
     }
 
     /// Restores a reversed action without applying game-event replacements.
-    pub(crate) fn restore_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {
+    #[doc(hidden)]
+    pub fn restore_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {
         if tapped
             && self
                 .object(id)

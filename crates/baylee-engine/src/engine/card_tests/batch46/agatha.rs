@@ -1,7 +1,7 @@
 //! Exile, reflexive targets and complete granted abilities through real actions.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::Cause;
+use baylee_engine::event::Cause;
 
 mod activation_zones;
 mod link_families;
@@ -20,7 +20,7 @@ fn exile(e: &mut Engine<RegistryLookup>, donor: ObjectId, recipient: Option<Obje
         pass_until(e, |e| matches!(e.pending(), Pending::ChooseTargets { .. }));
         assert_eq!(
             e.state.object(donor).unwrap().zone,
-            crate::zone::Zone::Exile
+            baylee_engine::zone::Zone::Exile
         );
         target(e, vec![recipient], vec![]);
     }
@@ -28,7 +28,7 @@ fn exile(e: &mut Engine<RegistryLookup>, donor: ObjectId, recipient: Option<Obje
 }
 
 fn grants(e: &Engine<RegistryLookup>, recipient: ObjectId) -> Vec<u32> {
-    crate::effects::granted_activated(e.state(), recipient)
+    baylee_engine::effects::granted_activated(e.state(), recipient)
         .map(|ability| ability.id)
         .collect()
 }
@@ -77,7 +77,7 @@ fn batch46_agatha_reflexive_counter_chooses_after_exile_and_only_for_creatures()
             });
             assert_eq!(
                 e.state.object(donor).unwrap().zone,
-                crate::zone::Zone::Exile
+                baylee_engine::zone::Zone::Exile
             );
             let Pending::ChooseTargets { options, .. } = e.pending() else {
                 unreachable!()
@@ -147,7 +147,7 @@ fn batch46_agatha_nine_donors_keep_stable_action_ids_after_one_link_leaves() {
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(grants(&e, bear), before[1..]);
     reset_pool(&mut e);
@@ -234,7 +234,7 @@ fn batch46_agatha_link_does_not_survive_cauldron_blink_or_unrelated_reexile() {
                 Cause::Effect,
             )
             .unwrap();
-        e.sync_static_effects();
+        e.sync_static_effects_for_tests();
         e.refresh_offer();
         assert!(grants(&e, bear).is_empty());
         assert!(
@@ -341,11 +341,11 @@ fn batch46_agatha_granted_artisan_retains_x_sacrifice_and_sorcery_timing() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state.object(goblin).unwrap().zone,
-        crate::zone::Zone::Battlefield
+        baylee_engine::zone::Zone::Battlefield
     );
     assert_eq!(
         e.state.object(elves).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     assert!(is_tapped(&e, bear));
 }
@@ -476,7 +476,7 @@ fn batch46_agatha_grants_loyalty_to_a_creature_and_preserves_once_each_turn() {
     // Grist prints a +1, a -2 and a -5, all three granted to the Bears; the
     // one this test plays is the -5, picked by its loyalty cost and not by
     // its place in the list.
-    let id = crate::effects::granted_activated(e.state(), bear)
+    let id = baylee_engine::effects::granted_activated(e.state(), bear)
         .find(|grant| {
             matches!(
                 grant.definition,
@@ -492,7 +492,7 @@ fn batch46_agatha_grants_loyalty_to_a_creature_and_preserves_once_each_turn() {
     assert_eq!(e.state.players[1].life, life - 1);
     assert_eq!(
         e.state.object(elves).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     assert!(
         e.apply(
@@ -525,24 +525,24 @@ fn batch46_agatha_a_new_copy_acquisition_does_not_reuse_an_old_exile_link() {
     let ring = on_battlefield(&e, P0, index::SOL_RING).unwrap();
     let other = on_battlefield(&e, P1, index::AGATHA_S_SOUL_CAULDRON).unwrap();
     for target in [ring, other] {
-        assert!(crate::copiable_abilities::apply_copy(
+        assert!(baylee_engine::copiable_abilities::apply_copy(
             &mut e.state,
-            crate::copiable_abilities::CopyApplication {
+            baylee_engine::copiable_abilities::CopyApplication {
                 source,
                 target,
                 mods: &[],
                 copy_index: 0,
                 until_eot: true,
                 resolving: None,
-                text: crate::text_changes::TextChangeMap::IDENTITY,
+                text: baylee_engine::text_changes::TextChangeMap::IDENTITY,
             }
         ));
-        e.sync_static_effects();
+        e.sync_static_effects_for_tests();
         e.refresh_offer();
     }
     assert_eq!(
         e.state.object(donor).unwrap().zone,
-        crate::zone::Zone::Exile
+        baylee_engine::zone::Zone::Exile
     );
     assert!(grants(&e, bear).is_empty());
     assert!(

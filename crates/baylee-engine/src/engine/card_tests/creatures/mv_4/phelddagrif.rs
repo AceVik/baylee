@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::life;
+use baylee_card_testkit::card_tests::partials_w2c_kit::life;
 
 fn phelddagrif() -> CardIndex {
     card_index("d0e99535-0ea0-4aa5-99f5-6c5255b27c38")

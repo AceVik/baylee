@@ -31,7 +31,7 @@ pub fn counter_multiplier(state: &GameState, target: ObjectId) -> u16 {
                 entry.source,
             )
         {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::replaced(entry);
             count = count.saturating_mul(2);
         }
@@ -262,7 +262,8 @@ pub fn remove_counters_by(
 }
 
 /// CR 122.5: both halves must be possible, for the exact battlefield objects.
-pub(crate) fn can_move_counter(
+#[doc(hidden)]
+pub fn can_move_counter(
     state: &GameState,
     from: DamageSourceRef,
     to: DamageSourceRef,
@@ -282,7 +283,8 @@ pub(crate) fn can_move_counter(
 }
 
 /// Moving removes one counter; destination placement still applies replacements.
-pub(crate) fn move_counter(
+#[doc(hidden)]
+pub fn move_counter(
     state: &mut GameState,
     by: PlayerId,
     from: DamageSourceRef,

@@ -100,7 +100,7 @@ fn feral_thallid_gains_a_spore_counter_at_each_of_its_controllers_upkeeps() {
     assert_eq!(spores(&e, thallid), 1, "turn 1's upkeep");
 
     pass_until(&mut e, |e| {
-        e.state().turn.number == 2 && e.state().turn.phase == crate::turn::Phase::FirstMain
+        e.state().turn.number == 2 && e.state().turn.phase == baylee_engine::turn::Phase::FirstMain
     });
     assert_eq!(spores(&e, thallid), 1, "the opponent's upkeep adds nothing");
 

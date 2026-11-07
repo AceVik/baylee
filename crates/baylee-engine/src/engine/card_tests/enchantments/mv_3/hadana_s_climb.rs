@@ -67,7 +67,7 @@ fn hadanas_climb_transforms_after_the_targets_third_counter() {
         reach_main_phase(&mut e, p0);
         let source = on_battlefield(&e, p0, hadana_s_climb()).unwrap();
         let elf = on_battlefield(&e, p0, llanowar_elves()).unwrap();
-        crate::replacement::put_counters(
+        baylee_engine::replacement::put_counters(
             e.dev_state_mut(p0).unwrap(),
             elf,
             CounterKind::P1P1,

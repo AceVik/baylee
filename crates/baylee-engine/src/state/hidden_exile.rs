@@ -7,7 +7,8 @@ use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId, SeatSet};
 use std::sync::Arc;
 
 impl GameState {
-    pub(crate) fn hide_exiled_card(
+    #[doc(hidden)]
+    pub fn hide_exiled_card(
         &mut self,
         card: ObjectId,
         source: DamageSourceRef,

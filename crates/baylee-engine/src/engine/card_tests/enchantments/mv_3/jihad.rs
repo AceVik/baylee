@@ -16,7 +16,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 fn jihad() -> CardIndex {
     card_index("b18b9869-8490-4875-a5bb-484c3299f2c5")

@@ -94,7 +94,7 @@ fn top_card_land_choices_are_private_optional_and_leave_unchosen_cards_untouched
                         .filter(|entry| entry.seq > since)
                         .any(|entry| matches!(
                             &entry.event,
-                            crate::event::GameEvent::Revealed { cards, .. } if cards.contains(&card)
+                            baylee_engine::event::GameEvent::Revealed { cards, .. } if cards.contains(&card)
                         ));
                     assert_eq!(revealed, accepted, "only the accepted match is public");
                 }

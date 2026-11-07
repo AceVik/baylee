@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::YesNoPrompt;
-use crate::turn::Step;
+use baylee_engine::choice::YesNoPrompt;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 

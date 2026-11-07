@@ -1,7 +1,7 @@
 //! Printed card behavior through the real engine.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as kit;
+use baylee_card_testkit::card_tests::legends_kit as kit;
 use baylee_core::generated::index;
 
 #[test]

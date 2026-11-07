@@ -78,7 +78,10 @@ fn reveal_or_control_are_alternatives_and_a_second_entry_question_is_not_lost() 
             else {
                 panic!("reveal choice: {:?}", e.pending())
             };
-            assert_eq!(*prompt, crate::choice::ChoicePrompt::RevealOrEnterTapped);
+            assert_eq!(
+                *prompt,
+                baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped
+            );
             assert_eq!(options, &[show]);
             e.apply(
                 p0,
@@ -101,7 +104,7 @@ fn reveal_or_control_are_alternatives_and_a_second_entry_question_is_not_lost() 
             }
             assert_eq!(is_tapped(&e, card), !control && !reveal);
             assert_eq!(e.state().object(show).unwrap().zone, Zone::Hand);
-            let shown=e.state().journal.entries().iter().skip(before as usize).any(|entry| matches!(&entry.event,crate::event::GameEvent::Revealed{cards,..} if cards.contains(&show)));
+            let shown=e.state().journal.entries().iter().skip(before as usize).any(|entry| matches!(&entry.event,baylee_engine::event::GameEvent::Revealed{cards,..} if cards.contains(&show)));
             assert_eq!(
                 shown, reveal,
                 "revealing remains optional even with the subtype on board"

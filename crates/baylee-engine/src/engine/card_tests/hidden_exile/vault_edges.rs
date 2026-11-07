@@ -76,7 +76,7 @@ fn hidden_exile_conditions_use_signed_power_and_damage_to_one_opponent() {
     e.state.invalidate_projections();
     e.state.refresh_characteristics();
     let holds = |e: &Engine<RegistryLookup>, condition| {
-        crate::eval::condition_holds(&e.state, P0, bear, condition)
+        baylee_engine::eval::condition_holds(&e.state, P0, bear, condition)
     };
     assert!(!holds(
         &e,

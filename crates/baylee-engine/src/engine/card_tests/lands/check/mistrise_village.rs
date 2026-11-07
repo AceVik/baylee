@@ -120,7 +120,7 @@ fn mistrise_village_protection_ends_with_the_turn_it_was_activated_in() {
             .object(bear)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable),
+            .contains(&baylee_engine::object::Rider::Uncounterable),
         "the protection lapsed at the end of the turn it was activated in"
     );
     e.apply(p0, PlayerAction::PassPriority).unwrap();
@@ -181,7 +181,7 @@ fn mistrise_village_does_not_protect_or_spend_on_an_opponents_spell() {
             .object(bolt)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable),
+            .contains(&baylee_engine::object::Rider::Uncounterable),
         "an opponent's spell is not the next spell *you* cast"
     );
 
@@ -203,7 +203,7 @@ fn mistrise_village_does_not_protect_or_spend_on_an_opponents_spell() {
             .object(mine)
             .unwrap()
             .riders
-            .contains(&crate::object::Rider::Uncounterable),
+            .contains(&baylee_engine::object::Rider::Uncounterable),
         "p1's spell did not spend the grant: p0's next spell is still protected"
     );
 

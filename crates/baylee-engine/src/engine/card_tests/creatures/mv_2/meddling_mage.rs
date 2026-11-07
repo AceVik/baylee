@@ -196,6 +196,9 @@ fn a_free_cast_cannot_cast_the_named_spell() {
                 Cause::Effect,
             )
             .expect("into exile");
-        assert_eq!(engine.start_free_cast(p0, object).is_ok(), castable);
+        assert_eq!(
+            engine.start_free_cast_for_tests(p0, object).is_ok(),
+            castable
+        );
     }
 }

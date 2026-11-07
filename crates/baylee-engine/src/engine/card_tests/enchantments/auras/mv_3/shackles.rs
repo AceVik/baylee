@@ -6,8 +6,8 @@ fn shackles() -> CardIndex {
 
 #[test]
 fn shackles_prevents_untap_and_returns_to_hand_for_w() {
-    use crate::engine::card_tests::legends_kit as lk;
-    use crate::engine::card_tests::partials_w1b_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())

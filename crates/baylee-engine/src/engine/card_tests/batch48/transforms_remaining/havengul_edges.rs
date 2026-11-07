@@ -40,7 +40,7 @@ fn havengul_two_sacrificed_clues_plus_destroyed_clue_do_not_meet_three_sacrifice
         pass_until(&mut e, stack_is_empty);
     }
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::End
+        e.state.turn.step == baylee_engine::turn::Step::End
             && stack_is_empty(e)
             && matches!(e.pending(), Pending::Priority { .. })
     });
@@ -58,7 +58,7 @@ fn havengul_printed_departure_trigger_uses_current_mystery_controller() {
     // observer belongs to current Mystery, not original reanimation caster.
     e.state.object_mut(lab).unwrap().set_controller(P1);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     cast(&mut e, index::UNSUMMON);
     targets(&mut e, vec![bear], vec![]);
@@ -139,7 +139,7 @@ fn havengul_copied_reanimation_links_both_creatures_but_front_face_does_not_obse
     if let Pending::ChooseCastMode { options, .. } = e.pending() {
         let mode = options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Face(1)))
             .unwrap();
         e.apply(P0, PlayerAction::ChooseMode(mode)).unwrap();
     }
@@ -148,7 +148,7 @@ fn havengul_copied_reanimation_links_both_creatures_but_front_face_does_not_obse
         matches!(
             e.pending(),
             Pending::ChooseTargets {
-                reason: crate::choice::TargetPrompt::Retarget { .. },
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
                 ..
             }
         )

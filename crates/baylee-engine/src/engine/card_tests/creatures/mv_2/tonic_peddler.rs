@@ -65,7 +65,7 @@ fn tonic_peddler_discards_a_card_to_give_targeted_player_three_life() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     activate(&mut engine, p0, tonic_peddler(), 0);
 
@@ -119,7 +119,7 @@ fn tonic_peddler_discards_a_card_to_give_targeted_player_three_life() {
             } => {
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostDiscard,
+                    baylee_engine::choice::ChoicePrompt::CostDiscard,
                     "a cost and not a search, which is all a client has to tell \
                      the two apart"
                 );
@@ -171,14 +171,14 @@ fn tonic_peddler_discards_a_card_to_give_targeted_player_three_life() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before - 1,
         "\"Discard a card\" leaves the hand one card shorter"
     );
     assert_eq!(
         engine.state().object(discarded).map(|o| o.zone),
-        Some(crate::zone::Zone::Graveyard),
+        Some(baylee_engine::zone::Zone::Graveyard),
         "and it is the very card the question offered, in its owner's graveyard"
     );
     assert!(

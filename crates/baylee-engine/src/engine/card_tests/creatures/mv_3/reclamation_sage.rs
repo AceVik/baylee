@@ -95,7 +95,7 @@ fn reclamation_sage_destroys_the_artifact_it_names_and_leaves_the_rest_alone() {
             }
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
                 ..
             } => {
                 engine

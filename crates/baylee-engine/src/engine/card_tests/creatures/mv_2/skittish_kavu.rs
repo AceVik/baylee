@@ -34,7 +34,7 @@ fn skittish_kavu_gets_plus_one_plus_one_only_while_no_opponent_controls_white_or
     // When P0 destroys P1's Savannah Lions, Skittish Kavu returns to 2/2.
     let opp_lions = on_battlefield(&engine, p1, index::SAVANNAH_LIONS).unwrap();
     engine.apply(p1, PlayerAction::PassPriority).unwrap();
-    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
+    baylee_card_testkit::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
     cast_with_floating(&mut engine, p0, index::LIGHTNING_BOLT);
     aim_at(&mut engine, p0, opp_lions);
     pass_until(&mut engine, stack_is_empty);

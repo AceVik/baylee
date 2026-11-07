@@ -114,7 +114,7 @@ fn kris_mage_pays_a_red_a_tap_and_a_card_for_exactly_one_damage() {
                 assert_eq!(player, p0, "the activating player gives up the card");
                 assert_eq!(
                     prompt,
-                    crate::choice::ChoicePrompt::CostDiscard,
+                    baylee_engine::choice::ChoicePrompt::CostDiscard,
                     "a cost choice and not a search, which is the only thing \
                      whereby a client distinguishes the two"
                 );

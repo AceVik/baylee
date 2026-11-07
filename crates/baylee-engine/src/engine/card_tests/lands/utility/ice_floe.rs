@@ -122,7 +122,7 @@ mod local_regressions {
     ///
     /// The untap choice keeps the source tapped and the targeted creature locked through its next untap.
     /// During an opponent's combat, when attacked by a non-flying creature (`llanowar_elves()`), ability 1 taps the attacker and taps Ice Floe.
-    /// On the controller's subsequent untap step, the engine offers the `crate::choice::ChoicePrompt::LeaveTapped` question, and electing to keep Ice Floe tapped leaves it tapped into the main phase.
+    /// On the controller's subsequent untap step, the engine offers the `baylee_engine::choice::ChoicePrompt::LeaveTapped` question, and electing to keep Ice Floe tapped leaves it tapped into the main phase.
     #[test]
     fn ice_floe_taps_attacking_nonflyer_and_may_remain_tapped() {
         let p0 = PlayerId::new(0);
@@ -189,7 +189,7 @@ mod local_regressions {
             if let Pending::ChooseCards {
                 player,
                 options,
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::LeaveTapped,
                 ..
             } = engine.pending().clone()
             {

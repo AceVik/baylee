@@ -33,7 +33,7 @@ fn zone_of(engine: &Engine<RegistryLookup>, id: ObjectId) -> Zone {
 fn declare(engine: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     pass_until(engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareAttackers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareAttackers
     });
     engine
         .apply(
@@ -108,7 +108,7 @@ fn runesword_pumps_an_attacker_and_stays_while_it_lives() {
     assert_eq!(pt(&engine, bears), (4, 2), "+2/+0");
 
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(life(&engine, p1), 16, "four unblocked");
     assert!(
@@ -129,7 +129,7 @@ fn runesword_exiles_what_the_pumped_creature_kills_and_is_sacrificed_when_it_die
     declare(&mut engine, &[bears]);
     runesword_at(&mut engine, bears);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
     });
     engine
         .apply(
@@ -140,7 +140,7 @@ fn runesword_exiles_what_the_pumped_creature_kills_and_is_sacrificed_when_it_die
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
 
     assert_eq!(zone_of(&engine, giant), Zone::Exile, "exiled, not dead");
@@ -175,7 +175,7 @@ fn runesword_damage_cannot_be_regenerated_away() {
     declare(&mut engine, &[bears]);
     runesword_at(&mut engine, bears);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::DeclareBlockers
+        e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
     });
     engine
         .apply(
@@ -189,7 +189,7 @@ fn runesword_damage_cannot_be_regenerated_away() {
     // p1 answers with the Cylix before damage.
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
-            && e.state().turn.step == crate::turn::Step::DeclareBlockers
+            && e.state().turn.step == baylee_engine::turn::Step::DeclareBlockers
     });
     tap_all_mana(&mut engine, p1);
     activate(&mut engine, p1, draconian_cylix(), 0);
@@ -202,7 +202,7 @@ fn runesword_damage_cannot_be_regenerated_away() {
     );
 
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
     assert_eq!(
         zone_of(&engine, giant),

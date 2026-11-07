@@ -200,7 +200,7 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
 /// require the Vampire to be controlled by Baron's controller.
 #[test]
 fn baron_sengir_regenerates_a_noncreature_kindred_vampire_but_not_itself() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     use baylee_core::{
         generated::{index, subtypes},
         types::SubtypeSet,

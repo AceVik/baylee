@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn victimize() -> CardIndex {
     card_index("240e85d3-e495-4877-8609-4b4056c402f7")
@@ -29,16 +29,16 @@ fn victimize_sacrifices_creature_to_return_two_creatures_from_graveyard() {
             .move_object(
                 ogre,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Setup,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Setup,
             )
             .unwrap();
         state
             .move_object(
                 bears,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Setup,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Setup,
             )
             .unwrap();
     }
@@ -98,8 +98,8 @@ fn victimize_cannot_return_targets_without_a_creature_to_sacrifice() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(owner),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Setup,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Setup,
             )
             .unwrap();
     }

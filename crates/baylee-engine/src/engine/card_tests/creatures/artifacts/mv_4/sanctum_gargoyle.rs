@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::YesNoPrompt;
+use baylee_engine::choice::YesNoPrompt;
 
 fn sanctum_gargoyle() -> CardIndex {
     card_index("6ee9802a-7a44-49c7-93d9-f75c4d42e71e")

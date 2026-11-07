@@ -64,7 +64,7 @@ fn albino_troll_regenerates_from_lethal_damage() {
             .object(troll)
             .unwrap()
             .status
-            .contains(crate::object::Status::TAPPED)
+            .contains(baylee_engine::object::Status::TAPPED)
     );
     assert_eq!(engine.state().object(troll).unwrap().damage, 0);
 }
@@ -88,7 +88,7 @@ fn albino_troll_echo_can_be_paid_and_is_not_due_again() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

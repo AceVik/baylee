@@ -40,7 +40,7 @@ fn shivan_phoenix_returns_to_hand_on_death() {
 
 #[test]
 fn shivan_phoenix_flies_over_a_ground_blocker() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(SEED, &[shivan_phoenix()], &[gray_ogre()], &[], &[]);
     let phoenix = lk::obj(&engine, lk::P0, shivan_phoenix());
     let blocker = lk::obj(&engine, lk::P1, gray_ogre());

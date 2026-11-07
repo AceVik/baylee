@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::hill_giant;
+use baylee_card_testkit::card_tests::partials_w2c_kit::hill_giant;
 
 // oracle_id = "1b1a0f35-3126-4b88-90aa-c56e67850a9d"
 fn ferocity() -> CardIndex {

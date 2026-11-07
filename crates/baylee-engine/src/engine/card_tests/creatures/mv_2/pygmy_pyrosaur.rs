@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn pygmy_pyrosaur() -> CardIndex {
     card_index("667c39bc-92d6-4fee-bced-95f0e1f21455")

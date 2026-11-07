@@ -3,9 +3,9 @@
 use super::*;
 use baylee_core::generated::index;
 
-use crate::casting::{SpendFor, pay_mana_for, spendable_units};
 use baylee_core::generated::subtypes::creature;
 use baylee_core::mana::ManaCost;
+use baylee_engine::casting::{SpendFor, pay_mana_for, spendable_units};
 
 fn settle_starting_land_choices(e: &mut Engine<RegistryLookup>) {
     loop {
@@ -23,7 +23,7 @@ fn settle_starting_land_choices(e: &mut Engine<RegistryLookup>) {
             }
             Pending::ChooseCards {
                 player,
-                prompt: crate::choice::ChoicePrompt::RevealOrEnterTapped,
+                prompt: baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped,
                 ..
             } => (player, PlayerAction::ChooseObjects { objects: vec![] }),
             _ => break,
@@ -182,7 +182,7 @@ fn citadel_pays_for_a_land_sources_channel_from_hand_not_a_land_spell_or_ordinar
         matches!(
             e.pending(),
             Pending::ChooseCards {
-                prompt: crate::choice::ChoicePrompt::SearchLibrary,
+                prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
                 ..
             }
         )
@@ -226,8 +226,8 @@ fn floated_courtyard_mana_keeps_its_chosen_type_when_the_land_returns_with_a_new
         .move_object(
             land,
             ZoneLocation::Hand(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

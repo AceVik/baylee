@@ -18,7 +18,7 @@ fn underdome_activation_locks_un_tax_quota_when_real_lotus_source_is_sacrificed_
     let forest = on_battlefield(&e, P0, index::FOREST).unwrap();
     print_fact(&mut e, artifact, false);
     print_fact(&mut e, lotus, true);
-    let filter = crate::effects::EffectFilter::object(&e.state, artifact);
+    let filter = baylee_engine::effects::EffectFilter::object(&e.state, artifact);
     impose_on(&mut e, lotus, Modifier::AbilitiesCostMore(1), filter);
     pool(&mut e, P0, &[]);
     restricted(&mut e, P0, ManaColor::Red);
@@ -84,7 +84,7 @@ fn underdome_un_staff_actual_cost_reduction_uses_floor_not_nominal_amount() {
         let tax = on_battlefield(&e, P0, index::BLACK_LOTUS).unwrap();
         print_fact(&mut e, staff, true);
         print_fact(&mut e, tax, false);
-        let filter = crate::effects::EffectFilter::object(&e.state, staff);
+        let filter = baylee_engine::effects::EffectFilter::object(&e.state, staff);
         impose_on(&mut e, tax, Modifier::AbilitiesCostMore(1), filter);
         // Price-only fixture isolates the actual minimum; real Staff untap
         // activation/base1 and real Underdome mana remain unmodified.

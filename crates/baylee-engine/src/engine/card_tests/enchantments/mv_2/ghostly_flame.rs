@@ -5,7 +5,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -55,7 +55,8 @@ fn red_spell_damage_bypasses_protection_from_red_only_with_ghostly_flame() {
                 damage_events(&engine, 0)
                     .iter()
                     .any(|(_, target, amount, _)| {
-                        *target == crate::event::DamageTarget::Object(acolyte) && *amount == 2
+                        *target == baylee_engine::event::DamageTarget::Object(acolyte)
+                            && *amount == 2
                     })
             );
         } else {
@@ -100,7 +101,8 @@ fn red_permanent_damage_bypasses_protection_from_red_only_with_ghostly_flame() {
                 damage_events(&engine, 0)
                     .iter()
                     .any(|(_, target, amount, _)| {
-                        *target == crate::event::DamageTarget::Object(marshal) && *amount == 10
+                        *target == baylee_engine::event::DamageTarget::Object(marshal)
+                            && *amount == 10
                     })
             );
         } else {

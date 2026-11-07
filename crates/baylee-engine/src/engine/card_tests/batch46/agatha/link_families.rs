@@ -22,14 +22,16 @@ fn install_linked_pair(e: &mut Engine<RegistryLookup>, donor: ObjectId) {
     e.state
         .object_mut(donor)
         .unwrap()
-        .take_abilities(crate::object::AbilityList {
+        .take_abilities(baylee_engine::object::AbilityList {
             acquisition,
-            abilities: crate::copiable_abilities::AbilityDefs::from_static(LINKED_ACTIVATED_PAIR),
+            abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(
+                LINKED_ACTIVATED_PAIR,
+            ),
             printed: None,
             token: None,
         });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 
@@ -146,14 +148,14 @@ fn batch46_agatha_linked_activated_pairs_share_only_their_own_granted_acquisitio
         .counters
         .add(CounterKind::P1P1, 1);
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     // Reentry gives the bearer summoning sickness. Advance through actual
     // priority/combat actions until it has begun a new turn under our control.
     let blink_turn = e.state.turn.number;
     pass_until(&mut e, |e| {
         e.state.turn.number > blink_turn
             && e.state.turn.active == P0
-            && matches!(e.state.turn.phase, crate::turn::Phase::FirstMain)
+            && matches!(e.state.turn.phase, baylee_engine::turn::Phase::FirstMain)
             && matches!(e.pending(), Pending::Priority { player: P0, .. })
     });
     linked_read(&mut e, bearer, a[1], None);
@@ -171,7 +173,7 @@ fn batch46_agatha_linked_activated_pairs_share_only_their_own_granted_acquisitio
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     exile(&mut e, first, Some(bearer));
     install_linked_pair(&mut e, first);
     let new_a: Vec<_> = grants(&e, bearer)
@@ -212,14 +214,16 @@ fn batch46_agatha_single_linked_clause_cannot_read_recipients_original_family() 
     e.state
         .object_mut(source)
         .unwrap()
-        .take_abilities(crate::object::AbilityList {
+        .take_abilities(baylee_engine::object::AbilityList {
             acquisition,
-            abilities: crate::copiable_abilities::AbilityDefs::from_static(FIXED_LINKED_READER),
+            abilities: baylee_engine::copiable_abilities::AbilityDefs::from_static(
+                FIXED_LINKED_READER,
+            ),
             printed: None,
             token: None,
         });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     let ids = grants(&e, bearer);
     assert_eq!(ids.len(), 1);

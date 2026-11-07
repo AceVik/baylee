@@ -32,7 +32,7 @@ fn tishanas_tidebinder_strips_the_permanent_whose_ability_it_countered() {
     );
     assert!(
         engine.state().effects.iter().any(
-            |fx| matches!(fx.filter, crate::effects::EffectFilter::ObjectIs(id, _) if id == strix)
+            |fx| matches!(fx.filter, baylee_engine::effects::EffectFilter::ObjectIs(id, _) if id == strix)
         ),
         "nothing was registered against the strix, so the keywords went \
          somewhere else or were never there"
@@ -194,7 +194,10 @@ fn a_modal_trigger_offers_every_mode_it_can_legally_choose() {
 fn a_mode_question_whose_trigger_a_broken_loop_took_is_closed_by_its_answer() {
     let p0 = PlayerId::new(0);
     let mut engine = a_modal_trigger_asks(53, &[quiet_creature()]);
-    assert!(!engine.on_loop_detected(1), "a break ends no game");
+    assert!(
+        !engine.on_loop_detected_for_tests(1),
+        "a break ends no game"
+    );
     engine
         .apply(p0, PlayerAction::ChooseMode(0))
         .expect("the answer closes the question");
@@ -885,7 +888,7 @@ fn a_cached_projection_is_what_a_fresh_one_would_compute() {
     );
     for id in board {
         let object = engine.state().object(id).expect("the object is seated");
-        let fresh = crate::layers::recompute(engine.state(), object);
+        let fresh = baylee_engine::layers::recompute(engine.state(), object);
         assert_eq!(
             (fresh.characteristics.power, fresh.characteristics.toughness),
             (
@@ -949,7 +952,7 @@ fn steely_resolve_is_read_after_the_type_is_named() {
     pass_until(&mut engine, stack_is_empty);
 
     let object = engine.state().object(elf).expect("the Elf is still there");
-    let fresh = crate::layers::recompute(engine.state(), object);
+    let fresh = baylee_engine::layers::recompute(engine.state(), object);
     assert_eq!(
         object.characteristics().keywords,
         fresh.characteristics.keywords,
@@ -1062,7 +1065,7 @@ fn a_static_that_reads_the_tap_is_refreshed_when_the_permanent_taps() {
     assert!(is_tapped(&engine, turtle), "attacking tapped it");
 
     let object = engine.state().object(turtle).expect("still on the table");
-    let fresh = crate::layers::recompute(engine.state(), object);
+    let fresh = baylee_engine::layers::recompute(engine.state(), object);
     assert_eq!(
         (
             object.characteristics().power,
@@ -1092,7 +1095,7 @@ fn a_static_that_reads_the_tap_is_refreshed_when_the_permanent_taps() {
 /// raised rather than read.
 #[test]
 fn nothing_writes_the_tapped_bit_except_the_one_door() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../baylee-engine/src");
     let mut writers: Vec<String> = Vec::new();
     let mut files = 0usize;
     let mut stack = vec![root.clone()];
@@ -1174,10 +1177,10 @@ fn nothing_changes_a_life_total_except_the_one_door() {
                 .any(|dir| dir == "tests" || dir.ends_with("_tests"))
             || matches!(
                 rel,
-                "engine/testkit.rs" | "engine/synthetic.rs" | "engine/tests.rs"
+                "engine/testkit/mod.rs" | "engine/synthetic.rs" | "engine/tests.rs"
             )
     }
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../baylee-engine/src");
     let mut writers: Vec<String> = Vec::new();
     let mut files = 0usize;
     let mut stack = vec![root.clone()];
@@ -1291,7 +1294,7 @@ fn an_anthem_that_reads_attacking_is_refreshed_when_the_attack_is_declared() {
         .expect("an Elf that has been out since the turn began may attack");
 
     let object = engine.state().object(elf).expect("still on the table");
-    let fresh = crate::layers::recompute(engine.state(), object);
+    let fresh = baylee_engine::layers::recompute(engine.state(), object);
     assert_eq!(
         object.characteristics().power,
         fresh.characteristics.power,
@@ -1505,7 +1508,7 @@ fn a_condition_inside_an_effect_list_picks_the_branch_the_board_earns() {
             engine
                 .state()
                 .zones
-                .list(crate::zone::ZoneLocation::Graveyard(p0))
+                .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
                 .len(),
             graveyard,
             "the seeding is the only thing that differs between the two runs"

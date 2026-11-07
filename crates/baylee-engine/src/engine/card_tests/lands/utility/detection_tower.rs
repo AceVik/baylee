@@ -33,7 +33,11 @@ fn detection_tower_targets_opponent_creatures_without_removing_hexproof() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(keywords(&engine, caryatid).contains(KeywordSet::HEXPROOF));
-    assert!(!crate::eval::untargetable_by(engine.state(), caryatid, p0));
+    assert!(!baylee_engine::eval::untargetable_by(
+        engine.state(),
+        caryatid,
+        p0
+    ));
     assert!(is_tapped(&engine, tower));
 }
 
@@ -55,31 +59,43 @@ fn detection_tower_permission_is_personal_dynamic_and_ends_at_cleanup() {
     state.refresh_characteristics();
     protect_player(&mut e, p1);
     assert!(
-        !crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p0).contains(&p1)
+        !baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p0)
+            .contains(&p1)
     );
     assert!(
-        crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p1).contains(&p1)
+        baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p1)
+            .contains(&p1)
     );
     tap_mana_except(&mut e, p0, tower);
     activate(&mut e, p0, detection_tower(), 1);
     pass_until(&mut e, stack_is_empty);
-    assert!(!crate::eval::untargetable_by(e.state(), creature, p0));
-    assert!(crate::eval::untargetable_by(e.state(), creature, p2));
+    assert!(!baylee_engine::eval::untargetable_by(
+        e.state(),
+        creature,
+        p0
+    ));
+    assert!(baylee_engine::eval::untargetable_by(
+        e.state(),
+        creature,
+        p2
+    ));
     assert!(
-        crate::eval::untargetable_by(e.state(), land, p0),
+        baylee_engine::eval::untargetable_by(e.state(), land, p0),
         "noncreature hexproof is unchanged"
     );
     assert!(
-        crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p0).contains(&p1)
+        baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p0)
+            .contains(&p1)
     );
     assert!(
-        !crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p2).contains(&p1)
+        !baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p2)
+            .contains(&p1)
     );
     let state = e.dev_state_mut(p0).unwrap();
     let name = state.names.intern("later creature");
     let later = state.create_bare(
         p1,
-        crate::object::ObjectKind::Permanent,
+        baylee_engine::object::ObjectKind::Permanent,
         name,
         ZoneLocation::Battlefield,
     );
@@ -89,9 +105,9 @@ fn detection_tower_permission_is_personal_dynamic_and_ends_at_cleanup() {
     base.toughness = Some(1);
     base.keywords = KeywordSet::HEXPROOF;
     state.refresh_characteristics();
-    assert!(!crate::eval::untargetable_by(e.state(), later, p0));
+    assert!(!baylee_engine::eval::untargetable_by(e.state(), later, p0));
     bury(&mut e, &[tower]);
-    assert!(!crate::eval::untargetable_by(e.state(), later, p0));
+    assert!(!baylee_engine::eval::untargetable_by(e.state(), later, p0));
     e.dev_state_mut(p0)
         .unwrap()
         .object_mut(creature)
@@ -100,20 +116,21 @@ fn detection_tower_permission_is_personal_dynamic_and_ends_at_cleanup() {
         .keywords = KeywordSet::HEXPROOF.union(KeywordSet::SHROUD);
     e.dev_state_mut(p0).unwrap().refresh_characteristics();
     assert!(
-        crate::eval::untargetable_by(e.state(), creature, p0),
+        baylee_engine::eval::untargetable_by(e.state(), creature, p0),
         "shroud still applies"
     );
     reach_their_main_phase(&mut e, p1);
-    assert!(crate::eval::untargetable_by(e.state(), later, p0));
+    assert!(baylee_engine::eval::untargetable_by(e.state(), later, p0));
     assert!(
-        !crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p0).contains(&p1)
+        !baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p0)
+            .contains(&p1)
     );
 }
 
 fn protect_player(e: &mut Engine<RegistryLookup>, controller: PlayerId) {
-    use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     use baylee_cards_dsl::{Duration, Filter, Layer, Modifier};
     use baylee_core::ids::EffectId;
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
     let state = e.dev_state_mut(PlayerId::new(0)).unwrap();
     let timestamp = state.next_timestamp();
     state.effects.register(ContinuousEffect {
@@ -141,15 +158,20 @@ fn player_hexproof_allows_its_players_and_teammates_spells() {
     protect_player(&mut e, p1);
     for caster in [p0, p1] {
         assert!(
-            crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, caster)
+            baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, caster)
                 .contains(&p1)
         );
         assert!(
-            !crate::eval::target_player_options(e.state(), &TargetSpec::AnyOpponent, caster)
-                .contains(&p1)
+            !baylee_engine::eval::target_player_options(
+                e.state(),
+                &TargetSpec::AnyOpponent,
+                caster
+            )
+            .contains(&p1)
         );
     }
     assert!(
-        !crate::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p2).contains(&p1)
+        !baylee_engine::eval::target_player_options(e.state(), &TargetSpec::AnyPlayer, p2)
+            .contains(&p1)
     );
 }

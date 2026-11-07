@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 /// "As The Black Gate enters, you may pay 3 life. If you don't, it enters
 /// tapped."
@@ -30,7 +30,7 @@ fn the_black_gate_enters_untapped_for_three_life_or_tapped_for_free() {
 
         let Pending::YesNo {
             player,
-            prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount },
+            prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount },
             ..
         } = engine.pending().clone()
         else {
@@ -69,7 +69,7 @@ fn the_black_gate_enters_untapped_for_three_life_or_tapped_for_free() {
 
         let Pending::YesNo {
             player,
-            prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount },
+            prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { amount },
             ..
         } = engine.pending().clone()
         else {

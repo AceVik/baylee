@@ -5,7 +5,7 @@ fn thran_turbine() -> CardIndex {
     card_index("6c31f06d-bf02-48a7-9c17-be2a226b8eae")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn thran_turbine_mana_pays_abilities_but_never_spells() {
@@ -29,7 +29,7 @@ fn thran_turbine_mana_pays_abilities_but_never_spells() {
     let before = e
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
+        .list(baylee_engine::zone::ZoneLocation::Library(p0))
         .len();
     activate(&mut e, p0, index::MILLSTONE, 0);
     match e.pending() {
@@ -43,7 +43,7 @@ fn thran_turbine_mana_pays_abilities_but_never_spells() {
     assert_eq!(
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Library(p0))
+            .list(baylee_engine::zone::ZoneLocation::Library(p0))
             .len(),
         before - 2
     );

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 fn goblin_matron() -> CardIndex {
@@ -55,11 +55,11 @@ fn goblin_matron_reveals_a_goblin_into_hand_and_shuffles() {
     );
     assert!(e.state().journal.entries().iter().any(|entry| matches!(
         &entry.event,
-        crate::event::GameEvent::Revealed { cards, .. } if cards.contains(&goblin)
+        baylee_engine::event::GameEvent::Revealed { cards, .. } if cards.contains(&goblin)
     )));
     assert!(e.state().journal.entries().iter().any(|entry| matches!(
         entry.event,
-        crate::event::GameEvent::Shuffled { player, .. } if player == lk::P0
+        baylee_engine::event::GameEvent::Shuffled { player, .. } if player == lk::P0
     )));
 }
 

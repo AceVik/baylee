@@ -1,7 +1,7 @@
 //! Skyshroud Condor cannot be the first spell of a turn.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 fn skyshroud_condor() -> CardIndex {
     card_index("c7c4c67e-c4db-416b-b2e8-f0e59aa80bba")

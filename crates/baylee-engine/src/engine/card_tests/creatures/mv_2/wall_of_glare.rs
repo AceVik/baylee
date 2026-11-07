@@ -58,7 +58,7 @@ fn wall_of_glare_has_defender_and_can_block_any_number_of_creatures() {
     };
     assert_eq!(
         capacity,
-        vec![crate::choice::BlockCapacity {
+        vec![baylee_engine::choice::BlockCapacity {
             blocker: wall,
             most: None,
         }],

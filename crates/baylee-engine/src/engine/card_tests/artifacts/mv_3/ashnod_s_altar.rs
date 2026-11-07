@@ -68,7 +68,7 @@ fn ashnods_altar_eats_the_creature_you_name_and_pays_two_colorless() {
     };
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        baylee_engine::choice::ChoicePrompt::CostSacrifice,
         "the variant is what tells a client this is a cost and not a search"
     );
     assert_eq!((min, max), (1, 1), "one creature, and the cost asks once");
@@ -97,7 +97,7 @@ fn ashnods_altar_eats_the_creature_you_name_and_pays_two_colorless() {
         matches!(
             refused,
             Err(EngineError::IllegalAction(why))
-                if why == crate::choice::AnswerFault::NotOffered.reason()
+                if why == baylee_engine::choice::AnswerFault::NotOffered.reason()
         ),
         "the answer is validated against the list that was published: {refused:?}"
     );

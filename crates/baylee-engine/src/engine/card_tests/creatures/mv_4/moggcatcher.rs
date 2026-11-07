@@ -47,8 +47,8 @@ fn moggcatcher_searches_a_goblin_permanent_onto_the_battlefield_for_three_and_it
         .move_object(
             land,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .expect("the harness moves a card");
 

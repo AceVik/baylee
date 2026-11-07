@@ -79,8 +79,8 @@ fn kismet_uses_entering_controller_even_when_reanimation_steals_an_opponents_car
         .move_object(
             bear,
             ZoneLocation::Graveyard(P0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

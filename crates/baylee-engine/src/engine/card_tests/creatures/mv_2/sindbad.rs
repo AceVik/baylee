@@ -13,7 +13,7 @@ fn revealed_by(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<Vec<Objec
         .entries()
         .iter()
         .filter_map(|e| match &e.event {
-            crate::event::GameEvent::Revealed { player, cards } if *player == seat => {
+            baylee_engine::event::GameEvent::Revealed { player, cards } if *player == seat => {
                 Some(cards.clone())
             }
             _ => None,
@@ -25,7 +25,7 @@ fn hand_len(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(seat))
+        .list(baylee_engine::zone::ZoneLocation::Hand(seat))
         .len()
 }
 

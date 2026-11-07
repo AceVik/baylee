@@ -1,12 +1,15 @@
 //! Keyword counters participate in layer 6 and keep their own timestamps.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 use baylee_cards_dsl::{Duration, Modifier};
 use baylee_core::generated::index;
 use baylee_core::ids::EffectId;
+use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 
-pub(super) fn remove_abilities(state: &mut crate::state::GameState, object: ObjectId) -> EffectId {
+pub(super) fn remove_abilities(
+    state: &mut baylee_engine::state::GameState,
+    object: ObjectId,
+) -> EffectId {
     let timestamp = state.next_timestamp();
     state.effects.register(ContinuousEffect {
         id: EffectId::new(0),
@@ -37,7 +40,7 @@ fn counters_use_timestamp_order_and_new_placement_refreshes_the_whole_kind() {
         reach_main_phase(&mut e, p0);
         let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
         let state = e.dev_state_mut(p0).unwrap();
-        crate::replacement::put_counters(state, bear, kind, 1);
+        baylee_engine::replacement::put_counters(state, bear, kind, 1);
         state.refresh_characteristics();
         assert!(
             state
@@ -57,7 +60,7 @@ fn counters_use_timestamp_order_and_new_placement_refreshes_the_whole_kind() {
                 .keywords
                 .contains(keyword)
         );
-        crate::replacement::put_counters(state, bear, kind, 1);
+        baylee_engine::replacement::put_counters(state, bear, kind, 1);
         state.refresh_characteristics();
         assert!(
             state
@@ -76,7 +79,7 @@ fn counters_use_timestamp_order_and_new_placement_refreshes_the_whole_kind() {
             1
         );
         let second_loss = remove_abilities(state, bear);
-        crate::replacement::remove_counters(state, bear, kind, 1);
+        baylee_engine::replacement::remove_counters(state, bear, kind, 1);
         state.refresh_characteristics();
         assert!(
             !state
@@ -99,7 +102,7 @@ fn counters_use_timestamp_order_and_new_placement_refreshes_the_whole_kind() {
                 .keywords
                 .contains(keyword)
         );
-        crate::replacement::remove_counters(state, bear, kind, 1);
+        baylee_engine::replacement::remove_counters(state, bear, kind, 1);
         state.refresh_characteristics();
         assert!(
             !state
@@ -129,7 +132,7 @@ fn keyword_counter_rules_end_on_departure_and_do_not_affect_another_creature() {
     let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
     let elf = on_battlefield(&e, p0, llanowar_elves()).unwrap();
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::put_counters(state, bear, CounterKind::Flying, 1);
+    baylee_engine::replacement::put_counters(state, bear, CounterKind::Flying, 1);
     state.refresh_characteristics();
     assert!(
         !state
@@ -142,17 +145,17 @@ fn keyword_counter_rules_end_on_departure_and_do_not_affect_another_creature() {
     state
         .move_object(
             bear,
-            crate::zone::ZoneLocation::Hand(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Setup,
+            baylee_engine::zone::ZoneLocation::Hand(p0),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
         )
         .unwrap();
     state
         .move_object(
             bear,
-            crate::zone::ZoneLocation::Battlefield,
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Setup,
+            baylee_engine::zone::ZoneLocation::Battlefield,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
         )
         .unwrap();
     state.refresh_characteristics();
@@ -214,10 +217,10 @@ fn minas_morgul_shadow_and_wraith_outlive_the_land_but_end_when_the_counter_is_g
             .contains(baylee_core::generated::subtypes::creature::WRAITH)
     );
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::remove_counters(state, bear, CounterKind::Shadow, 1);
+    baylee_engine::replacement::remove_counters(state, bear, CounterKind::Shadow, 1);
     // Removing and replacing the last counter in one resolution must not
     // restart the land's expired type-changing effect.
-    crate::replacement::put_counters(state, bear, CounterKind::Shadow, 1);
+    baylee_engine::replacement::put_counters(state, bear, CounterKind::Shadow, 1);
     state.refresh_characteristics();
     assert!(
         !state
@@ -270,12 +273,12 @@ fn tyrite_sanctum_places_real_indestructible_counters_after_its_sacrifice() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(
         e.state().object(land).unwrap().zone,
-        crate::zone::Zone::Graveyard
+        baylee_engine::zone::Zone::Graveyard
     );
     assert_eq!(counters_on(&e, bear, CounterKind::Indestructible), 1);
     assert!(keywords(&e, bear).contains(KeywordSet::INDESTRUCTIBLE));
     let state = e.dev_state_mut(p0).unwrap();
-    crate::replacement::remove_counters(state, bear, CounterKind::Indestructible, 1);
+    baylee_engine::replacement::remove_counters(state, bear, CounterKind::Indestructible, 1);
     state.refresh_characteristics();
     assert!(!keywords(&e, bear).contains(KeywordSet::INDESTRUCTIBLE));
 }

@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::event::GameEvent;
+use baylee_engine::event::GameEvent;
 
 fn mijae_djinn() -> CardIndex {
     card_index("61bebdfa-5df0-4952-abf9-dc5e0e4f57ea")

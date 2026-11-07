@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::{ChoicePrompt, YesNoPrompt};
+use baylee_engine::choice::{ChoicePrompt, YesNoPrompt};
 
 fn shield_wall_sentinel() -> CardIndex {
     card_index("4976f08c-6f8e-42e4-9584-f04793518ddb")

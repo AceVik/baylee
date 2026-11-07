@@ -107,7 +107,7 @@ fn next_main(e: &mut Engine<RegistryLookup>, player: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { player: p, .. } if *p == player)
     });
 }

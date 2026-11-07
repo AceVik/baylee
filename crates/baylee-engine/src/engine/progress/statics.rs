@@ -335,7 +335,7 @@ impl crate::state::GameState {
         crate::effects::sync_granted_statics(self);
         crate::effects::sync_granted_activated(self, lookup);
         self.sync_replacement_rules(lookup);
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         crate::ability_log::note_sources(self, lookup);
     }
 
@@ -380,5 +380,15 @@ impl crate::state::GameState {
             }
         }
         self.replacement_rules.extend(rules_to_add);
+    }
+}
+
+/// The engine's own steps, named for the card test crates (`test-support`) and
+/// their kit: the steps stay the engine's, these only call them.
+#[cfg(any(test, feature = "test-support"))]
+impl<L: CardLookup> Engine<L> {
+    #[doc(hidden)]
+    pub fn sync_static_effects_for_tests(&mut self) {
+        self.sync_static_effects();
     }
 }

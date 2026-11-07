@@ -226,7 +226,7 @@ fn paradise_mantle_grants_tap_for_any_color_to_equipped_creature() {
     let mantle = cast_resolved(&mut engine, p0, paradise_mantle(), &[]);
 
     assert!(
-        crate::effects::granted_activated(engine.state(), host)
+        baylee_engine::effects::granted_activated(engine.state(), host)
             .next()
             .is_none(),
         "unequipped Goblin Piker has no granted mana ability"
@@ -247,7 +247,7 @@ fn paradise_mantle_grants_tap_for_any_color_to_equipped_creature() {
         engine.state().object(mantle).and_then(|o| o.attached_to),
         Some(host)
     );
-    let host_grant = crate::effects::granted_activated(engine.state(), host)
+    let host_grant = baylee_engine::effects::granted_activated(engine.state(), host)
         .next()
         .expect("equipped creature receives granted mana ability")
         .id;
@@ -305,12 +305,12 @@ fn paradise_mantle_grants_tap_for_any_color_to_equipped_creature() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert!(
-        crate::effects::granted_activated(engine.state(), host)
+        baylee_engine::effects::granted_activated(engine.state(), host)
             .next()
             .is_none(),
         "old host loses the granted ability when unequipped"
     );
-    let bystander_grant = crate::effects::granted_activated(engine.state(), bystander)
+    let bystander_grant = baylee_engine::effects::granted_activated(engine.state(), bystander)
         .next()
         .expect("new host receives granted mana ability")
         .id;

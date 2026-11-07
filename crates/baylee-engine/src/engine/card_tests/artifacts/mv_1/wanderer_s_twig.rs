@@ -85,14 +85,14 @@ fn twig_searches_for_a_basic_land_and_sacrifices_before_searching() {
     );
     assert!(e.state().journal.entries()[baseline..].iter().any(|entry| matches!(
         &entry.event,
-        crate::event::GameEvent::Revealed { player, cards } if *player == p0 && cards.contains(&land)
+        baylee_engine::event::GameEvent::Revealed { player, cards } if *player == p0 && cards.contains(&land)
     )), "the chosen land is revealed");
     assert!(
         e.state().journal.entries()[baseline..]
             .iter()
             .any(|entry| matches!(
                 &entry.event,
-                crate::event::GameEvent::Shuffled { player, zone: Zone::Library } if *player == p0
+                baylee_engine::event::GameEvent::Shuffled { player, zone: Zone::Library } if *player == p0
             )),
         "the library is shuffled after searching"
     );

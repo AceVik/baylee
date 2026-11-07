@@ -1,8 +1,8 @@
 //! Nether Shadow's graveyard upkeep, ordered cards, and returned creature.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::event::Cause;
 use baylee_core::generated::index;
+use baylee_engine::event::Cause;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -46,7 +46,7 @@ fn upkeep(e: &mut Engine<RegistryLookup>, owner: PlayerId) {
         pass_until(e, |e| e.state().turn.active != owner);
     }
     pass_until(e, |e| {
-        e.state().turn.active == owner && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == owner && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
 }
 
@@ -392,7 +392,10 @@ fn nether_shadow_return_is_an_untargeted_ability_not_a_counterspell_target() {
     let stack = e.state().zones.list(ZoneLocation::Stack);
     assert_eq!(stack.len(), 1);
     let trigger = e.state().object(stack[0]).unwrap();
-    assert_eq!(trigger.kind, crate::object::ObjectKind::AbilityOnStack);
+    assert_eq!(
+        trigger.kind,
+        baylee_engine::object::ObjectKind::AbilityOnStack
+    );
     assert!(trigger.targets.is_empty());
     e.dev_state_mut(P0).unwrap().players[0]
         .mana_pool

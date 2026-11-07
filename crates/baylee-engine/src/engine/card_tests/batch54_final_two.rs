@@ -6,12 +6,12 @@ mod payment;
 mod replacement_edges;
 mod thran;
 use super::counter_resources::prepared;
-use crate::event::Cause;
-use crate::zone::ZonePosition;
 use baylee_core::{
     generated::{index, subtypes},
     mana::ManaPool,
 };
+use baylee_engine::event::Cause;
+use baylee_engine::zone::ZonePosition;
 const P0: PlayerId = PlayerId::new(0);
 fn reset(e: &mut Engine<RegistryLookup>) {
     for p in &mut e.state.players {
@@ -60,7 +60,7 @@ fn next_main(e: &mut Engine<RegistryLookup>, player: PlayerId) {
     pass_until(e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == player
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(),Pending::Priority{player:p,..} if *p==player)
     });
 }

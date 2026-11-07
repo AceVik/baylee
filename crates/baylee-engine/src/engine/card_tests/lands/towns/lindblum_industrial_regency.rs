@@ -110,8 +110,12 @@ fn a_stolen_adventure_grants_its_controller_the_land_play_in_its_owners_exile() 
             .contains(&card)
     );
     assert_adventure_exiled(&e, p1, card);
-    assert!(!crate::casting::adventure_permission(e.state(), p0, card));
-    assert!(!crate::casting::land_card_open(e.state(), p0, card));
+    assert!(!baylee_engine::casting::adventure_permission(
+        e.state(),
+        p0,
+        card
+    ));
+    assert!(!baylee_engine::casting::land_card_open(e.state(), p0, card));
     reach_their_main_phase(&mut e, p1);
     let Pending::Priority { legal, .. } = e.pending() else {
         panic!("priority")

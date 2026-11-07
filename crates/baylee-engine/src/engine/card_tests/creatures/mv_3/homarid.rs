@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
 use baylee_cards_dsl::counters;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -26,8 +26,8 @@ fn with_homarid() -> (Engine<RegistryLookup>, ObjectId) {
 }
 
 fn add_tide(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
-    crate::replacement::put_counters(&mut engine.state, id, counters::TIDE, 1);
-    engine.sync_static_effects();
+    baylee_engine::replacement::put_counters(&mut engine.state, id, counters::TIDE, 1);
+    engine.sync_static_effects_for_tests();
     engine.state.refresh_characteristics();
 }
 

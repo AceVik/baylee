@@ -32,7 +32,7 @@ fn rune_sealed_wall_surveils_one() {
         unreachable!("the predicate just matched")
     };
     assert_eq!(player, p0);
-    assert_eq!(prompt, crate::choice::ArrangePrompt::Surveil);
+    assert_eq!(prompt, baylee_engine::choice::ArrangePrompt::Surveil);
     assert_eq!(cards, vec![*before.last().unwrap()], "the top card");
     assert_eq!(piles, surveil_piles(1));
     engine.apply(p0, look_answer(&cards, &cards)).unwrap();

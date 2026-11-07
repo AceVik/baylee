@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn brink_of_madness() -> CardIndex {
     card_index("3209ad08-5482-4dd4-a02e-1dbe99ce6b54")
@@ -29,8 +29,8 @@ fn brink_of_madness_sacrifices_itself_and_makes_opponent_discard_hand_when_hellb
             .move_object(
                 c,
                 ZoneLocation::Graveyard(p0),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

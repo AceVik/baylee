@@ -8,7 +8,8 @@ use super::{ManaPool, ManaSpending, RestrictedMana, payment::ManaEntries};
 /// retain the largest legal eligible remainder, rather than assigning a
 /// reduction to an eligible component and refusing a possible payment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct SourceAllowance {
+#[doc(hidden)]
+pub struct SourceAllowance {
     /// All constrained symbols come from the base cost in the current DSL.
     pub constrained: bool,
     /// Eligible increase for an ordinary base, ordinary floor for an Un base.

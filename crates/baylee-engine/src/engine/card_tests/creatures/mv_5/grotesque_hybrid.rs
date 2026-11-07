@@ -117,7 +117,7 @@ fn grotesque_hybrid_destroys_creature_it_deals_combat_damage_to() {
     )
     .unwrap();
     pass_until(&mut game, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain
     });
 
     assert!(

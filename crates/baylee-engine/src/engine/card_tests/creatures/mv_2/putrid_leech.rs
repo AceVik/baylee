@@ -35,7 +35,10 @@ fn leech_pays_life_once_this_turn_and_its_pump_expires() {
     pass_until(&mut e, |game| {
         game.state().turn.number > first_turn
             && game.state().turn.active == p0
-            && matches!(game.state().turn.phase, crate::turn::Phase::FirstMain)
+            && matches!(
+                game.state().turn.phase,
+                baylee_engine::turn::Phase::FirstMain
+            )
             && matches!(game.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     assert_eq!(

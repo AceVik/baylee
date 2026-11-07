@@ -75,7 +75,7 @@ fn wall_of_shields_lets_its_controller_divide_the_attackers_damage() {
         let Pending::ChooseNumber {
             player,
             max,
-            reason: crate::choice::NumberPrompt::CombatDamage { recipient, .. },
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { recipient, .. },
             ..
         } = engine.pending().clone()
         else {

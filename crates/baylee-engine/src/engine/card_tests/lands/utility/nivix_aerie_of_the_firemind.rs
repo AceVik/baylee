@@ -116,9 +116,9 @@ fn nivix_permissions_use_the_spell_face_and_expire_as_your_next_turn_begins() {
             continue;
         }
         reach_their_main_phase(&mut e, p1);
-        assert!(crate::casting::play_permission(e.state(), p0, card).is_some());
+        assert!(baylee_engine::casting::play_permission(e.state(), p0, card).is_some());
         reach_their_main_phase(&mut e, p0);
-        assert!(crate::casting::play_permission(e.state(), p0, card).is_none());
+        assert!(baylee_engine::casting::play_permission(e.state(), p0, card).is_none());
     }
 }
 
@@ -162,7 +162,7 @@ fn exile_play_windows_follow_actual_next_turns_including_extra_and_skipped_turns
                 e.apply(p0, PlayerAction::YesNo(true)).unwrap();
                 reach_their_main_phase(&mut e, p1);
                 assert!(
-                    crate::casting::play_permission(e.state(), p0, card).is_some(),
+                    baylee_engine::casting::play_permission(e.state(), p0, card).is_some(),
                     "a skipped turn is not the next turn"
                 );
             }
@@ -170,11 +170,11 @@ fn exile_play_windows_follow_actual_next_turns_including_extra_and_skipped_turns
                 e.state().players[0].turns_started == 2 && e.state().turn.phase == Phase::FirstMain
             });
             assert_eq!(
-                crate::casting::play_permission(e.state(), p0, card).is_some(),
+                baylee_engine::casting::play_permission(e.state(), p0, card).is_some(),
                 source == cori_mountain_monastery()
             );
             reach_their_main_phase(&mut e, p1);
-            assert!(crate::casting::play_permission(e.state(), p0, card).is_none());
+            assert!(baylee_engine::casting::play_permission(e.state(), p0, card).is_none());
         }
     }
 }

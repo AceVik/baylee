@@ -41,7 +41,7 @@ fn balamb_garden_enters_tapped_and_taps_for_green_or_blue() {
 
 #[test]
 fn balamb_discounts_other_own_towns_transforms_then_crews_and_draws_on_attack() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     let garden = balamb_garden_see_d_academy();
     let mut e = kit::game(
         977,

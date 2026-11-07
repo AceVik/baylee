@@ -24,8 +24,8 @@ fn crypt_creeper_sacrifices_itself_to_exile_target_card_from_a_graveyard() {
         .move_object(
             bears,
             ZoneLocation::Graveyard(p1),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     e.refresh_offer();

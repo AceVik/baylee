@@ -82,7 +82,7 @@ fn vengeful_dead_drains_the_opponent_for_a_zombie_and_for_itself_but_not_for_an_
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::sba::destroy(state, zombie);
+    baylee_engine::sba::destroy(state, zombie);
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -123,7 +123,7 @@ fn vengeful_dead_drains_the_opponent_for_a_zombie_and_for_itself_but_not_for_an_
                 piles,
                 ..
             } => {
-                let piles = crate::choice::default_arrangement(&cards, &piles)
+                let piles = baylee_engine::choice::default_arrangement(&cards, &piles)
                     .expect("an arrangement the engine asks can be answered");
                 engine
                     .apply(player, PlayerAction::Arrange { piles })

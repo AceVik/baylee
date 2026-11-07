@@ -26,7 +26,7 @@ fn creditor_concession_prevents_future_asp_loss_but_not_existing_payment_permiss
     );
     pass_until(&mut e, |e| {
         e.state.turn.active == P1
-            && e.state.turn.step == crate::turn::Step::Draw
+            && e.state.turn.step == baylee_engine::turn::Step::Draw
             && matches!(e.pending(), Pending::Priority { .. })
     });
     assert!(stack_is_empty(&e));

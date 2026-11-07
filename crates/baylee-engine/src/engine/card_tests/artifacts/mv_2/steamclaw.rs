@@ -32,8 +32,8 @@ fn steamclaw_exiles_card_from_graveyard_by_tapping_or_sacrificing() {
             .move_object(
                 id,
                 ZoneLocation::Graveyard(p1),
-                crate::zone::ZonePosition::Top,
-                crate::event::Cause::Effect,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
             )
             .unwrap();
     }

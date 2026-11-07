@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::choice::ChoicePrompt;
+use baylee_engine::choice::ChoicePrompt;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -99,7 +99,11 @@ fn orcish_spy_shows_the_top_three_of_an_opponents_library_and_changes_nothing() 
             .contains(Status::TAPPED)
     );
     let any_revealed = e.state().journal.entries().iter().any(|entry| {
-        entry.seq > seq_before && matches!(entry.event, crate::event::GameEvent::Revealed { .. })
+        entry.seq > seq_before
+            && matches!(
+                entry.event,
+                baylee_engine::event::GameEvent::Revealed { .. }
+            )
     });
     assert!(!any_revealed, "a look is private, nothing is revealed");
 }

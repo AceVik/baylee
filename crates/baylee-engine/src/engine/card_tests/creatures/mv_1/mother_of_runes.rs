@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn mother_of_runes() -> CardIndex {
     card_index("60433b48-d27f-413c-905c-43839b1943f1")

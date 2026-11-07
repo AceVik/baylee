@@ -240,7 +240,7 @@ fn the_controller_attacks_with_the_subjects_creature_into_its_own_blocker() {
     )
     .unwrap();
     pass_until(&mut e, |e| {
-        e.state().turn.step == crate::turn::Step::CombatEnd
+        e.state().turn.step == baylee_engine::turn::Step::CombatEnd
     });
     assert!(in_graveyard(&e, P1, gray_ogre()).is_some(), "the Ogre died");
     assert!(on_battlefield(&e, P0, serra_angel()).is_some());

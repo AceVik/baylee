@@ -28,8 +28,8 @@ fn impulse_looks_at_top_four_puts_one_in_hand_and_rest_on_bottom() {
         .move_object(
             bear_id,
             ZoneLocation::Library(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
         )
         .unwrap();
     let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();

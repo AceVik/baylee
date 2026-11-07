@@ -734,7 +734,7 @@ fn cast_mana_value(state: &GameState, event: &GameEvent) -> Option<u32> {
 /// Read by `keyword_tests::every_ward_in_the_pool_is_one_the_engine_charges`,
 /// which is what turns "the table is long enough" from a thing somebody
 /// remembers into a build failure the day a set prints a bigger one.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) const WARD_CEILING: usize = WARD_PAY_OR_COUNTER.len() - 1;
 
 /// "When you cast this spell" (cascade, CR 702.85a): a trigger condition

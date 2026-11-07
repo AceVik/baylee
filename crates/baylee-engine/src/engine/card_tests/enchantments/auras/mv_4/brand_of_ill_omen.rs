@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::turn::Step;
+use baylee_engine::turn::Step;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -151,7 +151,7 @@ fn brand_of_ill_omen_allows_noncreatures_and_removal_restores_casting() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
             .iter()
             .filter(|id| {
                 engine.state().object(**id).is_some_and(|object| {

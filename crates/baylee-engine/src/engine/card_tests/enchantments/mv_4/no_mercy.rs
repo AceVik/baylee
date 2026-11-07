@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn no_mercy() -> CardIndex {
     card_index("b9538d53-480b-481a-abbf-83ab17e1a45b")

@@ -19,7 +19,7 @@ fn tolarian_winds_discards_hand_and_draws_that_many() {
     let hand_before = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
     cast_from_hand(&mut engine, p0, tolarian_winds());
     pass_until(&mut engine, stack_is_empty);
@@ -29,7 +29,7 @@ fn tolarian_winds_discards_hand_and_draws_that_many() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before - 1
     );
@@ -39,7 +39,7 @@ fn tolarian_winds_discards_hand_and_draws_that_many() {
 
 #[test]
 fn tolarian_winds_with_no_other_cards_draws_nothing() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[], &[], &[tolarian_winds()], &[]);
     lk::float(&mut e, p0, &[(ManaColor::Blue, 2)]);
@@ -47,7 +47,7 @@ fn tolarian_winds_with_no_other_cards_draws_nothing() {
     assert!(
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(baylee_engine::zone::ZoneLocation::Hand(p0))
             .is_empty()
     );
 }

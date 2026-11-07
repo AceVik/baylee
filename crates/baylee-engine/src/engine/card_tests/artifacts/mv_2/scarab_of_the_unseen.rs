@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::turn::Step;
 use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT, HOLY_STRENGTH};
+use baylee_engine::turn::Step;
 
 fn scarab_of_the_unseen() -> CardIndex {
     card_index("5f085af7-ce66-4019-9516-d1650ee7b6e0")

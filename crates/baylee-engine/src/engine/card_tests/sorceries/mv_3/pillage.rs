@@ -49,7 +49,12 @@ fn pillage_destroys_an_animated_land_that_shielded_itself() {
         "a Skeleton that is still a land, which is what puts it in Pillage's menu"
     );
 
-    raise_a_shield(&mut engine, p0, pool, crate::choice::GRANTED_ABILITY);
+    raise_a_shield(
+        &mut engine,
+        p0,
+        pool,
+        baylee_engine::choice::GRANTED_ABILITY,
+    );
 
     cast_with_floating(&mut engine, p0, pillage());
     let menu = aim_at(&mut engine, p0, pool);

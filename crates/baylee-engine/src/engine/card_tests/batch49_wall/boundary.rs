@@ -1,9 +1,9 @@
 //! Control expiry, ability removal and multiplayer departure at turn boundaries.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 use baylee_cards_dsl::{Duration, Modifier};
 use baylee_core::ids::EffectId;
+use baylee_engine::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 
 fn exact_effect(
     e: &mut Engine<RegistryLookup>,
@@ -26,7 +26,7 @@ fn exact_effect(
         modifier,
     });
     e.state.invalidate_projections();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
 }
 

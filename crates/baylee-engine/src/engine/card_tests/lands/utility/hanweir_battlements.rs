@@ -188,8 +188,8 @@ fn real_hanweir_pair_melds_with_combined_mana_value_and_splits_on_bounce() {
     let _ = engine.state.move_object(
         land,
         ZoneLocation::Hand(p0),
-        crate::zone::ZonePosition::Top,
-        crate::event::Cause::Effect,
+        baylee_engine::zone::ZonePosition::Top,
+        baylee_engine::event::Cause::Effect,
     );
     for id in [land, creature] {
         let obj = engine.state().object(id).unwrap();

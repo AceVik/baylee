@@ -29,7 +29,7 @@ fn legion_leadership_doubles_power_and_grants_first_strike() {
         let state = engine
             .dev_state_mut(p0)
             .expect("the harness may set boards up");
-        crate::replacement::put_counters(state, creature, CounterKind::P1P1, 1);
+        baylee_engine::replacement::put_counters(state, creature, CounterKind::P1P1, 1);
     }
     engine.refresh_offer();
     // The Elf is not read here. `record_counters` invalidates the

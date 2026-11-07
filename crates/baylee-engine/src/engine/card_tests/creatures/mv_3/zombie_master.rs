@@ -35,7 +35,7 @@ fn zombie_master_grants_other_zombies_swampwalk_and_a_regenerate_ability() {
     assert!(
         legal
             .abilities
-            .contains(&(zombie, crate::choice::GRANTED_ABILITY)),
+            .contains(&(zombie, baylee_engine::choice::GRANTED_ABILITY)),
         "the granted regeneration is offered on the other Zombie: {:?}",
         legal.abilities
     );
@@ -44,7 +44,7 @@ fn zombie_master_grants_other_zombies_swampwalk_and_a_regenerate_ability() {
             p0,
             PlayerAction::ActivateAbility {
                 source: zombie,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("the floating {B} pays for the grant");
@@ -84,7 +84,7 @@ fn zombie_master_grants_the_opponents_zombies_too_and_their_controller_may_use_i
     assert!(
         legal
             .abilities
-            .contains(&(zombie, crate::choice::GRANTED_ABILITY)),
+            .contains(&(zombie, baylee_engine::choice::GRANTED_ABILITY)),
         "the regeneration is offered to the Zombie's own controller: {:?}",
         legal.abilities
     );
@@ -98,7 +98,7 @@ fn zombie_master_grants_the_opponents_zombies_too_and_their_controller_may_use_i
             p1,
             PlayerAction::ActivateAbility {
                 source: zombie,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: baylee_engine::choice::GRANTED_ABILITY,
             },
         )
         .expect("the opponent's floating {B} pays for the grant");

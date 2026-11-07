@@ -54,7 +54,7 @@ fn smithy_tap_five_refuses_duplicates_six_and_stale_tapped_selection_atomically(
     // Transparent sickness fixture: nonsymbol tap cost must accept it.
     let acquired = e.state.next_timestamp();
     e.state.object_mut(bear).unwrap().controlled_since = acquired;
-    assert!(crate::combat::summoning_sick(
+    assert!(baylee_engine::combat::summoning_sick(
         &e.state,
         e.state.object(bear).unwrap()
     ));
@@ -102,7 +102,7 @@ fn smithy_gnome_count_tracks_its_new_controller_after_actual_control_magic() {
     pass_until(&mut e, |e| {
         e.state.turn.number > turn
             && e.state.turn.active == P1
-            && e.state.turn.phase == crate::turn::Phase::FirstMain
+            && e.state.turn.phase == baylee_engine::turn::Phase::FirstMain
             && matches!(e.pending(), Pending::Priority { player: P1, .. })
     });
     for color in ManaColor::ALL {

@@ -119,7 +119,7 @@ fn caster_is_asked_to_repeat(engine: &mut Engine<RegistryLookup>) {
         panic!("expected the repeat question, got {:?}", engine.pending())
     };
     assert_eq!(player, PlayerId::new(0), "the caster decides to repeat");
-    assert_eq!(prompt, crate::choice::YesNoPrompt::MayDo);
+    assert_eq!(prompt, baylee_engine::choice::YesNoPrompt::MayDo);
 }
 
 fn life(engine: &Engine<RegistryLookup>, seat: u8) -> i32 {

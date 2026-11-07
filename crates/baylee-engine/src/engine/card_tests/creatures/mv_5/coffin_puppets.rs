@@ -35,7 +35,7 @@ fn coffin_puppets_returns_from_graveyard_during_your_upkeep_if_you_control_a_swa
     // Advance to p0's next upkeep.
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && e.state().turn.active == p0
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
@@ -77,7 +77,7 @@ fn coffin_puppets_cannot_activate_without_a_swamp() {
 
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
-        e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && e.state().turn.active == p0
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });

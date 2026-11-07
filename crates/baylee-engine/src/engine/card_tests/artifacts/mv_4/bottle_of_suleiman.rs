@@ -2,8 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use crate::event::GameEvent;
 use baylee_cards_dsl::KeywordSet;
+use baylee_engine::event::GameEvent;
 
 fn bottle_of_suleiman() -> CardIndex {
     card_index("f32d19d6-8ac1-4744-b2c2-5c9d4cd0da70")
@@ -52,7 +52,7 @@ fn battlefield_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<Object
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .iter()
         .copied()
         .filter(|id| {

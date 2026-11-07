@@ -80,7 +80,7 @@ fn bolt_self(e: &mut Engine<RegistryLookup>, player: PlayerId) {
     );
     e.apply(player, PlayerAction::CastSpell { card: spell })
         .expect("cast Bolt");
-    crate::engine::card_tests::legends_kit::aim(e, &[], &[player]);
+    baylee_card_testkit::card_tests::legends_kit::aim(e, &[], &[player]);
 }
 
 #[test]

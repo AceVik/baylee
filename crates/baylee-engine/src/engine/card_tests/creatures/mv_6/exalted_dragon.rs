@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_card_testkit::card_tests::partials_w1b_kit as kit;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -38,7 +38,7 @@ fn exalted_dragon_cant_attack_unless_controller_sacrifices_a_land() {
 
 #[test]
 fn exalted_dragon_cannot_attack_without_a_land_of_its_controllers_own() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut e = lk::game(
         SEED,
         &[exalted_dragon(), gray_ogre()],

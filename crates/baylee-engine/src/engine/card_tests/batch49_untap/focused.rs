@@ -81,7 +81,7 @@ fn batch49_telekinesis_prevents_attackers_combat_damage_without_removing_it_from
     e.state.players[0].mana_pool.add(ManaColor::Blue, 2);
     cast_target(&mut e, index::TELEKINESIS, dragon);
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert_eq!(e.state.players[1].life, life);
     assert_eq!(e.state.object(dragon).unwrap().zone, Zone::Battlefield);
@@ -108,7 +108,7 @@ fn batch49_bastion_combat_damage_taps_and_suppresses_damaged_creatures_next_unta
     )
     .unwrap();
     pass_until(&mut e, |e| {
-        e.state.turn.step == crate::turn::Step::CombatEnd && stack_is_empty(e)
+        e.state.turn.step == baylee_engine::turn::Step::CombatEnd && stack_is_empty(e)
     });
     assert!(is_tapped(&e, turtle));
     let turn = e.state.turn.number;

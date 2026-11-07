@@ -114,10 +114,10 @@ fn giada_mana_casts_an_angel_but_cannot_pay_for_a_non_angel() {
     );
     let non_angel = in_hand(&engine, P0, ondu_cleric()).unwrap();
     assert_eq!(
-        crate::casting::spendable_units(
+        baylee_engine::casting::spendable_units(
             engine.state(),
             P0,
-            crate::casting::SpendFor::Spell(non_angel),
+            baylee_engine::casting::SpendFor::Spell(non_angel),
         ),
         1,
         "only the Plains is available to the non-Angel",

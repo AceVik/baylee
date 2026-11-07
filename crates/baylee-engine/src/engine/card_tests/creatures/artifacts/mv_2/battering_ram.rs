@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-use crate::turn::{Phase, Step};
+use baylee_engine::turn::{Phase, Step};
 
 /// Battering Ram: "At the beginning of combat on your turn, this creature
 /// gains banding until end of combat." and "Whenever this creature becomes
@@ -54,7 +54,7 @@ fn alive(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
     engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
         .contains(&id)
 }
 
@@ -214,7 +214,7 @@ mod local_regressions {
             )
             .unwrap();
             pass_until(&mut e, |e| {
-                e.state().turn.step == crate::turn::Step::CombatEnd
+                e.state().turn.step == baylee_engine::turn::Step::CombatEnd
             });
             assert_eq!(e.state().object(blocker).unwrap().zone, Zone::Battlefield);
             pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);

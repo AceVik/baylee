@@ -16,7 +16,7 @@ fn song_departure_retains_effect_before_any_leave_trigger_priority() {
     cast(&mut e, index::DISENCHANT);
     target(&mut e, song);
     pass_until(&mut e, |e| {
-        e.state.object(song).unwrap().zone == crate::zone::Zone::Graveyard
+        e.state.object(song).unwrap().zone == baylee_engine::zone::Zone::Graveyard
     });
     assert!(
         e.state.zones.list(ZoneLocation::Stack).is_empty(),
@@ -60,7 +60,7 @@ fn song_returned_source_is_a_new_incarnation_and_old_continuation_expires_indepe
         "new source survives cleanup of departed incarnation's continuation"
     );
     let hash = e.snapshot_hash();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(e.snapshot_hash(), hash);
     priority(&mut e, P0);
@@ -98,7 +98,7 @@ fn song_actual_phasing_has_no_departure_continuation_and_returns_same_incarnatio
             .object(song)
             .unwrap()
             .status
-            .contains(crate::object::Status::PHASED_OUT)
+            .contains(baylee_engine::object::Status::PHASED_OUT)
     );
     assert!(
         !e.state
@@ -145,7 +145,7 @@ fn song_departure_with_invalidated_projection_cache_retains_dynamic_effect() {
             Cause::Effect,
         )
         .unwrap();
-    e.sync_static_effects();
+    e.sync_static_effects_for_tests();
     e.refresh_offer();
     assert_eq!(pt(&e, ring), (1, 1));
     let late = in_hand(&e, P0, index::SOL_RING).unwrap();

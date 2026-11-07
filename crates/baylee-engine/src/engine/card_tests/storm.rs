@@ -1,10 +1,10 @@
 //! Cast counts, counted copy continuations, and magecraft's separate event.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::choice::TargetPrompt;
-use crate::event::{Cause, GameEvent};
-use crate::zone::ZonePosition;
 use baylee_core::generated::index;
+use baylee_engine::choice::TargetPrompt;
+use baylee_engine::event::{Cause, GameEvent};
+use baylee_engine::zone::ZonePosition;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -223,7 +223,7 @@ fn a_storm_trigger_can_be_removed_without_removing_its_spell() {
     let trigger = *e.state().zones.list(ZoneLocation::Stack).last().unwrap();
     assert_eq!(
         e.state().object(trigger).unwrap().kind,
-        crate::object::ObjectKind::AbilityOnStack
+        baylee_engine::object::ObjectKind::AbilityOnStack
     );
     e.dev_state_mut(P0)
         .unwrap()

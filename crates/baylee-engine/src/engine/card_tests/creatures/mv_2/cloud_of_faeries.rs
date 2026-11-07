@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn cloud_of_faeries() -> CardIndex {
     card_index("adc1f3b4-cce7-42c9-a208-dbab1d1924f5")

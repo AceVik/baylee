@@ -22,10 +22,10 @@ fn wheel_of_torture_deals_three_minus_hand_size_at_opponents_upkeep() {
     pass_until(&mut engine, stack_is_empty);
 
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p1 && e.state().turn.step == crate::turn::Step::Upkeep
+        e.state().turn.active == p1 && e.state().turn.step == baylee_engine::turn::Step::Upkeep
     });
     pass_until(&mut engine, |e| {
-        e.state().turn.step != crate::turn::Step::Upkeep
+        e.state().turn.step != baylee_engine::turn::Step::Upkeep
     });
 
     // Opponent has 0 cards in hand at upkeep, so Wheel of Torture deals 3 - 0 = 3 damage.
@@ -34,7 +34,7 @@ fn wheel_of_torture_deals_three_minus_hand_size_at_opponents_upkeep() {
 
 #[test]
 fn wheel_never_hits_its_controller_or_a_full_hand() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let mut engine = lk::game(
         SEED,
         &[wheel_of_torture()],

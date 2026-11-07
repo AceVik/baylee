@@ -88,7 +88,7 @@ fn journey_to_eternity_returns_creature_and_transforms_into_atzal() {
         "Atzal is on face 1"
     );
 
-    assert!(!engine.state().journal.entries().iter().any(|entry| matches!(entry.event, crate::event::GameEvent::Transformed { object, .. } if object == aura)), "entering transformed is not a transform event");
+    assert!(!engine.state().journal.entries().iter().any(|entry| matches!(entry.event, baylee_engine::event::GameEvent::Transformed { object, .. } if object == aura)), "entering transformed is not a transform event");
     let t = types(&engine, atzal);
     assert!(t.contains(TypeSet::LAND), "Atzal is a land");
     assert!(

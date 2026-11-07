@@ -26,7 +26,7 @@ fn vampiric_embrace_pumps_and_grants_flying_to_enchanted_creature() {
 
 #[test]
 fn vampiric_embrace_partial_pump_and_flying_apply_only_to_its_host() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,

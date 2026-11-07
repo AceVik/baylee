@@ -73,7 +73,7 @@ fn mystifying_maze_taps_for_the_colorless_mana_it_prints() {
 /// the controller's own attack their attacker is no target at all.
 #[test]
 fn mystifying_maze_targets_only_an_opponents_attacking_creature() {
-    use crate::engine::card_tests::legends_kit as kit;
+    use baylee_card_testkit::card_tests::legends_kit as kit;
     use baylee_core::generated::index;
     let mut e = kit::game(
         958,

@@ -1,6 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 fn ghitu_slinger() -> CardIndex {
     card_index("8e2b5f90-e405-4b24-a71a-0988c37cf67a")
@@ -51,7 +51,7 @@ fn ghitu_slinger_can_pay_echo_once_and_survives() {
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     lk::float(&mut engine, p0, &[(ManaColor::Red, 3)]);

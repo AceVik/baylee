@@ -141,7 +141,7 @@ fn dandan_sacrifices_itself_when_its_last_island_is_destroyed() {
             .iter()
             .any(|e| matches!(
                 e.event,
-                crate::event::GameEvent::AbilityTriggered {
+                baylee_engine::event::GameEvent::AbilityTriggered {
                     source,
                     ability_index: 1,
                     ..

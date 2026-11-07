@@ -20,7 +20,7 @@ fn goblin_war_buggy_enters_with_haste_and_echo() {
 
     let perm = on_battlefield(&engine, p0, goblin_war_buggy()).expect("seated");
     assert_eq!(pt(&engine, perm), (2, 2));
-    let attackers = crate::engine::card_tests::legends_kit::attackers_offered(&mut engine);
+    let attackers = baylee_card_testkit::card_tests::legends_kit::attackers_offered(&mut engine);
     assert!(attackers.contains(&perm));
     engine
         .apply(
@@ -51,7 +51,7 @@ fn goblin_war_buggy_echo_can_be_paid_and_is_not_due_again() {
     );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Upkeep
+            && e.state().turn.step == baylee_engine::turn::Step::Upkeep
             && matches!(e.pending(), Pending::Priority { .. })
     });
     tap_all_mana(&mut engine, p0);

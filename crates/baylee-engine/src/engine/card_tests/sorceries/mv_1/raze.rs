@@ -40,7 +40,7 @@ fn raze_sacrifices_your_land_and_destroys_target_land() {
 
 #[test]
 fn raze_needs_a_land_you_control_even_when_mana_and_enemy_targets_exist() {
-    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_card_testkit::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let mut e = lk::game(SEED, &[], &[forest()], &[raze()], &[]);
     lk::float(&mut e, p0, &[(ManaColor::Red, 1)]);

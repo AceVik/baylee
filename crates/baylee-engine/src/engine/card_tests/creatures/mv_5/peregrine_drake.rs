@@ -5,7 +5,7 @@ fn peregrine_drake() -> CardIndex {
     card_index("0bd67481-6bd9-48d6-92bd-8933b5ea1eae")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
+use baylee_card_testkit::card_tests::legends_kit as lk;
 
 #[test]
 fn peregrine_drake_untaps_chosen_lands_including_opponents_but_not_creatures() {
