@@ -65,11 +65,22 @@ async fn apply(state: &Shared, bridge: &Arc<Bridge>, token: &str) -> bool {
         bridge.refresh_keys(true).await;
         taken = bridge.trust.fetched(token, sessions::now());
     }
-    let Ok(applied) = taken else {
-        return false;
-    };
-    routes::ended(&state.sessions, bridge, &applied);
-    true
+    match taken {
+        Ok(applied) => {
+            routes::ended(&state.sessions, bridge, &applied);
+            true
+        }
+        Err(why) => {
+            // Central's own answer, refused here: most likely this machine's
+            // clock is far from Central's. Until that is put right no
+            // revocation lands, and nothing else would say so.
+            tracing::error!(
+                ?why,
+                "a revocation from Baylee Central was refused; is this machine's clock right?"
+            );
+            false
+        }
+    }
 }
 
 /// Names the invalidate route until Central has taken it. It blocks nothing: a

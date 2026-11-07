@@ -654,8 +654,9 @@ pub(crate) fn seat_binding(
         .map(|live| live.key().to_vec()))
 }
 
-/// Drain in-flight account requests while a Central admission fixes a link
-/// or a projection: `central::routes` takes this barrier exclusively.
+/// Drain in-flight account requests while an admission fixes a legacy account's
+/// link: `central::routes` takes this barrier exclusively for that and nothing
+/// else, since nothing else has requests to drain.
 pub(crate) async fn barrier(State(state): State<Shared>, request: Request, next: Next) -> Response {
     if !state.central.is_some() {
         return next.run(request).await;

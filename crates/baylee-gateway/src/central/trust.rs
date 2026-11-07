@@ -158,7 +158,6 @@ impl Trust {
         token: &str,
         now: i64,
     ) -> Result<C, JwtError> {
-        let mut refused = JwtError::Audience;
         let audiences = self.audiences.lock().clone();
         for audience in &audiences {
             let expected = Expected {
@@ -166,13 +165,14 @@ impl Trust {
                 audience,
                 now,
             };
+            // Only another audience is worth a second signature check: junk
+            // sent to this door costs one, however many origins there are.
             match jwt::verify::<C>(token, keys, expected) {
                 Err(JwtError::Audience) => {}
-                Err(other) => refused = other,
-                done @ Ok(_) => return done,
+                done => return done,
             }
         }
-        Err(refused)
+        Err(JwtError::Audience)
     }
 
     /// A gateway token this gateway may act on, at sign-in and refresh.

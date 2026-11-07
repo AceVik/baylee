@@ -216,11 +216,15 @@ pub(crate) async fn logout(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    // Its sockets close before anything else can fail.
-    state.sessions.end(
-        &auth::token_digest(token),
-        crate::sessions::Ended::SignedOut,
-    );
+    // Its sockets close before anything else can fail. A local session is
+    // known by its token's digest and a Central one by a key its bearers
+    // reach, which change while it lives.
+    let digest = auth::token_digest(token);
+    let key = state
+        .sessions
+        .by_bearer(&digest, crate::sessions::now())
+        .map_or(digest, |live| live.key().to_vec());
+    state.sessions.end(&key, crate::sessions::Ended::SignedOut);
     let owner = store::drop_token(&state.db, token)
         .await
         .map_err(|e| db_down(&e))?;

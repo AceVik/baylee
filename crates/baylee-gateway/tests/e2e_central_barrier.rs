@@ -1,9 +1,10 @@
 //! What the Central barrier may be held up by.
 //!
-//! A sign-in that fixes a link takes the barrier exclusively, so every request
-//! holds it shared. A request that holds it for long therefore keeps people
-//! from signing in, and one that only waits for it stalls every route behind
-//! that sign-in. Against a stub Central on loopback.
+//! A sign-in that fixes a legacy account's link takes the barrier exclusively,
+//! so every request holds it shared. A request that holds it for long therefore
+//! keeps that sign-in out, and one that only waits for it stalls every route
+//! behind that sign-in, which is why no other sign-in takes it. Against a stub
+//! Central on loopback.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -13,7 +14,7 @@ mod stub_central;
 use common::http;
 use std::io::Write;
 use std::time::{Duration, Instant};
-use stub_central::{Stub, gateway, linked};
+use stub_central::{Stub, gateway, gateway_with, linked};
 
 /// The session of whoever signs in.
 const SIGNING_IN: u8 = 7;
@@ -34,12 +35,17 @@ fn sign_in(stub: &Stub, port: u16) -> (u16, Duration) {
 /// A stranger who starts a request and never finishes its body holds up
 /// nobody's sign-in. It takes no account and no secret, so if this held the
 /// barrier one connection would keep a gateway's players out. The account
-/// signing in is new here, so this is the sign-in that needs the barrier.
+/// signing in moved here from before Central, so this is the sign-in that
+/// needs the barrier.
 #[test]
 fn a_body_that_never_arrives_holds_up_no_sign_in() {
     let stub = Stub::serve(Duration::ZERO);
     let (gw, _settings) = gateway(&stub, "barrier_body");
     stub.knows(SIGNING_IN);
+    let session = common::login(gw.port, "moving", "Moving");
+    let (status, me) = http(gw.port, "GET", "/me", Some(&session), "");
+    assert_eq!(status, 200, "{me}");
+    let legacy = common::json_field(&me, "id").to_owned();
     let mut stalled = std::net::TcpStream::connect(("127.0.0.1", gw.port)).expect("connected");
     stalled
         .write_all(
@@ -48,10 +54,17 @@ fn a_body_that_never_arrives_holds_up_no_sign_in() {
         )
         .expect("written");
     std::thread::sleep(Duration::from_millis(300));
-    let (status, took) = sign_in(&stub, gw.port);
+    let started = Instant::now();
+    let (status, answer) = stub.sign_in_moved(gw.port, SIGNING_IN, &legacy);
+    let took = started.elapsed();
     eprintln!("a stalled body: sign-in {status} in {took:?}");
-    assert_eq!(status, 200);
+    assert_eq!(status, 200, "{answer}");
     assert!(took < Duration::from_secs(3), "{took:?}");
+    assert_eq!(
+        http(gw.port, "GET", "/me", Some(&session), "").0,
+        401,
+        "the move ended the password session"
+    );
 }
 
 /// A sign-in that fixes no link has nothing to drain requests for, so a slow
@@ -90,4 +103,60 @@ fn a_slow_request_holds_up_no_sign_in_of_a_linked_account() {
     eprintln!("a slow request: sign-in {status} in {took:?}");
     assert_eq!(status, 200);
     assert!(took < Duration::from_secs(3), "{took:?}");
+}
+
+/// A sign-in that links nothing has nothing to drain requests for either: on a
+/// gateway that opens no new account it is refused however often it is tried,
+/// and any Central account can try. It must not make every route wait behind
+/// somebody's slow request.
+#[test]
+fn a_sign_in_that_opens_no_account_stalls_no_route() {
+    let stub = Stub::serve(Duration::ZERO);
+    let (gw, _settings) = gateway_with(
+        &stub,
+        "barrier_closed",
+        &[
+            ("BAYLEE_REGISTRATION", "off".into()),
+            ("BAYLEE_AUTH_MODE", "mixed".into()),
+        ],
+    );
+    stub.knows(SIGNING_IN);
+    let (status, answer) = http(gw.port, "POST", "/auth/guest", None, "{}");
+    assert_eq!(status, 200, "{answer}");
+    let bearer = common::json_field(&answer, "token").to_owned();
+    let port = gw.port;
+    let ((status, signing_in_took), other_took) = std::thread::scope(|scope| {
+        let locked = format!(
+            "BEGIN; LOCK TABLE deck IN ACCESS EXCLUSIVE MODE; \
+             SELECT pg_sleep({SLOW_BY_SECS}); COMMIT;"
+        );
+        let gw = &gw;
+        scope.spawn(move || gw.sql(&locked));
+        std::thread::sleep(Duration::from_millis(300));
+        let slow = scope.spawn(move || {
+            let started = Instant::now();
+            let _ = http(port, "GET", "/decks", Some(&bearer), "");
+            started.elapsed()
+        });
+        std::thread::sleep(Duration::from_millis(300));
+        let signing_in = scope.spawn(|| sign_in(&stub, port));
+        std::thread::sleep(Duration::from_millis(300));
+        let started = Instant::now();
+        let (status, _) = http(port, "GET", "/info", None, "");
+        let other_took = started.elapsed();
+        assert_eq!(status, 200);
+        let slow_took = slow.join().expect("the slow request");
+        assert!(
+            slow_took > Duration::from_secs(5),
+            "nothing held the barrier: the request took {slow_took:?}"
+        );
+        (signing_in.join().expect("the sign-in"), other_took)
+    });
+    eprintln!("a refused sign-in: {status} in {signing_in_took:?}, another route {other_took:?}");
+    assert_eq!(status, 503, "this gateway opens no account");
+    assert!(
+        signing_in_took < Duration::from_secs(3),
+        "{signing_in_took:?}"
+    );
+    assert!(other_took < Duration::from_secs(3), "{other_took:?}");
 }

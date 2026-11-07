@@ -168,6 +168,14 @@ impl Stub {
     /// A gateway token for session `key` at the gateway on `port`.
     #[must_use]
     pub fn token(&self, port: u16, key: u8) -> Zeroizing<String> {
+        self.shared
+            .key
+            .sign(&self.claims(port, key))
+            .expect("signed")
+    }
+
+    /// What a token for session `key` says.
+    fn claims(&self, port: u16, key: u8) -> GatewayClaims {
         let account = *self
             .shared
             .accounts
@@ -176,7 +184,7 @@ impl Stub {
             .get(&key)
             .expect("an account the stub knows");
         let now = now();
-        let claims = GatewayClaims {
+        GatewayClaims {
             iss: self.shared.origin.clone(),
             aud: origin_of(port),
             sub: account.to_string(),
@@ -190,8 +198,18 @@ impl Stub {
             tag: None,
             legacy_id: None,
             terms: None,
-        };
-        self.shared.key.sign(&claims).expect("signed")
+        }
+    }
+
+    /// `POST /auth/central/login` for session `key`, whose move from the
+    /// legacy account `legacy` closed: the one sign-in that fixes a link.
+    #[must_use]
+    pub fn sign_in_moved(&self, port: u16, key: u8, legacy: &str) -> (u16, String) {
+        let mut claims = self.claims(port, key);
+        claims.legacy_id = Some(legacy.to_owned());
+        let token = self.shared.key.sign(&claims).expect("signed");
+        let body = serde_json::json!({ "token": token.as_str() }).to_string();
+        common::http(port, "POST", "/auth/central/login", None, &body)
     }
 
     /// `POST /auth/central/login` with a fresh token for session `key`.
@@ -329,6 +347,16 @@ fn keep_answering(mut stream: std::net::TcpStream, shared: &Shared) {
 /// may not have heard from Central yet.
 #[must_use]
 pub fn gateway_starting(stub: &Stub, label: &str) -> (common::Gateway, Settings) {
+    gateway_starting_with(stub, label, &[])
+}
+
+/// [`gateway_starting`] with more of the gateway's environment.
+#[must_use]
+pub fn gateway_starting_with(
+    stub: &Stub,
+    label: &str,
+    env: &[(&str, String)],
+) -> (common::Gateway, Settings) {
     let endpoint =
         Endpoint::development(&format!("http://127.0.0.1:{}", stub.port)).expect("an origin");
     let bridge = Token::generate().expect("a token");
@@ -339,13 +367,12 @@ pub fn gateway_starting(stub: &Stub, label: &str) -> (common::Gateway, Settings)
             .expect("settings"),
     )
     .expect("written");
-    let gw = common::spawn_gateway_with(
-        label,
-        &[(
-            "BAYLEE_CENTRAL_CONFIG_FILE",
-            file.to_string_lossy().into_owned(),
-        )],
-    );
+    let mut env = env.to_vec();
+    env.push((
+        "BAYLEE_CENTRAL_CONFIG_FILE",
+        file.to_string_lossy().into_owned(),
+    ));
+    let gw = common::spawn_gateway_with(label, &env);
     *stub.shared.gateway.lock().expect("the name") = origin_of(gw.port);
     (gw, Settings(file))
 }
@@ -353,7 +380,17 @@ pub fn gateway_starting(stub: &Stub, label: &str) -> (common::Gateway, Settings)
 /// [`gateway_starting`], once it has caught up with Central.
 #[must_use]
 pub fn gateway(stub: &Stub, label: &str) -> (common::Gateway, Settings) {
-    let (gw, settings) = gateway_starting(stub, label);
+    gateway_with(stub, label, &[])
+}
+
+/// [`gateway`] with more of the gateway's environment.
+#[must_use]
+pub fn gateway_with(
+    stub: &Stub,
+    label: &str,
+    env: &[(&str, String)],
+) -> (common::Gateway, Settings) {
+    let (gw, settings) = gateway_starting_with(stub, label, env);
     common::central_ready(gw.port);
     (gw, settings)
 }

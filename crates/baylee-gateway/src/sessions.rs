@@ -246,10 +246,17 @@ impl Index {
     /// an ended session. An admin session's lasts as long as the session: it
     /// works on the loopback listener alone, and nothing there renews it.
     fn issue(&mut self, live: &Live, now: i64) -> Issued {
-        for digest in self.bearers_of.get(&live.key).into_iter().flatten() {
-            if let Some(bearer) = self.bearers.get_mut(digest) {
-                bearer.replaced = true;
-                bearer.expires_at = bearer.expires_at.min(now + OVERLAP_SECS);
+        let held = self.bearers_of.entry(live.key.clone()).or_default();
+        // The newest is the only one not yet retired, so this work stays the
+        // same however fast a session renews, under a lock every request takes.
+        if let Some(bearer) = held.last().and_then(|digest| self.bearers.get_mut(digest)) {
+            bearer.replaced = true;
+            bearer.expires_at = bearer.expires_at.min(now + OVERLAP_SECS);
+        }
+        if held.len() >= MOST_BEARERS {
+            let gone = held.len() + 1 - MOST_BEARERS;
+            for digest in held.drain(..gone) {
+                self.bearers.remove(&digest);
             }
         }
         let token = crate::auth::new_token();
@@ -260,10 +267,7 @@ impl Index {
         } else {
             (now + bearer_secs()).min(live.expires_at())
         };
-        self.bearers_of
-            .entry(live.key.clone())
-            .or_default()
-            .push(digest.clone());
+        held.push(digest.clone());
         self.bearers.insert(
             digest,
             Bearer {
@@ -313,6 +317,11 @@ const BEARER_SECS: std::ops::RangeInclusive<u16> = 64..=128;
 
 /// How long a replaced bearer still serves requests already on their way.
 const OVERLAP_SECS: i64 = 10;
+
+/// How many bearers a session holds at once: the current one and those in
+/// their overlap, which a client renewing on time keeps at one or two. A
+/// session asking faster loses its oldest early, and nothing else.
+const MOST_BEARERS: usize = 8;
 
 /// How long before a bearer ends its client is told to renew it: room for a
 /// slow network and one retry.
@@ -417,9 +426,9 @@ impl Book {
     /// Ends every session of `account`: a ban, a deletion.
     pub(crate) fn end_account(&self, account: &str, why: Ended) {
         let mut index = self.index.lock();
-        let keys = index.by_account.remove(account).unwrap_or_default();
+        let keys = index.by_account.get(account).cloned().unwrap_or_default();
         for key in keys {
-            if let Some(live) = index.by_key.remove(&key) {
+            if let Some(live) = index.forget(&key) {
                 live.end(why);
             }
         }
@@ -729,6 +738,55 @@ mod tests {
         );
         assert!(book.by_bearer(&digest(&old), NOW + OVERLAP_SECS).is_none());
         assert!(book.renew(&digest(&refreshed), NOW).is_some());
+    }
+
+    /// Renewing is free and takes the lock every request takes, so what one
+    /// session leaves behind stays small however fast it asks.
+    #[test]
+    fn a_session_holds_only_so_many_bearers_however_fast_it_renews() {
+        let book = Book::default();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let first = book.issue(&live, NOW).unwrap();
+        let mut current = digest(&first);
+        for _ in 0..1000 {
+            current = digest(&book.renew(&current, NOW).unwrap());
+            let index = book.index.lock();
+            assert!(index.bearers.len() <= MOST_BEARERS);
+            assert!(index.bearers_of[&key(1)].len() <= MOST_BEARERS);
+        }
+        assert!(book.by_bearer(&current, NOW).is_some(), "the current one");
+        assert!(book.by_bearer(&digest(&first), NOW).is_none(), "long gone");
+    }
+
+    /// The other half of keeping only the newest in mind: every bearer before
+    /// it was retired when the next came, so none of them can fork the session.
+    #[test]
+    fn only_the_newest_bearer_of_a_session_renews_however_many_came_before() {
+        let book = Book::default();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let issued: Vec<Issued> = (0..MOST_BEARERS)
+            .map(|_| book.issue(&live, NOW).unwrap())
+            .collect();
+        let (newest, older) = issued.split_last().unwrap();
+        for bearer in older {
+            assert!(book.renew(&digest(bearer), NOW).is_none());
+        }
+        assert!(book.renew(&digest(newest), NOW).is_some());
+    }
+
+    /// A session ended by its account's name goes with its bearers, as one
+    /// ended by its key does: a later session of that key inherits none.
+    #[test]
+    fn an_account_ended_takes_its_bearers_with_it() {
+        let book = Book::default();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let bearer = book.issue(&live, NOW).unwrap();
+        book.end_account("a", Ended::Banned);
+        let again = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        assert!(again.stands(NOW));
+        assert!(book.by_bearer(&digest(&bearer), NOW).is_none());
+        let index = book.index.lock();
+        assert!(index.bearers.is_empty() && index.bearers_of.is_empty());
     }
 
     #[test]

@@ -472,6 +472,18 @@ once in both directions, saying why (`docs/protocol.md` §"Refusals"). The chair
 follows the rules for a seat left empty. The engine holds no tokens: it dials out, and
 the gateway stamps the seat.
 
+**Signing out here** (`POST /auth/logout`) ends the session the bearer reaches, at once,
+and tells Central nothing: the Central session goes on, and the same `sid` may sign in
+here again. A gateway token copied before it stays good here until it ends.
+
+**Who can push.** `POST /auth/central/invalidate` is open to anyone, so its budget is per
+address, as a sign-in's is: 600 a minute. A stranger spends its own and never Central's.
+Behind a proxy that needs `BAYLEE_TRUSTED_PROXIES`, or every sender shares one budget.
+
+**What an admission waits for.** Only the sign-in that fixes a legacy account's link takes
+the migration barrier, which drains that account's requests. A new projection has no
+requests to drain, and a refused one fixes nothing, so neither stalls a route.
+
 **Guests and local accounts** use the same state. Their lifetime stays in the database,
 so a background check, away from any frame, keeps a guest's sliding lifetime moving
 while it plays and ends what lapsed; a database error there ends nothing. A seat with no

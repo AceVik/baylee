@@ -160,22 +160,25 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         return Err(StatusCode::UNAUTHORIZED);
     }
     let central = claims.account().ok_or(StatusCode::UNAUTHORIZED)?;
-    // The barrier drains requests while a link is fixed, so a sign-in that
-    // fixes none has nothing to wait for: taking it would let any slow
-    // request refuse it, and stall every route behind it for as long.
-    let linked = baylee_db::central::linked_account(&state.db, central)
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let settled = linked.is_some_and(|account| {
-        claims
-            .legacy_id
-            .as_ref()
-            .is_none_or(|legacy| *legacy == account)
-    });
-    let _guard = if settled {
-        None
-    } else {
+    // The barrier drains the requests of a legacy account while its link is
+    // fixed, and that is the only sign-in with anything to wait for: a new
+    // projection has no requests, and one refused leaves nothing. Taking it
+    // for those would let any Central account refuse a sign-in and stall
+    // every route behind any slow request, as often as it liked.
+    let adopting = match claims.legacy_id.as_ref().filter(|_| bridge.legacy) {
+        Some(legacy) => {
+            baylee_db::central::linked_account(&state.db, central)
+                .await
+                .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+                .as_ref()
+                != Some(legacy)
+        }
+        None => false,
+    };
+    let _guard = if adopting {
         Some(exclusive(state).await?)
+    } else {
+        None
     };
     let admin = purpose == Purpose::Admin;
     let account_id = match (bridge.legacy, claims.legacy_id.clone()) {
@@ -257,6 +260,14 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
 fn within_budget(state: &Shared, addr: SocketAddr, headers: &HeaderMap) -> bool {
     let ip = crate::rate_limit_ip(&state.trusted_proxies, addr.ip(), headers);
     state.token_limiter.allow(&ip)
+}
+
+/// Whether this address may have a pushed message checked now. Its own
+/// budget and nobody else's, so that a stranger at this door costs Central's
+/// own pushes nothing.
+fn within_push_budget(state: &Shared, addr: SocketAddr, headers: &HeaderMap) -> bool {
+    let ip = crate::rate_limit_ip(&state.trusted_proxies, addr.ip(), headers);
+    state.invalidate_limiter.allow(&ip)
 }
 
 fn answered(result: Result<Json<Value>, StatusCode>) -> Response {
@@ -477,12 +488,16 @@ pub(super) fn ended(book: &sessions::Book, bridge: &Bridge, applied: &super::tru
 /// @return 400: "Not `application/jwt`, or not text"
 /// @return 401: "Refused"
 /// @return 413: String text/plain "The body is over 16 KiB"
-/// @return 429: "Too many at once: try again"
+/// @return 429: "Too many from this address, or too many at once: try again"
 /// @return 503: "No Baylee Central is configured, or this gateway holds no keys yet"
-async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes) -> StatusCode {
-    // Before a signature is checked, so a flood costs little. A sender using
-    // this up delays the push and nothing else: the catch-up still comes.
-    if !state.invalidate_limiter.allow("central") {
+async fn invalidate(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> StatusCode {
+    // Before a signature is checked, so a flood costs little.
+    if !within_push_budget(&state, addr, &headers) {
         return StatusCode::TOO_MANY_REQUESTS;
     }
     let jwt = headers

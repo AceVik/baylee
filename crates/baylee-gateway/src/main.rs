@@ -155,8 +155,9 @@ struct AppState {
     /// Every session in memory: the state each of its sockets watches
     /// (`sessions.rs`). The check before a frame reaches an engine reads this.
     sessions: sessions::Book,
-    /// How many revocations may be pushed here, whoever sends them: the route
-    /// is open to anyone, and a signature is worth checking only so often.
+    /// How many revocations one address may push here: the route is open to
+    /// anyone, and a signature is worth checking only so often. Per address,
+    /// so that a stranger spends its own budget and never Central's.
     invalidate_limiter: auth::RateLimiter,
     /// How many gateway tokens one address may have checked: a sign-in and a
     /// refresh verify a signature here, for whoever sends one. Generous, since
