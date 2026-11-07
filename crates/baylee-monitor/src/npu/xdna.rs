@@ -262,6 +262,8 @@ mod tests {
     /// the C header. They were proven on a real device; a changed structure
     /// must not silently become another call.
     #[test]
+    // The request number's type is the platform's: `u64` on some, narrower on others.
+    #[allow(clippy::useless_conversion)]
     fn the_calls_are_the_headers_calls() {
         assert_eq!(u64::from(GET_INFO), 0xC010_6447);
         assert_eq!(u64::from(GET_ARRAY), 0xC018_644A);
