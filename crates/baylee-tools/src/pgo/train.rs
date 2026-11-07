@@ -278,6 +278,10 @@ fn long_lists(client: &Client, _root: &Path) -> Result<()> {
     seed(client, &json!({"friends": 500, "lines": 450}))?;
     client.click(press("Header(Friends)"))?;
     linger(1.5);
+    if client.screen()?.control("GotIt").is_some() {
+        client.click(press("GotIt"))?;
+        linger(0.5);
+    }
     let window = client.screen()?.window();
     let (x, y) = (window.w - 170.0, window.h * 0.6);
     for _ in 0..2 {
@@ -288,7 +292,7 @@ fn long_lists(client: &Client, _root: &Path) -> Result<()> {
             linger(0.5);
         }
     }
-    client.click(at(x, 133.0))?;
+    client.click(press("Find"))?;
     linger(0.3);
     for word in ["Friend 1", "Friend 42"] {
         client.type_text(word)?;

@@ -51,6 +51,13 @@ pub(super) fn answer(body: &str, host: Option<&mut SocialHost>, duel: Option<&mu
 fn seed_the_machine(machine: &mut Social, seed: &Seed) -> usize {
     let mut frames = Vec::with_capacity(seed.lines + 1);
     if seed.friends > 0 {
+        // A guest has no search over its friends, and offline everyone is one.
+        frames.push(Down::Welcome {
+            tag: machine.me().tag.clone(),
+            handle: "Seeded#0001".to_owned(),
+            device: machine.device_id().to_owned(),
+            guest: false,
+        });
         frames.push(Down::Snapshot(Snapshot {
             friends: (0..seed.friends).map(friend).collect(),
             ..Snapshot::default()
