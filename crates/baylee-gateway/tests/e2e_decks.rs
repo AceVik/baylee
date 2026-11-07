@@ -556,6 +556,57 @@ fn a_builder_session_keeps_what_it_replaced_before_it_changes_anything() {
     assert_eq!(kept(1), "4 Baleful Strix");
 }
 
+/// A save is free and each one leaves a state behind, so a deck keeps its last
+/// fifty and lets go of the oldest as the next is written.
+#[test]
+fn a_deck_keeps_its_last_fifty_states_and_no_more() {
+    let gateway = spawn_gateway("history_bound");
+    let token = login(gateway.port, "bounded", "Bounded");
+    let cards = |n: u32| format!("[\"{n} Baleful Strix\",\"20 Island\"]");
+    let body = |n: u32| format!(r#"{{"name":"Bounded","cards":{}}}"#, cards(n));
+    let (status, saved) = http(gateway.port, "POST", "/decks", Some(&token), &body(1));
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+    // The first fifty-five saves after the deck was made.
+    for n in 2..=56 {
+        let (status, saved) = http(
+            gateway.port,
+            "PUT",
+            &format!("/decks/{id}"),
+            Some(&token),
+            &body(n),
+        );
+        assert_eq!(status, 200, "{saved}");
+    }
+    let (status, history) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/history"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{history}");
+    let history: serde_json::Value = serde_json::from_str(&history).expect("json");
+    assert_eq!(history["version"], 56, "the numbers go on");
+    let past = history["past"].as_array().expect("a list");
+    assert_eq!(past.len(), 50);
+    assert_eq!(past[0]["version"], 55, "the newest is kept");
+    assert_eq!(past[49]["version"], 6, "and the fifty before the deck");
+
+    let version = |n: u32| {
+        http(
+            gateway.port,
+            "GET",
+            &format!("/decks/{id}/versions/{n}"),
+            Some(&token),
+            "",
+        )
+        .0
+    };
+    assert_eq!(version(5), 404, "what was let go of is gone");
+    assert_eq!(version(6), 200);
+}
+
 /// What a history row holds comes from the deck itself, never from the body:
 /// a row can come back through a revert, and a body's lists that skipped
 /// `validate_deck` would come back with it.

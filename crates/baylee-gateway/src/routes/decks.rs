@@ -628,7 +628,7 @@ pub(crate) struct SharedDeckRow {
 /// @route GET /decks/{id}/history
 /// @scope public
 /// @summary What a deck used to be
-/// @description The deck's version and every state it no longer holds,
+/// @description The deck's version and the last 50 states it no longer holds,
 /// newest first; the current cards are not in `past`. The head and every
 /// past state say what changed against the state before them and how many
 /// cards they hold.
@@ -693,7 +693,7 @@ pub(crate) struct DeckHistory {
     version: i32,
     /// @description When it was last saved, in unix seconds.
     updated_at: u64,
-    /// @description Every state it no longer holds, newest first.
+    /// @description The last 50 states it no longer holds, newest first.
     past: Vec<DeckPast>,
     /// @description What the current state changed against the newest past
     /// one, `null` when it has none.

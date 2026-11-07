@@ -2140,7 +2140,7 @@ paths:
     get:
       summary: What a deck used to be
       description: |-
-        The deck's version and every state it no longer holds,
+        The deck's version and the last 50 states it no longer holds,
         newest first; the current cards are not in `past`. The head and every
         past state say what changed against the state before them and how many
         cards they hold.
@@ -6773,7 +6773,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DeckPast"
-          description: Every state it no longer holds, newest first.
+          description: The last 50 states it no longer holds, newest first.
         delta:
           anyOf:
           - $ref: "#/components/schemas/DeckDelta"

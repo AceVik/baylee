@@ -867,6 +867,10 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
     Ok(Some(id(made.id)))
 }
 
+/// How many past states of a deck are kept: the newest ones. Every save a
+/// player makes is free, so what they leave behind has to end somewhere.
+pub const DECK_HISTORY: i32 = 50;
+
 /// Write a deck, replacing one of the same id, and leave what it held
 /// behind.
 ///
@@ -874,7 +878,7 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
 /// forgot to archive would be a change nobody can roll back and nothing
 /// would say so. One transaction: read what is there, copy it into
 /// `deck_version` under the version number it was, write the new state one
-/// version higher.
+/// version higher, and let go of what is now older than [`DECK_HISTORY`].
 ///
 /// A save that changes nothing about the cards writes no version. Renaming a
 /// deck, describing it or picking a new sleeve is not an edit anybody wants
@@ -938,6 +942,11 @@ pub async fn put_deck_versioned(
             })
             .exec(&tx)
             .await?;
+            DeckVersions::delete_many()
+                .filter(deck_version::Column::DeckId.eq(id))
+                .filter(deck_version::Column::Version.lte(row.version - DECK_HISTORY))
+                .exec(&tx)
+                .await?;
             // No `ON CONFLICT`: the primary key is `(deck_id, version)`, so
             // two saves racing on one deck make the second one fail here
             // rather than quietly writing a second past for the same number.
@@ -990,7 +999,8 @@ pub async fn put_deck_versioned(
     Ok(archived)
 }
 
-/// One deck's history, newest first — every state it no longer holds.
+/// One deck's history, newest first — the last [`DECK_HISTORY`] states it no
+/// longer holds.
 ///
 /// The current cards are not in it; they are on the deck itself, at
 /// [`Deck::version`]. A caller drawing a timeline puts the deck at the top

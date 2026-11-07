@@ -4038,9 +4038,11 @@ a `version` that is the deck itself. A save that changes no list writes no
 version. `POST /decks/{id}/versions/{v}/revert` is **not** a rewind: it
 saves version *v*'s lists as a new change, archiving the present exactly as
 any other save does, and answers the new number. So a revert is revertible
-and nothing in a history is ever removed or rewritten — which is also why
+and nothing in a history is ever rewritten — which is also why
 `(deck_id, version)` is a primary key with no `ON CONFLICT`: a racing save
-fails loudly rather than quietly writing a second past.
+fails loudly rather than quietly writing a second past. A deck keeps its last
+50 past states: the save that writes a newer one lets go of the oldest, and
+the version numbers go on, so a state gone is `404` and no number comes back.
 
 **A builder session is one entry, written by its first change.** The client
 auto-saves every edit, and a row per edit would bury the ones worth going back
