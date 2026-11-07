@@ -69,5 +69,6 @@ mod tremble;
 mod verdant_touch;
 mod vicious_hunger;
 mod volcanic_hammer;
+mod volcanic_spray;
 mod wielding_the_green_dragon;
 mod word_of_binding;

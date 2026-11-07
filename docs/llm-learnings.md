@@ -7370,3 +7370,26 @@ code.
   origin/main`, formatting and `git diff --check` pass. `validate` accepts
   12,545 cards (11,175 finished, 60 of the machine-owned cards untested, and
   1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Volcanic Spray's ground-only damage and repeated Flashback
+
+- Volcanic Spray composes the existing untargeted ground-creature and each-player
+  damage effects with its face-level flashback cost; it needs no engine, DSL,
+  protocol, desktop or seat addition. The canonical play spends {1}{R}, hits
+  both players and 3/3 ground creatures on either side for exactly one, and
+  leaves both Storm Crows at zero damage. The ordinary spell goes to the
+  graveyard without a target choice.
+- The same incarnation then flashes back for another {1}{R}. Both players fall
+  from 19 to 18 life, both ground creatures reach two marked damage, both fliers
+  remain untouched, and the spell exiles. One red mana offers neither a castable
+  nor a payable graveyard spell. Removing ability zero with
+  `BAYLEE_MUTATE=5401:0` kills the damage play; the insufficient-mana test stays
+  green as a control.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 59 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
