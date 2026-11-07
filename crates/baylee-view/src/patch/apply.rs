@@ -1,11 +1,34 @@
 //! A patch applied to the view it was made for.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use super::{Keyed, PatchError, ViewPatch, Zone, ZoneEdit, digest};
+use super::{Keyed, PatchError, ViewField, ViewPatch, Zone, ZoneEdit, digest};
 use crate::objects::PublicObject;
 use crate::player_view::PlayerView;
 use baylee_core::ids::ObjectId;
+
+/// Refuses a patch that edits a zone or a list twice. What it says of anything else
+/// costs its own bytes; these two cost a few bytes and a walk of what the view
+/// already holds, so saying them over and over is work out of all proportion.
+fn says_nothing_twice(patch: &ViewPatch) -> Result<(), PatchError> {
+    let mut zones = BTreeSet::new();
+    let once = patch.zones.iter().all(|(zone, _)| zones.insert(*zone));
+    let targets = patch
+        .fields
+        .iter()
+        .filter(|field| matches!(field, ViewField::TargetObjects(_)))
+        .count();
+    let acts = patch
+        .fields
+        .iter()
+        .filter(|field| matches!(field, ViewField::PolicyActs(_)))
+        .count();
+    if once && targets <= 1 && acts <= 1 {
+        Ok(())
+    } else {
+        Err(PatchError::Repeated)
+    }
+}
 
 /// The view `patch` leaves when applied to `old`.
 ///
@@ -15,7 +38,7 @@ use baylee_core::ids::ObjectId;
 ///
 /// # Errors
 /// [`PatchError`]: the patch is not for `old`, names what `old` does not hold,
-/// or does not leave the view it says it does.
+/// says one zone or list twice, or does not leave the view it says it does.
 pub fn apply(old: &PlayerView, patch: &ViewPatch) -> Result<PlayerView, PatchError> {
     if old.seat != patch.seat {
         return Err(PatchError::OtherSeat(patch.seat));
@@ -26,6 +49,7 @@ pub fn apply(old: &PlayerView, patch: &ViewPatch) -> Result<PlayerView, PatchErr
             base: patch.base,
         });
     }
+    says_nothing_twice(patch)?;
     let mut view = old.clone();
     view.seq = patch.seq;
     for field in &patch.fields {

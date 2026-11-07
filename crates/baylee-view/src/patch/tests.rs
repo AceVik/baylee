@@ -835,3 +835,54 @@ fn a_huge_patch_costs_no_more_than_its_size() {
     gone.battlefield.clear();
     holds(&old, &gone);
 }
+
+/// Each edit keeps the list and the list again: thirty-odd fields of a dozen
+/// bytes would ask for tens of gigabytes before any digest was looked at.
+#[test]
+fn a_list_cannot_be_doubled_by_keeping_it_twice() {
+    let keep = |kept, tail| ListEdit::<u8> {
+        dropped: 0,
+        kept,
+        added: Vec::new(),
+        tail,
+    };
+    assert_eq!(keep(3, 3).applied(&[1, 2, 3]), Err(PatchError::BadList));
+    assert_eq!(keep(2, 2).applied(&[1, 2, 3]), Err(PatchError::BadList));
+    assert_eq!(keep(2, 1).applied(&[1, 2, 3]), Ok(vec![1, 2, 3]));
+}
+
+/// Saying a list or a zone again costs a few bytes and a walk of all of it, so
+/// a frame of them would be a client held for minutes.
+#[test]
+fn a_patch_says_a_zone_or_a_list_once() {
+    let old = view(2);
+    let mut new = old.clone();
+    new.seq += 1;
+    let honest = diff(&old, &new);
+    let target = ViewField::TargetObjects(ListEdit {
+        dropped: 0,
+        kept: 0,
+        added: Vec::new(),
+        tail: 0,
+    });
+    let act = ViewField::PolicyActs(ListEdit {
+        dropped: 0,
+        kept: 0,
+        added: Vec::new(),
+        tail: 0,
+    });
+    let empty = ZoneEdit {
+        removed: Vec::new(),
+        upserts: Vec::new(),
+        order: None,
+    };
+    let mut targets = honest.clone();
+    targets.fields = vec![target.clone(), target];
+    let mut acts = honest.clone();
+    acts.fields = vec![act.clone(), act];
+    let mut zones = honest;
+    zones.zones = vec![(Zone::Stack, empty.clone()), (Zone::Stack, empty)];
+    for patch in [targets, acts, zones] {
+        assert_eq!(apply(&old, &patch), Err(PatchError::Repeated), "{patch:?}");
+    }
+}

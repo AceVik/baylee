@@ -152,15 +152,15 @@ impl<T: PartialEq + Clone> ListEdit<T> {
             self.kept as usize,
             self.tail as usize,
         );
-        let head = dropped
-            .checked_add(kept)
-            .and_then(|end| old.get(dropped..end))
+        // Taken together, or the head and the tail could both be the whole list.
+        let used = dropped.checked_add(kept).and_then(|n| n.checked_add(tail));
+        if used.is_none_or(|used| used > old.len()) {
+            return Err(PatchError::BadList);
+        }
+        let head = old
+            .get(dropped..dropped + kept)
             .ok_or(PatchError::BadList)?;
-        let last = old
-            .len()
-            .checked_sub(tail)
-            .and_then(|start| old.get(start..))
-            .ok_or(PatchError::BadList)?;
+        let last = old.get(old.len() - tail..).ok_or(PatchError::BadList)?;
         let mut list = Vec::with_capacity(head.len() + self.added.len() + last.len());
         list.extend_from_slice(head);
         list.extend_from_slice(&self.added);
@@ -225,8 +225,12 @@ pub enum PatchError {
     UnknownObject(ObjectId),
     /// A zone's order is no order of the objects it holds.
     BadOrder,
-    /// A list edit keeps more of a list than the list holds.
+    /// A list edit keeps more of a list than the list holds, or an entry twice.
+    /// Kept alone, this would let a few bytes double a list again and again.
     BadList,
+    /// The patch says one zone or one list twice, which [`diff`] never does: each
+    /// telling costs a few bytes and a walk of the whole list.
+    Repeated,
     /// The patch is another seat's.
     OtherSeat(PlayerId),
     /// The zone patched holds one id twice, so an id does not name an object
@@ -250,6 +254,7 @@ impl std::fmt::Display for PatchError {
             Self::UnknownObject(id) => write!(f, "a patch names an unknown object: {id:?}"),
             Self::BadOrder => write!(f, "a patch's order is no order of its zone"),
             Self::BadList => write!(f, "a patch keeps more of a list than it holds"),
+            Self::Repeated => write!(f, "a patch says one zone or one list twice"),
             Self::OtherSeat(seat) => write!(f, "a patch of {seat:?} met another seat's view"),
             Self::Unkeyed(id) => write!(f, "a patched zone holds {id:?} twice"),
             Self::Digest { expected, found } => {
