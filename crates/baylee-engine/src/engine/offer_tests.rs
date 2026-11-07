@@ -898,16 +898,17 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
 ///
 /// Those lists do not share one payment path:
 ///
-/// - `alternative_costs[i].cost.parts` and `flashback_parts` pay the parts
-///   `paid_as_an_alternative_cost` names. `cast_options` runs `can_afford`
-///   over the former, so a `Sacrifice(_)` written there is *refused*. That is
-///   not safety. It is a refusal at the mode, and it took a second fix for it
-///   to be a refusal at all: `casting::can_cast` probed the alternative's
-///   *mana* and nothing else, so a pitch with nothing to pitch was listed as
-///   castable and the wizard then had no option to offer — a dead offer, the
-///   shape the `CommanderControlled` bug had. Both askers now read
+/// - `alternative_costs[i].cost.parts`, `flashback_parts` and a madness cost's
+///   parts pay the parts `paid_as_an_alternative_cost` names. `cast_options` runs
+///   `can_afford` over the first, so a `Sacrifice(_)` written there is
+///   *refused*. That is not safety. It is a refusal at the mode, and it took a
+///   second fix for it to be a refusal at all: `casting::can_cast` probed the
+///   alternative's *mana* and nothing else, so a pitch with nothing to pitch
+///   was listed as castable and the wizard then had no option to offer — a
+///   dead offer, the shape the `CommanderControlled` bug had. Both askers now read
 ///   `casting::pitchable`, and a part neither of them understands is still one
-///   these lists must never carry. Flashback uses the same payment predicate.
+///   these lists must never carry. Flashback and madness use the same payment
+///   predicate.
 /// - `mandatory_additional_costs` pays `PayLifeX` and `PayLife` — Toxic
 ///   Deluge's X. Nothing gates it at all, so anything else there is not
 ///   refused but skipped, and the spell is cast without paying it.
@@ -930,54 +931,77 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
 /// [`cast_wizard::paid_as_a_mandatory_additional_cost`]: super::cast_wizard
 #[test]
 fn no_spell_cost_list_carries_a_part_its_payment_walks_past() {
-    let mut offenders = Vec::new();
-    for def in baylee_cards::all() {
-        for face in def.faces {
-            for part in face
-                .alternative_costs
-                .iter()
-                .flat_map(|alt| alt.cost.parts)
-                .chain(face.flashback_parts)
-            {
-                if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
-                    offenders.push(format!(
-                        "{} — alternative cost {part:?}, which `finish_cast` does not pay",
-                        face.name,
-                    ));
-                }
-            }
-            for part in face.mandatory_additional_costs {
-                if !crate::engine::cast_wizard::paid_as_a_mandatory_additional_cost(part) {
-                    offenders.push(format!(
-                        "{} — mandatory additional cost {part:?}, which `finish_cast` skips",
-                        face.name,
-                    ));
-                }
-            }
-            for add in face.additional_costs {
-                for part in add.parts {
-                    offenders.push(format!(
-                        "{} — kicker part {part:?}, and a kicker's parts are read by nothing",
-                        face.name,
-                    ));
-                }
-            }
-            for part in face.buyback.iter().flat_map(|cost| cost.parts) {
-                if !crate::engine::cast_wizard::paid_as_a_buyback_cost(part) {
-                    offenders.push(format!(
-                        "{} — buyback part {part:?}, which `finish_cast` skips",
-                        face.name,
-                    ));
-                }
-            }
-        }
-    }
+    let offenders: Vec<String> = baylee_cards::all()
+        .flat_map(|def| def.faces)
+        .flat_map(unpaid_cost_parts)
+        .collect();
     assert!(
         offenders.is_empty(),
         "a spell prints a cost part on a list whose payment never reads it, so \
          the spell is cast without paying it (or, on an alternative cost the \
          gate refuses, is offered and then uncastable): {offenders:?}"
     );
+}
+
+/// The parts of `face`'s spell cost lists that their payment does not read.
+fn unpaid_cost_parts(face: &baylee_cards_dsl::FaceDef) -> Vec<String> {
+    let mut offenders = Vec::new();
+    for part in face
+        .alternative_costs
+        .iter()
+        .flat_map(|alt| alt.cost.parts)
+        .chain(face.flashback_parts)
+        .chain(face.madness.iter().flat_map(|cost| cost.parts))
+    {
+        if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
+            offenders.push(format!(
+                "{} — alternative cost {part:?}, which `finish_cast` does not pay",
+                face.name,
+            ));
+        }
+    }
+    for part in face.mandatory_additional_costs {
+        if !crate::engine::cast_wizard::paid_as_a_mandatory_additional_cost(part) {
+            offenders.push(format!(
+                "{} — mandatory additional cost {part:?}, which `finish_cast` skips",
+                face.name,
+            ));
+        }
+    }
+    for add in face.additional_costs {
+        for part in add.parts {
+            offenders.push(format!(
+                "{} — kicker part {part:?}, and a kicker's parts are read by nothing",
+                face.name,
+            ));
+        }
+    }
+    for part in face.buyback.iter().flat_map(|cost| cost.parts) {
+        if !crate::engine::cast_wizard::paid_as_a_buyback_cost(part) {
+            offenders.push(format!(
+                "{} — buyback part {part:?}, which `finish_cast` skips",
+                face.name,
+            ));
+        }
+    }
+    offenders
+}
+
+/// No card of the pool prints a madness cost with a part in it, so the walk
+/// above finds nothing there whether it looks or not. This face is the
+/// finding it must make: a madness cost is an alternative cost (CR 702.35b),
+/// paid through `wizard_alternative_parts`, and a part that list does not
+/// pay is one a cast would walk past.
+#[test]
+fn the_spell_cost_walk_reads_a_madness_cost() {
+    let face = baylee_cards_dsl::FaceDef {
+        madness: Some(baylee_cards_dsl::Cost {
+            mana: baylee_core::mana::ManaCost::ZERO,
+            parts: &[baylee_cards_dsl::CostPart::DiscardSelf],
+        }),
+        ..synthetic::land_face("Unpaid madness fixture")
+    };
+    assert_eq!(unpaid_cost_parts(&face).len(), 1);
 }
 
 /// A permanent that makes mana two ways is offered once.
