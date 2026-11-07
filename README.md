@@ -231,7 +231,8 @@ Without one it does not start.
 
 Apple silicon Macs (M1 and later) take the `aarch64` build, Intel Macs the
 `x86_64` one (Apple menu → About This Mac names the chip or processor).
-macOS 11 or later is required.
+macOS 11 or later is required. Like the Windows one, the Intel build needs a
+CPU with x86-64-v3 (AVX2), which most Intel Macs from 2014 on have.
 
 1. Open `Baylee-<version>-aarch64.dmg` (Intel: `-x86_64.dmg`) and drag
    **Baylee** onto **Applications**. Then eject the disk image. With the zip

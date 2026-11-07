@@ -249,7 +249,9 @@ Ohne eine solche startet sie nicht.
 
 Macs mit Apple Silicon (M1 und neuer) nehmen die `aarch64`-Version,
 Intel-Macs die `x86_64`-Version (Apple-Menü → Über diesen Mac nennt Chip
-oder Prozessor). Voraussetzung ist macOS 11 oder neuer.
+oder Prozessor). Voraussetzung ist macOS 11 oder neuer. Wie unter Windows braucht
+die Intel-Version eine CPU mit x86-64-v3 (AVX2), die haben die meisten Intel-Macs
+ab 2014.
 
 1. Öffne `Baylee-<version>-aarch64.dmg` (Intel: `-x86_64.dmg`) und ziehe
    **Baylee** auf **Programme** (Applications). Wirf das Image danach aus.
