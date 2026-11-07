@@ -1112,7 +1112,7 @@ fn the_laboratory_side_stands_up_for_three_life_and_comes_in_tapped_without_it()
 /// Mystic Peak, the back face: "As this land enters, you may pay 3 life. If
 /// you don't, it enters tapped." and "{T}: Add {R}."
 ///
-/// The face is reached by *playing the card as a land* (CR 712.12), and this
+/// The face is reached by *playing the card as a land* (CR 712.9), and this
 /// card is the shape that is offered no mode choice at all: only one of its
 /// two faces is a land, so the engine plays that one the way it plays
 /// Glasspool Shore — which is why the first thing asserted is the face index
@@ -1513,7 +1513,7 @@ fn emry_permission_is_scoped_and_countering_the_artifact_does_not_exile_it() {
     );
 }
 
-/// Adventure's alternative characteristics are copiable values (CR 715.2b).
+/// Adventure's alternative characteristics are copiable values (CR 716.2b).
 #[test]
 fn an_adventure_copied_on_entry_is_recognized_until_the_copy_leaves() {
     use baylee_core::generated::index;

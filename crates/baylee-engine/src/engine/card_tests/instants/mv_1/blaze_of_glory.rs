@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// "Cast this spell only before blockers are declared" (CR 506.7b, a
+/// "Cast this spell only before blockers are declared" (CR 506.8b, a
 /// spell's own printed timing restriction): refused in the first main
 /// phase with mana already floating, accepted (and resolved) at the
 /// beginning of combat, still on offer once attackers are declared and no
@@ -107,7 +107,7 @@ fn blaze_of_glory_is_castable_only_before_blockers_are_declared() {
 /// With no attackers declared this combat, the declare blockers step is
 /// skipped (CR 508.8, nothing to declare blocks against), so the spell's
 /// "only before blockers are declared" window instead runs only through
-/// the declare attackers step (CR 506.7e) — and it belongs to whoever
+/// the declare attackers step (CR 506.8e) — and it belongs to whoever
 /// holds priority there, not only the active player: the defending player
 /// casts it here too, aimed at their own creature, and not at the active
 /// player's. Once that step itself ends, the window is gone: with mana
@@ -168,7 +168,7 @@ fn blaze_of_glory_is_castable_by_the_defending_player_with_no_attackers_declared
 
     // With no attackers, the declare blockers and combat damage steps are
     // skipped (CR 508.8), and this spell's own window closes with the
-    // declare attackers step rather than running past it (CR 506.7e): by
+    // declare attackers step rather than running past it (CR 506.8e): by
     // CombatEnd — mana floating, the Bear still standing as a legal
     // target — the second copy is refused all the same.
     pass_until(&mut engine, |e| {

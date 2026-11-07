@@ -853,7 +853,7 @@ about the table itself rather than the rules, and both are fixed.
     how much night was in it would be reddest at midnight.
 
     Two things it deliberately is not. It is **not** Magic's day/night
-    designation (CR 731): no card in the pool is daybound or nightbound,
+    designation (CR 732): no card in the pool is daybound or nightbound,
     `baylee-view` carries no such state, and a client inventing one would put
     a rules claim on the table the engine never made. And the hour it follows
     is **UTC**, not the player's zone — a timezone database is a large
@@ -1493,7 +1493,7 @@ about the table itself rather than the rules, and both are fixed.
     Implementiere auch einige dazugehörige Karten."** *Done — and on the way
     it found a 9/7 Demon that anybody could cast for {0}.*
 
-    The designation is CR 731: one game-level `Option<DayNight>` that starts
+    The designation is CR 732: one game-level `Option<DayNight>` that starts
     as neither and, once set, never returns to neither. The check is the
     untap step's *second* turn-based action (CR 502.2), and it reads the turn
     that just ended — day becomes night when that player cast no spells,
@@ -3261,7 +3261,7 @@ chapter separately: they are one mark asked twice.
 
 One rules detail whichever route is taken, because the two halves of the
 report are not the same arithmetic. A Class's level is *one plus* its level
-counters (CR 716.2c) and a Leveler's level *is* its level counters
+counters (CR 717.2c) and a Leveler's level *is* its level counters
 (CR 711.2b), so a Wizard Class carrying one counter stands at level 2 while a
 Hexdrinker carrying one stands at level 1. The client can tell them apart
 without asking the pool: a Class is an enchantment, a Leveler is a creature.
@@ -3473,8 +3473,8 @@ new object with no relation to the exile it left (CR 400.7).
 (not on a move from exile to exile).
 
 **The crown stayed with a player who had left.** Nothing implemented
-CR 725.4, so the monarch kept the designation after leaving the game. No
-creature could take it with combat damage (CR 725.2) from a player who was no
+CR 726.4, so the monarch kept the designation after leaving the game. No
+creature could take it with combat damage (CR 726.2) from a player who was no
 longer there, and Palace Jailer's prisoner stayed exiled until some other
 card made an opponent the monarch.
 `sba::eliminate_player` now passes the crown as the monarch leaves
@@ -3496,7 +3496,7 @@ one of eight riders that say what a card is in exile, and none of them was
 dropped as the card left. Their readers ask "in exile, with this rider", which
 a card exiled again by something else passes. Twining Twins cast as Swift
 Spiral, cast from exile, and later exiled by Swords to Plowshares was castable
-from exile every turn after (CR 715.3d gives the permission "for as long as
+from exile every turn after (CR 716.3d gives the permission "for as long as
 that card remains exiled"). A suspended card that was cast, resolved, and was
 exiled from the graveyard by Bojuka Bog kept its suspend mark and no time
 counter, and the upkeep countdown cast it for free again. Before widening the
@@ -3558,7 +3558,7 @@ Each of the 15 uses on 13 cards was set from its own printed sentence:
 | Dowsing Dagger, Thaumatic Compass, Twists and Turns, Growing Rites of Itlimoc, Storm the Vault, Vance's Blasting Cannons (triggers); Temple of Cyclical Time, Temple of Cultivation (activations) | "transform this …" | `false` |
 
 The last row is the stand-in for a transform (#206). A transform keeps the
-permanent and its controller (CR 712.18), and the ability's controller is that
+permanent and its controller (CR 712.15), and the ability's controller is that
 controller when the ability triggered (CR 603.3a) or the activator
 (CR 602.2a). So `false` names the right player at the moment of return, where
 `true` would hand a stolen permanent back at once. It is still not a
@@ -3572,7 +3572,7 @@ effect on the permanent.
 **The eight became transforms on 2026-09-30.** Each is `Effect::TransformSource`
 now, and three rules came with it. An ability of the permanent that tries to
 transform it after it has transformed since the ability was put on the stack
-is ignored (CR 701.27f): the ability carries the face it was printed on, and
+is ignored (CR 701.27g): the ability carries the face it was printed on, and
 Twists and Turns triggered twice by two lands at once turned over and back
 without it (`twists_and_turns_triggered_twice_at_once_transforms_once`). The
 face that turns away takes its statics and replacement effects with it
@@ -3603,7 +3603,7 @@ The tests:
   checks the trigger path (CR 603.3a).
 - `card_tests::creatures::a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief`
   checked the activation path (CR 602.2a). Since the Temple transforms, it
-  checks that the steal goes on holding the god (CR 712.18).
+  checks that the steal goes on holding the god (CR 712.15).
 - The first rule test and both card tests failed on the old resolver.
 - `lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
   holds each use's field to its printed sentence, with its count pinned
@@ -3617,7 +3617,7 @@ The lint is what checks their field.
 ### 63. The crown moved without a word, and passed through players on their way out — FIXED
 
 Owner, 08.10.2026: "the monarch mechanic does not work properly", at
-multiplayer tables. The rules side was checked against CR 724 at a table of
+multiplayer tables. The rules side was checked against CR 726 at a table of
 four (`engine::monarch_table_tests`): only the monarch draws, once, at their
 own end step; combat damage to the monarch takes the crown and damage to
 anybody else does not; two creatures trigger twice; first strike takes it in

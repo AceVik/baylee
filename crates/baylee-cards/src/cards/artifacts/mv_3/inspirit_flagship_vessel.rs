@@ -8,7 +8,7 @@
 // power in charge counters, sorcery speed), artifact-creature at 8+, 8+
 // flying, the 8+ artifact hexproof/indestructible grant, and the 1+ modal
 // counter trigger. Both sentences after a station symbol are that symbol's
-// (CR 721.2): the grant is printed in the 8+ striation beside Flying.
+// (CR 722.2): the grant is printed in the 8+ striation beside Flying.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;

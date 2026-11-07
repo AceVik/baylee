@@ -9,7 +9,7 @@
 //! chosen card is cast as a spell, you control the player while that spell
 //! is resolving."
 //!
-//! The rules it leans on are CR 723 (controlling another player: 723.2 names
+//! The rules it leans on are CR 724 (controlling another player: 723.2 names
 //! this card, 723.4 what is visible, 723.5 whose choices and whose resources,
 //! 723.5a the controlled player's resources pay) and CR 305 for a land
 //! (305.2a and 305.2b the land drop, 305.3 "if it isn't their turn").
@@ -210,7 +210,7 @@ fn settle(engine: &mut Engine<RegistryLookup>) {
 /// "Look at target opponent's hand": the question for the target offers the
 /// two opponents and never the caster, and a caster named anyway is refused.
 /// Then, at the choice, the controller is the one asked, the options are
-/// exactly the player's hand, and he alone may inspect it (CR 723.4); before
+/// exactly the player's hand, and he alone may inspect it (CR 724.4); before
 /// Word resolves he could not, and the third seat never can.
 #[test]
 fn word_of_command_targets_an_opponent_and_shows_the_hand_at_the_choice() {
@@ -261,7 +261,7 @@ fn word_of_command_targets_an_opponent_and_shows_the_hand_at_the_choice() {
     // The look is the question itself: the engine asks the controller about
     // exactly these objects, and a view shows a seat what the seat is asked
     // about (`gamehost::view::zones::looking_at`). It asks nobody else, and
-    // the control of the player (CR 723.4) only begins with the choice made.
+    // the control of the player (CR 724.4) only begins with the choice made.
     assert_eq!(
         engine.pending().asked(),
         Some(USER),
@@ -305,7 +305,7 @@ fn word_of_command_targets_an_opponent_and_shows_the_hand_at_the_choice() {
     );
 
     // With the card chosen, control begins: from here the controller may
-    // inspect the player (CR 723.4) and answers for them (CR 723.5); the
+    // inspect the player (CR 724.4) and answers for them (CR 723.5); the
     // third seat is still shut out.
     let bolt = in_hand(&engine, OTHER, lightning_bolt()).unwrap();
     engine
@@ -329,7 +329,7 @@ fn word_of_command_targets_an_opponent_and_shows_the_hand_at_the_choice() {
 /// Lightning Bolt (`{R}`) is paid with the opponent's Mountain, tapped by the
 /// controller; the spell is the opponent's on the stack, its target is the
 /// controller's choice, and none of the controller's own resources is spent
-/// beyond Word's `{B}{B}` (CR 723.5, 723.5a).
+/// beyond Word's `{B}{B}` (CR 724.5, 724.5a).
 #[test]
 fn a_payable_card_is_cast_with_the_opponents_lands_and_belongs_to_its_owner() {
     let mut engine = table(&[mountain(), mountain()], &[lightning_bolt()]);
@@ -420,7 +420,7 @@ fn a_payable_card_is_cast_with_the_opponents_lands_and_belongs_to_its_owner() {
 }
 
 /// The player's pool pays too: red mana already floating in it when Word
-/// resolves casts Lightning Bolt with no land tapped (CR 723.5a "mana").
+/// resolves casts Lightning Bolt with no land tapped (CR 724.5a "mana").
 #[test]
 fn mana_already_in_the_players_pool_pays_for_the_card() {
     let mut engine = table(&[mountain(), mountain()], &[lightning_bolt()]);
@@ -845,7 +845,7 @@ fn the_controller_makes_the_commanded_spells_choices() {
     assert_eq!(
         engine.decision_actor(),
         Some(USER),
-        "and the controller's decision (CR 723.5)"
+        "and the controller's decision (CR 724.5)"
     );
     assert!(engine.may_inspect_private(USER, OTHER));
     assert!(!engine.may_inspect_private(THIRD, OTHER));

@@ -1328,7 +1328,7 @@ pub(crate) fn target_question(
     statics: Option<&GameStatic>,
 ) -> Vec<String> {
     let mut lines = base_target_question(interaction, view, lang, texts, statics);
-    // A controlled player's question (CR 723.5) is named for them: "For
+    // A controlled player's question (CR 724.5) is named for them: "For
     // Mia: choose a target", as the shelf names it.
     let subject = baylee_client_core::decision::resource_player(view);
     if subject != view.seat {

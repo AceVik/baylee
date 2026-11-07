@@ -463,7 +463,7 @@ pub enum Pending {
         /// A handle and not a name, for the reason the engine carries no card
         /// text at all — the same rule that makes an ability an
         /// [`baylee_core::ids::AbilityRef`]. Two land faces of a pathway
-        /// (CR 712.12) differ in nothing a [`CastModeDesc`] carries: same
+        /// (CR 712.9) differ in nothing a [`CastModeDesc`] carries: same
         /// kind, same empty cost, different printed name. Without this the
         /// client draws two identical buttons and the choice is blind.
         object: ObjectId,

@@ -1007,7 +1007,7 @@ pub fn play_land_face_facing(
 /// hands back the game at its controller's first main phase.
 ///
 /// Two boards [`play_land_face`] cannot build. A transforming card's land
-/// back is not a land drop (CR 712.8a, CR 712.12;
+/// back is not a land drop (CR 712.6a, CR 712.9;
 /// `CardDef::land_faces_from_hand`): it is reached only by turning over on
 /// the battlefield. And a creature — Dryad Arbor, a mana elf, an artifact
 /// creature — has to have been under its controller's control continuously
@@ -1131,7 +1131,7 @@ pub fn basics() -> Vec<CardIndex> {
 ///
 /// The pool has no vanilla creature at all: the only implemented creatures
 /// with an empty `abilities` list are the five werewolves, and daybound
-/// would put every probe board into a *game state* (CR 731) the card under
+/// would put every probe board into a *game state* (CR 732) the card under
 /// test can read. One mana ability nothing presses is the smaller footprint
 /// — and nothing presses it, because [`deeds`] only ever looks at the
 /// probed card's own objects.

@@ -112,7 +112,7 @@ static COUNTING_ABILITIES: &[AbilityDef] = &[
 ];
 
 /// A station card's two striations on one land: a 1+ upkeep trigger and a
-/// 2+ static that gives the land itself hexproof (CR 721.2a).
+/// 2+ static that gives the land itself hexproof (CR 722.2a).
 const STATION_BASIN: u32 = 1113;
 
 static STATION_ABILITIES: &[AbilityDef] = &[
@@ -468,7 +468,7 @@ fn hexproof(engine: &Engine<SyntheticLookup>, id: ObjectId) -> bool {
         .contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
 }
 
-/// A station symbol is not an intervening `if` (CR 721.2a against CR
+/// A station symbol is not an intervening `if` (CR 722.2a against CR
 /// 603.4): it says whether the permanent has the ability. With no charge
 /// counter the 1+ trigger does not trigger at all; with one it does, and
 /// once it has, losing the counter does not take it off the stack, because
@@ -511,7 +511,7 @@ fn a_station_trigger_waits_for_its_counter_and_then_outlives_it() {
 }
 
 /// A static ability under a station symbol applies exactly while the
-/// permanent has that many charge counters (CR 721.2a), both ways: it
+/// permanent has that many charge counters (CR 722.2a), both ways: it
 /// arrives with the second counter and leaves with it.
 #[test]
 fn a_static_under_a_station_symbol_applies_only_while_it_holds() {

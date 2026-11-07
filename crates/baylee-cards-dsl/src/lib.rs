@@ -125,8 +125,8 @@ impl CardDef {
     /// is played from), in printed order.
     ///
     /// The front face when it is a land, because in hand a double-faced card
-    /// has only its front face's characteristics (CR 712.8a). A back face
-    /// only when it is a land *and* the card is modal (CR 712.12), which a
+    /// has only its front face's characteristics (CR 712.6a). A back face
+    /// only when it is a land *and* the card is modal (CR 712.9), which a
     /// `FaceDef` says as `castable_from_hand`: codegen writes it `false` on
     /// every transforming back from Scryfall's `layout`, and `xtask
     /// validate` holds it against the layout. A transforming card's land back
@@ -329,7 +329,7 @@ pub enum UseBeyondMana {
     Free,
 }
 
-/// Prototype's alternative characteristics (CR 718.3).
+/// Prototype's alternative characteristics (CR 719.3).
 #[derive(Clone, Copy, Debug)]
 pub struct Prototype {
     /// Mana cost, which also determines color and mana value.
@@ -365,7 +365,7 @@ pub struct BeholdOrPay {
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
 pub struct FaceDef {
-    /// Secondary copiable cost and size when cast prototyped (CR 718).
+    /// Secondary copiable cost and size when cast prototyped (CR 719).
     pub prototype: Option<Prototype>,
     /// Disguise cost to turn this permanent face up (CR 702.168).
     pub disguise: Option<ManaCost>,
@@ -513,7 +513,7 @@ pub struct FaceDef {
     /// Disturb (CR 702.146): this face may be cast from the graveyard
     /// for its mana cost; exile it after.
     pub disturb: bool,
-    /// Adventure (CR 715): this face is an Adventure spell — when it
+    /// Adventure (CR 716): this face is an Adventure spell — when it
     /// resolves, exile the card; the front face may then be cast from
     /// exile.
     pub adventure: bool,

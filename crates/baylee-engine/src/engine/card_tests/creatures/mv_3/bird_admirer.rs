@@ -12,7 +12,7 @@ use super::*;
 /// (the printed way to night) and the permanent turns over in place, and then
 /// two spells cast in a single turn put the day back and turn it over again.
 /// Reach is read on both faces because a back face inherits nothing
-/// (CR 712.8e), so the 3/5 body is the only reading that tells them apart.
+/// (CR 712.6d), so the 3/5 body is the only reading that tells them apart.
 #[test]
 fn bird_admirer_turns_over_when_the_day_becomes_night_and_back_again() {
     let p0 = PlayerId::new(0);

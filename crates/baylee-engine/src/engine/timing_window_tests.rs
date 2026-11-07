@@ -1,4 +1,4 @@
-//! Spells and abilities restricted to a part of the turn (CR 506.7, 506.7g),
+//! Spells and abilities restricted to a part of the turn (CR 506.7, 506.8g),
 //! and the history two cards of that kind ask about: which creatures
 //! attacked this turn (CR 508.1), and which a player has controlled since
 //! the turn began (CR 302.6).
@@ -261,7 +261,7 @@ fn assert_open(seen: &Seen, turn: u32, place: At, open: bool) {
 
 // ------------------------------------------------------------------- tests
 
-/// "Cast this spell only before the combat damage step" (CR 506.7): offered
+/// "Cast this spell only before the combat damage step" (CR 506.8): offered
 /// from the upkeep through the declare blockers step, and from the combat
 /// damage step on, not.
 #[test]
@@ -304,7 +304,7 @@ fn a_spell_cast_only_before_the_combat_damage_step_is_offered_until_that_step() 
 }
 
 /// With no attackers there is no combat damage step to be before, and the
-/// window closes as the declare attackers step ends (CR 506.7e).
+/// window closes as the declare attackers step ends (CR 506.8e).
 #[test]
 fn with_no_attackers_the_window_closes_as_the_declare_attackers_step_ends() {
     let mut engine = start(&[BEAR], &[], &[RECKLESS]);
@@ -363,7 +363,7 @@ fn a_spell_cast_outside_its_window_is_refused() {
 }
 
 /// "Activate only during an opponent's turn, before attackers are declared"
-/// (CR 506.7a, 506.7g): offered to the Heckler's controller on the other
+/// (CR 506.8a, 506.8g): offered to the Heckler's controller on the other
 /// seat's turn until the declare attackers step, and never on their own
 /// turn, where the Heckler itself would be a legal target.
 #[test]

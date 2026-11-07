@@ -79,7 +79,7 @@
 //!
 //! # A decision for a controlled player
 //!
-//! A seat that controls another player's turn (Mindslaver, CR 723.5) is
+//! A seat that controls another player's turn (Mindslaver, CR 724.5) is
 //! asked that player's questions, with that player's cards and mana
 //! (`PlayerView::decision_player`, read through
 //! [`decision::resource_player`]). Every rule here reads such a decision
@@ -727,7 +727,7 @@ pub struct AbilityReach {
 ///
 /// The hand, the lands, the pool and the command zone are those of the
 /// player whose cards the decision uses ([`decision::resource_player`]):
-/// in a decision for a player whose turn this seat controls (CR 723.5),
+/// in a decision for a player whose turn this seat controls (CR 724.5),
 /// that player's, never the seat's own.
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {

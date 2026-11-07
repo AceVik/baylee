@@ -45,7 +45,7 @@ pub(crate) fn activatable_into(duel: &Duel, lit: &mut std::collections::HashSet<
         duel.view.as_ref(),
     ) {
         // The declaring player's creatures: this seat's, or the controlled
-        // player's whose attackers or blockers it declares (CR 723.5).
+        // player's whose attackers or blockers it declares (CR 724.5).
         lit.extend(
             view.battlefield
                 .iter()
@@ -112,11 +112,11 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         return std::collections::HashSet::new();
     };
     // The caster's cards, pool and lands: this seat's, or those of the
-    // player it controls (CR 723.5a). That player's spells are reached for
+    // player it controls (CR 724.5a). That player's spells are reached for
     // as this seat's own are: every card here is one the engine says it
     // casts once paid (`castable_once_paid`, asked of that player's legal
     // actions), so the planner withholds and never invents a play, also
-    // under a control effect that restricts the plays (CR 723.7).
+    // under a control effect that restricts the plays (CR 724.7).
     let caster = baylee_client_core::decision::resource_player(view);
     let Some(legal) = duel
         .interaction
@@ -301,7 +301,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         )
         // And any exile zone, for a card the engine offers to cast from exile
         // once its mana is made (`legal.payable`: an adventure's creature half,
-        // CR 715.3d, or an exile cast permission). Permission is a game-state
+        // CR 716.3d, or an exile cast permission). Permission is a game-state
         // fact `PublicObject` does not carry, so `legal.payable` is the gate:
         // the engine has already checked the permission and target legality.
         .chain(

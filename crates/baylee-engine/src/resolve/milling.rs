@@ -28,7 +28,7 @@ fn mill_player(state: &mut GameState, player: PlayerId, count: usize) -> Vec<Obj
 pub(super) fn radiation(state: &mut GameState, res: &Resolution) {
     // EventPlayer survives copying and control changes of the ability: "that
     // player" refers to the active player who caused it to trigger, not to a
-    // later controller of the stack object (CR 728.1, 707.10).
+    // later controller of the stack object (CR 729.1, 707.10).
     for player in players_of(PlayerRel::EventPlayer, state, res.controller, res) {
         let count = state.players[usize::from(player.get())].rad;
         // The intervening condition is checked again at resolution (CR 603.4).

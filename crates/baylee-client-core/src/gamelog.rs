@@ -108,7 +108,7 @@ pub struct LogLine {
     /// damage to a permanent, a transform, day and night, a loop, the end of
     /// the game.
     pub subject: Option<PlayerId>,
-    /// Whether the line crowns a monarch (CR 724), which a panel marks with
+    /// Whether the line crowns a monarch (CR 726), which a panel marks with
     /// the crown the monarch's plate and chip wear.
     pub crowned: bool,
     /// The phase of the turn it happened in, for a panel that groups a

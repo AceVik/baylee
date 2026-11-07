@@ -53,7 +53,7 @@ fn pass_to(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
 
 /// The Throne is an activated ability, so any seat holding priority may use
 /// it (CR 602.5d): seat 1 takes the crown during seat 0's turn, and the
-/// monarch's draw is the beginning of *its own* end step (CR 725.2), not of
+/// monarch's draw is the beginning of *its own* end step (CR 726.2), not of
 /// the active player's, which is the difference a table of four can show and
 /// a duel cannot (with two seats "the other end step" is one seat).
 #[test]
@@ -133,7 +133,7 @@ fn throne_of_the_high_city_crowns_a_non_active_seat_who_draws_at_its_own_end_ste
 }
 
 /// A monarch who activates the Throne becomes what they already are:
-/// nothing is journaled (CR 725.3), the land is still spent, and the crown
+/// nothing is journaled (CR 726.3), the land is still spent, and the crown
 /// stays where it was.
 #[test]
 fn throne_of_the_high_city_under_the_monarch_writes_no_crowning() {

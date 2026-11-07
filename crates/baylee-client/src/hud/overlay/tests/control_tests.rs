@@ -1,4 +1,4 @@
-//! A turn this seat controls (CR 723.5) as the overlay draws it: the hand
+//! A turn this seat controls (CR 724.5) as the overlay draws it: the hand
 //! of the chair shown, its frame and words, and the badges over the chips.
 
 #[allow(clippy::wildcard_imports)] // the tests' shared fixtures

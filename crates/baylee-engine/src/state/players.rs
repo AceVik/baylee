@@ -268,11 +268,11 @@ impl GameState {
         self.players[usize::from(player.get())].has_lost()
     }
 
-    /// The game becomes day, or day becomes night's opposite (CR 731.1).
+    /// The game becomes day, or day becomes night's opposite (CR 732.1).
     ///
     /// Every route to the designation goes through this door and
     /// [`Self::become_night`], so that "it becomes day" is journalled once
-    /// and in one place — CR 731.1a's "night becomes day" is the same
+    /// and in one place — CR 732.1a's "night becomes day" is the same
     /// event, the game losing one designation and gaining the other, and a
     /// card that triggers on it has one entry to read. Setting the field
     /// directly would record nothing.
@@ -280,7 +280,7 @@ impl GameState {
         self.set_designation(DayNight::Day);
     }
 
-    /// The game becomes night (CR 731.1). See [`Self::become_day`].
+    /// The game becomes night (CR 732.1). See [`Self::become_day`].
     pub fn become_night(&mut self) {
         self.set_designation(DayNight::Night);
     }
@@ -293,7 +293,7 @@ impl GameState {
         self.journal.record(GameEvent::DayNightChanged { now });
     }
 
-    /// Sets the monarch (CR 725.3), and ends every exile that lasted "until
+    /// Sets the monarch (CR 726.3), and ends every exile that lasted "until
     /// an opponent becomes the monarch" (Palace Jailer) for which the new
     /// monarch is such an opponent.
     ///
@@ -319,7 +319,7 @@ impl GameState {
     }
 
     /// `player` has left the game (CR 800.4a) and, if they were the monarch,
-    /// the designation passes on at the same time (CR 725.4): to the active
+    /// the designation passes on at the same time (CR 726.4): to the active
     /// player, or, when the active player is the one leaving, to the next
     /// player in turn order still in the game. With nobody left the game goes
     /// on with no monarch.

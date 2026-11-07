@@ -812,7 +812,7 @@ fn attached_mana_aura_board(card: CardIndex) -> Result<(Engine<RegistryLookup>, 
 /// The board a face makes its mana on, across an opponent who controls the
 /// [`facing`] lands: played as a land drop where it is a land that is one,
 /// and otherwise put on the battlefield before the first turn
-/// ([`placed_face`]) — a transforming card's land back (CR 712.8a, #152), a
+/// ([`placed_face`]) — a transforming card's land back (CR 712.6a, #152), a
 /// land that is also a creature, and every other permanent. What a face
 /// *makes* does not depend on how it got there; how it *enters* does, and
 /// that is `enter_tests`' question.

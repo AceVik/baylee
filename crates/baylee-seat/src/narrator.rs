@@ -26,10 +26,10 @@
 //! # A decision for a controlled player
 //!
 //! A decision the seat makes for the player whose turn it controls
-//! (Mindslaver, CR 723.5) is told as one: a line under the header says
+//! (Mindslaver, CR 724.5) is told as one: a line under the header says
 //! whom it is for, that it may go against that player's interest, uses
 //! that player's cards and mana only, and that the seat cannot concede for
-//! them (CR 723.6; [`Table::controlled_line`]). "You" stays the seat
+//! them (CR 724.6; [`Table::controlled_line`]). "You" stays the seat
 //! throughout: the controlled player's hand, pool, lands, commander,
 //! library and turn are "P2's", never "your" ([`Table::decider`]), the
 //! hand the seat sees through control is told under P2's name, and the
@@ -680,7 +680,7 @@ impl<'a> Table<'a> {
     }
 
     /// The player this decision is made for, whose cards and mana it uses:
-    /// the seat, or the player whose turn it controls (CR 723.5).
+    /// the seat, or the player whose turn it controls (CR 724.5).
     pub fn decider(&self) -> PlayerId {
         baylee_client_core::decision::resource_player(self.view)
     }
@@ -715,11 +715,11 @@ impl<'a> Table<'a> {
     }
 
     /// The line under the header of a decision for a controlled player
-    /// (CR 723.5, 723.6); `None` in the seat's own.
+    /// (CR 724.5, 724.6); `None` in the seat's own.
     pub fn controlled_line(&self) -> Option<String> {
         let p = Self::player_id(self.controlled()?);
         Some(format!(
-            "You control {p} this turn (Mindslaver, CR 723.5): decide this for {p}, with {p}'s \
+            "You control {p} this turn (Mindslaver, CR 724.5): decide this for {p}, with {p}'s \
              cards and mana only. You may play it against {p}'s interest. You cannot concede \
              for {p}. Your own decisions stay yours."
         ))

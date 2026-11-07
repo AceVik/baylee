@@ -344,7 +344,7 @@ fn dauthi_voidwalker_and_rebound_are_the_casters_to_choose_between() {
 }
 
 /// p0 with Ojer casts Swift End from hand at p1's Bears: an Adventure spell
-/// that has gained rebound. CR 715.3d and 702.88a both replace its move.
+/// that has gained rebound. CR 716.3d and 702.88a both replace its move.
 fn swift_end_under_ojer() -> Engine<RegistryLookup> {
     let mut e = kit::game(
         SEED,
@@ -372,14 +372,14 @@ fn swift_end_under_ojer() -> Engine<RegistryLookup> {
 }
 
 /// On an adventure: it may be played from exile at its price, and nothing
-/// waits for an upkeep (CR 715.3d).
+/// waits for an upkeep (CR 716.3d).
 #[test]
 fn choosing_the_adventure_over_rebound_leaves_the_creature_castable() {
     let mut e = swift_end_under_ojer();
     choose(&mut e, P0, SpellEnding::Adventure);
     let card = exiled(&e, P0, index::MURDEROUS_RIDER).expect("on an adventure");
     let object = e.state().object(card).unwrap();
-    assert_eq!(object.face_index, 0, "a creature card in exile (CR 715.4)");
+    assert_eq!(object.face_index, 0, "a creature card in exile (CR 716.4)");
     assert!(
         object
             .riders
@@ -389,7 +389,7 @@ fn choosing_the_adventure_over_rebound_leaves_the_creature_castable() {
     assert!(e.state().delayed.is_empty(), "nothing rebounds");
 }
 
-/// Rebound: exile, as the card it is out of the stack (CR 715.4), with no
+/// Rebound: exile, as the card it is out of the stack (CR 716.4), with no
 /// adventure to come back from, and the free cast at the next upkeep.
 #[test]
 fn choosing_rebound_over_the_adventure_casts_it_free_next_upkeep() {
@@ -397,7 +397,7 @@ fn choosing_rebound_over_the_adventure_casts_it_free_next_upkeep() {
     choose(&mut e, P0, SpellEnding::Rebound);
     let card = exiled(&e, P0, index::MURDEROUS_RIDER).expect("exiled");
     let object = e.state().object(card).unwrap();
-    assert_eq!(object.face_index, 0, "a creature card in exile (CR 715.4)");
+    assert_eq!(object.face_index, 0, "a creature card in exile (CR 716.4)");
     assert!(
         !object
             .riders
@@ -417,7 +417,7 @@ fn choosing_rebound_over_the_adventure_casts_it_free_next_upkeep() {
     assert_eq!(e.state().turn.step, baylee_engine::turn::Step::Upkeep);
 }
 
-/// A controlled player's choices are their controller's (CR 723.5), and this
+/// A controlled player's choices are their controller's (CR 724.5), and this
 /// is one: p1's spell, p1 asked, p0 answering, and p1 refused.
 #[test]
 fn the_controller_of_a_controlled_turn_answers_it() {

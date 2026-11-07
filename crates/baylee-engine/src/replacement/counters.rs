@@ -81,7 +81,7 @@ pub fn put_counters_by(
 /// spell or ability" places and to what another replacement effect places —
 /// and a **turn-based action** is neither of those. The lore counter a Saga
 /// takes as its controller's precombat main phase begins is exactly that
-/// (CR 505.4, CR 714.3b, both of which say it does not use the stack), so it
+/// (CR 505.4, CR 715.3c, both of which say it does not use the stack), so it
 /// comes through here. The counter it takes as it *enters* is a replacement
 /// effect (CR 614.1c) and goes through [`put_counters`] like everything else.
 pub fn record_counters(

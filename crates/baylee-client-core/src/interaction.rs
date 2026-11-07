@@ -278,7 +278,7 @@ pub enum Prompt {
         ///
         /// Carried because two options can be identical in everything a
         /// [`CastModeDesc`] holds and differ only in the name they print: a
-        /// pathway's two land faces (CR 712.12) are the same kind at the same
+        /// pathway's two land faces (CR 712.9) are the same kind at the same
         /// empty cost. This is the handle the label is resolved through.
         object: ObjectId,
         /// The offered options.
@@ -720,7 +720,7 @@ impl Interaction {
     }
 
     /// The player this question is answered as: the local seat, or the
-    /// player whose decisions it makes while it controls them (CR 723.5;
+    /// player whose decisions it makes while it controls them (CR 724.5;
     /// [`crate::decision::resource_player`] when it was installed).
     #[must_use]
     pub fn subject(&self) -> PlayerId {

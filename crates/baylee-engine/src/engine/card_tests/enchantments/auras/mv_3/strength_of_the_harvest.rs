@@ -129,7 +129,7 @@ fn the_harvest_aura_swells_only_its_own_creature_and_recounts_the_board_each_tim
 ///
 /// A player playing a modal double-faced card as a land chooses one of its
 /// faces that's a land before putting it onto the battlefield, and it enters
-/// with that face up (CR 712.12). Only the back face of this card is a land,
+/// with that face up (CR 712.9). Only the back face of this card is a land,
 /// so there is exactly one choice to make and the engine makes it: the card
 /// arrives as face 1, a Land with none of the Aura's text on it.
 ///

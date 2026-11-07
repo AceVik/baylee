@@ -1475,7 +1475,7 @@ fn a_treasure_stays_in_a_payment_window() {
 }
 
 /// The back face of a modal double-faced land is judged by the face it is
-/// showing (CR 712.8f). Sanguine Morass prints `{T}: Add {B} or {R}` on a
+/// showing (CR 712.6e). Sanguine Morass prints `{T}: Add {B} or {R}` on a
 /// face the card-level ability list does not carry, so the narrowing took
 /// the land out of the window it could pay.
 #[test]

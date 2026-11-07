@@ -1,9 +1,9 @@
-//! Saga tests (CR 714): lore counters as the Saga enters and as its
+//! Saga tests (CR 715): lore counters as the Saga enters and as its
 //! controller's precombat main phase begins, chapter triggers, sacrifice
 //! after the final chapter.
 //!
 //! "After your draw step" is the reminder text a Saga is printed with and is
-//! where this module's old wording came from. The rule is CR 714.3b and
+//! where this module's old wording came from. The rule is CR 715.3c and
 //! CR 505.4 — a turn-based action of the precombat main phase, before
 //! anybody has priority in it — and the engine used to do it a whole phase
 //! later still, as combat began.
@@ -371,7 +371,7 @@ fn grants_from(engine: &Engine<RegistryLookup>, saga: ObjectId) -> usize {
 
 /// Urza's Saga makes mana only once chapter I has **resolved**.
 ///
-/// Chapter I *grants* "{T}: Add {C}" (CR 714.2b — a chapter ability is a
+/// Chapter I *grants* "{T}: Add {C}" (CR 715.2b — a chapter ability is a
 /// triggered ability, and it does nothing until it resolves), and the card
 /// used to print the same mana ability a second time as a baseline. That
 /// copy was a mana ability from the moment the Saga landed, so the Saga
@@ -476,15 +476,15 @@ fn reach_p0_precombat_main(engine: &mut Engine<RegistryLookup>, p0: PlayerId, af
     }
 }
 
-/// CR 714.3 puts a Saga's two lore counters on opposite sides of CR 614.16,
+/// CR 715.3 puts a Saga's two lore counters on opposite sides of CR 614.16,
 /// and this is the board that reads both halves at once.
 ///
-/// The one it takes **as it enters** (CR 714.3a) is a replacement effect
+/// The one it takes **as it enters** (CR 715.3a) is a replacement effect
 /// (CR 614.1c), so a Doubling Season doubles it: the Saga arrives on two
-/// counters and owes chapters I *and* II, which is CR 714.2b's window — "was
+/// counters and owes chapters I *and* II, which is CR 715.2b's window — "was
 /// less than N and became at least N" — rather than "the next chapter".
 ///
-/// The one it takes **as the precombat main phase begins** (CR 714.3b,
+/// The one it takes **as the precombat main phase begins** (CR 715.3c,
 /// CR 505.4) is a turn-based action, which is neither of the two things
 /// CR 614.16 names, so the same enchantment does not touch it: the count
 /// goes to three and not four. That number is the whole test in one
@@ -570,7 +570,7 @@ fn a_saga_under_a_doubling_season_enters_on_two_and_still_ticks_by_one() {
         "a turn-based action is not an effect, so the Season does not see it"
     );
 
-    // And chapter III resolves, and CR 714.4 sacrifices the Saga, inside the
+    // And chapter III resolves, and CR 715.4 sacrifices the Saga, inside the
     // phase whose beginning placed the counter. That is what the move buys:
     // all of it used to happen as combat began, a whole phase after the
     // rules put it.
@@ -609,7 +609,7 @@ fn chapters_on_the_stack(engine: &Engine<RegistryLookup>, saga: ObjectId) -> usi
         .count()
 }
 
-/// CR 714.4 has a second clause, and until a Saga could owe more than one
+/// CR 715.4 has a second clause, and until a Saga could owe more than one
 /// chapter at a time nothing could reach it: the Saga is sacrificed only
 /// when it "isn't the source of a chapter ability that has triggered but not
 /// yet left the stack".
@@ -646,7 +646,7 @@ fn a_saga_owing_three_chapters_at_once_outlives_the_first_one_to_resolve() {
         if saga_object(&engine).is_none() {
             assert_eq!(
                 waiting, 0,
-                "CR 714.4: the saga was sacrificed with {waiting} of its own \
+                "CR 715.4: the saga was sacrificed with {waiting} of its own \
                  chapters still on the stack"
             );
             break;
@@ -771,12 +771,12 @@ fn flash_in_a_tidebinder(engine: &mut Engine<RegistryLookup>, p0: PlayerId, chap
     }
 }
 
-/// CR 714.4 is a **state-based action**, and a chapter ability can leave the
+/// CR 715.4 is a **state-based action**, and a chapter ability can leave the
 /// stack without resolving.
 ///
 /// Tishana's Tidebinder is flashed in in response to chapter III and counters
 /// it. The Saga is then sitting at three lore counters with nothing of its
-/// own on the stack, which is CR 714.4's sentence word for word — the number
+/// own on the stack, which is CR 715.4's sentence word for word — the number
 /// of lore counters is greater than or equal to the final chapter number and
 /// it isn't the source of a chapter ability that has triggered but not yet
 /// left the stack — so it is sacrificed, and no chapter ever resolved to do
@@ -801,7 +801,7 @@ fn a_saga_whose_last_chapter_is_countered_is_sacrificed_anyway() {
     flash_in_a_tidebinder(&mut engine, p0, chapter);
 
     // Drain the stack. Nothing of the Saga's is left on it once the counter
-    // resolves, which is the state CR 714.4 asks about.
+    // resolves, which is the state CR 715.4 asks about.
     let mut guard = 0;
     while !engine
         .state()
@@ -831,7 +831,7 @@ fn a_saga_whose_last_chapter_is_countered_is_sacrificed_anyway() {
     );
     assert!(
         saga_object(&engine).is_none(),
-        "CR 714.4: the saga is at {} lore counters with no chapter of its own \
+        "CR 715.4: the saga is at {} lore counters with no chapter of its own \
          on the stack, and is still on the battlefield",
         lore(&engine, saga)
     );

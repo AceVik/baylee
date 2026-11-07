@@ -83,7 +83,7 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
     assert_eq!(
         identity(&engine, spires),
         compass_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
     assert!(
         is_tapped(&engine, spires),

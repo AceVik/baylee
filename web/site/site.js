@@ -858,7 +858,7 @@
   var NEVER = {
     ante: ["it plays for ante (CR 407), and no table here plays for ante", "sie spielt um Ante (CR 407), und kein Tisch hier spielt um Ante"],
     dexterity: ["it asks a physical act of the player, which no game state describes", "sie verlangt eine körperliche Handlung, die kein Spielzustand beschreibt"],
-    subgame: ["it starts a game within the game (CR 728), which the engine does not host", "sie startet ein Spiel im Spiel (CR 728), das die Engine nicht ausrichtet"]
+    subgame: ["it starts a game within the game (CR 730), which the engine does not host", "sie startet ein Spiel im Spiel (CR 730), das die Engine nicht ausrichtet"]
   };
   function num(n) { return Number(n).toLocaleString(lang === "de" ? "de-DE" : "en-GB"); }
   function numT(n) { return t(Number(n).toLocaleString("en-GB"), Number(n).toLocaleString("de-DE")); }

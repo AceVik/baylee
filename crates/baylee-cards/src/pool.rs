@@ -156,7 +156,7 @@ pub struct PoolCard {
     /// Whether the card is a double-faced card under CR 712.1.
     ///
     /// What the builder's `double-faced` filter means — a claim about the
-    /// printed card rather than about what this client can draw. CR 715.1
+    /// printed card rather than about what this client can draw. CR 716.1
     /// makes an adventurer card a two-part *frame* and CR 709.1 says the back
     /// of a split card is the normal Magic card back, so neither is one.
     #[serde(skip_serializing_if = "is_false")]

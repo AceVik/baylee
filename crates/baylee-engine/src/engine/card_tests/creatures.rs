@@ -432,7 +432,7 @@ pub fn the_specimens_player_spell() -> CardIndex {
 ///
 /// There is no face choice on the way, and that is worth saying out loud: the
 /// card file calls the back "an MDFC land reached by the face choice"
-/// (CR 712.12), but the engine only asks when *both* faces are lands, the way
+/// (CR 712.9), but the engine only asks when *both* faces are lands, the way
 /// a pathway prints them. Here the front is a creature, so exactly one face
 /// answers `TypeSet::LAND` and the engine switches to it itself.
 #[track_caller]
@@ -852,7 +852,7 @@ pub fn a_temple_stolen_and_turned_over(
     assert_eq!(
         identity(&engine, temple),
         temple_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
     (engine, temple)
 }

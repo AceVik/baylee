@@ -524,7 +524,7 @@ fn temple_of_cultivation_needs_ten_permanents_to_transform() {
 /// you control ten or more permanents and only as a sorcery." The land is
 /// placed on its back face beside nine Forests: ten permanents. It turns over
 /// into Ojer Kaslem where it stands (CR 701.27a) and is the same permanent
-/// (CR 712.18): still tapped from the activation, and no newcomer to its
+/// (CR 712.15): still tapped from the activation, and no newcomer to its
 /// controller, so it is not summoning sick (CR 302.6).
 #[test]
 fn temple_of_cultivation_turns_back_into_ojer_kaslem_where_it_stands() {
@@ -556,7 +556,7 @@ fn temple_of_cultivation_turns_back_into_ojer_kaslem_where_it_stands() {
     assert_eq!(
         on_battlefield(&engine, p0, ojer_kaslem_deepest_growth()).map(|id| identity(&engine, id)),
         Some(temple_was),
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
     assert_eq!(
         engine.state().object(temple).map(|o| o.face_index),

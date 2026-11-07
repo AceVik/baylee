@@ -152,7 +152,7 @@ pub enum Action {
     /// the game menu's row open it too).
     Friends,
     /// Show the table from the next player this seat controls, or from its
-    /// own chair again (CR 723.5; `perspective::Perspective::cycle`). Last
+    /// own chair again (CR 724.5; `perspective::Perspective::cycle`). Last
     /// in the enum, so a stored keymap's order does not move.
     CyclePerspective,
 }

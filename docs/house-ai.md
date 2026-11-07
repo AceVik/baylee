@@ -220,7 +220,7 @@ answers the count out of the pool, not the engine's maximum, which is open
 while a land is untapped. Each kick is the better half by design, unless the
 spell draws for it and would draw the library out. A controlled player's
 buyback is declined and their spell not kicked (`controlled/choices.rs`): both
-would buy them something (CR 723.5).
+would buy them something (CR 724.5).
 
 **Where a resolved spell goes is judged by whether the seat can pay for it
 again** (`endings.rs`, CR 616.1e). The card back in hand keeps it at its full
@@ -714,11 +714,11 @@ so a picker that breaks a bound fails a test instead of being papered over.
 `CardIdentity` in hand names the face that is *up*, which for a modal
 double-faced card is the spell: Shatterskull Smashing is a sorcery with a
 land on its back, and every reading that asked `HandObject::types` counted
-nought lands. The engine offers that land drop (CR 712.12), so the agent was
+nought lands. The engine offers that land drop (CR 712.9), so the agent was
 throwing away a hand whose land drops the engine was about to hand it, and
 keeping a card it had already decided was a spare spell. A *transforming*
 card is not that: in hand it has only its front face's characteristics
-(CR 712.8a), and Arguel's Blood Fast reaches its Temple only by turning over
+(CR 712.6a), and Arguel's Blood Fast reaches its Temple only by turning over
 (#152). `castable_from_hand` tells the two kinds apart, held against
 Scryfall's `layout` by `xtask validate`. `policy::plays_as_land` asks the
 engine's own function, `CardDef::land_faces_from_hand`, so the agent and the
@@ -728,7 +728,7 @@ floors both populations and pins one card of each, and
 
 The *cast* faces are a separate reading and they are **not** made yet.
 `filter::cast_mode` returns the `Normal` option the moment one is offered, so
-an adventure (CR 715) or an MDFC back is taken only when the engine offers
+an adventure (CR 716) or an MDFC back is taken only when the engine offers
 nothing else — which, because it offers only modes the pool can pay for, is
 how Petty Theft gets cast on two mana: the right face, and not a decision.
 Which half is better needs a value model for "a creature now against a bounce
@@ -816,18 +816,18 @@ redirect aimed at this seat's own spell is not turned back, because a redirect
 hurts nothing by itself.
 
 **A controlled turn is played against its player.** Under Mindslaver the
-house makes every decision of the player whose turn it controls (CR 723.1,
+house makes every decision of the player whose turn it controls (CR 724.1,
 723.5): their casts and targets, their attack and its damage, their
 resolution choices, their discards. The engine asks that player and awaits
 the house, so `controlled::subject` reads the question as theirs when the
 view awaits this seat and the question names somebody else; a question of
 the house's own in that turn — its blocks, its own priority — is never
-theirs and is answered exactly as before (CR 723.8). The measure is the
+theirs and is answered exactly as before (CR 724.8). The measure is the
 crate's own read from their side of the table: `controlled::seen_by` makes
 the view theirs (their hand where the house's was, their seat as the view's)
-out of nothing the house does not already see (CR 723.4), and the answer
+out of nothing the house does not already see (CR 724.4), and the answer
 taken is the other end of what they would take. Only their resources pay
-(CR 723.5a); the payment readers already go through `resource_player`.
+(CR 724.5a); the payment readers already go through `resource_player`.
 
 - *Priority* acts only once their combat is over, so nothing is spent on a
   creature the house's block was about to kill. A spell is cast where

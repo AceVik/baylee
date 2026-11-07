@@ -249,7 +249,7 @@ pub(super) fn look_around(
         navigate_home(duel);
     }
     // The next chair this seat may play from: its own, then each player it
-    // controls (CR 723.5). With nobody controlled it does nothing.
+    // controls (CR 724.5). With nobody controlled it does nothing.
     if fired.has(Action::CyclePerspective) {
         duel.cycle_perspective(true);
     }

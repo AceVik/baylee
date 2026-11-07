@@ -37,7 +37,7 @@ card!(
             }],
             timing = ActivationTiming::SorcerySpeed
         ),
-        // 12+ (CR 721.2a): it has this ability while it has twelve or more
+        // 12+ (CR 722.2a): it has this ability while it has twelve or more
         // charge counters.
         mana_ability!(
             cost!("{G}", TapSelf),

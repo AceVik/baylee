@@ -711,7 +711,7 @@ fn the_pay_now_label_counts_only_the_taps_still_to_stage() {
     );
 }
 
-/// A question asked of a player this seat controls (CR 723.5) names that
+/// A question asked of a player this seat controls (CR 724.5) names that
 /// player and then asks it, "For Seat 1: Your move", and it is their move
 /// on their own turn; this seat's own question in that turn is its own.
 #[test]

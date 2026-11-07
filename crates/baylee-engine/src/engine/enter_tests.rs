@@ -134,7 +134,7 @@ struct Tally {
     /// Land faces carrying a modifier that asks a question.
     asks: usize,
     /// Land faces a transforming card reaches only by turning over on the
-    /// battlefield (CR 712.8a; `CardDef::land_faces_from_hand`). They are
+    /// battlefield (CR 712.6a; `CardDef::land_faces_from_hand`). They are
     /// never a land drop, so they never enter as one, and there is no
     /// arrival to compare.
     turned: usize,
@@ -1100,7 +1100,7 @@ fn steam_vents() -> CardIndex {
 }
 
 /// Urza's Saga, an enchantment land Saga: it enters with a lore counter
-/// (CR 714.3a).
+/// (CR 715.3a).
 fn urzas_saga() -> CardIndex {
     card_index("4c6a0c30-b547-4eff-8ff4-0ca25803c076")
 }
@@ -1199,7 +1199,7 @@ fn decline_the_shockland(engine: &mut Engine<RegistryLookup>) {
 /// Steam Vents and Urza's Saga fetched together (Scapeshift). The Vents
 /// entered first and asked, and the scan used to return with its cursor
 /// past both arrivals, so the Saga never got the lore counter it enters
-/// with (CR 714.3a), and its chapter I never triggered. Both are one event
+/// with (CR 715.3a), and its chapter I never triggered. Both are one event
 /// and each one's own replacements modify how it enters (CR 614.12), so the
 /// counter is applied before any state-based action or chapter trigger can run.
 /// The shockland now asks before its move; intermediate internal arrivals are

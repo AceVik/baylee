@@ -45,7 +45,7 @@ impl<L: CardLookup> Engine<L> {
                 .delayed
                 .retain(|d| !d.when.lapses_with_the_turn());
             // Control of a player's turn ends as the next one begins, and
-            // one waiting for this player's turn begins it (CR 723.1).
+            // one waiting for this player's turn begins it (CR 724.1).
             self.begin_turn_controls();
         }
         // Only the seat whose turn this is: summoning sickness is measured
@@ -429,7 +429,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The name a synthetic ability on the stack goes by: its source's, or,
-    /// for the monarch's abilities, which have none (CR 725.2), the
+    /// for the monarch's abilities, which have none (CR 726.2), the
     /// designation's. Falling back to name `0` named them after whatever
     /// card was interned first.
     pub(super) fn synthetic_source_name(
@@ -525,7 +525,7 @@ impl<L: CardLookup> Engine<L> {
     /// Whether `id` is a Saga.
     ///
     /// "Has a chapter ability" rather than "has the Saga subtype", because
-    /// that is already how CR 714.4's sacrifice is recognised further down
+    /// that is already how CR 715.4's sacrifice is recognised further down
     /// this file, and two sites answering the same question two ways is how
     /// a permanent gets a counter nobody then reads. It is also the reading
     /// that survives a copy: [`Object::abilities`] follows `own_abilities`,
@@ -540,7 +540,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Whether a chapter ability of `source` has triggered and not yet left
-    /// the stack — the clause that holds CR 714.4's sacrifice back.
+    /// the stack — the clause that holds CR 715.4's sacrifice back.
     ///
     /// An ability on the stack carries the list its source had when it
     /// triggered (`own_abilities`), so the index in its [`AbilityLoc`] is
@@ -580,7 +580,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// A chapter is owed from counter placement until its ability leaves
-    /// the stack (CR 714.4). Collection runs before SBAs, and frozen ability
+    /// the stack (CR 715.4). Collection runs before SBAs, and frozen ability
     /// lists keep this true even when the Saga subsequently changes faces.
     fn a_chapter_of_it_has_triggered(&self, source: ObjectId) -> bool {
         let Some(version) = self.state.object(source).map(|object| object.version) else {
@@ -625,7 +625,7 @@ impl<L: CardLookup> Engine<L> {
         outcome
     }
 
-    /// CR 714.4: a Saga whose lore counters cover its final chapter, and
+    /// CR 715.4: a Saga whose lore counters cover its final chapter, and
     /// which no chapter of its own has triggered and not yet left the stack,
     /// is sacrificed by its controller.
     ///
@@ -654,7 +654,7 @@ impl<L: CardLookup> Engine<L> {
         for id in self.state.battlefield_view() {
             let finished = self.state.object(id).is_some_and(|o| {
                 // Every Saga on the battlefield has at least one lore
-                // counter (CR 714.3a), so this is the whole step for a
+                // counter (CR 715.3a), so this is the whole step for a
                 // board with no Saga on it and costs one field read per
                 // permanent rather than an abilities lookup.
                 if o.counters.get(baylee_cards_dsl::CounterKind::Lore) == 0 {
@@ -688,14 +688,14 @@ impl<L: CardLookup> Engine<L> {
 
     /// As the active player's precombat main phase begins, each Saga they
     /// control takes a lore counter and every chapter that count crosses
-    /// triggers (CR 505.4, CR 714.3c, CR 714.2b).
+    /// triggers (CR 505.4, CR 715.3c, CR 715.2b).
     ///
     /// This counter is **not** doubled, which is the whole reason
     /// [`crate::replacement::record_counters`] exists beside `put_counters`:
     /// CR 614.16 reaches what a resolving spell or ability's effect places
     /// and what another replacement effect places, and a turn-based action
     /// is neither. The counter a Saga takes as it *enters* is a replacement
-    /// effect and is doubled — the two halves of CR 714.3 land on opposite
+    /// effect and is doubled — the two halves of CR 715.3 land on opposite
     /// sides of the same rule.
     pub(crate) fn saga_precombat_main_counters(&mut self) {
         let active = self.state.turn.active;
@@ -773,7 +773,7 @@ impl<L: CardLookup> Engine<L> {
 }
 
 /// What a triggered ability with no source goes by: a designation's or a
-/// rule's own (CR 725.2).
+/// rule's own (CR 726.2).
 pub(super) const fn sourceless_trigger_name(effects: &[baylee_cards_dsl::Effect]) -> &'static str {
     if matches!(effects, [baylee_cards_dsl::Effect::Radiation]) {
         "Radiation"

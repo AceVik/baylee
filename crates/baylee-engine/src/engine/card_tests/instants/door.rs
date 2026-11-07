@@ -720,7 +720,7 @@ fn virtue_of_knowledge_makes_an_enter_trigger_happen_twice() {
 /// at a time: the copy's current Forest is not offered (keeping it is naming
 /// nothing, `min` 0), the other lands are. The copy was not activated
 /// (CR 707.10), so the journal says Ba Sing Se's ability went on the stack
-/// once. The card then goes on an adventure in exile (CR 715.3d).
+/// once. The card then goes on an adventure in exile (CR 716.3d).
 #[test]
 fn vantress_visions_copies_an_activated_ability_onto_a_new_target() {
     let p0 = PlayerId::new(0);

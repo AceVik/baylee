@@ -278,7 +278,7 @@ impl<L: CardLookup> Engine<L> {
             (Pending::Priority { player: p, .. }, PlayerAction::PlayLand { card })
                 if *p == player =>
             {
-                // MDFC: which land face is played (CR 712.12)? Only the
+                // MDFC: which land face is played (CR 712.9)? Only the
                 // faces the offer counted, so a transforming card's land back
                 // is never one of them.
                 let land_faces: Vec<usize> = self

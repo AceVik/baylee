@@ -481,14 +481,14 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        // MDFC backs (CR 712.11b) and adventures (CR 715), through the reader
+        // MDFC backs (CR 712.8b) and adventures (CR 716), through the reader
         // `can_cast` uses — land faces are played and disturb backs came out
         // above. This loop asked the faces and nothing else, so the adventure
         // was offered again out of the exile its own resolution had put the
         // card in, and at instant speed forever: the offer read the exiled
         // object's *current* face, which was still the instant, so Swift
         // Spiral was `{1}{W}` in `LegalActions` every turn and the wizard
-        // priced and cast it. CR 715.3d is the rule it broke.
+        // priced and cast it. CR 716.3d is the rule it broke.
         let on_adventure = casting::adventure_only_permission(&self.state, player, card);
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
             if forbidden(i) {
@@ -618,7 +618,7 @@ impl<L: CardLookup> Engine<L> {
         }
         // Timing, per way of casting (CR 601.3): the front's for every option
         // that casts the front, and a back face's own for that face
-        // (`casting::face_timing_allows`, CR 712.11c, 715.3a). An enchantment
+        // (`casting::face_timing_allows`, CR 712.8c, 716.3a). An enchantment
         // with an instant Adventure, cast while the stack is not empty, is
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.

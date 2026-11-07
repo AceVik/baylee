@@ -367,7 +367,7 @@ pub enum Condition {
     /// is [`Self::CountersOnSelf`] (CR 711.2b).
     CountersOnSelfBetween(crate::effect::CounterKind, u8, u8),
     /// A station symbol, `{N+}`: the source has N or more charge counters
-    /// on it (CR 721.2a, "As long as this permanent has N or more charge
+    /// on it (CR 722.2a, "As long as this permanent has N or more charge
     /// counters on it, it has [abilities]").
     ///
     /// The same count as `CountersOnSelf(CounterKind::Charge, N)`, and a
@@ -445,9 +445,9 @@ pub enum Condition {
     /// blockers step"). A turn's two main phases have no step and are never
     /// it.
     DuringStep(StepKind),
-    /// This turn has not yet reached this step (CR 506.7): "cast this spell
+    /// This turn has not yet reached this step (CR 506.8): "cast this spell
     /// only before blockers are declared" is `BeforeStep(DeclareBlockers)`,
-    /// since blockers are declared as that step begins (CR 506.7b), and
+    /// since blockers are declared as that step begins (CR 506.8b), and
     /// "before the combat damage step" is `BeforeStep(CombatDamage)`. Past
     /// the step's place in the turn it is false, whether or not the step
     /// happened: with no attackers there is no combat damage step (CR
@@ -516,7 +516,7 @@ pub enum Trigger {
     DiscardedThisByOpponent,
     /// This permanent is turned face up (not transformed or entering).
     TurnedFaceUp,
-    /// "Whenever this creature transforms into [this face]" (CR 701.27e):
+    /// "Whenever this creature transforms into [this face]" (CR 701.27f):
     /// printed on the face the permanent turns *to*, and read off the face
     /// it shows right after the transform — which is how Huntmaster of the
     /// Fells' front and Ravager of the Fells' back each hear only their own
@@ -674,7 +674,7 @@ pub enum Trigger {
         first_this_turn: bool,
     },
     /// The count of a kind of counter on the source rises from below `n`
-    /// to `n` or more — the window CR 714.2b writes out for a chapter
+    /// to `n` or more — the window CR 715.2b writes out for a chapter
     /// symbol, asked of any kind.
     ///
     /// Druid Class's "When this Class becomes level 3": this pool keeps a
@@ -917,7 +917,7 @@ pub enum AbilityDef {
         /// illegal target *and the position it held*. An effect reaches this
         /// list only by naming [`crate::effect::TargetSlot::Second`].
         second_targets: Option<crate::effect::TargetReq>,
-        /// "Cast this spell only [when]" (CR 506.7, 601.3): asked before the
+        /// "Cast this spell only [when]" (CR 506.8, 601.3): asked before the
         /// spell may be cast, as an activated ability's condition is asked
         /// before it may be activated. `None` for the spell every other
         /// card is.
@@ -1033,7 +1033,7 @@ pub enum AbilityDef {
         /// As on the unconditional twin.
         cost_reduction: Option<crate::cost::CostReduction>,
     },
-    /// One chapter of a saga (CR 714): triggers when the corresponding
+    /// One chapter of a saga (CR 715): triggers when the corresponding
     /// lore counter is added.
     SagaChapter {
         /// Chapter number (1-based).

@@ -15,7 +15,7 @@ use super::*;
 /// of a card whose mana ability nobody wrote.
 ///
 /// The board is read once before the cast for the other printed fact: one
-/// card, two ways to play it (CR 712.12), so the engine offers the same
+/// card, two ways to play it (CR 712.9), so the engine offers the same
 /// object as a creature spell *and* as a land drop in one priority window.
 #[test]
 fn a_florahedron_cast_as_a_creature_waits_a_turn_before_it_taps_for_green() {
@@ -40,7 +40,7 @@ fn a_florahedron_cast_as_a_creature_waits_a_turn_before_it_taps_for_green() {
     );
     assert!(
         legal.lands.contains(&card),
-        "and the same card in the same window is a land drop (CR 712.12): \
+        "and the same card in the same window is a land drop (CR 712.9): \
          one card, two ways to play it",
     );
 
@@ -97,7 +97,7 @@ fn a_florahedron_cast_as_a_creature_waits_a_turn_before_it_taps_for_green() {
 /// Tangled Vale, the back face: "Land. This land enters tapped. {T}: Add
 /// {G}."
 ///
-/// Only one of this card's two faces is a land, so CR 712.12's face choice
+/// Only one of this card's two faces is a land, so CR 712.9's face choice
 /// is not a *question* here — the engine switches to that face and plays it,
 /// which is Glasspool Shore's shape and not a pathway's. What the scenario
 /// is really about is the two sentences printed under the type line: the
@@ -122,7 +122,7 @@ fn a_florahedron_played_as_tangled_vale_enters_tapped_and_taps_for_green_next_tu
     let vale = play_land(&mut engine, p0, tangled_florahedron());
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "one land face, so nothing is asked (CR 712.12): the engine takes the \
+        "one land face, so nothing is asked (CR 712.9): the engine takes the \
          face the card prints, plays it, and hands the same seat its priority \
          back — got {:?}",
         engine.pending(),
@@ -130,7 +130,7 @@ fn a_florahedron_played_as_tangled_vale_enters_tapped_and_taps_for_green_next_tu
     let obj = engine.state().object(vale).expect("the land is in play");
     assert_eq!(
         obj.face_index, 1,
-        "a land drop reaches the back face (CR 712.12)",
+        "a land drop reaches the back face (CR 712.9)",
     );
     assert_eq!(
         engine.state().names.get(obj.characteristics().name),

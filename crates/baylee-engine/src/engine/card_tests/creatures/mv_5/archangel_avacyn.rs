@@ -119,7 +119,7 @@ fn archangel_avacyn_transforms_at_the_next_upkeep_and_purifies_the_board() {
 
 /// Two non-Angels die in one turn: two delayed triggers, one transform. The
 /// second is ignored because she has transformed since it was created
-/// (CR 701.27f) — she does not flip back, and the board is purified once.
+/// (CR 701.27g) — she does not flip back, and the board is purified once.
 #[test]
 fn archangel_avacyn_does_not_flip_back_when_two_delayed_transforms_fire() {
     let p0 = PlayerId::new(0);

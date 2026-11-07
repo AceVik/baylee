@@ -158,7 +158,7 @@ impl HeuristicAgent {
     /// purely for sitting in the lowest seat.
     fn pick_defender(&self, view: &PlayerView, defenders: &[PlayerId]) -> PlayerId {
         // The monarch, whatever the profile: any creature that connects takes
-        // the crown, a card every turn, for this seat (CR 725.2). No policy
+        // the crown, a card every turn, for this seat (CR 726.2). No policy
         // read it, so at a table of house seats the crown never moved.
         if let Some(monarch) = view.monarch.filter(|m| defenders.contains(m)) {
             return monarch;
@@ -209,9 +209,9 @@ impl HeuristicAgent {
         context: &baylee_engine::engine::DecisionContext<'_>,
     ) -> PlayerAction {
         // A decision for another player this seat controls (Mindslaver,
-        // CR 723.5) is made against them (`controlled`); what that has no
+        // CR 724.5) is made against them (`controlled`); what that has no
         // reading for is answered below, where their permanents are the
-        // hostile ones. This seat's own decisions in their turn (CR 723.8)
+        // hostile ones. This seat's own decisions in their turn (CR 724.8)
         // are not theirs and never come here.
         if let Some(subject) = controlled::subject(view, pending)
             && let Some(action) = self.decide_against(view, pending, context, subject)

@@ -436,7 +436,7 @@ mod tests {
     /// CR 614.16 doubles what a resolving spell or ability places and what
     /// another replacement places — and a **turn-based action** is neither,
     /// so the lore counter a Saga takes as its controller's main phase
-    /// begins (CR 714.3b) lands as one counter under any number of Doubling
+    /// begins (CR 715.3c) lands as one counter under any number of Doubling
     /// Seasons.
     #[test]
     fn a_turn_based_counter_is_not_doubled() {

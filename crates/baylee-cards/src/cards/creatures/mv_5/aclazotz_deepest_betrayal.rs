@@ -45,7 +45,7 @@ card!(
         ),
         face!(
             name = "Temple of the Dead",
-            // CR 712.8c: a nonmodal double-faced card is cast as its front
+            // CR 712.6b: a nonmodal double-faced card is cast as its front
             // face and reaches this one only by transforming.
             castable_from_hand = false,
             types = TypeSet::LAND,

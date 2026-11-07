@@ -142,7 +142,7 @@ fn malevolent_hermit_taxes_a_noncreature_spell_and_pays_for_it_with_itself() {
 
 /// Benevolent Geist's mana value is Malevolent Hermit's {1}{U}, 2, not its
 /// disturb cost's 3: on the stack, because it was cast transformed (CR
-/// 712.8c), and on the battlefield with its back face up (CR 712.8e).
+/// 712.8c), and on the battlefield with its back face up (CR 712.6d).
 #[test]
 fn a_disturbed_geist_has_the_hermits_mana_value() {
     let p0 = PlayerId::new(0);

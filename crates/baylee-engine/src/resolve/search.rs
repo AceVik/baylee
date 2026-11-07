@@ -176,7 +176,7 @@ pub(super) fn begin_search(
         .record(GameEvent::LibrarySearched { player: searcher });
     // Opposition Agent: an opponent of the searching player takes the
     // search over — they choose, and the find goes to exile playable by
-    // them. That is controlling the searching player (CR 723.2), which a
+    // them. That is controlling the searching player (CR 724.2), which a
     // player who has left the game does not (CR 800.4b). The card reaches a
     // player searching *their* library, so a search through somebody
     // else's is left alone.

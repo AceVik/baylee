@@ -151,7 +151,7 @@ pub struct TableView {
     #[serde(deserialize_with = "lenient_on")]
     pub follow: bool,
     /// *Dem gesteuerten Spieler folgen*: while this seat controls another
-    /// player (CR 723.5), a decision arriving for that player shows the
+    /// player (CR 724.5), a decision arriving for that player shows the
     /// table from their chair and one of this seat's own brings it back
     /// (`perspective::Perspective::decision`). On by default (the owner,
     /// 04.11.2026); a file without the field reads as on.

@@ -407,7 +407,7 @@ pub fn decision_player_for<L: baylee_engine::state::CardLookup>(
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext<'a> {
-    /// Who decides for whom right now, public to every seat (CR 723). Pass
+    /// Who decides for whom right now, public to every seat (CR 724). Pass
     /// [`player_controls`].
     pub controls: &'a [baylee_view::PlayerControl],
     /// All privately inspected cards, including ineligible picks. Visible
@@ -415,7 +415,7 @@ pub struct SeatContext<'a> {
     pub inspected_cards: &'a [ObjectId],
     /// The resource owner of the current decision, even when another player answers.
     pub decision_player: Option<PlayerId>,
-    /// Other players whose private information this viewer may inspect (CR 723.4).
+    /// Other players whose private information this viewer may inspect (CR 724.4).
     pub controlled_players: SeatSet,
     /// Libraries whose changed top must stay hidden until announcement ends (CR 401.5).
     pub library_reveal_blocked: SeatSet,
@@ -568,7 +568,7 @@ pub fn player_view(
     let mut references = None;
     let board = ViewBoard::new(state);
     // Whose timing the view tells: the player this seat is deciding for, a
-    // controlled player under Mindslaver (CR 723.5), else the seat's own.
+    // controlled player under Mindslaver (CR 724.5), else the seat's own.
     let decider = if ctx.awaiting == Some(seat) {
         ctx.decision_player.unwrap_or(seat)
     } else {

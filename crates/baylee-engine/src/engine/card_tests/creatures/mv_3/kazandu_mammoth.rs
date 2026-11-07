@@ -6,7 +6,7 @@ use super::*;
 /// The back half of Kazandu Mammoth // Kazandu Valley: "This land enters
 /// tapped. {T}: Add {G}."
 ///
-/// CR 712.12 lets a player playing a modal double-faced card as a land
+/// CR 712.9 lets a player playing a modal double-faced card as a land
 /// choose one of its faces that is a land, and this card prints exactly one
 /// — so the choice has a single answer and the engine takes it rather than
 /// asking. What arrives is therefore the Valley and not the Elephant, and it
@@ -28,7 +28,7 @@ fn kazandu_valley_is_played_as_the_back_face_and_taps_for_green_a_turn_later() {
     let valley = play_land(&mut engine, p0, kazandu_mammoth());
     assert!(
         !matches!(engine.pending(), Pending::ChooseCastMode { .. }),
-        "one face is a land and the other is a creature, so CR 712.12's \
+        "one face is a land and the other is a creature, so CR 712.9's \
          choice has one answer and is never put to the player",
     );
     let object = engine

@@ -22,14 +22,14 @@ fn color_planning_does_not_overflow_a_full_pool_counter() {
 /// double-faced card that face is the spell — so every reader asking
 /// `types.contains(LAND)` of it read Shatterskull Smashing as a sorcery
 /// and nothing else, while `compute_legal` was already offering the land
-/// drop (CR 712.12). An agent that disagrees with the offer it is
+/// drop (CR 712.9). An agent that disagrees with the offer it is
 /// answering declines land drops the engine is making it.
 ///
 /// So the rule is read over the **whole pool** rather than over an
 /// example, and in two populations, because the back face is a land drop
 /// for one kind of double-faced card and not the other. A modal card's
-/// land back is (CR 712.12); a transforming card's is not, since in hand
-/// it has only its front face's characteristics (CR 712.8a) — Arguel's
+/// land back is (CR 712.9); a transforming card's is not, since in hand
+/// it has only its front face's characteristics (CR 712.6a) — Arguel's
 /// Blood Fast is an enchantment there, and its Temple is reached only by
 /// turning over. `castable_from_hand` is what tells the two apart, and
 /// `xtask validate` holds it against Scryfall's `layout`.
@@ -99,7 +99,7 @@ fn a_land_on_a_modal_back_is_playable_and_one_on_a_transforming_back_is_not() {
     );
     assert!(
         wrong.is_empty(),
-        "{} card(s) disagree with CR 712.12 / 712.8a: {:?}",
+        "{} card(s) disagree with CR 712.9 / 712.6a: {:?}",
         wrong.len(),
         &wrong[..wrong.len().min(10)]
     );

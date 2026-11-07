@@ -1,4 +1,4 @@
-//! Prepared designations and their persistent copies in exile (CR 722.3c).
+//! Prepared designations and their persistent copies in exile (CR 723.3c).
 use crate::object::{CardRef, Characteristics, GameObject, ObjectKind, Rider, Status};
 use crate::state::{CardLookup, GameState, PlayLifetime, PlayPermission};
 use crate::zone::{Zone, ZoneLocation, ZonePosition};

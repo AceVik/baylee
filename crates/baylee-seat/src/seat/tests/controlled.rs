@@ -1,10 +1,10 @@
 //! A decision this seat makes for a player whose turn it controls
-//! (Mindslaver, CR 723.5): the question names that player, the view's
+//! (Mindslaver, CR 724.5): the question names that player, the view's
 //! `awaiting` names this seat and its `decision_player` that player. It goes
 //! the way of every question: the standing orders, judged from that
 //! player's chair, then the mind, the house and the least answer. The seat
-//! keeps making its own decisions in the same turn (CR 723.8), each under
-//! its own orders, and never concedes for the player it controls (CR 723.6).
+//! keeps making its own decisions in the same turn (CR 724.8), each under
+//! its own orders, and never concedes for the player it controls (CR 724.6).
 
 use super::*;
 use crate::narrator::tests::{card, in_hand};
@@ -199,7 +199,7 @@ fn a_concession_for_the_controlled_player_is_refused_and_the_mind_told_why() {
         .as_ref()
         .expect("asked again, told why");
     assert!(
-        retry.reason.contains("cannot concede for P2") && retry.reason.contains("CR 723.6"),
+        retry.reason.contains("cannot concede for P2") && retry.reason.contains("CR 724.6"),
         "{}",
         retry.reason
     );

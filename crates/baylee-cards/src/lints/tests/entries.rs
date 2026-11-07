@@ -480,7 +480,7 @@ fn every_station_is_the_ability_its_keyword_spells() {
 ///
 /// And the sentence says "return": one that only says "transform this"
 /// is `Effect::TransformSource`, which turns the same permanent over
-/// (CR 701.27a, CR 712.18). Eight cards wrote that as an exile and a
+/// (CR 701.27a, CR 712.15). Eight cards wrote that as an exile and a
 /// return (#206), a new object that entered and shed every effect on the
 /// old one, until 2026-09-30.
 ///

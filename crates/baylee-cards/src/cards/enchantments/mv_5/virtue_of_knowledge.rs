@@ -10,7 +10,7 @@
 // The adventure, Vantress Visions, copies an ability you control on the
 // stack with every decision made for it (CR 707.10), and its controller may
 // choose new targets for the copy (CR 707.10c); the card then goes on an
-// adventure in exile (CR 715.3d), from where the Virtue may be cast.
+// adventure in exile (CR 716.3d), from where the Virtue may be cast.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

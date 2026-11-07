@@ -35,7 +35,7 @@ pub enum Cause {
     PlayerLeft,
     /// A developer-mode command (dev games only; journaled for honesty).
     DevCommand,
-    /// Life lost to the inherent radiation trigger (CR 728.1a).
+    /// Life lost to the inherent radiation trigger (CR 729.1a).
     Radiation,
     /// A destruction that reached its zone move, even if its destination
     /// was replaced. Regeneration, shield counters and indestructibility
@@ -454,9 +454,9 @@ pub enum GameEvent {
         /// Whether it is now phased out.
         phased_out: bool,
     },
-    /// The game became day or night (CR 731.1).
+    /// The game became day or night (CR 732.1).
     ///
-    /// One event for both directions, because CR 731.1a defines "night
+    /// One event for both directions, because CR 732.1a defines "night
     /// becomes day" as a single change — losing one designation and
     /// gaining the other — and the game's first designation is the same
     /// change from nothing.
@@ -475,13 +475,13 @@ pub enum GameEvent {
         /// Why it was taken back.
         reason: CastCancelReason,
     },
-    /// A player became the monarch (CR 725.3), and whoever was the monarch
+    /// A player became the monarch (CR 726.3), and whoever was the monarch
     /// ceased to be.
     ///
     /// Recorded only when the designation moves: a monarch told to become
     /// the monarch again does not become it (CR 603.2e reads "becomes" as
     /// the change, not the state). The game going on with no monarch after
-    /// the last heir left (CR 725.4) records nothing.
+    /// the last heir left (CR 726.4) records nothing.
     BecameMonarch {
         /// The new monarch.
         player: PlayerId,

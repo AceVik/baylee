@@ -67,17 +67,17 @@ fn the_prompt_teaches_every_stop_and_the_default_rail() {
     );
 }
 
-/// Mindslaver (CR 723): the prompt says a decision for a controlled player
+/// Mindslaver (CR 724): the prompt says a decision for a controlled player
 /// is the seat's to make, with that player's resources, against that
 /// player's interest if it likes, and never a concession for that player
-/// (CR 723.6), as the header line of such a decision says and the menu
+/// (CR 724.6), as the header line of such a decision says and the menu
 /// holds (`narrator::tests::controlled`).
 #[test]
 fn the_prompt_says_what_deciding_for_a_controlled_player_means() {
     use baylee_client_core::test_support::ViewBuilder;
     let system = prompt::SYSTEM;
     for claim in [
-        "control of another player's turn (CR 723)",
+        "control of another player's turn (CR 724)",
         "with that player's cards and mana",
         "even against that player's interest",
         "You cannot concede for that player.",

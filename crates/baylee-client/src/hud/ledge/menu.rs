@@ -203,8 +203,8 @@ pub struct MenuRevision {
     leaving: bool,
     /// Whether this seat has already been eliminated in a multi-seat game.
     eliminated: bool,
-    /// Whether this seat is making another player's decision (CR 723.5):
-    /// the concession then says it is this seat's own (CR 723.6).
+    /// Whether this seat is making another player's decision (CR 724.5):
+    /// the concession then says it is this seat's own (CR 724.6).
     controlling: bool,
 }
 
@@ -422,7 +422,7 @@ pub fn sync_menu(
         // The engine hears a concession as its sender's own, so while this
         // seat decides for another player the row is still this seat's, and
         // it says so: nothing here concedes for the controlled player
-        // (CR 723.6), and a bare "Concede" beside "You decide for …" read as
+        // (CR 724.6), and a bare "Concede" beside "You decide for …" read as
         // if it did.
         let (row, confirm) = if next.controlling {
             (Phrase::ConcedeYourself, Phrase::ConcedeYourselfConfirm)

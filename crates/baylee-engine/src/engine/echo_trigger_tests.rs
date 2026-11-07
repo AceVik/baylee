@@ -445,8 +445,8 @@ fn two_upkeep_triggers_go_on_the_stack_in_apnap_order() {
     assert!(asked_to_pay(&engine, P0), "{:?}", engine.pending());
 }
 
-/// A controlled turn (CR 723.5): the permanent, the ability and the mana are
-/// the controlled player's (CR 723.3, 723.5a), and it is the player
+/// A controlled turn (CR 724.5): the permanent, the ability and the mana are
+/// the controlled player's (CR 724.3, 724.5a), and it is the player
 /// controlling them who answers, and who taps their lands for it.
 #[test]
 fn the_controller_of_a_turn_decides_the_payment_for_the_controlled_player() {

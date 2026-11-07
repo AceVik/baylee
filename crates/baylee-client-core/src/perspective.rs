@@ -1,9 +1,9 @@
 //! Whose chair the bottom of the table is shown from while this seat
-//! controls another player (CR 723.5: Mindslaver's turn, Word of Command's
-//! instruction, CR 723.2).
+//! controls another player (CR 724.5: Mindslaver's turn, Word of Command's
+//! instruction, CR 724.2).
 //!
 //! A seat that controls players makes their decisions with their cards and
-//! mana, and makes its own as well (CR 723.8). The hand, the pool and the
+//! mana, and makes its own as well (CR 724.8). The hand, the pool and the
 //! name the question is asked in are one player's at a time; this decides
 //! whose, as a pure state machine the client reads on two edges:
 //!
@@ -27,7 +27,7 @@ use baylee_core::ids::PlayerId;
 use baylee_view::PlayerView;
 
 /// The seats this one may be shown from: its own first, then every player
-/// it controls now (the view's `controlled_hands`, CR 723.4), in seat order.
+/// it controls now (the view's `controlled_hands`, CR 724.4), in seat order.
 #[must_use]
 pub fn seats(view: &PlayerView) -> Vec<PlayerId> {
     let mut controlled: Vec<PlayerId> = view
@@ -41,27 +41,27 @@ pub fn seats(view: &PlayerView) -> Vec<PlayerId> {
     std::iter::once(view.seat).chain(controlled).collect()
 }
 
-/// Whether this seat controls `player` now (CR 723.5), by the view's word.
+/// Whether this seat controls `player` now (CR 724.5), by the view's word.
 #[must_use]
 pub fn controls(view: &PlayerView, player: PlayerId) -> bool {
     player != view.seat && view.controlled_hands.iter().any(|h| h.player == player)
 }
 
 /// Who is deciding for whom right now, as this seat's view says it. Control
-/// of a player is public (CR 723.1 names no hidden part of it), so every seat
+/// of a player is public (CR 724.1 names no hidden part of it), so every seat
 /// is told: the question in hand first (`awaiting` answers it, and it is
 /// asked of `decision_player`), else the view's `controls`, which hold for
 /// the whole controlled turn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControlLine {
-    /// This seat is making `player`'s decision (CR 723.5).
+    /// This seat is making `player`'s decision (CR 724.5).
     DecidingFor {
         /// The controlled player.
         player: PlayerId,
     },
     /// `controller` is making this seat's decision. `turn` when it is this
-    /// seat's own turn (Mindslaver's, CR 723.1); otherwise a limited control
-    /// (Word of Command, CR 723.2).
+    /// seat's own turn (Mindslaver's, CR 724.1); otherwise a limited control
+    /// (Word of Command, CR 724.2).
     DecidedBy {
         /// The player in control.
         controller: PlayerId,
@@ -80,7 +80,7 @@ pub enum ControlLine {
 impl ControlLine {
     /// What the view says, or `None` while nobody decides for anybody, and
     /// while this seat is answering its own question inside a turn it
-    /// controls (CR 723.8): that decision is its own.
+    /// controls (CR 724.8): that decision is its own.
     #[must_use]
     pub fn of(view: &PlayerView) -> Option<Self> {
         if let (Some(controller), Some(player)) = (view.awaiting, view.decision_player) {
@@ -332,7 +332,7 @@ mod tests {
         let mine = view(&[1], ME);
         assert!(
             p.decision(&mine, ME, true),
-            "my blocks (CR 723.8) bring it back"
+            "my blocks (CR 724.8) bring it back"
         );
         assert_eq!(p.shown(&mine), ME);
     }
@@ -431,7 +431,7 @@ mod tests {
                 controller: ME,
                 turn: false
             }),
-            "outside their turn: a limited control (CR 723.2)"
+            "outside their turn: a limited control (CR 724.2)"
         );
         theirs.seat = P3;
         let line = ControlLine::of(&theirs).expect("public");
@@ -449,7 +449,7 @@ mod tests {
 
     /// `PlayerView::controls` tells the table for the whole controlled turn:
     /// a third seat between two questions, with the card behind it, and the
-    /// controller's own question inside that turn stays its own (CR 723.8).
+    /// controller's own question inside that turn stays its own (CR 724.8).
     #[test]
     fn the_public_control_holds_for_the_whole_turn() {
         let card = baylee_core::ids::CardIndex::new(7);

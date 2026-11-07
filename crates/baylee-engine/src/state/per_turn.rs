@@ -249,7 +249,7 @@ pub struct AbilityResolved {
 pub enum PlayLifetime {
     /// Expires with the benefiting player's actual turns.
     Turns(baylee_cards_dsl::PlayWindow),
-    /// The exact permanent must remain present and prepared (CR 722.3c).
+    /// The exact permanent must remain present and prepared (CR 723.3c).
     Prepared(baylee_core::ids::DamageSourceRef),
     /// The exact card incarnation remains exiled, independently of turn boundaries.
     WhileExiled,

@@ -47,7 +47,7 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
         awaiting_answer,
         resolution,
         effect_plays,
-        // Who controls whose turn (CR 722), public.
+        // Who controls whose turn (CR 724), public.
         player_control: _,
         combat_damage,
         mana_window,

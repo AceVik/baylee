@@ -964,7 +964,7 @@ impl<L: CardLookup> Engine<L> {
     /// is a restriction on activating it, spent once at CR 602.5, and the
     /// synthetic keyword triggers (prowess, ward) print no clause at all.
     ///
-    /// Nor is a station threshold one ([`Condition::Station`], CR 721.2a):
+    /// Nor is a station threshold one ([`Condition::Station`], CR 722.2a):
     /// it decided whether the permanent had the ability when it triggered,
     /// and the ability on the stack no longer depends on its source.
     ///

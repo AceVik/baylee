@@ -443,7 +443,7 @@ const MAX_COPY_DEPTH: u8 = 8;
 #[must_use]
 pub fn copiable_values(state: &GameState, id: ObjectId) -> Option<Arc<Characteristics>> {
     let values = copiable_values_at(state, id, 0)?;
-    // CR 202.3b and 712.8e: a copy of a nonmodal double-faced card's back
+    // CR 202.3b and 712.6d: a copy of a nonmodal double-faced card's back
     // face has mana value 0. The face's own mana value is its front face's,
     // and that is the one thing about the face a copy does not take.
     if values.front_mana_value.is_some_and(|value| value != 0) {

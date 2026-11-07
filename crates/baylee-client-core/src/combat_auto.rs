@@ -253,7 +253,7 @@ mod tests {
         assert!(!auto.accepts(&view, &pending(1, 0)));
     }
 
-    /// Mindslaver (CR 723.5): the controlled player's attacker divides its
+    /// Mindslaver (CR 724.5): the controlled player's attacker divides its
     /// damage and this seat answers for it. The shortcut finishes that
     /// division, lethal to this seat's own blockers, and the controlled
     /// player's own creatures (banding) are "ours" and take the rest.

@@ -188,7 +188,7 @@ fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId
 ///
 /// Read off each card's own characteristics: a card in a graveyard is
 /// what it prints (CR 400.7 left every effect on it behind), and a
-/// double-faced card is its front face there (CR 712.8a). Cards only
+/// double-faced card is its front face there (CR 712.6a). Cards only
 /// ([`GameObject::is_card`]): a token or a copy that died lies in the
 /// graveyard until state-based actions remove it (CR 704.5d, 704.5e), and
 /// the engine projects before it checks them.

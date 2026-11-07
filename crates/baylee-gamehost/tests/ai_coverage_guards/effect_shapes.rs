@@ -155,7 +155,7 @@ fn no_pool_face_states_two_mode_lists() {
 /// A modal double-faced card is filed under its front, and the front is the
 /// spell — so `HandObject::types` says sorcery and the land is on the other
 /// side. The engine does not read it that way: `compute_legal` offers the
-/// land drop for a modal card's land back (CR 712.12) and not for a
+/// land drop for a modal card's land back (CR 712.9) and not for a
 /// transforming one's (CR 712.8a, #152). `policy::plays_as_land` asks the
 /// same function, and this is the population it is worth having: a floor
 /// rather than the number, because a card joining the pool does not make

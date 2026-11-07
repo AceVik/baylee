@@ -90,7 +90,7 @@ pub struct Player {
     pub energy: u16,
     /// Persistent speed designation: zero means not started, four is maximum.
     pub speed: u8,
-    /// Radiation counters (CR 728).
+    /// Radiation counters (CR 729).
     pub rad: u16,
     /// Persistent designation earned through storied (CR 702.195).
     pub enduring_story: bool,
@@ -479,7 +479,7 @@ pub struct GameState {
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
     /// Players controlling other players during their next actual turn
-    /// (CR 723.1), waiting for that turn or in it.
+    /// (CR 724.1), waiting for that turn or in it.
     pub turn_controls: Vec<crate::state::PlayerTurnControl>,
     /// While the current turn is an extra one, the player whose normal
     /// turn it was added after: "the turns directly after the specified
@@ -741,13 +741,13 @@ pub struct GameState {
     /// every card that asked got `false`. `ObjectId` outlives the zone
     /// change, so this list stays true wherever the card goes.
     pub commanders: Vec<Vec<Commander>>,
-    /// The monarch designation (CR 724), if any.
+    /// The monarch designation (CR 726), if any.
     pub monarch: Option<PlayerId>,
     /// The game as an effect ended it: "you win the game" (CR 104.2b) or
     /// "the game is a draw" (CR 104.4c). The game ends at once (CR 104.1):
     /// the engine reads this before anything else when it next looks.
     pub game_end: Option<crate::win::GameResult>,
-    /// The day/night designation (CR 731), if the game has one yet.
+    /// The day/night designation (CR 732), if the game has one yet.
     pub day_night: Option<DayNight>,
     /// What the previous turn was, for CR 502.2's check at the untap step.
     ///
@@ -846,7 +846,7 @@ pub struct GameState {
     /// (`layers::recompute_with`); on the battlefield the registered static
     /// does it, so an effect that takes the abilities away still takes this
     /// one. Written once per card in [`Self::create_card`], front face only
-    /// (CR 712.8a), and never changed: a list the size of a handful of
+    /// (CR 712.6a), and never changed: a list the size of a handful of
     /// cards.
     pub printed_pt_cda: Vec<(ObjectId, baylee_cards_dsl::Modifier)>,
     /// Derived small index of physical cards declaring off-battlefield static abilities.

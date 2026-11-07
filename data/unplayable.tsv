@@ -11,7 +11,7 @@
 #                its stakes are cards from each player's collection.
 #   dexterity  - asks a physical act of the player (Chaos Orb's flip), which
 #                no game state describes.
-#   subgame    - starts a game within the game (CR 728, Shahrazad), which
+#   subgame    - starts a game within the game (CR 730, Shahrazad), which
 #                this engine, one game per process, does not host.
 #   un-set     - an Un-set card whose text needs something outside the
 #                rules (owner, 13.10.2026): fractional or infinite mana

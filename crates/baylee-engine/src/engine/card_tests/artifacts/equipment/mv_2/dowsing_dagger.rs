@@ -13,7 +13,7 @@ use super::*;
 /// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` becomes
 /// `Lost Vale` as a land on face 1.
 ///
-/// It is the same permanent, turned over (CR 701.27a, CR 712.18), where the stand-in (#206)
+/// It is the same permanent, turned over (CR 701.27a, CR 712.15), where the stand-in (#206)
 /// exiled it and returned a new object. And the Equipment it was is gone with the face: Lost
 /// Vale prints no static, so nothing of "equipped creature gets +2/+1" is left in the effect
 /// table (CR 604.2), and a land attached to a creature becomes unattached (CR 704.5p), so the
@@ -89,7 +89,7 @@ fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
     assert_eq!(
         identity(&engine, vale),
         dagger_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
     assert_eq!(
         engine.state().object(vale).and_then(|o| o.attached_to),

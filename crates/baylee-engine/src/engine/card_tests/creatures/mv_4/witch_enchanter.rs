@@ -100,7 +100,7 @@ fn witch_enchanter_destroys_an_opponents_artifact_and_is_never_offered_its_own()
 /// Witch-Blessed Meadow, the back face: "As this land enters, you may pay 3
 /// life. If you don't, it enters tapped." and "{T}: Add {W}".
 ///
-/// That a *creature* card is a legal land drop is CR 712.12, and it is read
+/// That a *creature* card is a legal land drop is CR 712.9, and it is read
 /// off `legal.lands` rather than assumed: the front face is a Human Warlock,
 /// so an offer that looked only at the front would never name the card and
 /// the `PlayLand` below would be refused for a reason that has nothing to do
@@ -125,7 +125,7 @@ fn witch_blessed_meadow_pays_three_life_to_arrive_untapped_and_taps_for_white() 
     };
     assert!(
         legal.lands.contains(&card),
-        "CR 712.12: a card whose back face is a land is a legal land drop, \
+        "CR 712.9: a card whose back face is a land is a legal land drop, \
          however the front face reads"
     );
 

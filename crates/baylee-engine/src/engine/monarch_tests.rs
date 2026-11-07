@@ -1,4 +1,4 @@
-//! The monarch's two inherent triggered abilities (CR 725.2).
+//! The monarch's two inherent triggered abilities (CR 726.2).
 //!
 //! "At the beginning of the monarch's end step, that player draws a card"
 //! and "Whenever a creature deals combat damage to the monarch, its
@@ -174,7 +174,7 @@ fn combat_damage_to_the_monarch_takes_the_crown() {
     assert_eq!(
         stack_entry(&engine, trigger),
         ("Monarch", p1, ObjectId::NO_SOURCE),
-        "controlled by the monarch it triggered against (CR 725.2)"
+        "controlled by the monarch it triggered against (CR 726.2)"
     );
     assert_eq!(engine.state().monarch, Some(p1), "not before it resolves");
     pass_until(&mut engine, |e| e.state().zones.stack_is_empty());

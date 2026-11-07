@@ -317,8 +317,8 @@ fn the_price_and_the_other_players_trigger_go_on_the_stack_in_apnap_order() {
     assert!(warned(&engine), "{:?}", engine.pending());
 }
 
-/// A controlled turn (CR 723.5): the debt is the controlled player's and so
-/// is the mana (CR 723.5a), and the player controlling them says whether it
+/// A controlled turn (CR 724.5): the debt is the controlled player's and so
+/// is the mana (CR 724.5a), and the player controlling them says whether it
 /// is paid. Declining is theirs to do, and it loses the controlled player the
 /// game.
 #[test]

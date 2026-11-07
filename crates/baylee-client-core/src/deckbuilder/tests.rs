@@ -550,7 +550,7 @@ fn a_two_faced_card_is_found_by_either_of_its_faces() {
 /// `is:dfc` is a claim about the printed card, not about our asset store.
 ///
 /// The filter is drawn to the player as "double-faced" and is reached by the
-/// alias `transform`, so it means CR 712.1 — and CR 715.1 makes an adventurer
+/// alias `transform`, so it means CR 712.1 — and CR 716.1 makes an adventurer
 /// card a two-part *frame* while CR 709.1 says the back of a split card is
 /// the normal Magic card back. Neither is one.
 ///

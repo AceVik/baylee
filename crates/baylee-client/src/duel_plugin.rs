@@ -144,7 +144,7 @@ pub(super) fn add_present_systems(app: &mut App) {
                 // a hand card spawned this frame is spawned where the card
                 // already was, and this is what moves it from there.
                 touch::settle.after(hud::sync_overlay),
-                // A hand shown from another chair (CR 723.5) rises into
+                // A hand shown from another chair (CR 724.5) rises into
                 // place, after the rebuild that drew it.
                 hud::arrive_the_hand.after(hud::sync_overlay),
                 // After the rebuild too, and for the mirror of that reason:

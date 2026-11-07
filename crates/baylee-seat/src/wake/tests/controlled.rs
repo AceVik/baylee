@@ -1,5 +1,5 @@
 //! A decision this seat makes for the player whose turn it controls
-//! (Mindslaver, CR 723.5), judged from that player's chair: that player's
+//! (Mindslaver, CR 724.5), judged from that player's chair: that player's
 //! hand, lands and pool, that player's turn on the rail, that player's
 //! opponents as the other side. The seat's own cards stand beside them in
 //! every view here, and none of them is ever used.

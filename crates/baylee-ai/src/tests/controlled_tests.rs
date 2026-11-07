@@ -1,6 +1,6 @@
 //! Deciding for a player whose turn this seat controls (Mindslaver,
-//! CR 723.5): every answer is made against that player, and this seat's own
-//! answers in that turn are the ones it always gave (CR 723.8).
+//! CR 724.5): every answer is made against that player, and this seat's own
+//! answers in that turn are the ones it always gave (CR 724.8).
 //!
 //! The house is seat 0 and decides for seat 1 in seat 1's turn: the view is
 //! the house's, awaits the house, and names seat 1 as the player the
@@ -14,7 +14,7 @@ const HOUSE: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
 
 /// The house's view of seat 1's second main phase, deciding for seat 1,
-/// whose hand it is entitled to see (CR 723.4).
+/// whose hand it is entitled to see (CR 724.4).
 fn controlling(battlefield: Vec<PublicObject>, hand: Vec<baylee_view::HandObject>) -> PlayerView {
     let mut v = view(0, &[20, 20], battlefield);
     v.active = THEM;
@@ -242,7 +242,7 @@ fn their_end_step_taps_out_their_lands() {
 }
 
 /// The house's own block in their turn is the block it always makes
-/// (CR 723.8): the control fields change nothing about its own question.
+/// (CR 724.8): the control fields change nothing about its own question.
 #[test]
 fn this_seats_own_block_in_their_turn_is_unchanged() {
     let mut v = controlling(
@@ -495,7 +495,7 @@ fn their_burn_with_no_creature_of_theirs_to_kill_goes_at_their_face() {
 }
 
 /// Where their resolved spell goes is theirs to say and so this seat's
-/// (CR 616.1e, 723.5), and it is said against them: nothing at all if that is
+/// (CR 616.1e, 724.5), and it is said against them: nothing at all if that is
 /// offered, else what they would not have taken for themselves. Six lands pay
 /// for Capsize again, so they would keep the card and get the rebound; five do
 /// not, so they would take the free cast and get a card they cannot pay for.
@@ -920,7 +920,7 @@ fn their_scry_and_their_pile_are_their_worst() {
     assert_eq!(agent().act(&v, &piles), PlayerAction::ChooseMode(1));
 }
 
-/// Their spell's optional costs are theirs to lose by (CR 723.5): a buyback
+/// Their spell's optional costs are theirs to lose by (CR 724.5): a buyback
 /// would hand them the card back and a kick would make the spell better, so
 /// neither is paid even with the mana floating.
 #[test]

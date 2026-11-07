@@ -14,7 +14,7 @@ use super::*;
 /// only that the compiled card carries the bit, and it would fail one line
 /// ahead of the damage it is supposed to be evidence for.
 ///
-/// The cast says the other half of CR 712.11b on the way in. One card in hand
+/// The cast says the other half of CR 712.8b on the way in. One card in hand
 /// is offered twice — as a land drop *and* as a spell — and the land back is
 /// never a cast mode, so a card whose only castable face is the front asks no
 /// question and goes straight onto the stack.
@@ -53,7 +53,7 @@ fn akoum_warrior_tramples_three_points_past_the_elf_that_chumps_it() {
         .expect("six Mountains pay for a six-drop");
     assert!(
         matches!(engine.pending(), Pending::Priority { .. }),
-        "the land back is played and never cast (CR 712.12), so the front is \
+        "the land back is played and never cast (CR 712.9), so the front is \
          the only castable face and nothing is asked: {:?}",
         engine.pending()
     );
@@ -105,7 +105,7 @@ fn akoum_warrior_tramples_three_points_past_the_elf_that_chumps_it() {
 
 /// The back face, Akoum Teeth: "This land enters tapped." and "{T}: Add {R}."
 ///
-/// A land face is *played*, not cast (CR 712.12), and this card prints only
+/// A land face is *played*, not cast (CR 712.9), and this card prints only
 /// one of them, so the land drop resolves straight to face 1 with no face
 /// choice to make. Three printed claims follow from that and are struck here:
 /// what arrives is a land rather than the 4/5 Minotaur on the other side, it

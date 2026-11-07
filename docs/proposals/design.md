@@ -697,7 +697,7 @@ settled.
 - *A chapter is a page.* A saga has no body, so the corner is free — and the
   plate turns square, light and barely rounded, with the chapter in roman
   numerals in sepia. It is the one counter the chip column drops, because the
-  page says the same number. Lore counters are only ever on sagas (CR 714), so
+  page says the same number. Lore counters are only ever on sagas (CR 715), so
   no type line is needed to know one, which is the only reason this is
   expressible: a `CardGroup` carries counters and does not carry subtypes.
   Chapters past `V` fall back to arabic, because `VI` needs a composition rule
@@ -743,7 +743,7 @@ is the fairground this section exists to prevent.
 ### 1.7 Day/night, sleeves, playmats
 
 Day/night does not exist in the engine, the view, core or the DSL — verified by
-grep. As a rules fact (CR 726) it is engine work, and it is listed in §4. What
+grep. As a rules fact (CR 732) it is engine work, and it is listed in §4. What
 belongs here is why it will not fight the phase tint when it arrives: different
 *extent* (the phase wash is a lamp over the pool; day/night is a single scalar
 multiplied into the felt everywhere) and different *timescale* (phases change

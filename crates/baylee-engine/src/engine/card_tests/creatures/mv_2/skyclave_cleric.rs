@@ -58,7 +58,7 @@ fn skyclave_clerics_creature_front_gains_its_controller_two_life_on_entry() {
 ///
 /// Only one of the two faces is a land, so this card takes the Glasspool
 /// Shore path and not the pathway one: the engine switches to face 1 itself
-/// and asks no face question, there being only one face to play (CR 712.12).
+/// and asks no face question, there being only one face to play (CR 712.9).
 /// Four printed sentences are then held against the board — it arrives as the
 /// *land* Skyclave Basilica and not as a creature, it arrives tapped, it
 /// triggers nothing (a back face carries only the abilities it prints, and

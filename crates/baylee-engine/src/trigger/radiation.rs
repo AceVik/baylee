@@ -1,4 +1,4 @@
-//! The source-free, event-player-bound radiation trigger (CR 728.1).
+//! The source-free, event-player-bound radiation trigger (CR 729.1).
 use super::{GameState, PendingTrigger};
 use crate::{
     event::{GameEvent, JournalEntry},

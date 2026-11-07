@@ -322,7 +322,7 @@ impl<L: CardLookup> Engine<L> {
     /// **Not [`Self::finalize_spell`]**, which is the path a spell that *did*
     /// resolve takes and owes two riders this one does not. Rebound exiles a
     /// spell "as it resolves" (CR 702.88) and an Adventure likewise
-    /// (CR 715.3d); a spell that never resolved has done neither, and
+    /// (CR 716.3d); a spell that never resolved has done neither, and
     /// borrowing that function would have given a fizzled Ephemerate its
     /// rebound. Flashback is the rider that *does* apply, because CR 702.34a
     /// exiles the card "any time it would leave the stack" rather than on
@@ -1042,7 +1042,7 @@ impl<L: CardLookup> Engine<L> {
             .collect();
         let mut changed = false;
         for id in turning {
-            // CR 701.27c: only a permanent represented by a transforming
+            // CR 701.27d: only a permanent represented by a transforming
             // double-faced card can transform. A token has no card, and a
             // clone of a werewolf carries the copied keyword over a card
             // with one face — turning either one over would rebuild its
@@ -1135,7 +1135,7 @@ impl<L: CardLookup> Engine<L> {
         {
             // Abilities on the stack simply cease to exist (CR 608.2n).
             //
-            // CR 714.4's sacrifice used to be spelled out here, on the way
+            // CR 715.4's sacrifice used to be spelled out here, on the way
             // past: a resolving chapter carried its own Saga to the
             // graveyard. It is a state-based action and now runs as one, in
             // [`Self::finished_sagas`] — which is what a chapter ability
@@ -1213,7 +1213,7 @@ impl<L: CardLookup> Engine<L> {
     /// Puts the choice of `spell`'s ending to its controller, the player
     /// CR 616.1 names as the affected object's. A controlled player's goes to
     /// the player controlling them, as every choice of theirs does
-    /// (CR 723.5). Says whether it asked; the answer finishes the spell
+    /// (CR 724.5). Says whether it asked; the answer finishes the spell
     /// ([`Self::finish_spell`]).
     pub(crate) fn ask_spell_ending(&mut self, spell: ObjectId) -> bool {
         let endings = self.spell_endings(spell);
@@ -1325,13 +1325,13 @@ impl<L: CardLookup> Engine<L> {
         let ending = chosen.or_else(|| self.spell_endings(spell).first().copied());
         // Another "instead" was chosen over the adventure: the card still
         // leaves the stack, and the Adventure's characteristics stay there
-        // (CR 715.4). It takes that ending below as any instant does.
+        // (CR 716.4). It takes that ending below as any instant does.
         if !matches!(ending, None | Some(SpellEnding::Adventure))
             && let Some(def) = self.adventure_def(spell)
         {
             self.state.switch_face(spell, def, 0);
         }
-        // Adventure (CR 715): an Adventure spell resolves to exile; the
+        // Adventure (CR 716): an Adventure spell resolves to exile; the
         // front face may then be cast from exile.
         if let Some(def) = self.adventure_def(spell) {
             // The card is exiled *on an adventure*, and an adventurer card

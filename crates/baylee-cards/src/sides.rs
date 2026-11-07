@@ -23,7 +23,7 @@
 //! not have a Magic card back.)", in three kinds — nonmodal, modal, and meld.
 //! That is what the deck builder's `double-faced` filter means, and it is a
 //! claim about the printed card rather than about what this client can draw.
-//! An Adventure and a Split are not double-faced under it: CR 715.1 makes an
+//! An Adventure and a Split are not double-faced under it: CR 716.1 makes an
 //! adventurer card a two-part *frame*, and CR 709.1 says in as many words
 //! that "the back of a split card is the normal Magic card back".
 //!
@@ -273,7 +273,7 @@ mod tests {
         assert!(!has_back_image(index), "an Adventure has no second picture");
         assert!(
             !double_faced(index),
-            "CR 715.1 makes an adventurer card a two-part frame, not a second side"
+            "CR 716.1 makes an adventurer card a two-part frame, not a second side"
         );
     }
 

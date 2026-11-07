@@ -1966,7 +1966,7 @@ pub const ARRIVALS_THAT_ASK: &[&str] = &[
 /// It reached 55 this morning, and the twenty that left are why this sweep
 /// needed a neighbour rather than a tighter assertion. A **transforming**
 /// double-faced card is cast as its front face and reaches its back only by
-/// turning over (CR 712.8c), so a land on the back of one is not a land drop
+/// turning over (CR 712.6b), so a land on the back of one is not a land drop
 /// at all — and `FaceDef::castable_from_hand` defaults to `true`, so
 /// twenty-one cards in the pool offered theirs out of hand. Twenty of those
 /// are spell-fronted and were counted here; the twenty-first, Havengul

@@ -17,7 +17,7 @@ use super::*;
 ///
 /// The Wizard itself is cast rather than seeded, for two reasons. The front
 /// face is the face a player chooses when casting a modal double-faced card
-/// (CR 712.11b), so a seeded permanent would never have gone that way at all;
+/// (CR 712.8b), so a seeded permanent would never have gone that way at all;
 /// and its own cast is the first thing that could wrongly fire the ability —
 /// the card it was cast from *is* a Wizard spell — which it must not, because
 /// the ability only exists while the permanent is on the battlefield. The 4/3
@@ -49,7 +49,7 @@ fn an_umara_wizard_takes_flight_for_a_wizard_spell_and_stays_down_for_an_elf() {
     assert!(
         legal.castable.contains(&card),
         "the front face of a modal double-faced card is cast like any other \
-         creature card (CR 712.11b)",
+         creature card (CR 712.8b)",
     );
     engine
         .apply(p0, PlayerAction::CastSpell { card })
@@ -240,7 +240,7 @@ fn an_umara_wizard_takes_flight_for_the_sorcery_its_controller_casts() {
 ///
 /// A player playing a modal double-faced card as a land chooses one of its
 /// faces that is a land, and it enters the battlefield with that face up
-/// (CR 712.12). Only one of Umara Wizard's two faces is a land, so that choice
+/// (CR 712.9). Only one of Umara Wizard's two faces is a land, so that choice
 /// has exactly one answer and the engine takes it without asking — which is
 /// worth striking on its own, because a `ChooseCastMode` with one option here
 /// would be a question a client has to draw a button for.
@@ -264,7 +264,7 @@ fn umara_skyfalls_is_the_land_face_enters_tapped_and_then_taps_for_blue() {
     assert!(
         legal.lands.contains(&card),
         "a card whose front face is a creature is still a land drop, because \
-         its back face is a land (CR 712.12)",
+         its back face is a land (CR 712.9)",
     );
 
     let land = play_land(&mut engine, p0, umara_wizard());
@@ -283,7 +283,7 @@ fn umara_skyfalls_is_the_land_face_enters_tapped_and_then_taps_for_blue() {
     assert_eq!(
         engine.state().names.get(played.characteristics().name),
         "Umara Skyfalls",
-        "and the permanent is that face, name and all (CR 712.8f)",
+        "and the permanent is that face, name and all (CR 712.6e)",
     );
     assert!(
         types.contains(TypeSet::LAND) && !types.contains(TypeSet::CREATURE),

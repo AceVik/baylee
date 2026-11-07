@@ -141,7 +141,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
         return;
     };
     // The player this seat taps and casts for: itself, or the player it
-    // controls (CR 723.5a), whose priority the run is spent in.
+    // controls (CR 724.5a), whose priority the run is spent in.
     let seat = duel.actor().unwrap_or(PlayerId::new(0));
     let pending = interaction.pending().clone();
     if let Some(phase) = duel.mana_run.as_ref().and_then(|r| r.cast_first)
@@ -414,7 +414,7 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
 /// charges it: what effects add, less what they take off
 /// (`baylee_ai::spell_price`, CR 601.2f). The hand, graveyard and command
 /// zone are the deciding player's: the controlled player's while this seat
-/// casts for them (CR 723.5a).
+/// casts for them (CR 724.5a).
 pub(super) fn spell_cost(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,

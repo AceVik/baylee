@@ -8,7 +8,7 @@
 // IMPLEMENTED — Lifelink; the dies trigger puts the card that died on the
 // bottom of its owner's library, and only while it is still in the graveyard
 // (CR 400.7); and Swift End's "destroy target creature or planeswalker. You
-// lose 2 life.", cast as an Adventure (CR 715): it resolves into exile, and
+// lose 2 life.", cast as an Adventure (CR 716): it resolves into exile, and
 // the Rider may be cast from there.
 
 use baylee_cards_dsl::prelude::*;

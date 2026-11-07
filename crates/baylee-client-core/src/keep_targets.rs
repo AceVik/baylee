@@ -25,7 +25,7 @@ pub struct KeepTargets {
 
 /// The run a `Pending` is part of: `(index, of, min)` of a new-target
 /// question this seat answers, for itself or for the player it controls
-/// (CR 723.5; [`crate::decision::resource_player`]).
+/// (CR 724.5; [`crate::decision::resource_player`]).
 fn retarget(view: &PlayerView, pending: &Pending) -> Option<(u32, u32, u32)> {
     match pending {
         Pending::ChooseTargets {
@@ -275,7 +275,7 @@ mod tests {
         );
     }
 
-    /// Mindslaver (CR 723.5): the controlled player's copy asks the
+    /// Mindslaver (CR 724.5): the controlled player's copy asks the
     /// controlled player, and this seat answers for it, so the shortcut is
     /// offered and kept on that player's questions and not on its own.
     #[test]

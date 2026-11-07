@@ -76,7 +76,7 @@ fn siren_s_call_is_castable_before_p0_declares_attackers_and_never_on_p1_s_own_t
     float_one_mana(&mut engine, p1);
     assert!(
         !castable(&engine),
-        "the declare attackers step has begun — CR 506.7a reads that as \
+        "the declare attackers step has begun — CR 506.8a reads that as \
          the window closing regardless of whether p0 (with nothing to \
          attack with here) actually declared anyone — and the mana just \
          floated proves this is not about affording it"

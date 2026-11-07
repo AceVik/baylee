@@ -8,7 +8,7 @@ use super::*;
 /// The dies trigger is played in the two tests below this one. Swift End is cast via
 /// `Pending::ChooseCastMode` with `CastModeKind::Face(1)`: it destroys the opponent's
 /// `llanowar_elves()`, its caster loses 2 life, and the card goes on its adventure — exiled
-/// with the rider that lets the creature be cast from there (CR 715.3d), not into the
+/// with the rider that lets the creature be cast from there (CR 716.3d), not into the
 /// graveyard. The Rider is then cast out of that exile and lands as a 2/3 with lifelink.
 #[test]
 fn murderous_rider_swift_end_goes_on_an_adventure_and_the_rider_follows_from_exile() {
@@ -84,7 +84,7 @@ fn murderous_rider_swift_end_goes_on_an_adventure_and_the_rider_follows_from_exi
                 .object(*id)
                 .is_some_and(|o| o.card.is_some_and(|c| c.index == murderous_rider()))
         })
-        .expect("the card went on its adventure (CR 715.3d)");
+        .expect("the card went on its adventure (CR 716.3d)");
     assert!(
         engine.state().object(exiled).is_some_and(|o| o
             .riders

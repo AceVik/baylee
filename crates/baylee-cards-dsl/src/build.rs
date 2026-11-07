@@ -909,7 +909,7 @@ macro_rules! static_ability {
     };
 }
 
-/// One chapter of a saga (CR 714): `chapter!(1, effects)`.
+/// One chapter of a saga (CR 715): `chapter!(1, effects)`.
 ///
 /// ```ignore
 /// chapter!(1, &[Effect::scry(1)])
@@ -1360,7 +1360,7 @@ mod tests {
     }
 
     /// `chapter!` numbers the chapter and targets nothing unless the card
-    /// says "target" (CR 714).
+    /// says "target" (CR 715).
     #[test]
     fn a_saga_chapter_targets_only_when_it_says_so() {
         const EFFECTS: &[Effect] = &[Effect::Scry {

@@ -7313,22 +7313,22 @@ chip; arrows walk the chips, quick list first):
   types appear anywhere, and every chip answers with the offer's own index
   (`a_creature_type_is_answered_from_the_decks_quick_list`).
 
-## Playing another player's turn (CR 723)
+## Playing another player's turn (CR 724)
 
 A seat may control another player: for that player's whole next turn
-(Mindslaver, CR 723.1) or for one instruction (Word of Command, Opposition
-Agent, CR 723.2). The engine routes every decision of the controlled player
+(Mindslaver, CR 724.1) or for one instruction (Word of Command, Opposition
+Agent, CR 724.2). The engine routes every decision of the controlled player
 to the controller (`Engine::decision_actor`); the question still names the
 controlled player (`Pending::asked`), the controller's view waits for it
 (`awaiting == seat`) with `decision_player` naming the controlled player,
-and `controlled_hands` carries that player's hand (CR 723.4). Every other
+and `controlled_hands` carries that player's hand (CR 724.4). Every other
 seat's view says the same pair (`awaiting` the controller, `decision_player`
 the controlled player), because control of a player is public.
 
 **Every decision, with their resources.** The controller makes every
-decision the controlled player makes (CR 723.5), against that player's
+decision the controlled player makes (CR 724.5), against that player's
 interest too, with only that player's cards, mana and permanents
-(CR 723.5a). `client-core::decision::resource_player` names the deciding
+(CR 724.5a). `client-core::decision::resource_player` names the deciding
 player and `Duel::actor` is the client's door to it: the hand the client
 plays from (`decision::hand`), the pool and lands a run taps (`ManaRun`),
 the X cap, the reach (`reachable`, with its commander, flashback and
@@ -7341,7 +7341,7 @@ camera, cues, results. Nothing here filters an option the engine offers:
 their removal at their own creature, their Mind Rot at themselves, their
 attack at any defender offered are answered as the engine asks them
 (`controlled_turn_tests`, played against the engine). The controller's own
-decisions in that turn (CR 723.8: its blocks, its own priority) are its own
+decisions in that turn (CR 724.8: its blocks, its own priority) are its own
 again, and a "may" batch approved for the controlled player never passes
 the controller's own priority.
 
@@ -7407,7 +7407,7 @@ shown chair's (`BoardModel::show_hand`, `Duel::shown_hand`).
   the words stand beside the rose (`palette::CONTROL`) everywhere.
 - **The controlled player's own table** is sent no question while its
   controller decides, so it has nothing to answer; the banner says why.
-- **Conceding** stays every player's own (CR 723.6): `PlayerAction::Concede`
+- **Conceding** stays every player's own (CR 724.6): `PlayerAction::Concede`
   is its sender's, and while this seat decides for another player the game
   menu's row reads "Concede yourself" / "Selbst aufgeben".
 - `/state.control` reports the chairs, the one shown, whether by hand, the
@@ -7424,11 +7424,11 @@ decision taken for a controlled player.
 
 ## The bar's hinge says which turn and what the game is
 
-The day/night designation (CR 731) is drawn beside the turn number, on the
+The day/night designation (CR 732) is drawn beside the turn number, on the
 hinge between a seat's counts and its steps. It is not drawn
 at all when the game has neither designation, which is every game with no
 daybound card in it, and no slot is held for one: a game that has become day
-or night has exactly one of the two from that point forward (CR 731.1), so
+or night has exactly one of the two from that point forward (CR 732.1), so
 the block appears once and its arrival *is* the announcement — which is why
 the hinge *widens* when it comes rather than reserving room for it. The caret
 rule above — draw it always and let it go `Color::NONE` — is for a marker that

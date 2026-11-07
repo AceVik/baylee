@@ -499,7 +499,7 @@ fn a_player_who_has_left_is_no_longer_a_target_on_offer() {
 /// when the spell resolves: it is no longer in the zone it was in
 /// (CR 608.2b). Swift Spiral does not resolve, so nothing is exiled or
 /// waits for the end step, and the card goes to the graveyard rather than
-/// on its adventure (CR 715.3d is what happens as it *resolves*).
+/// on its adventure (CR 716.3d is what happens as it *resolves*).
 #[test]
 fn a_target_whose_player_left_is_illegal_on_resolution() {
     let mut engine = swift_spiral_asking_for_a_target(&[2]);

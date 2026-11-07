@@ -125,9 +125,9 @@ fn a_countered_ghastly_mimicry_is_exiled_too() {
 }
 
 /// The mana value of a back face (CR 202.3b). Ravager of the Fells, up on
-/// the battlefield, has Huntmaster of the Fells's mana value, 4 (CR 712.8e);
+/// the battlefield, has Huntmaster of the Fells's mana value, 4 (CR 712.6d);
 /// Ghastly Mimicry, cast with disturb for {3}{U}{U}, has Mirrorhall Mimic's
-/// 4 on the stack (CR 712.8c) and on the battlefield; and the token Ghastly
+/// 4 on the stack (CR 712.6b) and on the battlefield; and the token Ghastly
 /// Mimicry makes at the upkeep is a copy of the Ravager's back face, whose
 /// mana value is 0. Abrupt Decay ("nonland permanent with mana value 3 or
 /// less") then offers the copy and neither card.

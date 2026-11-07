@@ -219,7 +219,7 @@ fn a_daybound_card_cast_at_night_enters_transformed() {
     assert_eq!(pt(&engine, wolf), (6, 5));
 }
 
-/// CR 701.27c: only a permanent represented by a transforming double-faced
+/// CR 701.27d: only a permanent represented by a transforming double-faced
 /// card can transform. A clone of a werewolf is the case that finds this —
 /// it carries the copied daybound over a card definition with one face, so
 /// turning it over would rebuild its base from a face that is not there and

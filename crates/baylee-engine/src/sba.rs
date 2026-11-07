@@ -147,7 +147,7 @@ pub(crate) fn run_with_context(
     // --- Player losses (CR 704.5a-c) -----------------------------------
     // Every loss is found before anybody leaves: they are one simultaneous
     // event (CR 704.3), and the crown passes over every player leaving in it
-    // (CR 725.4), not through one of them on its way to the heir.
+    // (CR 726.4), not through one of them on its way to the heir.
     let mut losers: Vec<(PlayerId, LossReason)> = Vec::new();
     for player in 0..state.players.len() {
         let p = PlayerId::new(player as u8);
@@ -450,7 +450,7 @@ pub(crate) fn run_with_context(
             continue;
         }
         if state.prepared_copy_source(id).is_some() {
-            continue; // CR 722.3c: a prepared copy is allowed to remain in exile.
+            continue; // CR 723.3c: a prepared copy is allowed to remain in exile.
         }
         if !(is_token_like || is_a_copy) || obj.zone == crate::zone::Zone::Battlefield {
             continue; // an emblem, a spell still on the stack, or it went back
@@ -1104,13 +1104,13 @@ pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
 /// 1. Everything they own leaves the game, and every effect giving them
 ///    control of an object ends, so what they took goes back to whoever
 ///    controls it without them. So does every effect giving them control of
-///    a player: Opposition Agent's search takeover (CR 723.2) and Mindslaver's
+///    a player: Opposition Agent's search takeover (CR 724.2) and Mindslaver's
 ///    scheduled turn control both end here, and
 ///    `every_card_that_controls_a_player_has_a_departure_rule` fails the day a
 ///    card controls a player some other way. What a
 ///    permanent of theirs held "until it leaves the battlefield" comes back,
 ///    and if they were the monarch, the designation passes on as they leave
-///    (CR 725.4, `GameState::monarch_leaves`).
+///    (CR 726.4, `GameState::monarch_leaves`).
 /// 2. [`exile_what_the_departed_control`]: an ability or a copy of a spell
 ///    they control ceases to exist, and what else they still control is
 ///    exiled. That is what they control by default: a creature they
@@ -1127,7 +1127,7 @@ pub fn eliminate_player(
 }
 
 /// [`eliminate_player`] for one of `leaving`, the players leaving the game
-/// at the same time: none of them can be the monarch's heir (CR 725.4).
+/// at the same time: none of them can be the monarch's heir (CR 726.4).
 fn leave(
     state: &mut GameState,
     player: PlayerId,
@@ -2257,7 +2257,7 @@ mod tests {
     }
 
     /// The monarch leaves the game, and the crown passes at the same time
-    /// (CR 725.4). During another player's turn it goes to the active player,
+    /// (CR 726.4). During another player's turn it goes to the active player,
     /// not to the next seat after the leaver; during the monarch's own turn,
     /// to the next player in turn order still in the game; and with nobody
     /// left who can take it, to nobody. A player who is not the monarch
@@ -2296,7 +2296,7 @@ mod tests {
 
     /// The monarch and the active player lose in one state-based check. They
     /// leave together (CR 704.3), so the crown goes straight to the next
-    /// player in turn order who stays (CR 725.4), and the journal says so
+    /// player in turn order who stays (CR 726.4), and the journal says so
     /// once.
     ///
     /// The losers left one seat at a time, so the crown went to the active

@@ -154,7 +154,7 @@ one, and every one of them passed every gate.
    number.** Mindslaver's control was keyed on `turn.number` and the active
    seat, so it was dropped when two turns passed before its player's (four
    seats, or the controller's two extra turns) and lasted into the player's
-   own extra turn after it. CR 723.1 names the turn the player takes and ends
+   own extra turn after it. CR 724.1 names the turn the player takes and ends
    at the next turn's beginning: stamp the control as that turn begins.
 5. **Every resume path advances the program as the plain path does.** The
    damage contest's plain path returns to `run`, which steps past it; the
@@ -907,7 +907,7 @@ Open milestones discovered tonight:
 
 ## 2026-08-29 — E2 sagas (+ data-correction catch)
 
-- Saga machinery (CR 714): lore counter + chapter trigger on ETB
+- Saga machinery (CR 715): lore counter + chapter trigger on ETB
   (apply_enter_modifiers) and after each draw step
   (saga_draw_step_counters at the FirstMain→Combat transition); chapter
   abilities are `AbilityDef::SagaChapter { chapter, effects, targets }` —
@@ -1012,7 +1012,7 @@ Open milestones discovered tonight:
 - Hidden-information views: per-seat `PlayerView` (public zones full,
   own hand contents, others counts-only) emitted as `StateDelta` before
   each choice; e2e asserts it.
-- Adventure machinery (CR 715): `FaceDef.adventure` — adventure spells
+- Adventure machinery (CR 716): `FaceDef.adventure` — adventure spells
   resolve to exile with `Rider::Adventure`; the front face casts from
   exile afterwards. Twining Twins (data-corrected vs Scryfall AGAIN —
   stub had a different card's text; flying/vigilance/ward{1} 4/4 +
@@ -2395,7 +2395,7 @@ land type"; both are convention tests that fire on a first try.
 - **An ability with a mana cost is offered only once its mana floats.** Ask
   the offer after tapping, as for `castable`. A test that asked first read
   "not offered" and blamed the threshold it was written for.
-- **A back face is cast at its own timing** (CR 601.3e, 712.11c, 715.3a).
+- **A back face is cast at its own timing** (CR 601.3e, 712.8c, 716.3a).
   An instant on the back of an enchantment read as a sorcery for as long as
   the front's timing was the only one asked. A card whose two faces differ
   in speed is the case to test.
@@ -2785,7 +2785,7 @@ land type"; both are convention tests that fire on a first try.
   reread.
 - **"Before the combat damage step" is a place in the turn, not a step.**
   Comparing the current step with a named one answers nothing in a combat
-  with no damage step (CR 506.7e: no attackers, so the window ends with the
+  with no damage step (CR 506.8e: no attackers, so the window ends with the
   declare attackers step) and nothing in the second main phase, which is a
   `Step::Main` like the first. `TurnInfo::position` puts every step on one
   scale; a test walks a whole turn and asserts both sides of each window.
@@ -3701,7 +3701,7 @@ land type"; both are convention tests that fire on a first try.
   Sanctum must retrieve an owned commander an opponent controls; Cactus
   must count a commander in hand as well as the one in the command zone.
 - Adventure eligibility follows the retained copiable face, including a
-  Clone until it changes zones (CR 715.2b), not a name match. Public consumers
+  Clone until it changes zones (CR 716.2b), not a name match. Public consumers
   leave these authoritative predicates unknown rather than guessing.
 - Player-dependent counts use the resolution's chosen player and current
   board or hand, including at a table with three players. Recursive numeric
@@ -4031,7 +4031,7 @@ land type"; both are convention tests that fire on a first try.
   that left and returned there while the ability waited (CR 400.7e-f).
 - Set the entering face before entry replacements and trigger observation.
   Entering transformed does not generate a transform event; cards outside the
-  battlefield and stack regain their front characteristics (CR 712.8a, 712.14a).
+  battlefield and stack regain their front characteristics (CR 712.6a, 712.11a).
   Under the current rules modal double-faced cards can also transform: do not
   infer a prohibition merely from their back being independently playable.
   Single-faced copies of a God cannot return transformed. Tokens cannot return.
@@ -4201,13 +4201,13 @@ land type"; both are convention tests that fire on a first try.
   assuming every subtype is physically printed on the type line. Keep the
   new intrinsic mana route in the actual five-color sweep, not a skip bucket.
 - Follow-up found during the next mana review: the pre-existing preparation
-  implementation still needs the current CR 722.3c copy lifetime and ordinary
+  implementation still needs the current CR 723.3c copy lifetime and ordinary
   cast/payment flow. It currently reads a live printed face at casting time,
   so copied preparation creatures and restrictions need shared engine work.
 
 ### Preparation correction before batch 32 (2026-10-11)
 
-- CR 722.3c creates the prepare spell's copy in exile when the permanent
+- CR 723.3c creates the prepare spell's copy in exile when the permanent
   becomes prepared, not when its controller later casts. Preserve that
   independent copy across turn changes and changes to the source's copiable
   values. A source version, designation and phasing state bound its lifetime;
@@ -4542,8 +4542,8 @@ land type"; both are convention tests that fire on a first try.
 ### Batch 40 complete: Mariposa and radiation (2026-10-11)
 
 - Added optional tapped entry with player counters, `Amount::CountersOnYou`, and Mariposa's generic-mana reduction at cost determination. Primeval Titan's already-tapped search entry still offers both answers; Doubling Season does not double the player's rad counters.
-- Radiation is a source-free precombat-main trigger (CR 728.1), with a captured event player that survives stack-controller changes. Resolution rechecks the intervening condition, mills against the current rad total, and counts actual nonlands in public destinations, including replacement exile (CR 701.17c). `Cause::Radiation` preserves its life-loss provenance. The ordinary mill operation was extracted unchanged in `57b6f3ae6` before adding this shared behavior.
-- Primary references: [current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt), [Fallout release notes](https://magic.wizards.com/en/news/feature/magic-the-gathering-fallout-release-notes). The latter confirms simultaneous milling and milling only the available cards from short libraries. No external scripts or assets were imported.
+- Radiation is a source-free precombat-main trigger (CR 729.1), with a captured event player that survives stack-controller changes. Resolution rechecks the intervening condition, mills against the current rad total, and counts actual nonlands in public destinations, including replacement exile (CR 701.17c). `Cause::Radiation` preserves its life-loss provenance. The ordinary mill operation was extracted unchanged in `57b6f3ae6` before adding this shared behavior.
+- Primary references: [current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt), [Fallout release notes](https://magic.wizards.com/en/news/feature/magic-the-gathering-fallout-release-notes). The latter confirms simultaneous milling and milling only the available cards from short libraries. No external scripts or assets were imported.
 - Full engine run: 5,700 passed, 2 ignored, one old Partial-card test still expected no entry choice. After explicitly declining the new choice, all 3 Mariposa-filter tests and all 6 radiation tests passed; no production code changed after that full run. Also passed: workspace Clippy, 112 client interaction tests, 42 view, 237 AI, 134 card and 73 DSL tests, validation of 3,321 cards and generated-table reproducibility.
 - Dependency grouping improved without dropping work: Brad Boimler and Diamond City now belong to package 57 (replacement ordering/damage), where their competing replacement choices can be implemented with the same continuation machinery. Their card files remain Partial. Package 40's ten cards are complete; all 256 planned cards still occur exactly once across the original 30 packages.
 - Original Partial inventory: 303 complete, 237 remaining.

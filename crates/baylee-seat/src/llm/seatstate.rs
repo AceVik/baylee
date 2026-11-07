@@ -25,8 +25,8 @@
 //!
 //! A plan, an option's taps and a hint's targets are bound to the player
 //! they were written for: the seat's own, or the player whose turn it
-//! controls (Mindslaver, CR 723.5), whose cards they name. The seat makes
-//! both players' decisions in that turn (CR 723.8); a question for the
+//! controls (Mindslaver, CR 724.5), whose cards they name. The seat makes
+//! both players' decisions in that turn (CR 724.8); a question for the
 //! other one stops the plan ([`Stop::OtherPlayer`]), and the taps and the
 //! hint wait for a question of their own player's.
 

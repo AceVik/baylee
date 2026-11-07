@@ -4,7 +4,7 @@
 //! Set: KHM #251 — Kaldheim | Scryfall ID: b6de14ae-0132-4261-af00-630bf15918cd | Oracle ID: 59d22de5-e310-44d7-89cf-ef3529e40cef
 //! Face: Barkchannel Pathway —  — Land
 //! Face: Tidechannel Pathway —  — Land
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.9) + per-face
 // mana abilities.
 
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];

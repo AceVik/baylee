@@ -540,7 +540,7 @@ pub fn condition_holds_with_context(
             .all(|c| condition_holds_with_context(state, you, context, *c)),
         Condition::OpponentsTurn => state.is_opponent(state.turn.active, you),
         Condition::DuringStep(kind) => state.turn.step.kind() == Some(kind),
-        // CR 506.7: "before" a point of the turn is before that point's
+        // CR 506.8: "before" a point of the turn is before that point's
         // place in it, whether or not the step itself happens (506.7e).
         Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
         Condition::CanSacrifice(filter) => {

@@ -93,7 +93,7 @@ type Pump = (i32, i32, u128);
 /// Which end of the measure a target is taken from.
 ///
 /// A seat aims its own spells and abilities at what is worth most to it.
-/// A controller deciding for a player it plays against (CR 723.5) aims that
+/// A controller deciding for a player it plays against (CR 724.5) aims that
 /// player's at what is worth least to them, by the same measure read from
 /// their side of the table ([`crate::controlled`]).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -307,7 +307,7 @@ impl HeuristicAgent {
 
     /// [`Self::activation_worth`] with the target taken from either end of
     /// the measure: `Pick::Worst` is what the activation is worth to this
-    /// seat when somebody else chooses its target against it (CR 723.5).
+    /// seat when somebody else chooses its target against it (CR 724.5).
     pub(crate) fn activation_worth_at(
         &self,
         view: &PlayerView,

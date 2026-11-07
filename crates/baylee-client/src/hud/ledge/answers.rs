@@ -295,7 +295,7 @@ fn question_row(duel: &Duel, lang: Lang, elsewhere: bool) -> Vec<(Says, String)>
 
 /// Retarget identity and instructions live in the wrapping drawer above the shelf.
 ///
-/// A question asked of a player this seat controls (CR 723.5) is named for
+/// A question asked of a player this seat controls (CR 724.5) is named for
 /// them before it is asked: "For Mia: choose targets" (`Phrase::ForPlayer`),
 /// whichever chair the table is shown from.
 pub(super) fn shelf_headline(

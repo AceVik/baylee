@@ -15,7 +15,7 @@ pub struct YesBatch {
 /// Consecutive identical abilities, starting with the current may decision.
 ///
 /// The deciding player's: this seat's own, or those of the player it
-/// controls while it answers that player's "may" (CR 723.5).
+/// controls while it answers that player's "may" (CR 724.5).
 pub fn candidates(view: &PlayerView, pending: &Pending) -> Vec<ObjectId> {
     let deciding = resource_player(view);
     if !matches!(pending, Pending::YesNo {
@@ -67,7 +67,7 @@ impl YesBatch {
     /// Answer once per snapshot and stop at any unrelated decision.
     ///
     /// Only for the player whose abilities were approved. While this seat
-    /// controls another player, its own priority in between (CR 723.8) is a
+    /// controls another player, its own priority in between (CR 724.8) is a
     /// decision the approval never covered, and it is left to the player.
     pub fn answer(&mut self, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
         if self.sent_at == Some(view.seq) {
@@ -257,10 +257,10 @@ mod tests {
         assert!(batch.is_idle(), "and it does not go on after it");
     }
 
-    /// Mindslaver (CR 723.5): the controlled player's stacked "may"
+    /// Mindslaver (CR 724.5): the controlled player's stacked "may"
     /// abilities are this seat's to answer, so one yes covers their run and
     /// the controlled player's priority between them is passed. This seat's
-    /// own priority in the same turn (CR 723.8) is its own decision, which
+    /// own priority in the same turn (CR 724.8) is its own decision, which
     /// the approval did not cover.
     #[test]
     fn a_controlled_players_run_is_batched_and_the_seats_own_priority_is_not_passed() {

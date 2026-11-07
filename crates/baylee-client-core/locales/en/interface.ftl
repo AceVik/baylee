@@ -2645,18 +2645,18 @@ RequiredManaProgress =
 # Arguments: player
 DecidingFor = You decide for { $player }
 
-# A question asked of a player this seat controls (CR 723.5), on the shelf
+# A question asked of a player this seat controls (CR 724.5), on the shelf
 # and the decision sheet: whose it is, then the question.
 # Arguments: player, question
 ForPlayer = For { $player }: { $question }
 
 # The banner on the controlled player's own table during their turn
-# (Mindslaver, CR 723.1). `$player` is the player in control.
+# (Mindslaver, CR 724.1). `$player` is the player in control.
 # Arguments: player
 ControlTakesYourTurn = { $player } controls your turn
 
 # The same outside their own turn: a control limited to an instruction
-# (Word of Command, CR 723.2).
+# (Word of Command, CR 724.2).
 # Arguments: player
 ControlDecidesForYou = { $player } decides for you
 
@@ -3699,9 +3699,9 @@ YouAreWatching = You are watching
 # Concede, armed and waiting for the second press.
 ConcedeConfirm = Concede? Press again
 
-# Concede while this seat makes another player's decisions (CR 723.5):
+# Concede while this seat makes another player's decisions (CR 724.5):
 # it concedes only this seat's own game, never the controlled player's
-# (CR 723.6), and says so.
+# (CR 724.6), and says so.
 ConcedeYourself = Concede yourself
 
 # The same, armed and waiting for the second press.
@@ -4281,7 +4281,7 @@ PlateEnergy = { $count } energy
 # Arguments: amount
 PlateCommander = { $amount } commander damage
 
-# The monarch designation (CR 724), beside the crown.
+# The monarch designation (CR 726), beside the crown.
 PlateMonarch = Monarch
 
 # A seat that is out of the game.
@@ -5374,7 +5374,7 @@ LogCountersDefense =
        *[other] defense counters
     }
 
-# One lore counter (CR 714.3).
+# One lore counter (CR 715.3).
 # Arguments: count
 LogCountersLore =
     { $count ->
@@ -5595,13 +5595,13 @@ LogLoopBroken = A loop was found and broken
 # The host found a loop.
 LogLoop = A loop was found
 
-# It became day (CR 730).
+# It became day (CR 732).
 LogDay = It became day
 
-# It became night (CR 730).
+# It became night (CR 732).
 LogNight = It became night
 
-# The reading seat became the monarch (CR 725.3).
+# The reading seat became the monarch (CR 726.3).
 # Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
 LogMonarchYou = { $you_subject } became the monarch
 

@@ -43,7 +43,7 @@ pub const ACTIVE: Color = Color::srgb(0.84, 0.64, 0.31);
 /// A card the client is offering to tap lands for: an offer, not a
 /// legal action, and drawn as the weaker claim it is.
 pub const REACHABLE: Color = Color::srgb(0.50, 0.47, 0.84);
-/// Control of a player (CR 723.5): the control banner's edge, a
+/// Control of a player (CR 724.5): the control banner's edge, a
 /// controlled chip's badge, the frame round a controlled player's hand.
 /// A rose apart from the turn's ivory, the wait's teal, the offer's
 /// indigo and the candle, and never the only cue: the brain mark and the

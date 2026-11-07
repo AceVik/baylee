@@ -537,7 +537,7 @@ pub struct Duel {
     /// under the finger is not the card the finger meant).
     pub follow_settling: bool,
     /// Whose chair the bottom of the table is shown from while this seat
-    /// controls another player (CR 723.5): the hand row, and the chip
+    /// controls another player (CR 724.5): the hand row, and the chip
     /// marked shown (`client-core::perspective`). The question is never
     /// hidden by it; it is named for the player it is asked for.
     pub perspective: baylee_client_core::perspective::Perspective,
@@ -993,7 +993,7 @@ pub struct Duel {
     /// after it is answered (CR 601.2b, 601.2g). See [`Self::cap_x`].
     ///
     /// Kept with the player that priority was answered for: this seat, or
-    /// the player it controls (CR 723.5a), whose lands are not its own.
+    /// the player it controls (CR 724.5a), whose lands are not its own.
     priority_legal: Option<(PlayerId, baylee_engine::choice::LegalActions)>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
@@ -1318,7 +1318,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
             return;
         };
         // Read from the deciding player's chair: a turn this seat controls
-        // (CR 723.5) is played as its own, so `skip_opponent_turns` does not
+        // (CR 724.5) is played as its own, so `skip_opponent_turns` does not
         // pass the controlled player's whole turn away, and "the other side"
         // is the controlled player's opponents.
         let deciding = baylee_client_core::decision::resource_player(view);
@@ -1772,7 +1772,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     if let Some(board) = &mut duel.board {
         // The hand row is the chair the table is shown from: the deciding
         // player's unless the player chose another (or auto-follow is off),
-        // and only ever one the view carries (CR 723.4).
+        // and only ever one the view carries (CR 724.4).
         let shown = duel.perspective.shown(view);
         if shown != baylee_client_core::decision::resource_player(view) {
             board.show_hand(

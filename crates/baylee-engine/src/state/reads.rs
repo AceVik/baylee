@@ -121,7 +121,7 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
 /// prints (CR 604.3a): a static on the card itself, unconditional, that
 /// defines P/T in layer 7a. Front face only, because a card off the
 /// battlefield and the stack has only its front face's characteristics
-/// (CR 712.8a).
+/// (CR 712.6a).
 pub(super) fn printed_pt_cda(def: &CardDef) -> Option<baylee_cards_dsl::Modifier> {
     def.abilities_for_face(0)
         .iter()

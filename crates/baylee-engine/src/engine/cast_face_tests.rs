@@ -16,7 +16,7 @@
 //!   returns the backs and nothing else. The offer probed the front's mana
 //!   cost, so Mirrorhall Mimic (`{3}{U}` in front of a `{3}{U}{U}` disturb)
 //!   was castable from the graveyard at four mana and then refused.
-//! - An adventure (CR 715) is cast from the hand at its own printed cost,
+//! - An adventure (CR 716) is cast from the hand at its own printed cost,
 //!   and the offer knew about no face but the first. Twining Twins is a
 //!   `{2}{U}{U}` creature in front of a `{1}{W}` instant, so Swift Spiral
 //!   was unreachable on exactly the boards it is for: the ones where the
@@ -24,7 +24,7 @@
 //!
 //! The third test is the bound on the second, and it is why the shared
 //! reader asks whether the card is *on its adventure* rather than reading
-//! the face alone. CR 715.3d lets the owner of a card exiled that way cast
+//! the face alone. CR 716.3d lets the owner of a card exiled that way cast
 //! the creature and not the adventure again, so a reader that asked
 //! `castable_from_hand` and nothing else would offer the adventure out of
 //! the exile its own resolution had just put the card in.
@@ -287,7 +287,7 @@ fn an_adventure_is_offered_when_only_the_adventure_can_be_paid_for() {
     );
 }
 
-/// From exile, the creature is the only thing CR 715 allows.
+/// From exile, the creature is the only thing CR 716 allows.
 ///
 /// Swift Spiral resolving exiles the card on an adventure, and what may be
 /// cast out of that exile is Twining Twins. Offering the adventure again
@@ -353,7 +353,7 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
         !is_offered(&engine, exiled),
         "the adventure was offered again out of the exile it was cast into"
     );
-    // Four with two blue is the creature's price, which is what CR 715 does
+    // Four with two blue is the creature's price, which is what CR 716 does
     // allow — so the test cannot pass by the card being unreachable.
     tap_some_mana(&mut engine, p0, 2);
     assert!(
@@ -371,7 +371,7 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
         engine.state().names.get(obj.characteristics().name),
         "Twining Twins"
     );
-    // And the other side of the same gate. CR 715.3d refuses the adventure
+    // And the other side of the same gate. CR 716.3d refuses the adventure
     // only "this way", out of the exile the adventure itself made, so a
     // Twining Twins that was cast off its adventure and is later bounced may
     // be cast as Swift Spiral from the hand once more. The `Adventure` rider
@@ -414,7 +414,7 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
     );
 }
 
-/// The permission CR 715.3d gives lasts "for as long as that card remains
+/// The permission CR 716.3d gives lasts "for as long as that card remains
 /// exiled", and no longer. Twining Twins goes on its adventure, is cast out
 /// of that exile, and later Swords to Plowshares exiles the creature. The
 /// card in exile now was exiled by Swords, and nothing lets anybody cast it:
@@ -496,7 +496,7 @@ fn a_card_cast_off_its_adventure_and_exiled_again_is_not_castable_from_exile() {
 
     // The creature, cast out of that exile off the four Islands.
     tap_mana_where(&mut engine, p0, |id| islands.contains(&id));
-    assert!(is_offered(&engine, card), "CR 715.3d allows the creature");
+    assert!(is_offered(&engine, card), "CR 716.3d allows the creature");
     engine
         .apply(p0, PlayerAction::CastSpell { card })
         .expect("the offer is honoured");
@@ -550,7 +550,7 @@ fn a_card_cast_off_its_adventure_and_exiled_again_is_not_castable_from_exile() {
     );
 }
 
-/// An Adventure is cast at its own timing (CR 715.3a: only the alternative
+/// An Adventure is cast at its own timing (CR 716.3a: only the alternative
 /// characteristics are evaluated to see if it can be cast; CR 601.3e).
 ///
 /// Swift Spiral is an instant on the back of Twining Twins, a creature
@@ -858,7 +858,7 @@ fn a_name_on_another_card_leaves_both_halves() {
 }
 
 /// An adventurer has its alternative characteristics only as an Adventure
-/// (CR 715.3a, 715.3b): Brazen Borrower named leaves Petty Theft, and Petty
+/// (CR 716.3a, 716.3b): Brazen Borrower named leaves Petty Theft, and Petty
 /// Theft named leaves Brazen Borrower.
 #[test]
 fn a_name_reaches_one_side_of_an_adventurer() {

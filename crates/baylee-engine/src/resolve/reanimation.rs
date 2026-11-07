@@ -177,7 +177,7 @@ pub(super) fn return_card(
 }
 
 /// Choose the entering face before any entry replacement or trigger can see it.
-/// Entering transformed is not the transform action (CR 712.14a, 701.27a).
+/// Entering transformed is not the transform action (CR 712.11a, 701.27a).
 fn arrive(
     state: &mut GameState,
     id: ObjectId,

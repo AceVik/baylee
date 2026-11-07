@@ -1,9 +1,9 @@
-//! A turn this seat controls (Mindslaver, CR 723.5) played through the
+//! A turn this seat controls (Mindslaver, CR 724.5) played through the
 //! client against a real engine: the question names the controlled player,
 //! the view waits for this seat, and every decision of that turn is this
 //! seat's to make with that player's cards, mana and creatures, including
 //! the ones against that player's interest. Its own decisions in that turn
-//! (CR 723.8) stay its own.
+//! (CR 724.8) stay its own.
 //!
 //! The views are built the way the gamehost builds a seat's
 //! (`awaiting_for`, `decision_player_for`, `controlled_players`), so what is
@@ -258,7 +258,7 @@ fn their_spell_is_cast_from_their_hand_with_their_lands() {
     assert_eq!(
         on_battlefield(&engine, THEM, "Grizzly Bears").len(),
         1,
-        "the bears entered under their owner's control (CR 723.3)"
+        "the bears entered under their owner's control (CR 724.3)"
     );
     assert_eq!(tapped(&engine, THEM, "Forest"), 2, "their two Forests paid");
     assert_eq!(
@@ -391,7 +391,7 @@ fn their_mind_rot_at_themselves_and_the_discard_it_asks_for() {
 }
 
 /// Their creature attacks, declared by this seat; this seat's own blocking
-/// decision in that turn is its own again (CR 723.8), over its own
+/// decision in that turn is its own again (CR 724.8), over its own
 /// creatures.
 #[test]
 fn their_attack_is_declared_here_and_my_blocks_stay_mine() {
@@ -727,7 +727,7 @@ fn hand_row(duel: &Duel) -> Vec<&str> {
         .collect()
 }
 
-/// This seat's own priority in their turn (CR 723.8).
+/// This seat's own priority in their turn (CR 724.8).
 fn my_priority() -> (PlayerView, Pending) {
     let mut view = controlling_view();
     view.decision_player = Some(ME);

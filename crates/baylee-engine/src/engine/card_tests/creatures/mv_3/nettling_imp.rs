@@ -59,7 +59,7 @@ fn nettling_imp_is_offered_only_before_p0_declares_attackers_and_never_on_p1_s_o
     });
     assert!(
         !offered(&engine),
-        "the declare attackers step has begun — CR 506.7a reads that as \
+        "the declare attackers step has begun — CR 506.8a reads that as \
          the window closing regardless of whether the Elf p0 could attack \
          with was actually declared"
     );

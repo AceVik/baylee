@@ -806,7 +806,7 @@ fn zero_depth_runtime_forced_and_house_answers_keep_honest_provenance() {
 }
 
 /// A decision for the player whose turn this seat controls (Mindslaver,
-/// CR 723.5) names that player and is sent to this seat, whose view it
+/// CR 724.5) names that player and is sent to this seat, whose view it
 /// awaits: the brain answers it. One the view awaits someone else for is
 /// left alone, as before.
 #[test]

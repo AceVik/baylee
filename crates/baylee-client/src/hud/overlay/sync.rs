@@ -385,7 +385,7 @@ pub fn sync_overlay(
             cards.as_mut(),
             skirt,
         );
-        // Shown from a controlled player's chair (CR 723.5): the hand says
+        // Shown from a controlled player's chair (CR 724.5): the hand says
         // whose it is, in a frame of its own, under the cards.
         if let Some(player) = duel.perspective.other() {
             let name = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), player);

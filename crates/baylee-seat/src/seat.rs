@@ -25,7 +25,7 @@
 //! # A decision for a controlled player
 //!
 //! A decision this seat makes for another player whose turn it controls
-//! (Mindslaver, CR 723.5) names that player in the question and this seat in
+//! (Mindslaver, CR 724.5) names that player in the question and this seat in
 //! the view's `awaiting`; the view's `decision_player` is that player, and
 //! its `controlled_hands` that player's hand. It goes the way of any other
 //! question: the standing orders, the mind, the house, the least answer. The
@@ -33,11 +33,11 @@
 //! a controlled player"), and the seat holds them in a filter of their own
 //! for that player, so an `until`, a plan's turn or a payment under way of
 //! either player never answers the other's questions: the seat goes on
-//! making its own decisions in the same turn (CR 723.8). The mind is told
+//! making its own decisions in the same turn (CR 724.8). The mind is told
 //! the decision is one it makes for that player, which it may make against
-//! that player's interest, with that player's resources only (CR 723.5a).
+//! that player's interest, with that player's resources only (CR 724.5a).
 //!
-//! A controller never concedes for the player it controls (CR 723.6): an
+//! A controller never concedes for the player it controls (CR 724.6): an
 //! answer that concedes in such a decision is refused, told why, and asked
 //! again, as any other foul (`SeatCore::foul`); the concession of the
 //! seat's own player is the seat's to make in a decision of its own.
@@ -1167,7 +1167,7 @@ impl SeatCore {
     /// Why `action` may not be sent for `current`, in words for the mind
     /// and the transcript: the referee's foul, or a concession in a
     /// decision for a player whose turn the seat controls, which a
-    /// controller never makes for that player (CR 723.6; module docs).
+    /// controller never makes for that player (CR 724.6; module docs).
     fn foul(current: &Current, action: &PlayerAction) -> Option<String> {
         if let Some(player) = current.controlled
             && *action == PlayerAction::Concede
@@ -1175,7 +1175,7 @@ impl SeatCore {
             let p = u16::from(player.get()) + 1;
             return Some(format!(
                 "you cannot concede for P{p}: you decide for P{p} while you control P{p}'s \
-                 turn, and only P{p} may concede for P{p} (CR 723.6); your own concession is \
+                 turn, and only P{p} may concede for P{p} (CR 724.6); your own concession is \
                  yours to make in a decision of your own. Answer this question for P{p}"
             ));
         }

@@ -127,7 +127,7 @@ impl<L: CardLookup> Engine<L> {
             // enter-the-battlefield triggers were never on the board, and
             // `collect_triggers` runs after this in the same pass.
             //
-            // It enters with its back face up (CR 712.14a); nothing turns
+            // It enters with its back face up (CR 712.11a); nothing turns
             // over, so it is `turn_over` and not `transform`: no
             // `Transformed` entry for a "transforms into" trigger or the
             // log to read, and no new timestamp over the one it entered
@@ -176,7 +176,7 @@ impl<L: CardLookup> Engine<L> {
             if !orientation_applied {
                 changed |= self.apply_mana_entry_counters(id, from_zone);
             }
-            // Entry lore is a replacement effect (CR 714.3a), so counter
+            // Entry lore is a replacement effect (CR 715.3a), so counter
             // multipliers apply. The CounterChanged event discovers every
             // crossed chapter, including multiple chapters at once.
             if !orientation_applied

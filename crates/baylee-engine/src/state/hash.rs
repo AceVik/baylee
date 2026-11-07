@@ -368,7 +368,7 @@ impl GameState {
         draws::hash(&mut h, self, &position);
         h.u8(self.monarch.map_or(255, PlayerId::get));
         // The designation is rules-visible and a loop that flips it is a
-        // loop that changes what daybound permanents are (CR 731). The
+        // loop that changes what daybound permanents are (CR 732). The
         // previous turn belongs here for a subtler reason: it is what the
         // *next* untap step will read, so two states alike in everything
         // else but disagreeing about it are not the same state.

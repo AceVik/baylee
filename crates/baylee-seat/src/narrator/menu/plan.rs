@@ -377,7 +377,7 @@ pub enum Stop {
     AttackPassed,
     /// The question is for another player than the one the plan was
     /// written for: the seat's own, or one whose turn it controls
-    /// (CR 723.5, 723.8). Each a player id such as `P2`, `None` for the
+    /// (CR 724.5, 724.8). Each a player id such as `P2`, `None` for the
     /// seat itself.
     OtherPlayer {
         /// Whom the plan was written for.

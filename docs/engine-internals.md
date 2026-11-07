@@ -59,7 +59,7 @@ it when `sync_static_effects` registers them (613.7a), and `transform` drops
 the old face's effects first, so the new face's statics are registered with
 the new stamp and apply after anything created while the other face was up.
 A daybound card entering at night enters with its back face up
-(CR 702.145b, 712.14a), and that is not a transform: nothing was turned
+(CR 702.145b, 712.11a), and that is not a transform: nothing was turned
 over (701.27a transforms a permanent). So the entry scan calls
 `GameState::turn_over`, the half of `transform` that drops the statics of
 the face going down and switches faces. It adds no stamp, since the arrival
@@ -71,7 +71,7 @@ into" trigger (701.27e) and the log's "transformed" line read
 on arrival and again at every change of control
 (`restart_summoning_sickness`). Summoning sickness (`combat::summoning_sick`,
 CR 302.6) reads only this field, because a permanent that transforms is the
-same object under the same controller (CR 712.18). The two used to be one
+same object under the same controller (CR 712.15). The two used to be one
 field, and that is why a transform could not take its timestamp without
 making the permanent summoning-sick. Two of the events CR 613.7 lists are
 not implemented: an Aura, Equipment or Fortification becoming attached
@@ -149,7 +149,7 @@ is asked.** They are one event, and each one's own replacements modify how
 it enters (CR 614.12, 614.12a). So 0b walks every arrival since
 `entry_scan_seq` first and applies what needs no answer: entering tapped,
 counters, a planeswalker's loyalty (CR 306.5b), a Saga's lore counter
-(CR 714.3a), daybound's back face, a Room's door. What asks (an
+(CR 715.3a), daybound's back face, a Room's door. What asks (an
 `EnterModifier` that chooses, or a clone's copy choice, `EntryAsk`) is
 queued in `Engine::entry_questions` and asked one at a time: the active
 player's first, then in turn order (CR 101.4), and one player's in the order
@@ -221,7 +221,7 @@ card whose power and toughness are `*` was its printed 0 in a library, a
 hand or a graveyard. Recruiter of the Guard offered a 3/3 Ashaya as a
 creature with toughness 2 or less. `GameState::printed_pt_cda` holds, per
 card object, the `Modifier::CharacteristicPT` its front face prints on
-itself (CR 712.8a: off the battlefield a card has only its front face),
+itself (CR 712.6a: off the battlefield a card has only its front face),
 read once in `create_card`. `layers::recompute_with` applies it in layer 7a
 wherever the card is *not* on the battlefield; there the registered static
 does, so an effect that removes abilities still removes it. Those cards
@@ -544,7 +544,7 @@ checked the declaration). Block triggers are per pair already (CR 509.3b,
 damage divided among the attackers it blocks is asked of its controller
 (CR 510.1d, `divisions_owed`).
 
-### Windows in the turn (CR 506.7)
+### Windows in the turn (CR 506.8)
 "Cast this spell only before the combat damage step", "activate only during
 an opponent's turn, before attackers are declared", "activate only during
 your upkeep": each is a `Condition`, asked where the permission is asked.
@@ -559,7 +559,7 @@ your upkeep": each is a `Condition`, asked where the permission is asked.
   `TurnInfo::position` with `turn::position_of(kind)`, a place in turn order
   (CR 500.1), so "before the combat damage step" still holds in a declare
   attackers step that has no combat damage step after it and is over at
-  end of combat (CR 506.7a, 506.7e). `OpponentsTurn` asks the active
+  end of combat (CR 506.8a, 506.8e). `OpponentsTurn` asks the active
   player's relation to "you", which a teammate's turn does not satisfy;
   `All` joins them. `Step::kind` is the one door from the engine's steps to
   the ones a card names, for `Trigger::StepBegin` as well: both combat
@@ -574,7 +574,7 @@ your upkeep": each is a `Condition`, asked where the permission is asked.
   asks a delayed trigger's "that creature" (Berserk's "if it attacked this
   turn").
 
-This engine has one combat phase a turn, so CR 506.7c–d (which of several
+This engine has one combat phase a turn, so CR 506.8c–d (which of several
 combats a window means) never arises.
 
 ### Bands, and who divides combat damage (CR 702.22)
@@ -1163,7 +1163,7 @@ filters containing `This`; those must gain an explicit resolution-context
 reader before such a card is implemented.
 
 A spell leaves by `Engine::leave_stack_without_resolving` and not by
-`finalize_spell`: rebound (CR 702.88) and an Adventure (CR 715.3d) exile a
+`finalize_spell`: rebound (CR 702.88) and an Adventure (CR 716.3d) exile a
 card *as it resolves*, and one that never resolved has done neither.
 Flashback is the rider that does apply, because CR 702.34a exiles the card
 "any time it would leave the stack".
@@ -1199,12 +1199,12 @@ definition behind a permanent, which `sba::run` has no lookup for.
 
 The step immediately above them, `Progress::finished_sagas`, is there for
 only the second of those two reasons. Sacrificing a Saga whose lore counters
-have reached its final chapter (CR 714.4) *is* a state-based action, and it
+have reached its final chapter (CR 715.4) *is* a state-based action, and it
 sits outside `sba::run` because it has to read the permanent's abilities to
 find out what that chapter number is. It used to sit somewhere else
 entirely — on the way out of the last chapter's resolution — which left a
 Saga on the battlefield for the rest of the game if that chapter was
-countered. CR 714.4's second clause is why it still cannot fire from there:
+countered. CR 715.4's second clause is why it still cannot fire from there:
 a Saga is spared while it "isn't the source of a chapter ability that has
 triggered but not yet left the stack", and a chapter that has triggered is
 in the trigger queue before it is on the stack, which is why
@@ -1219,7 +1219,7 @@ turn over has done so before anything asks what triggered.
 The step reports whether it changed anything, and the two shapes it must
 refuse are why that answer has to be exact. A token has no card, and a clone
 of a werewolf carries the copied daybound over a definition with one face
-(CR 701.27c) — turning either over would rebuild its base from a face that
+(CR 701.27d) — turning either over would rebuild its base from a face that
 is not there. Both are skipped, and skipped *without* reporting a change: a
 guard that reported one would send the fixpoint round forever on a permanent
 it had just declined to touch.
@@ -1227,7 +1227,7 @@ it had just declined to touch.
 `GameState::transform` is the door that journals `Transformed`. Its
 neighbour `switch_face` does the same work silently and is what the modal
 paths call, because choosing which face of an MDFC to cast or to play as a
-land is not a transform (CR 712.11b and CR 712.12).
+land is not a transform (CR 712.8b and CR 712.9).
 
 ### A replacement that has to ask (CR 903.9b)
 `GameState::move_object` is the one funnel every zone change goes through,
@@ -1575,7 +1575,7 @@ increment. The chooser's historical view carries its own entitled identity and
 characteristics instead of looking up the current object. Target revalidation
 uses the separate exact-target contract described above (#117).
 
-### The monarch's abilities have no source (CR 725.2)
+### The monarch's abilities have no source (CR 726.2)
 
 `trigger::monarch_triggers` reads both off the events and queues synthetic
 triggers from `ObjectId::NO_SOURCE`, controlled by the monarch they
@@ -1590,7 +1590,7 @@ opponent becomes the monarch" that resolves after an opponent was crowned
 since it was put on the stack exiles nothing
 (`resolve::zones::an_opponent_was_crowned_since`). Players who lose in one
 state-based check leave together (`sba::run` finds every loss first), so
-the crown passes over all of them to the heir (CR 725.4), never through one.
+the crown passes over all of them to the heir (CR 726.4), never through one.
 
 ### Undying and persist, and the question about an object that is gone
 
@@ -2152,8 +2152,8 @@ Muldrotha's allowance whole.
 
 **A back face is cast at its own timing** (CR 601.3e). Only the face that
 will be up on the stack is evaluated to see whether a modal double-faced
-card can be cast (CR 712.11c), and only the alternative characteristics for
-an Adventure (CR 715.3a). So `casting::can_cast_form` reads the front's
+card can be cast (CR 712.8c), and only the alternative characteristics for
+an Adventure (CR 716.3a). So `casting::can_cast_form` reads the front's
 timing off its projected characteristics and each castable back face's off
 that face (`casting::face_timing_allows`); the card is offered when either
 may be cast now, affordable and with something to point at. The wizard's
@@ -2186,7 +2186,7 @@ combines that with `PlayersCantCast { who: EachPlayer, filter: NamedBySource }`.
 `casting::cast_is_forbidden` checks both the offer and the direct action, so
 neither player can cast the named spell while differently named spells and
 land plays remain legal. A spell cast as one face has that face's
-characteristics alone (CR 709.3a, 715.3a), so every lock is asked of the face
+characteristics alone (CR 709.3a, 716.3a), so every lock is asked of the face
 being cast: `casting::face_is_forbidden`, read beside `face_timing_allows`
 by `can_cast` and `cast_options`. A forbidden front leaves a back face that
 is not, and a forbidden back face is not offered. A face whose name no object
@@ -2305,7 +2305,7 @@ resolution, because a spell with no effects reaches `finalize_spell` with no
 `Resolution` at all. It is asked after `finish_resolution` has emptied
 `state.reflexive`, which must be empty while a question is out. `asked` is the
 controller, so a controlled player's answer is their controller's through
-`controlled_actor` (CR 723.5). A concession asks again from what is left (it
+`controlled_actor` (CR 724.5). A concession asks again from what is left (it
 expires the departed's rules first, since the leaving was an event of its own,
 #291); with one ending left nobody is asked and it applies.
 
@@ -2330,7 +2330,7 @@ an `ETB` trigger takes them onto the ability on the stack with the X, so
 
 **A back face's mana value is its front face's** (CR 202.3b). A nonmodal
 double-faced card's back face has no mana cost, and up on the battlefield
-(CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed
+(CR 712.6d) or cast transformed (CR 712.6b) its mana value is computed
 from the front face's: Ravager of the Fells is a four, not a zero, and a
 disturbed Benevolent Geist a two. A disturb face keeps its disturb cost in
 `mana_cost`, since that is what it is cast for, so the cost is not the
@@ -2509,7 +2509,7 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   nothing. What the seat can see now stays out of the deal, the same
   objects in the same places: a hand revealed by a static (`hand_revealed`:
   Revelation, Stromgald Spy), the hand of a player the seat controls
-  (`may_inspect_private`, CR 723.4), and a library top a static reveals
+  (`may_inspect_private`, CR 724.4), and a library top a static reveals
   (`library_top_revealed`: Courser of Kruphix, Field of Dreams) — dealing
   those would put a card there the seat knows is not, and with Courser
   change which lands can be played from the top. What the seat knew earlier
@@ -2653,8 +2653,8 @@ that original calculation restored.
    its owner. Under a later thief it goes back to the earlier one. Their
    control of a player ends too, both ways the engine keeps one as an
    effect: Opposition Agent's `SearchTakeover` hold on a searching player
-   (CR 723.2), and Mindslaver's control of a player's next turn
-   (`GameState::turn_controls`, CR 723.1), waiting or under way, whether
+   (CR 724.2), and Mindslaver's control of a player's next turn
+   (`GameState::turn_controls`, CR 724.1), waiting or under way, whether
    they are its controller or the player it controls. A search they were
    making for somebody else when they left goes back to that player, with
    the same cards and limits, to finish as their own search (CR 723.5).
@@ -2662,7 +2662,7 @@ that original calculation restored.
    back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
    permanents left without a move, so this is the one departure
    `move_object` does not see. If they were the monarch, the crown passes
-   as they leave (CR 725.4, `GameState::monarch_leaves`): to the active
+   as they leave (CR 726.4, `GameState::monarch_leaves`): to the active
    player, or, when the leaver is the active player, to the next player in
    turn order still in the game, and to nobody when nobody is left. It
    passes through `set_monarch`, so Palace Jailer's exile ends if the heir
@@ -2685,13 +2685,13 @@ the new one as well.
 
 A turn control waits through every turn its player does not take, other
 players' and extra turns among them, and through a turn of theirs that is
-skipped, which never begins (CR 723.1b). As the player's turn begins,
+skipped, which never begins (CR 724.1b). As the player's turn begins,
 `Engine::begin_turn` stamps the control with that turn's number
 (`PlayerTurnControl::began`); `controlled_actor` reads it only during the
 turn it was stamped with; and the next turn's beginning ends it, whoever
 takes that turn, the player's own extra turn included ("the effect doesn't
-end until the beginning of the next turn", CR 723.1). Of two waiting for
-the same player, the later works (CR 723.1a). Keyed on turn numbers alone
+end until the beginning of the next turn", CR 724.1). Of two waiting for
+the same player, the later works (CR 724.1a). Keyed on turn numbers alone
 it was dropped once two turns passed before the player's (seat 0's on seat
 3's, at four seats, or after its controller's two extra turns) and lasted
 on through an extra turn the player took right after

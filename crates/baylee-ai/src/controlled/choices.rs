@@ -1,5 +1,5 @@
 //! The choices a controlled player is asked as their spells and abilities
-//! are cast and resolve (CR 723.5), made against them.
+//! are cast and resolve (CR 724.5), made against them.
 //!
 //! Each reading measures from their side of the table (`theirs`, the view
 //! [`super::seen_by`] builds) and takes the other end of what they would
@@ -441,7 +441,7 @@ impl HeuristicAgent {
     ) -> Option<bool> {
         Some(match prompt {
             YesNoPrompt::MayDo => self.may_against(theirs, source, context),
-            // A pact's debt unpaid loses them the game (CR 723.5: theirs to
+            // A pact's debt unpaid loses them the game (CR 724.5: theirs to
             // decide, so this seat's). Their commander stays where it went,
             // and a card of theirs goes to the bottom rather than back as
             // their next draw. And every optional price that buys them

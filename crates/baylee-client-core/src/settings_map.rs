@@ -237,7 +237,7 @@ pub enum Row {
     Arrangement,
     /// Whether the table follows the turn (DESIGN-v8 §1.1, D25).
     FollowTurn,
-    /// Whether the table follows the player this seat decides for (CR 723.5).
+    /// Whether the table follows the player this seat decides for (CR 724.5).
     FollowControl,
     /// The arrangement remembered per seat count (DESIGN-v8 §2.6, D24).
     ArrangementBySeats,

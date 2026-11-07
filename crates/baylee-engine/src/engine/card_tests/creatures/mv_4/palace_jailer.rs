@@ -10,7 +10,7 @@ use super::*;
 /// battlefield for exile while my own Elf is never on the target menu, and the
 /// designation leaves no marker on the table, so it is read where the rules make
 /// it visible: the monarch draws a card at the beginning of their own end step
-/// (CR 725.2), which nothing else on this board would do.
+/// (CR 726.2), which nothing else on this board would do.
 #[test]
 #[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
 fn palace_jailer_crowns_its_controller_and_exiles_an_opponents_creature() {
@@ -126,7 +126,7 @@ fn palace_jailer_crowns_its_controller_and_exiles_an_opponents_creature() {
 
     // The designation leaves no marker on the table, so it is read where the
     // rules make it visible: the monarch draws a card at the beginning of their
-    // own end step (CR 725.2). Everything walked here is p0's combat, p0's end
+    // own end step (CR 726.2). Everything walked here is p0's combat, p0's end
     // step and p1's untap, upkeep and draw — none of which draws a card for p0
     // unless the first trigger resolved.
     let library_before = library_size(&engine, p0);
@@ -149,7 +149,7 @@ fn palace_jailer_crowns_its_controller_and_exiles_an_opponents_creature() {
 /// Palace Jailer's exile ends when "an opponent becomes the monarch", and
 /// only then. Skyclave Apparition's has no end at all. Each holds one of
 /// seat 1's Elves when seat 1 takes the crown with a third Elf's combat
-/// damage (CR 725.2), and only the Jailer's prisoner comes back, under its
+/// damage (CR 726.2), and only the Jailer's prisoner comes back, under its
 /// owner's control (CR 610.3c).
 ///
 /// Every card linked to an exile was released as soon as anyone but its
@@ -264,7 +264,7 @@ fn palace_jailer_frees_its_prisoner_when_an_opponent_is_crowned_and_skyclave_kee
 }
 
 /// Palace Jailer at a table of three, and the monarch leaves the game
-/// (CR 725.4). Seat 0 is the monarch, with seat 1's Elves in the Jailer's
+/// (CR 726.4). Seat 0 is the monarch, with seat 1's Elves in the Jailer's
 /// exile, and concedes during seat 2's turn. The crown passes to the active
 /// player, seat 2, as seat 0 leaves: not to seat 1, the next seat after the
 /// leaver. Seat 2 is an opponent of the player who exiled the Elves, so the
@@ -508,7 +508,7 @@ fn zone_of(engine: &Engine<RegistryLookup>, id: ObjectId) -> Option<Zone> {
 
 /// The Jailer comes down while its controller already holds the crown:
 /// "you become the monarch" changes nothing, so nothing is said to have
-/// happened (CR 725.3 — a player who is the monarch does not become it
+/// happened (CR 726.3 — a player who is the monarch does not become it
 /// again), and the second trigger is not a part of the first, so the exile
 /// is made all the same.
 ///
@@ -665,7 +665,7 @@ fn the_jailer_leaving_the_battlefield_does_not_free_its_prisoner() {
 /// Two teams, seats 0 and 2 against seats 1 and 3, and the Jailer's
 /// controller leaves the game while a teammate holds the crown. Their
 /// leaving is not "an opponent becomes the monarch": the Jailer goes with
-/// its owner (CR 800.4a), the crown does not move (CR 725.4 passes it only
+/// its owner (CR 800.4a), the crown does not move (CR 726.4 passes it only
 /// from a monarch who leaves), and the prisoner, owned by somebody who is
 /// still playing, stays in exile (CR 800.4b).
 #[test]
@@ -709,7 +709,7 @@ fn a_jailers_controller_leaving_while_a_teammate_is_the_monarch_frees_nothing() 
 
 /// The same table, and the Jailer's controller is the monarch when they
 /// leave, on their teammate's turn. The crown goes to the active player
-/// (CR 725.4), who is the leaver's teammate and no opponent, so the prisoner
+/// (CR 726.4), who is the leaver's teammate and no opponent, so the prisoner
 /// stays in exile.
 #[test]
 fn a_monarch_jailer_controller_who_leaves_crowns_a_teammate_and_frees_nothing() {

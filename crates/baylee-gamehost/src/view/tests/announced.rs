@@ -660,7 +660,7 @@ fn reflexive_synthetic_trigger_target_exposes_source_and_sentence_in_targeting_c
 }
 
 /// Deciding for a controlled player, a seat is told that player's timing:
-/// Teferi's own controller making the locked opponent's decision (CR 723.5)
+/// Teferi's own controller making the locked opponent's decision (CR 724.5)
 /// sees the lock the opponent is under, and is free again on its own
 /// question.
 #[test]

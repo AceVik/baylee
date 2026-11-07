@@ -1119,7 +1119,7 @@ impl Builder<'_, '_> {
             .seat(p)
             .map_or_else(String::new, |s| format!(", {} life", s.life));
         // The player decided for may be chosen, attacked or targeted like
-        // any other, its own face included (CR 723.5).
+        // any other, its own face included (CR 724.5).
         let deciding = if table.controlled() == Some(p) {
             " (you decide for this player)"
         } else {

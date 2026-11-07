@@ -1,5 +1,5 @@
 DECISION q12 · turn 8, P2's · attackers · 25 s
-You control P2 this turn (Mindslaver, CR 723.5): decide this for P2, with P2's cards and mana only. You may play it against P2's interest. You cannot concede for P2. Your own decisions stay yours.
+You control P2 this turn (Mindslaver, CR 724.5): decide this for P2, with P2's cards and mana only. You may play it against P2's interest. You cannot concede for P2. Your own decisions stay yours.
 
 You (P1): 17 life · library 45 · hand 4 · graveyard 1
 P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1

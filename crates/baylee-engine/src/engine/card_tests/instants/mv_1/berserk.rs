@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Berserk: "Cast this spell only before the combat damage step" (CR 506.7).
+/// Berserk: "Cast this spell only before the combat damage step" (CR 506.8).
 /// Offered in the upkeep, the first main phase, the beginning of combat,
 /// the declare attackers step (both before and after the attacker is
 /// declared — that step is not skipped, CR 508.8, since one is) and through
@@ -210,7 +210,7 @@ fn berserk_is_castable_on_an_opponents_turn_and_closes_at_the_declare_attackers_
     assert!(
         castable(&engine),
         "the declare attackers step, before it ends, is open even though \
-         nothing was named this combat (CR 506.7a: the rule reads the step, \
+         nothing was named this combat (CR 506.8a: the rule reads the step, \
          not the declaration)"
     );
 
@@ -222,7 +222,7 @@ fn berserk_is_castable_on_an_opponents_turn_and_closes_at_the_declare_attackers_
     assert!(
         !castable(&engine),
         "declare blockers and combat damage were both skipped (CR 508.8), \
-         so the stated point never existed this combat; CR 506.7e closes \
+         so the stated point never existed this combat; CR 506.8e closes \
          the window at the declare attackers step's end instead, and the \
          mana just floated proves this is not about affording it"
     );

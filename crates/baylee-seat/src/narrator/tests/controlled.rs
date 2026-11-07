@@ -1,5 +1,5 @@
 //! A decision the seat makes for the player whose turn it controls
-//! (Mindslaver, CR 723.5), told as one: the line under the header, P2's
+//! (Mindslaver, CR 724.5), told as one: the line under the header, P2's
 //! hand under P2's name, options that cast with P2's cards and tap P2's
 //! lands, P2's own permanents and P2's own face among what may be chosen,
 //! "your" only for the seat's own things, and no concession (CR 723.6).
@@ -229,7 +229,7 @@ fn the_controlled_player_is_among_the_players_to_choose() {
     assert_eq!(chosen.act, Act::Now(PlayerAction::ChoosePlayer(THEM)));
 }
 
-/// A concession is no answer in a decision for P2 (CR 723.6): the menu
+/// A concession is no answer in a decision for P2 (CR 724.6): the menu
 /// says why. In the seat's own decision it is its own to make.
 #[test]
 fn a_concession_is_no_answer_for_a_controlled_player() {
@@ -241,7 +241,7 @@ fn a_concession_is_no_answer_for_a_controlled_player() {
     let menu = Narrator::new(&request.context).menu(&request);
     let why = menu.resolve(&concede).expect_err("refused");
     assert!(
-        why.contains("cannot concede for P2") && why.contains("CR 723.6"),
+        why.contains("cannot concede for P2") && why.contains("CR 724.6"),
         "{why}"
     );
     let own = a_priority_of_the_seats_own();

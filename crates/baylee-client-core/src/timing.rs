@@ -38,7 +38,7 @@ use baylee_view::{Phase, PlayerView};
 ///
 /// "Its own turn" is the turn of the player whose cards the decision uses
 /// ([`crate::decision::resource_player`]): a seat that controls another
-/// player's turn (Mindslaver, CR 723.5) casts that player's sorceries in
+/// player's turn (Mindslaver, CR 724.5) casts that player's sorceries in
 /// that player's main phase, which is not the seat's own turn.
 #[must_use]
 pub fn sorcery_window(view: &PlayerView) -> bool {
@@ -173,7 +173,7 @@ mod tests {
     }
 
     /// A decision this seat makes for the player whose turn it controls
-    /// (CR 723.5) opens that player's main phase to their sorceries; the
+    /// (CR 724.5) opens that player's main phase to their sorceries; the
     /// same main phase seen without the decision stays closed.
     #[test]
     fn a_controlled_players_main_phase_is_open_to_its_controller() {

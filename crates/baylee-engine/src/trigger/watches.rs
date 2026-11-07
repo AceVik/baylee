@@ -205,7 +205,7 @@ static MONARCH_TAKEOVER: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effec
     PlayerRel::ControllerOfTarget,
 )];
 
-/// The monarch's two inherent triggered abilities (CR 725.2).
+/// The monarch's two inherent triggered abilities (CR 726.2).
 ///
 /// No permanent has them, so no walk over permanents finds them: they are
 /// read off the events directly. They have no source ([`ObjectId::NO_SOURCE`])

@@ -349,7 +349,7 @@ fn matches(
 ) -> bool {
     let source = context.source;
     match (trigger, event) {
-        // CR 701.27e for the second: the ability is read off the face the
+        // CR 701.27f for the second: the ability is read off the face the
         // permanent shows right after it turned over, which is the face that
         // prints it. CR 702.29c for the third: the card cycled is the
         // source, wherever it wound up.
@@ -619,7 +619,7 @@ fn matches(
                     })
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
-        // CR 714.2b's window, "was less than N and became at least N",
+        // CR 715.2b's window, "was less than N and became at least N",
         // asked of the source's own counters.
         (
             Trigger::CountersReach { kind, n },

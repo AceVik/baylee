@@ -69,7 +69,7 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
     assert_eq!(
         identity(&engine, transformed),
         enchantment_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
     assert!(
         types(&engine, transformed).contains(TypeSet::LAND),
@@ -93,7 +93,7 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
 /// Two lands entering at once trigger Twists and Turns twice, and the first
 /// to resolve turns it over. The second is an ability of the permanent that
 /// tries to transform it after it has transformed since the ability was put
-/// on the stack, so it is ignored (CR 701.27f): Mycoid Maze stays Mycoid
+/// on the stack, so it is ignored (CR 701.27g): Mycoid Maze stays Mycoid
 /// Maze. Blighted Woodland's sacrifice leaves six lands and its two Forests
 /// make eight, so "if you control seven or more lands" holds for both.
 #[test]
@@ -149,7 +149,7 @@ fn twists_and_turns_triggered_twice_at_once_transforms_once() {
     assert_eq!(
         identity(&engine, enchantment),
         enchantment_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
     assert_eq!(
         engine

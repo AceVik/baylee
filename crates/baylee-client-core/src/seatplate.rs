@@ -4,7 +4,7 @@
 //! bottom left, and its **plate** on the table at its mat's outer edge. Both
 //! are now the same few lines, in the same order, read from one place:
 //!
-//! 1. the name and the life, and a crown on the monarch (CR 724);
+//! 1. the name and the life, and a crown on the monarch (CR 726);
 //! 2. the details: hand (and ∞ where no maximum hand size applies), library,
 //!    graveyard and exile, then poison, energy and the worst single
 //!    commander's damage when they are not zero;
@@ -117,7 +117,7 @@ pub struct SeatPlate {
     pub player: PlayerId,
     /// Life total.
     pub life: i32,
-    /// Whether this seat is the monarch (CR 724).
+    /// Whether this seat is the monarch (CR 726).
     pub monarch: bool,
     /// Whether the seat is out of the game.
     pub lost: bool,

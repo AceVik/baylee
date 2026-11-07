@@ -110,7 +110,7 @@ pub fn pointer(
                 continue;
             }
             // A chair this seat may play from (its own, or a player it
-            // controls, CR 723.5) becomes the one the table is shown from:
+            // controls, CR 724.5) becomes the one the table is shown from:
             // its hand, its mana, its questions. Every other seat's tab is
             // only the camera's.
             duel.show_from(tab.player);

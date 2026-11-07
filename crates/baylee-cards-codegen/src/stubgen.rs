@@ -722,8 +722,8 @@ fn render_face(
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has
-    // only its front face's characteristics (CR 712.8a), and the back is
-    // reached by turning it over (CR 712.8c).
+    // only its front face's characteristics (CR 712.6a), and the back is
+    // reached by turning it over (CR 712.6b).
     //
     // The **layout** answers that, and the printed cost only nearly does.
     // Every castable back prints a cost (MDFC, disturb, adventure) and a

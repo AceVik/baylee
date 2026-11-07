@@ -58,13 +58,13 @@ fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
 /// with a land on its back, and every reader that asked
 /// `types.contains(LAND)` read it as a spell and nothing else. The engine
 /// does not — `compute_legal` offers the land drop for a modal card's land
-/// back (CR 712.12) — so the agent was refusing to count a card the engine
+/// back (CR 712.9) — so the agent was refusing to count a card the engine
 /// was already offering it.
 ///
 /// The rule is the engine's rule, asked through the same function
 /// (`CardDef::land_faces_from_hand`): a modal card's land back is a land
-/// drop (CR 712.12) and a transforming card's is not, because in hand it has
-/// only its front face's characteristics (CR 712.8a). An agent that
+/// drop (CR 712.9) and a transforming card's is not, because in hand it has
+/// only its front face's characteristics (CR 712.6a). An agent that
 /// disagreed with the offer it is answering would count land drops the
 /// engine will not make, or decline ones it is making.
 pub(crate) fn land_face(card: CardIdentity) -> Option<&'static FaceDef> {

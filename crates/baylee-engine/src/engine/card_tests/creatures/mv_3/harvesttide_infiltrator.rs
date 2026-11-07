@@ -9,7 +9,7 @@ use super::*;
 /// cast off exactly three Mountains, so the body, the keyword and the emptied
 /// pool are read off a permanent that really arrived, and the table then walks
 /// a turn in which nobody casts a spell, which is what turns day into night
-/// (CR 731.2a) and the daybound permanent over (CR 702.145b). A daybound keyword
+/// (CR 732.2a) and the daybound permanent over (CR 702.145b). A daybound keyword
 /// that turned nothing over would leave the 3/2 standing while every claim
 /// about the cast stayed green.
 #[test]

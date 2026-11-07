@@ -112,7 +112,7 @@ pub fn adventure_permission(state: &GameState, player: PlayerId, card: ObjectId)
     })
 }
 
-/// An independent permission can cast the Adventure again (CR 715.3d).
+/// An independent permission can cast the Adventure again (CR 716.3d).
 #[must_use]
 pub(crate) fn adventure_only_permission(
     state: &GameState,
@@ -169,7 +169,7 @@ fn castable_back_faces_in_zone(
 /// The `face` parameter is the whole reason this is not a method on the
 /// engine any more. It used to ask face 0 and nothing else, which was the
 /// same answer for every way of casting a card — and an adventure
-/// (CR 715) is a *different spell* with its own target line on the back of a
+/// (CR 716) is a *different spell* with its own target line on the back of a
 /// creature that has none. Swift Spiral has to find a nontoken creature;
 /// Twining Twins in front of it has nothing to target, so the front face
 /// answered "no requirement, therefore yes" for a mode that would then be
@@ -699,8 +699,8 @@ pub fn timing_allows(
 ///
 /// A face that is cast in place of the front is judged by its own
 /// characteristics (CR 601.3e): only the face that will be up on the stack
-/// is evaluated for an MDFC (CR 712.11c), and only the alternative
-/// characteristics for an Adventure (CR 715.3a). So an instant printed on
+/// is evaluated for an MDFC (CR 712.8c), and only the alternative
+/// characteristics for an Adventure (CR 716.3a). So an instant printed on
 /// the back of a creature or an enchantment is cast whenever an instant
 /// could be, and the front is not. Read off the printed face: nothing can
 /// have granted a face that is not up anything, and the two player-scoped
@@ -718,7 +718,7 @@ pub(crate) fn face_timing_allows(
     }) && spell_condition_allows(state, player, card, def, face)
 }
 
-/// "Cast this spell only [when]" (CR 506.7; Berserk's "only before the
+/// "Cast this spell only [when]" (CR 506.8; Berserk's "only before the
 /// combat damage step"): whether the condition the face's spell prints, if
 /// it prints one, holds now for `player` casting `card`. A restriction of
 /// the card's own, asked beside the timing its type gives it (CR 601.3):
@@ -1048,7 +1048,7 @@ pub(crate) fn can_cast_form_paying(
     if matches!(form, Some(SpellForm::Foretell(_))) && !foretell_ok {
         return Err(CastError::NotInHand);
     }
-    // Adventure (CR 715): a card on an adventure may be cast from exile.
+    // Adventure (CR 716): a card on an adventure may be cast from exile.
     let on_adventure = adventure_only_permission(state, player, card);
     let adventure_ok = !in_hand && adventure_permission(state, player, card);
     // Opposition Agent: cards exiled by the takeover are playable by the

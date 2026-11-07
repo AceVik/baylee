@@ -63,7 +63,7 @@ fn mindslaver_waits_for_the_targets_next_turn_even_when_cast_on_their_turn() {
     );
 }
 
-// --- A controlled turn, decided against its player (CR 723) ---------------
+// --- A controlled turn, decided against its player (CR 724) ---------------
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -78,7 +78,7 @@ fn slaver(rest: &[CardIndex]) -> Vec<CardIndex> {
 
 /// P0 Mindslavers P1 from its own main phase, paying with its Islands
 /// alone, and the game runs on to P1's next main phase, which P0 controls
-/// (CR 723.1).
+/// (CR 724.1).
 fn controlled_main(duel: Duel) -> Engine<RegistryLookup> {
     let mut e = duel.start();
     keep_mulligans(&mut e);
@@ -97,7 +97,7 @@ fn controlled_main(duel: Duel) -> Engine<RegistryLookup> {
     pass_until(&mut e, stack_is_empty);
     reach_their_main_phase(&mut e, P1);
     assert_eq!(e.pending().asked(), Some(P1), "P1's own priority");
-    assert_eq!(e.decision_actor(), Some(P0), "made by P0 (CR 723.5)");
+    assert_eq!(e.decision_actor(), Some(P0), "made by P0 (CR 724.5)");
     e
 }
 
@@ -118,7 +118,7 @@ fn all_in_hand(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> V
 
 /// The controller casts the controlled player's Lightning Bolts with that
 /// player's Mountains, one at that player's own creature and one at that
-/// player (CR 723.5), and the controlled player cannot answer for itself.
+/// player (CR 724.5), and the controlled player cannot answer for itself.
 #[test]
 fn the_controller_aims_the_subjects_bolts_at_its_own_creature_and_at_it() {
     let mut e = controlled_main(
@@ -163,7 +163,7 @@ fn the_controller_aims_the_subjects_bolts_at_its_own_creature_and_at_it() {
     assert_eq!(e.state().players[0].life, 20);
 }
 
-/// Only the controlled player's resources pay for it (CR 723.5a): P0's
+/// Only the controlled player's resources pay for it (CR 724.5a): P0's
 /// untapped Mountain is not on offer, cannot be tapped for P1, and P1's
 /// Bolt, with nothing of P1's to pay for it, is not castable.
 #[test]
@@ -192,7 +192,7 @@ fn only_the_subjects_own_mana_pays_for_the_subject() {
 }
 
 /// The controller attacks with the controlled player's creature into its
-/// own blocker (CR 723.5), and blocks with its own creature as itself
+/// own blocker (CR 724.5), and blocks with its own creature as itself
 /// (CR 723.8): the Ogre dies, and P0 takes nothing.
 #[test]
 fn the_controller_attacks_with_the_subjects_creature_into_its_own_blocker() {
@@ -248,7 +248,7 @@ fn the_controller_attacks_with_the_subjects_creature_into_its_own_blocker() {
 }
 
 /// A choice the controlled player's spell asks as it resolves is the
-/// controller's (CR 723.5): P0 puts P1's two best cards back on top of
+/// controller's (CR 724.5): P0 puts P1's two best cards back on top of
 /// P1's library with P1's Brainstorm.
 #[test]
 fn the_controller_makes_the_subjects_resolution_choice() {
@@ -299,7 +299,7 @@ fn the_controller_makes_the_subjects_resolution_choice() {
 }
 
 /// At the controlled player's cleanup the controller chooses what that
-/// player discards to its maximum hand size (CR 723.5, CR 514.1).
+/// player discards to its maximum hand size (CR 724.5, CR 514.1).
 #[test]
 fn the_controller_chooses_the_subjects_discard_to_hand_size() {
     let mut hand = vec![lightning_bolt(), lightning_bolt()];
@@ -337,7 +337,7 @@ fn the_controller_chooses_the_subjects_discard_to_hand_size() {
 }
 
 /// The controller goes on making its own decisions in that turn
-/// (CR 723.8): passing for P1 with P1's spell on the stack hands P0 its
+/// (CR 724.8): passing for P1 with P1's spell on the stack hands P0 its
 /// own priority, and P0 answers with its own Bolt from its own Mountain.
 #[test]
 fn the_controller_still_makes_its_own_decisions() {
@@ -388,7 +388,7 @@ fn the_controller_still_makes_its_own_decisions() {
 }
 
 /// The controller cannot make the controlled player concede, and the
-/// controlled player may concede at any time (CR 723.6, CR 104.3a).
+/// controlled player may concede at any time (CR 724.6, CR 104.3a).
 #[test]
 fn only_the_subject_concedes_for_the_subject() {
     let duel = || {
@@ -409,7 +409,7 @@ fn only_the_subject_concedes_for_the_subject() {
 }
 
 /// Two effects controlling the same player's next turn overwrite each
-/// other, and the last one created is the one that works (CR 723.1a): P0
+/// other, and the last one created is the one that works (CR 724.1a): P0
 /// Mindslavers P1, then P2 does in the same turn, and P2 decides P1's turn.
 #[test]
 fn the_last_player_control_effect_is_the_one_that_works() {
@@ -454,7 +454,7 @@ fn the_last_player_control_effect_is_the_one_that_works() {
 
 /// Who decides for whom is public, for the controlled turn only, with the
 /// card whose effect gave the control: every seat and spectator is told
-/// it (CR 723).
+/// it (CR 724).
 #[test]
 fn the_control_is_told_with_its_card_for_the_controlled_turn_only() {
     let mut e = Duel::new(SEED, forest())

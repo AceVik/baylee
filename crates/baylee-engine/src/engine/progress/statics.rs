@@ -135,7 +135,7 @@ impl crate::state::GameState {
         // does.
         //
         // A static with a condition on its source (a station symbol's,
-        // CR 721.2a) exists only while the condition holds: its effect is
+        // CR 722.2a) exists only while the condition holds: its effect is
         // registered on the pass that finds it true and removed on the pass
         // that finds it false. Both move the effect generation, which is the
         // projection's cache key, so no filter has to read the source.

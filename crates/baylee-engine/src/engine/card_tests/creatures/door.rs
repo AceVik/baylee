@@ -114,7 +114,7 @@ fn a_stitchers_supplier_mills_three_entering_and_three_more_dying() {
 /// Temple of Cyclical Time's "{2}{U}, {T}: Transform this land" turns the
 /// same permanent over (CR 701.27a), and a permanent that transforms is not
 /// a new object: every effect that applied to it goes on applying
-/// (CR 712.18). So the god seat 0 turned its stolen Temple into is still
+/// (CR 712.15). So the god seat 0 turned its stolen Temple into is still
 /// seat 0's by the steal that held the Temple, still seat 1's by default and
 /// still seat 1's card (CR 108.3), and still tapped from the activation.
 ///

@@ -360,7 +360,7 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             // A player controlling another player cannot choose an outside card: what
-            // is outside the game is visible only to the controlled player (CR 723.4).
+            // is outside the game is visible only to the controlled player (CR 724.4).
             if let Pending::ChooseCards {
                 player,
                 prompt: ChoicePrompt::Wish,

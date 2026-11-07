@@ -33,7 +33,7 @@ pub(crate) fn escape_grants(
 
 /// Shared by the priority offer and the cast wizard; alternative costs cannot
 /// be combined with overload or another alternative (CR 118.9a). Prototype
-/// instead changes the spell characteristics, including its cost (CR 718.3a).
+/// instead changes the spell characteristics, including its cost (CR 719.3a).
 #[allow(clippy::too_many_lines)] // Enumerates faces, prototype, kicker and modes under the same payment rules.
 pub(crate) fn granted_escape_options(
     state: &GameState,

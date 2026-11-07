@@ -4,7 +4,7 @@
 //! Set: KHM #254 — Kaldheim | Scryfall ID: 87a4e5fe-161f-42da-9ca2-67c8e8970e94 | Oracle ID: 868e6e68-4367-4073-a864-235d5961ae56
 //! Face: Darkbore Pathway —  — Land
 //! Face: Slitherbore Pathway —  — Land
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.9) + per-face
 // mana abilities.
 
 use baylee_cards_dsl::prelude::*;

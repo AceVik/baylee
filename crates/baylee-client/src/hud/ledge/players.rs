@@ -754,7 +754,7 @@ fn ground_of(facts: &SeatFacts) -> Color {
     }
 }
 
-/// The badge over a chip whose player is controlled (CR 723.5): "Under your
+/// The badge over a chip whose player is controlled (CR 724.5): "Under your
 /// control" over every player this seat controls, "Controlled by Ben" over
 /// a player somebody else decides for, which every seat is told. Spawned
 /// with the chip and hidden; [`show_the_control_badges`] writes and shows

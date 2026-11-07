@@ -2,7 +2,7 @@ use super::*;
 use crate::session::Session;
 use baylee_protocol::v1::{self, Envelope};
 
-// ---- Word of Command shows its caster the target's hand, once (CR 723.4)
+// ---- Word of Command shows its caster the target's hand, once (CR 724.4)
 //
 // `zones::looking_at` has one deliberate exception to "a card another seat
 // shows is not looked at": the `CommandCard` question. While Word asks its

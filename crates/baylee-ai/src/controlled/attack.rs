@@ -1,4 +1,4 @@
-//! Which of a controlled player's creatures attack, and at whom (CR 723.5).
+//! Which of a controlled player's creatures attack, and at whom (CR 724.5).
 
 use baylee_cards_dsl::{AbilityDef, KeywordSet, Trigger, ZoneRef};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};

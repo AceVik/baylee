@@ -45,7 +45,7 @@ pub struct Menu {
     /// What the question listed for the model to answer with, in order.
     offered: Vec<Offered>,
     /// The player decided for, when it is a player whose turn the seat
-    /// controls (CR 723.5) and not the seat.
+    /// controls (CR 724.5) and not the seat.
     controlled: Option<PlayerId>,
 }
 
@@ -453,11 +453,11 @@ impl Menu {
         }
         if decision.concede.is_some() {
             // A controller never concedes for the player it controls
-            // (CR 723.6): a concession is only ever the seat's own.
+            // (CR 724.6): a concession is only ever the seat's own.
             if let Some(p) = self.controlled.map(Table::player_id) {
                 return Err(format!(
                     "you cannot concede for {p}: you decide for {p} while you control {p}'s \
-                     turn, and only {p} may concede for {p} (CR 723.6); your own concession is \
+                     turn, and only {p} may concede for {p} (CR 724.6); your own concession is \
                      yours to make in a decision of your own. Answer {asked} for {p}"
                 ));
             }

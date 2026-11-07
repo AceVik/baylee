@@ -242,7 +242,7 @@ impl<B: Brain4> LiveSeat4<B> {
                     return Ok(outgoing);
                 }
                 // A decision for a player whose turn this seat controls
-                // (Mindslaver, CR 723.5) names that player; the view names
+                // (Mindslaver, CR 724.5) names that player; the view names
                 // this seat as the one awaited, and the table sends it its view
                 // first.
                 if pending.asked() != Some(self.seat) && !self.awaited() {

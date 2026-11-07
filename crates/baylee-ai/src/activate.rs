@@ -122,7 +122,7 @@ fn best(
 /// at what is worth least to it, when that is a loss of more than
 /// [`THRESHOLD`]; `None` otherwise, which is most of the time.
 ///
-/// What a controller activates for a player it plays against (CR 723.5,
+/// What a controller activates for a player it plays against (CR 724.5,
 /// [`crate::controlled`]): `view` is that player's side of the table, so the
 /// measure that weighs this seat's own activations weighs theirs, and the
 /// one taken is the one that costs them most — a sacrifice outlet fed their

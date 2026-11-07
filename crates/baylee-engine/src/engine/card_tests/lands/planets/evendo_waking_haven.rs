@@ -137,7 +137,7 @@ fn evendo_counts_a_creature_killed_in_response_as_it_last_was() {
     );
 }
 
-/// Evendo at 12+ (CR 721.2a): "{G}, {T}: Add {G} for each creature you
+/// Evendo at 12+ (CR 722.2a): "{G}, {T}: Add {G} for each creature you
 /// control." At eleven charge counters the ability is not there; a station
 /// off a 1/1 makes twelve, and then {G} and a tap make one {G} for each of
 /// the three Elves.

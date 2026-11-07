@@ -92,7 +92,7 @@ fn wide_public_mana_counts_keep_each_type_and_the_full_total() {
 }
 
 /// The controller of a player sees the face of that player's face-down
-/// permanents (CR 723.4, its example), a third seat does not, and the
+/// permanents (CR 724.4, its example), a third seat does not, and the
 /// controller does not once the control is gone.
 #[test]
 fn the_controller_sees_the_controlled_players_face_down_permanents() {

@@ -1136,7 +1136,7 @@ const _: () = assert!(baylee_client_core::touch::Touch::SINK <= HAND_FOOTROOM);
 const _: () = assert!(baylee_client_core::touch::Touch::SINK < ARMED_RAISE);
 
 /// The frame round the hand while the table is shown from a controlled
-/// player's chair (CR 723.5): a rose edge under the cards and, in the air
+/// player's chair (CR 724.5): a rose edge under the cards and, in the air
 /// over them, the brain mark and "Mia's hand · under your control". Colour
 /// is never the only cue, and nothing is drawn on a print: both lie under
 /// the strip (they are the zone's children before it) and the label stands

@@ -78,7 +78,7 @@ fn fable_transforms_and_its_reflection_copies_another_creature_until_the_end_ste
 
 /// "III — Exile this Saga, then return it to the battlefield transformed
 /// under your control." Seat 1 steals seat 0's Fable after chapter I, the
-/// Saga goes on under seat 1 (CR 714.3b puts lore counters on the Sagas a
+/// Saga goes on under seat 1 (CR 715.3c puts lore counters on the Sagas a
 /// player controls), and chapter III is seat 1's ability. Reflection of
 /// Kiki-Jiki enters under seat 1 as its own default, with no control effect
 /// holding it (the one on the Saga named an object that is gone, CR 400.7),

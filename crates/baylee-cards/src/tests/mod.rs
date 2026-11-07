@@ -62,7 +62,7 @@ fn daybound_and_nightbound_are_printed_on_the_face_that_has_them() {
         assert!(
             !(def.all_keywords().contains(both) && def.faces.len() < 2),
             "{} ({oracle_id}) is daybound or nightbound with one face; \
-             both keywords need a card to turn over (CR 701.27c)",
+             both keywords need a card to turn over (CR 701.27d)",
             def.name(),
         );
     }

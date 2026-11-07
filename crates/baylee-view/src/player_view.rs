@@ -68,10 +68,10 @@ pub struct Ballot {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PlayerView {
     /// The player whose choices and resources the actor in `awaiting` controls.
-    /// This may differ from the viewing seat under CR 722.
+    /// This may differ from the viewing seat under CR 724.
     #[serde(default)]
     pub decision_player: Option<PlayerId>,
-    /// Hands inspected through current control of another player (CR 723.4).
+    /// Hands inspected through current control of another player (CR 724.4).
     /// Separate from voluntary team sharing; rebuilt for every decision.
     #[serde(default)]
     pub controlled_hands: Vec<SharedHand>,
@@ -260,7 +260,7 @@ pub struct PlayerView {
     pub owed: Option<ManaPayment>,
     /// The monarch, if the game has one.
     pub monarch: Option<PlayerId>,
-    /// The day/night designation, if the game has one (CR 731).
+    /// The day/night designation, if the game has one (CR 732).
     ///
     /// `None` for every game with no daybound card in it, which is most of
     /// them — and a client draws nothing at all in that case rather than
@@ -372,7 +372,7 @@ pub struct PlayerView {
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub flash_types: baylee_core::types::TypeSet,
     /// Every player whose decisions another player makes now (Mindslaver,
-    /// CR 723), as the table sees it: public, so every seat and spectator
+    /// CR 724), as the table sees it: public, so every seat and spectator
     /// is told for the whole controlled turn. Empty in the ordinary case,
     /// and then not written.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
@@ -387,7 +387,7 @@ pub struct PlayerView {
     pub foreign_targets: Vec<ObjectId>,
 }
 
-/// One player whose decisions another makes (CR 723.5).
+/// One player whose decisions another makes (CR 724.5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerControl {
     /// The controlled player.

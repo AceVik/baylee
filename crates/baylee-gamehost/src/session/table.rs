@@ -114,7 +114,7 @@ impl Table<'_> {
         view.targeting = crate::view::targeting_context(self.engine, seat);
         view.trigger_order = crate::view::trigger_order(self.engine, seat);
         // The cast this seat may cancel: its own, or the one it is making
-        // for the player whose turn it controls (CR 723.5).
+        // for the player whose turn it controls (CR 724.5).
         let caster = if self.engine.decision_actor() == Some(seat) {
             self.engine.pending().asked().unwrap_or(seat)
         } else {

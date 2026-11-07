@@ -1192,13 +1192,13 @@ Plaza of Heroes and Skycoach Waypoint using existing printings. The official
 confirm its interaction with the Urza lands. The
 [Nearby Planet rulings](https://api.scryfall.com/cards/da785d1b-6b90-4b65-9efb-d7f329405318/rulings)
 state: “Nearby Planet can't be tapped for {C}.” Its five basic land subtypes
-supply the corresponding colored mana abilities. CR 604.3, 502.1 and 722.3a
+supply the corresponding colored mana abilities. CR 604.3, 502.1 and 723.3a
 were checked in the current Comprehensive Rules for CDAs, simultaneous phasing
 and preparation. This batch adds no assets, printing identifiers or corpus
 scripts; the existing policy review and explicit owner decision remain applicable.
 
-The preparation correction follows CR 722.2b, 722.3 and 722.3c in the
-[2026-09-25 Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt).
+The preparation correction follows CR 723.2b, 723.3 and 723.3c in the
+[2026-11-06 Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt).
 Prepare characteristics are copiable, the physical card cannot be cast using
 its inset characteristics, and the designated permanent creates a persistent
 copy in exile. Fatehold Chronologist / Peer Review and Emeritus of Woe keep
@@ -1223,7 +1223,7 @@ Roads and Realm of Koh. The token definitions use the verified Scryfall records
 for the [Aetherdrift Pilot](https://api.scryfall.com/cards/8672d795-04f9-4089-9c92-6d6ff628da12)
 and [Realm of Koh Spirit](https://api.scryfall.com/cards/f59eba51-458a-40e0-b754-999f91d5d839).
 Crew and saddle follow CR 702.122a-b and 702.171a-c in the
-[current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt),
+[current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt),
 including the noncopiable, temporary saddled designation and payment-only
 Pilot power bonus. Only rules data and existing printing identifiers are added;
 no artwork or external scripts are copied. The policy review, Scryfall terms
@@ -1231,7 +1231,7 @@ and explicit owner decision above remain applicable.
 
 Batch 34 completes the existing Ur-Drago, Lord Magnus and Detection Tower
 printings. CR 609.4 in the
-[current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+[current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt)
 states: “This applies only to the stated effect.” Their as-though permissions
 therefore leave the landwalk and hexproof abilities intact. CR 702.11b-c and
 702.14c define the affected targeting and blocking restrictions. No assets,
@@ -1245,7 +1245,7 @@ existing Oracle/Scryfall headers; no new art, recordings, fonts or corpus
 source are shipped. The existing fan-project authorization and Scryfall
 data handling documented above continue to apply.
 
-The primary [Comprehensive Rules, 2026-09-25](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+The primary [Comprehensive Rules, 2026-11-06](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt)
 say in CR 613.7c: “Each counter receives a timestamp as it’s put on an object or player.”
 Keyword counters therefore enter the normal layer ordering (122.1b), hone
 counters apply independently of Equipment abilities (122.1j), and counter
@@ -1258,7 +1258,7 @@ Batch 36 completes the existing Mikaeus, the Unhallowed, Nim Deathmantle and
 Borg Queen, Perfection Manifest printings using original engine code. The
 existing policy review and owner authorization above cover these unchanged
 headers and identifiers; no artwork, recordings or corpus code are added.
-The [current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+The [current Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt)
 provide the rules basis: 603.10a for pre-departure abilities, 702.93a and
 702.79a for return-keyword counter conditions, 400.7 for incarnation identity,
 and 611.2e for characteristic changes applied simultaneously with entry.
@@ -1278,7 +1278,7 @@ Batch 38 completes the existing Brain Freeze, Flusterstorm and Storm-Kiln
 Artist printings with original rules code and unchanged identifying headers.
 No assets or corpus code are added; the existing policy review and owner
 permission above still cover this work. The primary
-[Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt),
+[Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt),
 checked in the published text, define the storm cast trigger and earlier-spell
 count in 702.40a, and distinguish copying from casting in 707.10. Each copy
 retains its original decisions and offers independent target changes.
@@ -1289,7 +1289,7 @@ policy review and recorded owner permission above still apply. The only added
 presentation metadata is the identifier for the matching white 1/1 Human Soldier,
 [THOB token 2](https://scryfall.com/card/thob/2/human-soldier), verified against
 Scryfall's API on 2026-10-11. No image or corpus source is added to the repository.
-The [published Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt)
+The [published Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt)
 state in 701.50e: “If a permanent would connive 0, no connive event occurs.”
 Sections 701.50a–f and 701.70a govern connive and recruit, 701.9c governs undefined
 characteristics of unrevealed hidden-zone discards, 113.6k allows hand discard
@@ -1300,7 +1300,7 @@ Batch 40's counter foundation extends existing card printings with original
 rules code and retains their identifying headers. The fan-policy review and
 recorded owner permission above continue to apply; no art, font, audio or corpus
 source is introduced. Counter behaviour was checked against the
-[published Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt):
+[published Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt):
 122.6a assigns the placing player, 701.34a defines proliferate, and 614.16 limits
 replacements worded around effects to the relevant placement events. The
 [Modern Horizons 3 release notes](https://magic.wizards.com/en/news/feature/modern-horizons-3-release-notes)

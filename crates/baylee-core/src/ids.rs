@@ -216,7 +216,7 @@ impl ObjectId {
     /// The source of a triggered ability that has none.
     ///
     /// The monarch's two inherent triggered abilities have no source
-    /// (CR 725.2), but an ability on the stack names one. This handle names
+    /// (CR 726.2), but an ability on the stack names one. This handle names
     /// no object: the arena never reaches its slot, so every lookup of it
     /// answers `None`, the answer a missing source should get.
     pub const NO_SOURCE: Self = Self(u32::MAX);

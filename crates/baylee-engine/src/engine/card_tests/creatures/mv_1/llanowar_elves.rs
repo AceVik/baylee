@@ -169,7 +169,7 @@ fn a_landing_borg_queen_assimilates_their_creature_card_and_pumps_only_artifact_
 /// The card is played here the way it is played at a table, which is the
 /// only way its four printed lines are all in one scene: the adventure goes
 /// off on the **opponent's** turn, the permanent it names goes back to its
-/// owner's hand, the card is exiled on its adventure (CR 715), and the
+/// owner's hand, the card is exiled on its adventure (CR 716), and the
 /// creature is cast out of that exile — still on the opponent's turn, which
 /// is what flash buys (CR 702.8a against CR 117.1a). Every press goes
 /// through the engine's own offer: `legal.castable` before each cast, the
@@ -316,7 +316,7 @@ fn the_borrower_flashes_out_of_its_adventure_but_cannot_block_a_ground_creature(
                 .object(*id)
                 .is_some_and(|o| o.card.is_some_and(|c| c.index == brazen_borrower()))
         })
-        .expect("the card itself went on its adventure (CR 715)");
+        .expect("the card itself went on its adventure (CR 716)");
     assert!(
         engine.state().object(exiled).is_some_and(|o| o
             .riders

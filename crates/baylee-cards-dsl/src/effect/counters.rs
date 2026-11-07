@@ -53,7 +53,7 @@ pub enum CounterKind {
     Rad,
     /// Lifelink counter (grants lifelink, CR 122.1b).
     Lifelink,
-    /// Level counters (classes, CR 716).
+    /// Level counters (classes, CR 717).
     Level,
     /// Flying keyword counter (CR 122.1b).
     Flying,

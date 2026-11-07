@@ -22,7 +22,7 @@ pub const CARET_DOWN: char = '\u{f0d7}';
 pub const EXPAND: char = '\u{f065}';
 /// Crown (the command zone).
 pub const COMMAND: char = '\u{f521}';
-/// Crown again, as the monarch's (CR 724): on the monarch's plate and
+/// Crown again, as the monarch's (CR 726): on the monarch's plate and
 /// chip, in the candle's gold (the owner, 08.10.2026). The same glyph as
 /// [`COMMAND`], which is why commander damage left it.
 pub const CROWN: char = '\u{f521}';
@@ -161,7 +161,7 @@ pub const SEND: char = '\u{f1d8}';
 pub const SHIELD: char = COMMANDER_DAMAGE;
 /// Ellipsis: a row's menu.
 pub const MORE: char = '\u{f141}';
-/// Brain: a player whose decisions another makes (CR 723.5), on the
+/// Brain: a player whose decisions another makes (CR 724.5), on the
 /// control banner, a controlled chip's badge and the controlled hand's
 /// label, always beside its words (a mark alone would be colour's job).
 pub const CONTROL: char = '\u{f5dc}';

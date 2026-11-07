@@ -20,7 +20,7 @@ pub enum Phase {
     Ending,
 }
 
-/// The game's day/night designation (CR 731.1).
+/// The game's day/night designation (CR 732.1).
 ///
 /// Wire-stable for the reason [`Phase`] is, and `Option`al where it is
 /// carried: a game starts with neither designation and keeps having neither

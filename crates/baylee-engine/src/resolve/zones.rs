@@ -1781,7 +1781,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // it as this resolution completes. A source that has left the
         // battlefield, or is phased out, is no permanent to transform.
         //
-        // CR 701.27f: an ability of the permanent transforms it only if it
+        // CR 701.27g: an ability of the permanent transforms it only if it
         // has not transformed since the ability was put on the stack. The
         // ability carries the face it was printed on (CR 113.7a), so a
         // source showing another face has transformed since and the
@@ -1805,7 +1805,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         // The delayed trigger remembers the object and the face it showed
-        // as it was created: CR 701.27f ignores the instruction once the
+        // as it was created: CR 701.27g ignores the instruction once the
         // permanent has transformed since, and CR 400.7 once it has left.
         Effect::TransformSourceAtNextUpkeep => {
             if let Some(obj) = state.object(res.source)

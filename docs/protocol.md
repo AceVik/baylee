@@ -1132,7 +1132,7 @@ with optional `PlayerView.announced_x`, the settled X of the current spell
 announcement. Absence means X is not yet settled or there is no announcement;
 `0` is an explicitly settled zero (including X fixed at zero by the casting
 cost). The source is `announced_cast`. Only its resource owner and authorized
-CR 722 controller receive these facts. Commit, cancellation and reversal clear
+CR 724 controller receive these facts. Commit, cancellation and reversal clear
 the context; suspended miracle and nested mana windows retain it. This is
 observation, not permission to cancel, and makes no affordability promise.
 Existing payment/default/socket methods leave `announced_x` absent, so their
@@ -1623,7 +1623,7 @@ lost:
 - an ability that has left the stack before the log read it is named by its
   source alone (`ability: None`).
 
-A triggered ability with no source, the monarch's two (CR 725.2), gets no
+A triggered ability with no source, the monarch's two (CR 726.2), gets no
 line of its own; what it does has its lines. The crown moving is one of
 them: `LogEvent::BecameMonarch { player }` (view version 55), told to every
 seat, once per change. Who holds it now is `PlayerView::monarch`, in every
@@ -2408,7 +2408,7 @@ as `Session::seat_view` builds it for a socket at it):
    exiled face down and may look at), by name;
 5. its **log** as it was told it: its draws and the cards it was shown, by
    name;
-6. a hand it saw while **controlling** another player (CR 723.4,
+6. a hand it saw while **controlling** another player (CR 724.4,
    `controlled_hands`), only where that player is in **S**;
 7. its own answers' bookkeeping (what its policies answered, whether the
    clock or a stand-in answered for it).
@@ -2417,7 +2417,7 @@ Not shown: its library's order beyond what it looked at (it did not know
 it either), clocks, chat. Known limits (v1): the log of a shown seat may
 name a card it was shown privately of a seat outside **S** (an effect that
 revealed that player's hand to it alone), and a face-down card of a player
-it controlled (CR 722) keeps its name; both need a log line or object
+it controlled (CR 724) keeps its name; both need a log line or object
 filter of their own (v2).
 
 The header says which: `perspective` (`seat`, `public`, `all_hands`), `seat`,

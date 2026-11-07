@@ -4,7 +4,7 @@
 //! Set: ZNR #264 — Zendikar Rising | Scryfall ID: 2668ac91-6cda-4f81-a08d-4fc5f9cb35b2 | Oracle ID: 4924b3a4-a218-4783-8a4d-82361fdecc78
 //! Face: Riverglide Pathway —  — Land
 //! Face: Lavaglide Pathway —  — Land
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face mana
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.9) + per-face mana
 // abilities: the front taps for {U}, the back for {R}.
 
 use baylee_cards_dsl::prelude::*;

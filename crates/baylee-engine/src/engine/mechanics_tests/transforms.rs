@@ -3,7 +3,7 @@
 //!
 //! A double-faced permanent receives a new timestamp each time it transforms
 //! (CR 613.7g), and the continuous effects of its static abilities take that
-//! timestamp (CR 613.7a). It stays the same object (CR 712.18), and nothing
+//! timestamp (CR 613.7a). It stays the same object (CR 712.15), and nothing
 //! about who controls it changes, so it is no more summoning-sick than it
 //! was (CR 302.6). One field used to hold both facts, which is why the flip
 //! got no timestamp at all: a new one would have put the permanent to sleep.
@@ -17,7 +17,7 @@
 //! The werewolf tests below use a daybound card of the same make, whose
 //! back face's 5/5 is a static ability, entering at night (CR 702.145b):
 //! alone, to show that entering with the back face up is not a transform
-//! (CR 712.14a), and beside a creature that asks for a colour as it enters,
+//! (CR 712.11a), and beside a creature that asks for a colour as it enters,
 //! to show what a player is shown while that question is out.
 
 use super::*;
@@ -306,10 +306,10 @@ fn a_question_asked_as_permanents_enter_sees_the_face_that_entered() {
     );
 }
 
-/// CR 712.14a: a daybound card entering at night enters with its back face
+/// CR 712.11a: a daybound card entering at night enters with its back face
 /// up (CR 702.145b). Nothing was turned over, because CR 701.27a transforms
 /// a permanent and the card was not one yet. So it has not transformed: its
-/// "transforms into" trigger (CR 701.27e) does not fire, the journal says
+/// "transforms into" trigger (CR 701.27f) does not fire, the journal says
 /// nothing turned over (the log reads its "transformed" line off that
 /// entry), and its timestamp is the one it took as it entered (CR 613.7d),
 /// which the moment its controller took it shares.

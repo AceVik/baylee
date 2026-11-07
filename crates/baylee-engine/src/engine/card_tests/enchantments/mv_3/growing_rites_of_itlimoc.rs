@@ -38,7 +38,7 @@ fn growing_rites_of_itlimoc_transforms_at_four_creatures_and_taps_for_creature_c
     assert_eq!(
         identity(&engine, itlimoc),
         rites_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
 
     let t = types(&engine, itlimoc);

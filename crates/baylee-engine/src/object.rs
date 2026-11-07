@@ -367,7 +367,7 @@ pub struct Characteristics {
     /// The mana value, where it is not the mana cost's (CR 202.3b). A
     /// nonmodal double-faced card's back face has no mana cost of its own,
     /// and its mana value is its front face's, whether it is up on the
-    /// battlefield (CR 712.8e) or was cast transformed (CR 712.8c): a
+    /// battlefield (CR 712.6d) or was cast transformed (CR 712.6b): a
     /// Ravager of the Fells is a four, Benevolent Geist a two. A copy of such
     /// a face is 0 (`layers::copiable_values`). `None` on every other face,
     /// whose mana value is its cost's. Read it through [`Self::mana_value`],
@@ -1021,7 +1021,7 @@ pub enum Rider {
     /// its owner owns to merge with on resolution.
     Mutating,
     /// Additional physical card merged into this permanent via Mutate or Meld
-    /// (CR 712.21a, CR 730.3), which moves to the same zone when this
+    /// (CR 713.8a, CR 731.3), which moves to the same zone when this
     /// permanent leaves the battlefield.
     MergedComponent(ObjectId),
     /// Top component of a merged permanent; the root retains its physical card.
@@ -1070,7 +1070,7 @@ impl Rider {
     ///
     /// A card that leaves exile is a new object with no relation to the
     /// exile it left (CR 400.7). Exiled with a host, on an adventure
-    /// (CR 715.3d: "for as long as that card remains exiled"), castable from
+    /// (CR 716.3d: "for as long as that card remains exiled"), castable from
     /// exile by a player, suspended (CR 702.62b), rebounding, foretold,
     /// plotted: each is read only while the card is in exile, and a card
     /// exiled again later by something else is none of them. The readers ask
@@ -1371,7 +1371,7 @@ pub struct GameObject {
     /// [`crate::combat::summoning_sick`] against
     /// [`crate::state::Player::turn_start_timestamp`]). A transform does not
     /// move it, because the permanent stays the same object under the same
-    /// controller (CR 712.18); the two fields used to be one, which is why a
+    /// controller (CR 712.15); the two fields used to be one, which is why a
     /// transform could not take the timestamp CR 613.7g gives it.
     pub controlled_since: u64,
     /// Identity version; bumped on every zone change (CR 400.7).

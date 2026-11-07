@@ -1,4 +1,4 @@
-//! Every positive lore placement can cross chapter thresholds (CR 714.2b).
+//! Every positive lore placement can cross chapter thresholds (CR 715.2b).
 use super::{PendingTrigger, TextChangeMap};
 use crate::event::{GameEvent, JournalEntry};
 use crate::object::Status;

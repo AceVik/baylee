@@ -170,9 +170,9 @@ fn a_stationed_spacecraft_becomes_the_creature_it_prints() {
 ///
 /// "8+ | Flying / Other artifacts you control have hexproof and
 /// indestructible." Both sentences are printed in the 8+ striation, so both
-/// are part of that station symbol's static ability (CR 721.2): "As long as
+/// are part of that station symbol's static ability (CR 722.2): "As long as
 /// this permanent has N or more charge counters on it, it has [abilities]"
-/// (CR 721.2a). The engine granted the pair from the moment the Vessel
+/// (CR 722.2a). The engine granted the pair from the moment the Vessel
 /// landed — the report's own view has both of the owner's Roaming Thrones
 /// hexproof and indestructible under an Inspirit with no counters.
 ///
@@ -271,7 +271,7 @@ fn inspirit_protects_other_artifacts_only_at_eight_charge_counters() {
 /// target artifact."
 ///
 /// The Vessel has that ability only while it has a charge counter
-/// (CR 721.2a), so with none it does not trigger at all — the engine used to
+/// (CR 722.2a), so with none it does not trigger at all — the engine used to
 /// ask for its mode on the Vessel's first combat. With one it triggers, and
 /// once it has triggered it no longer depends on its source (CR 113.7a):
 /// losing the counter in response does not take it off the stack, which is

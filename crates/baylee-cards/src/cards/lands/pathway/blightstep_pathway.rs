@@ -4,7 +4,7 @@
 //! Set: KHM #252 — Kaldheim | Scryfall ID: 0ce39a19-f51d-4a35-ae80-5b82eb15fcff | Oracle ID: e580a229-e800-4746-9d37-c32fcef8de28
 //! Face: Blightstep Pathway —  — Land
 //! Face: Searstep Pathway —  — Land
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.9) + per-face
 // mana abilities.
 
 use baylee_cards_dsl::prelude::*;

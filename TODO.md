@@ -366,7 +366,7 @@ item names who it is for.
 1. **Done (c41/b6-engine): a declined or short payment window gives the
    mana back.** `Engine::give_back_window` (`engine/payment_window.rs`)
    untaps what was tapped in a `Miracle` or `Cast` window and puts the pool
-   back when it closes without the cast (CR 732.1); a window where a mana
+   back when it closes without the cast (CR 734.1); a window where a mana
    ability did more than tap (Lotus Petal) is left as it stands.
 2. **"Sent to the engine only on completion"** can only be met as far as
    the protocol allows: every mana ability is its own action in a CR 605.3a

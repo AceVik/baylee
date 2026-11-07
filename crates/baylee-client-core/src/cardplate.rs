@@ -79,7 +79,7 @@ pub enum Plate {
     },
     /// A planeswalker: the loyalty it currently has.
     Loyalty(u16),
-    /// A saga: the chapter its lore counters have reached (CR 714.2).
+    /// A saga: the chapter its lore counters have reached (CR 715.2).
     ///
     /// A page rather than a chip, because a chapter is not a token a player
     /// puts on a card — it is where the card has got to, and the printed saga
@@ -188,7 +188,7 @@ fn slot(value: i32) -> u32 {
 
 /// A saga's chapter, or `None` for a permanent that is not one.
 ///
-/// Lore counters exist on sagas and nowhere else (CR 714), so no type line is
+/// Lore counters exist on sagas and nowhere else (CR 715), so no type line is
 /// needed to recognise one — which is the only reason this is expressible at
 /// all: `CardGroup` carries counters and does not carry subtypes.
 fn chapter(counters: &[CounterEntry]) -> Option<u16> {

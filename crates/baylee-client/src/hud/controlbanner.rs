@@ -1,5 +1,5 @@
 //! The banner over the table while one player makes another's decisions
-//! (CR 723.5): "You decide for Mia" at the table of the player in control,
+//! (CR 724.5): "You decide for Mia" at the table of the player in control,
 //! "Ben controls your turn" at the controlled player's, "Ben decides for
 //! Mia" at everyone else's. Control of a player is public, so every seat is
 //! told; what it says is `baylee_client_core::perspective::ControlLine`'s,
@@ -215,7 +215,7 @@ mod tests {
         let (text, _) = said(&mut app);
         assert!(text.ends_with("controls your turn"), "{text}");
 
-        // My own decision in that turn (CR 723.8): no banner.
+        // My own decision in that turn (CR 724.8): no banner.
         let mut mine = controlling;
         mine.decision_player = Some(mine.seat);
         app.world_mut().resource_mut::<Duel>().view = Some(mine);

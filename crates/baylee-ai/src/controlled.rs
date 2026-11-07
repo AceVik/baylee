@@ -1,16 +1,16 @@
-//! Deciding for a player whose turn this seat controls (CR 723).
+//! Deciding for a player whose turn this seat controls (CR 724).
 //!
 //! Mindslaver hands this seat every decision another player makes for one
-//! turn (CR 723.1, 723.5): which of their spells they cast and at what,
+//! turn (CR 724.1, 724.5): which of their spells they cast and at what,
 //! which of their creatures attack and how their damage is divided, what
 //! their spells and abilities choose as they resolve, what they discard.
-//! This seat goes on making its own decisions as well (CR 723.8) — its
+//! This seat goes on making its own decisions as well (CR 724.8) — its
 //! blocks, its own priority — and those reach the ordinary agent untouched:
 //! the module answers only a question asked of somebody else that this
 //! seat is awaited for ([`subject`]).
 //!
 //! **Every answer here is made against that player, inside the rules.** Only
-//! their resources pay (CR 723.5a), which the payment readers already honour
+//! their resources pay (CR 724.5a), which the payment readers already honour
 //! through `decision::resource_player`, and the engine still refuses what is
 //! not legal. The measure is the crate's own — [`crate::worth`], card value,
 //! [`crate::tactics::material`] — read from *their* side of the table
@@ -44,13 +44,13 @@ use crate::HeuristicAgent;
 use crate::worth::{Aim, Origin, THRESHOLD};
 
 /// The player whose question this seat is answering, when it is somebody
-/// else's: a player whose turn it controls (Mindslaver, CR 723.1) or whom it
-/// controls for a moment (Word of Command, CR 723.2).
+/// else's: a player whose turn it controls (Mindslaver, CR 724.1) or whom it
+/// controls for a moment (Word of Command, CR 724.2).
 ///
 /// The engine asks the controlled player and awaits their controller, and
 /// the view says both: it awaits this seat, and the question names the
 /// other player. A question of this seat's own is `None`, whoever else it
-/// controls (CR 723.8).
+/// controls (CR 724.8).
 pub(crate) fn subject(view: &PlayerView, pending: &Pending) -> Option<PlayerId> {
     if view.awaiting != Some(view.seat) {
         return None;
@@ -168,7 +168,7 @@ impl HeuristicAgent {
     ) -> PlayerAction {
         // A payment this seat took on for them is finished like any other
         // (Word of Command's card): the payment readers spend only their
-        // mana (CR 723.5a).
+        // mana (CR 724.5a).
         if let Some(action) = crate::policy::pay_owed(view, legal) {
             return action;
         }
@@ -256,7 +256,7 @@ impl HeuristicAgent {
                     ..
                 } => self.ends(theirs, origin, Some(printed), effects, targets.as_ref(), x)?,
                 AbilityDef::Spell { .. } => return None,
-                // This seat chooses the mode as well (CR 700.2, 723.5), and
+                // This seat chooses the mode as well (CR 700.2, 724.5), and
                 // the player would have chosen their own.
                 AbilityDef::ModalSpell { modes, .. } => modes
                     .iter()

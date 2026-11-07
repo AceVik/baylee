@@ -10,7 +10,7 @@
 //! Face: Avacyn, the Purifier —  — Legendary Creature — Angel
 // IMPLEMENTED — flash, flying, vigilance; enters: your creatures gain indestructible until end of
 // turn; a non-Angel creature of yours dies: a delayed transform at the next upkeep, whoever's
-// (ignored once it has transformed since, CR 701.27f); the back face: flying, and on transforming
+// (ignored once it has transformed since, CR 701.27g); the back face: flying, and on transforming
 // into it 3 damage to each other creature and each opponent.
 
 use baylee_cards_dsl::prelude::*;

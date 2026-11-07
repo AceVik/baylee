@@ -1,5 +1,5 @@
 //! Mindslaver across the real engine boundary: the house controls the other
-//! seat's next turn (CR 723.1) and plays it against that player (CR 723.5).
+//! seat's next turn (CR 724.1) and plays it against that player (CR 724.5).
 //!
 //! The unit tests beside `baylee_ai`'s `controlled` module build each
 //! question; this one earns them. The house's seat activates Mindslaver

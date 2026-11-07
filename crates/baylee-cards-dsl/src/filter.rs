@@ -19,7 +19,7 @@ pub enum Filter {
     CastFromHand,
     /// The card has been designated as a commander, in any zone (CR 903.3).
     IsCommander,
-    /// Has the alternative characteristics of an Adventure, including copies (CR 715.2).
+    /// Has the alternative characteristics of an Adventure, including copies (CR 716.2).
     HasAdventure,
     /// Every object matches.
     Any,

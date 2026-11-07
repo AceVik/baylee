@@ -69,7 +69,7 @@ impl Duel {
         // holds priority on every turn at the table, so the bar has to be
         // told which one this is or it says "Your move" through the whole
         // game. The turn is the deciding player's: deciding for the player
-        // whose turn this seat controls (CR 723.5), it is "their" move on
+        // whose turn this seat controls (CR 724.5), it is "their" move on
         // their own turn, not a response on somebody else's.
         let turn = self
             .view
@@ -299,8 +299,8 @@ impl Duel {
 
     /// Lets go of what this seat held for a player it controlled once `next`
     /// no longer hands it that player's decision: the controlled turn ended
-    /// (CR 723.1), or the decision passed to this seat's own question in it
-    /// (CR 723.8) or to somebody else.
+    /// (CR 724.1), or the decision passed to this seat's own question in it
+    /// (CR 724.8) or to somebody else.
     ///
     /// A seat is sent questions only while it is asked one, so nothing else
     /// would ever replace a controlled question this seat did not answer
@@ -434,7 +434,7 @@ impl Duel {
             _ => return None,
         };
         // The caster's own pool and lands, which are the controlled player's
-        // while this seat casts for them (CR 723.5a).
+        // while this seat casts for them (CR 724.5a).
         if *player != baylee_client_core::decision::resource_player(view) {
             return None;
         }
@@ -952,7 +952,7 @@ impl Duel {
         // that is *not* this seat's priority window takes it — everything
         // armable is a priority-window action. This seat's, whoever it
         // answers for: a controlled player's priority is the window it arms
-        // that player's cards in (CR 723.5), and the deed is dropped when the
+        // that player's cards in (CR 724.5), and the deed is dropped when the
         // decision passes between them (`end_a_controlled_decision`).
         let my_priority = self
             .interaction
@@ -1025,9 +1025,9 @@ impl Duel {
 
     /// The player whose decision this seat is making, and whose cards, mana
     /// and permanents it spends: the local seat, or the player it controls
-    /// while it is asked that player's question (CR 723.5, 723.5a;
+    /// while it is asked that player's question (CR 724.5, 724.5a;
     /// [`baylee_client_core::decision::resource_player`]). Its own questions
-    /// in that turn (CR 723.8) are the local seat's again.
+    /// in that turn (CR 724.8) are the local seat's again.
     ///
     /// [`Self::seat`] stays the answer wherever the meaning is this client's
     /// own chair: whose camera, whose cues, whose result.
@@ -1040,7 +1040,7 @@ impl Duel {
     }
 
     /// The other player this seat is deciding for right now, if it is
-    /// (CR 723.5): [`Self::actor`] when that is not the local seat.
+    /// (CR 724.5): [`Self::actor`] when that is not the local seat.
     #[must_use]
     pub fn deciding_for(&self) -> Option<PlayerId> {
         let view = self.view.as_ref()?;
@@ -1338,7 +1338,7 @@ impl Duel {
     /// How many cards in the hand this seat plays from are castable now (the
     /// tab says so: a priority with something castable does not open the
     /// drawer by itself). Its own hand, or the controlled player's while it
-    /// decides for them (`decision::hand`, CR 723.5a).
+    /// decides for them (`decision::hand`, CR 724.5a).
     #[must_use]
     pub fn castable_in_hand(&self) -> usize {
         let (Some(view), Some(legal)) = (

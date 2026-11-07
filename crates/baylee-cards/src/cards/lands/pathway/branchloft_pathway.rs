@@ -4,7 +4,7 @@
 //! Set: ZNR #258 — Zendikar Rising | Scryfall ID: 0511e232-2a72-40f5-a400-4f7ebc442d17 | Oracle ID: 7c304547-a4b1-46c9-baed-16d2bfbe16eb
 //! Face: Branchloft Pathway —  — Land
 //! Face: Boulderloft Pathway —  — Land
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face mana
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.9) + per-face mana
 // abilities: {T}: Add {G} on the front, {T}: Add {W} on the back.
 
 use baylee_cards_dsl::prelude::*;

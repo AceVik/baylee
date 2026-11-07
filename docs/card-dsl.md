@@ -658,7 +658,7 @@ express at all yet.
   `EnterModifier::TappedForPlayerCounters { kind, amount }` offers a tapped
   entry with player counters even if another instruction already requires
   tapped entry. Declining preserves other entry replacements.
-  Radiation's inherent, source-free trigger (CR 728.1) remembers the active
+  Radiation's inherent, source-free trigger (CR 729.1) remembers the active
   player, checks its condition again on resolution, and mills using the current
   rad total. Nonland cards in a public replacement destination still count
   (CR 701.17c); short libraries supply only the available cards. The loss is
@@ -1055,8 +1055,8 @@ on the `T:` line, and the second as a condition inside the `SVar` chain.
 
 **A station symbol is not an `if`.** `Condition::Station(n)` is `{N+}` on a
 station card: "as long as this permanent has N or more charge counters on
-it, it has [abilities]" (CR 721.2a), and every ability printed in that
-striation carries it (CR 721.2) — on Inspirit, Flagship Vessel both "Flying"
+it, it has [abilities]" (CR 722.2a), and every ability printed in that
+striation carries it (CR 722.2) — on Inspirit, Flagship Vessel both "Flying"
 and "Other artifacts you control have hexproof and indestructible" are 8+.
 It counts what `CountersOnSelf(CounterKind::Charge, n)` counts and is asked
 differently: on an activated ability it gates activation, on a
@@ -1300,7 +1300,7 @@ intervening `condition = Some(Condition::LandsPlayedThisTurnAtLeast(2))`:
 the land the trigger is about is already counted when it is collected.
 
 `CountersReach { kind, n }` fires when the source's count of `kind` goes
-from below `n` to `n` or more, the window CR 714.2b writes out for a
+from below `n` to `n` or more, the window CR 715.2b writes out for a
 chapter. It is Druid Class's "When this Class becomes level 3" (`Level`,
 `n: 2`, because a Class's level is kept as level counters over level 1). A
 level-up payoff that **targets** is this trigger, never an effect riding on
@@ -1600,7 +1600,7 @@ Scriptures III: the card enters under the player the effect instructs,
 CR 110.2a, the chapter ability's controller, CR 603.3a). A sentence that
 only says "transform this" is not this effect but `Effect::TransformSource`:
 the same permanent turns over (CR 701.27a) and every effect on it goes on
-applying (CR 712.18), where an exile and a return is a new object that
+applying (CR 712.15), where an exile and a return is a new object that
 enters and sheds them. Eight cards were written that way until 2026-09-30.
 `lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
 holds every use in the pool to its printed sentence, and refuses one whose
@@ -2298,7 +2298,7 @@ hashes, layers and does nothing. This paragraph said THREE until
   `Effect::TransformSourceAtNextUpkeep` does it at the beginning of the next
   upkeep (Archangel Avacyn). Either is ignored once the permanent has
   transformed since the ability was put on the stack or created
-  (CR 701.27f). The face that turns away takes its statics and replacement
+  (CR 701.27g). The face that turns away takes its statics and replacement
   effects with it (`GameState::transform`, CR 604.2). `Trigger::TransformsIntoThis` is "whenever this
   creature transforms into [this face]" (Huntmaster of the Fells). The
   conditions `NoSpellsCastLastTurn` and `APlayerCastLastTurnAtLeast(n)` are
@@ -2890,7 +2890,7 @@ Filters, conditions, modifiers and durations:
   again as the ability resolves, and a state trigger is not. It triggers
   whenever the condition holds for its controller and the ability is neither
   waiting to go on the stack nor on it.
-- **Windows in the turn** (CR 506.7) are `Condition`s. On an activated
+- **Windows in the turn** (CR 506.8) are `Condition`s. On an activated
   ability, `condition = Some(…)` as always; on a spell,
   `spell!(effects, condition = Some(…))` is "cast this spell only [when]".
   `Condition::BeforeStep(StepKind::CombatDamage)` is "only before the combat
@@ -3667,7 +3667,7 @@ adds another prepared designation to an already prepared permanent.
 `AbilityDef::Prepared { card, face }` points at the exact prepare-spell face.
 It can reference a separate spell definition or an inset face of the same card;
 the latter is not a cast mode of the physical card. Gaining the designation
-creates that face's copy in exile immediately (CR 722.3c), with independent
+creates that face's copy in exile immediately (CR 723.3c), with independent
 characteristics and the usual casting wizard, targets, costs and mana riders.
 `PlayLifetime::Prepared` ties the permission to the permanent's exact zone
 incarnation; control changes transfer permission, and phasing out ends it.
@@ -4836,11 +4836,11 @@ brackets. Read them as vocabulary, not as card text.
 
 **Controlling a player.** `Effect::ControlPlayerNextTurn { player }`
 [Mindslaver] gives the resolving controller control of each player of
-`player` during the next turn that player actually takes (CR 723.1). It
+`player` during the next turn that player actually takes (CR 724.1). It
 waits through every turn somebody else takes, extra turns among them, and
-through a turn of theirs that is skipped (CR 723.1b); it covers that whole
+through a turn of theirs that is skipped (CR 724.1b); it covers that whole
 turn and ends as the next turn begins, whoever takes it. Of several on one
-player the last created works (CR 723.1a). It ends at once when either
+player the last created works (CR 724.1a). It ends at once when either
 player leaves the game. It is not `Effect::ControlPlayerPlayCard` (Word of
 Command), which controls one instructed play.
 

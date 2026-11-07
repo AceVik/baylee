@@ -47,7 +47,7 @@ fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
     assert_eq!(
         identity(&engine, bastion),
         cannons_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
 
     let t = types(&engine, bastion);

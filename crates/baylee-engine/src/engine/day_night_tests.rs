@@ -1,4 +1,4 @@
-//! Day and night (CR 731), and the untap step's second turn-based action
+//! Day and night (CR 732), and the untap step's second turn-based action
 //! (CR 502.2) that decides when the designation flips.
 //!
 //! The designation itself is tested here without any card: the check reads
@@ -40,7 +40,7 @@ fn duel(seed: u64) -> Engine<RegistryLookup> {
     engine
 }
 
-/// CR 731.2c / 502.2: a game with neither designation skips the check and
+/// CR 732.2c / 502.2: a game with neither designation skips the check and
 /// keeps having neither. This is every game in the pool with no daybound
 /// card in it, so it is the case that must cost nothing and change nothing.
 #[test]
@@ -151,7 +151,7 @@ fn the_first_turn_has_no_previous_turn_and_flips_nothing() {
     assert_eq!(engine.state().day_night, Some(DayNight::Day));
 }
 
-/// CR 731.1: once the game has a designation it has exactly one from that
+/// CR 732.1: once the game has a designation it has exactly one from that
 /// point forward. The field is an `Option` for the "neither" that a game
 /// starts in, not for a state it can return to, and the doors are what
 /// enforce that — nothing clears them.

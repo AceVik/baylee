@@ -16,7 +16,7 @@ pub(crate) fn permitted_spell_types(
         return false;
     };
     // A prepare spell's copy has exactly one set of characteristics. The
-    // physical preparation card cannot be cast as its inset spell (CR 722.3).
+    // physical preparation card cannot be cast as its inset spell (CR 723.3).
     if let Some(frozen) = object.riders.iter().find_map(|rider| match rider {
         crate::object::Rider::PrepareSpellFace(face) => Some(usize::from(*face)),
         _ => None,

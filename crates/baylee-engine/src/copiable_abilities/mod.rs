@@ -501,7 +501,7 @@ impl AbilityList {
         self
     }
 
-    /// Combine two component ability lists for a merged permanent (CR 730.2a).
+    /// Combine two component ability lists for a merged permanent (CR 731.2a).
     #[must_use]
     pub fn merged_with(mut self, other: &Self) -> Self {
         let mut entries = self.entries();

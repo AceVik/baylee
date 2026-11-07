@@ -243,7 +243,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(card) else {
                 continue;
             };
-            // A modal card's land back is a land drop (CR 712.12); a
+            // A modal card's land back is a land drop (CR 712.9); a
             // transforming card's is not (CR 712.8a) — see
             // `CardDef::land_faces_from_hand`, which `PlayLand` and the house
             // AI ask as well.

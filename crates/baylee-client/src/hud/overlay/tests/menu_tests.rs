@@ -600,7 +600,7 @@ fn the_menu_s_settings_row_asks_the_lobby_and_is_dead_without_one() {
     );
 }
 
-/// CR 723.6: a player who controls another player's turn cannot make that
+/// CR 724.6: a player who controls another player's turn cannot make that
 /// player concede. While this seat decides for the controlled player, the
 /// menu's concession is labelled as this seat's own ("Concede yourself"),
 /// never as a bare "Concede" beside "You decide for …", and the two presses

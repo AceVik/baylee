@@ -7,7 +7,7 @@
 //! Oracle: When this Class becomes level 3, target land you control becomes a creature with haste and "This creature's power and toughness are each equal to the number of lands you control." It's still a land.
 //! Set: AFR #180 — Adventures in the Forgotten Realms | Scryfall ID: 09278e95-eaae-4cd4-a0d8-a2d15b0abb58 | Oracle ID: dcbcbf42-4654-487a-acad-21f2606d229b
 // IMPLEMENTED — Landfall, both level bars, level 2's extra land drop while
-// the Class is level 2 or greater (CR 716.2a) and level 3's trigger.
+// the Class is level 2 or greater (CR 717.2a) and level 3's trigger.
 //
 // A level is kept as level counters over level 1, as on Wizard Class: level
 // 2 is one counter, level 3 two.
@@ -34,7 +34,7 @@ card!(
             &[Effect::gain_life(1)]
         ),
         // {2}{G}: Level 2 — "activate only if this Class is level 1 and
-        // only as a sorcery" (CR 716.2a).
+        // only as a sorcery" (CR 717.2a).
         activated!(
             cost!("{2}{G}"),
             &[Effect::AddCounter {

@@ -492,7 +492,7 @@ fn no_profile_answers_a_menace_attacker_with_one_blocker() {
 /// 82 cards in this pool are that shape — so `HandObject::types` says
 /// sorcery and every reading that asked it counted nought lands. The
 /// engine has never agreed: `compute_legal` offers the land drop when
-/// **any** face is a land (CR 712.12), so the agent was throwing away a
+/// **any** face is a land (CR 712.9), so the agent was throwing away a
 /// hand whose land drops the engine was about to hand it. Measured in a
 /// real game before the fix: three of these beside four one-mana spells
 /// was answered `MulliganTake`, and `legal.lands` on the next turn was
@@ -528,7 +528,7 @@ fn a_hand_whose_lands_are_on_the_back_is_not_mulliganed_as_landless() {
 
 /// The back face that is **not** a land drop (#152). Arguel's Blood Fast
 /// turns into a land, but only by transforming: in hand it has only its
-/// front face's characteristics (CR 712.8a), and CR 712.12 lets only a
+/// front face's characteristics (CR 712.6a), and CR 712.9 lets only a
 /// modal card be played as its land face. So three of them beside four
 /// spells is a hand with no land in it, and the engine will offer none.
 /// Counting the Temple as a land kept a hand that could not play one.
@@ -633,7 +633,7 @@ fn a_back_side_land_is_not_discarded_as_a_spare_spell() {
 
 /// #76, the half that is **not** fixed, recorded rather than claimed.
 ///
-/// An adventure is a second castable face (CR 715), offered as
+/// An adventure is a second castable face (CR 716), offered as
 /// `CastModeKind::Face`. `filter::cast_mode` returns the `Normal`
 /// position the moment one is present and never looks at a face, so
 /// Brazen Borrower is always the 3/1 and Petty Theft is never cast when

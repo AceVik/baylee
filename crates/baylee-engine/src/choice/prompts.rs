@@ -37,7 +37,7 @@ pub enum CastModeKind {
     /// spell's plus every chosen mode's own (spree, CR 702.172a).
     Modes(u8),
     /// Cast a non-front face for its own printed cost — an MDFC's back
-    /// (CR 712.11b), an adventure (CR 715), a disturb back (CR 702.146).
+    /// (CR 712.8b), an adventure (CR 716), a disturb back (CR 702.146).
     ///
     /// It used to name The True Scriptures, which is none of those: a
     /// *transformed* back is reached by turning the card over and never by
@@ -47,7 +47,7 @@ pub enum CastModeKind {
     Face(usize),
     /// Play a specific land face of an MDFC (pathways; CR 712.12).
     PlayLandFace(usize),
-    /// Cast with prototype characteristics (CR 718).
+    /// Cast with prototype characteristics (CR 719).
     Prototype,
     /// Cast face down as a 2/2 creature with ward {2}.
     Disguise,
@@ -118,7 +118,7 @@ pub enum SpellEnding {
     /// upkeep: it has rebound and was cast from hand (CR 702.88a).
     Rebound,
     /// Exile on an adventure, from where its controller may play it
-    /// (CR 715.3d).
+    /// (CR 716.3d).
     Adventure,
     /// Exile and nothing more: an effect that replaces the graveyard, such
     /// as Yawgmoth's Will's or Dauthi Voidwalker's.

@@ -285,7 +285,7 @@ fn check_defense_matches_the_printing(
 /// printing gives no mana cost, the colours of its `mana_cost` together with
 /// its `color_indicator` must be the printed face's colours. A disturb back
 /// keeps its disturb cost in `mana_cost` (CR 702.146a; its mana value is
-/// still the front face's, CR 712.8c), so it is coloured through that cost
+/// still the front face's, CR 712.6b), so it is coloured through that cost
 /// and needs no indicator of its own — Ghastly Mimicry and Benevolent Geist.
 /// A face with a printed cost may carry an indicator only for colours the
 /// printing has. Read off the payload face's `colors`, because the cached
@@ -413,8 +413,8 @@ pub(crate) fn check_flashback_matches_the_printing(
 /// Whether a two-faced card's **back** may be played out of hand, against the
 /// kind of double-faced card the printing says it is.
 ///
-/// CR 712.8a: a double-faced card in hand has only its front face's
-/// characteristics, and CR 712.8c spells out the consequence — a nonmodal
+/// CR 712.6a: a double-faced card in hand has only its front face's
+/// characteristics, and CR 712.6b spells out the consequence — a nonmodal
 /// (transforming) double-faced card is cast as its front face and reaches its
 /// back only by turning over. A modal one is the exception the player
 /// chooses between. `FaceDef::castable_from_hand` is the flag, it defaults to
@@ -452,7 +452,7 @@ pub(crate) fn check_back_face_castability_matches_the_layout(
     if back.castable_from_hand != want {
         let kind = if want { "modal" } else { "transforming" };
         println!(
-            "{slug}: the printing is a {kind} double-faced card (CR 712.8c), so its \
+            "{slug}: the printing is a {kind} double-faced card (CR 712.6b), so its \
              back face `{}` is castable_from_hand = {want} and the code says {}",
             back.name, back.castable_from_hand
         );

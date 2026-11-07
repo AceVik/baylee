@@ -1200,7 +1200,7 @@ impl GameLog {
         source: ObjectId,
         controller: PlayerId,
     ) {
-        // The monarch's two abilities have no source (CR 725.2), so there is
+        // The monarch's two abilities have no source (CR 726.2), so there is
         // nothing to name one by; what it does has lines of its own.
         if source == ObjectId::NO_SOURCE {
             return;
@@ -1740,7 +1740,7 @@ mod tests {
     }
 
     /// A daybound card that enters at night enters with its back face up
-    /// (CR 702.145b, CR 712.14a), and nothing was turned over, so the log
+    /// (CR 702.145b, CR 712.11a), and nothing was turned over, so the log
     /// does not tell the table that it transformed. The "transformed" line
     /// is read off the engine's `Transformed` entry, which the entry scan
     /// used to journal for it.

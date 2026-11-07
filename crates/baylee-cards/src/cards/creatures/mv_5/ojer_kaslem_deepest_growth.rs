@@ -22,7 +22,7 @@ static TEMPLE_ABILITIES: &[AbilityDef] = &[
     mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
     // "Transform this land": the same permanent turns over (CR 701.27a) and
     // keeps its controller, its tapped state and whatever applied to it
-    // (CR 712.18).
+    // (CR 712.15).
     activated!(
         cost!("{2}{G}", TapSelf),
         &[Effect::TransformSource],
@@ -50,7 +50,7 @@ card!(
         ),
         face!(
             name = "Temple of Cultivation",
-            // CR 712.8c: a nonmodal double-faced card is cast as its front
+            // CR 712.6b: a nonmodal double-faced card is cast as its front
             // face and reaches this one only by transforming.
             castable_from_hand = false,
             types = TypeSet::LAND,

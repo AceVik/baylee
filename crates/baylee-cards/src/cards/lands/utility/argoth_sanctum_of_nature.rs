@@ -6,7 +6,7 @@
 //! Set: BRO #256 — The Brothers' War | Scryfall ID: b29c9e4f-7b98-4610-a681-ae6297e8fc72 | Oracle ID: 62648946-1708-48f4-ba40-c057563ab11b
 // IMPLEMENTED — the enters-tapped clause (`EnterModifier::TappedUnless`),
 // "{T}: Add {G}" and the Bear ability. "(Melds with Titania, Voice of Gaea.)"
-// is reminder text: the meld instruction is on Titania (CR 712.4a), which is
+// is reminder text: the meld instruction is on Titania (CR 713.1a), which is
 // not in the pool, so this card carries nothing for it.
 
 use crate::generated_tokens;

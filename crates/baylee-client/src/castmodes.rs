@@ -335,7 +335,7 @@ fn permanents_payable(view: &PlayerView, parts: &[CostPart]) -> bool {
         }
     }
     // The payer's permanents, the controlled player's while this seat casts
-    // for them (CR 723.5a).
+    // for them (CR 724.5a).
     let payer = resource_player(view);
     let candidates = view
         .battlefield

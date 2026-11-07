@@ -157,7 +157,7 @@ fn an_aura_falls_off_a_host_that_stops_being_what_it_enchants() {
 }
 
 /// The back face. "Age-Graced Chapel — Land. This land enters tapped.
-/// {T}: Add {W} or {B}." CR 712.12: a player playing a modal double-faced
+/// {T}: Add {W} or {B}." CR 712.9: a player playing a modal double-faced
 /// card as a land chooses one of its faces that's a land — it is *played*
 /// as a land drop rather than cast, and what arrives is that land, with
 /// none of the Aura's printed statics on it.

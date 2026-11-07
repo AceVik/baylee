@@ -311,7 +311,7 @@ impl ViewBuilder {
         self
     }
 
-    /// This seat makes `player`'s decisions on `player`'s turn (CR 723.5,
+    /// This seat makes `player`'s decisions on `player`'s turn (CR 724.5,
     /// Mindslaver) and is asked one now: the table waits for this seat, the
     /// question is `player`'s, and `cards` (as [`Self::with_hand`] takes
     /// them) are the hand it plays from, beside this seat's own.

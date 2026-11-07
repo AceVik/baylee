@@ -275,7 +275,7 @@ pub(crate) fn spell_mana_increase(
         if mode == baylee_engine::choice::CastModeKind::Prototype
             && let Some(prototype) = f.prototype
         {
-            // CR 718.3a-b: cast restrictions and taxes see the prototype's
+            // CR 719.3a-b: cast restrictions and taxes see the prototype's
             // alternative characteristics, including its colored mana cost.
             obj.colors = prototype.cost.colors();
             obj.mana_value = prototype.cost.cmc();

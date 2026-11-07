@@ -4,7 +4,7 @@
 //!
 //! The last of those is the reason this module's name is a half-truth worth
 //! knowing about. Nothing in a `CardDef` says which layout a card was
-//! printed in, so an MDFC's back — a face a player may cast (CR 712.11b) —
+//! printed in, so an MDFC's back — a face a player may cast (CR 712.8b) —
 //! and a transformed back — one they may only turn the card over to reach
 //! (CR 712.2) — differ by exactly one hand-set field, `castable_from_hand`,
 //! and by the cost the printing puts on the face. Sheoldred was filed here
@@ -333,8 +333,8 @@ fn the_true_scriptures_is_turned_over_and_never_cast() {
 /// #152: a transforming card's land back is not a land drop.
 ///
 /// Arguel's Blood Fast turns into Temple of Aclazotz only by transforming,
-/// and in hand it has only its front face's characteristics (CR 712.8a):
-/// an enchantment. CR 712.12 lets a player choose a land face only when
+/// and in hand it has only its front face's characteristics (CR 712.6a):
+/// an enchantment. CR 712.9 lets a player choose a land face only when
 /// playing a *modal* card. The offer used to ask whether any face was a
 /// land, so the Temple was on the battlefield on turn one for nothing.
 /// Glasspool Mimic, a modal card in the same hand, is the control: the

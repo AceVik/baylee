@@ -2252,7 +2252,7 @@ fn replay_json(duel: &crate::Duel) -> String {
     )
 }
 
-/// Control of players (CR 723.5): the chairs this seat may play from, the
+/// Control of players (CR 724.5): the chairs this seat may play from, the
 /// one the table is shown from and whether by hand, and the banner's line
 /// (`null` while every decision is its own player's).
 fn control_json(duel: &crate::Duel, lang: Lang) -> String {

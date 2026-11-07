@@ -504,7 +504,7 @@ impl<L: CardLookup> Engine<L> {
                 c.casts = c.casts.saturating_add(1);
             }
         }
-        // MDFC back-face cast: the object becomes its chosen face (CR 712.11b).
+        // MDFC back-face cast: the object becomes its chosen face (CR 712.8b).
         let i = wizard.face_index();
         if i != 0 {
             let def = self
@@ -617,7 +617,7 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .bind_target_references(card, &wizard.target_references);
         self.store_damage_division(wizard);
-        // CR 722.3c: announcing or cancelling never spends the designation.
+        // CR 723.3c: announcing or cancelling never spends the designation.
         if let Some(source) = prepared_source {
             self.state.unprepare(source);
         }

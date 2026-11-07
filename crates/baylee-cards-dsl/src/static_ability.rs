@@ -1445,7 +1445,7 @@ pub struct StaticAbility {
     /// source is on the battlefield.
     ///
     /// A station symbol is the one sentence that sets it
-    /// ([`crate::Condition::Station`], CR 721.2a): Inspirit, Flagship
+    /// ([`crate::Condition::Station`], CR 722.2a): Inspirit, Flagship
     /// Vessel's "Other artifacts you control have hexproof and
     /// indestructible" is printed inside its 8+ striation, so it applies
     /// only while the Spacecraft has eight charge counters. The engine

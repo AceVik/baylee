@@ -41,7 +41,7 @@ impl GameState {
     /// [`Self::switch_face`] is the other half of this and stays silent,
     /// because its callers are not transforms: choosing which face of a
     /// modal card to cast or to play as a land puts a card onto the stack
-    /// or the battlefield face up (CR 712.11b for the cast, CR 712.12 for
+    /// or the battlefield face up (CR 712.8b for the cast, CR 712.9 for
     /// the land play) — nothing turned over, and a
     /// "transformed" entry there would fire every trigger that watches for
     /// one. Anything that turns an existing permanent over comes here.
@@ -52,7 +52,7 @@ impl GameState {
     /// would keep the fixpoint spinning.
     ///
     /// The permanent stays the object it was, and every effect that applied
-    /// to it goes on applying (CR 712.18). What its own static abilities and
+    /// to it goes on applying (CR 712.15). What its own static abilities and
     /// replacement effects did ends here, because those abilities were the
     /// face that turned away and the permanent no longer has them
     /// (CR 604.2); the next scan (`Engine::sync_static_effects`) registers
@@ -70,7 +70,7 @@ impl GameState {
         // CR 613.7g: a new timestamp, which the new face's static abilities
         // take as the next scan registers them (CR 613.7a), so they apply
         // after every effect created while the other face was up. Who
-        // controls it has not changed (CR 712.18), so `controlled_since`
+        // controls it has not changed (CR 712.15), so `controlled_since`
         // stays and it is no more summoning-sick than it was (CR 302.6).
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
@@ -92,10 +92,10 @@ impl GameState {
     /// This is not the game action of transforming, and it records nothing
     /// and stamps nothing. Two things need it bare: [`Self::transform`],
     /// which adds the stamp and the journal entry, and a permanent that
-    /// enters with its back face up (CR 712.14a, daybound at night,
+    /// enters with its back face up (CR 712.11a, daybound at night,
     /// CR 702.145b). Such a permanent was never turned over (CR 701.27a
     /// transforms a *permanent*), so it has not transformed: a "transforms
-    /// into" trigger (CR 701.27e) must not see it, the log must not say it
+    /// into" trigger (CR 701.27f) must not see it, the log must not say it
     /// did, and its timestamp is the one it took as it entered (CR 613.7d).
     /// It still has the front face's statics to lose, because the engine
     /// registers them for every arrival before the scan that turns it over.
@@ -150,7 +150,7 @@ impl GameState {
     }
 
     /// Switches an object to another face of its card (MDFC cast/land
-    /// play, CR 712.11b and CR 712.12): rebuilds base characteristics from
+    /// play, CR 712.8b and CR 712.12): rebuilds base characteristics from
     /// the face and
     /// invalidates the layered projection cache.
     ///

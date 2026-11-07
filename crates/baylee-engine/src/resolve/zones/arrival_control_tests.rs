@@ -600,7 +600,7 @@ fn a_card_that_left_exile_does_not_come_back_as_its_old_host_leaves() {
 }
 
 /// Every rider that says what a card is *in exile* ends as the card leaves
-/// exile (CR 400.7): exiled with a host, on an adventure (CR 715.3d, "for
+/// exile (CR 400.7): exiled with a host, on an adventure (CR 716.3d, "for
 /// as long as that card remains exiled"), castable from exile by a
 /// player, suspended, rebounding, foretold, plotted. A move from exile to
 /// exile is no leaving, and keeps them all.

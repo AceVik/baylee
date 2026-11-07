@@ -13,7 +13,7 @@ use super::*;
 /// `quiet_artifact()`s, advances to the end step where the transform trigger resolves, verifies
 /// `Storm the Vault` becomes the legendary land `Vault of Catlacan` on face 1, and activates its
 /// second mana ability to produce blue mana equal to the artifact count. It is the same
-/// permanent, turned over (CR 712.18), and not a new object that entered.
+/// permanent, turned over (CR 712.15), and not a new object that entered.
 #[test]
 fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
     let p0 = PlayerId::new(0);
@@ -50,7 +50,7 @@ fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
     assert_eq!(
         identity(&engine, vault),
         storm_was,
-        "the same object, turned over: a transform changes no zone (CR 712.18)"
+        "the same object, turned over: a transform changes no zone (CR 712.15)"
     );
 
     let t = types(&engine, vault);

@@ -67,7 +67,7 @@ async fn a_concession_for_the_controlled_player_is_refused_and_answered_again() 
     assert_eq!(provider.seen().len(), 2, "asked again once");
     let again = told(&provider, 1);
     assert!(
-        again.contains("cannot concede for P2") && again.contains("CR 723.6"),
+        again.contains("cannot concede for P2") && again.contains("CR 724.6"),
         "{again}"
     );
     let first = told(&provider, 0);

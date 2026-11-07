@@ -223,7 +223,7 @@ pub enum Effect {
         /// `None` uses the spell's surviving targets; `Some` selects without targeting.
         graveyard: Option<&'static Filter>,
     },
-    /// Resolve the inherent radiation trigger for its captured event player (CR 728.1).
+    /// Resolve the inherent radiation trigger for its captured event player (CR 729.1).
     Radiation,
     /// Tap matching permanents, then optionally spend energy to put one counter
     /// on up to that many permanents that actually became tapped this way.
@@ -498,7 +498,7 @@ pub enum Effect {
         player: PlayerRel,
     },
     /// Control a player during the next turn that player actually takes
-    /// (CR 723.1): the whole turn, until the next one begins.
+    /// (CR 724.1): the whole turn, until the next one begins.
     ControlPlayerNextTurn {
         /// The player to control.
         player: PlayerRel,
@@ -1795,16 +1795,16 @@ pub enum Effect {
     },
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
-    /// transforming double-faced card does (CR 701.27c) — a token copy or a
+    /// transforming double-faced card does (CR 701.27d) — a token copy or a
     /// clone of one turns over nothing. It is the same object, and every
-    /// effect on it goes on applying (CR 712.18). An ability that finds its
+    /// effect on it goes on applying (CR 712.15). An ability that finds its
     /// source already transformed since it was put on the stack does nothing
-    /// (CR 701.27f).
+    /// (CR 701.27g).
     TransformSource,
     /// "Transform [this] at the beginning of the next upkeep" (Archangel
     /// Avacyn): a delayed trigger that fires in the next upkeep whoever's
     /// turn it is, and does nothing if the permanent has left or has already
-    /// transformed since it was created (CR 701.27f).
+    /// transformed since it was created (CR 701.27g).
     TransformSourceAtNextUpkeep,
     /// Exile the source, then return it to the battlefield as the given face
     /// (Sheoldred's flip, the Ojers' dies triggers, saga final chapters). Not
@@ -3273,7 +3273,7 @@ pub enum Effect {
         /// The emblem's abilities.
         abilities: &'static [crate::ability::AbilityDef],
     },
-    /// A player becomes the monarch (CR 724): `You` for Palace Jailer, and
+    /// A player becomes the monarch (CR 726): `You` for Palace Jailer, and
     /// `ControllerOfTarget` for the monarch's own "its controller becomes
     /// the monarch", which the engine resolves with the creature that dealt
     /// the damage as its first object.
@@ -3731,7 +3731,7 @@ pub enum Effect {
     /// "Remove all counters from target permanent" (Vampire Hexmage): removes
     /// every counter of every kind from each target.
     RemoveAllCountersTarget,
-    /// The named players get `amount` rad counters (Nuclear Fallout, CR 725).
+    /// The named players get `amount` rad counters (Nuclear Fallout, CR 729).
     Rad {
         /// Recipients relative to the resolution.
         who: PlayerRel,

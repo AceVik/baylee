@@ -335,7 +335,7 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     use baylee_client_core::perspective::ControlLine;
     let view = duel.view.as_ref()?;
     // Whoever decides for this seat is why, and not the card's timing or its
-    // cost (CR 723.5).
+    // cost (CR 724.5).
     if matches!(ControlLine::of(view), Some(ControlLine::DecidedBy { .. })) {
         return Some(Phrase::CardDecidedForYou);
     }
@@ -355,7 +355,7 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
         return Some(Phrase::OnlyDearerModeLeft);
     }
     // The deciding player's priority: this seat's, or the controlled
-    // player's whose card this is (CR 723.5).
+    // player's whose card this is (CR 724.5).
     let priority = duel.interaction.as_ref().is_some_and(|i| {
         matches!(
         i.pending(), baylee_engine::choice::Pending::Priority { player, .. }

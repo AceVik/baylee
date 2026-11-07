@@ -177,5 +177,5 @@ pub mod decisionfold;
 pub mod triggerorder;
 
 /// Whose chair the bottom of the table is shown from while this seat
-/// controls another player (CR 723.5), and who decides for whom.
+/// controls another player (CR 724.5), and who decides for whom.
 pub mod perspective;
