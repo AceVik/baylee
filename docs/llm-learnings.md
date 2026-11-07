@@ -7555,3 +7555,24 @@ code.
   accepts 12,545 cards (11,175 finished, 52 of the machine-owned cards
   untested, and 1,370 stubs). The full gates remain deferred at the owner's
   request.
+
+## 2026-11-07 — Engulfing Flames' regeneration prohibition and Flashback
+
+- Engulfing Flames composes the existing targeted one-damage and
+  cannot-be-regenerated-this-turn effects with its face-level flashback cost;
+  it needs no engine, DSL, protocol, desktop or seat addition. Its ordinary
+  {R} play offers either player's creature and no player. A Drudge Skeletons
+  regeneration shield activated before resolution does not save the targeted
+  1/1 creature, while the other creature and both players stay unharmed and
+  one red mana remains unspent.
+- The graveyard incarnation flashes back for exactly {3}{R}, deals one damage
+  to the same chosen creature and finishes in exile with no copy left in
+  graveyard. Three red mana offer neither a castable nor a payable spell; a
+  rejected cast preserves the graveyard object, mana pool and target.
+- Removing the spell ability with `BAYLEE_MUTATE=5201:0` kills both positive
+  plays while the mana-boundary test still passes. All three played tests pass
+  before and after promotion. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  51 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
