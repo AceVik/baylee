@@ -11,7 +11,7 @@ card!(
     oracle_id = "4b6aa5e2-b539-46cd-804b-cd9e996a9456",
     scryfall_id = "8d3f6cd2-0138-40e7-a975-3f7c68db0d93",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Psychotic Haze",
         mana_cost = mana!("{2}{B}{B}"),

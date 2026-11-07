@@ -7221,3 +7221,27 @@ code.
   origin/main`, formatting and `git diff --check` pass. `validate` accepts 12,545
   cards (11,175 finished, 66 of the machine-owned cards untested, and 1,370
   stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Psychotic Haze's symmetrical damage and Madness
+
+- Psychotic Haze composes the existing untargeted creature-and-player damage
+  pair with the face-level madness cost; it needs no engine, DSL, protocol,
+  desktop or seat addition. Its two canonical tests spend the ordinary {2}{B}{B},
+  hit both players and 1/1 Elves on both sides, and leave a larger Wall with one
+  damage marked. A real Prying Eyes discard exiles the exact incarnation, which
+  is then cast for {1}{B} during the opponent's turn and deals the same damage.
+- The damage fixture initially used 2/2 Bears: one damage is correctly nonlethal
+  to them, so the lethal assertion belonged on 1/1 Elves instead. The Elves also
+  produce mana; `tap_mana_except` keeps the creature under test out of the
+  ordinary four-land payment. Six Swamps and two Islands leave exactly two black
+  mana after Prying Eyes, which the Madness cast then spends completely. These
+  were fixture corrections, not engine changes.
+- Removing ability zero with `BAYLEE_MUTATE=5521:0` kills the ordinary damage
+  test. The card was already in the exercised card pool for the preceding
+  integration run: all 373 house-AI tests, the full seat suite (497 unit tests
+  and every integration target), 152 desktop interaction tests and nine
+  `record::seen` tests (two ignored) pass. The desktop client including tests
+  compiles. `codegen --tables --check`, `require-card-tests`, `cargo dev gate
+  touched origin/main`, formatting and `git diff --check` pass. `validate`
+  accepts 12,545 cards (11,175 finished, 65 of the machine-owned cards untested,
+  and 1,370 stubs). The full gates remain deferred at the owner's request.
