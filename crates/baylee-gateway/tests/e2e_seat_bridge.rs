@@ -104,8 +104,11 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
         scripted_chair.seat_token.clone(),
         house_chair.seat_token.clone(),
     ];
+    // Short, not none: a seat that never waits sends over 600 frames a second
+    // in an optimised build, and the gateway rightly closes a socket past
+    // `seatrate::RATE`. This test says the socket never dropped.
     let options = PlayOptions {
-        min_think: Duration::ZERO,
+        min_think: Duration::from_millis(10),
         ..PlayOptions::default()
     };
     let core = |deck: &Deck, mind: &Arc<dyn Mind>| {
