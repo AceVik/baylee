@@ -607,6 +607,40 @@ fn a_deck_keeps_its_last_fifty_states_and_no_more() {
     assert_eq!(version(6), 200);
 }
 
+/// A deck line is as long as a card, its printing and a note can make it, and
+/// a deck as long as its lines: every list an account keeps is read whole by
+/// `GET /decks`, so neither is left to the transport's limit.
+#[test]
+fn a_deck_is_only_as_long_as_its_cards() {
+    let gateway = spawn_gateway("deck_bytes");
+    let token = login(gateway.port, "bytes", "Bytes");
+    let save = |cards: &[String]| {
+        let body = serde_json::json!({ "name": "Long", "cards": cards }).to_string();
+        http(gateway.port, "POST", "/decks", Some(&token), &body)
+    };
+    let id = "0190a0b0-0000-7000-8000-000000000001";
+    let good = format!("1 Forest scryfall={id}");
+    let (status, answer) = save(std::slice::from_ref(&good));
+    assert_eq!(status, 200, "{answer}");
+
+    // A group said twice: the first of them was never looked at.
+    let twice = format!("1 Forest scryfall={id} scryfall=not-a-printing");
+    let (status, answer) = save(&[twice]);
+    assert_eq!(status, 400, "{answer}");
+
+    let padded = format!("1 Forest{}", " [de]".repeat(1000));
+    let (status, answer) = save(&[padded]);
+    assert_eq!(status, 400, "{answer}");
+
+    // Lines that each pass and come to more than a deck holds.
+    let note = format!("1 Forest # {}", "n".repeat(490));
+    let (status, answer) = save(&vec![note; 250]);
+    assert_eq!(status, 200, "{answer}");
+    let wide = format!("1 Forest # {}", "ü".repeat(490));
+    let (status, answer) = save(&vec![wide; 250]);
+    assert_eq!(status, 400, "{answer}");
+}
+
 /// What a history row holds comes from the deck itself, never from the body:
 /// a row can come back through a revert, and a body's lists that skipped
 /// `validate_deck` would come back with it.

@@ -104,6 +104,14 @@ pub(crate) struct GuestSignedIn {
 /// The name a guest is seen by when it chose none.
 pub(crate) const GUEST_NAME: &str = "Guest";
 
+/// `lang` if it can be a language tag, else none: it is a preference, so a
+/// bad one is left out rather than refused, and it is stored and read back
+/// with the account on every request, so its size is not the sender's.
+fn language_tag(lang: String) -> String {
+    let tag = lang.len() <= 16 && lang.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+    if tag { lang } else { String::new() }
+}
+
 /// `POST /auth/guest`: an account with no username, no address and no
 /// password, and its session, in one answer (#269).
 ///
@@ -154,6 +162,9 @@ pub(crate) async fn guest(
     // A closed beta's guest door is a door too (#317). A guest this device
     // keeps comes back with its session and never asks this route again.
     let key = admission(&state, &ip, body.invite_key.as_deref())?;
+    if !state.guest_limiter.allow(&ip) {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+    }
     if let Some(cap) = state.guest_cap {
         let guests = store::guest_count(&state.db)
             .await
@@ -171,7 +182,7 @@ pub(crate) async fn guest(
         store::NewGuest {
             display_name,
             created_at: auth::now_secs(),
-            lang: body.lang,
+            lang: language_tag(body.lang),
         },
         auth::token_digest(&issued.token),
         issued.expires_at,

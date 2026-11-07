@@ -415,6 +415,16 @@ fn playing_at(state: &Shared, game_id: &str, account: &str) -> bool {
     })
 }
 
+/// Whether the game is still being played here, whoever sits at it.
+fn goes_on(state: &Shared, game_id: &str) -> bool {
+    state
+        .lobby
+        .lock()
+        .games
+        .get(game_id)
+        .is_some_and(|g| g.state == crate::lobby::LobbyState::Playing)
+}
+
 /// Whether the game ended here in the last [`JUST_ENDED_SECS`].
 fn just_ended(state: &Shared, game_id: &str) -> bool {
     let now = crate::auth::now_secs();
@@ -504,6 +514,11 @@ pub(crate) async fn replay_tape(
     else {
         return Err(err(StatusCode::FORBIDDEN, "you did not sit at that game"));
     };
+    // Whoever sat at it: a player the table took a chair from still has a row
+    // in the record, and the hands of a game going on are not for a tape.
+    if goes_on(&state, &game_id) {
+        return Err(err(StatusCode::CONFLICT, "the game is still being played"));
+    }
     let Some((bytes, _)) = size else {
         return Err(err(StatusCode::NOT_FOUND, "no such game"));
     };

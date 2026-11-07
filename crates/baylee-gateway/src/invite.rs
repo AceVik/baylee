@@ -249,16 +249,20 @@ fn parse_create(mut rest: &[String]) -> Result<Command, String> {
 /// `30d` or `12h`: how long a key admits anybody.
 fn expiry(raw: &str) -> Result<time::Duration, String> {
     let wrong = || format!("--expires takes days or hours, like 30d or 12h, not {raw:?}");
-    let (count, unit) = raw.split_at(raw.len().saturating_sub(1));
+    let (count, days) = raw
+        .strip_suffix('d')
+        .map(|count| (count, true))
+        .or_else(|| raw.strip_suffix('h').map(|count| (count, false)))
+        .ok_or_else(wrong)?;
     let count: i64 = count.parse().map_err(|_| wrong())?;
     if !(1..=3650).contains(&count) {
         return Err(wrong());
     }
-    match unit {
-        "d" => Ok(time::Duration::days(count)),
-        "h" => Ok(time::Duration::hours(count)),
-        _ => Err(wrong()),
-    }
+    Ok(if days {
+        time::Duration::days(count)
+    } else {
+        time::Duration::hours(count)
+    })
 }
 
 /// A note as it is kept: trimmed, at most a hundred characters, and none

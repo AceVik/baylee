@@ -5,6 +5,12 @@ use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::Envelope;
 use baylee_view::{HouseAnswer, LogTail, PlayerView};
 
+/// How many settings one seat may change in a game. A setting moves nothing
+/// and is recorded, so it is the one thing a seat can write into a record
+/// without the game going on, hundreds of times a second, and records are
+/// kept. A person changes a few dozen in a long game.
+pub(super) const MOST_SETTINGS: u32 = 20_000;
+
 impl Session {
     /// The view the house answers `player`'s question from
     /// (`table::Table::agent_view`, which says what it leaves out).
@@ -252,6 +258,15 @@ impl Session {
         // thing the engine takes from a seat that is not being asked, and it
         // leaves the question standing. See [`Session::decision_seq`].
         let moves_the_game = !action.is_automation_setting();
+        let seat = player.get() as usize;
+        if !moves_the_game
+            && self
+                .settings_made
+                .get(seat)
+                .is_some_and(|made| *made >= MOST_SETTINGS)
+        {
+            return Err("too many settings in one game".to_string());
+        }
         let deciding = self.deciding();
         let asked = self.answering(player, &action);
         let source = if clock.is_some() {
@@ -273,6 +288,9 @@ impl Session {
         // as an unchanged seat setting is, and no line in the record.
         if setting_was.as_ref() == Some(self.engine.automation(player)) {
             return Ok(Vec::new());
+        }
+        if !moves_the_game && let Some(made) = self.settings_made.get_mut(seat) {
+            *made += 1;
         }
         if let Some(action) = kept {
             self.recorded(player, source, action);

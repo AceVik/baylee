@@ -140,6 +140,7 @@ pub(crate) fn send_global(
     if !state
         .social
         .admit_send(from.account, from.guest, std::time::Instant::now())
+        || !state.social.admit_global(std::time::Instant::now())
     {
         return refused(req, Why::Rate);
     }

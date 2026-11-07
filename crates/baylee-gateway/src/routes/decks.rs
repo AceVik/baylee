@@ -31,41 +31,65 @@ pub(crate) async fn list_decks(
     headers: HeaderMap,
 ) -> Result<Json<Vec<DeckRow>>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    // Every deck of a shelf is read and parsed here, up to a thousand of them:
+    // a player's second look may wait, and a third is not asked for.
+    let _place = state
+        .deck_shelves
+        .take(&account_id)
+        .ok_or_else(|| err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"))?;
+    let _turn = state
+        .shelf_turns
+        .acquire()
+        .await
+        .map_err(|_| err(StatusCode::SERVICE_UNAVAILABLE, "closing down"))?;
     // One indexed read on `(account_id, updated_at DESC)`, where this used
     // to walk every deck on the gateway to find one player's.
     let decks = store::decks_of(&state.db, &account_id)
         .await
         .map_err(|e| db_down(&e))?;
-    let mut digests: Vec<_> = decks
-        .iter()
-        .map(|d| baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders))
-        .collect();
+    let stopped = |_| err(StatusCode::SERVICE_UNAVAILABLE, "closing down");
+    // Off the runtime, since a full shelf takes seconds and every socket of
+    // the gateway runs on it.
+    let (decks, mut digests) = tokio::task::spawn_blocking(move || {
+        let digests: Vec<_> = decks
+            .iter()
+            .map(|d| baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders))
+            .collect();
+        (decks, digests)
+    })
+    .await
+    .map_err(stopped)?;
     credit_artists(&state, &mut digests).await;
     let now = time::OffsetDateTime::now_utc();
     let table = state.pool_table().await;
-    let decks: Vec<_> = decks
-        .into_iter()
-        .zip(digests)
-        .map(|(d, digest)| DeckRow {
-            legality: legality_of(&d, table.as_deref()),
-            blocked: blocked_in(&state, &d, now),
-            cards: d.cards.len(),
-            sideboard: d.sideboard.len(),
-            id: d.id,
-            name: d.name,
-            format: d.format,
-            copies: digest.copies,
-            side_copies: digest.side_copies,
-            identity: digest.identity,
-            commanders: d.commanders,
-            leaders: digest.leaders,
-            signature: digest.signature,
-            unplayable: digest.unplayable,
-            updated_at: d.updated_at,
-            sleeve: d.sleeve,
-            playmat: d.playmat,
-        })
-        .collect();
+    let reading = state.clone();
+    let decks = tokio::task::spawn_blocking(move || {
+        decks
+            .into_iter()
+            .zip(digests)
+            .map(|(d, digest)| DeckRow {
+                legality: legality_of(&d, table.as_deref()),
+                blocked: blocked_in(&reading, &d, now),
+                cards: d.cards.len(),
+                sideboard: d.sideboard.len(),
+                id: d.id,
+                name: d.name,
+                format: d.format,
+                copies: digest.copies,
+                side_copies: digest.side_copies,
+                identity: digest.identity,
+                commanders: d.commanders,
+                leaders: digest.leaders,
+                signature: digest.signature,
+                unplayable: digest.unplayable,
+                updated_at: d.updated_at,
+                sleeve: d.sleeve,
+                playmat: d.playmat,
+            })
+            .collect::<Vec<_>>()
+    })
+    .await
+    .map_err(stopped)?;
     Ok(Json(decks))
 }
 
@@ -459,6 +483,11 @@ pub(crate) async fn update_deck(
         Some(text) => Some(text),
         None => deck.description.clone(),
     };
+    // A state left behind is kept, so how fast they are written is bounded:
+    // only saves that kept one are counted, and a builder session keeps one.
+    if body.versioned && state.deck_states.spent(&account_id) {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many saves"));
+    }
     let archived = store::put_deck_versioned(
         &state.db,
         Deck {
@@ -478,6 +507,9 @@ pub(crate) async fn update_deck(
     )
     .await
     .map_err(|e| db_down(&e))?;
+    if archived {
+        state.deck_states.allow(&account_id);
+    }
     Ok(Json(DeckUpdated { archived }))
 }
 

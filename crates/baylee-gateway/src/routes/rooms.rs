@@ -127,7 +127,7 @@ pub(crate) struct CreateGameBody {
 /// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`), or the deck is someone else's (`not your deck`)"
 /// @return 404: `$ErrorBody` "No such deck"
 /// @return 409: `$ErrorBody` "The deck holds a card blocked on this gateway, or the caller is still playing a running game"
-/// @return 429: `$ErrorBody` "The caller already hosts 8 waiting rooms"
+/// @return 429: `$ErrorBody` "The caller already hosts 8 waiting rooms, or made 120 this hour"
 /// @return 500: `$ErrorBody` "The house deck is missing from this build"
 /// @return 503: `$ErrorBody` "The account store is unavailable, the gateway's database is, or no engine could be ordered for `mode: ai` (no agent, or a deploy holds new games)"
 pub(crate) async fn create_game(
@@ -136,6 +136,10 @@ pub(crate) async fn create_game(
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    // Each game leaves its record for good and may start an engine process.
+    if !state.game_limiter.allow(&account_id) {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many games"));
+    }
     let central_session = crate::central::seat_binding(&state, &headers)?;
     let chosen = if body.deck_id.is_empty() {
         None

@@ -200,6 +200,9 @@ pub struct Session {
     /// seat gave by hand. Read off the journal after every applied answer,
     /// cleared by the seat's own decision through [`Session::act`].
     policy_acts: Vec<Vec<PolicyAct>>,
+    /// How many settings each seat has made this game, which are recorded
+    /// and move nothing: see [`answers::MOST_SETTINGS`].
+    settings_made: Vec<u32>,
     /// Per seat, how many answers its policies have given, which numbers the
     /// next one.
     policy_counted: Vec<u32>,
@@ -331,6 +334,7 @@ impl Session {
             teams: preset.seats.iter().map(|s| s.team).collect(),
             house_answered: vec![None; preset.seats.len()],
             policy_acts: vec![Vec::new(); preset.seats.len()],
+            settings_made: vec![0; preset.seats.len()],
             policy_counted: vec![0; preset.seats.len()],
             policy_read: 0,
             now_ms: 0,

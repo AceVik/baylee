@@ -237,8 +237,20 @@ async fn a_finished_game_leaves_its_record_and_a_report_about_it_carries_it() {
     .to_string();
     assert_eq!(report(port, Some(&stranger), &naming).0, 201);
 
+    // A record grown past what a report carries stays where it is, and the
+    // report still goes.
+    gw.sql(&format!(
+        "UPDATE game_record SET bytes = 8388609 WHERE game_id = '{game}'"
+    ));
+    assert_eq!(report(port, Some(&token), &body).0, 201);
+
     let inbox = inbox.lock();
-    assert_eq!(inbox.len(), 3);
+    assert_eq!(inbox.len(), 4);
+    assert!(
+        inbox[3].1["record"].is_null(),
+        "a report carried a record over its bound"
+    );
+    assert_eq!(inbox[3].1["text"], "the swamp did a thing");
     let (auth, sent) = &inbox[0];
     assert_eq!(auth, "Bearer intake-secret-for-tests");
     // Without the record, whose base64 may spell anything; it is read

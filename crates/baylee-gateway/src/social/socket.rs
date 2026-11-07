@@ -42,6 +42,9 @@ const QUIET: Duration = Duration::from_secs(50);
 /// How long a socket may take to say `hello`.
 const HELLO_WITHIN: Duration = Duration::from_secs(30);
 
+/// How long a client may leave a frame unread before its socket goes.
+const SEND_WITHIN: Duration = Duration::from_secs(10);
+
 /// The socket's frame allowance: 40 at once, then 10 a second.
 const FRAME_RATE: u32 = 10;
 const FRAME_BURST: u32 = 40;
@@ -164,7 +167,17 @@ async fn send(socket: &mut WebSocket, frame: &Down) -> bool {
     let Ok(text) = serde_json::to_string(frame) else {
         return false;
     };
-    socket.send(Message::Text(text.into())).await.is_ok()
+    took(socket, Message::Text(text.into())).await
+}
+
+/// Whether `socket` took `message` within [`SEND_WITHIN`]. The loop waits here
+/// and nowhere else, so a client that stops reading must not hold it: nothing
+/// would notice a session ending, and its queue would stay.
+async fn took(socket: &mut WebSocket, message: Message) -> bool {
+    matches!(
+        tokio::time::timeout(SEND_WITHIN, socket.send(message)).await,
+        Ok(Ok(()))
+    )
 }
 
 /// Closes with `code` and `reason`.
@@ -418,7 +431,7 @@ async fn serve(
         return;
     }
     // This account's presence and tables, now that it is here.
-    presence::publish(state).await;
+    presence::publish_soon(state).await;
     let opened = Instant::now();
     let mut allowance = crate::seatrate::Allowance::new(opened, FRAME_RATE, FRAME_BURST);
     let mut ping = tokio::time::interval(PING_EVERY);
@@ -501,7 +514,7 @@ async fn serve(
                     }
                     Up::Presence(set) => {
                         state.social.set_status(account, &set);
-                        presence::publish(state).await;
+                        presence::publish_soon(state).await;
                     }
                 }
             }
@@ -531,7 +544,7 @@ async fn serve(
             },
             _ = ping.tick() => {
                 if heard.elapsed() > QUIET
-                    || socket.send(Message::Ping(Vec::new().into())).await.is_err()
+                    || !took(socket, Message::Ping(Vec::new().into())).await
                 {
                     return;
                 }

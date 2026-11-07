@@ -104,7 +104,7 @@ pub(crate) fn text_ids(list: &str) -> Vec<String> {
 /// @insert `SessionRefusals`
 /// @query-params `$CatalogTextQuery`
 /// @return 502: `$ErrorBody` "The card catalog failed to answer"
-/// @return 503: `$ErrorBody` "This gateway has no card catalog, or its account store is unavailable"
+/// @return 503: `$ErrorBody` "This gateway has no card catalog, its account store is unavailable, or too many searches are on their way"
 pub(crate) async fn catalog_text(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -219,29 +219,57 @@ pub(crate) struct CatalogSearchQuery {
 /// @security bearer
 /// @insert `SessionRefusals`
 /// @query-params `$CatalogSearchQuery`
-/// @return 400: String text/plain "A query without `q`, or a `limit` that is not a number (axum's rejection)"
+/// @return 400: String text/plain "A query without `q`, a `limit` that is not a number (axum's rejection), or a search over 150 characters"
+/// @return 429: `$ErrorBody` "Over 240 searches this minute from this account"
 /// @return 502: `$ErrorBody` "The card catalog failed to answer"
-/// @return 503: `$ErrorBody` "This gateway has no card catalog, or its account store is unavailable"
+/// @return 503: `$ErrorBody` "This gateway has no card catalog, its account store is unavailable, or too many searches are on their way"
 pub(crate) async fn catalog_search(
     State(state): State<Shared>,
     headers: HeaderMap,
     Query(params): Query<CatalogSearchQuery>,
 ) -> Result<Json<Vec<baylee_catalog::SearchHit>>, (StatusCode, Json<ErrorBody>)> {
-    authed(&state, &headers).await?;
+    let account = authed(&state, &headers).await?;
+    let q = params.q.trim();
+    if q.chars().count() > MAX_SEARCH_CHARS {
+        return Err(err(StatusCode::BAD_REQUEST, "the search is too long"));
+    }
     let catalog = state.catalog.as_ref().ok_or_else(|| {
         err(
             StatusCode::SERVICE_UNAVAILABLE,
             "card catalog not configured",
         )
     })?;
+    if !state.search_limiter.allow(&account) {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many searches"));
+    }
+    // A search holds a connection for as long as it takes, and the pool every
+    // sign-in and request needs is small, so it may have only part of it.
+    let _turn = tokio::time::timeout(SEARCH_QUEUE, state.search_turns.acquire())
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .ok_or_else(|| {
+            err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "too many searches on their way; try again",
+            )
+        })?;
     let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let hits = catalog
-        .search(params.q.trim(), &lang, limit)
+        .search(q, &lang, limit)
         .await
         .map_err(|e| catalog_error("searching the catalog", &e))?;
     Ok(Json(hits))
 }
+
+/// The longest search, in characters. A card's longest name
+/// is 141. The catalog's bigrams take time by the square of the length: 60 KB
+/// held a database connection for 18 seconds.
+const MAX_SEARCH_CHARS: usize = 150;
+
+/// How long a search waits for its turn.
+const SEARCH_QUEUE: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Logs a catalog failure and returns a response that leaks nothing.
 ///

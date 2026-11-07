@@ -146,6 +146,15 @@ const MAX_DECK_DESCRIPTION_BYTES: usize = 16 * 1024;
 /// The longest summary a save may give a change, in bytes.
 const MAX_DECK_SUMMARY_BYTES: usize = 1024;
 
+/// The longest deck line, in bytes: a long name, every group, and a note of
+/// 500 characters in any script.
+const MAX_DECK_LINE_BYTES: usize = 4096;
+
+/// The most text a deck's lines come to, in bytes: far past 500 lines of a
+/// printing each. Every list is kept and is read whole by `GET /decks`, so
+/// this is what one deck can cost, and the transport's limit is not.
+const MAX_DECK_TEXT_BYTES: usize = 128 * 1024;
+
 /// How many decks one account may keep, a number a collection does not
 /// reach. Each is a row and a history of its own, so this is what keeps one
 /// account from filling the database everybody's accounts are in.
@@ -321,6 +330,12 @@ pub(crate) fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<Err
     }
     if body.sideboard.len() > 250 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid sideboard"));
+    }
+    let lines = || body.cards.iter().chain(&body.sideboard);
+    if lines().any(|line| line.len() > MAX_DECK_LINE_BYTES)
+        || lines().map(String::len).sum::<usize>() > MAX_DECK_TEXT_BYTES
+    {
+        return Err(err(StatusCode::BAD_REQUEST, "deck too long"));
     }
     // The same parser, so a sideboard cannot hold what a deck could not.
     parse_deck_lines(&body.cards)?;

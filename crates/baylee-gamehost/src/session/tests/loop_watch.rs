@@ -213,6 +213,26 @@ fn a_setting_that_changes_nothing_sends_nobody_anything() {
     assert_eq!(session.seq(), seq, "and nothing moved");
 }
 
+/// A setting that changes something is a line in the record, so a seat has
+/// only so many of them in a game. Past that it is told so, the game goes on,
+/// and the other seat has its own.
+#[test]
+fn a_seat_has_only_so_many_settings_in_a_game() {
+    let mut session = table(&["Lightning Bolt"], &["Mountain"]);
+    cast_at_them(&mut session);
+    let holds = [PriorityHold::Always, PriorityHold::PassWhenNothingToDo];
+    let setting = |n: u32| PlayerAction::SetPriorityHold(holds[(n % 2) as usize]);
+    for n in 0..answers::MOST_SETTINGS {
+        session.act(THEM, setting(n)).expect("within its allowance");
+    }
+    let seq = session.seq();
+    let refused = session.act(THEM, setting(answers::MOST_SETTINGS));
+    assert!(refused.is_err(), "one past its allowance");
+    assert_eq!(session.seq(), seq, "and nothing moved");
+    session.act(ME, setting(0)).expect("the other seat's own");
+    the_spell_resolves(&mut session);
+}
+
 /// A setting that changes something changes one seat's table, so nobody
 /// else is sent a view of it.
 #[test]

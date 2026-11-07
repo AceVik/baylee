@@ -99,7 +99,24 @@ struct AppState {
     bodies: auth::Gauge,
     /// Spectators' tickets, per account: thirty a minute.
     watch_tickets: auth::RateLimiter,
+    /// Who is reading its whole shelf of decks now (`GET /decks`), per
+    /// account, and how many may be at once on the gateway.
+    deck_shelves: auth::Gauge,
+    shelf_turns: tokio::sync::Semaphore,
+    /// Past states of decks written, per account: each is kept, so six
+    /// hundred an hour, far past what a builder session comes to.
+    deck_states: auth::RateLimiter,
+    /// Catalog searches, per account, and how many may be at once on the
+    /// gateway: one letter takes a fifth of a second of a pool of eight.
+    search_limiter: auth::RateLimiter,
+    search_turns: tokio::sync::Semaphore,
+    /// Rooms and games made, per account: 120 an hour.
+    game_limiter: auth::RateLimiter,
     limiter: auth::RateLimiter,
+    /// New guests per address in a day, beside [`Self::limiter`]: at this
+    /// rate no address reaches [`DEFAULT_GUEST_CAP`] before its first guests
+    /// lapse, so none can shut the guest door by itself.
+    guest_limiter: auth::RateLimiter,
     /// Tries of a closed beta's key at the guest door (#317): eight in five
     /// minutes per address, on a budget of their own beside [`Self::limiter`],
     /// so that guessing at eighty bits stays a guess.
@@ -451,7 +468,17 @@ async fn main() {
         sockets: auth::Gauge::new(presence::SOCKETS_PER_HOLDER),
         bodies: auth::Gauge::new(LARGE_BODIES_PER_ADDRESS),
         watch_tickets: auth::RateLimiter::new(std::time::Duration::from_mins(1), 30),
+        deck_shelves: auth::Gauge::new(2),
+        shelf_turns: tokio::sync::Semaphore::new(4),
+        deck_states: auth::RateLimiter::new(std::time::Duration::from_hours(1), 600),
+        search_limiter: auth::RateLimiter::new(std::time::Duration::from_mins(1), 240),
+        search_turns: tokio::sync::Semaphore::new(3),
+        game_limiter: auth::RateLimiter::new(std::time::Duration::from_hours(1), 120),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
+        guest_limiter: auth::RateLimiter::new(
+            std::time::Duration::from_hours(24),
+            GUESTS_A_DAY_PER_ADDRESS,
+        ),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
         // Small: a receiver that falls this far behind is one whose socket is
@@ -1058,6 +1085,16 @@ fn switched_on(raw: Option<&str>) -> bool {
     !matches!(raw, Some("off" | "0" | "false"))
 }
 
+/// How many guests a gateway takes when its operator says nothing.
+const DEFAULT_GUEST_CAP: u64 = 1000;
+
+/// How many guests one address may make in a day.
+const GUESTS_A_DAY_PER_ADDRESS: usize = 30;
+
+/// A guest that is never used lasts this many days, so this many days of one
+/// address's guests must stay under [`DEFAULT_GUEST_CAP`].
+const _: () = assert!(GUESTS_A_DAY_PER_ADDRESS as u64 * 30 < DEFAULT_GUEST_CAP);
+
 /// How many guests there may be at once (`BAYLEE_GUEST_CAP`, #269), or
 /// `None` for no bound.
 ///
@@ -1068,8 +1105,6 @@ fn switched_on(raw: Option<&str>) -> bool {
 /// name does: a cap that read a typo as "no cap" would be found out by the
 /// disk.
 fn guest_cap(raw: Option<&str>) -> Result<Option<u64>, String> {
-    /// How many guests a gateway takes when its operator says nothing.
-    const DEFAULT_GUEST_CAP: u64 = 1000;
     match raw.map(str::trim) {
         None | Some("") => Ok(Some(DEFAULT_GUEST_CAP)),
         Some(count) => match count.parse::<u64>() {

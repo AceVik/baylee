@@ -142,3 +142,32 @@ fn a_stranger_at_the_push_door_keeps_no_message_of_central_s_out() {
     stub.push(gw.port);
     assert_eq!(http(gw.port, "GET", "/me", Some(&bearer), "").0, 401);
 }
+
+/// A guest's language is a short tag and nothing else: the row is read back on
+/// every request a guest makes, so a stranger must not choose its size.
+#[test]
+fn a_guest_s_language_is_a_tag_whatever_the_request_says() {
+    let gw = common::spawn_gateway_with("doors_lang", &[("BAYLEE_AUTH_MODE", "guests".into())]);
+    let long = "x".repeat(1024 * 1024);
+    let body = serde_json::json!({ "lang": long }).to_string();
+    let (status, answer) = http(gw.port, "POST", "/auth/guest", None, &body);
+    assert_eq!(status, 200, "{answer}");
+    let (status, answer) = http(gw.port, "POST", "/auth/guest", None, r#"{"lang":"pt-BR"}"#);
+    assert_eq!(status, 200, "{answer}");
+    let longest = gw.text("SELECT max(octet_length(lang))::text FROM account WHERE guest");
+    assert_eq!(longest.trim(), "5", "only the tag was kept");
+}
+
+/// A search is a few words. The catalog's bigrams take time by the square of
+/// its length, in a backend the whole gateway shares, so a long one is
+/// refused before anything is asked.
+#[test]
+fn a_search_is_a_few_words() {
+    let gw = common::spawn_gateway("doors_search");
+    let bearer = common::login(gw.port, "searching", "Searching");
+    let path = |q: &str| format!("/catalog/search?q={q}");
+    let (status, answer) = http(gw.port, "GET", &path(&"a".repeat(150)), Some(&bearer), "");
+    assert_ne!(status, 400, "{answer}");
+    let (status, answer) = http(gw.port, "GET", &path(&"a".repeat(151)), Some(&bearer), "");
+    assert_eq!(status, 400, "{answer}");
+}

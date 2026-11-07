@@ -205,10 +205,11 @@ fn parse_finish(marker: &str) -> Result<Finish, RowError> {
 /// `(M11) foil` would otherwise be read as a printing the owner never chose.
 ///
 /// # Errors
-/// [`RowError`] when the row has no count, or when a group it does recognise
-/// is malformed. An unrecognised trailing word is *not* an error: it stays
-/// part of the name, which is what keeps a card called `Erase (Not the Urza's
-/// Legacy One)` readable.
+/// [`RowError`] when the row has no count, when a group it does recognise is
+/// malformed, and when a group comes twice: only one could be meant, and only
+/// one would be looked at. An unrecognised trailing word is *not* an error: it
+/// stays part of the name, which is what keeps a card called `Erase (Not the
+/// Urza's Legacy One)` readable.
 pub fn parse(row: &str) -> Result<Row, RowError> {
     let row = row.trim();
     // The first fence wins, so a note may contain the marker itself.
@@ -251,7 +252,7 @@ pub fn parse(row: &str) -> Result<Row, RowError> {
         let (head, last) = trimmed.rsplit_once(' ').unwrap_or(("", trimmed));
         let taken = match classify(last)? {
             Group::Set(set) => {
-                print.set = Some(set);
+                once(&mut print.set, set)?;
                 true
             }
             Group::Number(number) => {
@@ -259,22 +260,22 @@ pub fn parse(row: &str) -> Result<Row, RowError> {
                 // stands in front of it; otherwise it is part of the name
                 // (`Borrowing 100,000 Arrows`).
                 if head.trim_end().ends_with(')') {
-                    print.collector_number = Some(number);
+                    once(&mut print.collector_number, number)?;
                     true
                 } else {
                     false
                 }
             }
             Group::Lang(lang) => {
-                print.lang = Some(lang);
+                once(&mut print.lang, lang)?;
                 true
             }
             Group::Finish(finish) => {
-                print.finish = Some(finish);
+                once(&mut print.finish, finish)?;
                 true
             }
             Group::Id(id) => {
-                print.scryfall_id = Some(id);
+                once(&mut print.scryfall_id, id)?;
                 true
             }
             Group::Circles(pair) => {
@@ -320,6 +321,14 @@ enum Group {
     Circles(crate::color::ColorPair),
     /// Part of the name.
     None,
+}
+
+/// Fills a group's place, refusing a second of the same group.
+fn once<T>(place: &mut Option<T>, value: T) -> Result<(), RowError> {
+    if place.replace(value).is_some() {
+        return Err(RowError::Shape);
+    }
+    Ok(())
 }
 
 /// Classifies one trailing token.

@@ -437,6 +437,7 @@ async fn keys(
 /// @return 400: `$ErrorBody` "The handle carries no `#tag`"
 /// @return 403: `$ErrorBody` "This gateway has no chat, the caller is a guest (who has no friends list), or the account is banned (`ban`) or must accept the terms in force first (`terms_required`)"
 /// @return 404: `$ErrorBody` "No such player"
+/// @return 429: `$ErrorBody` "Too many lookups: 20 at once, then one a second"
 async fn player(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -446,6 +447,12 @@ async fn player(
     registered(&caller)?;
     let tag = crate::handle::parse_tag(&typed)
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "a handle carries a #tag"))?;
+    if !state
+        .social
+        .admit_lookup(&caller.account, std::time::Instant::now())
+    {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many lookups"));
+    }
     let who = db::who_by_tag(&state.db, tag)
         .await
         .map_err(down)?
@@ -893,7 +900,7 @@ async fn put_settings(
     state
         .social
         .set_share_table(&caller.account, body.share_table);
-    presence::publish(&state).await;
+    presence::publish_soon(&state).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -707,23 +707,21 @@ async fn forward(
     // A report that was not taken was not sent, and costs the player
     // nothing of the budget.
     let give_back = || feedback.limiter.give_back(account);
-    // Central's parts are held in memory on their way: only so many at once.
-    let slot = match &to {
-        To::Central(_) => Some(
-            tokio::time::timeout(CENTRAL_QUEUE, feedback.in_flight.clone().acquire_owned())
-                .await
-                .ok()
-                .and_then(Result::ok)
-                .ok_or_else(|| {
-                    give_back();
-                    err(
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        "too many reports on their way; try again",
-                    )
-                })?,
-        ),
-        To::Service(_) => None,
-    };
+    // A report and its record are held in memory on their way, whichever way
+    // they go: only so many at once.
+    let slot = Some(
+        tokio::time::timeout(CENTRAL_QUEUE, feedback.in_flight.clone().acquire_owned())
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .ok_or_else(|| {
+                give_back();
+                err(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "too many reports on their way; try again",
+                )
+            })?,
+    );
     if let Some(game) = game_id {
         flush_record(state, game, reporter).await;
     }
@@ -894,10 +892,17 @@ async fn gateway_record(
     let Some(game) = game_id else {
         return Ok(None);
     };
-    let stored = reporter
-        .record(state, game)
+    let db_down = |e| crate::db_down(&anyhow::Error::from(e));
+    // Asked before it is read: a report is sent however large its game's
+    // record grew, and a record this size came from a game played to grow it.
+    let size = baylee_db::records::stored_size(&state.db, game)
         .await
-        .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
+        .map_err(db_down)?;
+    if size.is_some_and(|(bytes, _)| bytes > crate::replays::MAX_RECORD_BYTES) {
+        tracing::warn!(game, "a report leaves out its game's record: too large");
+        return Ok(None);
+    }
+    let stored = reporter.record(state, game).await.map_err(db_down)?;
     Ok(stored.map(|r| central::RecordBytes {
         complete: r.complete,
         origin: RecordOrigin::Gateway,

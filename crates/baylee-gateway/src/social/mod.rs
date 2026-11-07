@@ -34,6 +34,7 @@ use baylee_db::social::Who;
 use baylee_protocol::social::{self as wire, Activity, Down, Person, SocialInfo, Status};
 use parking_lot::Mutex;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -42,7 +43,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub(crate) enum Out {
     /// A frame to send as it is.
-    Frame(Box<Down>),
+    Frame(Arc<Down>),
     /// A delivery, which the socket sends only while its window has room.
     Deliver {
         /// The slot.
@@ -76,6 +77,20 @@ struct Online {
     devices: BTreeSet<String>,
 }
 
+impl Online {
+    /// What presence reads of `account`.
+    fn view(&self, account: &str) -> presence::OnlineView {
+        presence::OnlineView {
+            account: account.to_owned(),
+            me: self.me.clone(),
+            status: self.status,
+            activity: self.activity,
+            share_table: self.share_table,
+            friends: self.friends.keys().cloned().collect(),
+        }
+    }
+}
+
 #[derive(Default)]
 struct Hub {
     conns: HashMap<String, Conn>,
@@ -88,7 +103,18 @@ struct Hub {
 struct Allowances {
     sends: HashMap<String, Allowance>,
     keys: HashMap<String, Allowance>,
+    lookups: HashMap<String, Allowance>,
+    /// The lobby's chat, everybody's messages together.
+    global: Option<Allowance>,
 }
+
+/// How many messages the lobby's chat takes a second, and at once.
+const GLOBAL_RATE: u32 = 20;
+const GLOBAL_BURST: u32 = 40;
+
+/// How often a request may walk the lobby and everyone online to say
+/// presence: any session can ask as fast as it likes.
+const PUBLISH_AT_MOST: Duration = Duration::from_millis(200);
 
 /// The gateway's social side: on or off, how long messages are held, the
 /// open sockets, presence, invites and allowances. Memory only.
@@ -100,6 +126,8 @@ pub(crate) struct Social {
     pub(crate) invites: Mutex<invites::Invites>,
     pub(crate) watching: Mutex<BTreeMap<String, BTreeMap<String, usize>>>,
     pub(crate) published: Mutex<presence::Published>,
+    /// When a request last said presence.
+    asked_to_publish: Mutex<Option<Instant>>,
     /// Friend requests, per account: 20 an hour.
     pub(crate) requests: RateLimiter,
     /// Group and table invites, per account: 30 an hour.
@@ -161,6 +189,7 @@ impl Social {
             invites: Mutex::new(invites::Invites::default()),
             watching: Mutex::new(BTreeMap::new()),
             published: Mutex::new(presence::Published::default()),
+            asked_to_publish: Mutex::new(None),
             requests: RateLimiter::new(HOUR, 20),
             invite_limiter: RateLimiter::new(HOUR, 30),
             new_groups: RateLimiter::new(DAY, 10),
@@ -213,6 +242,39 @@ impl Social {
                 }
             });
         allowance.admit(now)
+    }
+
+    /// Whether `account` may look a tag up once more now (20 at once, then 1
+    /// a second): tags are numbered, so walking them would list every player.
+    pub(crate) fn admit_lookup(&self, account: &str, now: Instant) -> bool {
+        self.allowances
+            .lock()
+            .lookups
+            .entry(account.to_owned())
+            .or_insert_with(|| Allowance::new(now, 1, 20))
+            .admit(now)
+    }
+
+    /// Whether the lobby's chat may take one more message now, from anybody:
+    /// each goes to every open socket, so what one account may send is not
+    /// what a thousand may.
+    pub(crate) fn admit_global(&self, now: Instant) -> bool {
+        self.allowances
+            .lock()
+            .global
+            .get_or_insert_with(|| Allowance::new(now, GLOBAL_RATE, GLOBAL_BURST))
+            .admit(now)
+    }
+
+    /// Whether a request may say presence now. The second's round
+    /// (`presence::spawn`) says what this leaves out, a moment later.
+    pub(crate) fn may_publish(&self, now: Instant) -> bool {
+        let mut last = self.asked_to_publish.lock();
+        if last.is_some_and(|last| now.duration_since(last) < PUBLISH_AT_MOST) {
+            return false;
+        }
+        *last = Some(now);
+        true
     }
 
     /// Whether `account` may fetch keys once more now (20 at once, then 1 a
@@ -312,8 +374,9 @@ impl Social {
             .get(account)
             .map(|online| online.devices.iter().cloned().collect())
             .unwrap_or_default();
+        let shared = Arc::new(frame.clone());
         for device in devices {
-            Self::to_device(&mut hub, &device, Out::Frame(Box::new(frame.clone())));
+            Self::to_device(&mut hub, &device, Out::Frame(Arc::clone(&shared)));
         }
     }
 
@@ -334,8 +397,9 @@ impl Social {
             .filter(|d| d.as_str() != sender_device)
             .cloned()
             .collect();
+        let shared = Arc::new(frame.clone());
         for device in devices {
-            Self::to_device(&mut hub, &device, Out::Frame(Box::new(frame.clone())));
+            Self::to_device(&mut hub, &device, Out::Frame(Arc::clone(&shared)));
         }
     }
 
@@ -406,15 +470,17 @@ impl Social {
             .lock()
             .online
             .iter()
-            .map(|(account, online)| presence::OnlineView {
-                account: account.clone(),
-                me: online.me.clone(),
-                status: online.status,
-                activity: online.activity,
-                share_table: online.share_table,
-                friends: online.friends.keys().cloned().collect(),
-            })
+            .map(|(account, online)| online.view(account))
             .collect()
+    }
+
+    /// One account's [`Self::online_accounts`] entry, if it is online.
+    pub(crate) fn online_account(&self, account: &str) -> Option<presence::OnlineView> {
+        self.hub
+            .lock()
+            .online
+            .get(account)
+            .map(|online| online.view(account))
     }
 
     /// A new status for `account`.
@@ -573,5 +639,77 @@ pub(crate) async fn console_counts(state: &crate::AppState) -> serde_json::Value
             tracing::warn!("social: no counts: {e}");
             serde_json::Value::Null
         }
+    }
+}
+
+#[cfg(test)]
+mod bounds {
+    use super::*;
+
+    fn social() -> Social {
+        Social::new(true, 14)
+    }
+
+    /// Any session can ask for presence, and saying it walks the lobby under
+    /// locks every seat frame takes.
+    #[test]
+    fn a_request_says_presence_only_so_often() {
+        let social = social();
+        let now = Instant::now();
+        assert!(social.may_publish(now));
+        assert!(!social.may_publish(now));
+        assert!(!social.may_publish(now + PUBLISH_AT_MOST / 2));
+        assert!(social.may_publish(now + PUBLISH_AT_MOST));
+    }
+
+    /// What every account may send together is less than what they may each
+    /// send: one message goes to every open socket.
+    #[test]
+    fn the_lobby_s_chat_takes_only_so_much_from_everybody_together() {
+        let social = social();
+        let now = Instant::now();
+        let taken = (0..1000).filter(|_| social.admit_global(now)).count();
+        assert_eq!(taken, GLOBAL_BURST as usize);
+        assert!(social.admit_global(now + Duration::from_secs(1)));
+    }
+
+    /// A tag is a number, so looking them up in order would list every player.
+    #[test]
+    fn an_account_can_look_up_only_so_many_tags() {
+        let social = social();
+        let now = Instant::now();
+        let taken = (0..1000).filter(|_| social.admit_lookup("a", now)).count();
+        assert_eq!(taken, 20);
+        assert!(social.admit_lookup("b", now), "another account's own");
+    }
+
+    /// A frame sent to many sockets is written once.
+    #[test]
+    fn every_socket_of_a_broadcast_shares_one_frame() {
+        let social = social();
+        let frame = Down::Welcome {
+            tag: "#0001".into(),
+            handle: "Alice#0001".into(),
+            device: "d".into(),
+            guest: false,
+        };
+        let mut receivers = Vec::new();
+        {
+            let mut hub = social.hub.lock();
+            for device in ["a", "b"] {
+                let (tx, rx) = mpsc::channel(4);
+                hub.conns.insert(device.to_owned(), Conn { id: 1, tx });
+                receivers.push(rx);
+            }
+        }
+        social.broadcast_global("nobody", &frame);
+        let frames: Vec<Arc<Down>> = receivers
+            .iter_mut()
+            .map(|rx| match rx.try_recv() {
+                Ok(Out::Frame(frame)) => frame,
+                _ => panic!("no frame"),
+            })
+            .collect();
+        assert!(Arc::ptr_eq(&frames[0], &frames[1]));
     }
 }

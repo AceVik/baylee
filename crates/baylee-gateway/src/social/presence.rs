@@ -169,12 +169,7 @@ fn settled(presence: &Presence) -> Presence {
 
 /// `account`'s presence now: offline unless it has a social socket open.
 pub(crate) fn presence_now(state: &Shared, account: &str) -> Presence {
-    let Some(view) = state
-        .social
-        .online_accounts()
-        .into_iter()
-        .find(|view| view.account == account)
-    else {
+    let Some(view) = state.social.online_account(account) else {
         return Presence::offline();
     };
     let watching = state.social.watching.lock().clone();
@@ -300,6 +295,15 @@ fn presences(
             (view, presence)
         })
         .collect()
+}
+
+/// [`publish`] on a request's way: at once if none did a moment ago, else at
+/// the next round of [`spawn`]. It walks everyone online and every game under
+/// the locks seat frames take, and any session can ask as often as it likes.
+pub(crate) async fn publish_soon(state: &Shared) {
+    if state.social.may_publish(Instant::now()) {
+        publish(state).await;
+    }
 }
 
 /// Publishes what changed since the last time.
