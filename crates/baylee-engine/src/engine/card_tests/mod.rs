@@ -61,6 +61,7 @@ mod library_choices;
 mod library_followups;
 mod luna_oracle_pilot;
 mod planeswalkers;
+mod printed_costs;
 mod radiation;
 mod rules;
 mod sacrifice_outcomes;
