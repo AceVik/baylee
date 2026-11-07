@@ -194,6 +194,7 @@ impl TreeEncode for baylee_core::mana::ManaSymbol {
 include!(concat!(env!("OUT_DIR"), "/card_tree.rs"));
 mod catalog;
 pub mod compat;
+pub mod labels;
 pub use catalog::catalog;
 pub mod refs;
 #[cfg(test)]
