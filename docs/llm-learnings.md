@@ -7176,3 +7176,25 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
   68 of the machine-owned cards untested, and 1,370 stubs). The full gates
   remain deferred at the owner's request.
+
+## 2026-11-07 — Arrogant Wurm's cast, Madness and actual trample damage
+
+- Arrogant Wurm composes the printed 4/4 trample body with the face-level
+  madness cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  Its three canonical tests pay the ordinary {3}{G}{G}, cast the exact
+  discarded incarnation for {2}{G} during an opponent's turn, and attack into
+  Grizzly Bears. The blocker dies, exactly two damage tramples through and the
+  Wurm survives with two damage marked.
+- Prying Eyes spends the fixture's six Islands and leaves all three Forest
+  mana for the Madness cast; assuming that it leaves only one green mana was a
+  fixture error, not an engine fault. There is no ability-zero mutation target
+  because trample is keyword data and Madness is face data. The played combat
+  assertion and both cast paths cover the card without inventing an AbilityDef.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  67 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
