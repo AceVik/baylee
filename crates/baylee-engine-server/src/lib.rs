@@ -1059,7 +1059,7 @@ impl EngineRunner {
                 Vec::new()
             }
             Some(v1::envelope::Msg::PlayerAction(action_msg)) => {
-                let Ok(action) = serde_json::from_slice::<PlayerAction>(&action_msg.action_json)
+                let Ok(action) = baylee_core::wire::decode::<PlayerAction>(&action_msg.action)
                 else {
                     return Vec::new();
                 };

@@ -842,7 +842,7 @@ async fn the_fallback_is_declared_before_its_first_answer() {
             .expect("the socket stays open");
         wire.push(match envelope.msg {
             Some(v1::envelope::Msg::PlayerAction(msg)) => {
-                let action: PlayerAction = serde_json::from_slice(&msg.action_json).unwrap();
+                let action: PlayerAction = baylee_core::wire::decode(&msg.action).unwrap();
                 format!("answer {action:?}")
             }
             Some(v1::envelope::Msg::SeatMind(mind)) => format!("mind {}", mind.model),

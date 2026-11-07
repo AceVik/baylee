@@ -103,8 +103,7 @@ fn a_view_built_after_the_question_moved_shows_the_whole_allowance() {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: "g1".to_string(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(&PlayerAction::MulliganKeep)
-                .expect("action serializes"),
+            action: baylee_core::wire::encode(&PlayerAction::MulliganKeep),
         })),
     };
     let out = runner.handle(

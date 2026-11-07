@@ -142,7 +142,7 @@ fn dreams_of_the_dead_grants_cumulative_upkeep_two_and_exiles_an_unpaid_sacrific
             PlayerAction::PayWindow {
                 steps: islands
                     .into_iter()
-                    .map(|source| PlayerAction::ActivateManaAbility { source })
+                    .map(|source| crate::choice::PaymentStep::ActivateManaAbility { source })
                     .collect(),
             },
         )

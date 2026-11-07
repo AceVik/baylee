@@ -33,8 +33,8 @@ impl Rebuild {
         };
         let patch = diff(held, view);
         self.empty += u64::from(patch.is_empty());
-        let wire = serde_json::to_vec(&patch).expect("a patch serializes");
-        let read: ViewPatch = serde_json::from_slice(&wire).expect("a patch reads back");
+        let wire = baylee_core::wire::encode(&patch);
+        let read: ViewPatch = baylee_core::wire::decode(&wire).expect("a patch reads back");
         let rebuilt = match apply(held, &read) {
             Ok(rebuilt) => rebuilt,
             Err(why) => panic!("seat {:?} at seq {}: {why}", view.seat, view.seq),

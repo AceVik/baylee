@@ -21,7 +21,7 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         actor: PlayerId,
         player: PlayerId,
-        steps: Vec<crate::choice::PlayerAction>,
+        steps: Vec<crate::choice::PaymentStep>,
     ) -> Result<(), EngineError> {
         let in_own_window = |engine: &Self| {
             engine
@@ -45,12 +45,7 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         for step in steps {
-            if !step.is_payment_step() {
-                return Err(EngineError::IllegalAction(
-                    "a payment carries only mana abilities and their answers",
-                ));
-            }
-            self.take_answer(actor, step)?;
+            self.take_answer(actor, step.into())?;
             if self.mana_window.as_ref().is_none_or(|w| w.player != player) {
                 return Err(EngineError::IllegalAction(
                     "a payment step closed its own window",

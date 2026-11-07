@@ -231,7 +231,7 @@ async fn resume_exchange(mut socket: WebSocket, stage: ResumeStage, number: usiz
         while let Some(Ok(Message::Binary(bytes))) = socket.recv().await {
             let envelope = v1::Envelope::decode(bytes).unwrap();
             if let Some(v1::envelope::Msg::PlayerAction(action)) = envelope.msg {
-                let action = serde_json::from_slice::<PlayerAction>(&action.action_json).unwrap();
+                let action = baylee_core::wire::decode::<PlayerAction>(&action.action).unwrap();
                 stage.actions.lock().unwrap().push(action);
                 return;
             }
@@ -251,7 +251,7 @@ async fn resume_exchange(mut socket: WebSocket, stage: ResumeStage, number: usiz
     while let Some(Ok(Message::Binary(bytes))) = socket.recv().await {
         let envelope = v1::Envelope::decode(bytes).unwrap();
         if let Some(v1::envelope::Msg::PlayerAction(action)) = envelope.msg {
-            let action = serde_json::from_slice::<PlayerAction>(&action.action_json).unwrap();
+            let action = baylee_core::wire::decode::<PlayerAction>(&action.action).unwrap();
             stage.actions.lock().unwrap().push(action);
             stage.done.store(true, Ordering::SeqCst);
             return;

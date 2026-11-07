@@ -3,7 +3,7 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
-## Views as patches (view 87, protocol 39)
+## Views as patches (view 88, protocol 40)
 
 A seat is told its view whole once and then only what changed. Both ends work
 from `baylee_view` (`crates/baylee-view/src/patch/`): a host keeps a
@@ -66,11 +66,36 @@ is right for every socket.
 holds whole views as JSON: a reader jumps to any moment, and a moment stands on no
 other (`Session::tell_views_whole`). No stored thing holds a patch.
 
-**The foreign bytes.** A client's frames come from whoever it connected to, so
-`apply` treats every patch as hostile: no panic, work of `n log n` in what the view
-and the patch already hold, nothing allocated that a patch merely claims, and on
-any refusal the view held stands. `tests.rs` and `stream_tests.rs` beside the code
-prove it on damaged and made-up patches.
+**In binary (view 88, protocol 40).** `StateDelta.view_frame` and
+`PlayerActionMsg.action` are `postcard`, through `baylee_core::wire` and nothing
+else. It names no fields, so a reader goes by position and a field cannot be left
+out, and the order of a type's fields and variants is the wire: `wire_shape` and
+`VIEW_VERSION` guard it as they guard a name. JSON stays what it was, byte for
+byte, for everything that is not a frame: tapes, records, tools, and the hashes
+kept beside stored research data (`view_hash_fnv1a64`, `pending_sha256`, which are
+of JSON). The wire types leave a default field out through `wire::left_out`, which
+holds only while no frame is being written.
+
+**The foreign bytes.** A guest's frames reach an engine unread and a host's reach
+every client, so `wire::decode` and `apply` hold both to the same rules:
+
+- No panic. A frame that does not read is an error, and on any refusal the view
+  held stands. An action that does not read is dropped.
+- No allocation on a claim. A string's length is checked against the bytes left,
+  and a list grows as its elements arrive, whatever it says it holds.
+  `crates/baylee-view/tests/hostile_frames.rs` and
+  `crates/baylee-engine/tests/hostile_actions.rs` hold this to a counting allocator.
+- No recursion. `postcard` keeps no count of depth, so what a client sends may not
+  nest: `PayWindow` holds `PaymentStep`s, and a payment inside a payment has no way
+  to be written. Written as a recursive type, the same 64 KiB frame aborted the
+  process on a thread's default stack. `SeatSetting` and every other field of an
+  action are flat, the deepest being `Arrange`, two lists down.
+- No bytes left over.
+- `apply` does work of `n log n` in what the view and the patch already hold.
+
+`tests.rs` and `stream_tests.rs` beside the code prove the rest on damaged and
+made-up patches, and `engine-server/src/tests/hostile.rs` sends the frames through
+the engine's own door.
 
 ## The order of triggers (view 86)
 
@@ -980,7 +1005,7 @@ Rhystic Study, Esper Sentinel, Smothering Tithe, Pact of Negation's upkeep,
 ward) — takes one action that pays it whole:
 
 ```text
-PlayerAction::PayWindow { steps: Vec<PlayerAction> }
+PlayerAction::PayWindow { steps: Vec<PaymentStep> }
 ```
 
 The decision before the window is unchanged: a "pay or …" price is still a
@@ -993,7 +1018,8 @@ open the client stages taps locally — the offer's `mana_abilities` and
 price less what is staged and what already floats — and a mistaken tap is
 simply un-staged. Nothing reaches the engine until the player confirms.
 
-`steps` are the actions the seat would have sent one at a time in that
+`steps` (`PaymentStep`, each spelled as the action of its name, and no other
+action can be one) are the actions the seat would have sent one at a time in that
 window, in the order they apply: `ActivateManaAbility`, `ActivateAbility` (a
 mana ability: the window offers nothing else), `TakeGrantedAction`, and the
 answers the activations ask for, each straight after the activation that
@@ -1853,7 +1879,8 @@ an `Envelope` oneof. Card references are `{card_index, print_ref}`;
 ## v1 (M3, shipped 2026-08-29)
 `CreateGame` / `GameCreated`, `ChoiceRequest{game_id, seq,
 pending_json}`, `PlayerActionMsg{game_id, seat_token, action_json}`,
-`StateDelta` (reserved). **Design decision (documented):** the full
+`StateDelta` (reserved). **Design decision (documented, since replaced in part:
+§"Views as patches"):** the full
 engine choice taxonomy (`Pending`, `PlayerAction`) travels as
 **serde_json payloads inside the protobuf frames** — the wire stays
 binary protobuf, but the taxonomy evolves without proto churn. A typed

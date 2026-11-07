@@ -59,11 +59,11 @@ pub struct SpectatorView {
     pub revealed_hands: Vec<crate::SharedHand>,
     /// The ballots of the vote in progress, public to a spectator as to
     /// every seat ([`PlayerView::ballots`]).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub ballots: Vec<crate::Ballot>,
     /// Who decides for whom (Mindslaver), public to a spectator as to every
     /// seat ([`PlayerView::controls`]).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub controls: Vec<crate::PlayerControl>,
 }
 

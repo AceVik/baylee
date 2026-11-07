@@ -76,7 +76,11 @@ fn action_objects(action: &PlayerAction) -> Vec<ObjectId> {
             blockers.iter().flat_map(|(a, b)| [*a, *b]).collect()
         }
         PlayerAction::Arrange { piles } => piles.iter().flatten().copied().collect(),
-        PlayerAction::PayWindow { steps } => steps.iter().flat_map(action_objects).collect(),
+        PlayerAction::PayWindow { steps } => steps
+            .iter()
+            .cloned()
+            .flat_map(|step| action_objects(&step.into()))
+            .collect(),
         PlayerAction::SetPriorityHold(PriorityHold::UntilTopOfStack { object }) => vec![*object],
         // CardIndex, ability index, player seat, choice ID and counts are NOT ObjectIds.
         _ => Vec::new(),

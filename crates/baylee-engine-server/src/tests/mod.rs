@@ -2,6 +2,7 @@ use super::*;
 
 mod clocks;
 mod curtain;
+mod hostile;
 mod moderation;
 mod participation;
 mod projection;
@@ -130,7 +131,7 @@ fn act_reading(
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: "g1".to_string(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(action).expect("action serializes"),
+            action: baylee_core::wire::encode(action),
         })),
     };
     runner.handle(

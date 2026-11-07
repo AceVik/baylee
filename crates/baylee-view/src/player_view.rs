@@ -91,17 +91,17 @@ pub struct PlayerView {
     /// from priority (its mode, X, targets, extra costs) and in that cast's
     /// payment window ([`Self::owed`]). Only in the casting seat's own view;
     /// `None` in every other, and while a mana ability asks its colour.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub casting: Option<ObjectId>,
     /// The spell this seat is currently announcing, including while a nested
     /// mana ability asks a color. Owner-only opt-in payment context; this does
     /// not grant permission to cancel. Archived/default views leave it absent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub announced_cast: Option<ObjectId>,
     /// Settled X of the authorized in-progress announcement, supplied only by
     /// the experimental announcement-context projection. Absent before the X
     /// choice; `Some(0)` distinguishes a settled zero. No encoder consumes it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub announced_x: Option<u32>,
     /// Monotonic sequence number, and what a patch names its base by.
     pub seq: u64,
@@ -199,7 +199,7 @@ pub struct PlayerView {
     /// the reason [`Self::decision_remaining_ms`] gives.
     ///
     /// Additive: absent on the wire while empty, and read as empty when absent.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub clocks: Vec<SeatClock>,
     /// Every player whose connection is lost and whose chair the house has
     /// not taken yet, in seat order, with how long the table still waits.
@@ -207,7 +207,7 @@ pub struct PlayerView {
     /// (then the roster says `away`). Empty in every view handed to an agent.
     ///
     /// Additive: absent on the wire while empty, and read as empty when absent.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub lost: Vec<LostSeat>,
     /// Whether *this* seat has a standing order that is withholding its own
     /// priority — "let the stack resolve", "not this turn", and so on.
@@ -310,7 +310,7 @@ pub struct PlayerView {
     /// client can draw beside the question without reading the log.
     ///
     /// Additive: absent on the wire while empty, and read as empty when absent.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub ballots: Vec<Ballot>,
     /// Cards this seat is being *shown*, which live in no zone it can see.
     ///
@@ -339,7 +339,7 @@ pub struct PlayerView {
     ///
     /// Additive: absent on the wire while empty, and read as empty when
     /// absent.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub trigger_order: Vec<OrderedTrigger>,
     /// At most one explicitly public top card per library; no hidden cards.
     #[serde(default)]
@@ -369,13 +369,13 @@ pub struct PlayerView {
     /// under Alchemist's Refuge or Leyline of Anticipation, creatures under
     /// Vivien, Champion of the Wilds. Empty in the ordinary case, and then
     /// not written. Teferi's +1 stays [`Self::sorceries_have_flash`].
-    #[serde(default, skip_serializing_if = "no_types")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub flash_types: baylee_core::types::TypeSet,
     /// Every player whose decisions another player makes now (Mindslaver,
     /// CR 723), as the table sees it: public, so every seat and spectator
     /// is told for the whole controlled turn. Empty in the ordinary case,
     /// and then not written.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub controls: Vec<PlayerControl>,
     /// The abilities on [`Self::stack`] whose text has someone other than
     /// their controller choose the targets: Confusion in the Ranks, The
@@ -383,7 +383,7 @@ pub struct PlayerView {
     /// would take that for who aimed it; one of these aimed at its own
     /// controller is that player's to answer as an opposing spell is. Empty
     /// in the ordinary case, and then not written.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub foreign_targets: Vec<ObjectId>,
 }
 
@@ -395,14 +395,8 @@ pub struct PlayerControl {
     /// Who decides for them.
     pub controller: PlayerId,
     /// The card whose effect gave the control, where one did (Mindslaver).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub source: Option<CardIndex>,
-}
-
-/// `skip_serializing_if` for a [`baylee_core::types::TypeSet`] field.
-#[allow(clippy::trivially_copy_pass_by_ref)] // serde hands the field by reference
-const fn no_types(types: &baylee_core::types::TypeSet) -> bool {
-    types.is_empty()
 }
 
 /// Authoritative context, sent only to the seat choosing targets.
@@ -421,7 +415,7 @@ pub struct TargetingContext {
     /// Which side of the table the effect asking wants what it names on, as
     /// the card's rules read; absent where they do not say. Sent only to the
     /// chooser, about their own question.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub side: Option<baylee_core::types::TargetSide>,
 }
 

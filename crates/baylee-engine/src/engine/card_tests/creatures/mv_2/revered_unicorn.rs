@@ -54,7 +54,7 @@ fn pay_with_a_plains(e: &mut Engine<RegistryLookup>) {
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: plains_id }],
+            steps: vec![crate::choice::PaymentStep::ActivateManaAbility { source: plains_id }],
         },
     )
     .expect("the Plains pays");

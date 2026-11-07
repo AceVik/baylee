@@ -587,7 +587,7 @@ async fn serve(
                             continue;
                         };
                         let Ok(action) =
-                            serde_json::from_slice::<PlayerAction>(&action_msg.action_json)
+                            baylee_core::wire::decode::<PlayerAction>(&action_msg.action)
                         else {
                             continue;
                         };

@@ -9,6 +9,7 @@
 
 use super::testkit::*;
 use super::*;
+use crate::choice::PaymentStep;
 use crate::object::Status;
 use baylee_core::ids::{CardIndex, ObjectId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
@@ -90,8 +91,8 @@ fn is_tax_question(e: &Engine<RegistryLookup>) -> bool {
     )
 }
 
-fn tap(id: ObjectId) -> PlayerAction {
-    PlayerAction::ActivateManaAbility { source: id }
+fn tap(id: ObjectId) -> PaymentStep {
+    PaymentStep::ActivateManaAbility { source: id }
 }
 
 /// Everything a refused action must leave as it was.
@@ -115,7 +116,7 @@ fn rhystic_tax_asked() -> (Engine<RegistryLookup>, ObjectId) {
     reach_their_main_phase(&mut engine, seat(1));
     let forests = all_of(&engine, seat(1), forest());
     let (first, second) = (forests[0], forests[1]);
-    engine.apply(seat(1), tap(first)).unwrap();
+    engine.apply(seat(1), tap(first).into()).unwrap();
     cast_with_floating(&mut engine, seat(1), llanowar_elves());
     pass_until(&mut engine, is_tax_question);
     (engine, second)
@@ -172,18 +173,6 @@ fn a_payment_that_falls_short_changes_nothing() {
         "a refused payment moved nothing"
     );
 
-    // A step that is not a mana ability or an answer to one is refused too,
-    // even though passing alone would have been legal here.
-    let passing = engine.apply(
-        seat(1),
-        PlayerAction::PayWindow {
-            steps: vec![PlayerAction::PassPriority],
-        },
-    );
-    assert!(
-        passing.is_err(),
-        "passing is not a payment step: {passing:?}"
-    );
     assert_eq!(fingerprint(&engine), before);
     assert!(!is_tapped(&engine, second));
 
@@ -225,7 +214,7 @@ fn esper_sentinel_s_tax_is_paid_by_one_payment_action() {
     keep_mulligans(&mut engine);
     reach_their_main_phase(&mut engine, seat(2));
     let forests = all_of(&engine, seat(2), forest());
-    engine.apply(seat(2), tap(forests[0])).unwrap();
+    engine.apply(seat(2), tap(forests[0]).into()).unwrap();
     cast_with_floating(&mut engine, seat(2), sol_ring());
     pass_until(&mut engine, is_tax_question);
     let before = hand_size(&engine, 0);
@@ -268,7 +257,7 @@ fn pact_window(lands: &[CardIndex]) -> Engine<RegistryLookup> {
     assert!(walk_to_own_main(&mut engine, p0));
     // The Elves' {G}: one Forest, the only land the Pact's price cannot use.
     let forest = all_of(&engine, p0, forest())[0];
-    engine.apply(p0, tap(forest)).unwrap();
+    engine.apply(p0, tap(forest).into()).unwrap();
     cast_with_floating(&mut engine, p0, llanowar_elves());
     pass_until(&mut engine, |e| {
         !stack_is_empty(e)
@@ -367,7 +356,7 @@ fn a_step_s_question_is_answered_inside_the_payment_and_its_cost_is_undone_with_
         .find(|(source, _)| *source == confluences[0])
         .map(|(_, index)| *index)
         .expect("Mana Confluence is offered in the window");
-    let confluence = |id: ObjectId| PlayerAction::ActivateAbility {
+    let confluence = |id: ObjectId| PaymentStep::ActivateAbility {
         source: id,
         ability_index: index,
     };
@@ -385,10 +374,10 @@ fn a_step_s_question_is_answered_inside_the_payment_and_its_cost_is_undone_with_
     assert_eq!(fingerprint(&engine), before);
     assert_eq!(engine.state().players[0].life, life, "no life was paid");
 
-    let mut steps: Vec<PlayerAction> = islands.iter().copied().map(tap).collect();
+    let mut steps: Vec<PaymentStep> = islands.iter().copied().map(tap).collect();
     for &c in &confluences {
         steps.push(confluence(c));
-        steps.push(PlayerAction::ChooseColor(ManaColor::Blue));
+        steps.push(PaymentStep::ChooseColor(ManaColor::Blue));
     }
     engine
         .apply(p0, PlayerAction::PayWindow { steps })

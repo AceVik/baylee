@@ -206,7 +206,9 @@ fn chosen_sacrifices_survive_a_mana_window_and_a_short_payment_changes_nothing()
             PlayerAction::PayWindow {
                 steps: forests
                     .iter()
-                    .map(|source| PlayerAction::ActivateManaAbility { source: *source })
+                    .map(|source| crate::choice::PaymentStep::ActivateManaAbility {
+                        source: *source,
+                    })
                     .collect(),
             },
         )

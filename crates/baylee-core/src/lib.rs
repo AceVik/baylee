@@ -63,6 +63,7 @@ pub mod oracle;
 pub mod phf;
 pub mod preset;
 pub mod types;
+pub mod wire;
 
 /// Parses a mana cost literal **at compile time**; invalid literals are
 /// compile errors. See `docs/mana-notation.md`.

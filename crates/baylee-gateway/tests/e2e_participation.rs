@@ -158,7 +158,7 @@ async fn leaving_with_people_blocks_new_games_until_concession_and_start_is_atom
             msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                 game_id: String::new(),
                 seat_token: String::new(),
-                action_json: serde_json::to_vec(&PlayerAction::Concede).unwrap(),
+                action: baylee_core::wire::encode(&PlayerAction::Concede),
             })),
         },
     )

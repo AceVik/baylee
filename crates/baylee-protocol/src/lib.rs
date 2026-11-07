@@ -39,7 +39,9 @@ pub mod tape;
 /// rotates, and says why a socket was refused (`HelloAck::refusal`).
 /// Version 39 sends a view as a `ViewFrame` in `StateDelta::view_frame`, and
 /// `ResumeGame { last_seq: 0 }` is how a seat asks for a whole one.
-pub const PROTOCOL_VERSION: u32 = 39;
+/// Version 40 writes that frame and `PlayerActionMsg::action` in binary
+/// (`baylee_core::wire`), and a `PayWindow` holds `PaymentStep`s.
+pub const PROTOCOL_VERSION: u32 = 40;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -270,7 +272,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_thirty_nine() {
+    fn the_wire_version_is_forty() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -329,7 +331,8 @@ mod tests {
         // refused (`docs/protocol.md` §"Refusals").
         // 39: a view goes as a `ViewFrame`, whole once and then what changed, which
         // a reader from before it cannot read at all.
-        assert_eq!(PROTOCOL_VERSION, 39);
+        // 40: that frame and an action go in binary, which a reader of 39 cannot read.
+        assert_eq!(PROTOCOL_VERSION, 40);
     }
 
     #[test]

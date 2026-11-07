@@ -389,7 +389,7 @@ impl<B: Brain4> LiveSeat4<B> {
                 msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                     game_id: self.game_id.clone().unwrap_or_default(),
                     seat_token: String::new(),
-                    action_json,
+                    action: baylee_core::wire::encode(&answer.action),
                 })),
             });
             self.last_answered = Some((question.seq, question.raw));

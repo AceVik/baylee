@@ -222,7 +222,7 @@ fn paying_stages_first_and_then_sends_one_pay_window() {
     assert_eq!(
         duel.take_outbox(),
         [PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: forest }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility { source: forest }],
         }],
         "Go sends the staged tap and the settlement as one action"
     );
@@ -450,7 +450,7 @@ fn a_refused_payment_keeps_the_staging() {
     assert_eq!(
         duel.take_outbox(),
         [PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: first }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility { source: first }],
         }]
     );
 

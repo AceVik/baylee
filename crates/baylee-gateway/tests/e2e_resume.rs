@@ -27,7 +27,7 @@ fn send_action(action: &PlayerAction) -> Envelope {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(action).expect("an action serializes"),
+            action: baylee_core::wire::encode(action),
         })),
     }
 }

@@ -19,7 +19,9 @@
 
 use baylee_core::ids::{GrantedActionId, ObjectId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
-use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer, LegalActions, PlayerAction};
+use baylee_engine::choice::{
+    GrantedActionKind, GrantedActionOffer, LegalActions, PaymentStep, PlayerAction,
+};
 use baylee_view::ManaPoolView;
 
 use crate::manaplan::{self, Plan, Source, Step, Tap};
@@ -218,7 +220,7 @@ impl Staging {
     /// whole payment), then each staged granted action as
     /// `TakeGrantedAction`. `None` when anything staged is no longer offered.
     #[must_use]
-    pub fn wire(&self, legal: &LegalActions) -> Option<Vec<PlayerAction>> {
+    pub fn wire(&self, legal: &LegalActions) -> Option<Vec<PaymentStep>> {
         let mut out = Vec::with_capacity(self.steps.len() * 2);
         for step in &self.steps {
             out.push(staged_action(step, legal)?);
@@ -226,7 +228,7 @@ impl Staging {
                 [step.color, step.second]
                     .into_iter()
                     .flatten()
-                    .map(PlayerAction::ChooseColor),
+                    .map(PaymentStep::ChooseColor),
             );
         }
         for granted in &self.granted {
@@ -237,7 +239,7 @@ impl Staging {
             {
                 return None;
             }
-            out.push(PlayerAction::TakeGrantedAction { id: granted.id });
+            out.push(PaymentStep::TakeGrantedAction { id: granted.id });
         }
         Some(out)
     }
@@ -246,16 +248,21 @@ impl Staging {
 /// The action for one tap, or `None` when the engine is not offering it.
 #[must_use]
 pub fn tap_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
+    tap_step(step, legal).map(PlayerAction::from)
+}
+
+/// [`tap_action`] as a step of a payment.
+fn tap_step(step: &Step, legal: &LegalActions) -> Option<PaymentStep> {
     match step.tap {
         Tap::Intrinsic => legal.mana_abilities.contains(&step.source).then_some(
-            PlayerAction::ActivateManaAbility {
+            PaymentStep::ActivateManaAbility {
                 source: step.source,
             },
         ),
         Tap::Ability(ability_index) => legal
             .abilities
             .contains(&(step.source, ability_index))
-            .then_some(PlayerAction::ActivateAbility {
+            .then_some(PaymentStep::ActivateAbility {
                 source: step.source,
                 ability_index,
             }),
@@ -266,8 +273,8 @@ pub fn tap_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
 /// engine lists as a hint because its mana is not floating yet
 /// (`LegalActions::unpaid_abilities`). The taps before it in the payment make
 /// that mana, and the engine stays the judge of the whole.
-fn staged_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
-    tap_action(step, legal).or_else(|| {
+fn staged_action(step: &Step, legal: &LegalActions) -> Option<PaymentStep> {
+    tap_step(step, legal).or_else(|| {
         let Tap::Ability(ability_index) = step.tap else {
             return None;
         };
@@ -275,7 +282,7 @@ fn staged_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
             .unpaid_abilities
             .iter()
             .any(|&(source, index, _)| source == step.source && index == ability_index)
-            .then_some(PlayerAction::ActivateAbility {
+            .then_some(PaymentStep::ActivateAbility {
                 source: step.source,
                 ability_index,
             })

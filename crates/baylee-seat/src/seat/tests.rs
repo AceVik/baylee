@@ -694,7 +694,7 @@ fn every_answer_names_the_game_and_no_token() {
     assert_eq!(msg.game_id, "test-game");
     assert!(msg.seat_token.is_empty());
     assert_eq!(
-        serde_json::from_slice::<PlayerAction>(&msg.action_json).unwrap(),
+        baylee_core::wire::decode::<PlayerAction>(&msg.action).unwrap(),
         PlayerAction::PassPriority
     );
 }

@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 baylee-cardtext.workspace = true
+postcard.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 uuid.workspace = true

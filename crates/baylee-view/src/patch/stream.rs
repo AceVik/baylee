@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use super::{PatchError, ViewPatch, apply, diff};
 use crate::player_view::PlayerView;
 use baylee_core::ids::PlayerId;
+use baylee_core::wire::{self, Unreadable};
 
 /// What a frame's view bytes hold.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -33,29 +34,17 @@ enum Written<'a> {
 
 impl Written<'_> {
     fn encode(&self) -> Vec<u8> {
-        serde_json::to_vec(self).unwrap_or_default()
+        wire::encode(self)
     }
 }
-
-/// Bytes that are no view frame.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct UnreadableFrame(String);
-
-impl std::fmt::Display for UnreadableFrame {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "unreadable view frame: {}", self.0)
-    }
-}
-
-impl std::error::Error for UnreadableFrame {}
 
 impl ViewFrame {
     /// Reads a frame's view bytes.
     ///
     /// # Errors
     /// When they are not a view frame.
-    pub fn decode(bytes: &[u8]) -> Result<Self, UnreadableFrame> {
-        serde_json::from_slice(bytes).map_err(|why| UnreadableFrame(why.to_string()))
+    pub fn decode(bytes: &[u8]) -> Result<Self, Unreadable> {
+        wire::decode(bytes)
     }
 
     /// Whose view this is.
@@ -144,7 +133,7 @@ impl ViewSender {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ViewLost {
     /// The bytes did not read.
-    Unreadable(UnreadableFrame),
+    Unreadable(Unreadable),
     /// A patch came with no view to apply it to.
     NoBase,
     /// A patch did not apply.

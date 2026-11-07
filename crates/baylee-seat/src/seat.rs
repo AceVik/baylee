@@ -1360,7 +1360,7 @@ fn action_envelope(context: Option<&GameContext>, action: &PlayerAction) -> Enve
             game_id: context.map(|c| c.game_id.clone()).unwrap_or_default(),
             // The socket is bound to one seat of one game already.
             seat_token: String::new(),
-            action_json: serde_json::to_vec(action).unwrap_or_default(),
+            action: baylee_core::wire::encode(action),
         })),
     }
 }

@@ -474,7 +474,10 @@ fn target_fault(
 /// which is always legal.
 fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFault> {
     let listed = match deed {
-        PlayerAction::PassPriority => true,
+        // Whether a payment window is open is the engine's question
+        // (`Engine::pay_window`), and each of a payment's steps is checked against
+        // the question standing when it is applied.
+        PlayerAction::PassPriority | PlayerAction::PayWindow { .. } => true,
         PlayerAction::PlayLand { card } => legal.lands.contains(card),
         PlayerAction::CastSpell { card } => {
             legal.castable.contains(card) || legal.payable.contains(card)
@@ -489,12 +492,6 @@ fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFau
         }
         PlayerAction::Suspend { card } => legal.suspendable.contains(card),
         PlayerAction::Foretell { card } => legal.foretellable.contains(card),
-        // Its shape only: whether a payment window is open is the engine's
-        // question (`Engine::pay_window`), and each step is checked against
-        // the question standing when it is applied.
-        PlayerAction::PayWindow { steps } if steps.iter().all(PlayerAction::is_payment_step) => {
-            true
-        }
         _ => return Some(AnswerFault::WrongKind),
     };
     (!listed).then_some(AnswerFault::NotOffered)

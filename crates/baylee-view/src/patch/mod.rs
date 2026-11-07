@@ -45,7 +45,7 @@ pub use apply::apply;
 pub use diff::diff;
 pub use digest::{ViewDigest, digest};
 pub use fields::ViewField;
-pub use stream::{UnreadableFrame, ViewFrame, ViewLost, ViewReader, ViewSender};
+pub use stream::{ViewFrame, ViewLost, ViewReader, ViewSender};
 
 use crate::objects::{HandObject, PublicObject};
 use crate::seats::SeatView;

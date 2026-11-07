@@ -279,7 +279,7 @@ async fn a_hosts_bridge_sits_where_no_guest_may_and_the_record_names_the_host() 
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(&baylee_engine::choice::PlayerAction::Concede).unwrap(),
+            action: baylee_core::wire::encode(&baylee_engine::choice::PlayerAction::Concede),
         })),
     };
     host_ws

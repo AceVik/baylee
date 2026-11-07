@@ -63,7 +63,7 @@ fn mana_chains_asks_one_more_each_upkeep_of_the_enchanted_creatures_controller()
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: island_id }],
+            steps: vec![crate::choice::PaymentStep::ActivateManaAbility { source: island_id }],
         },
     )
     .expect("an Island pays {1}");

@@ -322,7 +322,7 @@ async fn serve(
             }
             Some(v1::envelope::Msg::PlayerAction(msg)) => {
                 let action: PlayerAction =
-                    serde_json::from_slice(&msg.action_json).expect("an action decodes");
+                    baylee_core::wire::decode(&msg.action).expect("an action decodes");
                 match session.act(SEAT, action) {
                     Ok(routed) => mine(routed),
                     Err(reason) => vec![Envelope {

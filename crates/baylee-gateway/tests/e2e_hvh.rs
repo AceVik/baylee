@@ -237,7 +237,7 @@ async fn human_vs_human_both_seats_receive_updates() {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(&action).unwrap(),
+            action: baylee_core::wire::encode(&action),
         })),
     };
     ws_a.send(tokio_tungstenite::tungstenite::Message::Binary(
@@ -563,7 +563,7 @@ async fn a_player_who_deletes_their_account_leaves_the_table() {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(&PlayerAction::MulliganKeep).unwrap(),
+            action: baylee_core::wire::encode(&PlayerAction::MulliganKeep),
         })),
     };
     ws_b.send(tokio_tungstenite::tungstenite::Message::Binary(

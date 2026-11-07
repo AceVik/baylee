@@ -182,7 +182,7 @@ fn queued_question_waits_for_curtain_and_uses_latest_observation_once() {
     let Some(v1::envelope::Msg::PlayerAction(action)) = &outgoing[0].msg else {
         panic!("action")
     };
-    let answer: PlayerAction = serde_json::from_slice(&action.action_json).unwrap();
+    let answer: PlayerAction = baylee_core::wire::decode(&action.action).unwrap();
     assert_eq!(answer, PlayerAction::ChooseColor(ManaColor::Green));
     assert!(action.seat_token.is_empty());
     assert!(seat.hear(&question(1)).unwrap().is_empty());
@@ -191,7 +191,7 @@ fn queued_question_waits_for_curtain_and_uses_latest_observation_once() {
     let Some(v1::envelope::Msg::PlayerAction(action)) = &outgoing[0].msg else {
         panic!("action")
     };
-    let answer: PlayerAction = serde_json::from_slice(&action.action_json).unwrap();
+    let answer: PlayerAction = baylee_core::wire::decode(&action.action).unwrap();
     assert_eq!(answer, PlayerAction::ChooseColor(ManaColor::Red));
     assert_eq!(calls.borrow().answers, 2);
     assert_eq!(calls.borrow().observations, vec![20, 19]);
@@ -436,7 +436,7 @@ fn wire_draw_offer_reports_rule_override_separately_from_learned_net() {
         panic!("draw answer")
     };
     assert!(matches!(
-        serde_json::from_slice::<PlayerAction>(&action.action_json).unwrap(),
+        baylee_core::wire::decode::<PlayerAction>(&action.action).unwrap(),
         PlayerAction::YesNo(true)
     ));
     assert_eq!(calls.borrow().observations.len(), 1);
@@ -578,7 +578,12 @@ fn live_audit_retains_exact_runtime_probability_and_outgoing_action_identity() {
     assert_eq!(audit.seq, 1);
     assert_eq!(
         audit.action_sha256,
-        super::audit::digest(&action.action_json)
+        super::audit::digest(
+            &serde_json::to_vec(
+                &baylee_core::wire::decode::<PlayerAction>(&action.action).unwrap()
+            )
+            .unwrap()
+        )
     );
     let pending = Pending::ChooseColor {
         player: ME,

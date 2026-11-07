@@ -110,7 +110,7 @@ fn space_stages_first_and_the_second_press_sends_one_pay_window() {
     assert_eq!(
         duel.outbox(),
         &[PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: forest }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility { source: forest }],
         }],
         "the second press is Go: one action, the staged tap"
     );
@@ -133,7 +133,7 @@ fn space_with_the_cost_covered_by_hand_goes_at_once() {
     assert_eq!(
         duel.outbox(),
         &[PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: second }],
+            steps: vec![baylee_engine::choice::PaymentStep::ActivateManaAbility { source: second }],
         }]
     );
 }

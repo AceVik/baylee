@@ -54,7 +54,7 @@ fn volunteer_reserves_asks_one_more_each_of_its_controllers_upkeeps() {
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility { source: plains_id }],
+            steps: vec![crate::choice::PaymentStep::ActivateManaAbility { source: plains_id }],
         },
     )
     .expect("a Plains pays {1}");

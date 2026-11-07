@@ -47,7 +47,6 @@ mod shown_hands;
 mod spectator;
 mod status;
 mod turn;
-mod wire;
 
 pub use combat::{AttackerView, BlockerView, CombatView};
 pub use counters::{CounterEntry, CounterKind};
@@ -62,8 +61,8 @@ pub use objects::{
     TokenAbility,
 };
 pub use patch::{
-    ListEdit, PatchError, UnreadableFrame, ViewDigest, ViewField, ViewFrame, ViewLost, ViewPatch,
-    ViewReader, ViewSender, Zone, ZoneEdit, apply, diff, digest,
+    ListEdit, PatchError, ViewDigest, ViewField, ViewFrame, ViewLost, ViewPatch, ViewReader,
+    ViewSender, Zone, ZoneEdit, apply, diff, digest,
 };
 pub use player_view::{
     Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
@@ -262,10 +261,11 @@ pub use turn::{DayNight, Phase, Step};
 /// (CR 603.3b): `ArrangePrompt::TriggerOrder` and `ArrangePlace::Stack`, engine
 /// variants a reader of 85 cannot parse, whose handles are explained by
 /// [`PlayerView::trigger_order`], additive and absent while empty.
+/// Version 88 writes a `ViewFrame` in binary (`baylee_core::wire`).
 /// Version 87 sends a view as a `ViewFrame`: whole once, then as what changed
 /// (`docs/protocol.md` §"Views as patches"), and a spectator the public view as
 /// a `PlayerView` on the same stream.
-pub const VIEW_VERSION: u32 = 87;
+pub const VIEW_VERSION: u32 = 88;
 
 // ------------------------------------------------------------------- targets
 

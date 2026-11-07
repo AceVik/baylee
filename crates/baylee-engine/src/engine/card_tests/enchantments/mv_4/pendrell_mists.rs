@@ -54,7 +54,9 @@ fn pendrell_mists_taxes_every_creature_at_its_own_controllers_upkeep() {
             e.apply(
                 P0,
                 PlayerAction::PayWindow {
-                    steps: vec![PlayerAction::ActivateManaAbility { source: island_id }],
+                    steps: vec![crate::choice::PaymentStep::ActivateManaAbility {
+                        source: island_id,
+                    }],
                 },
             )
             .expect("the Island pays {1}");

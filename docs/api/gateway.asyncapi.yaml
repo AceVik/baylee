@@ -243,8 +243,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -944,8 +944,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -1664,8 +1664,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -2326,8 +2326,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -2988,8 +2988,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -3652,8 +3652,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -4318,8 +4318,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -5036,8 +5036,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -5698,8 +5698,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -6360,8 +6360,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -7022,8 +7022,8 @@ channels:
             message PlayerActionMsg {
               string game_id = 1;
               string seat_token = 2;
-              // serde_json-encoded engine PlayerAction.
-              bytes action_json = 3;
+              // baylee_core::wire-encoded engine PlayerAction.
+              bytes action = 3;
             }
 
             // Client → server: something a seat says about itself that is not a move in
@@ -8281,8 +8281,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -8943,8 +8943,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -9605,8 +9605,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -10267,8 +10267,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -10929,8 +10929,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -11591,8 +11591,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -12253,8 +12253,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -12921,8 +12921,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -13583,8 +13583,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -14245,8 +14245,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -14907,8 +14907,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -15569,8 +15569,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -16231,8 +16231,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -16893,8 +16893,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -17561,8 +17561,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -18223,8 +18223,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -18891,8 +18891,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -19337,7 +19337,7 @@ components:
             // The house's level (`steady`, …), for `KIND_HOUSE`.
             string level = 5;
           }
-      description: "Envelope case `player_action`: the seat's answer. `action_json` is a `PlayerAction` as JSON, one the question's `Pending` names; `game_id` and `seat_token` are not read, since the socket is bound to its seat. Dropped before the curtain."
+      description: "Envelope case `player_action`: the seat's answer. `action` is a `PlayerAction` as `baylee_core::wire` writes it, one the question's `Pending` names; `game_id` and `seat_token` are not read, since the socket is bound to its seat. Dropped before the curtain."
       x-protobuf-message: baylee.v1.Envelope
     ProjectRecord:
       name: ProjectRecord
@@ -19553,8 +19553,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -20215,8 +20215,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -20877,8 +20877,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -21539,8 +21539,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -22201,8 +22201,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -22863,8 +22863,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -23525,8 +23525,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -24187,8 +24187,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -24849,8 +24849,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -25511,8 +25511,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -26173,8 +26173,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -26835,8 +26835,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -27497,8 +27497,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -28159,8 +28159,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -28821,8 +28821,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -29483,8 +29483,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -30145,8 +30145,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in
@@ -30807,8 +30807,8 @@ components:
           message PlayerActionMsg {
             string game_id = 1;
             string seat_token = 2;
-            // serde_json-encoded engine PlayerAction.
-            bytes action_json = 3;
+            // baylee_core::wire-encoded engine PlayerAction.
+            bytes action = 3;
           }
 
           // Client → server: something a seat says about itself that is not a move in

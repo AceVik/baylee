@@ -51,7 +51,7 @@ fn pay_with_both_plains(e: &mut Engine<RegistryLookup>) {
         PlayerAction::PayWindow {
             steps: lands
                 .into_iter()
-                .map(|source| PlayerAction::ActivateManaAbility { source })
+                .map(|source| crate::choice::PaymentStep::ActivateManaAbility { source })
                 .collect(),
         },
     )

@@ -60,7 +60,7 @@ pub struct SeatIdentity {
     pub team: Option<u8>,
     /// Whether the seat is a guest's: nobody can add or message them. Shown,
     /// and nothing more; not written for an account.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub guest: bool,
 }
 

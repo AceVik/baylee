@@ -518,7 +518,7 @@ pub enum Pending {
         /// `Some(attacker)`: a label for that attacking creature, which the
         /// chosen pile's creatures (and fliers) alone may block this combat
         /// (Raging River: "left" is the first pile, "right" the second).
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
         label: Option<ObjectId>,
     },
     /// The game is over.
@@ -669,17 +669,11 @@ pub const fn is_special_action(index: u32) -> bool {
 // answers once and for good, so it is a wire constant and belongs in
 // `baylee-core` beside the other reserved handles.
 
-/// For `skip_serializing_if`: a zero is not written.
-#[allow(clippy::trivially_copy_pass_by_ref)] // serde passes the field by reference
-const fn is_zero(value: &u32) -> bool {
-    *value == 0
-}
-
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {
     /// Reusable special actions granted by resolved effects until cleanup.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub granted_actions: Vec<GrantedActionOffer>,
     /// Passing is always legal.
     pub can_pass: bool,
@@ -695,7 +689,7 @@ pub struct LegalActions {
     /// in it with the cost unpaid reverses the cast (CR 601.2h, 733.1).
     /// Whether the seat's sources can make that mana is not checked: that
     /// is the planner's question. Never in `castable` as well.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub payable: Vec<ObjectId>,
     /// Every way of casting a card of [`Self::castable`] or [`Self::payable`]
     /// that prints a price of its own (entwine, overload, a kicker with its
@@ -708,11 +702,11 @@ pub struct LegalActions {
     /// list with every rule asked but the mana, targets included (CR 601.2c),
     /// so a planner can tap for the price it wants first. A way whose mana is
     /// floating when the cast is sent is on that question.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub cast_ways: Vec<(ObjectId, CastModeDesc)>,
     /// Public rules-effect increases, excluding commander tax, for mana planning.
     /// Form-specific entries override Normal; alternatives use Normal's color.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub spell_increases: Vec<(ObjectId, CastModeKind, u32)>,
     /// Generic reductions for mana planning, the other half of
     /// [`Self::spell_increases`] (CR 601.2f: increases first, then
@@ -722,16 +716,16 @@ pub struct LegalActions {
     /// same override rule as the increases. Read it through
     /// [`Self::spell_reduction`]; it never changes what `spell_increases`
     /// says, so a reader of that field alone keeps its meaning (protocol 11).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub spell_reductions: Vec<(ObjectId, CastModeKind, u32)>,
     /// Generic mana that comes off a buyback cost, and off nothing else
     /// (`Modifier::BuybackCostsLess`, CR 118.7a), for a planner pricing a
     /// spell before it is cast; the question names the price itself.
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub buyback_less: u32,
     /// Generic activation increases on controlled permanents. Simple mana
     /// planners must not count a taxed mana ability as free production.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub activation_increases: Vec<(ObjectId, u32)>,
     /// The CR 305.6 shortcut, and **not** every mana ability on the table.
     ///
@@ -757,12 +751,12 @@ pub struct LegalActions {
     /// Battlefield abilities legal except for their floating mana payment:
     /// `(source, ability_index, mana_cost)`. These are planning hints, never
     /// accepted actions. A client may make mana, then recheck `abilities`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub unpaid_abilities: Vec<(ObjectId, u32, baylee_core::mana::ManaCost)>,
     /// Cards suspendable from hand.
     pub suspendable: Vec<ObjectId>,
     /// Cards with foretell that may be exiled face down for {2} right now.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub foretellable: Vec<ObjectId>,
     /// Cards with foretell that may be exiled face down once {2} is made:
     /// every rule `foretellable` asks holds except that the mana is not
@@ -770,7 +764,7 @@ pub struct LegalActions {
     /// (CR 702.143a, 605.3a). Planning hints, never accepted actions, as
     /// `unpaid_abilities` are: a client makes the mana, and the card is then
     /// `foretellable`. Never in `foretellable` as well.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub unpaid_foretell: Vec<ObjectId>,
 }
 
@@ -1077,29 +1071,79 @@ pub enum PlayerAction {
     /// counts toward the payment; no steps at all pays from the pool alone.
     PayWindow {
         /// The mana abilities and their answers, in the order applied.
-        steps: Vec<PlayerAction>,
+        steps: Vec<PaymentStep>,
     },
 }
 
-impl PlayerAction {
-    /// Whether this action may be one step of a [`Self::PayWindow`]:
-    /// making mana, or answering what making it asked.
-    #[must_use]
-    pub const fn is_payment_step(&self) -> bool {
-        matches!(
-            self,
-            Self::ActivateManaAbility { .. }
-                | Self::ActivateAbility { .. }
-                | Self::TakeGrantedAction { .. }
-                | Self::ChooseColor(_)
-                | Self::ChooseMode(_)
-                | Self::ChooseNumber(_)
-                | Self::YesNo(_)
-                | Self::ChooseObjects { .. }
-                | Self::ChoosePlayer(_)
-        )
-    }
+/// One step of a [`PlayerAction::PayWindow`]: making mana, or answering what
+/// making it asked.
+///
+/// A type of its own, not a [`PlayerAction`], so that a payment cannot hold a
+/// payment: an action comes off a guest's frame, the binary reader keeps no
+/// count of depth (`baylee_core::wire`), and an action inside an action inside
+/// an action is a stack overflow in the engine. Here it has no way to be written.
+///
+/// Each variant is the [`PlayerAction`] of its name, spelled alike, so a
+/// record's `PayWindow` reads as it did.
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum PaymentStep {
+    /// [`PlayerAction::ActivateManaAbility`].
+    ActivateManaAbility {
+        /// The mana source permanent.
+        source: ObjectId,
+    },
+    /// [`PlayerAction::ActivateAbility`].
+    ActivateAbility {
+        /// The source permanent.
+        source: ObjectId,
+        /// Index into the card's abilities.
+        ability_index: u32,
+    },
+    /// [`PlayerAction::TakeGrantedAction`].
+    TakeGrantedAction {
+        /// The exact currently offered permission.
+        id: baylee_core::ids::GrantedActionId,
+    },
+    /// [`PlayerAction::ChooseColor`].
+    ChooseColor(baylee_core::mana::ManaColor),
+    /// [`PlayerAction::ChooseMode`].
+    ChooseMode(usize),
+    /// [`PlayerAction::ChooseNumber`].
+    ChooseNumber(u32),
+    /// [`PlayerAction::YesNo`].
+    YesNo(bool),
+    /// [`PlayerAction::ChooseObjects`].
+    ChooseObjects {
+        /// The chosen objects.
+        objects: Vec<ObjectId>,
+    },
+    /// [`PlayerAction::ChoosePlayer`].
+    ChoosePlayer(PlayerId),
+}
 
+impl From<PaymentStep> for PlayerAction {
+    fn from(step: PaymentStep) -> Self {
+        match step {
+            PaymentStep::ActivateManaAbility { source } => Self::ActivateManaAbility { source },
+            PaymentStep::ActivateAbility {
+                source,
+                ability_index,
+            } => Self::ActivateAbility {
+                source,
+                ability_index,
+            },
+            PaymentStep::TakeGrantedAction { id } => Self::TakeGrantedAction { id },
+            PaymentStep::ChooseColor(color) => Self::ChooseColor(color),
+            PaymentStep::ChooseMode(mode) => Self::ChooseMode(mode),
+            PaymentStep::ChooseNumber(number) => Self::ChooseNumber(number),
+            PaymentStep::YesNo(yes) => Self::YesNo(yes),
+            PaymentStep::ChooseObjects { objects } => Self::ChooseObjects { objects },
+            PaymentStep::ChoosePlayer(player) => Self::ChoosePlayer(player),
+        }
+    }
+}
+
+impl PlayerAction {
     /// Whether the action only changes a seat's automation settings.
     ///
     /// These never touch the game: the engine applies them and re-offers

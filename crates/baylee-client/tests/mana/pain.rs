@@ -258,7 +258,7 @@ fn a_painland_pays_a_spell_inside_one_pay_window() {
     assert!(on_stack_or_battlefield(&table, "Serra Zealot"));
     assert_eq!(life(&table), before - 1, "the Wastes' white cost a life");
 
-    let windows: Vec<&Vec<PlayerAction>> = sent
+    let windows: Vec<&Vec<baylee_engine::choice::PaymentStep>> = sent
         .iter()
         .filter_map(|action| match action {
             PlayerAction::PayWindow { steps } => Some(steps),
@@ -270,16 +270,18 @@ fn a_painland_pays_a_spell_inside_one_pay_window() {
     assert!(
         matches!(
             steps.first(),
-            Some(PlayerAction::ActivateAbility { source, .. }) if *source == wastes
+            Some(baylee_engine::choice::PaymentStep::ActivateAbility { source, .. }) if *source == wastes
         ),
         "the Wastes' activation leads the window: {steps:?}"
     );
-    if let Some(PlayerAction::ActivateAbility { ability_index, .. }) = steps.first() {
+    if let Some(baylee_engine::choice::PaymentStep::ActivateAbility { ability_index, .. }) =
+        steps.first()
+    {
         assert_eq!(*ability_index, 1, "the coloured mode, not the free {{C}}");
     }
     assert_eq!(
         steps.get(1),
-        Some(&PlayerAction::ChooseColor(
+        Some(&baylee_engine::choice::PaymentStep::ChooseColor(
             baylee_core::mana::ManaColor::White
         )),
         "the colour answer follows its tap inside the same action: {steps:?}"

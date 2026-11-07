@@ -187,7 +187,7 @@ async fn a_finished_bridge_game(gw: &Gateway, host: &str) -> (String, String, St
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(&baylee_engine::choice::PlayerAction::Concede).unwrap(),
+            action: baylee_core::wire::encode(&baylee_engine::choice::PlayerAction::Concede),
         })),
     };
     host_ws

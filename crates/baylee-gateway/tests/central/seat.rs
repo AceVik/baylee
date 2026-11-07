@@ -105,7 +105,7 @@ impl LiveSeat {
             let concede = v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                 game_id: String::new(),
                 seat_token: String::new(),
-                action_json: serde_json::to_vec(&PlayerAction::Concede).unwrap(),
+                action: baylee_core::wire::encode(&PlayerAction::Concede),
             });
             let envelope = Envelope { msg: Some(concede) };
             let _ = futures_util::SinkExt::send(
@@ -167,10 +167,9 @@ impl LiveSeat {
                     msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                         game_id: String::new(),
                         seat_token: String::new(),
-                        action_json: serde_json::to_vec(
+                        action: baylee_core::wire::encode(
                             &baylee_engine::choice::PlayerAction::Concede,
-                        )
-                        .unwrap(),
+                        ),
                     })),
                 },
             )
@@ -253,7 +252,7 @@ impl ResumedSeat {
                 msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                     game_id: String::new(),
                     seat_token: String::new(),
-                    action_json: serde_json::to_vec(&PlayerAction::MulliganKeep).unwrap(),
+                    action: baylee_core::wire::encode(&PlayerAction::MulliganKeep),
                 })),
             },
         ));

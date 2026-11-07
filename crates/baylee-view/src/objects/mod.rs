@@ -152,7 +152,7 @@ pub enum StackItem {
         /// emblem's.
         rules: Option<RulesFace>,
         /// Token definition and ability captured before its source disappeared.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
         token: Option<TokenAbility>,
     },
 }
@@ -193,24 +193,24 @@ pub struct OrderedTrigger {
     /// a count, as long as its answer lists every handle.
     pub twin: u32,
     /// The object its event was about, while this seat can see it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub about_object: Option<ObjectId>,
     /// What that object is called, as this seat may read it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub about_name: Option<String>,
     /// Who controlled that object, else the player its event was about:
     /// "that land's controller", "that player".
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub about_player: Option<PlayerId>,
     /// The amount its event carried, "that much": damage dealt, life gained.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub amount: Option<u32>,
     /// Whether targets are chosen as it goes on the stack (CR 603.3d): after
     /// this question, in the order it gives.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub asks_targets: bool,
     /// Whether a mode is chosen as it goes on the stack (CR 603.3c).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub modal: bool,
 }
 
@@ -263,13 +263,13 @@ pub struct StackText {
 #[allow(clippy::struct_excessive_bools)] // independent public facts, each its own wire field
 pub struct PublicObject {
     /// Effective typed word substitutions, separate from the unchanged Oracle.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub word_changes: Vec<WordChange>,
     /// Engine object handle; stable while the object stays in its zone.
     pub id: ObjectId,
     /// Backing card, when the viewing seat is entitled to know it. `None` for
     /// tokens, emblems, and face-down permanents the seat may not look at.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub card: Option<CardIdentity>,
     /// The card this object's abilities are printed on ([`RulesFace`]).
     ///
@@ -277,15 +277,15 @@ pub struct PublicObject {
     /// a copy, and gated on the same entitlement: a face-down permanent the
     /// seat may not look at names no card here either. `None` for a registry
     /// token (which [`Self::token`] names) and an emblem.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub rules: Option<RulesFace>,
     /// The existing exiled prepare copy, frozen even if this permanent changes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub prepared_spell: Option<RulesFace>,
     /// Composed rules provenance. Empty for ordinary printed lists. On an
     /// ability on the stack, contains only the captured selected entry.
     /// Face-down objects expose none, even to a seat allowed to see their card.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub ability_sources: Vec<AbilitySource>,
     /// Projected name. Present even when `card` is `None`, so tokens and
     /// face-down permanents still render a label ("Soldier", "Face-down").
@@ -296,7 +296,7 @@ pub struct PublicObject {
     /// clients mark that difference because it decides where the card returns.
     pub owner: PlayerId,
     /// Designated protector of a live battle, independent of its controller.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub battle_protector: Option<PlayerId>,
     /// Whether this object is one of its owner's commanders (CR 903.3).
     ///
@@ -310,7 +310,7 @@ pub struct PublicObject {
     /// list down with it. The host asserts the two agree.
     ///
     /// [`SeatView::commanders`]: crate::SeatView::commanders
-    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub commander: bool,
     /// Status bits.
     pub status: ObjectStatus,
@@ -326,24 +326,24 @@ pub struct PublicObject {
     /// its printed ones — only the projection knows the answer.
     pub subtypes: SubtypeSet,
     /// Creature type named for this permanent (Reflections of Littjara, Cavern of Souls).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     /// Card name chosen for this permanent as it entered (Pithing Needle).
     /// Public: the choice is announced as it is made.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub chosen_name: Option<NamedFace>,
     /// Opponent publicly chosen as this permanent entered (Black Vise).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub chosen_opponent: Option<PlayerId>,
     /// A Room's doors (CR 709.5c): `[left, right]`, each `true` while that
     /// half is unlocked; `None` for anything that is not a Room on the
     /// battlefield. Public, as the designations are. A locked half has no
     /// name, mana cost or rules text on the battlefield (CR 709.5), which
     /// the other fields already say; this says which half is which.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub unlocked_doors: Option<[bool; 2]>,
     /// Whether this face-up exiled card is suspended. Its time counters are public.
-    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub suspended: bool,
     /// Which token this is, for permanents with no card behind them.
     ///
@@ -354,7 +354,7 @@ pub struct PublicObject {
     /// both project to "an artifact named something". `None` for cards and
     /// for the tokens a copy effect makes, which are copies of a card rather
     /// than of a registry token.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub token: Option<u16>,
     /// Projected colors.
     pub colors: ColorSet,
@@ -383,36 +383,36 @@ pub struct PublicObject {
     /// a real card prints its power and toughness and therefore hides them.
     /// `None` for anything that is not a creature, and for a creature whose
     /// base the engine has no number for.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub base_power: Option<i16>,
     /// The toughness the card itself prints. See [`Self::base_power`].
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub base_toughness: Option<i16>,
     /// Loyalty, for planeswalkers.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub loyalty: Option<u16>,
     /// Damage marked this turn.
-    #[serde(default, skip_serializing_if = "crate::wire::is_zero_u16")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub damage: u16,
     /// Counters on the object.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub counters: Vec<CounterEntry>,
     /// What this is attached to (auras, equipment, fortifications).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub attached_to: Option<ObjectId>,
     /// Targets, for objects on the stack.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub targets: Vec<TargetRef>,
     /// What this is, for objects on the stack; `None` everywhere else.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub stack_item: Option<StackItem>,
     /// How many times this spell on the stack was kicked (CR 702.33d), which
     /// was announced as it was cast (CR 601.2b). Zero everywhere else.
-    #[serde(default, skip_serializing_if = "crate::wire::is_zero_u8")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub times_kicked: u8,
     /// Whether this spell on the stack had its buyback cost paid (CR
     /// 702.27a): it goes back to its owner's hand as it resolves.
-    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub bought_back: bool,
     /// Whether this is a creature that has *not* been under its controller's
     /// control continuously since their most recent turn began, and has no
@@ -424,7 +424,7 @@ pub struct PublicObject {
     /// turn came back `true` for a question the rules never ask about lands.
     /// It also holds through an opponent's turn, because the clock it is
     /// measured against is the controller's own.
-    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub summoning_sick: bool,
     /// Mana this permanent can make through an ability it does not print.
     ///
@@ -436,7 +436,7 @@ pub struct PublicObject {
     ///
     /// `None` for everything that has no such ability, and for a granted
     /// ability too complicated to reduce to "n mana of these colours".
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub granted_mana: Option<GrantedMana>,
     /// Spending permission scoped to activation costs of this object.
     pub ability_mana_spending: baylee_core::mana::ManaSpending,
@@ -470,7 +470,7 @@ pub struct PublicObject {
     /// `None` means there is nothing here to plan with: no such ability, or
     /// one that makes nothing right now. A lone Reflecting Pool contributes
     /// nothing to the union it reads, so it taps for no colour at all.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub board_mana: Option<BoardMana>,
     /// What the viewing seat may pay to cast this card from its graveyard:
     /// the cost of a flashback it has right now (CR 702.34a).
@@ -492,7 +492,7 @@ pub struct PublicObject {
     ///
     /// Graveyard only, and per viewer: `None` unless this seat may cast the
     /// card, which is only ever from its own graveyard.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub flashback: Option<ManaCost>,
     /// Granted definitions, each carrying its stable identity explicitly.
     /// Entries may disappear without renumbering the remaining abilities.
@@ -503,7 +503,7 @@ pub struct PublicObject {
     /// library since, or face down — is an entry with every field `None`.
     /// A nontoken card keeps its handle across zones (#240), so naming it
     /// would say which card in a hidden zone it is.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub grants: Vec<GrantSource>,
 }
 
@@ -546,7 +546,7 @@ pub struct GrantSource {
     /// abilities come before costs are paid (CR 601.2g), and a permanent
     /// tapped for mana has no tap left to pay with. A printed cost is on the
     /// card; this one is on no card, so the host says.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub taps: bool,
 }
 
@@ -598,7 +598,7 @@ pub struct BoardMana {
     pub colors: Vec<baylee_core::mana::ManaColor>,
     /// The exact card this mana may be spent to cast, when its restriction
     /// names one object rather than a filter. Object identity, not card name.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub restricted_to: Option<ObjectId>,
 }
 

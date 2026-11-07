@@ -742,12 +742,6 @@ impl DuelHost for NetworkHost {
         if self.ticket.watch {
             return;
         }
-        let Ok(action_json) = serde_json::to_vec(&action) else {
-            self.pending_out.push(HostMessage::Failed(
-                "your answer could not be encoded".to_string(),
-            ));
-            return;
-        };
         self.outbox.push(Envelope {
             msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                 game_id: self.ticket.game_id.clone(),
@@ -755,7 +749,7 @@ impl DuelHost for NetworkHost {
                 // the token again in every frame would spread it further
                 // without proving anything the connection has not proved.
                 seat_token: String::new(),
-                action_json,
+                action: baylee_core::wire::encode(&action),
             })),
         });
         self.flush();

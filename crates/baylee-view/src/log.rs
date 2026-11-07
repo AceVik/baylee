@@ -73,7 +73,7 @@ pub struct LogEntry {
     /// The phase of the turn it happened in, for a reader that groups a
     /// turn's lines by phase. `None` before the first turn began (the
     /// opening mulligans) and from a host that never said.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub phase: Option<Phase>,
 }
 
@@ -304,7 +304,7 @@ pub enum LogEvent {
         ability: Option<LogAbility>,
         /// Whether it was activated (CR 602) rather than triggered
         /// (CR 603); `None` where the host cannot say.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
         activated: Option<bool>,
     },
     /// A spell was countered.

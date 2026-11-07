@@ -196,7 +196,7 @@ async fn answer(ws: &mut Socket, pending: &Pending, view: Option<&baylee_view::P
             msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                 game_id: String::new(),
                 seat_token: String::new(),
-                action_json: serde_json::to_vec(&answer).unwrap(),
+                action: baylee_core::wire::encode(&answer),
             })),
         },
     )
@@ -348,7 +348,7 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
             seat_token: String::new(),
-            action_json: serde_json::to_vec(&PlayerAction::Concede).unwrap(),
+            action: baylee_core::wire::encode(&PlayerAction::Concede),
         })),
     };
     ws_a.send(tokio_tungstenite::tungstenite::Message::Binary(

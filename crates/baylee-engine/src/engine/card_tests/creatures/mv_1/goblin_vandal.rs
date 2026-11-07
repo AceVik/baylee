@@ -56,7 +56,7 @@ fn goblin_vandal_paid_destroys_their_artifact_and_deals_no_combat_damage() {
     e.apply(
         P0,
         PlayerAction::PayWindow {
-            steps: vec![PlayerAction::ActivateManaAbility {
+            steps: vec![crate::choice::PaymentStep::ActivateManaAbility {
                 source: mountain_id,
             }],
         },

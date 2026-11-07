@@ -206,8 +206,8 @@ message ChoiceRequest {
 message PlayerActionMsg {
   string game_id = 1;
   string seat_token = 2;
-  // serde_json-encoded engine PlayerAction.
-  bytes action_json = 3;
+  // baylee_core::wire-encoded engine PlayerAction.
+  bytes action = 3;
 }
 
 // Client → server: something a seat says about itself that is not a move in

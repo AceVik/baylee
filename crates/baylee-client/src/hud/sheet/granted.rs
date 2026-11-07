@@ -609,7 +609,7 @@ mod tests {
         assert_eq!(
             duel.take_outbox(),
             [PlayerAction::PayWindow {
-                steps: vec![PlayerAction::TakeGrantedAction { id }],
+                steps: vec![baylee_engine::choice::PaymentStep::TakeGrantedAction { id }],
             }],
             "Go sends exactly the granted action inside the window"
         );

@@ -4,7 +4,7 @@ use super::AnswerFault;
 use baylee_core::ids::{ObjectId, PlayerId, TargetRef};
 
 /// One legal way to cast a spell (CR 601.2b).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CastModeDesc {
     /// Option index (answered via `PlayerAction::ChooseMode`).
     pub index: u32,
@@ -480,7 +480,7 @@ pub enum NumberPrompt {
         /// What is lethal to `recipient`, on a trampler's question while the
         /// rest can still go past the blockers; absent, it cannot: this is
         /// an ordinary division, and a question from before the field.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
         lethal: Option<u32>,
     },
     /// How many eligible permanents to sacrifice as an object enters.

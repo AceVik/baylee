@@ -374,12 +374,12 @@ fn wire_turns_each_step_into_its_action_in_staging_order() {
     assert_eq!(
         wire,
         [
-            PlayerAction::ActivateAbility {
+            PaymentStep::ActivateAbility {
                 source: id(2),
                 ability_index: 3
             },
-            PlayerAction::ChooseColor(ManaColor::Blue),
-            PlayerAction::ActivateManaAbility { source: id(1) },
+            PaymentStep::ChooseColor(ManaColor::Blue),
+            PaymentStep::ActivateManaAbility { source: id(1) },
         ]
     );
 }
@@ -589,11 +589,11 @@ fn wire_appends_granted_actions_after_the_taps_and_refuses_a_gone_offer() {
     assert_eq!(
         staging.wire(&legal),
         Some(vec![
-            PlayerAction::ActivateManaAbility { source: id(1) },
-            PlayerAction::TakeGrantedAction {
+            PaymentStep::ActivateManaAbility { source: id(1) },
+            PaymentStep::TakeGrantedAction {
                 id: GrantedActionId::new(7)
             },
-            PlayerAction::TakeGrantedAction {
+            PaymentStep::TakeGrantedAction {
                 id: GrantedActionId::new(8)
             },
         ]),
