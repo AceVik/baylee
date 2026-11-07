@@ -16,11 +16,11 @@ build that ships (see [Not in a shipped build](#not-in-a-shipped-build)).
 
 | hook | code |
 |------|------|
-| firing recorder | `crates/baylee-engine/src/ability_log.rs` (`#[cfg(test)]`) and one `#[cfg(test)]` call at each door named below |
+| firing recorder | `crates/baylee-engine/src/ability_log.rs` and one call at each door named below, all `cfg(any(test, feature = "test-support"))` |
 | mutation switch | `crates/baylee-cards/src/mutate.rs`, applied in `baylee_cards::{by_index, by_oracle_id, all}` |
 | projection check | `crates/baylee-engine/src/engine/invariants.rs` |
 | leave probe | `crates/baylee-engine/src/engine/leave_probe_tests.rs` (`#[cfg(test)]`) |
-| their own tests | `crates/baylee-engine/src/engine/verification_tests.rs`, `invariants::tests`, `baylee_cards::mutate::tests`, `leave_probe_tests::representative_cards_leave_cleanly_by_every_route` |
+| their own tests | `crates/baylee-engine/src/engine/verification_tests.rs` (compiled in `baylee-card-tests-verification`), `invariants::tests`, `baylee_cards::mutate::tests`, `leave_probe_tests::representative_cards_leave_cleanly_by_every_route` |
 
 The first two variables are read once per process, at the first card lookup
 or the first firing; `BAYLEE_LEAVE_LOG` once, by the sweep, when it has
@@ -32,23 +32,25 @@ compile time, so changing one never rebuilds anything.
 ### Running it
 
 ```bash
-BAYLEE_ABILITY_LOG=/abs/path/to/fresh/dir cargo test -p baylee-engine --lib
-BAYLEE_ABILITY_LOG=/abs/path/to/fresh/dir cargo nextest run -p baylee-engine --lib
+BAYLEE_ABILITY_LOG=/abs/path/to/fresh/dir cargo test -p baylee-engine -p 'baylee-card-tests-*' --lib
+BAYLEE_ABILITY_LOG=/abs/path/to/fresh/dir cargo nextest run -p baylee-engine -p 'baylee-card-tests-*' --lib
 ```
 
-Only `baylee-engine`'s library test binary records; the variable does
-nothing anywhere else. The directory is created if missing. **Use a fresh
+Only the engine's library test binary and the card test crates record (they
+build the engine with `test-support`, `docs/cards.md` §"Where a card test
+compiles"); the variable does nothing anywhere else. The directory is created if missing. **Use a fresh
 directory per run**: a test's file is started afresh by that test's first
 line, but files of tests that did not run (or fired nothing) this time are
-left as they were. Filtering the run (`-- card_tests::instants`) is fine; the
+left as they were. Filtering the run (`-- instants::`) is fine; the
 files then cover only the tests that ran.
 
 ### What it writes
 
 - `<dir>/<test>.jsonl`, one file per test that saw at least one firing.
   `<test>` is the test's full name as libtest and nextest print it, the module
-  path from the crate root, for example
-  `engine::card_tests::instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player.jsonl`.
+  path from its crate's root, for example
+  `instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player.jsonl`
+  (`baylee-card-tests-instants-1`). Names are unique across the crates.
   On Windows `:` becomes `_` in the file name; the `test` field inside is
   always the real name and is the one to key on.
 - `<dir>/unnamed-thread.jsonl`, for firings on a thread no test named: a test
@@ -57,13 +59,14 @@ files then cover only the tests that ran.
   by a full run (measured 2026-09-29). If it appears, a new test needs
   `spawn_named`.
 - `<dir>/pool-inventory.json`, written by the test
-  `engine::verification_tests::pool_inventory` (see [The inventory](#the-inventory)).
+  `verification_tests::pool_inventory` of `baylee-card-tests-verification`
+  (see [The inventory](#the-inventory)).
   A full run includes it; a filtered run must name it too if it needs the file.
 
 Each line of a `.jsonl` file is one object, fields in this order:
 
 ```json
-{"test":"engine::card_tests::instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player","card":144,"index":4294967295,"kind":"spell"}
+{"test":"instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player","card":144,"index":4294967295,"kind":"spell"}
 ```
 
 | field   | type   | meaning |
@@ -188,30 +191,31 @@ entry fire.
 
 ### Running it
 
-Build the engine's test binary once:
+Build the test binaries once, the engine's and the card test crates':
 
 ```bash
-cargo test -p baylee-engine --lib --no-run
-# Executable unittests src/lib.rs (target/debug/deps/baylee_engine-<hash>)
+cargo test -p baylee-engine -p 'baylee-card-tests-*' --lib --no-run --message-format=json
 ```
 
-(`--message-format=json` gives the same path as the `executable` of the
-`compiler-artifact` message whose `target.name` is `baylee_engine` and whose
-`profile.test` is `true`.)
+Each `compiler-artifact` message whose `profile.test` is `true` names one
+binary (`executable`) and its package (`manifest_path`). A test is in the
+binary whose `--list --format terse` prints it.
 
-Then one process per mutant, naming the tests to run:
+Then one process per mutant and binary, naming the tests to run:
 
 ```bash
-cd crates/baylee-engine    # cargo runs the binary here; do the same
-BAYLEE_MUTATE=<card>:<index> ../../target/debug/deps/baylee_engine-<hash> \
+cd crates/baylee-card-tests-instants-1    # cargo runs a binary in its package; do the same
+BAYLEE_MUTATE=<card>:<index> ../../target/debug/deps/baylee_card_tests_instants_1-<hash> \
     --exact <test> [<test> …] --test-threads=1
 ```
 
-or, through cargo, which finds the binary and rebuilds nothing:
+or, through cargo, which finds the binaries and rebuilds nothing:
 
 ```bash
-BAYLEE_MUTATE=<card>:<index> cargo test -p baylee-engine --lib -- --exact <test> [<test> …]
+BAYLEE_MUTATE=<card>:<index> cargo test -p 'baylee-card-tests-*' --lib -- --exact <test> [<test> …]
 ```
+
+`cargo run -p xtask -- verify --mutate` does all of this (`xtask/src/hooks.rs`).
 
 The tests worth running for a card are the ones whose L4 files name it.
 `--test-threads=1` is not needed for correctness (the switch is per
@@ -597,8 +601,8 @@ alongside:
 
 | hook | compiled when |
 |------|---------------|
-| recorder | `#[cfg(test)]` in `baylee-engine`: only its own test binary |
-| mutation switch | `cfg(any(test, feature = "mutate"))` in `baylee-cards`; only `baylee-engine`'s `[dev-dependencies]` turn `mutate` on |
+| recorder | `cfg(any(test, feature = "test-support"))` in `baylee-engine`: its own test binary, and the card test crates through `baylee-card-testkit`'s `enabled`, which only their `[dev-dependencies]` turn on |
+| mutation switch | `cfg(any(test, feature = "mutate"))` in `baylee-cards`; only `baylee-engine`'s and `baylee-card-testkit`'s dependencies turn `mutate` on, and the kit only when a test crate's `[dev-dependencies]` enable it |
 | projection check | `cfg(any(test, feature = "fuzz"))` in `baylee-engine`; nothing in the workspace turns `fuzz` on |
 | leave probe | `#[cfg(test)]` in `baylee-engine`: only its own test binary |
 
@@ -606,7 +610,7 @@ A build without dev-dependencies (every `cargo build`, every binary, every
 library a dependent links) names neither feature:
 
 ```bash
-cargo tree --workspace --target all -e features,normal,build | grep -cE 'feature "(mutate|fuzz)"'   # 0
+cargo tree --workspace --target all -e features,normal,build | grep -cE 'feature "(mutate|fuzz|test-support)"'   # 0
 cargo tree -p baylee-engine --target all -e features | grep 'baylee-cards feature "mutate"'          # the dev edge
 ```
 

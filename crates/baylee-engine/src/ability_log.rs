@@ -7,9 +7,11 @@
 //! says so: one JSON line per ability that fired, deduplicated per test, in
 //! `<dir>/<test name>.jsonl`.
 //!
-//! `#[cfg(test)]` and nothing else — the module and every call into it are
-//! absent from any build that is not this crate's own test binary. It is
-//! inert unless the variable is set, and it only ever *reads* the game:
+//! `cfg(any(test, feature = "test-support"))` — the module and every call
+//! into it are absent from any build that is not a test binary: this crate's
+//! own, or a card test crate's (`docs/cards.md` §"Where a card test
+//! compiles"), which learns the pool through [`POOL`]. It is inert unless the
+//! variable is set, and it only ever *reads* the game:
 //! nothing here writes engine state, the journal or anything a hash sees.
 //!
 //! # What fired means

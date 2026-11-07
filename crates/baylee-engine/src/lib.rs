@@ -118,8 +118,8 @@ mod phasing;
 mod preparation;
 mod sources;
 
-// The L4 firing recorder, `BAYLEE_ABILITY_LOG` (this crate's tests only;
-// `docs/verification-hooks.md`).
+// The L4 firing recorder, `BAYLEE_ABILITY_LOG` (test binaries only: this
+// crate's and the card test crates'; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "test-support"))]
 #[doc(hidden)]
 pub mod ability_log;

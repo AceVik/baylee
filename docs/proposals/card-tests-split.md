@@ -1,6 +1,7 @@
 # Kartentests in eigene Crates, durch ein Werkzeug
 
-Stand 6. November 2026. Noch nichts davon ist gebaut.
+Stand 6. November 2026. Schritte 1 und 2 sind am 7. November 2026 gebaut (siehe §"Ergebnis"),
+Schritt 3, das Regelnummern-Werkzeug, steht noch aus.
 
 ## Warum
 
@@ -62,3 +63,31 @@ Die Zeiten stammen von einem belasteten Rechner. Ein einzelner Kartentest brauch
 - Ob 16 die richtige Zahl ist. Das misst das Werkzeug an der Kopie.
 - Ob Kartendateien später ebenso geteilt werden (`baylee-cards` in Shards, kalt 72 s auf
   geschätzt 20 s). Das ist ein eigener Schritt und läuft über die Codegen.
+
+## Ergebnis (7. November 2026)
+
+Das Werkzeug lag außerhalb des Repositorys, wurde auf Kopien von `main` erprobt und lief einmal auf
+dem Stand, der gelandet ist. Was jetzt gilt, steht in `docs/cards.md` §"Where a card test compiles".
+
+- **17 Test-Crates statt 16**, dazu `baylee-card-tests-verification` und das gemeinsame
+  `baylee-card-testkit`. Nach Ordnern geschnitten wären es sieben ungleiche Crates gewesen: Alle
+  Kreaturentests in einem Crate kamen auf bigace in neun Minuten nicht durch `cargo check`,
+  53.000 Zeilen Hexereien in unter einer. Das Werkzeug packt deshalb die Kinder eines Ordners in
+  Crates von höchstens etwa 55.000 Zeilen.
+- **Dieselben Tests:** alle 16.934 Testnamen des alten Engine-Testprogramms finden sich wieder,
+  keiner fehlt. Fünf Kartentests, die einen Helfer der Engine-Tests brauchten, liegen jetzt bei
+  diesem Helfer (`mechanics_tests::untap_scope`). 27 Tests laufen doppelt: die Subjekte der
+  Prüf-Hooks, die das Verifikations-Crate unter kürzeren Namen ein zweites Mal kompiliert.
+- **Die Liste aus Schritt 3:** 118 Stellen der Engine, alle vom Compiler genannt. Felder, Module
+  und Re-Exporte sind nur unter `test-support` offen, Funktionen und Typen `#[doc(hidden)] pub`;
+  ohne das Feature erreicht man mit ihnen keinen Zustand. Das Feature erreicht keinen
+  ausgelieferten Build, `cargo dev gate shipped-features` prüft das.
+- **Gemessen auf dem MacBook unter Last** (Last 7 bis 8, nacheinander auf derselben Maschine):
+
+  | Änderung | vorher | nachher |
+  |---|---|---|
+  | eine Testdatei | 42 s | 3 s |
+  | eine Karte, ihr Crate | 52 s | 15 s |
+  | eine Karte, alle Crates | 52 s | 28 s |
+
+  Alle Kartentests bauen in 95 s und laufen in 31 s.

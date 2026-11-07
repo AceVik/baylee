@@ -130,7 +130,9 @@ both afterwards (§7).
 
 - **One file per card, at the card's own path:** `cards/<type>/<dir>/<slug>.rs`
   is tested in `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`,
-  with a `mod` line in the parent module in alphabetical order. Never a
+  with a `mod` line in the parent module in alphabetical order. It compiles in
+  a crate of its own (`docs/cards.md` §"Where a card test compiles"): run it
+  with `cargo test -p 'baylee-card-tests-*' <slug>`. Never a
   file per set, never several cards in one file (`combo_tests/` is for
   interactions only).
 - **Name the subject with a literal `card_index("<oracle id>")`.** Not

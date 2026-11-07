@@ -3,6 +3,10 @@
 //! carries the duel plumbing, the test carries only the card's rules
 //! text as a scenario.
 //!
+//! This file, its kits and the doors' files compile in `baylee-card-testkit`;
+//! the tests compile in the card test crates, one per `shard_<part>.rs` here
+//! (`docs/cards.md` §"Where a card test compiles").
+//!
 //! # Where a test sits
 //!
 //! A test goes with **the card it plays**, under the same door `cards/`
@@ -14,7 +18,8 @@
 //! # What stays here, and why it has to
 //!
 //! Every non-test item — the card handles, `activate`, `keywords`,
-//! `tap_all_mana_but`, `library_size` — stays in this file. That is not tidiness
+//! `tap_all_mana_but`, `library_size` — stays in this file, which the kit
+//! compiles and every test crate reads. That is not tidiness
 //! but visibility: a child module reaches its parent's private items through
 //! `use super::*`, and a **sibling** reaches nothing at all. A helper moved
 //! into `creatures` would be invisible to `lands`, and the twenty of them

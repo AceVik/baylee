@@ -34,16 +34,18 @@ cargo dev api serve [--port 28768]            # those documents in Swagger UI, o
 
 ## Single tests
 
-Engine tests: `crates/baylee-engine/src/engine/*_tests.rs` plus directories `card_tests/` (one module per card, at the card's own path: `card_tests/<type>/<dir>/<slug>.rs` for `cards/<type>/<dir>/<slug>.rs`; helpers in `card_tests/<type>.rs`) and `combo_tests/`; filter by module path.
+Engine tests: `crates/baylee-engine/src/engine/*_tests.rs` plus `combo_tests/`; filter by module path. The card tests lie in `card_tests/` (one module per card, at the card's own path: `card_tests/<type>/<dir>/<slug>.rs` for `cards/<type>/<dir>/<slug>.rs`; helpers in `card_tests/<type>.rs`) but compile in test crates of their own, `baylee-card-tests-<part>`, one per `card_tests/shard_<part>.rs`; `baylee-card-testkit` is what they share (`docs/cards.md` §"Where a card test compiles").
 
 ```bash
 cargo test -p baylee-engine keyword_tests
 cargo test -p baylee-engine --lib -- --exact engine::keyword_tests::no_card_claims_a_keyword_the_engine_ignores
 cargo test -p baylee-engine --lib -- --list
+cargo test -p baylee-card-tests-instants-1 lightning_bolt          # one card's tests, in its crate
+cargo test -p 'baylee-card-tests-*'                               # every card test
 cargo build --workspace --bins && cargo test -p baylee-gateway --test e2e_processes -- --ignored
 cargo test -p baylee-catalog --test cardtext_provenance -- --ignored
 cargo bench -p baylee-engine --bench basics -- --quick   # vs docs/perf-baseline.md
-BAYLEE_ABILITY_LOG=<dir> cargo test -p baylee-engine --lib   # which abilities fired, per test; BAYLEE_MUTATE=<card>:<index> takes one away (docs/verification-hooks.md)
+BAYLEE_ABILITY_LOG=<dir> cargo test -p baylee-engine -p 'baylee-card-tests-*' --lib   # which abilities fired, per test; BAYLEE_MUTATE=<card>:<index> takes one away (docs/verification-hooks.md)
 ```
 
 ## xtask
