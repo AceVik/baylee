@@ -174,6 +174,8 @@ pub fn run() {
     if HIDDEN_UNTIL_DRAWN {
         app.add_systems(Update, show_the_window);
     }
+    #[cfg(windows)]
+    app.add_systems(Update, crate::keyboard_focus::keep_the_keyboard);
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     app.add_systems(Startup, crate::devctl::configure_monitor);
     #[cfg(any(windows, target_os = "linux"))]

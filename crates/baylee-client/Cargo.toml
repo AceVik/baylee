@@ -205,14 +205,17 @@ bevy = { workspace = true, features = ["system_clipboard"] }
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 winit.workspace = true
 
-# Win32 calls: the process's AppUserModelID (`window_icon.rs`) and the
-# console a release build opens on `--console` (`console.rs`). This release
-# line already occurs in the workspace's platform dependencies.
+# Win32 calls: the process's AppUserModelID (`window_icon.rs`), the console a
+# release build opens on `--console` (`console.rs`) and the keyboard focus
+# (`keyboard_focus.rs`). This release line already occurs in the workspace's
+# platform dependencies.
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_Console",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 # The client's icon resource (`build.rs`), which Explorer, the title bar and

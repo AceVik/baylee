@@ -161,8 +161,11 @@ nested JSON object.
 
 `/key` and `/text` bypass the native OS keyboard path. A Windows system-sound
 report needs native/physical input plus output-device loopback audio capture;
-validate the capture with an announced control tone. See `docs/client.md`
-for the Windows comparison. For tour checks, leave `BAYLEE_NO_TOURS` unset:
+validate the capture with an announced control tone. An elevated window in
+front silently swallows `SendInput`, so read `SetCursorPos`'s result, and a
+client that starts in front cannot show a focus fault at all: read
+`GetGUIThreadInfo` and see `docs/client.md` for the method and the key beep's
+cause. For tour checks, leave `BAYLEE_NO_TOURS` unset:
 `/state.tour` reports `scrims`, `bubbles` (layout and visibility), and each
 control's `visible` flag. A run's mode alone does not prove its bubble is
 visible or that its scrim was removed after Skip.

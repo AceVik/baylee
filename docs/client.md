@@ -10753,15 +10753,51 @@ the Python drivers; see `docs/dev-tools.md` for the command mapping.
 
 `/key` and `/text` inject Bevy input, bypassing the Windows message queue.
 They cannot reproduce an OS keyboard beep on their own. For such a report,
-compare them with native input and the owner's physical keyboard in an
-isolated, silent client. Record the output device through WASAPI loopback
-(not the microphone), and validate that capture with one explicitly announced
-Windows control tone. Silence without that positive control is inconclusive.
-On 19.10.2026, a fresh `d33b0b51d` build at 150% Windows scale produced no
-audio for `/text`, posted Windows keys, `SendInput`, or 45 seconds of the
-owner's physical typing into the gateway field. A separate Windows control
-tone was captured (peak 0.346, RMS 0.0443 at 48 kHz). The reported historical
-beep was not reproduced; no global sound setting or keyboard handling was changed.
+use native input in an isolated, silent client that is not passive (passive
+sets `Window::focused` to false). Record the output device through WASAPI
+loopback (not the microphone), and validate that capture with one explicitly
+announced Windows control tone. Silence without that positive control is
+inconclusive, and so is a run with an elevated window in front: Windows then
+drops a normal process's input, `SendInput` still reports success and only
+`SetCursorPos` fails. `EVENT_SYSTEM_SOUND` does not fire for `MessageBeep`, so
+it proves nothing either way.
+
+The beep on every key (reported for `0.1.1-beta.9b`, found 7.11.2026) needs a
+client that starts without the right to the foreground, as one does when the
+player goes on working in another program while it loads. A client that starts
+in front has the focus and stays silent, which is why the comparison of
+19.10.2026 at `d33b0b51d` heard nothing (no audio for `/text`, posted keys,
+`SendInput` or 45 seconds of physical typing; control tone peak 0.346).
+
+To reproduce it, let a small window hold the foreground under
+`LockSetForegroundWindow` while the client starts. `GetGUIThreadInfo` for the
+client's thread reads `hwndActive` = the window and `hwndFocus` = null, and a
+real click brings the window to the front and leaves the focus empty. Traced in
+milliseconds on that start: `SW_MAXIMIZE` shows the hidden window (about 700 ms),
+`SW_HIDE` hides it 12–20 ms later and takes the focus but not the activation, and
+the last `SW_SHOW` (about 1,140 ms) activates nothing. Started in front, the same
+`SW_HIDE` takes both, and `SW_SHOW` gives them back.
+
+Without the focus Windows sends each key as a system key. Measured at 150%
+on the shipped window path, 1.6 s per key so that no tone runs into the next:
+`Q`, `1`, Space, Backspace, Tab and `ß` beeped (loopback peak 0.3457, the control
+tone's), and Delete, the arrows, Home, the function keys, Shift, Ctrl and the
+dead key `^` did not. A posted `WM_SYSKEYDOWN` beeps the same way and a posted
+`WM_KEYDOWN` does not. The front door, the offline lobby, the deck list and its
+search, the deck builder and the table all beeped. Minimising and restoring,
+or going to another window and coming back, ended it. It cost no frames at the
+front door: 30 frames a second in both states.
+
+`keyboard_focus` gives the window in front its focus back, and only in front:
+a focus taken behind another program reaches bevy's `focus_window`, whose
+made-up Alt press took the foreground from the program in use (measured on the
+first version of the fix, 550 ms after the window appeared). With the check the
+other program keeps the foreground, the focus follows 4 ms after the click
+brings the window to the front, and the same start and the same keys read peak
+0.0000 on all those screens. `Alt+Q`, `Alt+1`, `AltGr+Q` and `Ctrl+A` are silent
+with the focus in place. Through the launcher, started from a shell, the old
+client came up in front and silent too; a double click in Explorer was not
+tried, because Explorer would not pass the isolated environment on.
 
 For tours, `/state.tour.scrims` counts remaining scrim layers even when the
 run is idle; `bubbles` lists each current bubble's requested `left`/`top`

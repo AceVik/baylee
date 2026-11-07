@@ -74,6 +74,9 @@ pub mod hand_order;
 pub mod host;
 pub mod hud;
 pub mod input;
+/// The keyboard stays with the active window, or Windows beeps at every key.
+#[cfg(windows)]
+mod keyboard_focus;
 pub mod keys;
 pub mod lifeflash;
 /// `baylee:` links from the website: how they reach the client.
