@@ -11,7 +11,7 @@ card!(
     oracle_id = "116ee88e-9e13-4f21-bc6a-efa994b5bf75",
     scryfall_id = "1d97436e-329a-49a4-a7c9-671ec9ba90cc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Obsessive Search",
         mana_cost = mana!("{U}"),
