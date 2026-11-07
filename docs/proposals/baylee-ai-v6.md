@@ -187,6 +187,12 @@ gefundenen Fehlerklassen, gemessen an einer größeren Leiter mit DeepSeek, Haik
 Dann Bewerter, dann Spalten für Ziel-, Farb- und Block-Wahl. Gegner-Leser und Synergetiker bleiben
 in v6 und kommen danach. Inneres K entfällt.
 
+**16 Bit überall, wo es trägt (Eigentümer, 7. November).** FP16 auf B-refresh kostet nichts (0,0 und
++0,1 pp) und ist 2,2- bis 2,3-mal schneller bei 55 % des VRAM. Es wird Standard für Auswertung und
+Auslieferung. Partien fürs Lernen in 16 Bit, sobald die Abweichung der Zug-Wahrscheinlichkeiten
+gemessen und klein ist. Gewichte ohne FP32-Kopie nur, wenn ein Versuch das trägt. Für reine CPUs
+entscheidet die Messung, viele rechnen FP16 nicht nativ.
+
 ## 5. Was wir messen
 
 Spielstärke mit Taktik, Lernfortschritt roh. Vergleichsnetz ist B-refresh. Vergleiche nur innerhalb
