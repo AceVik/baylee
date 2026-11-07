@@ -1,6 +1,29 @@
 //! Admission-only transport. This type deliberately has no password-bearing operation.
 use crate::{Error, SignedToken};
+use std::io::Read as _;
 use zeroize::Zeroize;
+
+/// The most of a gateway's refusal that is read (`docs/protocol.md` §"Refusals").
+const MOST_SAID: u64 = 1024;
+
+/// A gateway turned a token away: the error, and the body it said that with,
+/// for a caller that reads refusals. Read by nothing here.
+#[derive(Debug)]
+pub struct Turned {
+    /// What the status comes to, or what failed before there was one.
+    pub error: Error,
+    /// The answer's body, at most [`MOST_SAID`] bytes and one more.
+    pub said: Vec<u8>,
+}
+
+impl From<Error> for Turned {
+    fn from(error: Error) -> Self {
+        Self {
+            error,
+            said: Vec::new(),
+        }
+    }
+}
 
 /// What a sign-in or a refresh sends a gateway.
 #[derive(serde::Serialize)]
@@ -68,7 +91,7 @@ impl GatewayHttp {
     ///
     /// # Errors
     /// Rejects an invalid token, transport failure and non-success responses.
-    pub fn admit(&self, token: &SignedToken) -> Result<Admission, Error> {
+    pub fn admit(&self, token: &SignedToken) -> Result<Admission, Turned> {
         self.present("/auth/central/login", token)
     }
 
@@ -80,16 +103,23 @@ impl GatewayHttp {
     /// As [`GatewayHttp::admit`].
     pub fn refresh(&self, token: &SignedToken) -> Result<Admission, Error> {
         self.present("/auth/central/refresh", token)
+            .map_err(|turned| turned.error)
     }
 
-    fn present(&self, path: &str, token: &SignedToken) -> Result<Admission, Error> {
+    fn present(&self, path: &str, token: &SignedToken) -> Result<Admission, Turned> {
         let bytes = zeroize::Zeroizing::new(central_api::encode(&Presented { token })?);
-        let response = self
+        let mut response = self
             .agent
             .post(format!("{}{path}", self.origin))
             .header("Content-Type", "application/json")
             .send(bytes.as_slice())
             .map_err(|_| Error::Unavailable)?;
+        if let Some(error) = crate::http::status_error(response.status().as_u16()) {
+            let mut said = Vec::new();
+            let body = response.body_mut().as_reader();
+            let _ = body.take(MOST_SAID + 1).read_to_end(&mut said);
+            return Err(Turned { error, said });
+        }
         let admission: Admission = crate::http::decode_response(response)?;
         if admission.token.len() != 64
             || !admission
@@ -100,7 +130,7 @@ impl GatewayHttp {
                 username.is_empty() || username.len() > 96 || username.chars().any(char::is_control)
             })
         {
-            return Err(Error::Rejected);
+            return Err(Error::Rejected.into());
         }
         Ok(admission)
     }

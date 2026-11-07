@@ -980,3 +980,38 @@ fn a_socket_closed_for_a_ban_says_so_and_ends_the_session() {
     assert_eq!(state.lobby.token(), None);
     assert_eq!(state.lobby.status(), "banned here");
 }
+
+/// A bearer lives a minute or two, so a `401` on a Central session may say no
+/// more than that one lapsed: a later token decides, and until it has, the
+/// session stands.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_401_on_a_central_session_asks_for_a_later_token_first() {
+    let mut app = headless();
+    let (handle, jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::enable(&mut state);
+        state.central.as_mut().expect("Central on").handle = Some(handle);
+    }
+    let mailbox = app.world().resource::<Mailbox>().0.clone();
+    let signed_in = LobbyEvent::LoggedIn {
+        token: "held".into(),
+        username: None,
+    };
+    let bound = super::super::front::terms::TermsReply::CentralBound;
+    let mut messages = mailbox.lock().expect("mailbox");
+    messages.push(Reply::Event(signed_in));
+    messages.push(Reply::Terms(bound));
+    drop(messages);
+    app.update();
+    while jobs.try_recv().is_ok() {}
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    let expired = Box::new(Reply::Expired);
+    let reply = Reply::Remote(epoch, expired);
+    mailbox.lock().expect("mailbox").push(reply);
+    app.update();
+    assert!(jobs.try_recv().is_ok(), "a later token is asked for");
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), Some("held"), "and nothing ended");
+}

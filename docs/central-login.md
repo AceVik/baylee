@@ -429,7 +429,7 @@ within seconds where it cannot.
   A client whose renewal was lost presents a later gateway token
   (`POST /auth/central/refresh`), and signs in again where the gateway no longer
   holds the session, as after its restart; only a signed `401` after that ends the
-  session on the client. The client renews at a table as well: `poll` stands still
+  session on the client. A `401` on any other request goes the same way. The client renews at a table as well: `poll` stands still
 there, so `bearer_news_at_a_table` reads the answers, and the clock is the real one,
 so a client that slept or stalled renews on its first frame. The client also
 refreshes every ten minutes, which carries

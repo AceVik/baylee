@@ -280,17 +280,24 @@ fn agent_for(https_only: bool, total: Duration) -> ureq::Agent {
         .new_agent()
 }
 
+/// What a status says went wrong; `None` for a `200`.
+pub(crate) const fn status_error(status: u16) -> Option<Error> {
+    match status {
+        200 => None,
+        403 => Some(Error::TermsRequired),
+        central_api::UPDATE_REQUIRED_STATUS => Some(Error::UpdateRequired),
+        409 => Some(Error::Conflict),
+        429 => Some(Error::Busy),
+        500..=599 => Some(Error::Unavailable),
+        _ => Some(Error::Rejected),
+    }
+}
+
 pub(crate) fn decode_response<T: serde::de::DeserializeOwned>(
     mut response: ureq::http::Response<ureq::Body>,
 ) -> Result<T, Error> {
-    match response.status().as_u16() {
-        200 => {}
-        403 => return Err(Error::TermsRequired),
-        central_api::UPDATE_REQUIRED_STATUS => return Err(Error::UpdateRequired),
-        409 => return Err(Error::Conflict),
-        429 => return Err(Error::Busy),
-        500..=599 => return Err(Error::Unavailable),
-        _ => return Err(Error::Rejected),
+    if let Some(error) = status_error(response.status().as_u16()) {
+        return Err(error);
     }
     if response
         .headers()

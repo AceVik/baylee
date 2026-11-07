@@ -596,18 +596,18 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
     let asked = handle
         .send
         .try_send(Box::new(move |account| {
-            admission_answered(account.admit(&gateway), lang, epoch, &target);
+            admission_answered(account.admit_saying(&gateway), lang, epoch, &target);
         }))
         .is_ok();
     if !asked {
-        admission_answered(Err(Error::Busy), lang, epoch, mailbox);
+        admission_answered(Err(Error::Busy.into()), lang, epoch, mailbox);
     }
 }
 
 /// Leaves what an admission answered in the mailbox: the session with the
 /// news about terms it brought, or the refusal in words, and nothing else.
 fn admission_answered(
-    admission: Result<baylee_account::Admission, Error>,
+    admission: Result<baylee_account::Admission, baylee_account::Turned>,
     lang: Lang,
     epoch: u64,
     mailbox: &Mailbox,
@@ -622,7 +622,7 @@ fn admission_answered(
             token: std::mem::take(&mut value.token),
             username: value.username.take(),
         },
-        Err(error) => LobbyEvent::Failed(refusal(lang, error).into()),
+        Err(turned) => LobbyEvent::Failed(refusal(lang, turned)),
     };
     if let Ok(mut messages) = mailbox.0.lock() {
         if let Some(stale) = stale {
@@ -646,15 +646,29 @@ fn admission_answered(
     }
 }
 
-/// Why an admission failed, as far as the status alone says: a bare `403` is
-/// a ban and a gateway that takes no Central account alike, and every refusal
-/// from a gateway is a bare status (`docs/protocol.md`).
-fn refusal(lang: Lang, error: Error) -> &'static str {
-    match error {
+/// Why an admission failed: what the gateway said (`docs/protocol.md`
+/// §"Refusals"), or as far as the status alone says, where a bare `403` is a
+/// gateway that takes no Central account.
+fn refusal(lang: Lang, turned: baylee_account::Turned) -> String {
+    if let Some(said) = baylee_protocol::refusal::Refusal::read(&turned.said) {
+        return baylee_client_core::refusal::say(&said, lang);
+    }
+    match turned.error {
         Error::UpdateRequired => Phrase::RefusalUpdateRequired.text(lang),
         Error::Unavailable | Error::Busy => Phrase::CentralAdmissionUnavailable.text(lang),
         _ => Phrase::CentralAdmissionRefused.text(lang),
     }
+    .to_string()
+}
+
+/// A session that a later token could not carry on has really gone: this is what
+/// the player reads, and it ends the session here.
+fn session_gone(lang: Lang, turned: &baylee_account::Turned) -> Reply {
+    let said = baylee_protocol::refusal::Refusal::read(&turned.said).map_or_else(
+        || Phrase::RefusalSessionEnded.text(lang).to_string(),
+        |said| baylee_client_core::refusal::say(&said, lang),
+    );
+    Reply::ClosedSaying(said)
 }
 
 /// Seconds to the next renewal when a gateway named none: soon, and harmless.
@@ -689,9 +703,17 @@ pub(super) fn refresh_gateway(state: &LobbyState, mailbox: &Mailbox) {
                     }
                 }
             }
-            Err(Error::Rejected) => {
-                admission_answered(account.admit(&gateway), lang, epoch, &target);
-            }
+            Err(Error::Rejected) => match account.admit_saying(&gateway) {
+                // Central or the gateway said no: only a failure to ask leaves
+                // the session standing.
+                Err(turned) if !matches!(turned.error, Error::Unavailable | Error::Busy) => {
+                    if let Ok(mut messages) = target.0.lock() {
+                        let gone = Box::new(session_gone(lang, &turned));
+                        messages.push(Reply::Remote(epoch, gone));
+                    }
+                }
+                admission => admission_answered(admission, lang, epoch, &target),
+            },
             // Central put new terms in force: it gives out no token until they
             // are accepted, and the session must not just run out on the player.
             Err(Error::TermsRequired) => {
@@ -1227,12 +1249,31 @@ mod tests {
         for lang in [Lang::En, Lang::De] {
             let update = Phrase::RefusalUpdateRequired.text(lang);
             assert_eq!(sign_in_refusal(lang, Error::UpdateRequired), update);
-            assert_eq!(refusal(lang, Error::UpdateRequired), update);
+            assert_eq!(refusal(lang, Error::UpdateRequired.into()), update);
             for other in [Error::Rejected, Error::Unavailable, Error::Busy] {
                 assert_ne!(sign_in_refusal(lang, other), update);
-                assert_ne!(refusal(lang, other), update);
+                assert_ne!(refusal(lang, other.into()), update);
             }
         }
+    }
+
+    /// A gateway that says why is heard: a ban reads as a ban, and not as a
+    /// door to try again. A body that is no refusal falls to the status.
+    #[test]
+    fn an_admission_turned_away_says_what_the_gateway_said() {
+        let turned = |said: &[u8]| baylee_account::Turned {
+            error: Error::TermsRequired,
+            said: said.to_vec(),
+        };
+        let banned = turned(br#"{"error":"x","refusal":{"code":"banned"}}"#);
+        assert_eq!(
+            refusal(Lang::En, banned),
+            Phrase::RefusalBanned.text(Lang::En)
+        );
+        assert_eq!(
+            refusal(Lang::En, turned(b"not a refusal")),
+            Phrase::CentralAdmissionRefused.text(Lang::En)
+        );
     }
 
     /// An admission that cannot even be asked for (the account worker's
@@ -1280,7 +1321,7 @@ mod tests {
             Error::TermsRequired,
         ] {
             let mailbox = Mailbox::default();
-            admission_answered(Err(error), Lang::En, 7, &mailbox);
+            admission_answered(Err(error.into()), Lang::En, 7, &mailbox);
             let replies = std::mem::take(&mut *mailbox.0.lock().unwrap());
             assert!(
                 matches!(

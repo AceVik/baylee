@@ -212,6 +212,17 @@ fn check_access(
         403,
         "Central authorization never bypasses local bans"
     );
+    let token = super::gateway_token(owner, http, origin, GatewayPurpose::Admit);
+    let (status, body) = common::http(
+        gateway.port,
+        "POST",
+        "/auth/central/login",
+        None,
+        &super::sign_in_body(&token),
+    );
+    assert_eq!(status, 403, "{body}");
+    let refusal = baylee_protocol::refusal::Refusal::read(body.as_bytes()).expect("a refusal");
+    assert_eq!(refusal.code, baylee_protocol::refusal::BANNED);
     gateway.sql("UPDATE account SET banned_at = NULL, ban_reason = NULL, banned_by = NULL WHERE central_only");
     player
 }

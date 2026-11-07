@@ -309,6 +309,13 @@ pub(super) fn poll(
                     #[cfg(not(target_arch = "wasm32"))]
                     super::central::refresh_gateway(&state, &mailbox);
                 }
+                // A bearer lives a minute or two, so a `401` may say no more
+                // than that one lapsed: a later token decides whether the
+                // session stands (`docs/central-login.md` §"Sessions").
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::Expired if state.central_ready() && state.lobby.central_bound() => {
+                    super::central::refresh_gateway(&state, &mailbox);
+                }
                 reply @ (Reply::Expired | Reply::ClosedSaying(_)) => {
                     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
                     // A guest the gateway no longer knows is gone for good, and

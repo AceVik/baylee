@@ -221,6 +221,15 @@ impl Account {
     /// # Errors
     /// Refuses unsupported/unregistered gateways and failed or expired admission.
     pub fn admit(&self, gateway: &str) -> Result<crate::Admission, Error> {
+        self.admit_saying(gateway).map_err(|turned| turned.error)
+    }
+
+    /// [`Account::admit`], with what the gateway said when it turned the account
+    /// away.
+    ///
+    /// # Errors
+    /// As [`Account::admit`].
+    pub fn admit_saying(&self, gateway: &str) -> Result<crate::Admission, crate::Turned> {
         let (source, token) = self.gateway_token(gateway)?;
         source.admit(&token)
     }

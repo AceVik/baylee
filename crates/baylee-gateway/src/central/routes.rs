@@ -25,14 +25,35 @@ async fn exclusive(state: &Shared) -> Result<tokio::sync::RwLockWriteGuard<'_, (
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)
 }
 
-async fn allowed(state: &Shared, account_id: &str) -> Result<crate::store::Account, StatusCode> {
+/// What a sign-in is turned away with: a status, or a refusal a client says in
+/// its own words (`docs/protocol.md` §"Refusals").
+struct Turned(Box<Response>);
+
+impl From<StatusCode> for Turned {
+    fn from(status: StatusCode) -> Self {
+        Self(Box::new(status.into_response()))
+    }
+}
+
+impl IntoResponse for Turned {
+    fn into_response(self) -> Response {
+        *self.0
+    }
+}
+
+async fn allowed(state: &Shared, account_id: &str) -> Result<crate::store::Account, Turned> {
     let account = crate::store::account(&state.db, account_id)
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
         .filter(|a| !a.guest)
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    if account.ban_in_force(crate::auth::now_secs()).is_some() || account.must_change_password {
-        return Err(StatusCode::FORBIDDEN);
+    if let Some(ban) = account.ban_in_force(crate::auth::now_secs()) {
+        return Err(Turned(Box::new(
+            crate::moderation::ban_refusal(ban).into_response(),
+        )));
+    }
+    if account.must_change_password {
+        return Err(StatusCode::FORBIDDEN.into());
     }
     Ok(account)
 }
@@ -153,11 +174,11 @@ fn opened_around(
 
 /// A sign-in from a gateway token: the account, its session in the book, and a
 /// bearer for it.
-async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<Value>, StatusCode> {
+async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<Value>, Turned> {
     let bridge = bridge(state)?;
     let claims = checked(&bridge, token).await?;
     if claims.purpose != purpose {
-        return Err(StatusCode::UNAUTHORIZED);
+        return Err(StatusCode::UNAUTHORIZED.into());
     }
     let central = claims.account().ok_or(StatusCode::UNAUTHORIZED)?;
     // The barrier drains the requests of a legacy account while its link is
@@ -195,8 +216,8 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
                     let _ = state.departed.send(legacy.clone());
                 }
                 Ok(false) => {}
-                Err(sea_orm::DbErr::Custom(_)) => return Err(StatusCode::UNAUTHORIZED),
-                Err(_) => return Err(StatusCode::SERVICE_UNAVAILABLE),
+                Err(sea_orm::DbErr::Custom(_)) => return Err(StatusCode::UNAUTHORIZED.into()),
+                Err(_) => return Err(StatusCode::SERVICE_UNAVAILABLE.into()),
             }
             legacy
         }
@@ -270,7 +291,7 @@ fn within_push_budget(state: &Shared, addr: SocketAddr, headers: &HeaderMap) -> 
     state.invalidate_limiter.allow(&ip)
 }
 
-fn answered(result: Result<Json<Value>, StatusCode>) -> Response {
+fn answered(result: Result<Json<Value>, impl IntoResponse>) -> Response {
     result.map_or_else(IntoResponse::into_response, IntoResponse::into_response)
 }
 
@@ -284,15 +305,15 @@ fn answered(result: Result<Json<Value>, StatusCode>) -> Response {
 /// this gateway, for the account it names (a gateway that is not the migration
 /// gateway makes a local projection of it the first time, only while its
 /// registration is open). The token is checked here, with no word from
-/// Central. Answered as a sign-in is. Every refusal is a bare status, but for
-/// `426`.
+/// Central. Answered as a sign-in is. A ban and `426` carry a refusal, every
+/// other refusal is a bare status.
 /// @tag Central
 /// @security none
 /// @body `$CentralSignIn`
 /// @return 200: `$CentralSession` "The session"
 /// @return 400: "The body is no sign-in"
 /// @return 401: "The token is not good here, its session was revoked, the account is not linked here or it is a guest"
-/// @return 403: "This gateway takes no Central account (its mode is `guests`), or the account is banned or must choose a new password first"
+/// @return 403: `$RefusalBody` "The account is banned here: `banned`. Bare: this gateway takes no Central account (its mode is `guests`), or the account must choose a new password first"
 /// @return 413: String text/plain "The body is over 8 KiB"
 /// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
 /// @return 429: "Too many sign-ins from this address"
@@ -326,15 +347,15 @@ async fn login(
 /// @description Trades an `admin` gateway token from Baylee Central for a
 /// bearer that works on the admin listener only. It lasts as long as the token
 /// and is not renewed; Central revokes it when the account stops being an
-/// admin here. Not on the migration gateway. Every refusal is a bare status,
-/// but for `426`.
+/// admin here. Not on the migration gateway. A ban and `426` carry a refusal,
+/// every other refusal is a bare status.
 /// @tag Central
 /// @security none
 /// @body `$CentralSignIn`
 /// @return 200: `$CentralAdminSession` "The admin bearer"
 /// @return 400: "The body is no sign-in"
 /// @return 401: "The token is not good here, its session was revoked, or the account is a guest"
-/// @return 403: "This is the migration gateway, or the account is banned or must choose a new password first"
+/// @return 403: `$RefusalBody` "The account is banned here: `banned`. Bare: this is the migration gateway, or the account must choose a new password first"
 /// @return 413: String text/plain "The body is over 8 KiB"
 /// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
 /// @return 429: "Too many sign-ins from this address"

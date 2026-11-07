@@ -426,8 +426,8 @@ paths:
         this gateway, for the account it names (a gateway that is not the migration
         gateway makes a local projection of it the first time, only while its
         registration is open). The token is checked here, with no word from
-        Central. Answered as a sign-in is. Every refusal is a bare status, but for
-        `426`.
+        Central. Answered as a sign-in is. A ban and `426` carry a refusal, every
+        other refusal is a bare status.
       operationId: central_login
       tags:
       - Central
@@ -452,9 +452,11 @@ paths:
             The token is not good here, its session was revoked, the account is not linked
             here or it is a guest
         "403":
-          description: >-
-            This gateway takes no Central account (its mode is `guests`), or the account is
-            banned or must choose a new password first
+          description: "The account is banned here: `banned`. Bare: this gateway takes no Central account (its mode is `guests`), or the account must choose a new password first"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefusalBody"
         "413":
           description: The body is over 8 KiB
           content:
@@ -481,8 +483,8 @@ paths:
         Trades an `admin` gateway token from Baylee Central for a
         bearer that works on the admin listener only. It lasts as long as the token
         and is not renewed; Central revokes it when the account stops being an
-        admin here. Not on the migration gateway. Every refusal is a bare status,
-        but for `426`.
+        admin here. Not on the migration gateway. A ban and `426` carry a refusal,
+        every other refusal is a bare status.
       operationId: central_admin_login
       tags:
       - Central
@@ -505,9 +507,11 @@ paths:
         "401":
           description: The token is not good here, its session was revoked, or the account is a guest
         "403":
-          description: >-
-            This is the migration gateway, or the account is banned or must choose a new
-            password first
+          description: "The account is banned here: `banned`. Bare: this is the migration gateway, or the account must choose a new password first"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefusalBody"
         "413":
           description: The body is over 8 KiB
           content:
