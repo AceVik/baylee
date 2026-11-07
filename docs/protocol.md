@@ -63,7 +63,9 @@ frame.
 spectator is read by the same reader. One sender serves every watching socket.
 A spectator arriving, or a socket falling behind, makes the gateway ask for
 `spectator_snapshot`, and that whole view goes to all of them, so the next patch
-is right for every socket.
+is right for every socket. A spectator
+whose own frame does not place has nobody to ask: it dials again, and a watching
+socket opens with the whole table.
 
 **What keeps whole views.** Records hold inputs and no view at all, and a tape
 holds whole views as JSON: a reader jumps to any moment, and a moment stands on no

@@ -530,11 +530,15 @@ impl NetworkHost {
     /// Asks the table for a whole view when a frame could not be placed.
     ///
     /// Having seen nothing is what gets one, whatever the table thinks this
-    /// seat holds. Nothing is said for a spectator, who has nothing to say to
-    /// a table: the gateway asks for the public stream whole when a socket
-    /// falls behind.
+    /// seat holds. A spectator has nothing to say to a table, and the gateway
+    /// only catches up a socket it knows has fallen behind, so it dials again:
+    /// a watching socket is sent the whole table as it opens.
     fn ask_for_a_whole_view(&mut self) {
-        if !self.views.take_lost() || self.ticket.watch {
+        if !self.views.take_lost() {
+            return;
+        }
+        if self.ticket.watch {
+            let _ = self.redial();
             return;
         }
         let resume = Envelope {
@@ -830,6 +834,28 @@ mod tests {
             seat_token: "deadbeef".to_string(),
             watch: false,
         }
+    }
+
+    #[test]
+    fn a_spectator_that_lost_a_frame_dials_for_the_whole_table() {
+        let watching = SeatTicket {
+            watch: true,
+            ..ticket("http://127.0.0.1:9")
+        };
+        let mut host = NetworkHost::connect(watching).expect("a host");
+        host.connection.dialling = false;
+        host.ask_for_a_whole_view();
+        assert!(!host.connection.dialling, "nothing was lost");
+        let unreadable = Envelope {
+            msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                view_frame: vec![0xff; 4],
+                ..Default::default()
+            })),
+        };
+        assert!(host_message(unreadable, &mut host.views).is_none());
+        host.ask_for_a_whole_view();
+        assert!(host.connection.dialling, "its socket opens with the table");
+        assert!(host.outbox.is_empty(), "and it says nothing to a table");
     }
 
     #[test]
