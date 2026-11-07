@@ -1200,6 +1200,35 @@ async fn a_message_is_stored_with_its_slots_once_and_not_past_the_cap() {
     sandbox.close().await;
 }
 
+/// A full device refuses everybody's message to it, so one sender may fill
+/// only its share of another account's device. Its own devices are its own to
+/// fill, and anybody else still gets through.
+#[tokio::test]
+async fn one_sender_cannot_fill_another_account_s_device_by_itself() {
+    let Chat {
+        sandbox, a, a1, b1, ..
+    } = chat("one_sender_share").await;
+    let db = &sandbox.db;
+    let c = person(&sandbox, "Carol").await;
+    register(&sandbox, c, 9, 4).await;
+    let c1 = new_device(9).id;
+    let cap = 4;
+    stored(&sandbox, &message(a, &a1, 1), &[slot(&b1, 1)], cap).await;
+    stored(&sandbox, &message(a, &a1, 2), &[slot(&b1, 1)], cap).await;
+    assert_eq!(
+        social::store_message(db, &message(a, &a1, 3), &[slot(&b1, 1)], cap)
+            .await
+            .unwrap(),
+        Stored::Full,
+        "half the device is as much as one sender holds"
+    );
+    stored(&sandbox, &message(c, &c1, 4), &[slot(&b1, 1)], cap).await;
+    for n in 5..9 {
+        stored(&sandbox, &message(a, &a1, n), &[slot(&a1, 1)], cap).await;
+    }
+    sandbox.close().await;
+}
+
 /// What a device is handed, in order, and what an ack takes away.
 #[tokio::test]
 async fn pending_is_oldest_first_and_ack_takes_only_the_devices_own_slots() {

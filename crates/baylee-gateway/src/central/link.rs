@@ -376,12 +376,21 @@ async fn paste(
     )
     .await
     .map_err(|e| db_failed(&e))?;
+    let replacing = state.central.is_some();
     state.central.set(Some(Bridge::from_token(
         state.central.endpoint.clone(),
         &token,
         entry,
         &origin,
     )));
+    // What the link before signed in is not this link's to revoke, and a new
+    // one may be another gateway's numbers: those sessions sign in again.
+    if replacing {
+        state.sessions.end_all(
+            crate::sessions::Live::is_central,
+            crate::sessions::Ended::Revoked,
+        );
+    }
     tracing::info!(
         target: "baylee_gateway::audit",
         admin = %actor,

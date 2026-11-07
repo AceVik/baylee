@@ -2468,7 +2468,7 @@ in one is a link the client follows.
 | Field | Rule |
 | --- | --- |
 | `code` | Required, `[a-z0-9_]{1,32}`. Stable: a code never changes meaning. |
-| `min_version` | Optional, `[0-9A-Za-z.+-]{1,32}`: the lowest client that would be let in. Dropped if it breaks the rule, so it cannot carry words. |
+| `min_version` | Optional, three dot-separated numbers and at most a `-` or `+` suffix of `[0-9A-Za-z.+-]`, 32 bytes in all: the lowest client that would be let in. Dropped if it breaks the rule, so it can carry neither words nor a host name. |
 | `until` | Optional, Unix seconds: when this ends. |
 | `text` | Optional, plain text, at most 200 characters, never markup. |
 
@@ -2486,8 +2486,12 @@ own, so a new code needs no client release. `baylee_protocol::refusal` is the
 one reader: `Refusal::read` and `Refusal::cleaned`.
 
 **What a client does with `text`.** It removes control, direction and invisible
-characters, keeps one line, and shows it after its own sentence, labelled as the
-server's. It ignores `text` entirely for `update_required` and `terms`: "update
+characters and quotation marks, keeps one line, and shows it after its own
+sentence, labelled as the server's. The plain `error` beside a refusal, or without
+one, is held to the same rule unless the client knows the sentence as its own: an
+unknown sentence reads as `text` of an unknown code would, so that field is no way
+round this one. A ban's reason, a table's `Error` and a `GameClosed` reason are
+cleaned as `text` is. It ignores `text` entirely for `update_required` and `terms`: "update
 required, download it from …" is what a hostile gateway would write, so those
 two have only the client's words and the client's action. No field names a
 destination; the updater's source and the terms sheet are built in.
@@ -3614,7 +3618,8 @@ every value base64url without padding. The gateway checks, in this order:
    with `missing` and `extra` device ids; refetch the keys and seal again).
    An additional wrap for the sending device is allowed; new clients include
    it so a crash before `sent` can recover the message from their own inbox;
-6. the per-device cap of 5000 undelivered slots (`recipient_full`), a
+6. the per-device cap of 5000 undelivered slots, of which one sender may hold
+   half of another account's device (`recipient_full`, both), a
    duplicate `id` (`duplicate`), then storage: the message once
    (`chat_message`, without its wraps) and one slot per recipient device
    (`chat_delivery`, that device's wrap), in one transaction.

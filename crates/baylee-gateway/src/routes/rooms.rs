@@ -35,6 +35,16 @@ pub(crate) struct SeatGrant {
     pub(crate) seat_token: String,
 }
 
+/// Whether `account` may make one more game: each leaves its record for good
+/// and may start an engine process.
+fn may_make_a_game(state: &Shared, account: &str) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    if state.game_limiter.allow(account) {
+        Ok(())
+    } else {
+        Err(err(StatusCode::TOO_MANY_REQUESTS, "too many games"))
+    }
+}
+
 /// What `POST /lobby/games` opens.
 ///
 /// @description A game against the house AI (`mode: ai`), or a room the
@@ -136,10 +146,7 @@ pub(crate) async fn create_game(
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    // Each game leaves its record for good and may start an engine process.
-    if !state.game_limiter.allow(&account_id) {
-        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many games"));
-    }
+    may_make_a_game(&state, &account_id)?;
     let central_session = crate::central::seat_binding(&state, &headers)?;
     let chosen = if body.deck_id.is_empty() {
         None

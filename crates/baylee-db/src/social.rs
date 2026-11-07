@@ -1452,20 +1452,43 @@ pub async fn store_message(
 ) -> Result<Stored, DbErr> {
     let tx = db.begin().await?;
     let devices: Vec<String> = slots.iter().map(|s| s.device.clone()).collect();
-    let full = tx
-        .query_one_raw(stmt(
+    // A device fills while it is away, and a full one refuses everybody's
+    // message to it. So one sender may fill only its share of another
+    // account's device, and cannot keep a whole conversation from its owner.
+    let share = i64::try_from(cap.div_ceil(2)).unwrap_or(i64::MAX);
+    let crowded = tx
+        .query_all_raw(stmt(
             &tx,
-            "SELECT device_id FROM chat_delivery WHERE device_id = ANY($1) \
-             GROUP BY device_id HAVING count(*) >= $2 LIMIT 1",
-            vec![
-                texts(&devices),
-                i64::try_from(cap).unwrap_or(i64::MAX).into(),
-            ],
+            "SELECT device_id, count(*) AS held FROM chat_delivery WHERE device_id = ANY($1) \
+             GROUP BY device_id HAVING count(*) >= $2",
+            vec![texts(&devices), share.into()],
         ))
         .await?;
-    if full.is_some() {
-        tx.rollback().await?;
-        return Ok(Stored::Full);
+    let mut crowded_devices = Vec::with_capacity(crowded.len());
+    for row in crowded {
+        let held: i64 = row.try_get("", "held")?;
+        if usize::try_from(held).is_ok_and(|held| held >= cap) {
+            tx.rollback().await?;
+            return Ok(Stored::Full);
+        }
+        crowded_devices.push(row.try_get::<String>("", "device_id")?);
+    }
+    if !crowded_devices.is_empty() {
+        let over_share = tx
+            .query_one_raw(stmt(
+                &tx,
+                "SELECT d.device_id FROM chat_delivery d \
+                 JOIN chat_message m ON m.id = d.message_id \
+                 JOIN social_device v ON v.id = d.device_id \
+                 WHERE d.device_id = ANY($1) AND m.sender_id = $2 AND v.account_id <> $2 \
+                 GROUP BY d.device_id HAVING count(*) >= $3 LIMIT 1",
+                vec![texts(&crowded_devices), message.sender.into(), share.into()],
+            ))
+            .await?;
+        if over_share.is_some() {
+            tx.rollback().await?;
+            return Ok(Stored::Full);
+        }
     }
     let Some(row) = tx
         .query_one_raw(stmt(

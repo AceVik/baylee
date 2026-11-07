@@ -182,6 +182,7 @@ fn report(port: u16, token: Option<&str>, body: &str) -> (u16, String) {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one game and what it leaves, top to bottom
 async fn a_finished_game_leaves_its_record_and_a_report_about_it_carries_it() {
     let (url, inbox) = stub_service().await;
     let gw = with_service("reports-record", &url);
