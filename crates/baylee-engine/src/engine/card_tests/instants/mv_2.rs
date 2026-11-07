@@ -98,6 +98,7 @@ mod magma_jet;
 mod mana_drain;
 mod mana_leak;
 mod mighty_leap;
+mod moment_s_peace;
 mod muscle_burst;
 mod naturalize;
 mod negate;
