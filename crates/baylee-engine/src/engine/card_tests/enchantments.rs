@@ -1538,6 +1538,7 @@ fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: C
             &[
                 plains(),
                 plains(),
+                plains(),
                 land,
                 quiet_creature(),
                 festering_goblin(),
@@ -1591,12 +1592,13 @@ fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: C
 
 /// Protection from a color also prevents the damage a source of that color
 /// would deal to the creature. The same block, without the Ward, kills the
-/// 1/1 Elf; with it, the Elf walks away.
+/// 1/1 Elf; with it, the Elf survives with no damage marked. Checking the
+/// damage itself also covers Wards whose toughness bonus alone would save it.
 #[track_caller]
 fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, warded: bool) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), quiet_creature()])
+        .battlefield(0, &[plains(), plains(), quiet_creature()])
         .hand(0, &[ward])
         .battlefield(1, &[attacker])
         .start();
@@ -1632,6 +1634,11 @@ fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, w
             on_battlefield(&engine, p0, quiet_creature()).is_some(),
             "the damage was prevented: the Elf lives"
         );
+        assert_eq!(
+            engine.state().object(elf).unwrap().damage,
+            0,
+            "protection, not merely the Aura's toughness bonus, prevented the damage"
+        );
     } else {
         assert!(
             in_graveyard(&engine, p0, quiet_creature()).is_some(),
@@ -1647,7 +1654,7 @@ fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, w
 fn a_warded_creature_slips_past_its_color(ward: CardIndex, blocker: CardIndex, warded: bool) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), quiet_creature()])
+        .battlefield(0, &[plains(), plains(), quiet_creature()])
         .hand(0, &[ward])
         .battlefield(1, &[blocker, quiet_creature()])
         .start();

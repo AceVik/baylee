@@ -13,7 +13,7 @@ card!(
     oracle_id = "87aad9fb-e234-4171-a4ae-c686f613d37e",
     scryfall_id = "7676e6fb-030d-40aa-a914-27ab6d7d5fc5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strength of Isolation",
         mana_cost = mana!("{1}{W}"),

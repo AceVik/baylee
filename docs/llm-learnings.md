@@ -7245,3 +7245,31 @@ code.
   touched origin/main`, formatting and `git diff --check` pass. `validate`
   accepts 12,545 cards (11,175 finished, 65 of the machine-owned cards untested,
   and 1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Strength of Isolation's Aura attachment, protection and Madness
+
+- Strength of Isolation composes the existing creature-targeted Aura attachment,
+  attached-only +1/+2 and protection-from-black modifiers with its face-level
+  madness cost. It needs no engine, DSL, protocol, desktop or seat addition. Six
+  canonical tests spend the ordinary {1}{W}, offer creatures on both sides, attach
+  to exactly the chosen Bears and change only that 2/2 into a 3/4. Hero's Downfall
+  and Unholy Strength cannot target the protected creature, black combat damage
+  is prevented and black creatures cannot block it; unprotected controls retain
+  the opposite behaviour.
+- The shared protection helpers now provide enough white mana for a two-mana
+  Ward and its white control Aura. Their damage assertion checks zero marked
+  damage rather than survival alone, so a toughness bonus cannot masquerade as
+  prevention. All five existing Black Ward tests still pass. A real Prying Eyes
+  discard exiles Strength of Isolation, which is cast for exactly {W} during the
+  opponent's turn and resolves attached to the opposing Bears.
+- Removing ability one with `BAYLEE_MUTATE=5540:1` kills both pump assertions;
+  removing ability two with `BAYLEE_MUTATE=5540:2` kills the targeting, Aura,
+  blocking and zero-damage protection assertions. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 64
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
