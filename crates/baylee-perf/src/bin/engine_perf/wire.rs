@@ -99,7 +99,7 @@ struct SeatWire {
     repeats: u64,
     /// What the views came to whole, as JSON.
     view_bytes: u64,
-    /// `log_json` of those.
+    /// The log of those.
     log_bytes: u64,
     /// `ChoiceRequest`.
     question: Count,
@@ -186,10 +186,10 @@ fn objects_in(view: &PlayerView) -> u64 {
 }
 
 impl SeatWire {
-    fn state(&mut self, frame: &[u8], log_json: &[u8], bytes: usize) {
+    fn state(&mut self, frame: &[u8], log: &[u8], bytes: usize) {
         self.state.add(bytes);
         self.frame_bytes += frame.len() as u64;
-        self.log_bytes += log_json.len() as u64;
+        self.log_bytes += log.len() as u64;
         if frame.is_empty() {
             self.repeats += 1;
             return;
@@ -278,7 +278,7 @@ impl SeatWire {
         }
     }
 
-    fn question(&mut self, pending_json: &[u8], bytes: usize) {
+    fn question(&mut self, pending: &[u8], bytes: usize) {
         self.question.add(bytes);
         *self.between.entry(self.since_question).or_default() += 1;
         *self
@@ -287,7 +287,7 @@ impl SeatWire {
             .or_default() += 1;
         self.since_question = 0;
         self.moved_since_question = 0;
-        let pending: Pending = serde_json::from_slice(pending_json).expect("a question reads");
+        let pending: Pending = baylee_core::wire::decode(pending).expect("a question reads");
         if let Pending::Priority { legal, .. } = pending {
             self.priority.add(json_len(&legal) as usize);
             self.legal_same += u64::from(
@@ -390,6 +390,8 @@ pub struct Wire {
     seats: BTreeMap<PlayerId, SeatWire>,
     /// Games that sent any frame.
     games: u64,
+    /// Real frames to damage, for `fuzz`.
+    pub corpus: crate::fuzz::Corpus,
     /// Seats that were sent any frame, each game counted.
     seat_games: u64,
 }
@@ -452,14 +454,15 @@ fn times_of(percent: u64, between: &BTreeMap<u64, u64>) -> u64 {
 impl Wire {
     /// Counts one frame a seat was sent.
     pub fn frame(&mut self, seat: PlayerId, frame: &Envelope) {
+        self.corpus.frame(frame);
         let seat = self.seats.entry(seat).or_default();
         let bytes = frame.encoded_len();
         seat.all.add(bytes);
         match &frame.msg {
             Some(Msg::StateDelta(delta)) => {
-                seat.state(&delta.view_frame, &delta.log_json, bytes);
+                seat.state(&delta.view_frame, &delta.log, bytes);
             }
-            Some(Msg::ChoiceRequest(choice)) => seat.question(&choice.pending_json, bytes),
+            Some(Msg::ChoiceRequest(choice)) => seat.question(&choice.pending, bytes),
             Some(Msg::GameStatic(_)) => seat.statics.add(bytes),
             _ => seat.other.add(bytes),
         }

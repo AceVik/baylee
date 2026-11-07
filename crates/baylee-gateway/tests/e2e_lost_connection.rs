@@ -29,6 +29,12 @@ fn make_deck(port: u16, token: &str) -> String {
     json_field(&body, "deck_id").to_string()
 }
 
+/// A frame's log tail, as JSON text.
+fn log_text(log: &[u8]) -> String {
+    let tail: baylee_view::LogTail = baylee_core::wire::decode(log).expect("a log tail");
+    serde_json::to_string(&tail).expect("a log tail writes")
+}
+
 /// Every log line that arrives on `ws` within `secs`, as JSON text, until
 /// one contains `want`. Panics with what did arrive if none does.
 async fn log_until(ws: &mut Socket, secs: u64, want: &str) -> String {
@@ -46,9 +52,9 @@ async fn log_until(ws: &mut Socket, secs: u64, want: &str) -> String {
             continue;
         };
         if let Some(v1::envelope::Msg::StateDelta(delta)) = envelope.msg
-            && !delta.log_json.is_empty()
+            && !delta.log.is_empty()
         {
-            seen.push_str(&String::from_utf8_lossy(&delta.log_json));
+            seen.push_str(&log_text(&delta.log));
             seen.push('\n');
             if seen.contains(want) {
                 return seen;
@@ -79,7 +85,7 @@ async fn log_quiet(ws: &mut Socket, secs: u64, unwanted: &str) {
         if let Ok(envelope) = v1::Envelope::decode(frame.into_data())
             && let Some(v1::envelope::Msg::StateDelta(delta)) = envelope.msg
         {
-            let text = String::from_utf8_lossy(&delta.log_json);
+            let text = log_text(&delta.log);
             assert!(!text.contains(unwanted), "{unwanted} arrived: {text}");
         }
     }

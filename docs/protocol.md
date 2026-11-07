@@ -3,7 +3,7 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
-## Views as patches (view 88, protocol 40)
+## Views as patches (view 89, protocol 41)
 
 A seat is told its view whole once and then only what changed. Both ends work
 from `baylee_view` (`crates/baylee-view/src/patch/`): a host keeps a
@@ -66,11 +66,14 @@ is right for every socket.
 holds whole views as JSON: a reader jumps to any moment, and a moment stands on no
 other (`Session::tell_views_whole`). No stored thing holds a patch.
 
-**In binary (view 88, protocol 40).** `StateDelta.view_frame` and
-`PlayerActionMsg.action` are `postcard`, through `baylee_core::wire` and nothing
-else. It names no fields, so a reader goes by position and a field cannot be left
-out, and the order of a type's fields and variants is the wire: `wire_shape` and
-`VIEW_VERSION` guard it as they guard a name. JSON stays what it was, byte for
+**In binary (view 89, protocol 41).** Nothing in a game's frames is JSON:
+`StateDelta.view_frame` and `.log`, `ChoiceRequest.pending`,
+`GameStaticMsg.statics`, `PlayerActionMsg.action` and `SeatSettingMsg.setting` are
+`postcard`, through `baylee_core::wire` and nothing else. It names no fields, so a
+reader goes by position and a field cannot be left out, and the order of a type's
+fields and variants is the wire: `wire_shape`, a frame's pinned bytes
+(`patch/stream_tests.rs`) and `VIEW_VERSION` guard it as they guard a name. Both ends of a
+socket are one build's, which the protocol check holds them to. JSON stays what it was, byte for
 byte, for everything that is not a frame: tapes, records, tools, and the hashes
 kept beside stored research data (`view_hash_fnv1a64`, `pending_sha256`, which are
 of JSON). The wire types leave a default field out through `wire::left_out`, which
@@ -1423,7 +1426,7 @@ than as a sentence of its own.
 ## The game log (view version 33, #262)
 
 Each seat gets its own game log: what happened, as far as that seat may know
-it. It travels in `StateDelta.log_json` as a `baylee_view::LogTail`, **beside**
+it. It travels in `StateDelta.log` as a `baylee_view::LogTail`, **beside**
 the view and never inside it. `PlayerView` stays a snapshot, and an agent that
 answers from a view never sees a log line: the host sends a log only to a
 seat answered over a socket (`gamehost` pins that, a chair the house holds
@@ -1439,14 +1442,14 @@ for an absent player included).
   line (`Session::tell_time`; the engine-server with the wall clock, the
   client's `LocalHost` through `web_time`), and 0 means nobody ever did. A
   folded line keeps the time of its first. Tests tell a fixed time.
-- **A view and its lines travel together.** `log_json` is empty when there is
+- **A view and its lines travel together.** `log` is empty when there is
   nothing new.
 - **A seat may receive several frames with the same `seq`.** A tail holds at
   most `LOG_TAIL_CAP` lines. When more are waiting, the host sends them in
   several `StateDelta` frames in one go: the first with the view, the others
   with no view and the next part of the log under the same `seq`. That happens
   at the end of a game too, where no later view could carry what is left.
-- **A client reads `log_json` from every frame**, one with no view included.
+- **A client reads `log` from every frame**, one with no view included.
 - **Appending by `from` is idempotent.** `from` is an index into the seat's
   log. A client appends a tail whose `from` equals the length of what it
   holds, skips the lines it already holds when `from` is less, and marks a gap
@@ -1614,9 +1617,9 @@ shown it. Everything below is per seat and the host's alone. The engine is
 never asked, so a setting enters neither the journal nor the snapshot hash,
 restarts no decision clock, and leaves a replay exactly as it was.
 
-**The message** (`PROTOCOL_VERSION` 3): `SeatSettingMsg { setting_json }`,
+**The message** (`PROTOCOL_VERSION` 3): `SeatSettingMsg { setting }`,
 player → engine inside `SeatFrame`, forwarded unread like everything else a
-seat says. `setting_json` is `baylee_view::SeatSetting` as serde_json:
+seat says. `setting` is a `baylee_view::SeatSetting`:
 
 | setting | JSON | meaning |
 | --- | --- | --- |
@@ -5011,7 +5014,7 @@ from memory at the moment of asking.
 
 ## The opening payload, and a client that is not the server
 
-`GameStaticMsg{game_id, view_version, static_json}` is the one message a
+`GameStaticMsg{game_id, view_version, statics}` is the one message a
 networked client cannot do without and could not previously receive. The seat
 roster and the print table are built from the `GamePreset`, which a client
 never sees — so `LocalHost` built them out of the preset it happened to be
@@ -5025,7 +5028,7 @@ a reconnect, since that is a new socket), the engine-server's dev harness on
 `host_message` decoder the networked host uses — a field only the in-process
 path filled in would be missing in exactly the case nobody tests at a desk.
 
-`view_version` is duplicated outside `static_json` on purpose: a client that
+`view_version` is duplicated outside `statics` on purpose: a client that
 cannot render this version must be able to say so without first decoding the
 structure whose shape is what changed.
 

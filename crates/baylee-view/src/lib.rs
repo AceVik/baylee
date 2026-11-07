@@ -261,11 +261,13 @@ pub use turn::{DayNight, Phase, Step};
 /// (CR 603.3b): `ArrangePrompt::TriggerOrder` and `ArrangePlace::Stack`, engine
 /// variants a reader of 85 cannot parse, whose handles are explained by
 /// [`PlayerView::trigger_order`], additive and absent while empty.
+/// Version 89 writes the rest of a game's frames in binary: `GameStatic`, the
+/// log, the question and a seat's settings.
 /// Version 88 writes a `ViewFrame` in binary (`baylee_core::wire`).
 /// Version 87 sends a view as a `ViewFrame`: whole once, then as what changed
 /// (`docs/protocol.md` §"Views as patches"), and a spectator the public view as
 /// a `PlayerView` on the same stream.
-pub const VIEW_VERSION: u32 = 88;
+pub const VIEW_VERSION: u32 = 89;
 
 // ------------------------------------------------------------------- targets
 

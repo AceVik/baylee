@@ -90,7 +90,7 @@ impl TableMemory {
                         msg.view_version
                     ));
                 }
-                match serde_json::from_slice::<GameStatic>(&msg.static_json) {
+                match baylee_core::wire::decode::<GameStatic>(&msg.statics) {
                     Ok(statics) => {
                         self.statics = Some(statics);
                         Heard::Statics
@@ -100,12 +100,12 @@ impl TableMemory {
             }
             v1::envelope::Msg::StateDelta(delta) => {
                 self.last_seq = self.last_seq.max(delta.seq);
-                let lines = !delta.log_json.is_empty();
+                let lines = !delta.log.is_empty();
                 // The view is the game and the lines are its commentary; a
                 // frame's view is not wrong because its lines are, and the
                 // whole log comes again on resume.
                 let tail = if lines {
-                    let tail = serde_json::from_slice::<LogTail>(&delta.log_json).ok();
+                    let tail = baylee_core::wire::decode::<LogTail>(&delta.log).ok();
                     if tail.is_none() {
                         self.gaps += 1;
                     }
@@ -128,11 +128,11 @@ impl TableMemory {
             }
             v1::envelope::Msg::ChoiceRequest(request) => {
                 self.last_seq = self.last_seq.max(request.seq);
-                match serde_json::from_slice::<Pending>(&request.pending_json) {
+                match baylee_core::wire::decode::<Pending>(&request.pending) {
                     Ok(pending) => Heard::Question {
                         seq: request.seq,
                         pending: Box::new(pending),
-                        raw: request.pending_json,
+                        raw: request.pending,
                     },
                     Err(e) => Heard::Unreadable(format!("unreadable question: {e}")),
                 }
@@ -240,8 +240,8 @@ mod tests {
                 game_id: "g".into(),
                 seq,
                 view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-                log_json: tail
-                    .map(|t| serde_json::to_vec(&t).unwrap())
+                log: tail
+                    .map(|t| baylee_core::wire::encode(&t))
                     .unwrap_or_default(),
             })),
         }
@@ -323,7 +323,7 @@ mod tests {
                     game_id: "g".into(),
                     seq,
                     view_frame: bytes,
-                    log_json: Vec::new(),
+                    log: Vec::new(),
                 })),
             }
             .encode_to_vec()
@@ -364,11 +364,10 @@ mod tests {
                 game_id: "g".into(),
                 seq: 7,
                 view_frame: Vec::new(),
-                log_json: serde_json::to_vec(&LogTail {
+                log: baylee_core::wire::encode(&LogTail {
                     from: 1,
                     entries: vec![line(2)],
-                })
-                .unwrap(),
+                }),
             })),
         }
         .encode_to_vec();
@@ -389,11 +388,10 @@ mod tests {
                     game_id: "g".into(),
                     seq,
                     view_frame: b"not a view".to_vec(),
-                    log_json: serde_json::to_vec(&LogTail {
+                    log: baylee_core::wire::encode(&LogTail {
                         from,
                         entries: vec![line(1)],
-                    })
-                    .unwrap(),
+                    }),
                 })),
             }
             .encode_to_vec()

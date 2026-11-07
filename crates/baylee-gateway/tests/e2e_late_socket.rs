@@ -77,6 +77,6 @@ async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
     };
     assert_eq!(msg.view_version, baylee_view::VIEW_VERSION);
     let statics: baylee_view::GameStatic =
-        serde_json::from_slice(&msg.static_json).expect("static json");
+        baylee_core::wire::decode(&msg.statics).expect("static json");
     assert_eq!(statics.your_seat, baylee_core::ids::PlayerId::new(0));
 }

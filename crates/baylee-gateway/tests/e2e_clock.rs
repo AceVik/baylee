@@ -255,7 +255,7 @@ async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
         panic!("a seat's first frame is the opening payload");
     };
     let statics: baylee_view::GameStatic =
-        serde_json::from_slice(&msg.static_json).expect("static json");
+        baylee_core::wire::decode(&msg.statics).expect("static json");
 
     assert_eq!(
         statics.decision_secs,

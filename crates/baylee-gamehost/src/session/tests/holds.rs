@@ -16,7 +16,7 @@ fn session_pumps_ai_between_human_choices() {
             let Some(v1::envelope::Msg::ChoiceRequest(req)) = env.msg else {
                 continue;
             };
-            let pending: Pending = serde_json::from_slice(&req.pending_json).unwrap();
+            let pending: Pending = baylee_core::wire::decode(&req.pending).unwrap();
             human_choices += 1;
             let action = match pending {
                 Pending::Mulligan { .. } => PlayerAction::MulliganKeep,

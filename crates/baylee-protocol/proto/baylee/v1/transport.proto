@@ -198,8 +198,8 @@ message GameCreated {
 message ChoiceRequest {
   string game_id = 1;
   uint64 seq = 2;
-  // serde_json-encoded engine Pending.
-  bytes pending_json = 3;
+  // baylee_core::wire-encoded engine Pending.
+  bytes pending = 3;
 }
 
 // Client → server: the seat's answer.
@@ -216,8 +216,8 @@ message PlayerActionMsg {
 // the journal nor the snapshot hash. A setting that changes nothing is
 // answered with nothing.
 message SeatSettingMsg {
-  // serde_json-encoded baylee_view::SeatSetting.
-  bytes setting_json = 1;
+  // baylee_core::wire-encoded baylee_view::SeatSetting.
+  bytes setting = 1;
 }
 
 // Server → client: the once-per-game payload — seat roster and print
@@ -229,27 +229,27 @@ message GameStaticMsg {
   // that cannot render this version must be able to say so without first
   // decoding a structure whose shape is exactly what changed.
   uint32 view_version = 2;
-  // serde_json-encoded baylee_view::GameStatic.
-  bytes static_json = 3;
+  // baylee_core::wire-encoded baylee_view::GameStatic.
+  bytes statics = 3;
 }
 
 // Server → client: a state view after actions (journal seq for resync).
 message StateDelta {
   string game_id = 1;
   uint64 seq = 2;
-  // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-  // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-  // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+  // A baylee_view::ViewFrame: the whole view, or what changed since the last
+  // one, read by a baylee_view::ViewReader; for a spectator the public view
+  // drawn from seat 0. Empty on a frame that only
   // carries more of a long log. docs/protocol.md, "Views as patches".
   bytes view_frame = 3;
-  // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+  // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
   // last tail it was sent, beside the view and never inside it (#262). Empty
   // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
   // entries; when more are waiting, several frames go out in one go, the first
   // with the view and the others with the next part of the log and the same
-  // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+  // seq. A client reads log from every frame. docs/protocol.md, "The game
   // log".
-  bytes log_json = 4;
+  bytes log = 4;
 }
 
 // ------------------------------------------------- control and engine planes

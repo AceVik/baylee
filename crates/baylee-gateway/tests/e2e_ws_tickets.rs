@@ -540,7 +540,7 @@ async fn a_game_is_played_to_its_end_over_ticketed_sockets_with_a_reconnect() {
                 }
                 Some(v1::envelope::Msg::ChoiceRequest(request)) => {
                     let pending: baylee_engine::choice::Pending =
-                        serde_json::from_slice(&request.pending_json).expect("pending");
+                        baylee_core::wire::decode(&request.pending).expect("pending");
                     assert!(
                         !matches!(pending, baylee_engine::choice::Pending::Mulligan { .. }),
                         "the reconnected seat was asked its mulligan again"

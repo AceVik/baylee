@@ -74,7 +74,7 @@ async fn opening(ws: &mut Socket) -> baylee_view::GameStatic {
             .expect("decode envelope")
             .msg
         {
-            return serde_json::from_slice(&msg.static_json).expect("static json");
+            return baylee_core::wire::decode(&msg.statics).expect("static json");
         }
     }
     panic!("the opening payload never arrived");

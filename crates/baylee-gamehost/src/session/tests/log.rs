@@ -15,8 +15,8 @@ fn state_frames_to(
             Some(v1::envelope::Msg::StateDelta(delta)) => Some((
                 delta.seq,
                 delta.view_frame.clone(),
-                (!delta.log_json.is_empty())
-                    .then(|| serde_json::from_slice(&delta.log_json).expect("the log decodes")),
+                (!delta.log.is_empty())
+                    .then(|| baylee_core::wire::decode(&delta.log).expect("the log decodes")),
             )),
             _ => None,
         })
@@ -443,7 +443,7 @@ fn a_printing_first_named_by_the_log_arrives_before_the_line() {
         .iter()
         .position(|env| matches!(env.msg, Some(v1::envelope::Msg::GameStatic(_))));
     let line = to_zero.iter().position(|env| {
-        matches!(&env.msg, Some(v1::envelope::Msg::StateDelta(delta)) if !delta.log_json.is_empty())
+        matches!(&env.msg, Some(v1::envelope::Msg::StateDelta(delta)) if !delta.log.is_empty())
     });
     assert!(line.is_some(), "the reveal was sent");
     assert!(

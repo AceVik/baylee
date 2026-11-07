@@ -9452,7 +9452,7 @@ the panel and the end screen draw what it writes.
 **Every frame's tail goes into the book, with that frame's view**
 (`LogBook::append`). A seat with more lines waiting than one frame carries is
 sent several frames with the same view and `seq`. A client that reads the log
-only from the frames whose view it takes misses lines. Empty `log_json` bytes
+only from the frames whose view it takes misses lines. Empty `log` bytes
 mean nothing new and are not a tail to decode. The book appends by `from` and
 skips what it already holds, so a chunk sent twice, a snapshot that tells the
 log from the start and a reconnect that tells it all again add only what is

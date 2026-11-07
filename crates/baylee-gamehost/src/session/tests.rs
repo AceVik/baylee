@@ -248,7 +248,7 @@ fn asked(routed: &[(PlayerId, Envelope)]) -> Vec<(u8, Pending)> {
         .filter_map(|(seat, env)| match &env.msg {
             Some(v1::envelope::Msg::ChoiceRequest(req)) => Some((
                 seat.get(),
-                serde_json::from_slice(&req.pending_json).expect("the question decodes"),
+                baylee_core::wire::decode(&req.pending).expect("the question decodes"),
             )),
             _ => None,
         })

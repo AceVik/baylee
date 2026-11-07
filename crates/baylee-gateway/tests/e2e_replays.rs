@@ -79,7 +79,7 @@ async fn read_until<T>(
 async fn first_question(ws: &mut Socket, views: &mut ViewReader) -> Pending {
     read_until(ws, "a question", |msg| match msg {
         v1::envelope::Msg::ChoiceRequest(req) => {
-            Some(serde_json::from_slice(&req.pending_json).expect("a pending question"))
+            Some(baylee_core::wire::decode(&req.pending).expect("a pending question"))
         }
         v1::envelope::Msg::StateDelta(delta) => {
             views.read(&delta.view_frame).expect("a view");

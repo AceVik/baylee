@@ -95,8 +95,7 @@ fn the_opening_envelope_states_the_view_version_in_the_open() {
     };
     assert_eq!(msg.view_version, baylee_view::VIEW_VERSION);
     assert_eq!(msg.game_id, "g1");
-    let decoded: GameStatic =
-        serde_json::from_slice(&msg.static_json).expect("the payload decodes");
+    let decoded: GameStatic = baylee_core::wire::decode(&msg.statics).expect("the payload decodes");
     assert_eq!(decoded.your_seat, PlayerId::new(0));
 }
 

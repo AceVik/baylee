@@ -120,7 +120,7 @@ fn table() -> Vec<u8> {
     frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
-        static_json: serde_json::to_vec(&game).unwrap(),
+        statics: baylee_core::wire::encode(&game),
     }))
 }
 
@@ -133,7 +133,7 @@ fn view(seq: u64, life: i32) -> Vec<u8> {
         game_id: "test-game".into(),
         seq,
         view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-        log_json: Vec::new(),
+        log: Vec::new(),
     }))
 }
 
@@ -145,7 +145,7 @@ fn question(seq: u64) -> Vec<u8> {
     frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
         game_id: "test-game".into(),
         seq,
-        pending_json: serde_json::to_vec(&pending).unwrap(),
+        pending: baylee_core::wire::encode(&pending),
     }))
 }
 
@@ -277,7 +277,7 @@ fn simultaneous_opening_resends_at_later_seq_are_not_answered_twice() {
             frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
                 game_id: "test-game".into(),
                 seq,
-                pending_json: serde_json::to_vec(&pending).unwrap(),
+                pending: baylee_core::wire::encode(&pending),
             }))
         };
         assert_eq!(seat.hear(&ask(1)).unwrap().len(), 1);
@@ -305,7 +305,7 @@ fn changed_opening_count_and_normal_identical_question_at_later_seq_are_new_choi
         let ask = frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: "test-game".into(),
             seq,
-            pending_json: serde_json::to_vec(&pending).unwrap(),
+            pending: baylee_core::wire::encode(&pending),
         }));
         assert_eq!(seat.hear(&ask).unwrap().len(), 1);
     }
@@ -386,7 +386,7 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
         game_id: "test-game".into(),
         seq: 1,
         view_frame: baylee_view::ViewFrame::snapshot_of(&wire),
-        log_json: Vec::new(),
+        log: Vec::new(),
     }));
     seat.hear(&delta).unwrap();
     seat.hear(&curtain()).unwrap();
@@ -401,7 +401,7 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
         game_id: "test-game".into(),
         seq: 2,
         view_frame: baylee_view::ViewFrame::snapshot_of(&wire),
-        log_json: Vec::new(),
+        log: Vec::new(),
     })))
     .unwrap();
     assert_eq!(calls.borrow().observations.len(), 1);
@@ -428,7 +428,7 @@ fn wire_draw_offer_reports_rule_override_separately_from_learned_net() {
             v1::ChoiceRequest {
                 game_id: "test-game".into(),
                 seq: 1,
-                pending_json: serde_json::to_vec(&pending).unwrap(),
+                pending: baylee_core::wire::encode(&pending),
             },
         )))
         .unwrap();
@@ -654,7 +654,7 @@ fn semantic_audit_history_ignores_socket_timing_while_exact_view_identity_retain
             game_id: "test-game".into(),
             seq,
             view_frame: baylee_view::ViewFrame::snapshot_of(&wire),
-            log_json: Vec::new(),
+            log: Vec::new(),
         })))
         .unwrap();
         seat.hear(&curtain()).unwrap();
@@ -815,11 +815,10 @@ fn a_decision_for_a_controlled_player_is_answered() {
         frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: "test-game".into(),
             seq,
-            pending_json: serde_json::to_vec(&Pending::ChooseColor {
+            pending: baylee_core::wire::encode(&Pending::ChooseColor {
                 player: them,
                 options: vec![ManaColor::Red, ManaColor::Green],
-            })
-            .unwrap(),
+            }),
         }))
     };
     let awaiting = |seq: u64, who: PlayerId| {
@@ -831,7 +830,7 @@ fn a_decision_for_a_controlled_player_is_answered() {
             game_id: "test-game".into(),
             seq,
             view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-            log_json: Vec::new(),
+            log: Vec::new(),
         }))
     };
     let (mut seat, calls) = adapter();

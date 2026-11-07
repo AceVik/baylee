@@ -44,7 +44,7 @@ fn table(name: &str, secs: Option<u32>) -> Vec<u8> {
     frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
-        static_json: serde_json::to_vec(&game).unwrap(),
+        statics: baylee_core::wire::encode(&game),
     }))
 }
 
@@ -56,7 +56,7 @@ fn view_at(seq: u64, remaining_ms: Option<u32>) -> Vec<u8> {
         game_id: "test-game".into(),
         seq,
         view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-        log_json: Vec::new(),
+        log: Vec::new(),
     }))
 }
 
@@ -68,7 +68,7 @@ fn asked(seq: u64, pending: &Pending) -> Vec<u8> {
     frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
         game_id: "test-game".into(),
         seq,
-        pending_json: serde_json::to_vec(pending).unwrap(),
+        pending: baylee_core::wire::encode(pending),
     }))
 }
 
@@ -817,7 +817,7 @@ fn named_table() -> (v1::GameStaticMsg, baylee_view::GameStatic) {
     let msg = v1::GameStaticMsg {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
-        static_json: serde_json::to_vec(&game).unwrap(),
+        statics: baylee_core::wire::encode(&game),
     };
     (msg, game)
 }
@@ -906,7 +906,7 @@ fn no_prompt_names_a_player_or_the_game() {
         game_id: GAME.into(),
         seq: 1,
         view_frame: baylee_view::ViewFrame::snapshot_of(&seen),
-        log_json: serde_json::to_vec(&tail).unwrap(),
+        log: baylee_core::wire::encode(&tail),
     })));
     assert!(is_ready(&steps), "{steps:?}");
     let steps = core.hear(&asked(2, &colour()));

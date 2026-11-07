@@ -69,8 +69,8 @@ fn seat_view(moment: &Moment) -> Option<PlayerView> {
 fn tails(moment: &Moment) -> Vec<LogTail> {
     deltas(moment)
         .into_iter()
-        .filter(|delta| !delta.log_json.is_empty())
-        .map(|delta| serde_json::from_slice(&delta.log_json).expect("a log tail decodes"))
+        .filter(|delta| !delta.log.is_empty())
+        .map(|delta| baylee_core::wire::decode(&delta.log).expect("a log tail decodes"))
         .collect()
 }
 
@@ -78,7 +78,7 @@ fn tails(moment: &Moment) -> Vec<LogTail> {
 fn statics(moment: &Moment) -> Option<GameStatic> {
     moment.frames.iter().rev().find_map(|env| match &env.msg {
         Some(v1::envelope::Msg::GameStatic(s)) => {
-            Some(serde_json::from_slice(&s.static_json).expect("a payload decodes"))
+            Some(baylee_core::wire::decode(&s.statics).expect("a payload decodes"))
         }
         _ => None,
     })
@@ -87,7 +87,7 @@ fn statics(moment: &Moment) -> Option<GameStatic> {
 /// The `GameOver` question a moment carries, if it does.
 fn game_over(moment: &Moment) -> Option<&[u8]> {
     moment.frames.iter().find_map(|env| match &env.msg {
-        Some(v1::envelope::Msg::ChoiceRequest(choice)) => Some(choice.pending_json.as_slice()),
+        Some(v1::envelope::Msg::ChoiceRequest(choice)) => Some(choice.pending.as_slice()),
         _ => None,
     })
 }
@@ -383,10 +383,10 @@ fn the_seat_projection_is_what_the_live_seat_was_sent() {
             );
             compared += 1;
             last = last.max(*inputs);
-            if !delta.log_json.is_empty() {
+            if !delta.log.is_empty() {
                 append(
                     &mut log,
-                    serde_json::from_slice(&delta.log_json).expect("a tail"),
+                    baylee_core::wire::decode(&delta.log).expect("a tail"),
                 );
             }
         }
@@ -409,10 +409,8 @@ fn the_seat_projection_is_what_the_live_seat_was_sent() {
                 .sent
                 .iter()
                 .filter_map(|(_, env)| match &env.msg {
-                    Some(v1::envelope::Msg::ChoiceRequest(c))
-                        if c.pending_json.starts_with(br#"{"GameOver""#) =>
-                    {
-                        Some(c.pending_json.as_slice())
+                    Some(v1::envelope::Msg::ChoiceRequest(c)) if says_game_over(&c.pending) => {
+                        Some(c.pending.as_slice())
                     }
                     _ => None,
                 })
@@ -690,15 +688,30 @@ fn names_in(value: &serde_json::Value, ids: &mut BTreeSet<u64>, cards: &mut BTre
 /// The objects and cards the views and log tails of `moment` name.
 fn named_by(moment: &Moment, ids: &mut BTreeSet<u64>, cards: &mut BTreeSet<u64>) {
     for delta in deltas(moment) {
-        let view = baylee_view::ViewFrame::whole(&delta.view_frame)
-            .map(|view| serde_json::to_vec(&view).expect("a view writes"));
-        for bytes in [view.as_ref().unwrap_or(&delta.log_json), &delta.log_json] {
-            if !bytes.is_empty() {
-                let json: serde_json::Value = serde_json::from_slice(bytes).expect("json");
-                names_in(&json, ids, cards);
-            }
+        if let Some(view) = baylee_view::ViewFrame::whole(&delta.view_frame) {
+            names_in(
+                &serde_json::to_value(&view).expect("a view writes"),
+                ids,
+                cards,
+            );
+        }
+        if !delta.log.is_empty() {
+            let tail: LogTail = baylee_core::wire::decode(&delta.log).expect("a log tail");
+            names_in(
+                &serde_json::to_value(&tail).expect("a log writes"),
+                ids,
+                cards,
+            );
         }
     }
+}
+
+/// Whether a question's bytes say the game is over.
+fn says_game_over(pending: &[u8]) -> bool {
+    matches!(
+        baylee_core::wire::decode(pending),
+        Ok(baylee_engine::choice::Pending::GameOver(_))
+    )
 }
 
 /// The printings a payload holds.
@@ -755,7 +768,7 @@ fn a_seat_shown_without_its_own_cards_is_the_public_table_drawn_from_it() {
                 match &env.msg {
                     Some(v1::envelope::Msg::GameStatic(_) | v1::envelope::Msg::StateDelta(_)) => {}
                     Some(v1::envelope::Msg::ChoiceRequest(choice)) => assert!(
-                        choice.pending_json.starts_with(br#"{"GameOver""#),
+                        says_game_over(&choice.pending),
                         "a question went to a seat shown no cards at {:?}",
                         moment.input
                     ),

@@ -54,13 +54,13 @@ pub(crate) fn told(entries: Vec<LogEntry>) -> TableMemory {
     memory.hear(&frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
-        static_json: serde_json::to_vec(&game).unwrap(),
+        statics: baylee_core::wire::encode(&game),
     })));
     memory.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: game.game_id.clone(),
         seq: 1,
         view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-        log_json: serde_json::to_vec(&LogTail { from: 0, entries }).unwrap(),
+        log: baylee_core::wire::encode(&LogTail { from: 0, entries }),
     })));
     memory
 }

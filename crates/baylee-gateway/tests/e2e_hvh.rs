@@ -175,7 +175,7 @@ async fn human_vs_human_both_seats_receive_updates() {
     };
     assert_eq!(msg.view_version, baylee_view::VIEW_VERSION);
     let statics: baylee_view::GameStatic =
-        serde_json::from_slice(&msg.static_json).expect("static json");
+        baylee_core::wire::decode(&msg.statics).expect("static json");
     assert_eq!(statics.your_seat, baylee_core::ids::PlayerId::new(1));
     // A roster carries handles, not bare names: a display name is not
     // unique, so two players called Alice at one table would otherwise be
@@ -213,7 +213,7 @@ async fn human_vs_human_both_seats_receive_updates() {
     let Some(v1::envelope::Msg::ChoiceRequest(req)) = first.msg else {
         panic!("checked above");
     };
-    let pending: Pending = serde_json::from_slice(&req.pending_json).expect("pending json");
+    let pending: Pending = baylee_core::wire::decode(&req.pending).expect("pending json");
     let action = match pending {
         Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
         _ => PlayerAction::PassPriority,

@@ -235,8 +235,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -253,8 +253,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -266,27 +266,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -936,8 +936,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -954,8 +954,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -967,27 +967,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -1656,8 +1656,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -1674,8 +1674,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -1687,27 +1687,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -2110,7 +2110,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `game_static`: the opening payload, always first on the socket, and sent again before a view that shows a printing the seat had not been shown. `view_version` is the view schema's version, outside the payload so a client that cannot render it can say so; `static_json` is a `GameStatic` (the roster and the seat's print table) as JSON, see `docs/protocol.md`."
+        description: "Envelope case `game_static`: the opening payload, always first on the socket, and sent again before a view that shows a printing the seat had not been shown. `view_version` is the view schema's version, outside the payload so a client that cannot render it can say so; `statics` is a `GameStatic` (the roster and the seat's print table) as `baylee_core::wire` writes it, see `docs/protocol.md`."
         x-protobuf-message: baylee.v1.Envelope
       StateDelta:
         name: StateDelta
@@ -2318,8 +2318,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -2336,8 +2336,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -2349,27 +2349,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -2772,7 +2772,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `state_delta`: the seat's view after something changed. `seq` is what a `ResumeGame` names; `view_frame` is a `ViewFrame`, the whole view or what changed since the last one (`docs/protocol.md`, Views as patches), and empty on a frame that only carries more of a long log; `log_json` is a `LogTail` as JSON (the seat's game log lines since the last tail, appended by its `from`), empty when there is none. Several frames may share a `seq` to carry a long log, so read `log_json` from every frame."
+        description: "Envelope case `state_delta`: the seat's view after something changed. `seq` is what a `ResumeGame` names; `view_frame` is a `ViewFrame`, the whole view or what changed since the last one (`docs/protocol.md`, Views as patches), and empty on a frame that only carries more of a long log; `log` is a `LogTail` as `baylee_core::wire` writes it (the seat's game log lines since the last tail, appended by its `from`), empty when there is none. Several frames may share a `seq` to carry a long log, so read `log` from every frame."
         x-protobuf-message: baylee.v1.Envelope
       ChoiceRequest:
         name: ChoiceRequest
@@ -2980,8 +2980,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -2998,8 +2998,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -3011,27 +3011,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -3434,7 +3434,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `choice_request`: a question to this seat. `seq` as in `StateDelta`; `pending_json` is the engine's `Pending` as JSON, which names every answer the engine takes. A `Pending` of `GameOver` is the end of the game."
+        description: "Envelope case `choice_request`: a question to this seat. `seq` as in `StateDelta`; `pending` is the engine's `Pending` as `baylee_core::wire` writes it, which names every answer the engine takes. A `Pending` of `GameOver` is the end of the game."
         x-protobuf-message: baylee.v1.Envelope
       TableLoading:
         $ref: "#/components/messages/TableLoading"
@@ -3644,8 +3644,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -3662,8 +3662,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -3675,27 +3675,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -4310,8 +4310,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -4328,8 +4328,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -4341,27 +4341,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -5028,8 +5028,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -5046,8 +5046,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -5059,27 +5059,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -5482,7 +5482,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `game_static`: the public opening payload, first in every snapshot and sent again before a view that shows a printing for the first time. `static_json` is a `GameStatic` as JSON whose print table holds only what was shown in public, never a decklist; `your_seat` is seat 0, the side the table is drawn from."
+        description: "Envelope case `game_static`: the public opening payload, first in every snapshot and sent again before a view that shows a printing for the first time. `statics` is a `GameStatic` as `baylee_core::wire` writes it, whose print table holds only what was shown in public, never a decklist; `your_seat` is seat 0, the side the table is drawn from."
         x-protobuf-message: baylee.v1.Envelope
       StateDelta:
         name: StateDelta
@@ -5690,8 +5690,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -5708,8 +5708,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -5721,27 +5721,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -6144,7 +6144,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `state_delta`: the public table. `view_frame` is a `ViewFrame` of the public view drawn from seat 0 (no private hand, question, looked-at card, clock or policy, and a face-down card is a blank), whole on arrival and when a socket falls behind, then what changed; `log_json` is a `LogTail` as JSON, the game log as nobody in particular may know it, appended by its `from`."
+        description: "Envelope case `state_delta`: the public table. `view_frame` is a `ViewFrame` of the public view drawn from seat 0 (no private hand, question, looked-at card, clock or policy, and a face-down card is a blank), whole on arrival and when a socket falls behind, then what changed; `log` is a `LogTail` as `baylee_core::wire` writes it, the game log as nobody in particular may know it, appended by its `from`."
         x-protobuf-message: baylee.v1.Envelope
       ChoiceRequest:
         name: ChoiceRequest
@@ -6352,8 +6352,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -6370,8 +6370,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -6383,27 +6383,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -6806,7 +6806,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `choice_request`, only at the end: `pending_json` is a `Pending` of `GameOver` as JSON."
+        description: "Envelope case `choice_request`, only at the end: `pending` is a `Pending` of `GameOver` as `baylee_core::wire` writes it."
         x-protobuf-message: baylee.v1.Envelope
       Curtain:
         name: Curtain
@@ -7014,8 +7014,8 @@ channels:
             message ChoiceRequest {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded engine Pending.
-              bytes pending_json = 3;
+              // baylee_core::wire-encoded engine Pending.
+              bytes pending = 3;
             }
 
             // Client → server: the seat's answer.
@@ -7032,8 +7032,8 @@ channels:
             // the journal nor the snapshot hash. A setting that changes nothing is
             // answered with nothing.
             message SeatSettingMsg {
-              // serde_json-encoded baylee_view::SeatSetting.
-              bytes setting_json = 1;
+              // baylee_core::wire-encoded baylee_view::SeatSetting.
+              bytes setting = 1;
             }
 
             // Server → client: the once-per-game payload — seat roster and print
@@ -7045,27 +7045,27 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // serde_json-encoded baylee_view::GameStatic.
-              bytes static_json = 3;
+              // baylee_core::wire-encoded baylee_view::GameStatic.
+              bytes statics = 3;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // A baylee_view::ViewFrame: the whole view, or what changed since the last
+              // one, read by a baylee_view::ViewReader; for a spectator the public view
+              // drawn from seat 0. Empty on a frame that only
               // carries more of a long log. docs/protocol.md, "Views as patches".
               bytes view_frame = 3;
-              // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+              // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
               // entries; when more are waiting, several frames go out in one go, the first
               // with the view and the others with the next part of the log and the same
-              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // seq. A client reads log from every frame. docs/protocol.md, "The game
               // log".
-              bytes log_json = 4;
+              bytes log = 4;
             }
 
             // ------------------------------------------------- control and engine planes
@@ -8273,8 +8273,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -8291,8 +8291,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -8304,27 +8304,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -8935,8 +8935,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -8953,8 +8953,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -8966,27 +8966,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -9597,8 +9597,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -9615,8 +9615,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -9628,27 +9628,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -10259,8 +10259,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -10277,8 +10277,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -10290,27 +10290,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -10921,8 +10921,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -10939,8 +10939,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -10952,27 +10952,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -11583,8 +11583,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -11601,8 +11601,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -11614,27 +11614,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -12245,8 +12245,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -12263,8 +12263,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -12276,27 +12276,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -12913,8 +12913,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -12931,8 +12931,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -12944,27 +12944,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -13575,8 +13575,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -13593,8 +13593,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -13606,27 +13606,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -14237,8 +14237,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -14255,8 +14255,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -14268,27 +14268,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -14899,8 +14899,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -14917,8 +14917,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -14930,27 +14930,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -15561,8 +15561,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -15579,8 +15579,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -15592,27 +15592,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -16223,8 +16223,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -16241,8 +16241,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -16254,27 +16254,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -16885,8 +16885,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -16903,8 +16903,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -16916,27 +16916,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -17553,8 +17553,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -17571,8 +17571,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -17584,27 +17584,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -18215,8 +18215,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -18233,8 +18233,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -18246,27 +18246,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -18883,8 +18883,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -18901,8 +18901,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -18914,27 +18914,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -19545,8 +19545,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -19563,8 +19563,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -19576,27 +19576,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -20207,8 +20207,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -20225,8 +20225,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -20238,27 +20238,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -20869,8 +20869,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -20887,8 +20887,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -20900,27 +20900,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -21531,8 +21531,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -21549,8 +21549,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -21562,27 +21562,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -22193,8 +22193,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -22211,8 +22211,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -22224,27 +22224,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -22855,8 +22855,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -22873,8 +22873,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -22886,27 +22886,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -23517,8 +23517,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -23535,8 +23535,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -23548,27 +23548,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -24179,8 +24179,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -24197,8 +24197,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -24210,27 +24210,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -24841,8 +24841,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -24859,8 +24859,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -24872,27 +24872,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -25503,8 +25503,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -25521,8 +25521,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -25534,27 +25534,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -26165,8 +26165,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -26183,8 +26183,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -26196,27 +26196,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -26619,7 +26619,7 @@ components:
             // The house's level (`steady`, …), for `KIND_HOUSE`.
             string level = 5;
           }
-      description: "Envelope case `seat_setting`: a setting about the seat itself rather than a move, such as showing its hand to a teammate or asking to be shown one. `setting_json` is a `SeatSetting` as JSON; a refusal is an `Error`. Taken before the curtain too."
+      description: "Envelope case `seat_setting`: a setting about the seat itself rather than a move, such as showing its hand to a teammate or asking to be shown one. `setting` is a `SeatSetting` as `baylee_core::wire` writes it; a refusal is an `Error`. Taken before the curtain too."
       x-protobuf-message: baylee.v1.Envelope
     SpectatorFrame:
       name: SpectatorFrame
@@ -26827,8 +26827,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -26845,8 +26845,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -26858,27 +26858,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -27489,8 +27489,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -27507,8 +27507,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -27520,27 +27520,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -28151,8 +28151,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -28169,8 +28169,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -28182,27 +28182,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -28813,8 +28813,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -28831,8 +28831,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -28844,27 +28844,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -29475,8 +29475,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -29493,8 +29493,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -29506,27 +29506,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -30137,8 +30137,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -30155,8 +30155,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -30168,27 +30168,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes
@@ -30799,8 +30799,8 @@ components:
           message ChoiceRequest {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded engine Pending.
-            bytes pending_json = 3;
+            // baylee_core::wire-encoded engine Pending.
+            bytes pending = 3;
           }
 
           // Client → server: the seat's answer.
@@ -30817,8 +30817,8 @@ components:
           // the journal nor the snapshot hash. A setting that changes nothing is
           // answered with nothing.
           message SeatSettingMsg {
-            // serde_json-encoded baylee_view::SeatSetting.
-            bytes setting_json = 1;
+            // baylee_core::wire-encoded baylee_view::SeatSetting.
+            bytes setting = 1;
           }
 
           // Server → client: the once-per-game payload — seat roster and print
@@ -30830,27 +30830,27 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // serde_json-encoded baylee_view::GameStatic.
-            bytes static_json = 3;
+            // baylee_core::wire-encoded baylee_view::GameStatic.
+            bytes statics = 3;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
-            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
-            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // A baylee_view::ViewFrame: the whole view, or what changed since the last
+            // one, read by a baylee_view::ViewReader; for a spectator the public view
+            // drawn from seat 0. Empty on a frame that only
             // carries more of a long log. docs/protocol.md, "Views as patches".
             bytes view_frame = 3;
-            // serde_json-encoded baylee_view::LogTail: this seat's game log since the
+            // baylee_core::wire-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
             // entries; when more are waiting, several frames go out in one go, the first
             // with the view and the others with the next part of the log and the same
-            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // seq. A client reads log from every frame. docs/protocol.md, "The game
             // log".
-            bytes log_json = 4;
+            bytes log = 4;
           }
 
           // ------------------------------------------------- control and engine planes

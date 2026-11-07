@@ -194,15 +194,13 @@ impl Watcher {
     /// names the evaluator gave them; only the watcher hears this one, and
     /// no chair's name reaches the model.
     fn disclose(&self, statics: &mut baylee_protocol::v1::GameStaticMsg) {
-        let Ok(mut table) = serde_json::from_slice::<Value>(&statics.static_json) else {
+        let Ok(mut table) = baylee_core::wire::decode::<baylee_view::GameStatic>(&statics.statics)
+        else {
             return;
         };
-        let seat = usize::from(self.seat.get());
-        if let Some(chair) = table["seats"].get_mut(seat) {
-            chair["display_name"] = json!(format!("{}watcher", self.mind.disclosure().prefix()));
-            if let Ok(bytes) = serde_json::to_vec(&table) {
-                statics.static_json = bytes;
-            }
+        if let Some(chair) = table.seats.get_mut(usize::from(self.seat.get())) {
+            chair.display_name = format!("{}watcher", self.mind.disclosure().prefix());
+            statics.statics = baylee_core::wire::encode(&table);
         }
     }
 

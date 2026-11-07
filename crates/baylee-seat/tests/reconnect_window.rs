@@ -180,7 +180,7 @@ fn static_frame() -> Message {
     frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
-        static_json: serde_json::to_vec(&game).unwrap(),
+        statics: baylee_core::wire::encode(&game),
     }))
 }
 
@@ -191,7 +191,7 @@ fn view_frame(seq: u64) -> Message {
         game_id: GAME.into(),
         seq,
         view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-        log_json: Vec::new(),
+        log: Vec::new(),
     }))
 }
 
@@ -199,7 +199,7 @@ fn question_frame(seq: u64, pending: &Pending) -> Message {
     frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
         game_id: GAME.into(),
         seq,
-        pending_json: serde_json::to_vec(&pending).unwrap(),
+        pending: baylee_core::wire::encode(&pending),
     }))
 }
 

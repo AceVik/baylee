@@ -64,7 +64,7 @@ fn sent(seq: u64, mut view: PlayerView) -> Vec<u8> {
         game_id: "test-game".into(),
         seq,
         view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-        log_json: Vec::new(),
+        log: Vec::new(),
     }))
 }
 

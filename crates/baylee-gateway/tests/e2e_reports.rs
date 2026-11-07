@@ -576,7 +576,7 @@ async fn a_game_that_goes_on(port: u16, token: &str) -> (String, Socket, Pending
                 }
                 Some(v1::envelope::Msg::Curtain(_)) => break,
                 Some(v1::envelope::Msg::ChoiceRequest(c)) => {
-                    asked = serde_json::from_slice(&c.pending_json).ok();
+                    asked = baylee_core::wire::decode(&c.pending).ok();
                 }
                 Some(_) => {}
                 None => panic!("the socket closed before play was allowed"),
@@ -603,7 +603,7 @@ async fn quiet(ws: &mut Socket) -> Option<Pending> {
                 panic!("a seat was sent something of the game's record: {msg:?}")
             }
             v1::envelope::Msg::ChoiceRequest(c) => {
-                asked = serde_json::from_slice(&c.pending_json).ok();
+                asked = baylee_core::wire::decode(&c.pending).ok();
             }
             _ => {}
         }

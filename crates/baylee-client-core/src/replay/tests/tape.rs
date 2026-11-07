@@ -77,7 +77,9 @@ fn moments() -> Vec<TapeMoment> {
             game_id: String::new(),
             seq: i as u64 + 1,
             view_frame: baylee_view::ViewFrame::snapshot_of(&view_of(i, spec, true)),
-            log_json: log.map(|t| json(&t).into_bytes()).unwrap_or_default(),
+            log: log
+                .map(|t| baylee_core::wire::encode(&t))
+                .unwrap_or_default(),
         })),
     };
     let steps = [
@@ -90,7 +92,7 @@ fn moments() -> Vec<TapeMoment> {
         msg: Some(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: String::new(),
             seq: 9,
-            pending_json: json(pending).into_bytes(),
+            pending: baylee_core::wire::encode(pending),
         })),
     };
     vec![
@@ -103,7 +105,7 @@ fn moments() -> Vec<TapeMoment> {
                     msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
                         game_id: String::new(),
                         view_version: VIEW,
-                        static_json: json(&statics(2)).into_bytes(),
+                        statics: baylee_core::wire::encode(&statics(2)),
                     })),
                 },
                 delta(0, &steps[0], Some(tail(0, 2))),
@@ -186,7 +188,7 @@ fn from_moments_keeps_only_the_end_of_the_questions() {
         msg: Some(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: String::new(),
             seq: 1,
-            pending_json: json(pending).into_bytes(),
+            pending: baylee_core::wire::encode(pending),
         })),
     };
     let moment = |frames| TapeMoment {
@@ -227,7 +229,7 @@ fn from_moments_refuses_a_static_of_another_view_version() {
             msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
                 game_id: String::new(),
                 view_version: VIEW + 1,
-                static_json: json(&statics(1)).into_bytes(),
+                statics: baylee_core::wire::encode(&statics(1)),
             })),
         }],
     };
@@ -609,7 +611,7 @@ fn a_written_tape_keeps_its_payloads_as_written() {
                 seq: 1,
                 // A serialiser's spelling, not the sorted one.
                 view_frame: baylee_view::ViewFrame::snapshot_of(&view_of(0, &spec, true)),
-                log_json: Vec::new(),
+                log: Vec::new(),
             })),
         }],
     };

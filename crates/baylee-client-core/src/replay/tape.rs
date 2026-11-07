@@ -29,6 +29,12 @@ impl Raw {
         let text = std::str::from_utf8(bytes).ok()?;
         RawValue::from_string(text.to_owned()).ok().map(Self)
     }
+
+    /// What a frame's bytes say, as a tape keeps it: JSON.
+    fn of<T: serde::de::DeserializeOwned + serde::Serialize>(bytes: &[u8]) -> Option<Self> {
+        let value: T = baylee_core::wire::decode(bytes).ok()?;
+        Self::from_bytes(&serde_json::to_vec(&value).ok()?)
+    }
 }
 
 /// Why a tape cannot be played.
@@ -486,7 +492,7 @@ fn lines_of(moment: &TapeMoment) -> Result<Vec<Line>, TapeRefusal> {
                 }
                 lines.push(Line::Static {
                     at: moment.at,
-                    json: Raw::from_bytes(&msg.static_json)
+                    json: Raw::of::<GameStatic>(&msg.statics)
                         .ok_or_else(|| bad("a static"))?
                         .0,
                 });
@@ -501,11 +507,11 @@ fn lines_of(moment: &TapeMoment) -> Result<Vec<Line>, TapeRefusal> {
                     .and_then(|json| Raw::from_bytes(&json))
                     .ok_or_else(|| bad("a view"))?
                     .0,
-                log: if delta.log_json.is_empty() {
+                log: if delta.log.is_empty() {
                     None
                 } else {
                     Some(
-                        Raw::from_bytes(&delta.log_json)
+                        Raw::of::<LogTail>(&delta.log)
                             .ok_or_else(|| bad("a log"))?
                             .0,
                     )
@@ -514,12 +520,12 @@ fn lines_of(moment: &TapeMoment) -> Result<Vec<Line>, TapeRefusal> {
             v1::envelope::Msg::Curtain(_) => lines.push(Line::Curtain { at: moment.at }),
             v1::envelope::Msg::ChoiceRequest(req) => {
                 // Only the end is kept: a projection asks nobody anything.
-                let over = serde_json::from_slice::<Pending>(&req.pending_json)
+                let over = baylee_core::wire::decode::<Pending>(&req.pending)
                     .is_ok_and(|p| matches!(p, Pending::GameOver(_)));
                 if over {
                     lines.push(Line::Over {
                         at: moment.at,
-                        json: Raw::from_bytes(&req.pending_json)
+                        json: Raw::of::<Pending>(&req.pending)
                             .ok_or_else(|| bad("the end"))?
                             .0,
                     });

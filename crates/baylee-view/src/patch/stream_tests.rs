@@ -1,8 +1,8 @@
 use super::*;
-use crate::patch::diff;
 use crate::patch::tests::{edit, play};
+use crate::patch::{ViewDigest, ViewField, Zone, ZoneEdit, diff};
 use crate::tests::{obj, view};
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use proptest::prelude::*;
 
 fn told(sender: &mut ViewSender, reader: &mut ViewReader, view: &PlayerView) {
@@ -241,4 +241,39 @@ proptest! {
         }
         let _ = reader.read(&frame);
     }
+}
+
+/// A frame's bytes, written out. Postcard names nothing, so a field moved or a
+/// variant put in the middle still reads on both ends of one build and only
+/// means something else: this is where it shows. A change here goes with
+/// `VIEW_VERSION`.
+#[test]
+fn a_frames_bytes_are_pinned() {
+    let frame = ViewFrame::Patch(Box::new(ViewPatch {
+        seat: PlayerId::new(1),
+        base: 300,
+        seq: 301,
+        zones: vec![(
+            Zone::Graveyard(1),
+            ZoneEdit {
+                removed: vec![ObjectId::new(7, 0)],
+                upserts: Vec::new(),
+                order: None,
+            },
+        )],
+        hand: None,
+        seats: Vec::new(),
+        fields: vec![ViewField::Turn(9)],
+        digest: ViewDigest(0x0102),
+    }));
+    let bytes = wire::encode(&frame);
+    assert_eq!(
+        bytes,
+        [
+            0x01, 0x01, 0xac, 0x02, 0xad, 0x02, 0x01, 0x02, 0x01, 0x01, 0x07, 0x00, 0x00, 0x00,
+            0x00, 0x01, 0x07, 0x09, 0x82, 0x02,
+        ],
+        "{bytes:02x?}"
+    );
+    assert_eq!(ViewFrame::decode(&bytes), Ok(frame));
 }

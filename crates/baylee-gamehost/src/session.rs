@@ -566,7 +566,7 @@ fn clock_answer(pending: Option<&Pending>, action: &PlayerAction) -> ClockAnswer
 ///
 /// A tail longer than [`LOG_TAIL_CAP`] lines is split over several frames. Only
 /// the first carries the view: a patch applies once. The others carry the next
-/// lines under the same `seq`. No lines is one frame with an empty `log_json`.
+/// lines under the same `seq`. No lines is one frame with an empty `log`.
 fn frames_of(seq: u64, view_frame: Vec<u8>, tail: LogTail) -> Vec<Envelope> {
     let LogTail {
         mut from,
@@ -581,24 +581,20 @@ fn frames_of(seq: u64, view_frame: Vec<u8>, tail: LogTail) -> Vec<Envelope> {
         let rest = entries.split_off(entries.len().min(LOG_TAIL_CAP));
         let part = LogTail { from, entries };
         from = from.saturating_add(u32::try_from(part.entries.len()).unwrap_or(u32::MAX));
-        let log_json = serde_json::to_vec(&part).unwrap_or_default();
-        out.push(state_delta(
-            seq,
-            view_frame.take().unwrap_or_default(),
-            log_json,
-        ));
+        let log = baylee_core::wire::encode(&part);
+        out.push(state_delta(seq, view_frame.take().unwrap_or_default(), log));
         entries = rest;
     }
     out
 }
 
-fn state_delta(seq: u64, view_frame: Vec<u8>, log_json: Vec<u8>) -> Envelope {
+fn state_delta(seq: u64, view_frame: Vec<u8>, log: Vec<u8>) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: String::new(),
             seq,
             view_frame,
-            log_json,
+            log,
         })),
     }
 }
@@ -608,7 +604,7 @@ fn choice_envelope(seq: u64, pending: &Pending) -> Envelope {
         msg: Some(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: String::new(),
             seq,
-            pending_json: serde_json::to_vec(pending).unwrap_or_default(),
+            pending: baylee_core::wire::encode(pending),
         })),
     }
 }

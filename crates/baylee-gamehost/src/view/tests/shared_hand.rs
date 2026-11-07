@@ -154,7 +154,7 @@ fn told_print(envelope: &v1::Envelope, print: usize) -> Option<bool> {
     match &envelope.msg {
         Some(v1::envelope::Msg::GameStatic(msg)) => {
             let statics: baylee_view::GameStatic =
-                serde_json::from_slice(&msg.static_json).expect("the payload decodes");
+                baylee_core::wire::decode(&msg.statics).expect("the payload decodes");
             Some(statics.prints.get(print).is_some_and(Option::is_some))
         }
         _ => None,

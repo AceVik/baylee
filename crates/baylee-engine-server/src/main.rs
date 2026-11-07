@@ -619,7 +619,7 @@ async fn serve(
                             continue;
                         };
                         let Ok(setting) =
-                            serde_json::from_slice::<SeatSetting>(&setting_msg.setting_json)
+                            baylee_core::wire::decode::<SeatSetting>(&setting_msg.setting)
                         else {
                             continue;
                         };

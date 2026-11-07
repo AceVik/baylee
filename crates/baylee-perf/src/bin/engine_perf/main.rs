@@ -50,6 +50,7 @@
 //! `record <file>…` plays recorded games again and reads what each seat of
 //! them is sent. All three print bytes and frames per seat and message kind.
 
+mod fuzz;
 mod rebuild;
 mod wire;
 
@@ -274,7 +275,7 @@ impl Digests {
                 Some(Msg::GameStatic(statics)) => {
                     // Not its version: that moves when the wire does.
                     let mut statics: baylee_view::GameStatic =
-                        serde_json::from_slice(&statics.static_json).expect("a payload reads");
+                        baylee_core::wire::decode(&statics.statics).expect("a payload reads");
                     statics.view_version = 0;
                     self.views.feed(&canonical(&statics));
                 }
@@ -288,16 +289,16 @@ impl Digests {
                         .expect("a seat holds a view");
                     self.views.feed(&delta.seq.to_le_bytes());
                     self.views.feed(&canonical(view));
-                    if !delta.log_json.is_empty() {
+                    if !delta.log.is_empty() {
                         let log: baylee_view::LogTail =
-                            serde_json::from_slice(&delta.log_json).expect("a log reads");
+                            baylee_core::wire::decode(&delta.log).expect("a log reads");
                         self.views.feed(&canonical(&log));
                     }
                     self.frames_read += 1;
                 }
                 Some(Msg::ChoiceRequest(choice)) => {
                     let pending: Pending =
-                        serde_json::from_slice(&choice.pending_json).expect("a question reads");
+                        baylee_core::wire::decode(&choice.pending).expect("a question reads");
                     self.views.feed(&choice.seq.to_le_bytes());
                     self.views.feed(&canonical(&pending));
                 }
@@ -624,6 +625,7 @@ fn live(game: &Game, sockets: &[PlayerId], checks: Checks) -> Played {
         let tries = [house, fallback, Some(PlayerAction::PassPriority)];
         let answered = tries.into_iter().flatten().any(|action| {
             digests.action(seat, &action);
+            wire.corpus.action(&action);
             session
                 .act_slice(seat, action, LIVE_SLICE)
                 .is_ok_and(|frames| {
@@ -749,6 +751,30 @@ fn games(four: bool) -> anyhow::Result<Vec<Game>> {
     Ok(games)
 }
 
+/// `fuzz [--rounds <n>] [--seed <n>]`: the frames of a few tables of four, damaged
+/// and put to every decoder (`fuzz.rs`).
+fn fuzz_decoders(args: &[String]) -> anyhow::Result<()> {
+    let number = |name: &str, otherwise: u64| {
+        args.iter()
+            .skip_while(|arg| *arg != name)
+            .nth(1)
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(otherwise)
+    };
+    let checks = Checks {
+        verify: false,
+        patches: false,
+    };
+    let mut corpus = fuzz::Corpus::default();
+    for game in games(true)?.iter().take(4) {
+        if let Some(wire) = live(game, &seats_of(game), checks).wire {
+            corpus.merge(wire.corpus);
+        }
+    }
+    fuzz::run(&corpus, number("--rounds", 1_000_000), number("--seed", 1));
+    Ok(())
+}
+
 /// The tally of recorded games: `record <file>…`.
 fn records(paths: &[String], checks: Checks) -> anyhow::Result<()> {
     let mut all = Wire::default();
@@ -792,10 +818,12 @@ fn main() -> anyhow::Result<()> {
                 .collect();
             return records(&paths, checks);
         }
+        Some("fuzz") => return fuzz_decoders(&args),
         _ => {
             bail!(
                 "usage: engine_perf house|frames|decide|search|wire|table [--verify] [--patches] \
-                 [--rss] [--four] [--game <id>] | record <file>… [--patches]"
+                 [--rss] [--four] [--game <id>] | record <file>… [--patches] | \
+                 fuzz [--rounds <n>] [--seed <n>]"
             )
         }
     };

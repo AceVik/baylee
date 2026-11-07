@@ -1096,7 +1096,7 @@ impl EngineRunner {
             // runs no clock, and the views it changes go out as `show` builds
             // them, with no pump and no question.
             Some(v1::envelope::Msg::SeatSetting(setting_msg)) => {
-                let Ok(setting) = serde_json::from_slice::<SeatSetting>(&setting_msg.setting_json)
+                let Ok(setting) = baylee_core::wire::decode::<SeatSetting>(&setting_msg.setting)
                 else {
                     return Vec::new();
                 };

@@ -1,6 +1,6 @@
 # Ansichten als Änderungen statt als ganzes Brett
 
-Stand 7. November 2026, Entwurf. Noch nichts davon ist gebaut. Der Eigentümer hat entschieden, ans
+Stand 7. November 2026: Schritt 1 bis 5 sind gebaut, Zahlen in `docs/perf-baseline.md`. Der Eigentümer hat entschieden, ans
 Protokoll zu gehen; Kompatibilität wird nicht gebraucht, solange niemand baylee.app nutzt.
 
 ## Heute

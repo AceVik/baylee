@@ -159,7 +159,7 @@ pub struct View {
     /// The view, whole: a `PlayerView`, and for [`Perspective::Public`] the
     /// spectators' public one, drawn from seat 0.
     pub json: Box<RawValue>,
-    /// The delta's `log_json` (a `LogTail`); `None` when it told nothing.
+    /// The delta's `log` (a `LogTail`, as JSON here); `None` when it told nothing.
     pub log: Option<Box<RawValue>>,
 }
 
@@ -199,7 +199,7 @@ impl Stop {
 pub enum Line {
     /// `tape`: the header, first.
     Header(Header),
-    /// `static`: a `GameStaticMsg.static_json`.
+    /// `static`: a `GameStaticMsg.statics`, as JSON here.
     Static {
         /// The record's host time.
         at: u64,

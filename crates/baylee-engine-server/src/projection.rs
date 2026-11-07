@@ -81,6 +81,14 @@ fn raw(bytes: &[u8]) -> Option<Box<RawValue>> {
     RawValue::from_string(text.to_owned()).ok()
 }
 
+/// What a frame's bytes say, as a tape keeps it: JSON.
+fn json_of<T: serde::de::DeserializeOwned + serde::Serialize>(
+    bytes: &[u8],
+) -> Option<Box<RawValue>> {
+    let value: T = baylee_core::wire::decode(bytes).ok()?;
+    raw(&serde_json::to_vec(&value).ok()?)
+}
+
 /// The whole view a moment's frame holds, as a tape keeps it: JSON, and readable
 /// without any frame before it.
 fn whole_view(frame: &[u8]) -> Option<Box<RawValue>> {
@@ -94,7 +102,7 @@ fn lines_of(moment: &Moment) -> Vec<Line> {
     for Envelope { msg } in &moment.frames {
         match msg {
             Some(v1::envelope::Msg::GameStatic(statics)) => {
-                if let Some(json) = raw(&statics.static_json) {
+                if let Some(json) = json_of::<baylee_view::GameStatic>(&statics.statics) {
                     out.push(Line::Static {
                         at: moment.at,
                         json,
@@ -109,17 +117,17 @@ fn lines_of(moment: &Moment) -> Vec<Line> {
                         check: moment.check,
                         seq: delta.seq,
                         json,
-                        log: if delta.log_json.is_empty() {
+                        log: if delta.log.is_empty() {
                             None
                         } else {
-                            raw(&delta.log_json)
+                            json_of::<baylee_view::LogTail>(&delta.log)
                         },
                     }));
                 }
             }
             // The one question a projection hands on: the game's end.
             Some(v1::envelope::Msg::ChoiceRequest(choice)) => {
-                if let Some(json) = raw(&choice.pending_json)
+                if let Some(json) = json_of::<baylee_engine::choice::Pending>(&choice.pending)
                     && json.get().starts_with(r#"{"GameOver""#)
                 {
                     out.push(Line::Over {

@@ -2019,3 +2019,69 @@ installed here and `perf` is refused). `WrittenObjects` had already taken most o
 a `diff`, a `digest` and a clone of the view to keep take about what it took. The gain so far is on the
 wire and in the client, whose read goes from 83 µs to 21 µs a view (§"Costs" above). What a server does
 per view now is build it, and that is follow-up 1 of the proposal.
+
+## A game goes in binary (2026-11-07)
+
+Every frame of a game is `postcard` now, through `baylee_core::wire` and nothing else: views and actions
+first (view 88, protocol 40), then the question, the log, the opening payload and a seat's setting (view
+89, protocol 41). JSON stays what it was, byte for byte, for what is not a frame.
+
+| Per seat and game | Whole JSON | Patches, JSON | View in binary | All in binary | Fewer |
+|---|---:|---:|---:|---:|---:|
+| `wire` | 4 531 KB | 599 KB | 343 KB | 165 KB | 27× |
+| `wire --four` | 16 506 KB | 1 264 KB | 744 KB | 344 KB | 48× |
+| `table` | 12 809 KB | 851 KB | 429 KB | 217 KB | 59× |
+| `table --four` | 65 720 KB | 1 873 KB | 890 KB | 466 KB | 141× |
+
+The frame counts did not move: 667, 1 316, 1 125 and 3 432 a seat and game.
+
+### postcard or bitcode
+
+On the hosted games, every view and patch through both, with no bad round trip:
+
+| Mean bytes, µs | JSON | postcard | bitcode |
+|---|---:|---:|---:|
+| Whole view, bytes | 19 170 | 4 120 | 3 186 |
+| Patch, bytes | 634 | 119 | 118 |
+| Patch, write | 1.7 | 0.8 | 5.5 |
+| Patch, read | 4.1 | 1.1 | 5.7 |
+| Whole view, write | 43.6 | 15.2 | 63.3 |
+| Whole view, read | 103.5 | 25.4 | 74.5 |
+
+`postcard`: a patch is what goes, at 119 bytes against 118, and it reads five times faster. bitcode's
+smaller whole view is a view a seat is sent once.
+
+### Stored bytes did not move
+
+Both formats refused `skip_serializing_if`: a reader by position cannot tell a field was left out. The
+agreed fix was to remove the attribute, and that would have changed the JSON of every view. Stored labels
+are hashes of that JSON (`view_hash_fnv1a64` and `pending_sha256`, compared in
+`convert4/shadow_bc/validation.rs`), so instead the attribute stays and points at `wire::left_out`, which
+leaves a default out only while no frame is being written. JSON, and so every stored digest, tape, record
+and fixture, is what it was: `--verify` compares against a build from before patches, and the fixtures
+did not change.
+
+### Hostile frames
+
+A guest's bytes reach the engine unread, so the decoders were tried, not read:
+
+- **Depth.** A recursive type read by `postcard` is a stack overflow in the decoder, which is no panic but an
+  abort. Shown on a stand-in: 32 768 levels in a 64 KiB frame on a 2 MiB stack ends in `stack overflow, aborting`,
+  exit 134. `PlayerAction::PayWindow` held a list of `PlayerAction`, the one such type a client can send, though
+  no step ever nests. Steps are `PaymentStep` now, which cannot hold a window, so depth has no name in the
+  type: `hostile_actions.rs` runs the real decoder over a frame nested to the 64 KiB limit on a 64 KiB stack, and
+  `engine-server/src/tests/hostile.rs` puts it through `EngineRunner::handle`. The other types a client sends are
+  flat: `Arrange` is two lists deep, and `SeatSetting`, `PriorityHold` and `StandingAnswer` hold no list of
+  themselves. `prost` has its own recursion limit, and social JSON has `serde_json`'s.
+- **Claimed lengths.** `postcard` takes a claimed length to `serde`'s capped size hint, and a string or bytes
+  must be present before they are read. `hostile_frames.rs` holds that with a counting allocator: a frame that
+  claims more than it has allocates nothing near what it claims.
+- **Every cut, every flipped byte, a million made-up frames** in `hostile_frames.rs`, on a real view.
+- **`engine_perf fuzz`** damages real frames of real games from a seeded stream (a bit, a byte, a cut, a
+  huge length, another frame's bytes, a repeat) and reads each with every decoder a socket reaches: `ViewFrame`,
+  `ViewPatch` applied to a real view past its two first checks, `ViewReader`, `PlayerAction`, `Pending`, `LogTail`,
+  `GameStatic`, `SeatSetting`, the protobuf `Envelope`. Two seeds of 150 million rounds each, 300 million in
+  all at 205 000 a second per core, on the `tools` profile: no panic. Of those, 4.4 million read as a frame, 2.4 million
+  as a patch (41 000 of which then applied to a real view), 2.2 million as an action, 1.8 million as a question,
+  3.0 million as a log, 2.6 million as a payload, 0.8 million as a setting and 14.9 million as an envelope, so the
+  damage reached past the first tag.

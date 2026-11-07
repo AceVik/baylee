@@ -245,7 +245,7 @@ async fn play_on(
                 }
                 v1::envelope::Msg::ChoiceRequest(c) => {
                     let pending: Pending =
-                        serde_json::from_slice(&c.pending_json).expect("a question");
+                        baylee_core::wire::decode(&c.pending).expect("a question");
                     answer(ws, &pending, held[seat].1.view()).await;
                     if seat == 0 {
                         asked = Some(pending);
@@ -280,7 +280,7 @@ async fn play_on(
                     held[seat].1.read(&d.view_frame).expect("a view");
                 }
                 v1::envelope::Msg::ChoiceRequest(c) => {
-                    let pending: Option<Pending> = serde_json::from_slice(&c.pending_json).ok();
+                    let pending: Option<Pending> = baylee_core::wire::decode(&c.pending).ok();
                     if seat == 0 {
                         asked.clone_from(&pending);
                     }

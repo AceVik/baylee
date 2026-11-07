@@ -199,7 +199,7 @@ async fn create_game_and_answer_first_choice() {
                 assert!(!view.hand.is_empty(), "view has the own hand");
             }
             Some(v1::envelope::Msg::ChoiceRequest(req)) => {
-                first_pending = serde_json::from_slice(&req.pending_json).ok();
+                first_pending = baylee_core::wire::decode(&req.pending).ok();
                 break;
             }
             _ => {}
@@ -313,7 +313,7 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
         match env.msg {
             Some(v1::envelope::Msg::GameCreated(created)) => game_id = created.game_id,
             Some(v1::envelope::Msg::ChoiceRequest(req)) => {
-                asked_seat_0 = serde_json::from_slice::<Pending>(&req.pending_json).ok();
+                asked_seat_0 = baylee_core::wire::decode::<Pending>(&req.pending).ok();
                 break;
             }
             _ => {}
@@ -439,7 +439,7 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
                             "seat 0 was sent another seat's view"
                         ),
                         Some(v1::envelope::Msg::ChoiceRequest(req)) => {
-                            let pending = serde_json::from_slice(&req.pending_json)
+                            let pending = baylee_core::wire::decode(&req.pending)
                                 .expect("seat 0's question decodes");
                             return Some(Asked::Human(Box::new(pending)));
                         }

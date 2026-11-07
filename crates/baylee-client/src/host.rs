@@ -267,7 +267,7 @@ pub(crate) fn host_message(envelope: Envelope, views: &mut SeatViews) -> Option<
     Some(match envelope.msg? {
         v1::envelope::Msg::GameStatic(msg) => {
             if msg.view_version == baylee_view::VIEW_VERSION {
-                match serde_json::from_slice::<GameStatic>(&msg.static_json) {
+                match baylee_core::wire::decode::<GameStatic>(&msg.statics) {
                     Ok(statics) => HostMessage::Static(Box::new(statics)),
                     Err(e) => HostMessage::Failed(format!("unreadable game setup: {e}")),
                 }
@@ -283,7 +283,7 @@ pub(crate) fn host_message(envelope: Envelope, views: &mut SeatViews) -> Option<
             }
         }
         v1::envelope::Msg::StateDelta(delta) => match views.reader.read(&delta.view_frame) {
-            Ok(Some(view)) => HostMessage::View(Box::new(view.clone()), log_tail(&delta.log_json)),
+            Ok(Some(view)) => HostMessage::View(Box::new(view.clone()), log_tail(&delta.log)),
             // A whole view is on its way, with the whole log: nothing here is
             // news, and the table stays drawn as it is until it comes.
             Ok(None) => return None,
@@ -294,7 +294,7 @@ pub(crate) fn host_message(envelope: Envelope, views: &mut SeatViews) -> Option<
             }
         },
         v1::envelope::Msg::ChoiceRequest(req) => {
-            match serde_json::from_slice::<Pending>(&req.pending_json) {
+            match baylee_core::wire::decode::<Pending>(&req.pending) {
                 Ok(pending) => HostMessage::Choice(Box::new(pending)),
                 Err(e) => HostMessage::Failed(format!("unreadable choice: {e}")),
             }
@@ -318,11 +318,11 @@ pub(crate) fn host_message(envelope: Envelope, views: &mut SeatViews) -> Option<
 /// are. Nothing is lost for good, either: the book counts the gap the next
 /// tail leaves, and the host tells the whole log again on the next snapshot
 /// or reconnect.
-pub(crate) fn log_tail(json: &[u8]) -> Option<LogTail> {
-    if json.is_empty() {
+pub(crate) fn log_tail(bytes: &[u8]) -> Option<LogTail> {
+    if bytes.is_empty() {
         return None;
     }
-    serde_json::from_slice(json)
+    baylee_core::wire::decode(bytes)
         .inspect_err(|e| bevy::log::warn!("unreadable game log: {e}"))
         .ok()
 }
@@ -530,7 +530,7 @@ pub(crate) fn try_merge_log_chunk(out: &mut [HostMessage], envelope: &Envelope) 
         && let Some(HostMessage::View(prev_view, Some(prev_tail))) = out.last_mut()
         && prev_view.seq == delta.seq
         && !prev_tail.entries.is_empty()
-        && let Some(next_tail) = log_tail(&delta.log_json)
+        && let Some(next_tail) = log_tail(&delta.log)
         && !next_tail.entries.is_empty()
         && prev_tail.from as usize + prev_tail.entries.len() == next_tail.from as usize
     {
@@ -1005,14 +1005,14 @@ pub(crate) mod tests {
     #[test]
     fn a_frame_s_log_is_read_beside_its_view() {
         use baylee_view::{LogEntry, LogEvent};
-        let frame = |log_json: Vec<u8>| Envelope {
+        let frame = |log: Vec<u8>| Envelope {
             msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                 game_id: "g".to_string(),
                 seq: 1,
                 view_frame: baylee_view::ViewFrame::snapshot_of(
                     &baylee_client_core::test_support::ViewBuilder::new(2).build(),
                 ),
-                log_json,
+                log,
             })),
         };
         let told = LogTail {
@@ -1028,10 +1028,9 @@ pub(crate) mod tests {
             }],
         };
         let mut views = SeatViews::default();
-        let Some(HostMessage::View(_, Some(got))) = host_message(
-            frame(serde_json::to_vec(&told).expect("a tail encodes")),
-            &mut views,
-        ) else {
+        let Some(HostMessage::View(_, Some(got))) =
+            host_message(frame(baylee_core::wire::encode(&told)), &mut views)
+        else {
             panic!("the frame's lines were not read");
         };
         assert_eq!(got, told);
@@ -1058,7 +1057,7 @@ pub(crate) mod tests {
                 game_id: "g".to_string(),
                 seq: view.seq,
                 view_frame: sender.next(view),
-                log_json: Vec::new(),
+                log: Vec::new(),
             })),
         }
     }
@@ -1129,11 +1128,10 @@ pub(crate) mod tests {
                 game_id: "g".to_string(),
                 seq: 7,
                 view_frame,
-                log_json: serde_json::to_vec(&LogTail {
+                log: baylee_core::wire::encode(&LogTail {
                     from: 10,
                     entries: vec![entry(1), entry(2)],
-                })
-                .expect("tail encodes"),
+                }),
             })),
         };
         // A continuation chunk carries no view, only the next lines under the
@@ -1143,11 +1141,10 @@ pub(crate) mod tests {
                 game_id: "g".to_string(),
                 seq: 7,
                 view_frame: Vec::new(),
-                log_json: serde_json::to_vec(&LogTail {
+                log: baylee_core::wire::encode(&LogTail {
                     from: 12,
                     entries: vec![entry(3)],
-                })
-                .expect("tail encodes"),
+                }),
             })),
         };
         let mut out = Vec::new();
@@ -1171,7 +1168,7 @@ pub(crate) mod tests {
             msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
                 game_id: "g".to_string(),
                 view_version: baylee_view::VIEW_VERSION + 1,
-                static_json: b"{}".to_vec(),
+                statics: b"{}".to_vec(),
             })),
         };
         let Some(HostMessage::Failed(reason)) = host_message(envelope, &mut SeatViews::default())

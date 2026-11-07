@@ -99,8 +99,9 @@ async fn sit(port: u16, game: &str, seat_token: &str) -> (Socket, serde_json::Va
                         },
                     )
                     .await;
-                    break serde_json::from_slice::<serde_json::Value>(&statics.static_json)
-                        .unwrap();
+                    let statics: baylee_view::GameStatic =
+                        baylee_core::wire::decode(&statics.statics).unwrap();
+                    break serde_json::to_value(&statics).unwrap();
                 }
                 Some(_) => {}
                 None => panic!("the socket closed before the table was shown"),

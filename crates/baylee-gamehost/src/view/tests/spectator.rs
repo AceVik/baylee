@@ -27,12 +27,12 @@ fn decode(frames: &[Envelope]) -> Sent {
     for env in frames {
         match &env.msg {
             Some(v1::envelope::Msg::GameStatic(s)) => {
-                statics = Some(serde_json::from_slice(&s.static_json).expect("static decodes"));
+                statics = Some(baylee_core::wire::decode(&s.statics).expect("static decodes"));
             }
             Some(v1::envelope::Msg::StateDelta(d)) => {
                 view = Some(baylee_view::ViewFrame::whole(&d.view_frame).expect("view decodes"));
-                if !d.log_json.is_empty() {
-                    let part: LogTail = serde_json::from_slice(&d.log_json).expect("log decodes");
+                if !d.log.is_empty() {
+                    let part: LogTail = baylee_core::wire::decode(&d.log).expect("log decodes");
                     log.entries.extend(part.entries);
                 }
             }
@@ -256,9 +256,9 @@ fn a_spectator_is_told_no_log_line_about_a_private_card() {
         let mut log = LogTail::default();
         for env in session.snapshot(PlayerId::new(seat)) {
             if let Some(v1::envelope::Msg::StateDelta(d)) = &env.msg
-                && !d.log_json.is_empty()
+                && !d.log.is_empty()
             {
-                let part: LogTail = serde_json::from_slice(&d.log_json).expect("decodes");
+                let part: LogTail = baylee_core::wire::decode(&d.log).expect("decodes");
                 log.entries.extend(part.entries);
             }
         }

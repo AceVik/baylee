@@ -229,8 +229,9 @@ fn log_text(envelopes: &[Envelope], seat: u32) -> String {
     frames(envelopes)
         .into_iter()
         .filter_map(|(s, msg)| match msg {
-            v1::envelope::Msg::StateDelta(delta) if s == seat && !delta.log_json.is_empty() => {
-                String::from_utf8(delta.log_json.clone()).ok()
+            v1::envelope::Msg::StateDelta(delta) if s == seat && !delta.log.is_empty() => {
+                let tail: baylee_view::LogTail = baylee_core::wire::decode(&delta.log).ok()?;
+                serde_json::to_string(&tail).ok()
             }
             _ => None,
         })
@@ -263,9 +264,9 @@ fn logs(envelopes: &[Envelope], seat: u32) -> Vec<(u64, usize)> {
     frames(envelopes)
         .into_iter()
         .filter_map(|(s, msg)| match msg {
-            v1::envelope::Msg::StateDelta(delta) if s == seat && !delta.log_json.is_empty() => {
-                let tail: serde_json::Value = serde_json::from_slice(&delta.log_json).ok()?;
-                Some((tail["from"].as_u64()?, tail["entries"].as_array()?.len()))
+            v1::envelope::Msg::StateDelta(delta) if s == seat && !delta.log.is_empty() => {
+                let tail: baylee_view::LogTail = baylee_core::wire::decode(&delta.log).ok()?;
+                Some((u64::from(tail.from), tail.entries.len()))
             }
             _ => None,
         })
@@ -295,7 +296,7 @@ fn last_view(envelopes: &[Envelope], seat: u32) -> Option<baylee_gamehost::Playe
 fn set(runner: &mut EngineRunner, seat: u32, setting: SeatSetting) -> Vec<Envelope> {
     let inner = Envelope {
         msg: Some(v1::envelope::Msg::SeatSetting(v1::SeatSettingMsg {
-            setting_json: serde_json::to_vec(&setting).expect("setting serializes"),
+            setting: baylee_core::wire::encode(&setting),
         })),
     };
     runner.handle(

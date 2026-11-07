@@ -121,7 +121,7 @@ impl Session {
             msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
                 game_id: self.game_id.clone(),
                 view_version: baylee_view::VIEW_VERSION,
-                static_json: serde_json::to_vec(&statics).unwrap_or_default(),
+                statics: baylee_core::wire::encode(&statics),
             })),
         }
     }
