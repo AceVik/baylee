@@ -25,6 +25,7 @@ fn hook_mentions(graph: &[u8]) -> usize {
         .filter(|l| {
             l.contains("feature \"mutate\"")
                 || l.contains("feature \"fuzz\"")
+                || l.contains("baylee-engine feature \"test-support\"")
                 || l.contains("baylee-engine feature \"simulation\"")
         })
         .count()
@@ -87,7 +88,9 @@ pub fn verification_hooks_not_unified(steps: &mut Steps) {
 }
 
 /// Neither verification hook may reach a build that ships. `mutate` is
-/// enabled by `baylee-engine`'s dev-dependencies alone and `fuzz` by nothing,
+/// enabled by `baylee-engine`'s dev-dependencies alone, `fuzz` by nothing and
+/// the engine's `test-support` by `baylee-card-testkit`'s `enabled`, which only
+/// the card test crates' dev-dependencies turn on,
 /// so the feature graph without dev edges names neither. The same holds for
 /// `baylee-engine`'s `simulation` (`Engine::fork_for`, a copy of a game with
 /// its hidden cards dealt again): only the training crates, which are not in
@@ -135,7 +138,7 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
                 steps.record(true);
             } else {
                 println!(
-                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz/simulation in the graph"
+                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz/simulation/test-support in the graph"
                 );
                 println!(
                     "  without dev edges (must be 0), {control} of mutate in baylee-engine's dev graph (must be >0)"

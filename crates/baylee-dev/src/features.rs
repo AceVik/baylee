@@ -9,7 +9,7 @@
 //! | `baylee-client` | `dev-control`, `dev-reload`, `dev-dylink` |
 //! | `baylee-gateway` | `dev-table` |
 //! | `baylee-client-core` | `test-support` |
-//! | `baylee-engine` | `fuzz`, `simulation` |
+//! | `baylee-engine` | `fuzz`, `simulation`, `test-support` |
 //! | `baylee-gamehost` | `simulation` |
 //! | `baylee-cards` | `mutate` |
 //! | `baylee-train` | `llm-collector` |
@@ -100,6 +100,20 @@ const CHECKS: &[(&str, &[&str])] = &[
             "baylee-train",
             "--no-default-features",
             "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    ),
+    (
+        "engine-test-support",
+        &[
+            "clippy",
+            "-p",
+            "baylee-engine",
+            "--features",
+            "test-support",
+            "--lib",
             "--",
             "-D",
             "warnings",
