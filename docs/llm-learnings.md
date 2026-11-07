@@ -7532,3 +7532,26 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 53
   of the machine-owned cards untested, and 1,370 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-07 — Syncopate's announced X, payment and counter-to-exile
+
+- Syncopate composes the existing target-controller payment choice with the
+  counter-to-exile effect; it needs no engine, DSL, protocol, desktop or seat
+  addition. The casting helper answers the X announcement and stack target in
+  their actual order and checks that the requested X was offered. With X = 2,
+  {2}{U} leaves one of four Islands, the creature's controller is taxed two,
+  and declining counters that exact spell into exile rather than graveyard.
+- With X = 1, {1}{U} leaves one of three Islands. The targeted creature's
+  controller pays the separate one-mana tax out of their remaining pool, the
+  creature resolves onto the battlefield and is neither exiled nor in
+  graveyard. Syncopate itself goes to its owner's graveyard in both plays.
+- Removing the payment-or-counter ability with `BAYLEE_MUTATE=5374:0` kills
+  both response plays. The card was already in the exercised card pool for the
+  preceding integration run: all 373 house-AI tests, the full seat suite (497
+  unit tests and every integration target), 152 desktop interaction tests and
+  nine `record::seen` tests (two ignored) pass. The desktop client including
+  tests compiles. `codegen --tables --check`, `require-card-tests`, `cargo dev
+  gate touched origin/main`, formatting and `git diff --check` pass. `validate`
+  accepts 12,545 cards (11,175 finished, 52 of the machine-owned cards
+  untested, and 1,370 stubs). The full gates remain deferred at the owner's
+  request.

@@ -10,7 +10,7 @@ card!(
     oracle_id = "318f7f70-e374-40ef-8afb-3389c10461d8",
     scryfall_id = "83e1cd8d-5b97-427a-be75-2a1947f9c59b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Syncopate",
         mana_cost = mana!("{X}{U}"),
