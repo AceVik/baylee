@@ -11,7 +11,7 @@ mod objects;
 mod table;
 mod wire_shape;
 
-fn obj(id: u32, controller: u8) -> PublicObject {
+pub(crate) fn obj(id: u32, controller: u8) -> PublicObject {
     PublicObject {
         battle_protector: None,
         mana_value: 0,
@@ -58,7 +58,7 @@ fn obj(id: u32, controller: u8) -> PublicObject {
     }
 }
 
-fn view(seats: u8) -> PlayerView {
+pub(crate) fn view(seats: u8) -> PlayerView {
     PlayerView {
         seq: 1,
         seat: PlayerId::new(0),

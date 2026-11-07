@@ -1,4 +1,4 @@
-use super::{SeatKind, Session, seat_byte, state_frames};
+use super::{SeatKind, Session, frames_of, seat_byte, seat_view_json, view_json};
 use baylee_ai::policy_seed;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
@@ -211,7 +211,11 @@ impl Session {
         if revealed || roster_moved {
             out.push(self.game_static_envelope(seat));
         }
-        out.extend(state_frames(self.seq, view, tail));
+        let json = self
+            .written
+            .get_mut(seat.get() as usize)
+            .map_or_else(|| view_json(view), |written| seat_view_json(written, view));
+        out.extend(frames_of(self.seq, json, tail));
         out
     }
 

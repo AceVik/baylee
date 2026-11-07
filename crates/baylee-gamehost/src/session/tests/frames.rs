@@ -331,3 +331,39 @@ fn discarding_the_frames_changes_nothing_but_the_frames() {
     assert!(frames > 0, "the other table sent frames");
     assert_eq!(sent.take_record(), discarded.take_record());
 }
+
+/// A seat's objects are written from its own table (`WrittenObjects`), and that
+/// must never read differently from the plain view: at a real table, for every
+/// seat, each time the board moves. This holds a release build too, where the
+/// check inside `seat_view_json` is compiled out.
+#[test]
+fn every_seats_frames_read_as_its_plain_view_as_the_table_moves() {
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    let mut moved = 0;
+    while moved < 60 {
+        for seat in (0..4).map(PlayerId::new) {
+            let view = session.seat_view(seat);
+            let plain = serde_json::to_vec(&view).expect("a view serializes");
+            let sent = session
+                .seat_envelopes(seat, &view)
+                .into_iter()
+                .find_map(|frame| match frame.msg {
+                    Some(v1::envelope::Msg::StateDelta(delta)) => Some(delta.view_json),
+                    _ => None,
+                })
+                .expect("a seat's frames carry its view");
+            assert_eq!(sent, plain, "seat {seat:?} at move {moved}");
+            assert_eq!(session.written.len(), 4, "a table per seat, and only that");
+        }
+        let Some(asked) = session.awaiting_seat() else {
+            break;
+        };
+        let answer = baylee_engine::choice::timeout_answer(session.pending())
+            .unwrap_or(PlayerAction::PassPriority);
+        if session.act(asked, answer).is_err() {
+            break;
+        }
+        moved += 1;
+    }
+    assert!(moved >= 20, "the table stopped after {moved} moves");
+}

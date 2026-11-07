@@ -24,10 +24,10 @@
 //! # Layering
 //!
 //! This crate is deliberately free of the rules kernel: it depends only on
-//! `baylee-core` id types plus `serde`. A client that renders a duel needs the
-//! engine's choice taxonomy as well, but an application that only *displays*
-//! game state (a spectator overlay, an MMO world showing a duel in progress)
-//! needs nothing but this crate.
+//! `baylee-core` id types plus `serde` and `serde_json`. A client that renders
+//! a duel needs the engine's choice taxonomy as well, but an application that
+//! only *displays* game state (a spectator overlay, an MMO world showing a duel
+//! in progress) needs nothing but this crate.
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -47,6 +47,7 @@ mod spectator;
 mod status;
 mod turn;
 mod wire;
+mod written;
 
 pub use combat::{AttackerView, BlockerView, CombatView};
 pub use counters::{CounterEntry, CounterKind};
@@ -70,6 +71,7 @@ pub use shown_hands::{SeatSetting, SharedHand};
 pub use spectator::SpectatorView;
 pub use status::ObjectStatus;
 pub use turn::{DayNight, Phase, Step};
+pub use written::WrittenObjects;
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.

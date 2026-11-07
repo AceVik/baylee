@@ -290,14 +290,19 @@ pub struct PlayerView {
     pub hand_requested: SeatSet,
     /// The shared battlefield. Objects carry their controller, so a client
     /// partitions this per seat rather than the host sending it eight times.
+    #[serde(serialize_with = "crate::written::zone")]
     pub battlefield: Vec<PublicObject>,
     /// The stack, index 0 = bottom.
+    #[serde(serialize_with = "crate::written::zone")]
     pub stack: Vec<PublicObject>,
     /// Graveyards, indexed by seat.
+    #[serde(serialize_with = "crate::written::zones")]
     pub graveyards: Vec<Vec<PublicObject>>,
     /// Public exile, indexed by seat.
+    #[serde(serialize_with = "crate::written::zones")]
     pub exile: Vec<Vec<PublicObject>>,
     /// Command zones, indexed by seat.
+    #[serde(serialize_with = "crate::written::zones")]
     pub command: Vec<Vec<PublicObject>>,
     /// Combat, when combat is declared.
     pub combat: CombatView,
@@ -329,6 +334,7 @@ pub struct PlayerView {
     ///
     /// Empty in every view where nothing is being shown, which is nearly all
     /// of them.
+    #[serde(serialize_with = "crate::written::zone")]
     pub looking_at: Vec<PublicObject>,
     /// The triggered abilities this seat is being asked to order (CR 603.3b),
     /// in the order the question offers them: top of the stack first.
@@ -343,7 +349,7 @@ pub struct PlayerView {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trigger_order: Vec<OrderedTrigger>,
     /// At most one explicitly public top card per library; no hidden cards.
-    #[serde(default)]
+    #[serde(default, serialize_with = "crate::written::zone")]
     pub library_tops: Vec<PublicObject>,
     /// The permanent holding this seat to sorcery speed, if one is
     /// (Teferi, Time Raveler's static — CR 613.1, a layer-2-and-beyond

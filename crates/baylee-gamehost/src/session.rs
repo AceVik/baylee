@@ -14,7 +14,9 @@ use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct};
+use baylee_view::{
+    ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct, WrittenObjects,
+};
 
 use crate::log::GameLog;
 use crate::record::{Mind, MindKind, Recorder, Source};
@@ -236,6 +238,10 @@ pub struct Session {
     /// has been *told*. It starts again at 0 when a socket attaches
     /// ([`Session::retell_log`]).
     told: Vec<usize>,
+    /// Per seat, what its last view said of each object, written again while
+    /// the object has not changed. Never shared: what an object shows depends
+    /// on the seat. Not game state, for the reason `told` is not.
+    written: Vec<WrittenObjects>,
     /// Per seat, the teammates it shows its hand to (#265).
     ///
     /// Not game state: showing a hand moves nothing in the game, so it never
@@ -345,6 +351,11 @@ impl Session {
             guests: Vec::new(),
             log,
             told: vec![0; preset.seats.len()],
+            written: preset
+                .seats
+                .iter()
+                .map(|_| WrittenObjects::default())
+                .collect(),
             showing: vec![SeatSet::new(); preset.seats.len()],
             asking: vec![SeatSet::new(); preset.seats.len()],
             declined: BTreeMap::new(),
@@ -587,6 +598,21 @@ fn view_json<T: serde::Serialize + ?Sized>(view: &T) -> Vec<u8> {
     if serde_json::to_writer(&mut json, view).is_err() {
         json.clear();
     }
+    json
+}
+
+/// [`view_json`] for a seat told every view: the objects it was sent last time
+/// are written again from `written`, that seat's own. The two read the same, and
+/// a debug build proves it on every view of every test.
+fn seat_view_json(written: &mut WrittenObjects, view: &PlayerView) -> Vec<u8> {
+    let mut json = Vec::with_capacity(VIEW_JSON_HINT);
+    if written.write(&mut json, view).is_err() {
+        json.clear();
+    }
+    debug_assert!(
+        json == view_json(view),
+        "a written view reads as a plain one"
+    );
     json
 }
 
