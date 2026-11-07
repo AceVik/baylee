@@ -570,13 +570,14 @@ pub(in crate::hud) fn roster(duel: &Duel, lang: Lang) -> Vec<SeatFacts> {
         .filter_map(|player| {
             let seat = view.seats.iter().find(|s| s.player == player)?;
             let role = crate::hud::seatbar::role_of(duel, player);
-            facts(view, statics, seat, role, team(player), lang)
+            facts(duel.reader(), view, statics, seat, role, team(player), lang)
         })
         .collect()
 }
 
 /// One seat's facts.
 fn facts(
+    reader: Option<PlayerId>,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
@@ -586,7 +587,7 @@ fn facts(
 ) -> Option<SeatFacts> {
     Some(SeatFacts {
         player: seat.player,
-        name: crate::hud::seatbar::called(lang, view, statics, seat.player, role),
+        name: crate::hud::seatbar::called(lang, reader, statics, seat.player, role),
         colour: crate::hud::seat_colour(view.seat, statics, seat.player),
         team,
         plate: SeatPlate::of(view, seat.player)?,
@@ -1656,9 +1657,25 @@ mod tests {
     #[test]
     fn hand_limit_changes_invalidate_the_strip_without_a_count_change() {
         let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
-        let before = facts(&view, None, &view.seats[1], SeatRole::House, None, Lang::De);
+        let before = facts(
+            Some(view.seat),
+            &view,
+            None,
+            &view.seats[1],
+            SeatRole::House,
+            None,
+            Lang::De,
+        );
         view.seats[1].no_max_hand_size = true;
-        let after = facts(&view, None, &view.seats[1], SeatRole::House, None, Lang::De);
+        let after = facts(
+            Some(view.seat),
+            &view,
+            None,
+            &view.seats[1],
+            SeatRole::House,
+            None,
+            Lang::De,
+        );
         assert_ne!(before, after);
     }
 

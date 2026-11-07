@@ -372,7 +372,7 @@ pub fn sync_log(
         open: duel.log_open && duel.ending().is_none(),
         lang: Some(lang),
         texts: texts.as_ref().map_or(0, |t| t.generation()),
-        seat: duel.view.as_ref().map(|v| v.seat),
+        seat: duel.reader(),
         rewrites: duel.log.rewrites(),
         drawn: revision.drawn,
         run: revision.run,
@@ -795,17 +795,20 @@ pub(crate) fn wording<'a>(
 ) -> Wording<'a> {
     Wording {
         lang,
-        seat: duel.view.as_ref().map_or(PlayerId::new(0), |v| v.seat),
+        seat: duel.reader(),
         statics: duel.statics.as_ref(),
         texts,
     }
 }
 
+/// What a spectator's colours are counted from: the seat their table is told from.
+const FIRST_SEAT: PlayerId = PlayerId::new(0);
+
 /// The swatch of a line about `subject`: the seat's own colour, the one its
 /// bar wears ([`seat_colour`]), and none for a line about the table.
 pub(crate) fn subject_ink(wording: &Wording, subject: Option<PlayerId>) -> Color {
     subject.map_or(Color::NONE, |player| {
-        seat_colour(wording.seat, wording.statics, player)
+        seat_colour(wording.seat.unwrap_or(FIRST_SEAT), wording.statics, player)
     })
 }
 

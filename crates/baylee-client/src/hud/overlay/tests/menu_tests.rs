@@ -661,3 +661,21 @@ fn a_controlled_turn_offers_only_this_seats_own_concession() {
     let lines = said(&mut app);
     assert!(lines.contains(&bare) && !lines.contains(&own), "{lines:?}");
 }
+
+/// A spectator holds no hand, so there is none to sort.
+#[test]
+fn a_spectator_is_offered_no_way_to_sort_a_hand() {
+    let sorts = |app: &mut App| {
+        menu_actions(app)
+            .iter()
+            .filter(|action| matches!(action, MenuAction::SortHand(_)))
+            .count()
+    };
+    let mut seated = bar_of(duel_with(false));
+    assert!(sorts(&mut seated) > 0, "the control");
+
+    let mut duel = duel_with(false);
+    duel.watching = true;
+    let mut watching = bar_of(duel);
+    assert_eq!(sorts(&mut watching), 0);
+}

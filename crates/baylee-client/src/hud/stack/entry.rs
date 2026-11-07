@@ -289,6 +289,7 @@ pub(in crate::hud) fn spawn_stack_entry(
     marked: bool,
     view: &PlayerView,
     statics: &GameStatic,
+    reader: Option<PlayerId>,
     picks: &Picks<'_>,
     textures: &mut CardTextures,
     assets: &AssetServer,
@@ -631,7 +632,7 @@ pub(in crate::hud) fn spawn_stack_entry(
         // this ground is legible for a word and tiring for a sentence.
         let seat = commands
             .spawn((
-                TextSpan::new(if item.controller == view.seat {
+                TextSpan::new(if Some(item.controller) == reader {
                     Phrase::You.text(lang).to_string()
                 } else {
                     statics.seat_name(item.controller).to_string()

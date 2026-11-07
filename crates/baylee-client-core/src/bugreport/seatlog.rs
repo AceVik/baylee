@@ -163,7 +163,7 @@ pub fn seat_log_with(
     });
     let wording = Wording {
         lang: Lang::En,
-        seat,
+        seat: Some(seat),
         statics: redacted.as_ref(),
         texts,
     };

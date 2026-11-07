@@ -99,7 +99,7 @@ fn player_choices_use_the_same_localized_house_name_as_the_table() {
             rows[0].label,
             crate::hud::seatbar::called(
                 Lang::De,
-                &view,
+                Some(view.seat),
                 Some(&statics),
                 statics.seats[0].player,
                 baylee_client_core::board::SeatRole::House

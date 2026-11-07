@@ -323,7 +323,7 @@ impl Narrator {
         let statics = table.statics();
         let wording = Wording {
             lang: Lang::En,
-            seat: table.me(),
+            seat: Some(table.me()),
             statics: Some(&statics),
             texts: &|_: CardIndex, _: u8| None,
         };

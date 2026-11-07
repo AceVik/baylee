@@ -115,7 +115,7 @@ fn read(book: &LogBook, lang: Lang) -> LogLine {
     let catalog = Catalog(lang);
     let wording = Wording {
         lang,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &catalog,
     };
@@ -264,7 +264,7 @@ fn lines_are_unread_until_taken() {
     let roster = roster();
     let wording = Wording {
         lang: Lang::En,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &no_text,
     };
@@ -318,7 +318,7 @@ fn a_card_is_named_from_card_text_that_arrives_later() {
     let roster = roster();
     let before = Wording {
         lang: Lang::De,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &no_text,
     };
@@ -395,7 +395,7 @@ fn a_name_is_never_empty() {
     let roster = roster();
     let wording = Wording {
         lang: Lang::En,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &blank,
     };
@@ -482,7 +482,7 @@ fn a_name_that_looks_like_a_placeholder_stays_a_name() {
     let catalog = Catalog(Lang::En);
     let wording = Wording {
         lang: Lang::En,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &catalog,
     };
@@ -722,7 +722,7 @@ fn a_turn_opens_with_a_heading() {
     let roster = roster();
     let wording = Wording {
         lang: Lang::De,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &no_text,
     };
@@ -770,7 +770,7 @@ fn a_folded_line_says_how_often_unless_it_spans() {
     let roster = roster();
     let wording = Wording {
         lang: Lang::En,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &no_text,
     };
@@ -820,7 +820,7 @@ fn a_line_capitalizes_our_words_and_never_a_name() {
     roster.seats[1].display_name = "bo".to_string();
     let wording = Wording {
         lang: Lang::En,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &no_text,
     };
@@ -1174,7 +1174,7 @@ fn every_line_is_a_whole_sentence_in_every_language() {
             let catalog = Catalog(lang);
             let wording = Wording {
                 lang,
-                seat: ME,
+                seat: Some(ME),
                 statics: Some(&roster),
                 texts: &catalog,
             };
@@ -1281,7 +1281,7 @@ fn every_line_says_which_seat_it_is_about() {
     let roster = roster();
     let wording = Wording {
         lang: Lang::En,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts: &no_text,
     };
@@ -1320,7 +1320,7 @@ fn every_player_a_line_names_is_marked() {
     for lang in Lang::ALL {
         let wording = Wording {
             lang,
-            seat: ME,
+            seat: Some(ME),
             statics: Some(&roster),
             texts: &no_text,
         };
@@ -1563,7 +1563,7 @@ fn read_at(book: &LogBook, index: usize, lang: Lang, texts: &dyn CardTextLookup)
     let roster = roster();
     let wording = Wording {
         lang,
-        seat: ME,
+        seat: Some(ME),
         statics: Some(&roster),
         texts,
     };
@@ -2018,4 +2018,37 @@ fn a_line_carries_its_phase() {
     };
     assert_eq!(read(&book(&[phased]), Lang::En).phase, Some(Phase::Combat));
     assert_eq!(read(&book(&[entry(1, shuffled)]), Lang::En).phase, None);
+}
+
+/// A spectator has no seat, so every seat is named, the one the table is told
+/// from too. It read "You went to 17 life" to someone who was not playing.
+#[test]
+fn a_reader_with_no_seat_reads_every_seat_by_name() {
+    let roster = roster();
+    let catalog = Catalog(Lang::En);
+    let wording = Wording {
+        lang: Lang::En,
+        seat: None,
+        statics: Some(&roster),
+        texts: &catalog,
+    };
+    let said = |event| {
+        book(&[entry(1, event)])
+            .line(0, &wording)
+            .expect("the book holds line 0")
+            .plain(Lang::En)
+    };
+    let life = |player| LogEvent::Life {
+        player,
+        old: 20,
+        new: 17,
+    };
+    assert_eq!(said(life(BO)), "Bo went to 17 life (from 20)");
+    let own = said(life(ME));
+    assert!(own.ends_with("went to 17 life (from 20)"), "{own}");
+    assert!(!own.starts_with("You"), "{own}");
+    let mut winners = SeatSet::new();
+    winners.insert(ME);
+    let won = said(LogEvent::GameOver { winners });
+    assert!(!won.contains("You"), "{won}");
 }

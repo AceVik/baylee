@@ -1173,6 +1173,7 @@ pub fn sync_overlay(
             board,
             view,
             statics,
+            (duel.reader(), duel.watching),
             &super::stack::Picks {
                 hovered,
                 selected: &selected,

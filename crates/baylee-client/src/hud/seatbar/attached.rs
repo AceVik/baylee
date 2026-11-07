@@ -758,6 +758,7 @@ pub(super) fn spawn(
     commands: &mut Commands,
     root: Entity,
     lang: Lang,
+    reader: Option<PlayerId>,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
@@ -765,7 +766,9 @@ pub(super) fn spawn(
     orders: &PhaseOrders,
     fonts: &UiFonts,
 ) {
-    spawn_identity(commands, root, lang, view, statics, seat, role, fonts);
+    spawn_identity(
+        commands, root, lang, reader, view, statics, seat, role, fonts,
+    );
     spawn_phases(commands, root, lang, view, seat, orders, fonts);
 }
 
@@ -775,6 +778,7 @@ fn spawn_identity(
     commands: &mut Commands,
     root: Entity,
     lang: Lang,
+    reader: Option<PlayerId>,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
@@ -785,7 +789,7 @@ fn spawn_identity(
         return;
     };
     let size = plate_size(plate.lines());
-    let called = super::called(lang, view, statics, seat.player, role);
+    let called = super::called(lang, reader, statics, seat.player, role);
     let identity = frame(commands, root, seat.player, Panel::Identity);
     commands.entity(identity).insert((
         PlateTab {

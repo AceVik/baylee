@@ -51,7 +51,7 @@ fn draw(mut commands: Commands, asked: Res<Asked>, fonts: Res<UiFonts>) {
     name(
         &mut commands,
         asked.lang,
-        &asked.view,
+        Some(asked.view.seat),
         Some(&asked.statics),
         seat,
         asked.role,
@@ -399,4 +399,31 @@ fn a_long_name_gives_way_to_the_mark_and_not_the_other_way_round() {
         "the mark must not be the thing that shrinks — it is one glyph, \
              and a shrunk glyph is no glyph: {nodes:?}"
     );
+}
+
+/// "You (Alice)" is said to Alice alone. A spectator is told the table from seat
+/// 0, so a test on the view's seat would have called them Alice.
+#[test]
+fn a_seat_is_called_you_only_by_the_one_who_sits_in_it() {
+    let view = ViewBuilder::new(2).build();
+    let mut statics = baylee_client_core::test_support::statics(1);
+    statics.seats = vec![SeatIdentity {
+        player: view.seat,
+        display_name: "Alice".to_string(),
+        is_ai: false,
+        away: false,
+        team: None,
+        guest: false,
+    }];
+    let name = |reader| {
+        called(
+            Lang::En,
+            reader,
+            Some(&statics),
+            view.seat,
+            SeatRole::Present,
+        )
+    };
+    assert_eq!(name(Some(view.seat)), "You (Alice)");
+    assert_eq!(name(None), "Alice");
 }

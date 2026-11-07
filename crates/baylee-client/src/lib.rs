@@ -1431,14 +1431,23 @@ fn keep_the_table_connected(
     // the last payload that arrived and not a live one: `GameStatic` reaches a
     // client once, at join, and nothing clears it — which is what makes the
     // window readable at all, since this runs only while the socket is gone.
-    let table = Window::of(duel.statics.as_ref());
-    // Whether the engine waits for this seat (another player is here) or
-    // pauses the game: read off the last roster and view, like the window.
-    let here = baylee_client_core::reconnect::others_here(
-        duel.statics.as_ref(),
-        duel.view.as_ref(),
-        host.0.seat(),
-    );
+    // A spectator has no chair: no table waits for them and no house plays for them,
+    // so what the window and the roster would say of "your seat" is not about them.
+    // With neither, the note stays the short one, that the connection is lost.
+    let (table, here) = if duel.watching {
+        (Window::Unknown, None)
+    } else {
+        (
+            Window::of(duel.statics.as_ref()),
+            // Whether the engine waits for this seat (another player is here) or
+            // pauses the game: read off the last roster and view, like the window.
+            baylee_client_core::reconnect::others_here(
+                duel.statics.as_ref(),
+                duel.view.as_ref(),
+                host.0.seat(),
+            ),
+        )
+    };
     match host.0.link() {
         // `Local` is a host with no socket to lose, and the schedule must
         // never start on one: an in-process engine would otherwise be

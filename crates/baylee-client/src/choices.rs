@@ -780,7 +780,7 @@ pub fn options<'a>(
                                     baylee_client_core::board::SeatRole::Present,
                                     baylee_client_core::board::SeatRole::of,
                                 );
-                            crate::hud::seatbar::called(lang, view, statics, *p, role)
+                            crate::hud::seatbar::called(lang, Some(view.seat), statics, *p, role)
                         },
                     );
                     ChoiceOption::text(i, label)

@@ -93,6 +93,12 @@ fn single<C: Component>(app: &mut App) -> Entity {
 /// `shown` open, and kept by [`stack::fold_the_stack`] as the client keeps
 /// it.
 fn laid_out_on_a_phone(window: Vec2, shown: f32) -> App {
+    laid_out_for(window, shown, false)
+}
+
+/// The same for someone who sits there or, `watching`, for a spectator, whom the
+/// table is waiting for nothing from.
+fn laid_out_for(window: Vec2, shown: f32, watching: bool) -> App {
     bevy::tasks::IoTaskPool::get_or_init(Default::default);
     let (mut app, fonts) = crate::face::tests::layout_app();
     let (mut duel, texts) = stack_tests::hovering_the_stack(false);
@@ -104,6 +110,7 @@ fn laid_out_on_a_phone(window: Vec2, shown: f32) -> App {
         }),
         TargetRef::Player(PlayerId::new(1)),
     ];
+    view.awaiting = Some(view.seat);
     duel.receive_view(view);
     crate::rebuild_board(&mut duel);
     duel.hand_shown = shown;
@@ -147,6 +154,7 @@ fn laid_out_on_a_phone(window: Vec2, shown: f32) -> App {
             duel.board.as_ref().expect("a board"),
             view,
             duel.statics.as_ref().expect("a table"),
+            ((!watching).then_some(view.seat), watching),
             &stack::Picks {
                 hovered: None,
                 selected: &[],
@@ -223,4 +231,39 @@ fn a_phone_shows_the_top_entry_its_targets_and_its_sentence() {
             );
         }
     }
+}
+
+/// Someone who only watches has nothing to answer: no way to resolve the stack,
+/// and the table is not waiting for them. It said both, to seat 0's spectator.
+#[test]
+fn a_spectator_is_offered_no_stack_controls_and_is_not_waited_for() {
+    use baylee_client_core::i18n::{Lang, Phrase};
+    let said = |app: &mut App| -> Vec<String> {
+        let world = app.world_mut();
+        let mut said: Vec<String> = world
+            .query::<&Text>()
+            .iter(world)
+            .map(|text| text.0.clone())
+            .collect();
+        said.extend(
+            world
+                .query::<&TextSpan>()
+                .iter(world)
+                .map(|span| span.0.clone()),
+        );
+        said
+    };
+    // A desktop's window: on a phone the shelf carries "resolve the stack".
+    let window = Vec2::new(1440.0, 900.0);
+    let waiting = Phrase::WaitingForYou.text(Lang::De);
+    let run = Phrase::StackRun.text(Lang::De);
+
+    let mut seated = laid_out_for(window, 0.0, false);
+    let words = said(&mut seated);
+    assert!(words.iter().any(|w| w == waiting), "the control: {words:?}");
+    assert!(words.iter().any(|w| w == run), "the control: {words:?}");
+
+    let mut watching = laid_out_for(window, 0.0, true);
+    let words = said(&mut watching);
+    assert!(!words.iter().any(|w| w == waiting || w == run), "{words:?}");
 }

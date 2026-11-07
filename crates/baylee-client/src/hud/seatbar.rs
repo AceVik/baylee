@@ -563,6 +563,7 @@ pub fn sync_seat_bars(
                 &mut commands,
                 root,
                 lang,
+                duel.reader(),
                 view,
                 duel.statics.as_ref(),
                 seat,
@@ -578,6 +579,7 @@ pub fn sync_seat_bars(
         let bar = spawn_bar(
             &mut commands,
             lang,
+            duel.reader(),
             view,
             duel.statics.as_ref(),
             seat,
@@ -597,6 +599,7 @@ pub fn sync_seat_bars(
 fn spawn_bar(
     commands: &mut Commands,
     lang: Lang,
+    reader: Option<PlayerId>,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &SeatView,
@@ -690,7 +693,7 @@ fn spawn_bar(
                 Cell::Caret => caret(commands, view, seat, fonts, width, height),
                 Cell::Swatch => swatch(commands, view, statics, seat, width, height),
                 Cell::Name => name(
-                    commands, lang, view, statics, seat, role, fonts, width, height,
+                    commands, lang, reader, statics, seat, role, fonts, width, height,
                 ),
                 Cell::Life => life(commands, seat, fonts, width, height, density),
                 Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
@@ -937,7 +940,7 @@ fn swatch(
 /// name one seat two ways.
 pub(crate) fn called(
     lang: Lang,
-    view: &PlayerView,
+    reader: Option<PlayerId>,
     statics: Option<&GameStatic>,
     player: PlayerId,
     role: SeatRole,
@@ -959,7 +962,7 @@ pub(crate) fn called(
     } else {
         printed
     };
-    if player == view.seat {
+    if Some(player) == reader {
         baylee_client_core::i18n::own_seat_name(lang, &printed)
     } else {
         printed
@@ -986,7 +989,7 @@ pub(crate) fn called(
 fn name(
     commands: &mut Commands,
     lang: Lang,
-    view: &PlayerView,
+    reader: Option<PlayerId>,
     statics: Option<&GameStatic>,
     seat: &SeatView,
     role: SeatRole,
@@ -995,7 +998,7 @@ fn name(
     height: f32,
 ) -> Entity {
     let player = seat.player;
-    let display = called(lang, view, statics, player, role);
+    let display = called(lang, reader, statics, player, role);
     let mut node = cell_node(width, height);
     node.justify_content = JustifyContent::FlexStart;
     node.overflow = Overflow::clip_x();

@@ -113,7 +113,13 @@ impl Duel {
         // A vote in progress tells every ballot cast so far, to the voter
         // and to every seat waiting on it alike (CR 608.2d, 701.38a).
         let ballots = self.view.as_ref().and_then(|view| {
-            baylee_client_core::interaction::ballots_line(lang, view, self.statics.as_ref(), &name)
+            baylee_client_core::interaction::ballots_line(
+                lang,
+                self.reader(),
+                view,
+                self.statics.as_ref(),
+                &name,
+            )
         });
         Some(match ballots {
             Some(ballots) => format!("{headline} {ballots}"),
@@ -1000,6 +1006,21 @@ impl Duel {
     #[must_use]
     pub fn seat(&self) -> Option<PlayerId> {
         self.statics.as_ref().map(|s| s.your_seat)
+    }
+
+    /// The seat this table says "you" to, and `None` for someone who only watches.
+    ///
+    /// A spectator is told the table from seat 0 (`docs/protocol.md` §"Spectators"), so
+    /// [`Self::seat`] answers for them too, and what is laid out from a seat should go on
+    /// asking it. What is *said* asks here: nobody at that table is the watcher. A replay
+    /// is watched as well, but from a seat it still reads as that seat; its public view
+    /// is the spectators'.
+    #[must_use]
+    pub fn reader(&self) -> Option<PlayerId> {
+        let public = self.replay.as_ref().map_or(self.watching, |replay| {
+            replay.perspective == baylee_client_core::replay::Perspective::Public
+        });
+        self.view.as_ref().filter(|_| !public).map(|view| view.seat)
     }
 
     /// The player whose decision this seat is making, and whose cards, mana

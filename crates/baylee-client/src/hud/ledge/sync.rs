@@ -148,8 +148,8 @@ pub fn sync_ledge(
         .id();
     commands.entity(shelf).add_child(tools);
     // A replay's bar takes the shelf's whole width: the hand's tools are
-    // the live table's.
-    let orders = if duel.replay.is_some() {
+    // the live table's, and a spectator holds no hand to sort.
+    let orders = if duel.replay.is_some() || duel.watching {
         Vec::new()
     } else if window_w >= WIDE_ENOUGH_FOR_FIVE {
         crate::hand_order::HandOrder::ALL.to_vec()

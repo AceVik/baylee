@@ -144,7 +144,13 @@ pub fn columns(duel: &Duel, lang: Lang) -> (Vec<PeekFacts>, Vec<PeekFacts>) {
         let role = crate::hud::seatbar::role_of(duel, player);
         Some(PeekFacts {
             player,
-            name: crate::hud::seatbar::called(lang, view, duel.statics.as_ref(), player, role),
+            name: crate::hud::seatbar::called(
+                lang,
+                duel.reader(),
+                duel.statics.as_ref(),
+                player,
+                role,
+            ),
             colour: crate::hud::seat_colour(view.seat, duel.statics.as_ref(), player),
             life: seat.life,
             hand: seat.hand_count,

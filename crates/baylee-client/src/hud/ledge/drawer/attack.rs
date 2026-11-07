@@ -28,7 +28,7 @@ pub(super) fn reading(
         )
     };
     let defender = |d| match d {
-        Defender::Player(p) => target_seat_name(duel, lang, view, p),
+        Defender::Player(p) => target_seat_name(duel, lang, p),
         Defender::Planeswalker(id) | Defender::Battle(id) => card(id),
     };
     let CombatFocus::Defender(aim) = i.combat_focus() else {
@@ -92,7 +92,7 @@ pub(super) fn reading(
                 };
                 let owner = view
                     .object(id)
-                    .map(|object| target_seat_name(duel, lang, view, object.controller));
+                    .map(|object| target_seat_name(duel, lang, object.controller));
                 (
                     owner.map_or_else(|| kind.to_string(), |owner| format!("{kind} · {owner}")),
                     icon,

@@ -553,3 +553,23 @@ fn a_live_link_leaves_the_duel_unchanged() {
         "a live link wrote the duel"
     );
 }
+
+/// Nobody waits for a spectator and the house plays no seat of theirs, whoever else
+/// is at the table: all the bar can say is that the connection is lost. It said "the
+/// game is paused until you are back" to someone the game had never waited for.
+#[test]
+fn a_spectator_is_told_only_that_the_connection_is_lost() {
+    for alone_with_the_house in [false, true] {
+        let (mut app, _link, _dials) = app_with(LinkState::Down, ORDINARY);
+        let mut duel = app.world_mut().resource_mut::<Duel>();
+        duel.watching = true;
+        if alone_with_the_house {
+            duel.statics.as_mut().expect("told").seats[1] = opponent(true);
+        }
+        advance(&mut app, Retry::PATIENCE + 1.0);
+        assert_eq!(
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+            Some(Phrase::LinkLost),
+        );
+    }
+}

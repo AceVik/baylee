@@ -1861,7 +1861,7 @@ fn a_vote_is_headed_as_one_and_its_ballots_are_told() {
     view.seat = me();
     let name = |id: ObjectId| (id == obj(1)).then(|| "Sol Ring".to_string());
     assert_eq!(
-        crate::interaction::ballots_line(Lang::En, &view, Some(&roster), &name),
+        crate::interaction::ballots_line(Lang::En, Some(view.seat), &view, Some(&roster), &name),
         None
     );
     view.ballots = vec![
@@ -1875,11 +1875,20 @@ fn a_vote_is_headed_as_one_and_its_ballots_are_told() {
         },
     ];
     assert_eq!(
-        crate::interaction::ballots_line(Lang::En, &view, Some(&roster), &name).as_deref(),
+        crate::interaction::ballots_line(Lang::En, Some(view.seat), &view, Some(&roster), &name)
+            .as_deref(),
         Some("Votes so far: AceVik for Sol Ring, You for a permanent")
     );
     assert_eq!(
-        crate::interaction::ballots_line(Lang::De, &view, Some(&roster), &name).as_deref(),
+        crate::interaction::ballots_line(Lang::De, Some(view.seat), &view, Some(&roster), &name)
+            .as_deref(),
         Some("Bisherige Stimmen: AceVik für Sol Ring, Du für ein Permanent")
+    );
+    // A spectator has no vote of theirs among these: seat 0 goes by its name. The
+    // roster here calls it "You", as `LocalHost` does, so it is named first.
+    roster.seats[0].display_name = "Ada".to_string();
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::En, None, &view, Some(&roster), &name).as_deref(),
+        Some("Votes so far: AceVik for Sol Ring, Ada for a permanent")
     );
 }

@@ -857,6 +857,7 @@ fn priority_line(lang: Lang, turn: Turn) -> String {
 #[must_use]
 pub fn ballots_line(
     lang: Lang,
+    reader: Option<PlayerId>,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     name: &dyn Fn(ObjectId) -> Option<String>,
@@ -868,7 +869,7 @@ pub fn ballots_line(
         .ballots
         .iter()
         .map(|ballot| {
-            let voter = if ballot.voter == view.seat {
+            let voter = if Some(ballot.voter) == reader {
                 Phrase::You.text(lang).to_owned()
             } else {
                 seat_name(lang, statics, ballot.voter)

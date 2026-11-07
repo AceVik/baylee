@@ -60,8 +60,9 @@ where
 pub struct Wording<'a> {
     /// The language to write in.
     pub lang: Lang,
-    /// The reading seat. Every line about it is written in the second person.
-    pub seat: PlayerId,
+    /// The reading seat. Every line about it is written in the second person. `None`
+    /// for a reader with no seat, a spectator: every seat is then named.
+    pub seat: Option<PlayerId>,
     /// The roster, which names every other seat ([`seat_name`]). `None`
     /// numbers them.
     pub statics: Option<&'a GameStatic>,

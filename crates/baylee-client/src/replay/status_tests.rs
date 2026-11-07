@@ -431,3 +431,26 @@ fn an_override_applies_only_to_the_perspective_it_was_set_for() {
     // And it does not carry over to the seat that shows its hand.
     assert!(ui.hand_open(&status(0, 3, Perspective::Seat(seat(2)), EVERYTHING)));
 }
+
+/// Who the table says "you" to. A replay is watched, but from a seat it reads as
+/// that seat; its public view is the spectators', and a spectator is nobody here.
+#[test]
+fn the_table_speaks_to_a_seat_and_never_to_a_spectator() {
+    let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+    let sits = view.seat;
+    let duel = |watching, replay| crate::Duel {
+        view: Some(view.clone()),
+        watching,
+        replay,
+        ..crate::Duel::default()
+    };
+    let replay = |perspective| Some(status(0, 2, perspective, EVERYTHING));
+    assert_eq!(duel(false, None).reader(), Some(sits));
+    assert_eq!(duel(true, None).reader(), None);
+    assert_eq!(
+        duel(true, replay(Perspective::Seat(sits))).reader(),
+        Some(sits)
+    );
+    assert_eq!(duel(true, replay(Perspective::Public)).reader(), None);
+    assert_eq!(crate::Duel::default().reader(), None, "no view, no reader");
+}

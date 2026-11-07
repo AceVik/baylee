@@ -1198,6 +1198,7 @@ fn combat_lines(
     // side is still choosing blockers is exactly the thing you need to be able
     // to read.
     if let Some((text, threatened)) = crate::hud::rail::incoming_line(
+        duel.reader(),
         view,
         duel.interaction.as_ref(),
         duel.statics.as_ref(),
@@ -1689,19 +1690,14 @@ const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
     }
 }
 
-fn target_seat_name(
-    duel: &Duel,
-    lang: Lang,
-    view: &baylee_view::PlayerView,
-    seat: baylee_core::ids::PlayerId,
-) -> String {
+fn target_seat_name(duel: &Duel, lang: Lang, seat: baylee_core::ids::PlayerId) -> String {
     use baylee_client_core::board::SeatRole;
     let role = duel
         .statics
         .as_ref()
         .and_then(|s| s.seats.iter().find(|s| s.player == seat))
         .map_or(SeatRole::Present, SeatRole::of);
-    crate::hud::seatbar::called(lang, view, duel.statics.as_ref(), seat, role)
+    crate::hud::seatbar::called(lang, duel.reader(), duel.statics.as_ref(), seat, role)
 }
 
 /// Whether a target list is long enough to page, or filtered already: the
@@ -1740,7 +1736,7 @@ fn target_filters(duel: &Duel, lang: Lang) -> Vec<crate::choices::ChoiceOption> 
         if !targeting::filtered(i.pending(), view, Some(seat.player)).is_empty() {
             rows.push(row(
                 Some(seat.player),
-                target_seat_name(duel, lang, view, seat.player),
+                target_seat_name(duel, lang, seat.player),
             ));
         }
     }
@@ -1820,14 +1816,14 @@ fn target_reading(
     }
     let options = targeting::options(i.pending());
     let label = |target: Target| match target {
-        Target::Player(p) => target_seat_name(duel, lang, view, p),
+        Target::Player(p) => target_seat_name(duel, lang, p),
         Target::Object(id) => view.object(id).map_or_else(
             || format!("#{id:?}"),
             |o| {
                 format!(
                     "{} — {}",
                     crate::face::name_of(o, view, texts),
-                    target_seat_name(duel, lang, view, o.controller)
+                    target_seat_name(duel, lang, o.controller)
                 )
             },
         ),

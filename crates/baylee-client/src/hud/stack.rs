@@ -1050,6 +1050,7 @@ pub(super) fn spawn_stack_panel(
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     statics: &GameStatic,
+    (reader, watching): (Option<PlayerId>, bool),
     picks: &Picks<'_>,
     textures: &mut CardTextures,
     assets: &AssetServer,
@@ -1159,7 +1160,7 @@ pub(super) fn spawn_stack_panel(
                 Text::new(waiting_line(
                     lang,
                     statics.seat_name(holder),
-                    holder == view.seat,
+                    Some(holder) == reader,
                 )),
                 tf(fonts, 11.0),
                 TextColor(palette::MUTED),
@@ -1202,7 +1203,7 @@ pub(super) fn spawn_stack_panel(
     commands.entity(head).add_child(toggle);
     // Above the list, except on a phone, where the list comes first and the
     // controls give way to it (`spawn_controls`).
-    if !room.phone {
+    if !room.phone && !watching {
         spawn_controls(commands, panel, selected, orders, lang, view, fonts, false);
     }
     let start = window_start(scroll.y, full_height).min(board.stack.len().saturating_sub(1));
@@ -1260,6 +1261,7 @@ pub(super) fn spawn_stack_panel(
             selected == Some(item.id),
             view,
             statics,
+            reader,
             picks,
             textures,
             assets,
@@ -1275,7 +1277,7 @@ pub(super) fn spawn_stack_panel(
         let gap = spacer(commands, rows_height(end, board.stack.len(), full_height));
         commands.entity(body).add_child(gap);
     }
-    if room.phone {
+    if room.phone && !watching {
         spawn_controls(commands, panel, selected, orders, lang, view, fonts, true);
     }
     panel

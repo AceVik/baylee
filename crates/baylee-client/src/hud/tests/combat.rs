@@ -30,9 +30,15 @@ fn attacked_by(power: i16, blocked: bool) -> PlayerView {
 #[test]
 fn an_attack_aimed_at_this_seat_is_read_out_and_marked() {
     let view = attacked_by(3, false);
-    let (line, threatened) =
-        rail::incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
-            .expect("combat is declared");
+    let (line, threatened) = rail::incoming_line(
+        Some(view.seat),
+        &view,
+        None,
+        None,
+        &CardTexts::default(),
+        Lang::En,
+    )
+    .expect("combat is declared");
     assert!(
         line.contains('3'),
         "the number that gets through is in the line: {line}"
@@ -46,9 +52,15 @@ fn an_attack_aimed_at_this_seat_is_read_out_and_marked() {
 #[test]
 fn a_blocked_attack_is_still_read_out_but_no_longer_marked() {
     let view = attacked_by(3, true);
-    let (line, threatened) =
-        rail::incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
-            .expect("combat is declared");
+    let (line, threatened) = rail::incoming_line(
+        Some(view.seat),
+        &view,
+        None,
+        None,
+        &CardTexts::default(),
+        Lang::En,
+    )
+    .expect("combat is declared");
     assert!(
         !threatened,
         "nothing reaches this seat once the attacker is blocked: {line}"
@@ -60,7 +72,17 @@ fn there_is_no_line_when_nobody_is_attacking() {
     let view = ViewBuilder::new(2)
         .with_battlefield(0, vec![token(1, 0, "Bear", 2, 2)])
         .build();
-    assert!(rail::incoming_line(&view, None, None, &CardTexts::default(), Lang::En).is_none());
+    assert!(
+        rail::incoming_line(
+            Some(view.seat),
+            &view,
+            None,
+            None,
+            &CardTexts::default(),
+            Lang::En
+        )
+        .is_none()
+    );
 }
 
 #[test]
@@ -88,4 +110,16 @@ fn the_aim_line_says_nothing_about_a_card_choice() {
         rail::combat_line(&interaction, &view, None, &CardTexts::default(), Lang::En).is_none(),
         "but it is not a combat aim, and this line only speaks for combat"
     );
+}
+
+/// A spectator is told who is attacked, and nothing is aimed at them: the line
+/// says no "you" and wears no threat's colour.
+#[test]
+fn an_attack_read_by_a_spectator_is_aimed_at_a_seat_and_not_at_them() {
+    let view = attacked_by(3, false);
+    let (line, threatened) =
+        rail::incoming_line(None, &view, None, None, &CardTexts::default(), Lang::En)
+            .expect("combat is declared");
+    assert!(!line.contains(Phrase::IncomingYou.text(Lang::En)), "{line}");
+    assert!(!threatened);
 }

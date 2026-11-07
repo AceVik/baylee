@@ -91,7 +91,7 @@ impl Writer<'_> {
             let named: Vec<Piece> = targets
                 .iter()
                 .map(|target| match target {
-                    LogTarget::Player(player) if *player == self.wording.seat => {
+                    LogTarget::Player(player) if Some(*player) == self.wording.seat => {
                         self.you(Phrase::LogYouSubject)
                     }
                     LogTarget::Player(player) => self.seat(*player),
@@ -171,10 +171,15 @@ impl Writer<'_> {
     fn you(&self, you: Phrase) -> Piece {
         let text = you.text(self.wording.lang);
         Piece {
-            players: vec![PlayerSpan {
-                range: 0..text.len(),
-                player: self.wording.seat,
-            }],
+            players: self
+                .wording
+                .seat
+                .map(|player| PlayerSpan {
+                    range: 0..text.len(),
+                    player,
+                })
+                .into_iter()
+                .collect(),
             lower: true,
             ..Piece::plain(text)
         }
@@ -187,7 +192,7 @@ impl Writer<'_> {
     /// Another seat's name, or nothing for the reading seat, whose sentence
     /// says "you" and has no `{0}`.
     fn seat(&self, player: PlayerId) -> Piece {
-        if player == self.wording.seat {
+        if Some(player) == self.wording.seat {
             Piece::default()
         } else {
             let name = seat_name(self.wording.lang, self.wording.statics, player);
@@ -227,7 +232,7 @@ impl Writer<'_> {
         n: Option<usize>,
         rest: Vec<Piece>,
     ) -> Piece {
-        let phrase = if player == self.wording.seat {
+        let phrase = if Some(player) == self.wording.seat {
             you
         } else {
             other
@@ -333,7 +338,7 @@ impl Writer<'_> {
     }
 
     fn zone(&self, owner: PlayerId, zone: LogZone, into: bool) -> Piece {
-        let yours = owner == self.wording.seat;
+        let yours = Some(owner) == self.wording.seat;
         let phrase = match (zone, into) {
             (LogZone::Library, false) if yours => Phrase::LogFromLibraryYou,
             (LogZone::Library, false) => Phrase::LogFromLibrary,
@@ -362,7 +367,7 @@ impl Writer<'_> {
     /// Where in `owner`'s library a card went, or which library when the
     /// line cannot say where in it.
     fn library_place(&self, owner: PlayerId, place: Option<LogPlace>) -> Piece {
-        let yours = owner == self.wording.seat;
+        let yours = Some(owner) == self.wording.seat;
         let (phrase, at) = match place {
             Some(LogPlace::Top) if yours => (Phrase::LogOntoLibraryTopYou, None),
             Some(LogPlace::Top) => (Phrase::LogOntoLibraryTop, None),
@@ -384,13 +389,13 @@ impl Writer<'_> {
             return Piece::default();
         };
         let own = match zone {
-            LogZone::Hand if owner == player && owner != self.wording.seat => {
+            LogZone::Hand if owner == player && Some(owner) != self.wording.seat => {
                 Some(Phrase::LogFromOwnHand)
             }
-            LogZone::Library if owner == player && owner != self.wording.seat => {
+            LogZone::Library if owner == player && Some(owner) != self.wording.seat => {
                 Some(Phrase::LogFromOwnLibrary)
             }
-            LogZone::Graveyard if owner == player && owner != self.wording.seat => {
+            LogZone::Graveyard if owner == player && Some(owner) != self.wording.seat => {
                 Some(Phrase::LogFromOwnGraveyard)
             }
             _ => None,
@@ -441,7 +446,7 @@ impl Writer<'_> {
 
     fn defender(&self, defending: Defender) -> (bool, Piece) {
         match defending {
-            Defender::Player(player) => (player == self.wording.seat, self.seat(player)),
+            Defender::Player(player) => (Some(player) == self.wording.seat, self.seat(player)),
             Defender::Planeswalker(id) => (
                 false,
                 self.defenders.get(&id).map_or_else(
@@ -625,7 +630,7 @@ impl Writer<'_> {
             } => {
                 let (you, victim, subject) = match target {
                     LogTarget::Player(player) => (
-                        *player == self.wording.seat,
+                        Some(*player) == self.wording.seat,
                         self.seat(*player),
                         Some(*player),
                     ),
@@ -792,10 +797,10 @@ impl Writer<'_> {
                 let seat = self.wording.seat;
                 let mut names: Vec<Piece> = winners
                     .iter()
-                    .filter(|player| *player != seat)
+                    .filter(|player| Some(*player) != seat)
                     .map(|player| self.seat(player))
                     .collect();
-                if winners.contains(seat) {
+                if seat.is_some_and(|seat| winners.contains(seat)) {
                     if names.is_empty() {
                         return self.phrase(Phrase::LogWonYou, &[]);
                     }

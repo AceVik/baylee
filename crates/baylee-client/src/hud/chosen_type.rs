@@ -313,7 +313,7 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
             if let Some(protector) = object.battle_protector {
                 let called = super::seatbar::called(
                     lang,
-                    view,
+                    duel.reader(),
                     duel.statics.as_ref(),
                     protector,
                     super::seatbar::role_of(duel, protector),
@@ -325,7 +325,7 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                     0,
                     super::seatbar::called(
                         lang,
-                        view,
+                        duel.reader(),
                         duel.statics.as_ref(),
                         opponent,
                         super::seatbar::role_of(duel, opponent),

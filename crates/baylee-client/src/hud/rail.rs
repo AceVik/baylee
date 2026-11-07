@@ -389,6 +389,7 @@ pub(super) fn combat_line(
 /// which is the one case the line is worth drawing in a colour that carries.
 #[must_use]
 pub(super) fn incoming_line(
+    reader: Option<PlayerId>,
     view: &PlayerView,
     interaction: Option<&baylee_client_core::Interaction>,
     statics: Option<&GameStatic>,
@@ -400,7 +401,7 @@ pub(super) fn incoming_line(
         return None;
     }
     let name = |end: LineEnd| match end {
-        LineEnd::Seat(p) if p == view.seat => Phrase::IncomingYou.text(lang).to_string(),
+        LineEnd::Seat(p) if Some(p) == reader => Phrase::IncomingYou.text(lang).to_string(),
         LineEnd::Seat(p) => statics.map_or_else(
             || Phrase::ASeat.text(lang).to_string(),
             |s| s.seat_name(p).to_string(),
@@ -413,7 +414,7 @@ pub(super) fn incoming_line(
     let threatened = combat
         .tallies
         .iter()
-        .any(|t| t.unblocked > 0 && t.at == LineEnd::Seat(view.seat));
+        .any(|t| t.unblocked > 0 && reader.is_some_and(|seat| t.at == LineEnd::Seat(seat)));
     let text = combat
         .tallies
         .iter()
