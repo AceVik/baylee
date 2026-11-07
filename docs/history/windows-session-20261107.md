@@ -20,6 +20,12 @@ Fix it, with a test where one is possible.
 and for `baylee_client` alone. Whether the profile applies from another checkout path is measured on
 the Mac; read that first. Keep `merged.profdata`, and say where it is.
 
+Measured on the Mac, 7 November: the profile applies from another checkout path. `cargo tools pgo
+client ship` in a second worktree, several commits on from the training, left 6 021 of 253 812 functions
+without counts (2.4 %) and 626 of 44 538 in `baylee_client` (1.4 %), against 2.3 % and 1.0 % in the
+checkout that trained. So a row on another machine can build from an uploaded profile. Windows paths
+were not part of that.
+
 Before the run: `rustup component add llvm-tools`, check `/monitors` and set `BAYLEE_E2E_MONITOR`.
 The profile lands in `target/pgo-profiles/client/merged.profdata`. Untested on Windows: the whole run,
 leaving through the idle exit and writing the `.profraw`, `dist` with a profile on MSVC, the scenes.
