@@ -7,7 +7,9 @@ embedding does.
 
 `--anchor-l2` adds the squared distance of every trainable weight from its
 `--init` value to the loss (L2-SP), so a fine-tune can move only as far as the
-data pays for. It replaces weight decay, which would pull toward zero instead.
+data pays for. In the plain optimizer groups it replaces weight decay, which would
+pull toward zero instead; the relational groups (`--relational-lr`) keep their
+recipe's decay, which shrinks a weight by under 0.1 % over 4,000 updates at lr 2e-5.
 """
 import torch
 

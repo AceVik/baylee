@@ -75,7 +75,7 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--train-rules-only", action="store_true",
                     help="Train only the rule encoder (rules.*) through the network as --init gave it; every other weight stays frozen")
     ap.add_argument("--anchor-l2", type=float, default=0.,
-                    help="Add this times the squared distance of every trainable weight from its --init value (L2-SP); replaces weight decay; needs --init")
+                    help="Add this times the squared distance of every trainable weight from its --init value (L2-SP); replaces weight decay in the plain optimizer groups (relational groups keep theirs); needs --init")
     ap.add_argument("--encoder-warmstart-to9", action="store_true", help="Fresh E7/E8 weights-only transfer; zero new trainable global columns, no behavior-equivalence claim")
     ap.add_argument("--encoder-warmstart-from7", action="store_true", help="Explicit new Encoder8 experiment: load Encoder7 weights only; never resume/relabel")
     ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
