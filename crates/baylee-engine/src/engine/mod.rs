@@ -2230,6 +2230,8 @@ mod player_damage_tests;
 #[cfg(test)]
 mod printed_tests;
 #[cfg(test)]
+mod priority_after_resolve_tests;
+#[cfg(test)]
 mod priority_tests;
 #[cfg(test)]
 mod protection_flow_tests;
