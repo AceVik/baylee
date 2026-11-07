@@ -204,8 +204,9 @@ pub(super) fn wears_header(state: &LobbyState) -> bool {
     signed_in && (matches!(state.lobby.screen(), Screen::Table) || state.showing_gateway_hub())
 }
 
-/// The account pill's handle: `GET /me`'s, a kept guest's, Central's profile
-/// handle (`Name#Tag`), else none yet.
+/// The account pill's handle: `GET /me`'s, the guest this session is, Central's
+/// profile handle (`Name#Tag`), else none yet. A guest kept for this gateway says
+/// nothing about an account signed in here.
 pub(crate) fn handle(state: &LobbyState) -> Option<String> {
     if state.lobby.offline() {
         return None;
@@ -215,7 +216,10 @@ pub(crate) fn handle(state: &LobbyState) -> Option<String> {
         .me()
         .map(|me| me.handle.clone())
         .filter(|h| !h.is_empty())
-        .or_else(|| state.lobby.kept_guest().map(|g| g.handle.clone()))
+        .or_else(|| {
+            let kept = state.lobby.kept_guest().filter(|_| state.lobby.guest());
+            kept.map(|g| g.handle.clone())
+        })
         .or_else(|| {
             #[cfg(not(target_arch = "wasm32"))]
             {

@@ -2002,6 +2002,9 @@ impl Lobby {
     /// far dropped, and the player told what a guest is.
     fn enter_as_guest(&mut self, kept: KeptGuest) {
         self.performer = Performer::Guest(kept.token.clone());
+        // Central's record came along to this gateway, and this is not that
+        // account. Without it the shell asks `GET /me` who the guest is.
+        self.me = None;
         self.discover_seats = true;
         self.reclaimed.clear();
         self.resume_candidates.clear();

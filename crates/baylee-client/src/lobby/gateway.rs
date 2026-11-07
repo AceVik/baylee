@@ -40,7 +40,7 @@ impl LobbyState {
         let settings_open = self.lobby.settings_open();
         let central_me = self
             .central_ready()
-            .then(|| self.lobby.me().cloned())
+            .then(|| self.lobby.me().filter(|me| !me.guest).cloned())
             .flatten();
         let central_decks = self.central_ready().then(|| self.lobby.decks().to_vec());
         let central_house = self

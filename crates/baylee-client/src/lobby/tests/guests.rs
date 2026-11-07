@@ -271,3 +271,64 @@ fn the_guest_routes_carry_what_the_gateway_reads() {
         })
     );
 }
+
+/// A Central account that goes in as a guest here is the guest: the pill says
+/// so, and Central's record is gone, so `GET /me` is asked who that is.
+#[test]
+fn a_guest_is_not_the_central_account_it_came_from() {
+    let mut app = welcoming();
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+        handle: "Anna#0001".to_string(),
+        guest: false,
+    });
+    state.lobby.set_field(Field::Username, "Anna");
+    state.lobby.apply(LobbyEvent::GuestIn(kept()));
+    assert_eq!(crate::lobby::handle(&state).as_deref(), Some("Casper#0007"));
+    assert_eq!(state.lobby.me(), None);
+}
+
+/// An account signed in here is not the guest this device keeps for the
+/// gateway, before `GET /me` has answered as much as after.
+#[test]
+fn an_account_is_not_the_guest_kept_for_its_gateway() {
+    let mut app = welcoming();
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    state.lobby.keep_guest(Some(kept()));
+    state.lobby.set_field(Field::Username, "Anna");
+    state.lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: None,
+    });
+    assert_eq!(crate::lobby::handle(&state).as_deref(), Some("Anna"));
+    state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+        handle: "Anna#0001".to_string(),
+        guest: false,
+    });
+    assert_eq!(crate::lobby::handle(&state).as_deref(), Some("Anna#0001"));
+}
+
+/// Choosing the next gateway carries Central's own record along, and never a
+/// guest's: that guest belongs to the gateway being left.
+#[test]
+fn choosing_a_gateway_leaves_a_guests_record_behind() {
+    let mut state = LobbyState::new();
+    state.gateways = vec!["https://one.test".into(), "https://two.test".into()];
+    let (handle, _jobs) = super::super::central::Handle::queued_for_test();
+    state.central.as_mut().expect("Central is on").handle = Some(handle);
+    state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+        handle: "Anna#0001".to_string(),
+        guest: false,
+    });
+    assert!(state.select_gateway(0));
+    assert_eq!(
+        state.lobby.me().map(|me| me.handle.as_str()),
+        Some("Anna#0001")
+    );
+    state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+        handle: "Casper#0007".to_string(),
+        guest: true,
+    });
+    assert!(state.select_gateway(1));
+    assert_eq!(state.lobby.me(), None);
+}
