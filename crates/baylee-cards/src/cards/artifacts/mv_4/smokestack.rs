@@ -10,7 +10,7 @@ card!(
     index = index::SMOKESTACK,
     oracle_id = "fda61506-ed79-47fd-badd-639185297913",
     scryfall_id = "6a37ab2d-094f-431e-878f-93aef0360413",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Smokestack",
         mana_cost = mana!("{4}"),
