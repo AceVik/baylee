@@ -369,7 +369,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // names the shape.
     // `PublicObject::name` is a `SharedName`: the same string on the wire
     // (`shared_name.rs` tests it), so 86 still names the shape.
-    const RECORDED: (u32, u64) = (89, 2_318_126_510_594_302_051);
+    // 90: madness as imported engine variants a reader of 89 cannot parse; the
+    // view's own declarations are unchanged, so only the number moves.
+    const RECORDED: (u32, u64) = (90, 2_318_126_510_594_302_051);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
