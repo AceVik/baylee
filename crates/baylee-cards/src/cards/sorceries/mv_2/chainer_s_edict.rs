@@ -11,7 +11,7 @@ card!(
     oracle_id = "7975cb9d-d37e-44f8-9614-86d2ad453c35",
     scryfall_id = "a1d194d7-dccf-4421-be8f-8efdcf9fbbeb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chainer's Edict",
         mana_cost = mana!("{1}{B}"),
