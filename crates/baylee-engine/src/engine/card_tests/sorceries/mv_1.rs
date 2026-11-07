@@ -19,6 +19,7 @@ mod duress;
 mod earthquake;
 mod encroach;
 mod fireball;
+mod firebolt;
 mod forgotten_lore;
 mod gamble;
 mod gitaxian_probe;

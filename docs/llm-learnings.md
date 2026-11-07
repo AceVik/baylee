@@ -7328,3 +7328,23 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 62
   of the machine-owned cards untested, and 1,370 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-07 — Firebolt's ordinary damage and exact Flashback cost
+
+- Firebolt composes the existing two-damage any-target spell with its face-level
+  flashback cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  Three canonical tests pay {R} for ordinary spells aimed separately at a player
+  and a creature, verify exactly two damage and the graveyard destination, then
+  cast the graveyard incarnation for {4}{R} and verify the repeated damage and
+  exile. Four red mana make the graveyard card neither castable nor payable.
+- Removing ability zero with `BAYLEE_MUTATE=5211:0` kills both damage tests;
+  the insufficient-mana test remains a green control. Flashback is face data and
+  therefore has no separate ability mutation target.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 61 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
