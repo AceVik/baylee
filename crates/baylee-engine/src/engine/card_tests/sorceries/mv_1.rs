@@ -10,6 +10,7 @@ mod builder_s_bane;
 mod cabal_therapy;
 mod cateran_summons;
 mod chain_lightning;
+mod chatter_of_the_squirrel;
 mod cloak_of_feathers;
 mod detonate;
 mod disentomb;

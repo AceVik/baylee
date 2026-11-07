@@ -12,7 +12,7 @@ card!(
     oracle_id = "b0aaa4b1-5188-43a6-997d-7a9b2ad452bc",
     scryfall_id = "5f7e1991-9ffa-4a57-b8eb-ebe542a47f09",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chatter of the Squirrel",
         mana_cost = mana!("{G}"),
