@@ -34,6 +34,10 @@
 //! it is a separate run and is not what is counted. Two builds that print the
 //! same lines played the same games and showed their seats the same things;
 //! `hashes` alone may move, and only where a commit says it moved them.
+//!
+//! `--game <id>` plays one game of the set, as one engine process does, and
+//! `--rss` (`frames` only) writes the resident set to stderr as it goes, for
+//! comparing allocators (Linux).
 
 use std::hint::black_box;
 use std::path::Path;
@@ -71,6 +75,9 @@ const SEEDS: [u64; 2] = [11, 12];
 
 /// Answers a game may take before it is stopped, every seat's together.
 const MAX_ANSWERS: u64 = 3000;
+
+/// Answers between two `--rss` samples.
+const RSS_EVERY: u64 = 100;
 
 /// Worlds forked at a searched decision.
 #[cfg(feature = "simulation")]
@@ -294,13 +301,37 @@ fn answer(session: &mut Session, seat: PlayerId, pending: &Pending, digests: &mu
     })
 }
 
-fn frames(game: &Game, verify: bool) -> Played {
+/// Writes this process's resident set and its peak so far to stderr, in KiB, off
+/// `/proc/self/status`: stderr, so that `--verify` output stays what it is.
+fn report_rss(game: &str, answers: u64) {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let kib = |field: &str| {
+        status
+            .lines()
+            .find_map(|line| line.strip_prefix(field))
+            .and_then(|rest| rest.split_whitespace().next())
+            .unwrap_or("0")
+            .to_owned()
+    };
+    eprintln!(
+        "rss {game} answers={answers} kib={} peak={}",
+        kib("VmRSS:"),
+        kib("VmHWM:")
+    );
+}
+
+fn frames(game: &Game, verify: bool, rss: bool) -> Played {
     let mut session = Session::new_recorded(&game.preset, "perf").expect("the preset builds");
     describe(&mut session, game);
     let seat = PlayerId::new(0);
     session.take_over(seat);
     let mut digests = Digests::new(verify);
+    let mut next_sample = 0;
     while running(&session) {
+        if rss && session.decision_seq() >= next_sample {
+            report_rss(&game.id, session.decision_seq());
+            next_sample = session.decision_seq() + RSS_EVERY;
+        }
         digests.frames(&session.pump_at_most(1));
         if session.needs_pump() {
             continue;
@@ -313,6 +344,9 @@ fn frames(game: &Game, verify: bool) -> Played {
         if !answer(&mut session, seat, &pending, &mut digests) {
             break;
         }
+    }
+    if rss {
+        report_rss(&game.id, session.decision_seq());
     }
     if verify {
         digests.record(&session.take_record());
@@ -428,12 +462,12 @@ fn search(game: &Game, verify: bool) -> Played {
 /// (`--toggle-collect`), which leaves the card registry and the deck files
 /// out of the count.
 #[inline(never)]
-fn play_all(shape: Shape, games: &[Game], verify: bool) -> Vec<Played> {
+fn play_all(shape: Shape, games: &[Game], verify: bool, rss: bool) -> Vec<Played> {
     games
         .iter()
         .map(|game| match shape {
             Shape::House => house(game, verify),
-            Shape::Frames => frames(game, verify),
+            Shape::Frames => frames(game, verify, rss),
             Shape::Decide => decide(game, verify),
             #[cfg(feature = "simulation")]
             Shape::Search => search(game, verify),
@@ -479,16 +513,25 @@ fn games() -> anyhow::Result<Vec<Game>> {
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let verify = args.iter().any(|arg| arg == "--verify");
+    let rss = args.iter().any(|arg| arg == "--rss");
     let shape = match args.first().map(String::as_str) {
         Some("house") => Shape::House,
         Some("frames") => Shape::Frames,
         Some("decide") => Shape::Decide,
         #[cfg(feature = "simulation")]
         Some("search") => Shape::Search,
-        _ => bail!("usage: engine_perf house|frames|decide|search [--verify]"),
+        _ => {
+            bail!("usage: engine_perf house|frames|decide|search [--verify] [--rss] [--game <id>]")
+        }
     };
-    let games = games()?;
-    let played = play_all(shape, &games, verify);
+    let mut games = games()?;
+    if let Some(only) = args.iter().skip_while(|arg| *arg != "--game").nth(1) {
+        games.retain(|game| game.id == *only);
+        if games.is_empty() {
+            bail!("no game {only} in the set");
+        }
+    }
+    let played = play_all(shape, &games, verify, rss);
     let (mut answers, mut forks, mut steps) = (0, 0, 0);
     for (game, game_played) in games.iter().zip(&played) {
         answers += game_played.answers;
