@@ -57,6 +57,19 @@ mod tests {
         assert!(!is_offered(&v("0.1.0-beta.9"), &v("0.1.0-beta.10")));
     }
 
+    /// The open betas: `0.2.0-beta.o1` reaches the last lettered beta, and the
+    /// next ones stay in order up to `o9`. An alphanumeric identifier compares
+    /// as text, so `o10` sorts below `o9`, and a plain `beta.1` below all of them
+    /// (`docs/releasing.md` §"Version numbers").
+    #[test]
+    fn the_open_betas_reach_the_lettered_ones_and_stop_at_nine() {
+        assert!(is_offered(&v("0.2.0-beta.o1"), &v("0.1.1-beta.9b")));
+        assert!(is_offered(&v("0.2.0-beta.o2"), &v("0.2.0-beta.o1")));
+        assert!(!is_offered(&v("0.2.0-beta.o10"), &v("0.2.0-beta.o9")));
+        assert!(!is_offered(&v("0.2.0-beta.1"), &v("0.2.0-beta.o1")));
+        assert!(is_offered(&v("0.2.1-beta.o1"), &v("0.2.0-beta.o9")));
+    }
+
     /// The lettered betas (8a, 8b) sort above every numbered one, so the
     /// release after them raises the patch (`docs/releasing.md` §"Version
     /// numbers"): a `beta.9` would never reach their installs.
