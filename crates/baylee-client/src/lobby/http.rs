@@ -1238,6 +1238,15 @@ pub(super) fn read_side<T: serde::de::DeserializeOwned>(
 /// Asks `GET {gateway}{path}` with the session, off the lobby's one-request
 /// chain (WP0b-3: `/me`, `/lobby/stats`): nothing waits for it, and an
 /// answer for a gateway since left is dropped by its epoch.
+/// Whether `token` has a bearer's shape, as an admission's is checked: it is
+/// kept and sent back, so what a gateway says here is not taken as it comes.
+pub(super) fn is_bearer(token: &str) -> bool {
+    token.len() == 64
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 /// How soon a renewal that got no answer is tried again. A bearer wants
 /// renewing well before it ends, so a dropped request costs nothing.
 const BEARER_RETRY_SECS: u64 = 15;
@@ -1258,14 +1267,14 @@ pub(super) fn renew_bearer(gateway: &str, token: &str, epoch: u64, mailbox: &Mai
     );
     let held = token.to_string();
     let box_ = Arc::clone(&mailbox.0);
-    crate::transport::fetch(request, move |answer| {
+    let receive = move |answer: ehttp::Result<ehttp::Response>| {
         let said = match read_side::<Renewed>(&answer) {
-            Side::Said(body) => Reply::Event(LobbyEvent::BearerRenewed {
+            Side::Said(body) if is_bearer(&body.token) => Reply::Event(LobbyEvent::BearerRenewed {
                 token: body.token,
                 renew_in: body.renew_in,
             }),
             Side::Expired => Reply::BearerLost,
-            Side::Nothing => Reply::Event(LobbyEvent::BearerRenewed {
+            Side::Said(_) | Side::Nothing => Reply::Event(LobbyEvent::BearerRenewed {
                 token: held,
                 renew_in: BEARER_RETRY_SECS,
             }),
@@ -1273,7 +1282,12 @@ pub(super) fn renew_bearer(gateway: &str, token: &str, epoch: u64, mailbox: &Mai
         if let Ok(mut box_) = box_.lock() {
             box_.push(Reply::Remote(epoch, Box::new(said)));
         }
-    });
+    };
+    // A bearer and a number: far less than the limit every other answer has.
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::transport::fetch_limited(request, 1024, receive);
+    #[cfg(target_arch = "wasm32")]
+    crate::transport::fetch(request, receive);
 }
 
 pub(super) fn ask_aside<T: serde::de::DeserializeOwned + Send + 'static>(

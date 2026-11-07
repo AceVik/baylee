@@ -1036,6 +1036,12 @@ async fn a_recipient_with_a_full_shelf_is_refused_one_slot_short_of_it_is_not() 
         wire::SLOTS_PER_DEVICE - 2
     ));
     assert_eq!(slots(&gw, &b1.device), 4999);
+    // Somebody else's, since one sender may hold only half of a device.
+    gw.sql(&format!(
+        "UPDATE chat_message SET sender_id = \
+         (SELECT account_id FROM social_device WHERE id = '{}')",
+        b1.device
+    ));
 
     let answer = sock
         .send(2, &text(&a1, 2, &conv, "the last that fits", &to))

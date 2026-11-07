@@ -8,8 +8,8 @@ use baylee_view::{HouseAnswer, LogTail, PlayerView};
 /// How many settings one seat may change in a game. A setting moves nothing
 /// and is recorded, so it is the one thing a seat can write into a record
 /// without the game going on, hundreds of times a second, and records are
-/// kept. A person changes a few dozen in a long game.
-pub(super) const MOST_SETTINGS: u32 = 20_000;
+/// kept. A client was measured holding about 1,300 yields and answers.
+pub(super) const MOST_SETTINGS: u32 = 5_000;
 
 impl Session {
     /// The view the house answers `player`'s question from

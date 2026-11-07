@@ -34,6 +34,18 @@ fn no_request_carries_a_password_to_a_gateway() {
     }
 }
 
+/// A renewed bearer is kept and sent back on every request, so it has to look
+/// like one, as an admission's does.
+#[test]
+fn a_bearer_is_sixty_four_lowercase_hex_digits() {
+    use super::super::http::is_bearer;
+    assert!(is_bearer(&"0a".repeat(32)));
+    assert!(!is_bearer(&"0A".repeat(32)));
+    assert!(!is_bearer(&"0a".repeat(33)));
+    assert!(!is_bearer("short"));
+    assert!(!is_bearer(&format!("{}\r\nX: y", "0a".repeat(30))));
+}
+
 /// A sentence this client does not know is the gateway's, and reads as the
 /// gateway's: it is the way round every rule of a refusal otherwise.
 #[test]

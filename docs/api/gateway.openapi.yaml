@@ -623,7 +623,7 @@ paths:
               schema:
                 type: string
         "429":
-          description: "Too many at once: try again"
+          description: "Too many from this address, or too many at once: try again"
         "503":
           description: No Baylee Central is configured, or this gateway holds no keys yet
   "/lobby/games/{id}/chairs/{seat}/ticket":
@@ -1683,7 +1683,7 @@ paths:
         "503":
           description: |-
             - The account store is unavailable
-            - This gateway has no card catalog, or its account store is unavailable
+            - This gateway has no card catalog, its account store is unavailable, or too many searches are on their way
           content:
             application/json:
               schema:
@@ -1730,7 +1730,9 @@ paths:
                 items:
                   $ref: "#/components/schemas/SearchHit"
         "400":
-          description: A query without `q`, or a `limit` that is not a number (axum's rejection)
+          description: >-
+            A query without `q`, a `limit` that is not a number (axum's rejection), or a
+            search over 150 characters
           content:
             text/plain:
               schema:
@@ -1749,6 +1751,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Over 240 searches this minute from this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "502":
           description: The card catalog failed to answer
           content:
@@ -1758,7 +1766,7 @@ paths:
         "503":
           description: |-
             - The account store is unavailable
-            - This gateway has no card catalog, or its account store is unavailable
+            - This gateway has no card catalog, its account store is unavailable, or too many searches are on their way
           content:
             application/json:
               schema:
@@ -2612,7 +2620,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "429":
-          description: The caller already hosts 8 waiting rooms
+          description: The caller already hosts 8 waiting rooms, or made 120 this hour
           content:
             application/json:
               schema:
@@ -4787,6 +4795,12 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "404":
           description: No such player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: "Too many lookups: 20 at once, then one a second"
           content:
             application/json:
               schema:
