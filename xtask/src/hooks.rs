@@ -111,7 +111,7 @@ impl Firing {
         let inventory_path = dir.join("pool-inventory.json");
         let text = fs::read_to_string(&inventory_path).with_context(|| {
             format!(
-                "reading {} (a run that names `engine::verification_tests::pool_inventory` writes it)",
+                "reading {} (a run of `baylee-card-tests-verification` that names `verification_tests::pool_inventory` writes it)",
                 inventory_path.display()
             )
         })?;
@@ -353,53 +353,117 @@ impl Verdict {
     }
 }
 
-/// The engine's library test binary, built if it is not.
-fn engine_test_binary(root: &Path) -> anyhow::Result<PathBuf> {
-    let output = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
-        .args([
-            "test",
-            "-p",
-            "baylee-engine",
-            "--lib",
-            "--no-run",
-            "--message-format=json",
-        ])
-        .current_dir(root)
-        .stderr(Stdio::inherit())
-        .output()
-        .context("building the engine's test binary")?;
-    if !output.status.success() {
-        bail!("the engine's test binary did not build");
-    }
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-            continue;
-        };
-        if v["reason"] == "compiler-artifact"
-            && v["target"]["name"] == "baylee_engine"
-            && v["profile"]["test"] == true
-            && let Some(exe) = v["executable"].as_str()
-        {
-            return Ok(PathBuf::from(exe));
-        }
-    }
-    bail!("cargo named no test binary for baylee-engine")
+/// The test binaries that play cards: the engine's own and the card test crates'
+/// (`docs/cards.md`), built if they are not, each with the tests it holds.
+struct TestBinaries {
+    /// Each binary and the package directory cargo runs it in.
+    binaries: Vec<(PathBuf, PathBuf)>,
+    /// Which binary holds a test, by its full name.
+    holder: BTreeMap<String, usize>,
 }
 
-/// Runs one mutant: `card`'s ability `index` replaced by nothing, `tests`
-/// run by `exe` from the engine's directory; its output kept in `out`.
+impl TestBinaries {
+    fn build(root: &Path) -> anyhow::Result<Self> {
+        let output = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
+            .args([
+                "test",
+                "-p",
+                "baylee-engine",
+                "-p",
+                "baylee-card-tests-*",
+                "--lib",
+                "--no-run",
+                "--message-format=json",
+            ])
+            .current_dir(root)
+            .stderr(Stdio::inherit())
+            .output()
+            .context("building the card test binaries")?;
+        if !output.status.success() {
+            bail!("the card test binaries did not build");
+        }
+        let mut binaries = Vec::new();
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            if v["reason"] == "compiler-artifact"
+                && v["profile"]["test"] == true
+                && let (Some(exe), Some(manifest)) =
+                    (v["executable"].as_str(), v["manifest_path"].as_str())
+                && let Some(dir) = Path::new(manifest).parent()
+            {
+                binaries.push((PathBuf::from(exe), dir.to_path_buf()));
+            }
+        }
+        if binaries.is_empty() {
+            bail!("cargo named no card test binary");
+        }
+        let mut holder = BTreeMap::new();
+        for (n, (exe, dir)) in binaries.iter().enumerate() {
+            let list = Command::new(exe)
+                .args(["--list", "--format", "terse"])
+                .current_dir(dir)
+                .output()
+                .with_context(|| format!("listing the tests of {}", exe.display()))?;
+            for line in String::from_utf8_lossy(&list.stdout).lines() {
+                if let Some(test) = line.strip_suffix(": test") {
+                    holder.entry(test.to_string()).or_insert(n);
+                }
+            }
+        }
+        Ok(Self { binaries, holder })
+    }
+
+    /// `tests` by the binary that holds them; a name no binary holds is left out,
+    /// and a mutant whose tests are all left out ran none.
+    fn split<'a>(&self, tests: &'a BTreeSet<String>) -> BTreeMap<usize, BTreeSet<&'a String>> {
+        let mut by = BTreeMap::<usize, BTreeSet<&String>>::new();
+        for test in tests {
+            if let Some(n) = self.holder.get(test) {
+                by.entry(*n).or_default().insert(test);
+            }
+        }
+        by
+    }
+}
+
+/// Runs one mutant in every binary that holds one of `tests`. A kill or a hang in
+/// one is the verdict; tests that all passed somewhere survived it.
 fn run_mutant(
-    exe: &Path,
-    engine_dir: &Path,
+    binaries: &TestBinaries,
     card: CardIndex,
     index: u32,
     tests: &BTreeSet<String>,
     out: &Path,
 ) -> anyhow::Result<Verdict> {
+    let mut verdict = Verdict::NoTests;
+    for (n, tests) in binaries.split(tests) {
+        let (exe, dir) = &binaries.binaries[n];
+        let out = out.with_extension(n.to_string());
+        let here = run_mutant_in(exe, dir, card, index, &tests, &out)?;
+        verdict = match (verdict, here) {
+            (_, v @ (Verdict::Killed | Verdict::Hung | Verdict::Invalid(_))) => return Ok(v),
+            (Verdict::NoTests, v) | (v, _) => v,
+        };
+    }
+    Ok(verdict)
+}
+
+/// Runs one mutant in one binary: `card`'s ability `index` replaced by nothing,
+/// `tests` run by `exe` from its package's directory; its output kept in `out`.
+fn run_mutant_in(
+    exe: &Path,
+    dir: &Path,
+    card: CardIndex,
+    index: u32,
+    tests: &BTreeSet<&String>,
+    out: &Path,
+) -> anyhow::Result<Verdict> {
     let stdout = out.with_extension("out");
     let stderr = out.with_extension("err");
     let mut child = Command::new(exe)
-        .current_dir(engine_dir)
+        .current_dir(dir)
         .env("BAYLEE_MUTATE", format!("{}:{index}", card.get()))
         .env_remove("BAYLEE_ABILITY_LOG")
         .arg("--exact")
@@ -408,7 +472,7 @@ fn run_mutant(
         .stdout(File::create(&stdout)?)
         .stderr(File::create(&stderr)?)
         .spawn()
-        .context("starting the engine's test binary")?;
+        .context("starting a card test binary")?;
     let started = Instant::now();
     let status = loop {
         if let Some(status) = child.try_wait()? {
@@ -458,8 +522,7 @@ type Job = (CardIndex, u32, BTreeSet<String>, BTreeSet<String>);
 /// A mutant judged by the card's own tests first and by the sweeps (see
 /// [`SWEEP`]) only where those let it survive.
 fn judge(
-    exe: &Path,
-    engine_dir: &Path,
+    binaries: &TestBinaries,
     (card, index): (CardIndex, u32),
     own: &BTreeSet<String>,
     sweeps: &BTreeSet<String>,
@@ -468,14 +531,13 @@ fn judge(
     let first = if own.is_empty() {
         Verdict::NoTests
     } else {
-        run_mutant(exe, engine_dir, card, index, own, out)?
+        run_mutant(binaries, card, index, own, out)?
     };
     if first.killed() || sweeps.is_empty() || matches!(first, Verdict::Invalid(_)) {
         return Ok(first);
     }
     let swept = run_mutant(
-        exe,
-        engine_dir,
+        binaries,
         card,
         index,
         sweeps,
@@ -496,7 +558,7 @@ fn judge(
 /// on `threads` threads (0 = one per core).
 ///
 /// # Errors
-/// When the test binary cannot be built or a mutant not started.
+/// When the test binaries cannot be built or a mutant not started.
 pub fn mutate(
     root: &Path,
     firing: &Firing,
@@ -509,8 +571,7 @@ pub fn mutate(
     } else {
         threads
     };
-    let exe = engine_test_binary(root)?;
-    let engine_dir = root.join("crates/baylee-engine");
+    let binaries = TestBinaries::build(root)?;
     fs::create_dir_all(work)?;
     let mut jobs: Vec<Job> = Vec::new();
     for card in cards {
@@ -554,7 +615,7 @@ pub fn mutate(
                         break;
                     };
                     let out = work.join(format!("{}-{index}", card.get()));
-                    match judge(&exe, &engine_dir, (*card, *index), own, sweeps, &out) {
+                    match judge(&binaries, (*card, *index), own, sweeps, &out) {
                         Ok(v) => {
                             verdicts
                                 .lock()
