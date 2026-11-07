@@ -171,3 +171,31 @@ fn meddling_mage_leaving_and_reentering_forgets_the_old_name() {
         "and locks Brainstorm instead"
     );
 }
+
+/// "Spells with the chosen name can't be cast" binds a cast an effect makes
+/// too: cascade or discover finds the named spell and cannot cast it, while
+/// another name goes through the same door.
+#[test]
+fn a_free_cast_cannot_cast_the_named_spell() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(604, forest())
+        .battlefield(0, &[plains(), island()])
+        .hand(0, &[meddling_mage(), sol_ring(), brainstorm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    named_mage(&mut engine, p0, sol_ring());
+    for (card, castable) in [(sol_ring(), false), (brainstorm(), true)] {
+        let object = in_hand(&engine, p0, card).expect("in hand");
+        engine
+            .state
+            .move_object(
+                object,
+                ZoneLocation::Exile(p0),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("into exile");
+        assert_eq!(engine.start_free_cast(p0, object).is_ok(), castable);
+    }
+}

@@ -809,6 +809,15 @@ impl<L: CardLookup> Engine<L> {
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
         }
+        // "Can't be cast" binds an effect's cast too (CR 601.3), or cascade
+        // would cast what Meddling Mage named.
+        if self
+            .state
+            .object(card)
+            .is_some_and(|object| casting::cast_is_forbidden(&self.state, player, object))
+        {
+            return Err(EngineError::IllegalAction("casting prohibited"));
+        }
         // A spell whose every effect sits under a mode is cast *in* a mode
         // (CR 700.2), a free cast included: cast `Normal`, Damn went to the
         // stack as a spell with nothing to do and resolved to nothing.
