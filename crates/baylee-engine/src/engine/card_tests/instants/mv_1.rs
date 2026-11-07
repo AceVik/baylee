@@ -55,6 +55,7 @@ mod electrostatic_bolt;
 mod elvish_fury;
 mod emerald_charm;
 mod enchantment_alteration;
+mod engulfing_flames;
 mod enlightened_tutor;
 mod enrage;
 mod envelop;
