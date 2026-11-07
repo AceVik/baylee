@@ -37,6 +37,7 @@ mod malevolent_rumble;
 mod martyr_s_cry;
 mod mob_justice;
 mod monstrous_growth;
+mod morgue_theft;
 mod morningtide;
 mod mulch;
 mod nature_s_lore;
