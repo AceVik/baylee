@@ -1079,3 +1079,27 @@ rest: about 1 500 entities, the median 5 to 5.6 ms on a slower build (`ci-releas
 
 The chat is bounded (500 lines a conversation, 200 drawn), and the stack panel already
 draws a window of its rows; neither was changed.
+
+## mimalloc, tried on the Mac and left out (7 November 2026)
+
+The owner allowed C code such as mimalloc in the client if it pays, and it was tried
+behind the harness's counting allocator, against the same build on the system
+allocator. M1 Max, 3 alternating pairs, load 5 to 8, median [span].
+
+| | System | mimalloc |
+| --- | ---: | ---: |
+| Main schedule p50, duel, ms | 1.79 [1.66–1.81] | 1.74 [1.65–1.75] |
+| Main schedule p50, full board, ms | 2.10 [2.04–2.20] | 2.01 [1.92–2.03] |
+| Mean frame, duel, ms | 4.59 [4.45–4.63] | 4.55 [4.52–4.99] |
+| Mean frame, full board, ms | 5.47 [5.24–6.15] | 5.30 [5.19–5.59] |
+| A whole game's CPU, s | 63.2, 63.2, 65.8 | 66.6, 64.5, 61.3 |
+| Footprint at a duel, MB | 932–947 | 997–1011 |
+
+Nothing moves outside its span but memory, which grows by about 65 MB, so it stays out.
+On a quiet machine the mean frame is 4.5 ms and p99 11 ms, against 7.7 and 25 under
+load 7 to 13: the tail of the earlier tables is partly the load.
+
+Windows and Linux have other allocators, so this says nothing of them. To check there:
+frame time, a game's CPU and memory, as here; and that the C build of mimalloc works
+on each target. It would sit under everything that comes from the network, so the
+`secure` feature would have to be measured too.
