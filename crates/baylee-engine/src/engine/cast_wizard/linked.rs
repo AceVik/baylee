@@ -141,14 +141,6 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         // A restriction sees the chosen spell face, not the card's front face.
-        let mut projected = object.clone();
-        projected.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
-            def,
-            face,
-            object.base.name,
-        ));
-        projected.cache.clear();
-        projected.face_index = u8::try_from(face).expect("bounded faces");
-        !casting::cast_is_forbidden(&self.state, player, &projected)
+        !casting::face_is_forbidden(&self.state, player, object, def, face)
     }
 }

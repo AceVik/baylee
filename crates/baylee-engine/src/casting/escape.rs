@@ -64,6 +64,7 @@ pub(crate) fn granted_escape_options(
             || (index != 0 && !face.castable_from_hand)
             || !has_a_printed_cost(&face.mana_cost)
             || !face_timing_allows(state, player, card, def, index)
+            || face_is_forbidden(state, player, object, def, index)
         {
             continue;
         }

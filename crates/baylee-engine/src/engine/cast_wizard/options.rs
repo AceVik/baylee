@@ -24,9 +24,13 @@ impl<L: CardLookup> Engine<L> {
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
         let commanded = self.commanded_card(card);
+        // Each way of casting is asked as the spell it makes: what a lock on
+        // the front stops, a back face it does not reach still casts.
+        let forbidden =
+            |face: usize| casting::face_is_forbidden(&self.state, player, obj, def, face);
         if commanded
-            && (casting::cast_is_forbidden(&self.state, player, obj)
-                || !casting::may_begin_casting(&self.state, player))
+            && (!casting::may_begin_casting(&self.state, player)
+                || (0..def.faces.len()).all(forbidden))
         {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
@@ -123,6 +127,7 @@ impl<L: CardLookup> Engine<L> {
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
                 if back.disturb
+                    && !forbidden(i)
                     && casting::face_timing_allows(&self.state, player, card, def, i)
                     && (defer_mana
                         || casting::source_affordable(
@@ -486,6 +491,9 @@ impl<L: CardLookup> Engine<L> {
         // priced and cast it. CR 715.3d is the rule it broke.
         let on_adventure = casting::adventure_only_permission(&self.state, player, card);
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
+            if forbidden(i) {
+                continue;
+            }
             let restricted = casting::planning_pool(
                 &self.state,
                 player,
@@ -615,12 +623,17 @@ impl<L: CardLookup> Engine<L> {
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.
         let front = obj.characteristics();
-        let front_now = casting::permitted_spell_types(&self.state, player, card, front.types, 0)
-            && (commanded
-                || casting::timing_allows(&self.state, player, front.types, front.keywords))
-            && casting::spell_condition_allows(&self.state, player, card, def, 0);
+        let front_timing =
+            casting::permitted_spell_types(&self.state, player, card, front.types, 0)
+                && (commanded
+                    || casting::timing_allows(&self.state, player, front.types, front.keywords))
+                && casting::spell_condition_allows(&self.state, player, card, def, 0);
+        let front_now = front_timing && !casting::cast_is_forbidden(&self.state, player, obj);
         options.retain(|o| match o.kind {
             CastModeKind::PlayLandFace(_) => true,
+            // The lock was asked of these as what they are, a prototype or a
+            // face-down spell (`casting::can_cast_form_paying`).
+            CastModeKind::Prototype | CastModeKind::Disguise => front_timing,
             CastModeKind::Foretell => {
                 casting::permitted_spell_types(&self.state, player, card, face.types, 0)
                     && (commanded

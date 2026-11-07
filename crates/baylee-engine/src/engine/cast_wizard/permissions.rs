@@ -11,7 +11,13 @@ impl<L: CardLookup> Engine<L> {
     ) -> Vec<CastModeDesc> {
         let mut options = Vec::new();
         let front = &def.faces[0];
+        let forbidden = |face: usize| {
+            self.state
+                .object(card)
+                .is_none_or(|obj| casting::face_is_forbidden(&self.state, player, obj, def, face))
+        };
         if !front.types.contains(baylee_core::types::TypeSet::LAND)
+            && !forbidden(0)
             && casting::face_timing_allows(&self.state, player, card, def, 0)
             && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
         {
@@ -23,7 +29,8 @@ impl<L: CardLookup> Engine<L> {
         }
         let on_adventure = casting::adventure_only_permission(&self.state, player, card);
         for (face, _) in casting::castable_back_faces(def, on_adventure) {
-            if casting::face_timing_allows(&self.state, player, card, def, face)
+            if !forbidden(face)
+                && casting::face_timing_allows(&self.state, player, card, def, face)
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, face)
                 && casting::free_face_affordable(&self.state, player, card, def, face)
             {

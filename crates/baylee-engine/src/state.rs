@@ -217,6 +217,9 @@ pub(crate) const NAMELESS: NameRef = NameRef::new(0);
 #[derive(Clone, Debug, Default)]
 pub struct Names(Arc<NameTable>);
 
+/// See [`Names::printed`]. Past any number [`Names::intern`] gives out.
+const NEVER_CARRIED: NameRef = NameRef::new(u32::MAX);
+
 #[derive(Clone, Debug, Default)]
 struct NameTable {
     map: FxHashMap<Arc<str>, NameRef>,
@@ -237,9 +240,13 @@ impl Names {
         id
     }
 
-    /// Resolves a name.
+    /// Resolves a name. What [`Self::printed`] gives for a name nothing has
+    /// carried reads as no name.
     #[must_use]
     pub fn get(&self, id: NameRef) -> &str {
+        if id == NEVER_CARRIED {
+            return "";
+        }
         &self.0.list[id.get() as usize]
     }
 
@@ -254,6 +261,18 @@ impl Names {
     #[must_use]
     pub fn find(&self, name: &str) -> Option<NameRef> {
         self.0.map.get(name).copied()
+    }
+
+    /// The name of an object projected as a printed face: its interned `name`,
+    /// or, where no object of this game has carried that name, a name nothing
+    /// here is called. A projection is asked and dropped, and interning for
+    /// one would renumber every name after it, and with them the state hash.
+    /// So nothing compares equal to it, which is true of the name: no choice
+    /// of a name has interned it and no object has it. The card's own name is
+    /// no stand-in, since that is the name of another face.
+    #[must_use]
+    pub fn printed(&self, name: &str) -> NameRef {
+        self.find(name).unwrap_or(NEVER_CARRIED)
     }
 
     /// Number of interned names.

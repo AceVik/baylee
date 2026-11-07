@@ -30,10 +30,11 @@
 //! the exile its own resolution had just put the card in.
 
 use super::testkit::{
-    Duel, RegistryLookup, card_index, keep_mulligans, pass_until, stack_is_empty, tap_all_mana,
-    tap_mana_where,
+    Duel, RegistryLookup, card_index, cast_from_hand, keep_mulligans, pass_until, reach_main_phase,
+    stack_is_empty, tap_all_mana, tap_mana_where,
 };
 use super::*;
+use crate::choice::CastModeKind;
 use baylee_core::ids::{CardIndex, ObjectId};
 
 fn plains() -> CardIndex {
@@ -710,4 +711,280 @@ fn a_modal_spell_is_offered_only_where_one_mode_is_paid_for_and_pointed() {
     engine
         .apply(p0, PlayerAction::CastSpell { card })
         .expect("the offer is honoured");
+}
+
+/// `{W}{U}`: "As this creature enters, choose a nonland card name. Spells
+/// with the chosen name can't be cast."
+fn meddling_mage() -> CardIndex {
+    card_index("a5d02339-9f6d-486e-87d8-5ec2274cf680")
+}
+/// `{1}{R}` Fire and `{1}{U}` Ice: two halves, each a name of its own.
+fn fire_ice() -> CardIndex {
+    card_index("ae92942b-919c-4ea9-b693-85fcef765d5a")
+}
+/// `{1}{U}{U}` flash creature in front of Petty Theft, a `{1}{U}` instant.
+fn brazen_borrower() -> CardIndex {
+    card_index("c7b044c3-3cfa-407e-bf20-2875e8e04b7b")
+}
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// Seat 0's next main phase with `spell` in hand and every land open as
+/// floating mana, seat 1 holding a creature to point at. With `named`, a
+/// Meddling Mage of seat 0's stands there having named that face.
+fn table_with(spell: CardIndex, named: Option<(CardIndex, u8)>) -> Engine<RegistryLookup> {
+    let me = PlayerId::new(0);
+    let mut engine = Duel::new(1140, plains())
+        .battlefield(0, &[plains(), island(), island(), mountain()])
+        .hand(0, &[meddling_mage(), spell])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, me);
+    if let Some((card, face)) = named {
+        cast_from_hand(&mut engine, me, meddling_mage());
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseCardName { .. })
+        });
+        engine
+            .apply(me, PlayerAction::ChooseCardName { card, face })
+            .expect("a nonland face may be named");
+    }
+    next_own_main(&mut engine, me);
+    tap_all_mana(&mut engine, me);
+    engine
+}
+
+/// What the offer and the wizard both say of `spell` in seat 0's hand: the
+/// card is offered exactly when there is a way to cast it, and these are the
+/// ways.
+#[track_caller]
+fn ways_to_cast(engine: &Engine<RegistryLookup>, spell: CardIndex) -> Vec<CastModeKind> {
+    let me = PlayerId::new(0);
+    let card = find(engine, crate::zone::ZoneLocation::Hand(me), spell).expect("in hand");
+    let ways: Vec<CastModeKind> = engine.cast_options(me, card, false).map_or_else(
+        |_| Vec::new(),
+        |options| options.iter().map(|o| o.kind).collect(),
+    );
+    assert_eq!(
+        engine.compute_legal(me).castable.contains(&card),
+        !ways.is_empty(),
+        "the offer and the wizard disagree: {ways:?}"
+    );
+    ways
+}
+
+/// A lock of seat 1's on what seat 0 casts, as Llawan's line lands.
+fn lock(engine: &mut Engine<RegistryLookup>, modifier: baylee_cards_dsl::Modifier) {
+    let state = engine
+        .dev_state_mut(PlayerId::new(0))
+        .expect("the harness may set boards up");
+    let timestamp = state.next_timestamp();
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: None,
+        controller: PlayerId::new(1),
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp,
+        duration: baylee_cards_dsl::Duration::Indefinitely,
+        filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::This),
+        modifier,
+    });
+}
+
+/// A split card's halves are two names, and a spell cast as one half has
+/// that half's alone (CR 709.3a, 709.3b). So naming Fire stops Fire and
+/// leaves Ice, though the card in hand is Fire by its front: the lock is
+/// asked of the face being cast, at the offer and at the cast. No object of
+/// this game has been called Ice when the question is asked, which is the
+/// case that a projection falling back on the card's own name gets wrong.
+#[test]
+fn naming_a_split_card_s_front_leaves_its_other_half_castable() {
+    let me = PlayerId::new(0);
+    let mut engine = table_with(fire_ice(), Some((fire_ice(), 0)));
+    assert_eq!(
+        engine.state().names.find("Ice"),
+        None,
+        "nothing has carried the name yet"
+    );
+    assert_eq!(ways_to_cast(&engine, fire_ice()), [CastModeKind::Face(1)]);
+
+    let card = find(&engine, crate::zone::ZoneLocation::Hand(me), fire_ice()).unwrap();
+    engine
+        .apply(me, PlayerAction::CastSpell { card })
+        .expect("Ice is another name");
+    let elves = find(
+        &engine,
+        crate::zone::ZoneLocation::Battlefield,
+        llanowar_elves(),
+    )
+    .unwrap();
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("Ice taps a permanent");
+    let spell = engine.state().object(card).expect("the card");
+    assert_eq!(spell.zone, crate::zone::Zone::Stack);
+    assert_eq!(
+        engine.state().names.get(spell.characteristics().name),
+        "Ice"
+    );
+}
+
+/// And the other way about: naming Ice stops the half and not the card, so
+/// the back face is not offered and Fire is.
+#[test]
+fn naming_a_split_card_s_back_half_stops_only_that_half() {
+    let engine = table_with(fire_ice(), Some((fire_ice(), 1)));
+    assert_eq!(ways_to_cast(&engine, fire_ice()), [CastModeKind::Normal]);
+}
+
+/// A name that is neither half stops neither, and with no lock at all the
+/// card keeps both ways.
+#[test]
+fn a_name_on_another_card_leaves_both_halves() {
+    let both = [CastModeKind::Normal, CastModeKind::Face(1)];
+    let engine = table_with(fire_ice(), None);
+    assert_eq!(ways_to_cast(&engine, fire_ice()), both);
+    let engine = table_with(fire_ice(), Some((brazen_borrower(), 0)));
+    assert_eq!(ways_to_cast(&engine, fire_ice()), both);
+}
+
+/// An adventurer has its alternative characteristics only as an Adventure
+/// (CR 715.3a, 715.3b): Brazen Borrower named leaves Petty Theft, and Petty
+/// Theft named leaves Brazen Borrower.
+#[test]
+fn a_name_reaches_one_side_of_an_adventurer() {
+    let engine = table_with(brazen_borrower(), Some((brazen_borrower(), 0)));
+    assert_eq!(
+        ways_to_cast(&engine, brazen_borrower()),
+        [CastModeKind::Face(1)]
+    );
+    let engine = table_with(brazen_borrower(), Some((brazen_borrower(), 1)));
+    assert_eq!(
+        ways_to_cast(&engine, brazen_borrower()),
+        [CastModeKind::Normal]
+    );
+}
+
+/// A lock on a type reads the face the same way a name does: "creature
+/// spells" stops the creature and not its instant Adventure, "noncreature
+/// spells" the reverse, and the two together leave nothing to offer.
+#[test]
+fn a_type_lock_is_asked_of_the_face_being_cast() {
+    let creature =
+        baylee_cards_dsl::Modifier::OpponentsCantCast(&baylee_cards_dsl::Filter::CREATURE);
+    let noncreature =
+        baylee_cards_dsl::Modifier::OpponentsCantCast(&baylee_cards_dsl::Filter::NONCREATURE);
+
+    let mut engine = table_with(brazen_borrower(), None);
+    lock(&mut engine, creature);
+    assert_eq!(
+        ways_to_cast(&engine, brazen_borrower()),
+        [CastModeKind::Face(1)]
+    );
+
+    let mut engine = table_with(brazen_borrower(), None);
+    lock(&mut engine, noncreature);
+    assert_eq!(
+        ways_to_cast(&engine, brazen_borrower()),
+        [CastModeKind::Normal]
+    );
+
+    lock(&mut engine, creature);
+    assert_eq!(ways_to_cast(&engine, brazen_borrower()), Vec::new());
+}
+
+/// A permission that waives the mana cost casts through its own list of ways,
+/// and that list is held to the same lock: naming Fire leaves Ice alone there.
+#[test]
+fn a_free_permission_casts_only_the_face_a_lock_leaves() {
+    let me = PlayerId::new(0);
+    let mut engine = table_with(fire_ice(), Some((fire_ice(), 0)));
+    let card = find(&engine, crate::zone::ZoneLocation::Hand(me), fire_ice()).unwrap();
+    let state = engine
+        .dev_state_mut(me)
+        .expect("the harness may set boards up");
+    let card = state
+        .move_object(
+            card,
+            crate::zone::ZoneLocation::Exile(me),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let version = state.object(card).expect("the card").version;
+    state.play_permissions.push(crate::state::PlayPermission {
+        player: me,
+        card,
+        version,
+        free: true,
+        mana_any_type: false,
+        cast_only: true,
+        spell_types: None,
+        window: crate::state::PlayLifetime::WhileExiled,
+    });
+
+    engine
+        .start_permitted_free_cast(me, card)
+        .expect("Ice is another name");
+    let wizard = engine.cast_wizard.as_ref().expect("the cast is under way");
+    assert_eq!(
+        wizard.options.iter().map(|o| o.kind).collect::<Vec<_>>(),
+        [CastModeKind::Face(1)]
+    );
+}
+
+/// So is a granted escape, which is offered per face from the graveyard.
+#[test]
+fn a_granted_escape_offers_only_the_face_a_lock_leaves() {
+    let me = PlayerId::new(0);
+    let mut engine = table_with(fire_ice(), Some((fire_ice(), 0)));
+    let card = find(&engine, crate::zone::ZoneLocation::Hand(me), fire_ice()).unwrap();
+    let state = engine
+        .dev_state_mut(me)
+        .expect("the harness may set boards up");
+    let card = state
+        .move_object(
+            card,
+            crate::zone::ZoneLocation::Graveyard(me),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let timestamp = state.next_timestamp();
+    let filter = crate::effects::EffectFilter::object(state, card);
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: None,
+        controller: me,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: baylee_cards_dsl::Layer::Text,
+        timestamp,
+        duration: baylee_cards_dsl::Duration::Indefinitely,
+        filter,
+        modifier: baylee_cards_dsl::Modifier::GrantsEscape(0),
+    });
+
+    let options = casting::granted_escape_options(
+        engine.state(),
+        &engine.lookup,
+        me,
+        card,
+        casting::Paying::DuringTheCast,
+    );
+    assert!(!options.is_empty(), "Ice escapes");
+    assert!(
+        options
+            .iter()
+            .all(|o| matches!(o.kind, CastModeKind::EscapeGranted { face: 1, .. })),
+        "and Fire does not: {options:?}"
+    );
 }

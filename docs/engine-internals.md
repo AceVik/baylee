@@ -2185,8 +2185,15 @@ validation accepts only a printed face without those types. Meddling Mage
 combines that with `PlayersCantCast { who: EachPlayer, filter: NamedBySource }`.
 `casting::cast_is_forbidden` checks both the offer and the direct action, so
 neither player can cast the named spell while differently named spells and
-land plays remain legal. Choosing a name invalidates projections, and the
-rider participates in object versioning and the state hash.
+land plays remain legal. A spell cast as one face has that face's
+characteristics alone (CR 709.3a, 715.3a), so every lock is asked of the face
+being cast: `casting::face_is_forbidden`, read beside `face_timing_allows`
+by `can_cast` and `cast_options`. A forbidden front leaves a back face that
+is not, and a forbidden back face is not offered. A face whose name no object
+of the game has carried projects as a name nothing is called
+(`Names::printed`), never as the card's front. Choosing a name invalidates
+projections, and the rider participates in object versioning and the state
+hash.
 
 **A Room's doors are designations on the permanent** (CR 709.5c,
 `GameObject::doors`, one byte: a Room bit and the two unlocked halves). They

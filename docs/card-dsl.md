@@ -2081,7 +2081,8 @@ Meddling Mage instead pairs `EnterModifier::ChooseCardNameExcept(TypeSet::LAND)`
 with `static_ability!(Filter::Any, Modifier::PlayersCantCast { who:
 PlayerRel::EachPlayer, filter: &Filter::NamedBySource })`. This is a cast
 prohibition, not `PlayersCantPlay`: it stops the named spell for its controller
-and every opponent, but neither a land play nor a differently named spell.
+and every opponent, but neither a land play nor a differently named spell. A
+spell cast as one half has that half's name alone, so naming Fire leaves Ice.
 
 `AnimateNoncreatureArtifact` implements Animate Artifact's conditional animation.
 Write it with `Filter::AttachedToBySource`. The effect checks for a noncreature

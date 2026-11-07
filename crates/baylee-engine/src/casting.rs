@@ -782,6 +782,43 @@ pub(crate) fn cast_is_forbidden(
         })
 }
 
+/// `obj` as the spell it would be cast as `face` of `def`: that face's
+/// characteristics and no other's, its own name among them (CR 709.3a,
+/// 715.3a).
+fn spell_as_face(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+) -> crate::object::GameObject {
+    let mut spell = obj.clone();
+    spell.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+        def,
+        face,
+        state.names.printed(def.faces[face].name),
+    ));
+    spell.cache.clear();
+    spell.face_index = u8::try_from(face).expect("bounded faces");
+    spell
+}
+
+/// Whether a continuous effect forbids `player` casting `obj` as `face` of
+/// `def`, which is [`cast_is_forbidden`] asked of the spell that cast would
+/// make: only the half or the Adventure being cast is evaluated (CR 709.3a,
+/// 715.3a), so a lock on one face says nothing of another.
+pub(crate) fn face_is_forbidden(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+) -> bool {
+    if usize::from(obj.face_index) == face || !state.effects.may_change_cast_timing_or_lock() {
+        return cast_is_forbidden(state, player, obj);
+    }
+    cast_is_forbidden(state, player, &spell_as_face(state, obj, def, face))
+}
+
 /// Whether a continuous effect grants `card` flashback (CR 702.34) right now.
 ///
 /// One reader, because a grant arrives in either of two shapes and a caller
@@ -1074,12 +1111,24 @@ pub(crate) fn can_cast_form_paying(
     let projected = form.map(|f| f.project(obj));
     let obj = projected.as_ref().unwrap_or(obj);
     let c = obj.characteristics();
+    let printed = obj.card.and_then(|c| lookup.card(c.index));
     // A cast an effect forbids outright (CR 601.3a), asked before timing
     // because the two answers are different and only one of them is true:
     // Silence does not move a spell to sorcery speed, it removes the
     // permission, and a player reading "sorcery-speed timing not met" on
     // their own main phase would go looking for a rule that is not there.
-    if cast_is_forbidden(state, player, obj) || !may_begin_casting(state, player) {
+    // Asked of the spell each way of casting makes: a front the effect stops
+    // leaves a back face it does not (`face_is_forbidden`), so it is the card
+    // as a whole that is refused here only when no face is left.
+    let front_forbidden = cast_is_forbidden(state, player, obj);
+    let a_back_face_allowed = || {
+        form.is_none()
+            && printed.is_some_and(|def| {
+                castable_back_faces_in_zone(def, on_adventure, disturb_ok)
+                    .any(|(i, _)| !face_is_forbidden(state, player, obj, def, i))
+            })
+    };
+    if !may_begin_casting(state, player) || (front_forbidden && !a_back_face_allowed()) {
         return Err(CastError::Forbidden);
     }
     if granted_escape && form.is_none() {
@@ -1092,15 +1141,18 @@ pub(crate) fn can_cast_form_paying(
     // an enchantment, and it is cast in answer to an ability on the stack
     // or not at all. A prototype or a disguise is the front, cast another
     // way.
-    let printed = obj.card.and_then(|c| lookup.card(c.index));
-    let front_now = !c.types.contains(TypeSet::LAND)
+    let front_now = !front_forbidden
+        && !c.types.contains(TypeSet::LAND)
         && graveyard_face_open(state, player, card, 0)
         && permitted_spell_types(state, player, card, c.types, 0)
         && timing_allows(state, player, c.types, c.keywords)
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
+    let face_open = |def: &baylee_cards_dsl::CardDef, i: usize| {
+        face_timing_allows(state, player, card, def, i)
+            && !face_is_forbidden(state, player, obj, def, i)
+    };
     let a_back_face_now = printed.is_some_and(|def| {
-        castable_back_faces_in_zone(def, on_adventure, disturb_ok)
-            .any(|(i, _)| face_timing_allows(state, player, card, def, i))
+        castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| face_open(def, i))
     });
     if !front_now && (form.is_some() || !a_back_face_now) {
         return Err(CastError::BadTiming);
@@ -1233,7 +1285,7 @@ pub(crate) fn can_cast_form_paying(
         };
         let back_payable = printed.is_some_and(|def| {
             castable_back_faces(def, on_adventure).any(|(face, _)| {
-                face_timing_allows(state, player, card, def, face)
+                face_open(def, face)
                     && face_has_a_legal_target(state, lookup, player, card, face)
                     && free_face_affordable(state, player, card, def, face)
             })
@@ -1296,7 +1348,7 @@ pub(crate) fn can_cast_form_paying(
     let a_back_face_castable = || {
         printed.is_some_and(|def| {
             castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| {
-                face_timing_allows(state, player, card, def, i)
+                face_open(def, i)
                     && graveyard_face_open(state, player, card, i)
                     && probe_back(def, i)
                     && face_has_a_legal_target(state, lookup, player, card, i)
