@@ -24,14 +24,14 @@ use baylee_client_e2e::prelude::*;
 use serde_json::{Value, json};
 
 /// The seed of every game, so that a scene plays the same game again.
-const SEED: &str = "424242";
+pub(super) const SEED: &str = "424242";
 /// Seconds without a request after which a client closes itself. Longer than
 /// any pause in a scene, or the scene loses its client.
 const IDLE_EXIT_SECS: &str = "12";
 /// How long a closing client may take.
 const CLOSING: Duration = Duration::from_secs(60);
 /// A whole game takes two to five minutes; an instrumented client is slower.
-const LONGEST_GAME: Duration = Duration::from_secs(600);
+pub(super) const LONGEST_GAME: Duration = Duration::from_secs(600);
 /// A game that shows nothing new for this long has a question the scene cannot
 /// answer.
 const STUCK: Duration = Duration::from_secs(45);
@@ -325,7 +325,7 @@ fn question(screen: &Screen) -> String {
 /// Plays until the game is over: lands and spells where it can, every attacker
 /// and a block, and an answer to whatever is asked. The moves need not be good;
 /// they have to go through the code a player's moves go through.
-fn play(
+pub(super) fn play(
     client: &Client,
     limit: Duration,
     mut along: impl FnMut(&Screen) -> Result<()>,
@@ -594,7 +594,7 @@ fn read_the_chat(client: &Client) -> Result<()> {
 }
 
 /// The names of the acceptance decks, which every build can deal.
-fn board(root: &Path) -> Result<String> {
+pub(super) fn board(root: &Path) -> Result<String> {
     let decks = fs::read_to_string(root.join("data/acceptance-decks.txt")).context("the decks")?;
     let mut names: Vec<&str> = decks
         .lines()

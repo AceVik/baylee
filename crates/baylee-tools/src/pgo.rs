@@ -9,6 +9,7 @@
 //!
 //! `LLVM_PROFDATA` names the tool where the toolchain has no `llvm-tools`.
 
+mod compare;
 mod train;
 
 /// The draft release that holds the client's profiles.
@@ -31,6 +32,15 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
         ["client"] => client(root, &target, false),
         ["client", "--publish"] => client(root, &target, true),
         ["client", "ship", profile] => ship(root, &target, Path::new(profile)),
+        ["compare", plain, profiled, ref rest @ ..] => {
+            let rounds = rest.first().and_then(|rounds| rounds.parse().ok());
+            compare::run(
+                root,
+                Path::new(plain),
+                Path::new(profiled),
+                rounds.unwrap_or(4),
+            )
+        }
         ["train", binary, ref rest @ ..] => {
             let work = target.join("pgo-profiles/client");
             fs::create_dir_all(work.join("raw"))?;
@@ -44,7 +54,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
             )
         }
         _ => bail!(
-            "usage: cargo tools pgo engine-server | client [--publish | ship <profile>] | train <client> [scene]"
+            "usage: cargo tools pgo engine-server | client [--publish | ship <profile>] | train <client> [scene] | compare <plain> <profiled> [rounds]"
         ),
     }
 }

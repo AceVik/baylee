@@ -357,6 +357,11 @@ impl Client {
         &self.devctl
     }
 
+    /// The process, while it runs: for what is read from outside it.
+    pub fn pid(&self) -> Option<u32> {
+        self.child.as_ref().map(Child::id)
+    }
+
     /// Where this test's files are: logs, screenshots, failure dumps.
     pub fn dir(&self) -> &Path {
         &self.dir

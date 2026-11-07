@@ -23,6 +23,11 @@ impl Client {
     /// standing at the opening hand's question.
     pub fn play_the_house(&self) -> Result<Screen> {
         self.play_offline()?;
+        self.sit_down_with_the_house()
+    }
+
+    /// From the offline lobby to the same place.
+    pub fn sit_down_with_the_house(&self) -> Result<Screen> {
         self.click(press("Play(PlayHouse)"))?;
         self.wait_for(
             "the house game's first view",
