@@ -20,6 +20,14 @@ const FIRST_SETTINGS: u64 = 512;
 /// game started and given up has room for no more than [`FIRST_SETTINGS`].
 const SETTINGS_PER_EVENT: u64 = 4;
 
+/// How many times a seat is told the whole table at one `seq`.
+///
+/// A client asks once, after a reconnect or a frame it could not place, and
+/// what it is sent brings it up to date. A telling costs the view and every
+/// line of the log, and the asking a few bytes, so a seat that keeps asking at
+/// one `seq` is not answered, and the game's next step gives it these again.
+const RETELLINGS_PER_SEQ: u8 = 4;
+
 impl Session {
     /// How many settings a seat may have made by now.
     pub(super) fn settings_allowed(&self) -> u64 {
@@ -161,8 +169,10 @@ impl Session {
     /// client that lost its view says it has seen nothing, and is sent it, and
     /// the payload whole with it: printings it could not place are the same
     /// question, and this is where a reader of either finds its way back.
+    ///
+    /// Past [`RETELLINGS_PER_SEQ`] it is nothing as well.
     pub fn resume(&mut self, seat: PlayerId, last_seq: u64) -> Vec<Envelope> {
-        if last_seq >= self.seq {
+        if last_seq >= self.seq || !self.may_retell(seat) {
             return Vec::new();
         }
         let mut out = Vec::new();
@@ -171,6 +181,21 @@ impl Session {
         }
         out.extend(self.snapshot(seat));
         out
+    }
+
+    /// Whether `seat` may be told the whole table once more at this `seq`,
+    /// which asking spends ([`RETELLINGS_PER_SEQ`]).
+    pub fn may_retell(&mut self, seat: PlayerId) -> bool {
+        let seq = self.seq;
+        let Some((at, times)) = self.retold.get_mut(seat.get() as usize) else {
+            return false;
+        };
+        if *at != seq {
+            (*at, *times) = (seq, 0);
+        }
+        let left = *times < RETELLINGS_PER_SEQ;
+        *times = times.saturating_add(1);
+        left
     }
 
     /// Applies a human action, then pumps the AI until a human is needed.

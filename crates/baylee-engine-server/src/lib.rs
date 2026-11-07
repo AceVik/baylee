@@ -1071,6 +1071,9 @@ impl EngineRunner {
                 let Some(session) = self.session.as_mut() else {
                     return Vec::new();
                 };
+                if !session.may_retell(player) {
+                    return Vec::new();
+                }
                 session
                     .show(player)
                     .iter()

@@ -376,6 +376,37 @@ fn a_seat_ready_counts_once_for_its_own_seat() {
     );
 }
 
+/// The curtain holds the game at one `seq`, so asking there is bounded the same
+/// way: nothing moves to give a seat its tellings back.
+#[test]
+fn a_seat_that_keeps_asking_before_the_curtain_stops_being_shown() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans(600));
+    attach(&mut runner, 0);
+    let inner = Envelope {
+        msg: Some(v1::envelope::Msg::Resume(v1::ResumeGame {
+            game_id: "g1".to_string(),
+            seat_token: String::new(),
+            last_seq: 0,
+        })),
+    };
+    let mut ask = || {
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat: 0,
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
+                })),
+            },
+            &[],
+        )
+    };
+    for _ in 0..4 {
+        assert_eq!(said(&ask()), [(0, "view")]);
+    }
+    assert!(ask().is_empty());
+}
+
 /// A seat that asks what it missed before the curtain is up is shown its
 /// table again, and still asked nothing (#256).
 #[test]

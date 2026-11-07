@@ -474,6 +474,41 @@ fn a_whole_view_asked_for_brings_the_whole_payload() {
     );
 }
 
+/// A telling costs the whole view and log and the asking a few bytes, so a
+/// seat that keeps asking at one `seq` stops being answered, until the game
+/// goes on. A seat that is current spends nothing, and a neighbour's asking
+/// is not its own.
+#[test]
+fn a_seat_that_keeps_asking_is_answered_again_once_the_game_moves() {
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    let seat = session.awaiting_seat().expect("a seat is asked");
+    session
+        .act(seat, any_answer(&session))
+        .expect("the answer stands");
+    let current = session.seq();
+    let other = (0..4)
+        .map(PlayerId::new)
+        .find(|other| *other != seat)
+        .expect("a table of four");
+
+    for _ in 0..64 {
+        assert!(session.resume(seat, current).is_empty());
+    }
+    for telling in 0..4 {
+        assert!(!session.resume(seat, 0).is_empty(), "telling {telling}");
+    }
+    assert!(session.resume(seat, 0).is_empty());
+    assert!(session.resume(seat, 1).is_empty());
+    assert!(!session.resume(other, 0).is_empty());
+
+    let asked = session.awaiting_seat().expect("a seat is asked");
+    session
+        .act(asked, any_answer(&session))
+        .expect("the answer stands");
+    assert!(session.seq() > current);
+    assert!(!session.resume(seat, 0).is_empty());
+}
+
 /// A snapshot in the middle of a stream is where the stream goes on from, or
 /// the seat's next patch is on a view it does not hold.
 #[test]

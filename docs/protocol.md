@@ -49,7 +49,10 @@ starts from.
 bytes that do not read, a patch of another seat): it keeps the view it holds,
 asks once with `ResumeGame { last_seq: 0 }`, having seen nothing being what gets a
 whole view whatever the table thinks, and passes over what comes until the
-snapshot does. The player sees a table that catches up. The net's seat ends the
+snapshot does. A seat is answered four times at one `seq`; past that a
+`ResumeGame` gets nothing until the game goes on, since a few bytes would
+otherwise buy the whole view and log every time. The player sees a table that
+catches up. The net's seat ends the
 game instead: a view it never saw is recurrent history it cannot get back. A
 refused answer is handed its question back as a patch, since a refusal loses no
 frame.

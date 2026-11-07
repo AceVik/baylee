@@ -275,6 +275,9 @@ pub struct Session {
     /// Per seat, how many declarations the record holds; past
     /// [`MAX_DECLARATIONS`] the rest are refused.
     declarations: Vec<u32>,
+    /// The `seq` each seat last asked for the whole table at, and how many
+    /// times it has ([`Session::may_retell`]).
+    retold: Vec<(u64, u8)>,
     /// What the spectators have been told, together (`spectators.rs`).
     gallery: spectators::Gallery,
     /// When true, clamp AI scouting requests so even `sharp` and `expert`
@@ -364,6 +367,7 @@ impl Session {
             minds: vec![None; preset.seats.len()],
             unsaid: vec![false; preset.seats.len()],
             declarations: vec![0; preset.seats.len()],
+            retold: vec![(0, 0); preset.seats.len()],
             gallery: spectators::Gallery {
                 revealed: vec![false; preset.prints.len()],
                 ..spectators::Gallery::default()
