@@ -42,10 +42,16 @@ fn main() {
 
     emit("BAYLEE_BUILD_NUMBER", &build_number());
     emit("BAYLEE_BUILT_AT", &built_at());
-    emit(
-        "BAYLEE_TARGET",
-        &std::env::var("TARGET").unwrap_or_else(|_| "unknown".into()),
-    );
+    // A fallback build goes by its triple and its variant, `...-v2`. That name is what
+    // its updater asks for, so it can never take the main line's archive
+    // (`docs/releasing.md` §"The fallback build").
+    println!("cargo:rerun-if-env-changed=BAYLEE_TARGET_VARIANT");
+    let triple = std::env::var("TARGET").unwrap_or_else(|_| "unknown".into());
+    let target = match std::env::var("BAYLEE_TARGET_VARIANT").as_deref() {
+        Ok("") | Err(_) => triple,
+        Ok(variant) => format!("{triple}-{variant}"),
+    };
+    emit("BAYLEE_TARGET", &target);
     emit(
         "BAYLEE_PROFILE",
         &std::env::var("PROFILE").unwrap_or_else(|_| "unknown".into()),

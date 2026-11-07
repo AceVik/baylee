@@ -38,7 +38,9 @@ pub(super) fn names(version: &str, target: &str) -> Result<Names> {
         "x86_64-pc-windows-msvc" => vec![format!("Baylee-Setup-{version}-x64.exe")],
         "aarch64-pc-windows-msvc" => vec![format!("Baylee-Setup-{version}-arm64.exe")],
         "aarch64-apple-darwin" => vec![format!("Baylee-{version}-aarch64.dmg")],
-        _ => vec![format!("Baylee-{version}-x86_64.dmg")],
+        "x86_64-apple-darwin" => vec![format!("Baylee-{version}-x86_64.dmg")],
+        // A fallback build is an archive and nothing else.
+        _ => Vec::new(),
     };
     Ok(Names {
         archive: format!("baylee-client-{version}-{target}.{extension}"),

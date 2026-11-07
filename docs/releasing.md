@@ -27,11 +27,36 @@ Fat LTO was measured and does not fit: it needs 17 GB at link time, and a free
 runner has at most 16 GB. On x86_64 the target CPU is `x86-64-v3` (owner,
 7.11.2026: AVX2 may be assumed, a step above what Windows 11 24H2 needs). Nothing
 checks for it: a CPU below it cannot start the client and is told nothing, and
-that goes for a player the updater brings to such a build too.
+that goes for a player the updater brings to such a build too. Such a player takes
+the fallback by hand (§"The fallback build").
 
 The builds are **not code-signed**. Signing and notarisation cost money, so
 that is the owner's decision. Until then macOS and Windows warn on first
 start, and each `README.txt` explains how to get past the warning.
+
+## The fallback build
+
+`x86-64-v3` is the main line. For a CPU that cannot start it the release also carries a
+fallback built for `x86-64-v2`, on Linux, Windows and Intel Macs (owner, 7.11.2026).
+It is meant for the player who has no newer CPU, and that player finds it: it is an
+archive and nothing else, no setup, dmg, AppImage or `.deb`, and nothing detects the
+CPU or points the way but the site.
+
+A fallback is a row of `client-packages.yml` with a `variant` and a `cpu`. Its package
+name is the target with the variant after it, `x86_64-pc-windows-msvc-v2`, and
+`BAYLEE_TARGET_VARIANT` stamps the same name into the build as `baylee_build::TARGET`,
+while the target triple and `target/<triple>/dist` stay as they are. Everything else
+follows from that one name: the archive `baylee-client-<version>-<package name>`, its
+artifact, and what the updater asks for.
+
+So a fallback client never takes the main line's archive, which would not start on its
+CPU. It looks for its own name and finds nothing else, a release without its archive
+offers it the page and no file, and the folder inside the signed archive has to carry
+the same name, so an authentic main line archive relabelled as the fallback's is
+refused like any other relabelled archive. No check was added or loosened for this.
+
+These rows do not start what they build: `release check-installers` has nothing to
+install there. A fallback row builds no profile either (§"The client's profile").
 
 ## Version numbers
 

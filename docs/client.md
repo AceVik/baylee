@@ -10088,6 +10088,8 @@ and logged once the plugin is built. With automatic checks off it still
 makes no request at all.
 
 **Staging.** For a newer release it downloads the archive for its own target
+(`baylee_build::TARGET`, which names a fallback build's variant too, `docs/releasing.md`
+§"The fallback build")
 into its per-user state directory, checks the size, the `.sha256` (a
 sanity check against a broken download, nothing more) and then the Ed25519
 `.sig` against the keys compiled into the client (`sign::TRUSTED_KEYS`, a

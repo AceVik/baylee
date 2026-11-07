@@ -17,6 +17,8 @@ use support::{Answer, Stub, expected, installed, snapshot};
 
 const OLD: &str = "0.1.0-beta.2";
 const NEWER: &str = "0.1.0-beta.3";
+/// The fallback build of `Os::Linux`, for CPUs below the main line.
+const FALLBACK: &str = "x86_64-unknown-linux-gnu-v2";
 
 fn test_key() -> SigningKey {
     SigningKey::from_bytes(&[7; 32])
@@ -33,6 +35,12 @@ enum Publish {
     WrongVersion,
     /// Authentic same-OS release for another CPU relabelled as this target.
     WrongArchitecture,
+    /// Authentic main line archive relabelled as the fallback build's.
+    MainLineAsFallback,
+    /// Authentic fallback archive relabelled as the main line's.
+    FallbackAsMainLine,
+    /// The fallback build's own archive, under its own name.
+    Fallback,
     /// Archive, `.sig` by the test key, `.sha256`.
     Signed,
     /// No `.sig` at all.
@@ -49,11 +57,18 @@ enum Publish {
 
 /// Serves a releases list with `NEWER` for `os` and its files.
 fn publish(stub: &Stub, os: Os, how: Publish) {
-    let name = baylee_update::release::archive_name(NEWER, support::target(os));
+    let named_for = match how {
+        Publish::MainLineAsFallback | Publish::Fallback => FALLBACK,
+        _ => support::target(os),
+    };
+    let name = baylee_update::release::archive_name(NEWER, named_for);
     let (_, mut bytes) = match how {
         Publish::WrongVersion => support::archive(os, OLD),
         Publish::WrongArchitecture => {
             support::archive_for_target(os, NEWER, "aarch64-unknown-linux-gnu")
+        }
+        Publish::FallbackAsMainLine | Publish::Fallback => {
+            support::archive_for_target(os, NEWER, FALLBACK)
         }
         _ => support::archive(os, NEWER),
     };
@@ -198,7 +213,11 @@ fn refused(how: Publish, keys: Vec<VerifyingKey>) -> Manual {
     publish(&stub, os, how);
     let (base, install, old) = installed(os, OLD, "refused");
     let mut checker = Checker::new(api(&stub), OLD);
-    let outcome = checker.run(&context(os, &install, keys));
+    let mut asking = context(os, &install, keys);
+    if how == Publish::MainLineAsFallback {
+        asking.target = FALLBACK.into();
+    }
+    let outcome = checker.run(&asking);
     let Outcome::Available { version, page, why } = outcome else {
         panic!("not refused: {outcome:?}");
     };
@@ -653,11 +672,30 @@ fn with_automatic_checks_on_it_asks_at_start_and_every_period() {
 
 #[test]
 fn authentic_signatures_cannot_relabel_a_version_or_architecture() {
-    for how in [Publish::WrongVersion, Publish::WrongArchitecture] {
+    for how in [
+        Publish::WrongVersion,
+        Publish::WrongArchitecture,
+        Publish::MainLineAsFallback,
+        Publish::FallbackAsMainLine,
+    ] {
         let why = refused(how, vec![test_key().verifying_key()]);
         assert!(
             matches!(why, Manual::Download(ref reason) if reason.contains("version/target")),
             "{why:?}"
         );
     }
+}
+
+/// The fallback build updates like any other, from its own archive: its name and
+/// the signed folder inside both carry the variant.
+#[test]
+fn a_fallback_build_stages_its_own_archive() {
+    let os = Os::Linux;
+    let stub = Stub::start();
+    publish(&stub, os, Publish::Fallback);
+    let (_, install, _) = installed(os, OLD, "fallback");
+    let mut asking = context(os, &install, vec![test_key().verifying_key()]);
+    asking.target = FALLBACK.into();
+    let outcome = Checker::new(api(&stub), OLD).run(&asking);
+    assert!(apply::staged(&install).is_some(), "{outcome:?}");
 }

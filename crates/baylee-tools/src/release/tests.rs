@@ -220,7 +220,7 @@ fn package(directory: &Path, target: &str) -> files::Names {
 }
 
 #[test]
-fn all_six_targets_roundtrip_and_names_match_the_installer_contract() {
+fn every_target_roundtrips_and_names_match_the_installer_contract() {
     let mut installers = BTreeSet::new();
     for (target, _) in TARGETS {
         let tmp = tempfile::tempdir().unwrap();
@@ -536,4 +536,27 @@ fn deny_and_audit_ignore_the_same_advisories() {
         .expect("the audit job lists what it ignores");
     assert!(!deny_ids.is_empty());
     assert_eq!(ids(audit_line), deny_ids);
+}
+
+/// A fallback build ships as an archive with its own name, and nothing that
+/// could be mistaken for the main line's.
+#[test]
+fn a_fallback_target_is_an_archive_of_its_own_and_no_installer() {
+    for (target, extension) in [
+        ("x86_64-unknown-linux-gnu-v2", "tar.gz"),
+        ("x86_64-pc-windows-msvc-v2", "zip"),
+        ("x86_64-apple-darwin-v2", "zip"),
+    ] {
+        let names = files::names(VERSION, target).unwrap();
+        assert_eq!(
+            names.archive,
+            format!("baylee-client-{VERSION}-{target}.{extension}")
+        );
+        assert!(names.installers.is_empty(), "{target}");
+        let main_line = target.strip_suffix("-v2").unwrap();
+        assert_ne!(
+            names.archive,
+            files::names(VERSION, main_line).unwrap().archive
+        );
+    }
 }

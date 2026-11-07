@@ -284,6 +284,47 @@ mod tests {
         assert_eq!(files.checksum.unwrap().name, format!("{name}.sha256"));
     }
 
+    /// A release holds the main line and the fallback side by side, and a build
+    /// gets its own by its name. The fallback runs on a CPU the main line crashes on,
+    /// so it must never be handed that archive.
+    #[test]
+    fn a_fallback_build_and_the_main_line_each_find_only_their_own() {
+        let main = "x86_64-pc-windows-msvc";
+        let fallback = "x86_64-pc-windows-msvc-v2";
+        let main_archive = archive_name("0.1.0-beta.3", main);
+        let fallback_archive = archive_name("0.1.0-beta.3", fallback);
+        assert_eq!(
+            fallback_archive,
+            "baylee-client-0.1.0-beta.3-x86_64-pc-windows-msvc-v2.zip"
+        );
+        let releases = [release(
+            "v0.1.0-beta.3",
+            true,
+            false,
+            &[&main_archive, &fallback_archive],
+        )];
+        let found = |target| {
+            newest(&releases, &v("0.1.0-beta.2"), target)
+                .unwrap()
+                .files
+                .unwrap()
+                .archive
+                .name
+        };
+        assert_eq!(found(main), main_archive);
+        assert_eq!(found(fallback), fallback_archive);
+    }
+
+    /// A release without the fallback's archive offers it the page and no file:
+    /// it does not fall back on the main line's.
+    #[test]
+    fn a_fallback_build_is_not_offered_the_main_lines_archive() {
+        let main_archive = archive_name("0.1.0-beta.3", "x86_64-pc-windows-msvc");
+        let releases = [release("v0.1.0-beta.3", true, false, &[&main_archive])];
+        let offer = newest(&releases, &v("0.1.0-beta.2"), "x86_64-pc-windows-msvc-v2").unwrap();
+        assert_eq!(offer.files, None);
+    }
+
     /// Both macOS archives sit in one release: each build gets its own.
     #[test]
     fn the_two_mac_archives_never_cross() {

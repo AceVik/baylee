@@ -32,7 +32,7 @@ env:
   BAYLEE_REPORT_PUBLIC_URL: ${{ vars.BAYLEE_REPORT_PUBLIC_URL }}
 jobs:
   package:
-    name: package (${{ matrix.target }})
+    name: package (${{ matrix.target }}${{ matrix.variant && format('-{0}', matrix.variant) || '' }})
     # A promotion runs on Linux. The two macOS rows build on the owner's Mac,
     # each in a throwaway Tart VM, while the repository variable
     # `MACOS_RUNNER` is `self-hosted`, and only for a push to main or a
@@ -79,10 +79,33 @@ jobs:
             target: x86_64-apple-darwin
             mac: true
             timeout: 150
+          # The fallback for x86-64 CPUs below the main line, which cannot start it: an
+          # archive and nothing else, under a name of its own, which is what its updater
+          # asks for (docs/releasing.md §"The fallback build").
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            variant: v2
+            cpu: x86-64-v2
+            timeout: 50
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            variant: v2
+            cpu: x86-64-v2
+            timeout: 80
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            mac: true
+            variant: v2
+            cpu: x86-64-v2
+            timeout: 150
     env:
-      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v3
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v3
-      CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS: -Ctarget-cpu=x86-64-v3
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=${{ matrix.cpu || 'x86-64-v3' }}
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=${{ matrix.cpu || 'x86-64-v3' }}
+      CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS: -Ctarget-cpu=${{ matrix.cpu || 'x86-64-v3' }}
+      # What a package goes by: its target, and for a fallback its variant. The build
+      # stamps the same name (`baylee_build::TARGET`), and `target/<triple>` stays.
+      BAYLEE_TARGET_VARIANT: ${{ matrix.variant }}
+      PACKAGE_NAME: ${{ matrix.target }}${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -113,15 +136,14 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.source-run }}
-          name: client-${{ matrix.target }}
+          name: client-${{ env.PACKAGE_NAME }}
           path: out
       - if: inputs.source-run != ''
         shell: bash
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
-          PACKAGE_TARGET: ${{ matrix.target }}
           SOURCE_RUN: ${{ inputs.source-run }}
-        run: cargo tools release verify out "$PACKAGE_VERSION" "$PACKAGE_TARGET" "$SOURCE_RUN"
+        run: cargo tools release verify out "$PACKAGE_VERSION" "$PACKAGE_NAME" "$SOURCE_RUN"
       - if: inputs.source-run == ''
         uses: ./.github/actions/linux-deps
       - if: inputs.source-run == ''
@@ -134,7 +156,7 @@ jobs:
         # The VM is not GitHub's image (another macOS, another SDK), so it
         # keeps a cache of its own; GitHub's rows keep their keys.
         with:
-          shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}${{ runner.environment == 'self-hosted' && '-vm' || '' }}
+          shared-key: desktop-dist-${{ matrix.os }}-${{ env.PACKAGE_NAME }}${{ runner.environment == 'self-hosted' && '-vm' || '' }}
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       # The three binaries the package ships, the client, its launcher and the
@@ -169,7 +191,7 @@ jobs:
           BAYLEE_RELEASE_BUILD: '1'
           PACKAGE_TARGET: ${{ matrix.target }}
         run: cargo build-client --profile dist --target "$PACKAGE_TARGET"
-      - if: inputs.source-run == ''
+      - if: inputs.source-run == '' && !matrix.variant
         shell: bash
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
@@ -180,7 +202,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
         run: |
-          archive=$(cargo tools package client "target/$PACKAGE_TARGET/dist" "$PACKAGE_TARGET" "$PACKAGE_VERSION")
+          archive=$(cargo tools package client "target/$PACKAGE_TARGET/dist" "$PACKAGE_NAME" "$PACKAGE_VERSION")
           mkdir -p out
           cp "$archive" out/
       # The installers wrap the tree `package client` just packed: a dmg, an
@@ -189,19 +211,19 @@ jobs:
       # The x86_64 client starts in `release check-installers` on an arm runner:
       # that needs Rosetta 2, which an image may lack. `arch -x86_64` fails
       # without it.
-      - if: inputs.source-run == '' && matrix.target == 'x86_64-apple-darwin'
+      - if: inputs.source-run == '' && matrix.target == 'x86_64-apple-darwin' && !matrix.variant
         shell: bash
         run: |
           if ! /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
             sudo softwareupdate --install-rosetta --agree-to-license
           fi
           /usr/bin/arch -x86_64 /usr/bin/true
-      - if: inputs.source-run == ''
+      - if: inputs.source-run == '' && !matrix.variant
         shell: bash
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
         run: cargo tools installers tools "$RUNNER_TEMP/installer-tools" "$PACKAGE_TARGET" >> "$GITHUB_ENV"
-      - if: inputs.source-run == ''
+      - if: inputs.source-run == '' && !matrix.variant
         shell: bash
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
@@ -210,11 +232,15 @@ jobs:
           cargo tools package installers "$PACKAGE_TARGET" "$PACKAGE_VERSION" | while read -r installer; do
             cp "$installer" out/
           done
-          cargo tools release write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+        run: cargo tools release write out "$PACKAGE_VERSION" "$PACKAGE_NAME"
       # What a player gets: on this throwaway runner each installer is
       # installed (the dmg's app copied to /Applications and started from
       # there), checked and removed again.
-      - if: inputs.source-run == ''
+      - if: inputs.source-run == '' && !matrix.variant
         shell: bash
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
@@ -222,7 +248,7 @@ jobs:
         run: cargo tools release check-installers --install "$PACKAGE_TARGET" "$PACKAGE_VERSION"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: client-${{ matrix.target }}
+          name: client-${{ env.PACKAGE_NAME }}
           path: out/*
           if-no-files-found: error
           overwrite: true

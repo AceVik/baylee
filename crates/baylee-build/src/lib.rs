@@ -48,7 +48,8 @@ pub const BUILD_NUMBER: &str = env!("BAYLEE_BUILD_NUMBER");
 /// When it was built, ISO-8601 UTC, or `unknown`.
 pub const BUILT_AT: &str = env!("BAYLEE_BUILT_AT");
 
-/// The target triple it was built for.
+/// What it was built for: the target triple, and for a fallback build its variant
+/// after it (`x86_64-pc-windows-msvc-v2`). Packages and the updater go by this name.
 pub const TARGET: &str = env!("BAYLEE_TARGET");
 
 /// `debug` or `release`.
@@ -108,6 +109,16 @@ pub fn lines() -> Vec<(&'static str, &'static str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A fallback build goes by its triple and its variant, which is the name its
+    /// updater asks for. Run with `BAYLEE_TARGET_VARIANT=v2` to see that side of it.
+    #[test]
+    fn the_target_names_the_variant_it_was_built_with() {
+        match option_env!("BAYLEE_TARGET_VARIANT") {
+            None | Some("") => assert!(!TARGET.ends_with("-v2"), "{TARGET}"),
+            Some(variant) => assert!(TARGET.ends_with(&format!("-{variant}")), "{TARGET}"),
+        }
+    }
 
     /// The version is the one field that is true even with no git, no
     /// network and no CI, because it comes from Cargo rather than from a

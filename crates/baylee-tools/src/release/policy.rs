@@ -3,13 +3,17 @@ use anyhow::{Context, Result, bail, ensure};
 use serde_json::Value;
 use std::{env, process::Command};
 
-pub(super) const TARGETS: [(&str, &str); 6] = [
+pub(super) const TARGETS: [(&str, &str); 9] = [
     ("x86_64-unknown-linux-gnu", "tar.gz"),
     ("aarch64-unknown-linux-gnu", "tar.gz"),
     ("x86_64-pc-windows-msvc", "zip"),
     ("aarch64-pc-windows-msvc", "zip"),
     ("aarch64-apple-darwin", "zip"),
     ("x86_64-apple-darwin", "zip"),
+    // The fallback for CPUs below x86-64-v3: archives alone.
+    ("x86_64-unknown-linux-gnu-v2", "tar.gz"),
+    ("x86_64-pc-windows-msvc-v2", "zip"),
+    ("x86_64-apple-darwin-v2", "zip"),
 ];
 pub(super) const REQUIRED_JOBS: [&str; 11] = [
     "fmt",

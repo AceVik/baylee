@@ -277,6 +277,7 @@ jobs:
 
           **Install:** macOS: open \`Baylee-$VERSION-aarch64.dmg\` (Apple silicon) or \`Baylee-$VERSION-x86_64.dmg\` (Intel) and drag Baylee to Applications. Windows: run \`Baylee-Setup-$VERSION-x64.exe\` (or \`-arm64\`), which installs for your user only and asks for no administrator rights. Linux: \`Baylee-$VERSION-<arch>.AppImage\` (make it executable and start it) or \`baylee_${VERSION}_<arch>.deb\`.
           The archives (\`baylee-client-…\`) are the same game to unpack anywhere; \`README.txt\` in each has the first-start steps. An installed client updates itself from these archives.
+          Baylee needs an x86-64 CPU with AVX2 (x86-64-v3). If it does not start on yours, take the archive whose name ends in \`-v2\`.
           The builds are not code-signed, so macOS and Windows warn on first start.
           Each archive has a \`.sig\` beside it, the Ed25519 signature a client checks before it installs an update by itself.
           Every binary names its commit and CI run in its build stamp. The build number identifies the source \`ci\` run.
