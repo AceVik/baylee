@@ -134,6 +134,7 @@ type CardPoses<'w, 's> = Query<
         &'static mut Transform,
         Option<&'static crate::combatfx::Recoil>,
         Option<&'static Visibility>,
+        Has<Floating>,
     ),
 >;
 
@@ -182,8 +183,22 @@ fn wake_targets(targets: &MotionTargets, active: &mut EntityHashSet) -> usize {
     inspected
 }
 
+/// What one frame of [`glide`] moved.
+#[derive(Clone, Copy, Default)]
+struct Moved {
+    cards: usize,
+    grounded: usize,
+}
+
+impl Moved {
+    fn count(&mut self, moved: bool, floating: bool) {
+        self.cards += usize::from(moved);
+        self.grounded += usize::from(moved && !floating);
+    }
+}
+
 impl GlideCards<'_, '_> {
-    fn advance(&mut self, still: bool, t: f32, now: f32) -> usize {
+    fn advance(&mut self, still: bool, t: f32, now: f32) -> Moved {
         if *self.dense {
             let threshold = self.targets.iter().len() / 4;
             return self.advance_dense(still, t, now, threshold);
@@ -195,7 +210,7 @@ impl GlideCards<'_, '_> {
         // under reduce_motion/Placing. Removal gets one final settling pass.
         self.active.extend(self.recoils.iter());
         if self.active.is_empty() {
-            return 0;
+            return Moved::default();
         }
         // This archetypal query's exact length sums table lengths, not rows.
         let threshold = self.targets.iter().len() / 4;
@@ -204,10 +219,11 @@ impl GlideCards<'_, '_> {
             *self.dense = true;
             return self.advance_dense(still, t, now, threshold);
         }
-        let mut moving = 0;
+        let mut moving = Moved::default();
         let mut poses = self.poses.p1();
         self.active.retain(|entity| {
-            let Ok((_, motion, mut transform, recoil, seen)) = poses.get_mut(*entity) else {
+            let Ok((_, motion, mut transform, recoil, seen, floating)) = poses.get_mut(*entity)
+            else {
                 return false;
             };
             let mut target = motion.target;
@@ -215,23 +231,23 @@ impl GlideCards<'_, '_> {
                 target.translation += recoil.offset(now);
             }
             let moved = advance_card(&mut transform, target, seen, still, t);
-            moving += usize::from(moved);
+            moving.count(moved, floating);
             moved || recoil.is_some()
         });
         moving
     }
 
-    fn advance_dense(&mut self, still: bool, t: f32, now: f32, threshold: usize) -> usize {
-        let mut moving = 0;
+    fn advance_dense(&mut self, still: bool, t: f32, now: f32, threshold: usize) -> Moved {
+        let mut moving = Moved::default();
         let mut needed = 0;
         self.candidates.clear();
-        for (entity, motion, mut transform, recoil, seen) in &mut self.poses.p1() {
+        for (entity, motion, mut transform, recoil, seen, floating) in &mut self.poses.p1() {
             let mut target = motion.target;
             if !still && let Some(recoil) = recoil {
                 target.translation += recoil.offset(now);
             }
             let moved = advance_card(&mut transform, target, seen, still, t);
-            moving += usize::from(moved);
+            moving.count(moved, floating);
             if moved || recoil.is_some() {
                 needed += 1;
                 // One extra entry proves this frame remains dense. No hashing
@@ -346,14 +362,18 @@ impl Placing {
 pub struct GlideReport {
     /// Cards that moved this frame.
     pub moving: usize,
+    /// Of those, the cards not in the air. A flyer's drift never ends, so
+    /// this is the number that can say a table has arrived.
+    pub grounded: usize,
     /// Frames since the last one that moved a card.
     pub settled_frames: u64,
 }
 
 impl GlideReport {
-    fn note(&mut self, moving: usize) {
-        self.moving = moving;
-        self.settled_frames = if moving == 0 {
+    fn note(&mut self, moved: Moved) {
+        self.moving = moved.cards;
+        self.grounded = moved.grounded;
+        self.settled_frames = if moved.cards == 0 {
             self.settled_frames.saturating_add(1)
         } else {
             0

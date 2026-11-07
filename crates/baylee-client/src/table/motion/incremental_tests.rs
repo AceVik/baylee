@@ -30,6 +30,7 @@ impl Goal for PlainMotion {
         self.0
     }
 }
+#[allow(clippy::type_complexity)] // the query glide itself runs, spelled out
 fn original<M: Goal>(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
@@ -38,6 +39,7 @@ fn original<M: Goal>(
         &mut Transform,
         Option<&crate::combatfx::Recoil>,
         Option<&Visibility>,
+        Has<Floating>,
     )>,
     report: Option<ResMut<GlideReport>>,
     placing: Option<ResMut<Placing>>,
@@ -45,8 +47,8 @@ fn original<M: Goal>(
     let placed = placing.is_some_and(|mut placing| placing.frames > 0 && placing.spend());
     let still = prefs.all().reduce_motion || placed;
     let t = 1.0 - (-16.0 * time.delta_secs()).exp();
-    let mut moving = 0;
-    for (motion, mut transform, recoil, seen) in &mut cards {
+    let mut moving = Moved::default();
+    for (motion, mut transform, recoil, seen, floating) in &mut cards {
         let mut target = motion.target();
         if !still && let Some(recoil) = recoil {
             target.translation += recoil.offset(time.elapsed_secs());
@@ -62,7 +64,7 @@ fn original<M: Goal>(
             }
             continue;
         }
-        moving += 1;
+        moving.count(true, floating);
         if t == 0.0 {
             continue;
         }

@@ -1468,6 +1468,7 @@ fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
             })
         }).collect::<Vec<_>>(),
         "tear": duel.tear.as_ref().map(|t| t.t),
+        "follow_settling": duel.follow_settling,
     })
     .to_string()
 }

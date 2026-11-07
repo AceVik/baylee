@@ -1037,3 +1037,49 @@ fn the_raised_controls_stand_down_under_the_settings() {
         }
     }
 }
+
+/// A flyer drifts for as long as it flies, so a table with one on it counts as
+/// arrived, and `Space` is a press again.
+#[test]
+fn a_flyer_s_drift_does_not_hold_the_confirm_key() {
+    use bevy::ecs::system::RunSystemOnce as _;
+    let mut world = World::new();
+    let mut duel = seated_duel(Arrangement::Spotlight);
+    duel.follow_settling = true;
+    world.insert_resource(duel);
+    world.init_resource::<Time<Real>>();
+    world.insert_resource(crate::table::GlideReport {
+        moving: 3,
+        grounded: 0,
+        settled_frames: 0,
+    });
+    world.run_system_once(settle_the_follow).unwrap();
+    assert!(!world.resource::<Duel>().follow_settling);
+}
+
+/// Whatever keeps moving, the key comes back: nothing a table does costs the
+/// player `Space` for good.
+#[test]
+fn nothing_holds_the_confirm_key_for_ever() {
+    use bevy::ecs::system::RunSystemOnce as _;
+    let start = std::time::Instant::now();
+    let mut clock = Time::<Real>::new(start);
+    clock.update_with_instant(start);
+    let mut world = World::new();
+    let mut duel = seated_duel(Arrangement::Spotlight);
+    duel.follow_settling = true;
+    world.insert_resource(duel);
+    world.insert_resource(crate::table::GlideReport {
+        moving: 3,
+        grounded: 3,
+        settled_frames: 0,
+    });
+    world.insert_resource(clock);
+    world.run_system_once(settle_the_follow).unwrap();
+    assert!(world.resource::<Duel>().follow_settling, "while it moves");
+    world
+        .resource_mut::<Time<Real>>()
+        .update_with_instant(start + std::time::Duration::from_secs(3));
+    world.run_system_once(settle_the_follow).unwrap();
+    assert!(!world.resource::<Duel>().follow_settling);
+}

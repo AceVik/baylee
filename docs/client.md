@@ -1148,7 +1148,8 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   open (a bare priority grant on an empty stack is none: at a networked table
   every other seat's turn awaits me with one) or the pointer rests on a card
   of the seat shown now, never on my turn, which comes home at once; while the moved table settles a `Space` is dropped
-  (`Duel::follow_settling`, cleared by `settle_the_follow` once `glide` and
+  (`Duel::follow_settling`, cleared by `settle_the_follow` at the latest after two
+  seconds, and sooner once `glide`, which leaves a flyer's endless drift out, and
   the camera are still). A seat chosen by hand holds until the next turn.
   The switch stands in Settings › Graphics and, since a report of
   30.10.2026, in the game menu too (`menu::switches::FollowSwitch`, "Table

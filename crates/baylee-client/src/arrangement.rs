@@ -246,20 +246,28 @@ pub fn follow_after_the_dwell(time: Res<Time>, mut duel: ResMut<Duel>) {
     }
 }
 
+/// How long a follow's move may hold `Space`, in seconds. Longer than any move
+/// takes: something that never settles must not cost the player the key.
+const MOST_SETTLING: f32 = 2.0;
+
 /// Clears [`Duel::follow_settling`] once every card the follow switch moved
 /// is on its mark and the camera has arrived: from then on `Space` is a
-/// press again.
+/// press again. A flyer's drift is not a move: it never ends.
 pub fn settle_the_follow(
+    time: Res<Time<Real>>,
     mut duel: ResMut<Duel>,
     glide: Option<Res<crate::table::GlideReport>>,
     shown: Option<Res<crate::table::ShownRig>>,
+    mut held: Local<f32>,
 ) {
     if !duel.follow_settling {
+        *held = 0.0;
         return;
     }
-    let cards = glide.is_none_or(|g| g.moving == 0);
+    *held += time.delta_secs();
+    let cards = glide.is_none_or(|g| g.grounded == 0);
     let camera = shown.is_none_or(|s| !s.moving());
-    if cards && camera {
+    if (cards && camera) || *held >= MOST_SETTLING {
         duel.follow_settling = false;
     }
 }
