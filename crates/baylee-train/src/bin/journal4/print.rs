@@ -13,12 +13,12 @@ const OPTIONS: usize = 6;
 
 fn name(view: &PlayerView, id: ObjectId) -> String {
     view.object(id)
-        .map(|object| object.name.clone())
+        .map(|object| object.name.to_string())
         .or_else(|| {
             view.hand
                 .iter()
                 .find(|card| card.id == id)
-                .map(|card| card.name.clone())
+                .map(|card| card.name.to_string())
         })
         .or_else(|| {
             view.stack
@@ -69,7 +69,7 @@ fn action(view: &PlayerView, action: &PlayerAction) -> String {
 }
 
 fn object(view: &PlayerView, object: &PublicObject) -> String {
-    let mut text = object.name.clone();
+    let mut text = object.name.to_string();
     if let (Some(power), Some(toughness)) = (object.power, object.toughness) {
         let _ = write!(text, " {power}/{toughness}");
     }

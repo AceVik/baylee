@@ -34,7 +34,10 @@ impl Names {
                 .chain(&view.looking_at)
                 .chain(&view.library_tops);
             for object in public {
-                names.insert(object.id, (object.name.clone(), Some(object.controller)));
+                names.insert(
+                    object.id,
+                    (object.name.to_string(), Some(object.controller)),
+                );
             }
         }
         Self(names)

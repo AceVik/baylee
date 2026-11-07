@@ -87,7 +87,10 @@ impl Patterns {
                 let source = decision
                     .asked
                     .and_then(|view| view.targeting.as_ref())
-                    .map_or_else(|| "?".to_owned(), |targeting| targeting.source.name.clone());
+                    .map_or_else(
+                        || "?".to_owned(),
+                        |targeting| targeting.source.name.to_string(),
+                    );
                 let own = players.contains(&seat)
                     || objects.iter().any(|id| controlled_by(table, *id, seat));
                 let elsewhere = match decision.pending {
@@ -193,7 +196,7 @@ fn case(
 ) -> String {
     let creature = |object: &PublicObject| match (object.power, object.toughness) {
         (Some(power), Some(toughness)) => format!("{} {power}/{toughness}", object.name),
-        _ => object.name.clone(),
+        _ => object.name.to_string(),
     };
     let lives: Vec<String> = table
         .seats

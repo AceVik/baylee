@@ -52,7 +52,7 @@ pub(super) fn print(views: &[PlayerView], focal: usize, turn: u32) {
 /// A permanent's name with its power and toughness, damage, counters and
 /// whether it is tapped.
 fn permanent(object: &PublicObject) -> String {
-    let mut text = object.name.clone();
+    let mut text = object.name.to_string();
     if let (Some(power), Some(toughness)) = (object.power, object.toughness) {
         let _ = write!(text, " {power}/{toughness}");
         if object.damage > 0 {

@@ -396,7 +396,7 @@ impl Reader {
             .filter(|object| !walls.iter().any(|wall| can_block(wall, object)))
             .collect();
         if !free.is_empty() {
-            let cards: Vec<String> = free.iter().map(|object| object.name.clone()).collect();
+            let cards: Vec<String> = free.iter().map(|object| object.name.to_string()).collect();
             let units = free.iter().map(|object| hits(object)).sum::<i32>();
             let class = if swing < life(view, seat) {
                 "attack: free attacker stayed home, no lethal back"
@@ -450,7 +450,7 @@ impl Reader {
                     "attack: into a free kill",
                     view,
                     u64::from(attacker.mana_value),
-                    vec![attacker.name.clone()],
+                    vec![attacker.name.to_string()],
                     &extra,
                 );
             }
@@ -574,7 +574,7 @@ impl Reader {
                     "block: chump at healthy life",
                     view,
                     u64::from(blocker.mana_value),
-                    vec![blocker.name.clone()],
+                    vec![blocker.name.to_string()],
                     &extra,
                 );
             }
