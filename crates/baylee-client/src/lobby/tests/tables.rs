@@ -1131,3 +1131,61 @@ fn the_deck_picker_scrolls_and_has_its_bar() {
         .any(|bar| bar.target == picker);
     assert!(aimed, "and a bar is aimed at it");
 }
+
+/// The tables of a gateway the player has signed in to, at `address`.
+fn at_the_tables_of(address: &str, name: Option<&str>) -> App {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateway = address.to_string();
+        state.probes.insert(
+            address.to_string(),
+            Probe::Known(baylee_client_core::lobby::gateway_info::GatewayInfo {
+                name: name.map(str::to_string),
+                ..Default::default()
+            }),
+        );
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".into(),
+            username: None,
+        });
+        state.lobby.apply(LobbyEvent::Decks(Vec::new()));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+    }
+    app.update();
+    app
+}
+
+/// How often the panel says `words`.
+fn said(app: &mut App, words: &str) -> usize {
+    labels(app).iter().filter(|l| *l == words).count()
+}
+
+/// A gateway that gave no name has no title: the words over the panel are not
+/// said a second time, and the address is what tells it apart.
+#[test]
+fn a_gateway_without_a_name_is_not_called_your_gateway_twice() {
+    let address = "https://nameless.test";
+    let mut app = at_the_tables_of(address, None);
+    let eyebrow = Phrase::DiscoveryGateway.text(Lang::En);
+    assert_eq!(said(&mut app, eyebrow), 1);
+    assert_eq!(
+        said(&mut app, address),
+        2,
+        "the header's pill and the panel"
+    );
+}
+
+/// With a name, the name is the panel's title and the address stands under it.
+#[test]
+fn a_gateway_with_a_name_keeps_its_address_under_it() {
+    let address = "https://named.test";
+    let mut app = at_the_tables_of(address, Some("The Back Room"));
+    assert_eq!(said(&mut app, Phrase::DiscoveryGateway.text(Lang::En)), 1);
+    assert_eq!(
+        said(&mut app, "The Back Room"),
+        2,
+        "the header's pill and the panel's title"
+    );
+    assert_eq!(said(&mut app, address), 1);
+}

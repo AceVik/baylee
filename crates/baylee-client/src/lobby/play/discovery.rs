@@ -44,18 +44,19 @@ pub(super) fn sidebar(commands: &mut Commands, parent: Entity, state: &LobbyStat
         kit.m.small,
         tokens::GOLD,
     );
-    let name = state
-        .gateway_name()
-        .unwrap_or_else(|| Phrase::DiscoveryGateway.text(lang).to_owned());
-    let title = commands
-        .spawn((
-            Text::new(name),
-            crate::hud::tf_bold(kit.fonts, kit.m.head),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(card).add_children(&[eyebrow, title]);
+    commands.entity(card).add_child(eyebrow);
+    // A gateway that gave no name has no title: the words above are not said twice.
+    if let Some(name) = state.gateway_name() {
+        let title = commands
+            .spawn((
+                Text::new(name),
+                crate::hud::tf_bold(kit.fonts, kit.m.head),
+                TextColor(tokens::INK),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(card).add_child(title);
+    }
     if matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast) {
         let address = parts::line(commands, kit, &state.gateway, kit.m.small, tokens::MUTED);
         commands.entity(card).add_child(address);
