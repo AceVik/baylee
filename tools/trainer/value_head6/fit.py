@@ -71,16 +71,34 @@ class Samples:
         self.weights = torch.cat(weights)
         self.pairs = torch.cat(pairs)
         self.domains = torch.cat(domains)
+        self.step_balance = self._step_balance()
+
+    def _step_balance(self):
+        """Weights that make wins and losses count alike among a domain's steps.
+
+        With a seat that mostly loses, a plain reading of the step teaches every
+        step to go down, and the head drifts: high early, low late.
+        """
+        outcome = self.targets[self.pairs[:, 1]]
+        domain = self.domains[self.pairs[:, 1]]
+        balance = torch.ones_like(outcome)
+        for number in domain.unique():
+            inside = domain == number
+            rate = outcome[inside].mean().clamp(.05, .95)
+            balance[inside] = torch.where(outcome[inside] > .5, .5 / rate, .5 / (1 - rate))
+        return balance
 
     def __len__(self):
         return len(self.targets)
 
 
-def step_loss(head, samples, pairs):
+def step_loss(head, samples, numbers):
     """The change of the logit between two turns, read as who wins the game."""
+    pairs = samples.pairs[numbers]
     before = side_logit(head, samples.tokens[pairs[:, 0]].float())
     after = side_logit(head, samples.tokens[pairs[:, 1]].float())
-    return F.binary_cross_entropy_with_logits(after - before, samples.targets[pairs[:, 1]], reduction="sum")
+    loss = F.binary_cross_entropy_with_logits(after - before, samples.targets[pairs[:, 1]], reduction="none")
+    return (loss * samples.step_balance[numbers]).sum()
 
 
 @torch.no_grad()
@@ -94,7 +112,7 @@ def score(head, samples, offsets, batch=32768):
         loss += float((F.binary_cross_entropy_with_logits(logit, target, reduction="none") * weight).sum())
         brier += float(((torch.sigmoid(logit) - target).square() * weight).sum())
     for start in range(0, len(samples.pairs), batch):
-        steps += float(step_loss(head, samples, samples.pairs[start:start + batch]))
+        steps += float(step_loss(head, samples, slice(start, start + batch)))
     total = float(samples.weights.sum())
     return dict(loss=loss / total, brier=brier / total, step=steps / max(1, len(samples.pairs)))
 
@@ -138,7 +156,7 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
             loss = (F.binary_cross_entropy_with_logits(logit, train.targets[part], reduction="none") * weight).sum() / weight.sum()
             if step_weight:
                 drawn = torch.randint(len(train.pairs), (pair_batch,), generator=generator).to(device)
-                loss = loss + step_weight * step_loss(head, train, train.pairs[drawn]) / pair_batch
+                loss = loss + step_weight * step_loss(head, train, drawn) / pair_batch
             if not torch.isfinite(loss):
                 raise FloatingPointError("Nonfinite value head loss")
             optimizer.zero_grad(set_to_none=True)
