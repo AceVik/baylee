@@ -170,8 +170,10 @@ fn smokestack_new_soot_counts_for_both_players_upkeeps() {
         .unwrap();
 
     // Only Smokestack's controller gets the optional counter. `pass_until`
-    // answers a MayDo yes on its way, so a counter offered to the opponent
-    // would be taken: soot still at one and the keep bound below say none was.
+    // answers a MayDo itself, so its absence here shows nothing. Soot at one
+    // and a keep of (1, 1) show it: a second counter would leave the opponent
+    // nothing to keep, and this walk would never reach the question. With
+    // triggers ordered, a second trigger stops it sooner, at the order question.
     pass_until(
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseCards { player, .. } if *player == p1),
@@ -202,6 +204,7 @@ fn smokestack_new_soot_counts_for_both_players_upkeeps() {
     assert!(on_battlefield(&engine, p1, grizzly_bears()).is_some());
     assert!(in_graveyard(&engine, p0, forest()).is_some());
     assert!(in_graveyard(&engine, p1, forest()).is_some());
+    assert_eq!(soot(&engine, stack), 1, "the opponent added no counter");
     assert_eq!(engine.state().turn.active, p1);
 }
 
