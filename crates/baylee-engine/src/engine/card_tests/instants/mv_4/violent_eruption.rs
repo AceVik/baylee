@@ -80,6 +80,142 @@ fn violent_eruption_divides_four_across_creatures_and_a_player() {
     assert!(in_graveyard(&engine, p0, violent_eruption()).is_some());
 }
 
+/// The spell cast off its {1}{R}{R}{R} and stopped at its target question,
+/// three creatures on the other side: with both players, five legal targets.
+#[track_caller]
+fn cast_at_a_full_board() -> (Engine<RegistryLookup>, [ObjectId; 3]) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .hand(0, &[violent_eruption()])
+        .battlefield(0, &[mountain(); 4])
+        .battlefield(1, &[grizzly_bears(), index::HILL_GIANT, gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creatures = [
+        on_battlefield(&engine, p1, grizzly_bears()).unwrap(),
+        on_battlefield(&engine, p1, index::HILL_GIANT).unwrap(),
+        on_battlefield(&engine, p1, gray_ogre()).unwrap(),
+    ];
+    cast_from_hand(&mut engine, p0, violent_eruption());
+    (engine, creatures)
+}
+
+/// "Any number" stops at one: a single target takes all four, and there is
+/// nothing to divide, so no share is asked for.
+#[test]
+fn violent_eruption_puts_all_four_on_a_single_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, _) = cast_at_a_full_board();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "one target takes the whole amount, got {:?}",
+        engine.pending()
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p1), 16);
+    assert_eq!(life_of(&engine, p0), 20);
+    assert!(in_graveyard(&engine, p0, violent_eruption()).is_some());
+}
+
+/// Each target must receive at least one of the four (CR 601.2d), so four is
+/// the most the spell can have. The offer says so, a fifth is refused with
+/// nothing chosen, and four targets take exactly one each.
+#[test]
+fn violent_eruption_takes_four_targets_and_refuses_a_fifth() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, [bears, giant, ogre]) = cast_at_a_full_board();
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the target question, got {:?}", engine.pending());
+    };
+    assert_eq!((options.len(), player_options.len()), (3, 2));
+    assert_eq!((min, max), (0, 4));
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![bears, giant, ogre],
+                    players: vec![p0, p1],
+                },
+            )
+            .is_err(),
+        "a fifth target cannot receive any of the four"
+    );
+    assert!(matches!(engine.pending(), Pending::ChooseTargets { .. }));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bears, giant, ogre],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    while let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() {
+        assert_eq!((min, max), (1, 1), "four targets leave one apiece");
+        engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+    }
+
+    pass_until(&mut engine, stack_is_empty);
+    for creature in [bears, giant, ogre] {
+        assert_eq!(engine.state().object(creature).unwrap().damage, 1);
+    }
+    assert_eq!(life_of(&engine, p1), 19);
+    assert_eq!(life_of(&engine, p0), 20);
+    assert!(in_graveyard(&engine, p0, violent_eruption()).is_some());
+}
+
+/// "Any number" also includes none (CR 115.6). The spell is paid for, has no
+/// target to lose, resolves, deals nothing and goes to the graveyard.
+#[test]
+fn violent_eruption_with_no_targets_resolves_and_deals_nothing() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, creatures) = cast_at_a_full_board();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no target leaves nothing to divide, got {:?}",
+        engine.pending()
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert!(!stack_is_empty(&engine), "the spell was cast");
+
+    pass_until(&mut engine, stack_is_empty);
+    for creature in creatures {
+        assert_eq!(engine.state().object(creature).unwrap().damage, 0);
+    }
+    assert_eq!(life_of(&engine, p0), 20);
+    assert_eq!(life_of(&engine, p1), 20);
+    assert!(in_graveyard(&engine, p0, violent_eruption()).is_some());
+}
+
 /// Damage is divided as the spell is cast, not redistributed on resolution
 /// (CR 601.2d, 608.2b). A target removed by a real Lightning Bolt loses its
 /// announced three; the surviving player target still takes only one.
