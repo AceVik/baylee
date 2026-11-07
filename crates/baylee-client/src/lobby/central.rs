@@ -35,6 +35,8 @@ struct PendingSave {
 pub(crate) struct Handle {
     send: mpsc::SyncSender<Job>,
     active: Arc<AtomicBool>,
+    /// The worker leaves the Central session open when it stops.
+    stays: Arc<AtomicBool>,
 }
 
 impl Handle {
@@ -45,6 +47,7 @@ impl Handle {
         Self {
             send,
             active: Arc::new(AtomicBool::new(true)),
+            stays: Arc::new(AtomicBool::new(false)),
         }
     }
     /// A handle whose jobs the test receives, instead of a worker.
@@ -54,11 +57,17 @@ impl Handle {
         let handle = Self {
             send,
             active: Arc::new(AtomicBool::new(true)),
+            stays: Arc::new(AtomicBool::new(false)),
         };
         (handle, receive)
     }
     pub(crate) fn is_active(&self) -> bool {
         self.active.load(Ordering::Acquire)
+    }
+    /// A client restarting into an update stays signed in: signing out at Central
+    /// ends the gateway's session too, and the next client takes that one up.
+    pub(crate) fn stay_signed_in(&self) {
+        self.stays.store(true, Ordering::Release);
     }
     /// Enqueue bounded account work without exposing SDK keys or tokens to the UI.
     pub(crate) fn submit(&self, operation: impl FnOnce(&mut Account) + Send + 'static) -> bool {
@@ -146,6 +155,8 @@ impl Handle {
         let (send, receive) = mpsc::sync_channel::<Job>(64);
         let active = Arc::new(AtomicBool::new(true));
         let worker_active = active.clone();
+        let stays = Arc::new(AtomicBool::new(false));
+        let worker_stays = stays.clone();
         std::thread::Builder::new()
             .name("central-account".into())
             .spawn(move || {
@@ -178,10 +189,16 @@ impl Handle {
                         Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     }
                 }
-                let _ = account.logout();
+                if !worker_stays.load(Ordering::Acquire) {
+                    let _ = account.logout();
+                }
             })
             .map_err(|_| Error::Unavailable)?;
-        Ok(Self { send, active })
+        Ok(Self {
+            send,
+            active,
+            stays,
+        })
     }
 
     pub(crate) fn save(
@@ -939,6 +956,7 @@ pub(super) fn restored_for_test(state: &mut LobbyState, gateways: Vec<String>) {
         handle: Handle {
             send,
             active: Arc::new(AtomicBool::new(true)),
+            stays: Arc::new(AtomicBool::new(false)),
         },
         gateways,
         preferences: Preferences::default(),
@@ -1010,6 +1028,7 @@ pub(crate) fn demo_central_lobby(state: &mut LobbyState) {
         handle: Handle {
             send,
             active: Arc::new(AtomicBool::new(true)),
+            stays: Arc::new(AtomicBool::new(false)),
         },
         gateways: urls,
         preferences: Preferences::default(),
@@ -1088,6 +1107,7 @@ mod tests {
             handle: Handle {
                 send,
                 active: Arc::new(AtomicBool::new(true)),
+                stays: Arc::new(AtomicBool::new(false)),
             },
             gateways: vec![source.clone()],
             preferences: Preferences::default(),
@@ -1137,6 +1157,7 @@ mod tests {
             handle: Handle {
                 send,
                 active: Arc::new(AtomicBool::new(true)),
+                stays: Arc::new(AtomicBool::new(false)),
             },
             gateways: vec![other.clone()],
             preferences: Preferences::default(),
@@ -1172,6 +1193,7 @@ mod tests {
             handle: Handle {
                 send,
                 active: Arc::new(AtomicBool::new(true)),
+                stays: Arc::new(AtomicBool::new(false)),
             },
             gateways: Vec::new(),
             preferences: Preferences::default(),
@@ -1221,6 +1243,7 @@ mod tests {
             handle: Handle {
                 send,
                 active: Arc::new(AtomicBool::new(true)),
+                stays: Arc::new(AtomicBool::new(false)),
             },
             gateways: vec![gateway_list::KEYED.into(), other.clone()],
             preferences: Preferences::default(),

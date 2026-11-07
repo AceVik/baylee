@@ -1607,6 +1607,12 @@ impl Lobby {
         self.session_serial
     }
 
+    /// The bearer wants renewing on the next frame, for a client that took up a
+    /// session and cannot know how long its bearer has left.
+    pub const fn renew_the_bearer_now(&mut self) {
+        self.renew_in = Some(0.0);
+    }
+
     /// Counts `seconds` down and answers `true` once, when the bearer wants
     /// renewing. [`LobbyEvent::BearerRenewed`] sets the next time.
     pub fn bearer_due(&mut self, seconds: f32) -> bool {

@@ -10339,7 +10339,12 @@ continue where you left off". Then:
   plays from there on is its own. Local games are untimed, so no clock
   crosses.
 - **A hosted game**: the gateway is chosen again, the session taken up
-  again (a guest's from the settings, as ever), and the first listing asks
+  again (a guest's from the settings, as ever; a Central account's bearer
+  renewed on the first frame, its gateway found by the session that crossed
+  since its list comes with the sign-in, and the old client leaving without
+  signing out at Central, which would end the session here; Central itself
+  asks for the password again, so chat stays locked and the session ends with
+  its gateway token), and the first listing asks
   for the chair (`Lobby::resume_seat`, before any other chair, listed or
   not): `POST /lobby/games/{id}/seat`, which hands the signed-in account a
   fresh ticket for its own chair and only to it (`docs/protocol.md`; no new

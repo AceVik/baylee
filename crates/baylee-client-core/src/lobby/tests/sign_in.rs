@@ -398,3 +398,14 @@ fn signing_out_forgets_the_token_and_everything_it_bought() {
     assert_eq!(lobby.screen(), &Screen::SignIn { registering: false });
     assert_eq!(lobby.refresh(), None, "no token, no requests");
 }
+
+/// A client that took up a session over a restart cannot know how long the
+/// bearer has left, so it renews on its first frame and not at the floor.
+#[test]
+fn a_session_taken_up_renews_its_bearer_at_once() {
+    let mut lobby = signed_in_as("taken up");
+    assert!(!lobby.bearer_due(0.0), "nothing asked for yet");
+    lobby.renew_the_bearer_now();
+    assert!(lobby.bearer_due(0.0));
+    assert!(!lobby.bearer_due(0.0), "once");
+}

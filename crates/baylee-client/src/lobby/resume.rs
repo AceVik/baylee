@@ -234,7 +234,7 @@ fn start(
     let Some(gateway) = &wanted.gateway else {
         return Started::Nothing;
     };
-    let Some(index) = row_of(&state.gateways, gateway) else {
+    let Some(index) = row_for(&mut state.gateways, gateway, resuming.session.is_some()) else {
         state.lobby.tell(Phrase::ResumeFailed, &[]);
         return Started::Nothing;
     };
@@ -246,10 +246,17 @@ fn start(
             .get(gateway)
             .cloned()
             .and_then(|kept| state.lobby.apply(LobbyEvent::GuestIn(kept))),
-        (Some(Account { username, .. }), Some(token)) => state.lobby.apply(LobbyEvent::LoggedIn {
-            token: token.clone(),
-            username: username.clone(),
-        }),
+        (Some(Account { username, .. }), Some(token)) => {
+            let request = state.lobby.apply(LobbyEvent::LoggedIn {
+                token: token.clone(),
+                username: username.clone(),
+            });
+            // A Central session's bearer lives a minute or two, and the client
+            // that knew when it runs out has gone. Any other session answers
+            // the renewal with a refusal that changes nothing.
+            state.lobby.renew_the_bearer_now();
+            request
+        }
         // Nobody signed in, or no session came across: the sign-in face,
         // with the name filled in as on any start.
         _ => return Started::Nothing,
@@ -272,6 +279,19 @@ fn start(
 /// The row of the gateway a restart named, by `gateway_list::same`: one the
 /// client this update replaced named by the live gateway's former address
 /// is the live gateway's row.
+/// The row of the gateway a restart left. A Central account's list comes back
+/// with its sign-in, which has not happened yet, so a session that crossed is
+/// what says the gateway was this account's: it stands in the list until the
+/// sign-in brings the real one.
+fn row_for(gateways: &mut Vec<String>, gateway: &str, session: bool) -> Option<usize> {
+    row_of(gateways, gateway).or_else(|| {
+        session.then(|| {
+            gateways.push(gateway.to_owned());
+            gateways.len() - 1
+        })
+    })
+}
+
 fn row_of(gateways: &[String], gateway: &str) -> Option<usize> {
     gateways
         .iter()
@@ -479,6 +499,9 @@ fn restart_on_request(
     };
     match crate::update::native::restart(&handoff.to_bytes(), true) {
         Ok(()) => {
+            if let Some(handle) = state.central.as_ref().and_then(|c| c.handle.as_ref()) {
+                handle.stay_signed_in();
+            }
             exit.write(AppExit::Success);
         }
         Err(err) => {
@@ -571,8 +594,20 @@ fn snapshot(
 
 #[cfg(test)]
 mod tests {
-    use super::row_of;
+    use super::{row_for, row_of};
     use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+
+    /// A Central account's list is empty until it signs in, so the session that
+    /// crossed is what finds the gateway. With no session nothing is made up.
+    #[test]
+    fn a_session_that_crossed_finds_a_gateway_the_list_does_not_hold_yet() {
+        let mut gateways = Vec::new();
+        assert_eq!(row_for(&mut gateways, "https://a.example", false), None);
+        assert!(gateways.is_empty());
+        assert_eq!(row_for(&mut gateways, "https://a.example", true), Some(0));
+        assert_eq!(row_for(&mut gateways, "https://a.example", true), Some(0));
+        assert_eq!(gateways.len(), 1, "found once, not added twice");
+    }
 
     /// A restart into the update that moved the live gateway: `resume.json`
     /// names its former address, and the live gateway's row is found.
