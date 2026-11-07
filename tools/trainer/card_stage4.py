@@ -191,21 +191,29 @@ def run(args):
     device = torch.device(args.device)
     checkpoint, net, _ = load_export_checkpoint(args.model / "net.pt")
     reference, reference_net, _ = load_export_checkpoint(args.reference / "net.pt")
-    rules = net.rules.to(device)
     labels = json.loads(args.labels.read_text())
-    if labels.get("catalog_sha256") != rules.digest:
+    if labels.get("catalog_sha256") != net.rules.digest:
         raise ValueError("Labels belong to another catalog; write them with this build's card_structure4")
     sources = [args.model / "net.pt", args.reference / "net.pt", args.labels]
     hashes = {str(path): file_digest(path) for path in sources}
+    # Which roots the refresh left unchanged is decided on the CPU, where the
+    # same weights over the same tree give the same bits. A GPU's
+    # order-dependent sums differ in the last places and would leave
+    # unchanged roots unanchored (the first CUDA run anchored 23,571 of
+    # 39,927).
+    with torch.no_grad():
+        reference_cpu = reference_net.rules.encode_catalog()
+        start_cpu = net.rules.encode_catalog()
+    anchor_ids, anchor_values, shared = anchored_roots(start_cpu, net.rules.data["roots"], reference_cpu,
+                                                       reference_net.rules.data["roots"])
+    anchor_ids, anchor_values = anchor_ids.to(device), anchor_values.to(device)
+    del reference_net, reference_cpu
+    rules = net.rules.to(device)
     targets = Targets(labels, rules.data["roots"], args.holdout_every).to(device)
     train_rows = (~targets.validation).nonzero().squeeze(1)
     val_rows = targets.validation.nonzero().squeeze(1)
     with torch.no_grad():
-        reference_table = reference_net.rules.to(device).encode_catalog()
         start_table = rules.encode_catalog()
-    anchor_ids, anchor_values, shared = anchored_roots(start_table, rules.data["roots"], reference_table,
-                                                       reference_net.rules.data["roots"])
-    del reference_net
     new_tags = None
     initial_symbols = rules.symbol.weight.detach().clone()
     if args.train == "new-tags":
@@ -254,15 +262,15 @@ def run(args):
           with_anchor=args.train == "encoder")
     after = measure("after", args.steps)
     rules.eval()
-    with torch.no_grad():
-        final_table = rules.encode_catalog()
-        root_ids = torch.tensor(sorted(set(rules.data["roots"].values())), device=device)
-        moved = (final_table[root_ids] - start_table[root_ids]).abs().amax(-1) > 0
     if new_tags is not None:
         old_rows = ~new_tags.to(device)
         if not torch.equal(rules.symbol.weight[old_rows], initial_symbols[old_rows]):
             raise AssertionError("A known operator moved in new-tags mode")
     net.rules = rules.to("cpu")
+    with torch.no_grad():
+        final_cpu = net.rules.encode_catalog()
+        root_ids = torch.tensor(sorted(set(net.rules.data["roots"].values())))
+        moved = (final_cpu[root_ids] - start_cpu[root_ids]).abs().amax(-1) > 0
     lineage = dict(source=str((args.model / "net.pt").resolve()), source_sha256=hashes[str(args.model / "net.pt")],
                    reference=str((args.reference / "net.pt").resolve()),
                    reference_sha256=hashes[str(args.reference / "net.pt")],
