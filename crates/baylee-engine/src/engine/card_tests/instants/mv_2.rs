@@ -143,6 +143,7 @@ mod soul_rend;
 mod strength_in_numbers;
 mod stun;
 mod surge_of_strength;
+mod sylvan_might;
 mod symbiosis;
 mod tear_asunder;
 mod tel_jilad_justice;

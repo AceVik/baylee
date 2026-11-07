@@ -7487,3 +7487,26 @@ code.
   origin/main`, formatting and `git diff --check` pass. `validate` accepts
   12,545 cards (11,175 finished, 55 of the machine-owned cards untested, and
   1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Sylvan Might's played trample and Flashback
+
+- Sylvan Might composes the existing targeted +2/+2 and trample modification
+  with its face-level flashback cost; it needs no engine, DSL, protocol, desktop
+  or seat addition. The ordinary {1}{G} play offers either player's creature
+  and no player, then pumps only its chosen target. A 4/4 attacker blocked by
+  a 2/2 assigns lethal to the blocker and tramples exactly two damage over to
+  the defending player (CR 702.19b); the attacker takes two in return.
+- Both modifications and combat damage clear in cleanup. The exact graveyard
+  incarnation then flashes back for {2}{G}{G}, repeats the pump and trample
+  assertions and exiles. Three green mana offer neither a castable nor a
+  payable spell, and a rejected direct cast leaves the card and pool untouched.
+- Removing the pump ability with `BAYLEE_MUTATE=5373:0` kills both effect
+  plays; the insufficient-mana test remains green. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 54
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
