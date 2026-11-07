@@ -107,6 +107,93 @@ struct BlockCase<'a> {
     legal: bool,
 }
 
+/// Plays `case`: player 0 attacks with everything, player 2 steals if the case
+/// says so, and player 1 is offered and tries the block of player 0's Ogre.
+#[track_caller]
+fn play_block_case(card: CardIndex, case: &BlockCase<'_>) {
+    let p2 = PlayerId::new(2);
+    let ray_of_command = baylee_core::generated::index::RAY_OF_COMMAND;
+    let third: Vec<CardIndex> = case.third.iter().copied().chain([island(); 4]).collect();
+    let mut engine = Duel::table(SEED, forest(), 3)
+        .battlefield(0, case.attacking)
+        .battlefield(1, case.defending)
+        .battlefield(2, &third)
+        .hand(2, &[ray_of_command])
+        .start();
+    keep_mulligans(&mut engine);
+    at_player_zeros_second_attack(&mut engine);
+    let attacker = on_battlefield(&engine, P0, gray_ogre()).expect("the attacker is out");
+    let blocker = on_battlefield(&engine, P1, card).expect("the tested blocker is out");
+    let attackers: Vec<_> = engine
+        .state()
+        .battlefield_seen()
+        .filter(|id| engine.state().object(*id).unwrap().controller == P0)
+        .filter(|id| {
+            let object = engine.state().object(*id).unwrap();
+            object.characteristics().types.contains(TypeSet::CREATURE)
+        })
+        .map(|id| (id, Defender::Player(P1)))
+        .collect();
+    let stolen = case
+        .stolen
+        .map(|(seat, creature)| on_battlefield(&engine, seat, creature).unwrap());
+    engine
+        .apply(P0, PlayerAction::DeclareAttackers { attackers })
+        .expect("vanilla creatures attack player 1");
+
+    if let Some(stolen) = stolen {
+        pass_until(
+            &mut engine,
+            |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p2),
+        );
+        tap_all_mana(&mut engine, p2);
+        cast_with_floating(&mut engine, p2, ray_of_command);
+        aim_at(&mut engine, p2, stolen);
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(engine.state().object(stolen).unwrap().controller, p2);
+        assert!(
+            !engine.state().combat.is_attacking(stolen),
+            "a creature that changes controllers is out of combat (CR 506.4)"
+        );
+        assert!(engine.state().combat.is_attacking(attacker));
+    }
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseBlockers { player, .. } if *player == P1),
+    );
+
+    assert_eq!(engine.state().turn.active, P0, "the attacking player");
+    let counts = [
+        controlled_creatures(&engine, P0),
+        controlled_creatures(&engine, P1),
+        controlled_creatures(&engine, p2),
+    ];
+    assert_eq!(counts, case.counts, "the distinguishing board was built");
+
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!("the pass stopped at player 1's blocks")
+    };
+    let offered = blockers
+        .iter()
+        .find(|option| option.blocker == blocker)
+        .is_some_and(|option| option.attackers.contains(&attacker));
+    assert_eq!(
+        offered, case.legal,
+        "the comparison reads the attacking player's creatures"
+    );
+    let result = engine.apply(
+        P1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(blocker, attacker)],
+        },
+    );
+    assert_eq!(result.is_ok(), case.legal, "offer and declaration disagree");
+    assert_eq!(
+        engine.state().combat.is_blocking(blocker, attacker),
+        case.legal
+    );
+}
+
 /// Player 1's creatures against the attacking player's, as blocks are
 /// declared. Player 0 is the active player and so the attacking player
 /// (CR 506.2), and a creature that changes controllers leaves combat
@@ -117,9 +204,7 @@ struct BlockCase<'a> {
 /// from before the declaration, which the last two move with a real spell.
 #[track_caller]
 pub(crate) fn block_compares_the_attacking_player(card: CardIndex) {
-    let p2 = PlayerId::new(2);
     let bears = baylee_core::generated::index::GRIZZLY_BEARS;
-    let ray_of_command = baylee_core::generated::index::RAY_OF_COMMAND;
     let cases = [
         // A tie with player 0 is not more, however few player 2 has.
         BlockCase {
@@ -159,85 +244,7 @@ pub(crate) fn block_compares_the_attacking_player(card: CardIndex) {
             legal: false,
         },
     ];
-    for case in cases {
-        let third: Vec<CardIndex> = case.third.iter().copied().chain([island(); 4]).collect();
-        let mut engine = Duel::table(SEED, forest(), 3)
-            .battlefield(0, case.attacking)
-            .battlefield(1, case.defending)
-            .battlefield(2, &third)
-            .hand(2, &[ray_of_command])
-            .start();
-        keep_mulligans(&mut engine);
-        at_player_zeros_second_attack(&mut engine);
-        let attacker = on_battlefield(&engine, P0, gray_ogre()).expect("the attacker is out");
-        let blocker = on_battlefield(&engine, P1, card).expect("the tested blocker is out");
-        let attackers: Vec<_> = engine
-            .state()
-            .battlefield_seen()
-            .filter(|id| engine.state().object(*id).unwrap().controller == P0)
-            .filter(|id| {
-                let object = engine.state().object(*id).unwrap();
-                object.characteristics().types.contains(TypeSet::CREATURE)
-            })
-            .map(|id| (id, Defender::Player(P1)))
-            .collect();
-        let stolen = case
-            .stolen
-            .map(|(seat, creature)| on_battlefield(&engine, seat, creature).unwrap());
-        engine
-            .apply(P0, PlayerAction::DeclareAttackers { attackers })
-            .expect("vanilla creatures attack player 1");
-
-        if let Some(stolen) = stolen {
-            pass_until(
-                &mut engine,
-                |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p2),
-            );
-            tap_all_mana(&mut engine, p2);
-            cast_with_floating(&mut engine, p2, ray_of_command);
-            aim_at(&mut engine, p2, stolen);
-            pass_until(&mut engine, stack_is_empty);
-            assert_eq!(engine.state().object(stolen).unwrap().controller, p2);
-            assert!(
-                !engine.state().combat.is_attacking(stolen),
-                "a creature that changes controllers is out of combat (CR 506.4)"
-            );
-            assert!(engine.state().combat.is_attacking(attacker));
-        }
-        pass_until(
-            &mut engine,
-            |e| matches!(e.pending(), Pending::ChooseBlockers { player, .. } if *player == P1),
-        );
-
-        assert_eq!(engine.state().turn.active, P0, "the attacking player");
-        let counts = [
-            controlled_creatures(&engine, P0),
-            controlled_creatures(&engine, P1),
-            controlled_creatures(&engine, p2),
-        ];
-        assert_eq!(counts, case.counts, "the distinguishing board was built");
-
-        let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
-            unreachable!("the pass stopped at player 1's blocks")
-        };
-        let offered = blockers
-            .iter()
-            .find(|option| option.blocker == blocker)
-            .is_some_and(|option| option.attackers.contains(&attacker));
-        assert_eq!(
-            offered, case.legal,
-            "the comparison reads the attacking player's creatures"
-        );
-        let result = engine.apply(
-            P1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(blocker, attacker)],
-            },
-        );
-        assert_eq!(result.is_ok(), case.legal, "offer and declaration disagree");
-        assert_eq!(
-            engine.state().combat.is_blocking(blocker, attacker),
-            case.legal
-        );
+    for case in &cases {
+        play_block_case(card, case);
     }
 }
