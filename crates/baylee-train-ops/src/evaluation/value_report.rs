@@ -288,24 +288,62 @@ fn step_auc(
     test: &[&Position],
     score: &impl Fn(&Position) -> Option<f64>,
     board: &[f64; 4],
-) -> (Option<f64>, Option<f64>) {
+) -> Vec<Step> {
     let mut games: BTreeMap<u64, Vec<&Position>> = BTreeMap::new();
     for position in test {
         games.entry(position.deal).or_default().push(position);
     }
-    let (mut head, mut baseline) = (Vec::new(), Vec::new());
+    let mut steps = Vec::new();
     for positions in games.values() {
         for pair in positions.windows(2) {
             if let (Some(before), Some(after)) = (score(pair[0]), score(pair[1])) {
-                head.push((logit(after) - logit(before), pair[1].outcome));
-                baseline.push((
-                    dot(board, &pair[1].features) - dot(board, &pair[0].features),
-                    pair[1].outcome,
-                ));
+                steps.push(Step {
+                    head: logit(after) - logit(before),
+                    board: dot(board, &pair[1].features) - dot(board, &pair[0].features),
+                    outcome: pair[1].outcome,
+                    table: pair[1].deal / 2,
+                });
             }
         }
     }
+    steps
+}
+
+/// The change between two positions of a game, for the head and the baseline.
+#[derive(Clone, Copy, Debug)]
+struct Step {
+    head: f64,
+    board: f64,
+    outcome: f64,
+    table: u64,
+}
+
+fn step_aucs(steps: impl Iterator<Item = Step>) -> (Option<f64>, Option<f64>) {
+    let (mut head, mut baseline): (Vec<_>, Vec<_>) = steps
+        .map(|step| ((step.head, step.outcome), (step.board, step.outcome)))
+        .unzip();
     (auc(&mut head), auc(&mut baseline))
+}
+
+/// The head's step AUC minus the board's, 95 %, resampling whole tables: both
+/// scores of a resample read the same positions, so the difference is paired.
+fn step_gain_interval(steps: &[Step], resamples: usize) -> Option<[f64; 2]> {
+    let mut tables: BTreeMap<u64, Vec<Step>> = BTreeMap::new();
+    for step in steps {
+        tables.entry(step.table).or_default().push(*step);
+    }
+    let tables: Vec<_> = tables.into_values().collect();
+    let mut rng = 20_261_107_u64;
+    let mut gains = Vec::with_capacity(resamples);
+    for _ in 0..resamples {
+        let drawn = (0..tables.len()).map(|_| &tables[sample(&mut rng, tables.len())]);
+        if let (Some(head), Some(board)) = step_aucs(drawn.flatten().copied()) {
+            gains.push(head - board);
+        }
+    }
+    gains.sort_by(f64::total_cmp);
+    let at = |share: f64| gains.get((gains.len() as f64 * share) as usize).copied();
+    Some([at(0.025)?, at(0.975)?])
 }
 
 /// One row: `score` against the baselines, on `test`, baselines fitted on `fit`.
@@ -315,6 +353,7 @@ fn row(
     fit: &[&Position],
     score: impl Fn(&Position) -> Option<f64>,
     resamples: usize,
+    step_interval: bool,
 ) -> Value {
     let rate = mean(fit.iter().map(|p| p.outcome));
     let board = fit_board(fit);
@@ -353,7 +392,11 @@ fn row(
         .collect();
     let (fit_slope, fit_shift) = recalibration(&fitted);
     let recalibrated = brier(&|s| logistic(fit_shift + fit_slope * logit(s.0)));
-    let (auc_step, auc_step_board) = step_auc(test, &score, &board);
+    let steps = step_auc(test, &score, &board);
+    let (auc_step, auc_step_board) = step_aucs(steps.iter().copied());
+    let step_gain_95 = step_interval
+        .then(|| step_gain_interval(&steps, resamples))
+        .flatten();
     let games = scored
         .iter()
         .map(|s| s.2)
@@ -370,6 +413,7 @@ fn row(
         "brier_board": board_brier,
         "brier_recalibrated": recalibrated,
         "auc_step": auc_step, "auc_step_board": auc_step_board,
+        "auc_step_gain_95": step_gain_95,
         "skill_vs_constant": 1.0 - head / constant,
         "gain_vs_constant": constant - head,
         "gain_vs_constant_95": gain_interval(&gains, resamples),
@@ -402,7 +446,17 @@ pub fn report(test: &[Position], fit: &[Position], resamples: usize) -> Value {
                 let on_test = selected(test, slice, (low, high));
                 let on_fit = selected(fit, slice, (low, high));
                 let label = format!("{head} / {slice_name} / {band}");
-                rows.push(row(&label, &on_test, &on_fit, score, resamples));
+                // One position per turn is what a step means; the other slices
+                // are many times larger and not what the goal reads.
+                let step_interval = matches!(slice, Slice::SettledFirst);
+                rows.push(row(
+                    &label,
+                    &on_test,
+                    &on_fit,
+                    score,
+                    resamples,
+                    step_interval,
+                ));
             }
         }
     }
@@ -432,6 +486,24 @@ mod tests {
         let (slope, shift) = recalibration(&scored);
         assert!((slope - 1.0).abs() < 1e-3, "{slope}");
         assert!(shift.abs() < 1e-3, "{shift}");
+    }
+
+    #[test]
+    fn a_head_that_reads_the_outcome_beats_a_board_that_does_not() {
+        let steps: Vec<Step> = (0..200_u64)
+            .map(|i| {
+                let won = i % 2 == 0;
+                Step {
+                    head: if won { 1.0 } else { -1.0 },
+                    board: (i % 3) as f64 - 1.0,
+                    outcome: f64::from(u8::from(won)),
+                    table: i / 4,
+                }
+            })
+            .collect();
+        let [low, high] = step_gain_interval(&steps, 200).expect("two classes");
+        assert!(low > 0.3, "{low}");
+        assert!(high <= 0.7, "{high}");
     }
 
     #[test]
