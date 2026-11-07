@@ -53,9 +53,9 @@ class Samples:
 
     def __init__(self, sets, per_turn, seed, device, games):
         rng = np.random.default_rng(seed)
-        tokens, targets, weights, pairs = [], [], [], []
+        tokens, targets, weights, pairs, domains = [], [], [], [], []
         total = 0
-        for positions, set_weight, hold in sets:
+        for positions, set_weight, hold, domain in sets:
             rows = positions.rows
             kept = np.flatnonzero(games(rows, hold))
             picked, weight, first = choose(rows[kept], per_turn, rng)
@@ -64,11 +64,13 @@ class Samples:
             targets.append(torch.from_numpy(rows["outcome"][rows_picked].copy()).to(device))
             weights.append(torch.from_numpy(weight * set_weight).to(device))
             pairs.append(torch.from_numpy(steps_of(rows[rows_picked], first) + total).to(device))
+            domains.append(torch.full((len(rows_picked),), domain, dtype=torch.long, device=device))
             total += len(rows_picked)
         self.tokens = torch.cat(tokens)
         self.targets = torch.cat(targets)
         self.weights = torch.cat(weights)
         self.pairs = torch.cat(pairs)
+        self.domains = torch.cat(domains)
 
     def __len__(self):
         return len(self.targets)
@@ -82,12 +84,12 @@ def step_loss(head, samples, pairs):
 
 
 @torch.no_grad()
-def score(head, samples, batch=32768):
+def score(head, samples, offsets, batch=32768):
     head.eval()
     loss = brier = steps = 0.0
     for start in range(0, len(samples), batch):
         part = slice(start, start + batch)
-        logit = side_logit(head, samples.tokens[part].float())
+        logit = side_logit(head, samples.tokens[part].float()) + offsets[samples.domains[part]]
         target, weight = samples.targets[part], samples.weights[part]
         loss += float((F.binary_cross_entropy_with_logits(logit, target, reduction="none") * weight).sum())
         brier += float(((torch.sigmoid(logit) - target).square() * weight).sum())
@@ -108,11 +110,20 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
     for parameter in head.parameters():
         parameter.requires_grad_(True)
     steps = epochs * ((len(train) + batch - 1) // batch)
-    optimizer = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=weight_decay)
-    schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, lr, total_steps=max(1, steps), pct_start=.1)
+    # Each domain but the first has an intercept of its own: base rates differ by
+    # who sits opposite, and the head stays calibrated for the first domain alone.
+    domains = int(max(train.domains.max(), validation.domains.max())) + 1
+    offsets = torch.zeros(domains, device=train.tokens.device, requires_grad=True)
+    free = (torch.arange(domains, device=train.tokens.device) > 0).float()
+    shift = lambda: offsets * free
+    optimizer = torch.optim.AdamW([dict(params=list(head.parameters()), weight_decay=weight_decay),
+                                   dict(params=[offsets], weight_decay=0.0)], lr=lr)
+    # One scalar per domain has to travel about a logit in a few hundred steps.
+    schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, [lr, 30 * lr], total_steps=max(1, steps), pct_start=.1)
     objective = lambda metrics: metrics["loss"] + step_weight * metrics["step"]
-    start = score(head, validation)
+    start = score(head, validation, shift())
     best, best_state, best_epoch = objective(start), copy.deepcopy(head.state_dict()), 0
+    best_offsets = shift().detach().cpu().tolist()
     history = [dict(epoch=0, **start)]
     generator = torch.Generator(device="cpu").manual_seed(seed)
     pair_batch = max(1, batch // 4)
@@ -123,7 +134,7 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
         for begin in range(0, len(train), batch):
             part = order[begin:begin + batch]
             weight = train.weights[part]
-            logit = side_logit(head, train.tokens[part].float())
+            logit = side_logit(head, train.tokens[part].float()) + shift()[train.domains[part]]
             loss = (F.binary_cross_entropy_with_logits(logit, train.targets[part], reduction="none") * weight).sum() / weight.sum()
             if step_weight:
                 drawn = torch.randint(len(train.pairs), (pair_batch,), generator=generator).to(device)
@@ -134,15 +145,16 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
             loss.backward()
             optimizer.step()
             schedule.step()
-        metrics = score(head, validation)
+        metrics = score(head, validation, shift())
         history.append(dict(epoch=epoch, **metrics))
         print(f"[value-head] seed={seed} epoch={epoch} val_loss={metrics['loss']:.5f} "
               f"val_brier={metrics['brier']:.5f} val_step={metrics['step']:.5f}", flush=True)
         if objective(metrics) < best:
             best, best_state, best_epoch = objective(metrics), copy.deepcopy(head.state_dict()), epoch
+            best_offsets = shift().detach().cpu().tolist()
     head.load_state_dict(best_state)
     return head, dict(selected_epoch=best_epoch, history=history, train_rows=len(train), validation_rows=len(validation),
-                      train_steps=len(train.pairs), validation_steps=len(validation.pairs),
+                      train_steps=len(train.pairs), validation_steps=len(validation.pairs), domain_offsets=best_offsets,
                       objective="side outcome, binary cross entropy; each turn of each game weighs the same",
                       step_weight=step_weight)
 

@@ -16,12 +16,12 @@ FROZEN = "Every tensor except seat_value_head.* bit-identical; trunk, memory and
 
 
 def parse_sets(values):
-    """`DIR[=WEIGHT[:HOLD]]`: Positions, their weight, and every HOLD-th game kept out."""
+    """`DIR[=WEIGHT[:HOLD[:DOMAIN]]]`: Positions, their weight, every HOLD-th game kept out, their domain."""
     sets = []
     for value in values:
         path, _, spec = value.partition("=")
-        weight, _, hold = spec.partition(":")
-        sets.append((Positions(path), float(weight or 1), int(hold or 0)))
+        weight, hold, domain = (spec.split(":") + ["", ""])[:3]
+        sets.append((Positions(path), float(weight or 1), int(hold or 0), int(domain or 0)))
     return sets
 
 
@@ -67,8 +67,9 @@ def run_fit(args):
     head, report = fit(net.seat_value_head, train, validation, args.seed, args.epochs, args.lr,
                        args.weight_decay, args.batch, args.fresh, args.step_weight)
     provenance = dict(kind="value_head_v6", source=str(source.resolve()), source_sha256=source_hash, seed=args.seed,
-                      promoted=False, frozen=FROZEN, train=[str(positions.path) for positions, _, _ in sets],
-                      weights=[weight for _, weight, _ in sets], held_out_every=[hold for _, _, hold in sets],
+                      promoted=False, frozen=FROZEN, train=[str(entry[0].path) for entry in sets],
+                      weights=[entry[1] for entry in sets], held_out_every=[entry[2] for entry in sets],
+                      domains=[entry[3] for entry in sets],
                       settings={k: v for k, v in vars(args).items() if k not in ("run", "handler")})
     report["provenance"] = provenance
     publish(Path(args.out), merged_checkpoint(saved, head.cpu(), provenance), report)

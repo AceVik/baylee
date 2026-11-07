@@ -15,7 +15,7 @@ DECISION, TERMINAL = 1, 2
 STEP_FIRST_MAIN, STEP_SECOND_MAIN = 4, 11
 ACTIVE_IS_SELF, STACK, CASTING, OWED_MANA, OWED_DAMAGE = 15, 23, 29, 31, 32
 SEAT_LIFE, SEAT_HAND, SEAT_POOL = 11, 17, 33
-ENTITY_BATTLEFIELD, ENTITY_CONTROLLED = 0, 12
+ENTITY_BATTLEFIELD, ENTITY_HAND, ENTITY_CONTROLLED, ENTITY_OWNED = 0, 2, 12, 14
 
 
 class PositionFrames(D.TrajectoryDataset4):
@@ -69,7 +69,9 @@ class PositionFrames(D.TrajectoryDataset4):
 def describe(host):
     """Per frame of `[lanes, unroll, ...]` tensors, what `value_line` reads off the view.
 
-    Hand counts saturate at seven: Encoder 7 encodes them so.
+    The seat's own hand is counted from its cards: the seat feature saturates at
+    seven, and a turn's first position is often at eight. The other seat's hand
+    can only be read from the feature; at the seat's own turn it is rarely above seven.
     """
     seats = host["seat_feat"].numpy()
     glob = host["global_feat"].numpy()
@@ -77,12 +79,13 @@ def describe(host):
     mask = host["entity_mask"].numpy()
     battlefield = (entities[..., ENTITY_BATTLEFIELD] > .5) & mask
     own = battlefield & (entities[..., ENTITY_CONTROLLED] > .5)
+    own_hand = ((entities[..., ENTITY_HAND] > .5) & (entities[..., ENTITY_OWNED] > .5) & mask).sum(-1)
     active = glob[..., ACTIVE_IS_SELF] > .5
     main = (glob[..., STEP_FIRST_MAIN] > .5) | (glob[..., STEP_SECOND_MAIN] > .5)
     quiet = ((glob[..., STACK] == 0) & (glob[..., CASTING] == 0) & (glob[..., OWED_MANA] == 0)
              & (glob[..., OWED_DAMAGE] == 0) & (seats[..., 0, SEAT_POOL] == 0))
     return dict(active=active, main_quiet=active & main & quiet,
                 life=np.rint(seats[..., 0, SEAT_LIFE] * 40), opp_life=np.rint(seats[..., 1, SEAT_LIFE] * 40),
-                hand=np.rint(seats[..., 0, SEAT_HAND] * 7), opp_hand=np.rint(seats[..., 1, SEAT_HAND] * 7),
+                hand=own_hand, opp_hand=np.rint(seats[..., 1, SEAT_HAND] * 7),
                 board=own.sum(-1), opp_board=battlefield.sum(-1) - own.sum(-1),
                 lost=(seats[..., :2, M.SEAT_FEAT_LOST] > .5).any(-1))
