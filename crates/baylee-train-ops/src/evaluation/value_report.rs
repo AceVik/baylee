@@ -207,7 +207,7 @@ fn auc(scored: &mut [(f64, f64)]) -> Option<f64> {
 /// and a shift of zero is a calibrated head.
 fn recalibration(scored: &[(f64, f64)]) -> (f64, f64) {
     let (mut shift, mut slope) = (0.0_f64, 1.0_f64);
-    for _ in 0..25 {
+    for _ in 0..60 {
         let (mut g0, mut g1, mut h00, mut h01, mut h11) = (0.0, 0.0, 1e-6, 0.0, 1e-6);
         for (score, outcome) in scored {
             let x = (score.clamp(1e-4, 1.0 - 1e-4) / (1.0 - score.clamp(1e-4, 1.0 - 1e-4))).ln();
@@ -220,8 +220,10 @@ fn recalibration(scored: &[(f64, f64)]) -> (f64, f64) {
             h11 += spread * x * x;
         }
         let determinant = (h00 * h11 - h01 * h01).max(1e-9);
-        shift += (h11 * g0 - h01 * g1) / determinant;
-        slope += (h00 * g1 - h01 * g0) / determinant;
+        // Bounded steps: from overconfident scores a full Newton step overshoots
+        // and the fit runs away.
+        shift += ((h11 * g0 - h01 * g1) / determinant).clamp(-1.0, 1.0);
+        slope += ((h00 * g1 - h01 * g0) / determinant).clamp(-0.5, 0.5);
     }
     (slope, shift)
 }
