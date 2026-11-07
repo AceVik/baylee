@@ -11,7 +11,7 @@ card!(
     oracle_id = "0b8a508b-20c0-4a87-a73a-08af72c39a0a",
     scryfall_id = "937465ca-4cf7-4412-86eb-264efb0fdddd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Morgue Theft",
         mana_cost = mana!("{1}{B}"),

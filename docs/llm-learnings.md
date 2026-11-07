@@ -7510,3 +7510,25 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 54
   of the machine-owned cards untested, and 1,370 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-07 — Morgue Theft's own-graveyard target and Flashback
+
+- Morgue Theft composes the existing targeted own-graveyard creature-to-hand
+  effect with its face-level flashback cost; it needs no engine, DSL, protocol,
+  desktop or seat addition. The ordinary {1}{B} play offers only our creature
+  card, not an opposing creature or our instant, and returns that exact object
+  to hand rather than the battlefield. Both excluded cards stay in graveyard.
+- The graveyard incarnation flashes back for {4}{B}, returns the chosen
+  creature again and finishes in exile with no copy left in graveyard. Four
+  black mana offer neither a castable nor a payable spell despite the legal
+  creature target; a rejected cast changes neither zone nor the mana pool.
+- Removing the return ability with `BAYLEE_MUTATE=5267:0` kills both effect
+  plays; the insufficient-mana test remains green. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 53
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
