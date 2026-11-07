@@ -1642,3 +1642,172 @@ so read the ratio). The load bench opens no social sockets and does not show thi
 
 Also corrected: Linux's `ps` reports CPU in whole seconds, so the bench's gateway CPU read 0, 2 or
 3 s on Linux. It reads `/proc` to the clock tick now.
+
+## What the gateway costs a frame now (2026-11-07)
+
+The same bench as §"What the gateway costs a frame", at `ca0d34170`, on the same notebook, this
+time quiet: load 0.2 at the start, Pulse the only thing running. A private PostgreSQL 18 cluster
+beside it, every seat a guest. The second build skipped `Live::stands` and `same_chair` for a frame
+in both directions; it was a measurement, was never committed, and five runs of the first and three
+of the second were taken alternating.
+
+| One seat, quiet, p50 [p99] µs | Bare hop | 6.11., quiet | Gateway | Check skipped |
+|---|---:|---:|---:|---:|
+| seat → engine | 177 [220] | 618 | 276–292 [346–360] | 274–278 [343–347] |
+| engine → seat | 67 [113] | 117 | 104–124 [177–194] | 87–118 [172–186] |
+
+| 100 seats at 100 Hz | 6.11., beside `ffmpeg` | Gateway | Check skipped |
+|---|---:|---:|---:|
+| Gateway CPU per forwarded frame | 58.8 µs | 24.0–24.5 µs | 23.7–24.2 µs |
+| … beside lobby churn | 97–100 µs | 44.5–45.7 µs | 44.7–45.5 µs |
+| Seat → engine → seat, p50 | 2.3–2.5 ms | 470–537 µs | 488–538 µs |
+| … p99 | 9.5–18.5 ms | 1.14–1.27 ms | 1.15–1.18 ms |
+| … beside lobby churn, p50 [p99] | | 546–878 µs [1.19–1.74 ms] | 569–799 µs [1.31–1.66 ms] |
+| One seat among them, in, p50 [p99] | 316–329 µs | 177–207 [407–454] µs | 205–224 [446–489] µs |
+| One seat among them, out, p50 [p99] | 54–55 µs | 53–68 [286–537] µs | 61–69 [463–540] µs |
+
+**The check is a memory read now.** Against the quiet run of 6.11. a frame in lost 330 µs, and what
+is left is not the check: skipping it moves the median p50 by about 10 µs either way, inside the runs'
+own spread, and the gateway's CPU by at most 0.5 µs a frame, where the check was 170 µs and half the
+CPU. The bare hop read
+what it read that day (177 and 67 µs against 178 and 67), so the two quiet runs compare. The right-hand
+columns of the earlier table had predicted this: 28.5 to 30.6 µs of CPU with the check skipped, on a
+loaded machine, and 24 µs now with it in.
+
+The database proves it from the other side. One run with `log_statement = all`: between the last game
+opened and the first room of the churn phase, 15 seconds with 2 000 probes and 19 800 echoes through
+the gateway, not one statement. A Central session stands on the same `Live`, so what was read in the
+code on 6.11. as a blocking exchange with Central per frame is gone with it; no Central was run here.
+
+What is left of a frame in is the gateway being a second hop. The stand-in engine is reached over
+another loopback socket, so one frame wakes two tasks on an idle core where the bare hop wakes one, and
+110 µs of difference for that is less than the bare hop itself. Under load, with no core asleep, a
+frame in takes what the bare hop takes idle.
+
+**What costs more than expected is the lobby, not the frame.** Run with `LOAD_LOBBY=0`, the churn phase
+reads 26.2 µs of CPU a frame, not 45: the 200 feeds are 0.8 s of gateway CPU over 100 changes, 8 ms a
+change, against 1.1 ms a change in the same run before any game was open. Whether that is fifty listed
+tables making each page longer or fewer changes being folded into one push was not separated: the bench
+does not count that phase's listings. Every feed renders the page for itself (`serve_listing`), through
+a `serde_json::Value` before it becomes a string, and takes the lobby lock every seat frame takes twice
+on its way in and once on its way out. No contention shows at 100 seats: the p99 beside churn moves by
+half a millisecond at most. It is the first place to look when feeds grow, and it was left alone in this
+round. Memory read as on 6.11. (58 MB idle, 142 KiB a feed, 593 KiB a game), still not chased.
+
+## A seat is written what it was sent (2026-11-07)
+
+`Vec<PublicObject>` was 22.8 % of `frames`, about 6 800 instructions an object, half of them in
+`format_escaped_str`, which every field name goes through. A view goes whole and nearly every object in it is the
+one the seat had a frame ago, so the JSON was the same bytes made again. `WrittenObjects`
+(`crates/baylee-view/src/written.rs`) keeps, per seat, each object beside the JSON it came to, and
+writes those bytes again while the object is equal to the one they came from.
+
+| `selfplay`, counted as above | `frames`, billions of instructions |
+|---|---:|
+| `ca0d34170` | 6.233 |
+| a table per seat | 5.033 (−19.3 %) |
+
+On the build that ships, profile-guided, it is −15.9 % in instructions and 0.40 to 0.36 s
+(§"mimalloc under the engine server, asked again").
+
+207 981 objects went through the tables and 8 692 were written, so 95.8 % were hits. Finding an
+object's bytes costs 820 instructions on average now, against the 6 800 of writing it: about 480 for a
+hit, the look-up and the comparison, and 8 400 for a miss, with the copy into the frame on top of both.
+`house`, `decide` and `search` build no frames: the first two read the same to a thousandth, and
+`search` was checked for its digests and not counted.
+
+- **A hit is a proof, not a guess.** An object is taken from the table only when it is equal, field by
+  field, to the object those bytes were written from, and no type in `PublicObject` writes its own
+  `PartialEq`. There is no revision to keep up and no digest to collide. `--verify` is equal to
+  `ca0d34170` on all four shapes, `hashes` included, so the bytes a seat receives did not move.
+- **A table belongs to one seat.** What an object shows depends on who looks, so `Session` holds one
+  per seat and only `seat_envelopes` reads it. `snapshot` and spectators stay on the plain path. A test
+  gives two seats the same object id showing different things and looks for one's text in the other's
+  bytes; `docs/architecture.md` §"Hidden information and seats" states the rule.
+- **The way in is a thread-local, for the length of one write.** The derived `Serialize` of `PlayerView`
+  has no other door: `serialize_with` on its seven zones reaches a table placed there by
+  `WrittenObjects::write`, and a guard takes it back, also on unwinding and on a refused write. The
+  alternatives were a hand-kept twin of fifty fields or a wrapper around every method of a serializer.
+- **It is checked where it runs.** A debug build compares every view of every test with the plain
+  one (`seat_view_json`), 421 tests in `baylee-gamehost` alone, and a test holds a release build to
+  it at a real four-seat table, where the assertion is compiled out.
+- **It costs no memory to speak of.** The longest game of the set, `weltenbaum-victory-11`, 1 229
+  answers, ends at 51.8 MiB resident with and without it (`engine_perf frames --rss --game …`). A table
+  holds what is in the seat's view and nothing after that, so it follows the board. That is one socket
+  seat; four hold four tables.
+
+`VIEW_VERSION` stays, since the wire did not move; `wire_shape` reads the source, so its fingerprint
+was recorded again. `baylee-view` depends on `serde_json` now, for `RawValue`.
+
+## mimalloc under the engine server, asked again (2026-11-07)
+
+The owner allows an inner safety net to give way to speed behind a named outer check, and asked
+again whether the engine server qualifies: it takes no inbound connection and receives only what the
+gateway passed. The answer below is **no**, and the reason is the check, not the speed.
+
+Every build came from `cargo tools pgo engine-server`, the steps a deploy runs, from empty target
+directories, trained on `frames` and `house`, so the release profile and not `selfplay`. mimalloc 0.1.52
+was a `#[global_allocator]` in `engine_perf` and the server in scratch copies, instrumented with it as
+well, so each profile belongs to its build. `ca0d34170` below means that commit with `--rss` in
+`engine_perf`, which a run without the flag does not reach. Quiet notebook, pinned to one core, nine rounds with the
+four builds alternating, user seconds as median [lowest], read to the 10 ms tick. Every build's
+`--verify` output is byte-equal to the plain build's on `house`, `frames` and `decide`, hashes
+included. `search` is left out: `simulation` must not reach a hosting build, and these are hosting
+builds.
+
+| Build | `frames` | `decide` | `house` |
+|---|---:|---:|---:|
+| PGO at `ca0d34170`, billions of instructions | 4.900 | 8.694 | 5.839 |
+| … + mimalloc | 4.667 | 8.283 | 5.551 |
+| PGO with the tables of the section above | 4.120 | 8.695 | 5.838 |
+| … + mimalloc | 3.880 | 8.281 | 5.550 |
+| mimalloc on the last two | −5.8 % | −4.8 % | −4.9 % |
+
+| Build, seconds | `frames` | `decide` | `house` |
+|---|---:|---:|---:|
+| PGO at `ca0d34170` | 0.40 [0.40] | 0.64 [0.62] | 0.46 [0.46] |
+| … + mimalloc | 0.37 [0.36] | 0.59 [0.58] | 0.43 [0.42] |
+| PGO with the tables | 0.36 [0.35] | 0.64 [0.63] | 0.46 [0.46] |
+| … + mimalloc | 0.33 [0.33] | 0.58 [0.58] | 0.43 [0.42] |
+| mimalloc on the last two | −8 % | −9 % | −7 % |
+
+Quiet, these runs agree with each other to a tick or two. The times do not compare with §"What goes on
+top of PGO", which ran beside `ffmpeg` on the `selfplay` profile; the ratio does, and the earlier 7 to
+13 % holds at its low end.
+
+| Resident set, MiB (`--rss`) | glibc | mimalloc | mimalloc, `MIMALLOC_ARENA_EAGER_COMMIT=0` |
+|---|---:|---:|---:|
+| The longest game alone, first answer → last | 46.5 → 50.2 | 54.2 → 70.4 | 47.3 → 52.0 |
+| All sixteen in one process, at the end | 51.5 | 68.7 | 54.1 |
+
+mimalloc as it comes costs a game 20 MiB, +40 %, climbing in steps through the game. There is one
+process per game, so that would be the bigger bill. It is a default and not the allocator:
+`MIMALLOC_ARENA_EAGER_COMMIT=0` leaves it 2 to 3 MiB over glibc at the same 0.33 s, and with
+`MIMALLOC_PURGE_DELAY=0` alone the peak of all sixteen read 60.9 MiB. All of it is `engine_perf`, one
+thread; the server's own tokio workers and buffers were not measured.
+
+**Not recommended, and the gateway is not the check that would carry it.** It decides who may send and
+how much: a standing session, the chair's capability, 64 KiB a frame, 240 frames and 256 KiB a second.
+It never decides what. `SeatFrame.envelope` is forwarded unread, by design (`docs/architecture.md`), so
+every byte a seat sends reaches `Envelope::decode` and `serde_json::from_slice::<PlayerAction>` inside
+the engine process, a guest's included. Taking no inbound connection changes the route, not the input.
+
+What does stand between a frame and the heap is safe Rust. From the socket to the rules the only
+`unsafe` in this workspace is the SIMD in `baylee-core` (`ids.rs`, `types/bitmap.rs`), fifteen sites,
+each with its `SAFETY` argument. That is why the risk is low. It is an inner check all the same, and
+only half enforced: `deny(unsafe_code)` holds in `baylee-protocol`, `baylee-view` and
+`baylee-engine-server`, while `baylee-engine`, `baylee-gamehost` and `baylee-ai` simply have none, and
+`prost`, `serde_json`, `tungstenite` and `tokio` have their own. What the allocator adds is the second
+chance behind it: glibc checks its free lists and aborts on much of what corrupts them, plain mimalloc
+leaves that to its `secure` mode, and `secure` gives the gain back (§"What goes on top of PGO").
+
+The check that could carry it is confinement. The agent starts an engine with a bare `Command`: same
+user, no limits, no seccomp or Landlock in the code. Its unit is on the server and not in this
+repository, so what that adds was not seen. An engine process held to its own game, with no file and
+no network but its gateway link, plus `#![forbid(unsafe_code)]` on those three crates, would be a named
+check: a heap exploit then reaches one table's hidden cards and nothing else. Under the owner's rule
+mimalloc is a fair trade behind that, with lazy commit set.
+
+It would still buy little. `frames` is 34 µs an answer and mimalloc makes it 32: at a thousand tables
+answering once a second, 3.4 % of one core becomes 3.2 %. No shipped setting changed. mimalloc lived in
+scratch copies on the notebook, since deleted, and is in no `Cargo.toml` of this repository.
