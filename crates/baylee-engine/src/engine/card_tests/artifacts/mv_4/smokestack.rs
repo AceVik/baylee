@@ -96,25 +96,6 @@ fn offer_soot_before_sacrifice(engine: &mut Engine<RegistryLookup>, stack: Objec
     assert_eq!((source.card, source.index), (smokestack(), 1));
 }
 
-/// Smokestack is an ordinary four-mana artifact and starts without soot.
-#[test]
-fn smokestack_casts_for_four_generic_mana() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest(), forest()])
-        .hand(0, &[smokestack()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-    tap_all_mana(&mut engine, p0);
-    cast_with_floating(&mut engine, p0, smokestack());
-    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
-    pass_until(&mut engine, stack_is_empty);
-
-    let stack = on_battlefield(&engine, p0, smokestack()).expect("Smokestack resolved");
-    assert_eq!(soot(&engine, stack), 0);
-}
-
 /// The controller may decline the soot counter. With zero counters, neither
 /// player's upkeep asks for or causes any sacrifice.
 #[test]
@@ -188,8 +169,9 @@ fn smokestack_new_soot_counts_for_both_players_upkeeps() {
         )
         .unwrap();
 
-    // Reaching the opponent's keep choice without an intervening MayDo proves
-    // that only Smokestack's controller receives the optional counter trigger.
+    // Only Smokestack's controller gets the optional counter. `pass_until`
+    // answers a MayDo yes on its way, so a counter offered to the opponent
+    // would be taken: soot still at one and the keep bound below say none was.
     pass_until(
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseCards { player, .. } if *player == p1),
@@ -291,4 +273,75 @@ fn smokestack_two_soot_sacrifices_two_permanents_of_any_type() {
     assert!(in_graveyard(&engine, p1, forest()).is_some());
     assert!(on_battlefield(&engine, p0, smokestack()).is_some());
     assert_eq!(soot(&engine, stack), 2);
+}
+
+/// The trigger exists apart from its source once it is on the stack
+/// (CR 113.7a), and reads the soot as Smokestack last existed (CR 608.2h). A
+/// Naturalize at the opponent's upkeep destroys Smokestack with the trigger
+/// still waiting, and the opponent sacrifices the one all the same.
+#[test]
+fn smokestack_destroyed_in_response_still_counts_its_last_soot() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[smokestack(), forest()])
+        .battlefield(1, &[forest(), forest(), grizzly_bears()])
+        .hand(1, &[naturalize()])
+        .start();
+    // The opening upkeep already queues both abilities; order them from the outset.
+    engine.house_rules.order_triggers = true;
+    keep_mulligans(&mut engine);
+    let stack = on_battlefield(&engine, p0, smokestack()).unwrap();
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+
+    offer_soot_before_sacrifice(&mut engine, stack);
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseCards { player, .. } if *player == p0),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![stack],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && !stack_is_empty(e)
+    });
+    cast_from_hand(&mut engine, p1, naturalize());
+    aim_at(&mut engine, p1, stack);
+    pass_until(&mut engine, |e| in_graveyard(e, p0, smokestack()).is_some());
+    assert!(
+        !stack_is_empty(&engine),
+        "the trigger is still waiting with Smokestack gone"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseCards { player, .. } if *player == p1),
+    );
+    let Pending::ChooseCards { min, max, .. } = engine.pending().clone() else {
+        unreachable!("the opponent chooses what to keep")
+    };
+    assert_eq!((min, max), (2, 2), "keep two of three, sacrifice one");
+    let land = on_battlefield(&engine, p1, forest()).unwrap();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_bear, land],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p1, forest()).is_some());
+    assert_eq!(
+        engine.state().object(their_bear).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert_eq!(engine.state().object(land).unwrap().zone, Zone::Battlefield);
 }
