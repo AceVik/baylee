@@ -122,7 +122,12 @@ fn strength_of_isolation_protects_against_black_spells() {
 /// Protection from black also prevents enchantment by black Auras.
 #[test]
 fn strength_of_isolation_keeps_black_auras_off_the_creature() {
-    a_ward_keeps_auras_of_its_color_off(strength_of_isolation(), unholy_strength(), swamp());
+    a_ward_keeps_auras_of_its_color_off(
+        strength_of_isolation(),
+        unholy_strength(),
+        swamp(),
+        holy_armor(),
+    );
 }
 
 /// Protection from black prevents damage from black sources, with a lethal

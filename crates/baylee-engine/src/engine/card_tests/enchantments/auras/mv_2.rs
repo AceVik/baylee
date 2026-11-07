@@ -82,6 +82,7 @@ mod snow_devil;
 mod soar;
 mod spectral_cloak;
 mod strength_of_isolation;
+mod strength_of_lunacy;
 mod stupefying_touch;
 mod sun_clasp;
 mod teferi_s_curse;

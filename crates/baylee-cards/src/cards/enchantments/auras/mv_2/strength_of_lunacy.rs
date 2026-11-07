@@ -13,7 +13,7 @@ card!(
     oracle_id = "02a95ea7-cfb9-497c-a004-3e783856d79c",
     scryfall_id = "afda26e7-4fdd-45e1-bcd1-f0abf91979aa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Strength of Lunacy",
         mana_cost = mana!("{1}{B}"),
