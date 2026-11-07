@@ -849,6 +849,74 @@ games out and records them, with their reasons and the list's digest, as
 may be listed, and a list naming a game the runs lack is refused, so the
 selection never depends on an outcome or goes stale silently.
 
+#### Bringing a model onto a new catalog, step by step
+
+New cards keep arriving; this is the repeatable procedure, as run on
+7 November for B-refresh (`~/baylee-data/v6/train/v6r-refresh-notes.md`).
+`C` is the commit the cards landed in, `R` its runtime, `M` the model.
+
+1. **One frozen runtime from one commit.** `git worktree add --detach
+   runtime/src-C C`, build there (`cargo build --locked --release -p
+   baylee-train-ops --bins`; `cargo build --locked --profile selfplay -p
+   baylee-train --features onnx-cuda --bin eval4`; the same without the feature
+   for `convert4 card_structure4`), copy every binary, `trajectory_cache4`
+   included, and the ONNX provider libraries into `runtime/C`, write
+   `SHA256SUMS`. `eval4` reads decks and engine sources from the checkout it
+   was built in (`repo_root()`), so it is built in the frozen worktree, never
+   in a working one. A runtime missing `trajectory_cache4`, or carrying an older
+   `train_ops`, makes the trainer fall back to a checkout's `target/` build:
+   on 7 November that build predated Encoder 10, and the refresh failed with
+   "Unsupported encoder version" (the refusal now names the binary and the
+   version).
+2. **Decks outside the checkout.** `import_decks --imported-dir
+   <data>/decks-<date>/imported --manifest-out <data>/decks-<date>/manifest.v4.json
+   --rejected-out ... --report-out ...` with absolute paths: the manifest names
+   the decks absolutely and no checkout changes. Check that `eval4` loads the
+   number of decks the manifest's filters give (it skips an unreadable deck
+   without a word).
+3. **What changed.** `card_structure4 --out <data>/structure-C.json` and
+   `card_structure4 --check-model M`. Read `changed`, `new_tags` and
+   `withdrawn_under_drift`. A change to nearly every card is an encoding
+   change, not cards: on 7 November `FaceDef.madness` was written on every
+   face and all 12,681 face roots drifted; `build.rs` writes a face field only
+   where a card prints it, and `a_plain_face_keeps_its_41_children` fails
+   until a new field joins that list. Count how many test decks hold a changed
+   card: if few do, the test split cannot show whether the cards were learnt.
+4. **Baseline.** The old export on the new runtime with `--catalog-drift`,
+   raw (`--raw-policy`) and tactics (`--raw-policy --choice-guard tactical`),
+   fixed deals and seeds, through `train_ops pipeline` with the GPU lock.
+5. **Refresh.** Through a pipeline whose `PATH` starts with `R`:
+   `refresh_structure4.py --model M --catalog <data>/structure-C.json --out
+   <new dir> --allow-new-operators`, then `export_onnx4.py --precision
+   float16`. `card_structure4 --check-model <export>` must hold with nothing
+   changed; a smoke game, then the baseline's evaluations without drift,
+   paired with `phase_a4 table --exports --root <dir> refresh-raw~base-raw
+   refresh-tac~base-tac`.
+6. **Data on the new catalog.** `convert4` always encodes against its own
+   build's catalog. Convert the frozen LLM runs with `R/convert4
+   --encoder-version <the model's> --llm-bc --include-passive-obs`; when games
+   fail the replay audit, move the output aside and convert again with
+   `--llm-bc-skip-unreplayable <failed>/rejected-games.json`. Make a new list
+   for every build: on 5aed5359c 367 of 1,128 games failed (47 had on the build
+   after #410). Own eval and self-play records of an older build do not
+   replay; house choices, tactical records and v3/v5 games are never labels.
+7. **Card stage** (`card_structure4 --labels`, then `card_stage4.py`): the
+   rule encoder learns what each face is, costs and does, through linear
+   probes. `--train new-tags` moves only operators the old model never had,
+   so every other card keeps its embedding bit for bit; `--train encoder`
+   moves the whole encoder with every unchanged root anchored to the old
+   model's value. A card stage leaves the trunk as it was, so it cannot move
+   play by itself; it is judged on the held-out probes, with play not worse,
+   and its worth in play shows only through a fine-tune that starts from it.
+8. **Game fine-tune** with fresh memory and optimizer: `train5.py --init
+   <refreshed or card-stage dir>` on the converted data, either
+   `--train-rules-only` (only the encoder learns, through the frozen trunk) or
+   the whole net with `--anchor-l2` (L2 to the `--init` weights).
+9. **Gate.** A step that changes play counts only when the paired lower bound
+   against the baseline is above zero in raw or tactics and neither arm's upper
+   bound is below zero, pooled over three seeds. Imitation metrics have
+   improved while play got worse (−5.1 pp), so they never decide play.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
