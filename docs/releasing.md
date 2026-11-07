@@ -24,7 +24,10 @@ same tree in the same CI job.
 The binaries are built with `--profile dist` (`Cargo.toml`), which is
 `release` plus line tables and no strip, so a crash report keeps file and line.
 Fat LTO was measured and does not fit: it needs 17 GB at link time, and a free
-runner has at most 16 GB. On x86_64 the target CPU is `x86-64-v2`.
+runner has at most 16 GB. On x86_64 the target CPU is `x86-64-v3` (owner,
+7.11.2026: AVX2 may be assumed, a step above what Windows 11 24H2 needs). Nothing
+checks for it: a CPU below it cannot start the client and is told nothing, and
+that goes for a player the updater brings to such a build too.
 
 The builds are **not code-signed**. Signing and notarisation cost money, so
 that is the owner's decision. Until then macOS and Windows warn on first

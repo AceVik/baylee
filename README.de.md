@@ -241,8 +241,9 @@ Ohne Setup: Entpacke die ZIP-Datei in einen beliebigen Ordner, etwa
 `Dokumente\Baylee`, lass den Ordner `assets` neben `baylee-client.exe` liegen
 und starte `baylee-client.exe`.
 
-Die x86-64-Version braucht eine CPU mit x86-64-v2 (SSE4.2, POPCNT); ohne
-eine solche startet auch Windows 11 24H2 nicht.
+Die x86-64-Version braucht eine CPU mit x86-64-v3 (AVX2, FMA, BMI2): Intel seit
+Haswell (2013), AMD seit Excavator (2015), aber nicht jeder Pentium oder Celeron.
+Ohne eine solche startet sie nicht.
 
 ### macOS
 
@@ -304,7 +305,7 @@ Ubuntu sind das
 `libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0 libvulkan1`.
 Gebaut wird auf Ubuntu 22.04; das Programm läuft auf jeder Distribution mit
 glibc 2.35 oder neuer. Wie unter Windows braucht die x86-64-Version eine CPU
-mit x86-64-v2.
+mit x86-64-v3.
 
 ### Download prüfen
 
