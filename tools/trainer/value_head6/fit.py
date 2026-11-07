@@ -1,7 +1,9 @@
 """Fit a copy of `seat_value_head` on cached positions; the trunk never runs here.
 
 The only target is who won. Each turn of each game weighs the same, so a long
-game is many positions but not a louder label than its turns.
+game is many positions but not a louder label than its turns. `step_weight`
+adds a second reading of the same label: the change of the logit from one turn's
+settled position to the next says who wins, which is what a search compares.
 """
 import copy
 
@@ -18,17 +20,32 @@ def side_logit(head, tokens):
 
 
 def choose(rows, per_turn, rng):
-    """Row numbers: per game, seat and turn, the first settled position and others at random."""
+    """Per game, seat and turn: the first settled position, and others at random.
+
+    Returns row numbers, their weights, and which of them are first settled.
+    """
     key = (rows["game"].astype(np.int64) * 16 + rows["seat"]) * 4096 + np.minimum(rows["turn"], 4095)
-    shuffled = rng.permutation(len(rows))
-    # Settled positions sort first within a turn, earliest first, then the shuffle.
-    order = np.lexsort((shuffled, np.where(rows["settled"], 0, 1), key))
+    rank = rng.permutation(len(rows)) + 1
+    settled = np.flatnonzero(rows["settled"])
+    # Rows are chronological, so the first of a key is its turn's first settled position.
+    rank[settled[np.unique(key[settled], return_index=True)[1]]] = 0
+    order = np.lexsort((rank, key))
     sorted_keys = key[order]
     starts = np.flatnonzero(np.r_[True, sorted_keys[1:] != sorted_keys[:-1]])
     place = np.arange(len(order)) - np.repeat(starts, np.diff(np.r_[starts, len(order)]))
     picked = np.sort(order[place < per_turn])
     _, inverse, counts = np.unique(key[picked], return_inverse=True, return_counts=True)
-    return picked, (1.0 / counts[inverse]).astype(np.float32)
+    return picked, (1.0 / counts[inverse]).astype(np.float32), rank[picked] == 0
+
+
+def steps_of(rows, first):
+    """Index pairs of consecutive first settled positions of one game and seat."""
+    numbers = np.flatnonzero(first)
+    trajectory = rows["game"][numbers].astype(np.int64) * 16 + rows["seat"][numbers]
+    numbers = numbers[np.argsort(trajectory, kind="stable")]
+    trajectory = np.sort(trajectory, kind="stable")
+    same = trajectory[1:] == trajectory[:-1]
+    return np.stack([numbers[:-1][same], numbers[1:][same]], axis=1)
 
 
 class Samples:
@@ -36,38 +53,52 @@ class Samples:
 
     def __init__(self, sets, per_turn, seed, device, games):
         rng = np.random.default_rng(seed)
-        tokens, targets, weights = [], [], []
+        tokens, targets, weights, pairs = [], [], [], []
+        total = 0
         for positions, set_weight, hold in sets:
             rows = positions.rows
             kept = np.flatnonzero(games(rows, hold))
-            picked, weight = choose(rows[kept], per_turn, rng)
+            picked, weight, first = choose(rows[kept], per_turn, rng)
             rows_picked = kept[picked]
-            tokens.append(torch.from_numpy(np.ascontiguousarray(positions.features[rows_picked])).to(device))
+            tokens.append(torch.from_numpy(positions.features[rows_picked]).to(device))
             targets.append(torch.from_numpy(rows["outcome"][rows_picked].copy()).to(device))
             weights.append(torch.from_numpy(weight * set_weight).to(device))
+            pairs.append(torch.from_numpy(steps_of(rows[rows_picked], first) + total).to(device))
+            total += len(rows_picked)
         self.tokens = torch.cat(tokens)
         self.targets = torch.cat(targets)
         self.weights = torch.cat(weights)
+        self.pairs = torch.cat(pairs)
 
     def __len__(self):
         return len(self.targets)
 
 
+def step_loss(head, samples, pairs):
+    """The change of the logit between two turns, read as who wins the game."""
+    before = side_logit(head, samples.tokens[pairs[:, 0]].float())
+    after = side_logit(head, samples.tokens[pairs[:, 1]].float())
+    return F.binary_cross_entropy_with_logits(after - before, samples.targets[pairs[:, 1]], reduction="sum")
+
+
 @torch.no_grad()
 def score(head, samples, batch=32768):
     head.eval()
-    loss = brier = 0.0
+    loss = brier = steps = 0.0
     for start in range(0, len(samples), batch):
         part = slice(start, start + batch)
         logit = side_logit(head, samples.tokens[part].float())
         target, weight = samples.targets[part], samples.weights[part]
         loss += float((F.binary_cross_entropy_with_logits(logit, target, reduction="none") * weight).sum())
         brier += float(((torch.sigmoid(logit) - target).square() * weight).sum())
+    for start in range(0, len(samples.pairs), batch):
+        steps += float(step_loss(head, samples, samples.pairs[start:start + batch]))
     total = float(samples.weights.sum())
-    return dict(loss=loss / total, brier=brier / total)
+    return dict(loss=loss / total, brier=brier / total, step=steps / max(1, len(samples.pairs)))
 
 
-def fit(source_head, train, validation, seed, epochs=12, lr=1e-3, weight_decay=1e-2, batch=4096, fresh=False):
+def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1e-2, batch=4096, fresh=False,
+        step_weight=0.0):
     torch.manual_seed(seed)
     head = copy.deepcopy(source_head).float().to(train.tokens.device)
     if fresh:
@@ -79,18 +110,24 @@ def fit(source_head, train, validation, seed, epochs=12, lr=1e-3, weight_decay=1
     steps = epochs * ((len(train) + batch - 1) // batch)
     optimizer = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=weight_decay)
     schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, lr, total_steps=max(1, steps), pct_start=.1)
+    objective = lambda metrics: metrics["loss"] + step_weight * metrics["step"]
     start = score(head, validation)
-    best, best_state, best_epoch = start["loss"], copy.deepcopy(head.state_dict()), 0
+    best, best_state, best_epoch = objective(start), copy.deepcopy(head.state_dict()), 0
     history = [dict(epoch=0, **start)]
     generator = torch.Generator(device="cpu").manual_seed(seed)
+    pair_batch = max(1, batch // 4)
     for epoch in range(1, epochs + 1):
         head.train()
-        order = torch.randperm(len(train), generator=generator).to(train.tokens.device)
+        device = train.tokens.device
+        order = torch.randperm(len(train), generator=generator).to(device)
         for begin in range(0, len(train), batch):
             part = order[begin:begin + batch]
             weight = train.weights[part]
             logit = side_logit(head, train.tokens[part].float())
             loss = (F.binary_cross_entropy_with_logits(logit, train.targets[part], reduction="none") * weight).sum() / weight.sum()
+            if step_weight:
+                drawn = torch.randint(len(train.pairs), (pair_batch,), generator=generator).to(device)
+                loss = loss + step_weight * step_loss(head, train, train.pairs[drawn]) / pair_batch
             if not torch.isfinite(loss):
                 raise FloatingPointError("Nonfinite value head loss")
             optimizer.zero_grad(set_to_none=True)
@@ -99,12 +136,15 @@ def fit(source_head, train, validation, seed, epochs=12, lr=1e-3, weight_decay=1
             schedule.step()
         metrics = score(head, validation)
         history.append(dict(epoch=epoch, **metrics))
-        print(f"[value-head] seed={seed} epoch={epoch} val_loss={metrics['loss']:.5f} val_brier={metrics['brier']:.5f}", flush=True)
-        if metrics["loss"] < best:
-            best, best_state, best_epoch = metrics["loss"], copy.deepcopy(head.state_dict()), epoch
+        print(f"[value-head] seed={seed} epoch={epoch} val_loss={metrics['loss']:.5f} "
+              f"val_brier={metrics['brier']:.5f} val_step={metrics['step']:.5f}", flush=True)
+        if objective(metrics) < best:
+            best, best_state, best_epoch = objective(metrics), copy.deepcopy(head.state_dict()), epoch
     head.load_state_dict(best_state)
     return head, dict(selected_epoch=best_epoch, history=history, train_rows=len(train), validation_rows=len(validation),
-                      objective="side outcome, binary cross entropy; each turn of each game weighs the same")
+                      train_steps=len(train.pairs), validation_steps=len(validation.pairs),
+                      objective="side outcome, binary cross entropy; each turn of each game weighs the same",
+                      step_weight=step_weight)
 
 
 @torch.no_grad()
@@ -113,6 +153,6 @@ def predict(head, positions, device, batch=32768):
     head.eval()
     result = np.empty(len(positions.rows), dtype=np.float32)
     for start in range(0, len(result), batch):
-        tokens = torch.from_numpy(np.ascontiguousarray(positions.features[start:start + batch])).to(device).float()
+        tokens = torch.from_numpy(np.array(positions.features[start:start + batch])).to(device).float()
         result[start:start + batch] = torch.sigmoid(side_logit(head, tokens)).cpu().numpy()
     return result

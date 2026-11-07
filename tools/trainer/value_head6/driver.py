@@ -11,7 +11,6 @@ import model4 as M
 from value_calibration4.checkpoint import file_digest, load_source, merged_checkpoint, publish
 from .extract import Positions, extract, open_frames
 from .fit import Samples, fit, predict, side_logit
-from .positions import FORCED
 
 FROZEN = "Every tensor except seat_value_head.* bit-identical; trunk, memory and policy untouched"
 
@@ -34,7 +33,7 @@ def held_out(rows, hold):
 def check_duel_readout(net, positions, device):
     """`side_logit` must be the deployed value, or the head is fit on another function."""
     rows = min(256, len(positions.rows))
-    tokens = torch.from_numpy(np.ascontiguousarray(positions.features[:rows])).to(device).float()
+    tokens = torch.from_numpy(np.array(positions.features[:rows])).to(device).float()
     seats = torch.zeros(rows, M.MAX_SEATS, M.SEAT_FEAT_WIDTH, device=device)
     seats[:, 0, [M.SEAT_FEAT_PRESENT, M.SEAT_FEAT_SELF]] = 1.0
     seats[:, 1, [M.SEAT_FEAT_PRESENT, M.SEAT_FEAT_OPPONENT]] = 1.0
@@ -66,7 +65,7 @@ def run_fit(args):
     train = Samples(sets, args.per_turn, args.seed, device, lambda rows, hold: ~held_out(rows, hold) & ~validating(rows))
     validation = Samples(sets, args.per_turn, args.seed + 1, device, lambda rows, hold: ~held_out(rows, hold) & validating(rows))
     head, report = fit(net.seat_value_head, train, validation, args.seed, args.epochs, args.lr,
-                       args.weight_decay, args.batch, args.fresh)
+                       args.weight_decay, args.batch, args.fresh, args.step_weight)
     provenance = dict(kind="value_head_v6", source=str(source.resolve()), source_sha256=source_hash, seed=args.seed,
                       promoted=False, frozen=FROZEN, train=[str(positions.path) for positions, _, _ in sets],
                       weights=[weight for _, weight, _ in sets], held_out_every=[hold for _, _, hold in sets],
@@ -77,29 +76,35 @@ def run_fit(args):
 
 
 def run_log(args):
-    """Writes a set as `--value-log` lines and a summary `phase_a4 values` reads."""
+    """Writes sets as `--value-log` lines and a summary `phase_a4 values` reads.
+
+    A game's two seats are one table, so its bootstrap keeps them together.
+    """
     device = torch.device(args.device)
     _, _, net = load_source(args.model)
-    positions = Positions(args.positions)
-    rows = positions.rows
-    values = predict(net.seat_value_head.float().to(device), positions, device)
-    if args.only_held_every:
-        kept = held_out(rows, args.only_held_every)
-        rows, values = rows[kept], values[kept]
-    outcomes = {}
+    head = net.seat_value_head.float().to(device)
+    outcomes, written = {}, 0
     with Path(args.log).open("wb") as log:
-        for row, value in zip(rows, values.tolist()):
-            deal = int(row["game"]) * 2 + int(row["seat"])
-            outcomes[deal] = float(row["outcome"])
-            line = dict(d=deal, focal=int(row["seat"]), turn=int(row["turn"]), active=bool(row["active"]),
-                        settled=bool(row["settled"]), kind=int(row["pending"]), src="Net", fb=False,
-                        v=value, ov=value, life=int(row["life"]), opp_life=int(row["opp_life"]),
-                        hand=int(row["hand"]), opp_hand=int(row["opp_hand"]),
-                        board=int(row["board"]), opp_board=int(row["opp_board"]))
-            log.write(orjson.dumps(line) + b"\n")
+        for number, path in enumerate(args.positions):
+            positions = Positions(path)
+            rows = positions.rows
+            values = predict(head, positions, device)
+            if args.held_every:
+                kept = held_out(rows, args.held_every) ^ args.complement
+                rows, values = rows[kept], values[kept]
+            for row, value in zip(rows, values.tolist()):
+                deal = ((number << 32) + int(row["game"])) * 2 + int(row["seat"])
+                outcomes[deal] = float(row["outcome"])
+                line = dict(d=deal, focal=int(row["seat"]), turn=int(row["turn"]), active=bool(row["active"]),
+                            settled=bool(row["settled"]), kind=int(row["pending"]), src="Net", fb=False,
+                            v=value, ov=value, life=int(row["life"]), opp_life=int(row["opp_life"]),
+                            hand=int(row["hand"]), opp_hand=int(row["opp_hand"]),
+                            board=int(row["board"]), opp_board=int(row["opp_board"]))
+                log.write(orjson.dumps(line) + b"\n")
+            written += len(rows)
     details = [dict(deal=deal, net_utility=outcome, net_capped=False) for deal, outcome in sorted(outcomes.items())]
     Path(args.summary).write_text(json.dumps(dict(deal_details=details)))
-    print(json.dumps(dict(positions=len(rows), games=len(details), forced_left_out=int((rows["source"] == FORCED).sum()))), flush=True)
+    print(json.dumps(dict(positions=written, trajectories=len(details))), flush=True)
 
 
 def main():
@@ -125,20 +130,22 @@ def main():
     two.add_argument("--out", required=True)
     two.add_argument("--seed", type=int, default=31431)
     two.add_argument("--epochs", type=int, default=12)
-    two.add_argument("--lr", type=float, default=1e-3)
+    two.add_argument("--lr", type=float, default=3e-4)
     two.add_argument("--weight-decay", type=float, default=1e-2)
     two.add_argument("--batch", type=int, default=4096)
     two.add_argument("--per-turn", type=int, default=3)
     two.add_argument("--val-every", type=int, default=20, help="every Nth game validates")
     two.add_argument("--fresh", action="store_true", help="start from random weights, not the source head")
+    two.add_argument("--step-weight", type=float, default=0.0, help="weight of the change between turns as a reading of who wins")
     two.add_argument("--device", default="cuda")
     two.set_defaults(handler=run_fit)
     three = commands.add_parser("log")
     three.add_argument("--model", required=True)
-    three.add_argument("--positions", required=True)
+    three.add_argument("--positions", nargs="+", required=True)
     three.add_argument("--log", required=True)
     three.add_argument("--summary", required=True)
-    three.add_argument("--only-held-every", type=int, default=0, help="only every Nth game, as a fit's HOLD left it out")
+    three.add_argument("--held-every", type=int, default=0, help="only every Nth game, as a fit's HOLD left it out")
+    three.add_argument("--complement", action="store_true", help="with --held-every: the other games")
     three.add_argument("--device", default="cuda")
     three.set_defaults(handler=run_log)
     args = parser.parse_args()

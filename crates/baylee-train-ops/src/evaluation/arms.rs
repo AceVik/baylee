@@ -48,11 +48,34 @@ fn deals(value: &Value) -> Result<BTreeMap<Key, &Value>> {
 /// # Errors
 /// Rejects different protocols, builds or deal sets, and dirty builds.
 pub fn compare_arm(candidates: &[Value], reference: &Value, resamples: usize) -> Result<Value> {
+    compare(candidates, reference, resamples, &SAME)
+}
+
+/// `compare_arm` between exports of one net: the same protocol but for the
+/// model, as FP16 against FP32, or one trunk under two value heads.
+///
+/// # Errors
+/// As `compare_arm`.
+pub fn compare_exports(
+    candidates: &[Value],
+    reference: &Value,
+    resamples: usize,
+) -> Result<Value> {
+    let protocol: Vec<&str> = SAME.into_iter().filter(|key| *key != "model").collect();
+    compare(candidates, reference, resamples, &protocol)
+}
+
+fn compare(
+    candidates: &[Value],
+    reference: &Value,
+    resamples: usize,
+    protocol: &[&str],
+) -> Result<Value> {
     ensure!(!candidates.is_empty(), "An arm needs at least one run");
     let baseline = deals(reference)?;
     let first = deals(&candidates[0])?;
     for run in candidates {
-        for key in SAME {
+        for &key in protocol {
             ensure!(
                 run.get(key).is_some() && run[key] == reference[key],
                 "Protocol differs or is missing: {key}"

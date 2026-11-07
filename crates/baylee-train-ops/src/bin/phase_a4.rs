@@ -7,7 +7,7 @@
 // Counts of games and resamples, well below f64's exact 2^53 range.
 #![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
-use baylee_train_ops::evaluation::arms::{compare_arm, pool_arms};
+use baylee_train_ops::evaluation::arms::{compare_arm, compare_exports, pool_arms};
 use baylee_train_ops::evaluation::value_report::{read_positions, report};
 use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
@@ -69,6 +69,10 @@ enum Command {
         /// A second root to look in, for arms of an earlier plan.
         #[arg(long, default_value_t = 20_000)]
         resamples: usize,
+        /// The arms are exports of one net (precision, a head): only the model
+        /// may differ.
+        #[arg(long)]
+        exports: bool,
         #[arg(long)]
         out: PathBuf,
         pairs: Vec<String>,
@@ -406,14 +410,19 @@ fn eval_path(root: &Path, word: &str) -> PathBuf {
     root.join(format!("eval-{}.json", file_name(word)))
 }
 
-fn pair(root: &Path, spec: &str, resamples: usize) -> Result<Value> {
+fn pair(root: &Path, spec: &str, resamples: usize, exports: bool) -> Result<Value> {
     let (candidates, reference) = spec.split_once('~').context("CANDIDATES~REFERENCE")?;
     let runs: Vec<Value> = candidates
         .split(',')
         .map(|word| read_json(&eval_path(root, word)))
         .collect::<Result<_>>()?;
     let baseline = read_json(&eval_path(root, reference))?;
-    let mut report = compare_arm(&runs, &baseline, resamples)?;
+    let compared = if exports {
+        compare_exports
+    } else {
+        compare_arm
+    };
+    let mut report = compared(&runs, &baseline, resamples)?;
     report["arm"] = json!(candidates);
     report["reference"] = json!(reference);
     Ok(report)
@@ -833,17 +842,17 @@ fn survey_row(word: &str, text: &str) -> Value {
 }
 
 /// The table of `pairs`, printed and written to `out`.
-fn table(root: &Path, resamples: usize, out: &Path, pairs: &[String]) -> Result<()> {
+fn table(root: &Path, resamples: usize, exports: bool, out: &Path, pairs: &[String]) -> Result<()> {
     // `A~B/C~D` is one arm on two sets of deals, pooled.
     let reports: Vec<Value> = pairs
         .iter()
         .map(|spec| {
             if !spec.contains('/') {
-                return pair(root, spec, resamples);
+                return pair(root, spec, resamples, exports);
             }
             let parts: Vec<Value> = spec
                 .split('/')
-                .map(|part| pair(root, part, resamples))
+                .map(|part| pair(root, part, resamples, exports))
                 .collect::<Result<_>>()?;
             let mut pooled = pool_arms(&parts, resamples)?;
             pooled["arm"] = json!(format!("{spec} (pooled)"));
@@ -898,9 +907,10 @@ fn main() -> Result<()> {
         Command::Table {
             root,
             resamples,
+            exports,
             out,
             pairs,
-        } => table(&root, resamples, &out, &pairs)?,
+        } => table(&root, resamples, exports, &out, &pairs)?,
         Command::Surveys {
             root,
             gamelog,

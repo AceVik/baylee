@@ -49,7 +49,8 @@ class PositionFrames(D.TrajectoryDataset4):
         for position in np.flatnonzero(decisions):
             header = D.BST4_HDR.unpack_from(self.store.read_raw(int(rows[position])))
             pending, source = header[8], header[9]
-            if source == HOUSE and seats == "net":
+            # A net seat can fall back to the house later on; a house seat never answers as the net.
+            if source == HOUSE and seats == "net" and not answered:
                 return False
             if source == NET:
                 answered = True
