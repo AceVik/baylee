@@ -1,5 +1,5 @@
 //! Exchange entire blocking assignments only when the resulting blocks are legal.
-use super::{BlockerInfo, GameState, ObjectId, block_bound, can_block};
+use super::{BlockRules, BlockerInfo, GameState, ObjectId, block_bound};
 
 /// Retarget existing blocks without declaring new blockers (CR 509.5).
 /// A creature already blocking both attackers keeps both assignments.
@@ -22,6 +22,7 @@ pub(crate) fn exchange_blockers(state: &mut GameState, first: ObjectId, second: 
             },
         })
         .collect();
+    let rules = BlockRules::new(state);
     for pair in proposed
         .iter()
         .filter(|pair| pair.attacker == first || pair.attacker == second)
@@ -29,7 +30,7 @@ pub(crate) fn exchange_blockers(state: &mut GameState, first: ObjectId, second: 
         let Some(blocker) = state.object(pair.blocker) else {
             return false;
         };
-        if !can_block(state, blocker.controller, pair.blocker, pair.attacker) {
+        if !rules.can_declare(blocker.controller, pair.blocker, pair.attacker) {
             return false;
         }
     }

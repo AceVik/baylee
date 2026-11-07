@@ -4513,7 +4513,7 @@ requires that land to be snow as well as have the chosen subtype.
 `Effect::ExchangeBlockersOfTargetAttackers` reads the first two object
 targets, including a second independently announced group. It exchanges
 their existing blocking assignments only when the resulting blocks satisfy
-pairwise restrictions and blocker-count bounds. A creature blocking both
+pairwise restrictions (`BlockRules::can_declare`) and blocker-count bounds. A creature blocking both
 continues blocking both. No blocker is declared anew; existing blocked
 status persists even if an attacker loses every blocker.
 
