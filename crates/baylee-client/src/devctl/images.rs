@@ -38,7 +38,7 @@ pub(super) fn answer(images: &Assets<Image>) -> String {
         .collect();
     let total: u64 = sizes.iter().map(|size| size.0).sum();
     let count = sizes.len();
-    sizes.sort_by(|a, b| b.0.cmp(&a.0));
+    sizes.sort_by_key(|size| std::cmp::Reverse(size.0));
     let largest: Vec<String> = sizes
         .iter()
         .take(LISTED)
