@@ -1,5 +1,6 @@
 """Supervised trainer argument parsing and architecture dispatch."""
 import argparse
+import math
 import model4 as M
 
 
@@ -71,6 +72,10 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--encoder-warmstart-to10", action="store_true", help="Fresh E7 weights-only transfer to Encoder10; requires --init")
     ap.add_argument("--train-candidate-column", type=int, default=None, metavar="SLOT",
                     help="Train only this input column of the candidate projection, from zero: every other parameter stays frozen, so a candidate with the slot at zero scores as before")
+    ap.add_argument("--train-rules-only", action="store_true",
+                    help="Train only the rule encoder (rules.*) through the network as --init gave it; every other weight stays frozen")
+    ap.add_argument("--anchor-l2", type=float, default=0.,
+                    help="Add this times the squared distance of every trainable weight from its --init value (L2-SP); replaces weight decay; needs --init")
     ap.add_argument("--encoder-warmstart-to9", action="store_true", help="Fresh E7/E8 weights-only transfer; zero new trainable global columns, no behavior-equivalence claim")
     ap.add_argument("--encoder-warmstart-from7", action="store_true", help="Explicit new Encoder8 experiment: load Encoder7 weights only; never resume/relabel")
     ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
@@ -116,6 +121,16 @@ def parse_args(default_architecture="v4"):
         if not 0 <= args.train_candidate_column < M.CAND_FEAT_WIDTH:
             ap.error("--train-candidate-column names no candidate slot")
         identity["candidate_column"] = args.train_candidate_column
+    if args.train_rules_only:
+        if (not (args.init or args.resume) or args.init_state or args.freeze_trunk or args.relational_lr > 0
+                or args.train_candidate_column is not None):
+            ap.error("--train-rules-only needs --init or --resume, without --init-state, --freeze-trunk, "
+                     "--train-candidate-column or relational rates")
+        identity["train_parts"] = "rules"
+    if args.anchor_l2:
+        if not math.isfinite(args.anchor_l2) or args.anchor_l2 < 0 or not args.init or args.resume or args.init_state:
+            ap.error("--anchor-l2 needs a finite nonnegative weight and --init only: its anchor is the --init weights")
+        identity["anchor_l2"] = args.anchor_l2
     if args.encoder_warmstart_to9 and (args.encoder_version != 9 or not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.candidate_context_warmstart or args.freeze_trunk):
         ap.error("--encoder-warmstart-to9 requires Encoder9 and --init only, with trainable trunk and no simultaneous transfer")
     if args.candidate_context_revision >= 2 and (args.architecture != "v5" or args.relational_revision != 2):
