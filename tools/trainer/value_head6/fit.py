@@ -11,12 +11,15 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from .low_precision import LowPrecisionAdamW, Numerics
+
 
 def side_logit(head, tokens):
     """The duel's value as a logit: the deployed two-way softmax over seats."""
+    tokens = tokens.to(next(head.parameters()).dtype)
     global_token = tokens[:, :1].expand(-1, 2, -1)
     seat_logits = head(torch.cat([tokens[:, 1:3], global_token], dim=-1)).squeeze(-1)
-    return seat_logits[:, 0] - seat_logits[:, 1]
+    return (seat_logits[:, 0] - seat_logits[:, 1]).float()
 
 
 def choose(rows, per_turn, rng):
@@ -118,9 +121,9 @@ def score(head, samples, offsets, batch=32768):
 
 
 def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1e-2, batch=4096, fresh=False,
-        step_weight=0.0):
+        step_weight=0.0, numerics=Numerics()):
     torch.manual_seed(seed)
-    head = copy.deepcopy(source_head).float().to(train.tokens.device)
+    head = copy.deepcopy(source_head).to(device=train.tokens.device, dtype=numerics.dtype)
     if fresh:
         for layer in head:
             if hasattr(layer, "reset_parameters"):
@@ -131,11 +134,11 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
     # Each domain but the first has an intercept of its own: base rates differ by
     # who sits opposite, and the head stays calibrated for the first domain alone.
     domains = int(max(train.domains.max(), validation.domains.max())) + 1
-    offsets = torch.zeros(domains, device=train.tokens.device, requires_grad=True)
+    offsets = torch.zeros(domains, device=train.tokens.device, dtype=numerics.dtype, requires_grad=True)
     free = (torch.arange(domains, device=train.tokens.device) > 0).float()
     shift = lambda: offsets * free
-    optimizer = torch.optim.AdamW([dict(params=list(head.parameters()), weight_decay=weight_decay),
-                                   dict(params=[offsets], weight_decay=0.0)], lr=lr)
+    groups = [dict(params=list(head.parameters()), weight_decay=weight_decay), dict(params=[offsets], weight_decay=0.0)]
+    optimizer = (torch.optim.AdamW(groups, lr=lr) if numerics == Numerics() else LowPrecisionAdamW(groups, lr, numerics))
     # One scalar per domain has to travel about a logit in a few hundred steps.
     schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, [lr, 30 * lr], total_steps=max(1, steps), pct_start=.1)
     objective = lambda metrics: metrics["loss"] + step_weight * metrics["step"]
@@ -171,7 +174,8 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
             best, best_state, best_epoch = objective(metrics), copy.deepcopy(head.state_dict()), epoch
             best_offsets = shift().detach().cpu().tolist()
     head.load_state_dict(best_state)
-    return head, dict(selected_epoch=best_epoch, history=history, train_rows=len(train), validation_rows=len(validation),
+    return head.float(), dict(selected_epoch=best_epoch, history=history, train_rows=len(train), validation_rows=len(validation),
+                              numerics=vars(numerics),
                       train_steps=len(train.pairs), validation_steps=len(validation.pairs), domain_offsets=best_offsets,
                       objective="side outcome, binary cross entropy; each turn of each game weighs the same",
                       step_weight=step_weight)

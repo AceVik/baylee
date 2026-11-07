@@ -11,6 +11,7 @@ import model4 as M
 from value_calibration4.checkpoint import file_digest, load_source, merged_checkpoint, publish
 from .extract import Positions, extract, open_frames
 from .fit import Samples, fit, predict, side_logit
+from .low_precision import Numerics
 
 FROZEN = "Every tensor except seat_value_head.* bit-identical; trunk, memory and policy untouched"
 
@@ -65,7 +66,8 @@ def run_fit(args):
     train = Samples(sets, args.per_turn, args.seed, device, lambda rows, hold: ~held_out(rows, hold) & ~validating(rows))
     validation = Samples(sets, args.per_turn, args.seed + 1, device, lambda rows, hold: ~held_out(rows, hold) & validating(rows))
     head, report = fit(net.seat_value_head, train, validation, args.seed, args.epochs, args.lr,
-                       args.weight_decay, args.batch, args.fresh, args.step_weight)
+                       args.weight_decay, args.batch, args.fresh, args.step_weight,
+                       Numerics(args.weights, args.update_rounding, args.state))
     provenance = dict(kind="value_head_v6", source=str(source.resolve()), source_sha256=source_hash, seed=args.seed,
                       promoted=False, frozen=FROZEN, train=[str(entry[0].path) for entry in sets],
                       weights=[entry[1] for entry in sets], held_out_every=[entry[2] for entry in sets],
@@ -138,6 +140,9 @@ def main():
     two.add_argument("--val-every", type=int, default=20, help="every Nth game validates")
     two.add_argument("--fresh", action="store_true", help="start from random weights, not the source head")
     two.add_argument("--step-weight", type=float, default=0.0, help="weight of the change between turns as a reading of who wins")
+    two.add_argument("--weights", choices=("float32", "bfloat16"), default="float32", help="storage of the head; bfloat16 keeps no float32 master")
+    two.add_argument("--update-rounding", choices=("nearest", "stochastic"), default="nearest")
+    two.add_argument("--state", choices=("float32", "bfloat16"), default="float32", help="storage of the optimizer's moments")
     two.add_argument("--device", default="cuda")
     two.set_defaults(handler=run_fit)
     three = commands.add_parser("log")
