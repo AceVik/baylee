@@ -1053,6 +1053,42 @@ CPU against 66.3, 65.7 and 63.7 s, about 7 % less. The binary went from 308 to 2
 MB. The owner decided for it on 7.11.2026 (`docs/releasing.md` §"The client's
 profile").
 
+### On Windows (7 November 2026)
+
+Ryzen 9 3900X, RTX 4070 Ti, 1440×900 at scale 1 on the 2560×1600 screen. The profile
+was trained on `d4017a10e` for a generic x86-64; both binaries are `dist` with
+`dev-control` and `-Ctarget-cpu=x86-64-v3`, so the profile crossed a CPU target as it
+would in a release. `cargo tools pgo compare`, each in turn, machine otherwise idle.
+Median [span], frames from 4 rounds, games from 3.
+
+| Main schedule p50, ms | Plain | Profiled |
+| --- | ---: | ---: |
+| Lobby | 0.89 [0.82–1.02] | 0.76 [0.65–0.85] |
+| Duel | 1.64 [1.57–1.76] | 1.40 [1.33–1.47] |
+| Full board | 2.34 [2.31–2.52] | 1.99 [1.94–2.22] |
+
+| Main schedule p95, ms | Plain | Profiled |
+| --- | ---: | ---: |
+| Lobby | 1.13 [1.08–1.18] | 0.97 [0.96–1.01] |
+| Duel | 1.93 [1.79–1.94] | 1.59 [1.56–1.61] |
+| Full board | 2.63 [2.55–2.74] | 2.24 [2.17–2.39] |
+
+| All threads' CPU per frame, ms | Plain | Profiled |
+| --- | ---: | ---: |
+| Lobby | 5.94 [5.76–6.39] | 5.56 [4.71–6.15] |
+| Duel | 10.01 [9.95–10.40] | 9.30 [8.89–9.56] |
+| Full board | 13.61 [11.63–13.70] | 13.01 [11.97–13.66] |
+
+The main schedule falls 15 % on all three. All threads' CPU falls less, since a frame's
+time is also the driver's: the duel's spans stand apart, the lobby's and the full
+board's overlap. Both binaries hold the limit of 120 frames a second (frame p50 8.33
+ms, p99 9.3 to 9.6), so a frame's length shows no difference and no headroom. One
+profiled lobby reading held a single frame of 319 ms; its cause was not looked into.
+
+A whole game on one seed played the same in all six runs (turn 27, 114.1 to 114.3 s):
+181.0, 172.2 and 166.9 s of CPU against 157.4, 153.9 and 149.0 s, about 11 % less. The
+binary went from 288 to 270 MB.
+
 ## Long lists and the deck builder (6 November 2026)
 
 The owner reported stutter in the deck builder, long chats, long friend lists and

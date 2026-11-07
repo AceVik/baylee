@@ -863,7 +863,15 @@ What the other targets need:
   has been run there.
 - `x86_64-pc-windows-msvc` needs a desktop with a GPU and `rustup component add
   llvm-tools`, and `BAYLEE_E2E_MONITOR` to keep the window on the screen meant for it.
-  The tool reads the argument files cargo uses for a long command line there. Whether
+  The tool reads the argument files cargo uses for a long command line there. Run on
+  7.11.2026 on a Ryzen 9 3900X: the instrumented build took 1 h 32 min, the scenes
+  about 15 minutes and `ship` 38 minutes beside two other builds, with 3 514 of 284 379
+  functions without counts (1.2 %) and 71 of 45 099 in `baylee_client` (0.2 %). The
+  same profile from another checkout path, with the `-Ctarget-cpu=x86-64-v3` the row
+  builds with: 3 525 and 77. So a profile trained without that target applies, and
+  what it gains is in `docs/perf-client.md` §"On Windows". A build of the client took
+  up to 15.45 GB here, close to a free runner's 16 GB; no row has run it yet, and the
+  row is not marked `profiled`. Whether
   `profiler_builtins` and `llvm-tools` exist on `aarch64-pc-windows-msvc` is unknown.
 - Every row until then stays a plain build; a row without a profile is not a
   failed row. Only a row that was asked for a profile stops without one.
