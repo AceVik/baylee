@@ -207,6 +207,38 @@ mod tests {
         );
     }
 
+    /// Madness is an alternative cost (CR 702.35b): it marks slot 28, so the
+    /// candidate width the trained nets read stays the same.
+    #[test]
+    fn a_madness_cost_marks_the_alternative_cost_slot() {
+        use baylee_engine::choice::CastModeDesc;
+        let d1 = HouseDeck::named("allytifact").unwrap();
+        let d2 = HouseDeck::named("victory").unwrap();
+        let preset = table_for(42, &[&d1, &d2], &[AIProfile::STEADY; 2], &[]);
+        let session = Session::new(&preset).unwrap();
+        let option = |index, kind| CastModeDesc {
+            index,
+            kind,
+            cost: ManaCost::try_parse("{1}{U}").unwrap(),
+        };
+        let pending = Pending::ChooseCastMode {
+            player: PlayerId::new(0),
+            object: ObjectId::new(1, 0),
+            options: vec![
+                option(0, CastModeKind::Madness),
+                option(1, CastModeKind::Alternative(0)),
+            ],
+        };
+        let (_, view) = session.view_for(PlayerId::new(0)).unwrap();
+        let state = encode_state4(&view, Some(&pending), None, &[]);
+        let cands = encode_candidates4(&state, &view, &pending);
+        assert_eq!(cands.candidates[0].feat[28], 1.0);
+        assert_eq!(
+            cands.candidates[0].feat[26..46],
+            cands.candidates[1].feat[26..46]
+        );
+    }
+
     #[test]
     fn encode_teacher_action4_returns_none_when_action_unrepresented() {
         let d1 = HouseDeck::named("allytifact").unwrap();

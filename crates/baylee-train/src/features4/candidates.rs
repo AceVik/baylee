@@ -1268,7 +1268,7 @@ fn populate_cand_ability_dsl(
     }
 }
 
-/// Encodes all 21 [`CastModeKind`] variants + option [`ManaCost`] into `feat[0..48]`
+/// Encodes every [`CastModeKind`] variant + option [`ManaCost`] into `feat[0..48]`
 /// (fixes P0-4: `ChooseMode` options are never collapsed to `[0, 0, index]`).
 fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, feat: &mut [f32]) {
     feat[14] = 1.0; // ChooseMode family marker
@@ -1279,9 +1279,10 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
     let kind_slot = match kind {
         CastModeKind::Normal => 26,
         CastModeKind::Kicked => 27,
-        // Foretell is an alternative cost (CR 702.143a): its slot, so the
-        // candidate width the trained nets read stays the same.
-        CastModeKind::Alternative(_) | CastModeKind::Foretell => 28,
+        // Foretell and madness are alternative costs (CR 702.143a, 702.35b):
+        // their slot, so the candidate width the trained nets read stays the
+        // same.
+        CastModeKind::Alternative(_) | CastModeKind::Foretell | CastModeKind::Madness => 28,
         CastModeKind::Mode(_) => 29,
         CastModeKind::Modes(_) => 30,
         CastModeKind::Face(_) => 31,

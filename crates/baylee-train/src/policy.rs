@@ -101,9 +101,9 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
     match kind {
         CastModeKind::Normal => 0,
         CastModeKind::Kicked => 1,
-        // Foretell is an alternative cost (CR 702.143a); the trained heads
-        // have no number of its own for it.
-        CastModeKind::Alternative(_) | CastModeKind::Foretell => 2,
+        // Foretell and madness are alternative costs (CR 702.143a, 702.35b);
+        // the trained heads have no number of their own for them.
+        CastModeKind::Alternative(_) | CastModeKind::Foretell | CastModeKind::Madness => 2,
         CastModeKind::Mode(_) => 3,
         CastModeKind::Face(_) => 4,
         CastModeKind::PlayLandFace(_) => 5,
@@ -1080,6 +1080,16 @@ mod tests {
             .into_iter()
             .filter(|c| matches!(c, Choice::Block(..)))
             .collect()
+    }
+
+    /// Madness is an alternative cost (CR 702.35b): the trained heads have no
+    /// number of its own for it, and read it as they read an alternative.
+    #[test]
+    fn madness_borrows_the_alternative_cost_s_number() {
+        assert_eq!(
+            mode_kind(&CastModeKind::Madness),
+            mode_kind(&CastModeKind::Alternative(0))
+        );
     }
 
     /// A menace attacker is offered a blocker only while a second one is
