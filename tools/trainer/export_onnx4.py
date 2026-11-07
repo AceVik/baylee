@@ -221,14 +221,16 @@ def main() -> None:
     ap.add_argument("--entities", type=int, default=192)
     ap.add_argument("--thinking-steps", type=int, default=2, choices=(1, 2, 4, 8))
     ap.add_argument("--check", type=int, default=32)
-    ap.add_argument("--precision", choices=("float32", "float16"), default="float32",
-                    help="float16 computes in FP16 behind FP32 inputs and outputs, in its own directory")
+    ap.add_argument("--precision", choices=("both", "float32", "float16"), default="both",
+                    help="both: FP32 graphs and, for evaluation, an FP16 export in OUT/fp16. "
+                         "float16 computes in FP16 behind FP32 inputs and outputs, in its own directory")
     ap.add_argument("--out", default="",
                     help="Export directory (default: the model directory; MODEL/fp16 for float16)")
     args = ap.parse_args()
     torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
     half = args.precision == "float16"
+    also_half = args.precision == "both"
     out_dir = Path(args.out).expanduser() if args.out else model_dir / "fp16" if half else model_dir
     if half and out_dir.resolve() == model_dir.resolve():
         raise ValueError("A float16 export needs its own directory; the float32 graphs stay")
@@ -312,6 +314,14 @@ def main() -> None:
         for depth in sessions:
             convert_to_float16(out_dir / f"model.k{depth}.onnx")
     atomic_copy(out_dir / f"model.k{args.thinking_steps}.onnx", out_dir / "model.onnx")
+    if also_half:
+        half_dir = out_dir / "fp16"
+        half_dir.mkdir(exist_ok=True)
+        atomic_copy(out_dir / "card_structure.json", half_dir / "card_structure.json")
+        for depth in sessions:
+            atomic_copy(out_dir / f"model.k{depth}.onnx", half_dir / f"model.k{depth}.onnx")
+            convert_to_float16(half_dir / f"model.k{depth}.onnx")
+        atomic_copy(half_dir / f"model.k{args.thinking_steps}.onnx", half_dir / "model.onnx")
     meta = {
         "critic_semantics": export_critic_semantics(ckpt),
         **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
@@ -328,12 +338,13 @@ def main() -> None:
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)
-    if half:
-        meta["precision"] = "float16"
-        meta["parity_scope"] = "float32 graphs before float16 conversion"
-        meta["float16_conversion"] = {"converter": "onnxruntime.transformers.float16",
-                                      "onnxruntime": ort.__version__, "keep_io_types": True}
-    atomic_json(out_dir / "model.onnx.json", meta)
+    half_meta = {**meta, "precision": "float16",
+                 "parity_scope": "float32 graphs before float16 conversion",
+                 "float16_conversion": {"converter": "onnxruntime.transformers.float16",
+                                        "onnxruntime": ort.__version__, "keep_io_types": True}}
+    atomic_json(out_dir / "model.onnx.json", half_meta if half else meta)
+    if also_half:
+        atomic_json(half_dir / "model.onnx.json", half_meta)
     print(f"[export model_version={model_module.MODEL_VERSION} precision={args.precision}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
 

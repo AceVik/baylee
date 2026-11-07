@@ -53,12 +53,29 @@ mod collector;
 mod diagnostics;
 mod failure_terminal;
 mod lookahead;
+mod precision;
 mod seat_players;
 mod shadow;
 
 include!("runtime.rs");
 include!("game.rs");
 include!("decks.rs");
+
+/// Points the models of this run at the export `--precision` means. Archived
+/// v3 nets have no FP16 export.
+fn choose_exports(args: &mut Args) -> anyhow::Result<()> {
+    let gpu = precision::on_gpu();
+    if !args.legacy_v3 {
+        args.model = precision::resolve(&args.model, args.precision, args.collection_purpose, gpu)?;
+    }
+    if !args.opponent_legacy_v3
+        && let Some(opponent) = &args.opponent_model
+    {
+        let chosen = precision::resolve(opponent, args.precision, args.collection_purpose, gpu)?;
+        args.opponent_model = Some(chosen);
+    }
+    Ok(())
+}
 
 #[allow(
     clippy::too_many_lines,
@@ -75,7 +92,10 @@ fn main() -> anyhow::Result<()> {
     {
         return failure_terminal::audit::run();
     }
-    let args = Args::parse();
+    let mut args = Args::parse();
+    // Reports name the model as asked for; its identity says which graphs ran.
+    let given_model = args.model.clone();
+    choose_exports(&mut args)?;
     if args.shadow_teacher.is_some()
         && (!args.raw_policy || args.record_out.is_none() || args.legacy_v3)
     {
@@ -761,7 +781,8 @@ fn main() -> anyhow::Result<()> {
         / ((st.coverage.neural_decisions() + st.coverage.fallback_decisions()).max(1) as f64);
 
     let mut summary = json!({
-        "model": args.model,
+        "model": given_model,
+        "precision": model_identity.as_ref().and_then(|identity| identity.precision.as_deref()).unwrap_or("float32"),
         "seats": args.seats,
         "teams": args.teams,
         "shape": args.shape,

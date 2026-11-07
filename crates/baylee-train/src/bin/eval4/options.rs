@@ -8,6 +8,10 @@ struct Args {
     /// Path to Playernet v4 `model.onnx` or checkpoint directory.
     #[arg(long)]
     model: PathBuf,
+    /// Which export of the models runs. `auto` is `MODEL/fp16` for an evaluation
+    /// on the GPU, when it exists; a collection always keeps FP32.
+    #[arg(long, value_enum, default_value_t = precision::Precision::Auto)]
+    precision: precision::Precision,
     /// Explicitly separate new on-policy collection from ordinary evaluation records.
     #[arg(long, value_enum, default_value_t = collector::Purpose::Evaluation)]
     collection_purpose: collector::Purpose,

@@ -48,6 +48,13 @@ fn deals(value: &Value) -> Result<BTreeMap<Key, &Value>> {
 /// # Errors
 /// Rejects different protocols, builds or deal sets, and dirty builds.
 pub fn compare_arm(candidates: &[Value], reference: &Value, resamples: usize) -> Result<Value> {
+    // One `--model` can mean two exports; reports older than the key have none.
+    for run in candidates {
+        ensure!(
+            run["precision"] == reference["precision"],
+            "Protocol differs: precision"
+        );
+    }
     compare(candidates, reference, resamples, &SAME)
 }
 
@@ -56,11 +63,7 @@ pub fn compare_arm(candidates: &[Value], reference: &Value, resamples: usize) ->
 ///
 /// # Errors
 /// As `compare_arm`.
-pub fn compare_exports(
-    candidates: &[Value],
-    reference: &Value,
-    resamples: usize,
-) -> Result<Value> {
+pub fn compare_exports(candidates: &[Value], reference: &Value, resamples: usize) -> Result<Value> {
     let protocol: Vec<&str> = SAME.into_iter().filter(|key| *key != "model").collect();
     compare(candidates, reference, resamples, &protocol)
 }

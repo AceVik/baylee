@@ -680,12 +680,22 @@ Batched runs are not bitwise reproducible (kernel choice depends on the
 call's shapes); reports record the limits and call counts under
 `inference_batch`, and batched record runs name `inference_batch_rows`.
 
-`export_onnx4.py --precision float16 [--out DIR]` writes a separate
-directory (default `MODEL/fp16`) whose graphs compute in FP16 behind FP32
-inputs and outputs, so the Rust ABI and the recurrent memory handed between
-steps stay FP32. Its metadata says `"precision": "float16"`; the model
-identity carries it, and collection contracts report it, so PPO admission
-keeps refusing anything but FP32 rollouts.
+`export_onnx4.py` writes the FP32 graphs and, in `MODEL/fp16`, an FP16 export
+whose graphs compute in FP16 behind FP32 inputs and outputs, so the Rust ABI and
+the recurrent memory handed between steps stay FP32 (`--precision float32` skips
+it, `--precision float16 [--out DIR]` writes only it, in its own directory). Its
+metadata says `"precision": "float16"`; the model identity carries it, and
+collection contracts report it, so PPO admission keeps refusing anything but FP32
+rollouts.
+
+FP16 is the default for evaluation. `eval4 --precision auto`, the default, runs
+`MODEL/fp16` for an evaluation on the GPU when that export exists, for the seat
+under test and for a neural opponent alike; `--precision float32` keeps the model
+as given, and `float16` fails when there is no export. A collection always keeps
+FP32, and so does the CPU, where FP16 graphs gain nothing, so `ladder4` and the
+seats are unchanged. The report keeps `--model` as asked for and says what ran under
+`precision`; `phase_a4 table` refuses to pair two precisions unless told they are
+exports of one net (`--exports`).
 
 Measured on 31 October with arm a (paired `dev1024`, 16 workers for the
 batched runs; `~/baylee-data/v6/eval/v6p-inference/`):
@@ -703,6 +713,15 @@ FP16 against FP32: −0.2 pp [−0.7, +0.3]. On real game states
 pure net games, FP16 throughput grows with workers until about 64
 (`--threads 64 --inference-batch 64`: 3.7 games per second, about 18 rows
 per call, 1.3 GB).
+
+Measured on 7 November for B-refresh with plain tactics against `sharp`, 1024
+deals each, one frozen runtime (`--threads 64 --inference-batch 96`):
+
+| Deals | FP32 | FP16 | FP16 minus FP32 | Better/worse | Wall time | VRAM |
+| --- | ---: | ---: | --- | --- | --- | --- |
+| dev | 500 | 500 | 0.0 pp [−0.5, +0.5] | 3 / 3 | 595 → 268 s | 2.4 → 1.3 GB |
+| fresh | 503 | 504 | +0.1 pp [−0.3, +0.5] | 3 / 2 | 543 → 234 s | 2.4 → 1.3 GB |
+| both | 1003 | 1004 | +0.0 pp [−0.2, +0.4] | 6 / 5 | | |
 
 ### Card catalog compatibility (`--catalog-superset`, `--catalog-drift`)
 
