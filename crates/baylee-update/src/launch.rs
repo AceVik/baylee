@@ -40,12 +40,12 @@ fn runtime(root: &Path, os: Os, bundle: &str) -> PathBuf {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Current {
-    generation: uuid::Uuid,
+pub(crate) struct Current {
+    pub(crate) generation: uuid::Uuid,
     #[serde(default)]
     previous: Option<uuid::Uuid>,
     from: String,
-    to: String,
+    pub(crate) to: String,
     announced: bool,
 }
 
@@ -232,9 +232,10 @@ pub fn chosen(install: &Install, original: &semver::Version) -> io::Result<PathB
     }
 }
 
-/// This launcher's version, which is its package's: the launcher is never
-/// replaced by an update, so it is the version the package was released as.
-fn package_version() -> semver::Version {
+/// The version this launcher was built as: its package's, for the executable in
+/// the package.
+#[must_use]
+pub fn package_version() -> semver::Version {
     semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("the workspace version is semver")
 }
 
@@ -555,25 +556,34 @@ pub fn join() -> io::Result<Option<(Install, ClientLease)>> {
     )))
 }
 
-/// Run one client through its permanent launch path. A second launch is
-/// refused while either the launcher or its child still holds a lease.
+/// The installation with its per-user state, and where its package really is.
+///
+/// # Errors
+/// No state root, or a package path that cannot be resolved.
+pub(crate) fn placed(install: &Install) -> io::Result<(Install, Placement)> {
+    let image = appimage_of(install, &|name| std::env::var_os(name));
+    let place = placement(install, &translocation::System, image.as_deref());
+    let managed = if install.state.is_none() {
+        in_state_root_of(install, &state_root()?, place.original.as_deref())?
+    } else {
+        install.clone()
+    };
+    Ok((managed, place))
+}
+
+/// Run one client of the package at `install`, which is of `version`. A second
+/// launch is refused while either the launcher or its child still holds a lease.
 ///
 /// # Errors
 /// Installation, process-spawn, lock and pointer failures.
 pub fn run(
     install: &Install,
+    version: &semver::Version,
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> io::Result<ExitStatus> {
     let args: Vec<std::ffi::OsString> = args.into_iter().collect();
-    let image = appimage_of(install, &|name| std::env::var_os(name));
-    let place = placement(install, &translocation::System, image.as_deref());
-    let managed;
-    let install = if install.state.is_none() {
-        managed = in_state_root_of(install, &state_root()?, place.original.as_deref())?;
-        &managed
-    } else {
-        install
-    };
+    let (install, place) = placed(install)?;
+    let install = &install;
     let entry = match Claim::named(&install.stage(), "entry.lock") {
         Ok(entry) => entry,
         Err(refused) => return hand_over(install, &args, refused),
@@ -598,7 +608,7 @@ pub fn run(
         blocked: place.blocked,
         original: place.original,
         translocated: place.translocated,
-        runtime: Some(chosen(install, &package_version())?),
+        runtime: Some(chosen(install, version)?),
     };
     let started = session
         .runtime

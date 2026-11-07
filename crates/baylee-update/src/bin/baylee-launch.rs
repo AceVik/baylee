@@ -12,7 +12,11 @@ fn main() -> std::process::ExitCode {
     let result = std::env::current_exe().and_then(|exe| {
         let install = baylee_update::apply::Install::around_launcher(&exe, os)
             .map_err(std::io::Error::other)?;
-        baylee_update::launch::run(&install, std::env::args_os().skip(1))
+        baylee_update::launch::run(
+            &install,
+            &baylee_update::launch::package_version(),
+            std::env::args_os().skip(1),
+        )
     });
     match result {
         Ok(status) if status.success() => std::process::ExitCode::SUCCESS,
