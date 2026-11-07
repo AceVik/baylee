@@ -109,6 +109,7 @@ POST /timescale    {"speed":0.05}
 POST /pause        {"paused":true}
 POST /step         {"frames":6}
 POST /seed         {"friends":500,"lines":450,"stack":80}
+POST /images       {}
 POST /recording/start {"duration_ms":3000,"fps":15}
 GET  /recording/status
 POST /recording/stop {"cancel":true}

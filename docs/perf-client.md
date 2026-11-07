@@ -1103,3 +1103,29 @@ Windows and Linux have other allocators, so this says nothing of them. To check 
 frame time, a game's CPU and memory, as here; and that the C build of mimalloc works
 on each target. It would sit under everything that comes from the network, so the
 `secure` feature would have to be measured too.
+
+## Where the GPU's memory goes (7 November 2026)
+
+M1 Max, a small duel, window 1440×900 at scale 2 (2880×1800), `footprint`'s
+GPU-owned memory, uncapped, 2 rounds, load 8 to 10. `/images` lists the image assets.
+
+| Anti-aliasing | GPU-owned MB | Frames a second | Mean frame, ms |
+| --- | ---: | ---: | ---: |
+| Off | 243 | 218 | 4.58 |
+| FXAA | 263 | 213 | 4.69 |
+| MSAA 2 | 303 | 212 | 4.70 |
+| MSAA 4 | 385 | 213 | 4.68 |
+
+It adds up. Without anti-aliasing, about 124 MB of render targets follow from the
+window (three swapchain images 62, Bevy's two main textures 41, depth 21) and 116 MB
+are 217 image assets: three paintings of 5 to 6 MB and card prints of 1.3 MB at
+488×680. MSAA 4 then adds multisampled colour and depth, 142 MB. The split is
+reckoned from the formats and matches the total; no tool listed the targets.
+
+So card art is about half of what is not anti-aliasing, more than the earlier note
+said. It is bounded by the 256 MB budget. On this GPU none of it costs frame time: the
+four settings stand within three percent. Nothing was changed. A card upright in the
+hand shows no difference between the four at 2× zoom; a tilted edge on the board was
+not compared. Compressed textures would need an encoder at run time or prepared
+images, and nothing here asks for them. A GPU that is not tile-based may pay for MSAA
+in bandwidth, so that is where to measure next.

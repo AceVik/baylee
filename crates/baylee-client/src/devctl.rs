@@ -76,6 +76,7 @@
 //! --features dev-control`, then `curl -s localhost:28770/state`.
 
 mod changed;
+mod images;
 mod music;
 mod perf;
 mod recording;
@@ -139,18 +140,24 @@ fn stage_reveals(mut control: ResMut<DevControl>, duel: Option<ResMut<Duel>>) {
     }
 }
 
-/// `/seed`: large data for a fixed scenario (`seed.rs`).
+/// `/seed`: large data for a fixed scenario (`seed.rs`); `/images`: what the
+/// image assets hold (`images.rs`).
 fn seed_the_scenario(
     mut control: ResMut<DevControl>,
     host: Option<ResMut<crate::social::SocialHost>>,
     duel: Option<ResMut<Duel>>,
+    images: Res<Assets<Image>>,
 ) {
     if control.seed_jobs.is_empty() {
         return;
     }
     let (mut host, mut duel) = (host, duel);
     for job in std::mem::take(&mut control.seed_jobs) {
-        let answer = seed::answer(&job.body, host.as_deref_mut(), duel.as_deref_mut());
+        let answer = if job.path == "/images" {
+            images::answer(&images)
+        } else {
+            seed::answer(&job.body, host.as_deref_mut(), duel.as_deref_mut())
+        };
         let _ = job.reply.send(answer);
     }
 }
@@ -527,7 +534,7 @@ impl DevControl {
     fn answer_later(&mut self, job: Job) {
         if job.path == "/reveal" {
             self.reveal_jobs.push(job);
-        } else if job.path == "/seed" {
+        } else if job.path == "/seed" || job.path == "/images" {
             self.seed_jobs.push(job);
         } else {
             self.shell_jobs.push(job);
@@ -1101,7 +1108,7 @@ fn pump(
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
             "/replay" => queue_replay_ask(&job.body, &mut commands),
-            "/shell" | "/reveal" | "/seed" => {
+            "/shell" | "/reveal" | "/seed" | "/images" => {
                 control.answer_later(job);
                 continue;
             }
