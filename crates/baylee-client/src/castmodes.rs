@@ -37,8 +37,9 @@
 //! - [`CostPart::PayLife`], against the seat's own life total;
 //! - [`CostPart::ExileFromHand`] with a colour filter, against the hand — the
 //!   pitch on Force of Will, Force of Negation, Misdirection and Solitude;
-//! - [`CostPart::Sacrifice`] and [`CostPart::TapN`], against distinct
-//!   permanents the seat controls whose projected filters are publicly known.
+//! - [`CostPart::Sacrifice`], [`CostPart::ReturnToHand`] and [`CostPart::TapN`],
+//!   against distinct permanents the seat controls whose projected filters are
+//!   publicly known.
 //!
 //! Anything else — another pitch-filter shape, a discard, a tap of one
 //! separately chosen permanent — takes the way off the list rather than being
@@ -277,6 +278,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         // for repeated parts, was established by the two matchers above.
         CostPart::ExileFromHand(Filter::HasColor(_))
         | CostPart::Sacrifice(_)
+        | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. } => true,
         // A pitch of another filter shape has no reader here, and the
         // remaining parts have no alternative cost in this pool. Keep
@@ -296,7 +298,6 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
-        | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
@@ -316,13 +317,15 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
     })
 }
 
-/// Match sacrifices and nonsymbol taps to distinct permanents this seat
+/// Match sacrifices, returns and nonsymbol taps to distinct permanents this seat
 /// controls. Unknown projected filters refuse the alternative cost.
 fn permanents_payable(view: &PlayerView, parts: &[CostPart]) -> bool {
     let mut requirements = Vec::new();
     for part in parts {
         match part {
-            CostPart::Sacrifice(filter) => requirements.push((*filter, false)),
+            CostPart::Sacrifice(filter) | CostPart::ReturnToHand(filter) => {
+                requirements.push((*filter, false));
+            }
             CostPart::TapN { filter, count } => {
                 for _ in 0..*count {
                     requirements.push((*filter, true));
@@ -758,9 +761,10 @@ mod tests {
             for face in def.faces {
                 for alt in face.alternative_costs {
                     let readable = alt.cost.parts.iter().all(|part| match part {
-                        CostPart::PayLife(_) | CostPart::Sacrifice(_) | CostPart::TapN { .. } => {
-                            true
-                        }
+                        CostPart::PayLife(_)
+                        | CostPart::Sacrifice(_)
+                        | CostPart::ReturnToHand(_)
+                        | CostPart::TapN { .. } => true,
                         CostPart::ExileFromHand(filter) => {
                             matches!(filter, Filter::HasColor(_))
                         }
@@ -817,6 +821,24 @@ mod tests {
                     .any(|mode| mode.kind == CastModeKind::Alternative(0)),
                 pitchable
             );
+        }
+    }
+
+    /// Each Island a card returns is one of its own: Gush asks two and Daze one.
+    #[test]
+    fn daze_and_gush_return_distinct_islands_for_their_alternative_cost() {
+        for (name, needed) in [("Daze", 1), ("Gush", 2)] {
+            let spell = card_in_hand(1, name, &[Color::Blue]);
+            for islands in 0..=needed {
+                let (view, legal) = lands_of(vec![spell.clone()], islands, "Island", land::ISLAND);
+                assert_eq!(
+                    reachable_modes(&view, &legal, spell.id)
+                        .iter()
+                        .any(|mode| mode.kind == CastModeKind::Alternative(0)),
+                    islands == needed,
+                    "{name} with {islands}"
+                );
+            }
         }
     }
 
