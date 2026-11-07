@@ -24,6 +24,25 @@ fn a_face_without_buyback_or_multikicker_keeps_the_tree_it_had() {
     .tree(&mut f);
     assert_eq!(children(&f, bought), children(&f, plain) + 1);
     assert_eq!(children(&f, kicked), children(&f, plain) + 1);
+    let mad = FaceDef {
+        madness: Some(Cost::TAP),
+        ..FaceDef::DEFAULT
+    }
+    .tree(&mut f);
+    assert_eq!(children(&f, mad), children(&f, plain) + 1);
+}
+
+/// A face that prints none of the later optional fields has the 41 children
+/// every face had when B-refresh was exported (`v6w-newengine`, catalog
+/// 2989…). A field written for every face changes every card in the pool:
+/// `madness` did, on 7 November, and every export drifted on all 12,681
+/// faces until `build.rs` wrote it only where a card prints it. A new
+/// `FaceDef` field fails here until it joins that list.
+#[test]
+fn a_plain_face_keeps_its_41_children() {
+    let mut f = Forest::new();
+    let plain = baylee_cards_dsl::FaceDef::DEFAULT.tree(&mut f);
+    assert_eq!(f.nodes[plain as usize].children.len(), 41);
 }
 
 #[test]

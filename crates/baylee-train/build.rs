@@ -35,7 +35,9 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
         // card prints nothing: written as `None` it would change every face
         // in the pool, and an export would drift on all of it for two cards'
         // worth of keyword (`docs/trained-ai.md`, "Card catalog compatibility").
-        if label == "FaceDef" && ["buyback", "multikicker"].contains(&field.as_str()) {
+        // Every face field added from now on belongs in this list;
+        // `a_plain_face_keeps_its_41_children` fails until it is.
+        if label == "FaceDef" && ["buyback", "multikicker", "madness"].contains(&field.as_str()) {
             writeln!(
                 present_only,
                 "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
