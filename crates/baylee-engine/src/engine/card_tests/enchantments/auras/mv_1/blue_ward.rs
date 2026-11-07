@@ -55,7 +55,7 @@ fn blue_ward_stays_on_when_it_is_itself_blue() {
 /// Armor still is.
 #[test]
 fn blue_ward_keeps_blue_auras_off_the_creature() {
-    a_ward_keeps_auras_of_its_color_off(blue_ward(), flight(), island());
+    a_ward_keeps_auras_of_its_color_off(blue_ward(), flight(), island(), holy_armor());
 }
 
 /// Blue Ward: protection from blue includes damage from blue sources, read off

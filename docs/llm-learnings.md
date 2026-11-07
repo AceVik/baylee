@@ -7273,3 +7273,32 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 64
   of the machine-owned cards untested, and 1,370 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-07 — Strength of Lunacy's white protection and black Madness
+
+- Strength of Lunacy composes the existing creature-targeted Aura attachment,
+  attached-only +2/+1 and protection-from-white modifiers with its face-level
+  madness cost. It needs no engine, DSL, protocol, desktop or seat addition. Six
+  canonical tests spend the ordinary {1}{B}, offer creatures on both sides, attach
+  to exactly the chosen Bears and change only that 2/2 into a 4/3. Swords to
+  Plowshares and Holy Armor cannot target the protected creature, damage from
+  Savannah Lions is prevented and white creatures cannot block it; unprotected
+  controls retain the opposite behaviour.
+- The shared Aura-protection helper now takes its differently coloured control
+  Aura explicitly instead of assuming Holy Armor. That matters for protection
+  from white: Unholy Strength is the legal control while Holy Armor is the Aura
+  that must be refused. White and black mana in the shared fixtures support both
+  Strength Auras without duplicating their combat and targeting scenarios. All
+  five Black Ward, five Blue Ward, five Red Ward and six Strength of Isolation
+  regression tests pass. A real Prying Eyes discard casts Strength of Lunacy for
+  exactly {B} during the opponent's turn and attaches it to the opposing Bears.
+- Removing ability one with `BAYLEE_MUTATE=5541:1` kills both pump assertions;
+  removing ability two with `BAYLEE_MUTATE=5541:2` kills the white spell, Aura,
+  blocking and damage assertions. The card was already in the exercised card pool
+  for the preceding integration run: all 373 house-AI tests, the full seat suite
+  (497 unit tests and every integration target), 152 desktop interaction tests and
+  nine `record::seen` tests (two ignored) pass. The desktop client including tests
+  compiles. `codegen --tables --check`, `require-card-tests`, `cargo dev gate
+  touched origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 63 of the machine-owned cards untested, and 1,370
+  stubs). The full gates remain deferred at the owner's request.

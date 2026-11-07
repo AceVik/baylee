@@ -73,7 +73,7 @@ fn black_ward_stays_on_when_it_is_itself_black() {
 /// Armor still is.
 #[test]
 fn black_ward_keeps_black_auras_off_the_creature() {
-    a_ward_keeps_auras_of_its_color_off(black_ward(), unholy_strength(), swamp());
+    a_ward_keeps_auras_of_its_color_off(black_ward(), unholy_strength(), swamp(), holy_armor());
 }
 
 /// Black Ward: protection from black includes damage from black sources, read off
