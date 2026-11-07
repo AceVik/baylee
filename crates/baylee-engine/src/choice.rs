@@ -686,7 +686,7 @@ pub struct LegalActions {
     /// except that the mana is not floating yet. Offered only while the seat
     /// has a mana ability to activate. `CastSpell` for one runs the cast's
     /// choices, then opens a payment window (`PlayerView::owed`); passing
-    /// in it with the cost unpaid reverses the cast (CR 601.2h, 733.1).
+    /// in it with the cost unpaid reverses the cast (CR 601.2h, 734.1).
     /// Whether the seat's sources can make that mana is not checked: that
     /// is the planner's question. Never in `castable` as well.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
@@ -1017,9 +1017,9 @@ pub enum PlayerAction {
     /// Take back the spell this seat is casting (`Engine::cancellable_cast`,
     /// `PlayerView::casting`): legal in every question of a cast it began
     /// from priority, its own choices and its payment window alike. The cast
-    /// is reversed as CR 733.1 reverses one: the card stays where it was, the
+    /// is reversed as CR 734.1 reverses one: the card stays where it was, the
     /// costs chosen for it are not paid, and the mana abilities activated
-    /// for it are reversed with it. The seat keeps priority (CR 733.2).
+    /// for it are reversed with it. The seat keeps priority (CR 734.2).
     CancelCast,
     /// Offer a draw to every other player still in the game (CR 104.4i).
     OfferDraw,

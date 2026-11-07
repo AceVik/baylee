@@ -250,7 +250,7 @@ fn a_pool_that_pays_none_asks_nothing() {
 }
 
 /// With a land still to tap the question stands open, as an X's does, and a
-/// count the lands cannot pay reverses the cast (CR 601.2h, 733.1).
+/// count the lands cannot pay reverses the cast (CR 601.2h, 734.1).
 #[test]
 fn a_count_the_lands_cannot_reach_is_reversed() {
     let mut engine = board(SPELL, 3);

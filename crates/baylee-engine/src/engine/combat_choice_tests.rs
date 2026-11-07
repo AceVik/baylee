@@ -711,7 +711,7 @@ fn an_attack_tax_opens_a_payment_window_for_the_lands_to_pay() {
     assert!(plains.iter().all(|&id| is_tapped(&engine, id)));
 }
 
-/// A window left short undoes the declaration (CR 508.1i, CR 733.1): the
+/// A window left short undoes the declaration (CR 508.1i, CR 734.1): the
 /// land tapped in it untaps, the pool is what it was, and the question is
 /// asked again without the creature the pool cannot pay for, so a seat that
 /// will not pay is not walked round the same window twice.

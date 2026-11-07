@@ -67,7 +67,7 @@ enum CombatDeclared {
     None,
     Attackers,
     /// A declaration whose mana tax was left unpaid in its payment window
-    /// was undone (CR 508.1i, CR 733.1). The step asks again, offering only
+    /// was undone (CR 508.1i, CR 734.1). The step asks again, offering only
     /// what the pool already pays, so a seat that will not pay is not walked
     /// round the same window twice.
     TaxDeclined {
@@ -162,7 +162,7 @@ enum PaymentContinuation {
         wizard: Box<cast_wizard::CastWizard>,
         version: u32,
         cost: baylee_core::mana::ManaCost,
-        /// What closing without the cast gives back (CR 733.1).
+        /// What closing without the cast gives back (CR 734.1).
         opened: Box<WindowStart>,
     },
     /// "You may cast that card" said yes to (CR 608.2g): the mana is made
@@ -178,7 +178,7 @@ enum PaymentContinuation {
         then_no_more_spells: bool,
         /// "Mana of any type can be spent to cast that spell."
         any_mana: bool,
-        /// What closing without the cast gives back (CR 733.1).
+        /// What closing without the cast gives back (CR 734.1).
         opened: Box<WindowStart>,
     },
     /// A declaration of attackers whose mana tax the pool did not cover
@@ -193,7 +193,7 @@ enum PaymentContinuation {
         life: i32,
         /// The total tax, which is what the window shows as owed.
         cost: baylee_core::mana::ManaCost,
-        /// What closing without the declaration gives back (CR 733.1).
+        /// What closing without the declaration gives back (CR 734.1).
         opened: Box<WindowStart>,
     },
     /// A declaration of blockers whose mana tax the pool did not cover
@@ -205,7 +205,7 @@ enum PaymentContinuation {
         blockers: Vec<(ObjectId, ObjectId)>,
         /// The total tax, which is what the window shows as owed.
         cost: baylee_core::mana::ManaCost,
-        /// What closing without the declaration gives back (CR 733.1).
+        /// What closing without the declaration gives back (CR 734.1).
         opened: Box<WindowStart>,
     },
 }
@@ -215,7 +215,7 @@ enum PaymentContinuation {
 ///
 /// The mana abilities activated in such a window were activated while
 /// making a play that, if the cast is not made, was never completed, and
-/// CR 733.1 lets each player reverse "any legal mana abilities that player
+/// CR 734.1 lets each player reverse "any legal mana abilities that player
 /// activated while making the illegal play" (`Engine::give_back_window`).
 /// Every tap is its own `apply`, and a host reads the journal after each
 /// one, so the journal is not cut back: what was made is taken back, and
@@ -233,7 +233,7 @@ pub(crate) struct WindowStart {
     /// How many triggered abilities were waiting when it opened: those
     /// queued after were triggered by the mana abilities and wait for a
     /// player to get priority (CR 117.5), and no ability triggers from what
-    /// is reversed (CR 733.1).
+    /// is reversed (CR 734.1).
     triggers: usize,
 }
 
@@ -1809,7 +1809,7 @@ impl<L: CardLookup> Engine<L> {
         }
         // A cast taken back and a draw offered come back to the situation
         // they left by a player's own choice, as often as that player likes
-        // (CR 733.1 undoes the cast). That is not a loop, and a watch that
+        // (CR 734.1 undoes the cast). That is not a loop, and a watch that
         // counted it would break one or draw the game on their say-so, so
         // each starts the count again. Refused, it restores what it reset.
         if matches!(action, PlayerAction::CancelCast | PlayerAction::OfferDraw) {

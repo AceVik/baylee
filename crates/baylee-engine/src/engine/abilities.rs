@@ -160,7 +160,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
 
 /// Whether paying `part` can refuse after something of the cost was already
 /// paid, which is when [`Engine::pay_cost`] keeps a checkpoint to cancel the
-/// payment with (CR 733.1).
+/// payment with (CR 734.1).
 ///
 /// The mana is paid first and all at once or not at all, so a cost whose
 /// every part answers `false` here can refuse only before it has written

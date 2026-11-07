@@ -2,7 +2,7 @@
 //!
 //! A cast begun from priority keeps the game as it stood when it began
 //! ([`CastStart`]). Cancelled, or left short in its payment window, it is put
-//! back whole, as CR 733.1 reverses an action that is not completed: "the
+//! back whole, as CR 734.1 reverses an action that is not completed: "the
 //! entire action is reversed and any payments already made are canceled",
 //! and the player "may also reverse any legal mana abilities that player
 //! activated while making" it. The reversal is taken for the player, so a
@@ -10,12 +10,12 @@
 //! floated before the cast is in the pool again, and what a mana ability did
 //! beside its mana is undone with it: a reversed painland's damage is not
 //! dealt, and "no abilities trigger ... as a result of an undone action", so
-//! City of Brass's trigger is not put on the stack. The one thing CR 733.1
+//! City of Brass's trigger is not put on the stack. The one thing CR 734.1
 //! forbids reversing is a library touched ("moved cards to a library, moved
 //! cards from a library to any zone other than the stack, caused a library
 //! to be shuffled, or caused cards from a library to be revealed"); a cast
 //! whose mana did that is still taken back, and its mana abilities stand.
-//! The player keeps priority (CR 733.2).
+//! The player keeps priority (CR 734.2).
 
 use super::{CardLookup, Engine, EngineError, GameEvent, ObjectId, Pending, PlayerId};
 use crate::zone::Zone;
@@ -137,7 +137,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Puts the game back as `wizard`'s cast began, when it began from
-    /// priority and nothing since touched a library (CR 733.1). Returns
+    /// priority and nothing since touched a library (CR 734.1). Returns
     /// whether it did.
     pub(super) fn rewind_cast(&mut self, wizard: &super::cast_wizard::CastWizard) -> bool {
         let Some(start) = wizard.started.as_ref() else {

@@ -546,7 +546,7 @@ fn an_additional_sacrifice_is_paid_and_its_mana_value_remembered() {
 ///
 /// The version of this test before the fix pinned the defect itself: the
 /// question offered the pool's size, the test picked that X, and the cast was
-/// reversed at payment (CR 601.2h, 733.1), the card back in hand. The reversal
+/// reversed at payment (CR 601.2h, 734.1), the card back in hand. The reversal
 /// is still covered where it can still happen, in a payment window that
 /// closes short:
 /// `cancel_cast_tests::a_window_passed_short_is_reversed_like_a_cancel` and

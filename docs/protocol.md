@@ -114,6 +114,7 @@ every client, so `wire::decode` and `apply` hold both to the same rules:
 `tests.rs` and `stream_tests.rs` beside the code prove the rest on damaged and
 made-up patches, and `engine-server/src/tests/hostile.rs` sends the frames through
 the engine's own door.
+
 ## Madness (view 90)
 
 A face's `madness` cost is an alternative cost, not an ordinary cast permission

@@ -3724,7 +3724,7 @@ casts first and pays inside the cast (CR 601.2g). The engine offers it as
 into the window `cast_or_make_miracle_mana` opens; triggers wait through the
 window (`advance_payment_window`) and go on the stack above the spell. A
 window passed short reverses the cast and the player keeps priority
-(CR 733.2: `finish_miracle_payment` now calls `after_action` for such a
+(CR 734.2: `finish_miracle_payment` now calls `after_action` for such a
 cast; it handed priority on before). The client is `ManaRun::cast_first`.
 `pain::city_of_brass_as_the_only_colour_still_stops_a_creature_cast` became
 `city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first`. New:

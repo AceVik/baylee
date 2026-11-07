@@ -182,7 +182,7 @@ fn kessig_wolf_run_pays_x_from_floating_mana_and_lands() {
 }
 
 /// A window left short reverses the activation and gives back the mana
-/// made in it (CR 733.1): the lands untap, the pool is as it was, nothing
+/// made in it (CR 734.1): the lands untap, the pool is as it was, nothing
 /// is on the stack, and the player keeps priority.
 #[test]
 fn kessig_wolf_run_left_short_gives_back_its_window() {

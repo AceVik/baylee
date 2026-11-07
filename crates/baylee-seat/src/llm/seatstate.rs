@@ -586,7 +586,7 @@ impl Seat {
 
     /// What to tell the model when the cast it last answered did not
     /// happen. The table takes back a cast whose whole cost cannot be paid
-    /// and gives priority back (CR 601.2h, 733.1, 733.2) without a word, so
+    /// and gives priority back (CR 601.2h, 734.1, 734.2) without a word, so
     /// the model would see the same question again and may answer it the
     /// same way, again.
     ///
@@ -638,7 +638,7 @@ impl Seat {
         Some(format!(
             "Your cast of {name} {} did not happen: the card is where it was, and {again}. The \
              table takes back a cast whose whole cost cannot be paid, with any kicker or \
-             additional cost you said yes to (CR 601.2h, 733.1); count the cost before you \
+             additional cost you said yes to (CR 601.2h, 734.1); count the cost before you \
              cast it again.",
             narrator::tag(card)
         ))

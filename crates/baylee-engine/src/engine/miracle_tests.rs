@@ -486,7 +486,7 @@ fn cast_x_miracle(pay: bool) {
 /// reversed, and the engine just as a "no" leaves it.
 ///
 /// Answering is part of casting, and a cast that cannot be completed is
-/// illegal and reversed (CR 601.2, CR 733.1); the offer was the miracle's one
+/// illegal and reversed (CR 601.2, CR 734.1); the offer was the miracle's one
 /// chance (CR 702.94a). The answer used to spend the offer before the cast
 /// was tried and then refuse it, which no record could replay (r001 games
 /// 1581, 3288, 3554); then it was refused with the offer left standing,
@@ -657,7 +657,7 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
 }
 
 /// A short payment casts nothing, and what was made for it is given back
-/// (CR 733.1): the Island tapped in the window untaps and its mana leaves
+/// (CR 734.1): the Island tapped in the window untaps and its mana leaves
 /// the pool. It used to float until the step ended, the Island tapped.
 #[test]
 fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
@@ -697,7 +697,7 @@ fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
 /// deals 1 damage to that player." The Island tapped in the window triggers
 /// it, and the trigger waits in the queue, because nobody gets priority in a
 /// payment window. A window closed short reverses the tap, and no ability
-/// triggers from an action that is undone (CR 733.1): nothing goes on the
+/// triggers from an action that is undone (CR 734.1): nothing goes on the
 /// stack and no damage is dealt. The control half pays in full, and the
 /// same tap's trigger reaches the stack.
 #[test]
@@ -747,7 +747,7 @@ fn a_short_miracle_payment_drops_what_its_taps_triggered() {
 
 /// A window in which a mana ability did more than tap and add is left as
 /// it stands: Lotus Petal was sacrificed for its mana and cannot come back
-/// as the object it was (CR 400.7), and CR 733.1 lets the player reverse
+/// as the object it was (CR 400.7), and CR 734.1 lets the player reverse
 /// their mana abilities without making them. Its mana floats, as every
 /// short payment's did before the reversal.
 #[test]

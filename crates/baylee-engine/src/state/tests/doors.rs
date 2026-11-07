@@ -1,7 +1,7 @@
 //! Three of the state's single doors, read through their contracts: the
 //! tap door (its "did it change" answer and the stun counter, CR 122.1d),
 //! the name table, and the checkpoint a reversed action rolls back to
-//! (CR 733.1).
+//! (CR 734.1).
 
 use super::{RegistryLookup, make_preset};
 use crate::event::Cause;

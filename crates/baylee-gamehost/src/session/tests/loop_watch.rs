@@ -4,7 +4,7 @@
 //! broken or drawn. A socket can say the same thing thousands of times inside
 //! one decision clock, so everything a player may repeat at will has to be
 //! left out of that count: a setting, a cast taken back, a draw offered and
-//! declined. None of them is the game repeating itself (CR 733.1 takes a cast
+//! declined. None of them is the game repeating itself (CR 734.1 takes a cast
 //! back as if it never happened), and none may end a game or cost anybody a
 //! trigger.
 
@@ -149,7 +149,7 @@ fn a_setting_said_again_and_again_is_no_loop() {
     }
 }
 
-/// A cast taken back leaves the game as it was (CR 733.1), so a seat with
+/// A cast taken back leaves the game as it was (CR 734.1), so a seat with
 /// priority can do it for as long as it likes without anything happening.
 #[test]
 fn a_cast_taken_back_again_and_again_is_no_loop() {

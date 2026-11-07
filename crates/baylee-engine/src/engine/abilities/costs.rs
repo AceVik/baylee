@@ -466,7 +466,7 @@ impl<L: CardLookup> Engine<L> {
     /// [`paid_by_the_casting_wizard`] documents is a part silently skipped,
     /// and a free sacrifice is worse than a refused activation.
     ///
-    /// A refusal pays nothing. CR 733.1 reverses an action that cannot be
+    /// A refusal pays nothing. CR 734.1 reverses an action that cannot be
     /// completed and cancels "any payments already made", and a part that
     /// refuses after another was paid (a move of an object that is gone, a
     /// counter that is not there) used to leave the mana spent and the
@@ -474,7 +474,7 @@ impl<L: CardLookup> Engine<L> {
     /// kept before the first part and put back on a refusal, whenever a part
     /// of the cost can refuse part way ([`can_refuse_part_way`]).
     ///
-    /// The other half of 733.1, reversing the mana abilities activated while
+    /// The other half of 734.1, reversing the mana abilities activated while
     /// making the play, has nothing to undo here: this engine pays out of the
     /// pool, and the mana abilities that filled it were activated before the
     /// play began, so their mana stays in the pool, as it would.

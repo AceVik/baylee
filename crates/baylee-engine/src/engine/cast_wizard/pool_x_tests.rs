@@ -8,7 +8,7 @@
 //! - while the seat has a mana source left to tap, the question is open
 //!   (`u32::MAX`), and an X the pool does not cover opens the payment
 //!   window after the cast's choices; a window closed short reverses the
-//!   whole cast (CR 601.2h, 733.1) and says `CastCancelReason::Unpaid`;
+//!   whole cast (CR 601.2h, 734.1) and says `CastCancelReason::Unpaid`;
 //! - with nothing left to tap the pool is all that pays, and the question
 //!   offers only the greatest X the pool pays for the whole cost.
 //!
@@ -473,7 +473,7 @@ fn a_plains_left_to_tap_leaves_x_open_and_the_window_pays_for_it() {
 /// The same cast with the window closed short. X = 2 costs `{2}{W}`, the
 /// pool holds one {W} and only one Plains is tapped in the window, so three
 /// mana are not there: partial payment is not allowed (CR 601.2h) and the
-/// whole cast is reversed (CR 733.1). The card is back in hand, the Plains
+/// whole cast is reversed (CR 734.1). The card is back in hand, the Plains
 /// tapped in the window are untapped again, the {W} floated before the cast
 /// still floats, `CastCancelled` is journaled with
 /// `CastCancelReason::Unpaid`, and the caster holds priority with no window

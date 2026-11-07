@@ -3,7 +3,7 @@
 //! controls and only if mana they produce is spent to activate other mana
 //! abilities of lands the player controls and/or to play that card."
 //!
-//! A casting that cannot comply with a step is reversed (CR 601.2, CR 733.1),
+//! A casting that cannot comply with a step is reversed (CR 601.2, CR 734.1),
 //! and a player able to play the card is not free to give it up. These tests
 //! hold the exact feasibility of the commanded payment: a card its lands
 //! cannot pay is not played and nothing is tapped; a payment that can still

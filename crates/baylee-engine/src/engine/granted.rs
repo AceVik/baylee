@@ -99,7 +99,7 @@ pub(super) struct ActivationPayment {
     )>,
     pub(super) previous: Option<Box<PaymentWindow>>,
     /// Where the window began, to give back what it made if the
-    /// activation is not completed (CR 733.1).
+    /// activation is not completed (CR 734.1).
     opened: Box<super::WindowStart>,
 }
 impl ActivationPayment {
@@ -325,7 +325,7 @@ impl<L: CardLookup> Engine<L> {
     ) -> bool {
         self.mana_window = payment.previous.map(|window| *window);
         // An activation its window leaves short is reversed, and the mana
-        // abilities activated for it with it, as a cast's are (CR 733.1;
+        // abilities activated for it with it, as a cast's are (CR 734.1;
         // CR 602.2b follows CR 601.2h for the payment).
         if self.state.source_identity(payment.source.object) != Some(payment.source)
             || !self.can_pay_mana(

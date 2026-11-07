@@ -1,6 +1,6 @@
 //! A combat tax's payment window that closes short (CR 508.1i, 509.1e–f):
 //! the declaration was never made, what the window did is reversed
-//! (CR 733.1), and the same player is asked again.
+//! (CR 734.1), and the same player is asked again.
 
 use super::testkit::*;
 use super::*;
@@ -62,7 +62,7 @@ fn counters_on_prototype(e: &mut Engine<RegistryLookup>, seat: PlayerId, n: u16)
 }
 
 /// "No abilities trigger and no effects apply as a result of an undone
-/// action" (CR 733.1). Seat 0 declares its Prototype, two counters on it,
+/// action" (CR 734.1). Seat 0 declares its Prototype, two counters on it,
 /// attacking, taps one of its two Forests in the window and passes short:
 /// the attack was never declared, the Forest untaps as the window is
 /// reversed, and Mesmeric Orb, which hears every permanent becoming

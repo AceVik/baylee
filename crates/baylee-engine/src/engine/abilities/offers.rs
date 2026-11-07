@@ -828,7 +828,7 @@ impl<L: CardLookup> Engine<L> {
         // the mana is made in its payment window (CR 602.2b, by 601.2b and
         // 601.2g), so no amount made beforehand is the right one to plan.
         // It is offered as a cast paid in its window is (`payable`), and an
-        // activation the window leaves short is reversed (CR 733.1).
+        // activation the window leaves short is reversed (CR 734.1).
         let deferred: Vec<(ObjectId, u32)> = legal
             .unpaid_abilities
             .iter()

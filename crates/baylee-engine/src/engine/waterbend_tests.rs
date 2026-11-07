@@ -164,7 +164,7 @@ fn declining_the_waterbend_cost_casts_the_spell() {
 ///
 /// The answer itself is taken: "none" is what the convoke question offered,
 /// and what makes the casting illegal is the payment after it (CR 601.2h),
-/// which returns the game to the moment before the cast (CR 733.1). It was
+/// which returns the game to the moment before the cast (CR 734.1). It was
 /// refused *and* reversed until the refused-answer sweep (`refusal_tests`),
 /// and a refused answer that moves the game is one no record can replay.
 ///

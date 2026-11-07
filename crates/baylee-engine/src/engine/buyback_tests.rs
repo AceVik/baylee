@@ -206,7 +206,7 @@ fn mana_still_to_be_made_pays_in_the_window_a_yes_opens() {
 }
 
 /// A yes the lands turn out not to cover reverses the whole cast (CR 601.2h,
-/// 733.1): the card is back in hand, the bears are where they were.
+/// 734.1): the card is back in hand, the bears are where they were.
 #[test]
 fn a_yes_the_mana_cannot_reach_reverses_the_cast() {
     let mut engine = capsize_over(4);

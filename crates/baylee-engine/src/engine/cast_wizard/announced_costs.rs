@@ -9,7 +9,7 @@
 //!
 //! A question is asked only when a yes could be paid. Mana that can still be
 //! made counts: the cast opens a window for what the pool lacks (CR 601.2g),
-//! and a total the window cannot reach is reversed there (CR 601.2h, 733.1),
+//! and a total the window cannot reach is reversed there (CR 601.2h, 734.1),
 //! as an X too large is. What cannot be made is not offered: the land the
 //! player does not control, the life they do not have.
 #[allow(clippy::wildcard_imports)]

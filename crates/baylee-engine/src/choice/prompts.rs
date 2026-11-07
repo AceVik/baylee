@@ -494,7 +494,7 @@ pub enum NumberPrompt {
     /// is how many times it was kicked. The maximum is what the floating
     /// mana pays for, or the engine's ceiling while there is more mana to
     /// make, as an X's is: a count nothing can pay reverses the cast
-    /// (CR 601.2h, 733.1).
+    /// (CR 601.2h, 734.1).
     Multikicker {
         /// The cost paid each time.
         cost: baylee_core::mana::ManaCost,

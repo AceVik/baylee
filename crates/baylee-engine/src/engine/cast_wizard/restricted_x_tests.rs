@@ -765,7 +765,7 @@ fn deferred_payment_window_enforces_color_restriction_on_x_and_rolls_back_off_co
             )
             .unwrap();
     }
-    // Passing priority in the payment window fails to pay {1}{B}{B}{B} and reverses cast + mana (CR 733.1).
+    // Passing priority in the payment window fails to pay {1}{B}{B}{B} and reverses cast + mana (CR 734.1).
     engine.apply(player, PlayerAction::PassPriority).unwrap();
     assert!(engine.state.zones.list(ZoneLocation::Stack).is_empty());
     assert_eq!(engine.state.zones.list(ZoneLocation::Hand(player)), &[card]);
