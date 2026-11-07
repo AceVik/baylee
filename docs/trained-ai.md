@@ -723,6 +723,29 @@ deals each, one frozen runtime (`--threads 64 --inference-batch 96`):
 | fresh | 503 | 504 | +0.1 pp [−0.3, +0.5] | 3 / 2 | 543 → 234 s | 2.4 → 1.3 GB |
 | both | 1003 | 1004 | +0.0 pp [−0.2, +0.4] | 6 / 5 | | |
 
+What FP16 rollouts would do to PPO, measured the same night. `precision_gap4.py`
+replays a recorded rollout through the frozen FP32 learner as
+`prepare_policy_targets` does and reports the gap instead of refusing it; the ratio is
+exp(learner − recorded), where PPO's first update starts. B-refresh, raw, T = 0.7,
+against `sharp`, 512 games each:
+
+| | FP32 rollouts | FP16 rollouts |
+| --- | --- | --- |
+| Choices | 104,951 | 104,262 |
+| Mean log ratio | −6e-10 | −4e-6 |
+| abs log ratio, mean / p99 / p99.9 / max | 3e-7 / 3e-6 / 1e-5 / 2e-4 | 9e-4 / .010 / .032 / .48 |
+| Ratio range | .9999 to 1.0002 | .89 to 1.62 |
+| Above the audit's .002 | 0 | 10.9 % |
+| Outside the clip of ±.2 | 0 | 2 choices |
+
+There is no bias, and subsets carry the widest gap (p99 .043) because their log
+probability sums one term per card. The value output moves little: on 167,599 net
+decisions, each run with its own memory, the K = 0 value differs by .0027 on average,
+.011 at p99 and .145 at most (`phase_a4 value-gap`). So FP16 rollouts look safe for
+PPO's ratio, but the parity audit would refuse every one of them, and widening its
+maximum would stop it catching decoding bugs. Admission stays FP32 until the audit
+becomes a bound on the distribution and one PPO update has run on FP16 rollouts.
+
 ### Card catalog compatibility (`--catalog-superset`, `--catalog-drift`)
 
 A structured export (v4, v5, relational v1/v2; `PlayerNet5` extends
@@ -1367,6 +1390,53 @@ collection job manifests: a plan alone is not proof of who produced the games.
 Output is published atomically to a new directory. This is an isolated critic
 experiment, not a policy update or automatic promotion. See the
 [own-game critic pilot](history/trained-ai-v4-own-critic-2026-10-24.md).
+
+`train_value_head6.py` is the same idea for v6, with what `calibrate_value4.py`
+refuses let in on purpose: greedy own games, duels and language model games. Its
+only target is who won, so no choice of the house or anyone else is a label.
+`extract` runs the trunk once over a dataset's K=0 stream, a net seat's or every
+seat's, and keeps the head's inputs (`[global, own seat, other seat]`, float16) at
+each position a seat answers; decision rows never reach the trunk. Read back, a
+position's value equals `eval4 --value-log` to four decimals. `fit` trains a copy of
+`seat_value_head`, each turn of each game weighing the same, and merges it into a
+new `net.pt` with every other tensor bit-identical; `log` writes a set as value-log
+lines, so `phase_a4 values` scores games that were never played through `eval4`.
+Sets are `DIR=WEIGHT:HOLD:DOMAIN`: every HOLD-th game stays out, and each domain
+but the first has an intercept of its own, because base rates depend on who sits
+opposite and the head stays calibrated for the first domain.
+`--step-weight` reads the same label a second time on the change of the logit
+between one turn's first settled position and the next, wins and losses balanced per
+domain, because a search compares positions a move apart. On its own that stretches
+the logit to twice its calibrated width; `--learn-step-gain` gives the step a scale
+of its own.
+
+Measured on 7 November on B-refresh's frozen trunk, K = 0 head, settled positions,
+first of each turn (`phase_a4 values`, baselines fitted on dev). Data: 3,072 greedy
+and 1,024 sampled games against `sharp`, 1,024 sampled duels, 760 language model
+games, train decks only, weights 1, .5, .5, 1, step weight 3, every game's result the
+only target. Exported and played through `eval4`, the policy unchanged on every deal:
+
+| Deals | Head | Step AUC (board) | Brier (constant) | Mean (outcome) | AUC (board) |
+| --- | --- | --- | --- | --- | --- |
+| fresh | old | .671 (.715) | .2219 (.2323) | .531 (.366) | .734 (.718) |
+| fresh | new, mean of 5 seeds | .733 (.715) | .2010 (.2323) | .373 (.366) | .741 (.718) |
+| 1070301… | old | .670 (.718) | .2177 (.2269) | .526 (.344) | .755 (.734) |
+| 1070301… | new, seed 1 | .731 (.718) | .1870 (.2269) | .367 (.344) | .762 (.734) |
+
+Step minus board on all turns is +.018 [+.008, +.028] and +.013 [+.002, +.024]. On
+fresh the head did not beat the board in every turn band: 13–18 is a tie (.771 against
+.772), and which band falls short moves between sets of deals. Its slope is .50, too
+confident at the ends. On language model games no head was fit on (381 games, both
+seats) the step is .742 against .695, and with tactics on the fresh deals .723 against
+.710. With `--learn-step-gain` the slope is 1.2 and the step .738 against .712 on new
+deals, every band above the board, but the mean sits .056 high: on decks it has not seen
+the head reads too much into them. No search has been run with either head yet.
+
+`fit --weights bfloat16 [--update-rounding stochastic] [--state bfloat16]` keeps no
+32-bit copy between steps. At lr 3e-4 plain BF16 costs .007 of step AUC; at lr 3e-5 it
+stalls (validation Brier .1986 against .1885) because updates fall below BF16's step.
+Stochastic rounding brings it back within .0001 of Brier, and BF16 Adam moments cost
+nothing more. That is a head on fixed features; the trunk has not been tried.
 
 `train_policy4.py` provides a separate, bounded action-head PPO path in
 `policy_training4/`. It audits complete learner histories against recorded

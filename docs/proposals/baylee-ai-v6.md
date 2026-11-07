@@ -193,6 +193,26 @@ Auslieferung. Partien fürs Lernen in 16 Bit, sobald die Abweichung der Zug-Wahr
 gemessen und klein ist. Gewichte ohne FP32-Kopie nur, wenn ein Versuch das trägt. Für reine CPUs
 entscheidet die Messung, viele rechnen FP16 nicht nativ.
 
+### Stand nach dem Bewerter (7. November)
+
+Kopf auf dem eingefrorenen Rumpf von B-refresh, Politik unverändert auf jedem Deal, Notizen in
+`~/baylee-data/v6/train/v6e-notes.md`.
+
+- **Das vorab festgelegte Ziel ist knapp verfehlt.** Über alle Züge schlägt der Kopf das Brett beim
+  Wechsel zwischen Stellungen (.733 gegen .715 auf fresh, .731 gegen .718 auf neuen Deals, beide
+  Intervalle über null), und Brier liegt ohne Nachkalibrierung weit unter der Konstante. Je
+  Zugband nicht: 13 bis 18 ist auf fresh ein Unentschieden, und welches Band fehlt, wechselt mit den Deals.
+- **Sprachmodell-Partien tragen.** Ein Kopf, der nie eine Partie gegen `sharp` gesehen hat, liest
+  sie fast so gut wie einer mit; Haus-Partien liefern nur die Kalibrierung für `sharp`. Auf
+  zurückgehaltenen LLM-Partien .742 gegen .695.
+- **Offen:** der Kopf ist am Rand zu sicher (Steigung .50); mit gelerntem Maßstab stimmt die Steigung,
+  dafür liegt der Mittelwert auf neuen Decks .05 zu hoch. Ob Suche mit Taktik davon profitiert, ist
+  nicht gemessen.
+- **16 Bit.** FP16 ist Standard für die Auswertung. FP16-Rollouts zeigen keine Verzerrung im
+  PPO-Verhältnis, die Zulassung bleibt aber bis zu einem neuen Audit FP32. Reine BF16-Gewichte plus
+  BF16-Adam mit stochastischem Runden kosten beim Kopf nichts Messbares; ohne stochastisches Runden
+  bleibt das Lernen stehen. Der Rumpf ist nicht getestet.
+
 ## 5. Was wir messen
 
 Spielstärke mit Taktik, Lernfortschritt roh. Vergleichsnetz ist B-refresh. Vergleiche nur innerhalb
