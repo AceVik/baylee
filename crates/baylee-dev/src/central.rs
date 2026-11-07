@@ -27,6 +27,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The file the client reads its settings from. A wrong name is no error: the
+/// client starts on its defaults, and `feedback_url` and `usage_count` written
+/// here to keep a test run out of production are never applied.
+const CLIENT_SETTINGS: &str = "client-settings.json";
+
+/// The fixture's password for its synthetic account.
+const FIXTURE_PASSWORD: &str = "synthetic legacy password";
+
 /// The schema tests `db` requires by name: the legacy accounts' move to
 /// Central. A suite that passes without them proves nothing about it.
 const SCHEMA_MUST_RUN: &[&str] = &[
@@ -345,7 +353,7 @@ pub fn client(monitor: i64) -> Result<i32> {
         let home = run_dir.join("config");
         fs::create_dir_all(home.join("baylee"))?;
         fs::write(
-            home.join("baylee/settings.json"),
+            home.join("baylee").join(CLIENT_SETTINGS),
             r#"{"lang":"en","feedback_url":"","usage_count":false,"gateways":["https://unused-device.invalid"]}"#,
         )?;
         let started = Owned::spawn(
@@ -462,7 +470,7 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         "screenshot",
         &json!({ "path": run_dir.join("01-login.png") }),
     )?;
-    hover(devctl, "Front(OpenWhatsApp)")?;
+    hover(devctl, "Front(OpenCommunityDialog(WhatsApp))")?;
     hover(devctl, "Memorial(Open)")?;
     std::thread::sleep(Duration::from_millis(450));
     devctl.post(
@@ -479,11 +487,12 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
     wait_control(devctl, client, "Front(Submit)")?;
     sign_in(devctl)?;
     wait_account(devctl, client, run_dir, restored)?;
+    got_it(devctl)?;
     devctl.post(
         "screenshot",
         &json!({ "path": run_dir.join("02-gateways.png") }),
     )?;
-    click(devctl, "Front(CentralSignOut)")?;
+    sign_out(devctl, run_dir)?;
     let out = wait_account(devctl, client, run_dir, |a| {
         signed_out(a) && a["gateway_authenticated"] == false && a["saved_gateway_count"] == 0
     })?;
@@ -508,8 +517,69 @@ fn sign_in(devctl: &Devctl) -> Result<()> {
     click(devctl, "Shared(Focus(Username))")?;
     devctl.post("text", &json!({ "text": "synthetic" }))?;
     click(devctl, "Shared(Focus(Password))")?;
-    devctl.post("text", &json!({ "text": "synthetic legacy password" }))?;
+    devctl.post("text", &json!({ "text": FIXTURE_PASSWORD }))?;
     click(devctl, "Front(Submit)")
+}
+
+/// Answers the chat's first notice (`social::sheet`), which comes up over the
+/// account's list a moment after the first sign-in and takes every press until
+/// then. Pressed until it is gone, as the first press may come too early.
+fn got_it(devctl: &Devctl) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(25);
+    let mut answered = false;
+    while Instant::now() < deadline {
+        let state = state(devctl)?;
+        let notice = state["chat"]["controls"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|c| c["press"] == "GotIt");
+        match notice {
+            Some(control) => {
+                devctl.post(
+                    "pointer",
+                    &json!({ "x": control["x"], "y": control["y"], "button": "left", "press": true }),
+                )?;
+                answered = true;
+            }
+            None if answered && state["chat"]["sheet"].is_null() => return Ok(()),
+            None => {}
+        }
+        std::thread::sleep(Duration::from_millis(750));
+    }
+    bail!("the chat's notice did not come up, or did not close")
+}
+
+/// Signs out of Central through the account menu, which on the account's list
+/// is the way out. A press there may not land the moment the menu is drawn,
+/// so the menu is opened and its sign-out pressed until Central's form is back.
+fn sign_out(devctl: &Devctl, run_dir: &Path) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while Instant::now() < deadline {
+        let state = state(devctl)?;
+        if state["account"]["central_pending"] == true {
+            return Ok(());
+        }
+        let shown = state["lobby_controls"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|c| c["press"] == "Header(SignOut)");
+        click(
+            devctl,
+            if shown {
+                "Header(SignOut)"
+            } else {
+                "Header(Account)"
+            },
+        )?;
+        std::thread::sleep(Duration::from_millis(750));
+    }
+    fs::write(
+        run_dir.join("failure-state.json"),
+        state(devctl)?.to_string(),
+    )?;
+    bail!("signing out of Central did not bring its form back")
 }
 
 fn state(devctl: &Devctl) -> Result<Value> {
@@ -615,6 +685,16 @@ fn free_port() -> Result<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_scenario_names_what_the_client_and_the_fixture_name() {
+        // Nothing in the gate runs the scenario: a wrong name here only shows
+        // when somebody does, as `settings.json` did not for two weeks.
+        let settings = include_str!("../../baylee-client/src/settings.rs");
+        assert!(settings.contains(&format!("const SETTINGS: &str = \"{CLIENT_SETTINGS}\";")));
+        let fixture = include_str!("../../baylee-gateway/tests/e2e_central.rs");
+        assert!(fixture.contains(&format!("const PASSWORD: &str = \"{FIXTURE_PASSWORD}\";")));
+    }
 
     #[test]
     fn a_suite_counts_only_when_every_test_ran_and_passed() {

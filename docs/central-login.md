@@ -747,13 +747,20 @@ committed lockfile after a temporary sibling test; final gates use the immutable
 Git pins and no local patch configuration.
 
 `cargo dev central client` exercises the actual native client against
-that fixture. The 19 October 2026 Windows run passed: no saved gateways before
-login, exactly the restored list afterward, Central sign-out clears access,
-repeat login restores it again, and a one-use ticket obtains a gateway session.
-Screenshots verified the login and restored-list layouts. Admission is asserted
-from application state, not from a transitional frame. The harness reports
-front-panel motion so the script waits until controls accept input. Exact
-owned client PIDs, HTTP listeners and backend containers were closed/verified.
+that fixture. Its client reads `client-settings.json`: English, no feedback
+address, no usage count, and one gateway only the device knows, which Central's
+form keeps to itself. Until 7 November 2026 the scenario wrote `settings.json`,
+which nothing reads, so none of that applied. The run on 7 November 2026
+(macOS) passed: no saved gateways before login, exactly the restored list
+afterward (the chat's first notice answered), Central sign-out through the
+account menu clears access, repeat login restores it again, and a one-use
+ticket obtains a gateway session. A run with `"lang":"de"` drew the form in
+German, so the file is read. That MacBook had only its built-in display, index
+0, which `--monitor` refuses; the check was relaxed for that run only.
+Admission is asserted from application state, not from a transitional frame.
+The harness reports front-panel motion so the script waits until controls
+accept input. Exact owned client PIDs, HTTP listeners and backend containers
+are closed and verified.
 
 Sessions renew (since beta.8b): the account worker renews its Central session
 every ten minutes (`Account::renew`; a failure is retried a minute later and
