@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 fn engulfing_flames() -> CardIndex {
@@ -124,4 +125,77 @@ fn engulfing_flames_flashback_is_not_offered_with_only_three_mana() {
     assert_eq!(engine.state().object(flames).unwrap().zone, Zone::Graveyard);
     assert_eq!(engine.state().players[0].mana_pool.total(), 3);
     assert_eq!(engine.state().object(bears).unwrap().damage, 0);
+}
+
+/// Engulfing Flames on a Cudgel Troll, a 4/3 that one damage does not kill.
+/// Then, this turn or the next, the Troll raises a regeneration shield and a
+/// Lightning Bolt deals it lethal damage. Answers the Troll.
+#[track_caller]
+fn flames_then_a_shielded_bolt(wait_a_turn: bool) -> (Engine<RegistryLookup>, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let may_act = |seat: PlayerId| move |e: &Engine<RegistryLookup>| matches!(e.pending(), Pending::Priority { player, .. } if *player == seat);
+    let mut engine = lk::game(
+        SEED,
+        &[],
+        &[index::CUDGEL_TROLL],
+        &[engulfing_flames(), lightning_bolt()],
+        &[],
+    );
+    let troll = lk::obj(&engine, p1, index::CUDGEL_TROLL);
+
+    lk::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
+    cast_with_floating(&mut engine, p0, engulfing_flames());
+    aim_at(&mut engine, p0, troll);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(lk::zone_of(&engine, troll), Zone::Battlefield);
+    assert_eq!(
+        lk::damage_on(&engine, troll),
+        1,
+        "the Troll survives the one"
+    );
+
+    if wait_a_turn {
+        reach_their_main_phase(&mut engine, p1);
+    }
+    pass_until(&mut engine, may_act(p1));
+    lk::float(&mut engine, p1, &[(ManaColor::Green, 1)]);
+    activate(&mut engine, p1, index::CUDGEL_TROLL, 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(troll).unwrap().regeneration_shields,
+        1,
+        "the shield stands before the Bolt"
+    );
+
+    pass_until(&mut engine, may_act(p0));
+    lk::float(&mut engine, p0, &[(ManaColor::Red, 1)]);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    aim_at(&mut engine, p0, troll);
+    pass_until(&mut engine, stack_is_empty);
+    (engine, troll)
+}
+
+/// "This turn" reaches past the damage. The creature that survived Engulfing
+/// Flames raises a shield later the same turn, and the shield does not save it.
+#[test]
+fn engulfing_flames_defeats_a_shield_raised_later_that_turn() {
+    let (engine, _) = flames_then_a_shielded_bolt(false);
+    let p1 = PlayerId::new(1);
+    assert!(in_graveyard(&engine, p1, index::CUDGEL_TROLL).is_some());
+    assert!(on_battlefield(&engine, p1, index::CUDGEL_TROLL).is_none());
+}
+
+/// "This turn" ends. The same shield and the same Bolt on the next turn are an
+/// ordinary regeneration: the Troll stays, tapped, with its damage healed.
+#[test]
+fn engulfing_flames_lets_the_creature_regenerate_on_the_next_turn() {
+    let (engine, troll) = flames_then_a_shielded_bolt(true);
+    let p1 = PlayerId::new(1);
+    assert_eq!(
+        on_battlefield(&engine, p1, index::CUDGEL_TROLL),
+        Some(troll)
+    );
+    assert!(in_graveyard(&engine, p1, index::CUDGEL_TROLL).is_none());
+    assert_eq!(lk::damage_on(&engine, troll), 0, "regeneration heals it");
+    assert!(lk::tapped(&engine, troll), "regeneration taps it");
 }
