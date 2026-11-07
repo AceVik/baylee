@@ -846,6 +846,29 @@ fn no_lobby_toast_stands_over_a_table() {
     assert_eq!(toast_lanes(&mut app), 1, "and new news shows");
 }
 
+/// A status starts small in the lobby's mouth and with a capital on its toast,
+/// and only the toast is changed: the lobby still has the words it was told.
+#[test]
+fn a_status_toast_starts_with_a_capital_and_the_lobby_keeps_its_words() {
+    let mut app = seated();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .note_said("signed in");
+    app.update();
+    app.update();
+    let said = labels(&mut app);
+    assert!(said.iter().any(|l| l == "Signed in"), "{said:?}");
+    assert!(!said.iter().any(|l| l == "signed in"), "{said:?}");
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.status(),
+        "signed in"
+    );
+    let toasts = toast_lanes(&mut app);
+    app.update();
+    assert_eq!(toast_lanes(&mut app), toasts, "and it is not stood again");
+}
+
 /// A toast's cross takes that toast away, and only that one; a status it
 /// took away does not come back while the lobby still says it.
 #[test]
@@ -865,13 +888,19 @@ fn a_toasts_cross_takes_that_toast_away() {
         3,
         "the status, and two from the bell: {drawn:?}"
     );
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|l| l == "The house is warming up"),
+        "the status stands before its cross is pressed"
+    );
     let status = drawn[0];
     tap_control(&mut app, "the status toast's cross", |p| {
         *p == Press::Header(HeaderPress::DismissToast(status))
     });
     let said = labels(&mut app);
     assert!(
-        !said.iter().any(|l| l == "the house is warming up"),
+        !said.iter().any(|l| l == "The house is warming up"),
         "the status is gone: {said:?}"
     );
     assert!(

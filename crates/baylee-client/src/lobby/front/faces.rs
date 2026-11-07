@@ -253,8 +253,8 @@ pub(crate) fn animate_status_banners(
     }
 }
 
-/// The status line (a refusal, verbatim; a note), only while it says
-/// something: no reserved hole under the button (A12).
+/// The status line (a refusal, verbatim but for its first letter; a note), only
+/// while it says something: no reserved hole under the button (A12).
 fn status(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entity> {
     let said = state.lobby.status();
     if said.is_empty() {
@@ -334,7 +334,7 @@ fn status(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entit
         .id();
     let words = commands
         .spawn((
-            Text::new(said),
+            Text::new(baylee_client_core::i18n::sentence_case(said)),
             crate::hud::tf_bold(kit.fonts, kit.m.small * 0.88),
             TextColor(ink),
             Node {

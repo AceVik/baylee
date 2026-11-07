@@ -1858,7 +1858,7 @@ pub(super) fn toast_lane(
         toasts
             .shown
             .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
-        let said = toasts.last_status.clone();
+        let said = baylee_client_core::i18n::sentence_case(&toasts.last_status).into_owned();
         toasts.stand(0, ToastKind::Status(state.lobby.tone()), said);
     }
     if state.bell.rung() > toasts.rung {

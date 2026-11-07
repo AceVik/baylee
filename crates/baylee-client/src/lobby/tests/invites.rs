@@ -250,7 +250,7 @@ fn the_gateways_refusals_are_said_as_sentences() {
     );
     settle(&mut app);
     assert!(labels(&mut app).contains(
-        &"this closed beta key is not valid — check it, or ask for a new one".to_string()
+        &"This closed beta key is not valid — check it, or ask for a new one".to_string()
     ));
 }
 

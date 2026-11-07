@@ -9322,6 +9322,14 @@ Who says what:
   both writers, so the wire is already there and what is missing is a
   taxonomy. The two claims are independent and both are written down, because
   either one alone leaves "it is a protocol change" available to be re-argued.
+- **A status line gets its capital where it is shown.** Most of the lobby's
+  lines, and nearly every line in `server.ftl`, start small, because the
+  servers write them that way and the table matches them by their English. So
+  `i18n::sentence_case` runs at the toast and at the front door's banner, and
+  nowhere else: `Lobby::status` keeps the words it was told, and whatever
+  compares them compares those. It changes a first word of small letters only,
+  so a line led by an address, a handle, a number or `macOS` stands as it came.
+  The prompt bar's `Refusal::Verbatim` does not pass through it.
 - Values that are also identifiers stay identifiers. A house AI's difficulty is
   `"sharp"` on the wire and in `SeatSpec`; only its label is translated, by
   `lobby::ui::ai_name`.

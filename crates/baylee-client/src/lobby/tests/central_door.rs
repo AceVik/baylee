@@ -285,6 +285,27 @@ fn nothing_typed_for_central_stays_behind_the_door() {
     assert_eq!(state.lobby.field(Field::Username), "synthetic");
 }
 
+/// The door's banner draws a line with its capital, as a toast does, and the
+/// lobby keeps the words it was told.
+#[test]
+fn the_doors_banner_starts_with_a_capital() {
+    let mut app = launched(&["https://device.invalid"]);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .say("this gateway takes no guests");
+    settle(&mut app);
+    let said = labels(&mut app);
+    assert!(
+        said.iter().any(|l| l == "This gateway takes no guests"),
+        "{said:?}"
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.status(),
+        "this gateway takes no guests"
+    );
+}
+
 /// A sign-in under way holds the door, as it holds `‹`: its answer is about
 /// to change what the door would leave.
 #[test]

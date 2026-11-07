@@ -39,11 +39,13 @@
 mod server;
 pub use server::{known_server_message, server_message};
 
+mod casing;
 mod lang;
 mod names;
 mod phrase;
 mod refusal;
 
+pub use casing::sentence_case;
 pub use lang::Lang;
 pub use names::{ai_name, own_seat_name, seat_name};
 pub use refusal::Refusal;
