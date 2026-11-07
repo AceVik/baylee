@@ -19,6 +19,7 @@ mod bone_harvest;
 mod capsize;
 mod carrion;
 mod chord_of_calling;
+mod circular_logic;
 mod consume_strength;
 mod corpse_dance;
 mod crash;
