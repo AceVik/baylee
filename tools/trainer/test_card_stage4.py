@@ -8,7 +8,7 @@ import unittest
 
 import torch
 
-from card_stage4 import run
+from card_stage4 import anchored_roots, run
 from export_onnx4 import load_export_checkpoint
 from model4.structure import structure_digest
 from refresh_structure4 import refresh_checkpoint
@@ -108,6 +108,18 @@ class CardStage(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "another catalog"):
                 run(self.args(root, labels, "encoder", "refused"))
             self.assertFalse((root / "refused").exists())
+
+    def test_anchored_roots_stay_on_the_tables_device(self):
+        # The first GPU run failed here: root ids built on the CPU indexed a
+        # CUDA table. Runs on whatever device the machine has.
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        new = torch.arange(12.0, device=device).reshape(4, 3)
+        old = new.clone()
+        old[2] += 1
+        ids, values, shared = anchored_roots(new, {"a": 1, "b": 2, "c": 3}, old, {"a": 1, "b": 2, "d": 3})
+        self.assertEqual(shared, 2)
+        self.assertEqual(ids.tolist(), [1])
+        self.assertEqual((ids.device.type, values.device.type), (new.device.type, new.device.type))
 
 
 if __name__ == "__main__":

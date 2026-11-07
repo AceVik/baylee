@@ -165,8 +165,9 @@ class Probes(nn.Module):
 def anchored_roots(new_table, new_roots, reference_table, reference_roots, tolerance=1e-6):
     """Roots both catalogs name whose embedding the refresh left unchanged."""
     shared = sorted(set(new_roots) & set(reference_roots))
-    new_ids = torch.tensor([new_roots[k] for k in shared], dtype=torch.long)
-    old_ids = torch.tensor([reference_roots[k] for k in shared], dtype=torch.long)
+    device = new_table.device
+    new_ids = torch.tensor([new_roots[k] for k in shared], dtype=torch.long, device=device)
+    old_ids = torch.tensor([reference_roots[k] for k in shared], dtype=torch.long, device=device)
     same = (new_table[new_ids] - reference_table[old_ids]).abs().amax(-1) <= tolerance
     return new_ids[same], reference_table[old_ids[same]], len(shared)
 
