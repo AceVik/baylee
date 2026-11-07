@@ -14,6 +14,6 @@ fn mogg_toady_attacks_only_a_player_it_outnumbers() {
 }
 
 #[test]
-fn mogg_toady_blocks_only_when_it_outnumbers_the_attackers_controller() {
-    count_combat::block_compares_actual_attackers_controller(mogg_toady());
+fn mogg_toady_blocks_only_when_it_outnumbers_the_attacking_player() {
+    count_combat::block_compares_the_attacking_player(mogg_toady());
 }

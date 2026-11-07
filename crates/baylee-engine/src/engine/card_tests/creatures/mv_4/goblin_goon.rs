@@ -14,6 +14,6 @@ fn goblin_goon_attacks_only_a_player_it_outnumbers() {
 }
 
 #[test]
-fn goblin_goon_blocks_only_when_it_outnumbers_the_attackers_controller() {
-    count_combat::block_compares_actual_attackers_controller(goblin_goon());
+fn goblin_goon_blocks_only_when_it_outnumbers_the_attacking_player() {
+    count_combat::block_compares_the_attacking_player(goblin_goon());
 }

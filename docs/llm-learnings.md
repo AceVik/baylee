@@ -6816,10 +6816,12 @@ code.
   more creatures than defending/attacking player" (CR 508.1c, 509.1b). One
   `CreatureCounts` helper counts each player's projected battlefield creatures
   once per declaration. The comparison is strict and includes creatures outside
-  the declaration; blocks read the particular attacker's current controller, not
-  the active player. Both are rules-only modifiers and lock no characteristic
-  set. Block offers and direct declarations share the non-mana predicate, while
-  the existing payment window remains independent.
+  the declaration; blocks read the particular attacker's controller. That is the
+  active player, the attacking player of CR 506.2: a creature that changes
+  controllers leaves combat (CR 506.4), and only a shared team turn, which no
+  game here has, could part the two (CR 805.10c). Both are rules-only modifiers
+  and lock no characteristic set. Block offers and direct declarations share the
+  non-mana predicate, while the existing payment window remains independent.
 - The reader accepts only the two confirmed script spellings, including the
   block form's exact counted SVars and comparison. Altered filters, counts,
   conditions, comparisons and unknown parameters remain honest stubs. Codegen
@@ -6827,10 +6829,12 @@ code.
   clause; the scope validator recognizes these modifiers as counting the effect
   controller's creatures instead of demanding a redundant filter.
 - Four played card tests were red against the old stubs and now pass. They cover
-  each defender in a three-player attack, ties, and both directions of a block
-  after the attacker's control changes. The control change must happen before
-  the engine builds `Pending::ChooseBlockers`: `refresh_offer` rebuilds only a
-  priority question. Eight direct requirement tests cover both offers and direct
+  each defender in a three-player attack, ties, a third seat on either side of
+  the count, and both directions of a block after a Ray of Command cast in the
+  declare attackers step. The first version wrote the controller straight into
+  the object, which skips the refresh that takes a stolen creature out of
+  combat: no played game reaches that board (corrected in review, 7 November).
+  Eight direct requirement tests cover both offers and direct
   declarations at the 1:0, 1:1, 2:1 and 2:2 boundaries. The final focused runs
   also pass 465 combat tests, 13 effect tests, both reader regressions and the
   three DSL static-ability tests; all 90 DSL unit tests passed as well.
