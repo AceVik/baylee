@@ -1107,6 +1107,17 @@ now only names that need it (not yet measured again).
 So the Mac does not show what the owner saw, and where it was seen is still to be
 asked: a real gateway, Windows, the notebook and higher quality presets were not tried.
 
+Windows does not show it either. Ryzen 9 3900X, RTX 4070 Ti, the same list, 7 November,
+`dist` with `dev-control` and `x86-64-v3`, plain and profiled in turn, at 1440×900 and
+2560×1440, three runs of each, every action a reading of its own, at the limit of 120
+frames a second. Opening the builder is the only frame over 50 ms: once a run, 63 to
+70 ms, of which 45 to 52 ms in the main schedule, and its cause was not looked into. The
+worst frame of everything else over all twelve runs: wheel over either list 16 ms, a key
+in the search 27, taking one back 26, adding a card 23, a row 24, a colour filter 20, a
+tab 29, sorting 23, a pool view 23. Profiled is a little lower in most of them. That was
+a passive client with keys through `/text`; a real gateway and the notebook are still
+untried.
+
 The friend list did show it. Every friend stood in the tree, open or not: 500 friends
 were 5 377 entities that every frame laid out, picked and extracted, and the median
 frame at rest rose from about 4.5 to 7.4 ms with the main thread about 60 % busy.
