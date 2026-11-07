@@ -56,7 +56,11 @@ const DEFAULT_BIND: &str = "127.0.0.1";
 #[tokio::main]
 async fn main() {
     tracing_subscriber_init();
-    if let Some(attach) = Attach::discover() {
+    let attach = Attach::discover().unwrap_or_else(|partial| {
+        tracing::error!(%partial, "refusing to start");
+        std::process::exit(2);
+    });
+    if let Some(attach) = attach {
         let game_id = attach.game_id.clone();
         match Box::pin(attached::run(attach)).await {
             Ok(()) => tracing::info!(game_id, "game finished"),
@@ -83,12 +87,33 @@ pub struct Attach {
     pub token: String,
 }
 
+/// A launch that names an attachment and leaves part of it out.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PartialAttach {
+    /// What it would need: the flag of each value it has none for.
+    missing: Vec<&'static str>,
+}
+
+impl std::fmt::Display for PartialAttach {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            out,
+            "an attachment takes all of --attach, --game and --token and this launch has no {}; \
+             give all three, or none for the dev harness",
+            self.missing.join(", ")
+        )
+    }
+}
+
 impl Attach {
     /// The attachment this launch was given, if it was given one.
     ///
     /// Command line first (that is how the agent starts it), environment
     /// second (that is how a person starts it by hand).
-    fn discover() -> Option<Self> {
+    ///
+    /// # Errors
+    /// [`PartialAttach`], as [`Attach::read`].
+    fn discover() -> Result<Option<Self>, PartialAttach> {
         let args: Vec<String> = std::env::args().skip(1).collect();
         Self::read(&args, |name| std::env::var(name).ok())
     }
@@ -100,31 +125,56 @@ impl Attach {
     /// arguments itself could not be tested for what it does with them, which
     /// is the same bargain `import::plan` makes with the clock.
     ///
-    /// The all-or-nothing half is the one worth having a test for, because
-    /// answering `None` is not an error here — it is a different program.
-    /// A launch missing any one of the three falls through to [`listen`], the
-    /// dev harness, which has no authentication at all and hands a socket
-    /// whichever seat it names.
-    fn read(args: &[String], env: impl Fn(&str) -> Option<String>) -> Option<Self> {
+    /// The all-or-nothing half is the one worth having a test for. `None` is
+    /// [`listen`], the dev harness, which has no authentication at all and
+    /// hands a socket whichever seat it names, so only a launch that says
+    /// nothing about an attachment gets it. A launch that says anything and
+    /// leaves the rest out was meant to attach, and it stops.
+    ///
+    /// # Errors
+    /// [`PartialAttach`] when some of the three are named and not all.
+    fn read(
+        args: &[String],
+        env: impl Fn(&str) -> Option<String>,
+    ) -> Result<Option<Self>, PartialAttach> {
         let flag = |name: &str| {
             args.iter()
                 .position(|a| a == name)
                 .and_then(|i| args.get(i + 1))
                 .cloned()
         };
-        // An empty variable is not an answer. A shell that exports
+        // An empty variable is no value. A shell that exports
         // `BAYLEE_ENGINE_TOKEN=` from an unset value would otherwise attach
         // with an empty token and be refused by the gateway, which reads as
         // a rejected engine rather than as a launch that was never given one.
+        // It still says that this launch was meant to attach.
         let from_env = |name: &str| env(name).filter(|v| !v.is_empty());
-        let url = flag("--attach").or_else(|| from_env("BAYLEE_ATTACH_URL"))?;
-        let game_id = flag("--game").or_else(|| from_env("BAYLEE_GAME"))?;
-        let token = flag("--token").or_else(|| from_env("BAYLEE_ENGINE_TOKEN"))?;
-        Some(Self {
-            url,
-            game_id,
-            token,
-        })
+        let named = |flag: &str, var: &str| args.iter().any(|a| a == flag) || env(var).is_some();
+        let url = flag("--attach").or_else(|| from_env("BAYLEE_ATTACH_URL"));
+        let game_id = flag("--game").or_else(|| from_env("BAYLEE_GAME"));
+        let token = flag("--token").or_else(|| from_env("BAYLEE_ENGINE_TOKEN"));
+        if let (Some(url), Some(game_id), Some(token)) = (&url, &game_id, &token) {
+            return Ok(Some(Self {
+                url: url.clone(),
+                game_id: game_id.clone(),
+                token: token.clone(),
+            }));
+        }
+        let said_anything = named("--attach", "BAYLEE_ATTACH_URL")
+            || named("--game", "BAYLEE_GAME")
+            || named("--token", "BAYLEE_ENGINE_TOKEN");
+        if !said_anything {
+            return Ok(None);
+        }
+        let missing = [
+            ("--attach", url.is_none()),
+            ("--game", game_id.is_none()),
+            ("--token", token.is_none()),
+        ]
+        .into_iter()
+        .filter_map(|(flag, absent)| absent.then_some(flag))
+        .collect();
+        Err(PartialAttach { missing })
     }
 }
 
@@ -985,14 +1035,13 @@ mod tests {
 
     /// Every launch is one of two programs, and three strings decide which.
     ///
-    /// **All three or none**: an attachment missing any one of them is not a
-    /// half-configured attach, it is a fall-through to [`listen`] — the dev
-    /// harness, which has no authentication and lets a socket name its own
-    /// seat. That is the right default for a developer on loopback and the
-    /// wrong one for anything else, so the three-way requirement is the thing
-    /// standing between them.
+    /// **All three or none**: [`listen`] is the dev harness, which has no
+    /// authentication and lets a socket name its own seat. That is the right
+    /// default for a developer on loopback who said nothing, and the wrong
+    /// one for a launch that was meant to attach, so an attachment missing
+    /// any one of them starts neither program.
     #[test]
-    fn an_attachment_takes_all_three_or_this_process_is_a_different_program() {
+    fn an_attachment_takes_all_three_or_this_process_does_not_start() {
         let none = |_: &str| None;
         let full = [
             "--attach".to_string(),
@@ -1005,11 +1054,11 @@ mod tests {
 
         assert_eq!(
             Attach::read(&full, none),
-            Some(Attach {
+            Ok(Some(Attach {
                 url: "ws://gateway/engine/ws".to_string(),
                 game_id: "g1".to_string(),
                 token: "t1".to_string(),
-            })
+            }))
         );
 
         for missing in ["--attach", "--game", "--token"] {
@@ -1021,17 +1070,45 @@ mod tests {
                 .collect();
             assert_eq!(
                 Attach::read(&cut, none),
-                None,
-                "without {missing} this launch is the dev harness, not an attach"
+                Err(PartialAttach {
+                    missing: vec![missing]
+                }),
+                "without {missing} this launch starts nothing"
             );
         }
 
         assert_eq!(
             Attach::read(&["--attach".to_string()], none),
-            None,
-            "a flag with nothing behind it names nothing"
+            Err(PartialAttach {
+                missing: vec!["--attach", "--game", "--token"]
+            }),
+            "a flag with nothing behind it says this launch was meant to attach"
         );
-        assert_eq!(Attach::read(&[], none), None);
+        assert_eq!(Attach::read(&[], none), Ok(None), "the dev harness");
+    }
+
+    /// Named anywhere, with any value at all, an attachment is what was
+    /// asked for: a variable left empty must not turn a launch into the
+    /// unauthenticated harness.
+    #[test]
+    fn a_launch_that_names_part_of_an_attachment_is_never_the_dev_harness() {
+        for var in ["BAYLEE_ATTACH_URL", "BAYLEE_GAME", "BAYLEE_ENGINE_TOKEN"] {
+            for value in ["", "something"] {
+                let env = |name: &str| (name == var).then(|| value.to_string());
+                assert!(Attach::read(&[], env).is_err(), "{var}={value:?}");
+            }
+        }
+        let unrelated = |name: &str| (name == "PORT").then(|| "0".to_string());
+        assert_eq!(Attach::read(&[], unrelated), Ok(None));
+    }
+
+    /// What a refused launch says names the flags and carries no value.
+    #[test]
+    fn a_refused_launch_says_what_is_missing_and_nothing_it_was_given() {
+        let env = |name: &str| (name == "BAYLEE_ENGINE_TOKEN").then(|| "s3cret".to_string());
+        let said = Attach::read(&[], env).unwrap_err().to_string();
+        assert!(said.contains("--attach, --game"), "{said}");
+        assert!(!said.contains("s3cret"), "{said}");
     }
 
     /// **The agent writes these three flags and this reads them**, and each
@@ -1041,9 +1118,7 @@ mod tests {
     /// plane and on nothing else in this workspace, which is what lets it run
     /// on a machine that has never heard of a card. So a rename on either
     /// side leaves both crates green, and what it produces is an engine that
-    /// comes up as the **dev harness** instead — a loopback listener with no
-    /// authentication that hands a socket whichever seat it names — reported
-    /// to nobody, while the gateway waits for an attachment that never
+    /// does not start, while the gateway waits for an attachment that never
     /// arrives. The test that would have caught it runs all three processes
     /// and is `#[ignore]`d.
     ///
@@ -1062,11 +1137,11 @@ mod tests {
 
         assert_eq!(
             Attach::read(&argv, env),
-            Some(Attach {
+            Ok(Some(Attach {
                 url: "ws://gw:28766/engine/ws".to_string(),
                 game_id: "g-7".to_string(),
                 token: "engine-token".to_string(),
-            }),
+            })),
             "what the agent wrote is what this process attaches with"
         );
     }
@@ -1100,6 +1175,7 @@ mod tests {
             ],
             env,
         )
+        .expect("a whole attachment")
         .expect("the environment supplies the other two");
         assert_eq!(mixed.url, "ws://from-flag/engine/ws", "the flag wins");
         assert_eq!(
@@ -1117,7 +1193,9 @@ mod tests {
         };
         assert_eq!(
             Attach::read(&[], empty),
-            None,
+            Err(PartialAttach {
+                missing: vec!["--token"]
+            }),
             "an exported-but-empty token is a launch with no token"
         );
     }
