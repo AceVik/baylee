@@ -63,6 +63,26 @@ Richtungen, und ein Patch, der auf eine unbekannte ID zeigt, führt zum Snapshot
 5. **`WrittenObjects` und JSON-Pfad entfernen,** `VIEW_VERSION` und `docs/protocol.md` nachziehen.
 6. **Sicherheitsprüfung** der neuen Decoder, Fuzz-Lauf, Sichtprüfung im Client.
 
+## Darüber hinaus
+
+Nach den Patches, in dieser Reihenfolge, jeweils nur mit Messung:
+
+1. **Die Engine merkt sich, was sich geändert hat.** Heute baut sie jede Ansicht ganz neu
+   (`public_object` sind 23 bis 40 % der Messlasten) und ein Diff müsste sie dann noch vergleichen.
+   Über Versionszähler je Objekt werden nur berührte Objekte neu gebaut und der Diff kostet so viel wie
+   die Änderung, nicht wie das Brett. Wechselt die Sichtbarkeit eines Objekts für einen Sitz, gilt es
+   als berührt. Im Debug-Build vergleicht jeder Schritt mit dem vollen Neubau.
+2. **Der Client zeichnet nur, was der Patch nennt.** Die Liste geänderter IDs geht an den Tisch, der
+   heute das ganze Brett prüft. Das hilft bei großen Brettern und Stacks am meisten.
+3. **Weniger Frames.** Zwischen zwei Fragen an einen Sitz reicht oft ein Patch; Animationen dürfen
+   dabei nichts verlieren. Auch `LegalActions` wird gediffed, wenn es einen großen Anteil hat.
+4. **Öffentlicher Teil einmal.** Zuschauer sehen alle dasselbe: ein Patch für alle statt einer je
+   Zuschauer. Für Spieler nur, wenn bewiesen ist, dass der geteilte Teil nichts Verdecktes trägt.
+5. **Felder statt Objekte,** falls Objekte nach allem noch die meisten Bytes sind.
+
+Lockstep, also dass jeder Client selbst simuliert, scheidet aus: Dafür müsste er verdeckte Karten und
+den Zufall kennen.
+
 ## Offen
 
 - Was Aufzeichnungen und Replays speichern; sie sollten weiter ohne Patches lesbar sein.
