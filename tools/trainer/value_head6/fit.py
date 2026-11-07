@@ -95,17 +95,17 @@ class Samples:
         return len(self.targets)
 
 
-def step_loss(head, samples, numbers):
+def step_loss(head, samples, numbers, gain=1.0):
     """The change of the logit between two turns, read as who wins the game."""
     pairs = samples.pairs[numbers]
     before = side_logit(head, samples.tokens[pairs[:, 0]].float())
     after = side_logit(head, samples.tokens[pairs[:, 1]].float())
-    loss = F.binary_cross_entropy_with_logits(after - before, samples.targets[pairs[:, 1]], reduction="none")
+    loss = F.binary_cross_entropy_with_logits(gain * (after - before), samples.targets[pairs[:, 1]], reduction="none")
     return (loss * samples.step_balance[numbers]).sum()
 
 
 @torch.no_grad()
-def score(head, samples, offsets, batch=32768):
+def score(head, samples, offsets, gain=1.0, batch=32768):
     head.eval()
     loss = brier = steps = 0.0
     for start in range(0, len(samples), batch):
@@ -115,13 +115,25 @@ def score(head, samples, offsets, batch=32768):
         loss += float((F.binary_cross_entropy_with_logits(logit, target, reduction="none") * weight).sum())
         brier += float(((torch.sigmoid(logit) - target).square() * weight).sum())
     for start in range(0, len(samples.pairs), batch):
-        steps += float(step_loss(head, samples, slice(start, start + batch)))
+        steps += float(step_loss(head, samples, slice(start, start + batch), gain))
     total = float(samples.weights.sum())
     return dict(loss=loss / total, brier=brier / total, step=steps / max(1, len(samples.pairs)))
 
 
+def base_rate_offsets(train, domains):
+    """Each domain's win rate against the first's, as a logit: where its intercept starts."""
+    rates = []
+    for number in range(domains):
+        inside = train.domains == number
+        weight = train.weights[inside]
+        rate = (train.targets[inside] * weight).sum() / weight.sum().clamp(min=1e-6)
+        rates.append(torch.logit(rate.clamp(.01, .99)) if inside.any() else torch.logit(torch.tensor(.5)))
+    logits = torch.stack([rate.cpu() for rate in rates])
+    return logits - logits[0]
+
+
 def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1e-2, batch=4096, fresh=False,
-        step_weight=0.0, numerics=Numerics()):
+        step_weight=0.0, numerics=Numerics(), learn_step_gain=False, offsets_from_base_rates=False):
     torch.manual_seed(seed)
     head = copy.deepcopy(source_head).to(device=train.tokens.device, dtype=numerics.dtype)
     if fresh:
@@ -134,15 +146,20 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
     # Each domain but the first has an intercept of its own: base rates differ by
     # who sits opposite, and the head stays calibrated for the first domain alone.
     domains = int(max(train.domains.max(), validation.domains.max())) + 1
-    offsets = torch.zeros(domains, device=train.tokens.device, dtype=numerics.dtype, requires_grad=True)
+    start_offsets = base_rate_offsets(train, domains) if offsets_from_base_rates else torch.zeros(domains)
+    offsets = start_offsets.to(device=train.tokens.device, dtype=numerics.dtype).requires_grad_(True)
     free = (torch.arange(domains, device=train.tokens.device) > 0).float()
     shift = lambda: offsets * free
-    groups = [dict(params=list(head.parameters()), weight_decay=weight_decay), dict(params=[offsets], weight_decay=0.0)]
+    # The step has a scale of its own, or reading it well would stretch the logit itself.
+    log_gain = torch.zeros((), device=train.tokens.device, dtype=numerics.dtype, requires_grad=learn_step_gain)
+    gain = lambda: log_gain.float().exp()
+    groups = [dict(params=list(head.parameters()), weight_decay=weight_decay),
+              dict(params=[offsets, log_gain], weight_decay=0.0)]
     optimizer = (torch.optim.AdamW(groups, lr=lr) if numerics == Numerics() else LowPrecisionAdamW(groups, lr, numerics))
     # One scalar per domain has to travel about a logit in a few hundred steps.
     schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, [lr, 30 * lr], total_steps=max(1, steps), pct_start=.1)
     objective = lambda metrics: metrics["loss"] + step_weight * metrics["step"]
-    start = score(head, validation, shift())
+    start = score(head, validation, shift(), gain())
     best, best_state, best_epoch = objective(start), copy.deepcopy(head.state_dict()), 0
     best_offsets = shift().detach().cpu().tolist()
     history = [dict(epoch=0, **start)]
@@ -159,14 +176,14 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
             loss = (F.binary_cross_entropy_with_logits(logit, train.targets[part], reduction="none") * weight).sum() / weight.sum()
             if step_weight:
                 drawn = torch.randint(len(train.pairs), (pair_batch,), generator=generator).to(device)
-                loss = loss + step_weight * step_loss(head, train, drawn) / pair_batch
+                loss = loss + step_weight * step_loss(head, train, drawn, gain()) / pair_batch
             if not torch.isfinite(loss):
                 raise FloatingPointError("Nonfinite value head loss")
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
             schedule.step()
-        metrics = score(head, validation, shift())
+        metrics = score(head, validation, shift(), gain())
         history.append(dict(epoch=epoch, **metrics))
         print(f"[value-head] seed={seed} epoch={epoch} val_loss={metrics['loss']:.5f} "
               f"val_brier={metrics['brier']:.5f} val_step={metrics['step']:.5f}", flush=True)
@@ -178,7 +195,7 @@ def fit(source_head, train, validation, seed, epochs=12, lr=3e-4, weight_decay=1
                               numerics=vars(numerics),
                       train_steps=len(train.pairs), validation_steps=len(validation.pairs), domain_offsets=best_offsets,
                       objective="side outcome, binary cross entropy; each turn of each game weighs the same",
-                      step_weight=step_weight)
+                      step_weight=step_weight, step_gain=float(gain()))
 
 
 @torch.no_grad()

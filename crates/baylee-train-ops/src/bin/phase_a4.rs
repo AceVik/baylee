@@ -8,7 +8,7 @@
 #![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::arms::{compare_arm, compare_exports, pool_arms};
-use baylee_train_ops::evaluation::value_report::{read_positions, report};
+use baylee_train_ops::evaluation::value_report::{read_positions, report, value_gap};
 use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
@@ -156,6 +156,14 @@ enum Command {
         later_arm: Vec<PathBuf>,
         #[arg(long, default_value_t = 20_000)]
         resamples: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// How far two value logs of the same deals sit apart, as for two precisions.
+    ValueGap {
+        /// The two `--value-log` files.
+        #[arg(long, num_args = 2)]
+        logs: Vec<PathBuf>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -989,6 +997,7 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&table)?);
             atomic_json(&out, &table)?;
         }
+        Command::ValueGap { logs, out } => atomic_json(&out, &value_gap(&logs[0], &logs[1])?)?,
         Command::Values {
             test,
             fit,

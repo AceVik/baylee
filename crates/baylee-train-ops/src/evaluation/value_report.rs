@@ -463,9 +463,96 @@ pub fn report(test: &[Position], fit: &[Position], resamples: usize) -> Value {
     Value::Array(rows)
 }
 
+/// One net decision of a value log: what must match, and the two heads.
+struct LoggedDecision {
+    state: Value,
+    observed: Option<f64>,
+    decision: f64,
+}
+
+fn logged_games(log: &Path) -> Result<BTreeMap<u64, Vec<LoggedDecision>>> {
+    let mut games: BTreeMap<u64, Vec<LoggedDecision>> = BTreeMap::new();
+    for line in std::io::BufReader::new(std::fs::File::open(log)?).lines() {
+        let row: Value = serde_json::from_str(&line?)?;
+        if row["src"] != "Net" || row["fb"] == true {
+            continue;
+        }
+        let keys = [
+            "turn",
+            "kind",
+            "life",
+            "opp_life",
+            "hand",
+            "opp_hand",
+            "board",
+            "opp_board",
+        ];
+        games
+            .entry(row["d"].as_u64().context("missing deal")?)
+            .or_default()
+            .push(LoggedDecision {
+                state: Value::Array(keys.iter().map(|key| row[*key].clone()).collect()),
+                observed: row["ov"].as_f64(),
+                decision: row["v"].as_f64().context("missing value")?,
+            });
+    }
+    Ok(games)
+}
+
+fn spread(mut gaps: Vec<f64>) -> Value {
+    gaps.sort_by(f64::total_cmp);
+    let at = |share: f64| gaps[((gaps.len() - 1) as f64 * share) as usize];
+    if gaps.is_empty() {
+        return json!({"n": 0});
+    }
+    json!({"n": gaps.len(), "mean": mean(gaps.iter().copied()), "p50": at(0.5), "p90": at(0.9),
+        "p99": at(0.99), "p999": at(0.999), "max": at(1.0)})
+}
+
+/// How far two value logs of the same deals sit apart, in probability and in
+/// logit, over the decisions before their games part. Each run carries its own
+/// recurrent memory, so this is the gap a seat would really show.
+///
+/// # Errors
+/// Fails on an unreadable log.
+pub fn value_gap(first: &Path, second: &Path) -> Result<Value> {
+    let (a, b) = (logged_games(first)?, logged_games(second)?);
+    let (mut observed, mut decision, mut observed_logit) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut parted, mut common) = (0usize, 0usize);
+    for (deal, left) in &a {
+        let Some(right) = b.get(deal) else {
+            continue;
+        };
+        common += 1;
+        for (x, y) in left.iter().zip(right) {
+            if x.state != y.state {
+                parted += 1;
+                break;
+            }
+            decision.push((x.decision - y.decision).abs());
+            if let (Some(p), Some(q)) = (x.observed, y.observed) {
+                observed.push((p - q).abs());
+                observed_logit.push((logit(p) - logit(q)).abs());
+            }
+        }
+    }
+    Ok(json!({"deals": common, "deals_parted": parted,
+        "observed": spread(observed), "observed_logit": spread(observed_logit),
+        "decision": spread(decision)}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_spread_reads_its_quantiles() {
+        let gaps: Vec<f64> = (0..=100).map(f64::from).collect();
+        let report = spread(gaps);
+        assert_eq!(report["p50"], 50.0);
+        assert_eq!(report["max"], 100.0);
+        assert_eq!(spread(Vec::new())["n"], 0);
+    }
 
     #[test]
     fn auc_of_a_perfect_score_is_one() {
