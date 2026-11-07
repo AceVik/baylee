@@ -688,8 +688,9 @@ attackers it could block ("may likewise be put into additional piles",
 `BlockRules::capacity`). The piles go to different attackers at random,
 drawn from the game's seeded generator (the owner's decision, 09.10.2026),
 so a replay deals them alike. A creature then blocks its pile's attacker if
-`combat::can_block` allows it; a menace attacker is blocked by its pile only
-if two or more of it can block. Requirements (CR 509.1c) bind a
+`BlockRules::can_declare` allows it, which is `combat::can_block` and the
+restrictions that compare creature counts; a menace attacker is blocked by
+its pile only if two or more of it can block. Requirements (CR 509.1c) bind a
 declaration, and there is none. The blocks go through `make_blocks`, the
 half of `declare_blockers` after its checks, so they are journalled, spread
 through bands (CR 702.22h), and followed by the next defending player.

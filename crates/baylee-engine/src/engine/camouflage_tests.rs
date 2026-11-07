@@ -174,3 +174,45 @@ fn camouflage_is_cast_only_during_your_declare_attackers_step() {
     let card = in_hand(&engine, P0, index::CAMOUFLAGE).unwrap();
     assert!(engine.apply(P0, PlayerAction::CastSpell { card }).is_err());
 }
+
+/// "Each creature in a pile that can block the creature that pile is
+/// assigned to does so", and Mogg Toady can't block unless its controller
+/// controls more creatures than the attacking player (CR 509.1b). Alone
+/// against two attackers it stays out of the fight, whichever attacker its
+/// pile goes to; beside two more creatures it blocks.
+#[test]
+fn a_pile_is_held_to_a_restriction_that_compares_creature_counts() {
+    let attackers = [index::GRIZZLY_BEARS, index::HILL_GIANT];
+    for seed in 8201..8205 {
+        let mut engine = camouflaged(seed, &attackers, &[index::MOGG_TOADY]);
+        let toady = on_battlefield(&engine, P1, index::MOGG_TOADY).unwrap();
+        let (pile, of, options) = pile_question(&engine).expect("the first pile");
+        assert_eq!((pile, of), (1, 2));
+        assert_eq!(options, vec![toady], "any creature may go into a pile");
+        engine
+            .apply(
+                P1,
+                PlayerAction::ChooseObjects {
+                    objects: vec![toady],
+                },
+            )
+            .unwrap();
+        assert_eq!(blocks(&engine), Vec::new(), "one creature against two");
+
+        let mut engine = camouflaged(
+            seed,
+            &attackers,
+            &[index::MOGG_TOADY, index::GRIZZLY_BEARS, index::HILL_GIANT],
+        );
+        let toady = on_battlefield(&engine, P1, index::MOGG_TOADY).unwrap();
+        for objects in [vec![toady], Vec::new()] {
+            pile_question(&engine).expect("a pile");
+            engine
+                .apply(P1, PlayerAction::ChooseObjects { objects })
+                .unwrap();
+        }
+        let made = blocks(&engine);
+        assert_eq!(made.len(), 1, "three creatures against two: {made:?}");
+        assert_eq!(made[0].0, toady);
+    }
+}

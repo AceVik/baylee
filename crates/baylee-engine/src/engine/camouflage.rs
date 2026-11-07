@@ -18,12 +18,13 @@
 //! what is left unnamed is in none. The piles go to the attackers at random,
 //! drawn from the game's seeded generator (the owner's decision of
 //! 09.10.2026), so a replay deals them the same. A creature then blocks the
-//! attacker its pile went to if it can (`combat::can_block`: evasion,
-//! protection, Raging River's labels); an attacker that can only be blocked
-//! by two or more (menace) is blocked by its pile only if two or more of it
-//! can. Requirements to block (CR 509.1c) bind a declaration, and there is
-//! none. The blocks are made as declared ones are (`make_blocks`), banding
-//! spreading them (CR 702.22h), and the next defending player is asked.
+//! attacker its pile went to if it can (`BlockRules::can_declare`: evasion,
+//! protection, Raging River's labels, a restriction that compares creature
+//! counts); an attacker that can only be blocked by two or more (menace) is
+//! blocked by its pile only if two or more of it can. Requirements to block
+//! (CR 509.1c) bind a declaration, and there is none. The blocks are made as
+//! declared ones are (`make_blocks`), banding spreading them (CR 702.22h), and
+//! the next defending player is asked.
 use super::{CardLookup, Engine, ObjectId, Pending, PlanKind, PlayerId};
 use crate::choice::ChoicePrompt;
 use crate::combat;
@@ -119,12 +120,13 @@ impl<L: CardLookup> Engine<L> {
         if !piles.iter().all(Vec::is_empty) {
             self.state.rng.shuffle(&mut attackers);
         }
+        let rules = combat::BlockRules::new(&self.state);
         let mut blocks: Vec<(ObjectId, ObjectId)> = Vec::new();
         for (pile, &attacker) in piles.iter().zip(&attackers) {
             let able: Vec<ObjectId> = pile
                 .iter()
                 .copied()
-                .filter(|&creature| combat::can_block(&self.state, defending, creature, attacker))
+                .filter(|&creature| rules.can_declare(defending, creature, attacker))
                 .collect();
             let enough = combat::block_bound(&self.state, attacker).is_none_or(|bound| {
                 u32::try_from(able.len()).unwrap_or(u32::MAX) >= bound.min_blockers
