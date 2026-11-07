@@ -121,18 +121,10 @@ impl<L: CardLookup> Engine<L> {
     /// that card" (CR 116.2f), and under split second nobody can, so it goes
     /// with the spells. A land is never offered with a spell on the stack.
     ///
-    /// Read off the projected keywords of every spell on the stack, so a
-    /// copy of a split-second spell locks it too: a copy is a spell.
+    /// This is the offer's half. The casts a resolving ability makes are
+    /// refused by `casting::may_begin_casting`, on the same reader.
     pub(super) fn narrow_under_split_second(&self, legal: &mut LegalActions) {
-        let locked = self.state.zones.list(ZoneLocation::Stack).iter().any(|id| {
-            self.state.object(*id).is_some_and(|o| {
-                o.kind == ObjectKind::Spell
-                    && o.characteristics()
-                        .keywords
-                        .contains(baylee_cards_dsl::KeywordSet::SPLIT_SECOND)
-            })
-        });
-        if !locked {
+        if !casting::split_second_on_stack(&self.state) {
             return;
         }
         legal.castable.clear();

@@ -893,21 +893,39 @@ fn can_cast_paying(
     best
 }
 
-/// Whether `player` may begin to cast a spell at all this turn (CR 601.3).
+/// Whether `player` may begin to cast a spell at all right now (CR 601.3).
 ///
-/// Conduit of Worlds' "If you do, you can't cast additional spells this
-/// turn" is the one sentence that says no: it names the player and every
-/// spell, so it is asked here, beside the table's other refusals, by every
-/// door a cast comes through — the priority offer, a free cast an effect
-/// makes (cascade, rebound, suspend), a miracle, a prepared copy.
+/// Two sentences say no to every spell there is, so they are asked here,
+/// beside the table's other refusals, by every door a cast comes through: the
+/// priority offer, a free cast an effect makes (cascade, rebound, suspend), a
+/// miracle, madness, a prepared copy. Conduit of Worlds' "If you do, you can't
+/// cast additional spells this turn" names the player, and split second names
+/// them all ([`split_second_on_stack`]).
 #[must_use]
 pub(crate) fn may_begin_casting(state: &GameState, player: PlayerId) -> bool {
-    !state
-        .per_turn
-        .no_more_spells
-        .get(player.get() as usize)
-        .copied()
-        .unwrap_or(false)
+    !split_second_on_stack(state)
+        && !state
+            .per_turn
+            .no_more_spells
+            .get(player.get() as usize)
+            .copied()
+            .unwrap_or(false)
+}
+
+/// Split second (CR 702.61a): "As long as this spell is on the stack, players
+/// can't cast other spells or activate abilities that aren't mana abilities."
+///
+/// Read off the projected keywords of every spell on the stack, so a copy of
+/// a split-second spell locks it too: a copy is a spell.
+pub(crate) fn split_second_on_stack(state: &GameState) -> bool {
+    state.zones.list(ZoneLocation::Stack).iter().any(|id| {
+        state.object(*id).is_some_and(|o| {
+            o.kind == ObjectKind::Spell
+                && o.characteristics()
+                    .keywords
+                    .contains(baylee_cards_dsl::KeywordSet::SPLIT_SECOND)
+        })
+    })
 }
 
 #[allow(clippy::too_many_lines)] // one gate per casting rule

@@ -822,8 +822,9 @@ permission to automatic mana planning; missing data defaults to exact colors.
 - `KeywordSet::SPLIT_SECOND` — split second (CR 702.61) is a bit and no
   ability: while a spell whose projected keywords carry it is on the stack,
   `Engine::compute_legal` offers no spell, no suspend and no activation but
-  mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b).
-  Triggers still trigger. Krosan Grip
+  mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b),
+  and `casting::may_begin_casting` refuses the casts a trigger makes (madness,
+  miracle, cascade). Triggers still trigger. Krosan Grip
 - `KeywordSet::BANDING` — banding (CR 702.22) is a bit; the engine asks the
   band as attackers are declared and who divides combat damage where a band
   is involved (`docs/engine-internals.md` §"Bands, and who divides combat

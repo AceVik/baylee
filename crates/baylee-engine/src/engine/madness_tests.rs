@@ -5,8 +5,8 @@ use super::*;
 use crate::engine::synthetic;
 use crate::state::CardLookup;
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, Cost, CostPart, Coverage, Effect, FaceDef, Filter, ModeCount,
-    SpellMode, TargetReq, TargetSpec,
+    AbilityDef, Amount, CardDef, Cost, CostPart, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    ModeCount, SpellMode, TargetReq, TargetSpec,
 };
 use baylee_core::ids::{CardIndex, PrintRef};
 use baylee_core::mana::{ManaCost, ManaPayment};
@@ -21,6 +21,7 @@ const MODAL: CardIndex = CardIndex::new(63_014);
 const STIFLE: CardIndex = CardIndex::new(63_015);
 const ALL_ALTERNATIVES: CardIndex = CardIndex::new(63_016);
 const SELF_DISCARD: CardIndex = CardIndex::new(63_017);
+const SPLIT_SECOND_DISCARD: CardIndex = CardIndex::new(63_018);
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
@@ -141,8 +142,33 @@ fn fixture(
     }))
 }
 
+/// `{U}`, split second, and a card discarded as an additional cost.
+fn split_second_discard() -> &'static CardDef {
+    let name = "Split second discard fixture";
+    let face = FaceDef {
+        name,
+        mana_cost: ManaCost::parse("{U}"),
+        types: TypeSet::INSTANT,
+        keywords: KeywordSet::SPLIT_SECOND,
+        mandatory_additional_costs: &[CostPart::Discard(&Filter::Any)],
+        abilities: X_SPELL_ABILITIES,
+        castable_from_hand: true,
+        ..synthetic::land_face(name)
+    };
+    Box::leak(Box::new(CardDef {
+        index: SPLIT_SECOND_DISCARD,
+        oracle_id: "test-madness",
+        scryfall_id: "test-madness",
+        faces: Box::leak(Box::new([face])),
+        coverage: Coverage::Implemented,
+        abilities: X_SPELL_ABILITIES,
+        ..CardDef::DEFAULT
+    }))
+}
+
 fn fixtures() -> Vec<&'static CardDef> {
     vec![
+        split_second_discard(),
         fixture(
             PAID,
             "Paid madness fixture",
@@ -253,6 +279,14 @@ fn game(card: CardIndex, life: i32) -> Engine<synthetic::SyntheticLookup> {
 }
 
 fn game_with_seats(card: CardIndex, life: i32, seats: usize) -> Engine<synthetic::SyntheticLookup> {
+    game_holding(
+        &[card, real("06b60766-a1fb-4ed0-93f6-8423008f75b4")],
+        life,
+        seats,
+    )
+}
+
+fn game_holding(hand: &[CardIndex], life: i32, seats: usize) -> Engine<synthetic::SyntheticLookup> {
     assert!(seats >= 2);
     let forest = CardIndex::new(synthetic::forest());
     let island = real("b2c6aa39-2d2a-459c-a555-fb48ba993373");
@@ -260,10 +294,7 @@ fn game_with_seats(card: CardIndex, life: i32, seats: usize) -> Engine<synthetic
     battlefield.extend([forest.get(); 3]);
     let mut preset = synthetic::preset(731, &battlefield);
     preset.seats[0].starting_life = Some(life);
-    preset.seats[0].starting_hand = Some(vec![
-        entry(card),
-        entry(real("06b60766-a1fb-4ed0-93f6-8423008f75b4")),
-    ]);
+    preset.seats[0].starting_hand = Some(hand.iter().copied().map(entry).collect());
     preset.seats[1].starting_hand = Some(vec![entry(STIFLE), entry(counterspell())]);
     preset.seats[1].starting_battlefield = vec![entry(island), entry(island)];
     let opponent = preset.seats[1].clone();
@@ -1157,4 +1188,77 @@ fn madness_also_replaces_the_cleanup_discard_and_uses_that_cleanups_priority() {
             1
         );
     }
+}
+
+/// Split second (CR 702.61a) says players can't cast other spells, and a
+/// madness cast is one: the trigger still goes on the stack above the spell
+/// (CR 702.61b), and it can only send the card on to the graveyard (CR
+/// 702.35a). A discard paid as the spell's own cost is the way a madness
+/// trigger comes to stand above a split second spell at all. Asked of the
+/// door every cast shares, so the gate is read here for both players, on
+/// the stack and after it.
+#[test]
+fn a_madness_trigger_above_a_split_second_spell_cannot_cast_the_card() {
+    let island = real("b2c6aa39-2d2a-459c-a555-fb48ba993373");
+    let mut engine = game_holding(&[basking_rootwalla(), SPLIT_SECOND_DISCARD], 20, 2);
+    let card = hand_card(&engine, P0, basking_rootwalla());
+    let spell = hand_card(&engine, P0, SPLIT_SECOND_DISCARD);
+    assert!(crate::casting::may_begin_casting(engine.state(), P0));
+    tap_sources(&mut engine, P0, 1, Some(island));
+    engine
+        .apply(P0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    for _ in 0..100 {
+        if matches!(
+            engine.pending(),
+            Pending::ChooseCards {
+                player: P0,
+                min: 1,
+                max: 1,
+                ..
+            }
+        ) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(
+            synthetic::walk_past(&mut engine, &pending),
+            "unexpected {pending:?}"
+        );
+    }
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
+        .unwrap();
+
+    assert_eq!(engine.state().object(card).unwrap().zone, Zone::Exile);
+    assert_eq!(engine.state().object(spell).unwrap().zone, Zone::Stack);
+    assert!(
+        !offered(&mut engine, card),
+        "the cast could not be begun, so nobody is asked"
+    );
+    assert_eq!(engine.state().object(card).unwrap().zone, Zone::Graveyard);
+    assert_eq!(
+        engine.state().object(spell).unwrap().zone,
+        Zone::Stack,
+        "the trigger stood above the spell"
+    );
+    for player in [P0, P1] {
+        assert!(
+            !crate::casting::may_begin_casting(engine.state(), player),
+            "nobody begins a cast over split second"
+        );
+    }
+    assert_eq!(
+        event_count(&engine, |event| {
+            matches!(event, GameEvent::Discarded { object, .. } if *object == card)
+        }),
+        1
+    );
+    resolve_stack(&mut engine);
+    assert!(crate::casting::may_begin_casting(engine.state(), P0));
 }
