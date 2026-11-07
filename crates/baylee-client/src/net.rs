@@ -335,6 +335,8 @@ pub struct NetworkHost {
     /// close behind it, and never cleared, so [`DuelHost::link`] never shows
     /// the retry schedule a closed socket it could redial.
     refused: Option<u32>,
+    /// What the player reads for a socket the gateway closed for good.
+    closed: Option<baylee_client_core::i18n::Phrase>,
     /// Dials since the socket was last open whose ticket the gateway
     /// refused (`401`): the seat token no longer admits this client. Read by
     /// the reconnect schedule for what it says when it runs out
@@ -384,6 +386,7 @@ impl NetworkHost {
             },
             pending_out: Vec::new(),
             refused: None,
+            closed: None,
             ticket_refusals: 0,
             clock: clock::Clock::default(),
             clock_origin: web_time::Instant::now(),
@@ -548,6 +551,17 @@ impl NetworkHost {
         }
     }
 
+    /// Remembers a seat the gateway closed for good, saying why.
+    fn note_closing(&mut self, event: &WsEvent) {
+        if let WsEvent::Error(text) = event
+            && let Some(refusal) = baylee_client_core::refusal::of_socket_error(text)
+            && let Some(said) = baylee_client_core::refusal::ends_the_session(&refusal)
+        {
+            bevy::log::warn!(code = refusal.code, "the gateway closed this seat");
+            self.closed = Some(said);
+        }
+    }
+
     /// Sends everything that was waiting for the socket to open.
     fn flush(&mut self) {
         if !self.connection.open || self.outbox.is_empty() {
@@ -625,6 +639,7 @@ impl DuelHost for NetworkHost {
             None => Vec::new(),
         };
         for event in events {
+            self.note_closing(&event);
             match &event {
                 WsEvent::Opened => {
                     self.dial.opened();
@@ -764,6 +779,9 @@ impl DuelHost for NetworkHost {
         if let Some(table) = self.refused {
             return LinkState::Refused { table };
         }
+        if let Some(said) = self.closed {
+            return LinkState::Closed(said);
+        }
         match (self.connection.lost, self.connection.dialling) {
             (false, _) => LinkState::Up,
             (true, true) => LinkState::Connecting,
@@ -778,6 +796,9 @@ impl DuelHost for NetworkHost {
     fn reconnect(&mut self) -> Result<(), String> {
         if self.refused.is_some() {
             return Err("this table refused this client's protocol".to_string());
+        }
+        if self.closed.is_some() {
+            return Err("the gateway closed this seat for good".to_string());
         }
         self.redial()
     }

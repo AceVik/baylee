@@ -906,3 +906,77 @@ fn leaving_a_table_posts_depart_with_the_session_and_expects_nothing_back() {
     assert_eq!(body(&request), serde_json::json!({}));
     assert!(matches!(expect, Expect::LoggedOut));
 }
+
+/// A table is where a session sits longest, and `poll` stands still there: a
+/// renewal's answer is read all the same, or none follows it and the bearer
+/// runs out under the game.
+#[test]
+fn a_bearer_renews_again_and_again_at_a_table() {
+    fn mail(app: &mut App, reply: Reply) {
+        let mailbox = app.world().resource::<Mailbox>();
+        mailbox.0.lock().expect("mailbox").push(reply);
+        app.update();
+        app.update();
+    }
+    let renewed = |token: &str| {
+        Box::new(Reply::Event(LobbyEvent::BearerRenewed {
+            token: token.into(),
+            renew_in: 60,
+        }))
+    };
+    let mut app = headless();
+    let signed_in = LobbyEvent::LoggedIn {
+        token: "first".into(),
+        username: None,
+    };
+    mail(&mut app, Reply::Event(signed_in));
+    app.world_mut()
+        .resource_mut::<NextState<DuelPhase>>()
+        .set(DuelPhase::Playing);
+    app.update();
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    for token in ["second", "third"] {
+        mail(&mut app, Reply::Remote(epoch, renewed(token)));
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        assert_eq!(state.lobby.token(), Some(token));
+        assert!(state.lobby.bearer_due(60.0), "the next is on the clock");
+    }
+    mail(
+        &mut app,
+        Reply::Remote(epoch.wrapping_add(1), renewed("another gateway's")),
+    );
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(
+        state.lobby.token(),
+        Some("third"),
+        "from a gateway since left"
+    );
+}
+
+/// A socket closed for a ban says so where the player lands, and the session
+/// ends with it: "your session ended" would not tell them why, and a late `401`
+/// of the same session changes nothing.
+#[test]
+fn a_socket_closed_for_a_ban_says_so_and_ends_the_session() {
+    let mut app = headless();
+    let mailbox = app.world().resource::<Mailbox>().0.clone();
+    let signed_in = LobbyEvent::LoggedIn {
+        token: "held".into(),
+        username: None,
+    };
+    mailbox
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(signed_in));
+    app.update();
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    let closed = Box::new(Reply::ClosedSaying("banned here".into()));
+    let mut messages = mailbox.lock().expect("mailbox");
+    messages.push(Reply::Remote(epoch, closed));
+    messages.push(Reply::Remote(epoch, Box::new(Reply::Expired)));
+    drop(messages);
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), None);
+    assert_eq!(state.lobby.status(), "banned here");
+}

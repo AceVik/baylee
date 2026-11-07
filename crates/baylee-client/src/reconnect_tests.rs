@@ -377,6 +377,29 @@ fn a_seat_refused_on_every_dial_is_told_its_sign_in_ended() {
 }
 
 /// A table that refused this client's protocol is never dialled again
+/// A seat the gateway closed for good stays closed: a ban and an ended session
+/// answer every dial the same, so the bar says which it was, and not that the
+/// connection is coming back.
+#[test]
+fn a_seat_the_gateway_closed_is_never_dialled_again() {
+    for said in [Phrase::RefusalBanned, Phrase::RefusalSessionEnded] {
+        let (mut app, _link, dials) = app_with(LinkState::Closed(said), ORDINARY);
+        for _ in 0..80 {
+            advance(&mut app, 20.0);
+        }
+        assert_eq!(*dials.lock().unwrap(), 0, "nothing a dial can change");
+        assert_eq!(
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+            Some(said)
+        );
+        assert_eq!(
+            app.world().resource::<Unreachables>().0,
+            1,
+            "given up, once"
+        );
+    }
+}
+
 /// (#271): only an update on one side changes its answer. The player is told
 /// which side is behind, and the duel is given up once.
 #[test]

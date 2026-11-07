@@ -112,9 +112,11 @@ pub(super) fn feed(
     // Held on the table screen and in the deck builder: the socket is also
     // how the gateway knows this player is still here (`presence.rs`), and a
     // player who left a room to change decks has not left the room. The
-    // sign-in screen has no token; a seated client has its seat's socket.
+    // sign-in screen has no token; a seated client has its seat's socket. A
+    // session waiting on the terms buys no ticket: the gateway answers `403`
+    // until they are accepted, which is no outage to warn the player of.
     let wanted = match (state.lobby.token(), state.lobby.screen()) {
-        (Some(_), Screen::Table | Screen::Build) => {
+        (Some(_), Screen::Table | Screen::Build) if !state.terms.up() => {
             let query = if state.room_away {
                 state.lobby.search_query()
             } else {
@@ -216,7 +218,14 @@ fn say_why_it_closed(event: &ewebsock::WsEvent, state: &LobbyState, mailbox: &Ma
         && let Some(refusal) = client_core::refusal::of_socket_error(text)
     {
         let said = client_core::refusal::say(&refusal, state.lobby.lang());
-        post(mailbox, LobbyEvent::Failed(said));
+        if client_core::refusal::ends_the_session(&refusal).is_some() {
+            if let Ok(mut box_) = mailbox.0.lock() {
+                let closed = Box::new(Reply::ClosedSaying(said));
+                box_.push(Reply::Remote(state.gateway_epoch, closed));
+            }
+        } else {
+            post(mailbox, LobbyEvent::Failed(said));
+        }
     }
 }
 
@@ -375,5 +384,35 @@ mod tests {
         assert!(!feed.loading());
         assert!(feed.asked.is_none());
         assert!(feed.pending.is_none());
+    }
+
+    /// The gateway answers `403` until the terms are accepted, which is no
+    /// outage: no ticket is bought while the sheet stands, and one is after.
+    #[test]
+    fn a_session_waiting_on_the_terms_buys_no_ticket() {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        state.gateway = "http://127.0.0.1:9".into();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "fixture-session".into(),
+            username: None,
+        });
+        let lang = state.lobby.lang();
+        let _ = state.terms.ask(lang);
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<Mailbox>()
+            .init_resource::<Feed>()
+            .insert_resource(state)
+            .add_systems(Update, feed);
+        app.update();
+        assert!(app.world().resource::<Feed>().asked.is_none());
+        let closed = app
+            .world_mut()
+            .resource_mut::<LobbyState>()
+            .terms
+            .not_now(false);
+        assert!(closed.is_some());
+        app.update();
+        assert!(app.world().resource::<Feed>().asked.is_some());
     }
 }

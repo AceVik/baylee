@@ -4633,7 +4633,8 @@ under 8 px) after its label. The settings search is a lobby field
 modal over whatever the sign-in led to, its own `TabOrder` (text,
 Decline, Later, Accept). **Later** signs an account out with nothing
 accepted (owner, 20.10.2026, replacing the 14.10 rule of no such button); a
-guest has none. A Baylee account's Decline deletes only its data on this
+guest has none. On a gateway's terms with a session at Central it leaves that
+gateway alone, and says so ("Later (leave this gateway)"). A Baylee account's Decline deletes only its data on this
 gateway ("Delete my data on this gateway", no password), and Baylee Central's
 own terms offer accept and later only. Under a gateway's terms the sheet adds
 the client's own chat note inside the text to read. Accept waits until the end of the text has

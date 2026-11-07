@@ -1664,11 +1664,49 @@ pub(super) fn follow_the_account(
     }
 }
 
+/// What a bearer's renewal answered, on the frames `poll` stands still: `poll` is
+/// the lobby's, and a table holds a session too. Left in the mailbox, the answer
+/// is never read and no further renewal is asked for, so the bearer runs out
+/// under a game.
+fn bearer_news_at_a_table(mut state: ResMut<LobbyState>, mailbox: Res<Mailbox>) {
+    let news: Vec<Reply> = {
+        let Ok(mut messages) = mailbox.0.lock() else {
+            return;
+        };
+        messages
+            .extract_if(.., |reply| {
+                matches!(reply, Reply::Remote(_, inner) if matches!(
+                    **inner,
+                    Reply::BearerLost | Reply::Event(LobbyEvent::BearerRenewed { .. })
+                ))
+            })
+            .collect()
+    };
+    for reply in news {
+        let Reply::Remote(epoch, reply) = reply else {
+            continue;
+        };
+        if epoch != state.gateway_epoch {
+            continue;
+        }
+        match *reply {
+            Reply::Event(event) => {
+                state.lobby.apply(event);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            Reply::BearerLost => super::central::refresh_gateway(&state, &mailbox),
+            _ => {}
+        }
+    }
+}
+
 /// Keeps a Central session's bearer alive, at a table as much as in the lobby,
 /// and keeps the cell a replay reads it from current. The clock is written past
-/// change detection: a bearer counting down changes nothing a screen draws.
+/// change detection: a bearer counting down changes nothing a screen draws. It
+/// is the real clock: the game's takes at most a quarter of a second from a
+/// frame, and a client that stalled would count a lapsed bearer as alive.
 pub(super) fn keep_the_bearer(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut state: ResMut<LobbyState>,
     mailbox: Res<Mailbox>,
     mut refresh_in: Local<f32>,
@@ -2042,7 +2080,14 @@ pub(super) fn install(app: &mut App) {
         .init_resource::<PopoverMotion>()
         .init_resource::<super::front::faces::StatusBannerMemory>()
         // In every phase: a game is where a session sits longest.
-        .add_systems(Update, keep_the_bearer)
+        .add_systems(
+            Update,
+            (
+                bearer_news_at_a_table.run_if(not(in_state(DuelPhase::Closed))),
+                keep_the_bearer,
+            )
+                .chain(),
+        )
         .add_systems(
             Update,
             (

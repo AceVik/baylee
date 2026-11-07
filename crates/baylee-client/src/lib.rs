@@ -1475,6 +1475,15 @@ fn keep_the_table_connected(
                 reports.write(DuelReport::Unreachable);
             }
         }
+        // The gateway closed the seat and said why: nothing redials, and the
+        // bar says what happened and not that the connection is coming back.
+        LinkState::Closed(said) => {
+            duel.link_note = Some(LinkNote::just(said));
+            if !retry.told {
+                retry.told = true;
+                reports.write(DuelReport::Unreachable);
+            }
+        }
         LinkState::Down => {
             // The table's window holds the dials on until it has passed; the
             // refusals say, when they run out, whether it was the sign-in.

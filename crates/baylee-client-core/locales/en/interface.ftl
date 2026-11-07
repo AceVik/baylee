@@ -7182,6 +7182,10 @@ TermsDecline = Decline and delete account
 # Decides later: signs out of the gateway, nothing accepted.
 TermsLater = Later (sign out)
 
+# Decides later on a gateway's terms while signed in at Baylee Central:
+# leaves this gateway, and the sign-in at Central stands.
+TermsLaterGateway = Later (leave this gateway)
+
 # For a Baylee account: deletes its data on this gateway (decks,
 # settings, friends); the Baylee account itself stays.
 TermsDeleteHere = Delete my data on this gateway

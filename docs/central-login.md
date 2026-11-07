@@ -429,7 +429,10 @@ within seconds where it cannot.
   A client whose renewal was lost presents a later gateway token
   (`POST /auth/central/refresh`), and signs in again where the gateway no longer
   holds the session, as after its restart; only a signed `401` after that ends the
-  session on the client. The client also refreshes every ten minutes, which carries
+  session on the client. The client renews at a table as well: `poll` stands still
+there, so `bearer_news_at_a_table` reads the answers, and the clock is the real one,
+so a client that slept or stalled renews on its first frame. The client also
+refreshes every ten minutes, which carries
   the session past the token's hour. An `admin` session's token lasts as long as its
   gateway token instead, because it works on the loopback admin listener alone and
   nothing there renews it.
@@ -471,7 +474,9 @@ watches it. A chair and a socket ticket remember the key, never a bearer. The ch
 before a frame reaches an engine or a view reaches a client reads that state, the clock
 and the chair, and waits on nothing, so no stale action reaches an engine. A ban, a
 sign-out, a deletion or a revocation ends the state once, and every socket closes at
-once in both directions, saying why (`docs/protocol.md` §"Refusals"). The chair then
+once in both directions, saying why (`docs/protocol.md` §"Refusals"). The client says
+it in its own words, in the lobby and at a table, and a seat closed this way is not
+dialled again (`refusal::ends_the_session`). The chair then
 follows the rules for a seat left empty. The engine holds no tokens: it dials out, and
 the gateway stamps the seat.
 

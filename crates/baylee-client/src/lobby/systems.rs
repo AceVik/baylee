@@ -309,7 +309,7 @@ pub(super) fn poll(
                     #[cfg(not(target_arch = "wasm32"))]
                     super::central::refresh_gateway(&state, &mailbox);
                 }
-                Reply::Expired => {
+                reply @ (Reply::Expired | Reply::ClosedSaying(_)) => {
                     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
                     // A guest the gateway no longer knows is gone for good, and
                     // so is this device's way back to it.
@@ -323,6 +323,9 @@ pub(super) fn poll(
                     #[cfg(not(target_arch = "wasm32"))]
                     if state.central_ready() {
                         super::central::back_to_list(&mut state);
+                    }
+                    if let Reply::ClosedSaying(said) = reply {
+                        state.lobby.apply(LobbyEvent::Failed(said));
                     }
                 }
                 // Written only when they change: the pill reads them, and a

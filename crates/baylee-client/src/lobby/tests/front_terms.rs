@@ -425,6 +425,7 @@ fn stops(app: &mut App) -> Vec<&'static str> {
 #[test]
 fn later_signs_an_account_out_and_stores_nothing() {
     let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    assert!(drawn(&mut app).contains(Phrase::TermsLater.text(Lang::En)));
     click(&mut app, Press::Front(FrontPress::TermsLater));
     app.update();
     assert!(!signed_in(&app), "Later signs out");
@@ -548,6 +549,11 @@ fn later_on_a_gateway_s_sheet_leaves_the_central_sign_in_standing() {
         super::super::central::enable(&mut state);
         state.central.as_mut().expect("Central on").handle = Some(handle);
     }
+    app.update();
+    app.update();
+    let words = drawn(&mut app);
+    assert!(words.contains(Phrase::TermsLaterGateway.text(Lang::En)));
+    assert!(!words.contains(Phrase::TermsLater.text(Lang::En)));
     click(&mut app, Press::Front(FrontPress::TermsLater));
     app.update();
     let state = app.world().resource::<LobbyState>();

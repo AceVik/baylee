@@ -404,6 +404,12 @@ const fn central_first(_state: &LobbyState) -> bool {
     false
 }
 
+/// A gateway's sheet comes up on the gateway's word, so its *Later* leaves that
+/// gateway and no more: a session at Central is not a gateway's to end.
+fn later_leaves_the_gateway(state: &LobbyState) -> bool {
+    !central_first(state) && state.terms_subject == Subject::Gateway && state.central_ready()
+}
+
 /// `GET /terms?lang=` (public), in the interface's language.
 fn fetch(gateway: &str, lang: Lang, epoch: u64, mailbox: &Mailbox) {
     // No address, nothing to ask (a headless test's lobby).
@@ -479,10 +485,7 @@ pub(in crate::lobby) fn perform(
             #[cfg(not(target_arch = "wasm32"))]
             super::super::central::logout(state, prefs);
         }
-        // A gateway's sheet comes up on the gateway's word, so its *Later*
-        // leaves that gateway and no more: a session at Central is not a
-        // gateway's to end.
-        Ask::SignOut if state.terms_subject == Subject::Gateway && state.central_ready() => {
+        Ask::SignOut if later_leaves_the_gateway(state) => {
             super::super::clicks::to_the_gateways(state, prefs, scrolled, mailbox, settings);
         }
         Ask::SignOut => {
@@ -1114,13 +1117,18 @@ pub(crate) fn sheet(
                     (Press::Front(FrontPress::TermsDecline), at("decline")),
                 ));
             }
-            // Later signs out, nothing accepted; a guest has no later, since
+            // Later leaves with nothing accepted; a guest has no later, since
             // a guest that signs out loses its decks.
             if !state.lobby.guest() {
+                let later = if later_leaves_the_gateway(state) {
+                    Phrase::TermsLaterGateway
+                } else {
+                    Phrase::TermsLater
+                };
                 footer.push(controls::button(
                     commands,
                     kit,
-                    Phrase::TermsLater.text(lang),
+                    later.text(lang),
                     Weight::Secondary,
                     idle,
                     None,

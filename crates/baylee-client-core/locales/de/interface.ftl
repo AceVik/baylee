@@ -2393,6 +2393,7 @@ TermsStay = Bleiben
 TermsSignOut = Abmelden
 TermsDecline = Ablehnen und Account löschen
 TermsLater = Später (abmelden)
+TermsLaterGateway = Später (dieses Gateway verlassen)
 TermsDeleteHere = Meine Daten auf diesem Gateway löschen
 TermsStoredCentral = Lies bis zum Ende, um anzunehmen. Deine Zustimmung (Version, Text und Zeit) wird mit deinem Baylee-Account bei Baylee Central gespeichert, damit ein anderes Gerät nicht erneut fragt.
 TermsChatTitle = Chat

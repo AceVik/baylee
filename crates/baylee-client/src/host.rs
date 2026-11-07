@@ -94,6 +94,11 @@ pub enum LinkState {
         /// The protocol the table speaks.
         table: u32,
     },
+    /// The gateway closed the seat's socket for good and said why, in this
+    /// sentence: a ban, or a session that ended. Final as well: every dial
+    /// would meet the same answer, and the player would read that the
+    /// connection is coming back.
+    Closed(baylee_client_core::i18n::Phrase),
 }
 
 /// A source of duel state.

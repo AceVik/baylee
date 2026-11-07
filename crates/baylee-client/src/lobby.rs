@@ -1240,6 +1240,9 @@ enum Reply {
     /// The gateway refused to renew the bearer: the gateway token may still
     /// carry the session on.
     BearerLost,
+    /// A socket closed for good, and this is what the player reads: the
+    /// session ends here as after a `401`, but with the reason.
+    ClosedSaying(String),
     /// Ignore replies from a gateway selection that has since changed.
     Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].

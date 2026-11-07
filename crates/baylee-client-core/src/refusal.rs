@@ -60,6 +60,18 @@ pub fn of_close(code: u16, reason: &str) -> Option<Refusal> {
         .flatten()
 }
 
+/// What a player reads for a socket closed by `refusal`, when no dial can change
+/// it: a ban, or a session that ended. `None` for a refusal that passes, such as
+/// `busy`, after which a dial is worth trying.
+#[must_use]
+pub fn ends_the_session(refusal: &Refusal) -> Option<Phrase> {
+    match refusal.reason() {
+        Reason::Banned => Some(Phrase::RefusalBanned),
+        Reason::SessionEnded => Some(Phrase::RefusalSessionEnded),
+        _ => None,
+    }
+}
+
 /// The socket library's events carry no close frame, so a refusal rides in the
 /// text of its error event. These two are the only readers of that spelling.
 const SOCKET_ERROR: &str = "refused:";
@@ -90,6 +102,20 @@ mod tests {
         );
         assert_eq!(of_socket_error("connection reset"), None);
         assert_eq!(of_socket_error("refused:not a code"), None);
+    }
+
+    #[test]
+    fn only_a_ban_and_an_ended_session_end_a_session() {
+        for (code, said) in [
+            ("banned", Some(Phrase::RefusalBanned)),
+            ("session_ended", Some(Phrase::RefusalSessionEnded)),
+            ("busy", None),
+            ("maintenance", None),
+            ("update_required", None),
+            ("region_closed", None),
+        ] {
+            assert_eq!(ends_the_session(&Refusal::new(code)), said, "{code}");
+        }
     }
 
     fn with_text(code: &str, text: &str) -> Refusal {
