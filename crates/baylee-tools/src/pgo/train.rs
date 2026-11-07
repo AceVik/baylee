@@ -35,8 +35,6 @@ const LONGEST_GAME: Duration = Duration::from_secs(600);
 /// A game that shows nothing new for this long has a question the scene cannot
 /// answer.
 const STUCK: Duration = Duration::from_secs(45);
-/// How long the scene with the full board plays on.
-const BOARD_PLAY: Duration = Duration::from_secs(60);
 
 type Scene = fn(&Client, &Path) -> Result<()>;
 
@@ -344,10 +342,16 @@ fn play(
             moved = (screen.at("/view/seq").clone(), Instant::now());
         } else if moved.1.elapsed() > STUCK {
             bail!(
-                "the game stands still at turn {turn}: {asked:?}, {}, browser {}, armed {}",
+                "the game stands still at turn {turn}: {asked:?}, {}, browser {}, armed {}, \
+                 mana run {}, outbox {}, error {}, arrangement {}, buttons {}",
                 screen.at("/interaction/pending"),
                 screen.at("/browser"),
-                screen.at("/armed")
+                screen.at("/armed"),
+                screen.at("/mana_run"),
+                screen.at("/outbox"),
+                screen.at("/last_error"),
+                screen.at("/arrangement"),
+                screen.at("/buttons")
             );
         }
         if screen.at("/phase") != "Playing" {
@@ -377,6 +381,8 @@ fn answer(client: &Client, screen: &Screen, tried: &mut Vec<u64>, tries: u32) ->
     match question(screen).as_str() {
         "" => {}
         "Mulligan" => client.press("K")?,
+        // A chooser the client opens itself, before the engine asks anything.
+        "Priority" if dialog_row(screen, 0).is_some() => pick_something(client, screen, tries)?,
         "Priority" => {
             let legal = screen.at("/interaction/pending/Priority/legal");
             let main = screen.at("/view/step") == "Main" && mine;
@@ -446,9 +452,31 @@ fn answer(client: &Client, screen: &Screen, tried: &mut Vec<u64>, tries: u32) ->
     Ok(())
 }
 
+/// The row of a dialog to press on this try. The same row twice running, since a
+/// row that casts arms first and sends on the second press; then the next, since
+/// a row may offer what cannot be paid.
+fn dialog_row(screen: &Screen, tries: u32) -> Option<(f32, f32)> {
+    let buttons = screen.at("/buttons").as_array()?;
+    let rows: Vec<&Value> = buttons
+        .iter()
+        .filter(|button| button["kind"] == "choice")
+        .collect();
+    let row = rows.get(usize::try_from(tries / 2).ok()? % rows.len().max(1))?;
+    Some((row["at_x"].as_f64()? as f32, row["at_y"].as_f64()? as f32))
+}
+
 /// Answers a question this scene has no rule for, the way a person tries a dialog:
-/// take it as it stands, then pick with the card cursor, then by number.
+/// press a row where it draws rows, or take it as it stands, then pick with the
+/// card cursor, then by number.
 fn pick_something(client: &Client, screen: &Screen, tries: u32) -> Result<()> {
+    if let Some((x, y)) = dialog_row(screen, tries) {
+        client.click(at(x, y))?;
+        linger(0.2);
+        if client.screen()?.control("Confirm").is_some() {
+            return client.click(press("Confirm"));
+        }
+        return Ok(());
+    }
     let asked = &screen.at("/interaction/pending")[question(screen)];
     let least = asked["min"].as_u64().unwrap_or(1);
     let offered = asked["options"].as_array().map_or(&[][..], Vec::as_slice);
@@ -585,5 +613,5 @@ fn full_board(client: &Client, _root: &Path) -> Result<()> {
         client.hover(at(x, y))?;
         linger(0.7);
     }
-    play(client, BOARD_PLAY, |_| Ok(()))
+    play(client, LONGEST_GAME, |_| Ok(()))
 }
