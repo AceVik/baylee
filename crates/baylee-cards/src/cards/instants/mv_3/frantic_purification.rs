@@ -11,7 +11,7 @@ card!(
     oracle_id = "b4025136-3146-499a-8c17-ed9de548ab8d",
     scryfall_id = "04f156d1-2655-42aa-a785-d8eb15cb5422",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Frantic Purification",
         mana_cost = mana!("{2}{W}"),

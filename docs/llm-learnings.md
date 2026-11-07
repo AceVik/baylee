@@ -7198,3 +7198,26 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
   67 of the machine-owned cards untested, and 1,370 stubs). The full gates
   remain deferred at the owner's request.
+
+## 2026-11-07 — Frantic Purification's targeted destruction and Madness
+
+- Frantic Purification composes the existing enchantment target and destroy
+  effect with the face-level madness cost; it needs no engine, DSL, protocol,
+  desktop or seat addition. Its two canonical tests spend the ordinary {2}{W},
+  offer the enchantment but not a neighbouring creature as a target, and destroy
+  only that enchantment. A real Prying Eyes discard exiles the exact incarnation,
+  which is then cast for {W} during the opponent's turn and resolves to its
+  owner's graveyard.
+- Prying Eyes costs {4}{U}{U}; its automatic payment uses white mana for the
+  generic portion before spending the two blue symbols. Five Plains and two
+  Islands therefore leave exactly one white mana, and the Madness payment empties
+  the pool. This was a fixture correction, not an engine change. Removing ability
+  zero with `BAYLEE_MUTATE=5467:0` kills the ordinary targeted-destruction test.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts 12,545
+  cards (11,175 finished, 66 of the machine-owned cards untested, and 1,370
+  stubs). The full gates remain deferred at the owner's request.
