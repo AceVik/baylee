@@ -1212,19 +1212,19 @@ GameLlmTitle = Language-model chairs (debug: from the next decision)
 GameLlmHouse = House AI
 
 # The gentlest house AI.
-AiNovice = novice
+AiNovice = Novice
 
 # The relaxed house AI.
-AiCasual = casual
+AiCasual = Casual
 
 # The middle one.
-AiSteady = steady
+AiSteady = Steady
 
 # The one that plays to win.
-AiSharp = sharp
+AiSharp = Sharp
 
 # The deepest house AI combat search.
-AiExpert = expert
+AiExpert = Expert
 
 # One page back through the table list.
 PageBack = ‹ Back

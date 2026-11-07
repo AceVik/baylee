@@ -1444,7 +1444,7 @@ mod tests {
         assert_eq!(seat_names(&preset, Lang::De)[0], "Du");
         assert_eq!(seat_names(&preset, Lang::En)[0], "You");
         assert_eq!(seat_names(&preset, Lang::De)[1], "Solide 1");
-        assert_eq!(seat_names(&preset, Lang::En)[1], "steady 1");
+        assert_eq!(seat_names(&preset, Lang::En)[1], "Steady 1");
         assert_ne!(
             seat_names(&preset, Lang::De)[1],
             seat_names(&preset, Lang::En)[1],

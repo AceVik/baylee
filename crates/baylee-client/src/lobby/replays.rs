@@ -1361,6 +1361,17 @@ fn local_time(ms: u64, offset: i32) -> Option<time::OffsetDateTime> {
     Some(utc.to_offset(time::UtcOffset::from_whole_seconds(offset).ok()?))
 }
 
+/// A house seat in a replay's list. A record keeps the level's wire spelling, so
+/// the reader's word for it comes from here, and a spelling this client does not
+/// know is shown as the record has it.
+fn house_name(lang: Lang, level: &str) -> String {
+    if level.is_empty() {
+        return ReplayPhrase::House.text(lang).to_string();
+    }
+    let named = baylee_client_core::i18n::ai_name(lang, level).unwrap_or(level);
+    ReplayPhrase::HouseLevel.fill(lang, &[named])
+}
+
 /// What a row says of its players: "You (G) · Bob#0012 (Atraxa) · …".
 pub(super) fn players_line(entry: &Entry, lang: Lang) -> String {
     entry
@@ -1370,11 +1381,7 @@ pub(super) fn players_line(entry: &Entry, lang: Lang) -> String {
             let name = if p.you {
                 ReplayPhrase::You.text(lang).to_string()
             } else if let Some(level) = &p.house {
-                if level.is_empty() {
-                    ReplayPhrase::House.text(lang).to_string()
-                } else {
-                    ReplayPhrase::HouseLevel.fill(lang, &[level])
-                }
+                house_name(lang, level)
             } else if p.model {
                 ReplayPhrase::LanguageModel.text(lang).to_string()
             } else if p.former {
@@ -1460,11 +1467,7 @@ fn spawn_seat_pill(
     let name = if player.you {
         ReplayPhrase::You.text(lang).to_string()
     } else if let Some(level) = &player.house {
-        if level.is_empty() {
-            ReplayPhrase::House.text(lang).to_string()
-        } else {
-            ReplayPhrase::HouseLevel.fill(lang, &[level])
-        }
+        house_name(lang, level)
     } else if player.model {
         ReplayPhrase::LanguageModel.text(lang).to_string()
     } else if player.former {
@@ -1957,4 +1960,22 @@ fn unshared_seats(entry: &Entry) -> Vec<baylee_core::ids::PlayerId> {
         .filter(|p| !p.you && p.house.is_none() && !p.shared)
         .map(|p| baylee_core::ids::PlayerId::new(p.seat))
         .collect()
+}
+
+#[cfg(test)]
+mod house_tests {
+    use super::{Lang, house_name};
+
+    /// A record says `sharp`, and that is an identifier: a reader gets a word.
+    #[test]
+    fn a_house_seat_is_named_in_the_readers_words() {
+        assert_eq!(house_name(Lang::En, "sharp"), "House (Sharp)");
+        assert_eq!(house_name(Lang::De, "sharp"), "Haus (Scharf)");
+    }
+
+    #[test]
+    fn a_level_nobody_here_knows_is_shown_as_it_was_kept() {
+        assert_eq!(house_name(Lang::De, "uncanny"), "Haus (uncanny)");
+        assert_eq!(house_name(Lang::De, ""), "Haus");
+    }
 }
