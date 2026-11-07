@@ -7419,3 +7419,27 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 58
   of the machine-owned cards untested, and 1,370 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-07 — Moment's Peace's played Fog and Flashback
+
+- Moment's Peace composes the existing all-combat-damage prevention effect with
+  its face-level flashback cost; it needs no engine, DSL, protocol, desktop or
+  seat addition. The ordinary {1}{G} play blocks a 3/3 with a 2/2 and leaves
+  both creatures at zero marked damage and the defending player at 20 life.
+  Lightning Bolt still deals three noncombat damage, while an unblocked attack
+  next turn deals its normal three.
+- The flashback play rejects two mana, pays all of {2}{G}, repeats the zero-
+  damage block and exiles the exact graveyard incarnation. The first version of
+  this play survived `BAYLEE_MUTATE=5265:0` despite its combat assertions. An
+  additional assertion that flashback resolves one all-combat shield, rather
+  than merely exiling the card, closes that observed test gap. Both plays now
+  die under the mutation; the ordinary play fails with two damage marked on
+  the attacker.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 57 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
