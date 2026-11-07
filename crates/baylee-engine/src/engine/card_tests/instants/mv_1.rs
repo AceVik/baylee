@@ -161,6 +161,7 @@ mod stand_firm;
 mod swan_song;
 mod swords_to_plowshares;
 mod sylvan_paradise;
+mod syncopate;
 mod telim_tor_s_edict;
 mod thoughtlace;
 mod three_steps_ahead;
