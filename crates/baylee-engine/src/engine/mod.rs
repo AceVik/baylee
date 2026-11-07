@@ -2322,6 +2322,8 @@ mod turn_basics_tests;
 #[cfg(test)]
 mod turn_start_tests;
 #[cfg(test)]
+mod twin_pump_tests;
+#[cfg(test)]
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;
