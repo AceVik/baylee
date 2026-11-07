@@ -50,6 +50,7 @@ mod folk_medicine;
 mod forbid;
 mod force_void;
 mod foxfire;
+mod frantic_purification;
 mod grim_reminder;
 mod harrow;
 mod hero_s_downfall;
