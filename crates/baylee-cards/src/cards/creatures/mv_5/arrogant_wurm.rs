@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2dd6977e-269a-4cd1-99ad-37846a0647a7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arrogant Wurm",
         mana_cost = mana!("{3}{G}{G}"),
