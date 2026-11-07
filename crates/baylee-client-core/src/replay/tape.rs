@@ -8,7 +8,7 @@
 
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView, SpectatorView};
+use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView, ViewFrame};
 use serde::Deserialize;
 use serde_json::value::RawValue;
 
@@ -378,22 +378,15 @@ impl Tape {
         self.header.perspective == wire::TapePerspective::Public
     }
 
-    /// The view at step `i`, as the renderer reads a seat's: a public
-    /// tape's `SpectatorView` drawn from seat 0, as a spectator socket's.
+    /// The view at step `i`, as the renderer reads a seat's. A public tape's
+    /// is the spectators' stream, drawn from seat 0.
     ///
     /// # Errors
     /// The payload does not decode (`host_message`'s words).
     pub fn view(&self, i: usize) -> Result<PlayerView, String> {
         let frame = self.frames.get(i).ok_or("no such moment")?;
-        let raw = frame.view.0.get();
-        if self.public() {
-            serde_json::from_str::<SpectatorView>(raw)
-                .map(|view| view.into_player_view(baylee_core::ids::PlayerId::new(0)))
-                .map_err(|e| format!("unreadable game state: {e}"))
-        } else {
-            serde_json::from_str::<PlayerView>(raw)
-                .map_err(|e| format!("unreadable game state: {e}"))
-        }
+        serde_json::from_str::<PlayerView>(frame.view.0.get())
+            .map_err(|e| format!("unreadable game state: {e}"))
     }
 
     /// The static payload newest at or before step `i`.
@@ -503,7 +496,9 @@ fn lines_of(moment: &TapeMoment) -> Result<Vec<Line>, TapeRefusal> {
                 n: moment.input,
                 check: moment.check,
                 seq: delta.seq,
-                json: Raw::from_bytes(&delta.view_json)
+                json: ViewFrame::whole(&delta.view_frame)
+                    .and_then(|view| serde_json::to_vec(&view).ok())
+                    .and_then(|json| Raw::from_bytes(&json))
                     .ok_or_else(|| bad("a view"))?
                     .0,
                 log: if delta.log_json.is_empty() {

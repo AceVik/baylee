@@ -14,7 +14,7 @@ fn state_frames_to(
         .filter_map(|(_, env)| match &env.msg {
             Some(v1::envelope::Msg::StateDelta(delta)) => Some((
                 delta.seq,
-                delta.view_json.clone(),
+                delta.view_frame.clone(),
                 (!delta.log_json.is_empty())
                     .then(|| serde_json::from_slice(&delta.log_json).expect("the log decodes")),
             )),
@@ -77,11 +77,12 @@ fn an_overflowing_log_arrives_once_and_in_order_mid_game() {
     let routed = session.pump();
     let frames = state_frames_to(&routed, human);
     assert_eq!(frames.len(), added.div_ceil(LOG_TAIL_CAP), "{frames:?}");
+    assert!(!frames[0].1.is_empty(), "the first frame has the view");
     assert!(
-        frames
+        frames[1..]
             .iter()
-            .all(|(seq, view, _)| (*seq, view) == (frames[0].0, &frames[0].1)),
-        "every frame repeats the one view"
+            .all(|(seq, view, _)| *seq == frames[0].0 && view.is_empty()),
+        "the frames after it carry lines under one seq, and the view once"
     );
     let lines = contiguous_from(held, &frames);
     assert_eq!(held + lines.len(), session.log.len(), "every line arrived");
@@ -177,7 +178,7 @@ fn a_socket_that_attaches_again_is_told_the_log_from_the_first_line() {
     let lines = session.log.len();
     assert!(lines > 0);
 
-    session.retell_log(human);
+    session.retell(human);
     let frames = state_frames_to(&session.pump(), human);
     let told = contiguous_from(0, &frames);
     assert_eq!(told, session.log.told(human, 0, lines));

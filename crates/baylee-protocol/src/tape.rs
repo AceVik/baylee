@@ -156,8 +156,8 @@ pub struct View {
     pub check: Check,
     /// The delta's `seq`.
     pub seq: u64,
-    /// The delta's `view_json`: a `PlayerView`, or a `SpectatorView` for
-    /// [`Perspective::Public`].
+    /// The view, whole: a `PlayerView`, and for [`Perspective::Public`] the
+    /// spectators' public one, drawn from seat 0.
     pub json: Box<RawValue>,
     /// The delta's `log_json` (a `LogTail`); `None` when it told nothing.
     pub log: Option<Box<RawValue>>,

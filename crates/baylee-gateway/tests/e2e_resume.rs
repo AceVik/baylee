@@ -12,7 +12,7 @@ mod common;
 
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::PlayerView;
+use baylee_view::{PlayerView, ViewReader};
 use common::{Socket, attach_agent, http, json_field, login, spawn_gateway};
 
 fn deck(port: u16, token: &str) -> String {
@@ -34,7 +34,7 @@ fn send_action(action: &PlayerAction) -> Envelope {
 
 /// Reads frames until the table has said a view and a question for this
 /// seat, sending `SeatReady` on the opening payload: the latest view.
-async fn the_seat_is_asked(ws: &mut Socket) -> PlayerView {
+async fn the_seat_is_asked(ws: &mut Socket, views: &mut ViewReader) -> PlayerView {
     tokio::time::timeout(common::WAIT_BUDGET, async {
         let mut view: Option<PlayerView> = None;
         loop {
@@ -46,7 +46,7 @@ async fn the_seat_is_asked(ws: &mut Socket) -> PlayerView {
                     common::send(ws, &ready).await;
                 }
                 Some(v1::envelope::Msg::StateDelta(delta)) => {
-                    view = Some(serde_json::from_slice(&delta.view_json).expect("a view"));
+                    view = views.read(&delta.view_frame).expect("a view").cloned();
                 }
                 Some(v1::envelope::Msg::ChoiceRequest(_)) => {
                     if let Some(view) = view.take() {
@@ -81,9 +81,10 @@ async fn a_restarted_client_takes_its_chair_back_with_its_session() {
 
     // The old client plays its opening answer, then quits to restart.
     let mut ws = common::dial_seat(port, &game, &first).await;
-    let opening = the_seat_is_asked(&mut ws).await;
+    let mut views = ViewReader::default();
+    let opening = the_seat_is_asked(&mut ws, &mut views).await;
     common::send(&mut ws, &send_action(&PlayerAction::MulliganKeep)).await;
-    let before = the_seat_is_asked(&mut ws).await;
+    let before = the_seat_is_asked(&mut ws, &mut views).await;
     assert!(before.seq > opening.seq, "the keep moved the game");
     drop(ws);
 
@@ -120,7 +121,8 @@ async fn a_restarted_client_takes_its_chair_back_with_its_session() {
     // And the table it opens is the one it left: the same seat, no frame
     // earlier than the last it saw, the hand it kept still in it.
     let mut ws = common::dial_seat(port, &game, &second).await;
-    let after = the_seat_is_asked(&mut ws).await;
+    let mut views = ViewReader::default();
+    let after = the_seat_is_asked(&mut ws, &mut views).await;
     assert_eq!(after.seat, before.seat);
     assert!(after.seq >= before.seq, "{} < {}", after.seq, before.seq);
     let kept: Vec<_> = before.hand.iter().map(|card| card.id).collect();

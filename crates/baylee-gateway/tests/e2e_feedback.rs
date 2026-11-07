@@ -21,6 +21,7 @@ use baylee_client_core::bugreport::{
 };
 use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 use baylee_protocol::v1::{self, Envelope};
+use baylee_view::ViewReader;
 use common::{
     Gateway, Socket, attach_agent, attach_agent_probed, http, http_bytes, json_field, login,
 };
@@ -150,10 +151,9 @@ fn two_players(port: u16) -> (String, [(String, String); 2]) {
     (game, [(a, seat_a), (b, seat_b)])
 }
 
-/// Reads a seat until it falls quiet or closes; the last view it was shown.
-/// Not one piece of the record may reach it (#315).
-async fn until_quiet(ws: &mut Socket) -> Option<baylee_view::PlayerView> {
-    let mut view = None;
+/// Reads a seat until it falls quiet or closes; what `views` holds is then the
+/// last view it was shown. Not one piece of the record may reach it (#315).
+async fn until_quiet(ws: &mut Socket, views: &mut ViewReader) {
     while let Ok(Some(msg)) =
         tokio::time::timeout(std::time::Duration::from_secs(2), common::next_msg(ws)).await
     {
@@ -161,24 +161,19 @@ async fn until_quiet(ws: &mut Socket) -> Option<baylee_view::PlayerView> {
             v1::envelope::Msg::GameRecordChunk(_)
             | v1::envelope::Msg::FlushRecord(_)
             | v1::envelope::Msg::RecordFlushed(_) => panic!("a seat was sent the game's record"),
-            v1::envelope::Msg::StateDelta(d) => view = serde_json::from_slice(&d.view_json).ok(),
+            v1::envelope::Msg::StateDelta(d) => {
+                views.read(&d.view_frame).expect("a view");
+            }
             _ => {}
         }
     }
-    view
 }
 
-type Held = (Option<Pending>, Option<baylee_view::PlayerView>);
+/// A seat's open question, and what its frames have left it.
+type Held = (Option<Pending>, ViewReader);
 
-/// Answers what each seat is asked, as its decision clock would, until each
-/// has answered `answers` questions. The first seat's last view and last
-/// question.
-async fn play(
-    a: &mut Socket,
-    b: &mut Socket,
-    answers: usize,
-) -> (Option<baylee_view::PlayerView>, Option<Pending>) {
-    play_on(a, b, answers, &mut [(None, None), (None, None)]).await
+fn nothing_held() -> [Held; 2] {
+    [(None, ViewReader::default()), (None, ViewReader::default())]
 }
 
 /// The seat's answer to `pending`, sent as a client sends it. A cleanup
@@ -208,25 +203,23 @@ async fn answer(ws: &mut Socket, pending: &Pending, view: Option<&baylee_view::P
     .await;
 }
 
-/// [`play`], going on from a stop: `held` is each seat's question and latest
-/// view from the last round, answered first, and on return what this round
-/// leaves open.
+/// Answers what each seat is asked, as its decision clock would, until each
+/// has answered `answers` questions, going on from a stop: `held` is each
+/// seat's question and views from the last round, answered first, and on
+/// return what this round leaves open. The first seat's last question.
 async fn play_on(
     a: &mut Socket,
     b: &mut Socket,
     answers: usize,
     held: &mut [Held; 2],
-) -> (Option<baylee_view::PlayerView>, Option<Pending>) {
-    let mut views = [held[0].1.clone(), held[1].1.clone()];
-    let mut view = views[0].clone();
+) -> Option<Pending> {
     let mut asked = None;
     let mut answered = [0_usize; 2];
     for (seat, ws) in [&mut *a, &mut *b].into_iter().enumerate() {
         if let Some(pending) = held[seat].0.take() {
-            answer(ws, &pending, views[seat].as_ref()).await;
+            answer(ws, &pending, held[seat].1.view()).await;
             answered[seat] += 1;
         }
-        held[seat].1 = None;
     }
     let deadline = tokio::time::Instant::now() + common::WAIT_BUDGET;
     while answered.iter().any(|&n| n < answers) {
@@ -248,15 +241,12 @@ async fn play_on(
                     panic!("a seat was sent the game's record")
                 }
                 v1::envelope::Msg::StateDelta(d) => {
-                    views[seat] = serde_json::from_slice(&d.view_json).ok();
-                    if seat == 0 {
-                        view = views[0].clone();
-                    }
+                    held[seat].1.read(&d.view_frame).expect("a view");
                 }
                 v1::envelope::Msg::ChoiceRequest(c) => {
                     let pending: Pending =
                         serde_json::from_slice(&c.pending_json).expect("a question");
-                    answer(ws, &pending, views[seat].as_ref()).await;
+                    answer(ws, &pending, held[seat].1.view()).await;
                     if seat == 0 {
                         asked = Some(pending);
                     }
@@ -287,17 +277,14 @@ async fn play_on(
                     panic!("a seat was sent the game's record")
                 }
                 v1::envelope::Msg::StateDelta(d) => {
-                    views[seat] = serde_json::from_slice(&d.view_json).ok();
-                    if seat == 0 {
-                        view = views[0].clone();
-                    }
+                    held[seat].1.read(&d.view_frame).expect("a view");
                 }
                 v1::envelope::Msg::ChoiceRequest(c) => {
                     let pending: Option<Pending> = serde_json::from_slice(&c.pending_json).ok();
                     if seat == 0 {
                         asked.clone_from(&pending);
                     }
-                    held[seat] = (pending, views[seat].clone());
+                    held[seat].0 = pending;
                 }
                 _ => {}
             }
@@ -306,7 +293,7 @@ async fn play_on(
             break;
         }
     }
-    (view, asked)
+    asked
 }
 
 async fn stored(gw: &Gateway, game: &str) {
@@ -355,7 +342,8 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
     let mut ws_b = common::dial_seat(port, &game, &bert_seat).await;
     // Both play a while once the table opens (no question comes before),
     // so the record holds both seats' answers; the first then concedes.
-    let (mut view_a, asked_a) = play(&mut ws_a, &mut ws_b, 8).await;
+    let mut held = nothing_held();
+    let asked_a = play_on(&mut ws_a, &mut ws_b, 8, &mut held).await;
     let concede = Envelope {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
@@ -368,10 +356,14 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
     ))
     .await
     .expect("send the concession");
-    view_a = until_quiet(&mut ws_a).await.or(view_a);
-    until_quiet(&mut ws_b).await;
+    until_quiet(&mut ws_a, &mut held[0].1).await;
+    until_quiet(&mut ws_b, &mut held[1].1).await;
     stored(&gw, &game).await;
-    let view_a = view_a.expect("the first seat was shown the table");
+    let view_a = held[0]
+        .1
+        .view()
+        .cloned()
+        .expect("the first seat was shown the table");
 
     // The first player's report, as the client builds it: every part ticked,
     // the table as that seat was shown it, sealed against both of its
@@ -664,7 +656,7 @@ async fn a_report_mid_game_carries_the_record_up_to_the_moment_reported() {
     let mut ws_b = common::dial_seat(port, &game, &bert_seat).await;
 
     let mut reports = Vec::new();
-    let mut held = [(None, None), (None, None)];
+    let mut held = nothing_held();
     for (round, reporter) in [(6, &alma), (4, &bert)] {
         // Played until both seats fall quiet: every answer is applied and
         // the engine waits on the next question, so its hash is the state

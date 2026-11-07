@@ -12,7 +12,7 @@ use crate::view::SPECTATOR;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{LogTail, PlayerView, SpectatorView};
+use baylee_view::{LogTail, PlayerView, SpectatorView, ViewFrame, ViewSender};
 
 /// What the host has told the spectators of one game, together.
 #[derive(Debug, Default)]
@@ -25,6 +25,9 @@ pub(crate) struct Gallery {
     /// empty: a spectator has no deck, so it earns every entry by seeing the
     /// card in public, and a decklist never leaks through the print table.
     pub(crate) revealed: Vec<bool>,
+    /// The public view last told: one stream for every spectator, drawn from
+    /// seat 0, which holds nothing but what every seat sees alike.
+    pub(crate) sent: ViewSender,
 }
 
 impl Session {
@@ -114,7 +117,11 @@ impl Session {
         if grew {
             out.push(self.spectator_game_static());
         }
-        out.extend(frames_of(self.seq, super::view_json(&view), tail));
+        let frame = self
+            .gallery
+            .sent
+            .next(&view.into_player_view(PlayerId::new(0)));
+        out.extend(frames_of(self.seq, frame, tail));
         let pending = self.engine.pending();
         if matches!(pending, Pending::GameOver(_)) {
             out.push(choice_envelope(self.seq, pending));
@@ -154,7 +161,7 @@ impl Session {
         if grew {
             out.push(self.public_game_static(seat));
         }
-        out.extend(super::state_frames(self.seq, view, tail));
+        out.extend(frames_of(self.seq, ViewFrame::snapshot_of(view), tail));
         out
     }
 
@@ -168,10 +175,13 @@ impl Session {
     }
 
     /// Everything a spectator needs from scratch: the opening payload, the
-    /// view and the whole log. Every spectator shares the stream, so the
-    /// others are sent the log again; a client appends by `LogTail::from`.
+    /// whole view and the whole log. Every spectator shares the stream, so the
+    /// others are sent them again, and that is what keeps one stream of patches
+    /// right for all of them: a patch after this one starts from the view they
+    /// were all just told. A client appends the log by `LogTail::from`.
     pub fn spectator_snapshot(&mut self) -> Vec<Envelope> {
         self.gallery.told = 0;
+        self.gallery.sent.forget();
         let mut out = Vec::new();
         let rest = self.spectator_envelopes();
         // The payload first, and once: the walk above may already have

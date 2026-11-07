@@ -83,8 +83,18 @@ Nach den Patches, in dieser Reihenfolge, jeweils nur mit Messung:
 Lockstep, also dass jeder Client selbst simuliert, scheidet aus: Dafür müsste er verdeckte Karten und
 den Zufall kennen.
 
-## Offen
+## Entschieden (war offen)
 
-- Was Aufzeichnungen und Replays speichern; sie sollten weiter ohne Patches lesbar sein.
-- Ob auch das Log denselben Weg nimmt; es wird heute schon inkrementell geschickt.
-- Der Gewinn ist geschätzt, nicht gemessen: Bytes je Schritt sollten um eine Größenordnung fallen.
+Die Zahlen stehen in `docs/perf-baseline.md`.
+
+- **Aufzeichnungen und Replays speichern keine Patches.** Eine Aufzeichnung hält Eingaben und gar keine
+  Ansicht, sie ändert sich nicht. Ein Band hält ganze Ansichten als JSON, denn ein Leser springt zu
+  jedem Augenblick, und ein Augenblick darf von keinem anderen abhängen
+  (`Session::tell_views_whole`). Ein Band wird nur auf Anfrage gebaut und liegt nirgends.
+- **Das Log bleibt, wie es ist.** Es wird nur angehängt und schon je `from` geschickt, also gibt es
+  nichts zu diffen. Es war 0,2 bis 1,3 % der Bytes und ist mit Patches 8 bis 12 %. Was sich ändert:
+  Ein Rahmen, der nur Log trägt, wiederholt die Ansicht nicht mehr.
+- **Der Gewinn ist gemessen.** 14- bis 57-mal weniger Bytes je Ansicht als JSON, 27-mal auf gehosteten
+  Partien und 154-mal auf der größten. Ganze Rahmen fallen 8- bis 35-mal, weil anderes bleibt.
+- **Neu dazugekommen:** `GameStatic` geht bei jeder neuen Druckversion ganz und ist danach ein Viertel
+  dessen, was bleibt. Das gehört in dieselbe Reihe.

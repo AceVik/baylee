@@ -3,6 +3,75 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Views as patches (view 87, protocol 39)
+
+A seat is told its view whole once and then only what changed. Both ends work
+from `baylee_view` (`crates/baylee-view/src/patch/`): a host keeps a
+`ViewSender` per seat and whoever reads the seat a `ViewReader`, and above the
+two everything goes on holding a whole `PlayerView`. `StateDelta.view_frame`
+holds a `ViewFrame`:
+
+```text
+ViewFrame = Snapshot(view)
+          | Patch { seat, base, seq, zones, hand, seats, fields, digest }
+```
+
+- **A patch is computed from the seat's finished view, and from nothing else.**
+  `diff` takes two views and has no way to a game state, so what a `PlayerView`
+  cannot represent no patch can carry, and hidden information needs no second
+  check. A sender is one seat's. It refuses to patch across seats and goes whole,
+  and a reader refuses a patch naming another seat.
+- **Objects are the unit.** A new or changed object goes whole, a removed one by
+  its id, per zone (`Zone`, one id may stand in two zones and say different things
+  in each). A zone says its order only where taking the removed out and adding
+  the new at the end does not leave it. A zone that holds an id twice goes whole.
+- **The rest goes field by field** (`ViewField`), a seat line whole per seat that
+  changed, and `target_objects` and `policy_acts` as a `ListEdit` (keep a slice,
+  add what is new, keep the tail), which took them from 53 % of the bytes of a
+  patch on hosted games to 5 % (`docs/perf-baseline.md`).
+- **`seq` is `PlayerView::seq`.** `base` is the view a patch applies to and `seq`
+  the view it leaves. Frames arrive in order on one socket, so a client no longer
+  drops a view as not newer: every frame is applied, and a `base` that is not the
+  `seq` held means a frame was lost.
+- **`digest` is the fingerprint of the view a patch leaves** (`baylee_view::digest`,
+  a walk of the view's `Serialize` in little-endian words, so every build reads
+  the same). A reader checks it after applying. It detects a wrong patch and proves
+  nothing against a host, which writes the view anyway.
+
+**When a seat is sent a snapshot:** its first view; every view after
+`Session::retell`, which a new socket gets (it holds nothing, and whatever went
+to the chair while nobody sat there was dropped); `Session::snapshot`, which a
+resync, a `ResumeGame` from a client that is behind and a lagging socket get.
+A snapshot moves nothing in the game, and what it told is what the next patch
+starts from.
+
+**When a reader cannot place a frame** (a gap, an unknown id, a wrong digest,
+bytes that do not read, a patch of another seat): it keeps the view it holds,
+asks once with `ResumeGame { last_seq: 0 }`, having seen nothing being what gets a
+whole view whatever the table thinks, and passes over what comes until the
+snapshot does. The player sees a table that catches up. The net's seat ends the
+game instead: a view it never saw is recurrent history it cannot get back. A
+refused answer is handed its question back as a patch, since a refusal loses no
+frame.
+
+**Spectators run the same way, on one stream.** The public view is built as a
+`SpectatorView`, which has no field for a private hand, and goes out as the
+`PlayerView` it draws from seat 0 (`SpectatorView::into_player_view`), so a
+spectator is read by the same reader. One sender serves every watching socket.
+A spectator arriving, or a socket falling behind, makes the gateway ask for
+`spectator_snapshot`, and that whole view goes to all of them, so the next patch
+is right for every socket.
+
+**What keeps whole views.** Records hold inputs and no view at all, and a tape
+holds whole views as JSON: a reader jumps to any moment, and a moment stands on no
+other (`Session::tell_views_whole`). No stored thing holds a patch.
+
+**The foreign bytes.** A client's frames come from whoever it connected to, so
+`apply` treats every patch as hostile: no panic, work of `n log n` in what the view
+and the patch already hold, nothing allocated that a patch merely claims, and on
+any refusal the view held stands. `tests.rs` and `stream_tests.rs` beside the code
+prove it on damaged and made-up patches.
+
 ## The order of triggers (view 86)
 
 A player who controls several triggered abilities going on the stack at once
@@ -1344,23 +1413,21 @@ for an absent player included).
   line (`Session::tell_time`; the engine-server with the wall clock, the
   client's `LocalHost` through `web_time`), and 0 means nobody ever did. A
   folded line keeps the time of its first. Tests tell a fixed time.
-- **Every `StateDelta` carries a view.** There is no frame with only log in
-  it. `log_json` is empty when there is nothing new.
+- **A view and its lines travel together.** `log_json` is empty when there is
+  nothing new.
 - **A seat may receive several frames with the same `seq`.** A tail holds at
   most `LOG_TAIL_CAP` lines. When more are waiting, the host sends them in
-  several `StateDelta` frames in one go, each repeating the same view and the
-  same `seq` with the next part of the log. That happens at the end of a game
-  too, where no later view could carry what is left.
-- **A client reads `log_json` from every frame**, including one whose view it
-  drops as not newer than the one it holds. The lines in a repeated frame are
-  not a repeat.
+  several `StateDelta` frames in one go: the first with the view, the others
+  with no view and the next part of the log under the same `seq`. That happens
+  at the end of a game too, where no later view could carry what is left.
+- **A client reads `log_json` from every frame**, one with no view included.
 - **Appending by `from` is idempotent.** `from` is an index into the seat's
   log. A client appends a tail whose `from` equals the length of what it
   holds, skips the lines it already holds when `from` is less, and marks a gap
   when `from` is more (and does not guess what was in it). Receiving a line
   twice therefore changes nothing, and the host relies on that:
   - a socket that attaches is sent the whole log from 0 with its first view
-    (`Session::retell_log`);
+    (`Session::retell`);
   - a snapshot (a lagging socket's resync, `ResumeGame`) carries every line
     the seat has been sent, from 0, and marks nothing;
   - a refused answer is handed its question back with no log at all
@@ -2260,7 +2327,7 @@ the beta.7 deploy on, no before). With **S** that set of seats:
 - `all_hands`: the `seat` view as above, plus every other seat in **S** as a
   `shared_hands` entry (`public: false`): of those seats their **hand only**
   (and the printings of the cards in it), not the rest of their seat view.
-- `public`: the spectators' stream (`SpectatorView` payloads).
+- `public`: the spectators' stream, the public view drawn from seat 0.
 
 **What a shown seat reveals** (the drawn seat in **S**, its `PlayerView`
 as `Session::seat_view` builds it for a socket at it):
@@ -2379,8 +2446,8 @@ A signed-in player may watch a running table whose host allowed it
   gateway tells the engine its count (`SpectatorsChanged { count, joined }`);
   `joined` asks for a whole snapshot (payload, view, every log line, and an
   open curtain). A lagging watch socket asks the same.
-- **What it is.** The `StateDelta`'s `view_json` is a `SpectatorView`
-  (`baylee-view`), not a `PlayerView`: a type with no field for a private hand,
+- **What it is.** The view is built as a `SpectatorView`
+  (`baylee-view`): a type with no field for a private hand,
   a question, a looked-at card, a clock or a policy. `revealed_hands` holds
   only continuously public hands and defaults to an empty list in older
   frames. The client presents these through the existing zone browser. Its objects are built by

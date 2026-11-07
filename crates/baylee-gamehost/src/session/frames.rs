@@ -1,10 +1,10 @@
-use super::{SeatKind, Session, frames_of, seat_byte, seat_view_json, view_json};
+use super::{SeatKind, Session, frames_of, seat_byte};
 use baylee_ai::policy_seed;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1;
 use baylee_protocol::v1::Envelope;
-use baylee_view::{GameStatic, LogTail, PlayerView, SeatIdentity};
+use baylee_view::{GameStatic, LogTail, PlayerView, SeatIdentity, ViewFrame};
 
 impl Session {
     /// The seats that won: one for a solo winner, every seat on the team for
@@ -163,7 +163,7 @@ impl Session {
 
     /// The view a seat's next frames carry: what [`Session::view_envelopes`]
     /// sends, built without telling the seat anything.
-    pub(super) fn seat_view(&self, seat: PlayerId) -> PlayerView {
+    pub(crate) fn seat_view(&self, seat: PlayerId) -> PlayerView {
         let awaiting = crate::view::awaiting_for(&self.engine, seat);
         let mut view = crate::view::player_view(
             self.engine.state(),
@@ -211,11 +211,11 @@ impl Session {
         if revealed || roster_moved {
             out.push(self.game_static_envelope(seat));
         }
-        let json = self
-            .written
+        let frame = self
+            .sent
             .get_mut(seat.get() as usize)
-            .map_or_else(|| view_json(view), |written| seat_view_json(written, view));
-        out.extend(frames_of(self.seq, json, tail));
+            .map_or_else(|| ViewFrame::snapshot_of(view), |sent| sent.next(view));
+        out.extend(frames_of(self.seq, frame, tail));
         out
     }
 
@@ -252,7 +252,7 @@ impl Session {
     /// house seat may know of the game is exactly what its view shows now.
     /// A chair the house holds for an absent player has nobody to tell, and
     /// the player is sent the whole log when they are back
-    /// ([`Session::retell_log`]).
+    /// ([`Session::retell`]).
     pub(super) fn log_tail(&mut self, seat: PlayerId) -> LogTail {
         let at = seat.get() as usize;
         let socket = self
@@ -293,16 +293,35 @@ impl Session {
         }
     }
 
-    /// `seat`'s next view carries its whole log again, from the first line.
+    /// `seat`'s next frames tell it everything again: the view whole, and its
+    /// log from the first line.
     ///
-    /// For a socket that has just attached and will be pumped: it holds none
-    /// of the log, and whatever went to the seat while nobody was on it was
-    /// dropped on the way. A resync that is sent a [`Session::snapshot`]
-    /// needs no call, since the snapshot carries every line already sent.
-    pub fn retell_log(&mut self, seat: PlayerId) {
+    /// For a socket that has just attached and will be pumped: it holds neither,
+    /// and whatever went to the seat while nobody was on it was dropped on the
+    /// way. A resync that is sent a [`Session::snapshot`] needs no call, since
+    /// the snapshot is the view whole and carries every line already sent.
+    pub fn retell(&mut self, seat: PlayerId) {
         if let Some(told) = self.told.get_mut(seat.get() as usize) {
             *told = 0;
         }
+        if let Some(sent) = self.sent.get_mut(seat.get() as usize) {
+            sent.forget();
+        }
+    }
+
+    /// From here on every frame carries its view whole, for every seat and
+    /// the spectators.
+    ///
+    /// For frames that are not a stream: a replay's moments, which a reader
+    /// jumps between, and a test that reads one frame on its own. A debug build
+    /// goes on proving what each patch would have been ([`ViewSender::next`]).
+    ///
+    /// [`ViewSender::next`]: baylee_view::ViewSender::next
+    pub fn tell_views_whole(&mut self) {
+        for sent in &mut self.sent {
+            sent.tell_whole();
+        }
+        self.gallery.sent.tell_whole();
     }
 
     /// Tells the session the time, in milliseconds since the Unix epoch: the

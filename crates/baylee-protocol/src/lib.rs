@@ -37,7 +37,9 @@ pub mod tape;
 /// Counter-order prompts also carry the entry replacement's counter kind.
 /// Version 38 is the sign-in by gateway token, with a session token that
 /// rotates, and says why a socket was refused (`HelloAck::refusal`).
-pub const PROTOCOL_VERSION: u32 = 38;
+/// Version 39 sends a view as a `ViewFrame` in `StateDelta::view_frame`, and
+/// `ResumeGame { last_seq: 0 }` is how a seat asks for a whole one.
+pub const PROTOCOL_VERSION: u32 = 39;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -268,7 +270,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_thirty_eight() {
+    fn the_wire_version_is_thirty_nine() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -325,7 +327,9 @@ mod tests {
         // 38: the sign-in by gateway token and a session token that rotates, which
         // an older client cannot speak; `HelloAck::refusal` says why a socket was
         // refused (`docs/protocol.md` §"Refusals").
-        assert_eq!(PROTOCOL_VERSION, 38);
+        // 39: a view goes as a `ViewFrame`, whole once and then what changed, which
+        // a reader from before it cannot read at all.
+        assert_eq!(PROTOCOL_VERSION, 39);
     }
 
     #[test]

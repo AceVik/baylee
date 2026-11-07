@@ -229,7 +229,7 @@ impl Script {
             }
             let view = view_of(i, spec, !public);
             let view = if public {
-                json(&spectator_of(&view))
+                json(&spectator_of(&view).into_player_view(baylee_core::ids::PlayerId::new(0)))
             } else {
                 json(&view)
             };

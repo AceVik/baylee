@@ -12,7 +12,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_gamehost::PlayerView;
 use baylee_gamehost::replay::{Perspective, Stop, Verify, project};
 use baylee_protocol::v1::envelope::Msg;
-use baylee_view::{ViewPatch, apply, diff, digest};
+use baylee_view::{ViewFrame, ViewPatch, apply, diff, digest};
 
 const RECORD: &[u8] = include_bytes!("../src/record/seen/acceptance-seed3.jsonl");
 
@@ -27,9 +27,8 @@ fn views_of(seat: PlayerId) -> Vec<PlayerView> {
         |moment| {
             for frame in moment.frames {
                 if let Some(Msg::StateDelta(delta)) = frame.msg {
-                    views.push(
-                        serde_json::from_slice(&delta.view_json).expect("a seat is sent a view"),
-                    );
+                    views
+                        .push(ViewFrame::whole(&delta.view_frame).expect("a tape's view is whole"));
                 }
             }
             ControlFlow::Continue(())

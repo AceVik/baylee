@@ -53,6 +53,7 @@
 mod rebuild;
 mod wire;
 
+use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::ops::ControlFlow;
 use std::path::Path;
@@ -71,6 +72,7 @@ use baylee_gamehost::replay::{Perspective, Verify, project};
 use baylee_gamehost::{PlayerView, Session};
 use baylee_protocol::v1::Envelope;
 use baylee_protocol::v1::envelope::Msg;
+use baylee_view::ViewReader;
 use prost::Message as _;
 
 use rebuild::Rebuild;
@@ -164,16 +166,43 @@ impl Fnv {
     }
 }
 
+/// `value` as JSON with every entry at its default left out: what two builds
+/// that disagree on writing a default still agree on.
+fn canonical<T: serde::Serialize + ?Sized>(value: &T) -> Vec<u8> {
+    fn strip(value: &mut serde_json::Value) {
+        use serde_json::Value;
+        match value {
+            Value::Object(map) => {
+                map.values_mut().for_each(strip);
+                map.retain(|_, value| match value {
+                    Value::Null | Value::Bool(false) => false,
+                    Value::Number(number) => number.as_u64() != Some(0),
+                    Value::Array(list) => !list.is_empty(),
+                    Value::Object(map) => !map.is_empty(),
+                    _ => true,
+                });
+            }
+            Value::Array(list) => list.iter_mut().for_each(strip),
+            _ => {}
+        }
+    }
+    let mut json = serde_json::to_value(value).expect("a value serializes");
+    strip(&mut json);
+    serde_json::to_vec(&json).expect("a value writes")
+}
+
 /// What a `--verify` run compares between builds.
 struct Digests {
     on: bool,
     actions: Fnv,
     views: Fnv,
     hashes: Fnv,
-    /// Seats' views rebuilt from patches: what a socket was sent, and what a
-    /// host was handed. Two streams, because the two differ by the context a
-    /// socket is not sent.
-    rebuilt: Option<[Rebuild; 2]>,
+    /// What each seat's socket has been left with by its frames.
+    readers: BTreeMap<PlayerId, ViewReader>,
+    /// `StateDelta`s read.
+    frames_read: u64,
+    /// Seats' views as a host was handed them, rebuilt from patches.
+    rebuilt: Option<Rebuild>,
 }
 
 impl Digests {
@@ -183,18 +212,19 @@ impl Digests {
             actions: Fnv::new(),
             views: Fnv::new(),
             hashes: Fnv::new(),
-            rebuilt: checks.patches.then(<[Rebuild; 2]>::default),
+            readers: BTreeMap::new(),
+            frames_read: 0,
+            rebuilt: checks.patches.then(Rebuild::default),
         }
     }
 
     fn view(&mut self, view: &PlayerView) {
         if self.on {
-            self.views
-                .feed(&serde_json::to_vec(view).expect("a view serializes"));
+            self.views.feed(&canonical(view));
         } else {
             black_box(view);
         }
-        if let Some([_, handed]) = &mut self.rebuilt {
+        if let Some(handed) = &mut self.rebuilt {
             handed.view(view);
         }
     }
@@ -203,7 +233,7 @@ impl Digests {
     fn patched(&self) -> u64 {
         self.rebuilt
             .as_ref()
-            .map_or(0, |[sent, handed]| sent.views + handed.views)
+            .map_or(0, |handed| handed.views + self.frames_read)
     }
 
     /// As JSON and not `Debug`: this is what a seat is asked, and a field a
@@ -211,8 +241,7 @@ impl Digests {
     /// off the wire.
     fn question(&mut self, pending: &Pending) {
         if self.on {
-            self.views
-                .feed(&serde_json::to_vec(pending).expect("a question serializes"));
+            self.views.feed(&canonical(pending));
         }
     }
 
@@ -231,23 +260,48 @@ impl Digests {
         }
     }
 
-    /// What a socket is sent, as it goes down the wire.
+    /// What a socket is sent: every frame, and of a `StateDelta` the view a
+    /// reader is left with, as JSON. Whatever goes down the wire, these bytes
+    /// are the view, so two builds that encode it differently still compare.
     fn frames(&mut self, frames: &[(PlayerId, Envelope)]) {
-        if self.on {
-            for (seat, frame) in frames {
-                self.views.feed(&[seat.get()]);
-                self.views.feed(&frame.encode_to_vec());
-            }
-        } else {
+        if !self.on {
             black_box(frames);
+            return;
         }
-        if let Some([sent, _]) = &mut self.rebuilt {
-            for (_, frame) in frames {
-                if let Some(Msg::StateDelta(delta)) = &frame.msg {
-                    let view: PlayerView =
-                        serde_json::from_slice(&delta.view_json).expect("a seat is sent a view");
-                    sent.view(&view);
+        for (seat, frame) in frames {
+            self.views.feed(&[seat.get()]);
+            match &frame.msg {
+                Some(Msg::GameStatic(statics)) => {
+                    // Not its version: that moves when the wire does.
+                    let mut statics: baylee_view::GameStatic =
+                        serde_json::from_slice(&statics.static_json).expect("a payload reads");
+                    statics.view_version = 0;
+                    self.views.feed(&canonical(&statics));
                 }
+                Some(Msg::StateDelta(delta)) => {
+                    let view = self
+                        .readers
+                        .entry(*seat)
+                        .or_default()
+                        .read(&delta.view_frame)
+                        .expect("a seat's frame places")
+                        .expect("a seat holds a view");
+                    self.views.feed(&delta.seq.to_le_bytes());
+                    self.views.feed(&canonical(view));
+                    if !delta.log_json.is_empty() {
+                        let log: baylee_view::LogTail =
+                            serde_json::from_slice(&delta.log_json).expect("a log reads");
+                        self.views.feed(&canonical(&log));
+                    }
+                    self.frames_read += 1;
+                }
+                Some(Msg::ChoiceRequest(choice)) => {
+                    let pending: Pending =
+                        serde_json::from_slice(&choice.pending_json).expect("a question reads");
+                    self.views.feed(&choice.seq.to_le_bytes());
+                    self.views.feed(&canonical(&pending));
+                }
+                _ => self.views.feed(&frame.encode_to_vec()),
             }
         }
     }

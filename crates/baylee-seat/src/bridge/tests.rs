@@ -77,7 +77,7 @@ fn put_with(core: &mut SeatCore, seq: u64, tweak: impl FnOnce(&mut PlayerView)) 
     core.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: "test-game".into(),
         seq,
-        view_json: serde_json::to_vec(&view).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&view),
         log_json: Vec::new(),
     })));
     let pending = Pending::ChooseColor {

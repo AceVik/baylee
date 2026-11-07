@@ -45,6 +45,7 @@ pub fn diff(old: &PlayerView, new: &PlayerView) -> ViewPatch {
         Vec::new()
     });
     ViewPatch {
+        seat: new.seat,
         base: old.seq,
         seq: new.seq,
         zones: edits.zones,

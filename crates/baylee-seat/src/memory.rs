@@ -1,12 +1,11 @@
 //! What the seat remembers of the table: what a client keeps, and nothing a
 //! client does not.
 //!
-//! The roster and print table ([`GameStatic`]), the newest view, the seat's
-//! log, and how far along the game it has been told (for `ResumeGame`). A
-//! frame whose view is older than the one held is not read for its view,
-//! but its log tail is: several frames may repeat a view and a `seq`, and
-//! the log is appended by `from`, never by frame (`docs/protocol.md`
-//! §"The game log").
+//! The roster and print table ([`GameStatic`]), the view its frames left
+//! ([`ViewReader`]), the seat's log, and how far along the game it has been
+//! told (for `ResumeGame`). A frame may carry no view at all, only more of a
+//! long log, and the log is appended by `from`, never by frame
+//! (`docs/protocol.md` §"The game log").
 //!
 //! The log is kept in the client's own book ([`LogBook`]), each tail read
 //! beside the view that came with it, as the client reads it: the book a
@@ -16,7 +15,7 @@
 use baylee_client_core::gamelog::LogBook;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView};
+use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView, ViewReader};
 use prost::Message as _;
 
 /// What one frame from the table turned out to be.
@@ -50,6 +49,10 @@ pub enum Heard {
     },
     /// The table does not speak this bridge's protocol.
     Incompatible(String),
+    /// The view could not be kept: a frame was lost, or did not apply. The
+    /// table is asked for the whole view, and until it comes the view held
+    /// stands.
+    Lost(String),
     /// A frame that could not be read, and why.
     Unreadable(String),
     /// Anything else (a loading count, a heartbeat): nothing to do.
@@ -60,7 +63,7 @@ pub enum Heard {
 #[derive(Debug, Default)]
 pub struct TableMemory {
     statics: Option<GameStatic>,
-    view: Option<PlayerView>,
+    stream: ViewReader,
     log: LogBook,
     handed: usize,
     gaps: u32,
@@ -110,40 +113,18 @@ impl TableMemory {
                 } else {
                     None
                 };
-                // More lines of the view held: read beside it, and the view
-                // is not read again.
-                if lines
-                    && delta.seq != 0
-                    && let Some(held) = self.view.as_ref().filter(|held| delta.seq <= held.seq)
-                {
-                    if let Some(tail) = &tail {
+                let lost = self.stream.read(&delta.view_frame).err();
+                // Its lines are read beside the view this frame left, or the
+                // one held if it left none; with neither, they come again on
+                // resume.
+                match (&tail, self.stream.view()) {
+                    (Some(tail), Some(held)) => {
                         self.log.append(tail, held);
                     }
-                    return Heard::View;
+                    (Some(_), None) => self.gaps += 1,
+                    (None, _) => {}
                 }
-                match serde_json::from_slice::<PlayerView>(&delta.view_json) {
-                    Ok(view) => {
-                        if let Some(tail) = &tail {
-                            self.log.append(tail, &view);
-                        }
-                        if self.view.as_ref().is_none_or(|held| view.seq >= held.seq) {
-                            self.view = Some(view);
-                        }
-                        Heard::View
-                    }
-                    Err(e) => {
-                        // Its lines are read beside the view held; with
-                        // none, they come again on resume.
-                        match (&tail, self.view.as_ref()) {
-                            (Some(tail), Some(held)) => {
-                                self.log.append(tail, held);
-                            }
-                            (Some(_), None) => self.gaps += 1,
-                            (None, _) => {}
-                        }
-                        Heard::Unreadable(format!("unreadable game state: {e}"))
-                    }
-                }
+                lost.map_or(Heard::View, |why| Heard::Lost(why.to_string()))
             }
             v1::envelope::Msg::ChoiceRequest(request) => {
                 self.last_seq = self.last_seq.max(request.seq);
@@ -197,7 +178,7 @@ impl TableMemory {
     /// The newest view.
     #[must_use]
     pub const fn view(&self) -> Option<&PlayerView> {
-        self.view.as_ref()
+        self.stream.view()
     }
 
     /// The seat's whole log so far.
@@ -258,7 +239,7 @@ mod tests {
             msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                 game_id: "g".into(),
                 seq,
-                view_json: serde_json::to_vec(&view).unwrap(),
+                view_frame: baylee_view::ViewFrame::snapshot_of(&view),
                 log_json: tail
                     .map(|t| serde_json::to_vec(&t).unwrap())
                     .unwrap_or_default(),
@@ -329,22 +310,39 @@ mod tests {
         assert_eq!(memory.gaps(), 1);
     }
 
-    /// An older view is not read for its view, and its log tail still is.
+    /// A patch that does not place keeps the view held, and says so once.
     #[test]
-    fn an_older_view_is_dropped_and_its_log_kept() {
+    fn a_patch_that_does_not_place_is_lost_and_asked_for_once() {
+        let mut sender = baylee_view::ViewSender::default();
         let mut memory = TableMemory::default();
-        memory.hear(&delta(9, 9, None));
-        memory.hear(&delta(
-            4,
-            4,
-            Some(LogTail {
-                from: 0,
-                entries: vec![line(1)],
-            }),
-        ));
-        assert_eq!(memory.view().map(|v| v.seq), Some(9));
-        assert_eq!(memory.log().len(), 1);
-        assert_eq!(memory.last_seq(), 9);
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.seq = 5;
+        let frame = |bytes: Vec<u8>, seq| {
+            Envelope {
+                msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                    game_id: "g".into(),
+                    seq,
+                    view_frame: bytes,
+                    log_json: Vec::new(),
+                })),
+            }
+            .encode_to_vec()
+        };
+        let whole = sender.next(&view);
+        assert!(matches!(memory.hear(&frame(whole, 5)), Heard::View));
+        view.seq = 6;
+        let _lost = sender.next(&view);
+        view.seq = 7;
+        let after = sender.next(&view);
+        assert!(matches!(memory.hear(&frame(after, 7)), Heard::Lost(_)));
+        assert_eq!(memory.view().map(|held| held.seq), Some(5));
+        view.seq = 8;
+        let more = sender.next(&view);
+        assert!(matches!(memory.hear(&frame(more, 8)), Heard::View));
+        assert_eq!(memory.view().map(|held| held.seq), Some(5));
+        let again = sender.snapshot(&view);
+        assert!(matches!(memory.hear(&frame(again, 8)), Heard::View));
+        assert_eq!(memory.view().map(|held| held.seq), Some(8));
     }
 
     #[test]
@@ -365,7 +363,7 @@ mod tests {
             msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                 game_id: "g".into(),
                 seq: 7,
-                view_json: b"not-decoded-again".to_vec(),
+                view_frame: Vec::new(),
                 log_json: serde_json::to_vec(&LogTail {
                     from: 1,
                     entries: vec![line(2)],
@@ -390,7 +388,7 @@ mod tests {
                 msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                     game_id: "g".into(),
                     seq,
-                    view_json: b"not a view".to_vec(),
+                    view_frame: b"not a view".to_vec(),
                     log_json: serde_json::to_vec(&LogTail {
                         from,
                         entries: vec![line(1)],
@@ -401,17 +399,11 @@ mod tests {
             .encode_to_vec()
         };
         let mut memory = TableMemory::default();
-        assert!(matches!(
-            memory.hear(&unreadable(1, 0)),
-            Heard::Unreadable(_)
-        ));
+        assert!(matches!(memory.hear(&unreadable(1, 0)), Heard::Lost(_)));
         assert!(memory.log().is_empty());
         assert_eq!(memory.gaps(), 1);
         memory.hear(&delta(2, 2, None));
-        assert!(matches!(
-            memory.hear(&unreadable(3, 0)),
-            Heard::Unreadable(_)
-        ));
+        assert!(matches!(memory.hear(&unreadable(3, 0)), Heard::Lost(_)));
         assert_eq!(memory.book().entries().len(), 1);
         assert_eq!(memory.gaps(), 1);
     }

@@ -120,6 +120,11 @@ fn views(sent: &Sent) -> Vec<&tape::View> {
 }
 
 /// The whole job is a refusal: a header and a stop, nothing between.
+/// The whole view a frame holds, as a tape writes it.
+fn whole_json(frame: &[u8]) -> String {
+    serde_json::to_string(&baylee_view::ViewFrame::whole(frame).unwrap()).unwrap()
+}
+
 fn refused(sent: &Sent) {
     assert_eq!(sent.lines.len(), 2, "{:?}", sent.lines);
     assert_eq!(sent.stop, tape::Stop::bare(StopKind::Refused));
@@ -260,7 +265,7 @@ fn a_seat_projection_is_sent_as_a_tape_that_ends_on_its_stop() {
         |moment| {
             for env in &moment.frames {
                 if let Some(v1::envelope::Msg::StateDelta(delta)) = &env.msg {
-                    direct.push((moment.input, delta.seq, delta.view_json.clone()));
+                    direct.push((moment.input, delta.seq, delta.view_frame.clone()));
                 }
             }
             std::ops::ControlFlow::Continue(())
@@ -270,7 +275,7 @@ fn a_seat_projection_is_sent_as_a_tape_that_ends_on_its_stop() {
     assert_eq!(direct.len(), shown.len());
     for ((n, seq, json), view) in direct.iter().zip(&shown) {
         assert_eq!((*n, *seq), (view.n, view.seq));
-        assert_eq!(std::str::from_utf8(json).unwrap(), view.json.get());
+        assert_eq!(whole_json(json), view.json.get());
     }
 }
 
@@ -349,11 +354,10 @@ fn a_public_projection_is_headed_public_at_seat_zero() {
     let shown = views(&sent);
     assert!(shown.len() > 50);
     for view in shown {
-        let value: serde_json::Value = serde_json::from_str(view.json.get()).unwrap();
-        let spectator: baylee_view::SpectatorView =
-            serde_json::from_value(value.clone()).expect("a spectator's view");
-        assert_eq!(serde_json::to_value(spectator).unwrap(), value);
-        assert!(value.get("hand").is_none());
+        let view: baylee_view::PlayerView =
+            serde_json::from_str(view.json.get()).expect("a spectator's view");
+        assert!(view.hand.is_empty(), "no hand in the public stream");
+        assert!(view.looking_at.is_empty(), "nothing looked at");
     }
 }
 
@@ -459,7 +463,10 @@ fn direct_views(
                 if let Some(v1::envelope::Msg::StateDelta(delta)) = &env.msg {
                     direct.push((
                         moment.input,
-                        String::from_utf8(delta.view_json.clone()).unwrap(),
+                        serde_json::to_string(
+                            &baylee_view::ViewFrame::whole(&delta.view_frame).unwrap(),
+                        )
+                        .unwrap(),
                     ));
                 }
             }

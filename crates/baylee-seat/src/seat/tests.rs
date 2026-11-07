@@ -55,7 +55,7 @@ fn view_at(seq: u64, remaining_ms: Option<u32>) -> Vec<u8> {
     frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: "test-game".into(),
         seq,
-        view_json: serde_json::to_vec(&view).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&view),
         log_json: Vec::new(),
     }))
 }
@@ -905,7 +905,7 @@ fn no_prompt_names_a_player_or_the_game() {
     let steps = core.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: GAME.into(),
         seq: 1,
-        view_json: serde_json::to_vec(&seen).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&seen),
         log_json: serde_json::to_vec(&tail).unwrap(),
     })));
     assert!(is_ready(&steps), "{steps:?}");

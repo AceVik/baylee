@@ -237,15 +237,18 @@ message GameStaticMsg {
 message StateDelta {
   string game_id = 1;
   uint64 seq = 2;
-  // serde_json-encoded baylee_view::PlayerView. Never empty.
-  bytes view_json = 3;
+  // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+  // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+  // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+  // carries more of a long log. docs/protocol.md, "Views as patches".
+  bytes view_frame = 3;
   // serde_json-encoded baylee_view::LogTail: this seat's game log since the
   // last tail it was sent, beside the view and never inside it (#262). Empty
   // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-  // entries; when more are waiting, several frames go out in one go, each
-  // repeating the same view and seq with the next part of the log. A client
-  // reads log_json from every frame, including one whose view it drops as not
-  // newer. docs/protocol.md, "The game log".
+  // entries; when more are waiting, several frames go out in one go, the first
+  // with the view and the others with the next part of the log and the same
+  // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+  // log".
   bytes log_json = 4;
 }
 

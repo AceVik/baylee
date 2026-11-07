@@ -369,7 +369,7 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // names the shape.
     // `PublicObject::name` is a `SharedName`: the same string on the wire
     // (`shared_name.rs` tests it), so 86 still names the shape.
-    const RECORDED: (u32, u64) = (86, 6_924_767_177_718_184_452);
+    const RECORDED: (u32, u64) = (87, 14_781_493_616_329_904_121);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

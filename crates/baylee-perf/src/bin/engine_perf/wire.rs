@@ -15,7 +15,7 @@ use baylee_engine::choice::Pending;
 use baylee_gamehost::PlayerView;
 use baylee_protocol::v1::Envelope;
 use baylee_protocol::v1::envelope::Msg;
-use baylee_view::{ViewPatch, Zone, ZoneEdit, apply, diff, digest};
+use baylee_view::{ViewPatch, ViewReader, Zone, ZoneEdit, apply, diff, digest};
 use prost::Message as _;
 use serde::Serialize;
 use serde_json::Value;
@@ -95,9 +95,9 @@ struct SeatWire {
     all: Count,
     /// `StateDelta`.
     state: Count,
-    /// `StateDelta`s that repeat a view to carry the rest of a long log.
+    /// `StateDelta`s that carry only the rest of a long log.
     repeats: u64,
-    /// `view_json` of those.
+    /// What the views came to whole, as JSON.
     view_bytes: u64,
     /// `log_json` of those.
     log_bytes: u64,
@@ -128,6 +128,9 @@ struct SeatWire {
     by_field: BTreeMap<String, Count>,
     costs: Costs,
     last_view: Option<PlayerView>,
+    reader: ViewReader,
+    /// What the view frames came to on the wire.
+    frame_bytes: u64,
     last_legal: Option<Vec<u8>>,
 }
 
@@ -183,34 +186,35 @@ fn objects_in(view: &PlayerView) -> u64 {
 }
 
 impl SeatWire {
-    fn state(&mut self, seq: u64, view_json: &[u8], log_json: &[u8], bytes: usize) {
+    fn state(&mut self, frame: &[u8], log_json: &[u8], bytes: usize) {
         self.state.add(bytes);
-        self.view_bytes += view_json.len() as u64;
+        self.frame_bytes += frame.len() as u64;
         self.log_bytes += log_json.len() as u64;
+        if frame.is_empty() {
+            self.repeats += 1;
+            return;
+        }
         let started = Instant::now();
-        let view: PlayerView = serde_json::from_slice(view_json).expect("a seat is sent a view");
+        let view = self
+            .reader
+            .read(frame)
+            .expect("a seat's frame places")
+            .expect("a seat holds a view")
+            .clone();
         self.costs.read_view += started.elapsed().as_nanos();
         let started = Instant::now();
-        let written = serde_json::to_vec(&view).expect("a view serializes");
+        let whole = serde_json::to_vec(&view).expect("a view serializes").len() as u64;
         self.costs.write_view += started.elapsed().as_nanos();
-        assert_eq!(written, view_json, "a view reads back as it was written");
+        self.view_bytes += whole;
         let started = Instant::now();
         let fingerprint = digest(&view);
         self.costs.digest += started.elapsed().as_nanos();
         std::hint::black_box(fingerprint);
-        if self
-            .last_view
-            .as_ref()
-            .is_some_and(|last| last.seq == seq && *last == view)
-        {
-            self.repeats += 1;
-            return;
-        }
         self.since_question += 1;
         let moved = if let Some(last) = self.last_view.take() {
             self.patch(&last, &view)
         } else {
-            self.snapshot = view_json.len() as u64;
+            self.snapshot = whole;
             true
         };
         self.moved_since_question += u64::from(moved);
@@ -299,6 +303,7 @@ impl SeatWire {
         self.state.merge(other.state);
         self.repeats += other.repeats;
         self.view_bytes += other.view_bytes;
+        self.frame_bytes += other.frame_bytes;
         self.log_bytes += other.log_bytes;
         self.question.merge(other.question);
         self.priority.merge(other.priority);
@@ -452,7 +457,7 @@ impl Wire {
         seat.all.add(bytes);
         match &frame.msg {
             Some(Msg::StateDelta(delta)) => {
-                seat.state(delta.seq, &delta.view_json, &delta.log_json, bytes);
+                seat.state(&delta.view_frame, &delta.log_json, bytes);
             }
             Some(Msg::ChoiceRequest(choice)) => seat.question(&choice.pending_json, bytes),
             Some(Msg::GameStatic(_)) => seat.statics.add(bytes),
@@ -529,9 +534,10 @@ impl Wire {
             );
         }
         println!(
-            "  in StateDelta: view {} bytes ({:.1}% of all), log {} bytes ({:.1}%), {} frames repeat a view for its log",
+            "  in StateDelta: view frames {} bytes ({:.1}% of all), whole views would be {}, log {} bytes ({:.1}%), {} frames carry only a log",
+            all.frame_bytes,
+            share(all.frame_bytes, all.all.bytes),
             all.view_bytes,
-            share(all.view_bytes, all.all.bytes),
             all.log_bytes,
             share(all.log_bytes, all.all.bytes),
             all.repeats,

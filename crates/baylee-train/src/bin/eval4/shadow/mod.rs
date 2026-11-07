@@ -294,7 +294,7 @@ impl ShadowGame {
     /// watching model's answer to it, heard first where no frame carried
     /// it. A seat it does not watch has none.
     #[cfg_attr(not(feature = "llm"), allow(unused_variables, clippy::unused_self))]
-    pub(super) fn prepare(&mut self, session: &Session, seat: PlayerId, seq: u64) {
+    pub(super) fn prepare(&mut self, session: &mut Session, seat: PlayerId, seq: u64) {
         #[cfg(feature = "llm")]
         if let Teacher::Llm {
             watcher, answer, ..

@@ -81,6 +81,13 @@ fn raw(bytes: &[u8]) -> Option<Box<RawValue>> {
     RawValue::from_string(text.to_owned()).ok()
 }
 
+/// The whole view a moment's frame holds, as a tape keeps it: JSON, and readable
+/// without any frame before it.
+fn whole_view(frame: &[u8]) -> Option<Box<RawValue>> {
+    let view = baylee_view::ViewFrame::whole(frame)?;
+    raw(&serde_json::to_vec(&view).ok()?)
+}
+
 /// The tape lines one moment's frames are.
 fn lines_of(moment: &Moment) -> Vec<Line> {
     let mut out = Vec::new();
@@ -95,7 +102,7 @@ fn lines_of(moment: &Moment) -> Vec<Line> {
                 }
             }
             Some(v1::envelope::Msg::StateDelta(delta)) => {
-                if let Some(json) = raw(&delta.view_json) {
+                if let Some(json) = whole_view(&delta.view_frame) {
                     out.push(Line::View(tape::View {
                         at: moment.at,
                         n: moment.input,

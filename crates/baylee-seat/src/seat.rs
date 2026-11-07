@@ -512,6 +512,12 @@ impl SeatCore {
                 Vec::new()
             }
             Heard::Incompatible(why) => self.leave(why),
+            // Having seen nothing is the one way to be sent a whole view
+            // whatever the table thinks this seat holds.
+            Heard::Lost(why) => {
+                self.note(0, Event::TableSaid { message: why });
+                self.resume_from(0)
+            }
             Heard::Unreadable(why) => {
                 self.note(0, Event::TableSaid { message: why });
                 Vec::new()
@@ -637,6 +643,11 @@ impl SeatCore {
         {
             current.resumed = true;
         }
+        self.resume_from(self.memory.last_seq())
+    }
+
+    /// Asks the table for what came after `last_seq`.
+    fn resume_from(&self, last_seq: u64) -> Vec<Step> {
         self.context
             .as_ref()
             .map(|context| {
@@ -646,7 +657,7 @@ impl SeatCore {
                         // The socket is bound to the seat; the token proves
                         // nothing more here and would only travel further.
                         seat_token: String::new(),
-                        last_seq: self.memory.last_seq(),
+                        last_seq,
                     })),
                 })
             })

@@ -175,7 +175,7 @@ impl Watcher {
     /// question first where no frame carried it.
     pub(in crate::shadow) fn answer_now(
         &mut self,
-        session: &Session,
+        session: &mut Session,
         seq: u64,
     ) -> Option<(u64, PlayerAction)> {
         if self.heard_seq != Some(seq) {

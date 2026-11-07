@@ -282,7 +282,7 @@ fn last_view(envelopes: &[Envelope], seat: u32) -> Option<baylee_gamehost::Playe
         .into_iter()
         .filter_map(|(s, msg)| match msg {
             v1::envelope::Msg::StateDelta(delta) if s == seat => {
-                serde_json::from_slice::<baylee_gamehost::PlayerView>(&delta.view_json).ok()
+                baylee_view::ViewFrame::whole(&delta.view_frame)
             }
             _ => None,
         })

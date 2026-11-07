@@ -215,6 +215,16 @@ mod refused {
         }
     }
 
+    /// One seat's patch is that seat's cards: it lands on no other's view.
+    #[test]
+    fn a_patch_of_another_seat_is_refused() {
+        let other = PlayerId::new(1);
+        assert_eq!(
+            patched(&table(), |patch| patch.seat = other),
+            Err(PatchError::OtherSeat(other))
+        );
+    }
+
     #[test]
     fn a_patch_for_another_view_is_a_gap() {
         let old = table();
@@ -443,7 +453,7 @@ fn the_digest_notices_every_kind_of_change() {
 
 /// One edit to a view; [`arbitrary_view`] plays a list of them.
 #[derive(Clone, Debug)]
-enum Edit {
+pub(super) enum Edit {
     Enter { zone: u8, id: u32, at: usize },
     Leave { zone: u8, at: usize },
     Change { zone: u8, at: usize, by: u16 },
@@ -472,7 +482,7 @@ fn zone_of(view: &mut PlayerView, zone: u8) -> &mut Vec<PublicObject> {
     }
 }
 
-fn play(view: &mut PlayerView, edit: &Edit) {
+pub(super) fn play(view: &mut PlayerView, edit: &Edit) {
     match *edit {
         Edit::Enter { zone, id, at } => {
             let list = zone_of(view, zone);
@@ -534,7 +544,7 @@ fn play(view: &mut PlayerView, edit: &Edit) {
     }
 }
 
-fn edit() -> impl Strategy<Value = Edit> {
+pub(super) fn edit() -> impl Strategy<Value = Edit> {
     prop_oneof![
         8 => (0..28_u8, 1..64_u32, any::<usize>())
             .prop_map(|(zone, id, at)| Edit::Enter { zone, id, at }),

@@ -132,7 +132,7 @@ fn view(seq: u64, life: i32) -> Vec<u8> {
     frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: "test-game".into(),
         seq,
-        view_json: serde_json::to_vec(&view).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&view),
         log_json: Vec::new(),
     }))
 }
@@ -385,7 +385,7 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
     let delta = frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: "test-game".into(),
         seq: 1,
-        view_json: serde_json::to_vec(&wire).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&wire),
         log_json: Vec::new(),
     }));
     seat.hear(&delta).unwrap();
@@ -400,7 +400,7 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
     seat.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: "test-game".into(),
         seq: 2,
-        view_json: serde_json::to_vec(&wire).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&wire),
         log_json: Vec::new(),
     })))
     .unwrap();
@@ -595,7 +595,7 @@ fn live_audit_retains_exact_runtime_probability_and_outgoing_action_identity() {
         "ChooseColor",
         "action_json",
         "pending_json",
-        "view_json",
+        "view_frame",
     ] {
         assert!(!serialized.contains(forbidden));
     }
@@ -648,7 +648,7 @@ fn semantic_audit_history_ignores_socket_timing_while_exact_view_identity_retain
         seat.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: "test-game".into(),
             seq,
-            view_json: serde_json::to_vec(&wire).unwrap(),
+            view_frame: baylee_view::ViewFrame::snapshot_of(&wire),
             log_json: Vec::new(),
         })))
         .unwrap();
@@ -825,7 +825,7 @@ fn a_decision_for_a_controlled_player_is_answered() {
         frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: "test-game".into(),
             seq,
-            view_json: serde_json::to_vec(&view).unwrap(),
+            view_frame: baylee_view::ViewFrame::snapshot_of(&view),
             log_json: Vec::new(),
         }))
     };

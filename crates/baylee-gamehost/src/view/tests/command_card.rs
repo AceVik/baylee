@@ -89,7 +89,7 @@ fn latest_view(routed: &[(PlayerId, Envelope)], seat: PlayerId) -> PlayerView {
         .filter(|(to, _)| *to == seat)
         .find_map(|(_, env)| match &env.msg {
             Some(v1::envelope::Msg::StateDelta(delta)) => {
-                Some(serde_json::from_slice(&delta.view_json).expect("the view decodes"))
+                Some(baylee_view::ViewFrame::whole(&delta.view_frame).expect("the view decodes"))
             }
             _ => None,
         })
@@ -98,12 +98,10 @@ fn latest_view(routed: &[(PlayerId, Envelope)], seat: PlayerId) -> PlayerView {
 
 /// The view `seat` would be sent now, out of a snapshot.
 fn snapshot_view(session: &Session, seat: PlayerId) -> PlayerView {
-    let routed: Vec<_> = session
-        .snapshot(seat)
-        .into_iter()
-        .map(|env| (seat, env))
-        .collect();
-    latest_view(&routed, seat)
+    baylee_view::ViewFrame::whole(&baylee_view::ViewFrame::snapshot_of(
+        &session.seat_view(seat),
+    ))
+    .expect("a whole view decodes")
 }
 
 /// Every object id that appears anywhere in a view, a looked-at card and a

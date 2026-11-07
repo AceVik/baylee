@@ -181,16 +181,8 @@ fn split_preset() -> GamePreset {
 
 /// The view a seat is sent, decoded back out of its envelope.
 pub(crate) fn seat_view(session: &Session, seat: PlayerId) -> baylee_view::PlayerView {
-    session
-        .snapshot(seat)
-        .into_iter()
-        .find_map(|e| match e.msg {
-            Some(v1::envelope::Msg::StateDelta(delta)) => {
-                Some(serde_json::from_slice(&delta.view_json).expect("the view decodes"))
-            }
-            _ => None,
-        })
-        .expect("every snapshot carries a view")
+    let frame = baylee_view::ViewFrame::snapshot_of(&session.seat_view(seat));
+    baylee_view::ViewFrame::whole(&frame).expect("the view decodes")
 }
 
 /// The same, out of what an action actually *sent* the seat.
@@ -208,7 +200,7 @@ pub(crate) fn routed_view(
         .filter(|(s, _)| *s == seat)
         .find_map(|(_, e)| match &e.msg {
             Some(v1::envelope::Msg::StateDelta(delta)) => {
-                Some(serde_json::from_slice(&delta.view_json).expect("the view decodes"))
+                Some(baylee_view::ViewFrame::whole(&delta.view_frame).expect("the view decodes"))
             }
             _ => None,
         })

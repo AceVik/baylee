@@ -13,7 +13,7 @@ use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogTail, PlayerView};
+use baylee_view::{GameStatic, LogTail, PlayerView, ViewReader};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod background;
@@ -235,18 +235,35 @@ pub struct ResumePoint {
     pub hash: String,
 }
 
+/// `text`, as one short line of what can be seen.
+fn one_line(text: &str) -> String {
+    baylee_protocol::refusal::clean_text(text).unwrap_or_default()
+}
+
+/// What one seat's frames have left it. A frame may be a patch on the last
+/// view, so a host keeps this for as long as it reads the seat.
+#[derive(Debug, Default)]
+pub(crate) struct SeatViews {
+    reader: ViewReader,
+    /// A frame could not be placed: the view held stands, and the table has
+    /// to be asked for a whole one.
+    lost: bool,
+}
+
+impl SeatViews {
+    /// Whether the table has to be asked for a whole view, once.
+    pub(crate) const fn take_lost(&mut self) -> bool {
+        std::mem::replace(&mut self.lost, false)
+    }
+}
+
 /// Decodes one server envelope into the message a client acts on.
 ///
 /// Every host shares this: the in-process one and the networked one differ in
 /// where the bytes come from, never in what they mean. Envelopes this client
 /// has no use for (heartbeats, the handshake) decode to nothing rather than to
 /// an error — a server is allowed to say more than a renderer listens to.
-/// `text`, as one short line of what can be seen.
-fn one_line(text: &str) -> String {
-    baylee_protocol::refusal::clean_text(text).unwrap_or_default()
-}
-
-pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
+pub(crate) fn host_message(envelope: Envelope, views: &mut SeatViews) -> Option<HostMessage> {
     Some(match envelope.msg? {
         v1::envelope::Msg::GameStatic(msg) => {
             if msg.view_version == baylee_view::VIEW_VERSION {
@@ -265,12 +282,17 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
                 ))
             }
         }
-        v1::envelope::Msg::StateDelta(delta) => {
-            match serde_json::from_slice::<PlayerView>(&delta.view_json) {
-                Ok(view) => HostMessage::View(Box::new(view), log_tail(&delta.log_json)),
-                Err(e) => HostMessage::Failed(format!("unreadable game state: {e}")),
+        v1::envelope::Msg::StateDelta(delta) => match views.reader.read(&delta.view_frame) {
+            Ok(Some(view)) => HostMessage::View(Box::new(view.clone()), log_tail(&delta.log_json)),
+            // A whole view is on its way, with the whole log: nothing here is
+            // news, and the table stays drawn as it is until it comes.
+            Ok(None) => return None,
+            Err(why) => {
+                bevy::log::warn!("asking the table for a whole view: {why}");
+                views.lost = true;
+                return None;
             }
-        }
+        },
         v1::envelope::Msg::ChoiceRequest(req) => {
             match serde_json::from_slice::<Pending>(&req.pending_json) {
                 Ok(pending) => HostMessage::Choice(Box::new(pending)),
@@ -316,6 +338,8 @@ pub struct LocalHost {
     /// The opening payload, still encoded — see [`LocalHost::absorb`].
     statics: Option<Envelope>,
     pending_out: Vec<HostMessage>,
+    /// What this seat's frames left it.
+    views: SeatViews,
     /// The game's record so far: the same JSON Lines a hosted game's engine
     /// writes (#315), taken from the session after every step.
     record: Vec<u8>,
@@ -378,6 +402,7 @@ impl LocalHost {
             seat,
             statics: Some(statics),
             pending_out: Vec::new(),
+            views: SeatViews::default(),
             record: Vec::new(),
             live: crate::records::LiveRecord::new(&record_name),
             deck: own_deck(&preset, seat),
@@ -422,6 +447,7 @@ impl LocalHost {
             seat,
             statics: Some(statics),
             pending_out: Vec::new(),
+            views: SeatViews::default(),
             live: crate::records::LiveRecord::continuing(record_name, record.len()),
             record,
             deck: own_deck(&preset, seat),
@@ -478,20 +504,26 @@ impl LocalHost {
             if player != self.seat {
                 continue;
             }
-            push_host_message(&mut self.pending_out, envelope);
+            push_host_message(&mut self.pending_out, envelope, &mut self.views);
+        }
+        // Nothing is lost between a session and this host, so a view that did
+        // not place is a bug here; a seat in a game is still owed its table.
+        if self.views.take_lost() {
+            for envelope in self.session.snapshot(self.seat) {
+                push_host_message(&mut self.pending_out, envelope, &mut self.views);
+            }
         }
     }
 }
 
 /// Folds a continuation `StateDelta` frame (same non-zero `seq`, contiguous
 /// non-empty [`LogTail`]) into the preceding [`HostMessage::View`] without
-/// decoding `view_json` again.
+/// rebuilding the board for it.
 ///
 /// `Session::frames_of` splits a step with more than `LOG_TAIL_CAP` log lines
-/// into several `StateDelta` frames carrying the same `seq` and `view_json`,
-/// each with the next slice of `LogTail`. Merging contiguous chunks at the
-/// host boundary avoids allocating dozens of identical multi-megabyte
-/// `PlayerView`s and rebuilding the board once per 200 log lines.
+/// into several `StateDelta` frames carrying the same `seq`, the first with the
+/// view and each with the next slice of `LogTail`. Merging contiguous chunks at
+/// the host boundary keeps from rebuilding the board once per 200 log lines.
 pub(crate) fn try_merge_log_chunk(out: &mut [HostMessage], envelope: &Envelope) -> bool {
     if let Some(v1::envelope::Msg::StateDelta(delta)) = &envelope.msg
         && delta.seq != 0
@@ -510,11 +542,15 @@ pub(crate) fn try_merge_log_chunk(out: &mut [HostMessage], envelope: &Envelope) 
 
 /// Decodes `envelope` and appends it to `out`, merging multi-chunk log tails
 /// that repeat the same `seq` via [`try_merge_log_chunk`].
-pub(crate) fn push_host_message(out: &mut Vec<HostMessage>, envelope: Envelope) {
+pub(crate) fn push_host_message(
+    out: &mut Vec<HostMessage>,
+    envelope: Envelope,
+    views: &mut SeatViews,
+) {
     if try_merge_log_chunk(out, &envelope) {
         return;
     }
-    if let Some(msg) = host_message(envelope) {
+    if let Some(msg) = host_message(envelope, views) {
         out.push(msg);
     }
 }
@@ -535,7 +571,7 @@ impl DuelHost for LocalHost {
         let opening = self.statics.take();
         let opens = opening.is_some();
         if let Some(statics) = opening {
-            out.extend(host_message(statics));
+            out.extend(host_message(statics, &mut self.views));
         }
         if opens || (self.pending_out.is_empty() && self.session.needs_pump()) {
             self.session.tell_time(wall_ms());
@@ -567,9 +603,9 @@ impl DuelHost for LocalHost {
             // every line of the game again for each one.
             Err(reason) => {
                 self.pending_out.push(HostMessage::Failed(reason));
-                let again = self.session.reask(self.seat);
-                self.pending_out
-                    .extend(again.into_iter().filter_map(host_message));
+                for envelope in self.session.reask(self.seat) {
+                    push_host_message(&mut self.pending_out, envelope, &mut self.views);
+                }
             }
         }
         self.take_the_record();
@@ -973,10 +1009,9 @@ pub(crate) mod tests {
             msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                 game_id: "g".to_string(),
                 seq: 1,
-                view_json: serde_json::to_vec(
+                view_frame: baylee_view::ViewFrame::snapshot_of(
                     &baylee_client_core::test_support::ViewBuilder::new(2).build(),
-                )
-                .expect("a view encodes"),
+                ),
                 log_json,
             })),
         };
@@ -992,26 +1027,86 @@ pub(crate) mod tests {
                 phase: None,
             }],
         };
-        let Some(HostMessage::View(_, Some(got))) =
-            host_message(frame(serde_json::to_vec(&told).expect("a tail encodes")))
-        else {
+        let mut views = SeatViews::default();
+        let Some(HostMessage::View(_, Some(got))) = host_message(
+            frame(serde_json::to_vec(&told).expect("a tail encodes")),
+            &mut views,
+        ) else {
             panic!("the frame's lines were not read");
         };
         assert_eq!(got, told);
         assert!(
             matches!(
-                host_message(frame(Vec::new())),
+                host_message(frame(Vec::new()), &mut views),
                 Some(HostMessage::View(_, None))
             ),
             "a frame with nothing new in its log is not a view"
         );
         assert!(
             matches!(
-                host_message(frame(b"{\"from\":".to_vec())),
+                host_message(frame(b"{\"from\":".to_vec()), &mut views),
                 Some(HostMessage::View(_, None))
             ),
             "a log that does not decode took its view with it"
         );
+    }
+
+    /// The frame of `view` at `seq`, as `sender` writes it.
+    fn told(sender: &mut baylee_view::ViewSender, view: &PlayerView) -> Envelope {
+        Envelope {
+            msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                game_id: "g".to_string(),
+                seq: view.seq,
+                view_frame: sender.next(view),
+                log_json: Vec::new(),
+            })),
+        }
+    }
+
+    #[test]
+    fn a_patch_reaches_the_table_as_the_whole_view_it_leaves() {
+        let mut sender = baylee_view::ViewSender::default();
+        let mut views = SeatViews::default();
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        host_message(told(&mut sender, &view), &mut views).expect("a view");
+        view.seq += 1;
+        view.turn += 4;
+        let Some(HostMessage::View(got, None)) = host_message(told(&mut sender, &view), &mut views)
+        else {
+            panic!("a patch is a view to the table");
+        };
+        assert_eq!(*got, view);
+        assert!(!views.take_lost());
+    }
+
+    /// A lost frame costs a question and nothing else: no failure in the
+    /// player's face, the table standing as it was, and one ask for however
+    /// many frames come before the whole view.
+    #[test]
+    fn a_frame_that_will_not_place_asks_for_a_whole_view_once() {
+        let mut sender = baylee_view::ViewSender::default();
+        let mut views = SeatViews::default();
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        host_message(told(&mut sender, &view), &mut views).expect("a view");
+        for step in 0..3 {
+            view.seq += 1;
+            view.turn += 1;
+            let _lost = (step == 0).then(|| told(&mut sender, &view));
+        }
+        view.seq += 1;
+        let frame = told(&mut sender, &view);
+        assert!(host_message(frame, &mut views).is_none());
+        assert!(views.take_lost(), "the table has to be asked");
+        view.seq += 1;
+        let frame = told(&mut sender, &view);
+        assert!(host_message(frame, &mut views).is_none());
+        assert!(!views.take_lost(), "and only once");
+        sender.forget();
+        let Some(HostMessage::View(got, None)) = host_message(told(&mut sender, &view), &mut views)
+        else {
+            panic!("the whole view mends it");
+        };
+        assert_eq!(*got, view);
     }
 
     #[test]
@@ -1019,7 +1114,7 @@ pub(crate) mod tests {
         use baylee_view::{LogEntry, LogEvent};
         let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
         view.seq = 7;
-        let view_json = serde_json::to_vec(&view).expect("a view encodes");
+        let view_frame = baylee_view::ViewFrame::snapshot_of(&view);
         let entry = |turn| LogEntry {
             at: 0,
             turn,
@@ -1033,7 +1128,7 @@ pub(crate) mod tests {
             msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                 game_id: "g".to_string(),
                 seq: 7,
-                view_json,
+                view_frame,
                 log_json: serde_json::to_vec(&LogTail {
                     from: 10,
                     entries: vec![entry(1), entry(2)],
@@ -1041,13 +1136,13 @@ pub(crate) mod tests {
                 .expect("tail encodes"),
             })),
         };
-        // Continuation chunk carries invalid view_json to prove it is never
-        // re-decoded once the first chunk for `seq = 7` is in `out`.
+        // A continuation chunk carries no view, only the next lines under the
+        // same `seq`.
         let second = Envelope {
             msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
                 game_id: "g".to_string(),
                 seq: 7,
-                view_json: b"not-decoded-again".to_vec(),
+                view_frame: Vec::new(),
                 log_json: serde_json::to_vec(&LogTail {
                     from: 12,
                     entries: vec![entry(3)],
@@ -1056,8 +1151,9 @@ pub(crate) mod tests {
             })),
         };
         let mut out = Vec::new();
-        push_host_message(&mut out, first);
-        push_host_message(&mut out, second);
+        let mut views = SeatViews::default();
+        push_host_message(&mut out, first, &mut views);
+        push_host_message(&mut out, second, &mut views);
         assert_eq!(out.len(), 1);
         let HostMessage::View(got_view, Some(got_tail)) = &out[0] else {
             panic!("expected one merged View message");
@@ -1078,7 +1174,8 @@ pub(crate) mod tests {
                 static_json: b"{}".to_vec(),
             })),
         };
-        let Some(HostMessage::Failed(reason)) = host_message(envelope) else {
+        let Some(HostMessage::Failed(reason)) = host_message(envelope, &mut SeatViews::default())
+        else {
             panic!("a version this client cannot render is refused, not rendered");
         };
         assert!(

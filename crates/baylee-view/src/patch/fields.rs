@@ -99,6 +99,7 @@ macro_rules! view_fields {
             let PlayerView {
                 $($field: _,)*
                 seq: _,
+                seat: _,
                 target_objects: _,
                 policy_acts: _,
                 seats: _,
@@ -123,7 +124,6 @@ view_fields! {
     Casting casting: Option<ObjectId>,
     AnnouncedCast announced_cast: Option<ObjectId>,
     AnnouncedX announced_x: Option<u32>,
-    Seat seat: PlayerId,
     Turn turn: u32,
     Phase phase: Phase,
     Step step: Step,

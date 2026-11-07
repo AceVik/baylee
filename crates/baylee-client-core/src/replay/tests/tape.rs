@@ -76,7 +76,7 @@ fn moments() -> Vec<TapeMoment> {
         msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: String::new(),
             seq: i as u64 + 1,
-            view_json: json(&view_of(i, spec, true)).into_bytes(),
+            view_frame: baylee_view::ViewFrame::snapshot_of(&view_of(i, spec, true)),
             log_json: log.map(|t| json(&t).into_bytes()).unwrap_or_default(),
         })),
     };
@@ -608,7 +608,7 @@ fn a_written_tape_keeps_its_payloads_as_written() {
                 game_id: String::new(),
                 seq: 1,
                 // A serialiser's spelling, not the sorted one.
-                view_json: serde_json::to_vec(&view_of(0, &spec, true)).expect("writes"),
+                view_frame: baylee_view::ViewFrame::snapshot_of(&view_of(0, &spec, true)),
                 log_json: Vec::new(),
             })),
         }],

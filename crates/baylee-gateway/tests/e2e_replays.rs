@@ -20,7 +20,7 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::tape::{self, Line, StopKind};
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, PlayerView, SpectatorView};
+use baylee_view::{GameStatic, PlayerView, ViewReader};
 use common::{Gateway, Socket, attach_agent, http, http_raw, json_field, login, spawn_gateway};
 use futures_util::SinkExt as _;
 use prost::Message as _;
@@ -76,10 +76,14 @@ async fn read_until<T>(
 }
 
 /// The seat's first question, which must be its opening mulligan.
-async fn first_question(ws: &mut Socket) -> Pending {
+async fn first_question(ws: &mut Socket, views: &mut ViewReader) -> Pending {
     read_until(ws, "a question", |msg| match msg {
         v1::envelope::Msg::ChoiceRequest(req) => {
             Some(serde_json::from_slice(&req.pending_json).expect("a pending question"))
+        }
+        v1::envelope::Msg::StateDelta(delta) => {
+            views.read(&delta.view_frame).expect("a view");
+            None
         }
         _ => None,
     })
@@ -157,8 +161,9 @@ async fn two_humans_to_the_end(gw: &Gateway, alice: &str, bob: &str) -> String {
     let (game, seat_a, seat_b) = start_two_seats(port, alice, bob);
     let mut ws_a = common::dial_seat(port, &game, &seat_a).await;
     let mut ws_b = common::dial_seat(port, &game, &seat_b).await;
-    for ws in [&mut ws_a, &mut ws_b] {
-        let first = first_question(ws).await;
+    let mut views = [ViewReader::default(), ViewReader::default()];
+    for (ws, views) in [&mut ws_a, &mut ws_b].into_iter().zip(&mut views) {
+        let first = first_question(ws, views).await;
         assert!(
             matches!(first, Pending::Mulligan { .. }),
             "a seat's first question is its mulligan: {first:?}"
@@ -166,9 +171,10 @@ async fn two_humans_to_the_end(gw: &Gateway, alice: &str, bob: &str) -> String {
         send_action(ws, &PlayerAction::MulliganKeep).await;
     }
     // Turn one has begun once a seat is shown a view of it.
+    let [views, _] = &mut views;
     read_until(&mut ws_a, "turn one", |msg| match msg {
         v1::envelope::Msg::StateDelta(delta) => {
-            let view: PlayerView = serde_json::from_slice(&delta.view_json).ok()?;
+            let view = views.read(&delta.view_frame).expect("a view")?;
             (view.turn >= 1).then_some(())
         }
         _ => None,
@@ -234,10 +240,10 @@ impl Tape {
     }
 
     /// The public-perspective views, decoded.
-    fn spectator_views(&self) -> Vec<SpectatorView> {
+    fn spectator_views(&self) -> Vec<PlayerView> {
         self.views
             .iter()
-            .map(|v| serde_json::from_str(v.json.get()).expect("a SpectatorView"))
+            .map(|v| serde_json::from_str(v.json.get()).expect("a public view"))
             .collect()
     }
 }
@@ -836,7 +842,7 @@ async fn a_seat_is_sent_its_own_view_and_the_public_the_spectators() {
         assert!(!p.spectator_views().is_empty());
         assert_eq!(p.stop.stop, StopKind::End);
         assert!(
-            !p.raw.contains("\"hand\":["),
+            p.spectator_views().iter().all(|view| view.hand.is_empty()),
             "no private hand in the public tape"
         );
     }

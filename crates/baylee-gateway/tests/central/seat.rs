@@ -2,7 +2,7 @@
 use super::{Runtime, common};
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::PlayerView;
+use baylee_view::{PlayerView, ViewReader};
 use futures_util::StreamExt as _;
 use std::sync::atomic::Ordering;
 
@@ -42,7 +42,8 @@ impl LiveSeat {
         let game_id = common::json_field(&game, "game_id").to_owned();
         let token = common::json_field(&game, "seat_token").to_owned();
         let mut socket = runtime.block_on(common::dial_seat(gateway.port, &game_id, &token));
-        let opening = runtime.block_on(asked(&mut socket));
+        let mut views = ViewReader::default();
+        let opening = runtime.block_on(asked(&mut socket, &mut views));
         runtime.block_on(async {
             common::send(&mut socket, &Envelope { msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
                 client_time_ms:4242, server_time_ms:0,
@@ -200,6 +201,7 @@ pub(super) struct ResumedSeat {
     pub(super) game: String,
     pub(super) token: String,
     socket: common::Socket,
+    views: ViewReader,
     view: PlayerView,
 }
 
@@ -225,11 +227,13 @@ impl ResumedSeat {
         );
         let token = common::json_field(&body, "seat_token").to_owned();
         let mut socket = runtime.block_on(common::dial_seat(gateway.port, &game, &token));
-        let view = runtime.block_on(asked(&mut socket));
+        let mut views = ViewReader::default();
+        let view = runtime.block_on(asked(&mut socket, &mut views));
         Self {
             game,
             token,
             socket,
+            views,
             view,
         }
     }
@@ -253,7 +257,7 @@ impl ResumedSeat {
                 })),
             },
         ));
-        let after = runtime.block_on(asked(&mut self.socket));
+        let after = runtime.block_on(asked(&mut self.socket, &mut self.views));
         assert!(
             after.seq > self.view.seq,
             "the new device can advance the same game"
@@ -273,13 +277,13 @@ impl ResumedSeat {
 }
 
 /// Read the current question and its view without resyncing or reattaching.
-async fn asked(socket: &mut common::Socket) -> PlayerView {
+async fn asked(socket: &mut common::Socket, views: &mut ViewReader) -> PlayerView {
     tokio::time::timeout(common::WAIT_BUDGET, async {
         let mut view = None;
         loop {
             match common::next_msg(socket).await {
                 Some(v1::envelope::Msg::StateDelta(delta)) => {
-                    view = Some(serde_json::from_slice(&delta.view_json).unwrap());
+                    view = views.read(&delta.view_frame).unwrap().cloned();
                 }
                 Some(v1::envelope::Msg::ChoiceRequest(_)) => {
                     if let Some(view) = view.take() {

@@ -280,6 +280,9 @@ impl<B: Brain4> LiveSeat4<B> {
                 bail!("table refused neural seat action: {class}; refusing silent fallback")
             }
             Heard::Incompatible(_) => bail!("incompatible live protocol or view version"),
+            // As a gap in the socket: a view skipped is recurrent history the
+            // net never saw, and a snapshot does not give it back.
+            Heard::Lost(_) => bail!("lost a live seat view; recurrent history is incomplete"),
             Heard::Unreadable(_) => bail!("unreadable live seat frame"),
             Heard::Other => {}
         }

@@ -28,7 +28,7 @@
 
 mod clock;
 
-use crate::host::{DuelHost, HostMessage, LinkState, host_message};
+use crate::host::{DuelHost, HostMessage, LinkState, SeatViews, host_message};
 use baylee_client_core::wsticket::{Socket as TicketSocket, Step, TicketAnswer, TicketDial};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::PlayerAction;
@@ -329,6 +329,8 @@ pub struct NetworkHost {
     outbox: Vec<Envelope>,
     /// Messages this host produced itself, rather than received.
     pending_out: Vec<HostMessage>,
+    /// What this seat's frames left it.
+    views: SeatViews,
     /// The protocol of a table that refused this client's (#271).
     ///
     /// Set in the same [`DuelHost::poll`] that drains the refusal and the
@@ -385,6 +387,7 @@ impl NetworkHost {
                 vec![a_person_answers()]
             },
             pending_out: Vec::new(),
+            views: SeatViews::default(),
             refused: None,
             closed: None,
             ticket_refusals: 0,
@@ -524,6 +527,26 @@ impl NetworkHost {
         self.last_seq
     }
 
+    /// Asks the table for a whole view when a frame could not be placed.
+    ///
+    /// Having seen nothing is what gets one, whatever the table thinks this
+    /// seat holds. Nothing is said for a spectator, who has nothing to say to
+    /// a table: the gateway asks for the public stream whole when a socket
+    /// falls behind.
+    fn ask_for_a_whole_view(&mut self) {
+        if !self.views.take_lost() || self.ticket.watch {
+            return;
+        }
+        let resume = Envelope {
+            msg: Some(v1::envelope::Msg::Resume(v1::ResumeGame {
+                game_id: self.ticket.game_id.clone(),
+                seat_token: self.ticket.seat_token.clone(),
+                last_seq: 0,
+            })),
+        };
+        self.outbox.insert(0, resume);
+    }
+
     /// Remembers how far along the game this client is.
     ///
     /// Both a view and a choice carry the number, and a seat can be sent
@@ -593,23 +616,6 @@ fn ticket_socket(ticket: &SeatTicket) -> TicketSocket<'_> {
             game_id: &ticket.game_id,
         }
     }
-}
-
-/// A spectator's frame as the renderer reads a seat's: its view is a
-/// `SpectatorView`, drawn from seat 0 with no hand and no question.
-fn watched_message(envelope: Envelope) -> Option<HostMessage> {
-    if let Some(v1::envelope::Msg::StateDelta(delta)) = &envelope.msg {
-        return Some(
-            match serde_json::from_slice::<baylee_view::SpectatorView>(&delta.view_json) {
-                Ok(view) => HostMessage::View(
-                    Box::new(view.into_player_view(PlayerId::new(0))),
-                    crate::host::log_tail(&delta.log_json),
-                ),
-                Err(e) => HostMessage::Failed(format!("unreadable game state: {e}")),
-            },
-        );
-    }
-    host_message(envelope)
 }
 
 /// What answers this seat, for the game's record (#315): a person. The
@@ -689,21 +695,17 @@ impl DuelHost for NetworkHost {
                             }
                             self.note_seq(&envelope);
                             self.note_refusal(&envelope);
-                            if !crate::host::try_merge_log_chunk(&mut out, &envelope) {
-                                let message = if self.ticket.watch {
-                                    watched_message(envelope)
-                                } else {
-                                    host_message(envelope)
-                                };
-                                if let Some(message) = message {
-                                    if let HostMessage::Static(statics) = &message {
-                                        // The table decides which chair this is; a
-                                        // ticket could only ever guess at it.
-                                        self.seat = statics.your_seat;
-                                    }
-                                    out.push(message);
+                            if !crate::host::try_merge_log_chunk(&mut out, &envelope)
+                                && let Some(message) = host_message(envelope, &mut self.views)
+                            {
+                                if let HostMessage::Static(statics) = &message {
+                                    // The table decides which chair this is; a
+                                    // ticket could only ever guess at it.
+                                    self.seat = statics.your_seat;
                                 }
+                                out.push(message);
                             }
+                            self.ask_for_a_whole_view();
                         }
                         Err(e) => out.push(HostMessage::Failed(format!("unreadable frame: {e}"))),
                     }

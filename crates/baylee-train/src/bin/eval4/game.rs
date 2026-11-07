@@ -400,7 +400,7 @@ fn play_one_table(
                 }
                 let proposal = if let Some(shadow) = shadow.as_deref_mut() {
                     if ans.provenance.source == SourceKind4::Net {
-                        shadow.prepare(&session, pid, view.seq);
+                        shadow.prepare(&mut session, pid, view.seq);
                         let (state, menu) = n
                             .policy_encoding(&view, &pending, teams)
                             .context("Shadow requires exact runtime encoding")?;

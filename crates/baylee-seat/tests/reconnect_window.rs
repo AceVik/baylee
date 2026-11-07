@@ -190,7 +190,7 @@ fn view_frame(seq: u64) -> Message {
     frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: GAME.into(),
         seq,
-        view_json: serde_json::to_vec(&view).unwrap(),
+        view_frame: baylee_view::ViewFrame::snapshot_of(&view),
         log_json: Vec::new(),
     }))
 }

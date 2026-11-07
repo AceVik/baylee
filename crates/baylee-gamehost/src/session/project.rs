@@ -335,6 +335,8 @@ impl Teller {
     /// What the perspective is sent before any input: the opening payload,
     /// the view and the log.
     fn opening(&mut self) -> Vec<Envelope> {
+        // A tape's moments stand alone: a reader jumps between them.
+        self.session.tell_views_whole();
         match self.lens {
             Lens::Seat { seat, own, .. } => {
                 let mut out = vec![if own {

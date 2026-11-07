@@ -314,7 +314,8 @@ fn the_reconnect_window_counts_from_the_loss_and_rides_the_view() {
         .into_iter()
         .find_map(|(s, msg)| match msg {
             v1::envelope::Msg::StateDelta(delta) if s == 1 => {
-                Some(String::from_utf8(delta.view_json).expect("json"))
+                baylee_view::ViewFrame::whole(&delta.view_frame)
+                    .map(|view| serde_json::to_string(&view).expect("json"))
             }
             _ => None,
         })

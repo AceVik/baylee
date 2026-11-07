@@ -1,9 +1,9 @@
-use super::{Session, by_clock, choice_envelope, clock_answer, state_frames};
+use super::{Session, by_clock, choice_envelope, clock_answer, frames_of};
 use crate::record::Source;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::Envelope;
-use baylee_view::{HouseAnswer, LogTail, PlayerView};
+use baylee_view::{HouseAnswer, LogTail, PlayerView, ViewFrame};
 
 /// How many settings one seat may change in a game. A setting moves nothing
 /// and is recorded, so it is the one thing a seat can write into a record
@@ -105,65 +105,49 @@ impl Session {
     /// when this seat is the one being asked (or the game is over, which
     /// everyone is told about).
     ///
-    /// Read-only on purpose. `pump` *advances* the game — it drives every AI
-    /// seat until a human is needed — so rebuilding a client through it
-    /// would let a reconnect take a turn on the AI's behalf.
+    /// Moves nothing in the game, on purpose. `pump` *advances* the game — it
+    /// drives every AI seat until a human is needed — so rebuilding a client
+    /// through it would let a reconnect take a turn on the AI's behalf. All it
+    /// changes is what the session remembers telling this seat, because the
+    /// next patch is a patch on this view.
     ///
     /// The log is here because a rebuild is asked for when frames were lost
     /// (a lagging socket, a `ResumeGame`), and the lines in them are gone
     /// with the views. A client appends by `LogTail::from`, so the lines it
     /// already holds cost bytes and nothing else.
-    #[must_use]
-    pub fn snapshot(&self, seat: PlayerId) -> Vec<Envelope> {
-        self.rebuild(seat, self.log_sent(seat))
+    pub fn snapshot(&mut self, seat: PlayerId) -> Vec<Envelope> {
+        // No printing is revealed here: this rebuilds a state a `pump` already
+        // showed this seat, and the reveal happened there.
+        let view = self.seat_view(seat);
+        let frame = self.sent.get_mut(seat.get() as usize).map_or_else(
+            || ViewFrame::snapshot_of(&view),
+            |sent| sent.snapshot(&view),
+        );
+        let log = self.log_sent(seat);
+        self.asked_again(seat, frame, log)
     }
 
     /// The seat's view and the question it owes, and no log: what a refused
     /// answer is handed back.
     ///
-    /// A refusal loses no frame, so the seat holds every line it was sent,
-    /// and a snapshot would send it the whole log again for each one — a
-    /// few bytes of action answered with every line of the game.
-    #[must_use]
-    pub fn reask(&self, seat: PlayerId) -> Vec<Envelope> {
-        self.rebuild(seat, LogTail::default())
+    /// A refusal loses no frame, so the seat holds its view and every line it
+    /// was sent, and a snapshot would send it the whole table and the whole log
+    /// again for each one — a few bytes of action answered with every line of
+    /// the game. Moves nothing in the game, as [`Self::snapshot`] does not.
+    pub fn reask(&mut self, seat: PlayerId) -> Vec<Envelope> {
+        let view = self.seat_view(seat);
+        let frame = self
+            .sent
+            .get_mut(seat.get() as usize)
+            .map_or_else(|| ViewFrame::snapshot_of(&view), |sent| sent.next(&view));
+        self.asked_again(seat, frame, LogTail::default())
     }
 
-    fn rebuild(&self, seat: PlayerId, log: LogTail) -> Vec<Envelope> {
-        let own = self.engine.pending_for(seat);
-        let awaiting = crate::view::awaiting_for(&self.engine, seat);
-        // Read-only, so no printing is revealed here: this rebuilds a state a
-        // `pump` already showed this seat, and the reveal happened there.
-        let mut view = crate::view::player_view(
-            self.engine.state(),
-            seat,
-            self.seq,
-            self.engine.information_pending_for(seat),
-            &crate::view::SeatContext {
-                awaiting,
-                controls: &crate::view::player_controls(&self.engine),
-                decision_player: crate::view::decision_player_for(&self.engine, seat),
-                controlled_players: self.engine.controlled_players(seat),
-                deciding: self.deciding(),
-                held: self.engine.automation(seat).hold.suppresses(),
-                owed: crate::view::owed_payment(&self.engine),
-                library_reveal_blocked: self.engine.library_reveal_blocked(),
-                inspected_cards: self.engine.inspected_cards(),
-                decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
-                policy_acts: &self.policy_acts,
-                ballots: self.engine.ballots(),
-            },
-            &self.house_answered,
-        );
-        view.targeting = crate::view::targeting_context(&self.engine, seat);
-        view.trigger_order = crate::view::trigger_order(&self.engine, seat);
-        view.casting = self.engine.cancellable_cast(seat);
-        view.clocks = self.running_clocks();
-        view.lost = self.lost_seats();
-        self.show_hands(&mut view, seat);
-        let mut out = state_frames(self.seq, &view, log);
+    /// `frame` and `log`, then the question `seat` owes or the game's end.
+    fn asked_again(&self, seat: PlayerId, frame: Vec<u8>, log: LogTail) -> Vec<Envelope> {
+        let mut out = frames_of(self.seq, frame, log);
         let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));
-        if let Some(pending) = own.or(over) {
+        if let Some(pending) = self.engine.pending_for(seat).or(over) {
             out.push(choice_envelope(self.seq, pending));
         }
         out
@@ -173,9 +157,9 @@ impl Session {
     /// behind, nothing when it is already current.
     ///
     /// Returning nothing matters — a client that reconnects without having
-    /// missed anything should not be made to re-render the whole table.
-    #[must_use]
-    pub fn resume(&self, seat: PlayerId, last_seq: u64) -> Vec<Envelope> {
+    /// missed anything should not be made to re-render the whole table. A
+    /// client that lost its view says it has seen nothing, and is sent it.
+    pub fn resume(&mut self, seat: PlayerId, last_seq: u64) -> Vec<Envelope> {
         if last_seq >= self.seq {
             return Vec::new();
         }

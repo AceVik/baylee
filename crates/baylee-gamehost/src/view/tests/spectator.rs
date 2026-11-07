@@ -10,13 +10,13 @@ use crate::Session;
 use crate::session::tests::{a_kept_table, show_to};
 use crate::view::SPECTATOR;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogObject, LogTail, SpectatorView};
+use baylee_view::{GameStatic, LogObject, LogTail, PlayerView};
 
 /// What a spectator is sent, decoded: the payload, the latest view, and
 /// every log line.
 struct Sent {
     statics: GameStatic,
-    view: SpectatorView,
+    view: PlayerView,
     log: LogTail,
 }
 
@@ -30,7 +30,7 @@ fn decode(frames: &[Envelope]) -> Sent {
                 statics = Some(serde_json::from_slice(&s.static_json).expect("static decodes"));
             }
             Some(v1::envelope::Msg::StateDelta(d)) => {
-                view = Some(serde_json::from_slice(&d.view_json).expect("view decodes"));
+                view = Some(baylee_view::ViewFrame::whole(&d.view_frame).expect("view decodes"));
                 if !d.log_json.is_empty() {
                     let part: LogTail = serde_json::from_slice(&d.log_json).expect("log decodes");
                     log.entries.extend(part.entries);
@@ -52,7 +52,7 @@ fn watched(session: &mut Session) -> Sent {
 }
 
 /// Every object id a spectator view carries.
-fn ids_in(view: &SpectatorView) -> Vec<ObjectId> {
+fn ids_in(view: &PlayerView) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     for zone in [&view.battlefield, &view.stack, &view.library_tops] {
         ids.extend(zone.iter().map(|o| o.id));
@@ -131,13 +131,7 @@ fn a_spectators_print_table_holds_only_what_it_saw() {
     let mut session = a_kept_table([None; 4], [false; 4]);
     session.pump();
     let sent = watched(&mut session);
-    let seen: Vec<_> = sent
-        .view
-        .clone()
-        .into_player_view(PlayerId::new(0))
-        .prints()
-        .chain(sent.log.prints())
-        .collect();
+    let seen: Vec<_> = sent.view.prints().chain(sent.log.prints()).collect();
     for (i, entry) in sent.statics.prints.iter().enumerate() {
         let print = baylee_core::ids::PrintRef::new(i as u16);
         assert_eq!(

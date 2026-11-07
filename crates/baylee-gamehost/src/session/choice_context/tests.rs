@@ -4,7 +4,6 @@ use baylee_core::preset::{
     DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController, SeatSpec,
 };
 use baylee_engine::choice::PlayerAction;
-use baylee_protocol::v1::envelope::Msg;
 use baylee_view::Phase;
 
 const OWNER: PlayerId = PlayerId::new(0);
@@ -72,17 +71,8 @@ fn act(session: &mut Session, action: PlayerAction) {
 }
 
 fn socket_view(session: &Session, seat: PlayerId) -> PlayerView {
-    session
-        .snapshot(seat)
-        .iter()
-        .find_map(|envelope| {
-            if let Some(Msg::StateDelta(delta)) = &envelope.msg {
-                Some(serde_json::from_slice(&delta.view_json).unwrap())
-            } else {
-                None
-            }
-        })
-        .expect("socket snapshot contains the authorized view")
+    let frame = baylee_view::ViewFrame::snapshot_of(&session.seat_view(seat));
+    baylee_view::ViewFrame::whole(&frame).expect("the authorized view decodes")
 }
 
 fn assert_context_parity(session: &Session) {

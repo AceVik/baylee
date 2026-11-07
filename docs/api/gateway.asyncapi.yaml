@@ -274,15 +274,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -972,15 +975,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -1689,15 +1695,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -2348,15 +2357,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -2760,7 +2772,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `state_delta`: the seat's view after something changed. `seq` is what a `ResumeGame` names; `view_json` is a `PlayerView` as JSON; `log_json` is a `LogTail` as JSON (the seat's game log lines since the last tail, appended by its `from`), empty when there is none. Several frames may repeat a view and `seq` to carry a long log, so read `log_json` from every frame."
+        description: "Envelope case `state_delta`: the seat's view after something changed. `seq` is what a `ResumeGame` names; `view_frame` is a `ViewFrame`, the whole view or what changed since the last one (`docs/protocol.md`, Views as patches), and empty on a frame that only carries more of a long log; `log_json` is a `LogTail` as JSON (the seat's game log lines since the last tail, appended by its `from`), empty when there is none. Several frames may share a `seq` to carry a long log, so read `log_json` from every frame."
         x-protobuf-message: baylee.v1.Envelope
       ChoiceRequest:
         name: ChoiceRequest
@@ -3007,15 +3019,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -3668,15 +3683,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -4331,15 +4349,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -5046,15 +5067,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -5705,15 +5729,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -6117,7 +6144,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `state_delta`: the public table. `view_json` is a `SpectatorView` as JSON (no private hand, question, looked-at card, clock or policy, and a face-down card is a blank); `log_json` is a `LogTail` as JSON, the game log as nobody in particular may know it, appended by its `from`."
+        description: "Envelope case `state_delta`: the public table. `view_frame` is a `ViewFrame` of the public view drawn from seat 0 (no private hand, question, looked-at card, clock or policy, and a face-down card is a blank), whole on arrival and when a socket falls behind, then what changed; `log_json` is a `LogTail` as JSON, the game log as nobody in particular may know it, appended by its `from`."
         x-protobuf-message: baylee.v1.Envelope
       ChoiceRequest:
         name: ChoiceRequest
@@ -6364,15 +6391,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -7023,15 +7053,18 @@ channels:
             message StateDelta {
               string game_id = 1;
               uint64 seq = 2;
-              // serde_json-encoded baylee_view::PlayerView. Never empty.
-              bytes view_json = 3;
+              // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+              // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+              // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+              // carries more of a long log. docs/protocol.md, "Views as patches".
+              bytes view_frame = 3;
               // serde_json-encoded baylee_view::LogTail: this seat's game log since the
               // last tail it was sent, beside the view and never inside it (#262). Empty
               // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-              // entries; when more are waiting, several frames go out in one go, each
-              // repeating the same view and seq with the next part of the log. A client
-              // reads log_json from every frame, including one whose view it drops as not
-              // newer. docs/protocol.md, "The game log".
+              // entries; when more are waiting, several frames go out in one go, the first
+              // with the view and the others with the next part of the log and the same
+              // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+              // log".
               bytes log_json = 4;
             }
 
@@ -8279,15 +8312,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -8938,15 +8974,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -9597,15 +9636,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -10256,15 +10298,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -10915,15 +10960,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -11574,15 +11622,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -12233,15 +12284,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -12898,15 +12952,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -13557,15 +13614,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -14216,15 +14276,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -14875,15 +14938,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -15534,15 +15600,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -16193,15 +16262,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -16852,15 +16924,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -17517,15 +17592,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -18176,15 +18254,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -18841,15 +18922,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -19500,15 +19584,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -20159,15 +20246,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -20818,15 +20908,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -21477,15 +21570,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -22136,15 +22232,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -22795,15 +22894,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -23454,15 +23556,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -24113,15 +24218,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -24772,15 +24880,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -25431,15 +25542,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -26090,15 +26204,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -26749,15 +26866,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -27408,15 +27528,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -28067,15 +28190,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -28726,15 +28852,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -29385,15 +29514,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -30044,15 +30176,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 
@@ -30703,15 +30838,18 @@ components:
           message StateDelta {
             string game_id = 1;
             uint64 seq = 2;
-            // serde_json-encoded baylee_view::PlayerView. Never empty.
-            bytes view_json = 3;
+            // For a seat, a baylee_view::ViewFrame: the whole view, or what changed
+            // since the last one, read by a baylee_view::ViewReader. For a spectator, a
+            // serde_json-encoded baylee_view::SpectatorView. Empty on a frame that only
+            // carries more of a long log. docs/protocol.md, "Views as patches".
+            bytes view_frame = 3;
             // serde_json-encoded baylee_view::LogTail: this seat's game log since the
             // last tail it was sent, beside the view and never inside it (#262). Empty
             // when there is nothing new. A tail holds at most baylee_view::LOG_TAIL_CAP
-            // entries; when more are waiting, several frames go out in one go, each
-            // repeating the same view and seq with the next part of the log. A client
-            // reads log_json from every frame, including one whose view it drops as not
-            // newer. docs/protocol.md, "The game log".
+            // entries; when more are waiting, several frames go out in one go, the first
+            // with the view and the others with the next part of the log and the same
+            // seq. A client reads log_json from every frame. docs/protocol.md, "The game
+            // log".
             bytes log_json = 4;
           }
 

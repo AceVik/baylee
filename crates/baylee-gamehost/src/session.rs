@@ -15,7 +15,7 @@ use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{
-    ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct, WrittenObjects,
+    ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct, ViewSender,
 };
 
 use crate::log::GameLog;
@@ -236,12 +236,12 @@ pub struct Session {
     ///
     /// Not game state, for the reason `revealed` is not: it is what a seat
     /// has been *told*. It starts again at 0 when a socket attaches
-    /// ([`Session::retell_log`]).
+    /// ([`Session::retell`]).
     told: Vec<usize>,
-    /// Per seat, what its last view said of each object, written again while
-    /// the object has not changed. Never shared: what an object shows depends
-    /// on the seat. Not game state, for the reason `told` is not.
-    written: Vec<WrittenObjects>,
+    /// Per seat, the view it was last told, which its next frame is a patch on.
+    /// Never shared: what a view shows depends on the seat. Not game state, for
+    /// the reason `told` is not.
+    sent: Vec<ViewSender>,
     /// Per seat, the teammates it shows its hand to (#265).
     ///
     /// Not game state: showing a hand moves nothing in the game, so it never
@@ -322,7 +322,7 @@ impl Session {
             .collect::<Option<_>>()?;
         let engine = Engine::new(preset, RegistryLookup).ok()?;
         let log = GameLog::new(engine.state());
-        Some(Self {
+        let mut session = Self {
             engine,
             seats,
             scouting_decks: crate::scouting::decks(preset).into(),
@@ -351,11 +351,7 @@ impl Session {
             guests: Vec::new(),
             log,
             told: vec![0; preset.seats.len()],
-            written: preset
-                .seats
-                .iter()
-                .map(|_| WrittenObjects::default())
-                .collect(),
+            sent: vec![ViewSender::default(); preset.seats.len()],
             showing: vec![SeatSet::new(); preset.seats.len()],
             asking: vec![SeatSet::new(); preset.seats.len()],
             declined: BTreeMap::new(),
@@ -370,7 +366,14 @@ impl Session {
             fair_scouting: false,
             last_attempt: None,
             frames_read: true,
-        })
+        };
+        // A unit test reads a frame on its own, so it is sent whole views; a
+        // debug build goes on proving each patch beside them. The tests that
+        // read a stream are `tests/view_patches.rs` and the end-to-end suites.
+        if cfg!(test) {
+            session.tell_views_whole();
+        }
+        Some(session)
     }
 
     /// Enables or disables fair-scouting mode for AI seats.
@@ -559,73 +562,42 @@ fn clock_answer(pending: Option<&Pending>, action: &PlayerAction) -> ClockAnswer
     }
 }
 
-/// A seat's view and its log tail, as the frames that carry them.
+/// A view frame and its log tail, as the frames that carry them.
 ///
-/// Every frame is a whole view. A tail longer than [`LOG_TAIL_CAP`] lines is
-/// split over several frames, each repeating the same view and `seq`, so a
-/// client that drops a view as not newer still reads the lines beside it. No
-/// lines is one frame with an empty `log_json`.
-fn state_frames(seq: u64, view: &PlayerView, tail: LogTail) -> Vec<Envelope> {
-    frames_of(seq, view_json(view), tail)
-}
-
-/// [`state_frames`] for a view already written: a seat's or a spectator's.
-fn frames_of(seq: u64, view_json: Vec<u8>, tail: LogTail) -> Vec<Envelope> {
+/// A tail longer than [`LOG_TAIL_CAP`] lines is split over several frames. Only
+/// the first carries the view: a patch applies once. The others carry the next
+/// lines under the same `seq`. No lines is one frame with an empty `log_json`.
+fn frames_of(seq: u64, view_frame: Vec<u8>, tail: LogTail) -> Vec<Envelope> {
     let LogTail {
         mut from,
         mut entries,
     } = tail;
     if entries.is_empty() {
-        return vec![state_delta(seq, view_json, Vec::new())];
+        return vec![state_delta(seq, view_frame, Vec::new())];
     }
+    let mut view_frame = Some(view_frame);
     let mut out = Vec::with_capacity(entries.len().div_ceil(LOG_TAIL_CAP));
     while !entries.is_empty() {
         let rest = entries.split_off(entries.len().min(LOG_TAIL_CAP));
         let part = LogTail { from, entries };
         from = from.saturating_add(u32::try_from(part.entries.len()).unwrap_or(u32::MAX));
         let log_json = serde_json::to_vec(&part).unwrap_or_default();
-        out.push(state_delta(seq, view_json.clone(), log_json));
+        out.push(state_delta(
+            seq,
+            view_frame.take().unwrap_or_default(),
+            log_json,
+        ));
         entries = rest;
     }
     out
 }
 
-/// A view as the wire carries it, written into a buffer sized for a busy
-/// table up front: growing one from empty copied it a dozen times on the
-/// way to a four-seat board's tens of kilobytes.
-fn view_json<T: serde::Serialize + ?Sized>(view: &T) -> Vec<u8> {
-    let mut json = Vec::with_capacity(VIEW_JSON_HINT);
-    if serde_json::to_writer(&mut json, view).is_err() {
-        json.clear();
-    }
-    json
-}
-
-/// [`view_json`] for a seat told every view: the objects it was sent last time
-/// are written again from `written`, that seat's own. The two read the same, and
-/// a debug build proves it on every view of every test.
-fn seat_view_json(written: &mut WrittenObjects, view: &PlayerView) -> Vec<u8> {
-    let mut json = Vec::with_capacity(VIEW_JSON_HINT);
-    if written.write(&mut json, view).is_err() {
-        json.clear();
-    }
-    debug_assert!(
-        json == view_json(view),
-        "a written view reads as a plain one"
-    );
-    json
-}
-
-/// What a view's JSON is sized for before it is written: a busy four-seat
-/// board is about 36 KB (`docs/perf-client.md`).
-const VIEW_JSON_HINT: usize = 40 << 10;
-
-fn state_delta(seq: u64, view_json: Vec<u8>, log_json: Vec<u8>) -> Envelope {
+fn state_delta(seq: u64, view_frame: Vec<u8>, log_json: Vec<u8>) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: String::new(),
             seq,
-            view_json,
+            view_frame,
             log_json,
         })),
     }

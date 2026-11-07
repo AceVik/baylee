@@ -1977,3 +1977,45 @@ nothing and folds a word at a time; it walks `Serialize`, so it covers what the 
   related or not, with ids repeated and seats changing; a stream of patches applied to what the last
   left; damaged and made-up patches, which are refused or leave what their digest says and never
   panic; twenty thousand objects reversed, so quadratic work would show.
+
+## Views go as patches (2026-11-07)
+
+Patches are in the game path, still as JSON (`docs/protocol.md` §"Views as patches"): `Session` holds a
+`ViewSender` per seat and one for the spectators, and the client, the language-model seats and the
+net's seat read through a `ViewReader`. `WrittenObjects` is gone, since a view is no longer written
+whole. The tables above were whole views; this is what the same games now send.
+
+| Per seat and game | Before | Now | Fewer |
+|---|---:|---:|---:|
+| `wire` | 4 531 KB | 599 KB | 7.6× |
+| `wire --four` | 16 506 KB | 1 264 KB | 13.1× |
+| `table` | 12 809 KB | 851 KB | 15.1× |
+| `table --four` | 65 720 KB | 1 873 KB | 35.1× |
+
+The frame counts did not move. What is left at `table --four`: view frames 63.8 %, `GameStatic` 20.0 %,
+log 8.3 %, questions 6.5 %.
+
+**Every view is the view it was.** `--verify` now digests what a frame means and not its bytes: for a
+`StateDelta` the view a reader is left with and its log, for a question the question, for `GameStatic`
+its payload less the version, each as JSON with its default entries left out, so a build that encodes
+the wire differently still compares. Against the commit before patches, built with those same digests,
+all of `house`, `frames`, `decide`, `search`, `table` and `table --four` print the same line for every
+game: `actions`, `views` and `hashes`. In `frames` and both `table`s those views came through real
+patches and real readers.
+
+**What is proved where:**
+
+- `ViewSender::next` applies every patch it makes and compares the result with the view, in every debug
+  build, so a debug client or test proves its stream as it runs.
+- A unit test in `baylee-gamehost` or `baylee-engine-server` reads one frame at a time, so its session
+  is told whole views (`Session::tell_views_whole`, which a replay uses too). The patch is still built
+  and proved beside each of those frames. What reads real streams: `tests/view_patches.rs`, the stream
+  tests in `session/tests/frames.rs` (four seats, a snapshot mid-stream, a new socket, spectators arriving),
+  `engine-server/tests/e2e.rs` and the gateway's end-to-end suites.
+
+**The server's CPU did not move, and that is the honest number so far.** `frames` is 1.41 s before and 1.44 s
+now, user time over three alternating runs on a quiet machine (`tools` profile; `valgrind` is not
+installed here and `perf` is refused). `WrittenObjects` had already taken most of what writing cost, and
+a `diff`, a `digest` and a clone of the view to keep take about what it took. The gain so far is on the
+wire and in the client, whose read goes from 83 µs to 21 µs a view (§"Costs" above). What a server does
+per view now is build it, and that is follow-up 1 of the proposal.

@@ -13,8 +13,8 @@
 //! [`PlayerView`] cannot represent, a patch cannot carry, so the rule the view
 //! is built on needs no second check here. Both views must be the same seat's:
 //! a patch between two seats' views would be that seat's cards in the other's
-//! frame, so a host keeps its last view per seat, as it keeps
-//! [`WrittenObjects`](crate::WrittenObjects).
+//! frame, so a host keeps a [`ViewSender`] per seat, and a patch names its seat
+//! so that [`apply`] refuses it on any other's view.
 //!
 //! # What a patch holds
 //!
@@ -39,11 +39,13 @@ mod apply;
 mod diff;
 mod digest;
 mod fields;
+mod stream;
 
 pub use apply::apply;
 pub use diff::diff;
 pub use digest::{ViewDigest, digest};
 pub use fields::ViewField;
+pub use stream::{UnreadableFrame, ViewFrame, ViewLost, ViewReader, ViewSender};
 
 use crate::objects::{HandObject, PublicObject};
 use crate::seats::SeatView;
@@ -174,6 +176,9 @@ impl<T: PartialEq + Clone> ListEdit<T> {
 /// which one it is reading.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct ViewPatch {
+    /// Whose view this is: one byte, so that a patch is never applied to
+    /// another seat's view and a frame can be told whose it is without one.
+    pub seat: PlayerId,
     /// The [`PlayerView::seq`](crate::PlayerView::seq) this applies to.
     pub base: u64,
     /// The [`PlayerView::seq`](crate::PlayerView::seq) it leaves.
@@ -222,6 +227,8 @@ pub enum PatchError {
     BadOrder,
     /// A list edit keeps more of a list than the list holds.
     BadList,
+    /// The patch is another seat's.
+    OtherSeat(PlayerId),
     /// The zone patched holds one id twice, so an id does not name an object
     /// in it. Such a zone is only ever sent whole.
     Unkeyed(ObjectId),
@@ -243,6 +250,7 @@ impl std::fmt::Display for PatchError {
             Self::UnknownObject(id) => write!(f, "a patch names an unknown object: {id:?}"),
             Self::BadOrder => write!(f, "a patch's order is no order of its zone"),
             Self::BadList => write!(f, "a patch keeps more of a list than it holds"),
+            Self::OtherSeat(seat) => write!(f, "a patch of {seat:?} met another seat's view"),
             Self::Unkeyed(id) => write!(f, "a patched zone holds {id:?} twice"),
             Self::Digest { expected, found } => {
                 write!(f, "a patch left {found:?}, not {expected:?}")

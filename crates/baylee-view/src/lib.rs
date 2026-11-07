@@ -48,7 +48,6 @@ mod spectator;
 mod status;
 mod turn;
 mod wire;
-mod written;
 
 pub use combat::{AttackerView, BlockerView, CombatView};
 pub use counters::{CounterEntry, CounterKind};
@@ -63,7 +62,8 @@ pub use objects::{
     TokenAbility,
 };
 pub use patch::{
-    ListEdit, PatchError, ViewDigest, ViewField, ViewPatch, Zone, ZoneEdit, apply, diff, digest,
+    ListEdit, PatchError, UnreadableFrame, ViewDigest, ViewField, ViewFrame, ViewLost, ViewPatch,
+    ViewReader, ViewSender, Zone, ZoneEdit, apply, diff, digest,
 };
 pub use player_view::{
     Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
@@ -75,7 +75,6 @@ pub use shown_hands::{SeatSetting, SharedHand};
 pub use spectator::SpectatorView;
 pub use status::ObjectStatus;
 pub use turn::{DayNight, Phase, Step};
-pub use written::WrittenObjects;
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
@@ -263,7 +262,10 @@ pub use written::WrittenObjects;
 /// (CR 603.3b): `ArrangePrompt::TriggerOrder` and `ArrangePlace::Stack`, engine
 /// variants a reader of 85 cannot parse, whose handles are explained by
 /// [`PlayerView::trigger_order`], additive and absent while empty.
-pub const VIEW_VERSION: u32 = 86;
+/// Version 87 sends a view as a `ViewFrame`: whole once, then as what changed
+/// (`docs/protocol.md` §"Views as patches"), and a spectator the public view as
+/// a `PlayerView` on the same stream.
+pub const VIEW_VERSION: u32 = 87;
 
 // ------------------------------------------------------------------- targets
 

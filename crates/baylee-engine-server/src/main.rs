@@ -537,7 +537,7 @@ async fn serve(
                                     table.session.describe(join.game_id.clone(), seat_names());
                                     let out = vec![table.session.game_static_envelope(seat)];
                                     // A fresh client holds none of the log.
-                                    table.session.retell_log(seat);
+                                    table.session.retell(seat);
                                     table.session.tell_time(wall_ms());
                                     let pumped = table
                                         .session
@@ -668,8 +668,8 @@ async fn serve(
                     seat = state.seat.get(),
                     "socket fell behind; rebuilding it"
                 );
-                let games = games.lock().await;
-                match state.game_id.as_ref().and_then(|id| games.get(id)) {
+                let mut games = games.lock().await;
+                match state.game_id.as_ref().and_then(|id| games.get_mut(id)) {
                     Some(table) => table.session.snapshot(state.seat),
                     None => Vec::new(),
                 }

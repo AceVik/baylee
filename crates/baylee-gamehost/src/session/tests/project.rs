@@ -19,7 +19,7 @@ use baylee_engine::engine::Engine;
 use baylee_engine::state::GameState;
 use baylee_engine::zone::ZoneLocation;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogEntry, LogEvent, LogTail, PlayerView, SpectatorView};
+use baylee_view::{GameStatic, LogEntry, LogEvent, LogTail, PlayerView};
 
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
@@ -62,7 +62,7 @@ fn deltas(moment: &Moment) -> Vec<&v1::StateDelta> {
 /// The view a moment tells, when it tells one.
 fn seat_view(moment: &Moment) -> Option<PlayerView> {
     let delta = *deltas(moment).last()?;
-    Some(serde_json::from_slice(&delta.view_json).expect("a seat's view decodes"))
+    Some(baylee_view::ViewFrame::whole(&delta.view_frame).expect("a seat's view decodes"))
 }
 
 /// Every log tail a moment tells, in order.
@@ -366,7 +366,8 @@ fn the_seat_projection_is_what_the_live_seat_was_sent() {
             let Some(v1::envelope::Msg::StateDelta(delta)) = &env.msg else {
                 continue;
             };
-            let sent: PlayerView = serde_json::from_slice(&delta.view_json).expect("a view");
+            let sent: PlayerView =
+                baylee_view::ViewFrame::whole(&delta.view_frame).expect("a view");
             // The projection's view at this input count: the last it told
             // at or before it.
             let (at, projected) = moments[..=*inputs]
@@ -543,31 +544,13 @@ fn the_public_projection_has_no_hand_and_no_decklist() {
     for moment in &moments {
         for delta in deltas(moment) {
             views += 1;
-            let raw: serde_json::Value = serde_json::from_slice(&delta.view_json).unwrap();
-            let view: SpectatorView =
-                serde_json::from_value(raw.clone()).expect("a spectator view");
-            assert_eq!(
-                serde_json::to_value(&view).unwrap(),
-                raw,
-                "the view carries nothing a spectator's type has no field for"
-            );
-            for key in [
-                "hand",
-                "looking_at",
-                "shared_hands",
-                "hand_requests",
-                "owed",
-            ] {
-                assert!(
-                    raw.get(key).is_none(),
-                    "a seat's field {key} is in the view"
-                );
-            }
-            shown.extend(
-                view.into_player_view(ME)
-                    .prints()
-                    .map(baylee_core::ids::PrintRef::get),
-            );
+            let view = baylee_view::ViewFrame::whole(&delta.view_frame).unwrap();
+            assert!(view.hand.is_empty(), "a hand in the public stream");
+            assert!(view.looking_at.is_empty(), "something looked at");
+            assert!(view.shared_hands.iter().all(|hand| hand.public));
+            assert_eq!(view.hand_requests, baylee_core::ids::SeatSet::new());
+            assert_eq!(view.owed, None);
+            shown.extend(view.prints().map(baylee_core::ids::PrintRef::get));
         }
         for tail in tails(moment) {
             shown.extend(tail.prints().map(baylee_core::ids::PrintRef::get));
@@ -707,7 +690,9 @@ fn names_in(value: &serde_json::Value, ids: &mut BTreeSet<u64>, cards: &mut BTre
 /// The objects and cards the views and log tails of `moment` name.
 fn named_by(moment: &Moment, ids: &mut BTreeSet<u64>, cards: &mut BTreeSet<u64>) {
     for delta in deltas(moment) {
-        for bytes in [&delta.view_json, &delta.log_json] {
+        let view = baylee_view::ViewFrame::whole(&delta.view_frame)
+            .map(|view| serde_json::to_vec(&view).expect("a view writes"));
+        for bytes in [view.as_ref().unwrap_or(&delta.log_json), &delta.log_json] {
             if !bytes.is_empty() {
                 let json: serde_json::Value = serde_json::from_slice(bytes).expect("json");
                 names_in(&json, ids, cards);
@@ -825,9 +810,11 @@ fn a_seat_shown_without_its_own_cards_is_the_public_table_drawn_from_it() {
             };
             views += 1;
             let raw = deltas(spectated).last().copied().expect("a view");
-            let spectator: SpectatorView = serde_json::from_slice(&raw.view_json).unwrap();
+            let mut spectator =
+                baylee_view::ViewFrame::whole(&raw.view_frame).expect("a spectator view");
+            spectator.seat = drawn;
             assert_eq!(
-                with_seq_of(spectator.into_player_view(drawn), &view),
+                with_seq_of(spectator, &view),
                 view,
                 "the view is the spectators' table drawn from {drawn:?} at {:?}",
                 moment.input
@@ -1420,8 +1407,8 @@ fn a_moment_that_changed_nothing_tells_nothing() {
         let [earlier, later] = pair else {
             unreachable!()
         };
-        let view = |m: &Moment| -> SpectatorView {
-            serde_json::from_slice(&deltas(m).last().expect("a view").view_json).unwrap()
+        let view = |m: &Moment| -> PlayerView {
+            baylee_view::ViewFrame::whole(&deltas(m).last().expect("a view").view_frame).unwrap()
         };
         let (a, mut b) = (view(earlier), view(later));
         b.seq = a.seq;
@@ -1616,9 +1603,10 @@ fn a_log_line_with_no_new_view_is_still_told_at_its_input() {
             let tail = tails(moment).pop();
             let view = if perspective == Perspective::Public {
                 deltas(moment).last().map(|d| {
-                    serde_json::from_slice::<SpectatorView>(&d.view_json)
-                        .expect("a spectator view")
-                        .into_player_view(ME)
+                    let mut view =
+                        baylee_view::ViewFrame::whole(&d.view_frame).expect("a spectator view");
+                    view.seat = ME;
+                    view
                 })
             } else {
                 seat_view(moment)

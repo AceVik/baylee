@@ -8,7 +8,7 @@
 mod common;
 
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::SpectatorView;
+use baylee_view::{PlayerView, ViewFrame};
 use common::{Socket, attach_agent, http, json_field, login, spawn_gateway};
 
 fn deck(port: u16, token: &str) -> String {
@@ -57,17 +57,14 @@ async fn dial_watch(port: u16, session: &str, game: &str) -> Socket {
 }
 
 /// Reads until the spectator holds a payload, a view and the curtain.
-async fn spectator_table(ws: &mut Socket) -> SpectatorView {
+async fn spectator_table(ws: &mut Socket) -> PlayerView {
     tokio::time::timeout(common::WAIT_BUDGET, async {
         let (mut statics, mut view) = (false, None);
         loop {
             match common::next_msg(ws).await {
                 Some(v1::envelope::Msg::GameStatic(_)) => statics = true,
                 Some(v1::envelope::Msg::StateDelta(delta)) => {
-                    view = Some(
-                        serde_json::from_slice::<SpectatorView>(&delta.view_json)
-                            .expect("a spectator view"),
-                    );
+                    view = ViewFrame::whole(&delta.view_frame).or(view);
                 }
                 Some(v1::envelope::Msg::Curtain(_)) => {
                     assert!(statics, "the payload comes first");

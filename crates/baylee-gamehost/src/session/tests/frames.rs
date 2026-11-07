@@ -4,8 +4,9 @@ use super::*;
 /// whole table just because it reconnected.
 #[test]
 fn a_current_client_gets_nothing_back() {
-    let (session, human) = started_session();
-    assert!(session.resume(human, session.seq()).is_empty());
+    let (mut session, human) = started_session();
+    let current = session.seq();
+    assert!(session.resume(human, current).is_empty());
 }
 
 /// A client that missed everything gets its seat rebuilt — and asking for
@@ -13,7 +14,7 @@ fn a_current_client_gets_nothing_back() {
 /// the AI seats forward as a side effect of someone reconnecting.
 #[test]
 fn a_stale_client_is_rebuilt_without_advancing_the_game() {
-    let (session, human) = started_session();
+    let (mut session, human) = started_session();
     let pending_before = format!("{:?}", session.pending());
     let seq_before = session.seq();
 
@@ -37,7 +38,7 @@ fn a_stale_client_is_rebuilt_without_advancing_the_game() {
 /// else's decision.
 #[test]
 fn only_the_asked_seat_is_sent_the_choice() {
-    let (session, human) = started_session();
+    let (mut session, human) = started_session();
     let others: Vec<PlayerId> = (0..2).map(PlayerId::new).filter(|p| *p != human).collect();
     let asked = session.pending().asked();
     for seat in others {
@@ -332,38 +333,166 @@ fn discarding_the_frames_changes_nothing_but_the_frames() {
     assert_eq!(sent.take_record(), discarded.take_record());
 }
 
-/// A seat's objects are written from its own table (`WrittenObjects`), and that
-/// must never read differently from the plain view: at a real table, for every
-/// seat, each time the board moves. This holds a release build too, where the
-/// check inside `seat_view_json` is compiled out.
+/// Whatever a table's sockets are sent, read by readers as a client reads it,
+/// as a stream of patches rather than the whole views a unit test is sent.
+struct Sockets {
+    readers: [baylee_view::ViewReader; 4],
+    patches: u32,
+}
+
+impl Sockets {
+    fn listening_to(session: &mut Session) -> Self {
+        session.sent = vec![baylee_view::ViewSender::default(); 4];
+        Self {
+            readers: Default::default(),
+            patches: 0,
+        }
+    }
+
+    fn hear(&mut self, seat: PlayerId, frame: &Envelope) {
+        if let Some(v1::envelope::Msg::StateDelta(delta)) = &frame.msg {
+            self.patches += u32::from(matches!(
+                baylee_view::ViewFrame::decode(&delta.view_frame),
+                Ok(baylee_view::ViewFrame::Patch(_))
+            ));
+            self.readers[seat.get() as usize]
+                .read(&delta.view_frame)
+                .expect("a frame places");
+        }
+    }
+
+    fn holds(&self, seat: PlayerId) -> Option<&baylee_view::PlayerView> {
+        self.readers[seat.get() as usize].view()
+    }
+}
+
+/// An answer that moves the game on, for a test that does not care which.
+fn any_answer(session: &Session) -> PlayerAction {
+    baylee_engine::choice::timeout_answer(session.pending()).unwrap_or(PlayerAction::PassPriority)
+}
+
+/// A view told is a view read: at a real table, for every seat, each time the
+/// board moves. Each seat's stream is its own, so this holds them apart too.
 #[test]
-fn every_seats_frames_read_as_its_plain_view_as_the_table_moves() {
+fn every_seats_stream_stays_its_view_as_the_table_moves() {
     let mut session = a_kept_table([None; 4], [false; 4]);
+    let mut sockets = Sockets::listening_to(&mut session);
+    for seat in (0..4).map(PlayerId::new) {
+        for frame in session.view_envelopes(seat) {
+            sockets.hear(seat, &frame);
+        }
+    }
     let mut moved = 0;
     while moved < 60 {
-        for seat in (0..4).map(PlayerId::new) {
-            let view = session.seat_view(seat);
-            let plain = serde_json::to_vec(&view).expect("a view serializes");
-            let sent = session
-                .seat_envelopes(seat, &view)
-                .into_iter()
-                .find_map(|frame| match frame.msg {
-                    Some(v1::envelope::Msg::StateDelta(delta)) => Some(delta.view_json),
-                    _ => None,
-                })
-                .expect("a seat's frames carry its view");
-            assert_eq!(sent, plain, "seat {seat:?} at move {moved}");
-            assert_eq!(session.written.len(), 4, "a table per seat, and only that");
-        }
         let Some(asked) = session.awaiting_seat() else {
             break;
         };
-        let answer = baylee_engine::choice::timeout_answer(session.pending())
-            .unwrap_or(PlayerAction::PassPriority);
-        if session.act(asked, answer).is_err() {
+        let Ok(frames) = session.act(asked, any_answer(&session)) else {
             break;
+        };
+        for (seat, frame) in &frames {
+            sockets.hear(*seat, frame);
+        }
+        for seat in (0..4).map(PlayerId::new) {
+            assert_eq!(
+                sockets.holds(seat),
+                Some(&session.seat_view(seat)),
+                "seat {seat:?} at move {moved}"
+            );
         }
         moved += 1;
     }
     assert!(moved >= 20, "the table stopped after {moved} moves");
+    assert!(sockets.patches > 60, "patches: {}", sockets.patches);
+}
+
+/// A snapshot in the middle of a stream is where the stream goes on from, or
+/// the seat's next patch is on a view it does not hold.
+#[test]
+fn the_stream_goes_on_from_a_snapshot() {
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    let mut sockets = Sockets::listening_to(&mut session);
+    let seat = session.awaiting_seat().expect("a seat is asked");
+    for frame in session.view_envelopes(seat) {
+        sockets.hear(seat, &frame);
+    }
+    // Frames lost on the way: a lagging socket.
+    let _lost = session
+        .act(seat, any_answer(&session))
+        .expect("the answer stands");
+    for frame in session.snapshot(seat) {
+        sockets.hear(seat, &frame);
+    }
+    assert_eq!(sockets.holds(seat), Some(&session.seat_view(seat)));
+    for frame in session.reask(seat) {
+        sockets.hear(seat, &frame);
+    }
+    assert_eq!(sockets.holds(seat), Some(&session.seat_view(seat)));
+    assert_eq!(sockets.patches, 1, "a question asked again is a patch");
+}
+
+/// A new socket holds nothing, whatever the last one was told.
+#[test]
+fn a_new_socket_is_told_the_view_whole() {
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    let mut sockets = Sockets::listening_to(&mut session);
+    let seat = session.awaiting_seat().expect("a seat is asked");
+    for frame in session.view_envelopes(seat) {
+        sockets.hear(seat, &frame);
+    }
+    session.retell(seat);
+    let mut fresh = baylee_view::ViewReader::default();
+    for frame in session.view_envelopes(seat) {
+        if let Some(v1::envelope::Msg::StateDelta(delta)) = &frame.msg {
+            fresh.read(&delta.view_frame).expect("a whole view");
+        }
+    }
+    assert_eq!(fresh.view(), Some(&session.seat_view(seat)));
+}
+
+/// The spectators share one stream, and a spectator who arrives makes it whole
+/// for all of them: the one way a patch after it is right for every socket.
+#[test]
+fn a_spectator_arriving_makes_the_public_stream_whole() {
+    let frames = |envelopes: Vec<Envelope>| -> Vec<Vec<u8>> {
+        envelopes
+            .into_iter()
+            .filter_map(|envelope| match envelope.msg {
+                Some(v1::envelope::Msg::StateDelta(delta)) => Some(delta.view_frame),
+                _ => None,
+            })
+            .collect()
+    };
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    session.gallery.sent = baylee_view::ViewSender::default();
+    let mut early = baylee_view::ViewReader::default();
+    for frame in frames(session.spectator_snapshot()) {
+        early.read(&frame).expect("the opening view");
+    }
+    let asked = session.awaiting_seat().expect("a seat is asked");
+    session
+        .act(asked, any_answer(&session))
+        .expect("the answer stands");
+    let moved = frames(session.spectator_envelopes());
+    assert!(matches!(
+        baylee_view::ViewFrame::decode(&moved[0]),
+        Ok(baylee_view::ViewFrame::Patch(_))
+    ));
+    early.read(&moved[0]).expect("a patch places");
+    let mut late = baylee_view::ViewReader::default();
+    for frame in frames(session.spectator_snapshot()) {
+        late.read(&frame).expect("a whole view");
+        early.read(&frame).expect("a whole view");
+    }
+    assert_eq!(early.view(), late.view());
+    let asked = session.awaiting_seat().expect("a seat is asked");
+    session
+        .act(asked, any_answer(&session))
+        .expect("the answer stands");
+    for frame in frames(session.spectator_envelopes()) {
+        late.read(&frame).expect("a patch places for who came late");
+        early.read(&frame).expect("and for who was there");
+    }
+    assert_eq!(early.view(), late.view());
+    assert_eq!(early.view().map(|view| view.seq), Some(session.seq()));
 }

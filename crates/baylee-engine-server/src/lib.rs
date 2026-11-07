@@ -636,6 +636,9 @@ impl EngineRunner {
         let Some(mut session) = Session::new_recorded(&preset, baylee_build::short()) else {
             return vec![ended(&setup.game_id, "the preset does not make a game")];
         };
+        // These read one frame at a time; see `Session::tell_views_whole`.
+        #[cfg(test)]
+        session.tell_views_whole();
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
         session.mark_guests(setup.seat_guests.clone());
         session.tell_time(self.now);
@@ -808,7 +811,7 @@ impl EngineRunner {
         if self.curtain.is_some() {
             // A fresh socket holds no log either, even one that opened
             // before (a loader that dropped and dialled again).
-            session.retell_log(player);
+            session.retell(player);
             out.extend(session.show(player).iter().map(|env| seat_frame(seat, env)));
             let status = self.loading_status();
             out.extend(
@@ -831,7 +834,7 @@ impl EngineRunner {
         } else {
             // A socket that just opened holds none of the game log, and whatever
             // went to this seat while nobody was on it was dropped in `route`.
-            session.retell_log(player);
+            session.retell(player);
             let routed = session.pump_slice(budget);
             out.extend(self.route(&routed));
         }
@@ -1074,10 +1077,10 @@ impl EngineRunner {
                     .map(|env| seat_frame(seat, env))
                     .collect()
             }
-            // Read-only: a seat asking for what it missed must not advance the
+            // Moves nothing: a seat asking for what it missed must not advance the
             // game, or reconnecting would play an AI seat's turn for it.
             Some(v1::envelope::Msg::Resume(resume)) => {
-                let Some(session) = self.session.as_ref() else {
+                let Some(session) = self.session.as_mut() else {
                     return Vec::new();
                 };
                 session
@@ -1170,8 +1173,8 @@ impl EngineRunner {
     /// seat that does not hold the decision gets the error and nothing more.
     /// It sends no log: a refusal lost no frame, and the whole log for each
     /// refused action would be a large answer to a small request.
-    fn refused(&self, player: PlayerId, reason: &str) -> Vec<Envelope> {
-        let Some(session) = self.session.as_ref() else {
+    fn refused(&mut self, player: PlayerId, reason: &str) -> Vec<Envelope> {
+        let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
         let mut frames = vec![(player, error(reason))];

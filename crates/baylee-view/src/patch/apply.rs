@@ -17,6 +17,9 @@ use baylee_core::ids::ObjectId;
 /// [`PatchError`]: the patch is not for `old`, names what `old` does not hold,
 /// or does not leave the view it says it does.
 pub fn apply(old: &PlayerView, patch: &ViewPatch) -> Result<PlayerView, PatchError> {
+    if old.seat != patch.seat {
+        return Err(PatchError::OtherSeat(patch.seat));
+    }
     if old.seq != patch.base {
         return Err(PatchError::Gap {
             have: old.seq,

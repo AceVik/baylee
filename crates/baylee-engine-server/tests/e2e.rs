@@ -173,6 +173,7 @@ async fn create_game_and_answer_first_choice() {
     let mut saw_game_created = false;
     let mut saw_view = false;
     let mut first_pending: Option<Pending> = None;
+    let mut views = baylee_view::ViewReader::default();
     let mut game_id = String::new();
     for _ in 0..10 {
         let Some(frame) = ws.next().await else { break };
@@ -189,11 +190,13 @@ async fn create_game_and_answer_first_choice() {
             Some(v1::envelope::Msg::StateDelta(delta)) => {
                 // Hidden information: the view exists and carries only
                 // the viewing seat's own hand contents.
-                let view: serde_json::Value =
-                    serde_json::from_slice(&delta.view_json).expect("view json");
+                let view = views
+                    .read(&delta.view_frame)
+                    .expect("a view frame")
+                    .expect("a view");
                 saw_view = true;
-                assert!(view.get("seats").is_some(), "view has seat lines");
-                assert!(view.get("hand").is_some(), "view has the own hand");
+                assert!(!view.seats.is_empty(), "view has seat lines");
+                assert!(!view.hand.is_empty(), "view has the own hand");
             }
             Some(v1::envelope::Msg::ChoiceRequest(req)) => {
                 first_pending = serde_json::from_slice(&req.pending_json).ok();
@@ -601,8 +604,9 @@ async fn next_within(ws: &mut Client, millis: u64) -> Option<Envelope> {
 /// process: a view says whose it is, so a socket receiving one that is not
 /// its own is a leak and not merely noise.
 fn view_seat(delta: &v1::StateDelta) -> Option<PlayerId> {
-    let view: serde_json::Value = serde_json::from_slice(&delta.view_json).ok()?;
-    serde_json::from_value(view.get("seat")?.clone()).ok()
+    baylee_view::ViewFrame::decode(&delta.view_frame)
+        .ok()
+        .map(|frame| frame.seat())
 }
 
 /// Which of two sockets was asked the next question.
