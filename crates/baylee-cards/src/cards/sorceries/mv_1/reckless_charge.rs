@@ -11,7 +11,7 @@ card!(
     oracle_id = "45bee121-0beb-4901-9473-20e4704ba6dc",
     scryfall_id = "1754a8db-060e-470f-94c0-37f12d82978a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reckless Charge",
         mana_cost = mana!("{R}"),
