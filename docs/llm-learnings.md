@@ -7466,3 +7466,24 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 56
   of the machine-owned cards untested, and 1,370 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-07 — Chatter of the Squirrel's two casts and exact costs
+
+- Chatter of the Squirrel composes the shared green 1/1 Squirrel token with its
+  face-level flashback cost; it needs no engine, DSL, protocol, desktop or seat
+  addition. The ordinary play pays {G}, verifies one Squirrel's controller,
+  power, toughness, colour and subtype and leaves two of three green mana.
+  Flashback then pays exactly {1}{G}, preserves the first token and creates a
+  distinct second Squirrel before exiling the graveyard incarnation.
+- One green mana makes the graveyard card neither castable nor payable. Direct
+  casting is rejected without spending that mana or creating a token. Removing
+  the token ability with `BAYLEE_MUTATE=5156:0` kills the token play; the
+  insufficient-mana test remains a green control.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 55 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
