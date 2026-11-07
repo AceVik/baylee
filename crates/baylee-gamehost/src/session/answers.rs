@@ -9,9 +9,26 @@ use baylee_view::{HouseAnswer, LogTail, PlayerView};
 /// and is recorded, so it is the one thing a seat can write into a record
 /// without the game going on, hundreds of times a second, and records are
 /// kept. A client was measured holding about 1,300 yields and answers.
-pub(super) const MOST_SETTINGS: u32 = 5_000;
+pub(super) const MOST_SETTINGS: u64 = 5_000;
+
+/// How many of those a seat has before anything has happened: what a client
+/// sends for the cards a table first shows, at most about 280 (`seatrate`).
+const FIRST_SETTINGS: u64 = 512;
+
+/// How many more each event of the game earns. A client's standing orders come
+/// with the cards that show up, so a game going on has room for them, and a
+/// game started and given up has room for no more than [`FIRST_SETTINGS`].
+const SETTINGS_PER_EVENT: u64 = 4;
 
 impl Session {
+    /// How many settings a seat may have made by now.
+    pub(super) fn settings_allowed(&self) -> u64 {
+        let events = self.engine.state().journal.last_seq();
+        FIRST_SETTINGS
+            .saturating_add(events.saturating_mul(SETTINGS_PER_EVENT))
+            .min(MOST_SETTINGS)
+    }
+
     /// The view the house answers `player`'s question from
     /// (`table::Table::agent_view`, which says what it leaves out).
     #[cfg(test)]
@@ -263,7 +280,7 @@ impl Session {
             && self
                 .settings_made
                 .get(seat)
-                .is_some_and(|made| *made >= MOST_SETTINGS)
+                .is_some_and(|made| *made >= self.settings_allowed())
         {
             return Err("too many settings in one game".to_string());
         }

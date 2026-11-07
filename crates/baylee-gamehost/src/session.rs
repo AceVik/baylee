@@ -202,7 +202,7 @@ pub struct Session {
     policy_acts: Vec<Vec<PolicyAct>>,
     /// How many settings each seat has made this game, which are recorded
     /// and move nothing: see [`answers::MOST_SETTINGS`].
-    settings_made: Vec<u32>,
+    settings_made: Vec<u64>,
     /// Per seat, how many answers its policies have given, which numbers the
     /// next one.
     policy_counted: Vec<u32>,

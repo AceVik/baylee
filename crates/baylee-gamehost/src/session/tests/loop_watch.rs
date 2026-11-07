@@ -214,23 +214,34 @@ fn a_setting_that_changes_nothing_sends_nobody_anything() {
 }
 
 /// A setting that changes something is a line in the record, so a seat has
-/// only so many of them in a game. Past that it is told so, the game goes on,
-/// and the other seat has its own.
+/// only so many of them while nothing happens. Past that it is told so, the
+/// game goes on, the other seat has its own, and what happens earns more.
 #[test]
-fn a_seat_has_only_so_many_settings_in_a_game() {
+fn a_seat_has_only_so_many_settings_while_nothing_happens() {
     let mut session = table(&["Lightning Bolt"], &["Mountain"]);
     cast_at_them(&mut session);
     let holds = [PriorityHold::Always, PriorityHold::PassWhenNothingToDo];
-    let setting = |n: u32| PlayerAction::SetPriorityHold(holds[(n % 2) as usize]);
-    for n in 0..answers::MOST_SETTINGS {
+    let setting = |n: u64| PlayerAction::SetPriorityHold(holds[(n % 2) as usize]);
+    let allowed = session.settings_allowed();
+    assert!(allowed < answers::MOST_SETTINGS, "{allowed}");
+    for n in 0..allowed {
         session.act(THEM, setting(n)).expect("within its allowance");
     }
     let seq = session.seq();
-    let refused = session.act(THEM, setting(answers::MOST_SETTINGS));
+    let refused = session.act(THEM, setting(allowed));
     assert!(refused.is_err(), "one past its allowance");
     assert_eq!(session.seq(), seq, "and nothing moved");
     session.act(ME, setting(0)).expect("the other seat's own");
     the_spell_resolves(&mut session);
+    assert!(session.settings_allowed() > allowed, "the game moved on");
+    session
+        .act(THEM, setting(allowed))
+        .expect("and earned more");
+
+    // And a game going on has an end to them too.
+    session.settings_made[THEM.get() as usize] = answers::MOST_SETTINGS;
+    assert!(session.settings_allowed() <= answers::MOST_SETTINGS);
+    assert!(session.act(THEM, setting(allowed + 1)).is_err());
 }
 
 /// A setting that changes something changes one seat's table, so nobody
@@ -262,6 +273,8 @@ fn a_seat_holds_only_so_many_yields() {
         index,
     };
     for index in 0..u32::try_from(most).expect("fits") + 16 {
+        // What is under test is what a seat holds, not how fast it asks.
+        session.settings_made.fill(0);
         session
             .act(
                 ME,
