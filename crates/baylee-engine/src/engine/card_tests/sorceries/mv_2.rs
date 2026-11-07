@@ -6,6 +6,7 @@ use super::*;
 mod altar_of_bone;
 mod balance;
 mod braingeyser;
+mod chainer_s_edict;
 mod channel;
 mod consume_spirit;
 mod damn;

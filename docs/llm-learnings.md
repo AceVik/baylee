@@ -7393,3 +7393,29 @@ code.
   origin/main`, formatting and `git diff --check` pass. `validate` accepts
   12,545 cards (11,175 finished, 59 of the machine-owned cards untested, and
   1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Chainer's Edict's chosen-player sacrifice and Flashback
+
+- Chainer's Edict composes the existing chosen-player creature sacrifice with
+  its face-level flashback cost; it needs no engine, DSL, protocol, desktop or
+  seat addition. The canonical play offers either player, targets the opponent
+  for {1}{B}, and asks that opponent to choose exactly one of their two
+  creatures. The caster's creature is absent from the sacrifice offer and stays
+  on the battlefield.
+- The exact graveyard incarnation then flashes back for {5}{B}{B}, asks the
+  opponent to sacrifice their remaining creature and exiles. Six black mana
+  offer neither a castable nor a payable spell. A targeted player spell asks
+  `Pending::ChoosePlayer`, not the general `Pending::ChooseTargets`; correcting
+  that fixture assumption was not an engine change. `Duel::battlefield` also
+  replaces rather than appends a seat's fixture, so the nine Swamps and control
+  creature are built as one board list.
+- Removing ability zero with `BAYLEE_MUTATE=5444:0` kills the sacrifice play;
+  the insufficient-mana test remains green. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 58
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
