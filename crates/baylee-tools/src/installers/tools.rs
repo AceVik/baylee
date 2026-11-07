@@ -155,7 +155,9 @@ fn executable(path: &Path) -> Result<()> {
     Ok(())
 }
 
+// Its caller is the same on every platform, and the Unix one can fail.
 #[cfg(not(unix))]
+#[allow(clippy::unnecessary_wraps)]
 fn executable(_path: &Path) -> Result<()> {
     Ok(())
 }

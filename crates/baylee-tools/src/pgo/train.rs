@@ -439,17 +439,30 @@ fn answer(client: &Client, screen: &Screen, tried: &mut Vec<u64>, tries: u32) ->
             }
         }
         "YesNo" => client.press("N")?,
-        "DiscardChoice" => {
-            if let Some(card) = screen.cards_in("hand").next() {
-                let (x, y) = card.rect.centre();
-                client.click(at(x, y))?;
-                linger(0.2);
-            }
-            client.press("Space")?;
-        }
+        "DiscardChoice" => discard(client, screen)?,
         _ => pick_something(client, screen, tries)?,
     }
     Ok(())
+}
+
+/// Chooses as many cards as the question asks for, and confirms. It counts what
+/// stands chosen after each click: a click on a chosen card takes it back, so
+/// the first card again and again never reaches two.
+fn discard(client: &Client, screen: &Screen) -> Result<()> {
+    let asked = screen
+        .at("/interaction/pending/DiscardChoice/count")
+        .as_u64()
+        .unwrap_or(1);
+    for card in screen.cards_in("hand") {
+        let chosen = client.screen()?.at("/interaction/selected").as_u64();
+        if chosen.unwrap_or(0) >= asked {
+            break;
+        }
+        let (x, y) = card.rect.centre();
+        client.click(at(x, y))?;
+        linger(0.2);
+    }
+    client.press("Space")
 }
 
 /// The row of a dialog to press on this try. The same row twice running, since a
