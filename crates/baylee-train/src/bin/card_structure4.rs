@@ -1,21 +1,27 @@
 //! Export the public typed rules independently of recorded matches, or check
 //! whether this build's catalog is a superset of the one a model was
-//! exported with (`docs/trained-ai.md` §"Card catalog compatibility").
-use baylee_train::cardstructure::{Forest, catalog, compat, digest};
+//! exported with (`docs/trained-ai.md` §"Card catalog compatibility"), or
+//! write what each face is, costs and does, the targets of the card stage
+//! (`cardstructure::labels`).
+use baylee_train::cardstructure::{Forest, catalog, compat, digest, labels};
 use clap::Parser;
 use std::{fs, path::PathBuf};
 
 #[derive(Parser)]
 struct Args {
     /// Write this build's catalog here.
-    #[arg(long, required_unless_present = "check_model")]
+    #[arg(long, required_unless_present_any = ["check_model", "labels"])]
     out: Option<PathBuf>,
     /// Compare a model's `card_structure.json` (or the model directory
     /// holding it) with this build's catalog, print the comparison, and fail
     /// unless every rule the model knows is unchanged (the strict superset;
     /// what drift would withdraw is printed either way).
-    #[arg(long, conflicts_with = "out")]
+    #[arg(long, conflicts_with_all = ["out", "labels"])]
     check_model: Option<PathBuf>,
+    /// Write the card-stage targets of this build's catalog here, keyed by
+    /// its `c/<card>/<face>` roots and bound to its digest.
+    #[arg(long, conflicts_with = "out")]
+    labels: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -23,6 +29,21 @@ fn main() -> anyhow::Result<()> {
     let cards = baylee_cards::all()
         .map(|c| c.index.get())
         .collect::<Vec<_>>();
+    if let Some(out) = &args.labels {
+        anyhow::ensure!(!out.exists(), "output already exists");
+        let mut forest = catalog(&cards)?;
+        let labels = labels::labels(&mut forest, &cards)?;
+        fs::write(out, serde_json::to_vec(&labels)?)?;
+        println!(
+            "faces={} subtypes={} ability_kinds={} effects={} catalog_sha256={}",
+            labels.faces.len(),
+            labels.subtypes.len(),
+            labels.ability_kinds.len(),
+            labels.effects.len(),
+            labels.catalog_sha256
+        );
+        return Ok(());
+    }
     if let Some(out) = &args.out {
         anyhow::ensure!(!out.exists(), "output already exists");
         let forest = catalog(&cards)?;

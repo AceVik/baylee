@@ -35,7 +35,9 @@ def _native(arguments, payload=None):
     executable = _executable()
     result = subprocess.run([executable, *map(str, arguments)], input=payload, capture_output=True)
     if result.returncode:
-        raise ValueError(result.stderr.decode(errors="replace").strip())
+        # Name the binary: without a pinned one on PATH this is the checkout's
+        # target/ build, which can predate the contract it is asked about.
+        raise ValueError(f"{executable}: {result.stderr.decode(errors='replace').strip()}")
     return result.stdout
 
 def validate_bc_dataset(root, meta):

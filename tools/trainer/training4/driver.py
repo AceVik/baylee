@@ -223,11 +223,18 @@ def main(default_architecture="v4") -> None:
     if args.train_candidate_column is not None:
         from .candidate_column import freeze_all_but_column
         freeze_all_but_column(net, args.train_candidate_column, start_from_zero=not args.resume)
+    if args.train_rules_only:
+        from .rules_only import freeze_all_but_rules
+        freeze_all_but_rules(net)
+    anchor = None
+    if args.anchor_l2:
+        from .rules_only import ParameterAnchor
+        anchor = ParameterAnchor(net, args.anchor_l2)
     opt_groups, optimizer_schedule = build_optimizer_groups(
         net, args.lr, architecture=args.architecture, freeze_trunk=args.freeze_trunk,
         relational_lr=args.relational_lr, output_lr=args.relational_output_lr,
         warmup_steps=args.relational_warmup_steps,
-        decay=args.train_candidate_column is None)
+        decay=args.train_candidate_column is None and anchor is None)
     opt = torch.optim.AdamW(
         opt_groups,
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
@@ -467,6 +474,10 @@ def main(default_architecture="v4") -> None:
                         traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
                         epoch_stats[:3] += st[:3] / U
                         epoch_stats[3:] += st[3:]
+                # The anchor joins only a loss that reaches trainable weights,
+                # so passive batches still leave Adam and the schedule alone.
+                if anchor is not None and traj_loss.requires_grad:
+                    traj_loss = traj_loss + anchor.penalty()
                 updated = ((args.train_candidate_column is None
                             or carries_column(host, args.train_candidate_column))
                            and update_parameters(traj_loss, net, opt, checkpoint_writer,

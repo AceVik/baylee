@@ -3,10 +3,13 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import torch
 import model4 as V4
+import trajectory_store4
 import model5 as V5
 from export_onnx4 import load_export_checkpoint
 from refresh_structure4 import refresh_checkpoint
@@ -113,6 +116,17 @@ class RefreshCheckpoint(unittest.TestCase):
             old_idx = source['structure']['tags'].index('Creature')
             torch.testing.assert_close(refreshed.rules.symbol.weight[-1], net.rules.symbol.weight[old_idx],
                                        rtol=0, atol=0)
+
+    def test_a_native_refusal_names_the_binary_that_refused(self):
+        # The loader asks trajectory_cache4 to admit the encoder. Without a
+        # pinned binary on PATH a stale target/ build answers, and its refusal
+        # must say which file it was (7 November: encoder 10 against a build
+        # from before encoder 10).
+        refuse = [sys.executable, '-c', 'import sys; sys.exit("Error: refused")']
+        with patch.object(trajectory_store4, '_executable', return_value=refuse[0]):
+            with self.assertRaises(ValueError) as caught:
+                trajectory_store4._native(refuse[1:])
+        self.assertEqual(str(caught.exception), f'{sys.executable}: Error: refused')
 
     def test_wrong_v5_architecture_is_rejected_before_output(self):
         with tempfile.TemporaryDirectory() as root:

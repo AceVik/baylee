@@ -7,9 +7,13 @@ use serde_json::{Value, json};
 
 fn encoder(value: &Value) -> Result<Value> {
     let version = value["version"].as_u64();
+    // Names what it was given: a checkpoint newer than this build is refused
+    // by a binary that cannot know the version, and only the number tells
+    // that apart from a corrupt header.
     ensure!(
         matches!(version, Some(7..=10)),
-        "Unsupported encoder version"
+        "Unsupported encoder version {}; this build admits 7 to 10",
+        value["version"]
     );
     ensure!(
         !matches!(version, Some(8 | 9))
@@ -273,6 +277,14 @@ mod tests {
     #[test]
     fn encoder_transition_is_explicit_and_booleans_are_not_versions() -> Result<()> {
         assert!(validate(&json!({"kind":"encoder","version":true})).is_err());
+        let refusal = validate(&json!({"kind":"encoder","version":11}))
+            .expect_err("encoder 11 is newer than this build")
+            .to_string();
+        assert!(refusal.contains("version 11;"), "{refusal}");
+        assert_eq!(
+            validate(&json!({"kind":"encoder","version":10,"global_feat_width":80}))?,
+            10
+        );
         assert!(
             validate(
                 &json!({"kind":"encoder","version":8,"model_version":5,"relational_revision":1})
