@@ -139,11 +139,52 @@ def make_dummy_inputs(
     )
 
 
+# What a tactician head reads beside the net's own outputs (`--embeddings`):
+# the thought-through global slot, and the last hidden layer of the candidate
+# and pair heads, each the input of that head's final linear.
+EMBEDDING_NAMES = ("state_emb", "cand_emb", "pair_emb")
+EMBEDDING_CONTRACT = "tactician_embeddings_v1"
+
+
+class EmbeddingGraph(torch.nn.Module):
+    """The net's five outputs, then [`EMBEDDING_NAMES`], read by hooks.
+
+    The hooks only read the inputs of `scalar_head`, `cand_scorer[3]` and
+    `pair_scorer[3]`; the net computes exactly what it computes without them.
+    """
+
+    def __init__(self, net):
+        super().__init__()
+        self.net = net
+        self._seen = {}
+
+    def _keep(self, name):
+        def hook(_module, args):
+            self._seen[name] = args[0]
+        return hook
+
+    def forward(self, *inputs):
+        self._seen.clear()
+        handles = [self.net.scalar_head.register_forward_pre_hook(self._keep("state")),
+                   self.net.cand_scorer[3].register_forward_pre_hook(self._keep("cand")),
+                   self.net.pair_scorer[3].register_forward_pre_hook(self._keep("pair"))]
+        try:
+            outputs = self.net(*inputs)
+        finally:
+            for handle in handles:
+                handle.remove()
+        missing = {"state", "cand", "pair"} - set(self._seen)
+        if missing:
+            raise ValueError(f"The net computed no {sorted(missing)} this step")
+        return (*outputs, self._seen["state"], self._seen["cand"], self._seen["pair"])
+
+
 def export_v4_onnx(
     net: M.PlayerNet4,
     onnx_path: Path,
     thinking_steps: int = 2,
     fixed_depth: bool = False,
+    embeddings: bool = False,
 ) -> None:
     net = net.cpu().eval()
     from model4.structure import RuleEncoder
@@ -176,16 +217,21 @@ def export_v4_onnx(
         "scalar_pred": {0: "B"},
         "value": {0: "B"},
     }
+    output_names = list(M.OUTPUT_NAMES)
+    if embeddings:
+        output_names += list(EMBEDDING_NAMES)
+        dynamic_axes.update({"state_emb": {0: "B"}, "cand_emb": {0: "B", 1: "C"},
+                             "pair_emb": {0: "B", 1: "P"}})
     previous_depth = getattr(net, "export_thinking_steps", None)
     if fixed_depth:
         net.export_thinking_steps = thinking_steps
     try:
         torch.onnx.export(
-            net,
+            EmbeddingGraph(net) if embeddings else net,
             dummy,
             str(onnx_path),
             input_names=list(M.INPUT_NAMES),
-            output_names=list(M.OUTPUT_NAMES),
+            output_names=output_names,
             dynamic_axes=dynamic_axes,
             opset_version=18,
             dynamo=False,
@@ -226,6 +272,10 @@ def main() -> None:
                          "float16 computes in FP16 behind FP32 inputs and outputs, in its own directory")
     ap.add_argument("--out", default="",
                     help="Export directory (default: the model directory; MODEL/fp16 for float16)")
+    ap.add_argument("--embeddings", action="store_true",
+                    help="Every depth graph also outputs state_emb [B, d], cand_emb [B, C, d] and "
+                         "pair_emb [B, P, d] (EmbeddingGraph), what a tactician head reads; the five "
+                         "outputs before them are unchanged")
     ap.add_argument("--blind-card-names", action="store_true",
                     help="A measurement, never a model to play or train: the rule table is encoded "
                          "from the catalog with every printed face name emptied "
@@ -265,21 +315,26 @@ def main() -> None:
     worst_diff = 0.0
     checked = 0
 
+    output_names = list(M.OUTPUT_NAMES) + (list(EMBEDDING_NAMES) if args.embeddings else [])
+
     def compare(inputs, depth, h_ort=None):
         nonlocal worst_diff, checked
         with torch.inference_mode():
-            want = net(*inputs)
+            want = (EmbeddingGraph(net) if args.embeddings else net)(*inputs)
         feed = {name: tensor.numpy() for name, tensor in zip(M.INPUT_NAMES, inputs)}
         if h_ort is not None:
             feed["h_in"] = h_ort
-        got = sessions[depth].run(list(M.OUTPUT_NAMES), feed)
-        for name, actual, expected in zip(M.OUTPUT_NAMES, got, want):
+        got = sessions[depth].run(output_names, feed)
+        for name, actual, expected in zip(output_names, got, want):
             ref = expected.numpy()
             if actual.shape != ref.shape and name in ("cand_logits", "pair_logits"):
                 # Eager execution trims unused padding per time step; ONNX
                 # preserves dynamic input lengths and masks that padding.
                 if not np.all(actual[:, ref.shape[1]:] < -1e8):
                     raise ValueError(f"Unmasked ONNX padding: {name}")
+                actual = actual[:, :ref.shape[1]]
+            elif actual.shape != ref.shape and name in ("cand_emb", "pair_emb"):
+                # The same trimmed padding; a padded row's embedding is unused.
                 actual = actual[:, :ref.shape[1]]
             if not np.isfinite(actual).all() or not np.isfinite(ref).all():
                 raise ValueError("Non-finite ONNX parity result")
@@ -291,7 +346,7 @@ def main() -> None:
 
     for depth in (0, 1, 2, 4, 8):
         path = out_dir / f"model.k{depth}.onnx"
-        export_v4_onnx(net, path, thinking_steps=depth, fixed_depth=True)
+        export_v4_onnx(net, path, thinking_steps=depth, fixed_depth=True, embeddings=args.embeddings)
         sessions[depth] = ort.InferenceSession(str(path), sess_options=options,
                                              providers=["CPUExecutionProvider"])
         for e in (1, 17, 96):
@@ -353,6 +408,8 @@ def main() -> None:
         "graphs": {str(k): f"model.k{k}.onnx" for k in sessions},
         "parity_max_abs_diff": worst_diff, "checked_frames": checked,
         **({"rule_table_ablation": rule_table_ablation} if rule_table_ablation else {}),
+        **({"embedding_outputs": {"contract": EMBEDDING_CONTRACT, "names": list(EMBEDDING_NAMES)}}
+           if args.embeddings else {}),
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)
