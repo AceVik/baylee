@@ -949,7 +949,40 @@ window, what the evaluated seat answered and how often a fresh `sharp` agent on
 the same view would have answered the same: B-refresh passes 99.8 % of its
 priority decisions in the opponent's turn and 100 % in its own combat, where
 `sharp` acts in about a third, and never takes a mulligan; with tactics it
-takes them (17 %) but still does not act at instant speed.
+takes them (17 %) but still does not act at instant speed. A random seat wins
+69 of the same 512 against B-refresh raw and 26 against B-refresh with tactics.
+
+#### Does the net read a card or name it?
+
+Two of a card's references name it rather than describe it: `i/<card>/<face>`,
+a `CardIdentity` node whose bytes are the card's index, and the printed name, a
+string leaf under `FaceDef.name` inside the rules tree `c/<card>/<face>`. Two
+switches take each away, for a measurement only:
+
+- `eval4 --leave-out-identity` leaves every `i/` reference of the seat under
+  test out at bind time, as drift leaves out a withdrawn card's
+  (`CatalogRead4`; the binding records `identity_left_out`).
+- `export_onnx4.py --blind-card-names --out DIR` encodes the frozen rule table
+  from the catalog with every face-name string emptied (same node ids and
+  digest; `rule_table_ablation` in `model.onnx.json`). The table is a constant
+  of the graph, so this half is an export, not an `eval4` switch. `eval4` loads
+  such an export only with `--ablated-rule-table`; every other loader refuses it.
+
+Both are refused outside an evaluation against the house. Measured on 8
+November (B-refresh FP16 with drift, the 512 test deals, each arm paired with
+the unchanged export on the same build, 153 raw and 239 with tactics):
+
+| Left out | Raw | Tactics |
+| --- | --- | --- |
+| identity references | +2.7 pp [−0.8, +6.3] (35 better / 20 worse) | +0.2 pp [−3.3, +3.7] |
+| printed names | +0.0 pp [−1.6, +1.6] (no game changed) | +0.0 pp [−1.8, +1.8] (1/1) |
+| both | +2.7 pp [−0.8, +6.3] | −0.2 pp [−3.7, +3.1] |
+
+The net plays no worse without either. On B-refresh's encoder, emptying the
+names moves a card's rule row by a median 1.0 % of its length while two
+different cards' rows lie 125 % apart, and the `i/` rows of two different cards
+differ by only 4.7 %: the index, read through the shared byte table, nearly
+collapses to one vector. Cards are told apart by their compiled rules.
 
 ### Lookahead search (`eval4 --search K,P,H`)
 
