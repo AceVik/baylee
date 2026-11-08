@@ -241,14 +241,17 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut decks: Vec<HouseDeck> = Vec::new();
+    let mut manifest_skipped_decks = Vec::new();
     if let Some(manifest_path) = &args.decks_manifest {
-        decks.extend(load_manifest_decks(
+        let (loaded, skipped) = load_manifest_decks(
             manifest_path,
             &args.deck_split,
             &args.shape,
             &args.holdout_tier,
             args.held_out_cards,
-        )?);
+        )?;
+        decks.extend(loaded);
+        manifest_skipped_decks = skipped;
     }
     let manifest_accepted_deck_count = decks.len();
     let mut attempt = 0_u64;
@@ -338,6 +341,7 @@ fn main() -> anyhow::Result<()> {
             "accepted_deck_keys": accepted_deck_keys,
             "accepted_deck_count": accepted_deck_count,
             "generated_deck_count": generated_deck_count,
+            "manifest_skipped_decks": manifest_skipped_decks,
         });
         run.as_object_mut().context("run metadata object")?.extend(
             collector_policy_metadata(
@@ -847,6 +851,7 @@ fn main() -> anyhow::Result<()> {
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
     summary["generated_deck_count"] = json!(generated_deck_count);
+    summary["manifest_skipped_decks"] = json!(manifest_skipped_decks);
     summary["shadow_teacher"] = json!(shadow_spec.as_ref().map(|spec| spec.contract()));
     summary["coverage_matrix"] = json!(st.coverage.counts);
     summary["numbers_only"] = json!(args.numbers_only);
