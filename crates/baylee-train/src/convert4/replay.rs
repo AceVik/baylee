@@ -675,6 +675,7 @@ fn cancelled_cast_inputs(
     }
     let mut active_cast: [Vec<u64>; MAX_SEATS] = std::array::from_fn(|_| Vec::new());
     let mut cast_start_journal = [0_usize; MAX_SEATS];
+    let mut cast_start_hash = [None::<u64>; MAX_SEATS];
     let mut cancelled = std::collections::BTreeSet::new();
     for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
         if let Line::Input {
@@ -690,26 +691,34 @@ fn cancelled_cast_inputs(
                 continue;
             }
             let s_idx = usize::from(seat_u8).min(MAX_SEATS - 1);
-            let view = session.observe_view(seat);
+            let view = session.observe_view_with_payment_context(seat);
             let journal_before = session.state().journal.len();
-            if view.casting.is_none() && view.owed.is_none() {
+            if matches!(session.pending(), Pending::Priority { .. })
+                && view.casting.is_none()
+                && view.announced_cast.is_none()
+                && view.owed.is_none()
+            {
                 active_cast[s_idx].clear();
                 cast_start_journal[s_idx] = journal_before;
+                cast_start_hash[s_idx] = Some(session.snapshot_hash());
             }
             active_cast[s_idx].push(input_n);
             let _ = session.act(seat, action);
             let entries = session.state().journal.entries();
             let start = cast_start_journal[s_idx].min(journal_before);
             let tail = entries.get(start..).unwrap_or(entries);
-            if tail.iter().any(|entry| {
+            let cast_cancelled = tail.iter().any(|entry| {
                 matches!(
                     entry.event,
                     baylee_engine::event::GameEvent::CastCancelled { player, .. }
                         if player == seat
                 )
-            }) {
+            });
+            let reversed_to_start = cast_start_hash[s_idx] == Some(session.snapshot_hash());
+            if cast_cancelled || reversed_to_start {
                 cancelled.extend(active_cast[s_idx].drain(..));
                 cast_start_journal[s_idx] = entries.len();
+                cast_start_hash[s_idx] = Some(session.snapshot_hash());
             }
         }
     }

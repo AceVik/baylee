@@ -87,6 +87,19 @@ class TacticianTrainer(unittest.TestCase):
         self.assertEqual(T.choice(scores, record, 0.03), [1, 0, 0])
         self.assertEqual(T.pick_margin({0.0: 0.1, 0.01: 0.1, 0.02: 0.05}), 0.01)
 
+    def test_delta_takes_and_compact_head(self):
+        torch.set_num_threads(1)
+        with tempfile.TemporaryDirectory() as root:
+            records = Path(root) / "records"
+            write_records(records, 600, 7)
+            out = Path(root) / "head_compact"
+            meta = T.main(["--records", str(records), "--out", str(out), "--seed", "5",
+                           "--epochs", "6", "--lr", "1e-3", "--hidden-width", "32",
+                           "--delta-takes", "--turn-target-blend", "0.5", "--device", "cpu"])
+            self.assertEqual(meta["hidden_width"], 32)
+            self.assertTrue(meta["delta_takes"])
+            self.assertEqual(meta["turn_target_blend"], 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()

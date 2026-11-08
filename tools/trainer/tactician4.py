@@ -30,15 +30,31 @@ MARGINS = (0.0, 0.005, 0.01, 0.02, 0.04, 0.08)
 
 
 class TacticianHead(nn.Module):
-    """width -> width -> width -> 1 with GELU: four times the plain head."""
+    """width -> hidden -> hidden -> 1 with GELU."""
 
-    def __init__(self, width: int):
+    def __init__(self, width: int, hidden: int = 0):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(width, width), nn.GELU(), nn.Linear(width, width),
-                                 nn.GELU(), nn.Linear(width, 1))
+        h = hidden if hidden > 0 else width
+        self.net = nn.Sequential(nn.Linear(width, h), nn.GELU(), nn.Linear(h, h),
+                                 nn.GELU(), nn.Linear(h, 1))
 
     def forward(self, rows):
         return self.net(rows).squeeze(-1)
+
+
+def attach_turn_deltas(decisions):
+    """Attaches `turn_delta = next_turn_value - value` within each (source, game, seat)."""
+    by_seat = {}
+    for record in decisions:
+        key = (record.get("source", ""), record.get("game", ""), int(record.get("seat", 0)))
+        by_seat.setdefault(key, []).append(record)
+    for seq in by_seat.values():
+        seq.sort(key=lambda r: int(r.get("seq", 0)))
+        for idx, rec in enumerate(seq):
+            turn = int(rec.get("turn", 0))
+            v_cur = float(rec["value"])
+            nxt = next((r for r in seq[idx + 1:] if int(r.get("turn", 0)) > turn), None)
+            rec["turn_delta"] = (float(nxt["value"]) - v_cur) if nxt is not None else None
 
 
 def read_records(dirs):
@@ -74,6 +90,7 @@ def read_records(dirs):
                 decisions.append(record)
     if not decisions:
         raise ValueError("no decisions")
+    attach_turn_deltas(decisions)
     return decisions
 
 
@@ -82,8 +99,12 @@ def held_out(record) -> bool:
     return record["seed"] % 10 == 0
 
 
-def advantage_target(record) -> float:
-    return float(record["utility"]) - float(record["value"])
+def advantage_target(record, turn_blend: float = 0.0, terminal_bias: float = 0.0) -> float:
+    term = float(record["utility"]) - float(record["value"]) - terminal_bias
+    td = record.get("turn_delta")
+    if turn_blend > 0.0 and td is not None:
+        return (1.0 - turn_blend) * term + turn_blend * float(td)
+    return term
 
 
 def weight(record) -> float:
@@ -93,7 +114,8 @@ def weight(record) -> float:
 class Batch:
     """Decisions flattened to rows, with what sums a decision's prediction."""
 
-    def __init__(self, records, device):
+    def __init__(self, records, device, delta_takes: bool = False,
+                 turn_blend: float = 0.0, terminal_bias: float = 0.0):
         d = len(records[0]["state"])
         rows, owner, takes, targets, weights = [], [], [], [], []
         for i, record in enumerate(records):
@@ -102,9 +124,13 @@ class Batch:
             units = np.concatenate([np.zeros((1, d), np.float32), record["units"]])
             rows.append(np.concatenate([state, units, record["tails"]], axis=1))
             owner.extend([i] * (n + 1))
-            # The null row always counts; a unit counts when the answer takes it.
-            takes.extend([1.0] + [float(bit != 0) for bit in record["played"]])
-            targets.append(advantage_target(record))
+            if delta_takes:
+                takes.extend([1.0] + [float(p != 0) - float(b != 0)
+                                      for p, b in zip(record["played"], record["net"])])
+            else:
+                # The null row always counts; a unit counts when the answer takes it.
+                takes.extend([1.0] + [float(bit != 0) for bit in record["played"]])
+            targets.append(advantage_target(record, turn_blend, terminal_bias))
             weights.append(weight(record))
         self.rows = torch.from_numpy(np.concatenate(rows).astype(np.float32)).to(device)
         self.owner = torch.tensor(owner, device=device)
@@ -134,8 +160,11 @@ def evaluate(head, batches, scale):
     return total, zero
 
 
-def batches_of(records, size, device):
-    return [Batch(records[i:i + size], device) for i in range(0, len(records), size)]
+def batches_of(records, size, device, delta_takes: bool = False,
+               turn_blend: float = 0.0, terminal_bias: float = 0.0):
+    return [Batch(records[i:i + size], device, delta_takes=delta_takes,
+                  turn_blend=turn_blend, terminal_bias=terminal_bias)
+            for i in range(0, len(records), size)]
 
 
 def supported(record):
@@ -160,17 +189,18 @@ def choice(scores, record, margin):
     return best
 
 
-def margin_estimates(head, records, device):
+def margin_estimates(head, records, device, turn_blend: float = 0.0, terminal_bias: float = 0.0):
     """One-step importance estimates of the mean advantage per margin."""
     head.eval()
     sums = {m: 0.0 for m in MARGINS}
     with torch.no_grad():
         for record in records:
-            batch = Batch([record], device)
+            batch = Batch([record], device, turn_blend=turn_blend, terminal_bias=terminal_bias)
             scores = head(batch.rows).cpu().numpy().tolist()
+            adv = advantage_target(record, turn_blend, terminal_bias)
             for margin in MARGINS:
                 if choice(scores, record, margin) == record["played"]:
-                    sums[margin] += advantage_target(record) / float(record["probability"])
+                    sums[margin] += adv / float(record["probability"])
     head.train()
     return {m: s / max(len(records), 1) for m, s in sums.items()}
 
@@ -206,13 +236,17 @@ def train(args):
     val_set = [r for r in records if held_out(r)]
     if not train_set or not val_set:
         raise ValueError("both a training and a held-out split are needed")
+    terminal_bias = (float(np.mean([float(r["utility"]) - float(r["value"]) for r in train_set]))
+                     if args.turn_target_blend > 0.0 else 0.0)
     mean_weight = float(np.mean([weight(r) for r in train_set]))
     rng = np.random.default_rng(args.seed)
-    val_batches = batches_of(val_set, args.batch, device)
-    train_eval = batches_of(train_set, args.batch, device)
+    val_batches = batches_of(val_set, args.batch, device, delta_takes=args.delta_takes,
+                             turn_blend=args.turn_target_blend, terminal_bias=terminal_bias)
+    train_eval = batches_of(train_set, args.batch, device, delta_takes=args.delta_takes,
+                            turn_blend=args.turn_target_blend, terminal_bias=terminal_bias)
     train_scale = mean_weight * len(train_set)
     val_scale = mean_weight * len(val_set)
-    head = TacticianHead(width).to(device)
+    head = TacticianHead(width, hidden=args.hidden_width).to(device)
     optimizer = torch.optim.AdamW(head.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     history, best, best_state, stale = [], math.inf, None, 0
     train_loss, train_zero = evaluate(head, train_eval, train_scale)
@@ -223,7 +257,9 @@ def train(args):
     for epoch in range(1, args.epochs + 1):
         order = rng.permutation(len(train_set))
         for start in range(0, len(order), args.batch):
-            batch = Batch([train_set[i] for i in order[start:start + args.batch]], device)
+            batch = Batch([train_set[i] for i in order[start:start + args.batch]], device,
+                          delta_takes=args.delta_takes, turn_blend=args.turn_target_blend,
+                          terminal_bias=terminal_bias)
             pred = batch.predict(head)
             loss = ((pred - batch.targets) ** 2 * batch.weights / mean_weight).mean()
             optimizer.zero_grad(set_to_none=True)
@@ -242,15 +278,19 @@ def train(args):
             if stale >= args.patience:
                 break
     head.load_state_dict(best_state)
-    estimates = margin_estimates(head, val_set, device)
+    estimates = margin_estimates(head, val_set, device, turn_blend=args.turn_target_blend,
+                                 terminal_bias=terminal_bias)
     margin = pick_margin(estimates)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=False)
     export(head, width, out / "tactician.onnx")
-    torch.save({"state_dict": head.state_dict(), "width": width}, out / "head.pt")
+    torch.save({"state_dict": head.state_dict(), "width": width,
+                "hidden_width": args.hidden_width}, out / "head.pt")
     selected = min(history[1:], key=lambda h: h["held_out"])
     meta = dict(
         contract=CONTRACT, d_model=d, row_tail=ROW_TAIL, width=width,
+        hidden_width=args.hidden_width if args.hidden_width > 0 else width,
+        delta_takes=args.delta_takes, turn_target_blend=args.turn_target_blend,
         parameters=sum(p.numel() for p in head.parameters()),
         margin=margin, margin_estimates={str(k): v for k, v in estimates.items()},
         seed=args.seed, lr=args.lr, weight_decay=args.weight_decay, batch=args.batch,
@@ -279,6 +319,9 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--patience", type=int, default=4)
+    ap.add_argument("--hidden-width", type=int, default=0)
+    ap.add_argument("--delta-takes", action="store_true")
+    ap.add_argument("--turn-target-blend", type=float, default=0.0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     return train(ap.parse_args(argv))
 

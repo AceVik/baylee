@@ -110,6 +110,7 @@ fn rollout<P: SearchPlayer4>(
     teams: &[Option<u8>],
     horizon: usize,
     mut active_root_cast: Option<baylee_core::ids::ObjectId>,
+    mut root_snapshot_hash: Option<u64>,
     root_journal_len: usize,
 ) -> anyhow::Result<Leaf> {
     let seat = root.seat;
@@ -130,28 +131,6 @@ fn rollout<P: SearchPlayer4>(
         })
     };
     loop {
-        if let Some(card) = active_root_cast {
-            let entries = fork.state().journal.entries();
-            let tail = entries.get(root_journal_len..).unwrap_or(entries);
-            if tail.iter().any(|entry| {
-                matches!(
-                    entry.event,
-                    baylee_engine::event::GameEvent::CastCancelled {
-                        player,
-                        card: cancelled,
-                        ..
-                    } if player == seat && cancelled == card
-                )
-            }) {
-                let base = player.observed_value(seat).unwrap_or(0.5);
-                return Ok(Leaf {
-                    score: (base - 0.02).clamp(0.0, 1.0),
-                    steps,
-                    decisions,
-                    kind: LeafKind::Stopped,
-                });
-            }
-        }
         if let Pending::GameOver(result) = fork.pending() {
             let winners: Vec<u8> = fork
                 .winning_seats(*result)
@@ -166,13 +145,43 @@ fn rollout<P: SearchPlayer4>(
             });
         }
         let observed = context.observe(fork, seat);
-        if let Some(card) = active_root_cast
-            && observed.casting != Some(card)
-            && observed.announced_cast != Some(card)
+        player.observe(&observed)?;
+        let cast_cancelled = active_root_cast.is_some_and(|card| {
+            let entries = fork.state().journal.entries();
+            let tail = entries.get(root_journal_len..).unwrap_or(entries);
+            tail.iter().any(|entry| {
+                matches!(
+                    entry.event,
+                    baylee_engine::event::GameEvent::CastCancelled {
+                        player,
+                        card: cancelled,
+                        ..
+                    } if player == seat && cancelled == card
+                )
+            })
+        });
+        let reversed_to_root = root_snapshot_hash.is_some_and(|h| {
+            observed.casting.is_none()
+                && observed.announced_cast.is_none()
+                && observed.owed.is_none()
+                && fork.snapshot_hash() == h
+        });
+        if cast_cancelled || reversed_to_root {
+            let base = player.observed_value(seat).unwrap_or(0.5);
+            return Ok(Leaf {
+                score: (base - 0.02).clamp(0.0, 1.0),
+                steps,
+                decisions,
+                kind: LeafKind::Stopped,
+            });
+        }
+        if observed.casting.is_none()
+            && observed.announced_cast.is_none()
+            && observed.owed.is_none()
         {
             active_root_cast = None;
+            root_snapshot_hash = None;
         }
-        player.observe(&observed)?;
         if horizon == 0 {
             return value(player, steps, decisions, LeafKind::Immediate);
         }
@@ -382,6 +391,8 @@ impl Start<'_> {
             PlayerAction::CastSpell { card } => Some(card),
             _ => None,
         };
+        let root_snapshot_hash =
+            (!matches!(*action, PlayerAction::PassPriority)).then(|| world.snapshot_hash());
         let journal_cursor = world.state().journal.len();
         player.conclude(self.view, self.decision, action);
         player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
@@ -400,6 +411,7 @@ impl Start<'_> {
             self.teams,
             self.horizon,
             root_cast,
+            root_snapshot_hash,
             journal_cursor,
         )
         .map(Some)
