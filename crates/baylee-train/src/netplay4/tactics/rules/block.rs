@@ -25,13 +25,14 @@ fn hit(attacker: &PublicObject) -> i32 {
 }
 
 /// Whether `blocker` outlasts `attacker`, which it should stop for that alone.
-pub(super) fn lives(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+pub(in crate::netplay4) fn lives(attacker: &PublicObject, blocker: &PublicObject) -> bool {
     hit(attacker) > 0
         && toughness_left(blocker) > hit(attacker)
         && !has(attacker, KeywordSet::DEATHTOUCH)
 }
 
-fn kills(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+/// Whether `blocker` kills `attacker` in their fight, first strike counted.
+pub(in crate::netplay4) fn kills(attacker: &PublicObject, blocker: &PublicObject) -> bool {
     let first = has(attacker, KeywordSet::FIRST_STRIKE)
         && !has(blocker, KeywordSet::FIRST_STRIKE)
         && !lives(attacker, blocker);

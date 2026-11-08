@@ -81,6 +81,7 @@ fn sample(
         .collect();
     let mut rng = Rng::new(417);
     let (action, _, lp, target) = PolicySampler4 {
+        tactician: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,
@@ -93,6 +94,7 @@ fn sample(
         view,
         pending,
         PolicyOutputs4 {
+            embeddings: None,
             cand_logits: &logits,
             pair_logits: &[],
             scalar_pred: 0.0,

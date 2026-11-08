@@ -60,6 +60,7 @@ mod snapshot;
 pub use snapshot::PlayerSnapshot4;
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
+pub mod tactician;
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
@@ -70,8 +71,33 @@ pub use tactics::rules::{RuleGroup, TacticRules4};
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
 
-/// Memory, candidate logits, pair logits, scalar prediction and utility.
-type StepOutputs = (Vec<f32>, Vec<f32>, Vec<f32>, f32, f32);
+/// What a graph exported with `--embeddings` (`export_onnx4.py`) adds to a
+/// step: what a tactician head reads, contract `tactician_embeddings_v1`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StepEmbeddings4 {
+    /// The thought-through global slot, `[d]`.
+    pub state: Vec<f32>,
+    /// Each candidate's last hidden layer of the candidate head, `[C × d]`.
+    pub candidates: Vec<f32>,
+    /// Each pair's last hidden layer of the pair head, `[P × d]`.
+    pub pairs: Vec<f32>,
+}
+
+/// One step's outputs.
+pub(super) struct StepOutputs {
+    /// The recurrent memory after the step.
+    pub(super) h_out: Vec<f32>,
+    /// One logit per candidate.
+    pub(super) cand_logits: Vec<f32>,
+    /// One logit per blocker-attacker pair.
+    pub(super) pair_logits: Vec<f32>,
+    /// The scalar head's prediction.
+    pub(super) scalar_pred: f32,
+    /// The side's utility.
+    pub(super) value: f32,
+    /// Present when the graph outputs them.
+    pub(super) embeddings: Option<StepEmbeddings4>,
+}
 
 /// Output tensor names produced by the Playernet v4 ONNX graph.
 pub const OUTPUT_NAMES: &[&str] = &[
@@ -149,6 +175,9 @@ pub struct NetPlayer4 {
     tactic_rules: TacticRules4,
     /// A journal's copy of the last menu with its logits; `None` keeps none.
     pub(crate) last_menu: Option<serde_json::Value>,
+    /// `eval4 --tactician`: answers the attack, block and target questions
+    /// it names; `None` everywhere else, live play included.
+    tactician: Option<tactician::Tactician4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -312,6 +341,20 @@ impl NetPlayer4 {
         self.rule_refs_left_out
     }
 
+    /// Sets `eval4 --tactician-windows`: from the next game on, `tactician`
+    /// answers its windows. Evaluation and collection harnesses only.
+    pub fn set_tactician(&mut self, tactician: tactician::Tactician4) {
+        self.tactician = Some(tactician);
+    }
+
+    /// The tactician's decisions kept since this was last asked.
+    pub fn take_tactician_records(&mut self) -> Vec<tactician::TacticianRecord4> {
+        self.tactician
+            .as_mut()
+            .map(tactician::Tactician4::take_records)
+            .unwrap_or_default()
+    }
+
     /// Sets `eval4 --choice-guard` (`tactics::guard`) for this net.
     pub const fn set_choice_guard(&mut self, guard: ChoiceGuard4) {
         self.choice_guard = guard;
@@ -390,6 +433,7 @@ impl NetPlayer4 {
             payable_menu: None,
             tactic_rules: TacticRules4::default(),
             last_menu: None,
+            tactician: None,
         }
     }
 
@@ -506,6 +550,9 @@ impl NetPlayer4 {
     /// shuffle seed, P0-6) and resets per-game recurrent state and loop guards.
     pub fn reseed(&mut self, policy_seed: u64) {
         self.rng = Rng::new(policy_seed ^ 0x9e37_79b9_7f4a_7c15);
+        if let Some(tactician) = &mut self.tactician {
+            tactician.reseed(policy_seed);
+        }
         self.reset_game();
     }
 
@@ -579,9 +626,9 @@ impl NetPlayer4 {
             pairs: Vec::new(),
             pair_objects: Vec::new(),
         };
-        let (h_next, _, _, _, value) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
-        self.h_states.insert(s, h_next);
-        self.observed_values.insert(s, value);
+        let out = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
+        self.h_states.insert(s, out.h_out);
+        self.observed_values.insert(s, out.value);
         Ok(())
     }
 

@@ -52,6 +52,29 @@ struct Args {
     /// `rule_table_ablation` is recorded in run.json and the summary.
     #[arg(long, conflicts_with = "legacy_v3")]
     ablated_rule_table: bool,
+    /// The tactician (`netplay4::tactician`) answers these questions of the
+    /// seat under test: `attack`, `block`, `target` (one target), or `all`.
+    /// With `--tactician-explore` it explores and keeps records for training a
+    /// head on outcomes; with `--tactician` a trained head plays. Needs
+    /// `--raw-policy` at temperature 0 (`--choice-guard tactical` keeps the
+    /// tactical layer everywhere else), two seats against the house, a graph
+    /// exported with `--embeddings`, and `--decks-manifest`: the look's prior is
+    /// the manifest's train split. Evaluation only.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    tactician_windows: Option<String>,
+    /// Explore at the windows: the net's answer with probability `1 − ε`.
+    #[arg(long, requires = "tactician_windows", conflicts_with = "tactician")]
+    tactician_explore: Option<f64>,
+    /// A trained head (`tactician.onnx`, `tactician.json`) plays the windows.
+    #[arg(long, requires = "tactician_windows")]
+    tactician: Option<PathBuf>,
+    /// How much better a head must score an answer to leave the net's;
+    /// default the head's own `margin`.
+    #[arg(long, requires = "tactician")]
+    tactician_margin: Option<f32>,
+    /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
+    #[arg(long, requires = "tactician_windows")]
+    tactician_out: Option<PathBuf>,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -302,6 +325,8 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    tactician:
+        std::collections::BTreeMap<String, baylee_train::netplay4::tactician::TacticianStats4>,
 }
 
 /// Why `--search` cannot run with `args`, if it cannot.

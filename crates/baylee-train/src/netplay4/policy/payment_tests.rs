@@ -151,6 +151,7 @@ fn grouped_mana_preserves_announced_tap_self_activation_in_both_modes() {
         logits[group_index] = 2.0;
         let mut rng = Rng::new(77);
         let (action, _, lp, target) = PolicySampler4 {
+            tactician: None,
             mode,
             temperature: 0.8,
             rng: &mut rng,
@@ -163,6 +164,7 @@ fn grouped_mana_preserves_announced_tap_self_activation_in_both_modes() {
             &view,
             &pending,
             PolicyOutputs4 {
+                embeddings: None,
                 cand_logits: &logits,
                 pair_logits: &[],
                 scalar_pred: 0.5,
