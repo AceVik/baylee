@@ -872,8 +872,9 @@ New cards keep arriving; this is the repeatable procedure, as run on
    <data>/decks-<date>/imported --manifest-out <data>/decks-<date>/manifest.v4.json
    --rejected-out ... --report-out ...` with absolute paths: the manifest names
    the decks absolutely and no checkout changes. Check that `eval4` loads the
-   number of decks the manifest's filters give (it skips an unreadable deck
-   without a word).
+   number of decks the manifest's filters give: `accepted_deck_count`, and
+   `manifest_skipped_decks` empty (builds before a6e029cfa skipped an
+   unreadable deck without a word).
 3. **What changed.** `card_structure4 --out <data>/structure-C.json` and
    `card_structure4 --check-model M`. Read `changed`, `new_tags` and
    `withdrawn_under_drift`. A change to nearly every card is an encoding
@@ -916,6 +917,18 @@ New cards keep arriving; this is the repeatable procedure, as run on
    against the baseline is above zero in raw or tactics and neither arm's upper
    bound is below zero, pooled over three seeds. Imitation metrics have
    improved while play got worse (−5.1 pp), so they never decide play.
+
+Measured on 7 November (runtime 5aed5359c, 512 test deals against `sharp`,
+B-refresh with drift as the baseline: 155 of 512 raw, 241 with tactics). After
+the madness fix 27 rules had changed, and one test deck of 83 held such a card.
+The refresh played every raw deal as the baseline did (+0.0 pp, tactics
+−0.2 pp [−2.0, +1.6]). The card stage, `--train encoder`, three seeds, raised
+the held-out probes from B-refresh's encoder (mana value .30 → .82–.91, power
+.41 → .98, toughness .36 → .97, types F1 .72 → .90, effect families .16 →
+.21–.23, keywords .02 → .04–.06) and left play where it was (raw +0.1 pp
+[−1.6, +1.8], tactics +0.3 pp [−1.6, +2.2]): the encoder learns printed numbers
+and types far better than what an effect does, and the trunk does not use
+either until a fine-tune teaches it to.
 
 ### Lookahead search (`eval4 --search K,P,H`)
 
