@@ -55,6 +55,7 @@ pub(super) struct GameCursor<'a> {
 
 impl Targets {
     /// Checks the weights of the net's unsearched and unchanged-search decisions.
+    #[cfg(test)]
     pub(super) fn new(unsearched_net_weight: f32) -> anyhow::Result<Self> {
         Self::with_options(unsearched_net_weight, 1.0, false)
     }

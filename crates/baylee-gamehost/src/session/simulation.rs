@@ -230,6 +230,19 @@ impl SimulationSession {
         self.seats.get(usize::from(seat.get()))
     }
 
+    /// Takes a house chair over so the harness answers it, as
+    /// [`Session::take_over`] does. Returns whether it was a house chair.
+    pub fn take_over(&mut self, seat: PlayerId) -> bool {
+        let Some(kind) = self.seats.get_mut(usize::from(seat.get())) else {
+            return false;
+        };
+        let SeatKind::Ai(agent) = kind else {
+            return false;
+        };
+        *kind = SeatKind::Driven(agent.clone());
+        true
+    }
+
     /// Hands a driven chair back to the agent it kept, as
     /// [`Session::release`] does: the fork's house plays it from here on.
     /// Returns whether it was driven.
