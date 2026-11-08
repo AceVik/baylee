@@ -110,7 +110,7 @@ fn rollout<P: SearchPlayer4>(
     teams: &[Option<u8>],
     horizon: usize,
     mut active_root_cast: Option<baylee_core::ids::ObjectId>,
-    mut journal_cursor: usize,
+    root_journal_len: usize,
 ) -> anyhow::Result<Leaf> {
     let seat = root.seat;
     let context = player.view_context();
@@ -131,19 +131,18 @@ fn rollout<P: SearchPlayer4>(
     };
     loop {
         if let Some(card) = active_root_cast {
-            if fork.state().journal.entries()[journal_cursor..]
-                .iter()
-                .any(|entry| {
-                    matches!(
-                        entry.event,
-                        baylee_engine::event::GameEvent::CastCancelled {
-                            player,
-                            card: cancelled,
-                            ..
-                        } if player == seat && cancelled == card
-                    )
-                })
-            {
+            let entries = fork.state().journal.entries();
+            let tail = entries.get(root_journal_len..).unwrap_or(entries);
+            if tail.iter().any(|entry| {
+                matches!(
+                    entry.event,
+                    baylee_engine::event::GameEvent::CastCancelled {
+                        player,
+                        card: cancelled,
+                        ..
+                    } if player == seat && cancelled == card
+                )
+            }) {
                 return Ok(Leaf {
                     score: -1.0,
                     steps,
@@ -151,7 +150,6 @@ fn rollout<P: SearchPlayer4>(
                     kind: LeafKind::Stopped,
                 });
             }
-            journal_cursor = fork.state().journal.len();
         }
         if let Pending::GameOver(result) = fork.pending() {
             let winners: Vec<u8> = fork
