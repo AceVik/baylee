@@ -50,7 +50,8 @@ fn is_rejected_override(own_kind: &str, played_kind: &str) -> bool {
     own_kind == "ActivateManaAbility"
         || played_kind == "ActivateManaAbility"
         || played_kind == "CancelCast"
-        || (own_kind == "PlayLand" && played_kind == "PassPriority")
+        || (matches!(own_kind, "PlayLand" | "CastSpell" | "ActivateAbility")
+            && played_kind == "PassPriority")
 }
 
 /// Per-seat accepted search events for a single recorded game.

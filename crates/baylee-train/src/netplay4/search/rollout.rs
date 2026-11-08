@@ -143,8 +143,9 @@ fn rollout<P: SearchPlayer4>(
                     } if player == seat && cancelled == card
                 )
             }) {
+                let base = player.observed_value(seat).unwrap_or(0.5);
                 return Ok(Leaf {
-                    score: -1.0,
+                    score: (base - 0.02).clamp(0.0, 1.0),
                     steps,
                     decisions,
                     kind: LeafKind::Stopped,
