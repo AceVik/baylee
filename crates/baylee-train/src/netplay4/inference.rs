@@ -10,7 +10,7 @@
 use ort::session::Session;
 use ort::value::Tensor;
 
-use super::{RECURRENT_SLOTS, StepOutputs, abi, ort_error, structure};
+use super::{RECURRENT_SLOTS, StepEmbeddings4, StepOutputs, abi, ort_error, structure};
 use crate::carddsl::CARD_DSL_WIDTH;
 use crate::features4::{
     CAND_FEAT_WIDTH, EncodedCandidates4, EncodedState4, MAX_SEATS, SEAT_FEAT_WIDTH,
@@ -411,17 +411,40 @@ pub(super) fn run_rows(
         h_out.len() == b * slots && cand_logits.len() == b * c && pair_logits.len() == b * p,
         "the graph answered a call of {b} rows in other shapes"
     );
+    let embeddings = match (
+        outputs.get("state_emb"),
+        outputs.get("cand_emb"),
+        outputs.get("pair_emb"),
+    ) {
+        (Some(state), Some(cands), Some(pairs)) => {
+            let (_, state) = state.try_extract_tensor::<f32>().map_err(ort_error)?;
+            let (_, cands) = cands.try_extract_tensor::<f32>().map_err(ort_error)?;
+            let (_, pairs) = pairs.try_extract_tensor::<f32>().map_err(ort_error)?;
+            anyhow::ensure!(
+                state.len() == b * d_model
+                    && cands.len() == b * c * d_model
+                    && pairs.len() == b * p * d_model,
+                "the graph's embeddings answered a call of {b} rows in other shapes"
+            );
+            Some((state, cands, pairs))
+        }
+        (None, None, None) => None,
+        _ => anyhow::bail!("a graph outputs all three embeddings or none"),
+    };
     Ok(rows
         .iter()
         .enumerate()
-        .map(|(i, r)| {
-            (
-                h_out[i * slots..(i + 1) * slots].to_vec(),
-                cand_logits[i * c..i * c + r.candidates].to_vec(),
-                pair_logits[i * p..i * p + r.pairs].to_vec(),
-                scalar_pred.get(i).copied().unwrap_or(0.0),
-                value.get(i).copied().unwrap_or(0.5),
-            )
+        .map(|(i, r)| StepOutputs {
+            h_out: h_out[i * slots..(i + 1) * slots].to_vec(),
+            cand_logits: cand_logits[i * c..i * c + r.candidates].to_vec(),
+            pair_logits: pair_logits[i * p..i * p + r.pairs].to_vec(),
+            scalar_pred: scalar_pred.get(i).copied().unwrap_or(0.0),
+            value: value.get(i).copied().unwrap_or(0.5),
+            embeddings: embeddings.map(|(state, cands, pairs)| StepEmbeddings4 {
+                state: state[i * d_model..(i + 1) * d_model].to_vec(),
+                candidates: cands[i * c * d_model..(i * c + r.candidates) * d_model].to_vec(),
+                pairs: pairs[i * p * d_model..(i * p + r.pairs) * d_model].to_vec(),
+            }),
         })
         .collect())
 }

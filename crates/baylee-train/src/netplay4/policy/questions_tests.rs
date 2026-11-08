@@ -22,6 +22,7 @@ fn favoured(
     logits[index] = 8.0;
     let mut rng = Rng::new(410);
     let (action, _, _, target) = PolicySampler4 {
+        tactician: None,
         mode,
         temperature: 0.0,
         rng: &mut rng,
@@ -34,6 +35,7 @@ fn favoured(
         view,
         pending,
         PolicyOutputs4 {
+            embeddings: None,
             cand_logits: &logits,
             pair_logits: &[],
             scalar_pred: 0.0,

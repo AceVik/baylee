@@ -9,11 +9,11 @@
 
 mod attack;
 mod audit;
-mod block;
+pub(in crate::netplay4) mod block;
 mod opening;
 mod options;
 mod ping;
-mod read;
+pub(in crate::netplay4) mod read;
 mod targets;
 #[cfg(test)]
 mod tests;

@@ -57,6 +57,7 @@ mod precision;
 mod random_seat;
 mod seat_players;
 mod shadow;
+mod tactician;
 
 include!("runtime.rs");
 include!("game.rs");
@@ -184,6 +185,24 @@ fn main() -> anyhow::Result<()> {
              no shadow or collection, and its records are no training data"
         );
     }
+    if args.tactician_windows.is_some()
+        && (!args.raw_policy
+            || args.temperature != 0.0
+            || args.seats != 2
+            || args.legacy_v3
+            || args.search.is_some()
+            || args.shadow_teacher.is_some()
+            || args.random_policy
+            || args.opponent_model.is_some()
+            || args.decks_manifest.is_none()
+            || collection.purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--tactician-windows plays the seat under test against the house: --raw-policy at \
+             temperature 0, two seats, --decks-manifest, no search, shadow, random seat, neural \
+             opponent or collection purpose; its records train only the tactician head"
+        );
+    }
     let dev_arm = args.dev_free_temperature || args.menu_payable;
     if dev_arm
         && (args.legacy_v3
@@ -269,6 +288,23 @@ fn main() -> anyhow::Result<()> {
         decks.extend(loaded);
         manifest_skipped_decks = skipped;
     }
+    let tactician_setup = {
+        let train = match (&args.decks_manifest, &args.tactician_windows) {
+            (Some(manifest), Some(_)) => {
+                load_manifest_decks(manifest, "train", &args.shape, "", false)?.0
+            }
+            _ => Vec::new(),
+        };
+        tactician::TacticianSetup::from_args(
+            args.tactician_windows.as_deref(),
+            args.tactician_explore,
+            args.tactician.as_deref(),
+            args.tactician_margin,
+            args.tactician_out.as_deref(),
+            &train,
+        )?
+        .map(Arc::new)
+    };
     let manifest_accepted_deck_count = decks.len();
     let mut attempt = 0_u64;
     let seed_base = if args.held_out_cards {
@@ -386,6 +422,9 @@ fn main() -> anyhow::Result<()> {
             // Only runs that accept another catalog than this build's name it.
             run["catalog"] = catalog.clone();
         }
+        if let Some(setup) = &tactician_setup {
+            run["tactician"] = setup.metadata();
+        }
         if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -494,6 +533,7 @@ fn main() -> anyhow::Result<()> {
         let value_log = value_log.clone();
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
         let random_policy = args.random_policy;
+        let tactician_setup = tactician_setup.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -516,6 +556,14 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(bias) = menu_payable {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
+            }
+            let mut tactician_sink = None;
+            if let Some(setup) = &tactician_setup {
+                anyhow::ensure!(
+                    net.set_tactician(setup.tactician()?),
+                    "--tactician-windows needs a net"
+                );
+                tactician_sink = setup.sink(worker_id)?;
             }
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -691,6 +739,21 @@ fn main() -> anyhow::Result<()> {
                     (bu, bc)
                 };
 
+                let tactician_records = net.take_tactician_records();
+                if let Some(sink) = &mut tactician_sink {
+                    sink.write(
+                        &tactician::DealKey {
+                            game: &rec_game_id,
+                            deal: d,
+                            seed,
+                            policy_seed,
+                            focal_seat,
+                            utility: net_u,
+                            capped: net_capped,
+                        },
+                        &tactician_records,
+                    )?;
+                }
                 let guard_fired = net.take_choice_guard_fired();
                 let rules_fired = net.take_tactic_rules_fired();
                 let menu_stats = net.take_menu_stats();
@@ -698,6 +761,7 @@ fn main() -> anyhow::Result<()> {
                 if let Some(deal_menu) = &menu_stats {
                     st.menu.get_or_insert_default().add(deal_menu);
                 }
+                tactician::count(&mut st.tactician, &tactician_records);
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "choice_guard_fired": guard_fired,
@@ -884,6 +948,10 @@ fn main() -> anyhow::Result<()> {
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
     summary["random_policy"] = json!(args.random_policy);
+    summary["tactician"] = tactician_setup.as_ref().map_or(
+        Value::Null,
+        |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),
+    );
     summary["opponent"] = json!({"model": args.opponent_model, "policy": args.opponent_policy,
         "legacy_v3": args.opponent_legacy_v3});
     summary["model_family"] = json!(
