@@ -273,7 +273,7 @@ impl SharedNets {
         rows: usize,
         model: &std::path::Path,
         opponent: Option<(&std::path::Path, Option<&ModelIdentity>)>,
-        catalog: CatalogPolicy4,
+        catalog: CatalogRead4,
     ) -> anyhow::Result<Self> {
         if rows == 0 {
             return Ok(Self::default());
@@ -285,7 +285,7 @@ impl SharedNets {
             Some((_, Some(identity))) if identity == learner.model_identity() => {
                 Some(learner.clone())
             }
-            Some((path, _)) => Some(BatchedNet4::load(path, limits, catalog)?),
+            Some((path, _)) => Some(BatchedNet4::load(path, limits, catalog.policy)?),
             None => None,
         };
         Ok(Self {

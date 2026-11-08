@@ -226,6 +226,11 @@ def main() -> None:
                          "float16 computes in FP16 behind FP32 inputs and outputs, in its own directory")
     ap.add_argument("--out", default="",
                     help="Export directory (default: the model directory; MODEL/fp16 for float16)")
+    ap.add_argument("--blind-card-names", action="store_true",
+                    help="A measurement, never a model to play or train: the rule table is encoded "
+                         "from the catalog with every printed face name emptied "
+                         "(model4.structure.without_card_names). Needs its own --out; eval4 loads "
+                         "it only with --ablated-rule-table")
     args = ap.parse_args()
     torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
@@ -234,12 +239,24 @@ def main() -> None:
     out_dir = Path(args.out).expanduser() if args.out else model_dir / "fp16" if half else model_dir
     if half and out_dir.resolve() == model_dir.resolve():
         raise ValueError("A float16 export needs its own directory; the float32 graphs stay")
+    if args.blind_card_names and (not args.out or out_dir.resolve() == model_dir.resolve()):
+        raise ValueError("A blind-name export needs its own --out; the model's exports stay")
     out_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_path = model_dir / "net.pt"
     source_checkpoint_sha256 = file_digest(checkpoint_path)
     ckpt, net, model_module = load_export_checkpoint(checkpoint_path)
     cfg = net.cfg
     structure_sha256 = net.rules.digest
+    rule_table_ablation = None
+    if args.blind_card_names:
+        # Same node ids and tags, so the references and the digest a run
+        # binds by stay the model's; only the table's values change.
+        from model4.structure import without_card_names
+        from refresh_structure4 import refresh_encoder
+        blind, emptied = without_card_names(net.rules.data)
+        net.rules = refresh_encoder(net.rules, blind).eval()
+        rule_table_ablation = {"card_names": "empty", "name_strings": emptied,
+                               "use": "measurement_only"}
     net.rules = net.rules.freeze()
     atomic_json(out_dir / "card_structure.json", ckpt["structure"])
     options = ort.SessionOptions()
@@ -335,6 +352,7 @@ def main() -> None:
         "thinking_steps": args.thinking_steps, "config": cfg.to_dict(),
         "graphs": {str(k): f"model.k{k}.onnx" for k in sessions},
         "parity_max_abs_diff": worst_diff, "checked_frames": checked,
+        **({"rule_table_ablation": rule_table_ablation} if rule_table_ablation else {}),
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)

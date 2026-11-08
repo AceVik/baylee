@@ -84,8 +84,7 @@ mod producer_tests {
             );
             for purpose in ["on-policy-training", "failure_terminal_research_v1"] {
                 assert!(
-                    catalog_refusal(&parse(&["--collection-purpose", purpose, catalog]))
-                        .is_some(),
+                    catalog_refusal(&parse(&["--collection-purpose", purpose, catalog])).is_some(),
                     "{purpose} {catalog}"
                 );
                 assert_eq!(
@@ -95,5 +94,50 @@ mod producer_tests {
                 );
             }
         }
+    }
+
+    /// The identity and rule-table ablations measure the seat under test:
+    /// read only by it, recorded, and refused outside an evaluation against
+    /// the house.
+    #[test]
+    fn an_ablated_read_is_an_evaluation_of_the_seat_under_test_only() {
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["eval4", "--model", "m", "--out", "o"];
+            argv.extend_from_slice(extra);
+            Args::try_parse_from(argv).unwrap()
+        };
+        assert_eq!(catalog_read(&parse(&[])), CatalogRead4::default());
+        let read = catalog_read(&parse(&["--catalog-drift", "--leave-out-identity"]));
+        assert_eq!(read.policy, CatalogPolicy4::Drift);
+        assert!(read.leave_out_identity && !read.ablated_table);
+        assert!(catalog_read(&parse(&["--ablated-rule-table"])).ablated_table);
+        for ablation in ["--leave-out-identity", "--ablated-rule-table"] {
+            assert_eq!(catalog_refusal(&parse(&[ablation])), None, "{ablation}");
+            for purpose in ["on-policy-training", "failure_terminal_research_v1"] {
+                assert!(
+                    catalog_refusal(&parse(&["--collection-purpose", purpose, ablation])).is_some(),
+                    "{purpose} {ablation}"
+                );
+            }
+            assert!(
+                catalog_refusal(&parse(&["--opponent-model", "x", ablation])).is_some(),
+                "{ablation} with a neural opponent"
+            );
+            let argv = [
+                "eval4",
+                "--model",
+                "m",
+                "--out",
+                "o",
+                "--legacy-v3",
+                ablation,
+            ];
+            assert!(Args::try_parse_from(argv).is_err(), "{ablation} with v3");
+        }
+        assert_eq!(
+            catalog_refusal(&parse(&["--opponent-model", "x"])),
+            None,
+            "a neural opponent on this build's catalog"
+        );
     }
 }

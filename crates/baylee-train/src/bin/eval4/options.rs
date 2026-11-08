@@ -39,6 +39,19 @@ struct Args {
     /// drift report: appended cards, changed entries, the withdrawn cards.
     #[arg(long, conflicts_with = "legacy_v3")]
     catalog_drift: bool,
+    /// A measurement of what the model reads: leaves out every identity
+    /// reference (`i/<card>/<face>`, the card's index as bytes) of the seat
+    /// under test, as an unknown rule's. Its other references, its DSL
+    /// summary and its printed features stay. Evaluation only; recorded in
+    /// run.json and the summary (`catalog`).
+    #[arg(long, conflicts_with = "legacy_v3")]
+    leave_out_identity: bool,
+    /// Accept an export of the seat under test whose rule table was ablated
+    /// on purpose (`export_onnx4.py --blind-card-names`): a measurement, never
+    /// a model to play live or to collect with. Evaluation only; the export's
+    /// `rule_table_ablation` is recorded in run.json and the summary.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    ablated_rule_table: bool,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -341,38 +354,58 @@ const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
     }
 }
 
-/// Why `--catalog-superset`/`--catalog-drift` cannot run with `args`, if
-/// they cannot: only an evaluation may bind another catalog. `convert4`
+/// How the seat under test reads its card catalog: the run's policy and
+/// the measurement's ablations. Any other model of the run reads with the
+/// policy alone.
+const fn catalog_read(args: &Args) -> CatalogRead4 {
+    CatalogRead4 {
+        policy: catalog_policy(args),
+        leave_out_identity: args.leave_out_identity,
+        ablated_table: args.ablated_rule_table,
+    }
+}
+
+/// Why `--catalog-superset`/`--catalog-drift`, `--leave-out-identity` or
+/// `--ablated-rule-table` cannot run with `args`, if they cannot: only an
+/// evaluation may bind another catalog or read it ablated. `convert4`
 /// re-encodes every record with this build's whole catalog, so a recorded
 /// probability would belong to another observation than the one converted.
 fn catalog_refusal(args: &Args) -> Option<&'static str> {
-    (catalog_policy(args) != CatalogPolicy4::Exact
-        && args.collection_purpose != collector::Purpose::Evaluation)
-        .then_some(
-            "--catalog-superset and --catalog-drift are for evaluation only: \
-             convert4 re-encodes with this build's catalog",
-        )
+    let read = catalog_read(args);
+    if read != CatalogRead4::default() && args.collection_purpose != collector::Purpose::Evaluation
+    {
+        return Some(
+            "--catalog-superset, --catalog-drift, --leave-out-identity and --ablated-rule-table \
+             are for evaluation only: convert4 re-encodes with this build's catalog",
+        );
+    }
+    // A self-play copy shares the seat under test's graphs and rule roots.
+    ((read.leave_out_identity || read.ablated_table) && args.opponent_model.is_some()).then_some(
+        "--leave-out-identity and --ablated-rule-table measure the seat under test against the \
+         house: no neural opponent",
+    )
 }
 
 /// What `run.json` and the summary say about the card catalog when a run
-/// accepts another than this build's: each model's binding.
+/// accepts another than this build's, or reads it ablated: each model's
+/// binding.
 fn catalog_metadata(
     args: &Args,
     collection: &collector::Contract,
 ) -> anyhow::Result<Option<Value>> {
-    let policy = catalog_policy(args);
-    if policy == CatalogPolicy4::Exact {
+    let read = catalog_read(args);
+    if read == CatalogRead4::default() {
         return Ok(None);
     }
     let opponent = collection
         .opponent_path
         .as_deref()
-        .map(|path| inspect_catalog(path, policy))
+        .map(|path| inspect_catalog(path, read.policy))
         .transpose()?
         .flatten();
     Ok(Some(json!({
-        "policy": policy,
-        "learner": inspect_catalog(&args.model, policy)?,
+        "policy": read.policy,
+        "learner": inspect_catalog(&args.model, read)?,
         "opponent": opponent,
     })))
 }
@@ -382,8 +415,8 @@ fn catalog_metadata(
 enum ModelFormat {
     /// An archived v3 net (`--legacy-v3`).
     LegacyV3,
-    /// A v4/v5 net, its card catalog bound under the policy.
-    Net(CatalogPolicy4),
+    /// A v4/v5 net, its card catalog read as given.
+    Net(CatalogRead4),
 }
 
 /// Reads `--choice-guard`.

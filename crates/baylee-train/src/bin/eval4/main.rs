@@ -36,8 +36,8 @@ use baylee_train::netplay4::search::{
     terminal_utility,
 };
 use baylee_train::netplay4::{
-    BatchLimits4, BatchedNet4, CatalogPolicy4, ChoiceGuard4, CriticSemantics4, GuardArm,
-    ModelIdentity, NetPlayer4, PolicyMode4, inspect_catalog, inspect_model_identity,
+    BatchLimits4, BatchedNet4, CatalogPolicy4, CatalogRead4, ChoiceGuard4, CriticSemantics4,
+    GuardArm, ModelIdentity, NetPlayer4, PolicyMode4, inspect_catalog, inspect_model_identity,
     valid_raw_temperature,
 };
 use baylee_train::selfplay::table_for;
@@ -455,7 +455,7 @@ fn main() -> anyhow::Result<()> {
             .as_deref()
             .filter(|_| !args.opponent_legacy_v3)
             .map(|path| (path, collection.opponent_identity.as_ref())),
-        catalog_policy(&args),
+        catalog_read(&args),
     )?;
 
     let started = Instant::now();
@@ -480,7 +480,7 @@ fn main() -> anyhow::Result<()> {
         let temp = args.temperature;
         let fair = args.fair_scouting;
         let no_base = args.no_baseline;
-        let catalog = catalog_policy(&args);
+        let catalog = catalog_read(&args);
         let format = if args.legacy_v3 {
             ModelFormat::LegacyV3
         } else {

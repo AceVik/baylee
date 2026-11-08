@@ -19,6 +19,31 @@ def structure_digest(data):
     return _native(['digest'],json.dumps(data,allow_nan=False).encode()).decode().strip()
 
 
+def without_card_names(data):
+    """The catalog with every printed face name emptied, for a measurement.
+
+    Each `FaceDef.name` node keeps its single child, a string leaf, whose
+    bytes are removed. Node ids, tags and children stay, so every reference
+    reads the same node and only the names stop telling cards apart. The
+    catalog interns equal strings: a rule that names a card by its printed
+    name (`Filter::Named`) shares that leaf and loses its bytes too. Returns
+    the copy and the number of strings emptied.
+    """
+    name_tag = data["tags"].index("FaceDef.name")
+    names = set()
+    for node in data["nodes"]:
+        if node["tag"] == name_tag:
+            if len(node["children"]) != 1 or node["bytes"]:
+                raise ValueError("A face name is one string child")
+            names.add(node["children"][0])
+    nodes = list(data["nodes"])
+    for i in sorted(names):
+        if nodes[i]["children"]:
+            raise ValueError("A face name's string is a leaf")
+        nodes[i] = {**nodes[i], "bytes": []}
+    return {**data, "nodes": nodes}, len(names)
+
+
 class RuleEncoder(nn.Module):
     def __init__(self, data, width=128):
         super().__init__()
