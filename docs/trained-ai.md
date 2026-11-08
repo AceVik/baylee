@@ -1038,6 +1038,31 @@ zero. A rule group goes only when "tactician, group off" against "tactics, group
 on" has its lower bound above −1.5 pp and its point at or above −0.5 pp, pooled
 over three seeds, on the test deals and on fresh ones.
 
+Measured on 8 November (one frozen runtime, 5aed5359c's engine; references on
+it: B-refresh 153 raw, 238 with tactics). Collection: 8 × 1,024 train deals in
+29 minutes, half raw, half with tactics outside the windows, ε 0.25: 68,919
+window decisions, 17,280 played away from the net's answer. The tactician costs
+a median 0.12 ms per decision (at most 0.21), so no candidate cap is needed.
+Three heads: held-out loss tracks training loss in every seed (no overfitting),
+but the null row alone fits almost as well as the whole head (held-out MSE 0.164
+against 0.162; 0.211 for predicting nothing): what is learnt is mostly the state
+baseline, as the net's value is about 0.2 too optimistic. The heads leave the
+net's answer in 3–8 % of the questions.
+
+| Arm (three seeds pooled) | Test, 512 deals | Fresh, 1,536 deals |
+| --- | --- | --- |
+| tactician, raw elsewhere, against raw | +0.8 pp [−1.2, +2.9] | |
+| tactician, tactics elsewhere, against tactics | −1.6 pp [−4.9, +1.7] | |
+| at attacks only, against tactics | −1.8 pp [−4.8, +1.2] | |
+| at blocks only | −1.2 pp [−3.8, +1.4] | |
+| at single targets only | +1.2 pp [−1.0, +3.5] | +0.3 pp [−0.9, +1.5] |
+| the raw net's own target there, against tactics | +1.4 pp [−1.0, +3.7] | +0.3 pp [−0.9, +1.4] |
+
+The tactician does not pass its gate. At single targets the tactical layer's
+part passes the test for dropping it, but the raw net's own targeting passes it
+as well and the heads add nothing to it (+0.0 pp [−0.7, +0.7] on the fresh
+deals): the layer earns nothing there, the head is not why.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
