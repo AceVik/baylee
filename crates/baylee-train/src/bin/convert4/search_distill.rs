@@ -331,6 +331,14 @@ impl GameCursor<'_> {
                     delta_v
                 };
             step.outcome = (0.5 + 2.0 * advantage).clamp(0.0, 1.0);
+            if step.is_decision {
+                let eval_scale = if step.provenance.source == SourceKind4::Search && changed {
+                    (1.0 + 2.0 * advantage).clamp(1.0, 1.5)
+                } else {
+                    (1.0 + 4.0 * advantage).clamp(0.0, 1.5)
+                };
+                step.loss_weight *= eval_scale;
+            }
         }
     }
 }
