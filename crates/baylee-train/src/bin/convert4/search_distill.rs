@@ -335,7 +335,7 @@ impl GameCursor<'_> {
             if (terminal - (1.0 - baylee_train::features4::TEAM_WIN_ELIMINATED_PENALTY)).abs()
                 < 1e-4
             {
-                target = (target - 0.05).clamp(0.0, 1.0);
+                target = (target - 0.15).clamp(0.0, 1.0);
             }
             step.outcome = target;
         }

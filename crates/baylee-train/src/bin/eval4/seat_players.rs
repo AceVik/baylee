@@ -116,10 +116,10 @@ impl EvaluationPlayer for SeatPlayers {
     fn reseed(&mut self, seed: u64) {
         self.learner
             .reseed(seed ^ ((self.focal as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93)));
+        let opp_seat = (0..self.teams.len().max(2))
+            .find(|&s| !self.is_learner_seat(s))
+            .unwrap_or(1usize.saturating_sub(self.focal));
         if let Some(opponent) = &mut self.opponent {
-            let opp_seat = (0..self.teams.len().max(2))
-                .find(|&s| !self.is_learner_seat(s))
-                .unwrap_or(1usize.saturating_sub(self.focal));
             opponent.reseed(seed ^ ((opp_seat as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93)));
         }
     }

@@ -127,12 +127,12 @@ pub fn abs_seat(viewer: PlayerId, rel: usize, seat_count: usize) -> PlayerId {
 }
 
 /// Penalty subtracted from a winning team's utility (`1.0`) when `seat`
-/// itself was eliminated before the game ended (`0.80` instead of `1.0`).
-pub const TEAM_WIN_ELIMINATED_PENALTY: f32 = 0.20;
+/// itself was eliminated before the game ended (`0.40` instead of `1.0`).
+pub const TEAM_WIN_ELIMINATED_PENALTY: f32 = 0.60;
 
 /// Consistent multiplayer side utility:
 /// - `1.0` if `seat`'s side won and `seat` survived (or in 1v1/FFA),
-/// - `0.80` (`1.0 - TEAM_WIN_ELIMINATED_PENALTY`) if `seat`'s team won in a
+/// - `0.40` (`1.0 - TEAM_WIN_ELIMINATED_PENALTY`) if `seat`'s team won in a
 ///   team game but `seat` itself was eliminated (`!surviving_seats.contains(&seat)`),
 /// - `0.0` if another side won,
 /// - `1.0 / surviving_sides` on a draw if `seat`'s side survived, else `0.0`.

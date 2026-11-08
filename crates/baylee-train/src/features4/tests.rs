@@ -163,10 +163,10 @@ mod tests {
         let team_2v2 = [Some(1), Some(1), Some(2), Some(2)];
         assert!((side_utility(0, &team_2v2, &[0, 2], &[]) - 0.5).abs() < 1e-6);
         // 2v2 team win where seat 0 survived and teammate seat 1 was eliminated:
-        // surviving winner gets 1.0, eliminated teammate on winning team gets 0.80,
+        // surviving winner gets 1.0, eliminated teammate on winning team gets 0.40,
         // losing team gets 0.0.
         assert!((side_utility(0, &team_2v2, &[0], &[0, 1]) - 1.0).abs() < 1e-6);
-        assert!((side_utility(1, &team_2v2, &[0], &[0, 1]) - 0.80).abs() < 1e-6);
+        assert!((side_utility(1, &team_2v2, &[0], &[0, 1]) - 0.40).abs() < 1e-6);
         assert!((side_utility(2, &team_2v2, &[0], &[0, 1]) - 0.0).abs() < 1e-6);
         assert!((side_utility(3, &team_2v2, &[0], &[0, 1]) - 0.0).abs() < 1e-6);
     }
