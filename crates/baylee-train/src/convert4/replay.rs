@@ -203,6 +203,15 @@ fn replay_feature_frames(
 
     let seat_count = preset.seats.len().clamp(1, MAX_SEATS);
     let teams: Vec<Option<u8>> = preset.seats.iter().map(|s| s.team).collect();
+    let cancelled_inputs = if matches!(purpose, FeaturePurpose::Ordinary)
+        && !live_bc
+        && shadow.is_none()
+        && llm.is_none()
+    {
+        cancelled_cast_inputs(&preset, record)?
+    } else {
+        std::collections::BTreeSet::new()
+    };
 
     let mut session =
         Session::new(&preset).ok_or_else(|| "preset failed to build session".to_owned())?;
@@ -280,7 +289,9 @@ fn replay_feature_frames(
                 }
 
                 let p_kind = PendingKind4::of(&pending);
-                let step_loss_weight = if live_bc {
+                let step_loss_weight = if cancelled_inputs.contains(&input_n) {
+                    0.0_f32
+                } else if live_bc {
                     if matches!(by, Source::Seat)
                         && matches!(
                             seat_minds[seat_u8 as usize],
@@ -650,6 +661,56 @@ fn replay_feature_frames(
         }),
         snapshot_hash: session.snapshot_hash(),
     })
+}
+
+fn cancelled_cast_inputs(
+    preset: &baylee_core::preset::GamePreset,
+    record: &[u8],
+) -> Result<std::collections::BTreeSet<u64>, String> {
+    let seat_count = preset.seats.len().clamp(1, MAX_SEATS);
+    let mut session =
+        Session::new(preset).ok_or_else(|| "preset failed to build session".to_owned())?;
+    for s in 0..seat_count {
+        session.take_over(PlayerId::new(s as u8));
+    }
+    let mut active_cast: [Vec<u64>; MAX_SEATS] = std::array::from_fn(|_| Vec::new());
+    let mut cancelled = std::collections::BTreeSet::new();
+    for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        if let Line::Input {
+            seat: seat_u8,
+            action,
+            n: input_n,
+            ..
+        } = serde_json::from_slice::<Line>(line).map_err(|e| e.to_string())?
+        {
+            let seat = PlayerId::new(seat_u8);
+            if action.is_automation_setting() {
+                let _ = session.act(seat, action);
+                continue;
+            }
+            let s_idx = usize::from(seat_u8).min(MAX_SEATS - 1);
+            let view = session.observe_view(seat);
+            if view.casting.is_none() && view.owed.is_none() {
+                active_cast[s_idx].clear();
+            }
+            active_cast[s_idx].push(input_n);
+            let journal_before = session.state().journal.len();
+            let _ = session.act(seat, action);
+            if session.state().journal.entries()[journal_before..]
+                .iter()
+                .any(|entry| {
+                    matches!(
+                        entry.event,
+                        baylee_engine::event::GameEvent::CastCancelled { player, .. }
+                            if player == seat
+                    )
+                })
+            {
+                cancelled.extend(active_cast[s_idx].drain(..));
+            }
+        }
+    }
+    Ok(cancelled)
 }
 
 fn encode_selected_state(

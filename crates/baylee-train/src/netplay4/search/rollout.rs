@@ -99,12 +99,18 @@ const fn moment(view: &PlayerView) -> (u32, u8) {
 /// seat's first settled pass after the root's phase, and with what it did
 /// in between: a land drop with the spells it enables, a pass with the land
 /// played later, an attack with its damage.
+#[allow(
+    clippy::too_many_lines,
+    reason = "Single rollout loop tracks cancelled root casts, terminal leaves, settled main-phase priority and horizon"
+)]
 fn rollout<P: SearchPlayer4>(
     player: &mut P,
     fork: &mut SimulationSession,
     root: &PlayerView,
     teams: &[Option<u8>],
     horizon: usize,
+    mut active_root_cast: Option<baylee_core::ids::ObjectId>,
+    mut journal_cursor: usize,
 ) -> anyhow::Result<Leaf> {
     let seat = root.seat;
     let context = player.view_context();
@@ -124,6 +130,29 @@ fn rollout<P: SearchPlayer4>(
         })
     };
     loop {
+        if let Some(card) = active_root_cast {
+            if fork.state().journal.entries()[journal_cursor..]
+                .iter()
+                .any(|entry| {
+                    matches!(
+                        entry.event,
+                        baylee_engine::event::GameEvent::CastCancelled {
+                            player,
+                            card: cancelled,
+                            ..
+                        } if player == seat && cancelled == card
+                    )
+                })
+            {
+                return Ok(Leaf {
+                    score: -1.0,
+                    steps,
+                    decisions,
+                    kind: LeafKind::Stopped,
+                });
+            }
+            journal_cursor = fork.state().journal.len();
+        }
         if let Pending::GameOver(result) = fork.pending() {
             let winners: Vec<u8> = fork
                 .winning_seats(*result)
@@ -137,7 +166,14 @@ fn rollout<P: SearchPlayer4>(
                 kind: LeafKind::Terminal,
             });
         }
-        player.observe(&context.observe(fork, seat))?;
+        let observed = context.observe(fork, seat);
+        if let Some(card) = active_root_cast
+            && observed.casting != Some(card)
+            && observed.announced_cast != Some(card)
+        {
+            active_root_cast = None;
+        }
+        player.observe(&observed)?;
         if horizon == 0 {
             return value(player, steps, decisions, LeafKind::Immediate);
         }
@@ -343,6 +379,11 @@ impl Start<'_> {
             player.reset_other_seats_for_rollout(seat);
         }
         let action = &candidate.root.action;
+        let root_cast = match *action {
+            PlayerAction::CastSpell { card } => Some(card),
+            _ => None,
+        };
+        let journal_cursor = world.state().journal.len();
         player.conclude(self.view, self.decision, action);
         player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
         if world.act_slice(seat, action.clone(), 0).is_err() {
@@ -353,7 +394,16 @@ impl Start<'_> {
         {
             return Ok(None);
         }
-        rollout(player, &mut world, self.view, self.teams, self.horizon).map(Some)
+        rollout(
+            player,
+            &mut world,
+            self.view,
+            self.teams,
+            self.horizon,
+            root_cast,
+            journal_cursor,
+        )
+        .map(Some)
     }
 }
 

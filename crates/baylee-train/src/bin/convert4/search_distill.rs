@@ -185,13 +185,18 @@ impl GameSearchEvents {
                 .and_then(Value::as_f64)
                 .map_or(0.0, |v| v as f32);
             let changed = chosen != 0;
+            let cand_len = event
+                .get("candidates")
+                .and_then(Value::as_array)
+                .map_or(0, Vec::len);
             let own_kind = event
                 .get("candidates")
                 .and_then(Value::as_array)
                 .and_then(|c| c.first())
                 .map_or("", action_kind);
             let played_kind = event.get("action").map_or("", action_kind);
-            let rejected = changed && is_rejected_override(own_kind, played_kind);
+            let rejected = (cand_len <= 1 && own_kind == "CastSpell")
+                || (changed && is_rejected_override(own_kind, played_kind));
             seats[seat].push(SearchedEvent {
                 turn,
                 changed,

@@ -762,7 +762,9 @@ fn is_strategic_alternative(
         let floating = view
             .seat(view.seat)
             .is_some_and(|s| s.mana_pool.total() > 0);
-        if matches!(own, PlayerAction::PlayLand { .. }) || floating {
+        if matches!(own, PlayerAction::PlayLand { .. })
+            || (floating && !matches!(own, PlayerAction::CastSpell { .. }))
+        {
             return false;
         }
     }
@@ -791,6 +793,25 @@ fn candidates(view: &PlayerView, decision: &RootDecision4, k: usize) -> Vec<Rank
             .take(k.saturating_sub(1))
             .cloned(),
     );
+    if k > 1
+        && matches!(
+            own,
+            PlayerAction::CastSpell { .. } | PlayerAction::ActivateAbility { .. }
+        )
+        && !out
+            .iter()
+            .any(|r| matches!(r.action, PlayerAction::PassPriority))
+        && let Some(pass) = ranking.iter().find(|r| {
+            matches!(r.action, PlayerAction::PassPriority)
+                && is_strategic_alternative(view, own, &r.action)
+        })
+    {
+        if out.len() < k {
+            out.push(pass.clone());
+        } else {
+            out[k - 1] = pass.clone();
+        }
+    }
     out
 }
 
