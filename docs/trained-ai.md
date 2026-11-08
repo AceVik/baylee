@@ -984,6 +984,60 @@ different cards' rows lie 125 % apart, and the `i/` rows of two different cards
 differ by only 4.7 %: the index, read through the shared byte table, nearly
 collapses to one vector. Cards are told apart by their compiled rules.
 
+### The tactician, stage 1 (`eval4 --tactician-windows`)
+
+A head that learns from game outcomes where the tactical layer earns most of its
++12.9 pp: declaring attackers, declaring blockers and choosing one target
+(`netplay4::tactician`, owner's decision of 7 November; plan and every number
+in `~/baylee-data/v6/train/v6r-refresh-notes.md`). It sits on the frozen trunk of
+refreshed B-refresh (`r1`). The rules may propose answers to explore; outcomes
+are its only target, and no tactical, house or teacher answer is a label.
+
+**Answers.** At such a question the seat holds the net's raw greedy answer `N`,
+the tactical layer's answer `R` on the same logits (as `--choice-guard tactical`
+plays it, read on copies) and the *neighbors* of `N`: the legal answers one
+change away (another target; one attacker in or out; one blocker unblocked or
+onto another attacker). Every answer is a mask over the question's units, its
+candidates or its blocker-attacker pairs.
+
+**Collection** (`--tactician-explore ε --tactician-out DIR`): `N` with `1 − ε`,
+`R` with `ε/3` when it differs, the rest spread over the neighbors; the played
+answer's probability under the whole mixture is exact. Each decision is kept
+(`tactician_records_v1`: `wNN.jsonl` with the deal's utility for the seat, and
+`wNN.f32` with the embeddings, window codes and looks). These runs are
+evaluations; their records train the tactician head and nothing else.
+
+**Inputs.** `export_onnx4.py --embeddings` adds `state_emb` (the thought-through
+global slot), `cand_emb` and `pair_emb` (each head's last hidden layer) to every
+depth graph; the old outputs are the same ops. Per unit the head reads
+`[state | unit | window code (16) | look (112)]`, and a null row with no unit.
+
+**The look** is a one-step read of the other side's answers per unit. The engine
+forks only at ordinary priority (a combat declaration is `NotPriority`, a target
+mid-cast a `Continuation`), so it is computed: the expected castable
+instant-speed cards in their hand by effect family, over a fixed prior of the
+train-split decks conditioned only on what the seat sees (colours shown, open
+mana, hand size), never on their real list; and view-only reads per unit (who
+may block an attacker and what survives, who kills whom in a block, a target's
+side, body, worth and protections, lives, open mana, visible lethal). It takes
+the view and the prior, nothing else; a test deals the hidden cards again and
+asserts the same belief.
+
+**Training** (`tactician4.py`): one MLP, 2d + 128 → 1,408 → 1,408 → 1 (3.97 M
+parameters at d = 640, four times the plain head); the played answer's advantage
+is the null score plus the played units' scores, its target the utility minus
+the net's value at the decision, weighted by min(1/μ, 10); every tenth table is
+held out, and train and held-out loss are reported per epoch beside the zero
+predictor's. **Play** (`--tactician DIR`): of `N`, `R` and the neighbors the head
+plays the best, and leaves `N` only past the margin in `tactician.json`, chosen
+on held-out decisions by a one-step importance estimate.
+
+**Gates.** Against B-refresh (raw 153, tactics 239 of the 512 test deals), three
+seeds pooled: the lower bound above zero in raw or tactics, no upper bound below
+zero. A rule group goes only when "tactician, group off" against "tactics, group
+on" has its lower bound above −1.5 pp and its point at or above −0.5 pp, pooled
+over three seeds, on the test deals and on fresh ones.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
