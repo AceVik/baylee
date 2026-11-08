@@ -112,6 +112,7 @@ pub struct SearchConfig4 {
     selection: Selection4,
     threads: usize,
     targets: usize,
+    neural_opponent: bool,
 }
 
 impl SearchConfig4 {
@@ -158,7 +159,26 @@ impl SearchConfig4 {
             selection: Selection4::default(),
             threads: Self::DEFAULT_THREADS,
             targets: 0,
+            neural_opponent: false,
         })
+    }
+
+    /// The same search, with every other chair in a rollout answered by the
+    /// searching player's net from that chair's simulated view (with empty
+    /// prior deck knowledge) instead of releasing other chairs to the house.
+    #[must_use]
+    pub const fn with_neural_opponent(self, neural_opponent: bool) -> Self {
+        Self {
+            neural_opponent,
+            ..self
+        }
+    }
+
+    /// Whether other chairs in a rollout are answered by the net instead of
+    /// the house.
+    #[must_use]
+    pub const fn neural_opponent(&self) -> bool {
+        self.neural_opponent
     }
 
     /// The same search, trying a candidate that casts a spell or activates
@@ -268,7 +288,11 @@ impl SearchConfig4 {
             "candidate_order": "policy_answer_then_raw_logit_desc_then_menu_order",
             "decks": "known_to_the_harness",
             "worlds": "session_fork_redealt_from_purpose_tagged_policy_seeds",
-            "rollout": "net_for_the_searching_seat_house_for_every_other_chair",
+            "rollout": if self.neural_opponent {
+                "net_for_every_chair_other_seats_from_world_view_only"
+            } else {
+                "net_for_the_searching_seat_house_for_every_other_chair"
+            },
             "stop": "game_over_or_settled_priority_or_end_of_next_own_turn_or_horizon",
             "settled": "seat_would_pass_priority_in_a_main_phase_after_the_roots_phase_empty_stack_no_cast_no_payment_no_floating_mana",
             "leaf": "terminal_side_utility_else_k0_observation_value_of_the_seat",
@@ -386,6 +410,11 @@ pub trait SearchPlayer4 {
     fn reseed_sampling(&mut self, seed: u64);
     /// Counts a decision recorded under `from` as searched instead.
     fn attribute_to_search(&mut self, pending: &Pending, from: SourceKind4);
+    /// Clears any other seat's game state before a neural-opponent rollout so
+    /// another chair in a simulated world reads only what that world shows it.
+    fn reset_other_seats_for_rollout(&mut self, searching_seat: PlayerId) {
+        let _ = searching_seat;
+    }
     /// Whether [`Self::rollout_player`] lends players, so that a search can
     /// run its rollouts at once.
     fn lends_rollout_players(&self) -> bool {
@@ -451,6 +480,9 @@ impl SearchPlayer4 for NetPlayer4 {
         let row = &mut self.coverage.counts[PendingKind4::of(pending) as usize];
         row[from as usize] = row[from as usize].saturating_sub(1);
         row[SourceKind4::Search as usize] += 1;
+    }
+    fn reset_other_seats_for_rollout(&mut self, searching_seat: PlayerId) {
+        Self::reset_other_seats_for_rollout(self, searching_seat);
     }
     fn lends_rollout_players(&self) -> bool {
         self.is_on_shared_net()

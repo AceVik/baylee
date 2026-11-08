@@ -1,7 +1,10 @@
 //! What a player changes while it plays one game, taken whole so a
 //! lookahead can play on from a decision and be undone.
-use super::{BTreeMap, Backend, CoverageMatrix4, FallbackDiagnostic4, NetPlayer4, ObjectId, Rng};
-use crate::features4::SeatKnowledge4;
+use super::{
+    BTreeMap, Backend, ChoiceGuard4, CoverageMatrix4, FallbackDiagnostic4, NetPlayer4, ObjectId,
+    Rng, TacticRules4,
+};
+use crate::features4::{MAX_SEATS, SeatKnowledge4};
 use baylee_core::ids::PlayerId;
 
 /// Everything per game a [`NetPlayer4`] changes as it observes and answers:
@@ -22,6 +25,8 @@ pub struct PlayerSnapshot4 {
     last_fallback: Option<FallbackDiagnostic4>,
     coverage: CoverageMatrix4,
     rule_refs_left_out: u64,
+    choice_guard: ChoiceGuard4,
+    tactic_rules: TacticRules4,
 }
 
 impl NetPlayer4 {
@@ -52,9 +57,9 @@ impl NetPlayer4 {
             coverage,
             last_fallback,
             rule_refs_left_out,
-            choice_guard: _,
+            choice_guard,
             payable_menu: _,
-            tactic_rules: _,
+            tactic_rules,
             last_menu: _,
             tactician: _,
         } = self;
@@ -69,6 +74,8 @@ impl NetPlayer4 {
             last_fallback: last_fallback.clone(),
             coverage: coverage.clone(),
             rule_refs_left_out: *rule_refs_left_out,
+            choice_guard: *choice_guard,
+            tactic_rules: *tactic_rules,
         }
     }
 
@@ -87,6 +94,8 @@ impl NetPlayer4 {
             last_fallback,
             coverage,
             rule_refs_left_out,
+            choice_guard,
+            tactic_rules,
         } = snapshot;
         self.teams.clone_from(teams);
         self.h_states.clone_from(h_states);
@@ -98,6 +107,30 @@ impl NetPlayer4 {
         self.last_fallback.clone_from(last_fallback);
         self.coverage.clone_from(coverage);
         self.rule_refs_left_out = *rule_refs_left_out;
+        self.choice_guard = *choice_guard;
+        self.tactic_rules = *tactic_rules;
+    }
+
+    /// Resets every seat other than `searching_seat` to empty knowledge and
+    /// zero recurrent memory for a simulated rollout world, so a neural
+    /// opponent in lookahead reads only its view in the simulated world and
+    /// never the real game's submitted deck list or history.
+    pub fn reset_other_seats_for_rollout(&mut self, searching_seat: PlayerId) {
+        let me = searching_seat.get();
+        let seat_count = self.teams.len().clamp(1, MAX_SEATS);
+        for (&seat, h) in &mut self.h_states {
+            if seat != me {
+                h.fill(0.0);
+            }
+        }
+        for (&seat, kn) in &mut self.knowledge {
+            if seat != me {
+                *kn = SeatKnowledge4::empty(PlayerId::new(seat), seat_count);
+            }
+        }
+        self.seen_hashes.retain(|&(seat, _), _| seat == me);
+        self.last_announced_source.retain(|&seat, _| seat == me);
+        self.observed_values.retain(|&seat, _| seat == me);
     }
 
     /// The value head's estimate from `seat`'s latest observation that

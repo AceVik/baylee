@@ -16,6 +16,7 @@ pub(super) struct SeatPlayers {
     opponent: Option<Box<dyn EvaluationPlayer>>,
     focal: usize,
     last_was_learner: bool,
+    search_opponent: bool,
     coverage: CoverageMatrix4,
 }
 
@@ -60,6 +61,7 @@ impl SeatPlayers {
             opponent,
             focal: 0,
             last_was_learner: true,
+            search_opponent: contract.opponent_role == super::collector::OpponentRole::SelfPlay,
             coverage: CoverageMatrix4::default(),
         })
     }
@@ -116,19 +118,73 @@ impl EvaluationPlayer for SeatPlayers {
         self.learner.uses_context()
     }
     fn set_choice_guard(&mut self, guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
-        self.learner.set_choice_guard(guard)
+        let ok = self.learner.set_choice_guard(guard);
+        if self.search_opponent
+            && let Some(opponent) = &mut self.opponent
+        {
+            opponent.set_choice_guard(guard);
+        }
+        ok
     }
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         self.learner.take_choice_guard_fired()
     }
     fn set_tactic_rules(&mut self, rules: baylee_train::netplay4::TacticRules4) -> bool {
-        self.learner.set_tactic_rules(rules)
+        let ok = self.learner.set_tactic_rules(rules);
+        if self.search_opponent
+            && let Some(opponent) = &mut self.opponent
+        {
+            opponent.set_tactic_rules(rules);
+        }
+        ok
     }
     fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
         self.learner.take_tactic_rules_fired()
     }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
-        self.learner.observed_value(seat)
+        self.player(usize::from(seat.get()))?.observed_value(seat)
+    }
+    fn search(
+        &mut self,
+        table: &baylee_gamehost::Session,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        config: baylee_train::netplay4::search::SearchConfig4,
+        seed: u64,
+    ) -> Option<anyhow::Result<baylee_train::netplay4::search::SearchedAnswer4>> {
+        let seat = usize::from(view.seat.get());
+        if seat != self.focal && !self.search_opponent {
+            return None;
+        }
+        self.last_was_learner = seat == self.focal;
+        let result = self
+            .player_mut(seat)?
+            .search(table, view, pending, teams, config, seed)?;
+        if let Ok(searched) = &result {
+            self.coverage
+                .record(PendingKind4::of(pending), searched.answer.provenance.source);
+        }
+        Some(result)
+    }
+    fn follow(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        target: &baylee_engine::choice::PlayerAction,
+    ) -> Option<(Answer4, bool)> {
+        let seat = usize::from(view.seat.get());
+        if seat != self.focal && !self.search_opponent {
+            return None;
+        }
+        self.last_was_learner = seat == self.focal;
+        let (answer, followed) = self
+            .player_mut(seat)?
+            .follow(view, pending, teams, target)?;
+        self.coverage
+            .record(PendingKind4::of(pending), answer.provenance.source);
+        Some((answer, followed))
     }
     fn uses_payment_context(&self) -> bool {
         self.learner.uses_payment_context()
@@ -256,6 +312,7 @@ mod tests {
             opponent: Some(fake(1)),
             focal: 0,
             last_was_learner: true,
+            search_opponent: false,
             coverage: CoverageMatrix4::default(),
         };
         let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();

@@ -98,6 +98,16 @@ struct Args {
     /// unsearched decisions (0 leaves them out).
     #[arg(long, requires = "search_targets", default_value_t = 0.0)]
     search_unsearched_weight: f32,
+    /// With `--search-targets`: the policy weight of searched decisions whose
+    /// chosen action kept the policy's own answer (default 1.0 keeps all
+    /// searched decisions at full weight).
+    #[arg(long, requires = "search_targets", default_value_t = 1.0)]
+    search_unchanged_weight: f32,
+    /// With `--search-targets`: replace each step's terminal game outcome
+    /// with the dense next-turn value target (or next-turn value advantage
+    /// mapped to `[0, 1]`) from the game's calibrated search events.
+    #[arg(long, requires = "search_targets")]
+    search_turn_value_target: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -111,6 +121,7 @@ struct GameRef {
     offset: u64,
     len: u64,
     sidecar: Option<Vec<RolloutStepSidecar4>>,
+    search_events: Option<search_distill::GameSearchEvents>,
     validation: bool,
     shadow: Option<shadow::Source>,
     llm: Option<llm::Source>,
@@ -192,7 +203,13 @@ fn main() -> anyhow::Result<()> {
         .transpose()?;
     let mut search_targets = args
         .search_targets
-        .then(|| search_distill::Targets::new(args.search_unsearched_weight))
+        .then(|| {
+            search_distill::Targets::with_options(
+                args.search_unsearched_weight,
+                args.search_unchanged_weight,
+                args.search_turn_value_target,
+            )
+        })
         .transpose()?;
     fs::create_dir_all(&args.out)?;
 
@@ -346,6 +363,9 @@ fn main() -> anyhow::Result<()> {
                     None
                 },
                 sidecar,
+                search_events: search_targets
+                    .is_some()
+                    .then(|| search_distill::GameSearchEvents::from_game(&v)),
                 validation: if args.val_runs.is_empty() {
                     args.val_every > 0 && seed.is_multiple_of(args.val_every)
                 } else {
@@ -546,9 +566,11 @@ fn main() -> anyhow::Result<()> {
                 let mut frame_labels = gref.shadow.as_ref()
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
+                let mut search_cursor = search_weighting
+                    .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let emit = |mut step: Step4| {
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
-                    if let Some(weighting) = search_weighting { weighting.apply(&mut step); }
+                    if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())

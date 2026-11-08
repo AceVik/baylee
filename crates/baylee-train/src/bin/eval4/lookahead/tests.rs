@@ -468,6 +468,18 @@ fn search_is_refused_where_it_cannot_run() {
 
     let selected = |extra: &[&str]| search_config(&args(extra));
     assert_eq!(selected(&[]).unwrap(), None);
+    assert!(
+        !selected(&["--search", "4,2,3"])
+            .unwrap()
+            .unwrap()
+            .neural_opponent()
+    );
+    assert!(
+        selected(&["--search", "4,2,3", "--search-neural-opponent"])
+            .unwrap()
+            .unwrap()
+            .neural_opponent()
+    );
     assert_eq!(
         selected(&["--search", "4,2,3"])
             .unwrap()

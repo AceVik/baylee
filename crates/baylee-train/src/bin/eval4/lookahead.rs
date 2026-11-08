@@ -250,15 +250,17 @@ impl GameSearch {
         if followed.is_some() {
             return Ok(followed);
         }
-        self.tally.decisions += 1;
         if self.max_searched > 0 && self.tally.searched >= self.max_searched {
+            self.tally.decisions += 1;
             bump(&mut self.tally.skipped, "budget".into());
             return Ok(None);
         }
         let started = Instant::now();
-        let searched = net
-            .search(table, view, pending, teams, self.config, self.seed)
-            .ok_or_else(|| anyhow::anyhow!("this player cannot search"))??;
+        let Some(searched) = net.search(table, view, pending, teams, self.config, self.seed) else {
+            return Ok(None);
+        };
+        self.tally.decisions += 1;
+        let searched = searched?;
         match searched.outcome {
             SearchOutcome4::Searched(report) => {
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
@@ -266,8 +268,10 @@ impl GameSearch {
                     "decision_seq": table.decision_seq(),
                     "record_byte_offset": table.record_pending(),
                     "seat": view.seat.get(),
+                    "turn": view.turn,
                     "action": searched.answer.action,
                     "accepted": true,
+                    "root_value": searched.answer.value,
                     "candidates": report.actions,
                     "targets": report.targets,
                     "means": report.means,

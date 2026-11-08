@@ -159,30 +159,47 @@ fn rollout<P: SearchPlayer4>(
             steps += 1;
             continue;
         }
-        let Some((pending, view)) = context.view_for(fork, seat) else {
+        if let Some((pending, view)) = context.view_for(fork, seat) {
+            let answer = player.answer(&view, &pending, teams);
+            // Past the root's phase, the seat has done what it does in this main
+            // phase: score the position it would pass on, before the pass.
+            if moment(&view) > moment(root)
+                && settled(&view, &pending)
+                && answer.action == PlayerAction::PassPriority
+            {
+                return value(player, steps, decisions, LeafKind::Settled);
+            }
+            let counts = counts_toward_horizon(&answer, &view);
+            if fork.act_slice(seat, answer.action, 0).is_err() {
+                // As the evaluator does after a refused answer.
+                let accepted = fork
+                    .house_action(seat)
+                    .is_some_and(|house| fork.act_slice(seat, house, 0).is_ok());
+                if !accepted {
+                    return value(player, steps, decisions, LeafKind::Stopped);
+                }
+            }
+            steps += 1;
+            decisions += u64::from(counts);
+            continue;
+        }
+        let Some(other) = fork.pending().asked().filter(|&asked| asked != seat) else {
+            return value(player, steps, decisions, LeafKind::Stopped);
+        };
+        player.observe(&context.observe(fork, other))?;
+        let Some((pending, view)) = context.view_for(fork, other) else {
             return value(player, steps, decisions, LeafKind::Stopped);
         };
         let answer = player.answer(&view, &pending, teams);
-        // Past the root's phase, the seat has done what it does in this main
-        // phase: score the position it would pass on, before the pass.
-        if moment(&view) > moment(root)
-            && settled(&view, &pending)
-            && answer.action == PlayerAction::PassPriority
-        {
-            return value(player, steps, decisions, LeafKind::Settled);
-        }
-        let counts = counts_toward_horizon(&answer, &view);
-        if fork.act_slice(seat, answer.action, 0).is_err() {
-            // As the evaluator does after a refused answer.
+        if fork.act_slice(other, answer.action, 0).is_err() {
             let accepted = fork
-                .house_action(seat)
-                .is_some_and(|house| fork.act_slice(seat, house, 0).is_ok());
+                .house_action(other)
+                .is_some_and(|house| fork.act_slice(other, house, 0).is_ok());
             if !accepted {
                 return value(player, steps, decisions, LeafKind::Stopped);
             }
         }
         steps += 1;
-        decisions += u64::from(counts);
     }
 }
 
@@ -243,12 +260,28 @@ pub(super) fn world<T: ForkSource4>(
     seat: PlayerId,
     seed: u64,
 ) -> Result<SimulationSession, ForkRefusal> {
+    world_with_opponent(table, seat, seed, false)
+}
+
+/// World `seed`, forked from `table` for `seat`, with other chairs either
+/// kept for neural rollout answers (`neural_opponent = true`) or handed to
+/// the house (`false`).
+fn world_with_opponent<T: ForkSource4>(
+    table: &T,
+    seat: PlayerId,
+    seed: u64,
+    neural_opponent: bool,
+) -> Result<SimulationSession, ForkRefusal> {
     let mut world = table.fork(seat, seed)?;
     for other in 0..world.state().players.len() {
         if let Ok(other) = u8::try_from(other).map(PlayerId::new)
             && other != seat
         {
-            world.release(other);
+            if neural_opponent {
+                world.take_over(other);
+            } else {
+                world.release(other);
+            }
         }
     }
     Ok(world)
@@ -289,6 +322,7 @@ struct Start<'a> {
     teams: &'a [Option<u8>],
     decision: &'a RootDecision4,
     horizon: usize,
+    neural_opponent: bool,
 }
 
 impl Start<'_> {
@@ -305,6 +339,9 @@ impl Start<'_> {
         seed: u64,
     ) -> Outcome {
         let seat = self.view.seat;
+        if self.neural_opponent {
+            player.reset_other_seats_for_rollout(seat);
+        }
         let action = &candidate.root.action;
         player.conclude(self.view, self.decision, action);
         player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
@@ -440,6 +477,7 @@ impl<S> Rounds<'_, S> {
             teams: self.teams,
             decision: self.decision,
             horizon: config.horizon(),
+            neural_opponent: config.neural_opponent(),
         };
         if parallel {
             self.play_at_once(player, table, start, &jobs, threads, &mut tally)?;
@@ -449,14 +487,16 @@ impl<S> Rounds<'_, S> {
         Ok(tally.played())
     }
 
-    /// World `seed`, forked from `table` for the seat, every other chair
-    /// handed to the house.
+    /// World `seed`, forked from `table` for the seat, with other chairs
+    /// either kept for neural rollout answers (`neural_opponent = true`) or
+    /// handed to the house (`false`).
     fn world<T: ForkSource4>(
         &self,
         table: &T,
         seed: u64,
+        neural_opponent: bool,
     ) -> Result<SimulationSession, ForkRefusal> {
-        world(table, self.view.seat, seed)
+        world_with_opponent(table, self.view.seat, seed, neural_opponent)
     }
 
     /// Runs `jobs` one by one on `player`, restored to the root before each.
@@ -473,7 +513,9 @@ impl<S> Rounds<'_, S> {
         T: ForkSource4,
     {
         for job in jobs {
-            let world = self.world(table, job.seed).map_err(Stop::Refused)?;
+            let world = self
+                .world(table, job.seed, start.neural_opponent)
+                .map_err(Stop::Refused)?;
             player.restore(self.root);
             let leaf = start
                 .roll_out(player, world, job.candidate, job.seed)
@@ -513,7 +555,7 @@ impl<S> Rounds<'_, S> {
             loop {
                 while cut.is_none() && running < threads && started < jobs.len() {
                     let job = jobs[started];
-                    let world = match self.world(table, job.seed) {
+                    let world = match self.world(table, job.seed, start.neural_opponent) {
                         Ok(world) => world,
                         Err(refusal) => {
                             cut = Some(Stop::Refused(refusal));

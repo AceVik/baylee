@@ -259,6 +259,11 @@ struct Args {
     /// to the policy.
     #[arg(long, default_value_t = 0, requires = "search")]
     search_targets: usize,
+    /// In search rollouts, keep non-searching seats under the searching
+    /// player's neural policy from their simulated world views instead of
+    /// releasing them to the house AI.
+    #[arg(long, requires = "search")]
+    search_neural_opponent: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -294,7 +299,8 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
     let config = config
         .with_selection(selection)?
         .with_threads(args.search_threads)?
-        .with_targets(args.search_targets)?;
+        .with_targets(args.search_targets)?
+        .with_neural_opponent(args.search_neural_opponent);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {
@@ -339,8 +345,11 @@ fn search_refusal(
     if args.legacy_v3 {
         return Some("--search needs a v4/v5 model");
     }
-    if collection.uses_seat_pool() {
-        return Some("--search is evaluation against the house only");
+    if collection.purpose != collector::Purpose::Evaluation {
+        return Some("--search requires evaluation collection purpose");
+    }
+    if collection.opponent_legacy_v3 {
+        return Some("--search does not support a legacy v3 opponent");
     }
     if args.shadow_teacher.is_some() {
         return Some("--search writes no shadow labels");
