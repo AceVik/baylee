@@ -905,6 +905,46 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
     })
 }
 
+/// A random answer to `pending`: uniform picks among the offered options
+/// ([`options`]) until the answer is finished, so every legal answer the net
+/// could give is reachable. `Ok(None)` where the net does not answer the
+/// question kind (the house does). Deterministic in `rng`.
+///
+/// # Errors
+/// `"no-options"` when a step offers nothing, `"unassembled"` when the picks
+/// make no answer: faults of this crate or the engine, which `fuzz` reports.
+pub fn random_answer(
+    pending: &Pending,
+    hand: &[ObjectId],
+    rng: &mut crate::deckgen::Rng,
+) -> Result<Option<PlayerAction>, &'static str> {
+    let mut picked = Picked::default();
+    let mut picks = Vec::new();
+    loop {
+        let mut offered = match options(pending, hand, &picked) {
+            Ok(o) => o,
+            Err(Unscored::Unsupported | Unscored::Over) => return Ok(None),
+        };
+        // "Done" only where the question's own check passes the answer,
+        // unless nothing else is left: then it is refused as stated.
+        if offered.len() > 1 && !done_allowed(pending, &picked) {
+            offered.retain(|c| *c != Choice::Fixed(fixed::DONE));
+        }
+        if offered.is_empty() {
+            return Err("no-options");
+        }
+        let choice = offered[rng.below(offered.len())];
+        picks.push(choice);
+        picked.add(choice);
+        if finished(pending, &picked, choice) {
+            break;
+        }
+    }
+    assemble(pending, &picks)
+        .map(Some)
+        .map_err(|_| "unassembled")
+}
+
 /// An option as the net scores it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Opt {
@@ -1113,6 +1153,22 @@ mod tests {
         let two = [Choice::Block(o(251), o(264)), Choice::Block(o(252), o(264))];
         let action = assemble(&p, &two).unwrap();
         assert_eq!(p.answer_fault(&action), None);
+    }
+
+    /// A random answer repeats under the same seed, is always one the
+    /// question accepts, and over seeds reaches more than one answer.
+    #[test]
+    fn a_random_answer_is_legal_seeded_and_spread() {
+        let p = menace_pending(2, u32::MAX);
+        let answer = |seed| random_answer(&p, &[], &mut crate::deckgen::Rng::new(seed)).unwrap();
+        let mut seen = BTreeSet::new();
+        for seed in 0..64 {
+            let action = answer(seed).expect("the net answers blocks");
+            assert_eq!(answer(seed), Some(action.clone()));
+            assert_eq!(p.answer_fault(&action), None, "{action:?}");
+            seen.insert(format!("{:?}", canonical(action)));
+        }
+        assert!(seen.len() > 2, "{seen:?}");
     }
 
     /// An attacker that may be blocked by one creature at most is offered

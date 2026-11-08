@@ -54,6 +54,7 @@ mod diagnostics;
 mod failure_terminal;
 mod lookahead;
 mod precision;
+mod random_seat;
 mod seat_players;
 mod shadow;
 
@@ -96,6 +97,21 @@ fn main() -> anyhow::Result<()> {
     // Reports name the model as asked for; its identity says which graphs ran.
     let given_model = args.model.clone();
     choose_exports(&mut args)?;
+    if args.random_policy
+        && (args.record_out.is_some()
+            || args.shadow_teacher.is_some()
+            || args.search.is_some()
+            || args.choice_guard != "off"
+            || !args.tactics_rules.is_empty()
+            || args.menu_payable
+            || args.legacy_v3
+            || args.collection_purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--random-policy is a floor for numbers only: no records, shadow, search, guard, \
+             tactics rules, menu or collection"
+        );
+    }
     if args.shadow_teacher.is_some()
         && (!args.raw_policy || args.record_out.is_none() || args.legacy_v3)
     {
@@ -331,6 +347,7 @@ fn main() -> anyhow::Result<()> {
             "dev_arms": {"free_temperature": args.dev_free_temperature,
                 "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias},
             "opponent_policy": args.opponent_policy,
+            "random_policy": args.random_policy,
             "opponent_legacy_v3": args.opponent_legacy_v3,
             "collection_contract": collection.metadata(),
             "planned_deals": args.deals,"deal_offset": args.deal_offset,
@@ -476,10 +493,17 @@ fn main() -> anyhow::Result<()> {
         let search_max = args.search_max_decisions_per_game;
         let value_log = value_log.clone();
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
+        let random_policy = args.random_policy;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
-                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets,catalog)?)
+                let mut seats = seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets,catalog)?;
+                if random_policy {
+                    seats.replace_learner(Box::new(random_seat::RandomPlayer::new()));
+                }
+                Box::new(seats)
+            } else if random_policy {
+                Box::new(random_seat::RandomPlayer::new())
             } else {
                 load_player(&model_path,format,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
@@ -859,6 +883,7 @@ fn main() -> anyhow::Result<()> {
         "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
+    summary["random_policy"] = json!(args.random_policy);
     summary["opponent"] = json!({"model": args.opponent_model, "policy": args.opponent_policy,
         "legacy_v3": args.opponent_legacy_v3});
     summary["model_family"] = json!(

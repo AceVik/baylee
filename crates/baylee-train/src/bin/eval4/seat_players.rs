@@ -64,6 +64,11 @@ impl SeatPlayers {
         })
     }
 
+    /// Seats `player` under test in place of the loaded net (`--random-policy`).
+    pub fn replace_learner(&mut self, player: Box<dyn EvaluationPlayer>) {
+        self.learner = player;
+    }
+
     fn player(&self, seat: usize) -> Option<&dyn EvaluationPlayer> {
         if seat == self.focal {
             Some(self.learner.as_ref())
