@@ -930,6 +930,27 @@ the held-out probes from B-refresh's encoder (mana value .30 → .82–.91, powe
 and types far better than what an effect does, and the trunk does not use
 either until a fine-tune teaches it to.
 
+The game fine-tune did not teach it to. On the 761 language-model games that
+replay on this build (367 of 1,128 did not), 4,000 updates, three seeds each,
+against the same baseline: the whole net from the refresh, anchored to it
+(`--anchor-l2 0.1`), lost raw play (−4.4 pp [−7.6, −1.2], tactics −0.2 pp)
+while its imitation of held-out language-model games improved, the third time
+that pattern showed; the rule encoder alone (`--train-rules-only`, lr 1e-4)
+kept play where it was (raw −1.4 pp [−4.2, +1.5], tactics +0.3 pp), and so did
+the same from the card stage (raw −0.4 pp, tactics +0.2 pp). None passed the
+gate. A model meant to learn new cards from games needs a signal that rewards
+play, not imitation alone.
+
+Two instruments came out of the same night. `eval4 --random-policy` seats a
+player that answers uniformly among the offered answers (`policy::random_answer`,
+seeded by the deal): against `sharp` on the same 512 deals it won 21 (4.1 %),
+B-refresh 153 raw and 239 with tactics. `gamelog4 audit` counts, per decision
+window, what the evaluated seat answered and how often a fresh `sharp` agent on
+the same view would have answered the same: B-refresh passes 99.8 % of its
+priority decisions in the opponent's turn and 100 % in its own combat, where
+`sharp` acts in about a third, and never takes a mulligan; with tactics it
+takes them (17 %) but still does not act at instant speed.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
