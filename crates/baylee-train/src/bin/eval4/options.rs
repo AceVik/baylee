@@ -112,6 +112,12 @@ struct Args {
     /// Use unmodified neural outputs; stochastic version-2 sampling requires tau > 0.35.
     #[arg(long)]
     raw_policy: bool,
+    /// The seat under test answers uniformly at random among the answers each
+    /// question offers (`random_seat.rs`), seeded by the deal: the floor a
+    /// trained policy has to clear. `--model` still names the run; it does not
+    /// play. Numbers only.
+    #[arg(long)]
+    random_policy: bool,
     /// Write separate BC-only teacher labels on the neural seat's views; requires
     /// raw recording. `sharp` or `expert` asks the house afresh on each view;
     /// `llm:<profile>` seats a language model of `--llm-profiles` that watches

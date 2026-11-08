@@ -11,7 +11,8 @@
 //! (`Session::take_over`). A question is answered at random `--chaos` of the
 //! time, and by the house the rest, so games still reach the boards real
 //! play reaches. A random answer picks uniformly, pick by pick, among what
-//! [`baylee_train::policy::options`] says the question offers. What is
+//! [`baylee_train::policy::options`] says the question offers
+//! ([`baylee_train::policy::random_answer`]). What is
 //! checked, each broken one a finding:
 //!
 //! - `panic`: the engine panicked.
@@ -47,12 +48,12 @@ use anyhow::{Context as _, bail};
 use baylee_cards::formats::Shape;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::preset::AIProfile;
-use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_engine::choice::Pending;
 use baylee_gamehost::Session;
 use baylee_train::deckgen::{self, Archetype, Rng, shape_name};
 use baylee_train::features::{PENDING_KINDS, question};
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::policy::{self, Picked, Unscored};
+use baylee_train::policy::random_answer;
 use baylee_train::selfplay::table;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
@@ -174,41 +175,6 @@ fn named(view: &baylee_view::PlayerView, text: &str) -> Vec<String> {
         }
     }
     out
-}
-
-/// A random answer to `pending`: uniform picks among the offered options
-/// until the answer is finished. `Ok(None)` where this crate does not answer
-/// the question kind (the house does).
-fn random_answer(
-    pending: &Pending,
-    hand: &[ObjectId],
-    rng: &mut Rng,
-) -> Result<Option<PlayerAction>, &'static str> {
-    let mut picked = Picked::default();
-    let mut picks = Vec::new();
-    loop {
-        let mut options = match policy::options(pending, hand, &picked) {
-            Ok(o) => o,
-            Err(Unscored::Unsupported | Unscored::Over) => return Ok(None),
-        };
-        // "Done" only where the question's own check passes the answer,
-        // unless nothing else is left: then it is refused as stated.
-        if options.len() > 1 && !policy::done_allowed(pending, &picked) {
-            options.retain(|c| *c != policy::Choice::Fixed(policy::fixed::DONE));
-        }
-        if options.is_empty() {
-            return Err("no-options");
-        }
-        let choice = options[rng.below(options.len())];
-        picks.push(choice);
-        picked.add(choice);
-        if policy::finished(pending, &picked, choice) {
-            break;
-        }
-    }
-    policy::assemble(pending, &picks)
-        .map(Some)
-        .map_err(|_| "unassembled")
 }
 
 /// Plays game `i` with both chairs taken over; every broken invariant is a
