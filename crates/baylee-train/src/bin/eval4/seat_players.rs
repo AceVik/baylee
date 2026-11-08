@@ -15,6 +15,7 @@ pub(super) struct SeatPlayers {
     learner: Box<dyn EvaluationPlayer>,
     opponent: Option<Box<dyn EvaluationPlayer>>,
     focal: usize,
+    teams: Vec<Option<u8>>,
     last_was_learner: bool,
     search_opponent: bool,
     coverage: CoverageMatrix4,
@@ -60,6 +61,7 @@ impl SeatPlayers {
             learner,
             opponent,
             focal: 0,
+            teams: vec![None, None],
             last_was_learner: true,
             search_opponent: contract.opponent_role == super::collector::OpponentRole::SelfPlay,
             coverage: CoverageMatrix4::default(),
@@ -71,8 +73,12 @@ impl SeatPlayers {
         self.learner = player;
     }
 
+    fn is_learner_seat(&self, seat: usize) -> bool {
+        super::is_net_seat(seat, self.focal, &self.teams)
+    }
+
     fn player(&self, seat: usize) -> Option<&dyn EvaluationPlayer> {
-        if seat == self.focal {
+        if self.is_learner_seat(seat) {
             Some(self.learner.as_ref())
         } else {
             self.opponent.as_deref()
@@ -80,7 +86,7 @@ impl SeatPlayers {
     }
 
     fn player_mut(&mut self, seat: usize) -> Option<&mut (dyn EvaluationPlayer + 'static)> {
-        if seat == self.focal {
+        if self.is_learner_seat(seat) {
             Some(self.learner.as_mut())
         } else {
             self.opponent.as_deref_mut()
@@ -90,22 +96,31 @@ impl SeatPlayers {
 
 impl EvaluationPlayer for SeatPlayers {
     fn configure_seats(&mut self, focal: usize, teams: &[Option<u8>]) -> anyhow::Result<()> {
+        let valid_1v1 = teams.len() == 2 && teams.iter().all(Option::is_none) && focal < 2;
+        let valid_multi_selfplay = self.search_opponent
+            && (2..=8).contains(&teams.len())
+            && focal < teams.len()
+            && (teams.iter().all(Option::is_none)
+                || (teams.iter().all(Option::is_some) && teams.iter().any(|&t| t != teams[focal])));
         ensure!(
-            teams.len() == 2 && teams.iter().all(Option::is_none) && focal < 2,
-            "seat collector is 1v1 only"
+            valid_1v1 || valid_multi_selfplay,
+            "seat collector requires 1v1 or valid multi-seat self-play teams"
         );
         self.focal = focal;
+        self.teams = teams.to_vec();
         Ok(())
     }
     fn controls_seat(&self, seat: usize, _focal: usize, _teams: &[Option<u8>]) -> bool {
-        seat == self.focal || self.opponent.is_some()
+        self.is_learner_seat(seat) || self.opponent.is_some()
     }
     fn reseed(&mut self, seed: u64) {
         self.learner
             .reseed(seed ^ ((self.focal as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93)));
         if let Some(opponent) = &mut self.opponent {
-            opponent
-                .reseed(seed ^ (((1 - self.focal) as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93)));
+            let opp_seat = (0..self.teams.len().max(2))
+                .find(|&s| !self.is_learner_seat(s))
+                .unwrap_or(1usize.saturating_sub(self.focal));
+            opponent.reseed(seed ^ ((opp_seat as u64 + 1).wrapping_mul(0xd6e8_feb8_6659_fd93)));
         }
     }
     fn init_game(&mut self, preset: &GamePreset) {
@@ -154,10 +169,11 @@ impl EvaluationPlayer for SeatPlayers {
         seed: u64,
     ) -> Option<anyhow::Result<baylee_train::netplay4::search::SearchedAnswer4>> {
         let seat = usize::from(view.seat.get());
-        if seat != self.focal && !self.search_opponent {
+        let is_learner = self.is_learner_seat(seat);
+        if !is_learner && !self.search_opponent {
             return None;
         }
-        self.last_was_learner = seat == self.focal;
+        self.last_was_learner = is_learner;
         let result = self
             .player_mut(seat)?
             .search(table, view, pending, teams, config, seed)?;
@@ -175,10 +191,11 @@ impl EvaluationPlayer for SeatPlayers {
         target: &baylee_engine::choice::PlayerAction,
     ) -> Option<(Answer4, bool)> {
         let seat = usize::from(view.seat.get());
-        if seat != self.focal && !self.search_opponent {
+        let is_learner = self.is_learner_seat(seat);
+        if !is_learner && !self.search_opponent {
             return None;
         }
-        self.last_was_learner = seat == self.focal;
+        self.last_was_learner = is_learner;
         let (answer, followed) = self
             .player_mut(seat)?
             .follow(view, pending, teams, target)?;
@@ -203,9 +220,10 @@ impl EvaluationPlayer for SeatPlayers {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<Answer4>> {
-        self.last_was_learner = usize::from(view.seat.get()) == self.focal;
+        let seat = usize::from(view.seat.get());
+        self.last_was_learner = self.is_learner_seat(seat);
         let answer = self
-            .player_mut(usize::from(view.seat.get()))
+            .player_mut(seat)
             .context("answering uncontrolled seat")?
             .answer(view, pending, teams)?;
         if let Some(answer) = &answer {
@@ -311,6 +329,7 @@ mod tests {
             learner: fake(0),
             opponent: Some(fake(1)),
             focal: 0,
+            teams: vec![None, None],
             last_was_learner: true,
             search_opponent: false,
             coverage: CoverageMatrix4::default(),

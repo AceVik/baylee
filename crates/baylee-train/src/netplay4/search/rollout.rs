@@ -137,11 +137,29 @@ fn rollout<P: SearchPlayer4>(
                 .into_iter()
                 .map(PlayerId::get)
                 .collect();
+            let surviving: Vec<u8> = (0..seats)
+                .filter_map(|s| u8::try_from(s).ok())
+                .filter(|&s| !fork.state().has_left(PlayerId::new(s)))
+                .collect();
+            let score = if winners.is_empty() {
+                terminal_utility(seat.get(), teams, &winners, seats)
+            } else {
+                crate::features4::side_utility(seat.get(), teams, &surviving, &winners)
+            };
             return Ok(Leaf {
-                score: terminal_utility(seat.get(), teams, &winners, seats),
+                score,
                 steps,
                 decisions,
                 kind: LeafKind::Terminal,
+            });
+        }
+        if fork.state().has_left(seat) {
+            let base = player.observed_value(seat).unwrap_or(0.5);
+            return Ok(Leaf {
+                score: (base - crate::features4::TEAM_WIN_ELIMINATED_PENALTY).clamp(0.0, 1.0),
+                steps,
+                decisions,
+                kind: LeafKind::Stopped,
             });
         }
         let observed = context.observe(fork, seat);

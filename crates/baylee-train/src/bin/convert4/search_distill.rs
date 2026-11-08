@@ -317,12 +317,13 @@ impl GameCursor<'_> {
             self.weighting
                 .weight(step.is_decision, step.provenance.source, changed, rejected);
 
+        let terminal = step.outcome;
         if self.weighting.turn_value_target
             && let Some(events) = self.events
             && let Some(v_base) =
                 base_value.or_else(|| events.turn_baseline(seat, step.turn).map(|(_, v)| v))
         {
-            let v_next = events.next_turn_value(seat, step.turn, event_idx + 1, step.outcome);
+            let v_next = events.next_turn_value(seat, step.turn, event_idx + 1, terminal);
             let delta_v = v_next - v_base;
             let advantage =
                 if step.is_decision && step.provenance.source == SourceKind4::Search && changed {
@@ -330,7 +331,13 @@ impl GameCursor<'_> {
                 } else {
                     delta_v
                 };
-            step.outcome = (0.5 + 2.0 * advantage).clamp(0.0, 1.0);
+            let mut target = (0.5 + 2.0 * advantage).clamp(0.0, 1.0);
+            if (terminal - (1.0 - baylee_train::features4::TEAM_WIN_ELIMINATED_PENALTY)).abs()
+                < 1e-4
+            {
+                target = (target - 0.05).clamp(0.0, 1.0);
+            }
+            step.outcome = target;
         }
     }
 }
