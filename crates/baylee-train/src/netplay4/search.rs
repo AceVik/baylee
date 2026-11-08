@@ -701,19 +701,77 @@ fn world_seed(search_seed: u64, decision_seq: u64, particle: usize) -> u64 {
 }
 
 /// Why `pending` is not a root this version searches.
-fn root_skip(view: &PlayerView, pending: &Pending) -> Option<SearchSkip4> {
+fn root_skip(
+    view: &PlayerView,
+    pending: &Pending,
+    decision: &RootDecision4,
+    k: usize,
+) -> Option<SearchSkip4> {
     if !matches!(pending, Pending::Priority { .. }) {
         return Some(SearchSkip4::NotPriority);
     }
-    match view.phase {
-        Phase::FirstMain | Phase::Combat | Phase::SecondMain => None,
-        Phase::Beginning | Phase::Ending => Some(SearchSkip4::Phase),
+    if matches!(view.phase, Phase::Beginning | Phase::Ending) {
+        return Some(SearchSkip4::Phase);
+    }
+    let Some(ranking) = decision.ranking.as_deref() else {
+        return Some(SearchSkip4::NotPolicy);
+    };
+    let own = &decision.answer.action;
+    if k > 1
+        && (view.owed.is_some()
+            || is_mana_action(view, own)
+            || (matches!(own, PlayerAction::PassPriority)
+                && !ranking
+                    .iter()
+                    .any(|r| is_strategic_alternative(view, own, &r.action))))
+    {
+        return Some(SearchSkip4::NotPolicy);
+    }
+    None
+}
+
+/// Whether `action` is a mana ability: a basic land type's
+/// (`ActivateManaAbility`) or one a card prints (`ActivateAbility` on a
+/// mana ability, CR 605.1).
+pub(super) fn is_mana_action(view: &PlayerView, action: &PlayerAction) -> bool {
+    match action {
+        PlayerAction::ActivateManaAbility { .. } => true,
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } => crate::netplay4::tactics::is_mana_ability_entry(view, *source, *ability_index),
+        _ => false,
     }
 }
 
-/// The policy's own answer, then the next `k - 1` legal answers by its
-/// ranking.
-fn candidates(decision: &RootDecision4, k: usize) -> Vec<Ranked4> {
+/// Whether `candidate` is a strategic alternative to `own` at `view`:
+/// neither `own` itself, nor a mana ability, nor cancelling a cast, nor
+/// passing priority in place of a land drop or while mana is floating.
+fn is_strategic_alternative(
+    view: &PlayerView,
+    own: &PlayerAction,
+    candidate: &PlayerAction,
+) -> bool {
+    if candidate == own
+        || matches!(candidate, PlayerAction::CancelCast)
+        || is_mana_action(view, candidate)
+    {
+        return false;
+    }
+    if matches!(candidate, PlayerAction::PassPriority) {
+        let floating = view
+            .seat(view.seat)
+            .is_some_and(|s| s.mana_pool.total() > 0);
+        if matches!(own, PlayerAction::PlayLand { .. }) || floating {
+            return false;
+        }
+    }
+    true
+}
+
+/// The policy's own answer, then the next `k - 1` strategic legal answers
+/// by its ranking.
+fn candidates(view: &PlayerView, decision: &RootDecision4, k: usize) -> Vec<Ranked4> {
     let own = &decision.answer.action;
     let ranking = decision.ranking.as_deref().unwrap_or_default();
     let first = ranking
@@ -729,7 +787,7 @@ fn candidates(decision: &RootDecision4, k: usize) -> Vec<Ranked4> {
     out.extend(
         ranking
             .iter()
-            .filter(|r| r.action != *own)
+            .filter(|r| is_strategic_alternative(view, own, &r.action))
             .take(k.saturating_sub(1))
             .cloned(),
     );
@@ -797,9 +855,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     search_seed: u64,
 ) -> anyhow::Result<SearchedAnswer4> {
     let decision = player.decide(view, pending, teams);
-    let skip = root_skip(view, pending)
-        .or_else(|| decision.ranking.is_none().then_some(SearchSkip4::NotPolicy));
-    if let Some(reason) = skip {
+    if let Some(reason) = root_skip(view, pending, &decision, config.candidates) {
         return Ok(unsearched(
             player,
             view,
@@ -808,6 +864,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         ));
     }
     let root = player.snapshot();
+    let ranked = candidates(view, &decision, config.candidates);
     let expanded = targets::Probe {
         view,
         teams,
@@ -816,7 +873,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         targets: config.targets,
         seed: world_seed(search_seed, table.decision_seq(), 0),
     }
-    .expand(player, table, candidates(&decision, config.candidates));
+    .expand(player, table, ranked);
     let candidates = match expanded {
         Ok(candidates) => candidates,
         Err(Stop::Refused(refusal)) => {

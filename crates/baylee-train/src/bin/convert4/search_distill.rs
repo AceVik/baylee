@@ -33,8 +33,24 @@ pub(super) struct Weighting {
 struct SearchedEvent {
     turn: u16,
     changed: bool,
+    rejected: bool,
     root_value: Option<f32>,
     diff: f32,
+}
+
+fn action_kind(action: &Value) -> &str {
+    match action {
+        Value::String(kind) => kind.as_str(),
+        Value::Object(fields) => fields.keys().next().map_or("", String::as_str),
+        _ => "",
+    }
+}
+
+fn is_rejected_override(own_kind: &str, played_kind: &str) -> bool {
+    own_kind == "ActivateManaAbility"
+        || played_kind == "ActivateManaAbility"
+        || played_kind == "CancelCast"
+        || (own_kind == "PlayLand" && played_kind == "PassPriority")
 }
 
 /// Per-seat accepted search events for a single recorded game.
@@ -49,6 +65,7 @@ pub(super) struct GameCursor<'a> {
     weighting: Weighting,
     next_event: [usize; MAX_SEATS],
     last_changed: [bool; MAX_SEATS],
+    last_rejected: [bool; MAX_SEATS],
     last_diff: [f32; MAX_SEATS],
     last_root_value: [Option<f32>; MAX_SEATS],
 }
@@ -167,9 +184,18 @@ impl GameSearchEvents {
                 .and_then(|d| d.get(chosen))
                 .and_then(Value::as_f64)
                 .map_or(0.0, |v| v as f32);
+            let changed = chosen != 0;
+            let own_kind = event
+                .get("candidates")
+                .and_then(Value::as_array)
+                .and_then(|c| c.first())
+                .map_or("", action_kind);
+            let played_kind = event.get("action").map_or("", action_kind);
+            let rejected = changed && is_rejected_override(own_kind, played_kind);
             seats[seat].push(SearchedEvent {
                 turn,
-                changed: chosen != 0,
+                changed,
+                rejected,
                 root_value,
                 diff: if diff.is_finite() { diff } else { 0.0 },
             });
@@ -213,15 +239,18 @@ impl Weighting {
             weighting: self,
             next_event: [0; MAX_SEATS],
             last_changed: [true; MAX_SEATS],
+            last_rejected: [false; MAX_SEATS],
             last_diff: [0.0; MAX_SEATS],
             last_root_value: [None; MAX_SEATS],
         }
     }
 
-    fn weight(self, is_decision: bool, source: SourceKind4, changed: bool) -> f32 {
+    fn weight(self, is_decision: bool, source: SourceKind4, changed: bool, rejected: bool) -> f32 {
         match (is_decision, source) {
             (true, SourceKind4::Search) => {
-                if changed {
+                if rejected {
+                    0.0
+                } else if changed {
                     1.0
                 } else {
                     self.unchanged_search_weight
@@ -239,6 +268,7 @@ impl GameCursor<'_> {
     pub(super) fn apply(&mut self, step: &mut Step4) {
         let seat = usize::from(step.seat).min(MAX_SEATS - 1);
         let mut changed = true;
+        let mut rejected = false;
         let mut search_diff = 0.0_f32;
         let mut base_value = None;
         let mut event_idx = self.next_event[seat];
@@ -250,9 +280,11 @@ impl GameCursor<'_> {
                         event_idx = self.next_event[seat];
                         self.next_event[seat] += 1;
                         changed = ev.changed;
+                        rejected = ev.rejected;
                         search_diff = ev.diff;
                         base_value = ev.root_value;
                         self.last_changed[seat] = changed;
+                        self.last_rejected[seat] = rejected;
                         self.last_diff[seat] = search_diff;
                         self.last_root_value[seat] = base_value;
                     }
@@ -261,6 +293,7 @@ impl GameCursor<'_> {
                     // its cast's search decision.
                     event_idx = self.next_event[seat].saturating_sub(1);
                     changed = self.last_changed[seat];
+                    rejected = self.last_rejected[seat];
                     search_diff = self.last_diff[seat];
                     base_value = self.last_root_value[seat];
                 }
@@ -276,7 +309,7 @@ impl GameCursor<'_> {
 
         step.loss_weight *=
             self.weighting
-                .weight(step.is_decision, step.provenance.source, changed);
+                .weight(step.is_decision, step.provenance.source, changed, rejected);
 
         if self.weighting.turn_value_target
             && let Some(events) = self.events
@@ -305,9 +338,15 @@ mod tests {
         let weighting = Targets::with_options(0.25, 0.5, false)
             .expect("weight in range")
             .weighting();
-        let weight = |source, changed| weighting.weight(true, source, changed);
+        let weight = |source, changed| weighting.weight(true, source, changed, false);
         assert!((weight(SourceKind4::Search, true) - 1.0).abs() < f32::EPSILON);
         assert!((weight(SourceKind4::Search, false) - 0.5).abs() < f32::EPSILON);
+        assert!(
+            weighting
+                .weight(true, SourceKind4::Search, true, true)
+                .abs()
+                < f32::EPSILON
+        );
         assert!((weight(SourceKind4::Net, false) - 0.25).abs() < f32::EPSILON);
         for source in [
             SourceKind4::House,
@@ -325,7 +364,7 @@ mod tests {
     fn an_observation_frame_is_no_target() {
         let weighting = Targets::new(1.0).expect("weight in range").weighting();
         for source in [SourceKind4::Search, SourceKind4::Net] {
-            assert!(weighting.weight(false, source, true).abs() < f32::EPSILON);
+            assert!(weighting.weight(false, source, true, false).abs() < f32::EPSILON);
         }
     }
 
