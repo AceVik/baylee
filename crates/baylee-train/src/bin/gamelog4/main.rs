@@ -18,6 +18,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+mod audit;
 mod board;
 mod game;
 mod losses;
@@ -81,6 +82,26 @@ enum Command {
         #[arg(long)]
         focus: Option<String>,
     },
+    /// Per decision window: what the seat answered, how often it passed
+    /// while a play was legal, and how often `sharp` would have answered
+    /// the same in the same position (`audit.rs`).
+    Audit {
+        /// The run's record directory.
+        #[arg(long)]
+        run: PathBuf,
+        /// eval4's summary of the same run.
+        #[arg(long)]
+        summary: PathBuf,
+        /// Games replayed at once.
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// Seeds `sharp`'s noise, with the deal and the decision.
+        #[arg(long, default_value_t = 71)]
+        seed: u64,
+        /// Write the windows here as JSON.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Counts classes of choices a reader should look at, over deals of a
     /// summary, by how often they occur in won and in lost games.
     Survey {
@@ -134,5 +155,12 @@ fn main() -> anyhow::Result<()> {
             threads,
             cases,
         } => survey::count(&run, &summary, which, threads, cases.as_deref()),
+        Command::Audit {
+            run,
+            summary,
+            threads,
+            seed,
+            out,
+        } => audit::audit(&run, &summary, threads, seed, out.as_deref()),
     }
 }
