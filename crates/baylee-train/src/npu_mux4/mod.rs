@@ -1,0 +1,241 @@
+//! NPU Session-Multiplexer & Tiered RAM/SSD Session Pager (`npu_mux4`).
+//!
+//! Enables a fixed number of warm neural worker slots (`NpuWorkerPool4`, sized to
+//! the NPU/CPU concurrency ceiling) to play hundreds or thousands of concurrent
+//! Baylee games by context-switching per-session recurrent memory (`PlayerSnapshot4`)
+//! in RAM and transparently paging idle/slow sessions to encrypted SSD storage
+//! (`EncryptedSwapStore4`, `XChaCha20-Poly1305` + anti-rollback generation AAD).
+
+pub mod config;
+pub mod crypto_swap;
+pub mod metrics;
+pub mod scheduler;
+#[cfg(test)]
+mod tests;
+pub mod worker_pool;
+
+use std::path::{Path, PathBuf};
+
+use baylee_core::ids::PlayerId;
+use baylee_core::preset::GamePreset;
+use baylee_engine::choice::Pending;
+use baylee_view::PlayerView;
+
+pub use config::{MuxConfig4, SessionUrgency4};
+pub use crypto_swap::{EncryptedSwapStore4, SwapHandle4};
+pub use metrics::{MuxMetrics4, MuxSummary4};
+pub use scheduler::TieredSessionPool4;
+pub use worker_pool::NpuWorkerPool4;
+
+use crate::netplay4::{Answer4, BatchLimits4, NetPlayer4, PolicyMode4};
+
+/// High-level service combining `M` warm neural worker slots with a tiered
+/// Hot-RAM / Cold-SSD session pool for hundreds of concurrent matches.
+pub struct NpuMuxService4 {
+    workers: NpuWorkerPool4,
+    pool: TieredSessionPool4,
+    metrics: MuxMetrics4,
+}
+
+impl NpuMuxService4 {
+    /// Opens a model once and initializes `config.worker_slots` shared workers plus
+    /// an encrypted SSD swap directory at `config.swap_dir`.
+    ///
+    /// # Errors
+    /// If the model cannot be loaded or the swap directory / quotas are invalid.
+    #[allow(clippy::too_many_arguments, reason = "service builder parameters")]
+    pub fn open(
+        model_path: &Path,
+        swap_dir: PathBuf,
+        worker_slots: usize,
+        max_hot_sessions: usize,
+        max_hot_ram_bytes: usize,
+        batch_limits: BatchLimits4,
+        policy_mode: PolicyMode4,
+        temperature: f32,
+        thinking_steps: Option<u8>,
+    ) -> anyhow::Result<Self> {
+        let workers = NpuWorkerPool4::load_shared(
+            model_path,
+            worker_slots,
+            batch_limits,
+            policy_mode,
+            temperature,
+            thinking_steps,
+        )?;
+        let mut config = MuxConfig4::new(swap_dir, workers.d_model());
+        config.worker_slots = worker_slots;
+        config.max_hot_sessions = max_hot_sessions;
+        config.max_hot_ram_bytes = max_hot_ram_bytes;
+        let pool = TieredSessionPool4::new(config)?;
+        Ok(Self {
+            workers,
+            pool,
+            metrics: MuxMetrics4::default(),
+        })
+    }
+
+    /// Constructs a service from an existing [`NpuWorkerPool4`] and [`MuxConfig4`].
+    ///
+    /// # Errors
+    /// If `config` fails validation or the encrypted swap store cannot be initialized.
+    pub fn with_workers(workers: NpuWorkerPool4, config: MuxConfig4) -> anyhow::Result<Self> {
+        let pool = TieredSessionPool4::new(config)?;
+        Ok(Self {
+            workers,
+            pool,
+            metrics: MuxMetrics4::default(),
+        })
+    }
+
+    /// Initializes and registers a new game session (`session_id`) from `preset` and `policy_seed`.
+    ///
+    /// # Errors
+    /// If `session_id` already exists, total session quota is reached, or SSD eviction fails.
+    pub fn start_session(
+        &mut self,
+        session_id: u64,
+        preset: &GamePreset,
+        policy_seed: u64,
+        urgency: SessionUrgency4,
+    ) -> anyhow::Result<()> {
+        let initial = self.workers.initial_snapshot(preset, policy_seed);
+        self.pool
+            .insert_session(session_id, initial, urgency, &mut self.metrics)
+    }
+
+    /// Updates a session's scheduling urgency (`Idle`, `Soon`, `Immediate`).
+    ///
+    /// # Errors
+    /// If `session_id` is not registered.
+    pub fn set_urgency(&mut self, session_id: u64, urgency: SessionUrgency4) -> anyhow::Result<()> {
+        self.pool.set_urgency(session_id, urgency)
+    }
+
+    /// Proactively pages a cold SSD session into Hot RAM before its decision turn.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown or SSD page-in / authentication fails.
+    pub fn prefetch(&mut self, session_id: u64) -> anyhow::Result<bool> {
+        self.pool.prefetch(session_id, &mut self.metrics)
+    }
+
+    /// Forces a session out of Hot RAM onto encrypted Cold SSD storage.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown or SSD encryption/write fails.
+    pub fn evict_to_ssd(&mut self, session_id: u64) -> anyhow::Result<()> {
+        self.pool.evict_session(session_id, &mut self.metrics)
+    }
+
+    /// Whether `session_id` is currently resident in Hot RAM.
+    #[must_use]
+    pub fn is_hot(&self, session_id: u64) -> bool {
+        self.pool.is_hot(session_id)
+    }
+
+    /// Routes a passive view observation (`K = 0`) for `session_id` through a worker slot.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown, SSD page-in fails, or ONNX observation execution fails.
+    pub fn observe(
+        &mut self,
+        session_id: u64,
+        view: &PlayerView,
+        post_urgency: SessionUrgency4,
+    ) -> anyhow::Result<()> {
+        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
+        let ((), updated) =
+            self.workers
+                .execute_switched(session_id, &snapshot, &mut self.metrics, |player| {
+                    player.observe(view)
+                })?;
+        self.metrics.observations_routed += 1;
+        self.pool
+            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)
+    }
+
+    /// Routes an active decision (`act_detailed`) for `session_id` through a worker slot.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown, SSD page-in fails, or snapshot commit fails.
+    pub fn act_detailed(
+        &mut self,
+        session_id: u64,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        post_urgency: SessionUrgency4,
+    ) -> anyhow::Result<Answer4> {
+        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
+        let (answer, updated) =
+            self.workers
+                .execute_switched(session_id, &snapshot, &mut self.metrics, |player| {
+                    Ok(player.act_detailed(view, pending, teams))
+                })?;
+        self.metrics.decisions_routed += 1;
+        self.pool
+            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        Ok(answer)
+    }
+
+    /// Executes an arbitrary closure against a context-switched [`NetPlayer4`] for `session_id`.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown, SSD page-in fails, or `op` returns an error.
+    pub fn with_session_player<R>(
+        &mut self,
+        session_id: u64,
+        post_urgency: SessionUrgency4,
+        op: impl FnOnce(&mut NetPlayer4) -> anyhow::Result<R>,
+    ) -> anyhow::Result<R> {
+        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
+        let (out, updated) =
+            self.workers
+                .execute_switched(session_id, &snapshot, &mut self.metrics, op)?;
+        self.pool
+            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        Ok(out)
+    }
+
+    /// Reads the latest observed value-head estimate for `seat` in `session_id`.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown or SSD page-in fails.
+    pub fn observed_value(
+        &mut self,
+        session_id: u64,
+        seat: PlayerId,
+    ) -> anyhow::Result<Option<f32>> {
+        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
+        let (val, updated) =
+            self.workers
+                .execute_switched(session_id, &snapshot, &mut self.metrics, |player| {
+                    Ok(player.observed_value(seat))
+                })?;
+        self.pool.commit_hot(
+            session_id,
+            updated,
+            SessionUrgency4::Soon,
+            &mut self.metrics,
+        )?;
+        Ok(val)
+    }
+
+    /// Closes a completed session and deletes any cold SSD swap file.
+    pub fn close_session(&mut self, session_id: u64) -> bool {
+        self.pool.remove_session(session_id, &mut self.metrics)
+    }
+
+    /// Returns a point-in-time telemetry and latency summary.
+    #[must_use]
+    pub fn summary(&self) -> MuxSummary4 {
+        self.metrics.summarize(
+            self.workers.worker_slots(),
+            self.pool.hot_count(),
+            self.pool.cold_count(),
+            self.pool.hot_ram_bytes(),
+            self.pool.cold_ssd_bytes(),
+        )
+    }
+}

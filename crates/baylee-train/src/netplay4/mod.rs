@@ -439,7 +439,7 @@ impl NetPlayer4 {
 
     /// A player with no graphs, for tests of what it does around inference.
     #[cfg(test)]
-    pub(super) fn without_graphs(encoder_version: u32, d_model: usize) -> Self {
+    pub(crate) fn without_graphs(encoder_version: u32, d_model: usize) -> Self {
         let identity = ModelIdentity {
             model_family: "v5",
             model_version: 5,
@@ -462,6 +462,12 @@ impl NetPlayer4 {
             thinking_steps: 2,
         };
         Self::with_backend(files, Backend::Owned(BTreeMap::new()))
+    }
+
+    /// Latent recurrent slot width `d_model` of the loaded model.
+    #[must_use]
+    pub const fn d_model(&self) -> usize {
+        self.d_model
     }
 
     /// Recovery reason for the most recent decision; cleared before every answer.

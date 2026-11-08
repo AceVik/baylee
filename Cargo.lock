@@ -1722,12 +1722,14 @@ dependencies = [
  "baylee-engine",
  "baylee-gamehost",
  "baylee-protocol",
+ "baylee-seal",
  "baylee-seat",
  "baylee-train-ops",
  "baylee-view",
  "clap",
  "flate2",
  "futures-util",
+ "getrandom 0.4.3",
  "ort",
  "prost",
  "rustix 1.1.6",
@@ -1740,6 +1742,7 @@ dependencies = [
  "tokio-tungstenite 0.30.0",
  "ureq",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]

@@ -38,7 +38,7 @@ pub enum GuardArm {
 const ARMS: usize = 5;
 
 /// Which heads answer as `PolicyMode4::Tactical` does.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[allow(
     clippy::struct_excessive_bools,
     reason = "One switch per head of the net, each measured alone"
@@ -57,7 +57,7 @@ pub struct TacticalParts {
 }
 
 /// The instrument's state on one net.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ChoiceGuard4 {
     /// Parts of the tactical layer, as `PolicyMode4::Tactical` plays them, while
     /// the run stays raw for comparison.

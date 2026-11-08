@@ -100,6 +100,7 @@ const fn moment(view: &PlayerView) -> (u32, u8) {
 /// in between: a land drop with the spells it enables, a pass with the land
 /// played later, an attack with its damage.
 #[allow(
+    clippy::too_many_arguments,
     clippy::too_many_lines,
     reason = "Single rollout loop tracks cancelled root casts, terminal leaves, settled main-phase priority and horizon"
 )]

@@ -2,7 +2,7 @@
 use crate::features4::PendingKind4;
 
 /// Why the native policy returned a non-neural recovery answer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FallbackReason4 {
     /// The menu contains a constraint the sampler does not implement.
@@ -16,7 +16,7 @@ pub enum FallbackReason4 {
 }
 
 /// Diagnostic for the most recent decision, never a policy likelihood or label.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FallbackDiagnostic4 {
     /// Structured recovery branch identifier.
     pub reason: FallbackReason4,

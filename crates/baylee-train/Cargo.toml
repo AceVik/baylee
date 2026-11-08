@@ -23,13 +23,16 @@ play = [
     "dep:baylee-cards-dsl",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
+    "dep:baylee-seal",
     "dep:baylee-view",
     "dep:baylee-train-ops",
     "dep:clap",
     "dep:flate2",
+    "dep:getrandom",
     "dep:serde",
     "dep:serde_json",
     "dep:uuid",
+    "dep:zeroize",
 ]
 # The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
 # Not default and in no gate: it downloads the runtime when it builds, and
@@ -75,6 +78,7 @@ baylee-deckio.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
 baylee-view = { workspace = true, optional = true }
+baylee-seal = { workspace = true, optional = true }
 baylee-seat = { workspace = true, optional = true }
 baylee-protocol = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
@@ -86,9 +90,11 @@ ureq = { workspace = true, optional = true }
 rustix = { workspace = true, features = ["process"], optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
+zeroize = { workspace = true, optional = true }
 sha2.workspace = true
 ort = { workspace = true, optional = true, features = [
     "std",
@@ -205,3 +211,8 @@ required-features = ["llm-collector"]
 name = "diagnose_payment4"
 path = "src/bin/diagnose_payment4/main.rs"
 required-features = ["play"]
+
+[[bin]]
+name = "npu_mux4"
+path = "src/bin/npu_mux4.rs"
+required-features = ["onnx"]

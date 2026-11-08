@@ -1,0 +1,392 @@
+//! Tiered Hot-RAM / Cold-SSD session pool and urgency-aware LRU eviction scheduler.
+
+use std::collections::BTreeMap;
+use std::time::Instant;
+
+use anyhow::{bail, ensure};
+
+use super::config::{MuxConfig4, SessionUrgency4};
+use super::crypto_swap::{EncryptedSwapStore4, SwapHandle4};
+use super::metrics::MuxMetrics4;
+use crate::netplay4::PlayerSnapshot4;
+
+enum SessionResidency4 {
+    Hot {
+        snapshot: Box<PlayerSnapshot4>,
+        ram_bytes: usize,
+    },
+    Cold(SwapHandle4),
+}
+
+struct SessionRecord4 {
+    residency: SessionResidency4,
+    urgency: SessionUrgency4,
+    last_touch_tick: u64,
+    swap_generation: u64,
+    access_count: u64,
+}
+
+/// Manages hundreds or thousands of concurrent game sessions across Hot RAM and Cold SSD.
+pub struct TieredSessionPool4 {
+    config: MuxConfig4,
+    swap_store: EncryptedSwapStore4,
+    sessions: BTreeMap<u64, SessionRecord4>,
+    hot_count: usize,
+    cold_count: usize,
+    hot_ram_bytes: usize,
+    cold_ssd_bytes: u64,
+    clock_tick: u64,
+}
+
+impl TieredSessionPool4 {
+    /// Creates a new tiered session pool backed by `swap_store`.
+    ///
+    /// # Errors
+    /// If `config` fails validation or the encrypted swap store cannot be initialized.
+    pub fn new(config: MuxConfig4) -> anyhow::Result<Self> {
+        config.validate()?;
+        let swap_store = EncryptedSwapStore4::new(
+            config.swap_dir.clone(),
+            config.d_model,
+            config.max_swap_file_bytes,
+            config.max_uncompressed_bytes,
+        )?;
+        Ok(Self {
+            config,
+            swap_store,
+            sessions: BTreeMap::new(),
+            hot_count: 0,
+            cold_count: 0,
+            hot_ram_bytes: 0,
+            cold_ssd_bytes: 0,
+            clock_tick: 0,
+        })
+    }
+
+    const fn next_tick(&mut self) -> u64 {
+        self.clock_tick = self.clock_tick.wrapping_add(1);
+        self.clock_tick
+    }
+
+    /// Number of sessions currently resident in Hot RAM.
+    #[must_use]
+    pub const fn hot_count(&self) -> usize {
+        self.hot_count
+    }
+
+    /// Number of sessions currently swapped to Cold SSD.
+    #[must_use]
+    pub const fn cold_count(&self) -> usize {
+        self.cold_count
+    }
+
+    /// Approximate RAM footprint of all Hot sessions (bytes).
+    #[must_use]
+    pub const fn hot_ram_bytes(&self) -> usize {
+        self.hot_ram_bytes
+    }
+
+    /// Total on-disk bytes of all active Cold SSD swap files.
+    #[must_use]
+    pub const fn cold_ssd_bytes(&self) -> u64 {
+        self.cold_ssd_bytes
+    }
+
+    /// Whether `session_id` is currently resident in Hot RAM.
+    #[must_use]
+    pub fn is_hot(&self, session_id: u64) -> bool {
+        self.sessions
+            .get(&session_id)
+            .is_some_and(|r| matches!(r.residency, SessionResidency4::Hot { .. }))
+    }
+
+    /// Registers a new session in Hot RAM, evicting cold/idle sessions to SSD if needed.
+    ///
+    /// # Errors
+    /// If `session_id` already exists, total session quota is reached, or eviction fails.
+    pub fn insert_session(
+        &mut self,
+        session_id: u64,
+        snapshot: PlayerSnapshot4,
+        urgency: SessionUrgency4,
+        metrics: &mut MuxMetrics4,
+    ) -> anyhow::Result<()> {
+        ensure!(
+            !self.sessions.contains_key(&session_id),
+            "session {session_id} is already registered"
+        );
+        ensure!(
+            self.sessions.len() < self.config.max_total_sessions,
+            "total session quota ({}) reached",
+            self.config.max_total_sessions
+        );
+        snapshot.validate(self.config.d_model)?;
+        let ram_bytes = snapshot.approx_ram_bytes();
+        self.evict_until_fits(Some(session_id), ram_bytes, metrics)?;
+        let tick = self.next_tick();
+        self.sessions.insert(
+            session_id,
+            SessionRecord4 {
+                residency: SessionResidency4::Hot {
+                    snapshot: Box::new(snapshot),
+                    ram_bytes,
+                },
+                urgency,
+                last_touch_tick: tick,
+                swap_generation: 0,
+                access_count: 1,
+            },
+        );
+        self.hot_count += 1;
+        self.hot_ram_bytes += ram_bytes;
+        metrics.sessions_created += 1;
+        Ok(())
+    }
+
+    /// Updates a session's scheduling urgency (`Idle`, `Soon`, `Immediate`).
+    ///
+    /// # Errors
+    /// If `session_id` is not registered.
+    pub fn set_urgency(&mut self, session_id: u64, urgency: SessionUrgency4) -> anyhow::Result<()> {
+        let rec = self
+            .sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| anyhow::anyhow!("unknown session {session_id}"))?;
+        rec.urgency = urgency;
+        Ok(())
+    }
+
+    /// Proactively pages a cold SSD session into Hot RAM before its turn arrives.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown or SSD page-in / authentication fails.
+    pub fn prefetch(&mut self, session_id: u64, metrics: &mut MuxMetrics4) -> anyhow::Result<bool> {
+        if self.is_hot(session_id) {
+            let tick = self.next_tick();
+            if let Some(rec) = self.sessions.get_mut(&session_id) {
+                rec.last_touch_tick = tick;
+                if rec.urgency == SessionUrgency4::Idle {
+                    rec.urgency = SessionUrgency4::Soon;
+                }
+            }
+            metrics.prefetch_already_hot += 1;
+            return Ok(false);
+        }
+        self.page_in_session(session_id, true, metrics)?;
+        Ok(true)
+    }
+
+    /// Checks out a session's [`PlayerSnapshot4`] in Hot RAM (paging in from SSD if cold).
+    ///
+    /// # Errors
+    /// If `session_id` is unknown or SSD page-in / authentication fails.
+    pub fn acquire_hot(
+        &mut self,
+        session_id: u64,
+        metrics: &mut MuxMetrics4,
+    ) -> anyhow::Result<PlayerSnapshot4> {
+        if self.is_hot(session_id) {
+            metrics.hot_ram_hits += 1;
+        } else {
+            self.page_in_session(session_id, false, metrics)?;
+        }
+        let tick = self.next_tick();
+        let rec = self
+            .sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| anyhow::anyhow!("unknown session {session_id}"))?;
+        rec.last_touch_tick = tick;
+        rec.access_count += 1;
+        match &rec.residency {
+            SessionResidency4::Hot { snapshot, .. } => Ok((**snapshot).clone()),
+            SessionResidency4::Cold(_) => bail!("internal error: session {session_id} still cold"),
+        }
+    }
+
+    /// Commits the updated [`PlayerSnapshot4`] back to Hot RAM after a worker step.
+    ///
+    /// # Errors
+    /// If `snapshot` fails validation, `session_id` is unknown, or eviction fails.
+    pub fn commit_hot(
+        &mut self,
+        session_id: u64,
+        snapshot: PlayerSnapshot4,
+        urgency: SessionUrgency4,
+        metrics: &mut MuxMetrics4,
+    ) -> anyhow::Result<()> {
+        snapshot.validate(self.config.d_model)?;
+        let new_bytes = snapshot.approx_ram_bytes();
+        let tick = self.next_tick();
+        let rec = self
+            .sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| anyhow::anyhow!("unknown session {session_id}"))?;
+        if let SessionResidency4::Hot { ram_bytes, .. } = rec.residency {
+            self.hot_ram_bytes = self.hot_ram_bytes.saturating_sub(ram_bytes) + new_bytes;
+        } else {
+            self.cold_count = self.cold_count.saturating_sub(1);
+            self.hot_count += 1;
+            self.hot_ram_bytes += new_bytes;
+        }
+        rec.residency = SessionResidency4::Hot {
+            snapshot: Box::new(snapshot),
+            ram_bytes: new_bytes,
+        };
+        rec.urgency = urgency;
+        rec.last_touch_tick = tick;
+        self.evict_until_fits(Some(session_id), 0, metrics)
+    }
+
+    /// Explicitly evicts a specific Hot session to Cold SSD.
+    ///
+    /// # Errors
+    /// If `session_id` is unknown or SSD encryption/write fails.
+    pub fn evict_session(
+        &mut self,
+        session_id: u64,
+        metrics: &mut MuxMetrics4,
+    ) -> anyhow::Result<()> {
+        let rec = self
+            .sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| anyhow::anyhow!("unknown session {session_id}"))?;
+        let SessionResidency4::Hot {
+            snapshot,
+            ram_bytes,
+        } = &rec.residency
+        else {
+            return Ok(());
+        };
+        let next_gen = rec
+            .swap_generation
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("swap generation overflow for session {session_id}"))?;
+        let t0 = Instant::now();
+        let handle = self.swap_store.page_out(session_id, next_gen, snapshot)?;
+        metrics.record_page_out_us(t0.elapsed().as_micros() as u64);
+        metrics.ssd_page_outs += 1;
+        metrics.ssd_bytes_written += handle.disk_bytes;
+
+        self.hot_ram_bytes = self.hot_ram_bytes.saturating_sub(*ram_bytes);
+        self.hot_count = self.hot_count.saturating_sub(1);
+        self.cold_count += 1;
+        self.cold_ssd_bytes += handle.disk_bytes;
+        rec.swap_generation = next_gen;
+        rec.residency = SessionResidency4::Cold(handle);
+        Ok(())
+    }
+
+    /// Closes a session and wipes any associated SSD swap file.
+    pub fn remove_session(&mut self, session_id: u64, metrics: &mut MuxMetrics4) -> bool {
+        let Some(rec) = self.sessions.remove(&session_id) else {
+            return false;
+        };
+        match rec.residency {
+            SessionResidency4::Hot { ram_bytes, .. } => {
+                self.hot_count = self.hot_count.saturating_sub(1);
+                self.hot_ram_bytes = self.hot_ram_bytes.saturating_sub(ram_bytes);
+            }
+            SessionResidency4::Cold(handle) => {
+                self.cold_count = self.cold_count.saturating_sub(1);
+                self.cold_ssd_bytes = self.cold_ssd_bytes.saturating_sub(handle.disk_bytes);
+                self.swap_store.remove_swap_file(&handle);
+            }
+        }
+        metrics.sessions_closed += 1;
+        true
+    }
+
+    fn page_in_session(
+        &mut self,
+        session_id: u64,
+        is_prefetch: bool,
+        metrics: &mut MuxMetrics4,
+    ) -> anyhow::Result<()> {
+        let handle = match self.sessions.get(&session_id) {
+            Some(SessionRecord4 {
+                residency: SessionResidency4::Cold(h),
+                ..
+            }) => h.clone(),
+            Some(_) => return Ok(()),
+            None => bail!("unknown session {session_id}"),
+        };
+        let t0 = Instant::now();
+        let snapshot = match self.swap_store.page_in(session_id, &handle) {
+            Ok(s) => s,
+            Err(e) => {
+                metrics.security_rejections += 1;
+                return Err(e);
+            }
+        };
+        metrics.record_page_in_us(t0.elapsed().as_micros() as u64);
+        metrics.ssd_bytes_read += handle.disk_bytes;
+        if is_prefetch {
+            metrics.prefetch_page_ins += 1;
+        } else {
+            metrics.cold_ssd_page_ins += 1;
+        }
+        let ram_bytes = snapshot.approx_ram_bytes();
+        self.evict_until_fits(Some(session_id), ram_bytes, metrics)?;
+        let tick = self.next_tick();
+        if let Some(rec) = self.sessions.get_mut(&session_id) {
+            rec.residency = SessionResidency4::Hot {
+                snapshot: Box::new(snapshot),
+                ram_bytes,
+            };
+            rec.last_touch_tick = tick;
+            if is_prefetch && rec.urgency == SessionUrgency4::Idle {
+                rec.urgency = SessionUrgency4::Soon;
+            }
+        }
+        self.cold_count = self.cold_count.saturating_sub(1);
+        self.cold_ssd_bytes = self.cold_ssd_bytes.saturating_sub(handle.disk_bytes);
+        self.hot_count += 1;
+        self.hot_ram_bytes += ram_bytes;
+        Ok(())
+    }
+
+    fn evict_until_fits(
+        &mut self,
+        protected_session: Option<u64>,
+        incoming_bytes: usize,
+        metrics: &mut MuxMetrics4,
+    ) -> anyhow::Result<()> {
+        while self.hot_count >= self.config.max_hot_sessions
+            || (self.hot_count > 0
+                && self.hot_ram_bytes + incoming_bytes > self.config.max_hot_ram_bytes)
+        {
+            let victim = self
+                .sessions
+                .iter()
+                .filter(|&(&sid, rec)| {
+                    Some(sid) != protected_session
+                        && matches!(rec.residency, SessionResidency4::Hot { .. })
+                })
+                .min_by_key(|&(_, rec)| (rec.urgency, rec.last_touch_tick))
+                .map(|(&sid, _)| sid);
+            let Some(victim_id) = victim else {
+                break;
+            };
+            self.evict_session(victim_id, metrics)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(super) fn cold_swap_path(&self, session_id: u64) -> Option<std::path::PathBuf> {
+        match &self.sessions.get(&session_id)?.residency {
+            SessionResidency4::Cold(h) => Some(self.swap_store.swap_path(h)),
+            SessionResidency4::Hot { .. } => None,
+        }
+    }
+}
+
+impl Drop for TieredSessionPool4 {
+    fn drop(&mut self) {
+        for rec in self.sessions.values() {
+            if let SessionResidency4::Cold(handle) = &rec.residency {
+                self.swap_store.remove_swap_file(handle);
+            }
+        }
+    }
+}

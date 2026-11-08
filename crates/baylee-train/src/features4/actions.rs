@@ -149,7 +149,7 @@ impl Default for StepProvenance4 {
 
 /// Coverage matrix tracking per-`PendingKind4` counts of `Net`, `House`, `Forced`,
 /// `Search`, and explicit `External` answers across a run or arena evaluation.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CoverageMatrix4 {
     /// Counts `[pending_kind][source_kind]`.
     pub counts: [[u64; 5]; PendingKind4::COUNT],

@@ -102,7 +102,7 @@ const GROUPS: [(RuleGroup, &str); 20] = [
 type Struck = (ObjectId, Option<u32>, RuleGroup);
 
 /// The groups a net plays by, and what they changed.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TacticRules4 {
     on: [bool; GROUPS.len()],
     fired: [u64; GROUPS.len()],

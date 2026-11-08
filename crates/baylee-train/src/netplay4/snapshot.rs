@@ -2,10 +2,14 @@
 //! lookahead can play on from a decision and be undone.
 use super::{
     BTreeMap, Backend, ChoiceGuard4, CoverageMatrix4, FallbackDiagnostic4, NetPlayer4, ObjectId,
-    Rng, TacticRules4,
+    RECURRENT_SLOTS, Rng, TacticRules4,
 };
 use crate::features4::{MAX_SEATS, SeatKnowledge4};
+use anyhow::{Context as _, bail, ensure};
 use baylee_core::ids::PlayerId;
+use serde::{Deserialize, Serialize};
+
+const MAX_SEEN_HASHES_WIRE: usize = 16_384;
 
 /// Everything per game a [`NetPlayer4`] changes as it observes and answers:
 /// recurrent memory, seat knowledge, loop guards, announced sources, the
@@ -27,6 +31,171 @@ pub struct PlayerSnapshot4 {
     rule_refs_left_out: u64,
     choice_guard: ChoiceGuard4,
     tactic_rules: TacticRules4,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SnapshotWire4 {
+    teams: Vec<Option<u8>>,
+    h_states: BTreeMap<u8, Vec<f32>>,
+    knowledge: BTreeMap<u8, SeatKnowledge4>,
+    seen_hashes: Vec<((u8, u64), u8)>,
+    last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
+    observed_values: BTreeMap<u8, f32>,
+    rng_state: u64,
+    last_fallback: Option<FallbackDiagnostic4>,
+    coverage: CoverageMatrix4,
+    rule_refs_left_out: u64,
+    choice_guard: ChoiceGuard4,
+    tactic_rules: TacticRules4,
+}
+
+impl PlayerSnapshot4 {
+    /// Approximate heap + struct memory footprint in RAM (bytes).
+    #[must_use]
+    pub fn approx_ram_bytes(&self) -> usize {
+        let h_bytes: usize = self
+            .h_states
+            .values()
+            .map(|v| v.len() * std::mem::size_of::<f32>())
+            .sum();
+        let kn_bytes: usize = self
+            .knowledge
+            .values()
+            .map(|k| {
+                std::mem::size_of::<SeatKnowledge4>()
+                    + k.own_deck_cards.len() * 8
+                    + k.known_cards.len() * 32
+            })
+            .sum();
+        let hash_bytes = self.seen_hashes.len() * 24;
+        std::mem::size_of::<Self>() + h_bytes + kn_bytes + hash_bytes
+    }
+
+    /// Validates all tensor dimensions, seat bounds, and finite floating-point
+    /// invariants against `d_model`, then serializes to canonical JSON bytes.
+    ///
+    /// # Errors
+    /// Returns an error if any dimension or floating-point value is invalid.
+    pub fn to_validated_wire(&self, d_model: usize) -> anyhow::Result<Vec<u8>> {
+        self.validate(d_model)?;
+        let wire = SnapshotWire4 {
+            teams: self.teams.clone(),
+            h_states: self.h_states.clone(),
+            knowledge: self.knowledge.clone(),
+            seen_hashes: self.seen_hashes.iter().map(|(&k, &v)| (k, v)).collect(),
+            last_announced_source: self.last_announced_source.clone(),
+            observed_values: self.observed_values.clone(),
+            rng_state: self.rng.state(),
+            last_fallback: self.last_fallback.clone(),
+            coverage: self.coverage.clone(),
+            rule_refs_left_out: self.rule_refs_left_out,
+            choice_guard: self.choice_guard,
+            tactic_rules: self.tactic_rules,
+        };
+        serde_json::to_vec(&wire).context("serializing PlayerSnapshot4 wire payload")
+    }
+
+    /// Deserializes and strictly validates a [`PlayerSnapshot4`] against `d_model`.
+    ///
+    /// # Errors
+    /// Rejects malformed JSON, out-of-range seats, mismatched `h_state` lengths,
+    /// `NaN`/`Inf` floats, or excessive map entries.
+    pub fn from_validated_wire(bytes: &[u8], d_model: usize) -> anyhow::Result<Self> {
+        let wire: SnapshotWire4 =
+            serde_json::from_slice(bytes).context("deserializing PlayerSnapshot4 wire payload")?;
+        ensure!(
+            wire.seen_hashes.len() <= MAX_SEEN_HASHES_WIRE,
+            "snapshot seen_hashes count {} exceeds limit {MAX_SEEN_HASHES_WIRE}",
+            wire.seen_hashes.len()
+        );
+        let snap = Self {
+            teams: wire.teams,
+            h_states: wire.h_states,
+            knowledge: wire.knowledge,
+            seen_hashes: wire.seen_hashes.into_iter().collect(),
+            last_announced_source: wire.last_announced_source,
+            observed_values: wire.observed_values,
+            rng: Rng::new(wire.rng_state),
+            last_fallback: wire.last_fallback,
+            coverage: wire.coverage,
+            rule_refs_left_out: wire.rule_refs_left_out,
+            choice_guard: wire.choice_guard,
+            tactic_rules: wire.tactic_rules,
+        };
+        snap.validate(d_model)?;
+        Ok(snap)
+    }
+
+    /// Strictly checks seat bounds, `h_state` dimensions (`RECURRENT_SLOTS * d_model`),
+    /// and finite float invariants.
+    ///
+    /// # Errors
+    /// When any invariant is violated.
+    pub fn validate(&self, d_model: usize) -> anyhow::Result<()> {
+        ensure!(d_model > 0 && d_model <= 8192, "invalid d_model {d_model}");
+        ensure!(
+            self.teams.len() <= MAX_SEATS,
+            "snapshot teams length {} exceeds MAX_SEATS ({MAX_SEATS})",
+            self.teams.len()
+        );
+        let expected_h_len = RECURRENT_SLOTS * d_model;
+        for (&seat, h) in &self.h_states {
+            ensure!(
+                usize::from(seat) < MAX_SEATS,
+                "snapshot h_state seat {seat} out of bounds"
+            );
+            ensure!(
+                h.len() == expected_h_len,
+                "snapshot h_state length {} for seat {seat} != expected {expected_h_len}",
+                h.len()
+            );
+            if h.iter().any(|v| !v.is_finite()) {
+                bail!("snapshot h_state for seat {seat} contains non-finite float");
+            }
+        }
+        for (&seat, kn) in &self.knowledge {
+            ensure!(
+                usize::from(seat) < MAX_SEATS,
+                "snapshot knowledge seat {seat} out of bounds"
+            );
+            ensure!(
+                kn.viewer.get() == seat,
+                "snapshot knowledge viewer {} != key seat {seat}",
+                kn.viewer.get()
+            );
+            ensure!(
+                (1..=MAX_SEATS).contains(&kn.seat_count),
+                "snapshot knowledge seat_count {} out of bounds",
+                kn.seat_count
+            );
+            if kn.own_deck_summary.iter().any(|v| !v.is_finite()) {
+                bail!("snapshot own_deck_summary for seat {seat} contains non-finite float");
+            }
+        }
+        for (&seat, &val) in &self.observed_values {
+            ensure!(
+                usize::from(seat) < MAX_SEATS,
+                "snapshot observed_values seat {seat} out of bounds"
+            );
+            ensure!(
+                val.is_finite(),
+                "snapshot observed_value for seat {seat} is non-finite"
+            );
+        }
+        for &(seat, _) in self.seen_hashes.keys() {
+            ensure!(
+                usize::from(seat) < MAX_SEATS,
+                "snapshot seen_hashes seat {seat} out of bounds"
+            );
+        }
+        for &seat in self.last_announced_source.keys() {
+            ensure!(
+                usize::from(seat) < MAX_SEATS,
+                "snapshot last_announced_source seat {seat} out of bounds"
+            );
+        }
+        Ok(())
+    }
 }
 
 impl NetPlayer4 {
