@@ -1,8 +1,8 @@
 //! Independent policy instances and RNG streams for the bounded 1v1 collector.
 use super::collector::Contract;
 use super::{
-    CatalogPolicy4, CoverageMatrix4, EvaluationPlayer, ModelFormat, Pending, PolicyMode4,
-    SharedNets, load_player,
+    CatalogRead4, CoverageMatrix4, EvaluationPlayer, ModelFormat, Pending, PolicyMode4, SharedNets,
+    load_player,
 };
 use anyhow::{Context as _, ensure};
 use baylee_core::preset::GamePreset;
@@ -25,7 +25,7 @@ impl SeatPlayers {
         contract: &Contract,
         mode: PolicyMode4,
         shared: &SharedNets,
-        catalog: CatalogPolicy4,
+        catalog: CatalogRead4,
     ) -> anyhow::Result<Self> {
         let learner = load_player(
             path,
@@ -45,7 +45,7 @@ impl SeatPlayers {
                     if contract.opponent_legacy_v3 {
                         ModelFormat::LegacyV3
                     } else {
-                        ModelFormat::Net(catalog)
+                        ModelFormat::Net(catalog.policy.into())
                     },
                     contract.depth,
                     contract.temperature,

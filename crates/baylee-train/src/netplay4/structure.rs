@@ -26,6 +26,32 @@ pub enum CatalogPolicy4 {
     Drift,
 }
 
+/// How a model's card catalog is read: the binding [`CatalogPolicy4`], and
+/// what a measurement leaves out of the model's view of cards on purpose.
+/// Live play and every collection read with the defaults.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CatalogRead4 {
+    /// How the model's catalog must relate to this build's.
+    pub policy: CatalogPolicy4,
+    /// Leave out every identity reference (`i/<card>/<face>`, roles 2 and
+    /// 4): the one root that names a card by its index instead of
+    /// describing it (`eval4 --leave-out-identity`).
+    pub leave_out_identity: bool,
+    /// Accept an export whose rule table was ablated on purpose
+    /// (`export_onnx4.py --blind-card-names`, `rule_table_ablation` in its
+    /// metadata). Refused otherwise: such a table is not the model's.
+    pub ablated_table: bool,
+}
+
+impl From<CatalogPolicy4> for CatalogRead4 {
+    fn from(policy: CatalogPolicy4) -> Self {
+        Self {
+            policy,
+            ..Self::default()
+        }
+    }
+}
+
 /// What a model's catalog was bound to, for run metadata.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct CatalogBinding4 {
@@ -50,6 +76,13 @@ pub struct CatalogBinding4 {
     /// Cards and tokens whose references are left out because their rules
     /// changed since the export ([`CatalogPolicy4::Drift`]).
     pub withdrawn: Vec<DriftedRule4>,
+    /// Every identity reference is left out ([`CatalogRead4::leave_out_identity`]).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub identity_left_out: bool,
+    /// The export's own `rule_table_ablation`: its rule table was encoded
+    /// from an ablated catalog ([`CatalogRead4::ablated_table`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_table_ablation: Option<serde_json::Value>,
 }
 
 /// A card or token whose rules drifted since a model's export.
@@ -81,16 +114,60 @@ pub(super) struct RuleRoots {
     pub(super) binding: CatalogBinding4,
 }
 
-/// Reads a model's catalog, checks it against its metadata digest, and
-/// binds it to this build's catalog under `policy`.
+impl RuleRoots {
+    /// Leaves out every identity reference as an unknown rule's: a card's
+    /// other references read as they did, and the run's count of left-out
+    /// references grows by the identities it met.
+    fn leave_out_identity(&mut self) {
+        let identity: Vec<String> = self
+            .roots
+            .keys()
+            .filter(|key| key.starts_with("i/"))
+            .cloned()
+            .collect();
+        for key in identity {
+            self.roots.remove(&key);
+            self.unknown.insert(key);
+        }
+        self.binding.identity_left_out = true;
+    }
+}
+
+/// Applies a measurement's ablations to bound roots. `table_ablation` is
+/// the export's own `rule_table_ablation`, if its table was ablated.
 ///
 /// # Errors
-/// When the manifest is not the model's, or the catalogs do not relate as
-/// `policy` requires.
+/// When the export's table was ablated and `read` does not accept that.
+fn read_as(
+    mut roots: RuleRoots,
+    read: CatalogRead4,
+    table_ablation: Option<serde_json::Value>,
+) -> anyhow::Result<RuleRoots> {
+    anyhow::ensure!(
+        table_ablation.is_none() || read.ablated_table,
+        "this export's rule table was ablated for a measurement (rule_table_ablation \
+         {table_ablation:?}); only an evaluation may load it"
+    );
+    roots.binding.rule_table_ablation = table_ablation;
+    if read.leave_out_identity {
+        roots.leave_out_identity();
+    }
+    Ok(roots)
+}
+
+/// Reads a model's catalog, checks it against its metadata digest, binds
+/// it to this build's catalog under `read.policy`, and applies `read`'s
+/// ablations.
+///
+/// # Errors
+/// When the manifest is not the model's, the catalogs do not relate as
+/// the policy requires, or the export's table was ablated and `read` does
+/// not accept that.
 pub(super) fn load(
     path: &Path,
     expected: &str,
-    policy: CatalogPolicy4,
+    read: CatalogRead4,
+    table_ablation: Option<serde_json::Value>,
 ) -> anyhow::Result<RuleRoots> {
     let forest: Forest = serde_json::from_slice(&std::fs::read(path)?)?;
     anyhow::ensure!(
@@ -103,7 +180,11 @@ pub(super) fn load(
             .map(|c| c.index.get())
             .collect::<Vec<_>>(),
     )?;
-    bind(forest, &current, expected, policy)
+    read_as(
+        bind(forest, &current, expected, read.policy)?,
+        read,
+        table_ablation,
+    )
 }
 
 /// [`load`] past reading: `model` is the exported catalog, `current` this
@@ -126,6 +207,8 @@ fn bind(
         appended_tokens: 0,
         changed_roots: 0,
         withdrawn: Vec::new(),
+        identity_left_out: false,
+        rule_table_ablation: None,
     };
     if binding.identical {
         return Ok(RuleRoots {

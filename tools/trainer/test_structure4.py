@@ -129,5 +129,48 @@ class StructureTests(unittest.TestCase):
             if p.grad is not None:
                 torch.testing.assert_close(p.grad, q.grad, atol=1e-6, rtol=1e-6, msg=name)
 
+    def test_blind_card_names_change_only_rows_that_read_a_name(self):
+        from model4.structure import without_card_names
+        from refresh_structure4 import refresh_encoder
+        forest = {"version": 1, "dsl_source_sha256": "test", "roots": {},
+                  "tags": ["Unknown", "String", "FaceDef.name", "CardFace", "Filter::Named", "u32"],
+                  "nodes": [
+                      {"tag": 0, "bytes": [], "children": []},
+                      {"tag": 1, "bytes": list(b"Bolt"), "children": []},
+                      {"tag": 2, "bytes": [], "children": [1]},
+                      {"tag": 1, "bytes": list(b"Cat"), "children": []},
+                      {"tag": 2, "bytes": [], "children": [3]},
+                      {"tag": 5, "bytes": [3, 0, 0, 0], "children": []},
+                      {"tag": 3, "bytes": [], "children": [2, 5]},
+                      {"tag": 3, "bytes": [], "children": [4, 5]},
+                      {"tag": 1, "bytes": list(b"Goblin"), "children": []},
+                      {"tag": 4, "bytes": [], "children": [8]},
+                      {"tag": 4, "bytes": [], "children": [1]},
+                  ]}
+        blind, emptied = without_card_names(forest)
+        self.assertEqual(emptied, 2)
+        self.assertEqual([n["bytes"] for n in blind["nodes"]][1:4], [[], [], []])
+        self.assertEqual(blind["nodes"][8]["bytes"], list(b"Goblin"))
+        self.assertEqual(forest["nodes"][1]["bytes"], list(b"Bolt"), "the source stays")
+        self.assertEqual([(n["tag"], n["children"]) for n in blind["nodes"]],
+                         [(n["tag"], n["children"]) for n in forest["nodes"]])
+        torch.manual_seed(12)
+        net = RuleEncoder(forest, 16).eval()
+        seen = net.freeze().table
+        blinded = refresh_encoder(net, blind).eval().freeze().table
+        # Rows that read no name are the model's own, bit for bit.
+        for row in (0, 5, 8, 9):
+            torch.testing.assert_close(blinded[row], seen[row], atol=0, rtol=0)
+        # Every name now reads the same (up to the order of float sums); a
+        # rule naming a card loses it too.
+        for a, b in ((1, 3), (2, 4), (6, 7)):
+            self.assertGreater(float((seen[a] - seen[b]).abs().max()), 1e-4)
+            torch.testing.assert_close(blinded[a], blinded[b], atol=1e-6, rtol=1e-5)
+        self.assertGreater(float((seen[10] - blinded[10]).abs().max()), 1e-4)
+        broken = copy.deepcopy(forest)
+        broken["nodes"][2]["children"] = [1, 3]
+        with self.assertRaisesRegex(ValueError, "one string child"):
+            without_card_names(broken)
+
 
 if __name__ == "__main__": unittest.main()

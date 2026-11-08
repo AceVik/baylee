@@ -100,13 +100,13 @@ impl BatchedNet4 {
     pub fn load(
         path: &std::path::Path,
         limits: BatchLimits4,
-        catalog: super::CatalogPolicy4,
+        catalog: impl Into<super::CatalogRead4>,
     ) -> anyhow::Result<Arc<Self>> {
         anyhow::ensure!(
             limits.max_rows >= 1 && limits.token_budget >= 1,
             "a batch needs at least one row and one token"
         );
-        let (model, depth, session) = super::ModelFiles::open(path, catalog)?;
+        let (model, depth, session) = super::ModelFiles::open(path, catalog.into())?;
         let net = Self {
             model,
             limits,

@@ -59,7 +59,7 @@ pub mod search;
 mod snapshot;
 pub use snapshot::PlayerSnapshot4;
 mod structure;
-pub use structure::{CatalogBinding4, CatalogPolicy4, DriftedRule4};
+pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
@@ -212,7 +212,7 @@ impl ModelFiles {
     /// `model.onnx.json`) or a graph with companion metadata, with the
     /// session of its default graph and that graph's depth. Its card catalog
     /// is bound to this build's under `catalog`.
-    fn open(path: &Path, catalog: CatalogPolicy4) -> anyhow::Result<(Self, u8, Session)> {
+    fn open(path: &Path, catalog: CatalogRead4) -> anyhow::Result<(Self, u8, Session)> {
         let (onnx_path, meta, identity) = identity::read_model(path)?;
         let encoder_version = identity.encoder_version;
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
@@ -244,7 +244,7 @@ fn rule_roots(
     onnx_path: &Path,
     meta: &serde_json::Value,
     identity: &ModelIdentity,
-    catalog: CatalogPolicy4,
+    catalog: CatalogRead4,
 ) -> anyhow::Result<Option<structure::RuleRoots>> {
     if !matches!(identity.model_version, 3 | 5) {
         return Ok(None);
@@ -255,6 +255,7 @@ fn rule_roots(
             .as_str()
             .context("missing structure hash")?,
         catalog,
+        meta.get("rule_table_ablation").cloned(),
     )
     .map(Some)
 }
@@ -267,10 +268,10 @@ fn rule_roots(
 /// When the model cannot be read or the catalogs do not bind.
 pub fn inspect_catalog(
     path: &Path,
-    catalog: CatalogPolicy4,
+    catalog: impl Into<CatalogRead4>,
 ) -> anyhow::Result<Option<CatalogBinding4>> {
     let (onnx_path, meta, identity) = identity::read_model(path)?;
-    Ok(rule_roots(&onnx_path, &meta, &identity, catalog)?.map(|roots| roots.binding))
+    Ok(rule_roots(&onnx_path, &meta, &identity, catalog.into())?.map(|roots| roots.binding))
 }
 
 impl NetPlayer4 {
@@ -284,13 +285,14 @@ impl NetPlayer4 {
         Self::load_with(path, CatalogPolicy4::Exact)
     }
 
-    /// [`Self::load`] with the card catalog bound under `catalog`.
+    /// [`Self::load`] with the card catalog read as `catalog` says: a
+    /// [`CatalogPolicy4`], or a [`CatalogRead4`] with a measurement's ablations.
     ///
     /// # Errors
     /// When the ONNX model or metadata cannot be loaded, or the catalogs do
     /// not relate as `catalog` requires.
-    pub fn load_with(path: &Path, catalog: CatalogPolicy4) -> anyhow::Result<Self> {
-        let (files, depth, session) = ModelFiles::open(path, catalog)?;
+    pub fn load_with(path: &Path, catalog: impl Into<CatalogRead4>) -> anyhow::Result<Self> {
+        let (files, depth, session) = ModelFiles::open(path, catalog.into())?;
         Ok(Self::with_backend(
             files,
             Backend::Owned(BTreeMap::from([(depth, session)])),
