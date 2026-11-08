@@ -18,7 +18,7 @@ fn name(view: &PlayerView, id: ObjectId) -> String {
             view.hand
                 .iter()
                 .find(|card| card.id == id)
-                .map(|card| card.name.to_string())
+                .map(|card| card.name.clone())
         })
         .or_else(|| {
             view.stack
