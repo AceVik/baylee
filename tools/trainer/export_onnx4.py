@@ -252,9 +252,12 @@ def convert_to_float16(path: Path) -> None:
     -1e9 masks) are clamped to its largest finite value.
     """
     import onnx
-    from onnxruntime.transformers.float16 import convert_float_to_float16
+    from onnxruntime.transformers.float16 import DEFAULT_OP_BLOCK_LIST, convert_float_to_float16
 
-    converted = convert_float_to_float16(onnx.load(str(path)), keep_io_types=True)
+    op_block_list = list(DEFAULT_OP_BLOCK_LIST) + ["ScatterElements"]
+    converted = convert_float_to_float16(
+        onnx.load(str(path)), keep_io_types=True, op_block_list=op_block_list
+    )
     partial = path.with_suffix(".fp16.partial")
     onnx.save(converted, str(partial))
     partial.replace(path)
