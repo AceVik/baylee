@@ -67,7 +67,7 @@ impl MuxConfig4 {
             max_uncompressed_bytes: 2 * 1024 * 1024,
             d_model,
             durable_swap_fsync: false,
-            zeroize_on_evict: true,
+            zeroize_on_evict: false,
         }
     }
 

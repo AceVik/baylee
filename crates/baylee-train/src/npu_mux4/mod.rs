@@ -185,19 +185,20 @@ impl NpuMuxService4 {
         view: &PlayerView,
         post_urgency: SessionUrgency4,
     ) -> anyhow::Result<()> {
-        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
-        let ((), updated) = self.workers.execute_switched(
+        let (mut snapshot_box, rev) = self.pool.checkout_hot_box(session_id, &mut self.metrics)?;
+        let res = self.workers.execute_switched(
             session_id,
-            snapshot_ref,
+            &mut snapshot_box,
             rev,
             &mut self.metrics,
             |player| player.observe(view),
-        )?;
-        self.metrics.observations_routed += 1;
-        let new_rev = self
-            .pool
-            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        );
+        let new_rev =
+            self.pool
+                .commit_hot_box(session_id, snapshot_box, post_urgency, &mut self.metrics)?;
         self.workers.mark_slot_revision(session_id, new_rev);
+        res?;
+        self.metrics.observations_routed += 1;
         Ok(())
     }
 
@@ -213,19 +214,20 @@ impl NpuMuxService4 {
         teams: &[Option<u8>],
         post_urgency: SessionUrgency4,
     ) -> anyhow::Result<Answer4> {
-        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
-        let (answer, updated) = self.workers.execute_switched(
+        let (mut snapshot_box, rev) = self.pool.checkout_hot_box(session_id, &mut self.metrics)?;
+        let res = self.workers.execute_switched(
             session_id,
-            snapshot_ref,
+            &mut snapshot_box,
             rev,
             &mut self.metrics,
             |player| Ok(player.act_detailed(view, pending, teams)),
-        )?;
-        self.metrics.decisions_routed += 1;
-        let new_rev = self
-            .pool
-            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        );
+        let new_rev =
+            self.pool
+                .commit_hot_box(session_id, snapshot_box, post_urgency, &mut self.metrics)?;
         self.workers.mark_slot_revision(session_id, new_rev);
+        let answer = res?;
+        self.metrics.decisions_routed += 1;
         Ok(answer)
     }
 
@@ -240,7 +242,7 @@ impl NpuMuxService4 {
         next_wave_prefetch: &[u64],
     ) -> anyhow::Result<()> {
         let sids: Vec<u64> = items.iter().map(|it| it.session_id).collect();
-        let acquired = self.pool.acquire_wave(&sids, &mut self.metrics)?;
+        let acquired = self.pool.checkout_wave_boxes(&sids, &mut self.metrics)?;
         let tasks: Vec<(u64, _, u64, &PlayerView)> = acquired
             .into_iter()
             .zip(items.iter())
@@ -274,7 +276,7 @@ impl NpuMuxService4 {
 
         for (out, it) in outputs.into_iter().zip(items.iter()) {
             let new_rev =
-                pool.commit_hot(out.session_id, out.snapshot, it.post_urgency, metrics)?;
+                pool.commit_hot_box(out.session_id, out.snapshot, it.post_urgency, metrics)?;
             workers.mark_slot_revision(out.session_id, new_rev);
         }
         Ok(())
@@ -291,7 +293,7 @@ impl NpuMuxService4 {
         next_wave_prefetch: &[u64],
     ) -> anyhow::Result<Vec<(u64, Answer4)>> {
         let sids: Vec<u64> = items.iter().map(|it| it.session_id).collect();
-        let acquired = self.pool.acquire_wave(&sids, &mut self.metrics)?;
+        let acquired = self.pool.checkout_wave_boxes(&sids, &mut self.metrics)?;
         let tasks = acquired
             .into_iter()
             .zip(items.iter())
@@ -331,7 +333,7 @@ impl NpuMuxService4 {
         let mut answers = Vec::with_capacity(outputs.len());
         for (out, it) in outputs.into_iter().zip(items.iter()) {
             let new_rev =
-                pool.commit_hot(out.session_id, out.snapshot, it.post_urgency, metrics)?;
+                pool.commit_hot_box(out.session_id, out.snapshot, it.post_urgency, metrics)?;
             workers.mark_slot_revision(out.session_id, new_rev);
             answers.push((out.session_id, out.output));
         }
@@ -348,18 +350,23 @@ impl NpuMuxService4 {
         post_urgency: SessionUrgency4,
         op: impl FnOnce(&mut NetPlayer4) -> anyhow::Result<R>,
     ) -> anyhow::Result<R> {
-        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
-        let (out, updated) =
-            self.workers
-                .execute_switched(session_id, snapshot_ref, rev, &mut self.metrics, op)?;
-        let new_rev = self
-            .pool
-            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        let (mut snapshot_box, rev) = self.pool.checkout_hot_box(session_id, &mut self.metrics)?;
+        let res = self.workers.execute_switched(
+            session_id,
+            &mut snapshot_box,
+            rev,
+            &mut self.metrics,
+            op,
+        );
+        let new_rev =
+            self.pool
+                .commit_hot_box(session_id, snapshot_box, post_urgency, &mut self.metrics)?;
         self.workers.mark_slot_revision(session_id, new_rev);
-        Ok(out)
+        res
     }
 
-    /// Reads the latest observed value-head estimate for `seat` in `session_id`.
+    /// Reads the latest observed value-head estimate for `seat` in `session_id` directly
+    /// from the Hot snapshot without touching a worker slot.
     ///
     /// # Errors
     /// If `session_id` is unknown or SSD page-in fails.
@@ -368,22 +375,8 @@ impl NpuMuxService4 {
         session_id: u64,
         seat: PlayerId,
     ) -> anyhow::Result<Option<f32>> {
-        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
-        let (val, updated) = self.workers.execute_switched(
-            session_id,
-            snapshot_ref,
-            rev,
-            &mut self.metrics,
-            |player| Ok(player.observed_value(seat)),
-        )?;
-        let new_rev = self.pool.commit_hot(
-            session_id,
-            updated,
-            SessionUrgency4::Soon,
-            &mut self.metrics,
-        )?;
-        self.workers.mark_slot_revision(session_id, new_rev);
-        Ok(val)
+        let (snapshot_ref, _) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
+        Ok(snapshot_ref.observed_value(seat))
     }
 
     /// Closes a completed session and deletes any cold SSD swap file.

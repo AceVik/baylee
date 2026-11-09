@@ -29,11 +29,11 @@ pub struct WaveSlotOutput4<R> {
     pub session_id: u64,
     /// Output returned by the closure.
     pub output: R,
-    /// Updated session snapshot after the step.
-    pub snapshot: PlayerSnapshot4,
-    /// Context-switch time (`restore` + `snapshot`) in microseconds.
+    /// Updated session snapshot box after the step (zero heap allocation).
+    pub snapshot: Box<PlayerSnapshot4>,
+    /// Context-switch time (`swap_in_hot` + `swap_out_hot`) in microseconds.
     pub switch_us: u64,
-    /// Whether `restore` was skipped because the slot already held `(session_id, state_revision)`.
+    /// Whether `h_states` unpacking was skipped because the slot already held `(session_id, state_revision)`.
     pub affinity_hit: bool,
 }
 
@@ -137,7 +137,8 @@ impl NpuWorkerPool4 {
         self.d_model
     }
 
-    /// Initializes a fresh [`PlayerSnapshot4`] for a new match on slot 0 without running ONNX graphs.
+    /// Initializes a fresh [`PlayerSnapshot4`] for a new match on slot 0 without running ONNX graphs
+    /// or cloning metadata maps.
     pub fn initial_snapshot(
         &mut self,
         preset: &baylee_core::preset::GamePreset,
@@ -148,7 +149,7 @@ impl NpuWorkerPool4 {
         slot.bound_revision = 0;
         slot.player.reseed(policy_seed);
         slot.player.init_game(preset);
-        slot.player.snapshot()
+        slot.player.take_hot_snapshot()
     }
 
     /// Updates the `bound_revision` recorded on the worker slot currently holding `session_id`.
@@ -162,20 +163,21 @@ impl NpuWorkerPool4 {
         }
     }
 
-    /// Selects an affinity-matched or round-robin worker slot, restores `snapshot` into it
-    /// (skipping `restore` if `(session_id, state_revision)` already matches the slot!),
-    /// runs `op`, and returns both `op`'s output and the updated [`PlayerSnapshot4`].
+    /// Selects an affinity-matched or round-robin worker slot, swaps `snapshot` into it in $O(1)$
+    /// without cloning `SeatKnowledge4` or `BTreeMap`s (skipping `h_states` unpacking if
+    /// `(session_id, state_revision)` already matches the slot!), runs `op`, and swaps the updated
+    /// state back into `snapshot`.
     ///
     /// # Errors
     /// Propagates any error returned by `op`.
     pub fn execute_switched<R>(
         &mut self,
         session_id: u64,
-        snapshot: &PlayerSnapshot4,
+        snapshot: &mut PlayerSnapshot4,
         state_revision: u64,
         metrics: &mut MuxMetrics4,
         op: impl FnOnce(&mut NetPlayer4) -> anyhow::Result<R>,
-    ) -> anyhow::Result<(R, PlayerSnapshot4)> {
+    ) -> anyhow::Result<R> {
         let slot_idx = self
             .slots
             .iter()
@@ -194,31 +196,30 @@ impl NpuWorkerPool4 {
         if affinity_hit {
             metrics.affinity_hits += 1;
         } else {
-            slot.player.restore(snapshot);
             slot.bound_session = Some(session_id);
         }
+        slot.player.swap_in_hot(snapshot, !affinity_hit);
         let switch_in_us = t0.elapsed().as_micros() as u64;
 
-        let result = op(&mut slot.player)?;
+        let res = op(&mut slot.player);
 
         let t1 = Instant::now();
-        let updated = slot.player.snapshot();
+        slot.player.swap_out_hot(snapshot);
         let switch_out_us = t1.elapsed().as_micros() as u64;
 
         metrics.context_switches += 1;
         metrics.record_switch_us(switch_in_us + switch_out_us);
-        Ok((result, updated))
+        res
     }
 
     /// Executes a wave of up to `worker_slots` distinct sessions in parallel across
-    /// worker threads so all active `NetPlayer4` slots submit their ONNX/NPU inference
-    /// requests concurrently to the shared [`BatchedNet4`] batching queue.
+    /// worker threads using zero-clone $O(1)$ pointer swaps (`swap_in_hot` / `swap_out_hot`).
     ///
     /// # Errors
     /// If `tasks.len() > worker_slots` or any worker closure returns an error.
     pub fn execute_wave<T, R, F>(
         &mut self,
-        tasks: Vec<(u64, PlayerSnapshot4, u64, T)>,
+        tasks: Vec<(u64, Box<PlayerSnapshot4>, u64, T)>,
         metrics: &mut MuxMetrics4,
         op: F,
     ) -> anyhow::Result<Vec<WaveSlotOutput4<R>>>
@@ -239,7 +240,7 @@ impl NpuWorkerPool4 {
 
         let results: Vec<anyhow::Result<WaveSlotOutput4<R>>> = std::thread::scope(|scope| {
             let mut handles = Vec::with_capacity(tasks.len());
-            for (slot, (session_id, snapshot, state_revision, item)) in
+            for (slot, (session_id, mut snapshot, state_revision, item)) in
                 self.slots.iter_mut().zip(tasks)
             {
                 let op_ref = &op;
@@ -249,21 +250,22 @@ impl NpuWorkerPool4 {
                         && state_revision != 0
                         && slot.bound_revision == state_revision;
                     if !affinity_hit {
-                        slot.player.restore(&snapshot);
                         slot.bound_session = Some(session_id);
                     }
+                    slot.player.swap_in_hot(&mut snapshot, !affinity_hit);
                     let switch_in_us = t0.elapsed().as_micros() as u64;
 
-                    let output = op_ref(&mut slot.player, item)?;
+                    let res = op_ref(&mut slot.player, item);
 
                     let t1 = Instant::now();
-                    let updated = slot.player.snapshot();
+                    slot.player.swap_out_hot(&mut snapshot);
                     let switch_out_us = t1.elapsed().as_micros() as u64;
+                    let output = res?;
 
                     Ok(WaveSlotOutput4 {
                         session_id,
                         output,
-                        snapshot: updated,
+                        snapshot,
                         switch_us: switch_in_us + switch_out_us,
                         affinity_hit,
                     })

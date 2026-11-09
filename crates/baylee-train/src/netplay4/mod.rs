@@ -57,7 +57,7 @@ mod ranked;
 pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
 pub mod search;
 mod snapshot;
-pub use snapshot::PlayerSnapshot4;
+pub use snapshot::{ColdMeta4, PlayerSnapshot4};
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
 pub mod tactician;
