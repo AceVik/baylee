@@ -188,6 +188,20 @@ mod tests {
         assert_eq!(launcher_of(&install, Uuid::now_v7()), None);
     }
 
+    /// A folder where the launcher should be is not a launcher.
+    #[test]
+    fn a_folder_in_the_launchers_place_starts_nothing() {
+        let install = at("folder");
+        let generation = Uuid::now_v7();
+        let place = install
+            .stage()
+            .join("versions")
+            .join(generation.to_string())
+            .join("baylee-client");
+        fs::create_dir_all(&place).unwrap();
+        assert_eq!(launcher_of(&install, generation), None);
+    }
+
     /// A pointer is a value out of a file: what is no UUID selects nothing here, and
     /// the package's own logic reports it.
     #[test]
