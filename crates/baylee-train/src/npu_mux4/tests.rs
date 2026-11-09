@@ -173,8 +173,8 @@ fn snapshot_validation_rejects_mismatched_dimensions_and_corrupted_headers() {
     bad_seat_bytes[11] = 99;
     assert!(crate::netplay4::PlayerSnapshot4::from_validated_wire(&bad_seat_bytes, 16).is_err());
 
-    // Injecting NaN float into binary h_states (bytes 12..16) must be rejected:
+    // Injecting NaN FP16 (0x7e00) into binary h_states (bytes 12..14) must be rejected:
     let mut nan_bytes = wire_bytes;
-    nan_bytes[12..16].copy_from_slice(&f32::NAN.to_le_bytes());
+    nan_bytes[12..14].copy_from_slice(&0x7e00_u16.to_le_bytes());
     assert!(crate::netplay4::PlayerSnapshot4::from_validated_wire(&nan_bytes, 16).is_err());
 }

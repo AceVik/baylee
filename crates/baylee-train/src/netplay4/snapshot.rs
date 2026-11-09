@@ -11,7 +11,72 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroize as _;
 
 const MAX_SEEN_HASHES_WIRE: usize = 16_384;
-const WIRE_MAGIC_V2: &[u8; 6] = b"BMUX4\x02";
+const WIRE_MAGIC_V3: &[u8; 6] = b"BMUX4\x03";
+
+/// Converts a finite IEEE-754 `f32` (`binary32`) to an IEEE-754 `f16` (`binary16`) bit pattern
+/// using round-to-nearest-even and clamping finite overflow to `±65504.0` (`0x7bff`), matching
+/// ONNX Runtime's `convert_float_to_float16` (`keep_io_types=True`).
+/// For any `h_out` tensor produced by an FP16 `BayleeKI` graph, this conversion is 100% lossless.
+#[inline]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn f32_to_f16_bits(val: f32) -> u16 {
+    let bits = val.to_bits();
+    let sign = ((bits >> 16) & 0x8000) as u16;
+    let exp = ((bits >> 23) & 0xff) as i32 - 127 + 15;
+    let mant = bits & 0x007f_ffff;
+    if exp <= 0 {
+        if exp < -10 {
+            return sign;
+        }
+        let full_mant = mant | 0x0080_0000;
+        let shift = (14 - exp) as u32;
+        let round_bit = 1_u32 << (shift - 1);
+        let sticky = (full_mant & (round_bit - 1)) != 0;
+        let lsb = (full_mant >> shift) & 1;
+        let mut h_mant = (full_mant >> shift) as u16;
+        if (full_mant & round_bit) != 0 && (sticky || lsb != 0) {
+            h_mant += 1;
+        }
+        sign | h_mant
+    } else if exp >= 31 {
+        sign | 0x7bff
+    } else {
+        let round_bit = 0x1000_u32;
+        let sticky = (mant & 0x0fff) != 0;
+        let lsb = (mant >> 13) & 1;
+        let mut h_bits = sign | ((exp as u16) << 10) | ((mant >> 13) as u16);
+        if (mant & round_bit) != 0 && (sticky || lsb != 0) {
+            h_bits += 1;
+            if (h_bits & 0x7c00) == 0x7c00 {
+                h_bits = sign | 0x7bff;
+            }
+        }
+        h_bits
+    }
+}
+
+/// Converts an IEEE-754 `f16` (`binary16`) bit pattern back to `f32`, rejecting `NaN`/`Inf`.
+#[inline]
+fn f16_bits_to_f32(bits: u16) -> anyhow::Result<f32> {
+    let sign = u32::from(bits & 0x8000) << 16;
+    let exp = u32::from((bits >> 10) & 0x1f);
+    let mant = u32::from(bits & 0x03ff);
+    if exp == 0x1f {
+        bail!("snapshot h_state contains non-finite FP16 value (0x{bits:04x})");
+    }
+    if exp == 0 {
+        if mant == 0 {
+            return Ok(f32::from_bits(sign));
+        }
+        let shift = mant.leading_zeros() - 21;
+        let norm_mant = (mant << shift) & 0x03ff;
+        let f32_exp = (127 - 15 + 1 - shift) << 23;
+        Ok(f32::from_bits(sign | f32_exp | (norm_mant << 13)))
+    } else {
+        let f32_exp = (exp + 127 - 15) << 23;
+        Ok(f32::from_bits(sign | f32_exp | (mant << 13)))
+    }
+}
 
 /// Everything per game a [`NetPlayer4`] changes as it observes and answers:
 /// recurrent memory, seat knowledge, loop guards, announced sources, the
@@ -111,16 +176,16 @@ impl PlayerSnapshot4 {
         let meta_bytes =
             serde_json::to_vec(&meta).context("serializing PlayerSnapshot4 metadata")?;
 
-        let h_bytes_total = self.h_states.len() * (1 + expected_h_len * 4);
+        let h_bytes_total = self.h_states.len() * (1 + expected_h_len * 2);
         let hash_bytes_total = self.seen_hashes.len() * 10;
         let mut out = Vec::with_capacity(16 + h_bytes_total + hash_bytes_total + meta_bytes.len());
-        out.extend_from_slice(WIRE_MAGIC_V2);
+        out.extend_from_slice(WIRE_MAGIC_V3);
         out.extend_from_slice(&(d_model as u32).to_le_bytes());
         out.push(self.h_states.len() as u8);
         for (&seat, h) in &self.h_states {
             out.push(seat);
             for &val in h {
-                out.extend_from_slice(&val.to_le_bytes());
+                out.extend_from_slice(&f32_to_f16_bits(val).to_le_bytes());
             }
         }
         out.extend_from_slice(&(self.seen_hashes.len() as u32).to_le_bytes());
@@ -141,7 +206,7 @@ impl PlayerSnapshot4 {
     pub fn from_validated_wire(bytes: &[u8], d_model: usize) -> anyhow::Result<Self> {
         ensure!(d_model > 0 && d_model <= 8192, "invalid d_model {d_model}");
         ensure!(
-            bytes.starts_with(WIRE_MAGIC_V2),
+            bytes.starts_with(WIRE_MAGIC_V3),
             "invalid or unsupported PlayerSnapshot4 wire magic"
         );
         ensure!(bytes.len() >= 15, "truncated PlayerSnapshot4 wire header");
@@ -156,7 +221,7 @@ impl PlayerSnapshot4 {
             "snapshot wire h_count ({h_count}) exceeds MAX_SEATS ({MAX_SEATS})"
         );
         let expected_h_len = RECURRENT_SLOTS * d_model;
-        let per_seat_bytes = 1 + expected_h_len * 4;
+        let per_seat_bytes = 1 + expected_h_len * 2;
         let mut cursor = 11;
         ensure!(
             bytes.len() >= cursor + h_count * per_seat_bytes + 4,
@@ -168,13 +233,9 @@ impl PlayerSnapshot4 {
             cursor += 1;
             let mut vec = Vec::with_capacity(expected_h_len);
             for _ in 0..expected_h_len {
-                let f = f32::from_le_bytes([
-                    bytes[cursor],
-                    bytes[cursor + 1],
-                    bytes[cursor + 2],
-                    bytes[cursor + 3],
-                ]);
-                cursor += 4;
+                let h_bits = u16::from_le_bytes([bytes[cursor], bytes[cursor + 1]]);
+                cursor += 2;
+                let f = f16_bits_to_f32(h_bits)?;
                 vec.push(f);
             }
             if h_states.insert(seat, vec).is_some() {
