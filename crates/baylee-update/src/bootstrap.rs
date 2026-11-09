@@ -188,6 +188,27 @@ mod tests {
         assert_eq!(launcher_of(&install, Uuid::now_v7()), None);
     }
 
+    /// On a Mac the launcher lies inside the generation's bundle, beside its runtime.
+    #[test]
+    fn a_macs_launcher_is_found_inside_the_bundle() {
+        let mut install = at("mac");
+        install.os = Os::MacOs;
+        let generation = Uuid::now_v7();
+        let macos = install
+            .stage()
+            .join("versions")
+            .join(generation.to_string())
+            .join("Baylee.app/Contents/MacOS");
+        fs::create_dir_all(&macos).unwrap();
+        fs::write(macos.join(relaunch::MAC_LAUNCHER), "a launcher").unwrap();
+        let launcher = launcher_of(&install, generation).expect("the bundle's launcher");
+        assert!(
+            launcher.ends_with(Path::new("Baylee.app/Contents/MacOS").join(relaunch::MAC_LAUNCHER)),
+            "{}",
+            launcher.display()
+        );
+    }
+
     /// A folder where the launcher should be is not a launcher.
     #[test]
     fn a_folder_in_the_launchers_place_starts_nothing() {
