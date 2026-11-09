@@ -203,6 +203,31 @@ mod tests {
         }
     }
 
+    /// A version that does not parse, or one no newer than the package, hands
+    /// nothing on: the package's own logic decides, as it always did.
+    #[test]
+    fn only_a_newer_parsable_version_is_handed_on() {
+        let install = at("versions");
+        let generation = Uuid::now_v7();
+        let original = Version::new(1, 0, 0);
+        for (to, handed) in [
+            ("x.y", false),
+            ("1.0.0", false),
+            ("0.9.0", false),
+            ("1.0.1", true),
+        ] {
+            let pointer = serde_json::json!({
+                "generation": generation, "from": "1.0.0", "to": to, "announced": true,
+            });
+            fs::write(install.stage().join("current.json"), pointer.to_string()).unwrap();
+            assert_eq!(
+                launch::newer_generation(&install, &original).is_some(),
+                handed,
+                "{to}"
+            );
+        }
+    }
+
     /// Both ways out of the generation's folder: the folder itself a link, and the
     /// launcher in it one. Making a link may need a right Windows did not give.
     #[test]
