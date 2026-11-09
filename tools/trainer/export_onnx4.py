@@ -258,12 +258,16 @@ def convert_to_float16(path: Path) -> None:
     converted = convert_float_to_float16(
         onnx.load(str(path)), keep_io_types=True, op_block_list=op_block_list
     )
-    seen_names: set[str] = set()
-    for idx, node in enumerate(converted.graph.node):
-        if node.name and node.name in seen_names:
-            node.name = f"{node.name}_{idx}"
-        if node.name:
-            seen_names.add(node.name)
+    seen_outputs: set[tuple[str, ...]] = set()
+    keep_nodes = []
+    for node in converted.graph.node:
+        outs = tuple(node.output)
+        if node.op_type == "Cast" and outs in seen_outputs:
+            continue
+        seen_outputs.add(outs)
+        keep_nodes.append(node)
+    del converted.graph.node[:]
+    converted.graph.node.extend(keep_nodes)
     partial = path.with_suffix(".fp16.partial")
     onnx.save(converted, str(partial))
     partial.replace(path)
