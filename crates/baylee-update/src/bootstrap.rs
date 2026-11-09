@@ -288,6 +288,18 @@ mod tests {
         assert!(note_the_attempt(&install, Uuid::now_v7()).is_none());
     }
 
+    /// A start that went well clears the count, and clearing a count that is not
+    /// there is no error.
+    #[test]
+    fn going_well_clears_the_count_and_a_missing_one_is_fine() {
+        let install = at("cleared");
+        went_well(&install);
+        assert!(note_the_attempt(&install, Uuid::now_v7()).is_some());
+        assert!(install.stage().join(ATTEMPTS).exists());
+        went_well(&install);
+        assert!(!install.stage().join(ATTEMPTS).exists());
+    }
+
     #[test]
     fn a_torn_count_starts_over_rather_than_locking_anyone_out() {
         let install = at("torn");
