@@ -8,8 +8,10 @@ use crate::features4::{MAX_SEATS, SeatKnowledge4};
 use anyhow::{Context as _, bail, ensure};
 use baylee_core::ids::PlayerId;
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroize as _;
 
 const MAX_SEEN_HASHES_WIRE: usize = 16_384;
+const WIRE_MAGIC_V2: &[u8; 6] = b"BMUX4\x02";
 
 /// Everything per game a [`NetPlayer4`] changes as it observes and answers:
 /// recurrent memory, seat knowledge, loop guards, announced sources, the
@@ -34,11 +36,9 @@ pub struct PlayerSnapshot4 {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SnapshotWire4 {
+struct SnapshotMetaWire4 {
     teams: Vec<Option<u8>>,
-    h_states: BTreeMap<u8, Vec<f32>>,
     knowledge: BTreeMap<u8, SeatKnowledge4>,
-    seen_hashes: Vec<((u8, u64), u8)>,
     last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
     observed_values: BTreeMap<u8, f32>,
     rng_state: u64,
@@ -50,6 +50,21 @@ struct SnapshotWire4 {
 }
 
 impl PlayerSnapshot4 {
+    /// Wipes sensitive in-RAM latent state buffers (`h_states`, `observed_values`, `seen_hashes`)
+    /// before a snapshot is dropped after SSD eviction or session closure.
+    pub fn zeroize_sensitive(&mut self) {
+        for h in self.h_states.values_mut() {
+            h.zeroize();
+        }
+        for v in self.observed_values.values_mut() {
+            v.zeroize();
+        }
+        for c in self.seen_hashes.values_mut() {
+            c.zeroize();
+        }
+        self.seen_hashes.clear();
+    }
+
     /// Approximate heap + struct memory footprint in RAM (bytes).
     #[must_use]
     pub fn approx_ram_bytes(&self) -> usize {
@@ -72,17 +87,18 @@ impl PlayerSnapshot4 {
     }
 
     /// Validates all tensor dimensions, seat bounds, and finite floating-point
-    /// invariants against `d_model`, then serializes to canonical JSON bytes.
+    /// invariants against `d_model`, then serializes to the compact `BMUX4\x02`
+    /// binary + metadata wire format (writing `h_states` and `seen_hashes` as
+    /// raw little-endian IEEE-754 binary records rather than ASCII decimal strings).
     ///
     /// # Errors
     /// Returns an error if any dimension or floating-point value is invalid.
     pub fn to_validated_wire(&self, d_model: usize) -> anyhow::Result<Vec<u8>> {
         self.validate(d_model)?;
-        let wire = SnapshotWire4 {
+        let expected_h_len = RECURRENT_SLOTS * d_model;
+        let meta = SnapshotMetaWire4 {
             teams: self.teams.clone(),
-            h_states: self.h_states.clone(),
             knowledge: self.knowledge.clone(),
-            seen_hashes: self.seen_hashes.iter().map(|(&k, &v)| (k, v)).collect(),
             last_announced_source: self.last_announced_source.clone(),
             observed_values: self.observed_values.clone(),
             rng_state: self.rng.state(),
@@ -92,35 +108,126 @@ impl PlayerSnapshot4 {
             choice_guard: self.choice_guard,
             tactic_rules: self.tactic_rules,
         };
-        serde_json::to_vec(&wire).context("serializing PlayerSnapshot4 wire payload")
+        let meta_bytes =
+            serde_json::to_vec(&meta).context("serializing PlayerSnapshot4 metadata")?;
+
+        let h_bytes_total = self.h_states.len() * (1 + expected_h_len * 4);
+        let hash_bytes_total = self.seen_hashes.len() * 10;
+        let mut out = Vec::with_capacity(16 + h_bytes_total + hash_bytes_total + meta_bytes.len());
+        out.extend_from_slice(WIRE_MAGIC_V2);
+        out.extend_from_slice(&(d_model as u32).to_le_bytes());
+        out.push(self.h_states.len() as u8);
+        for (&seat, h) in &self.h_states {
+            out.push(seat);
+            for &val in h {
+                out.extend_from_slice(&val.to_le_bytes());
+            }
+        }
+        out.extend_from_slice(&(self.seen_hashes.len() as u32).to_le_bytes());
+        for (&(seat, hash), &count) in &self.seen_hashes {
+            out.push(seat);
+            out.extend_from_slice(&hash.to_le_bytes());
+            out.push(count);
+        }
+        out.extend_from_slice(&meta_bytes);
+        Ok(out)
     }
 
     /// Deserializes and strictly validates a [`PlayerSnapshot4`] against `d_model`.
     ///
     /// # Errors
-    /// Rejects malformed JSON, out-of-range seats, mismatched `h_state` lengths,
+    /// Rejects malformed wire headers, out-of-range seats, mismatched `h_state` lengths,
     /// `NaN`/`Inf` floats, or excessive map entries.
     pub fn from_validated_wire(bytes: &[u8], d_model: usize) -> anyhow::Result<Self> {
-        let wire: SnapshotWire4 =
-            serde_json::from_slice(bytes).context("deserializing PlayerSnapshot4 wire payload")?;
+        ensure!(d_model > 0 && d_model <= 8192, "invalid d_model {d_model}");
         ensure!(
-            wire.seen_hashes.len() <= MAX_SEEN_HASHES_WIRE,
-            "snapshot seen_hashes count {} exceeds limit {MAX_SEEN_HASHES_WIRE}",
-            wire.seen_hashes.len()
+            bytes.starts_with(WIRE_MAGIC_V2),
+            "invalid or unsupported PlayerSnapshot4 wire magic"
         );
+        ensure!(bytes.len() >= 15, "truncated PlayerSnapshot4 wire header");
+        let wire_d_model = u32::from_le_bytes([bytes[6], bytes[7], bytes[8], bytes[9]]) as usize;
+        ensure!(
+            wire_d_model == d_model,
+            "snapshot wire d_model ({wire_d_model}) != expected ({d_model})"
+        );
+        let h_count = usize::from(bytes[10]);
+        ensure!(
+            h_count <= MAX_SEATS,
+            "snapshot wire h_count ({h_count}) exceeds MAX_SEATS ({MAX_SEATS})"
+        );
+        let expected_h_len = RECURRENT_SLOTS * d_model;
+        let per_seat_bytes = 1 + expected_h_len * 4;
+        let mut cursor = 11;
+        ensure!(
+            bytes.len() >= cursor + h_count * per_seat_bytes + 4,
+            "truncated PlayerSnapshot4 h_states section"
+        );
+        let mut h_states = BTreeMap::new();
+        for _ in 0..h_count {
+            let seat = bytes[cursor];
+            cursor += 1;
+            let mut vec = Vec::with_capacity(expected_h_len);
+            for _ in 0..expected_h_len {
+                let f = f32::from_le_bytes([
+                    bytes[cursor],
+                    bytes[cursor + 1],
+                    bytes[cursor + 2],
+                    bytes[cursor + 3],
+                ]);
+                cursor += 4;
+                vec.push(f);
+            }
+            if h_states.insert(seat, vec).is_some() {
+                bail!("duplicate seat {seat} in PlayerSnapshot4 h_states");
+            }
+        }
+        let hash_count = u32::from_le_bytes([
+            bytes[cursor],
+            bytes[cursor + 1],
+            bytes[cursor + 2],
+            bytes[cursor + 3],
+        ]) as usize;
+        cursor += 4;
+        ensure!(
+            hash_count <= MAX_SEEN_HASHES_WIRE,
+            "snapshot seen_hashes count {hash_count} exceeds limit {MAX_SEEN_HASHES_WIRE}"
+        );
+        ensure!(
+            bytes.len() >= cursor + hash_count * 10,
+            "truncated PlayerSnapshot4 seen_hashes section"
+        );
+        let mut seen_hashes = BTreeMap::new();
+        for _ in 0..hash_count {
+            let seat = bytes[cursor];
+            let hash = u64::from_le_bytes([
+                bytes[cursor + 1],
+                bytes[cursor + 2],
+                bytes[cursor + 3],
+                bytes[cursor + 4],
+                bytes[cursor + 5],
+                bytes[cursor + 6],
+                bytes[cursor + 7],
+                bytes[cursor + 8],
+            ]);
+            let count = bytes[cursor + 9];
+            cursor += 10;
+            seen_hashes.insert((seat, hash), count);
+        }
+        let meta: SnapshotMetaWire4 = serde_json::from_slice(&bytes[cursor..])
+            .context("deserializing PlayerSnapshot4 metadata tail")?;
         let snap = Self {
-            teams: wire.teams,
-            h_states: wire.h_states,
-            knowledge: wire.knowledge,
-            seen_hashes: wire.seen_hashes.into_iter().collect(),
-            last_announced_source: wire.last_announced_source,
-            observed_values: wire.observed_values,
-            rng: Rng::new(wire.rng_state),
-            last_fallback: wire.last_fallback,
-            coverage: wire.coverage,
-            rule_refs_left_out: wire.rule_refs_left_out,
-            choice_guard: wire.choice_guard,
-            tactic_rules: wire.tactic_rules,
+            teams: meta.teams,
+            h_states,
+            knowledge: meta.knowledge,
+            seen_hashes,
+            last_announced_source: meta.last_announced_source,
+            observed_values: meta.observed_values,
+            rng: Rng::new(meta.rng_state),
+            last_fallback: meta.last_fallback,
+            coverage: meta.coverage,
+            rule_refs_left_out: meta.rule_refs_left_out,
+            choice_guard: meta.choice_guard,
+            tactic_rules: meta.tactic_rules,
         };
         snap.validate(d_model)?;
         Ok(snap)

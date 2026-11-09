@@ -3,8 +3,9 @@
 //! Enables a fixed number of warm neural worker slots (`NpuWorkerPool4`, sized to
 //! the NPU/CPU concurrency ceiling) to play hundreds or thousands of concurrent
 //! Baylee games by context-switching per-session recurrent memory (`PlayerSnapshot4`)
-//! in RAM and transparently paging idle/slow sessions to encrypted SSD storage
-//! (`EncryptedSwapStore4`, `XChaCha20-Poly1305` + anti-rollback generation AAD).
+//! in RAM, skipping redundant `restore` copies via revision-tracked slot affinity,
+//! executing waves of `M` sessions in parallel while concurrently prefetching the
+//! next wave from encrypted SSD storage (`XChaCha20-Poly1305` + anti-rollback AAD).
 
 pub mod config;
 pub mod crypto_swap;
@@ -25,9 +26,33 @@ pub use config::{MuxConfig4, SessionUrgency4};
 pub use crypto_swap::{EncryptedSwapStore4, SwapHandle4};
 pub use metrics::{MuxMetrics4, MuxSummary4};
 pub use scheduler::TieredSessionPool4;
-pub use worker_pool::NpuWorkerPool4;
+pub use worker_pool::{NpuWorkerPool4, WaveSlotOutput4};
 
 use crate::netplay4::{Answer4, BatchLimits4, NetPlayer4, PolicyMode4};
+
+/// Single observation request inside a parallel [`NpuMuxService4::observe_wave`] call.
+pub struct ObserveWaveItem4<'a> {
+    /// Target session ID.
+    pub session_id: u64,
+    /// Player view to observe (`K = 0`).
+    pub view: &'a PlayerView,
+    /// Urgency tier after committing the updated snapshot.
+    pub post_urgency: SessionUrgency4,
+}
+
+/// Single decision request inside a parallel [`NpuMuxService4::act_wave`] call.
+pub struct ActWaveItem4<'a> {
+    /// Target session ID.
+    pub session_id: u64,
+    /// Player view at the decision point.
+    pub view: &'a PlayerView,
+    /// Pending engine question.
+    pub pending: &'a Pending,
+    /// Seat team assignments (`[Option<u8>; N]`).
+    pub teams: &'a [Option<u8>],
+    /// Urgency tier after committing the updated snapshot.
+    pub post_urgency: SessionUrgency4,
+}
 
 /// High-level service combining `M` warm neural worker slots with a tiered
 /// Hot-RAM / Cold-SSD session pool for hundreds of concurrent matches.
@@ -38,8 +63,8 @@ pub struct NpuMuxService4 {
 }
 
 impl NpuMuxService4 {
-    /// Opens a model once and initializes `config.worker_slots` shared workers plus
-    /// an encrypted SSD swap directory at `config.swap_dir`.
+    /// Opens a model once and initializes `worker_slots` shared workers plus
+    /// an encrypted SSD swap directory at `swap_dir`.
     ///
     /// # Errors
     /// If the model cannot be loaded or the swap directory / quotas are invalid.
@@ -104,6 +129,14 @@ impl NpuMuxService4 {
             .insert_session(session_id, initial, urgency, &mut self.metrics)
     }
 
+    /// Rotates the active 256-bit swap encryption master key without interrupting cold sessions.
+    ///
+    /// # Errors
+    /// If CSPRNG key generation fails or too many unpruned key epochs accumulate.
+    pub fn rotate_swap_key(&mut self) -> anyhow::Result<u64> {
+        self.pool.rotate_swap_key(&mut self.metrics)
+    }
+
     /// Updates a session's scheduling urgency (`Idle`, `Soon`, `Immediate`).
     ///
     /// # Errors
@@ -118,6 +151,14 @@ impl NpuMuxService4 {
     /// If `session_id` is unknown or SSD page-in / authentication fails.
     pub fn prefetch(&mut self, session_id: u64) -> anyhow::Result<bool> {
         self.pool.prefetch(session_id, &mut self.metrics)
+    }
+
+    /// Proactively pages a batch of cold SSD sessions into Hot RAM.
+    ///
+    /// # Errors
+    /// If any session is unknown or SSD page-in / authentication fails.
+    pub fn prefetch_batch(&mut self, session_ids: &[u64]) -> anyhow::Result<usize> {
+        self.pool.prefetch_batch(session_ids, &mut self.metrics)
     }
 
     /// Forces a session out of Hot RAM onto encrypted Cold SSD storage.
@@ -144,15 +185,20 @@ impl NpuMuxService4 {
         view: &PlayerView,
         post_urgency: SessionUrgency4,
     ) -> anyhow::Result<()> {
-        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
-        let ((), updated) =
-            self.workers
-                .execute_switched(session_id, &snapshot, &mut self.metrics, |player| {
-                    player.observe(view)
-                })?;
+        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
+        let ((), updated) = self.workers.execute_switched(
+            session_id,
+            snapshot_ref,
+            rev,
+            &mut self.metrics,
+            |player| player.observe(view),
+        )?;
         self.metrics.observations_routed += 1;
-        self.pool
-            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)
+        let new_rev = self
+            .pool
+            .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        self.workers.mark_slot_revision(session_id, new_rev);
+        Ok(())
     }
 
     /// Routes an active decision (`act_detailed`) for `session_id` through a worker slot.
@@ -167,16 +213,129 @@ impl NpuMuxService4 {
         teams: &[Option<u8>],
         post_urgency: SessionUrgency4,
     ) -> anyhow::Result<Answer4> {
-        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
-        let (answer, updated) =
-            self.workers
-                .execute_switched(session_id, &snapshot, &mut self.metrics, |player| {
-                    Ok(player.act_detailed(view, pending, teams))
-                })?;
+        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
+        let (answer, updated) = self.workers.execute_switched(
+            session_id,
+            snapshot_ref,
+            rev,
+            &mut self.metrics,
+            |player| Ok(player.act_detailed(view, pending, teams)),
+        )?;
         self.metrics.decisions_routed += 1;
-        self.pool
+        let new_rev = self
+            .pool
             .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        self.workers.mark_slot_revision(session_id, new_rev);
         Ok(answer)
+    }
+
+    /// Executes a wave of passive observations (`K = 0`) in parallel across up to `worker_slots`
+    /// neural workers while simultaneously prefetching `next_wave_prefetch` from Cold SSD into Hot RAM.
+    ///
+    /// # Errors
+    /// If `items.len() > worker_slots`, any session is unknown, or SSD/ONNX execution fails.
+    pub fn observe_wave(
+        &mut self,
+        items: &[ObserveWaveItem4<'_>],
+        next_wave_prefetch: &[u64],
+    ) -> anyhow::Result<()> {
+        let sids: Vec<u64> = items.iter().map(|it| it.session_id).collect();
+        let acquired = self.pool.acquire_wave(&sids, &mut self.metrics)?;
+        let tasks: Vec<(u64, _, u64, &PlayerView)> = acquired
+            .into_iter()
+            .zip(items.iter())
+            .map(|((sid, snap, rev), it)| (sid, snap, rev, it.view))
+            .collect();
+
+        let Self {
+            workers,
+            pool,
+            metrics,
+        } = self;
+
+        let mut worker_metrics = MuxMetrics4::default();
+        let (wave_res, prefetch_res) = std::thread::scope(|scope| {
+            let w_handle = scope
+                .spawn(|| workers.execute_wave(tasks, &mut worker_metrics, NetPlayer4::observe));
+            let p_res = if next_wave_prefetch.is_empty() {
+                Ok(0)
+            } else {
+                pool.prefetch_batch(next_wave_prefetch, metrics)
+            };
+            let w_res = w_handle
+                .join()
+                .unwrap_or_else(|_| Err(anyhow::anyhow!("observe_wave worker thread panicked")));
+            (w_res, p_res)
+        });
+        prefetch_res?;
+        let outputs = wave_res?;
+        metrics.merge_worker_from(&worker_metrics);
+        metrics.observations_routed += outputs.len() as u64;
+
+        for (out, it) in outputs.into_iter().zip(items.iter()) {
+            let new_rev =
+                pool.commit_hot(out.session_id, out.snapshot, it.post_urgency, metrics)?;
+            workers.mark_slot_revision(out.session_id, new_rev);
+        }
+        Ok(())
+    }
+
+    /// Executes a wave of active decisions (`act_detailed`) in parallel across up to `worker_slots`
+    /// neural workers while simultaneously prefetching `next_wave_prefetch` from Cold SSD into Hot RAM.
+    ///
+    /// # Errors
+    /// If `items.len() > worker_slots`, any session is unknown, or SSD/ONNX execution fails.
+    pub fn act_wave(
+        &mut self,
+        items: &[ActWaveItem4<'_>],
+        next_wave_prefetch: &[u64],
+    ) -> anyhow::Result<Vec<(u64, Answer4)>> {
+        let sids: Vec<u64> = items.iter().map(|it| it.session_id).collect();
+        let acquired = self.pool.acquire_wave(&sids, &mut self.metrics)?;
+        let tasks = acquired
+            .into_iter()
+            .zip(items.iter())
+            .map(|((sid, snap, rev), it)| (sid, snap, rev, (it.view, it.pending, it.teams)))
+            .collect();
+
+        let Self {
+            workers,
+            pool,
+            metrics,
+        } = self;
+
+        let mut worker_metrics = MuxMetrics4::default();
+        let (wave_res, prefetch_res) = std::thread::scope(|scope| {
+            let w_handle = scope.spawn(|| {
+                workers.execute_wave(
+                    tasks,
+                    &mut worker_metrics,
+                    |player, (view, pending, teams)| Ok(player.act_detailed(view, pending, teams)),
+                )
+            });
+            let p_res = if next_wave_prefetch.is_empty() {
+                Ok(0)
+            } else {
+                pool.prefetch_batch(next_wave_prefetch, metrics)
+            };
+            let w_res = w_handle
+                .join()
+                .unwrap_or_else(|_| Err(anyhow::anyhow!("act_wave worker thread panicked")));
+            (w_res, p_res)
+        });
+        prefetch_res?;
+        let outputs = wave_res?;
+        metrics.merge_worker_from(&worker_metrics);
+        metrics.decisions_routed += outputs.len() as u64;
+
+        let mut answers = Vec::with_capacity(outputs.len());
+        for (out, it) in outputs.into_iter().zip(items.iter()) {
+            let new_rev =
+                pool.commit_hot(out.session_id, out.snapshot, it.post_urgency, metrics)?;
+            workers.mark_slot_revision(out.session_id, new_rev);
+            answers.push((out.session_id, out.output));
+        }
+        Ok(answers)
     }
 
     /// Executes an arbitrary closure against a context-switched [`NetPlayer4`] for `session_id`.
@@ -189,12 +348,14 @@ impl NpuMuxService4 {
         post_urgency: SessionUrgency4,
         op: impl FnOnce(&mut NetPlayer4) -> anyhow::Result<R>,
     ) -> anyhow::Result<R> {
-        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
+        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
         let (out, updated) =
             self.workers
-                .execute_switched(session_id, &snapshot, &mut self.metrics, op)?;
-        self.pool
+                .execute_switched(session_id, snapshot_ref, rev, &mut self.metrics, op)?;
+        let new_rev = self
+            .pool
             .commit_hot(session_id, updated, post_urgency, &mut self.metrics)?;
+        self.workers.mark_slot_revision(session_id, new_rev);
         Ok(out)
     }
 
@@ -207,18 +368,21 @@ impl NpuMuxService4 {
         session_id: u64,
         seat: PlayerId,
     ) -> anyhow::Result<Option<f32>> {
-        let snapshot = self.pool.acquire_hot(session_id, &mut self.metrics)?;
-        let (val, updated) =
-            self.workers
-                .execute_switched(session_id, &snapshot, &mut self.metrics, |player| {
-                    Ok(player.observed_value(seat))
-                })?;
-        self.pool.commit_hot(
+        let (snapshot_ref, rev) = self.pool.acquire_hot_ref(session_id, &mut self.metrics)?;
+        let (val, updated) = self.workers.execute_switched(
+            session_id,
+            snapshot_ref,
+            rev,
+            &mut self.metrics,
+            |player| Ok(player.observed_value(seat)),
+        )?;
+        let new_rev = self.pool.commit_hot(
             session_id,
             updated,
             SessionUrgency4::Soon,
             &mut self.metrics,
         )?;
+        self.workers.mark_slot_revision(session_id, new_rev);
         Ok(val)
     }
 

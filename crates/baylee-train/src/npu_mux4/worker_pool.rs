@@ -1,8 +1,10 @@
 //! Fixed pool of resident `NetPlayer4` worker slots sharing one loaded neural backend.
 //!
 //! Instead of allocating one `NetPlayer4` per game session, `NpuWorkerPool4` keeps
-//! exactly `M` warm worker instances (matching the NPU/CPU concurrency ceiling) and
-//! switches their per-session context via `restore(&snapshot)` -> step -> `snapshot()`.
+//! exactly `M` warm worker instances (matching the NPU/CPU concurrency ceiling),
+//! skips redundant `restore` calls via `(session_id, state_revision)` slot affinity,
+//! and executes waves of up to `M` concurrent sessions in parallel via `std::thread::scope`
+//! so the shared `BatchedNet4` backend batches all `M` sessions into one forward pass.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -18,6 +20,21 @@ use crate::netplay4::{
 struct WorkerSlot4 {
     player: NetPlayer4,
     bound_session: Option<u64>,
+    bound_revision: u64,
+}
+
+/// Result of a single worker slot inside [`NpuWorkerPool4::execute_wave`].
+pub struct WaveSlotOutput4<R> {
+    /// Session ID processed by this slot.
+    pub session_id: u64,
+    /// Output returned by the closure.
+    pub output: R,
+    /// Updated session snapshot after the step.
+    pub snapshot: PlayerSnapshot4,
+    /// Context-switch time (`restore` + `snapshot`) in microseconds.
+    pub switch_us: u64,
+    /// Whether `restore` was skipped because the slot already held `(session_id, state_revision)`.
+    pub affinity_hit: bool,
 }
 
 /// Manages `M` warm neural worker instances that context-switch across hundreds of sessions.
@@ -42,7 +59,7 @@ impl NpuWorkerPool4 {
         thinking_steps: Option<u8>,
     ) -> anyhow::Result<Self> {
         ensure!(worker_slots > 0, "worker_slots must be > 0");
-        let shared_net = BatchedNet4::load(model_path, batch_limits, CatalogPolicy4::Exact)?;
+        let shared_net = BatchedNet4::load(model_path, batch_limits, CatalogPolicy4::Superset)?;
         Self::from_shared_net(
             &shared_net,
             worker_slots,
@@ -77,6 +94,7 @@ impl NpuWorkerPool4 {
             slots.push(WorkerSlot4 {
                 player,
                 bound_session: None,
+                bound_revision: 0,
             });
         }
         Ok(Self {
@@ -97,6 +115,7 @@ impl NpuWorkerPool4 {
             .map(|_| WorkerSlot4 {
                 player: NetPlayer4::without_graphs(encoder_version, d_model),
                 bound_session: None,
+                bound_revision: 0,
             })
             .collect();
         Self {
@@ -126,12 +145,25 @@ impl NpuWorkerPool4 {
     ) -> PlayerSnapshot4 {
         let slot = &mut self.slots[0];
         slot.bound_session = None;
+        slot.bound_revision = 0;
         slot.player.reseed(policy_seed);
         slot.player.init_game(preset);
         slot.player.snapshot()
     }
 
-    /// Selects an affinity-matched or round-robin worker slot, restores `snapshot` into it,
+    /// Updates the `bound_revision` recorded on the worker slot currently holding `session_id`.
+    pub fn mark_slot_revision(&mut self, session_id: u64, new_revision: u64) {
+        if let Some(slot) = self
+            .slots
+            .iter_mut()
+            .find(|s| s.bound_session == Some(session_id))
+        {
+            slot.bound_revision = new_revision;
+        }
+    }
+
+    /// Selects an affinity-matched or round-robin worker slot, restores `snapshot` into it
+    /// (skipping `restore` if `(session_id, state_revision)` already matches the slot!),
     /// runs `op`, and returns both `op`'s output and the updated [`PlayerSnapshot4`].
     ///
     /// # Errors
@@ -140,6 +172,7 @@ impl NpuWorkerPool4 {
         &mut self,
         session_id: u64,
         snapshot: &PlayerSnapshot4,
+        state_revision: u64,
         metrics: &mut MuxMetrics4,
         op: impl FnOnce(&mut NetPlayer4) -> anyhow::Result<R>,
     ) -> anyhow::Result<(R, PlayerSnapshot4)> {
@@ -155,8 +188,15 @@ impl NpuWorkerPool4 {
 
         let t0 = Instant::now();
         let slot = &mut self.slots[slot_idx];
-        slot.player.restore(snapshot);
-        slot.bound_session = Some(session_id);
+        let affinity_hit = slot.bound_session == Some(session_id)
+            && state_revision != 0
+            && slot.bound_revision == state_revision;
+        if affinity_hit {
+            metrics.affinity_hits += 1;
+        } else {
+            slot.player.restore(snapshot);
+            slot.bound_session = Some(session_id);
+        }
         let switch_in_us = t0.elapsed().as_micros() as u64;
 
         let result = op(&mut slot.player)?;
@@ -168,5 +208,87 @@ impl NpuWorkerPool4 {
         metrics.context_switches += 1;
         metrics.record_switch_us(switch_in_us + switch_out_us);
         Ok((result, updated))
+    }
+
+    /// Executes a wave of up to `worker_slots` distinct sessions in parallel across
+    /// worker threads so all active `NetPlayer4` slots submit their ONNX/NPU inference
+    /// requests concurrently to the shared [`BatchedNet4`] batching queue.
+    ///
+    /// # Errors
+    /// If `tasks.len() > worker_slots` or any worker closure returns an error.
+    pub fn execute_wave<T, R, F>(
+        &mut self,
+        tasks: Vec<(u64, PlayerSnapshot4, u64, T)>,
+        metrics: &mut MuxMetrics4,
+        op: F,
+    ) -> anyhow::Result<Vec<WaveSlotOutput4<R>>>
+    where
+        T: Send,
+        R: Send,
+        F: Fn(&mut NetPlayer4, T) -> anyhow::Result<R> + Sync,
+    {
+        ensure!(
+            tasks.len() <= self.slots.len(),
+            "wave size ({}) exceeds worker_slots ({})",
+            tasks.len(),
+            self.slots.len()
+        );
+        if tasks.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let results: Vec<anyhow::Result<WaveSlotOutput4<R>>> = std::thread::scope(|scope| {
+            let mut handles = Vec::with_capacity(tasks.len());
+            for (slot, (session_id, snapshot, state_revision, item)) in
+                self.slots.iter_mut().zip(tasks)
+            {
+                let op_ref = &op;
+                handles.push(scope.spawn(move || {
+                    let t0 = Instant::now();
+                    let affinity_hit = slot.bound_session == Some(session_id)
+                        && state_revision != 0
+                        && slot.bound_revision == state_revision;
+                    if !affinity_hit {
+                        slot.player.restore(&snapshot);
+                        slot.bound_session = Some(session_id);
+                    }
+                    let switch_in_us = t0.elapsed().as_micros() as u64;
+
+                    let output = op_ref(&mut slot.player, item)?;
+
+                    let t1 = Instant::now();
+                    let updated = slot.player.snapshot();
+                    let switch_out_us = t1.elapsed().as_micros() as u64;
+
+                    Ok(WaveSlotOutput4 {
+                        session_id,
+                        output,
+                        snapshot: updated,
+                        switch_us: switch_in_us + switch_out_us,
+                        affinity_hit,
+                    })
+                }));
+            }
+            handles
+                .into_iter()
+                .map(|h| {
+                    h.join()
+                        .unwrap_or_else(|_| Err(anyhow::anyhow!("worker slot thread panicked")))
+                })
+                .collect()
+        });
+
+        metrics.waves_dispatched += 1;
+        let mut outputs = Vec::with_capacity(results.len());
+        for res in results {
+            let out = res?;
+            metrics.context_switches += 1;
+            if out.affinity_hit {
+                metrics.affinity_hits += 1;
+            }
+            metrics.record_switch_us(out.switch_us);
+            outputs.push(out);
+        }
+        Ok(outputs)
     }
 }

@@ -11,6 +11,12 @@ pub struct MuxMetrics4 {
     pub sessions_closed: u64,
     /// Total worker context switches executed (`restore` + step + `snapshot`).
     pub context_switches: u64,
+    /// Worker dispatches where the slot already held the exact session revision (`restore` skipped).
+    pub affinity_hits: u64,
+    /// Parallel multi-worker waves dispatched concurrently across worker slots.
+    pub waves_dispatched: u64,
+    /// Live swap encryption master-key rotations completed.
+    pub key_rotations: u64,
     /// Decisions served directly from Hot RAM without touching SSD.
     pub hot_ram_hits: u64,
     /// Cold SSD sessions paged in on demand at decision/observation time.
@@ -45,6 +51,15 @@ pub struct MuxMetrics4 {
 const MAX_LATENCY_SAMPLES: usize = 16_384;
 
 impl MuxMetrics4 {
+    pub(super) fn merge_worker_from(&mut self, other: &Self) {
+        self.context_switches += other.context_switches;
+        self.affinity_hits += other.affinity_hits;
+        self.waves_dispatched += other.waves_dispatched;
+        for &us in &other.switch_latencies_us {
+            self.record_switch_us(us);
+        }
+    }
+
     pub(super) fn record_switch_us(&mut self, us: u64) {
         if self.switch_latencies_us.len() < MAX_LATENCY_SAMPLES {
             self.switch_latencies_us.push(us);
@@ -82,6 +97,9 @@ impl MuxMetrics4 {
             sessions_created: self.sessions_created,
             sessions_closed: self.sessions_closed,
             context_switches: self.context_switches,
+            affinity_hits: self.affinity_hits,
+            waves_dispatched: self.waves_dispatched,
+            key_rotations: self.key_rotations,
             hot_ram_hits: self.hot_ram_hits,
             cold_ssd_page_ins: self.cold_ssd_page_ins,
             prefetch_page_ins: self.prefetch_page_ins,
@@ -121,6 +139,12 @@ pub struct MuxSummary4 {
     pub sessions_closed: u64,
     /// Total neural context switches executed.
     pub context_switches: u64,
+    /// Worker dispatches where `restore` was skipped due to slot affinity.
+    pub affinity_hits: u64,
+    /// Parallel multi-worker waves dispatched.
+    pub waves_dispatched: u64,
+    /// Live swap encryption master-key rotations completed.
+    pub key_rotations: u64,
     /// Decisions/observations served from Hot RAM.
     pub hot_ram_hits: u64,
     /// On-demand Cold SSD page-ins.

@@ -1,8 +1,9 @@
 //! `npu_mux4` — NPU Session-Multiplexer & Tiered RAM/SSD Session Pager benchmark & runner.
 //!
 //! Runs `N` concurrent Baylee matches multiplexed over `M` resident neural worker slots,
-//! keeping hot sessions in RAM and paging idle/waiting sessions to encrypted SSD storage
-//! (`XChaCha20-Poly1305` via `baylee-seal`).
+//! dispatching parallel waves (`observe_wave` / `act_wave`) across all `M` worker slots
+//! simultaneously while pipelining encrypted SSD prefetching (`XChaCha20-Poly1305`)
+//! for the next wave and performing live zero-downtime key rotation.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -14,8 +15,9 @@ use baylee_engine::choice::Pending;
 use baylee_gamehost::Session;
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::{BatchLimits4, PolicyMode4};
-use baylee_train::npu_mux4::{NpuMuxService4, SessionUrgency4};
+use baylee_train::npu_mux4::{ActWaveItem4, NpuMuxService4, ObserveWaveItem4, SessionUrgency4};
 use baylee_train::selfplay::table_for;
+use baylee_view::PlayerView;
 use clap::Parser;
 
 const VICTORY_DECK_TEXT: &str = include_str!("../../../../data/decks/victory.txt");
@@ -75,57 +77,141 @@ struct LiveTable {
     finished: bool,
 }
 
+struct WaveReady {
+    table_idx: usize,
+    session_id: u64,
+    actor: PlayerId,
+    pending: Pending,
+    act_view: PlayerView,
+    obs_views: [PlayerView; 2],
+    post_urgency: SessionUrgency4,
+}
+
+fn dispatch_ready_wave(
+    mux: &mut NpuMuxService4,
+    tables: &mut [LiveTable],
+    ready: &[WaveReady],
+    next_prefetch: &[u64],
+) -> anyhow::Result<()> {
+    let teams: [Option<u8>; 2] = [None, None];
+    let obs0_items: Vec<ObserveWaveItem4<'_>> = ready
+        .iter()
+        .map(|r| ObserveWaveItem4 {
+            session_id: r.session_id,
+            view: &r.obs_views[0],
+            post_urgency: SessionUrgency4::Immediate,
+        })
+        .collect();
+    mux.observe_wave(&obs0_items, next_prefetch)?;
+
+    let obs1_items: Vec<ObserveWaveItem4<'_>> = ready
+        .iter()
+        .map(|r| ObserveWaveItem4 {
+            session_id: r.session_id,
+            view: &r.obs_views[1],
+            post_urgency: SessionUrgency4::Immediate,
+        })
+        .collect();
+    mux.observe_wave(&obs1_items, &[])?;
+
+    let act_items: Vec<ActWaveItem4<'_>> = ready
+        .iter()
+        .map(|r| ActWaveItem4 {
+            session_id: r.session_id,
+            view: &r.act_view,
+            pending: &r.pending,
+            teams: &teams[..],
+            post_urgency: r.post_urgency,
+        })
+        .collect();
+    let answers = mux.act_wave(&act_items, &[])?;
+
+    for (r, (_, ans)) in ready.iter().zip(answers) {
+        let table = &mut tables[r.table_idx];
+        if table.engine.act(r.actor, ans.action).is_err() {
+            table.finished = true;
+        } else {
+            table.decisions_done += 1;
+        }
+    }
+    Ok(())
+}
+
 fn step_all_tables(
     mux: &mut NpuMuxService4,
     tables: &mut [LiveTable],
+    worker_slots: usize,
     steps_per_session: usize,
 ) -> anyhow::Result<()> {
+    let wave_width = worker_slots.max(1);
+    let first_wave: Vec<u64> = tables
+        .iter()
+        .take(wave_width)
+        .map(|t| t.session_id)
+        .collect();
+    let _ = mux.prefetch_batch(&first_wave);
+
     for round in 0..steps_per_session {
-        for i in 0..tables.len() {
-            let next_i = (i + 1) % tables.len();
-            if !tables[next_i].finished {
-                let _ = mux.prefetch(tables[next_i].session_id);
-            }
-            let table = &mut tables[i];
-            if table.finished || matches!(table.engine.pending(), Pending::GameOver(_)) {
-                table.finished = true;
-                continue;
-            }
-            let Some((actor, pending, view)) = [PlayerId::new(0), PlayerId::new(1)]
-                .into_iter()
-                .find_map(|pid| {
-                    table
-                        .engine
-                        .view_for_with_context(pid)
-                        .map(|(p, v)| (pid, p, v))
-                })
-            else {
-                table.finished = true;
-                continue;
-            };
-            for s in 0..2 {
-                let obs_view = table
+        if round > 0 && round == steps_per_session / 2 {
+            let _ = mux.rotate_swap_key()?;
+        }
+        let num_tables = tables.len();
+        let mut start = 0;
+        while start < num_tables {
+            let end = (start + wave_width).min(num_tables);
+            let next_start = end % num_tables;
+            let next_end = (next_start + wave_width).min(num_tables);
+            let next_prefetch: Vec<u64> = tables[next_start..next_end]
+                .iter()
+                .filter(|t| !t.finished)
+                .map(|t| t.session_id)
+                .collect();
+
+            let mut ready = Vec::with_capacity(end - start);
+            for (offset, table) in tables[start..end].iter_mut().enumerate() {
+                let table_idx = start + offset;
+                if table.finished || matches!(table.engine.pending(), Pending::GameOver(_)) {
+                    table.finished = true;
+                    continue;
+                }
+                let Some((actor, pending, act_view)) = [PlayerId::new(0), PlayerId::new(1)]
+                    .into_iter()
+                    .find_map(|pid| {
+                        table
+                            .engine
+                            .view_for_with_context(pid)
+                            .map(|(p, v)| (pid, p, v))
+                    })
+                else {
+                    table.finished = true;
+                    continue;
+                };
+                let obs0 = table
                     .engine
-                    .observe_view_with_payment_context(PlayerId::new(s));
-                mux.observe(table.session_id, &obs_view, SessionUrgency4::Immediate)?;
+                    .observe_view_with_payment_context(PlayerId::new(0));
+                let obs1 = table
+                    .engine
+                    .observe_view_with_payment_context(PlayerId::new(1));
+                let post_urgency = if (round + table_idx).is_multiple_of(3) {
+                    SessionUrgency4::Idle
+                } else {
+                    SessionUrgency4::Soon
+                };
+                ready.push(WaveReady {
+                    table_idx,
+                    session_id: table.session_id,
+                    actor,
+                    pending,
+                    act_view,
+                    obs_views: [obs0, obs1],
+                    post_urgency,
+                });
             }
-            let post_urgency = if (round + i).is_multiple_of(3) {
-                SessionUrgency4::Idle
-            } else {
-                SessionUrgency4::Soon
-            };
-            let ans = mux.act_detailed(
-                table.session_id,
-                &view,
-                &pending,
-                &[None, None],
-                post_urgency,
-            )?;
-            if table.engine.act(actor, ans.action).is_err() {
-                table.finished = true;
-            } else {
-                table.decisions_done += 1;
+
+            if !ready.is_empty() {
+                dispatch_ready_wave(mux, tables, &ready, &next_prefetch)?;
             }
+            start = end;
         }
     }
     Ok(())
@@ -181,7 +267,12 @@ fn main() -> anyhow::Result<()> {
     }
 
     let t_run = Instant::now();
-    step_all_tables(&mut mux, &mut tables, cli.steps_per_session)?;
+    step_all_tables(
+        &mut mux,
+        &mut tables,
+        cli.worker_slots,
+        cli.steps_per_session,
+    )?;
     let run_elapsed = t_run.elapsed();
     let summary = mux.summary();
 

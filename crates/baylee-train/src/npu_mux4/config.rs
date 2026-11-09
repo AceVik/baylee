@@ -43,6 +43,14 @@ pub struct MuxConfig4 {
     pub max_uncompressed_bytes: usize,
     /// Latent recurrent slot width `d_model` enforced on every snapshot load/store.
     pub d_model: usize,
+    /// Whether to issue a hardware `fsync` (`sync_all`) on each `.swap.tmp` file before rename.
+    /// Defaults to `false` because `.swap` files use an ephemeral RAM-only CSPRNG key (`Zeroizing<[u8; 32]>`)
+    /// that does not survive process exit; atomic temp-file `write_all` + `rename` already guarantees
+    /// crash-clean visibility within the running OS kernel.
+    pub durable_swap_fsync: bool,
+    /// Whether to zeroize sensitive latent memory (`h_states`, `observed_values`, `seen_hashes`)
+    /// in RAM immediately when a session is evicted to SSD or closed.
+    pub zeroize_on_evict: bool,
 }
 
 impl MuxConfig4 {
@@ -58,6 +66,8 @@ impl MuxConfig4 {
             max_swap_file_bytes: 512 * 1024,
             max_uncompressed_bytes: 2 * 1024 * 1024,
             d_model,
+            durable_swap_fsync: false,
+            zeroize_on_evict: true,
         }
     }
 

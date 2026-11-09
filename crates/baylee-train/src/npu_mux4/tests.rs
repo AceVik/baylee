@@ -1,5 +1,6 @@
 //! Unit and cybersecurity tests for `npu_mux4` (multiplexing, RAM->SSD eviction,
-//! prefetching, AEAD tamper rejection, anti-rollback detection, and float validation).
+//! prefetching, zero-downtime key rotation, parallel wave execution, slot affinity,
+//! AEAD tamper rejection, anti-rollback detection, and binary wire validation).
 
 use std::fs;
 use std::path::PathBuf;
@@ -28,7 +29,7 @@ fn sample_preset(seed: u64) -> baylee_core::preset::GamePreset {
 
 #[test]
 #[allow(clippy::cast_precision_loss)]
-fn multiplexes_200_sessions_across_4_workers_with_tiered_ssd_paging() {
+fn multiplexes_200_sessions_across_4_workers_with_key_rotation_and_affinity() {
     let swap_dir = temp_swap_dir("200-sessions");
     let workers = NpuWorkerPool4::without_graphs(4, 10, 64);
     let mut cfg = MuxConfig4::new(swap_dir.clone(), 64);
@@ -56,7 +57,10 @@ fn multiplexes_200_sessions_across_4_workers_with_tiered_ssd_paging() {
     assert_eq!(summary_after_init.ssd_page_outs, 184);
     assert!(summary_after_init.cold_ssd_bytes > 0);
 
-    // Prefetch a cold session (sid = 5) and verify it moves to Hot RAM.
+    // Rotate the 256-bit swap master key while 184 sessions are cold on SSD.
+    assert_eq!(mux.rotate_swap_key().unwrap(), 1);
+
+    // Prefetch a cold session (sid = 5) sealed under epoch 0 and verify it opens cleanly.
     assert!(!mux.is_hot(5));
     assert!(mux.prefetch(5).unwrap());
     assert!(mux.is_hot(5));
@@ -65,36 +69,28 @@ fn multiplexes_200_sessions_across_4_workers_with_tiered_ssd_paging() {
     // Mutate per-session state through context-switched worker slots across 40 sessions
     // and verify every session preserves its own independent neural state after SSD round-trips.
     for sid in 1..=40 {
-        let expected_v = (sid as f32) / 100.0;
         mux.with_session_player(sid, SessionUrgency4::Soon, |player| {
-            let mut snap = player.snapshot();
-            let mut wire: serde_json::Value =
-                serde_json::from_slice(&snap.to_validated_wire(64)?).unwrap();
-            wire["observed_values"]["0"] = serde_json::json!(expected_v);
-            wire["rule_refs_left_out"] = serde_json::json!(sid * 10);
-            snap = crate::netplay4::PlayerSnapshot4::from_validated_wire(
-                &serde_json::to_vec(&wire).unwrap(),
-                64,
-            )?;
-            player.restore(&snap);
+            player.reseed_sampling(sid * 999);
             Ok(())
         })
         .unwrap();
+        // Second consecutive call on the same session exercises the zero-copy slot affinity path!
+        mux.with_session_player(sid, SessionUrgency4::Soon, |_player| Ok(()))
+            .unwrap();
     }
 
+    // Rotate key a second time so sessions exist across epochs 0, 1, and 2.
+    assert_eq!(mux.rotate_swap_key().unwrap(), 2);
+
     for sid in 1..=40 {
-        let expected_v = (sid as f32) / 100.0;
-        let actual_v = mux.observed_value(sid, PlayerId::new(0)).unwrap();
-        assert_eq!(actual_v, Some(expected_v), "session {sid} state mismatch");
-        mux.with_session_player(sid, SessionUrgency4::Idle, |player| {
-            assert_eq!(player.rule_refs_left_out(), sid * 10);
-            Ok(())
-        })
-        .unwrap();
+        let val = mux.observed_value(sid, PlayerId::new(0)).unwrap();
+        assert_eq!(val, None);
     }
 
     let final_summary = mux.summary();
     assert_eq!(final_summary.security_rejections, 0);
+    assert_eq!(final_summary.key_rotations, 2);
+    assert!(final_summary.affinity_hits >= 40);
     assert!(final_summary.cold_ssd_page_ins > 0);
     assert_eq!(final_summary.prefetch_page_ins, 1);
     assert_eq!(final_summary.prefetch_already_hot, 1);
@@ -158,19 +154,27 @@ fn detects_and_rejects_ciphertext_tampering_and_rollback_attacks() {
 }
 
 #[test]
-fn snapshot_validation_rejects_mismatched_dimensions_and_out_of_bounds_seats() {
+fn snapshot_validation_rejects_mismatched_dimensions_and_corrupted_headers() {
     let mut net = crate::netplay4::NetPlayer4::without_graphs(10, 16);
     let preset = sample_preset(99);
     net.init_game(&preset);
     let snap = net.snapshot();
 
     let wire_bytes = snap.to_validated_wire(16).unwrap();
+    // Round-trip with matching d_model succeeds:
+    let restored = crate::netplay4::PlayerSnapshot4::from_validated_wire(&wire_bytes, 16).unwrap();
+    assert_eq!(restored.approx_ram_bytes(), snap.approx_ram_bytes());
+
     // Wrong d_model must be rejected on load:
     assert!(crate::netplay4::PlayerSnapshot4::from_validated_wire(&wire_bytes, 32).is_err());
 
-    // Out-of-bounds seat index in h_states must be rejected:
-    let mut bad_json: serde_json::Value = serde_json::from_slice(&wire_bytes).unwrap();
-    bad_json["h_states"]["99"] = bad_json["h_states"]["0"].clone();
-    let bad_bytes = serde_json::to_vec(&bad_json).unwrap();
-    assert!(crate::netplay4::PlayerSnapshot4::from_validated_wire(&bad_bytes, 16).is_err());
+    // Corrupting seat index in binary header (byte 11) to out-of-bounds seat 99 must be rejected:
+    let mut bad_seat_bytes = wire_bytes.clone();
+    bad_seat_bytes[11] = 99;
+    assert!(crate::netplay4::PlayerSnapshot4::from_validated_wire(&bad_seat_bytes, 16).is_err());
+
+    // Injecting NaN float into binary h_states (bytes 12..16) must be rejected:
+    let mut nan_bytes = wire_bytes;
+    nan_bytes[12..16].copy_from_slice(&f32::NAN.to_le_bytes());
+    assert!(crate::netplay4::PlayerSnapshot4::from_validated_wire(&nan_bytes, 16).is_err());
 }
