@@ -175,6 +175,10 @@ pub struct NetPlayer4 {
     tactic_rules: TacticRules4,
     /// A journal's copy of the last menu with its logits; `None` keeps none.
     pub(crate) last_menu: Option<serde_json::Value>,
+    /// Per-seat bitmask (`1 << seat`) tracking which seats' `h_states` were modified
+    /// since the last [`Self::swap_in_hot`], avoiding redundant `FP16` re-quantization
+    /// in [`Self::swap_out_hot`].
+    dirty_h_seats: u8,
     /// `eval4 --tactician`: answers the attack, block and target questions
     /// it names; `None` everywhere else, live play included.
     tactician: Option<tactician::Tactician4>,
@@ -214,6 +218,14 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
         .with_context(|| format!("loading {}", path.display()))
 }
 
+fn load_session_with_hardware(
+    path: &Path,
+    hw: &baylee_driver::HardwareConfig,
+    worker_slots: usize,
+) -> anyhow::Result<Session> {
+    baylee_driver::ort_env::build_session(path, hw, worker_slots)
+}
+
 /// The depth graph that runs `k` thinking steps: `0` for an observation,
 /// otherwise the next exported power of two.
 const fn depth_graph(k: u8) -> u8 {
@@ -242,13 +254,34 @@ impl ModelFiles {
     /// session of its default graph and that graph's depth. Its card catalog
     /// is bound to this build's under `catalog`.
     fn open(path: &Path, catalog: CatalogRead4) -> anyhow::Result<(Self, u8, Session)> {
+        Self::open_internal(path, catalog, None)
+    }
+
+    fn open_with_hardware(
+        path: &Path,
+        catalog: CatalogRead4,
+        hw: &baylee_driver::HardwareConfig,
+        worker_slots: usize,
+    ) -> anyhow::Result<(Self, u8, Session)> {
+        let resolved = hw.resolve_model_dir(path);
+        Self::open_internal(&resolved, catalog, Some((hw, worker_slots)))
+    }
+
+    fn open_internal(
+        path: &Path,
+        catalog: CatalogRead4,
+        hw: Option<(&baylee_driver::HardwareConfig, usize)>,
+    ) -> anyhow::Result<(Self, u8, Session)> {
         let (onnx_path, meta, identity) = identity::read_model(path)?;
         let encoder_version = identity.encoder_version;
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
         let thinking_steps = meta["thinking_steps"]
             .as_u64()
             .context("missing thinking_steps")? as u8;
-        let session = load_session(&onnx_path)?;
+        let session = match hw {
+            Some((cfg, slots)) => load_session_with_hardware(&onnx_path, cfg, slots)?,
+            None => load_session(&onnx_path)?,
+        };
         abi::validate(&session, encoder_version)?;
         let rule_roots = rule_roots(&onnx_path, &meta, &identity, catalog)?.map(Arc::new);
 
@@ -433,6 +466,7 @@ impl NetPlayer4 {
             payable_menu: None,
             tactic_rules: TacticRules4::default(),
             last_menu: None,
+            dirty_h_seats: 0,
             tactician: None,
         }
     }
@@ -547,6 +581,7 @@ impl NetPlayer4 {
         self.last_announced_source.clear();
         self.observed_values.clear();
         self.last_fallback = None;
+        self.dirty_h_seats = 0xff;
         if let Some(menu) = &mut self.payable_menu {
             menu.reset();
         }
@@ -572,6 +607,7 @@ impl NetPlayer4 {
         self.last_announced_source.clear();
         self.observed_values.clear();
         self.last_fallback = None;
+        self.dirty_h_seats = 0xff;
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
             self.h_states
@@ -634,6 +670,7 @@ impl NetPlayer4 {
         };
         let out = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
         self.h_states.insert(s, out.h_out);
+        self.dirty_h_seats |= 1_u8.wrapping_shl(u32::from(s));
         self.observed_values.insert(s, out.value);
         Ok(())
     }

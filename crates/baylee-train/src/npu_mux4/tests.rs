@@ -31,7 +31,7 @@ fn sample_preset(seed: u64) -> baylee_core::preset::GamePreset {
 #[allow(clippy::cast_precision_loss)]
 fn multiplexes_200_sessions_across_4_workers_with_key_rotation_and_affinity() {
     let swap_dir = temp_swap_dir("200-sessions");
-    let workers = NpuWorkerPool4::without_graphs(4, 10, 64);
+    let workers = worker_pool_without_graphs(4, 10, 64);
     let mut cfg = MuxConfig4::new(swap_dir.clone(), 64);
     cfg.worker_slots = 4;
     cfg.max_hot_sessions = 16;
@@ -106,7 +106,7 @@ fn multiplexes_200_sessions_across_4_workers_with_key_rotation_and_affinity() {
 #[test]
 fn detects_and_rejects_ciphertext_tampering_and_rollback_attacks() {
     let swap_dir = temp_swap_dir("security");
-    let workers = NpuWorkerPool4::without_graphs(2, 10, 32);
+    let workers = worker_pool_without_graphs(2, 10, 32);
     let mut cfg = MuxConfig4::new(swap_dir.clone(), 32);
     cfg.worker_slots = 2;
     cfg.max_hot_sessions = 2;
@@ -121,7 +121,7 @@ fn detects_and_rejects_ciphertext_tampering_and_rollback_attacks() {
 
     // Evict session 1 (generation 1) and save a copy of its generation-1 ciphertext for a rollback attack.
     mux.evict_to_ssd(1).unwrap();
-    let swap_path_1 = mux.pool.cold_swap_path(1).unwrap();
+    let swap_path_1 = mux.cold_swap_path(1).unwrap();
     let gen1_ciphertext = fs::read(&swap_path_1).unwrap();
 
     // Page session 1 back in, advance it, and evict it again (now generation 2).
@@ -138,7 +138,7 @@ fn detects_and_rejects_ciphertext_tampering_and_rollback_attacks() {
 
     // Ciphertext bit-flip attack on session 2:
     mux.evict_to_ssd(2).unwrap();
-    let swap_path_2 = mux.pool.cold_swap_path(2).unwrap();
+    let swap_path_2 = mux.cold_swap_path(2).unwrap();
     let mut bytes = fs::read(&swap_path_2).unwrap();
     let last = bytes.len() - 1;
     bytes[last] ^= 0x55;

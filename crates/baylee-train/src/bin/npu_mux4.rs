@@ -15,7 +15,10 @@ use baylee_engine::choice::Pending;
 use baylee_gamehost::Session;
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::{BatchLimits4, PolicyMode4};
-use baylee_train::npu_mux4::{ActWaveItem4, NpuMuxService4, ObserveWaveItem4, SessionUrgency4};
+use baylee_train::npu_mux4::{
+    AcceleratorKind, ActWaveItem4, HardwareConfig, NetMuxServiceExt as _, NpuMuxService4,
+    ObserveWaveItem4, SessionUrgency4,
+};
 use baylee_train::selfplay::table_for;
 use baylee_view::PlayerView;
 use clap::Parser;
@@ -64,6 +67,14 @@ struct Cli {
     /// Latent thinking depth `K` (`1, 2, 4, 8`).
     #[arg(long)]
     thinking_steps: Option<u8>,
+
+    /// Target hardware execution provider (`auto`, `openvino`, `coreml`, `directml`, `cuda`, `cpu`).
+    #[arg(long, default_value = "auto")]
+    accelerator: AcceleratorKind,
+
+    /// Intra-op threads per inference session (`0` = automatic topology sizing).
+    #[arg(long, default_value_t = 0)]
+    intra_threads: usize,
 
     /// Optional path to write the JSON summary report.
     #[arg(long)]
@@ -220,9 +231,14 @@ fn step_all_tables(
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let max_hot_ram_bytes = cli.max_hot_ram_mib.saturating_mul(1024 * 1024);
+    let hw = HardwareConfig {
+        accelerator: cli.accelerator,
+        intra_threads: cli.intra_threads,
+        ..HardwareConfig::default()
+    };
 
     let t_start = Instant::now();
-    let mut mux = NpuMuxService4::open(
+    let mut mux = NpuMuxService4::open_with_hardware(
         &cli.model,
         cli.swap_dir.clone(),
         cli.worker_slots,
@@ -232,6 +248,7 @@ fn main() -> anyhow::Result<()> {
         PolicyMode4::Tactical,
         0.0,
         cli.thinking_steps,
+        hw.clone(),
     )
     .context("initializing NpuMuxService4")?;
     let init_ms = t_start.elapsed().as_millis();
@@ -279,6 +296,9 @@ fn main() -> anyhow::Result<()> {
     #[allow(clippy::cast_precision_loss)]
     let report = serde_json::json!({
         "model": cli.model,
+        "resolved_model": hw.resolve_model_dir(&cli.model),
+        "accelerator": hw.effective_accelerator().as_str(),
+        "intra_threads": hw.recommended_intra_threads(cli.worker_slots),
         "init_ms": init_ms,
         "run_ms": run_elapsed.as_millis(),
         "decisions_per_sec": (summary.decisions_routed as f64) / run_elapsed.as_secs_f64().max(1e-6),

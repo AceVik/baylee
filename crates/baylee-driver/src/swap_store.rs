@@ -1,6 +1,8 @@
-//! Ultra-fast authenticated SSD swap store (`BMUX4\x04` binary `FP16` tensor paging).
+//! Ultra-fast authenticated SSD swap store (`FSW4` + `BMUX4\x04` binary `FP16` tensor paging).
 //!
 //! Optimized for maximum I/O throughput and minimum RAM footprint:
+//! - Reuses thread-local frame buffers (`PLAIN_SCRATCH`, `SEALED_SCRATCH`) so `page_out` and
+//!   `page_in` perform zero heap allocations for the wire frame.
 //! - Writes raw `FP16` (`u16`) `h_states` tensors (`23.1 KB` per 2-seat session) directly to
 //!   per-session `.swap` files without `Zlib` compression, `serde_json` formatting, or
 //!   `.swap.tmp` + `rename` directory-lock storms.
@@ -8,6 +10,7 @@
 //!   `(instance_nonce, session_id, generation, key_epoch)` for anti-rollback, tamper rejection,
 //!   and zero-downtime key rotation at `>15 GB/s`.
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read as _, Write as _};
@@ -18,16 +21,21 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context as _, bail, ensure};
 use zeroize::Zeroizing;
 
-use crate::netplay4::{ColdMeta4, PlayerSnapshot4};
+use crate::snapshot::SnapshottableState;
 
 #[cfg(target_os = "linux")]
 const O_NOFOLLOW_FLAG: i32 = 0o400_000;
 const FAST_SWAP_MAGIC: &[u8; 4] = b"FSW4";
 const FAST_SWAP_HEADER_LEN: usize = 36;
 
+thread_local! {
+    static PLAIN_SCRATCH: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(32 * 1024));
+    static SEALED_SCRATCH: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(32 * 1024));
+}
+
 /// Metadata retained in RAM for a session currently paged out to SSD.
 #[derive(Clone, Debug)]
-pub struct SwapHandle4 {
+pub struct SwapHandle4<M> {
     /// Key rotation epoch under which this swap file was sealed.
     pub key_epoch: u64,
     /// Monotonic swap generation bound into the header MAC to defeat rollback attacks.
@@ -37,10 +45,10 @@ pub struct SwapHandle4 {
     /// Size of the `.swap` file on disk (bytes).
     pub disk_bytes: u64,
     /// Non-tensor session metadata retained across tensor paging without JSON overhead.
-    pub meta: Box<ColdMeta4>,
+    pub meta: Box<M>,
 }
 
-/// Cold-tier SSD storage for evicted [`PlayerSnapshot4`] instances.
+/// Cold-tier SSD storage for evicted [`SnapshottableState`] instances.
 pub struct EncryptedSwapStore4 {
     swap_dir: PathBuf,
     instance_nonce: u64,
@@ -128,42 +136,53 @@ impl EncryptedSwapStore4 {
         }
     }
 
-    /// Serializes `snapshot`'s `FP16` tensor state in raw binary (`BMUX4\x04`), seals it with
-    /// our fast keyed stream + 128-bit anti-rollback tag, and writes it directly to SSD.
+    /// Serializes `snapshot`'s `FP16` tensor state in raw binary (`BMUX4\x04`) into a
+    /// thread-local scratch buffer, seals it in-place with our fast keyed stream + 128-bit
+    /// anti-rollback tag, and writes it directly to SSD without heap allocation.
     ///
     /// # Errors
     /// If snapshot validation or file write fails.
-    pub fn page_out(
+    pub fn page_out<S: SnapshottableState>(
         &self,
         session_id: u64,
         generation: u64,
-        snapshot: &mut PlayerSnapshot4,
-    ) -> anyhow::Result<SwapHandle4> {
-        let (mut payload, meta) = snapshot.to_cold_wire_and_meta(self.d_model)?;
-        ensure!(
-            payload.len() <= self.max_uncompressed_bytes,
-            "snapshot payload ({} B) exceeds limit ({} B)",
-            payload.len(),
-            self.max_uncompressed_bytes
-        );
-        let sealed = seal_fast_swap(
-            &self.master_key,
-            self.instance_nonce,
-            session_id,
-            generation,
-            self.current_epoch,
-            &mut payload,
-        );
-        let disk_bytes = sealed.len() as u64;
-        ensure!(
-            disk_bytes <= self.max_swap_file_bytes,
-            "sealed swap payload ({disk_bytes} B) exceeds max_swap_file_bytes ({})",
-            self.max_swap_file_bytes
-        );
-
+        snapshot: &mut S,
+    ) -> anyhow::Result<SwapHandle4<S::ColdMeta>> {
         let file_name = format!("s_{session_id:016x}.swap");
         let final_path = self.swap_dir.join(&file_name);
-        write_direct_0600(&final_path, &sealed, self.durable_swap_fsync)?;
+
+        let (meta, disk_bytes) = PLAIN_SCRATCH.with(|plain_cell| {
+            SEALED_SCRATCH.with(|sealed_cell| -> anyhow::Result<(S::ColdMeta, u64)> {
+                let mut payload = plain_cell.borrow_mut();
+                payload.clear();
+                let meta = snapshot.to_cold_wire_into(self.d_model, &mut payload)?;
+                ensure!(
+                    payload.len() <= self.max_uncompressed_bytes,
+                    "snapshot payload ({} B) exceeds limit ({} B)",
+                    payload.len(),
+                    self.max_uncompressed_bytes
+                );
+                let mut sealed = sealed_cell.borrow_mut();
+                seal_fast_swap_into(
+                    &self.master_key,
+                    self.instance_nonce,
+                    session_id,
+                    generation,
+                    self.current_epoch,
+                    &mut payload,
+                    &mut sealed,
+                );
+                let disk_bytes = sealed.len() as u64;
+                ensure!(
+                    disk_bytes <= self.max_swap_file_bytes,
+                    "sealed swap payload ({disk_bytes} B) exceeds max_swap_file_bytes ({})",
+                    self.max_swap_file_bytes
+                );
+                write_direct_0600(&final_path, &sealed, self.durable_swap_fsync)?;
+                Ok((meta, disk_bytes))
+            })
+        })?;
+
         Ok(SwapHandle4 {
             key_epoch: self.current_epoch,
             generation,
@@ -173,12 +192,16 @@ impl EncryptedSwapStore4 {
         })
     }
 
-    /// Reads, authenticates, and reconstructs a cold session from SSD in-place without
-    /// JSON parsing or Zlib decompression.
+    /// Reads, authenticates, and reconstructs a cold session from SSD in-place using
+    /// a thread-local scratch buffer without JSON parsing or Zlib decompression.
     ///
     /// # Errors
     /// If the swap file was tampered with, rolled back, symlinked, or fails validation.
-    pub fn page_in(&self, session_id: u64, handle: SwapHandle4) -> anyhow::Result<PlayerSnapshot4> {
+    pub fn page_in<S: SnapshottableState>(
+        &self,
+        session_id: u64,
+        handle: SwapHandle4<S::ColdMeta>,
+    ) -> anyhow::Result<S> {
         let key = if handle.key_epoch == self.current_epoch {
             &self.master_key
         } else {
@@ -190,32 +213,35 @@ impl EncryptedSwapStore4 {
             })?
         };
         let path = self.swap_dir.join(&handle.file_name);
-        let mut sealed = read_nofollow_bounded(&path, self.max_swap_file_bytes)?;
-        let raw = open_fast_swap(
-            key,
-            self.instance_nonce,
-            session_id,
-            handle.generation,
-            handle.key_epoch,
-            &mut sealed,
-        )?;
-        ensure!(
-            raw.len() <= self.max_uncompressed_bytes,
-            "security rejection: swap payload exceeds {} bytes",
-            self.max_uncompressed_bytes
-        );
-        PlayerSnapshot4::from_cold_wire_and_meta(raw, self.d_model, *handle.meta)
+        SEALED_SCRATCH.with(|sealed_cell| {
+            let mut sealed = sealed_cell.borrow_mut();
+            read_nofollow_bounded_into(&path, self.max_swap_file_bytes, &mut sealed)?;
+            let raw = open_fast_swap(
+                key,
+                self.instance_nonce,
+                session_id,
+                handle.generation,
+                handle.key_epoch,
+                &mut sealed,
+            )?;
+            ensure!(
+                raw.len() <= self.max_uncompressed_bytes,
+                "security rejection: swap payload exceeds {} bytes",
+                self.max_uncompressed_bytes
+            );
+            S::from_cold_wire_and_meta(raw, self.d_model, *handle.meta)
+        })
     }
 
     /// Removes a cold session's swap file if present on disk.
-    pub fn remove_swap_file(&self, handle: &SwapHandle4) {
+    pub fn remove_swap_file<M>(&self, handle: &SwapHandle4<M>) {
         let path = self.swap_dir.join(&handle.file_name);
         let _ = fs::remove_file(path);
     }
 
     /// Returns the filesystem path of a swap handle (used by security tests to simulate bit-flips).
     #[must_use]
-    pub fn swap_path(&self, handle: &SwapHandle4) -> PathBuf {
+    pub fn swap_path<M>(&self, handle: &SwapHandle4<M>) -> PathBuf {
         self.swap_dir.join(&handle.file_name)
     }
 }
@@ -278,14 +304,15 @@ fn xor_keystream_and_mac(
     (mac_lo, mac_hi)
 }
 
-fn seal_fast_swap(
+fn seal_fast_swap_into(
     key: &[u8; 32],
     instance_nonce: u64,
     session_id: u64,
     generation: u64,
     key_epoch: u64,
     payload: &mut [u8],
-) -> Vec<u8> {
+    out: &mut Vec<u8>,
+) {
     let (mac_lo, mac_hi) = xor_keystream_and_mac(
         key,
         instance_nonce,
@@ -295,14 +322,14 @@ fn seal_fast_swap(
         payload,
         true,
     );
-    let mut out = Vec::with_capacity(FAST_SWAP_HEADER_LEN + payload.len());
+    out.clear();
+    out.reserve(FAST_SWAP_HEADER_LEN + payload.len());
     out.extend_from_slice(FAST_SWAP_MAGIC);
     out.extend_from_slice(&generation.to_le_bytes());
     out.extend_from_slice(&key_epoch.to_le_bytes());
     out.extend_from_slice(&mac_lo.to_le_bytes());
     out.extend_from_slice(&mac_hi.to_le_bytes());
     out.extend_from_slice(payload);
-    out
 }
 
 fn open_fast_swap<'a>(
@@ -343,7 +370,11 @@ fn open_fast_swap<'a>(
     Ok(body)
 }
 
-fn read_nofollow_bounded(path: &Path, max_bytes: u64) -> anyhow::Result<Vec<u8>> {
+fn read_nofollow_bounded_into(
+    path: &Path,
+    max_bytes: u64,
+    buf: &mut Vec<u8>,
+) -> anyhow::Result<()> {
     let meta =
         fs::symlink_metadata(path).with_context(|| format!("inspecting {}", path.display()))?;
     if meta.file_type().is_symlink() {
@@ -369,15 +400,16 @@ fn read_nofollow_bounded(path: &Path, max_bytes: u64) -> anyhow::Result<Vec<u8>>
     let file = opts
         .open(path)
         .with_context(|| format!("opening swap file {} (O_NOFOLLOW)", path.display()))?;
-    let mut buf = Vec::with_capacity(usize::try_from(meta.len()).unwrap_or(0));
+    buf.clear();
+    buf.reserve(usize::try_from(meta.len()).unwrap_or(0));
     file.take(max_bytes + 1)
-        .read_to_end(&mut buf)
+        .read_to_end(buf)
         .with_context(|| format!("reading swap file {}", path.display()))?;
     ensure!(
         buf.len() as u64 <= max_bytes,
         "security rejection: swap file grew past {max_bytes} bytes during read"
     );
-    Ok(buf)
+    Ok(())
 }
 
 fn ensure_secure_dir(dir: &Path) -> anyhow::Result<()> {

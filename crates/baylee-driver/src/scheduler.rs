@@ -1,28 +1,24 @@
 //! Tiered Hot-RAM / Cold-SSD session pool and $O(N_{\text{hot}})$ urgency-aware LRU eviction scheduler.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{bail, ensure};
 
-use super::config::{MuxConfig4, SessionUrgency4};
-use super::crypto_swap::{EncryptedSwapStore4, SwapHandle4};
-use super::metrics::MuxMetrics4;
-use crate::netplay4::PlayerSnapshot4;
+use crate::config::{MuxConfig4, SessionUrgency4};
+use crate::metrics::MuxMetrics4;
+use crate::snapshot::SnapshottableState;
+use crate::swap_store::{EncryptedSwapStore4, SwapHandle4};
 
-enum SessionResidency4 {
-    Hot {
-        snapshot: Box<PlayerSnapshot4>,
-        ram_bytes: usize,
-    },
-    CheckedOut {
-        prev_ram_bytes: usize,
-    },
-    Cold(SwapHandle4),
+enum SessionResidency4<S: SnapshottableState> {
+    Hot { snapshot: Box<S>, ram_bytes: usize },
+    CheckedOut { prev_ram_bytes: usize },
+    Cold(SwapHandle4<S::ColdMeta>),
 }
 
-struct SessionRecord4 {
-    residency: SessionResidency4,
+struct SessionRecord4<S: SnapshottableState> {
+    residency: SessionResidency4<S>,
     urgency: SessionUrgency4,
     last_touch_tick: u64,
     swap_generation: u64,
@@ -31,10 +27,10 @@ struct SessionRecord4 {
 }
 
 /// Manages hundreds or thousands of concurrent game sessions across Hot RAM and Cold SSD.
-pub struct TieredSessionPool4 {
+pub struct TieredSessionPool4<S: SnapshottableState> {
     config: MuxConfig4,
     swap_store: EncryptedSwapStore4,
-    sessions: BTreeMap<u64, SessionRecord4>,
+    sessions: BTreeMap<u64, SessionRecord4<S>>,
     hot_ids: BTreeSet<u64>,
     cold_count: usize,
     hot_ram_bytes: usize,
@@ -42,7 +38,7 @@ pub struct TieredSessionPool4 {
     clock_tick: u64,
 }
 
-impl TieredSessionPool4 {
+impl<S: SnapshottableState> TieredSessionPool4<S> {
     /// Creates a new tiered session pool backed by `swap_store`.
     ///
     /// # Errors
@@ -103,6 +99,15 @@ impl TieredSessionPool4 {
         self.hot_ids.contains(&session_id)
     }
 
+    /// Returns the filesystem path of a cold session's swap file (if currently swapped to SSD).
+    #[must_use]
+    pub fn cold_swap_path(&self, session_id: u64) -> Option<PathBuf> {
+        match &self.sessions.get(&session_id)?.residency {
+            SessionResidency4::Cold(h) => Some(self.swap_store.swap_path(h)),
+            SessionResidency4::Hot { .. } | SessionResidency4::CheckedOut { .. } => None,
+        }
+    }
+
     /// Rotates the active 256-bit swap master key without interrupting cold sessions.
     ///
     /// # Errors
@@ -131,7 +136,7 @@ impl TieredSessionPool4 {
     pub fn insert_session(
         &mut self,
         session_id: u64,
-        mut snapshot: PlayerSnapshot4,
+        mut snapshot: S,
         urgency: SessionUrgency4,
         metrics: &mut MuxMetrics4,
     ) -> anyhow::Result<()> {
@@ -230,7 +235,7 @@ impl TieredSessionPool4 {
         Ok(true)
     }
 
-    /// Borrows a session's [`PlayerSnapshot4`] directly from Hot RAM without cloning
+    /// Borrows a session's state directly from Hot RAM without cloning
     /// (paging in from SSD if cold) and returns `(snapshot_ref, state_revision)`.
     ///
     /// # Errors
@@ -239,7 +244,7 @@ impl TieredSessionPool4 {
         &mut self,
         session_id: u64,
         metrics: &mut MuxMetrics4,
-    ) -> anyhow::Result<(&PlayerSnapshot4, u64)> {
+    ) -> anyhow::Result<(&S, u64)> {
         if self.is_hot(session_id) {
             metrics.hot_ram_hits += 1;
         } else {
@@ -262,7 +267,7 @@ impl TieredSessionPool4 {
         }
     }
 
-    /// Moves a session's `Box<PlayerSnapshot4>` out of Hot RAM in $O(1)$ without cloning
+    /// Moves a session's `Box<S>` out of Hot RAM in $O(1)$ without cloning
     /// so a worker slot can `std::mem::swap` against it in-place.
     ///
     /// # Errors
@@ -271,7 +276,7 @@ impl TieredSessionPool4 {
         &mut self,
         session_id: u64,
         metrics: &mut MuxMetrics4,
-    ) -> anyhow::Result<(Box<PlayerSnapshot4>, u64)> {
+    ) -> anyhow::Result<(Box<S>, u64)> {
         if self.is_hot(session_id) {
             metrics.hot_ram_hits += 1;
         } else {
@@ -303,7 +308,7 @@ impl TieredSessionPool4 {
     }
 
     /// Ensures all `session_ids` are resident in Hot RAM simultaneously and moves their
-    /// `Box<PlayerSnapshot4>` pointers out in $O(1)$ without cloning for parallel wave execution.
+    /// `Box<S>` pointers out in $O(1)$ without cloning for parallel wave execution.
     ///
     /// # Errors
     /// If `session_ids.len() > max_hot_sessions`, any session is unknown, or SSD page-in fails.
@@ -311,7 +316,7 @@ impl TieredSessionPool4 {
         &mut self,
         session_ids: &[u64],
         metrics: &mut MuxMetrics4,
-    ) -> anyhow::Result<Vec<(u64, Box<PlayerSnapshot4>, u64)>> {
+    ) -> anyhow::Result<Vec<(u64, Box<S>, u64)>> {
         ensure!(
             session_ids.len() <= self.config.max_hot_sessions,
             "wave size ({}) exceeds max_hot_sessions ({})",
@@ -354,14 +359,14 @@ impl TieredSessionPool4 {
         Ok(out)
     }
 
-    /// Returns a checked-out `Box<PlayerSnapshot4>` back to Hot RAM in $O(1)$ without heap allocation.
+    /// Returns a checked-out `Box<S>` back to Hot RAM in $O(1)$ without heap allocation.
     ///
     /// # Errors
     /// If `session_id` is unknown or eviction fails.
     pub fn commit_hot_box(
         &mut self,
         session_id: u64,
-        snapshot: Box<PlayerSnapshot4>,
+        snapshot: Box<S>,
         urgency: SessionUrgency4,
         metrics: &mut MuxMetrics4,
     ) -> anyhow::Result<u64> {
@@ -400,6 +405,7 @@ impl TieredSessionPool4 {
     ///
     /// # Errors
     /// If `session_id` is unknown or SSD encryption/write fails.
+    #[allow(clippy::cast_possible_truncation)]
     pub fn evict_session(
         &mut self,
         session_id: u64,
@@ -422,7 +428,9 @@ impl TieredSessionPool4 {
             .checked_add(1)
             .ok_or_else(|| anyhow::anyhow!("swap generation overflow for session {session_id}"))?;
         let t0 = Instant::now();
-        let handle = self.swap_store.page_out(session_id, next_gen, snapshot)?;
+        let handle = self
+            .swap_store
+            .page_out(session_id, next_gen, &mut **snapshot)?;
         metrics.record_page_out_us(t0.elapsed().as_micros() as u64);
         metrics.ssd_page_outs += 1;
         metrics.ssd_bytes_written += handle.disk_bytes;
@@ -470,6 +478,7 @@ impl TieredSessionPool4 {
         true
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn page_in_session(
         &mut self,
         session_id: u64,
@@ -496,7 +505,7 @@ impl TieredSessionPool4 {
         };
         let disk_bytes = handle.disk_bytes;
         let t0 = Instant::now();
-        let snapshot = match self.swap_store.page_in(session_id, handle.clone()) {
+        let snapshot: S = match self.swap_store.page_in(session_id, handle.clone()) {
             Ok(s) => s,
             Err(e) => {
                 if let Some(rec) = self.sessions.get_mut(&session_id) {
@@ -566,17 +575,9 @@ impl TieredSessionPool4 {
         }
         Ok(())
     }
-
-    #[cfg(test)]
-    pub(super) fn cold_swap_path(&self, session_id: u64) -> Option<std::path::PathBuf> {
-        match &self.sessions.get(&session_id)?.residency {
-            SessionResidency4::Cold(h) => Some(self.swap_store.swap_path(h)),
-            SessionResidency4::Hot { .. } | SessionResidency4::CheckedOut { .. } => None,
-        }
-    }
 }
 
-impl Drop for TieredSessionPool4 {
+impl<S: SnapshottableState> Drop for TieredSessionPool4<S> {
     fn drop(&mut self) {
         let zeroize = self.config.zeroize_on_evict;
         for rec in self.sessions.values_mut() {

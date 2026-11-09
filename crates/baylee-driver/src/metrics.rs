@@ -2,16 +2,16 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Cumulative operational and security counters for [`super::NpuMuxService4`].
+/// Cumulative operational and security counters for [`crate::mux::NpuMuxService4`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MuxMetrics4 {
     /// Total sessions ever registered with the multiplexer.
     pub sessions_created: u64,
     /// Total sessions explicitly closed and wiped.
     pub sessions_closed: u64,
-    /// Total worker context switches executed (`restore` + step + `snapshot`).
+    /// Total worker context switches executed (`swap_in_hot` + step + `swap_out_hot`).
     pub context_switches: u64,
-    /// Worker dispatches where the slot already held the exact session revision (`restore` skipped).
+    /// Worker dispatches where the slot already held the exact session revision (`unpack` skipped).
     pub affinity_hits: u64,
     /// Parallel multi-worker waves dispatched concurrently across worker slots.
     pub waves_dispatched: u64,
@@ -25,11 +25,11 @@ pub struct MuxMetrics4 {
     pub prefetch_page_ins: u64,
     /// Calls to `prefetch` where the session was already resident in Hot RAM.
     pub prefetch_already_hot: u64,
-    /// Hot RAM sessions evicted and sealed to SSD (`XChaCha20-Poly1305`).
+    /// Hot RAM sessions evicted and sealed to SSD (`FSW4` + keyed stream MAC).
     pub ssd_page_outs: u64,
-    /// Cumulative compressed + encrypted bytes written to SSD across all page-outs.
+    /// Cumulative encrypted bytes written to SSD across all page-outs.
     pub ssd_bytes_written: u64,
-    /// Cumulative compressed + encrypted bytes read from SSD across all page-ins.
+    /// Cumulative encrypted bytes read from SSD across all page-ins.
     pub ssd_bytes_read: u64,
     /// Cumulative tamper, rollback, symlink, or corrupt-snapshot rejections caught.
     pub security_rejections: u64,
@@ -51,7 +51,8 @@ pub struct MuxMetrics4 {
 const MAX_LATENCY_SAMPLES: usize = 16_384;
 
 impl MuxMetrics4 {
-    pub(super) fn merge_worker_from(&mut self, other: &Self) {
+    /// Merges worker-level counters and latency samples from a parallel wave execution.
+    pub fn merge_worker_from(&mut self, other: &Self) {
         self.context_switches += other.context_switches;
         self.affinity_hits += other.affinity_hits;
         self.waves_dispatched += other.waves_dispatched;
@@ -60,19 +61,22 @@ impl MuxMetrics4 {
         }
     }
 
-    pub(super) fn record_switch_us(&mut self, us: u64) {
+    /// Records a single context-switch duration in microseconds.
+    pub fn record_switch_us(&mut self, us: u64) {
         if self.switch_latencies_us.len() < MAX_LATENCY_SAMPLES {
             self.switch_latencies_us.push(us);
         }
     }
 
-    pub(super) fn record_page_out_us(&mut self, us: u64) {
+    /// Records a single SSD page-out duration in microseconds.
+    pub fn record_page_out_us(&mut self, us: u64) {
         if self.page_out_latencies_us.len() < MAX_LATENCY_SAMPLES {
             self.page_out_latencies_us.push(us);
         }
     }
 
-    pub(super) fn record_page_in_us(&mut self, us: u64) {
+    /// Records a single SSD page-in duration in microseconds.
+    pub fn record_page_in_us(&mut self, us: u64) {
         if self.page_in_latencies_us.len() < MAX_LATENCY_SAMPLES {
             self.page_in_latencies_us.push(us);
         }
@@ -139,7 +143,7 @@ pub struct MuxSummary4 {
     pub sessions_closed: u64,
     /// Total neural context switches executed.
     pub context_switches: u64,
-    /// Worker dispatches where `restore` was skipped due to slot affinity.
+    /// Worker dispatches where `h_states` unpack was skipped due to slot affinity.
     pub affinity_hits: u64,
     /// Parallel multi-worker waves dispatched.
     pub waves_dispatched: u64,

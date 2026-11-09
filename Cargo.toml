@@ -45,6 +45,7 @@ baylee-cards = { path = "crates/baylee-cards" }
 baylee-cards-codegen = { path = "crates/baylee-cards-codegen" }
 baylee-cards-index = { path = "crates/baylee-cards-index" }
 baylee-ai = { path = "crates/baylee-ai" }
+baylee-driver = { path = "crates/baylee-driver" }
 baylee-gamehost = { path = "crates/baylee-gamehost" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }

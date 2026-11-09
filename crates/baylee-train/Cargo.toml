@@ -21,6 +21,7 @@ play = [
     "dep:baylee-ai",
     "dep:baylee-build",
     "dep:baylee-cards-dsl",
+    "dep:baylee-driver",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
     "dep:baylee-seal",
@@ -41,12 +42,16 @@ play = [
 # the net's lookahead (`netplay4::search`, `eval4 --search`). Not `play`:
 # that is a default, and `cargo build-servers`/`build-client` select
 # `--workspace`, so a default of this crate unifies into every shipped binary.
-onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "baylee-gamehost/simulation"]
+onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "baylee-driver/onnx", "baylee-gamehost/simulation"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only
 # with `BAYLEE_EP=cuda`.
-onnx-cuda = ["onnx", "ort/cuda"]
+onnx-cuda = ["onnx", "ort/cuda", "baylee-driver/cuda"]
+# Multi-hardware Execution Providers for client/edge NPU and GPU acceleration.
+onnx-openvino = ["onnx", "baylee-driver/openvino"]
+onnx-coreml = ["onnx", "baylee-driver/coreml"]
+onnx-directml = ["onnx", "baylee-driver/directml"]
 # A language model in an arena chair (`arena --llm`), through the seat
 # bridge's mind (`baylee_seat::llm::ApiMind`). In no gate: it is measured on
 # the trainer's machine against a model server on loopback.
@@ -74,6 +79,7 @@ baylee-cards-dsl = { workspace = true, optional = true }
 baylee-cards-index.workspace = true
 baylee-core.workspace = true
 baylee-db = { workspace = true, optional = true }
+baylee-driver = { workspace = true, optional = true }
 baylee-deckio.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }

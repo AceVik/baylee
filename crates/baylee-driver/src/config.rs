@@ -1,14 +1,16 @@
-//! Configuration, resource quotas, and scheduling urgency tiers for `npu_mux4`.
+//! Configuration, resource quotas, and scheduling urgency tiers for `baylee-driver`.
 
 use std::path::PathBuf;
 
 use anyhow::{bail, ensure};
 use serde::{Deserialize, Serialize};
 
+use crate::hardware::HardwareConfig;
+
 /// Scheduling urgency assigned to a session by the game coordinator.
 ///
 /// The tiered pager evicts lower-urgency sessions (`Idle`, then `Soon`) to SSD
-/// before higher-urgency sessions (`Immediate`), and broke ties by least-recently-used
+/// before higher-urgency sessions (`Immediate`), and breaks ties by least-recently-used
 /// monotonic tick.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -24,7 +26,7 @@ pub enum SessionUrgency4 {
     Immediate = 2,
 }
 
-/// Resource limits and security parameters for [`super::NpuMuxService4`].
+/// Resource limits, hardware parameters, and security settings for [`crate::mux::NpuMuxService4`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MuxConfig4 {
     /// Directory where encrypted cold-tier `.swap` files are stored (`0700` permissions).
@@ -37,20 +39,20 @@ pub struct MuxConfig4 {
     pub max_hot_ram_bytes: usize,
     /// Hard ceiling on total concurrent sessions (Hot RAM + Cold SSD) to prevent `DoS` exhaustion.
     pub max_total_sessions: usize,
-    /// Maximum compressed + encrypted swap file size accepted from disk (bytes).
+    /// Maximum encrypted swap file size accepted from disk (bytes).
     pub max_swap_file_bytes: u64,
     /// Maximum uncompressed wire payload accepted when paging in from SSD (anti-zip-bomb guard).
     pub max_uncompressed_bytes: usize,
     /// Latent recurrent slot width `d_model` enforced on every snapshot load/store.
     pub d_model: usize,
-    /// Whether to issue a hardware `fsync` (`sync_all`) on each `.swap.tmp` file before rename.
-    /// Defaults to `false` because `.swap` files use an ephemeral RAM-only CSPRNG key (`Zeroizing<[u8; 32]>`)
-    /// that does not survive process exit; atomic temp-file `write_all` + `rename` already guarantees
-    /// crash-clean visibility within the running OS kernel.
+    /// Whether to issue a hardware `fsync` (`sync_all`) on each `.swap` file write.
     pub durable_swap_fsync: bool,
     /// Whether to zeroize sensitive latent memory (`h_states`, `observed_values`, `seen_hashes`)
     /// in RAM immediately when a session is evicted to SSD or closed.
     pub zeroize_on_evict: bool,
+    /// Multi-hardware execution provider and precision routing configuration.
+    #[serde(default)]
+    pub hardware: HardwareConfig,
 }
 
 impl MuxConfig4 {
@@ -68,6 +70,7 @@ impl MuxConfig4 {
             d_model,
             durable_swap_fsync: false,
             zeroize_on_evict: false,
+            hardware: HardwareConfig::default(),
         }
     }
 

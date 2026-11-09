@@ -260,7 +260,7 @@ fn main() -> anyhow::Result<()> {
 
     let working = Working::scan(&repo_root())?;
     let shape = match args.shape.as_str() {
-        "constructed" | "limited" => Shape::Constructed,
+        "constructed" | "limited" | "all" => Shape::Constructed,
         "highlander" => Shape::Highlander,
         "commander" => Shape::Commander,
         other => bail!("unknown shape {other}"),
@@ -275,19 +275,6 @@ fn main() -> anyhow::Result<()> {
         deckgen::pool_for_working(&working, &held)
     };
 
-    let mut decks: Vec<HouseDeck> = Vec::new();
-    let mut manifest_skipped_decks = Vec::new();
-    if let Some(manifest_path) = &args.decks_manifest {
-        let (loaded, skipped) = load_manifest_decks(
-            manifest_path,
-            &args.deck_split,
-            &args.shape,
-            &args.holdout_tier,
-            args.held_out_cards,
-        )?;
-        decks.extend(loaded);
-        manifest_skipped_decks = skipped;
-    }
     let tactician_setup = {
         let train = match (&args.decks_manifest, &args.tactician_windows) {
             (Some(manifest), Some(_)) => {
@@ -305,37 +292,72 @@ fn main() -> anyhow::Result<()> {
         )?
         .map(Arc::new)
     };
-    let manifest_accepted_deck_count = decks.len();
-    let mut attempt = 0_u64;
+
     let seed_base = if args.held_out_cards {
         99_999_u64
     } else {
         7_777_u64
     };
-    let target_decks = if args.decks_manifest.is_some() && args.generated == 0 {
-        decks.len().max(args.seats)
-    } else {
-        decks.len() + args.generated.max(args.seats * 2)
-    };
-    while decks.len() < target_decks && attempt < 2000 {
-        let arch = Archetype::ALL[decks.len() % Archetype::ALL.len()];
-        let s = seed_base.wrapping_mul(1_000_003).wrapping_add(attempt);
-        attempt += 1;
-        let Ok(g) = deckgen::generate(&pool, shape, arch, s) else {
-            continue;
-        };
-        if args.held_out_cards {
-            // Require at least 1 held-out card in the generated deck
-            let has_held = g.main.iter().chain(&g.leaders).any(|c| held.contains(c));
-            if !has_held {
-                continue;
+    let use_expanded_training_variance = (collection.purpose
+        == collector::Purpose::OnPolicyTraining
+        && !args.held_out_cards
+        && args.holdout_tier.is_empty())
+        || args.shape == "all";
+
+    let (decks, manifest_accepted_deck_count, manifest_skipped_decks) =
+        if use_expanded_training_variance {
+            load_expanded_training_decks(
+                args.decks_manifest.as_ref(),
+                &working,
+                &held,
+                &pool,
+                args.seats,
+                args.first_seed,
+                seed_base,
+                args.generated,
+            )?
+        } else {
+            let mut decks: Vec<HouseDeck> = Vec::new();
+            let mut manifest_skipped_decks = Vec::new();
+            if let Some(manifest_path) = &args.decks_manifest {
+                let (loaded, skipped) = load_manifest_decks(
+                    manifest_path,
+                    &args.deck_split,
+                    &args.shape,
+                    &args.holdout_tier,
+                    args.held_out_cards,
+                )?;
+                decks.extend(loaded);
+                manifest_skipped_decks = skipped;
             }
-        }
-        decks.push(HouseDeck {
-            key: format!("eval-d{:03}", decks.len()),
-            deck: g.loaded(),
-        });
-    }
+            let manifest_accepted_deck_count = decks.len();
+            let mut attempt = 0_u64;
+            let target_decks = if args.decks_manifest.is_some() && args.generated == 0 {
+                decks.len().max(args.seats)
+            } else {
+                decks.len() + args.generated.max(args.seats * 2)
+            };
+            while decks.len() < target_decks && attempt < 2000 {
+                let arch = Archetype::ALL[decks.len() % Archetype::ALL.len()];
+                let s = seed_base.wrapping_mul(1_000_003).wrapping_add(attempt);
+                attempt += 1;
+                let Ok(g) = deckgen::generate(&pool, shape, arch, s) else {
+                    continue;
+                };
+                if args.held_out_cards {
+                    // Require at least 1 held-out card in the generated deck
+                    let has_held = g.main.iter().chain(&g.leaders).any(|c| held.contains(c));
+                    if !has_held {
+                        continue;
+                    }
+                }
+                decks.push(HouseDeck {
+                    key: format!("eval-d{:03}", decks.len()),
+                    deck: g.loaded(),
+                });
+            }
+            (decks, manifest_accepted_deck_count, manifest_skipped_decks)
+        };
     if decks.len() < args.seats {
         bail!(
             "could not load/generate enough decks ({} < {})",

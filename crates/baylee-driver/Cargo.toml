@@ -1,0 +1,50 @@
+[package]
+name = "baylee-driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Baylee AI runtime driver: multi-hardware NPU/GPU/CPU execution provider abstraction, FP16 state compression, and tiered RAM/SSD session multiplexer"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Enables the ONNX Runtime inference session factory (`ort_env`).
+# Kept optional so default `--workspace` builds and offline CI checks do not
+# download prebuilt ONNX Runtime binaries unless neural inference is linked.
+onnx = [
+    "dep:ort",
+    "ort/std",
+    "ort/download-binaries",
+    "ort/copy-dylibs",
+    "ort/tls-rustls",
+    "ort/api-27",
+]
+# Hardware Execution Provider features for client (desktop/laptop/mobile) and server (`acenb`/`bigace`):
+cuda = ["onnx", "ort/cuda"]
+tensorrt = ["onnx", "ort/tensorrt"]
+coreml = ["onnx", "ort/coreml"]
+directml = ["onnx", "ort/directml"]
+openvino = ["onnx", "ort/openvino"]
+rocm = ["onnx", "ort/rocm"]
+migraphx = ["onnx", "ort/migraphx"]
+qnn = ["onnx", "ort/qnn"]
+nnapi = ["onnx", "ort/nnapi"]
+webgpu = ["onnx", "ort/webgpu"]
+xnnpack = ["onnx", "ort/xnnpack"]
+onednn = ["onnx", "ort/onednn"]
+
+[dependencies]
+anyhow.workspace = true
+baylee-core.workspace = true
+baylee-engine.workspace = true
+baylee-view.workspace = true
+getrandom.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+zeroize.workspace = true
+ort = { workspace = true, optional = true }

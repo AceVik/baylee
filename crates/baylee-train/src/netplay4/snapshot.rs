@@ -7,83 +7,16 @@ use super::{
 use crate::features4::{MAX_SEATS, SeatKnowledge4};
 use anyhow::{Context as _, bail, ensure};
 use baylee_core::ids::PlayerId;
+use baylee_driver::fp16::{
+    extend_u16_le_bytes, f16_to_f32, f16_to_f32_checked, f32_to_f16, pack_f32_slice_to_f16,
+    unpack_f16_slice_to_f32, unpack_u16_le_bytes_into,
+};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize as _;
 
 const MAX_SEEN_HASHES_WIRE: usize = 16_384;
 const WIRE_MAGIC_V3: &[u8; 6] = b"BMUX4\x03";
 const WIRE_MAGIC_COLD_V4: &[u8; 6] = b"BMUX4\x04";
-
-/// Converts a finite IEEE-754 `f32` (`binary32`) to an IEEE-754 `f16` (`binary16`) bit pattern
-/// using round-to-nearest-even and clamping finite overflow to `±65504.0` (`0x7bff`), matching
-/// ONNX Runtime's `convert_float_to_float16` (`keep_io_types=True`).
-/// For any `h_out` tensor produced by an FP16 `BayleeKI` graph, this conversion is 100% lossless.
-#[inline]
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn f32_to_f16_bits(val: f32) -> u16 {
-    let bits = val.to_bits();
-    let sign = ((bits >> 16) & 0x8000) as u16;
-    let exp = ((bits >> 23) & 0xff) as i32 - 127 + 15;
-    let mant = bits & 0x007f_ffff;
-    if exp <= 0 {
-        if exp < -10 {
-            return sign;
-        }
-        let full_mant = mant | 0x0080_0000;
-        let shift = (14 - exp) as u32;
-        let round_bit = 1_u32 << (shift - 1);
-        let sticky = (full_mant & (round_bit - 1)) != 0;
-        let lsb = (full_mant >> shift) & 1;
-        let mut h_mant = (full_mant >> shift) as u16;
-        if (full_mant & round_bit) != 0 && (sticky || lsb != 0) {
-            h_mant += 1;
-        }
-        sign | h_mant
-    } else if exp >= 31 {
-        sign | 0x7bff
-    } else {
-        let round_bit = 0x1000_u32;
-        let sticky = (mant & 0x0fff) != 0;
-        let lsb = (mant >> 13) & 1;
-        let mut h_bits = sign | ((exp as u16) << 10) | ((mant >> 13) as u16);
-        if (mant & round_bit) != 0 && (sticky || lsb != 0) {
-            h_bits += 1;
-            if (h_bits & 0x7c00) == 0x7c00 {
-                h_bits = sign | 0x7bff;
-            }
-        }
-        h_bits
-    }
-}
-
-/// Fast branch-minimal conversion of a validated finite IEEE-754 `f16` bit pattern to `f32`.
-#[inline]
-fn f16_bits_to_f32_fast(bits: u16) -> f32 {
-    let sign = u32::from(bits & 0x8000) << 16;
-    let exp = u32::from((bits >> 10) & 0x1f);
-    let mant = u32::from(bits & 0x03ff);
-    if exp == 0 {
-        if mant == 0 {
-            return f32::from_bits(sign);
-        }
-        let shift = mant.leading_zeros() - 21;
-        let norm_mant = (mant << shift) & 0x03ff;
-        let f32_exp = (127 - 15 + 1 - shift) << 23;
-        f32::from_bits(sign | f32_exp | (norm_mant << 13))
-    } else {
-        let f32_exp = (exp + 127 - 15) << 23;
-        f32::from_bits(sign | f32_exp | (mant << 13))
-    }
-}
-
-/// Converts an IEEE-754 `f16` (`binary16`) bit pattern back to `f32`, rejecting `NaN`/`Inf`.
-#[inline]
-fn f16_bits_to_f32(bits: u16) -> anyhow::Result<f32> {
-    if (bits & 0x7c00) == 0x7c00 {
-        bail!("snapshot h_state contains non-finite FP16 value (0x{bits:04x})");
-    }
-    Ok(f16_bits_to_f32_fast(bits))
-}
 
 /// Compact non-tensor session metadata retained across cold tensor swaps without JSON overhead.
 #[derive(Clone, Debug)]
@@ -162,10 +95,7 @@ impl PlayerSnapshot4 {
     pub fn pack_fp16_in_ram(&mut self) {
         for (seat, h32) in std::mem::take(&mut self.h_states) {
             let dst = self.h_states_fp16.entry(seat).or_default();
-            dst.resize(h32.len(), 0);
-            for (d, &val) in dst.iter_mut().zip(h32.iter()) {
-                *d = f32_to_f16_bits(val);
-            }
+            pack_f32_slice_to_f16(&h32, dst);
         }
     }
 
@@ -201,18 +131,20 @@ impl PlayerSnapshot4 {
         std::mem::size_of::<Self>() + h_f32_bytes + h_f16_bytes + kn_bytes + hash_bytes
     }
 
-    /// Ultra-fast pure-binary cold serialization (`BMUX4\x04`) for SSD paging:
+    /// Ultra-fast pure-binary cold serialization (`BMUX4\x04`) for SSD paging into a caller-owned
+    /// buffer `out` (zero heap allocation when `out` is a thread-local scratch buffer):
     /// serializes `h_states_fp16` (`2 bytes/elem`), `seen_hashes`, `observed_values`, and `rng_state`
-    /// in raw binary with zero `serde_json` or `Zlib` overhead, while moving non-tensor metadata
-    /// out into [`ColdMeta4`] in $O(1)$ without cloning.
+    /// in raw binary with 64-bit word packing, while moving non-tensor metadata out into [`ColdMeta4`]
+    /// in $O(1)$ without cloning.
     ///
     /// # Errors
     /// Returns an error if any dimension or floating-point invariant is violated.
     #[allow(clippy::cast_possible_truncation)]
-    pub fn to_cold_wire_and_meta(
+    pub fn to_cold_wire_into(
         &mut self,
         d_model: usize,
-    ) -> anyhow::Result<(Vec<u8>, ColdMeta4)> {
+        out: &mut Vec<u8>,
+    ) -> anyhow::Result<ColdMeta4> {
         if self.h_states_fp16.is_empty() && !self.h_states.is_empty() {
             self.pack_fp16_in_ram();
         }
@@ -221,15 +153,14 @@ impl PlayerSnapshot4 {
         let h_bytes_total = self.h_states_fp16.len() * (1 + expected_h_len * 2);
         let hash_bytes_total = self.seen_hashes.len() * 10;
         let obs_bytes_total = self.observed_values.len() * 5;
-        let mut out = Vec::with_capacity(24 + h_bytes_total + hash_bytes_total + obs_bytes_total);
+        out.clear();
+        out.reserve(24 + h_bytes_total + hash_bytes_total + obs_bytes_total);
         out.extend_from_slice(WIRE_MAGIC_COLD_V4);
         out.extend_from_slice(&(d_model as u32).to_le_bytes());
         out.push(self.h_states_fp16.len() as u8);
         for (&seat, h16) in &self.h_states_fp16 {
             out.push(seat);
-            for &bits in h16 {
-                out.extend_from_slice(&bits.to_le_bytes());
-            }
+            extend_u16_le_bytes(h16, out);
         }
         out.extend_from_slice(&(self.seen_hashes.len() as u32).to_le_bytes());
         for (&(seat, hash), &count) in &self.seen_hashes {
@@ -244,7 +175,7 @@ impl PlayerSnapshot4 {
         }
         out.extend_from_slice(&self.rng.state().to_le_bytes());
 
-        let meta = ColdMeta4 {
+        Ok(ColdMeta4 {
             teams: std::mem::take(&mut self.teams),
             knowledge: std::mem::take(&mut self.knowledge),
             last_announced_source: std::mem::take(&mut self.last_announced_source),
@@ -253,7 +184,19 @@ impl PlayerSnapshot4 {
             rule_refs_left_out: self.rule_refs_left_out,
             choice_guard: self.choice_guard,
             tactic_rules: self.tactic_rules,
-        };
+        })
+    }
+
+    /// Allocating wrapper around [`Self::to_cold_wire_into`].
+    ///
+    /// # Errors
+    /// Returns an error if any dimension or floating-point invariant is violated.
+    pub fn to_cold_wire_and_meta(
+        &mut self,
+        d_model: usize,
+    ) -> anyhow::Result<(Vec<u8>, ColdMeta4)> {
+        let mut out = Vec::new();
+        let meta = self.to_cold_wire_into(d_model, &mut out)?;
         Ok((out, meta))
     }
 
@@ -303,14 +246,9 @@ impl PlayerSnapshot4 {
             );
             cursor += 1;
             let mut vec = Vec::with_capacity(expected_h_len);
-            for _ in 0..expected_h_len {
-                let bits = u16::from_le_bytes([bytes[cursor], bytes[cursor + 1]]);
-                if (bits & 0x7c00) == 0x7c00 {
-                    bail!("snapshot cold h_state contains non-finite FP16 value");
-                }
-                cursor += 2;
-                vec.push(bits);
-            }
+            let slice_end = cursor + expected_h_len * 2;
+            unpack_u16_le_bytes_into(&bytes[cursor..slice_end], &mut vec)?;
+            cursor = slice_end;
             if h_states_fp16.insert(seat, vec).is_some() {
                 bail!("duplicate seat {seat} in PlayerSnapshot4 h_states_fp16");
             }
@@ -441,15 +379,13 @@ impl PlayerSnapshot4 {
             for (&seat, h) in &self.h_states {
                 out.push(seat);
                 for &val in h {
-                    out.extend_from_slice(&f32_to_f16_bits(val).to_le_bytes());
+                    out.extend_from_slice(&f32_to_f16(val).to_le_bytes());
                 }
             }
         } else {
             for (&seat, h16) in &self.h_states_fp16 {
                 out.push(seat);
-                for &bits in h16 {
-                    out.extend_from_slice(&bits.to_le_bytes());
-                }
+                extend_u16_le_bytes(h16, &mut out);
             }
         }
         out.extend_from_slice(&(self.seen_hashes.len() as u32).to_le_bytes());
@@ -499,7 +435,7 @@ impl PlayerSnapshot4 {
             for _ in 0..expected_h_len {
                 let h_bits = u16::from_le_bytes([bytes[cursor], bytes[cursor + 1]]);
                 cursor += 2;
-                let f = f16_bits_to_f32(h_bits)?;
+                let f = f16_to_f32_checked(h_bits)?;
                 vec.push(f);
             }
             if h_states.insert(seat, vec).is_some() {
@@ -677,6 +613,7 @@ impl NetPlayer4 {
             payable_menu: _,
             tactic_rules,
             last_menu: _,
+            dirty_h_seats: _,
             tactician: _,
         } = self;
         PlayerSnapshot4 {
@@ -702,12 +639,11 @@ impl NetPlayer4 {
     pub fn take_hot_snapshot(&mut self) -> PlayerSnapshot4 {
         let mut h_states_fp16 = BTreeMap::new();
         for (&seat, h32) in &self.h_states {
-            let mut h16 = Vec::with_capacity(h32.len());
-            for &val in h32 {
-                h16.push(f32_to_f16_bits(val));
-            }
+            let mut h16 = Vec::new();
+            pack_f32_slice_to_f16(h32, &mut h16);
             h_states_fp16.insert(seat, h16);
         }
+        self.dirty_h_seats = 0;
         PlayerSnapshot4 {
             teams: std::mem::take(&mut self.teams),
             h_states: BTreeMap::new(),
@@ -748,24 +684,23 @@ impl NetPlayer4 {
         std::mem::swap(&mut self.choice_guard, &mut snapshot.choice_guard);
         std::mem::swap(&mut self.tactic_rules, &mut snapshot.tactic_rules);
 
+        self.dirty_h_seats = 0;
         if unpack_h_states {
             if snapshot.h_states_fp16.is_empty() {
                 self.h_states.clone_from(&snapshot.h_states);
+                self.dirty_h_seats = 0xff;
             } else {
                 for (&seat, h16) in &snapshot.h_states_fp16 {
                     let dst = self.h_states.entry(seat).or_default();
-                    dst.resize(h16.len(), 0.0);
-                    for (d, &bits) in dst.iter_mut().zip(h16.iter()) {
-                        *d = f16_bits_to_f32_fast(bits);
-                    }
+                    unpack_f16_slice_to_f32(h16, dst);
                 }
             }
         }
     }
 
     /// Zero-clone context switch back out from `self` into a Hot [`PlayerSnapshot4`]:
-    /// swaps all metadata pointers back in $O(1)$ (`std::mem::swap`) and packs `self.h_states`
-    /// into `snapshot.h_states_fp16` in-place reusing existing vector capacity.
+    /// swaps all metadata pointers back in $O(1)$ (`std::mem::swap`) and quantizes only
+    /// dirtied seats' `self.h_states` into `snapshot.h_states_fp16` in-place reusing capacity.
     pub fn swap_out_hot(&mut self, snapshot: &mut PlayerSnapshot4) {
         std::mem::swap(&mut self.teams, &mut snapshot.teams);
         std::mem::swap(&mut self.knowledge, &mut snapshot.knowledge);
@@ -785,11 +720,18 @@ impl NetPlayer4 {
         std::mem::swap(&mut self.choice_guard, &mut snapshot.choice_guard);
         std::mem::swap(&mut self.tactic_rules, &mut snapshot.tactic_rules);
 
+        let dirty = self.dirty_h_seats;
+        self.dirty_h_seats = 0;
         for (&seat, h32) in &self.h_states {
-            let dst = snapshot.h_states_fp16.entry(seat).or_default();
-            dst.resize(h32.len(), 0);
-            for (d, &val) in dst.iter_mut().zip(h32.iter()) {
-                *d = f32_to_f16_bits(val);
+            let bit = 1_u8.wrapping_shl(u32::from(seat));
+            let needs_pack = (dirty & bit) != 0
+                || snapshot
+                    .h_states_fp16
+                    .get(&seat)
+                    .is_none_or(|v| v.len() != h32.len());
+            if needs_pack {
+                let dst = snapshot.h_states_fp16.entry(seat).or_default();
+                pack_f32_slice_to_f16(h32, dst);
             }
         }
         snapshot.h_states.clear();
@@ -821,12 +763,13 @@ impl NetPlayer4 {
                 let dst = self.h_states.entry(seat).or_default();
                 dst.resize(h16.len(), 0.0);
                 for (d, &bits) in dst.iter_mut().zip(h16.iter()) {
-                    *d = f16_bits_to_f32_fast(bits);
+                    *d = f16_to_f32(bits);
                 }
             }
         } else {
             self.h_states.clone_from(h_states);
         }
+        self.dirty_h_seats = 0xff;
         self.knowledge.clone_from(knowledge);
         self.seen_hashes.clone_from(seen_hashes);
         self.last_announced_source.clone_from(last_announced_source);
@@ -851,6 +794,7 @@ impl NetPlayer4 {
                 h.fill(0.0);
             }
         }
+        self.dirty_h_seats = 0xff;
         for (&seat, kn) in &mut self.knowledge {
             if seat != me {
                 *kn = SeatKnowledge4::empty(PlayerId::new(seat), seat_count);
@@ -899,6 +843,86 @@ impl NetPlayer4 {
     /// one rollout's own stream, never the deal's.
     pub fn reseed_sampling(&mut self, seed: u64) {
         self.rng = Rng::new(seed ^ 0x9e37_79b9_7f4a_7c15);
+    }
+}
+
+impl baylee_driver::SnapshottableState for PlayerSnapshot4 {
+    type ColdMeta = ColdMeta4;
+
+    fn pack_fp16_in_ram(&mut self) {
+        Self::pack_fp16_in_ram(self);
+    }
+
+    fn validate(&self, d_model: usize) -> anyhow::Result<()> {
+        Self::validate(self, d_model)
+    }
+
+    fn approx_ram_bytes(&self) -> usize {
+        Self::approx_ram_bytes(self)
+    }
+
+    fn observed_value(&self, seat: PlayerId) -> Option<f32> {
+        Self::observed_value(self, seat)
+    }
+
+    fn zeroize_sensitive(&mut self) {
+        Self::zeroize_sensitive(self);
+    }
+
+    fn to_cold_wire_into(
+        &mut self,
+        d_model: usize,
+        out: &mut Vec<u8>,
+    ) -> anyhow::Result<Self::ColdMeta> {
+        Self::to_cold_wire_into(self, d_model, out)
+    }
+
+    fn from_cold_wire_and_meta(
+        bytes: &[u8],
+        d_model: usize,
+        meta: Self::ColdMeta,
+    ) -> anyhow::Result<Self> {
+        Self::from_cold_wire_and_meta(bytes, d_model, meta)
+    }
+}
+
+impl baylee_driver::SnapshottableBrain for NetPlayer4 {
+    type State = PlayerSnapshot4;
+    type Answer = super::Answer4;
+
+    fn d_model(&self) -> usize {
+        Self::d_model(self)
+    }
+
+    fn init_fresh_session(
+        &mut self,
+        preset: &baylee_core::preset::GamePreset,
+        policy_seed: u64,
+    ) -> Self::State {
+        self.reseed(policy_seed);
+        self.init_game(preset);
+        self.take_hot_snapshot()
+    }
+
+    fn swap_in_hot(&mut self, snapshot: &mut Self::State, unpack_h_states: bool) {
+        Self::swap_in_hot(self, snapshot, unpack_h_states);
+    }
+
+    fn swap_out_hot(&mut self, snapshot: &mut Self::State) {
+        Self::swap_out_hot(self, snapshot);
+    }
+
+    fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()> {
+        Self::observe(self, view)
+    }
+
+    fn act_detailed(
+        &mut self,
+        view: &baylee_view::PlayerView,
+        pending: &baylee_engine::choice::Pending,
+        teams: &[Option<u8>],
+    ) -> Self::Answer {
+        Self::act_detailed(self, view, pending, teams)
     }
 }
 
