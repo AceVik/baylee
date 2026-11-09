@@ -409,3 +409,13 @@ fn configured_free_mulligans_change_the_actual_bottom_offer() {
         ));
     }
 }
+
+/// No card-name choice is asked at the start of a game, so the test kit's answer
+/// to one has no object to read: the door says so rather than guessing.
+#[test]
+fn no_card_name_chooser_before_a_name_is_asked() {
+    let forest = super::testkit::card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let engine = super::testkit::Duel::new(7, forest).start();
+    assert!(!matches!(engine.pending(), Pending::ChooseCardName { .. }));
+    assert_eq!(engine.card_name_chooser(), None);
+}
