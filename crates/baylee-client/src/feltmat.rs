@@ -237,7 +237,10 @@ impl BakeWarp {
     #[must_use]
     pub fn start(span: Vec2, pattern: Vec4) -> Self {
         let (span, pattern) = (span.to_array(), pattern.to_array());
-        Self(bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+        // `get_or_init`, as `sound.rs` does: an app's `TaskPoolPlugin` has made
+        // the pool already, and a system run alone in a test has none.
+        let pool = bevy::tasks::AsyncComputeTaskPool::get_or_init(bevy::tasks::TaskPool::new);
+        Self(pool.spawn(async move {
             let field = baylee_client_core::feltwarp::WarpField::for_table(span, pattern);
             (warp_image(&field), Vec4::from_array(field.rect()))
         }))
