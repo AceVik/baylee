@@ -510,6 +510,9 @@ mod tests {
             },
             shadow_label: None,
             llm_label: None,
+            seat_input: None,
+            n_ne_r: None,
+            net_answer: None,
         }
     }
 

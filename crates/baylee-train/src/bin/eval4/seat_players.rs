@@ -19,6 +19,8 @@ pub(super) struct SeatPlayers {
     last_was_learner: bool,
     search_opponent: bool,
     coverage: CoverageMatrix4,
+    /// `--distill-labels`: both seats' steps in the order the table took them.
+    distill_steps: Option<Vec<baylee_train::netplay4::distill::DistillStep4>>,
 }
 
 impl SeatPlayers {
@@ -65,6 +67,7 @@ impl SeatPlayers {
             last_was_learner: true,
             search_opponent: contract.opponent_role == super::collector::OpponentRole::SelfPlay,
             coverage: CoverageMatrix4::default(),
+            distill_steps: None,
         })
     }
 
@@ -191,6 +194,37 @@ impl EvaluationPlayer for SeatPlayers {
             records.extend(opponent.take_tactician_records());
         }
         records
+    }
+    /// The seat under test labels its answers; a self-play copy labels its
+    /// own, and the steps of both seats are kept here in the table's order.
+    fn set_distill(&mut self, distill: &baylee_train::netplay4::distill::Distill4) -> bool {
+        if self.search_opponent
+            && let Some(opponent) = &mut self.opponent
+        {
+            opponent.set_distill(distill);
+        }
+        let ok = self.learner.set_distill(distill);
+        if ok {
+            self.distill_steps = Some(Vec::new());
+        }
+        ok
+    }
+    fn distill_step(&mut self, seat: u8, decision_seq: u64, record_offset: usize, answered: bool) {
+        let label = self
+            .player_mut(usize::from(seat))
+            .and_then(EvaluationPlayer::take_distill_label)
+            .filter(|_| answered);
+        if let Some(steps) = &mut self.distill_steps {
+            steps.push(baylee_train::netplay4::distill::DistillStep4 {
+                seat,
+                decision_seq,
+                record_byte_offset: record_offset,
+                label,
+            });
+        }
+    }
+    fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
+        self.distill_steps.as_mut().map(std::mem::take)
     }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.player(usize::from(seat.get()))?.observed_value(seat)
@@ -392,6 +426,7 @@ mod tests {
             last_was_learner: true,
             search_opponent: false,
             coverage: CoverageMatrix4::default(),
+            distill_steps: None,
         };
         let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();
         let preset = baylee_train::selfplay::table_for(

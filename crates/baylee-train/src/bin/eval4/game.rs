@@ -399,6 +399,9 @@ fn play_one_table(
                         free_mask: Vec::new(),
                         pick_sequence: Vec::new(),
                     });
+                    if let Some(n) = net.as_deref_mut() {
+                        n.distill_step(pid.get(), sequence, record_offset, false);
+                    }
                 }
                 break;
             }
@@ -543,6 +546,12 @@ fn play_one_table(
                             free_mask: ans.target.free_mask,
                             pick_sequence: ans.target.pick_sequence,
                         });
+                        n.distill_step(
+                            pid.get(),
+                            sequence,
+                            record_offset,
+                            ans.provenance.source == SourceKind4::Net,
+                        );
                     }
                 } else if let Err(error) = result {
                     refused += 1;
@@ -564,6 +573,7 @@ fn play_one_table(
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;
+                    let (fb_sequence, fb_offset) = (session.decision_seq(), session.record_pending());
                     let routed = session.act_slice(pid, fb, 0);
                     let accepted = routed.is_ok();
                     if let (Some(shadow), Ok(routed)) = (shadow.as_deref_mut(), routed) {
@@ -579,6 +589,7 @@ fn play_one_table(
                             free_mask: Vec::new(),
                             pick_sequence: Vec::new(),
                         });
+                        n.distill_step(pid.get(), fb_sequence, fb_offset, false);
                     }
                 }
             }

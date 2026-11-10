@@ -89,6 +89,9 @@ impl NetPlayer4 {
             notes_answer: false,
         };
         self.last_fallback = None;
+        if let Some(distill) = &mut self.distill {
+            distill.begin();
+        }
         let seat_u8 = view.seat.get();
         if matches!(pending, Pending::Priority { .. })
             && view.owed.is_none()

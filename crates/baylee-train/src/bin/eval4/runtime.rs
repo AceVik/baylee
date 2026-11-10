@@ -83,6 +83,21 @@ trait EvaluationPlayer {
     ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
         Vec::new()
     }
+    /// Sets `--distill-labels` on this player, which only a net can honour.
+    fn set_distill(&mut self, _distill: &baylee_train::netplay4::distill::Distill4) -> bool {
+        false
+    }
+    /// The labels of the decision this player answered last, taken.
+    fn take_distill_label(&mut self) -> Option<baylee_train::netplay4::distill::DistillLabel4> {
+        None
+    }
+    /// Records a step of a seat this player answered: its last decision's
+    /// labels when the policy answered it (`answered`).
+    fn distill_step(&mut self, _seat: u8, _decision_seq: u64, _record_offset: usize, _answered: bool) {}
+    /// The game's distillation steps, taken; `None` without `--distill-labels`.
+    fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
+        None
+    }
     /// What `--menu-payable` counted since this was last asked.
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
@@ -217,6 +232,19 @@ impl EvaluationPlayer for NetPlayer4 {
         &mut self,
     ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
         Self::take_tactician_records(self)
+    }
+    fn set_distill(&mut self, distill: &baylee_train::netplay4::distill::Distill4) -> bool {
+        Self::set_distill(self, distill.clone());
+        true
+    }
+    fn take_distill_label(&mut self) -> Option<baylee_train::netplay4::distill::DistillLabel4> {
+        Self::take_distill_label(self)
+    }
+    fn distill_step(&mut self, seat: u8, decision_seq: u64, record_offset: usize, answered: bool) {
+        Self::distill_step(self, seat, decision_seq, record_offset, answered);
+    }
+    fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
+        Self::take_distill_steps(self)
     }
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         Self::take_menu_stats(self)

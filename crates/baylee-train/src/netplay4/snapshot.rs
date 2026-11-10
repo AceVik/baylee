@@ -625,6 +625,7 @@ impl NetPlayer4 {
             // Counted over a run, not a game's state.
             thinking_use: _,
             last_depth: _,
+            distill: _,
         } = self;
         PlayerSnapshot4 {
             teams: teams.clone(),

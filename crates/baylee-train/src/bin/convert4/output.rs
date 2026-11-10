@@ -82,7 +82,9 @@ impl GameWriter {
 
         let flags = u32::from(step.is_decision)
             | (u32::from(step.is_terminal) << 1)
-            | (u32::from(step.provenance.has_logprob) << 2);
+            | (u32::from(step.provenance.has_logprob) << 2)
+            // Bundle distillation: the net's own answer differs from the label.
+            | (u32::from(step.n_ne_r == Some(true)) << 7);
         let src_kind: u32 = match step.provenance.source {
             SourceKind4::Net => 0,
             SourceKind4::House => 1,

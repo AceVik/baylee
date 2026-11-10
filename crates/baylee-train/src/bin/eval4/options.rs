@@ -98,6 +98,16 @@ struct Args {
     /// windows. Also against a self-play copy, whose windows are kept too.
     #[arg(long, requires_all = ["tactician", "tactician_out"])]
     tactician_relabel: Option<String>,
+    /// Whole-net distillation labels (`bundle_distillation_v1`): at every
+    /// answer of the policy, the net's raw greedy answer `N` and the tactical
+    /// layer's answer `R` under these rule groups (comma list), read on copies
+    /// at the same view and logits, with the groups that changed it; kept in
+    /// `games.jsonl` (`distill_sidecar`, one entry per `rollout_sidecar` step).
+    /// Whoever plays: the layer (`--choice-guard tactical`) or the net itself
+    /// (`DAgger`). Needs `--record-out` and temperature 0; also against a
+    /// self-play copy. Only `convert4 --bundle-distill` reads such a run.
+    #[arg(long, requires = "record_out")]
+    distill_labels: Option<String>,
     /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
     #[arg(long, requires = "tactician_windows")]
     tactician_out: Option<PathBuf>,
