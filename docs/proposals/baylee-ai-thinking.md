@@ -1,7 +1,8 @@
 # BayleeAI thinking: deliberation over the answers
 
 Design note, 10 November 2026, written before the build. Status of each part
-is in §7; nothing here changes a default until it is measured (§6).
+is in §7; nothing here changes a default until it is measured (§6). §4 and §7
+were filled in after the build.
 
 The owner wants a net that thinks, corrects itself and spends more thought on
 hard decisions. Today's thinking steps K do nothing measurable (K = 0, 1, 4, 8
@@ -141,10 +142,13 @@ correction is already right (and the KL-to-r1 term of stage A keeps it there).
 The confidence target becomes "my answer equals R", so low confidence marks
 the decisions where the net still disagrees with the layer. Selection stays
 top-1 at N != R, reported per step, so the measurement shows directly whether
-step s beats step s - 1 (§6). The stage A trainer on `c42/v6t-learner` reads
-its outputs through `deferred_readouts`; the per-step trace is delivered there
-(`net.thinking_frames`), so its distillation loss can add these terms without
-a second forward.
+step s beats step s - 1 (§6). After the campaign's gate 2 (the frozen trunk
+does not carry R, see the risks in §6) the same holds for stage B: the block
+trains beside the upper trunk layers, which is where a correction can use
+features the frozen trunk does not have. The stage A trainer on
+`c42/v6t-learner` reads its outputs through `deferred_readouts`; the per-step
+trace is delivered there (`net.thinking_frames`), so its distillation loss can
+add these terms without a second forward.
 
 **Later, search.** Search gives values for several answers of one decision:
 q is regressed on them at every step and the final logits on the search
@@ -161,28 +165,44 @@ every depth has data; the recorded behaviour probability is the played depth's.
 
 ## 4. Cost
 
-Estimate before the build, to be replaced by the measurement in §7. The trunk
-runs 12 layers of width 640 over 9 + E tokens (E ~ 26 at a decision, up to
-several hundred); one deliberation step runs one layer of width 256 over 17
-tokens with cross-attention into 9 + E keys whose projections are computed
-once per decision. Per step that is on the order of 1 % of the trunk. On the
-CPU the K = 2 seat takes ~100-140 ms per decision; S = 4 steps should add a
-few milliseconds.
+**Measured on the CPU** (`tools/trainer/bench_thinking5.py`, r1-4eb with the
+block attached, FP32, ONNX Runtime on one thread, one decision per call, the
+depth graphs taking turns within every repeat so machine load falls on all
+alike; the machine was loaded, so read the differences, not the absolutes;
+`/mnt/xdata/baylee/thinking/bench-cpu-fp32-think.json`). Median ms per call,
+board entities x offered answers:
 
-- **CPU seat**: S = 4 by default is affordable; S = 8 as the deep graph. The
-  adaptive seat pays a second graph call (trunk included) on escalated
-  decisions only; at a 20 % escalation rate that is +20 % mean latency. If
-  measurement shows the steps are as cheap as estimated, the seat simply runs
-  the deep graph always and escalation is kept for search.
+| Board | K = 0 (observation) | K = 1 | K = 2 | K = 4 | K = 8 | per step |
+| --- | --- | --- | --- | --- | --- | --- |
+| 26 x 5 (a typical decision) | 65.0 | 70.9 | 72.0 | 74.4 | 75.3 | ~0.6 ms |
+| 64 x 8 | 107.4 | 115.9 | 111.8 | 116.2 | 122.4 | ~0.9 ms |
+| 160 x 12 | 212.4 | 219.2 | 219.8 | 220.9 | 222.9 | ~0.5 ms |
+
+A deliberation step costs 0.5-0.9 ms, about 1 % of the trunk on a small board
+and 0.3 % on a large one; eight steps add 4-6 ms to a decision of 70-220 ms.
+The block has 1.56 M parameters (about 6 MB beside r1's 350 MB checkpoint).
+For comparison a legacy scratchpad step of r1 costs ~1.2 ms on the same boards (K = 1 to K = 8: 51.0 to 59.5 ms at
+26 x 5), so the earlier reading "K = 8 costs 275 ms against 100-140" was
+machine load, not depth.
+
+- **How many steps a seat can afford on the CPU: all eight.** Depth is not
+  the cost; the trunk is.
+- **Consequence for adaptive depth:** thinking a decision through again costs
+  a second graph call, trunk included (+100 % on that decision), to save a few
+  milliseconds on the others. For the block alone it never pays: a seat runs
+  the deep graph always. `--think-adaptive` is built and tested so that the
+  confidence can be measured as a gate (§6.4), and its real use is where a
+  second pass is expensive: deciding which decisions get a search.
 - **XDNA NPU (acenb)**: no execution provider for ONNX Runtime is installed
   there (campaign notes, 18:45: DNNL, XNNPACK and CPU only; installing Ryzen AI
   or VitisAI is the owner's decision), so nothing can be measured on the NPU
-  today. What the design does for it: the block is fixed-shape (17 tokens,
-  fixed step count per graph, no loop or branch operator, top-16 by `TopK`
-  with a constant k); the only dynamic axis it touches is the key count 9 + E,
-  which the trunk already has. A split export (trunk graph, think graph) with
-  E padded to a fixed size is the NPU form and is a follow-up once an
-  execution provider exists.
+  today. What the design does for it: the block is fixed-shape (17 tokens, a
+  constant step count per graph, no loop or branch operator, the best 16 by
+  `TopK` with a constant k); the only dynamic axis it touches is the key count
+  9 + E, which the trunk already has. A split export (trunk graph, think
+  graph) with E padded to a fixed size is the NPU form and a follow-up once an
+  execution provider exists; on a device where the trunk is fast and the CPU
+  fallback slow, the same split would also let the block run on the CPU.
 
 ## 5. Rules kept
 
@@ -223,6 +243,73 @@ Each is paired, written before it runs, and decides one thing.
 
 GPU runs go through `train_ops pipeline` in the campaign lead's queue.
 
-## 7. Status
+**Risks, said plainly.** (1) The block reads the frozen trunk, and the
+campaign's priority probe (gate 2, 10 November 18:53, after this note's
+design) failed on it: a set transformer on the frozen state and candidate
+embeddings reaches 33 % top-1 at N != R (62 % within the decided scope of
+cast, pass, instant on their turn and spend) and underfits its own training
+sample, so the inputs lack what the layer reads. The block sees more than that
+probe did (every entity token, not one pooled state vector, and its own
+proposal), so measurement 1 on the same decisions is a fair and cheap test:
+clearly above the probe's numbers and rising per step, or the block does not
+belong on a frozen trunk. The decided round 0 trains stage A (head only) and
+stage B (top 4 of 12 trunk layers) side by side; the block is a third and
+fourth arm on the same data (A + block with `--train-thinking-only`; B + block
+with the upper trunk trained beside it), and the expectation after gate 2 is
+that it earns its place with B or not at all. (2) Arm c (candidates attending to the board) imitated
+better and played 5.1 pp worse; better per-step imitation numbers are not
+strength, which is why measurement 3 is play and measurement 5 compares with
+the plain adapter. (3) Deep supervision can make every step equally good
+instead of later steps better (the block answers in one step and repeats
+itself); the ablations (b) and (c) show whether depth earns anything, and if
+it does not, the honest reading is "one comparison step over the answers
+helps, iteration does not", and K stays 1.
 
-Filled in after the build (what exists, tests, measured cost).
+## 7. Status (10 November, after the build)
+
+Built on branch `c42/ai-thinking`, off by default everywhere; a net without the
+block and every existing flag behave as before (archived configurations,
+checkpoints and exports are byte-for-byte what they were).
+
+- **Model** (`tools/trainer/model5/deliberation.py`): `Config5.thinking_revision
+  = 2` adds the block; `scratchpad_steps`, `deliberation_steps` (default 4),
+  `deliberation_width` (256), `deliberation_candidates` (16),
+  `deliberation_feedback` (off = ablation 6.2a). The architecture label is
+  unchanged (the graph's tensors are; older runtimes load the export and play
+  it at a fixed depth); the configuration and `thinking_outputs` in the export
+  metadata declare the block. `attach_thinking5.py` attaches it to a checkpoint
+  without training (plays as its source).
+- **Training** (`training4/think_loss.py`, `train5.py` flags
+  `--thinking-revision 2 --thinking-warmstart --train-thinking-only
+  --think-supervision` and the four weights): the trace reaches the loss
+  through `deferred_readouts` (`net.thinking_frames`). With thinking revision 2
+  `--thinking-steps` is the trunk's scratchpad depth and every pass runs the
+  configured deliberation steps.
+- **Export** (`export_onnx4.py`): the depth graphs `model.k0..k8.onnx` now run
+  K deliberation steps on the fixed scratchpad and add the output
+  `think_confidence`; parity with PyTorch on r1 with the block attached 2e-5.
+- **Seat** (`netplay4/thinking.rs`): `seat4` and `eval4`
+  `--think-adaptive DEEP,THRESHOLD` (a second pass at DEEP steps when the first
+  pass's confidence is below THRESHOLD; refused for a model that states no
+  confidence, for collection and for search); the answer's provenance names the
+  depth that gave it; `eval4` reports the share of decisions thought through
+  again per deal and per run.
+- **Measurement tools**: `thinking_probe5.py` (legacy depths, or per-step
+  corrections, breakages, confidence calibration and escalation shares for a
+  net with the block), `bench_thinking5.py` (latency).
+- **Tests**: `tools/trainer/test_thinking5.py` (12: archived configurations
+  untouched; a fresh block equals its source at every depth; steps read the
+  proposal and the ablation does not; per-row depth and padding; reference and
+  deferred execution agree and the trace is the readout; every loss term
+  reaches the block and only the block; a toy task where later steps correct a
+  wrong first proposal and the confidence separates right from wrong; ONNX
+  parity at every depth; the export's metadata; the driver end to end; the
+  tools). Rust: `netplay4::thinking` (5) and, with an export
+  (`BAYLEE_TEST_THINK_MODEL`), a game in which always thinking again answers
+  as the deep graph and never thinking again as the shallow one.
+
+**Not built:** part D (lookahead over the opponent's answers); blocker pairs
+and the scalar head in the block; the RL terms of §3; the split export for an
+NPU. **Not measured:** anything about strength. The block is untrained; §6 is
+the plan, and until its step 1 passes on stage A data nothing says the new
+thinking helps.
