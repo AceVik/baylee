@@ -16,12 +16,13 @@ pub fn unix_time() -> Result<f64> {
     Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs_f64())
 }
 
-/// Read a JSON receipt.
+/// Read a JSON receipt. The file is read whole and parsed from memory: a bare
+/// `File` under `serde_json::from_reader` costs one system call per byte.
 /// # Errors
 /// Rejects missing, unreadable or malformed files.
 pub fn read_json(path: &Path) -> Result<Value> {
-    serde_json::from_reader(File::open(path).with_context(|| format!("open {}", path.display()))?)
-        .with_context(|| format!("read {}", path.display()))
+    let bytes = fs::read(path).with_context(|| format!("open {}", path.display()))?;
+    serde_json::from_slice(&bytes).with_context(|| format!("read {}", path.display()))
 }
 
 fn output_parent(path: &Path) -> Result<&Path> {

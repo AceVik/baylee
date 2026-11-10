@@ -52,7 +52,7 @@ pub struct Consumer {
 pub fn consume(path: &Path, interrupted: &AtomicBool) -> Result<()> {
     let manifest = path.canonicalize()?;
     let path = manifest.as_path();
-    let plan: Consumer = serde_json::from_reader(fs::File::open(path)?)?;
+    let plan: Consumer = serde_json::from_slice(&fs::read(path)?)?;
     ensure!(
         plan.version == 1 && plan.max_packages > 0 && !plan.train_command.is_empty(),
         "explicit version1 bounded training manifest required"
