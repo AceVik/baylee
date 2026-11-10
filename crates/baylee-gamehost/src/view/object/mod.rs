@@ -363,7 +363,9 @@ pub(super) fn public_object(
         subtypes: chars.subtypes,
         chosen_subtype: obj.chosen_subtype,
         chosen_opponent: obj.chosen_opponent(),
-        chosen_color: obj.chosen_color,
+        // A face-down permanent keeps what it chose while face up; shown, it
+        // would help name the card. Hidden with the card.
+        chosen_color: obj.chosen_color.filter(|_| known),
         chosen_x: announced_x(obj, chars),
         chosen_name: obj.chosen_name.map(|named| baylee_view::NamedFace {
             card: named.card(),
