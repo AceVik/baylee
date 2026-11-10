@@ -693,19 +693,12 @@ impl VideoStream {
 
     fn spawn_ffmpeg(mp4_path: &std::path::Path) -> Option<std::process::Child> {
         use std::process::{Command, Stdio};
-        // VideoToolbox is the Mac's decoder; elsewhere ffmpeg picks what the
-        // machine has, or decodes in software.
-        let hwaccel = if cfg!(target_os = "macos") {
-            "videotoolbox"
-        } else {
-            "auto"
-        };
         Command::new("ffmpeg")
             .args([
                 "-v",
                 "error",
                 "-hwaccel",
-                hwaccel,
+                "videotoolbox",
                 "-stream_loop",
                 "-1",
                 "-i",
@@ -731,6 +724,11 @@ impl VideoStream {
             atomic::{AtomicBool, AtomicU64, Ordering},
         };
 
+        // VideoToolbox and a player's own ffmpeg are a Mac's; elsewhere the
+        // still picture stands, as it does before a loop is found.
+        if !cfg!(target_os = "macos") {
+            return None;
+        }
         // Where the asset server reads `assets/` from: `BEVY_ASSET_ROOT`, the
         // crate under `cargo run`, else beside the executable (a package). Not
         // a path baked in at build time: that names the build machine's tree.
@@ -759,6 +757,9 @@ impl VideoStream {
             .spawn(move || {
                 let mut work_buf = Vec::new();
                 let mut failures: u32 = 0;
+                // When the next try may spawn a decoder: the reader is unparked
+                // every frame the vista shows, so a pause alone would not hold.
+                let mut retry_at: Option<std::time::Instant> = None;
                 let mut last_tick = u64::MAX;
                 let mut stdout: Option<std::process::ChildStdout> = None;
                 let mut idle_polls: u32 = 0;
@@ -792,6 +793,13 @@ impl VideoStream {
                             // Given up, or nothing to play: wait for `stop`.
                             std::thread::park();
                             continue;
+                        }
+                        if let Some(at) = retry_at {
+                            let now = std::time::Instant::now();
+                            if now < at {
+                                std::thread::park_timeout(at - now);
+                                continue;
+                            }
                         }
                         if let Some(mut proc) = Self::spawn_ffmpeg(&mp4_path) {
                             work_buf.resize(Self::FRAME_BYTES, 0);
@@ -828,7 +836,7 @@ impl VideoStream {
                                 let _ = child.wait();
                             }
                             failures += 1;
-                            std::thread::park_timeout(Self::backoff(failures));
+                            retry_at = Some(std::time::Instant::now() + Self::backoff(failures));
                         }
                     }
                 }
