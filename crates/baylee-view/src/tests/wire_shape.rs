@@ -375,7 +375,11 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // defaulted and omitted when `None`, so 90 still names the shape.
     // `GameStatic::table_seed` is additive, defaulted and omitted when zero, so
     // 90 still names the shape.
-    const RECORDED: (u32, u64) = (90, 6_702_446_822_327_946_934);
+    // `SeatSetting::ShareHandOnce` is a variant a client sends and never
+    // reads, and `HouseRules::hand_sharing` is additive, defaulted and omitted
+    // at its default: a reader of 90 decodes every view and static as before,
+    // so 90 still names the shape.
+    const RECORDED: (u32, u64) = (90, 8_497_191_903_770_965_639);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

@@ -151,6 +151,7 @@ fn a_setting_naming_seats_past_the_table_moves_nothing() {
         SeatSetting::ShareHand((0..=SeatSet::MAX_SEAT).map(PlayerId::new).collect()),
         SeatSetting::RequestHand(PlayerId::new(u8::MAX)),
         SeatSetting::DeclineHand(PlayerId::new(u8::MAX)),
+        SeatSetting::ShareHandOnce((0..=SeatSet::MAX_SEAT).map(PlayerId::new).collect()),
     ];
     for setting in settings {
         set(&mut runner, 0, baylee_core::wire::encode(&setting));

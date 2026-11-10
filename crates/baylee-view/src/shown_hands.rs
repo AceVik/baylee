@@ -33,17 +33,21 @@ pub enum SeatSetting {
     /// already in force changes nothing. Omitting a teammate from `ShareHand`
     /// also clears any one-time snapshot previously shown to them.
     ShareHand(SeatSet),
-    /// Show a one-time snapshot of the cards currently in this seat's hand to
-    /// these teammates. Those exact cards remain visible while they stay in
-    /// this seat's hand, whereas cards drawn afterwards remain hidden unless
-    /// shared again. Sending an empty set clears all one-time snapshots from
-    /// this seat.
-    ShareHandOnce(SeatSet),
     /// Ask a teammate to show this seat their hand.
     RequestHand(PlayerId),
     /// Turn down a teammate's request (and clear any snapshot shown to them).
     /// They may ask again from the next turn on.
     DeclineHand(PlayerId),
+    /// Show a one-time snapshot of the cards currently in this seat's hand to
+    /// these teammates. Those exact cards remain visible while they stay in
+    /// this seat's hand, whereas cards drawn afterwards remain hidden unless
+    /// shared again. Sending an empty set clears all one-time snapshots from
+    /// this seat.
+    ///
+    /// Last, and it stays last: the wire names a variant by its place, so a
+    /// variant put between the others would make an older client's
+    /// `RequestHand` read as this.
+    ShareHandOnce(SeatSet),
 }
 
 #[cfg(test)]
@@ -60,5 +64,21 @@ mod tests {
         wire.as_object_mut().unwrap().remove("public");
         let decoded: SharedHand = serde_json::from_value(wire).unwrap();
         assert!(!decoded.public);
+    }
+
+    /// The wire names a setting by its place. The settings an older client
+    /// sends keep theirs, so a new one can only come after them.
+    #[test]
+    fn every_setting_keeps_its_place_on_the_wire() {
+        let seat = PlayerId::new(1);
+        let set: SeatSet = [seat].into_iter().collect();
+        let places = [
+            SeatSetting::ShareHand(set),
+            SeatSetting::RequestHand(seat),
+            SeatSetting::DeclineHand(seat),
+            SeatSetting::ShareHandOnce(set),
+        ]
+        .map(|setting| baylee_core::wire::encode(&setting)[0]);
+        assert_eq!(places, [0, 1, 2, 3]);
     }
 }
