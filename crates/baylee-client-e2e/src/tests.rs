@@ -261,6 +261,49 @@ fn two_controls_on_one_spot_overlap() {
     );
 }
 
+/// A modal over the screen: its shade (a pressable node over the whole
+/// window) and two buttons, one where "Play offline" lies under it, the
+/// other beside it or, `overlapping`, on top of it.
+fn under_a_modal(overlapping: bool) -> Screen {
+    edited(FRONT_LAPTOP, |before, state| {
+        let under = before.nodes()[pressable(before, "Play offline")].rect;
+        let window = before.window();
+        // In the window's corner, clear of everything; or on the Cancel.
+        let (x, y, w, h) = if overlapping {
+            (under.x + 10.0, under.y, under.w, under.h)
+        } else {
+            (20.0, 20.0, 100.0, 30.0)
+        };
+        let rows = state["shell_nodes"].as_array_mut().expect("rows");
+        rows.push(json!({"d":0,"r":"modal","x":0.0,"y":0.0,"w":window.w,"h":window.h,"i":true}));
+        rows.push(
+            json!({"d":1,"x":under.x,"y":under.y,"w":under.w,"h":under.h,"i":true,"t":"Cancel"}),
+        );
+        rows.push(json!({"d":1,"x":x,"y":y,"w":w,"h":h,"i":true,"t":"Sign in"}));
+    })
+}
+
+#[test]
+fn under_a_modal_s_shade_only_the_modal_is_checked() {
+    let modal = under_a_modal(false);
+    assert_eq!(
+        modal.layout().issues(&modal),
+        [],
+        "the shade and the modal's button over the screen are no overlap"
+    );
+    let faulty = under_a_modal(true);
+    let issues = faulty.layout().issues(&faulty);
+    assert!(
+        issues.iter().any(|issue| matches!(
+            issue,
+            Issue::Overlap { first, second, .. }
+                if first == "Cancel" && second == "Sign in"
+        )),
+        "a fault in the modal is still found: {issues:?}"
+    );
+    assert_eq!(issues.len(), 1, "and only it: {issues:?}");
+}
+
 #[test]
 fn small_targets_are_a_touch_check_only() {
     let phone = screen(FRONT_PHONE);
