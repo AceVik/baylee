@@ -127,6 +127,10 @@ pub struct Step4 {
     /// subtype, the groups that fired).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub distill: Option<distill_labels::DistillFrame4>,
+    /// `eval4 --explore-rules`: the behaviour mixture of an explored learner
+    /// decision, beside its recorded π; absent from ordinary output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub behavior_mixture: Option<baylee_train_ops::exploration::StepExploration>,
 }
 
 /// The net's own answer `N` at a distilled decision, by head.

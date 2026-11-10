@@ -62,11 +62,11 @@ def main() -> None:
     import os
     from contextlib import ExitStack
     from .checkpoint import load_policy,training_payload,restore_training,native_source_digest,native_verify_admission
-    from .checkpoint import validate_resume_probability,FULL_PPO_CONTRACT_VERSION,BEHAVIOR_PROBABILITY_REFERENCE
+    from .checkpoint import validate_resume_probability,FULL_PPO_CONTRACT_VERSION,BEHAVIOR_PROBABILITY_REFERENCES
     from .forward import episode_prefixes
     from .optimization import transactional_update,collection_divergence
     from .supervised import supervised_loss
-    from policy_training4.targets import prepare_policy_targets
+    from policy_training4.targets import prepare_policy_targets,BEHAVIOR_DENOMINATORS
     ap=argparse.ArgumentParser(description='FP32 full-model recurrent PPO with current-policy burn-in and collection-wide KL rollback')
     ap.add_argument('--init',required=True)
     ap.add_argument('--rollout-data','--rollout',dest='rollout_data',required=True)
@@ -74,6 +74,9 @@ def main() -> None:
     ap.add_argument('--out',required=True)
     ap.add_argument('--resume',default='')
     ap.add_argument('--audit-only',action='store_true')
+    ap.add_argument('--behavior-denominator',choices=BEHAVIOR_DENOMINATORS,default=None,
+                    help='PPO denominator: the recorded executed-action probability (default) or, for '
+                    'exploration records (eval4 --explore-rules), their behaviour mixture; such data names one')
     ap.add_argument('--anchor-data',default='')
     ap.add_argument('--anchor-mix-weight',type=float,default=.25)
     ap.add_argument('--batch-size',type=int,default=4)
@@ -122,7 +125,8 @@ def main() -> None:
             raise ValueError('Rollout and policy rule catalogs differ')
         from policy_training4.admission import select_learner_histories, check_audit
         admission=select_learner_histories(dataset,args.admission,source_hash)
-        audit=prepare_policy_targets(net,dataset,device,batch_size=args.batch_size,board_chunk=0)
+        audit=prepare_policy_targets(net,dataset,device,batch_size=args.batch_size,board_chunk=0,
+                                     denominator=args.behavior_denominator)
         resources.callback(dataset._policy_targets_directory.cleanup)
         check_audit(admission,audit)
         for trajectory in dataset.trajectories:
@@ -144,8 +148,11 @@ def main() -> None:
             resources.callback(anchor_dataset.store.close)
             if anchor_dataset.structure.digest!=net.rules.digest:
                 raise ValueError('Supervised anchor rule catalog differs')
+            if anchor_dataset.meta.get('behavior_mixture') is not None:
+                raise ValueError('Exploration records are no supervised anchor: outcomes are their only labels')
             anchor_prefixes=episode_prefixes(anchor_dataset)
-        contract=dict(version=FULL_PPO_CONTRACT_VERSION,behavior_probability_reference=BEHAVIOR_PROBABILITY_REFERENCE,
+        contract=dict(version=FULL_PPO_CONTRACT_VERSION,
+                      behavior_probability_reference=BEHAVIOR_PROBABILITY_REFERENCES[audit['behavior_denominator']],
                       collection_audit='current_policy_streaming_v1',
                       source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
                       admission=admission,encoder_version=source['encoder_version'],

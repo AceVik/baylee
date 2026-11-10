@@ -166,6 +166,11 @@ fn a_frame_round_trips_and_an_empty_frame_is_unchanged() {
     }
     // A frame without exploration keeps its flags and a zero word.
     assert_eq!(FrameMixture::decode(0b111, 0).unwrap(), None);
+    // A bundle-distillation frame's N ≠ R bit is no exploration either.
+    assert_eq!(
+        FrameMixture::decode(0b111 | frame::DISTILL_DIFFERS, 0).unwrap(),
+        None
+    );
     assert!(
         FrameMixture::decode(0b111, 7).is_err(),
         "a word without the flag"

@@ -330,6 +330,7 @@ fn replay_feature_frames(
                                     seat_input: None,
                                     distill: None,
                                     cand_classes: None,
+                                    behavior_mixture: None,
                                 },
                                 cur_life,
                             )?;
@@ -435,6 +436,18 @@ fn replay_feature_frames(
                             has_logprob: false,
                         }
                     };
+                    // The behaviour mixture rides only on the net's own executed
+                    // answer in an ordinary conversion; never on a relabelled step.
+                    let behavior_mixture = cur_sidecar.and_then(|entry| entry.exploration.clone());
+                    if behavior_mixture.is_some()
+                        && (prov.source != SourceKind4::Net
+                            || shadow.is_some()
+                            || llm.is_some()
+                            || live_bc
+                            || !matches!(purpose, FeaturePurpose::Ordinary))
+                    {
+                        return Err("an exploration record outside an ordinary neural step".into());
+                    }
                     let mut policy_weight = step_loss_weight;
                     let mut shadow_label = None;
                     if llm.is_some() {
@@ -551,6 +564,7 @@ fn replay_feature_frames(
                                 .then(|| u32::try_from(input_idx - 1).unwrap_or(u32::MAX)),
                             distill: None,
                             cand_classes,
+                            behavior_mixture,
                         },
                         cur_life,
                     )?;

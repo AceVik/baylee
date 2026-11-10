@@ -36,6 +36,10 @@ def _main(resources):
     parser.add_argument("--board-chunk", type=int, default=4)
     parser.add_argument("--seed", type=int, default=31431)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument("--behavior-denominator", choices=("executed_policy", "behavior_mixture"),
+                        default=None, help="PPO denominator: the recorded executed-action probability "
+                        "(default) or, for exploration records (eval4 --explore-rules), their behaviour "
+                        "mixture; such data names one")
     args = parser.parse_args()
     if min(args.epochs, args.max_steps, args.batch_size, args.unroll) < 1 or args.min_policy_decisions < 128 or args.lr <= 0 or args.target_kl <= 0 or not 0 < args.clip_eps < 1:
         parser.error("Invalid PPO configuration")
@@ -57,7 +61,8 @@ def _main(resources):
         raise ValueError("Rollout and model use different public rule catalogs")
     admission = select_learner_histories(dataset, args.admission, source_hash)
     from .targets import prepare_policy_targets
-    audit = prepare_policy_targets(net, dataset, device, batch_size=args.batch_size, board_chunk=args.board_chunk)
+    audit = prepare_policy_targets(net, dataset, device, batch_size=args.batch_size, board_chunk=args.board_chunk,
+                                   denominator=args.behavior_denominator)
     resources.callback(dataset._policy_targets_directory.cleanup)
     check_audit(admission, audit)
     parameters = select_policy_parameters(net)

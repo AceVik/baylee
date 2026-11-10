@@ -166,3 +166,112 @@ fn original_source_namespace_cannot_be_counted_as_multiple_converted_games() {
         }
     }
 }
+
+mod mixture {
+    use super::*;
+    use crate::exploration::{CONTRACT, RuleProposal, mixture_logprob, net_probability};
+
+    const EPSILON: f64 = 0.25;
+
+    /// The learner (seat 0) explored: its first decision played the layer's
+    /// answer (`rule:mass`), its second sampled what the layer answered.
+    fn explore(rows: &mut [Value], meta: &mut Value) {
+        meta["behavior_mixture"] = json!({"version":1,"contract":CONTRACT,
+            "supervised_policy_weight":0.0,"proposers":["net","rules","rule:mass"]});
+        for (at, row) in rows.iter_mut().enumerate() {
+            row["loss_weight"] = json!(0.0);
+            if row["seat"] == 0 {
+                let played = at == 0;
+                let rule = if played {
+                    RuleProposal::Differs
+                } else {
+                    RuleProposal::Same
+                };
+                let mu =
+                    mixture_logprob(net_probability(true, -0.7, played), EPSILON, rule, played);
+                row["behavior_mixture"] = json!({"mixture_logprob":mu,"rule":rule,
+                    "played":played,"proposer":if played {2} else {0}});
+            }
+        }
+    }
+
+    fn declare(manifest: &Path, epsilon: f64) {
+        let mut value = files::read_json(manifest).unwrap();
+        value["games"][0]["behavior_mixture"] = json!({"contract":CONTRACT,"epsilon":epsilon});
+        files::atomic_json(manifest, &value).unwrap();
+    }
+
+    #[test]
+    fn a_consistent_mixture_is_admitted_and_counted() {
+        let (temp, checkpoint, manifest) = setup(|rows, meta| explore(rows, meta));
+        declare(&manifest, EPSILON);
+        let report = admit(temp.path(), &checkpoint, &manifest).unwrap();
+        assert_eq!(report["decisions"], 2, "π is audited as before");
+        assert_eq!(report["behavior_mixture"]["explored_decisions"], 2);
+        assert_eq!(report["behavior_mixture"]["rule_answers_played"], 1);
+        let receipt = temp.path().join("admission.json");
+        files::atomic_json(&receipt, &report).unwrap();
+        assert_eq!(verify(temp.path(), &checkpoint, &receipt).unwrap(), report);
+        // Without exploration the receipt names none.
+        let (plain, checkpoint, manifest) = setup(|_, _| {});
+        let report = admit(plain.path(), &checkpoint, &manifest).unwrap();
+        assert!(report.get("behavior_mixture").is_none());
+    }
+
+    #[test]
+    fn a_tampered_mixture_is_refused() {
+        type Edit = fn(&mut Vec<Value>, &mut Value);
+        let variants: [(&str, Edit); 9] = [
+            ("μ moved", |rows, _| {
+                let mu = rows[0]["behavior_mixture"]["mixture_logprob"]
+                    .as_f64()
+                    .unwrap();
+                rows[0]["behavior_mixture"]["mixture_logprob"] = json!(mu - 0.01);
+            }),
+            ("π moved under the same μ", |rows, _| {
+                rows[0]["provenance"]["behavior_logprob"] = json!(-0.8);
+            }),
+            ("played what did not differ", |rows, _| {
+                rows[0]["behavior_mixture"]["rule"] = json!("same");
+            }),
+            ("a played answer credited to the net", |rows, _| {
+                rows[0]["behavior_mixture"]["proposer"] = json!(0);
+            }),
+            ("a proposer outside the table", |rows, _| {
+                rows[0]["behavior_mixture"]["proposer"] = json!(7);
+            }),
+            ("an explored decision without μ", |rows, _| {
+                rows[2].as_object_mut().unwrap().remove("behavior_mixture");
+            }),
+            ("μ on the opponent's frame", |rows, _| {
+                rows[1]["behavior_mixture"] = rows[2]["behavior_mixture"].clone();
+            }),
+            ("a decision with a supervised weight", |rows, _| {
+                rows[1]["loss_weight"] = json!(1.0);
+            }),
+            ("a dataset that does not declare its mixture", |_, meta| {
+                meta.as_object_mut().unwrap().remove("behavior_mixture");
+            }),
+        ];
+        for (why, edit) in variants {
+            let (temp, checkpoint, manifest) = setup(|rows, meta| {
+                explore(rows, meta);
+                edit(rows, meta);
+            });
+            declare(&manifest, EPSILON);
+            assert!(admit(temp.path(), &checkpoint, &manifest).is_err(), "{why}");
+        }
+        // The manifest's ε is part of the check, and so is its declaration.
+        let (temp, checkpoint, manifest) = setup(|rows, meta| explore(rows, meta));
+        declare(&manifest, 0.3);
+        assert!(
+            admit(temp.path(), &checkpoint, &manifest).is_err(),
+            "another ε"
+        );
+        let (temp, checkpoint, manifest) = setup(|rows, meta| explore(rows, meta));
+        assert!(
+            admit(temp.path(), &checkpoint, &manifest).is_err(),
+            "frames with μ in a game that declares none"
+        );
+    }
+}

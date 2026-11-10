@@ -51,6 +51,18 @@ struct Game {
     refused_answers: u64,
     unencoded_decisions: u64,
     seats: Vec<Seat>,
+    /// The learner's rule-proposal exploration, when it explored
+    /// (`crate::exploration`); absent in every other manifest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    behavior_mixture: Option<GameMixture>,
+}
+
+/// What a game's manifest says of its learner's exploration.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GameMixture {
+    contract: String,
+    pub(super) epsilon: f64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -230,9 +242,49 @@ fn collection_roles(
             }
         }
         ensure!(learner, "game has no learner");
+        if let Some(mixture) = &game.behavior_mixture {
+            ensure!(
+                mixture.contract == crate::exploration::CONTRACT,
+                "unknown behaviour mixture contract in game {}",
+                game.game_id
+            );
+            crate::exploration::validate_epsilon(mixture.epsilon)?;
+        }
     }
     ensure!(!games.is_empty(), "empty collection");
     Ok(roles)
+}
+
+/// The dataset's exploration: each exploring game's mixture and the
+/// proposer table its frames index. A dataset declares it exactly when some
+/// game of its manifest explored.
+fn mixtures(collection: &Collection, meta: &Value) -> Result<rows::Mixtures> {
+    let games: BTreeMap<u32, GameMixture> = collection
+        .games
+        .iter()
+        .filter_map(|game| Some((game.game_id, game.behavior_mixture.clone()?)))
+        .collect();
+    let declared = &meta["behavior_mixture"];
+    if games.is_empty() {
+        ensure!(
+            declared.is_null(),
+            "a behaviour mixture in a dataset whose games declare none"
+        );
+        return Ok(rows::Mixtures::default());
+    }
+    ensure!(
+        declared["version"] == 1
+            && declared["contract"] == crate::exploration::CONTRACT
+            && declared["supervised_policy_weight"] == 0.0,
+        "an exploring collection's dataset must declare its behaviour mixture"
+    );
+    let proposers: Vec<String> = serde_json::from_value(declared["proposers"].clone())
+        .context("behaviour mixture proposers")?;
+    crate::exploration::validate_proposers(&proposers)?;
+    Ok(rows::Mixtures {
+        games,
+        proposers: proposers.len(),
+    })
 }
 
 /// Audit raw rows and publish a receipt bound to the model, roles and dataset bytes.
@@ -271,6 +323,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
         inputs == collection.dataset_files,
         "collection dataset seals do not match actual inputs"
     );
+    let mixtures = mixtures(&collection, &meta)?;
     let fingerprint = dataset_fingerprint(root)?;
     let mut histories = BTreeMap::<(u32, u8), rows::History>::new();
     for path in shard_paths(root, &meta)? {
@@ -278,7 +331,10 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
             let row: rows::Row = serde_json::from_value(value)?;
             let key = (row.game_id, row.seat);
             let role = roles.get(&key).context("unbound game/seat in dataset")?;
-            histories.entry(key).or_default().observe(&row, role)?;
+            histories
+                .entry(key)
+                .or_default()
+                .observe(&row, role, &mixtures)?;
             Ok(())
         })?;
     }
@@ -288,6 +344,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
     );
     let mut admitted = Vec::new();
     let mut decisions = 0_u64;
+    let (mut explored, mut played) = (0_u64, 0_u64);
     for (key, history) in &histories {
         ensure!(
             history.terminal && history.frames > 0,
@@ -297,6 +354,8 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
             admitted.push(json!({"game_id":key.0,"seat":key.1}));
             decisions += history.decisions;
         }
+        explored += history.explored;
+        played += history.rule_played;
     }
     ensure!(
         decisions > 0 && !admitted.is_empty(),
@@ -314,9 +373,15 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
             && dataset_fingerprint(root)? == fingerprint,
         "inputs changed during admission"
     );
-    Ok(
-        json!({"version":1,"admitted":true,"source_checkpoint_sha256":source_sha,"dataset_fingerprint":fingerprint,"collection_contract":{"mode":"raw","actor_role":"learner","precision":"float32","thinking_steps":2,"temperature":0.7},"admitted_learner_histories":admitted,"completed_games":collection.games.len(),"learner_histories":admitted.len(),"decisions":decisions,"excluded_invalid_games":0,"dataset_files":inputs,"collection_manifest":collection_path.canonicalize()?,"collection_manifest_sha256":collection_sha,"probability_replay_required":true}),
-    )
+    let mut receipt = json!({"version":1,"admitted":true,"source_checkpoint_sha256":source_sha,"dataset_fingerprint":fingerprint,"collection_contract":{"mode":"raw","actor_role":"learner","precision":"float32","thinking_steps":2,"temperature":0.7},"admitted_learner_histories":admitted,"completed_games":collection.games.len(),"learner_histories":admitted.len(),"decisions":decisions,"excluded_invalid_games":0,"dataset_files":inputs,"collection_manifest":collection_path.canonicalize()?,"collection_manifest_sha256":collection_sha,"probability_replay_required":true});
+    if !mixtures.games.is_empty() {
+        // Only exploring collections name it, so other receipts stay as they were.
+        receipt["behavior_mixture"] = json!({"contract":crate::exploration::CONTRACT,
+            "exploring_games":mixtures.games.len(),"explored_decisions":explored,
+            "rule_answers_played":played,"checked":"ln mu = ln((1 - eps) pi + eps 1[a = R]) per frame",
+            "supervised_policy_weight":0.0});
+    }
+    Ok(receipt)
 }
 
 /// Recheck a previously issued receipt before a `PyTorch` process consumes it.

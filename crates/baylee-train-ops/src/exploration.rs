@@ -289,8 +289,12 @@ pub mod frame {
     /// Every bit the mixture may set.
     pub const BITS: u32 =
         MIXTURE | RULE_SAME | RULE_DIFFERS | RULE_PLAYED | (0xff << PROPOSER_SHIFT);
-    /// The bits a frame had before: decision, terminal, log-probability.
-    pub const BASE_BITS: u32 = 0b111;
+    /// Bundle distillation's `N ≠ R` (`convert4 --bundle-distill`): the net's
+    /// own answer differs from the frame's label.
+    pub const DISTILL_DIFFERS: u32 = 1 << 7;
+    /// The bits a frame has without exploration: decision, terminal,
+    /// log-probability and bundle distillation's `N ≠ R`.
+    pub const BASE_BITS: u32 = 0b111 | DISTILL_DIFFERS;
     /// The reserved header word's byte offset.
     pub const WORD_OFFSET: usize = 40;
 
