@@ -21,13 +21,33 @@
 //!   explored) it plays the best, and leaves `N` only when the best is
 //!   better by more than the margin.
 //!
+//! Stage S1 (`docs/trained-ai.md` §"The tactician, stage S1") adds two modes
+//! that never read `R` in a row:
+//!
+//! - [`TacticianMode4::Imitate`] (bootstrap collection, [`imitate`]): the
+//!   tactical layer plays the seat as `--choice-guard tactical` with its rule
+//!   groups does; at each window its answer `R` is the label, played with
+//!   probability `1 − ε`, `N` with `ε/3` when it differs, the rest spread over
+//!   the neighbors of `R`. The records (`tactician_imitation_v1`) teach the
+//!   tactician and nothing else ([`imitate::refuse_imitation`]).
+//! - [`TacticianMode4::Build`] (play, [`build`]): a `tactician_head_v2` net
+//!   ([`net`]) reads the rows and gives per-unit logits and a confidence; the
+//!   question's own constrained decoder turns the logits into a legal answer.
+//!   Below the confidence threshold it plays `N`, the trunk's own answer,
+//!   never a rule's.
+//!
 //! Nothing here reads the session: the look is computed from the seat's view
 //! and a prior over the training decks ([`look`]), never from a deck list.
 
+mod build;
 pub mod head;
+pub mod imitate;
 pub mod look;
+pub mod net;
 #[cfg(test)]
-mod tests;
+pub(in crate::netplay4) mod tests;
+#[cfg(test)]
+pub(in crate::netplay4) mod tests_s1;
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -135,6 +155,8 @@ pub enum Drawn4 {
     Neighbor,
     /// The head's choice ([`TacticianMode4::Play`]).
     Head,
+    /// The answer a `tactician_head_v2` built ([`TacticianMode4::Build`]).
+    Built,
 }
 
 /// How the tactician answers.
@@ -152,6 +174,27 @@ pub enum TacticianMode4 {
         /// How much better (in utility) an answer must score than `N`.
         margin: f32,
     },
+    /// Bootstrap collection: the tactical layer plays, its answer `R` is the
+    /// label, and the seat leaves it at rate `epsilon` ([`imitate`]).
+    Imitate {
+        /// The probability of leaving the layer's answer, `0 ≤ ε < 1`.
+        epsilon: f64,
+    },
+    /// Play: a `tactician_head_v2` builds the answer ([`build`]).
+    Build {
+        /// The trained net.
+        net: Arc<net::TacticianNet4>,
+        /// Below this confidence the seat plays `N`.
+        threshold: f32,
+    },
+}
+
+impl TacticianMode4 {
+    /// Whether this mode answers after the tactical layer, from its answer.
+    #[must_use]
+    pub const fn imitates(&self) -> bool {
+        matches!(self, Self::Imitate { .. })
+    }
 }
 
 /// One window decision, as collection keeps it.
@@ -193,6 +236,30 @@ pub struct TacticianRecord4 {
     /// The head's score per row, the null row first (play only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scores: Option<Vec<f32>>,
+    /// Per unit, the group it belongs to: its attacker at an attack, its
+    /// blocker at a block, one group at a target. A group takes at most one
+    /// unit (imitation and v2 only).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<u32>,
+    /// What the label is (`"rules"`, imitation only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Whether the rows carry the tactical layer's answer (columns 5 and 11);
+    /// `Some(false)` in imitation and v2, absent (true) in stage 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows_read_rules: Option<bool>,
+    /// The v2 net's per-unit logits of its final pass (build only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built_logits: Option<Vec<f32>>,
+    /// The answer the v2 net built, played or not (build only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built: Option<Vec<u8>>,
+    /// The v2 net's confidence that its answer is the label (build only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f32>,
+    /// Microseconds of the v2 net's forward alone (build only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_micros: Option<u64>,
     /// The thought-through global slot, `[d]`.
     #[serde(skip)]
     pub state: Vec<f32>,
@@ -224,6 +291,32 @@ pub struct TacticianStats4 {
     pub rules_differ: u64,
     /// Neighbors offered, summed.
     pub neighbors: u64,
+    /// The answer a v2 net built played (build only).
+    #[serde(skip_serializing_if = "is_zero")]
+    pub drawn_built: u64,
+    /// Decisions where a v2 net was below its threshold and `N` played.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub fell_back: u64,
+    /// Decisions where the v2 net built the net's own answer `N` (build
+    /// only): how far it moves from the trunk.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub built_is_net: u64,
+    /// Microseconds per decision, in order, for the latency report: the
+    /// whole tactician, and the v2 net's forward alone.
+    #[serde(skip)]
+    pub micros: Vec<u64>,
+    /// The v2 net's forward alone.
+    #[serde(skip)]
+    pub net_micros: Vec<u64>,
+}
+
+/// For `skip_serializing_if`: stage-1 summaries keep their keys.
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde passes a reference"
+)]
+const fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 impl TacticianStats4 {
@@ -238,7 +331,38 @@ impl TacticianStats4 {
             Drawn4::Rules => self.drawn_rules += 1,
             Drawn4::Neighbor => self.drawn_neighbor += 1,
             Drawn4::Head => self.drawn_head += 1,
+            Drawn4::Built => self.drawn_built += 1,
         }
+        if let Some(built) = &record.built {
+            self.fell_back += u64::from(record.drawn == Drawn4::Net);
+            self.built_is_net += u64::from(*built == record.net);
+        }
+        self.micros.push(record.micros);
+        if let Some(micros) = record.net_micros {
+            self.net_micros.push(micros);
+        }
+    }
+
+    /// Median, 90th percentile and largest of `samples`, in milliseconds.
+    #[must_use]
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a report's quantiles of microsecond counts"
+    )]
+    pub fn latency(samples: &[u64]) -> Option<serde_json::Value> {
+        if samples.is_empty() {
+            return None;
+        }
+        let mut sorted = samples.to_vec();
+        sorted.sort_unstable();
+        let at = |q: f64| sorted[((sorted.len() - 1) as f64 * q).round() as usize] as f64 / 1e3;
+        let mean = sorted.iter().sum::<u64>() as f64 / sorted.len() as f64 / 1e3;
+        Some(
+            serde_json::json!({"n": sorted.len(), "median_ms": at(0.5), "p90_ms": at(0.9),
+            "p99_ms": at(0.99), "max_ms": at(1.0), "mean_ms": mean}),
+        )
     }
 }
 
@@ -278,11 +402,17 @@ impl Tactician4 {
         prior: Arc<LookPrior4>,
     ) -> anyhow::Result<Self> {
         match &mode {
-            TacticianMode4::Explore { epsilon } => {
+            TacticianMode4::Explore { epsilon } | TacticianMode4::Imitate { epsilon } => {
                 anyhow::ensure!((0.0..1.0).contains(epsilon), "ε must lie in [0, 1)");
             }
             TacticianMode4::Play { margin, .. } => {
                 anyhow::ensure!(*margin >= 0.0 && margin.is_finite(), "margin must be ≥ 0");
+            }
+            TacticianMode4::Build { threshold, .. } => {
+                anyhow::ensure!(
+                    (0.0..=1.0).contains(threshold),
+                    "a confidence threshold lies in [0, 1]"
+                );
             }
         }
         anyhow::ensure!(!windows.is_empty(), "a tactician answers some window");
@@ -311,19 +441,23 @@ impl Tactician4 {
         std::mem::take(&mut self.records)
     }
 
-    /// The answer to play at this step, or `None` when the step is not one
-    /// of its windows (or offers nothing to choose).
+    /// Whether this tactician answers after the tactical layer
+    /// ([`TacticianMode4::Imitate`]).
+    #[must_use]
+    pub const fn imitates(&self) -> bool {
+        self.mode.imitates()
+    }
+
+    /// The question at this step, when it is one of its windows with units
+    /// to choose among.
     ///
     /// # Errors
-    /// A graph without embeddings, or an answer that does not decode.
-    pub(in crate::netplay4) fn answer(
-        &mut self,
-        step: &TacticianStep<'_>,
-    ) -> anyhow::Result<Option<TeacherTarget4>> {
+    /// A graph without embeddings, or embeddings and logits of other sizes.
+    fn question<'s>(&self, step: &TacticianStep<'s>) -> anyhow::Result<Option<Question<'s>>> {
+        let started = std::time::Instant::now();
         let Some(window) = Window4::of(step.pending, step.cands) else {
             return Ok(None);
         };
-        let started = std::time::Instant::now();
         if !self.windows.contains(&window) {
             return Ok(None);
         }
@@ -339,11 +473,6 @@ impl Tactician4 {
             Window4::Attack | Window4::Target => step.cand_logits,
         };
         anyhow::ensure!(logits.len() >= units, "fewer logits than units");
-        let logits = &logits[..units];
-        let net = net_answer(window, step, logits);
-        let rules = rules_answer(window, step, logits);
-        let neighbors = neighbors(window, step, &net);
-        let rows = look::rows(window, step, &net, &rules, logits, &self.prior);
         let d = embeddings.state.len();
         let unit_embeddings = match window {
             Window4::Block => &embeddings.pairs,
@@ -353,6 +482,50 @@ impl Tactician4 {
             d > 0 && unit_embeddings.len() == units * d,
             "embeddings do not match the question's units"
         );
+        Ok(Some(Question {
+            window,
+            units,
+            logits: &logits[..units],
+            state: &embeddings.state,
+            unit_embeddings,
+            started,
+        }))
+    }
+
+    /// The answer to play at this step, or `None` when the step is not one
+    /// of its windows (or offers nothing to choose), or when it answers after
+    /// the layer ([`Self::imitate`]).
+    ///
+    /// # Errors
+    /// A graph without embeddings, or an answer that does not decode.
+    pub(in crate::netplay4) fn answer(
+        &mut self,
+        step: &TacticianStep<'_>,
+    ) -> anyhow::Result<Option<TeacherTarget4>> {
+        if self.mode.imitates() {
+            return Ok(None);
+        }
+        let Some(question) = self.question(step)? else {
+            return Ok(None);
+        };
+        if let TacticianMode4::Build { net, threshold } = &self.mode {
+            let (net, threshold) = (net.clone(), *threshold);
+            let (target, record) = build::answer(step, &question, &net, threshold, &self.prior)?;
+            self.records.push(record);
+            return Ok(Some(target));
+        }
+        let Question {
+            window,
+            units,
+            logits,
+            state,
+            unit_embeddings,
+            started,
+        } = question;
+        let net = net_answer(window, step, logits);
+        let rules = rules_answer(window, step, logits);
+        let neighbors = neighbors(window, step, &net);
+        let rows = look::rows(window, step, &net, Some(&rules), logits, &self.prior);
         let (played, probability, drawn, scores) = match &self.mode {
             TacticianMode4::Explore { epsilon } => {
                 let draw = self.rng.unit();
@@ -361,7 +534,7 @@ impl Tactician4 {
                 (played, probability, drawn, None)
             }
             TacticianMode4::Play { head, margin } => {
-                let scores = head.score(&embeddings.state, unit_embeddings, &rows, units)?;
+                let scores = head.score(state, unit_embeddings, &rows, units)?;
                 let played = best_supported(&scores, &net, &rules, &neighbors, *margin);
                 let drawn = if played == net {
                     Drawn4::Net
@@ -370,9 +543,12 @@ impl Tactician4 {
                 };
                 (played, 1.0, drawn, Some(scores))
             }
+            TacticianMode4::Imitate { .. } | TacticianMode4::Build { .. } => {
+                unreachable!("answered above")
+            }
         };
         let target = to_target(window, step, &played)?;
-        let micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+        let micros = elapsed_micros(started);
         self.records.push(TacticianRecord4 {
             seat: step.view.seat.get(),
             seq: step.view.seq,
@@ -390,11 +566,87 @@ impl Tactician4 {
             drawn,
             micros,
             scores,
-            state: embeddings.state.clone(),
-            units: unit_embeddings.clone(),
+            groups: Vec::new(),
+            label: None,
+            rows_read_rules: None,
+            built_logits: None,
+            built: None,
+            confidence: None,
+            net_micros: None,
+            state: state.to_vec(),
+            units: unit_embeddings.to_vec(),
             rows,
         });
         Ok(Some(target))
+    }
+
+    /// The answer to play after the tactical layer answered `layer` at this
+    /// step ([`TacticianMode4::Imitate`]): the layer's answer `R` is the
+    /// label, and the seat leaves it at rate ε. `None` when the step is not
+    /// one of its windows, or when it does not imitate.
+    ///
+    /// # Errors
+    /// A graph without embeddings, a layer's answer of another size, or an
+    /// answer that does not decode.
+    pub(in crate::netplay4) fn imitate(
+        &mut self,
+        step: &TacticianStep<'_>,
+        layer: &TeacherTarget4,
+    ) -> anyhow::Result<Option<TeacherTarget4>> {
+        let TacticianMode4::Imitate { epsilon } = self.mode else {
+            return Ok(None);
+        };
+        let Some(question) = self.question(step)? else {
+            return Ok(None);
+        };
+        let draw = self.rng.unit();
+        let (target, record) = imitate::answer(step, &question, layer, epsilon, draw, &self.prior)?;
+        self.records.push(record);
+        Ok(Some(target))
+    }
+}
+
+/// What one window question offers, read once.
+pub(in crate::netplay4) struct Question<'s> {
+    pub(in crate::netplay4) window: Window4,
+    pub(in crate::netplay4) units: usize,
+    /// The net's raw logits for the question's units.
+    pub(in crate::netplay4) logits: &'s [f32],
+    /// The thought-through global slot, `[d]`.
+    pub(in crate::netplay4) state: &'s [f32],
+    /// Each unit's embedding, `[units × d]`.
+    pub(in crate::netplay4) unit_embeddings: &'s [f32],
+    pub(in crate::netplay4) started: std::time::Instant,
+}
+
+/// Microseconds since `started`.
+fn elapsed_micros(started: std::time::Instant) -> u64 {
+    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
+}
+
+/// Per unit, its group: the attacker at an attack, the blocker at a block,
+/// one group at a target, numbered in order of first appearance.
+fn unit_groups(window: Window4, cands: &EncodedCandidates4) -> Vec<u32> {
+    let mut seen: Vec<String> = Vec::new();
+    let mut group = |key: String| -> u32 {
+        let index = seen.iter().position(|k| *k == key).unwrap_or_else(|| {
+            seen.push(key);
+            seen.len() - 1
+        });
+        u32::try_from(index).unwrap_or(u32::MAX)
+    };
+    match window {
+        Window4::Target => vec![0; cands.candidates.len()],
+        Window4::Attack => cands
+            .candidates
+            .iter()
+            .map(|c| group(format!("{:?}", c.object_id)))
+            .collect(),
+        Window4::Block => cands
+            .pair_objects
+            .iter()
+            .map(|(b, _)| group(format!("{b:?}")))
+            .collect(),
     }
 }
 

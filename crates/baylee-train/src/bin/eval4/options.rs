@@ -55,23 +55,41 @@ struct Args {
     /// The tactician (`netplay4::tactician`) answers these questions of the
     /// seat under test: `attack`, `block`, `target` (one target), or `all`.
     /// With `--tactician-explore` it explores and keeps records for training a
-    /// head on outcomes; with `--tactician` a trained head plays. Needs
-    /// `--raw-policy` at temperature 0 (`--choice-guard tactical` keeps the
-    /// tactical layer everywhere else), two seats against the house, a graph
-    /// exported with `--embeddings`, and `--decks-manifest`: the look's prior is
-    /// the manifest's train split. Evaluation only.
+    /// head on outcomes; with `--tactician-imitate` it keeps the tactical
+    /// layer's answers as the tactician's labels; with `--tactician` a trained
+    /// head plays. Needs `--raw-policy` at temperature 0 (`--choice-guard
+    /// tactical` keeps the tactical layer everywhere else), two seats against
+    /// the house (an imitating collection also against a self-play copy), a
+    /// graph exported with `--embeddings`, and `--decks-manifest`: the look's
+    /// prior is the manifest's train split. Evaluation only.
     #[arg(long, conflicts_with = "legacy_v3")]
     tactician_windows: Option<String>,
     /// Explore at the windows: the net's answer with probability `1 − ε`.
     #[arg(long, requires = "tactician_windows", conflicts_with = "tactician")]
     tactician_explore: Option<f64>,
-    /// A trained head (`tactician.onnx`, `tactician.json`) plays the windows.
+    /// The tactician's bootstrap (stage S1): the seat plays as the tactical
+    /// layer with its rule groups (`--choice-guard tactical`, `--tactics-rules`)
+    /// and at the windows keeps the layer's answer as the label, leaving it
+    /// with probability ε for the net's answer or a neighbor of the layer's.
+    /// Needs `--tactician-out`; also against a self-play copy, whose seat is
+    /// kept too. Its records (`tactician_imitation_v1`) teach the tactician and
+    /// nothing else: convert4 and every other trainer refuse them.
+    #[arg(long, requires = "tactician_windows", conflicts_with_all = ["tactician", "tactician_explore"])]
+    tactician_imitate: Option<f64>,
+    /// A trained head plays the windows: a stage-1 head (`tactician_head_v1`)
+    /// chooses among the answers it was offered; a `tactician_head_v2` net
+    /// builds the answer from its own logits and plays the net's answer when
+    /// unsure. The contract is read from `tactician.json`.
     #[arg(long, requires = "tactician_windows")]
     tactician: Option<PathBuf>,
     /// How much better a head must score an answer to leave the net's;
-    /// default the head's own `margin`.
+    /// default the head's own `margin` (`tactician_head_v1`).
     #[arg(long, requires = "tactician")]
     tactician_margin: Option<f32>,
+    /// Below this confidence a `tactician_head_v2` net plays the net's own
+    /// answer; default the net's `confidence_threshold`.
+    #[arg(long, requires = "tactician")]
+    tactician_confidence: Option<f32>,
     /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
     #[arg(long, requires = "tactician_windows")]
     tactician_out: Option<PathBuf>,

@@ -198,15 +198,32 @@ fn main() -> anyhow::Result<()> {
             || args.search.is_some()
             || args.shadow_teacher.is_some()
             || args.random_policy
-            || args.opponent_model.is_some()
+            || (collection.opponent_path.is_some() && args.tactician_imitate.is_none())
             || args.decks_manifest.is_none()
             || collection.purpose != collector::Purpose::Evaluation)
     {
         bail!(
-            "--tactician-windows plays the seat under test against the house: --raw-policy at \
-             temperature 0, two seats, --decks-manifest, no search, shadow, random seat, neural \
-             opponent or collection purpose; its records train only the tactician head"
+            "--tactician-windows plays the seat under test against the house (an imitating \
+             collection also against itself): --raw-policy at temperature 0, two seats, \
+             --decks-manifest, no search, shadow, random seat or collection purpose; its records \
+             train only the tactician"
         );
+    }
+    if args.tactician_imitate.is_some()
+        && !choice_guard.as_ref().is_some_and(|guard| {
+            guard.tactical.single && guard.tactical.subset && guard.tactical.pair
+        })
+    {
+        bail!(
+            "--tactician-imitate keeps the tactical layer's answers: it needs --choice-guard \
+             tactical (the layer plays the windows' heads)"
+        );
+    }
+    if args.tactician_imitate.is_some()
+        && collection.opponent_path.is_some()
+        && collection.opponent_role != collector::OpponentRole::SelfPlay
+    {
+        bail!("--tactician-imitate plays against the house or a self-play copy of the seat");
     }
     let dev_arm = args.dev_free_temperature || args.menu_payable;
     if dev_arm
@@ -288,11 +305,15 @@ fn main() -> anyhow::Result<()> {
             _ => Vec::new(),
         };
         tactician::TacticianSetup::from_args(
-            args.tactician_windows.as_deref(),
-            args.tactician_explore,
-            args.tactician.as_deref(),
-            args.tactician_margin,
-            args.tactician_out.as_deref(),
+            &tactician::TacticianArgs {
+                windows: args.tactician_windows.as_deref(),
+                explore: args.tactician_explore,
+                imitate: args.tactician_imitate,
+                head: args.tactician.as_deref(),
+                margin: args.tactician_margin,
+                confidence: args.tactician_confidence,
+                out: args.tactician_out.as_deref(),
+            },
             &train,
         )?
         .map(Arc::new)
@@ -455,6 +476,11 @@ fn main() -> anyhow::Result<()> {
         }
         if let Some(setup) = &tactician_setup {
             run["tactician"] = setup.metadata();
+            if setup.imitates() {
+                // convert4 and every other reader of a run refuse this word.
+                run["labels"] =
+                    json!(baylee_train::netplay4::tactician::imitate::IMITATION_CONTRACT);
+            }
         }
         if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
@@ -482,6 +508,22 @@ fn main() -> anyhow::Result<()> {
         if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
             File::open(rec_dir.join("run.json"))?.sync_all()?;
         }
+    }
+    if let Some(setup) = &tactician_setup {
+        setup.write_run(&json!({
+            "run": "eval4-tactician-imitation",
+            "model": args.model, "model_identity": model_identity,
+            "evaluator_build": baylee_build::short(),
+            "evaluator_revision": baylee_build::COMMIT, "evaluator_dirty": baylee_build::DIRTY,
+            "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules,
+            "against": against_label(&args),
+            "opponent": collection.opponent_path, "opponent_role": collection.opponent_role,
+            "deck_split": args.deck_split, "decks_manifest": args.decks_manifest,
+            "planned_deals": args.deals, "deal_offset": args.deal_offset,
+            "first_seed": args.first_seed, "policy_seed": args.policy_seed,
+            "thinking_steps": args.thinking_steps, "temperature": args.temperature,
+            "catalog": catalog,
+        }))?;
     }
 
     let run_metadata_sha = args
@@ -982,10 +1024,10 @@ fn main() -> anyhow::Result<()> {
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
     summary["random_policy"] = json!(args.random_policy);
-    summary["tactician"] = tactician_setup.as_ref().map_or(
-        Value::Null,
-        |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),
-    );
+    summary["tactician"] = tactician_setup.as_ref().map_or(Value::Null, |setup| {
+        json!({"setup": setup.metadata(), "decisions": st.tactician,
+            "latency": tactician::latency(&st.tactician)})
+    });
     summary["opponent"] = json!({"model": args.opponent_model, "policy": args.opponent_policy,
         "legacy_v3": args.opponent_legacy_v3});
     summary["model_family"] = json!(

@@ -156,6 +156,25 @@ impl EvaluationPlayer for SeatPlayers {
     fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
         self.learner.take_tactic_rules_fired()
     }
+    /// The seat under test's tactician; a self-play copy gets its own, so an
+    /// imitating collection keeps both seats' windows.
+    fn set_tactician(&mut self, tactician: baylee_train::netplay4::tactician::Tactician4) -> bool {
+        if self.search_opponent
+            && let Some(opponent) = &mut self.opponent
+        {
+            opponent.set_tactician(tactician.clone());
+        }
+        self.learner.set_tactician(tactician)
+    }
+    fn take_tactician_records(
+        &mut self,
+    ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
+        let mut records = self.learner.take_tactician_records();
+        if let Some(opponent) = &mut self.opponent {
+            records.extend(opponent.take_tactician_records());
+        }
+        records
+    }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.player(usize::from(seat.get()))?.observed_value(seat)
     }
