@@ -1197,6 +1197,19 @@ as fast (44 % at `N ≠ R` after four epochs, the whole head 32 %); with the loo
 read as zero it stayed at 12 %: what the layer reads is in the look, not in the
 frozen embedding.
 
+Joint decoding, the same inputs, split and settings (`--independent`: each
+token attends to itself only, so every unit is scored from its own row):
+
+| Head, `N ≠ R` (exact / per unit / changed units) | Attack (439) | Block (193) | Target (163) | All (795) |
+| --- | --- | --- | --- | --- |
+| set transformer | 54.9 / 67.6 / 56.8 % | 54.4 / 88.7 / 58.8 % | 41.1 / 75.5 / 45.4 % | 51.9 / 80.9 / 54.7 % |
+| independent per unit | 49.4 / 64.4 / 49.9 % | 40.9 / 84.7 / 38.3 % | 44.8 / 77.0 / 48.2 % | 46.4 / 78.2 / 46.4 % |
+
+Attention across units buys the blocks (+13.5 pp, the changed units +20.5 pp)
+and some of the attacks (+5.5 pp); a single target does as well alone (−3.7 pp
+for the set transformer, 163 decisions). One seed each, both still rising at
+the cap of 14 epochs.
+
 **Export** (`tactician_head_v2`): `tactician.onnx` takes `rows` `[U, 2d + 128]`
 (the null row first) and gives `logits` `[U − 1]` (the last pass's) and
 `confidence` `[1]`; `T` is fixed per export (`passes`; `train_tactician_v3.py
