@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use super::*;
-use crate::netplay4::distill::{Distill4, DistillLabel4};
+use crate::netplay4::distill::{Distill4, DistillLabel4, PrioritySubtype4};
 use crate::netplay4::tactician::tests::on_a_table::{D, ME, drive, table};
 use crate::netplay4::{ChoiceGuard4, NetPlayer4, TacticRules4, TacticalParts};
 
@@ -77,6 +77,7 @@ fn same(head: HeadKind4, a: &TeacherTarget4, b: &TeacherTarget4) -> bool {
 fn r_read_on_copies_is_what_the_layer_plays_and_a_student_plays_n() {
     let player = NetPlayer4::without_graphs(10, D);
     let mut kinds = BTreeSet::new();
+    let mut subtypes = BTreeSet::new();
     let mut differing = 0;
     let mut decisions = 0;
     for seed in 1..12_u64 {
@@ -116,6 +117,19 @@ fn r_read_on_copies_is_what_the_layer_plays_and_a_student_plays_n() {
             );
             assert_eq!(raw_label.fired, layer_label.fired);
             assert_eq!(raw_label.n_ne_r, layer_label.n_ne_r);
+            // A priority label names its subtype, from R, N and the position;
+            // no other label has one.
+            assert_eq!(raw_label.subtype, layer_label.subtype);
+            assert_eq!(
+                raw_label.subtype,
+                (raw_label.kind == "priority").then(|| PrioritySubtype4::of(
+                    view.active == view.decision_player.unwrap_or(view.seat),
+                    view.owed.is_some(),
+                    raw_label.rules_action.as_ref(),
+                    raw_label.net_action.as_ref(),
+                ))
+            );
+            subtypes.extend(raw_label.subtype);
             if raw_label.n_ne_r {
                 differing += 1;
                 assert_ne!(Some(&raw_action), raw_label.rules_action.as_ref());
@@ -138,5 +152,12 @@ fn r_read_on_copies_is_what_the_layer_plays_and_a_student_plays_n() {
     assert!(differing > 0, "no decision where N and R differ");
     for kind in ["priority", "single", "subset", "pair"] {
         assert!(kinds.contains(kind), "no {kind} decision met: {kinds:?}");
+    }
+    // Priority decisions of several subtypes are met on these tables.
+    for subtype in [PrioritySubtype4::Pass, PrioritySubtype4::Land] {
+        assert!(
+            subtypes.contains(&subtype),
+            "no {subtype:?} met: {subtypes:?}"
+        );
     }
 }

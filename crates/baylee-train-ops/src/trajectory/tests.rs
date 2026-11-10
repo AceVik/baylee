@@ -89,6 +89,20 @@ fn bst4_layout_and_admission_metadata_match_the_fixed_python_abi() -> Result<()>
     for broken in [&raw[..135], &raw[..298]] {
         assert!(packing::metadata(broken).is_err());
     }
+    // A distillation dataset's frame: the payload, then exactly one block.
+    // Its masks are the payload's; any other trailing bytes are refused.
+    let mut distilled = raw.clone();
+    distilled.extend_from_slice(&crate::tactician_labels::distill_block(2, 1 << 8));
+    assert_eq!(packing::metadata(&distilled)?, meta);
+    for trailing in [
+        &b"BDX1"[..],
+        &[0; 16][..],
+        &b"BDX2\x02\0\0\0\0\x01\0\0\0\0\0\0"[..],
+    ] {
+        let mut wrong = raw.clone();
+        wrong.extend_from_slice(trailing);
+        assert!(packing::metadata(&wrong).is_err());
+    }
     let mut invalid = raw;
     invalid[88..92].copy_from_slice(&u32::MAX.to_le_bytes());
     assert!(packing::metadata(&invalid).is_err());

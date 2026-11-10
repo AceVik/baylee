@@ -2,25 +2,51 @@
 //! tactical layer's answers `R`, recorded beside the games by `eval4
 //! --distill-labels` (`distill_sidecar`), become the policy targets at every
 //! labelled decision of the recorded seats, whoever played there (the layer,
-//! or the net as a student under `DAgger`). The net's own answer `N` stays with
-//! each frame (`net_answer`, `n_ne_r`, BST4 flags bit 7) so a trainer can
-//! report and select on `N ≠ R`. Every other frame keeps its place for memory
-//! and value at policy weight zero; value targets are the outcomes as usual.
+//! or the net as a student under `DAgger`). Every other frame keeps its place
+//! for memory and value at policy weight zero; value targets are the outcomes
+//! as usual.
+//!
+//! Beside `R`, each labelled frame keeps what a trainer selects and weights
+//! by: the net's own answer `N` and whether it differs (`n_ne_r`), at
+//! priority the decision's subtype (cast, pass, instant on their turn, spend,
+//! pay, mana, activate, land, other), and the rule groups that changed
+//! something on the way to `R` (`fired`). The dataset's JSON steps
+//! (`bundle-distill/game-NNNNNN.jsonl`) hold all of it, one line per labelled
+//! frame. In the BST4, flags bit 7 is `N ≠ R`, and every decision frame of a
+//! recorded seat ends in a distillation block after its free mask
+//! (`baylee_train_ops::tactician_labels::distill_block`): the subtype's code
+//! (255 where none: another kind of label, or a fallback, which has no label)
+//! and the mask of the groups that fired. `meta.json` names the codes
+//! (`subtypes`) and the bits (`groups`).
 //!
 //! A label binds to its frame by the record's seat input it answers, and is
 //! checked before it is used: the seat, the menu the targets index (head,
 //! candidates' cards and abilities, pairs) and the executed answer must be the
-//! record's. Any mismatch rejects the game.
+//! record's, and a priority label must name its subtype. Any mismatch rejects
+//! the game.
 
 use std::collections::BTreeMap;
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufWriter, Write as _};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, ensure};
-use baylee_train::convert4::distill_labels::{DistillLabel4, DistillStep4, menu_signature};
+use baylee_train::convert4::distill_labels::{
+    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillStep4, PrioritySubtype4,
+    menu_signature,
+};
 use baylee_train::convert4::{NetAnswer4, Step4};
 use baylee_train::features4::{HeadKind4, SourceKind4, TeacherTarget4};
+use baylee_train::netplay4::TacticRules4;
+use baylee_train_ops::tactician_labels::NO_SUBTYPE;
 use serde_json::{Value, json};
 
 pub(super) use baylee_train_ops::tactician_labels::DISTILL_CONTRACT;
+
+/// Where a game's JSON steps go, under the dataset.
+pub(super) fn steps_path(game_id: u32) -> String {
+    format!("bundle-distill/game-{game_id:06}.jsonl")
+}
 
 /// The runs a distillation dataset is made of.
 #[derive(Default)]
@@ -33,11 +59,7 @@ impl Runs {
     ///
     /// # Errors
     /// A run without `distill.contract == bundle_distillation_v1`.
-    pub(super) fn admit(
-        &mut self,
-        run_dir: &std::path::Path,
-        run_json: &Value,
-    ) -> anyhow::Result<()> {
+    pub(super) fn admit(&mut self, run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
         baylee_train_ops::tactician_labels::admit_distillation(run_json)
             .with_context(|| format!("{}", run_dir.display()))?;
         self.sources.push(
@@ -49,11 +71,25 @@ impl Runs {
 
     /// What `meta.json` says about the dataset (counts filled at the end).
     pub(super) fn metadata(&self, counts: &Counts) -> Value {
-        json!({"contract": DISTILL_CONTRACT, "version": 1,
+        json!({"contract": DISTILL_CONTRACT, "version": 2,
             "target": "the tactical layer's answer R at every labelled decision of the recorded seats",
-            "net_answer": "N, the net's raw greedy answer, in JSON steps; BST4 flags bit 7 = N != R",
             "loss_weight": "1 at labelled decisions of the recorded seats, 0 elsewhere",
             "value_targets": "game outcomes, as usual",
+            "subtypes": PrioritySubtype4::ALL.map(PrioritySubtype4::name),
+            "groups": TacticRules4::group_names(),
+            "bst4_flags": {"bit_7": "N != R"},
+            "bst4_block": {
+                "frames": "every decision frame of a recorded seat (labelled, or a fallback at weight 0)",
+                "after": "the free mask",
+                "layout": "4 bytes BDX1, u8 subtype (index in subtypes, 255 none), 3 zero bytes, \
+                           u64 little-endian mask of the groups that fired (bit i: groups[i])",
+            },
+            "steps": {
+                "path": "bundle-distill/game-NNNNNN.jsonl",
+                "lines": "a header, one label line per labelled frame, a completed footer",
+                "label_line": ["game_id", "seat", "step_cursor", "label_kind", "n_ne_r",
+                    "net_answer", "distill_subtype (priority frames only)", "fired"],
+            },
             "sources": self.sources, "counts": counts})
     }
 }
@@ -99,6 +135,19 @@ pub(super) struct Counts {
     pub by_kind: BTreeMap<String, u64>,
     /// `N ≠ R` frames by kind.
     pub n_ne_r_by_kind: BTreeMap<String, u64>,
+    /// Labelled priority frames by subtype.
+    pub by_subtype: BTreeMap<String, u64>,
+    /// `N ≠ R` priority frames by subtype.
+    pub n_ne_r_by_subtype: BTreeMap<String, u64>,
+    /// `N ≠ R` frames by each rule group that fired there.
+    pub n_ne_r_by_group: BTreeMap<String, u64>,
+}
+
+/// Adds `other`'s counts into `into`.
+fn add_counts(into: &mut BTreeMap<String, u64>, other: &BTreeMap<String, u64>) {
+    for (key, n) in other {
+        *into.entry(key.clone()).or_default() += n;
+    }
 }
 
 impl Counts {
@@ -106,11 +155,32 @@ impl Counts {
         self.labelled += other.labelled;
         self.n_ne_r += other.n_ne_r;
         self.unlabelled += other.unlabelled;
-        for (kind, n) in &other.by_kind {
-            *self.by_kind.entry(kind.clone()).or_default() += n;
+        add_counts(&mut self.by_kind, &other.by_kind);
+        add_counts(&mut self.n_ne_r_by_kind, &other.n_ne_r_by_kind);
+        add_counts(&mut self.by_subtype, &other.by_subtype);
+        add_counts(&mut self.n_ne_r_by_subtype, &other.n_ne_r_by_subtype);
+        add_counts(&mut self.n_ne_r_by_group, &other.n_ne_r_by_group);
+    }
+
+    /// Counts one labelled frame.
+    fn count(&mut self, frame: &DistillFrameLabel4) {
+        let one = |map: &mut BTreeMap<String, u64>, key: &str| {
+            *map.entry(key.to_owned()).or_default() += 1;
+        };
+        self.labelled += 1;
+        one(&mut self.by_kind, &frame.label_kind);
+        if let Some(subtype) = frame.subtype {
+            one(&mut self.by_subtype, subtype.name());
         }
-        for (kind, n) in &other.n_ne_r_by_kind {
-            *self.n_ne_r_by_kind.entry(kind.clone()).or_default() += n;
+        if frame.n_ne_r {
+            self.n_ne_r += 1;
+            one(&mut self.n_ne_r_by_kind, &frame.label_kind);
+            if let Some(subtype) = frame.subtype {
+                one(&mut self.n_ne_r_by_subtype, subtype.name());
+            }
+            for group in &frame.fired {
+                one(&mut self.n_ne_r_by_group, group);
+            }
         }
     }
 }
@@ -203,14 +273,28 @@ impl<'a> Cursor<'a> {
                 "distillation step {index}: the executed answer differs from the record's"
             ));
         }
+        if (label.kind == "priority") != label.subtype.is_some() {
+            return Err(format!(
+                "distillation step {index}: a {} label {} a priority subtype (recorded before \
+                 subtypes? collect again)",
+                label.kind,
+                if label.subtype.is_some() {
+                    "with"
+                } else {
+                    "without"
+                }
+            ));
+        }
         Ok(Some(label))
     }
 
     /// Makes `R` the target of a labelled decision frame, and every other
-    /// decision frame weightless.
+    /// decision frame weightless; gives every decision frame of a recorded
+    /// seat its distillation block.
     ///
     /// # Errors
-    /// A label that does not bind to its frame.
+    /// A label that does not bind to its frame, or names a group the dataset
+    /// has no bit for.
     pub(super) fn apply(&mut self, step: &mut Step4) -> Result<(), String> {
         if !step.is_decision {
             return Ok(());
@@ -219,28 +303,128 @@ impl<'a> Cursor<'a> {
             step.loss_weight = 0.0;
             step.provenance.has_logprob = false;
             step.provenance.behavior_logprob = 0.0;
+            // A recorded seat's fallback keeps a block that says nothing.
+            step.distill = step.seat_input.map(|_| DistillFrame4 {
+                subtype_code: NO_SUBTYPE,
+                fired_mask: 0,
+                label: None,
+            });
             self.counts.unlabelled += 1;
             return Ok(());
         };
         let head = head_of(step.head).ok_or_else(|| format!("unknown head {}", step.head))?;
+        let fired_mask = fired_mask(&label.fired)?;
         step.target = label.rules.clone();
         step.loss_weight = 1.0;
         step.provenance.source = SourceKind4::House;
         step.provenance.has_logprob = false;
         step.provenance.behavior_logprob = 0.0;
         step.provenance.temperature = 0.0;
-        step.n_ne_r = Some(label.n_ne_r);
-        step.net_answer = Some(net_answer(head, &label.net));
-        self.counts.labelled += 1;
-        *self.counts.by_kind.entry(label.kind.clone()).or_default() += 1;
-        if label.n_ne_r {
-            self.counts.n_ne_r += 1;
-            *self
-                .counts
-                .n_ne_r_by_kind
-                .entry(label.kind.clone())
-                .or_default() += 1;
-        }
+        let frame = DistillFrameLabel4 {
+            label_kind: label.kind.clone(),
+            n_ne_r: label.n_ne_r,
+            net_answer: net_answer(head, &label.net),
+            subtype: label.subtype,
+            fired: label.fired.clone(),
+        };
+        self.counts.count(&frame);
+        step.distill = Some(DistillFrame4 {
+            subtype_code: label.subtype.map_or(NO_SUBTYPE, PrioritySubtype4::code),
+            fired_mask,
+            label: Some(frame),
+        });
+        Ok(())
+    }
+}
+
+/// The mask of the groups that fired: bit `i` for the `i`-th of
+/// [`TacticRules4::group_names`].
+fn fired_mask(fired: &[String]) -> Result<u64, String> {
+    let names = TacticRules4::group_names();
+    fired.iter().try_fold(0_u64, |mask, group| {
+        let bit = names
+            .iter()
+            .position(|name| name == group)
+            .ok_or_else(|| format!("no bit for the rule group {group}"))?;
+        Ok(mask | 1 << bit)
+    })
+}
+
+/// A game's JSON steps (`bundle-distill/game-NNNNNN.jsonl`): a header, one
+/// line per labelled frame, a footer. Written beside the game's BST4 and
+/// published under its name only when the game is.
+pub(super) struct JsonSteps {
+    temporary: PathBuf,
+    path: PathBuf,
+    writer: BufWriter<File>,
+    game_id: u32,
+    lines: u64,
+}
+
+impl JsonSteps {
+    /// Opens a game's JSON steps under the dataset `root`.
+    ///
+    /// # Errors
+    /// When the file exists already or cannot be written.
+    pub(super) fn new(root: &Path, game_id: u32) -> anyhow::Result<Self> {
+        let path = root.join(steps_path(game_id));
+        fs::create_dir_all(path.parent().context("steps directory")?)?;
+        ensure!(!path.exists(), "{} exists", path.display());
+        let temporary = path.with_extension("partial");
+        let mut writer = BufWriter::new(
+            OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&temporary)?,
+        );
+        serde_json::to_writer(
+            &mut writer,
+            &json!({"kind": "header", "contract": DISTILL_CONTRACT, "schema": 2,
+                "game_id": game_id}),
+        )?;
+        writeln!(writer)?;
+        Ok(Self {
+            temporary,
+            path,
+            writer,
+            game_id,
+            lines: 0,
+        })
+    }
+
+    /// Writes a labelled frame's line; other frames have none.
+    ///
+    /// # Errors
+    /// When the line cannot be written.
+    pub(super) fn push(&mut self, step: &Step4) -> Result<(), String> {
+        let Some(frame) = step.distill.as_ref().and_then(|d| d.label.as_ref()) else {
+            return Ok(());
+        };
+        let mut line = serde_json::to_value(frame).map_err(|e| e.to_string())?;
+        line["kind"] = json!("label");
+        line["game_id"] = json!(self.game_id);
+        line["seat"] = json!(step.seat);
+        line["step_cursor"] = json!(step.step_cursor);
+        serde_json::to_writer(&mut self.writer, &line).map_err(|e| e.to_string())?;
+        writeln!(self.writer).map_err(|e| e.to_string())?;
+        self.lines += 1;
+        Ok(())
+    }
+
+    /// Writes the footer and publishes the file under its name.
+    ///
+    /// # Errors
+    /// When the file cannot be written or renamed.
+    pub(super) fn finish(mut self) -> anyhow::Result<()> {
+        serde_json::to_writer(
+            &mut self.writer,
+            &json!({"kind": "completed", "labels": self.lines}),
+        )?;
+        writeln!(self.writer)?;
+        self.writer.flush()?;
+        self.writer.get_ref().sync_all()?;
+        fs::rename(&self.temporary, &self.path)?;
         Ok(())
     }
 }
@@ -287,8 +471,7 @@ mod tests {
             shadow_label: None,
             llm_label: None,
             seat_input: input,
-            n_ne_r: None,
-            net_answer: None,
+            distill: None,
         }
     }
 
@@ -308,6 +491,7 @@ mod tests {
             executed: single(executed),
             fired: vec!["spend".into()],
             n_ne_r: rules != net,
+            subtype: Some(PrioritySubtype4::Spend),
         }
     }
 
@@ -336,23 +520,43 @@ mod tests {
         cursor.apply(&mut step).unwrap();
         assert_eq!(step.target.single_idx, 1);
         assert_eq!(step.loss_weight, 1.0);
-        assert_eq!(step.n_ne_r, Some(true));
-        assert_eq!(step.net_answer.as_ref().and_then(|n| n.single_idx), Some(2));
+        let distilled = step.distill.as_ref().unwrap();
+        // The block: spend's code, and the bit of the group `spend`.
+        assert_eq!(distilled.subtype_code, 3);
+        let spend_bit = TacticRules4::group_names()
+            .iter()
+            .position(|g| *g == "spend")
+            .unwrap();
+        assert_eq!(distilled.fired_mask, 1 << spend_bit);
+        let line = distilled.label.as_ref().unwrap();
+        assert!(line.n_ne_r);
+        assert_eq!(line.net_answer.single_idx, Some(2));
+        assert_eq!(line.subtype, Some(PrioritySubtype4::Spend));
+        assert_eq!(line.fired, ["spend"]);
         assert!(!step.provenance.has_logprob);
         assert_eq!(step.provenance.behavior_logprob, 0.0);
-        // A step without a label (a fallback) and another seat's decision
-        // keep their frames at weight zero; passive frames stay as they are.
+        // A step without a label (a fallback) keeps its frame at weight zero
+        // with a block that says nothing; another seat's decision has no
+        // block; passive frames stay as they are.
         let mut fallback = frame(0, Some(1), 0);
         cursor.apply(&mut fallback).unwrap();
-        assert_eq!((fallback.loss_weight, fallback.n_ne_r), (0.0, None));
+        assert_eq!(fallback.loss_weight, 0.0);
+        assert_eq!(
+            fallback.distill,
+            Some(DistillFrame4 {
+                subtype_code: NO_SUBTYPE,
+                fired_mask: 0,
+                label: None
+            })
+        );
         let mut house = frame(1, None, 0);
         cursor.apply(&mut house).unwrap();
-        assert_eq!(house.loss_weight, 0.0);
+        assert_eq!((house.loss_weight, house.distill), (0.0, None));
         let mut passive = frame(0, None, 0);
         passive.is_decision = false;
         passive.loss_weight = 0.25;
         cursor.apply(&mut passive).unwrap();
-        assert_eq!(passive.loss_weight, 0.25);
+        assert_eq!((passive.loss_weight, passive.distill), (0.25, None));
         assert_eq!(
             (
                 cursor.counts.labelled,
@@ -361,6 +565,9 @@ mod tests {
             ),
             (1, 1, 2)
         );
+        assert_eq!(cursor.counts.by_subtype["spend"], 1);
+        assert_eq!(cursor.counts.n_ne_r_by_subtype["spend"], 1);
+        assert_eq!(cursor.counts.n_ne_r_by_group["spend"], 1);
     }
 
     #[test]
@@ -388,10 +595,80 @@ mod tests {
                 .apply(&mut frame(0, Some(5), 2))
                 .is_err()
         );
+        // A priority label without its subtype (recorded before subtypes),
+        // and another kind's label with one.
+        let mut old = label(1, 2, 2);
+        old.subtype = None;
+        let labels = game(vec![Some(old)]);
+        let error = Cursor::new(&labels)
+            .apply(&mut frame(0, Some(0), 2))
+            .unwrap_err();
+        assert!(error.contains("without a priority subtype"), "{error}");
+        let mut single = label(1, 2, 2);
+        single.kind = "single".into();
+        let labels = game(vec![Some(single)]);
+        assert!(
+            Cursor::new(&labels)
+                .apply(&mut frame(0, Some(0), 2))
+                .is_err()
+        );
+        // A group the dataset has no bit for.
+        let mut unknown = label(1, 2, 2);
+        unknown.fired = vec!["spend".into(), "nonesuch".into()];
+        let labels = game(vec![Some(unknown)]);
+        let error = Cursor::new(&labels)
+            .apply(&mut frame(0, Some(0), 2))
+            .unwrap_err();
+        assert!(error.contains("nonesuch"), "{error}");
         // A sidecar out of step with the rollout sidecar.
         let entry = json!({"rollout_sidecar": [{}, {}], "distill_sidecar": []});
         assert!(GameLabels::from_game(&entry).is_err());
         assert!(GameLabels::from_game(&json!({"rollout_sidecar": []})).is_err());
+    }
+
+    #[test]
+    fn the_json_steps_hold_one_line_per_labelled_frame_with_subtype_and_fired() {
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "bundle-distill-steps-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let labels = game(vec![Some(label(1, 2, 2)), None]);
+        let mut cursor = Cursor::new(&labels);
+        let mut steps = JsonSteps::new(&root, 7).unwrap();
+        for mut step in [
+            frame(0, Some(0), 2),
+            frame(0, Some(1), 0),
+            frame(1, None, 0),
+        ] {
+            step.game_id = 7;
+            step.step_cursor = step.seat_input.unwrap_or(9);
+            cursor.apply(&mut step).unwrap();
+            steps.push(&step).unwrap();
+        }
+        let path = root.join(steps_path(7));
+        assert!(!path.exists(), "published before the game is");
+        steps.finish().unwrap();
+        let lines: Vec<Value> = fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        let _ = fs::remove_dir_all(&root);
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        assert_eq!(lines[0]["kind"], "header");
+        assert_eq!(lines[0]["contract"], DISTILL_CONTRACT);
+        assert_eq!(
+            lines[1],
+            json!({"kind": "label", "game_id": 7, "seat": 0, "step_cursor": 0,
+                "label_kind": "priority", "n_ne_r": true, "net_answer": {"single_idx": 2},
+                "distill_subtype": "spend", "fired": ["spend"]})
+        );
+        assert_eq!(lines[2], json!({"kind": "completed", "labels": 1}));
+        // What the line holds reads back as the frame.
+        let frame: DistillFrameLabel4 = serde_json::from_value(lines[1].clone()).unwrap();
+        assert_eq!(frame.subtype, Some(PrioritySubtype4::Spend));
     }
 
     #[test]
@@ -410,5 +687,9 @@ mod tests {
         let meta = runs.metadata(&Counts::default());
         assert_eq!(meta["contract"], DISTILL_CONTRACT);
         assert_eq!(meta["sources"][0]["label_rules"], "mass");
+        assert_eq!(meta["subtypes"][2], "instant_their_turn");
+        assert_eq!(meta["subtypes"].as_array().unwrap().len(), 9);
+        assert_eq!(meta["groups"].as_array().unwrap().len(), 20);
+        assert_eq!(meta["groups"][7], "spend");
     }
 }

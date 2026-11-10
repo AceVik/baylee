@@ -648,12 +648,14 @@ fn main() -> anyhow::Result<()> {
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut distill_cursor = gref.distill.as_ref().map(bundle_distill::Cursor::new);
+                let mut distill_steps = gref.distill.as_ref().map(|_| bundle_distill::JsonSteps::new(&root, gref.game_id)).transpose()?;
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let emit = |mut step: Step4| {
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
                     if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
                     if let Some(cursor) = &mut distill_cursor { cursor.apply(&mut step)?; }
+                    if let Some(steps) = &mut distill_steps { steps.push(&step)?; }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
@@ -703,6 +705,7 @@ fn main() -> anyhow::Result<()> {
                 if let Some(cursor) = &distill_cursor {
                     distill_counts.lock().expect("distillation count lock").add(&cursor.counts);
                 }
+                if let Some(steps) = distill_steps { steps.finish()?; }
                 if let Some(labels) = frame_labels { labels.finish()?; }
                 if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
@@ -788,6 +791,15 @@ fn main() -> anyhow::Result<()> {
         );
         meta["bundle_distillation"] =
             runs.metadata(&distill_counts.lock().expect("distillation count lock"));
+        let mut hashes = serde_json::Map::new();
+        for game in games_arc.iter() {
+            let name = bundle_distill::steps_path(game.game_id);
+            hashes.insert(
+                name.clone(),
+                json!(shadow::sha(&fs::read(args.out.join(name))?)),
+            );
+        }
+        meta["bundle_distillation_steps_sha256"] = Value::Object(hashes);
         meta["bundle_distillation_status"] = json!("complete");
     }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());

@@ -11,6 +11,10 @@
 //! of a run that turns it into training data of another kind (convert4, the
 //! research and self-imitation readers, the corpus indexes) calls
 //! [`refuse_imitation`] on it first.
+//!
+//! A distillation dataset's frames may end in a [`distill_block`] after
+//! their BST4 payload; [`trailing_distill_block`] is how a reader that checks
+//! a frame's length admits it and nothing else.
 
 use anyhow::{Result, ensure};
 use serde_json::Value;
@@ -20,6 +24,51 @@ pub const IMITATION_CONTRACT: &str = "tactician_imitation_v1";
 
 /// The run and dataset contract of the whole net's distillation labels.
 pub const DISTILL_CONTRACT: &str = "bundle_distillation_v1";
+
+/// The block a distillation dataset appends to a recorded seat's decision
+/// frame, after the BST4 payload (the free mask): this magic, the priority
+/// subtype's code (`u8`, [`NO_SUBTYPE`] for none), three zero bytes, and the
+/// mask of the rule groups that fired (`u64`, little-endian; the dataset's
+/// `meta.json` names the codes and the bits).
+pub const DISTILL_BLOCK_MAGIC: &[u8; 4] = b"BDX1";
+
+/// The block's length.
+pub const DISTILL_BLOCK_LEN: usize = 16;
+
+/// The subtype code of a frame with none (not a priority label, or no label).
+pub const NO_SUBTYPE: u8 = 255;
+
+/// A distillation block's bytes.
+#[must_use]
+pub fn distill_block(subtype: u8, fired: u64) -> [u8; DISTILL_BLOCK_LEN] {
+    let mut block = [0; DISTILL_BLOCK_LEN];
+    block[..4].copy_from_slice(DISTILL_BLOCK_MAGIC);
+    block[4] = subtype;
+    block[8..].copy_from_slice(&fired.to_le_bytes());
+    block
+}
+
+/// What follows a BST4 payload: nothing, or exactly one distillation block,
+/// read as `(subtype, fired)`.
+///
+/// # Errors
+/// Any other trailing bytes: a wrong length, magic or reserved byte.
+pub fn trailing_distill_block(trailing: &[u8]) -> Result<Option<(u8, u64)>> {
+    if trailing.is_empty() {
+        return Ok(None);
+    }
+    ensure!(
+        trailing.len() == DISTILL_BLOCK_LEN
+            && trailing.starts_with(DISTILL_BLOCK_MAGIC)
+            && trailing[5..8] == [0, 0, 0],
+        "BST4 frame has {} trailing bytes that are no distillation block",
+        trailing.len()
+    );
+    Ok(Some((
+        trailing[4],
+        u64::from_le_bytes(trailing[8..].try_into()?),
+    )))
+}
 
 /// Refuses a run whose `run.json` keeps the layer's answers as labels.
 ///
@@ -82,6 +131,28 @@ mod tests {
         ] {
             assert!(refuse_imitation(&run).is_err());
         }
+    }
+
+    #[test]
+    fn a_distillation_block_reads_back_and_nothing_else_trails_a_frame() {
+        let block = distill_block(3, 1 << 8 | 1);
+        assert_eq!(&block[..4], b"BDX1");
+        assert_eq!(trailing_distill_block(&block).unwrap(), Some((3, 257)));
+        assert_eq!(
+            trailing_distill_block(&distill_block(NO_SUBTYPE, 0)).unwrap(),
+            Some((255, 0))
+        );
+        assert_eq!(trailing_distill_block(&[]).unwrap(), None);
+        let mut reserved = block;
+        reserved[6] = 1;
+        let mut magic = block;
+        magic[3] = b'2';
+        for wrong in [&block[..15], &reserved[..], &magic[..], &[0; 16][..]] {
+            assert!(trailing_distill_block(wrong).is_err());
+        }
+        let mut longer = block.to_vec();
+        longer.push(0);
+        assert!(trailing_distill_block(&longer).is_err());
     }
 
     #[test]

@@ -31,7 +31,9 @@ use crate::features4::{
     sample_subset_constrained,
 };
 
-pub use crate::convert4::distill_labels::{DistillLabel4, DistillStep4, menu_of, menu_signature};
+pub use crate::convert4::distill_labels::{
+    DistillLabel4, DistillStep4, PrioritySubtype4, menu_of, menu_signature,
+};
 pub use baylee_train_ops::tactician_labels::DISTILL_CONTRACT;
 
 /// A net's distillation recorder.
@@ -269,8 +271,17 @@ pub(super) fn label(
         (Some(n), Some(r)) => n != r,
         _ => targets_differ(q.cands.head, &net, &rules_t),
     };
+    let kind = kind_of(q.cands.head, q.pending);
+    let subtype = (kind == "priority").then(|| {
+        PrioritySubtype4::of(
+            q.view.active == tactics::rules::read::actor(q.view),
+            q.view.owed.is_some(),
+            rules_action.as_ref(),
+            net_action.as_ref(),
+        )
+    });
     DistillLabel4 {
-        kind: kind_of(q.cands.head, q.pending).to_owned(),
+        kind: kind.to_owned(),
         pending_kind: PendingKind4::of(q.pending) as u8,
         menu_sha256: menu_of(q.cands),
         rules: rules_t,
@@ -280,5 +291,6 @@ pub(super) fn label(
         executed: executed.clone(),
         fired,
         n_ne_r,
+        subtype,
     }
 }

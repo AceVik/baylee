@@ -133,6 +133,13 @@ impl TacticRules4 {
         Ok(rules)
     }
 
+    /// Every group's name, in a fixed order: bit `i` of a distillation
+    /// dataset's fired mask is the `i`-th (`bundle_distillation.groups`).
+    #[must_use]
+    pub fn group_names() -> [&'static str; GROUPS.len()] {
+        GROUPS.map(|(_, name)| name)
+    }
+
     /// Every group in shadow: see [`Self::shadow`]. At temperature zero only.
     #[must_use]
     pub fn shadow() -> Self {

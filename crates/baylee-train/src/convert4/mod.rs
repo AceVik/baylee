@@ -112,13 +112,11 @@ pub struct Step4 {
     /// `rollout_sidecar` index), for a converter that binds labels to it.
     #[serde(skip)]
     pub seat_input: Option<u32>,
-    /// Bundle distillation (`bundle_distillation_v1`): whether the net's own
-    /// answer `N` differs from the label `R` here (BST4 flags bit 7).
+    /// Bundle distillation (`bundle_distillation_v1`): what a labelled frame
+    /// carries beside its target `R` (`N`, whether it differs, the priority
+    /// subtype, the groups that fired).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub n_ne_r: Option<bool>,
-    /// Bundle distillation: the net's own answer `N` (JSON steps and meta only).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub net_answer: Option<NetAnswer4>,
+    pub distill: Option<distill_labels::DistillFrame4>,
 }
 
 /// The net's own answer `N` at a distilled decision, by head.

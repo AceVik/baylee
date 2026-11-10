@@ -1309,10 +1309,34 @@ holds, at every kind of decision, that the copy read is what the layer plays.
 it): at each labelled decision of the recorded seats it checks the seat, the
 menu and the executed answer against the record, makes `R` the policy target
 (`single_idx`, `multi_mask`, `free_mask`, `scalar_norm`) at weight 1 and keeps
-`N` beside it (JSON steps `n_ne_r` and `net_answer`; BST4 flags bit 7 =
-`N ≠ R`); every other decision frame keeps its place at weight 0, and the value
-targets are the outcomes. `meta.json` carries `bundle_distillation` with its
-counts; a game that does not bind fails the conversion. In the CPU smoke of 10
+beside it what a trainer selects and weights by; every other decision frame
+keeps its place at weight 0, and the value targets are the outcomes. Each
+priority label names its subtype, the probe's decision kinds by the same rule
+(`PrioritySubtype4::of`): `pay` (a cost owed), `pass` (`R` passes),
+`instant_their_turn` (`R` casts or activates in the other side's turn), `spend`
+(`R` casts or activates in its own turn where `N` passes), else by `R`'s action
+`cast`, `activate`, `mana`, `land`, `other`. The dataset's JSON steps,
+`bundle-distill/game-NNNNNN.jsonl` (a header, one line per labelled frame, a
+`completed` footer), hold per frame `game_id`, `seat`, `step_cursor`,
+`label_kind`, `n_ne_r`, `net_answer` (`N`), `distill_subtype` (priority frames)
+and `fired` (the groups that changed `R`). In the BST4, flags bit 7 is `N ≠ R`
+(clear of bits 0–2 and the RL branch's 3–6 and 8–15), and every decision frame
+of a recorded seat ends, after its free mask, in a 16-byte block: `BDX1`, the
+subtype's code as a byte (255: none, at another kind of label and at a
+fallback, which keeps weight 0), three zero bytes, and a little-endian `u64`
+mask of the groups that fired. `meta.json`'s `bundle_distillation` (version 2)
+names the codes (`subtypes`: cast, pass, instant_their_turn, spend, pay, mana,
+activate, land, other) and the bits (`groups`, the layer's 20 groups in its
+table order), with the counts by kind, by subtype and at `N ≠ R` by group,
+and each JSON steps file's SHA-256 is beside it. A game that does not bind, a
+priority label without a subtype (recorded before them) or a group with no
+bit fails the conversion. The readers that check a frame's length
+(`trajectory::packing`, behind `trajectory_cache4`) admit exactly one valid
+block and nothing else; the Python readers take the masks at the payload's end
+(`trajectory_store4.bst4_payload_end`, `bst4_distill_block`). `eval4
+--deck-weights FILE` (a JSON object of manifest deck id to a whole weight)
+plays each selected deck as often as its weight, the copies in rounds through
+the deck list, and records the weights in `run.json`. In the CPU smoke of 10
 November (2 deals with the layer playing, 2 DAgger deals against `sharp`, 2 in
 self-play) every one of 1,545 labels bound; 289 had `N ≠ R` (245 at priority,
 mostly without a group firing: the layer's own reads), the layer played `R` at
