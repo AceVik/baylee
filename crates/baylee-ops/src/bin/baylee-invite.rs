@@ -1,4 +1,5 @@
-//! `baylee-invite`: see [`baylee_ops::invite`].
+//! `baylee-invite`: the closed beta's key command, gone; see
+//! [`baylee_ops::invite`].
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
