@@ -87,6 +87,25 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--candidate-context-revision", type=int, choices=(1, 2, 3), default=1,
                     help="2: menu-context gate; 3: gate plus candidate-to-board attention")
     ap.add_argument("--candidate-context-warmstart", action="store_true", help="Explicit weights-only candidate context revision 1 to 2 transfer")
+    ap.add_argument("--thinking-revision", type=int, choices=(1, 2), default=1,
+                    help="2: deliberation over the answers (model5.deliberation); --thinking-steps is then the "
+                         "scratchpad depth of the trunk and the block runs --deliberation-steps")
+    ap.add_argument("--deliberation-steps", type=int, default=4)
+    ap.add_argument("--deliberation-width", type=int, default=256)
+    ap.add_argument("--deliberation-candidates", type=int, default=16)
+    ap.add_argument("--deliberation-no-feedback", action="store_true",
+                    help="Ablation: the block never reads its previous proposal")
+    ap.add_argument("--thinking-warmstart", action="store_true",
+                    help="Explicit weights-only transfer from a thinking revision 1 checkpoint; the block starts at a zero correction")
+    ap.add_argument("--train-thinking-only", action="store_true",
+                    help="Train only the deliberation block; every other weight stays frozen")
+    ap.add_argument("--think-supervision", action="store_true",
+                    help="Add the per-step terms of training4.think_loss (deep supervision, improvement, confidence, consequence)")
+    ap.add_argument("--think-deep-weight", type=float, default=1.0)
+    ap.add_argument("--think-improve-weight", type=float, default=0.5)
+    ap.add_argument("--think-improve-margin", type=float, default=0.0)
+    ap.add_argument("--think-confidence-weight", type=float, default=0.25)
+    ap.add_argument("--think-consequence-weight", type=float, default=0.1)
     args = ap.parse_args()
     if args.depth_schedule == "fixed" and args.thinking_curriculum:
         ap.error("--depth-schedule fixed conflicts with --thinking-curriculum")
@@ -139,6 +158,39 @@ def parse_args(default_architecture="v4"):
         ap.error("Candidate context revision 3 is an Encoder7/8 contract")
     if args.candidate_context_warmstart and (not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.architecture != "v5" or args.relational_revision != 2 or args.candidate_context_revision < 2):
         ap.error("Candidate context warmstart requires v5 relational2 candidate2+ and --init only; no simultaneous encoder transfer")
+    args.think_loss = None
+    if args.thinking_revision == 2:
+        if args.architecture != "v5" or args.relational_revision != 2 or args.thinking_curriculum:
+            ap.error("Thinking revision 2 requires v5 relational revision 2 and a fixed depth schedule")
+        if args.init_state:
+            ap.error("Thinking revision 2 starts from --init or --resume")
+        # Every pass of this trainer runs the trunk's scratchpad depth and the
+        # block's configured steps; per-step quality is read from the trace.
+        args.report_depths = (args.thinking_steps,)
+        identity["thinking"] = {"contract": "deliberation_v1"}
+        if args.think_supervision:
+            if args.decision_chunk <= 1:
+                ap.error("--think-supervision reads the trace of deferred readouts: needs --decision-chunk > 1")
+            from .think_loss import ThinkLossConfig
+            try:
+                args.think_loss = ThinkLossConfig(args.think_deep_weight, args.think_improve_weight,
+                                                  args.think_improve_margin, args.think_confidence_weight,
+                                                  args.think_consequence_weight)
+            except ValueError as error:
+                ap.error(str(error))
+            identity["thinking"]["loss"] = args.think_loss.to_dict()
+        if args.train_thinking_only:
+            if (not (args.init or args.resume) or args.freeze_trunk or args.relational_lr > 0
+                    or args.train_candidate_column is not None or args.train_rules_only):
+                ap.error("--train-thinking-only needs --init or --resume and no other partial-training flag")
+            identity["train_parts"] = "thinking"
+    elif (args.thinking_warmstart or args.train_thinking_only or args.think_supervision
+          or args.deliberation_no_feedback):
+        ap.error("Deliberation flags require --thinking-revision 2")
+    if args.thinking_warmstart and (not args.init or args.resume or args.candidate_context_warmstart
+                                    or args.encoder_warmstart_from7 or args.encoder_warmstart_to9
+                                    or args.encoder_warmstart_to10):
+        ap.error("--thinking-warmstart requires --init only and no simultaneous transfer")
     from .depth_schedule import DepthSchedule
     try:
         DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths,

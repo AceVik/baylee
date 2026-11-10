@@ -146,6 +146,41 @@ EMBEDDING_NAMES = ("state_emb", "cand_emb", "pair_emb")
 EMBEDDING_CONTRACT = "tactician_embeddings_v1"
 
 
+# Thinking revision 2: the probability that the returned top answer is right,
+# the halting signal a seat reads to decide whether to think deeper.
+THINKING_NAMES = ("think_confidence",)
+THINKING_CONTRACT = "deliberation_v1"
+
+
+def has_thinking(net) -> bool:
+    return getattr(net, "deliberation", None) is not None
+
+
+class ThinkingGraph(torch.nn.Module):
+    """A graph's outputs, then [`THINKING_NAMES`]: what the block said of its answer."""
+
+    def __init__(self, graph, net):
+        super().__init__()
+        self.graph, self.net = graph, net
+
+    def forward(self, *inputs):
+        self.net.deliberation.last_confidence = None
+        outputs = self.graph(*inputs)
+        confidence = self.net.deliberation.last_confidence
+        if confidence is None:
+            raise ValueError("The net deliberated no answer this step")
+        return (*outputs, confidence.float())
+
+
+def export_graph(net, embeddings):
+    """The module an export traces and its parity check runs."""
+    graph = EmbeddingGraph(net) if embeddings else net
+    # A wrapper is born in training mode, and the exporter puts back the mode
+    # it found: an exported net must stay in evaluation mode, where the
+    # deliberation depth is the graph's.
+    return (ThinkingGraph(graph, net) if has_thinking(net) else graph).eval()
+
+
 class EmbeddingGraph(torch.nn.Module):
     """The net's five outputs, then [`EMBEDDING_NAMES`], read by hooks.
 
@@ -222,12 +257,15 @@ def export_v4_onnx(
         output_names += list(EMBEDDING_NAMES)
         dynamic_axes.update({"state_emb": {0: "B"}, "cand_emb": {0: "B", 1: "C"},
                              "pair_emb": {0: "B", 1: "P"}})
+    if has_thinking(net):
+        output_names += list(THINKING_NAMES)
+        dynamic_axes["think_confidence"] = {0: "B"}
     previous_depth = getattr(net, "export_thinking_steps", None)
     if fixed_depth:
         net.export_thinking_steps = thinking_steps
     try:
         torch.onnx.export(
-            EmbeddingGraph(net) if embeddings else net,
+            export_graph(net, embeddings),
             dummy,
             str(onnx_path),
             input_names=list(M.INPUT_NAMES),
@@ -328,12 +366,13 @@ def main() -> None:
     worst_diff = 0.0
     checked = 0
 
-    output_names = list(M.OUTPUT_NAMES) + (list(EMBEDDING_NAMES) if args.embeddings else [])
+    output_names = (list(M.OUTPUT_NAMES) + (list(EMBEDDING_NAMES) if args.embeddings else [])
+                    + (list(THINKING_NAMES) if has_thinking(net) else []))
 
     def compare(inputs, depth, h_ort=None):
         nonlocal worst_diff, checked
         with torch.inference_mode():
-            want = (EmbeddingGraph(net) if args.embeddings else net)(*inputs)
+            want = export_graph(net, args.embeddings)(*inputs)
         feed = {name: tensor.numpy() for name, tensor in zip(M.INPUT_NAMES, inputs)}
         if h_ort is not None:
             feed["h_in"] = h_ort
@@ -423,6 +462,12 @@ def main() -> None:
         **({"rule_table_ablation": rule_table_ablation} if rule_table_ablation else {}),
         **({"embedding_outputs": {"contract": EMBEDDING_CONTRACT, "names": list(EMBEDDING_NAMES)}}
            if args.embeddings else {}),
+        # The depth K of a graph counts deliberation steps; the scratchpad
+        # keeps the depth its trunk was trained with at every K >= 1.
+        **({"thinking_outputs": {"contract": THINKING_CONTRACT, "names": list(THINKING_NAMES),
+                                 "depth": "deliberation_steps", "trained_steps": cfg.deliberation_steps,
+                                 "scratchpad_steps": cfg.scratchpad_steps}}
+           if has_thinking(net) else {}),
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)
