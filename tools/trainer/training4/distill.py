@@ -1,0 +1,276 @@
+"""Opt-in bundle distillation (`--distill-bundle`) on `bundle_distillation_v1` datasets.
+
+The dataset's ordinary policy targets hold R, the tactical layer's answer with
+the bundle, at every recorded-seat decision (loss weight > 0); header flag bit 7
+marks the decisions where N, the net's own greedy answer, differs (`n_ne_r`).
+
+The loss changes the student only where the bundle disagrees with the net:
+- cross-entropy to R at distilled decisions (`--distill-kinds`, priority by
+  default) where N != R;
+- beta * KL(r1 || student) everywhere else: distilled decisions where N = R,
+  other single choices, subsets and pairs (Bernoulli per free entry), and the
+  squared error to r1's scalar. Each term is reported apart.
+Outcome weighting does not apply: the label is R whatever the game's result.
+Value and auxiliary targets are not part of this loss.
+
+The reference r1 is a frozen copy of the --init weights. When nothing before the
+heads learns (stage A) it reads the student's own boards and memory, so it costs
+a second readout and no trunk; otherwise it encodes its own boards and carries
+its own memory.
+
+`AUXILIARY_TARGETS` is the hook for stage B's extra auxiliary heads: each entry
+`name -> fn(student_outputs, batch, plans) -> loss` joins the total. Empty today.
+"""
+from __future__ import annotations
+
+import copy
+
+import torch
+import torch.nn.functional as F
+
+import model4 as M
+from .deferred import deferred_readouts
+from .execution import encode_boards, plan_batch, transfer_batch
+
+CONTRACT = "bundle_distillation_v1"
+N_NE_R_FLAG = 128  # BST4 header flags bit 7
+TERMS = ("ce_r", "kl_distilled_n_eq_r", "kl_single", "kl_subset", "kl_pair", "sq_scalar")
+AUXILIARY_TARGETS = {}
+
+
+def dataset_contract(meta):
+    value = meta.get("bundle_distillation")
+    return value.get("contract") if isinstance(value, dict) else None
+
+
+def check_datasets(datasets, enabled):
+    """Fail closed both ways: R labels train only under --distill-bundle."""
+    for dataset in datasets:
+        contract = dataset_contract(getattr(dataset, "meta", None) or {})
+        if enabled and contract != CONTRACT:
+            raise ValueError(f"--distill-bundle needs {CONTRACT} datasets")
+        if not enabled and contract is not None:
+            raise ValueError(f"{contract} labels train only under --distill-bundle")
+        dataset.distillation = enabled
+
+
+class Reference:
+    """Frozen r1 and its outputs on the student's batch."""
+
+    @staticmethod
+    def snapshot(net):
+        """Copy the --init weights before any freezing or adapter; rules are attached later."""
+        rules = net.rules
+        net.rules = None
+        try:
+            return copy.deepcopy(net)
+        finally:
+            net.rules = rules
+
+    def __init__(self, copied, student):
+        from .partial import upstream_frozen
+        rules = student.rules
+        rules_frozen = not any(p.requires_grad for p in rules.parameters())
+        copied.rules = rules if rules_frozen else copy.deepcopy(rules)
+        self.net = copied
+        self.own_rules = not rules_frozen
+        self.net.eval()
+        for parameter in self.net.parameters():
+            parameter.requires_grad_(False)
+        # Stage A: everything before the heads is frozen, so boards and memory are r1's.
+        self.shared_trunk = upstream_frozen(student)
+        self.hidden = None
+
+    def outputs(self, host, batch, boards, hidden, plans, device, bf16, chunk, resets=None):
+        with torch.no_grad():
+            b = batch["step_valid"].shape[0]
+            if self.own_rules:
+                with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
+                    self.net.clear_structure()
+                    self.net.prepare_structure((host["entity_rules"], host["cand_rules"]))
+            if self.shared_trunk:
+                ref_boards, ref_hidden = boards, hidden.detach()
+            else:
+                with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
+                    ref_boards = encode_boards(self.net, batch, chunk, device)
+                if resets is not None or self.hidden is None or self.hidden.shape[0] != b:
+                    self.hidden = torch.zeros_like(hidden)
+                new = batch["is_new_traj"].to(device, non_blocking=True)
+                ref_hidden = torch.where(new[:, None, None], torch.zeros_like(self.hidden), self.hidden)
+            prepared, final = deferred_readouts(self.net, batch, ref_boards, ref_hidden, plans,
+                                                self.net.decision_chunk, device, bf16, resets=resets)
+            if not self.shared_trunk:
+                self.hidden = final
+            if self.own_rules:
+                self.net.clear_structure()
+        return prepared
+
+
+def _bernoulli_kl(student, reference):
+    """KL(Bernoulli(sigmoid(reference)) || Bernoulli(sigmoid(student))) per entry."""
+    p = torch.sigmoid(reference)
+    return (p * (F.logsigmoid(reference) - F.logsigmoid(student))
+            + (1 - p) * (F.logsigmoid(-reference) - F.logsigmoid(-student)))
+
+
+def distill_loss(prepared, reference, batch, plans, kinds, kl_weight, extra=None):
+    """Returns (loss, stats [12]): per term weighted sum and weight, in TERMS order."""
+    device = prepared[0][4].device
+    get = lambda key: batch[key].to(device, non_blocking=True)
+    valid = get("step_valid")
+    weight = torch.where(valid, get("loss_weight"), 0.)
+    decision = get("is_decision") & valid & (weight > 0)
+    heads = get("head")
+    distilled_kind = torch.isin(get("pending_kind"), torch.tensor(kinds, device=device))
+    differs = get("n_ne_r")
+    sums = torch.zeros(len(TERMS), device=device)
+    dens = torch.zeros(len(TERMS), device=device)
+    for t, plan in enumerate(plans):
+        for kind in range(4):
+            if not plan.heads[kind]:
+                continue
+            selected = decision[:, t] & (heads[:, t] == kind)
+            w = weight[:, t] * selected
+            if kind == 0:
+                student = prepared[t][1].float()
+                ref = reference[t][1].float()
+                mask = get("cand_mask")[:, t, :student.shape[1]]
+                genuine = selected & (mask.sum(-1) > 1)
+                distilled = genuine & distilled_kind[:, t]
+                target = torch.where(distilled & differs[:, t], get("single_idx")[:, t], 0)
+                log_s = torch.log_softmax(torch.where(mask, student, -1e9), -1)
+                log_r = torch.log_softmax(torch.where(mask, ref, -1e9), -1)
+                ce = -log_s.gather(1, target[:, None])[:, 0]
+                kl = torch.where(mask, log_r.exp() * (log_r - log_s), 0.).sum(-1)
+                for index, rows, values in ((0, distilled & differs[:, t], ce),
+                                            (1, distilled & ~differs[:, t], kl),
+                                            (2, genuine & ~distilled, kl)):
+                    rw = weight[:, t] * rows
+                    sums[index] = sums[index] + (torch.where(rows, values, 0.) * rw).sum()
+                    dens[index] = dens[index] + rw.sum()
+            elif kind in (1, 2):
+                prefix = "cand" if kind == 1 else "pair"
+                student = prepared[t][kind].float()
+                ref = reference[t][kind].float()
+                width = student.shape[1]
+                mask = get(prefix + "_mask")[:, t, :width]
+                free = get(prefix + "_free_mask")[:, t, :width]
+                eligible = selected[:, None] & mask & (free > 0)
+                kl = torch.where(eligible, _bernoulli_kl(torch.where(eligible, student, 0.),
+                                                         torch.where(eligible, ref, 0.)), 0.)
+                ew = torch.where(eligible, free, 0.) * w[:, None]
+                index = 3 if kind == 1 else 4
+                sums[index] = sums[index] + (kl * ew).sum()
+                dens[index] = dens[index] + ew.sum()
+            else:
+                error = torch.where(selected, prepared[t][3].float() - reference[t][3].float(), 0.)
+                sums[5] = sums[5] + (error.square() * w).sum()
+                dens[5] = dens[5] + w.sum()
+    means = sums / dens.clamp(min=1e-6)
+    total = means[0] + kl_weight * means[1:].sum()
+    for name, function in (extra or {}).items():
+        total = total + function(prepared, batch, plans)
+    return total, torch.cat((sums.detach(), dens.detach()))
+
+
+def term_means(stats):
+    n = len(TERMS)
+    return {name: float(stats[i] / stats[n + i]) if float(stats[n + i]) > 0 else None
+            for i, name in enumerate(TERMS)}
+
+
+GROUPS = ("distilled", "single", "subset", "pair", "scalar")
+
+
+def agreement(prepared, batch, plans, kinds, scalar_tolerance):
+    """Per group: [decisions, N != R, agree with R, agree with R at N != R], device float64.
+
+    Single choices agree when the argmax is R. Subsets and pairs agree when the
+    threshold-0 decode equals R on every free entry (the min/max choice limits the
+    actor's decoder also applies are not in the frame). Scalars agree within
+    `scalar_tolerance` of R's normalized value.
+    """
+    device = prepared[0][4].device
+    get = lambda key: batch[key].to(device, non_blocking=True)
+    valid = get("step_valid")
+    decision = get("is_decision") & valid & (get("loss_weight") > 0)
+    heads = get("head")
+    distilled_kind = torch.isin(get("pending_kind"), torch.tensor(kinds, device=device))
+    differs = get("n_ne_r")
+    table = torch.zeros(len(GROUPS), 4, dtype=torch.float64, device=device)
+    for t, plan in enumerate(plans):
+        for kind in range(4):
+            if not plan.heads[kind]:
+                continue
+            selected = decision[:, t] & (heads[:, t] == kind)
+            if kind == 0:
+                logits = prepared[t][1].float()
+                mask = get("cand_mask")[:, t, :logits.shape[1]]
+                genuine = selected & (mask.sum(-1) > 1)
+                agree = torch.where(mask, logits, -1e9).argmax(-1) == get("single_idx")[:, t]
+                rows = ((0, genuine & distilled_kind[:, t]), (1, genuine & ~distilled_kind[:, t]))
+            elif kind in (1, 2):
+                prefix = "cand" if kind == 1 else "pair"
+                logits = prepared[t][kind].float()
+                width = logits.shape[1]
+                eligible = get(prefix + "_mask")[:, t, :width] & (get(prefix + "_free_mask")[:, t, :width] > 0)
+                target = get(prefix + "_target_mask")[:, t, :width] > .5
+                agree = ~(eligible & ((logits > 0) != target)).any(-1)
+                rows = ((kind + 1, selected & eligible.any(-1)),)
+            else:
+                agree = (prepared[t][3].float() - get("scalar_target")[:, t]).abs() <= scalar_tolerance
+                rows = ((4, selected),)
+            for group, chosen in rows:
+                table[group] += torch.stack((chosen.sum(), (chosen & differs[:, t]).sum(),
+                                             (chosen & agree).sum(), (chosen & agree & differs[:, t]).sum())).double()
+    return table
+
+
+@torch.no_grad()
+def evaluate_distill(net, reference, loader, device, kinds, kl_weight, board_chunk, scalar_tolerance,
+                     thinking_steps=2, bf16=None):
+    """Held-out agreement with R by group and every KL guard, over whole trajectories."""
+    from .prefetch import prefetch_batches
+    net.eval()
+    bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported() if bf16 is None else bf16
+    table = torch.zeros(len(GROUPS), 4, dtype=torch.float64, device=device)
+    stats = torch.zeros(2 * len(TERMS), device=device)
+    value = torch.zeros(3, dtype=torch.float64, device=device)
+    hidden = None
+    reference.hidden = None
+    for host, staged in prefetch_batches(loader, device, getattr(net, "gpu_prefetch", 0)):
+        plans = plan_batch(host, 0, thinking_steps)
+        batch = transfer_batch(host, device) if staged is None else staged
+        b = batch["step_valid"].shape[0]
+        new = batch["is_new_traj"].to(device, non_blocking=True)
+        hidden = (torch.zeros(b, M.RECURRENT_SLOTS, net.cfg.d_model, device=device)
+                  if hidden is None or hidden.shape[0] != b else
+                  torch.where(new[:, None, None], torch.zeros_like(hidden), hidden))
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
+            net.clear_structure()
+            net.prepare_structure((host["entity_rules"], host["cand_rules"]))
+            boards = encode_boards(net, batch, board_chunk, device)
+        prepared, final = deferred_readouts(net, batch, boards, hidden, plans, net.decision_chunk, device, bf16)
+        ref = reference.outputs(host, batch, boards, hidden, plans, device, bf16, board_chunk)
+        _, step_stats = distill_loss(prepared, ref, batch, plans, kinds, kl_weight)
+        stats += step_stats
+        table += agreement(prepared, batch, plans, kinds, scalar_tolerance)
+        valid = batch["step_valid"].to(device)
+        mine = torch.stack([p[4].float() for p in prepared], 1)
+        theirs = torch.stack([p[4].float() for p in ref], 1)
+        value += torch.stack((((mine - batch["outcome"].to(device)).square() * valid).sum(),
+                              ((mine - theirs).square() * valid).sum(), valid.sum())).double()
+        net.clear_structure()
+        hidden = final
+    metrics = {f"val_distill_{name}": value for name, value in term_means(stats).items()}
+    rows = table.cpu().tolist()
+    for group, (count, differ, agree, agree_differ) in zip(GROUPS, rows):
+        metrics[f"val_distill_{group}_decisions"] = int(count)
+        metrics[f"val_distill_{group}_n_ne_r"] = int(differ)
+        metrics[f"val_distill_{group}_top1_r"] = agree / count if count else None
+        metrics[f"val_distill_{group}_top1_r_at_n_ne_r"] = agree_differ / differ if differ else None
+        metrics[f"val_distill_{group}_n_top1_r"] = (count - differ) / count if count else None
+    sse, drift, frames = value.cpu().tolist()
+    metrics.update(val_mse=sse / max(frames, 1), val_value_mse_to_r1=drift / max(frames, 1), val_frames=int(frames),
+                   val_distill_selection=metrics["val_distill_distilled_top1_r_at_n_ne_r"])
+    return metrics
