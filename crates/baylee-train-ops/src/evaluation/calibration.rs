@@ -205,6 +205,131 @@ fn evaluate(value: &Value) -> Result<Value> {
     }
     Ok(serde_json::to_value(report)?)
 }
+/// ECE and Brier of `before` then `after`, frame-weighted then trajectory-weighted.
+fn paired_metrics(
+    positions: &[usize],
+    trajectories: &[u64],
+    truth: &[f64],
+    before: &[f64],
+    after: &[f64],
+    float32: bool,
+) -> Result<[f64; 8]> {
+    let picked_truth: Vec<f64> = positions.iter().map(|i| truth[*i]).collect();
+    let mut out = [0.0; 8];
+    for (w, weight) in [vec![1.0; positions.len()], weights(trajectories)]
+        .iter()
+        .enumerate()
+    {
+        for (m, prediction) in [before, after].iter().enumerate() {
+            let picked: Vec<f64> = positions.iter().map(|i| prediction[*i]).collect();
+            let report = aggregate(&picked, &picked_truth, weight, float32);
+            out[w * 4 + m * 2] = report["ece"].as_f64().context("missing ECE")?;
+            out[w * 4 + m * 2 + 1] = report["brier"].as_f64().context("missing Brier")?;
+        }
+    }
+    Ok(out)
+}
+/// Game-cluster bootstrap of calibration before and after a refit.
+///
+/// Games are drawn with replacement from the evaluation's `SplitMix64` stream; a
+/// game drawn twice contributes its trajectories twice, each copy counting as a
+/// trajectory of its own. Each weighting reports the full-sample estimate and a
+/// 95 % percentile interval of ECE and Brier for before, after, and the paired
+/// difference after minus before (both read on the same draw).
+fn bootstrap(value: &Value) -> Result<Value> {
+    let truth = floats(&value["truth"])?;
+    let before = floats(&value["before"])?;
+    let after = floats(&value["after"])?;
+    let trajectories = ids(&value["trajectories"])?;
+    let games = ids(&value["games"])?;
+    let float32 = value["float32"] == true;
+    let resamples = usize::try_from(
+        value["resamples"]
+            .as_u64()
+            .context("missing bootstrap resamples")?,
+    )?;
+    let seed = value["seed"].as_u64().context("missing bootstrap seed")?;
+    let count = truth.len();
+    ensure!(
+        count > 0 && resamples > 0,
+        "bootstrap needs samples and resamples"
+    );
+    ensure!(
+        [before.len(), after.len(), trajectories.len(), games.len()]
+            .iter()
+            .all(|n| *n == count),
+        "calibration arrays differ in length"
+    );
+    ensure!(
+        truth
+            .iter()
+            .chain(&before)
+            .chain(&after)
+            .all(|n| n.is_finite()),
+        "nonfinite calibration value"
+    );
+    let mut by_game: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
+    for (i, game) in games.iter().enumerate() {
+        by_game.entry(*game).or_default().push(i);
+    }
+    let clusters: Vec<&Vec<usize>> = by_game.values().collect();
+    let span = trajectories.iter().max().copied().unwrap_or(0) + 1;
+    let all: Vec<usize> = (0..count).collect();
+    let estimate = paired_metrics(&all, &trajectories, &truth, &before, &after, float32)?;
+    let mut state = seed;
+    // Columns: the eight metrics, then after minus before for each metric pair.
+    let mut draws = vec![Vec::with_capacity(resamples); 12];
+    for _ in 0..resamples {
+        let (mut positions, mut copies) = (Vec::with_capacity(count), Vec::with_capacity(count));
+        for copy in 0..clusters.len() {
+            let cluster = clusters[super::sample(&mut state, clusters.len())];
+            let offset = u64::try_from(copy)? * span;
+            positions.extend(cluster.iter().copied());
+            copies.extend(cluster.iter().map(|i| offset + trajectories[*i]));
+        }
+        let m = paired_metrics(&positions, &copies, &truth, &before, &after, float32)?;
+        for (slot, metric) in m.iter().enumerate() {
+            draws[slot].push(*metric);
+        }
+        for w in 0..2 {
+            for k in 0..2 {
+                draws[8 + w * 2 + k].push(m[w * 4 + 2 + k] - m[w * 4 + k]);
+            }
+        }
+    }
+    for column in &mut draws {
+        column.sort_by(f64::total_cmp);
+    }
+    let interval = |sorted: &[f64]| {
+        json!([
+            super::summary::quantile(sorted, 0.025),
+            super::summary::quantile(sorted, 0.975)
+        ])
+    };
+    let mut weightings = serde_json::Map::new();
+    for (w, name) in ["frame_weighted", "trajectory_weighted"].iter().enumerate() {
+        let mut metrics = serde_json::Map::new();
+        for (k, metric) in ["ece", "brier"].iter().enumerate() {
+            let (b, a) = (w * 4 + k, w * 4 + 2 + k);
+            metrics.insert(
+                (*metric).to_owned(),
+                json!({
+                    "before": {"estimate": estimate[b], "interval": interval(&draws[b])},
+                    "after": {"estimate": estimate[a], "interval": interval(&draws[a])},
+                    "after_minus_before": {"estimate": estimate[a] - estimate[b],
+                                           "interval": interval(&draws[8 + w * 2 + k])}}),
+            );
+        }
+        weightings.insert((*name).to_owned(), Value::Object(metrics));
+    }
+    Ok(
+        json!({"games": clusters.len(), "samples": count, "resamples": resamples, "seed": seed,
+              "level": 0.95, "rng": "splitmix64-rejection-v1",
+              "cluster": "game; a repeated game's trajectories count as new ones",
+              "frame_weighted": weightings["frame_weighted"],
+              "trajectory_weighted": weightings["trajectory_weighted"]}),
+    )
+}
 /// Aggregate a complete metric array or final prediction pass in one native call.
 ///
 /// # Errors
@@ -220,6 +345,7 @@ pub fn run(value: &Value) -> Result<Value> {
         ),
         Some("priors") => priors(&value["rows"]),
         Some("evaluate") => evaluate(value),
+        Some("bootstrap") => bootstrap(value),
         Some("disjoint") => {
             let left = ids(&value["left"])?;
             let right = ids(&value["right"])?;
@@ -301,6 +427,56 @@ mod tests {
         assert!(
             run(&json!({"kind":"summary","prediction":[null],"truth":[0.0],"trajectories":[0]}))
                 .is_err()
+        );
+        Ok(())
+    }
+    #[test]
+    fn game_bootstrap_is_seeded_paired_and_matches_the_full_sample() -> Result<()> {
+        let truth = [1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0];
+        let before = [0.9, 0.8, 0.9, 0.7, 0.95, 0.85, 0.6, 0.8];
+        let after = [0.6, 0.55, 0.4, 0.35, 0.65, 0.45, 0.5, 0.4];
+        let request = |seed: u64, after: &[f64]| {
+            json!({"kind":"bootstrap","truth":truth,"before":before,"after":after,
+                   "trajectories":[0,0,1,1,2,2,3,3],"games":[10,10,11,11,12,12,13,13],
+                   "resamples":400,"seed":seed,"float32":false})
+        };
+        let report = run(&request(7, &after))?;
+        assert_eq!(report, run(&request(7, &after))?);
+        assert_ne!(report, run(&request(8, &after))?);
+        assert_eq!(
+            (report["games"].clone(), report["samples"].clone()),
+            (json!(4), json!(8))
+        );
+        let full = summary(&before, &truth, &[0, 0, 1, 1, 2, 2, 3, 3], false)?;
+        for weighting in ["frame_weighted", "trajectory_weighted"] {
+            let ece = &report[weighting]["ece"];
+            assert_eq!(ece["before"]["estimate"], full[weighting]["ece"]);
+            let [lo, hi] = [0, 1].map(|i| ece["before"]["interval"][i].as_f64().unwrap());
+            assert!(lo <= hi && (0.0..=1.0).contains(&lo) && hi <= 1.0);
+            let diff = ece["after_minus_before"]["estimate"].as_f64().unwrap();
+            let expected = ece["after"]["estimate"].as_f64().unwrap()
+                - ece["before"]["estimate"].as_f64().unwrap();
+            assert!((diff - expected).abs() < 1e-15);
+        }
+        // An unchanged head differs from itself by exactly zero on every draw.
+        let same = run(&request(7, &before))?;
+        assert_eq!(
+            same["trajectory_weighted"]["ece"]["after_minus_before"]["interval"],
+            json!([0.0, 0.0])
+        );
+        assert!(
+            run(
+                &json!({"kind":"bootstrap","truth":[1.0],"before":[0.5],"after":[0.5],
+                             "trajectories":[0],"games":[0,1],"resamples":10,"seed":1})
+            )
+            .is_err()
+        );
+        assert!(
+            run(
+                &json!({"kind":"bootstrap","truth":[1.0],"before":[0.5],"after":[0.5],
+                             "trajectories":[0],"games":[0],"resamples":0,"seed":1})
+            )
+            .is_err()
         );
         Ok(())
     }

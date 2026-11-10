@@ -1,6 +1,7 @@
 """Frozen chronological inference; sampling never skips a memory update."""
 from pathlib import Path
 import time
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -14,22 +15,52 @@ from .source_identity import file_digest
 from tensor_io4 import TensorPublication
 
 
+def learner_trajectories(dataset, greedy=False):
+    """Trajectories with at least one eligible net decision, read from packed headers only.
+
+    The same rule as `neural_decisions` (source Net; by default also a recorded
+    logprob at temperature > 0), so admission keeps exactly the same trajectories.
+    A trajectory stored as JSON frames is kept and judged by the full scan.
+    """
+    from trajectory_store4 import BST4_HDR, BST4_MAGIC
+    flags = np.asarray(dataset.store.index["flags"])
+    kept = []
+    for segments in dataset.trajectories:
+        rows = np.concatenate([dataset.segments[s] for s in segments])
+        for row in rows[(flags[rows] & 1) != 0]:
+            raw = dataset.store.read_raw(int(row))
+            if raw[:4] != BST4_MAGIC:
+                kept.append(segments)
+                break
+            header = BST4_HDR.unpack_from(raw, 0)
+            frame_flags, source, temperature = header[6], header[9], header[21]
+            if source == 0 and (greedy or (frame_flags & 4 and temperature > 1e-4)):
+                kept.append(segments)
+                break
+    return kept
+
+
 @torch.no_grad()
 def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
-            max_samples=200000, greedy=False, turn_starts=False):
+            max_samples=200000, greedy=False, turn_starts=False, learner_only=False):
     """Write detached records and return complete learner eligibility metadata.
 
     Opt-in: `greedy` makes trajectories with the net's temperature-0 decisions
     eligible; `turn_starts` also samples every frame whose turn (global_feat[0],
     turn/20) is above its trajectory's previous frame's, i.e. each turn's first
     frame below turn 20. Those extra records are told apart afterwards: they are
-    the samples off the cursor stride (`metrics.stride_indices`).
+    the samples off the cursor stride (`metrics.stride_indices`). `learner_only`
+    runs the net only over trajectories with an eligible decision; the others
+    (an opponent seat's) would be excluded at admission anyway. Trajectory ids
+    keep the dataset's numbering.
     """
     device = next(net.parameters()).device
     if any(p.dtype != torch.float32 for p in net.parameters()):
         raise ValueError("Feature extraction requires float32 parameters")
     net.eval()
-    sampler = D.StatefulBatchSampler4(dataset, batch_size, shuffle=False)
+    lanes = (SimpleNamespace(trajectories=learner_trajectories(dataset, greedy))
+             if learner_only else dataset)
+    sampler = D.StatefulBatchSampler4(lanes, batch_size, shuffle=False)
     loader = DataLoader(dataset, batch_sampler=sampler, collate_fn=D.collate_trajectories)
     segment_to_traj = {segment: i for i, trajectory in enumerate(dataset.trajectories)
                        for segment in trajectory}
@@ -127,26 +158,31 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
                     scanned_frames=scanned, eligible_trajectories=sorted(eligible),
                     sampled_trajectories=len(counts), learner_trajectories=len(eligible),
                     turn_metadata="global_feat[0]: turn/20 clipped at 1; 1 means turn>=20",
-                    format_metadata="commander/team flags only; no invented named format")
+                    format_metadata="commander/team flags only; no invented named format",
+                    **({"scan": "learner trajectories only", "trajectories_scanned": len(lanes.trajectories),
+                        "trajectories_total": len(dataset.trajectories)} if learner_only else {}))
     finally:
         hook.remove()
         net.clear_structure()
 
 
 def cached_features(net, dataset, cache_root, source_hash, stride, batch_size, board_chunk, max_samples,
-                    greedy=False, turn_starts=False):
+                    greedy=False, turn_starts=False, learner_only=False):
     settings = identity(source_hash, dataset, stride, board_chunk, next(net.parameters()).device.type)
     settings["batch_size"] = batch_size
-    # Opt-in modes change eligibility and sampling, so they are part of the cache key.
+    # Opt-in modes change eligibility, sampling or the scanned set: part of the cache key.
     if greedy:
         settings["eligibility"] = "net_decisions_any_temperature"
     if turn_starts:
         settings["extra_samples"] = "turn_starts_below_20"
+    if learner_only:
+        settings["scan"] = "learner_trajectories_only"
     destination=Path(cache_root).expanduser()/key_for(settings)
     options=dict(width=net.cfg.d_model,settings=settings,max_samples=max_samples)
     with TensorPublication('cache',destination,**options) as publication:
         if not publication.receipt['reused']:
-            meta=extract(net,dataset,publication.path,stride,batch_size,board_chunk,max_samples,greedy,turn_starts)
+            meta=extract(net,dataset,publication.path,stride,batch_size,board_chunk,max_samples,greedy,turn_starts,
+                         learner_only)
             meta['identity']=settings
             publication.commit(metadata=meta)
     cache = FeatureCache(destination, net.cfg.d_model)

@@ -96,5 +96,62 @@ class GreedyAndTurnStarts(unittest.TestCase):
                                    report["calibrated"]["frame_weighted"]["mse"], places=6)
 
 
+class LearnerScan(unittest.TestCase):
+    def test_header_scan_keeps_exactly_the_eligible_trajectories(self):
+        from trajectory_store4 import BST4_HDR
+        from value_calibration4.extract import learner_trajectories
+
+        def header(source, flags, temperature):
+            return BST4_HDR.pack(b"BST4", 1, 0, 0, 0, 0, flags, 0, 0, source, 0, 2, 0,
+                                 *([0.0] * 8), temperature, *([0] * 12))
+        frames = {1: header(1, 1, 0.), 4: header(2, 1, 0.), 5: header(0, 1, 0.), 7: header(0, 1 | 4, .7)}
+        index = np.zeros(9, dtype=[("flags", "<u4")])
+        index["flags"][[1, 4, 5, 7]] = 1
+        dataset = SimpleNamespace(trajectories=[[0], [1], [2]],
+                                  segments=[np.arange(0, 3), np.arange(3, 6), np.arange(6, 9)],
+                                  store=SimpleNamespace(index=index, read_raw=lambda row: frames[row]))
+        # House-only, then forced-then-greedy net, then a sampled net decision.
+        self.assertEqual(learner_trajectories(dataset, greedy=True), [[1], [2]])
+        self.assertEqual(learner_trajectories(dataset, greedy=False), [[2]])
+        # The same rule as the tensor path that admission applies.
+        batch = {k: torch.tensor(v) for k, v in dict(step_valid=[True] * 3, is_decision=[True] * 3,
+                                                     source_kind=[1, 0, 0], has_logprob=[False, False, True],
+                                                     temperature=[0., 0., .7]).items()}
+        self.assertEqual(neural_decisions(batch, greedy=True).tolist(), [False, True, True])
+        self.assertEqual(neural_decisions(batch).tolist(), [False, False, True])
+
+
+class SeedHalves(unittest.TestCase):
+    def test_halves_follow_the_tactician_rule_and_refuse_foreign_seeds(self):
+        from value_calibration4.metrics import seed_halves
+        records = np.zeros(6, dtype=[("game", "<u8")])
+        records["game"] = [1, 2, 3, 4, 4, 5]
+        cache = FeatureCache.__new__(FeatureCache)
+        cache.records, cache.indices = records, np.arange(6)
+        seeds = {1: 1150301000000000000, 2: 1150301000000000010, 3: 1150301000000000020,
+                 4: 1150301000000000030, 5: 1150301000000000040}
+        select, report = seed_halves(cache, seeds, 10)
+        self.assertEqual(records["game"][select].tolist(), [1, 3, 5])
+        self.assertEqual(records["game"][report].tolist(), [2, 4, 4])
+        seeds[5] += 1
+        with self.assertRaisesRegex(ValueError, "divisible"):
+            seed_halves(cache, seeds, 10)
+
+    def test_game_bootstrap_runs_natively_on_cached_samples(self):
+        from value_calibration4.metrics import bootstrap
+        torch.manual_seed(5)
+        net = M.PlayerNet4(M.Config4(d_model=16, n_heads=4, n_layers=1, d_ff=32)).eval()
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary)
+            meta = extract(net, TurnDataset(16), path, stride=64, batch_size=1, board_chunk=0,
+                           greedy=True, turn_starts=True)
+            (path / "complete.json").write_text(json.dumps(meta))
+            cache = FeatureCache(path, 16)
+            report = bootstrap(net.seat_value_head, cache, cache.indices, "cpu", 50, 3)
+        self.assertEqual((report["games"], report["samples"], report["resamples"]), (1, 3, 50))
+        # The untouched head is its own reference: no difference on any draw.
+        self.assertEqual(report["trajectory_weighted"]["ece"]["after_minus_before"]["interval"], [0.0, 0.0])
+
+
 if __name__ == "__main__":
     unittest.main()
