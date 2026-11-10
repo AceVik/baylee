@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
 use super::NetAnswer4;
-use crate::features4::{EncodedCandidates4, TeacherTarget4};
+use crate::features4::{EncodedCandidates4, PendingKind4, TeacherTarget4};
 
 /// One decision's labels.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -33,9 +33,11 @@ pub struct DistillLabel4 {
     pub fired: Vec<String>,
     /// Whether `N` and `R` are different answers (by action where both decode).
     pub n_ne_r: bool,
-    /// At priority: what the decision is ([`PrioritySubtype4::of`]).
+    /// What the decision is, where the distillation scope reads it: every
+    /// priority label ([`DistillSubtype4::of`]), and a target question where
+    /// `side` or `aim` changed `R` ([`DistillSubtype4::of_single`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subtype: Option<PrioritySubtype4>,
+    pub subtype: Option<DistillSubtype4>,
 }
 
 /// What a recorded seat's decision frame of a distillation dataset carries
@@ -45,7 +47,7 @@ pub struct DistillLabel4 {
 /// (`bundle-distill/game-NNNNNN.jsonl`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DistillFrame4 {
-    /// The block's subtype code ([`PrioritySubtype4::code`], 255 for none).
+    /// The block's subtype code ([`DistillSubtype4::code`], 255 for none).
     pub subtype_code: u8,
     /// The block's mask of the groups that fired (bit i: the dataset's
     /// `bundle_distillation.groups[i]`).
@@ -65,25 +67,29 @@ pub struct DistillFrameLabel4 {
     pub n_ne_r: bool,
     /// `N`.
     pub net_answer: NetAnswer4,
-    /// At priority: what the decision is.
+    /// What the decision is ([`DistillLabel4::subtype`]).
     #[serde(
         rename = "distill_subtype",
         default,
         skip_serializing_if = "Option::is_none"
     )]
-    pub subtype: Option<PrioritySubtype4>,
+    pub subtype: Option<DistillSubtype4>,
     /// The rule groups that changed something on the way to `R`.
     pub fired: Vec<String>,
 }
 
-/// What a priority decision is, read from the layer's answer `R`, the net's
-/// answer `N` and the position. The same rule as the priority probe's
-/// decision kinds (`tools/trainer/tactician_v3/records.py`,
-/// `decision_kind`). Its code is the distillation block's subtype byte, the
-/// index of its name in the dataset's `bundle_distillation.subtypes`.
+/// What a labelled decision is, where the distillation scope reads it. At
+/// priority it is read from the layer's answer `R`, the net's answer `N` and
+/// the position, by the same rule as the priority probe's decision kinds
+/// (`tools/trainer/tactician_v3/records.py`, `decision_kind`); at a
+/// single-choice target question it is `target` where `side` or `aim`
+/// changed `R` (a counterspell or removal aimed at the wrong side or the
+/// wrong object), and none otherwise. Its code is the distillation block's
+/// subtype byte, the index of its name in the dataset's
+/// `bundle_distillation.subtypes`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PrioritySubtype4 {
+pub enum DistillSubtype4 {
     /// `R` casts a spell in the seat's own turn, where `N` does not pass.
     Cast = 0,
     /// `R` passes.
@@ -101,13 +107,20 @@ pub enum PrioritySubtype4 {
     Activate = 6,
     /// `R` plays a land.
     Land = 7,
-    /// Anything else: a special action, an answer that does not decode.
+    /// Anything else at priority: a special action, an answer that does not
+    /// decode.
     Other = 8,
+    /// A single-choice target question where `side` or `aim` changed `R`.
+    Target = 9,
 }
 
-impl PrioritySubtype4 {
+/// The rule groups whose firing at a target question makes it
+/// [`DistillSubtype4::Target`].
+pub const TARGET_GROUPS: [&str; 2] = ["side", "aim"];
+
+impl DistillSubtype4 {
     /// Every subtype, in code order.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Cast,
         Self::Pass,
         Self::InstantTheirTurn,
@@ -117,7 +130,32 @@ impl PrioritySubtype4 {
         Self::Activate,
         Self::Land,
         Self::Other,
+        Self::Target,
     ];
+
+    /// The subtype of a single-choice label other than priority: `target` at
+    /// a target question (`PendingKind4::ChooseTargets`) where a group of
+    /// [`TARGET_GROUPS`] fired, none anywhere else.
+    #[must_use]
+    pub fn of_single(pending_kind: u8, fired: &[String]) -> Option<Self> {
+        (pending_kind == PendingKind4::ChooseTargets as u8
+            && fired
+                .iter()
+                .any(|group| TARGET_GROUPS.contains(&group.as_str())))
+        .then_some(Self::Target)
+    }
+
+    /// Whether a label's subtype is the one its kind, question and groups
+    /// give it: a priority subtype at priority, [`Self::of_single`] at
+    /// another single choice, none at subsets, pairs and numbers.
+    #[must_use]
+    pub fn fits(label: &DistillLabel4) -> bool {
+        match label.kind.as_str() {
+            "priority" => label.subtype.is_some_and(|s| s != Self::Target),
+            "single" => label.subtype == Self::of_single(label.pending_kind, &label.fired),
+            _ => label.subtype.is_none(),
+        }
+    }
 
     /// The subtype of a priority decision: `my_turn` whether the deciding
     /// seat is the active player, `paying` whether it owes a cost, `rules`
@@ -171,6 +209,7 @@ impl PrioritySubtype4 {
             Self::Activate => "activate",
             Self::Land => "land",
             Self::Other => "other",
+            Self::Target => "target",
         }
     }
 }
@@ -236,7 +275,7 @@ mod tests {
 
     #[test]
     fn a_priority_subtype_is_the_probes_decision_kind() {
-        use PrioritySubtype4 as S;
+        use DistillSubtype4 as S;
         let card = ObjectId::new(7, 0);
         let pass = PlayerAction::PassPriority;
         let cast = PlayerAction::CastSpell { card };
@@ -247,7 +286,7 @@ mod tests {
         let mana = PlayerAction::ActivateManaAbility { source: card };
         let land = PlayerAction::PlayLand { card };
         let of = |my_turn, paying, rules: Option<&PlayerAction>, net: Option<&PlayerAction>| {
-            PrioritySubtype4::of(my_turn, paying, rules, net)
+            DistillSubtype4::of(my_turn, paying, rules, net)
         };
         // Paying a cost comes first, whatever R does.
         assert_eq!(of(true, true, Some(&pass), Some(&pass)), S::Pay);
@@ -273,7 +312,7 @@ mod tests {
         assert_eq!(of(false, false, Some(&land), Some(&pass)), S::Land);
         assert_eq!(of(true, false, None, Some(&pass)), S::Other);
         // Codes 0–8 in the trainer's order, and the names JSON writes.
-        let names = PrioritySubtype4::ALL.map(PrioritySubtype4::name);
+        let names = DistillSubtype4::ALL.map(DistillSubtype4::name);
         assert_eq!(
             names,
             [
@@ -285,15 +324,70 @@ mod tests {
                 "mana",
                 "activate",
                 "land",
-                "other"
+                "other",
+                "target"
             ]
         );
-        for (code, subtype) in (0..).zip(PrioritySubtype4::ALL) {
+        for (code, subtype) in (0..).zip(DistillSubtype4::ALL) {
             assert_eq!(subtype.code(), code);
             assert_eq!(
                 serde_json::to_value(subtype).unwrap(),
                 serde_json::json!(subtype.name())
             );
+        }
+    }
+
+    #[test]
+    fn a_target_question_is_target_where_side_or_aim_fired_and_nothing_else() {
+        let target = PendingKind4::ChooseTargets as u8;
+        let groups = |names: &[&str]| names.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>();
+        for fired in [&["side"][..], &["aim"], &["void", "aim"]] {
+            assert_eq!(
+                DistillSubtype4::of_single(target, &groups(fired)),
+                Some(DistillSubtype4::Target)
+            );
+        }
+        assert_eq!(DistillSubtype4::of_single(target, &groups(&["void"])), None);
+        assert_eq!(DistillSubtype4::of_single(target, &[]), None);
+        let mode = PendingKind4::ChooseCastMode as u8;
+        assert_eq!(DistillSubtype4::of_single(mode, &groups(&["side"])), None);
+        // What each kind of label may carry.
+        let label = |kind: &str, pending_kind: u8, fired: &[&str], subtype| DistillLabel4 {
+            kind: kind.into(),
+            pending_kind,
+            menu_sha256: String::new(),
+            rules: TeacherTarget4::default(),
+            rules_action: None,
+            net: TeacherTarget4::default(),
+            net_action: None,
+            executed: TeacherTarget4::default(),
+            fired: groups(fired),
+            n_ne_r: true,
+            subtype,
+        };
+        let s = |subtype| Some(subtype);
+        for (fits, l) in [
+            (true, label("priority", 0, &[], s(DistillSubtype4::Pass))),
+            (false, label("priority", 0, &[], None)),
+            (
+                false,
+                label("priority", 0, &["side"], s(DistillSubtype4::Target)),
+            ),
+            (
+                true,
+                label("single", target, &["side"], s(DistillSubtype4::Target)),
+            ),
+            (false, label("single", target, &["side"], None)),
+            (true, label("single", target, &["void"], None)),
+            (
+                false,
+                label("single", target, &["void"], s(DistillSubtype4::Target)),
+            ),
+            (false, label("single", mode, &[], s(DistillSubtype4::Cast))),
+            (true, label("subset", 5, &["side"], None)),
+            (false, label("pair", 6, &[], s(DistillSubtype4::Target))),
+        ] {
+            assert_eq!(DistillSubtype4::fits(&l), fits, "{l:?}");
         }
     }
 }
