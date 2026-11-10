@@ -2,11 +2,13 @@
 //! for each deck it met, the deals, the arm's and the reference's wins and the
 //! difference per deal. Read off the rows [`super::arms::compare_arm`] pairs,
 //! each with its `decks`, `focal_seat`, `net_utility` (the arm) and
-//! `base_utility` (the reference).
+//! `base_utility` (the reference). A row is a game (`super::games`): at a team
+//! table the net pilots every deck of its team, and each of them counts the
+//! game once.
 // Counts of deals, well below f64's exact 2^53 range.
 #![allow(clippy::cast_precision_loss)]
 use super::{flag, number};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -59,24 +61,32 @@ fn decks(row: &Value) -> Result<Vec<&str>> {
         .collect()
 }
 
-/// The net's deck and its opponents' at one deal. With `teams` (one per
-/// seat, as the summary's `teams`), a teammate is no opponent.
-fn seats<'a>(row: &'a Value, teams: &[u64]) -> Result<(&'a str, Vec<&'a str>)> {
+/// The net's decks and its opponents' at one game, each deck once. With
+/// `teams` (one per seat, as the summary's `teams`), the net pilots every seat
+/// of the focal seat's team, and a teammate is no opponent.
+fn seats<'a>(row: &'a Value, teams: &[u64]) -> Result<(Vec<&'a str>, Vec<&'a str>)> {
     let decks = decks(row)?;
     let focal = usize::try_from(
         row["focal_seat"]
             .as_u64()
             .context("a row without its focal seat")?,
     )?;
-    let pilot = *decks.get(focal).context("a focal seat past the decks")?;
+    ensure!(focal < decks.len(), "a focal seat past the decks");
     let team = teams.get(focal).copied().filter(|team| *team != 0);
-    let opponents = decks
-        .iter()
-        .enumerate()
-        .filter(|(seat, _)| *seat != focal && (team.is_none() || teams.get(*seat).copied() != team))
-        .map(|(_, deck)| *deck)
-        .collect();
-    Ok((pilot, opponents))
+    let ours = |seat: usize| seat == focal || (team.is_some() && teams.get(seat).copied() == team);
+    let (mut pilots, mut opponents) = (Vec::new(), Vec::new());
+    for (seat, deck) in decks.into_iter().enumerate() {
+        if ours(seat) {
+            pilots.push(deck);
+        } else {
+            opponents.push(deck);
+        }
+    }
+    for side in [&mut pilots, &mut opponents] {
+        side.sort_unstable();
+        side.dedup();
+    }
+    Ok((pilots, opponents))
 }
 
 fn sorted(tallies: &BTreeMap<String, Tally>, small: usize) -> Vec<Value> {
@@ -92,8 +102,8 @@ fn sorted(tallies: &BTreeMap<String, Tally>, small: usize) -> Vec<Value> {
     rows.into_iter().map(|(_, _, row)| row).collect()
 }
 
-/// The breakdown of `rows` (paired rows with their focal seats) under
-/// `filter`: by the deck the net piloted and by each deck it met, the largest
+/// The breakdown of `rows` (paired games with their focal seats) under
+/// `filter`: by each deck the net piloted and by each deck it met, the largest
 /// difference first. A deck with fewer than `small` deals is marked `small`.
 ///
 /// # Errors
@@ -103,11 +113,11 @@ pub fn by_deck(rows: &[Value], teams: &[u64], filter: &DeckFilter, small: usize)
     let mut opponents: BTreeMap<String, Tally> = BTreeMap::new();
     let mut deals = 0;
     for row in rows {
-        let (pilot, met) = seats(row, teams)?;
+        let (piloted, met) = seats(row, teams)?;
         if filter
             .pilot
             .as_deref()
-            .is_some_and(|wanted| wanted != pilot)
+            .is_some_and(|wanted| !piloted.contains(&wanted))
             || filter
                 .opponent
                 .as_deref()
@@ -119,14 +129,13 @@ pub fn by_deck(rows: &[Value], teams: &[u64], filter: &DeckFilter, small: usize)
         let arm = number(row, "net_utility")?;
         let reference = number(row, "base_utility")?;
         let capped = flag(row, "net_capped")? || flag(row, "base_capped")?;
-        pilots
-            .entry(pilot.to_owned())
-            .or_default()
-            .add(arm, reference, capped);
-        let mut seen: Vec<&str> = met.clone();
-        seen.sort_unstable();
-        seen.dedup();
-        for opponent in seen {
+        for pilot in piloted {
+            pilots
+                .entry(pilot.to_owned())
+                .or_default()
+                .add(arm, reference, capped);
+        }
+        for opponent in met {
             opponents
                 .entry(opponent.to_owned())
                 .or_default()
@@ -246,6 +255,27 @@ mod tests {
             .collect();
         assert_eq!(met.len(), 2);
         assert!(met.contains(&"b") && met.contains(&"d"));
+    }
+
+    /// A team game is one row: the net pilots its teammate's deck too, and
+    /// a filter on either finds the game.
+    #[test]
+    fn a_team_game_counts_for_every_deck_of_the_nets_team() {
+        let row = json!({"decks": ["a", "b", "c", "d"], "focal_seat": 0, "net_utility": 1.0,
+            "base_utility": 0.0, "net_capped": false, "base_capped": false});
+        let filter = DeckFilter {
+            pilot: Some("c".into()),
+            ..DeckFilter::default()
+        };
+        let report = by_deck(&[row], &[1, 2, 1, 2], &filter, 1).unwrap();
+        assert_eq!(report["deals"], 1);
+        let piloted: Vec<&str> = report["by_pilot"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row["deck"].as_str().unwrap())
+            .collect();
+        assert_eq!(piloted, ["a", "c"]);
     }
 
     #[test]

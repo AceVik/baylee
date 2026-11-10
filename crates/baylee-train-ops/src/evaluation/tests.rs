@@ -184,3 +184,30 @@ fn heterogeneous_table_bootstrap_agrees_with_archived_numpy_distribution() {
         assert!((a.as_f64().unwrap() - b.as_f64().unwrap()).abs() < 0.015);
     }
 }
+#[test]
+fn a_team_game_is_one_paired_case() {
+    let g = golden();
+    // One 2v2 table, the net as seats 0 and 2 and as seats 1 and 3, each side
+    // written once per seat of its team.
+    let team = |utilities: [f64; 4]| {
+        let mut run = g["candidate"].clone();
+        run["seats"] = json!(4);
+        run["teams"] = json!([1, 2, 1, 2]);
+        run["deals"] = json!(4);
+        run["deal_details"] = (0..4)
+            .map(|seat| {
+                json!({"table": 0, "seed": 1, "focal_seat": seat, "decks": ["a", "b", "c", "d"],
+                    "net_utility": utilities[seat], "net_capped": false,
+                    "base_utility": 0.0, "base_capped": false})
+            })
+            .collect();
+        run
+    };
+    let report = comparison(&team([1.0, 0.0, 1.0, 0.0]), &team([0.0; 4])).unwrap();
+    assert_eq!(report["outcomes"]["better"], 1);
+    assert_eq!(report["outcomes"]["equal"], 1);
+    assert_eq!(
+        report["paired_uncertainty"]["deals"], 2,
+        "two games, not four rows"
+    );
+}

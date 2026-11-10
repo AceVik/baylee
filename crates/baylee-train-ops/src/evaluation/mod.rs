@@ -3,6 +3,7 @@ pub mod arms;
 pub mod calibration;
 pub mod decks;
 pub mod diagnostics;
+pub mod games;
 pub mod ladder;
 mod paired;
 pub mod rating;
