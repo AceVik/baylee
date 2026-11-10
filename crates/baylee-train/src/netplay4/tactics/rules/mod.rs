@@ -133,6 +133,13 @@ impl TacticRules4 {
         Ok(rules)
     }
 
+    /// Every group's name, in a fixed order: bit `i` of a distillation
+    /// dataset's fired mask is the `i`-th (`bundle_distillation.groups`).
+    #[must_use]
+    pub fn group_names() -> [&'static str; GROUPS.len()] {
+        GROUPS.map(|(_, name)| name)
+    }
+
     /// Every group in shadow: see [`Self::shadow`]. At temperature zero only.
     #[must_use]
     pub fn shadow() -> Self {
@@ -161,6 +168,19 @@ impl TacticRules4 {
 
     const fn count(&mut self, group: RuleGroup) {
         self.fired[group as usize] += 1;
+    }
+
+    /// The groups that changed something since `before` (a copy of these
+    /// rules taken then), by name: what a tactician record attributes its
+    /// label to.
+    #[must_use]
+    pub fn fired_since(&self, before: &Self) -> Vec<&'static str> {
+        GROUPS
+            .iter()
+            .zip(self.fired.iter().zip(before.fired))
+            .filter(|(_, (now, then))| **now > *then)
+            .map(|((_, name), _)| *name)
+            .collect()
     }
 
     /// Answers each group changed since this was last asked, by group's name.

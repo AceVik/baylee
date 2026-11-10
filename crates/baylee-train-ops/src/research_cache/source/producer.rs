@@ -121,6 +121,7 @@ pub(super) fn recheck(manifest: &Value) -> Result<()> {
 
 #[cfg(target_os = "linux")]
 fn validate_run(manifest: &Value, source: &Value, run: &Value) -> Result<()> {
+    crate::tactician_labels::refuse_imitation(run)?;
     let c = &run["collection_contract"];
     ensure!(
         c == &source["collection_contract"]

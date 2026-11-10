@@ -25,10 +25,7 @@ pub(crate) fn agent(
 
 #[cfg(test)]
 mod tests {
-    use super::agent;
     use crate::{Args, collector, house_as_seat_refusal};
-    use baylee_core::ids::PlayerId;
-    use baylee_core::preset::AIProfile;
     use clap::Parser as _;
 
     #[test]

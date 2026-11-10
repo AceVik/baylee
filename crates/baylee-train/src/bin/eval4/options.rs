@@ -55,23 +55,59 @@ struct Args {
     /// The tactician (`netplay4::tactician`) answers these questions of the
     /// seat under test: `attack`, `block`, `target` (one target), or `all`.
     /// With `--tactician-explore` it explores and keeps records for training a
-    /// head on outcomes; with `--tactician` a trained head plays. Needs
-    /// `--raw-policy` at temperature 0 (`--choice-guard tactical` keeps the
-    /// tactical layer everywhere else), two seats against the house, a graph
-    /// exported with `--embeddings`, and `--decks-manifest`: the look's prior is
-    /// the manifest's train split. Evaluation only.
+    /// head on outcomes; with `--tactician-imitate` it keeps the tactical
+    /// layer's answers as the tactician's labels; with `--tactician` a trained
+    /// head plays. Needs `--raw-policy` at temperature 0 (`--choice-guard
+    /// tactical` keeps the tactical layer everywhere else), two seats against
+    /// the house (an imitating collection also against a self-play copy), a
+    /// graph exported with `--embeddings`, and `--decks-manifest`: the look's
+    /// prior is the manifest's train split. Evaluation only.
     #[arg(long, conflicts_with = "legacy_v3")]
     tactician_windows: Option<String>,
     /// Explore at the windows: the net's answer with probability `1 − ε`.
     #[arg(long, requires = "tactician_windows", conflicts_with = "tactician")]
     tactician_explore: Option<f64>,
-    /// A trained head (`tactician.onnx`, `tactician.json`) plays the windows.
+    /// The tactician's bootstrap (stage S1): the seat plays as the tactical
+    /// layer with its rule groups (`--choice-guard tactical`, `--tactics-rules`)
+    /// and at the windows keeps the layer's answer as the label, leaving it
+    /// with probability ε for the net's answer or a neighbor of the layer's.
+    /// Needs `--tactician-out`; also against a self-play copy, whose seat is
+    /// kept too. Its records (`tactician_imitation_v1`) teach the tactician and
+    /// nothing else: convert4 and every other trainer refuse them.
+    #[arg(long, requires = "tactician_windows", conflicts_with_all = ["tactician", "tactician_explore"])]
+    tactician_imitate: Option<f64>,
+    /// A trained head plays the windows: a stage-1 head (`tactician_head_v1`)
+    /// chooses among the answers it was offered; a `tactician_head_v2` net
+    /// builds the answer from its own logits and plays the net's answer when
+    /// unsure. The contract is read from `tactician.json`.
     #[arg(long, requires = "tactician_windows")]
     tactician: Option<PathBuf>,
     /// How much better a head must score an answer to leave the net's;
-    /// default the head's own `margin`.
+    /// default the head's own `margin` (`tactician_head_v1`).
     #[arg(long, requires = "tactician")]
     tactician_margin: Option<f32>,
+    /// Below this confidence a `tactician_head_v2` net plays the net's own
+    /// answer. Default none: the bare tactician plays (stage S1 measures it
+    /// so; the net's `confidence_threshold` is reported, not used).
+    #[arg(long, requires = "tactician")]
+    tactician_confidence: Option<f32>,
+    /// `DAgger`: a `tactician_head_v2` net plays its windows, and the tactical
+    /// layer's answer under these rule groups (comma list), read on copies at
+    /// the same view and logits, is kept as the label in `--tactician-out`
+    /// (`tactician_imitation_v1`); nothing of the layer is played at the
+    /// windows. Also against a self-play copy, whose windows are kept too.
+    #[arg(long, requires_all = ["tactician", "tactician_out"])]
+    tactician_relabel: Option<String>,
+    /// Whole-net distillation labels (`bundle_distillation_v1`): at every
+    /// answer of the policy, the net's raw greedy answer `N` and the tactical
+    /// layer's answer `R` under these rule groups (comma list), read on copies
+    /// at the same view and logits, with the groups that changed it; kept in
+    /// `games.jsonl` (`distill_sidecar`, one entry per `rollout_sidecar` step).
+    /// Whoever plays: the layer (`--choice-guard tactical`) or the net itself
+    /// (`DAgger`). Needs `--record-out` and temperature 0; also against a
+    /// self-play copy. Only `convert4 --bundle-distill` reads such a run.
+    #[arg(long, requires = "record_out")]
+    distill_labels: Option<String>,
     /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
     #[arg(long, requires = "tactician_windows")]
     tactician_out: Option<PathBuf>,
@@ -178,6 +214,12 @@ struct Args {
     /// Optional path to `data/decks/manifest.v4.json` to load real-world decks.
     #[arg(long)]
     decks_manifest: Option<PathBuf>,
+    /// A JSON object of manifest deck id to a whole weight: each selected
+    /// deck plays as often as its weight (absent: 1, 0: not at all), the
+    /// copies in rounds through the deck list. With `--decks-manifest`, not
+    /// with the expanded training decks.
+    #[arg(long)]
+    deck_weights: Option<PathBuf>,
     /// Split to filter when `--decks-manifest` is given (`train`, `val`, `test`).
     #[arg(long, default_value = "test")]
     deck_split: String,

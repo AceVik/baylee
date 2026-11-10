@@ -82,6 +82,7 @@ fn sample(
     let mut rng = Rng::new(417);
     let (action, _, lp, target) = PolicySampler4 {
         tactician: None,
+        distill: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,

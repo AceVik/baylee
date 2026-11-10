@@ -70,6 +70,7 @@ mod tests {
             adaptive: None,
             thinking_use: crate::netplay4::ThinkingUse4::default(),
             last_depth: 2,
+            distill: None,
             backend: crate::netplay4::Backend::Owned(BTreeMap::new()),
             model_dir: std::path::PathBuf::new(),
             rule_roots: None,

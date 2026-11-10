@@ -152,6 +152,7 @@ fn grouped_mana_preserves_announced_tap_self_activation_in_both_modes() {
         let mut rng = Rng::new(77);
         let (action, _, lp, target) = PolicySampler4 {
             tactician: None,
+            distill: None,
             mode,
             temperature: 0.8,
             rng: &mut rng,

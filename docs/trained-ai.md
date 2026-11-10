@@ -1101,6 +1101,194 @@ with the block attached plays as its source until trained.
 - Measure: `thinking_probe5.py` (what each step corrects and breaks,
   confidence calibration), `bench_thinking5.py` (latency per depth graph).
 
+### The tactician, stage S1 (`eval4 --tactician-imitate`, `tactician_head_v2`)
+
+The owner's decision of 10 November: a separately trained tactician that in the
+end plays alone, trunk and tactician, no rule. Its bootstrap, and only its
+bootstrap, imitates the tactical layer at the windows (attack, block, single
+target); the trunk and every other training are unchanged. At play it builds the
+answer itself (`netplay4::tactician::{imitate, build, net}`). The owner's
+decision of the same evening: priority goes into the net's own policy head by
+DAgger, not into the tactician; the look stays an input that reads and decides
+nothing. Mulligan and other instant-speed windows are not built.
+
+**Collection, the layer plays** (`--tactician-imitate ε --tactician-out DIR`,
+with `--raw-policy --choice-guard tactical --tactics-rules …`, against `sharp`
+or a self-play copy of the seat, `--opponent-role self-play`, whose windows are
+kept too). The layer answers first; at a window its answer `R` is the label. The
+seat plays `R` with probability `1 − ε`, `N` with `ε/3` when it differs, the rest
+of `ε` spread over the neighbors of `R`; the played answer's probability under
+the mixture is exact. With ε = 0 the games are the layer's own, decision for
+decision. Train decks only.
+
+**Collection, the student plays** (DAgger: `--tactician DIR --tactician-relabel
+GROUPS --tactician-out DIR`): a `tactician_head_v2` net plays its windows, and
+the layer's answer under `GROUPS`, read on copies at the same view and logits,
+is the label; nothing of the layer is played there (elsewhere the arm's own
+policy plays). A test holds that this read equals what the layer with those
+groups plays.
+
+**Records** (`tactician_imitation_v1`): a stage-1 line with `label: "rules"`,
+`rows_read_rules: false` and `groups` (each unit's attacker or blocker; one
+group at a target) beside the blob of the state, the units' embeddings and the
+rows' tails. The tails never carry `R`: window-code columns 5 and 11 stay zero.
+
+**Priority records** (`--tactician-windows priority`, never part of `all`):
+every priority decision of the recorded seat (cast, pass, play a land, activate,
+tap for mana, pay) is kept like a window, with the net's logits over the
+candidates, `N`, `R`, `fired`, the state and each candidate's embedding. The look
+of a priority row (columns 76–99) reads the candidate action: its kind, whether
+it is instant speed and on the other side's turn, whether it can be cast now
+(`legal.castable` or `payable`), what is on the stack, the body of the object it
+names. Stage S1 rows carry the trivial facts in look columns 100–111 (whose
+turn, stack, untapped mana on both sides, hands, step, paying, turn). "Instant
+speed" reads the instant type; flash is not visible on a hand card.
+`tools/trainer/probe_priority.py` fits the set transformer on four feature
+sets on one read of the records: logits and facts; plus the embeddings; plus
+the look; the look without the prior's castable instants (columns 0–24). It
+reports exact top-1 at `N ≠ R` on held-out tables per set, per decision kind
+(pass, spend, cast, instant on their turn, pay, mana, activate, land) and per
+rule group that fired.
+
+**Whole-net distillation** (`bundle_distillation_v1`). `eval4 --distill-labels
+GROUPS` (with `--record-out`, temperature 0, against `sharp` or a self-play
+copy) labels every answer the policy gives: `N`, and `R` under `GROUPS` read on
+copies at the same view and logits exactly as `--choice-guard tactical
+--tactics-rules GROUPS` plays it, with the groups that changed it, the menu the
+targets index and the answer executed (`netplay4::distill`). Covered: priority,
+the other single choices (targets, modes), subsets (attackers, several targets,
+cards), pairs (blockers) and numbers; forced answers, fallbacks and trigger
+orders carry none. The labels go to `games.jsonl` as `distill_sidecar`, one
+entry per `rollout_sidecar` step. Whoever plays: the layer, or the net as the
+student (DAgger: `--raw-policy` and no guard; `R` is never played). A test
+holds, at every kind of decision, that the copy read is what the layer plays.
+`convert4 --bundle-distill --include-passive-obs` reads only runs whose
+`run.json` declares the contract (every other conversion and reader refuses
+it): at each labelled decision of the recorded seats it checks the seat, the
+menu and the executed answer against the record, makes `R` the policy target
+(`single_idx`, `multi_mask`, `free_mask`, `scalar_norm`) at weight 1 and keeps
+beside it what a trainer selects and weights by; every other decision frame
+keeps its place at weight 0, and the value targets are the outcomes. Each
+priority label names its subtype, the probe's decision kinds by the same rule
+(`PrioritySubtype4::of`): `pay` (a cost owed), `pass` (`R` passes),
+`instant_their_turn` (`R` casts or activates in the other side's turn), `spend`
+(`R` casts or activates in its own turn where `N` passes), else by `R`'s action
+`cast`, `activate`, `mana`, `land`, `other`. The dataset's JSON steps,
+`bundle-distill/game-NNNNNN.jsonl` (a header, one line per labelled frame, a
+`completed` footer), hold per frame `game_id`, `seat`, `step_cursor`,
+`label_kind`, `n_ne_r`, `net_answer` (`N`), `distill_subtype` (priority frames)
+and `fired` (the groups that changed `R`). In the BST4, flags bit 7 is `N ≠ R`
+(clear of bits 0–2 and the RL branch's 3–6 and 8–15), and every decision frame
+of a recorded seat ends, after its free mask, in a 16-byte block: `BDX1`, the
+subtype's code as a byte (255: none, at another kind of label and at a
+fallback, which keeps weight 0), three zero bytes, and a little-endian `u64`
+mask of the groups that fired. `meta.json`'s `bundle_distillation` (version 2)
+names the codes (`subtypes`: cast, pass, instant_their_turn, spend, pay, mana,
+activate, land, other) and the bits (`groups`, the layer's 20 groups in its
+table order), with the counts by kind, by subtype and at `N ≠ R` by group,
+and each JSON steps file's SHA-256 is beside it. A game that does not bind, a
+priority label without a subtype (recorded before them) or a group with no
+bit fails the conversion. The readers that check a frame's length
+(`trajectory::packing`, behind `trajectory_cache4`) admit exactly one valid
+block and nothing else; the Python readers take the masks at the payload's end
+(`trajectory_store4.bst4_payload_end`, `bst4_distill_block`). `eval4
+--deck-weights FILE` (a JSON object of manifest deck id to a whole weight)
+plays each selected deck as often as its weight, the copies in rounds through
+the deck list, and records the weights in `run.json`. In the CPU smoke of 10
+November (2 deals with the layer playing, 2 DAgger deals against `sharp`, 2 in
+self-play) every one of 1,545 labels bound; 289 had `N ≠ R` (245 at priority,
+mostly without a group firing: the layer's own reads), the layer played `R` at
+every labelled step and the student `N`, never `R`; with the flags off the game
+records are the same as before.
+
+**Imitation labels train the tactician and nothing else.** The record directory
+has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
+`run.json` names it too (`labels`, `tactician.record_contract`).
+`baylee_train_ops::tactician_labels::refuse_imitation` refuses any run whose
+`run.json` names that contract anywhere; convert4 (every run, and its research
+reader), the self-imitation groups, the research cache and the corpus index call
+it, and the stage-1 trainer (`tactician4.py`) reads only `tactician_records_v1`.
+
+**The net** (`tools/trainer/tactician_v3`, `train_tactician_v3.py`): a set
+transformer over one question's rows `[state | unit | window code and look]`,
+the null row first standing for the question (width 512, 4 layers, 8 heads by
+default), with per-unit logits and a confidence (the probability that its
+decoded answer is the label). Refinement passes (`--passes T`, shared weights,
+a pass embedding and the previous pass's proposal per unit as input, a loss at
+every pass) are an option; `T = 1` is the default until a measurement shows more
+help. Losses: binary cross-entropy per unit at attacks and blocks, at blocks
+also a softmax per blocker over its attackers and "none" (logit 0, as the decoder
+reads a blocker), softmax cross-entropy at targets, binary cross-entropy of the
+confidence. Whole tables are held out by seed (`seed % 10 == 0`), split again by
+seed into a half that selects the checkpoint and a half that is reported. The
+checkpoint is chosen on exact agreement with `R` where `N ≠ R`, not on the loss:
+an earlier arm lowered the loss while its top-1 there fell. The report gives,
+per window and pass, exact-mask agreement and per-unit accuracy on every
+decision and on the `N ≠ R` ones (and the accuracy on the units where `N` and
+`R` differ), beside `N`'s, and the confidence's calibration. `--stage1-probe`
+fits the stage-1 records instead (their `R`, the layer with no rule group, as
+the label, columns 5 and 11 zeroed on reading); `--zero-parts state,unit,look`
+reads parts of the rows as zero, to see which part carries what the label needs.
+
+**The probe, measured on 10 November** (CPU, width 256, 4 layers, `T = 1`, 14
+epochs, still rising when the cap stopped it; the stage-1 records of r1, 68,919
+decisions; the reported half of the held-out tables, 3,802 decisions, 795 with
+`N ≠ R`; the label is the layer with no rule group, so no group can be named):
+
+| Window, `N ≠ R` | Decisions | Exact | Per unit | Changed units |
+| --- | --- | --- | --- | --- |
+| attack | 439 | 54.9 % | 67.6 % | 56.8 % |
+| block | 193 | 54.4 % | 88.7 % | 58.8 % |
+| target | 163 | 41.1 % | 75.5 % | 45.4 % |
+| all | 795 | 52.0 % | 80.9 % | 54.7 % |
+
+On every decision it agrees with `R` in 87.6 % (`N` in 79.1 %); its confidence is
+calibrated (ECE 0.010). A sample of the training tables reads 56.6 % at `N ≠ R`:
+underfit, not overfit. With the trunk's embeddings read as zero the head learnt
+as fast (44 % at `N ≠ R` after four epochs, the whole head 32 %); with the look
+read as zero it stayed at 12 %: what the layer reads is in the look, not in the
+frozen embedding.
+
+Joint decoding, the same inputs, split and settings (`--independent`: each
+token attends to itself only, so every unit is scored from its own row):
+
+| Head, `N ≠ R` (exact / per unit / changed units) | Attack (439) | Block (193) | Target (163) | All (795) |
+| --- | --- | --- | --- | --- |
+| set transformer | 54.9 / 67.6 / 56.8 % | 54.4 / 88.7 / 58.8 % | 41.1 / 75.5 / 45.4 % | 51.9 / 80.9 / 54.7 % |
+| independent per unit | 49.4 / 64.4 / 49.9 % | 40.9 / 84.7 / 38.3 % | 44.8 / 77.0 / 48.2 % | 46.4 / 78.2 / 46.4 % |
+
+Attention across units buys the blocks (+13.5 pp, the changed units +20.5 pp)
+and some of the attacks (+5.5 pp); a single target does as well alone (−3.7 pp
+for the set transformer, 163 decisions). One seed each, both still rising at
+the cap of 14 epochs.
+
+**Export** (`tactician_head_v2`): `tactician.onnx` takes `rows` `[U, 2d + 128]`
+(the null row first) and gives `logits` `[U − 1]` (the last pass's) and
+`confidence` `[1]`; `T` is fixed per export (`passes`; `train_tactician_v3.py
+export --passes T` re-exports a trained net). Each export is checked against
+PyTorch on random rows of every window and on held-out recorded rows (at most
+1e-4).
+
+**Play** (`--tactician DIR` with a `tactician_head_v2`, `--tactician-windows`).
+Its logits replace the net's for the window's head and go through the raw
+policy's own decoders at temperature 0 (`sample_subset_constrained`,
+`sample_pairs_constrained`, the greedy single choice), so every answer is legal;
+an answer that does not decode exactly falls back to `N`. The bare net plays: the
+confidence is recorded but used only with `--tactician-confidence τ` (then below
+τ the seat plays `N`, never a rule). The rule groups are chosen apart with
+`--tactics-rules`. The headline arm is `--raw-policy` with the tactician at the
+windows and no guard at all, as an absolute rate against `sharp`; the drop gate
+for each group plays the layer elsewhere with the window groups off (`race`,
+`walker`, `trip`, `trade`, `wall`, `chump`, `aim`; `side` and `void` also strike
+at priority and stay) and the tactician at the windows, against the bundle. The
+summary's `tactician.latency` gives the tactician's cost per decision and the
+net's forward alone, by window and in all (median, p90, p99, max); it runs on
+the CPU, one intra-op thread per session, a pool of eight sessions per process.
+At width 512, 4 layers (13.9 M parameters, d = 640) a decision cost a median
+4.3 ms at `T = 1`, 8.5 ms at 2, 12.3 ms at 3 and 15.2 ms at 4 (p90 5.0, 9.8,
+13.8, 17.5 ms), almost all of it the net's forward (10 November, CPU smoke,
+4 deals per `T` on a loaded machine; the stage-1 head took 0.12 ms).
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and

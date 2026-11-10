@@ -84,6 +84,7 @@ fn roles(row: &Value, model: &Value, opponent: &Value, role: &Value) -> anyhow::
 }
 
 fn validate_metadata(metadata: &Value) -> anyhow::Result<u32> {
+    baylee_train_ops::tactician_labels::refuse_imitation(metadata)?;
     let contract_value = &metadata["collection_contract"];
     ensure!(
         contract_value["version"] == 2
