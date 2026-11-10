@@ -1073,6 +1073,33 @@ part passes the test for dropping it, but the raw net's own targeting passes it
 as well and the heads add nothing to it (+0.0 pp [−0.7, +0.7] on the fresh
 deals): the layer earns nothing there, the head is not why.
 
+### What the recurrent memory buys (`eval4 --memory-reset`)
+
+A measurement of the recurrent memory H, which an architecture review suspects
+of making the net brittle (`netplay4::MemoryReset4`). `--memory-reset decision`
+forgets H before every view's observation update (K=0), so each answer reads
+H = K0(0, its own view) and the K-step readout starts from there: the answer a
+player with no memory gives when shown only that view. `--memory-reset turn`
+forgets H before the first view of each new turn number, so H carries the
+current turn only. The reset is never placed between the K=0 update and the
+readout: a net always read its decision view through that update in training.
+What is kept is the explicit observation ledger (`SeatKnowledge4`: own-deck
+inventory, revealed cards, public history counters), part of the encoded view,
+not the learned memory under test. Only the seat under test forgets; a neural
+opponent keeps its memory. Evaluation only, without search, a shadow teacher or
+a tactician. `run.json` and the summary name `memory_reset`, `phase_a4 table`
+pools an arm's runs only when they forget alike and its report names both
+sides, and `convert4` refuses the records as data.
+
+`--decision-trace` (with `--record-out`) writes `decisions.jsonl`: one line per
+decision of the seat under test with its kind, head, source, answer and the
+margin of the logits the net read (the best less the second best at a single
+choice, the smallest `|logit|` at a subset or pair head, none for a number).
+`phase_a4 diverge --reference NORMAL --other RESET --out REPORT` reads two such
+runs of the same deals: at temperature 0 their games are one game up to the
+first differing answer, so the report gives per deal that decision, its kind,
+head and the normal run's margin, and a table of kinds by margin.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
