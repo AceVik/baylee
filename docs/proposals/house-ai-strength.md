@@ -1,7 +1,8 @@
 # House AI: a strict strength order, then rounds against BayleeAI
 
-Plan, written 10.11.2026; apart from the loop fixes of §1a nothing here is
-built. The owner's decisions it follows:
+Plan, written 10.11.2026, and the handover for whoever continues it (§0);
+apart from the loop fixes of §1a nothing here is built. The owner's
+decisions it follows:
 
 - The levels are strictly ordered in strength: novice < casual < steady <
   sharp < expert. `seer` sits above them, unfair by design and never a
@@ -18,6 +19,116 @@ built. The owner's decisions it follows:
   Each round studies the games BayleeAI or a language-model seat won against
   live `expert` and fixes general weaknesses, never exploits aimed at
   BayleeAI. The house stays an opponent, never a teacher.
+
+## 0. Handover (10.11.2026)
+
+For the agent that takes this up. Everything above §1 is binding; the rest
+is the plan and what has been learned.
+
+**Where it stands.** The ladder after the loop fixes (5056ce4f5), duels on
+the constructed test split (`decks-20261107c`), 512 eval4 rows per pair,
+each game counted once (§1a has the table with the open games):
+
+| Pair | Share | Wilson 95 % | Seeds for / against |
+| --- | ---: | --- | ---: |
+| casual – novice | 55.9 % | 51.5–60.1 | 43 / 13 |
+| steady – casual | 48.4 % | 44.1–52.8 | 20 / 28 |
+| sharp – steady | 53.1 % | 48.8–57.4 | 23 / 7 |
+| expert – sharp | 50.8 % | 46.5–55.1 | 7 / 3 |
+| sharp – `sharp-2026-11` | 50.0 % | 45.7–54.3 | 0 / 0 |
+| seer – expert (`--seer-peeks`) | 49.2 % | 44.9–53.5 | 2 / 6 |
+
+Only casual over novice holds. No game is capped any more.
+
+**Generations** (`AIProfile::generation`, asked as `profile.plays(...)`,
+`crates/baylee-core/src/preset.rs`). Every level a player is offered plays
+`GENERATION`, the newest:
+
+- `FROZEN_2026_11` = 0: `sharp-2026-11`, the benchmark BayleeAI is
+  measured against. It never moves. Its answers are pinned by
+  `crates/baylee-gamehost/tests/reference_profile.rs` (six tables, 8,111
+  answers, fixture `tests/reference/sharp-2026-11.json`, answer hash
+  `17cf06640914fac8`); only an engine or card fix that changes those games
+  re-records it (`BAYLEE_REFERENCE_RERECORD=1`, in a commit of its own).
+- `TEAM_PLAY` = 1: house teammates show each other their hands and read
+  them; an ally's board and spells count as its side's.
+- `EXACT_SPELL_X` = 2: an X that must equal a target's mana value is
+  planned for a spell on the stack (Spell Blast).
+- A strength change adds the next generation, sets `GENERATION` to it and
+  asks `plays(...)`; `docs/house-ai.md` §"The frozen reference" lists them.
+  The one change that reaches generation 0 on purpose is the stall guard
+  (a loop guard that changes no game that ends).
+
+**Order of work.** steady over casual first (§3: ablate steady's hold-up
+and mulligan against casual, then a hold-up that knows when to tap out),
+then the expert ablations and repairs (§2, §3), then a seer that uses what
+it sees (§3a). Each step measured on the ladder before the next starts.
+
+**Gates.** An order between two levels holds where the higher level's
+Wilson 95 % lower bound is above 50 %. The final ordering numbers and
+every step's acceptance use round-robin deck pairings
+(`--deck-schedule round-robin`, from `c42/v6t-victory`, once it lands);
+until then eval4 seats fixed pairings (§1). seer must clearly beat expert:
+lower bound above 55 % over 512 round-robin duel rows, above 50 % at a 2v2
+table. Per deck: no change may turn more seeds against than for on any deck
+with ten or more seeds. After every step the pin test (hash unchanged),
+`tests/fair_house.rs` and `tests/team_play.rs` stay green.
+
+**Tools.**
+
+- eval4 (`crates/baylee-train`, `--features onnx`, built with
+  `--profile selfplay`): `--random-policy` puts the net seat on noise so
+  only the house-against-house baseline game counts; `--baseline <level>
+  --against <level>`, levels by name including `sharp-2026-11` and `seer`;
+  `--seats 2` for duels, `--seats 4 --teams 1,2,1,2` for 2v2; `--seer-peeks`
+  lets seer be told what it peeks at (every other chair stays fair, and
+  the summary records it). The ladder ran as
+  `eval4 --model <r1-4eb fp16> --random-policy --decks-manifest
+  ~/baylee-data/v6/decks-20261107c/manifest.v4.json --deck-split test
+  --deals 512 --threads 4 --seats 2 --baseline A --against B --out A-vs-B.json`
+  (eval4 wants a model; with `--random-policy` the net's answers are
+  random and its game is not read).
+- `house_duplicate` (`cargo run -p baylee-train --features play --bin
+  house_duplicate -- --run A-vs-B.json --out A-vs-B.dup.json`): each game
+  once, the share with its Wilson interval, seeds by sides won, per-deck
+  turns. A stopgap: once `baylee_train_ops::evaluation::games`
+  (`c42/v6t-games`) is on main it is removed or becomes a thin reader over
+  `games`, so that one counter stays.
+- `team_exercise` (`cargo nextest run -p baylee-gamehost --run-ignored
+  only --no-capture team_play_is_exercised`): how often team play changes
+  an answer at a real 2v2 table.
+- `baylee-seat` `tests/seated_house.rs`: the seated house must keep giving
+  the table house's answer (3,070 of 3,070 on 10.11.2026).
+
+**CPU.** BayleeAI trains on the same machine. Ask the coordinator for a
+slot before any measurement run, and run it with 4 threads under `nice -n
+10`. Never use the GPU. A 512-row duel pair takes about 7 s, the whole
+ladder about 2 minutes, a 2v2 run about 70 s.
+
+**What the code does not tell you.**
+
+- expert and sharp play the same duel in all but ten of 256 seeds: the
+  retaliation search (lookahead 2) almost never changes a decision. expert
+  is not yet a different level; §2's ablations are where to start.
+- steady loses to casual mostly where a green creature deck taps out
+  against it (M19 *Jungle Secrets*, *Forest's Might*): its hold-up keeps
+  cheap interaction up where developing the board wins.
+- seer is told every hidden card (held fair it plays exactly as expert,
+  0 / 0) and does not use it: with the peek it turned two seeds for and six
+  against, so what little of expert reads a peek (the library top) does not
+  pay as it stands.
+- The house does not firebreathe a Shivan Dragon for lethal (three
+  Mountains, the opponent at 8): it wins over two turns instead. A free
+  pump (Flowstone Hellion) it does use, one activation at a time; the
+  stall-guard test pins that.
+- `policy::reserve` keeps no mana up for a seat with no creature in play,
+  which is exactly a control deck's board (§3, control piloting).
+- One house agent asked a new question (a new view `seq`) from an
+  unchanged position reads it as its action taken back and passes (the
+  stall guard). A test that asks one agent many questions from one
+  position needs an agent per question.
+- `sharp` and `sharp-2026-11` are identical in duels; team play shows only
+  at team tables.
 
 ## 1. Measure the ladder first
 
