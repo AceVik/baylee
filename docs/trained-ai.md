@@ -225,7 +225,7 @@ initial weights, seeds, update budgets and unchanged validation definitions.
 `eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
 can collect separate, view-only teacher labels on states visited by the neural
 actor. The original executed-action record and rollout probabilities remain
-separate from the teacher labels. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+separate from the teacher labels. `convert4 --runs DIR --train-manifest MANIFEST --out NEW_DIR --include-passive-obs --shadow-bc`
 replays complete records, verifies source/view/menu identities and reconstructs
 each teacher target. Unlabelled decisions retain their chronological position
 with zero policy weight; actual outcomes remain available for value/auxiliary
