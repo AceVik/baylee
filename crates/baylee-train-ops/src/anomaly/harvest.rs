@@ -3,9 +3,9 @@
 //!
 //! The list is a markdown table: date, run, kind, seed and deal, what,
 //! status. Only `new` entries go there. One row stands for one kind at one
-//! place (a seed and deal), however many runs met it: a deal that never
-//! ends under every policy is one bug, not one per run. An entry with no
-//! place (a panic in a log) is a row per run and text. A kind with more
+//! seed and deal, however many runs met it: a deal that never ends under
+//! every policy is one bug, not one per run. An entry without a seed (a
+//! ladder game, a panic in a log) is a row per run, place and text. A kind with more
 //! places than [`ROWS_PER_KIND`] in one harvest is folded into one row. A
 //! row already in the list is not added again, on any later day.
 
@@ -37,7 +37,7 @@ impl Row<'_> {
     /// What finds the row in the list again: its cells after the date,
     /// without the run when it has a place.
     fn key(&self) -> String {
-        if self.entry.deal.is_some() || self.entry.seed.is_some() {
+        if self.entry.seed.is_some() {
             format!("| {} | {} |", self.kind.label(), cell(&self.at))
         } else {
             format!(
@@ -78,8 +78,9 @@ fn rows(reports: &[Report]) -> Vec<Row<'_>> {
     for report in reports {
         for entry in report.new_entries() {
             let at = place(entry.deal, entry.seed, entry.table, entry.seat);
-            let placed = entry.deal.is_some() || entry.seed.is_some();
-            let key = if placed {
+            // A seed names one deal in every run; a game number alone (a
+            // ladder's, a run's) names one in its own run only.
+            let key = if entry.seed.is_some() {
                 (entry.kind, at.clone(), String::new())
             } else {
                 (

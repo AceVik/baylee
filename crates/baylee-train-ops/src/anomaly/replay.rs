@@ -69,7 +69,7 @@ pub fn sampled(seed: u64, deal: u64, every: u64) -> bool {
     let mut z = seed ^ deal.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    (z ^ (z >> 31)) % every == 0
+    (z ^ (z >> 31)).is_multiple_of(every)
 }
 
 /// A sampled game: its deal, seed and focal seat.
@@ -199,7 +199,7 @@ pub fn audit(
     replay.sampled = chosen.len() as u64;
     replay.deals = chosen.iter().map(|(deal, ..)| *deal).collect();
     if chosen.is_empty() {
-        replay.status = "ran: no game in the sample".to_owned();
+        "ran: no game in the sample".clone_into(&mut replay.status);
         return Ok((replay, Vec::new()));
     }
     if scratch.exists() {
@@ -208,10 +208,11 @@ pub fn audit(
     let run = scratch.join("run");
     fs::create_dir_all(&run)?;
     fs::copy(records.join("run.json"), run.join("run.json"))?;
-    let index: String = chosen
-        .iter()
-        .map(|(.., line)| format!("{line}\n"))
-        .collect();
+    let mut index = String::new();
+    for (.., line) in &chosen {
+        index.push_str(line);
+        index.push('\n');
+    }
     fs::write(run.join("games.jsonl"), index)?;
     #[cfg(unix)]
     std::os::unix::fs::symlink(records.join("records").canonicalize()?, run.join("records"))?;
