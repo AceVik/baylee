@@ -1374,25 +1374,6 @@ GuestEnded = that guest has ended — play as a new one, or sign in
 # The gateway takes no guests (its `/auth/config` said so).
 NoGuests = this gateway takes no guests
 
-# Caption of the box for a closed-beta key (#317).
-InviteKey = CLOSED BETA KEY
-
-# What that box says while empty: the shape of a key.
-InviteKeyShape = BAYLEE-XXXX-XXXX-XXXX-XXXX
-
-# Under the box: what the key is for, and that pasting it is fine.
-InviteKeyHint = This gateway is a closed beta: a new account or a new guest needs a key. Paste it as you got it.
-
-# A new account or guest was asked for with the box empty.
-NeedInviteKey = your closed beta key, please
-
-# The gateway refused the key, for whichever reason: mistyped, used,
-# expired or revoked. It does not say which, and neither does this.
-InviteKeyInvalid = this closed beta key is not valid — check it, or ask for a new one
-
-# The gateway wanted a key and none reached it.
-InviteKeyNeeded = this gateway is a closed beta: a new account or guest needs a closed beta key
-
 # Asked before a guest signs out. `$name` is its handle.
 # Arguments: name
 GuestSignOutQuestion = Sign out { $name }?
@@ -6423,7 +6404,7 @@ TourL1Body = A gateway is the server that keeps your decks and tables. The colou
 TourL2Title = Account or guest
 
 # Tour step L2's words (TOURS.md §2).
-TourL2Body = As a guest you only need a name. In return you can't upload pictures, and about 30 days after your last visit the guest and its decks are deleted. With an account your decks and settings stay on the gateway. In a closed beta, the button you pick asks for your key.
+TourL2Body = As a guest you only need a name. In return you can't upload pictures, and about 30 days after your last visit the guest and its decks are deleted. With an account your decks and settings stay on the gateway.
 
 # Tour step L3's title (TOURS.md §2).
 TourL3Title = Play offline
@@ -7074,18 +7055,12 @@ RefusalOther = This server refused. An update of this client may say more.
 # Arguments: own, text
 RefusalServerSaid = { $own } The server says: “{ $text }”
 
-# The badge beside a closed-beta gateway's name on the front door.
-FrontClosedBeta = closed beta
-
 # The front door's version verdict when nothing is wrong.
 FrontCompatible = compatible
 
 # The front door's line naming this client's own version. `$version`.
 # Arguments: version
 FrontThisClient = this client { $version }
-
-# Under Create account and Play as guest on a closed beta.
-FrontKeyHint = This gateway needs a beta key — the key box opens under the button you choose.
 
 # Under the username when an account is made.
 FrontUsernameHint = Signs you in; nobody else sees it

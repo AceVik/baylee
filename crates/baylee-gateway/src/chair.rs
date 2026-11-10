@@ -2,8 +2,8 @@
 //! (`docs/protocol.md` §"A host's chair for a seat bridge").
 //!
 //! A seat bridge (`baylee-seat join`) used to sit down as a guest, so a
-//! gateway that takes no guests (auth mode `central`), one whose guest cap
-//! is reached, and a closed beta whose guest door needs a key seated none.
+//! gateway that takes no guests (auth mode `central`) or one whose guest cap
+//! is reached seated none.
 //! Now the host's client asks for a **chair ticket** for one open chair of
 //! the room it hosts, and hands it to the bridge it starts on the bridge's
 //! stdin. The bridge redeems it and sits in that chair as the host's
@@ -292,8 +292,8 @@ pub(crate) struct ChairGrant {
 /// (`POST /lobby/games/{id}/chairs/{seat}/redeem`, the ticket as
 /// `Authorization: Bearer`): `{game_id, seat, seat_token, decide_secs}`.
 ///
-/// Needs no session, so no guest account, no closed-beta key and no guest
-/// seat: the host vouched for the chair.
+/// Needs no session, so no guest account and no guest seat: the host
+/// vouched for the chair.
 ///
 /// @route POST /lobby/games/{id}/chairs/{seat}/redeem
 /// @scope public

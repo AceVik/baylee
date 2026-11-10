@@ -4539,13 +4539,22 @@ The city is a generated raster with shader layers, not geometrically modelled.
 The account card shows **one face at a time** (`lobby/front/faces.rs`;
 `client-core::lobby::Face`): **sign in** (username, password, Sign in, then
 Create account and Play as guest under a rule), **create an account**
-(username and display name, the password twice, the beta key on a closed
-beta, Create account) and **play as a guest** (a display name, the key,
-Play as guest). The beta key opens under the button chosen and never on the
-sign-in face; a guest this device keeps plays at once from the sign-in face
-("Continue as Guest#0013"). `‹ Back` and Esc go back a face, and from the
-sign-in face back to the gateway picker. The faces ride the existing
-carousel (the guest's is the create face's other side) and the passage.
+(username and display name, the password twice, Create account) and **play
+as a guest** (a display name, Play as guest); a guest this device keeps
+plays at once from the sign-in face ("Continue as Guest#0013"). `‹ Back` and
+Esc go back a face, and from the sign-in face back to the gateway picker.
+The faces ride the existing carousel (the guest's is the create face's other
+side) and the passage.
+
+Who may make an account is the gateway's `registration`, which the client
+reads from `GET /auth/config`: `open` or `off`, read by
+`Registration::read`. A gateway from
+before the word sends only `registration_enabled`, and that flag also
+decides for a word this client does not know. An older gateway's `invite`,
+from the time a key was needed, is such a word: the client offers what the
+flag and the gateway's other fields say, sends no key with a new account or
+guest, and says a refusal from that gateway as the gateway's own sentence
+(`a_gateway_s_own_sentence_is_said_as_the_gateway_s`).
 
 **One input per line, a wider card** (owner, 09.10.2026). The card is
 720 × the text step wide on a desktop (it was 600), and the create and

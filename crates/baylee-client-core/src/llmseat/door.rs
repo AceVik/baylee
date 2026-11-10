@@ -3,8 +3,8 @@
 //!
 //! A host signed in to an account asks its gateway for a **chair ticket**
 //! for the chair, and the bridge it then starts sits down on it with no
-//! account of its own: so a gateway that takes no guests, whose guest cap
-//! is reached, or that is a closed beta seats it all the same. A host who
+//! account of its own: so a gateway that takes no guests, or whose guest
+//! cap is reached, seats it all the same. A host who
 //! is a guest is handed no ticket; its bridge signs in as a guest, where
 //! the gateway takes guests, as before. The ticket goes to the bridge as
 //! the first line of its stdin ([`Admission::stdin`]), never in its

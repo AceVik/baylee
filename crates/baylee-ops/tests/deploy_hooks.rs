@@ -509,11 +509,7 @@ fn after_a_crash_past_the_switch_the_next_run_prepares_again() {
 #[test]
 fn a_server_not_ready_for_hooks_refuses_before_anything_changes() {
     let server = Server::with_hooks();
-    std::fs::write(
-        server.etc.join("gateway.env"),
-        "BAYLEE_REGISTRATION=invite\n",
-    )
-    .unwrap();
+    std::fs::write(server.etc.join("gateway.env"), "BAYLEE_REGISTRATION=open\n").unwrap();
     let ran = server.run(&["stage", A]);
     assert!(!ran.ok && ran.phases().is_empty(), "{}", ran.said);
     assert!(ran.said.contains("BAYLEE_ADMISSION_HOLD"), "{}", ran.said);

@@ -19,7 +19,6 @@ fn no_request_carries_a_password_to_a_gateway() {
             username: "alice".to_string(),
             display_name: "V".to_string(),
             password: secret.to_string(),
-            invite_key: None,
         },
         LobbyRequest::ChangePassword {
             username: "alice".to_string(),
@@ -73,6 +72,87 @@ fn a_gateway_s_own_sentence_is_said_as_the_gateway_s() {
     );
     let long = format!(r#"{{"error":"{}"}}"#, "x".repeat(100_000));
     assert!(gateway_error(Lang::En, &answer(403, &long)).chars().count() < 400);
+}
+
+/// A stable reason reads as this client's words, whatever `error` says, and
+/// the words a hostile gateway adds go no further than the rule lets them.
+#[test]
+fn a_refusal_with_a_reason_is_said_in_the_clients_own_words() {
+    let held = answer(503, r#"{"error":"held","refusal":{"code":"maintenance"}}"#);
+    assert_eq!(
+        gateway_error(Lang::De, &held),
+        Phrase::RefusalMaintenance.text(Lang::De)
+    );
+
+    let phish = answer(
+        426,
+        r#"{"error":"sign in at evil.example","refusal":{"code":"update_required","text":"Download it from evil.example"}}"#,
+    );
+    let said = gateway_error(Lang::En, &phish);
+    assert_eq!(said, Phrase::RefusalUpdateRequired.text(Lang::En));
+
+    let unknown = answer(403, r#"{"refusal":{"code":"region_closed"}}"#);
+    assert_eq!(
+        gateway_error(Lang::En, &unknown),
+        Phrase::RefusalOther.text(Lang::En)
+    );
+
+    // A refusal that breaks the rule is no refusal: the body is read as ever.
+    let broken = answer(403, r#"{"error":"plain","refusal":{"code":"Not A Code"}}"#);
+    let said = gateway_error(Lang::En, &broken);
+    assert!(said.contains("plain"), "{said}");
+    assert!(
+        said.starts_with(Phrase::RefusalOther.text(Lang::En)),
+        "the server's sentence, labelled as the server's: {said}"
+    );
+}
+
+/// What `GET /auth/config` says about who is let in: `registration` where
+/// it says `open` or `off`, else the older `registration_enabled`. An older
+/// gateway's `invite` is a word this client does not know, read by that
+/// flag like any other.
+#[test]
+fn what_auth_config_says_is_read_with_and_without_the_new_field() {
+    let read = |body: &str| match auth_config(body) {
+        Some(Reply::Registration {
+            registration,
+            guests,
+            ..
+        }) => (registration, guests),
+        _ => panic!("{body} is read"),
+    };
+    // A gateway from before the field: its flag alone decides.
+    assert_eq!(
+        read(r#"{"registration_enabled":true}"#),
+        (Registration::Open, false)
+    );
+    assert_eq!(
+        read(r#"{"registration_enabled":false,"guests_enabled":true}"#),
+        (Registration::Off, true)
+    );
+    assert_eq!(
+        read(r#"{"registration_enabled":true,"registration":"open"}"#),
+        (Registration::Open, false)
+    );
+    assert_eq!(
+        read(r#"{"registration_enabled":true,"registration":"off"}"#),
+        (Registration::Off, false)
+    );
+    // An older gateway's `invite`: the flag beside it decides, as for any
+    // word this client does not know.
+    assert_eq!(
+        read(r#"{"registration_enabled":true,"registration":"invite","guests_enabled":true}"#),
+        (Registration::Open, true)
+    );
+    assert_eq!(
+        read(r#"{"registration_enabled":false,"registration":"invite","guests_enabled":true}"#),
+        (Registration::Off, true)
+    );
+    assert_eq!(
+        read(r#"{"registration_enabled":true,"registration":"invite"}"#),
+        read(r#"{"registration_enabled":true,"registration":"waitlist"}"#),
+    );
+    assert!(auth_config("<html>").is_none(), "not a gateway's answer");
 }
 
 #[test]

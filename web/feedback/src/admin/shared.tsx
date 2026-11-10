@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
-import { Refused } from "../api";
-import { localeOf, t, type Lang } from "../i18n";
+import { Refused, type ConsoleChange } from "../api";
+import { formatAgo, formatWhen, localeOf, t, type Lang } from "../i18n";
 import { navigate } from "../router";
 
 /** How often the numbers are asked again while the page is visible. */
@@ -167,6 +167,50 @@ export function Facts({ rows }: { rows: [string, ReactNode][] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * The changes made through the console, newest first, each under its action
+ * as the service audited it: there is no table of words for actions, so one
+ * this build no longer makes (the closed beta's `gateway.invite.create` and
+ * `gateway.invite.revoke`) reads as it was written. `strip` drops a prefix
+ * every row of a page shares; `mono` sets the details as code.
+ */
+export function ConsoleChanges({
+  lang,
+  id,
+  changes,
+  now,
+  strip = "",
+  mono = false,
+}: {
+  lang: Lang;
+  id: string;
+  changes: ConsoleChange[];
+  now: number;
+  strip?: string;
+  mono?: boolean;
+}) {
+  return (
+    <Panel id={id} title={t(lang, "audit.title")} className="audit-panel">
+      {changes.length === 0 ? (
+        <p className="empty">{t(lang, "audit.none")}</p>
+      ) : (
+        <ol className="audit console-audit">
+          {changes.map((c) => (
+            <li key={`${c.at}-${c.action}-${c.detail ?? ""}`}>
+              <span className="muted" title={formatWhen(lang, c.at)}>
+                {formatAgo(lang, c.at, now)}
+              </span>{" "}
+              <strong>{c.actor}</strong>{" "}
+              <Badge>{strip !== "" && c.action.startsWith(strip) ? c.action.slice(strip.length) : c.action}</Badge>
+              {c.detail !== null && <span className={`muted small audit-detail${mono ? " mono" : ""}`}> {c.detail}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </Panel>
   );
 }
 

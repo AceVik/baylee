@@ -20,7 +20,7 @@
 //! - `/ui/api/…`: the web UI's JSON routes, for a signed-in admin (#311,
 //!   [`ui`]); `FEEDBACK_WEB_DIR` serves the UI itself ([`web`]).
 //! - `/ui/api/admin/…`: the same admins, passed on to a gateway's admin
-//!   console (its numbers and closed-beta keys, [`console`]).
+//!   console (its numbers, accounts and settings, [`console`]).
 //!
 //! No column holds an address or a player's name: a report carries the
 //! gateway's pseudonym for its reporter, and no request's address is kept

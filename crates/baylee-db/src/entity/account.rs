@@ -56,10 +56,6 @@ pub struct Model {
     /// password, and gone once its last session is. The database holds a
     /// guest to exactly that.
     pub guest: bool,
-    /// The closed-beta key that admitted it (#317), if one did. Set once, as
-    /// the account is made, and forgotten (`ON DELETE SET NULL`) when the
-    /// key's row is removed.
-    pub invite_id: Option<Uuid>,
     /// The version of the gateway's terms of use it last accepted (WG-1),
     /// as `GET /terms` names it; `None` for never.
     pub terms_version: Option<String>,

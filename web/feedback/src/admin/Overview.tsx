@@ -1,14 +1,16 @@
 // The overview (`/admin`): the gateway's headline numbers, a month of days
 // as charts (the reports' bugs and crashes among them), who is at which
-// table right now, every count the gateway keeps, and whether the gateway
-// and this service answer, refreshed every 15 seconds while the page is
-// visible.
+// table right now, every count the gateway keeps, whether the gateway and
+// this service answer, and the latest changes made through the console (all
+// of them: Cards and Models show only their own), refreshed every 15 seconds
+// while the page is visible.
 
 import { useCallback, useState, type ReactNode } from "react";
 
 import {
   api,
   SignedOut,
+  type ConsoleChange,
   type Facets,
   type Health,
   type Live,
@@ -30,6 +32,7 @@ import { AUTH_MODE_WORDS, NobodyComesIn, nobodyComesIn } from "./Access";
 import { DayChart, type DayOf } from "./Chart";
 import {
   Badge,
+  ConsoleChanges,
   describe,
   Facts,
   Freshness,
@@ -37,6 +40,7 @@ import {
   Link,
   Panel,
   REFRESH_MS,
+  useNow,
   useVisibleInterval,
 } from "./shared";
 import { TableCard } from "./Live";
@@ -356,7 +360,6 @@ function Details({
           rows={[
             [t(lang, "stats.withEmail"), n(stats.accounts.with_email)],
             [t(lang, "stats.confirmed"), n(stats.accounts.confirmed_email)],
-            [t(lang, "stats.byKey"), n(stats.accounts.admitted_by_key)],
             [t(lang, "stats.guests"), `${n(stats.guests.live)} · ${cap}`],
           ]}
         />
@@ -485,29 +488,6 @@ function Details({
           </>
         )}
       </Panel>
-      <Panel
-        id="st-keys"
-        title={t(lang, "stats.keys")}
-        actions={
-          <Link to={adminPath("keys")} className="button small-button">
-            {t(lang, "sec.keys")} →
-          </Link>
-        }
-      >
-        <p className="big" data-testid="keys-active">
-          <span className="big-number">{n(stats.invites.active)}</span>{" "}
-          <span className="big-label">{t(lang, "stats.activeKeys")}</span>
-        </p>
-        <Facts
-          rows={[
-            [t(lang, "stats.usesLeft"), n(stats.invites.uses_left)],
-            [t(lang, "stats.admitted"), n(stats.invites.admitted)],
-            [t(lang, "stats.usedUp"), n(stats.invites.used_up)],
-            [t(lang, "stats.expired"), n(stats.invites.expired)],
-            [t(lang, "stats.revoked"), n(stats.invites.revoked)],
-          ]}
-        />
-      </Panel>
       <Services lang={lang} stats={stats} health={health} latency={latency} />
     </div>
   );
@@ -521,6 +501,7 @@ export function Overview({ lang }: { lang: Lang }) {
   const [reports, setReports] = useState<ReportStats | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [latency, setLatency] = useState<number | null>(null);
+  const [changes, setChanges] = useState<ConsoleChange[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -566,9 +547,16 @@ export function Overview({ lang }: { lang: Lang }) {
       .catch(() => {
         // Nor does it need the reports.
       });
+    api.admin
+      .audit()
+      .then(setChanges)
+      .catch(() => {
+        // The changes are a footnote; the page reads without them.
+      });
   }, [lang]);
 
   const shown = useVisibleInterval(load, REFRESH_MS);
+  const now = useNow();
   const open = live?.tables ?? [];
 
   return (
@@ -620,6 +608,7 @@ export function Overview({ lang }: { lang: Lang }) {
             health={health}
             latency={latency}
           />
+          <ConsoleChanges lang={lang} id="st-audit" changes={changes} now={now} />
         </>
       )}
     </>

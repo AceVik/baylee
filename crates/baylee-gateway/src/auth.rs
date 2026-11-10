@@ -7,7 +7,7 @@
 //!   with sliding renewal; 30 days for a guest's, whose session is the
 //!   whole of its account ([`Lifetime`]).
 //! - Sliding-window rate limiters throttle the public doors per IP (and a
-//!   closed beta's key tries); `RateLimiter` holds the window and the count
+//!   locked room's password tries); `RateLimiter` holds the window and the count
 //!   and the caller says what a key is.
 //! - All secret comparisons are constant-time (`subtle`).
 
@@ -216,18 +216,6 @@ impl RateLimiter {
         }
         entry.push(now);
         true
-    }
-
-    /// Drops a key's history, so what it has spent no longer counts.
-    ///
-    /// For the one thing a sliding window cannot see on its own: the attempts
-    /// were a person getting their own password right in the end. Without
-    /// this, seven typos followed by a success leave the eighth try spent,
-    /// and signing out and back in is refused by a limiter that has already
-    /// been satisfied. Only a caller that *knows* the attempt succeeded may
-    /// call it, which is why it is not part of `allow`.
-    pub fn forget(&self, key: &str) {
-        self.hits.lock().remove(key);
     }
 
     /// Whether `key` has spent every attempt in the window, without
@@ -461,26 +449,6 @@ mod tests {
         assert!(limiter.allow("1.2.3.4"));
         assert!(!limiter.allow("1.2.3.4"));
         assert!(limiter.allow("5.6.7.8"));
-    }
-
-    /// Getting the password right in the end is the thing a sliding window
-    /// cannot see, so the caller that saw it says so.
-    #[test]
-    fn what_a_key_has_spent_can_be_given_back() {
-        let limiter = RateLimiter::new(Duration::from_secs(60), 2);
-        assert!(limiter.allow("a@b.c"));
-        assert!(limiter.allow("a@b.c"));
-        assert!(!limiter.allow("a@b.c"), "spent");
-        limiter.forget("a@b.c");
-        assert!(limiter.allow("a@b.c"), "and handed back");
-        // One key's history, not everybody's.
-        assert!(limiter.allow("d@e.f"));
-        assert!(limiter.allow("d@e.f"));
-        limiter.forget("a@b.c");
-        assert!(
-            !limiter.allow("d@e.f"),
-            "somebody else's count is untouched"
-        );
     }
 
     /// **One digest, two spellings, and they have to agree.** A session token

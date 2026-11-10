@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Binaries: the server's deploy, closed-beta key and reboot commands (baylee-deploy, baylee-invite, baylee-reboot), installed by a deploy into /usr/local/sbin"
+description = "Binaries: the server's deploy and reboot commands (baylee-deploy, baylee-reboot) and the retired closed-beta key command (baylee-invite), installed by a deploy into /usr/local/sbin"
 publish = false
 
 [lints]

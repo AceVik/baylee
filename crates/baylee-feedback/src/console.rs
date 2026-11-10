@@ -15,10 +15,6 @@
 //!   names (`client.chat.sender_tag`), so an admin can act on the account
 //!   that wrote it.
 //! - `GET /ui/api/admin/accounts/{id}`: one account, its decks and games.
-//! - `GET /ui/api/admin/invites`: its closed-beta keys, never a key.
-//! - `POST /ui/api/admin/invites` `{uses?, expires?, note?, count?}`: makes
-//!   keys and answers them, the one time they are shown.
-//! - `DELETE /ui/api/admin/invites/{id}`: revokes one.
 //! - `GET /ui/api/admin/cards/search?q=`: the pool's cards by name, each
 //!   saying whether it is blocked.
 //! - `GET /ui/api/admin/cards/blocks`: every card block, newest first.
@@ -45,7 +41,8 @@
 //! the session *and* the UI's CSRF proof ([`crate::ui::same_origin`]), as
 //! every other change here does, and names the signed-in admin to the
 //! gateway (`X-Baylee-Admin`), whose audit line carries it; this service
-//! writes one of its own into `feedback_audit`, never with a key or a note.
+//! writes one of its own into `feedback_audit`, never with a key, a note or
+//! a reason.
 //!
 //! The gateway refusing the token (`401`, `403`) is answered `502`, never
 //! passed on: a `401` here means "signed out" to the UI, and it is the
@@ -73,8 +70,8 @@ pub const MIN_TOKEN_CHARS: usize = 32;
 /// How long the gateway may take to answer.
 const TIMEOUT: Duration = Duration::from_secs(10);
 
-/// The largest answer read from the gateway: a thousand keys' rows with
-/// room to spare.
+/// The largest answer read from the gateway: a page of accounts or a
+/// thousand card blocks' rows with room to spare.
 const MAX_ANSWER_BYTES: u64 = 1024 * 1024;
 
 /// How many of the latest console changes `GET /ui/api/admin/audit` shows.
@@ -141,13 +138,11 @@ pub(crate) fn routes() -> Router<Shared> {
             "/ui/api/admin/accounts/{id}",
             get(account).delete(crate::moderation::delete_account),
         )
-        .route("/ui/api/admin/invites", get(invites).post(create))
         .route("/ui/api/admin/central", get(central))
         .route(
             "/ui/api/admin/central/token",
             put(central_paste).delete(central_remove),
         )
-        .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/cards/search", get(search_cards))
         .route(
             "/ui/api/admin/cards/blocks",
@@ -596,42 +591,6 @@ async fn account(
     .map(answer)
 }
 
-/// @route GET /ui/api/admin/invites
-/// @scope feedback
-/// @summary The gateway's beta keys
-/// @description The gateway's `GET /admin/invites`, passed on with its status: its keys, newest first, never a key itself.
-/// @tag Console
-/// @security session
-/// @insert `ConsoleRefusals`
-/// @return 200: {} "The gateway's `GET /admin/invites` answer, as it is"
-async fn invites(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
-    let (admin, gateway) = signed_in(&shared, &headers).await?;
-    ask(&gateway, "GET", "/admin/invites".into(), &admin, None)
-        .await
-        .map(answer)
-}
-
-/// What `POST /ui/api/admin/invites` takes, and all it passes on.
-///
-/// @description Keys to make, as `invite create` takes them.
-/// @openapi
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Order {
-    /// @description How often each key may be used.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    uses: Option<u32>,
-    /// @description When the keys expire, from now: `30d`, `12h`, ….
-    #[serde(skip_serializing_if = "Option::is_none")]
-    expires: Option<String>,
-    /// @description A note kept with the keys at the gateway.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    note: Option<String>,
-    /// @description How many keys to make.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    count: Option<u32>,
-}
-
 /// @route GET /ui/api/admin/central
 /// @scope feedback
 /// @summary The gateway's link to Baylee Central
@@ -734,103 +693,6 @@ async fn central_remove(
     if done.status == 204 {
         tracing::info!(admin, action = "gateway.central.unlink", "admin console");
         if let Err(e) = note(&shared, &admin, "gateway.central.unlink", "").await {
-            tracing::error!("admin console: the audit row was not written: {e}");
-        }
-    }
-    Ok(answer(done))
-}
-
-/// One line for the audit: what was made, never a key or the note.
-fn made_detail(made: &serde_json::Value) -> String {
-    let ids: Vec<&str> = made["keys"]
-        .as_array()
-        .map(|keys| keys.iter().filter_map(|k| k["id"].as_str()).collect())
-        .unwrap_or_default();
-    format!(
-        "{} key(s), {} use(s) each, {}; ids {}",
-        ids.len(),
-        made["uses"].as_i64().unwrap_or(0),
-        made["expires_at"]
-            .as_str()
-            .map_or_else(|| "never expiring".to_owned(), |at| format!("until {at}")),
-        ids.join(", ")
-    )
-}
-
-/// @route POST /ui/api/admin/invites
-/// @scope feedback
-/// @summary Make beta keys
-/// @description The gateway's `POST /admin/invites`, passed on with its status. Its `201` carries the keys, the only time they are shown; this service writes an audit row with their ids, uses and expiry, never a key or the note.
-/// @tag Console
-/// @operation-id `createInvites`
-/// @security session + csrf
-/// @insert `ConsoleChangeRefusals`
-/// @return 201: {} "Made, as the gateway answers: `keys` (each an `id` and its `key`), `uses`, `expires_at` and `note`"
-/// @body `$Order`
-/// @return 400: `$ErrorBody` "Not a request for keys, or the gateway's own refusal"
-async fn create(
-    State(shared): State<Shared>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Result<Response, Refusal> {
-    same_origin(&headers)?;
-    let (admin, gateway) = signed_in(&shared, &headers).await?;
-    let order: Order = serde_json::from_slice(&body)
-        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a request for keys"))?;
-    let body = serde_json::to_vec(&order)
-        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a request for keys"))?;
-    let made = ask(
-        &gateway,
-        "POST",
-        "/admin/invites".into(),
-        &admin,
-        Some(body),
-    )
-    .await?;
-    if made.status == 201 {
-        let detail = made_detail(&made.json);
-        tracing::info!(admin, action = "gateway.invite.create", %detail, "admin console");
-        // The keys are answered whatever happens to the audit row: they
-        // are stored at the gateway, and shown only now.
-        if let Err(e) = note(&shared, &admin, "gateway.invite.create", &detail).await {
-            tracing::error!("admin console: the audit row was not written: {e}");
-        }
-    }
-    Ok(answer(made))
-}
-
-/// @route DELETE /ui/api/admin/invites/{id}
-/// @scope feedback
-/// @summary Revoke a beta key
-/// @description The gateway's `DELETE /admin/invites/{id}`, passed on with its status; a key revoked is an audit row.
-/// @tag Console
-/// @operation-id `revokeInvite`
-/// @security session + csrf
-/// @insert `ConsoleChangeRefusals`
-/// @return 204: "Revoked"
-/// @path-param id: String format=uuid "The key's id"
-/// @return 400: `$ErrorBody` "Not a key's id"
-/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such key, or it is revoked already"
-async fn revoke(
-    State(shared): State<Shared>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-) -> Result<Response, Refusal> {
-    same_origin(&headers)?;
-    let (admin, gateway) = signed_in(&shared, &headers).await?;
-    let id = Uuid::parse_str(&id).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a key's id"))?;
-    let done = ask(
-        &gateway,
-        "DELETE",
-        format!("/admin/invites/{id}"),
-        &admin,
-        None,
-    )
-    .await?;
-    if done.status == 204 {
-        let detail = format!("key {id}");
-        tracing::info!(admin, action = "gateway.invite.revoke", %detail, "admin console");
-        if let Err(e) = note(&shared, &admin, "gateway.invite.revoke", &detail).await {
             tracing::error!("admin console: the audit row was not written: {e}");
         }
     }
@@ -1759,8 +1621,9 @@ struct ConsoleChange {
     at: String,
     /// @description The admin who made it.
     actor: String,
-    /// @description What: `gateway.invite.create`, `gateway.card.block`,
-    /// `gateway.account.ban`, `gateway.llm.profile.write`, ….
+    /// @description What: `gateway.card.block`, `gateway.account.ban`,
+    /// `gateway.llm.profile.write`, …; rows from before the open beta also
+    /// say `gateway.invite.create` and `gateway.invite.revoke`.
     action: String,
     /// @description Ids and ends; never a key, a password, a note or a
     /// reason.
@@ -1861,26 +1724,6 @@ mod tests {
             ..AccountsQuery::default()
         };
         assert_eq!(blank.path(), "/admin/accounts");
-    }
-
-    #[test]
-    fn the_audit_line_names_ids_and_never_a_key_or_a_note() {
-        let made = serde_json::json!({
-            "keys": [
-                { "id": "0199aaaa-0000-7000-8000-000000000001", "key": "BAYLEE-AAAA-BBBB-CCCC-DDDD" },
-                { "id": "0199aaaa-0000-7000-8000-000000000002", "key": "BAYLEE-EEEE-FFFF-GGGG-HHHH" },
-            ],
-            "uses": 3,
-            "expires_at": "2026-11-07T09:00:00Z",
-            "note": "for Max",
-        });
-        let line = made_detail(&made);
-        assert_eq!(
-            line,
-            "2 key(s), 3 use(s) each, until 2026-11-07T09:00:00Z; ids \
-             0199aaaa-0000-7000-8000-000000000001, 0199aaaa-0000-7000-8000-000000000002"
-        );
-        assert!(!line.contains("BAYLEE-") && !line.contains("Max"));
     }
 
     #[test]

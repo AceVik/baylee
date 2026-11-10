@@ -30,7 +30,6 @@ async fn guest(lobby: &Lobby, name: &str) -> Session {
     lobby
         .guest(&GuestSignIn {
             display_name: name.into(),
-            invite_key: None,
         })
         .await
         .unwrap_or_else(|e| panic!("{name} signs in: {e:#}"))

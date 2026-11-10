@@ -1,6 +1,6 @@
 //! The admin console's routes (`docs/protocol.md` §"The admin console"):
-//! how busy this gateway is, in aggregate numbers, and its closed-beta keys
-//! made, listed and revoked as `baylee-gateway invite` does.
+//! how busy this gateway is, in aggregate numbers, who is on it, and what an
+//! admin may change.
 //!
 //! They are served on a listener of their own and nowhere else: never on
 //! the public port, which the reverse proxy forwards from the internet, and
@@ -29,8 +29,8 @@
 //!    ignore caller-supplied actor headers. That identity goes into the audit line.
 //!
 //! Every change is logged on the target `baylee_gateway::audit`: who, what,
-//! which key ids, when (the log's own time). Never a key, a token or a
-//! key's note. The routes add no CORS header: the gateway's `*` is for the
+//! which ids, when (the log's own time). Never a token, nor free text an
+//! admin wrote that may name a person. The routes add no CORS header: the gateway's `*` is for the
 //! public routes, and these are not one.
 
 use std::net::{IpAddr, SocketAddr};
@@ -49,7 +49,7 @@ use sha2::{Digest as _, Sha256};
 use subtle::ConstantTimeEq as _;
 use time::OffsetDateTime;
 
-use crate::{ErrorBody, Shared, auth, err, err_saying, invite};
+use crate::{ErrorBody, Shared, auth, err, err_saying};
 
 /// The shortest `BAYLEE_ADMIN_TOKEN` the gateway starts with.
 pub(crate) const MIN_TOKEN_CHARS: usize = 32;
@@ -178,8 +178,6 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
             "/admin/accounts/{id}",
             get(one_account).delete(crate::moderation::delete_account),
         )
-        .route("/admin/invites", get(list_invites).post(create_invites))
-        .route("/admin/invites/{id}", delete(revoke_invite))
         .route("/admin/cards/search", get(search_cards))
         .route("/admin/cards/blocks", get(list_blocks).post(block_card))
         .route("/admin/cards/blocks/{id}", delete(unblock_card))
@@ -477,8 +475,8 @@ const DAILY_DAYS: u32 = 30;
 /// @scope admin
 /// @summary How busy this gateway is, in counts
 /// @description Counts and sums only, no field naming a person: accounts,
-/// guests, who is online, games, engine agents, friends and chat, beta
-/// keys, and the last 30 UTC days.
+/// guests, who is online, games, engine agents, friends and chat, and
+/// the last 30 UTC days.
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
@@ -534,7 +532,6 @@ async fn stats(State(console): State<Admin>) -> Result<Json<ConsoleStats>, Refus
             registered: stored.registered,
             with_email: stored.with_email,
             confirmed_email: stored.confirmed_email,
-            admitted_by_key: stored.admitted_by_key,
             created: since(stored.registered_since),
             decks: stored.decks,
         },
@@ -565,15 +562,6 @@ async fn stats(State(console): State<Admin>) -> Result<Json<ConsoleStats>, Refus
         },
         agents: agents(app),
         social,
-        invites: ConsoleInviteCounts {
-            total: stored.invites_total,
-            active: stored.invites_active,
-            used_up: stored.invites_used_up,
-            expired: stored.invites_expired,
-            revoked: stored.invites_revoked,
-            uses_left: stored.invite_uses_left,
-            admitted: stored.admitted_by_key,
-        },
         daily,
     }))
 }
@@ -611,8 +599,6 @@ pub(crate) struct ConsoleStats {
     ///   sockets: { type: integer }
     /// ```
     social: serde_json::Value,
-    /// @description The closed-beta keys.
-    invites: ConsoleInviteCounts,
     /// @description The last 30 UTC days, oldest first, today last.
     daily: Vec<baylee_db::console::Day>,
 }
@@ -626,8 +612,8 @@ pub(crate) struct ConsoleGateway {
     /// @description The name it shows (`BAYLEE_GATEWAY_NAME`), `null` for
     /// none.
     name: Option<String>,
-    /// @description Who may make an account.
-    registration: crate::invite::Registration,
+    /// @description Who may come in new (`BAYLEE_REGISTRATION`).
+    registration: crate::registration::Registration,
     /// @description Seconds this process has served.
     uptime_secs: u64,
     /// @description Whether it has terms of use.
@@ -655,9 +641,6 @@ pub(crate) struct ConsoleAccountCounts {
     with_email: i64,
     /// @description Of those, the ones whose address was confirmed.
     confirmed_email: i64,
-    /// @description Registered accounts a closed-beta key let in, that
-    /// still exist.
-    admitted_by_key: i64,
     /// @description Registered accounts made in each window that still
     /// exist.
     created: ConsoleSince,
@@ -727,27 +710,6 @@ pub(crate) struct ConsoleGameCounts {
     /// @description The mean length in seconds of the games finished in
     /// the last 30 days; `0` for none.
     avg_secs_30d: i64,
-}
-
-/// `GET /admin/stats`'s closed-beta keys.
-/// @openapi
-#[derive(Serialize)]
-pub(crate) struct ConsoleInviteCounts {
-    /// @description Keys ever made.
-    total: i64,
-    /// @description Keys that admit somebody now: not revoked, not
-    /// expired, a use left.
-    active: i64,
-    /// @description Keys not revoked and not expired, with no use left.
-    used_up: i64,
-    /// @description Keys not revoked whose expiry has passed.
-    expired: i64,
-    /// @description Keys revoked.
-    revoked: i64,
-    /// @description The uses the active keys have left, together.
-    uses_left: i64,
-    /// @description The existing accounts a key let in.
-    admitted: i64,
 }
 
 /// The session lifetimes, as the store's console reads want them.
@@ -1581,270 +1543,6 @@ pub(crate) struct AccountTable {
     state: &'static str,
 }
 
-/// One closed-beta key as the console lists it: never the key, which is
-/// not kept.
-/// @openapi
-#[derive(Serialize)]
-pub(crate) struct ListedInvite {
-    /// @description The key's id, which `DELETE /admin/invites/{id}` takes.
-    id: uuid::Uuid,
-    /// @description When it was made, RFC 3339 in UTC.
-    /// @openapi format: date-time
-    created_at: String,
-    /// @description Who it is for, or `null`.
-    note: Option<String>,
-    /// @description How many more accounts it may admit.
-    uses_left: i32,
-    /// @description When it stops admitting anybody, RFC 3339 in UTC;
-    /// `null` for never.
-    /// @openapi format: date-time
-    expires_at: Option<String>,
-    /// @description When it was revoked, RFC 3339 in UTC, or `null`.
-    /// @openapi format: date-time
-    revoked_at: Option<String>,
-    /// @description How many accounts that still exist it admitted.
-    admitted: i64,
-    /// @description What it can still do: `revoked`, `expired`, `used_up`
-    /// (no use left) or `active`.
-    /// @openapi
-    /// ```yaml
-    /// enum: [active, used_up, expired, revoked]
-    /// ```
-    state: &'static str,
-}
-
-/// One key as the console lists it: what `invite list` shows, never the
-/// key, which is not kept.
-fn listed(row: &baylee_db::invites::Invite, now: OffsetDateTime) -> ListedInvite {
-    let state = if row.revoked_at.is_some() {
-        "revoked"
-    } else if row.expires_at.is_some_and(|at| at <= now) {
-        "expired"
-    } else if row.uses_left == 0 {
-        "used_up"
-    } else {
-        "active"
-    };
-    ListedInvite {
-        id: row.id,
-        created_at: iso(row.created_at),
-        note: row.note.clone(),
-        uses_left: row.uses_left,
-        expires_at: row.expires_at.map(iso),
-        revoked_at: row.revoked_at.map(iso),
-        admitted: row.admitted,
-        state,
-    }
-}
-
-/// `GET /admin/invites`: every key but the keys, newest first.
-///
-/// @route GET /admin/invites
-/// @scope admin
-/// @summary Every closed-beta key, never the keys
-/// @description Every key made, newest first, with what it can still do.
-/// Never a key: only its hash is stored, so no route can show one again.
-/// @tag Admin
-/// @security `adminToken`
-/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
-/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
-/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
-/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
-async fn list_invites(State(console): State<Admin>) -> Result<Json<Vec<ListedInvite>>, Refusal> {
-    let now = OffsetDateTime::now_utc();
-    let rows = baylee_db::invites::list(&console.app.db)
-        .await
-        .map_err(|e| db_failed(&e))?;
-    Ok(Json(
-        rows.iter().rev().map(|row| listed(row, now)).collect(),
-    ))
-}
-
-/// What `POST /admin/invites` reads: `invite create`'s flags as fields.
-///
-/// @description `baylee-gateway invite create`'s flags as fields, read by
-/// the command's own parser: the same defaults, bounds and refusals.
-/// Every field may be left out.
-/// @openapi
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CreateBody {
-    /// @description How many accounts each key admits, 1 to 1000; 1 when
-    /// absent.
-    /// @openapi minimum: 1
-    /// @openapi maximum: 1000
-    uses: Option<i64>,
-    /// @description How long the keys admit anybody, in days or hours, 1
-    /// to 3650 of them: `30d`, `12h`; for ever when absent.
-    /// @openapi example: 30d
-    expires: Option<String>,
-    /// @description Who the keys are for: one line, at most 100
-    /// characters.
-    note: Option<String>,
-    /// @description How many keys, 1 to 100; 1 when absent.
-    /// @openapi minimum: 1
-    /// @openapi maximum: 100
-    count: Option<i64>,
-}
-
-/// `POST /admin/invites`: the keys made, the one time they are shown.
-/// @openapi
-#[derive(Serialize)]
-pub(crate) struct MadeInvites {
-    /// @description Each key and its id.
-    keys: Vec<MadeInvite>,
-    /// @description How many accounts each key admits.
-    uses: i32,
-    /// @description When they stop admitting anybody, RFC 3339 in UTC;
-    /// `null` for never.
-    /// @openapi format: date-time
-    expires_at: Option<String>,
-    /// @description Who they are for, `null` for nobody named.
-    note: Option<String>,
-}
-
-/// One key made.
-/// @openapi
-#[derive(Serialize)]
-pub(crate) struct MadeInvite {
-    /// @description Its id.
-    id: uuid::Uuid,
-    /// @description The key, to hand on: it is never shown again.
-    key: String,
-}
-
-/// `POST /admin/invites`: makes keys as `invite create` does, and answers
-/// them, the one time they are shown.
-///
-/// @route POST /admin/invites
-/// @scope admin
-/// @summary Make closed-beta keys
-/// @description Makes keys as `baylee-gateway invite create` does, in one
-/// transaction, and answers them: the one time they exist outside the hand
-/// they are given to.
-/// @tag Admin
-/// @security `adminToken`
-/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin session, whose account acts"
-/// @body `$CreateBody`
-/// @return 201: `$MadeInvites` "The keys, shown this once"
-/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a request for keys (an unknown field included), or a value `invite create` refuses, in its words"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
-/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
-/// @return 413: "The body is over 16 KiB"
-/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
-/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
-async fn create_invites(
-    State(console): State<Admin>,
-    axum::Extension(Actor(actor)): axum::Extension<Actor>,
-    body: Bytes,
-) -> Result<Response, Refusal> {
-    let body: CreateBody = serde_json::from_slice(&body)
-        .map_err(|_| err(StatusCode::BAD_REQUEST, "not a request for keys"))?;
-    let order = invite::order(
-        body.uses,
-        body.expires.as_deref(),
-        body.note.as_deref(),
-        body.count,
-    )
-    .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
-    let expires_at = order.expires.map(|d| OffsetDateTime::now_utc() + d);
-    let made = invite::make(
-        &console.app.db,
-        order.uses,
-        expires_at,
-        order.note.as_deref(),
-        order.count,
-    )
-    .await
-    .map_err(|why| {
-        tracing::error!("admin console: {why}");
-        err(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "the gateway's database is unavailable",
-        )
-    })?;
-    let ids: Vec<String> = made.iter().map(|(id, _)| id.to_string()).collect();
-    tracing::info!(
-        target: "baylee_gateway::audit",
-        admin = %actor,
-        action = "invite.create",
-        count = order.count,
-        uses = order.uses,
-        expires = %expires_at.map_or_else(|| "never".into(), iso),
-        ids = %ids.join(","),
-        "admin console: closed beta keys made"
-    );
-    let keys: Vec<MadeInvite> = made
-        .into_iter()
-        .map(|(id, key)| MadeInvite { id, key })
-        .collect();
-    Ok((
-        StatusCode::CREATED,
-        Json(MadeInvites {
-            keys,
-            uses: order.uses,
-            expires_at: expires_at.map(iso),
-            note: order.note.filter(|n| !n.is_empty()),
-        }),
-    )
-        .into_response())
-}
-
-/// `DELETE /admin/invites/{id}`: revokes a key as `invite revoke` does.
-/// The row stays, as it does there: a revoked key is still listed.
-///
-/// @route DELETE /admin/invites/{id}
-/// @scope admin
-/// @summary Revoke a closed-beta key
-/// @description Revokes a key as `baylee-gateway invite revoke` does; it
-/// admits nobody from now on and stays listed, revoked.
-/// @tag Admin
-/// @security `adminToken`
-/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin session, whose account acts"
-/// @path-param id: String format=uuid "The key's id"
-/// @return 204: "Revoked"
-/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
-/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
-/// @return 404: `$ErrorBody` "No key by that id that is not revoked already"
-/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
-/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
-async fn revoke_invite(
-    State(console): State<Admin>,
-    axum::Extension(Actor(actor)): axum::Extension<Actor>,
-    Path(id): Path<String>,
-) -> Result<StatusCode, Refusal> {
-    let id = uuid::Uuid::parse_str(&id).map_err(|_| {
-        err_saying(
-            StatusCode::BAD_REQUEST,
-            format!("{id:?} is not a key's id; `invite list` shows them"),
-        )
-    })?;
-    let revoked = baylee_db::invites::revoke(&console.app.db, id, OffsetDateTime::now_utc())
-        .await
-        .map_err(|e| db_failed(&e))?;
-    if !revoked {
-        return Err(err_saying(
-            StatusCode::NOT_FOUND,
-            format!("no key {id} that is not revoked already"),
-        ));
-    }
-    tracing::info!(
-        target: "baylee_gateway::audit",
-        admin = %actor,
-        action = "invite.revoke",
-        id = %id,
-        "admin console: closed beta key revoked"
-    );
-    Ok(StatusCode::NO_CONTENT)
-}
-
 // ------------------------------------------------------------ blocked cards
 
 /// The most cards `GET /admin/cards/search` answers.
@@ -2195,7 +1893,7 @@ async fn block_card(
         )
     })?;
     reload_blocks(&console.app).await;
-    // Never the reason: like a key's note, it may name a person.
+    // Never the reason: it may name a person.
     tracing::info!(
         target: "baylee_gateway::audit",
         admin = %actor,
@@ -2739,56 +2437,5 @@ mod tests {
         assert!(!valid_actor("two words"));
         assert!(!valid_actor("ünïcode"));
         assert!(!valid_actor("line\nbreak"));
-    }
-
-    #[test]
-    fn a_key_is_listed_by_what_it_can_still_do() {
-        let at = OffsetDateTime::from_unix_timestamp(1_790_000_000).unwrap();
-        let row = |uses_left, expires_at, revoked_at| baylee_db::invites::Invite {
-            id: uuid::Uuid::nil(),
-            created_at: at,
-            note: Some("for Max".into()),
-            uses_left,
-            expires_at,
-            revoked_at,
-            admitted: 0,
-        };
-        let later = at + time::Duration::days(1);
-        let state = |r| {
-            serde_json::to_value(listed(&r, at)).unwrap()["state"]
-                .as_str()
-                .unwrap()
-                .to_owned()
-        };
-        assert_eq!(state(row(1, None, None)), "active");
-        assert_eq!(state(row(1, Some(later), None)), "active");
-        assert_eq!(state(row(0, None, None)), "used_up");
-        assert_eq!(state(row(1, Some(at), None)), "expired");
-        assert_eq!(state(row(1, None, Some(at))), "revoked");
-        let shown = serde_json::to_value(listed(&row(2, Some(later), None), at)).unwrap();
-        assert_eq!(shown["created_at"], "2026-09-21T14:13:20Z");
-        assert_eq!(shown["expires_at"], "2026-09-22T14:13:20Z");
-        assert_eq!(shown["note"], "for Max");
-        let mut fields: Vec<&str> = shown
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        fields.sort_unstable();
-        assert_eq!(
-            fields,
-            [
-                "admitted",
-                "created_at",
-                "expires_at",
-                "id",
-                "note",
-                "revoked_at",
-                "state",
-                "uses_left"
-            ],
-            "no field could hold a key"
-        );
     }
 }

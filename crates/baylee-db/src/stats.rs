@@ -1,10 +1,10 @@
 //! What the admin console counts (`GET /admin/stats` on a gateway): numbers
 //! over the whole store, never a row, an id, a name or an address.
 //!
-//! One hand-written statement, as in [`crate::invites`]: a handful of
-//! `count(*) FILTER (…)` over `account`, `deck`, `session_token`,
-//! `game_record` and `invite`, so the console's every refresh is one round trip whatever it
-//! asks. Every answer is a count or a sum; [`Stats`] has no field that could
+//! One hand-written statement, as in [`crate::records`]: a handful of
+//! `count(*) FILTER (…)` over `account`, `deck`, `session_token` and
+//! `game_record`, so the console's every refresh is one round trip whatever
+//! it asks. Every answer is a count or a sum; [`Stats`] has no field that could
 //! hold anything else.
 
 use sea_orm::{ConnectionTrait, DbErr, Statement};
@@ -32,8 +32,6 @@ pub struct Stats {
     pub confirmed_email: i64,
     /// Registered accounts made in each window.
     pub registered_since: Since,
-    /// Registered accounts a closed-beta key let in, that still exist.
-    pub admitted_by_key: i64,
     /// Guest accounts (each one a live session leads to, give or take the
     /// next sweep).
     pub guests: i64,
@@ -60,18 +58,6 @@ pub struct Stats {
     /// How long a game finished in the last 30 days lasted on average, in
     /// seconds; 0 for none.
     pub avg_game_secs_30d: i64,
-    /// Closed-beta keys ever made.
-    pub invites_total: i64,
-    /// Keys that admit somebody now: not revoked, not expired, a use left.
-    pub invites_active: i64,
-    /// Keys not revoked and not expired, with no use left.
-    pub invites_used_up: i64,
-    /// Keys not revoked whose expiry has passed.
-    pub invites_expired: i64,
-    /// Keys revoked.
-    pub invites_revoked: i64,
-    /// The uses the active keys have left, together.
-    pub invite_uses_left: i64,
 }
 
 /// Midnight UTC of the day `now` is in.
@@ -86,14 +72,10 @@ pub fn start_of_day(now: OffsetDateTime) -> OffsetDateTime {
 /// # Errors
 ///
 /// When the query fails.
-#[expect(
-    clippy::too_many_lines,
-    reason = "one statement and one field per column, read top to bottom"
-)]
 pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stats, DbErr> {
     // $1 midnight UTC, $2 a week ago, $3 thirty days ago, $4 now.
     const SQL: &str = "\
-        SELECT a.*, d.*, s.*, g.*, i.* FROM \
+        SELECT a.*, d.*, s.*, g.* FROM \
         (SELECT \
             count(*) FILTER (WHERE NOT guest) AS registered, \
             count(*) FILTER (WHERE NOT guest AND email IS NOT NULL) AS with_email, \
@@ -102,7 +84,6 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
             count(*) FILTER (WHERE NOT guest AND created_at >= $1) AS registered_today, \
             count(*) FILTER (WHERE NOT guest AND created_at >= $2) AS registered_7d, \
             count(*) FILTER (WHERE NOT guest AND created_at >= $3) AS registered_30d, \
-            count(*) FILTER (WHERE NOT guest AND invite_id IS NOT NULL) AS admitted_by_key, \
             count(*) FILTER (WHERE guest) AS guests, \
             count(*) FILTER (WHERE guest AND created_at >= $1) AS guests_today, \
             count(*) FILTER (WHERE guest AND created_at >= $2) AS guests_7d, \
@@ -123,18 +104,7 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
             coalesce(sum(bytes), 0)::bigint AS record_bytes, \
             coalesce(avg(extract(epoch FROM ended_at - started_at)) \
                 FILTER (WHERE complete AND ended_at >= $3), 0)::bigint AS avg_game_secs_30d \
-         FROM game_record) g, \
-        (SELECT \
-            count(*) AS invites_total, \
-            count(*) FILTER (WHERE revoked_at IS NULL AND uses_left > 0 \
-                AND (expires_at IS NULL OR expires_at > $4)) AS invites_active, \
-            count(*) FILTER (WHERE revoked_at IS NULL AND uses_left = 0 \
-                AND (expires_at IS NULL OR expires_at > $4)) AS invites_used_up, \
-            count(*) FILTER (WHERE revoked_at IS NULL AND expires_at <= $4) AS invites_expired, \
-            count(*) FILTER (WHERE revoked_at IS NOT NULL) AS invites_revoked, \
-            coalesce(sum(uses_left) FILTER (WHERE revoked_at IS NULL AND uses_left > 0 \
-                AND (expires_at IS NULL OR expires_at > $4)), 0)::bigint AS invite_uses_left \
-         FROM invite) i";
+         FROM game_record) g";
     let week = now - time::Duration::days(7);
     let month = now - time::Duration::days(30);
     let row = db
@@ -160,7 +130,6 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
             last_7d: get("registered_7d")?,
             last_30d: get("registered_30d")?,
         },
-        admitted_by_key: get("admitted_by_key")?,
         guests: get("guests")?,
         guests_since: Since {
             today_utc: get("guests_today")?,
@@ -184,12 +153,6 @@ pub async fn read(db: &impl ConnectionTrait, now: OffsetDateTime) -> Result<Stat
         },
         record_bytes: get("record_bytes")?,
         avg_game_secs_30d: get("avg_game_secs_30d")?,
-        invites_total: get("invites_total")?,
-        invites_active: get("invites_active")?,
-        invites_used_up: get("invites_used_up")?,
-        invites_expired: get("invites_expired")?,
-        invites_revoked: get("invites_revoked")?,
-        invite_uses_left: get("invite_uses_left")?,
     })
 }
 

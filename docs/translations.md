@@ -51,7 +51,6 @@ the printing's own language (`docs/protocol.md` §"Card text").
 | reporter (of a report) | Verfasser | not *Melder* |
 | seat | Platz | a chair at the table; *seat bridge* is the program, Seat-Bridge |
 | seat agent | Seat-Agent, Seat-Agenten | the program that hosts model seats, as Seat-Bridge |
-| beta key | Beta-Schlüssel | an account it lets in is *freigeschaltet* |
 | room | Raum | a waiting room in the lobby |
 | game | Partie, Spiel | |
 | duel | Duell | |

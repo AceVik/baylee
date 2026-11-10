@@ -142,11 +142,9 @@ mod tests {
             },
             crate::auth::token_digest(&format!("token-{name}")),
             1_800_000_000,
-            None,
         )
         .await
         .expect("a guest")
-        .expect("admitted")
         .id
     }
 

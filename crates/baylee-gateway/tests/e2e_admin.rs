@@ -6,9 +6,8 @@
 //! What they hold: the console is nowhere on the public port; a missing and
 //! a wrong token get one answer; anything a browser marks is refused before
 //! the token is read; ten wrong tokens shut it for everyone; the numbers
-//! count what happened; and keys made, listed and revoked here are the keys
-//! `baylee-gateway invite` makes, lists and revokes, with an audit line for
-//! every change that holds no key.
+//! count what happened and name nobody; a change names its admin; and the
+//! closed beta's key routes are gone.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -131,21 +130,6 @@ fn json(body: &str) -> serde_json::Value {
     serde_json::from_str(body).unwrap_or_else(|e| panic!("{e}: {body}"))
 }
 
-/// `baylee-gateway invite <args>` against this gateway's schema.
-fn cli(gw: &Gateway, args: &[&str]) -> (i32, String, String) {
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
-        .arg("invite")
-        .args(args)
-        .env("DATABASE_URL", gw.database_url())
-        .output()
-        .expect("the command runs");
-    (
-        out.status.code().unwrap_or(-1),
-        String::from_utf8_lossy(&out.stdout).into_owned(),
-        String::from_utf8_lossy(&out.stderr).into_owned(),
-    )
-}
-
 #[test]
 fn without_a_token_there_is_no_console_and_the_public_port_never_has_one() {
     let plain = spawn_gateway("admin_off");
@@ -161,8 +145,8 @@ fn without_a_token_there_is_no_console_and_the_public_port_never_has_one() {
     let c = console("admin_public", &[]);
     for (method, path) in [
         ("GET", "/admin/stats"),
-        ("GET", "/admin/invites"),
-        ("POST", "/admin/invites"),
+        ("GET", "/admin/cards/blocks"),
+        ("POST", "/admin/cards/blocks"),
     ] {
         let (status, _, body) = ask(
             c.gw.port,
@@ -226,7 +210,7 @@ fn a_browser_and_a_strange_host_are_refused_before_the_token_is_read() {
         headers.extend_from_slice(marks);
         for (method, path, body) in [
             ("GET", "/admin/stats", ""),
-            ("POST", "/admin/invites", "{}"),
+            ("POST", "/admin/cards/blocks", "{}"),
         ] {
             let (status, head, body) = ask(c.port, method, path, &headers, body);
             assert_eq!(status, 403, "{marks:?} {method} {path}: {body}");
@@ -237,7 +221,7 @@ fn a_browser_and_a_strange_host_are_refused_before_the_token_is_read() {
     let (status, head, _) = ask(
         c.port,
         "OPTIONS",
-        "/admin/invites",
+        "/admin/cards/blocks",
         &[
             ("Origin", "https://evil.example"),
             ("Access-Control-Request-Method", "POST"),
@@ -258,7 +242,7 @@ fn a_browser_and_a_strange_host_are_refused_before_the_token_is_read() {
     assert!(head.contains("cache-control: no-store"), "{head}");
     assert!(!head.contains("access-control-allow"), "{head}");
     // Nothing was made by any of the refused requests.
-    let (_, body) = admin(&c, "GET", "/admin/invites", "");
+    let (_, body) = admin(&c, "GET", "/admin/cards/blocks", "");
     assert_eq!(body, "[]");
 }
 
@@ -308,8 +292,6 @@ async fn the_numbers_count_what_happened_and_name_nobody() {
         r#"{"display_name":"Visitor"}"#,
     );
     assert_eq!(status, 200, "{guest}");
-    let (status, _) = admin(&c, "POST", "/admin/invites", r#"{"count":3,"uses":2}"#);
-    assert_eq!(status, 201);
     let agent = common::attach_agent(&c.gw).await;
 
     let (status, body) = admin(&c, "GET", "/admin/stats", "");
@@ -332,9 +314,10 @@ async fn the_numbers_count_what_happened_and_name_nobody() {
     assert_eq!(stats["games"]["running"], 0, "{stats}");
     assert_eq!(stats["games"]["recorded"], 0, "{stats}");
     assert_eq!(stats["agents"]["connected"], 1, "{stats}");
-    assert_eq!(stats["invites"]["total"], 3, "{stats}");
-    assert_eq!(stats["invites"]["active"], 3, "{stats}");
-    assert_eq!(stats["invites"]["uses_left"], 6, "{stats}");
+    assert!(
+        stats.get("invites").is_none() && stats["accounts"].get("admitted_by_key").is_none(),
+        "the closed beta's keys are counted no more: {stats}"
+    );
     assert_eq!(stats["gateway"]["registration"], "open", "{stats}");
     assert_eq!(
         stats["gateway"]["central"], false,
@@ -713,13 +696,12 @@ fn an_account_is_found_by_its_exact_tag_and_by_the_padded_tag_in_its_handle() {
 }
 
 #[test]
-fn a_change_names_its_admin_and_is_refused_in_the_commands_words() {
+fn a_change_names_its_admin() {
     let c = console("admin_orders", &[]);
-    // A change names its admin.
     let (status, _, body) = ask(
         c.port,
         "POST",
-        "/admin/invites",
+        "/admin/cards/blocks",
         &[("Authorization", BEARER)],
         "{}",
     );
@@ -727,168 +709,103 @@ fn a_change_names_its_admin_and_is_refused_in_the_commands_words() {
     let (status, _, _) = ask(
         c.port,
         "POST",
-        "/admin/invites",
+        "/admin/cards/blocks",
         &[("Authorization", BEARER), ("X-Baylee-Admin", "two words")],
         "{}",
     );
     assert_eq!(status, 400);
-
-    // Refused in the command's own words.
-    for (body, why) in [
-        (r#"{"uses":0}"#, r#"--uses takes 1 to 1000, not \"0\""#),
-        (r#"{"count":101}"#, r#"--count takes 1 to 100, not \"101\""#),
-        (
-            r#"{"expires":"30w"}"#,
-            r#"--expires takes days or hours, like 30d or 12h, not \"30w\""#,
-        ),
-        (
-            r#"{"note":"two\nlines"}"#,
-            "a note is one line of plain text",
-        ),
-    ] {
-        let (status, answer) = admin(&c, "POST", "/admin/invites", body);
-        assert_eq!(status, 400, "{body}: {answer}");
-        assert_eq!(answer, format!(r#"{{"error":"{why}"}}"#), "{body}");
-    }
-    for body in [r#"{"colour":"red"}"#, "not json", r#"{"uses":"two"}"#] {
-        let (status, answer) = admin(&c, "POST", "/admin/invites", body);
-        assert_eq!(status, 400, "{body}: {answer}");
-    }
-    let (_, listed) = admin(&c, "GET", "/admin/invites", "");
+    let (_, listed) = admin(&c, "GET", "/admin/cards/blocks", "");
     assert_eq!(listed, "[]", "nothing refused was made");
 }
 
+/// The closed beta's keys are gone (10.11.2026): their routes are any
+/// unknown path's `404`, the numbers count no key, and an account says
+/// nothing of one.
 #[test]
-fn keys_made_here_are_the_commands_keys_and_every_change_is_audited() {
-    let c = console("admin_invites", &[("BAYLEE_REGISTRATION", "invite".into())]);
-    let port = c.gw.port;
-
-    let (status, body) = admin(
-        &c,
+fn the_closed_betas_key_routes_are_gone() {
+    let c = console("admin_no_keys", &[]);
+    for (method, path, body) in [
+        ("GET", "/admin/invites", ""),
+        ("POST", "/admin/invites", r#"{"count":1}"#),
+        (
+            "DELETE",
+            "/admin/invites/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+            "",
+        ),
+    ] {
+        let (status, answer) = admin(&c, method, path, body);
+        assert_eq!(
+            (status, answer.as_str()),
+            (404, r#"{"error":"no such route"}"#),
+            "{method} {path}"
+        );
+    }
+    let (status, guest) = http(
+        c.gw.port,
         "POST",
-        "/admin/invites",
-        r#"{"count":2,"uses":1,"expires":"30d","note":"  for Max  "}"#,
+        "/auth/guest",
+        None,
+        r#"{"display_name":"Visitor"}"#,
     );
-    assert_eq!(status, 201, "{body}");
-    let made = json(&body);
-    assert_eq!(made["uses"], 1);
-    assert_eq!(made["note"], "for Max");
-    assert!(made["expires_at"].is_string(), "{made}");
-    let keys: Vec<(String, String)> = made["keys"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|k| {
-            (
-                k["id"].as_str().unwrap().to_owned(),
-                k["key"].as_str().unwrap().to_owned(),
-            )
-        })
-        .collect();
-    assert_eq!(keys.len(), 2);
-    for (_, key) in &keys {
-        assert!(key.starts_with("BAYLEE-") && key.len() == 26, "{key}");
-    }
-
-    // A key the console made lets a new guest in, once: the one door a key
-    // opens since nobody registers here.
-    let guest = |key: &str| {
-        let body = serde_json::json!({ "display_name": "Visitor", "invite_key": key });
-        http(port, "POST", "/auth/guest", None, &body.to_string()).0
-    };
-    assert_eq!(guest(&keys[0].1), 200);
-    assert_eq!(guest(&keys[0].1), 403, "one use");
-
-    // The command lists the console's keys, and the console the command's.
-    let (code, out, err) = cli(&c.gw, &["create", "--note", "from the shell"]);
-    assert_eq!(code, 0, "{err}");
-    let shell_key = out.trim().to_owned();
-    let (code, table, _) = cli(&c.gw, &["list"]);
-    assert_eq!(code, 0);
-    for (id, key) in &keys {
-        assert!(table.contains(id.as_str()), "{table}");
-        assert!(!table.contains(key.as_str()), "{table}");
-    }
-    let (status, body) = admin(&c, "GET", "/admin/invites", "");
-    assert_eq!(status, 200);
-    assert!(!body.contains(&keys[0].1) && !body.contains(&keys[1].1) && !body.contains(&shell_key));
+    assert_eq!(status, 200, "{guest}");
+    let (_, body) = admin(&c, "GET", "/admin/accounts?kind=guest", "");
     let listed = json(&body);
-    let listed = listed.as_array().unwrap();
-    assert_eq!(listed.len(), 3, "{listed:?}");
-    assert_eq!(listed[0]["note"], "from the shell", "newest first");
-    let first = listed
-        .iter()
-        .find(|k| k["id"] == keys[0].0.as_str())
-        .unwrap();
-    assert_eq!(first["admitted"], 1, "{first}");
-    assert_eq!(first["uses_left"], 0, "{first}");
-    assert_eq!(first["state"], "used_up", "{first}");
-    assert_eq!(first["note"], "for Max", "{first}");
-
-    // Revoked here, refused at the door, and shown revoked by the command.
-    let (status, body) = admin(&c, "DELETE", &format!("/admin/invites/{}", keys[1].0), "");
-    assert_eq!(status, 204, "{body}");
-    let (status, body) = admin(&c, "DELETE", &format!("/admin/invites/{}", keys[1].0), "");
-    assert_eq!(status, 404);
-    assert_eq!(
-        body,
-        format!(
-            r#"{{"error":"no key {} that is not revoked already"}}"#,
-            keys[1].0
-        )
+    let row = &listed["accounts"][0];
+    assert_eq!(row["display_name"], "Visitor", "{listed}");
+    let (_, body) = admin(
+        &c,
+        "GET",
+        &format!("/admin/accounts/{}", row["id"].as_str().unwrap()),
+        "",
     );
-    let (status, _) = admin(&c, "DELETE", "/admin/invites/not-a-uuid", "");
-    assert_eq!(status, 400);
-    assert_eq!(guest(&keys[1].1), 403, "revoked");
-    let (_, table, _) = cli(&c.gw, &["list"]);
-    let line = table
-        .lines()
-        .find(|l| l.starts_with(keys[1].0.as_str()))
-        .unwrap();
-    assert!(!line.contains("  -  "), "a revocation time: {line}");
-    let (_, body) = admin(&c, "GET", "/admin/invites", "");
-    assert!(body.contains(r#""state":"revoked""#), "{body}");
-    // Revoked by the command, seen here.
-    let shell_id = json(&body)
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|k| k["note"] == "from the shell")
-        .unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let (code, _, _) = cli(&c.gw, &["revoke", &shell_id]);
-    assert_eq!(code, 0);
-    let (status, _) = admin(&c, "DELETE", &format!("/admin/invites/{shell_id}"), "");
-    assert_eq!(status, 404, "the command revoked it first");
-
-    audited(&c.gw, &keys, &keys[1].0);
+    let detail = json(&body);
+    for one in [row, &detail] {
+        assert!(
+            one.get("by_key").is_none() && one.get("key_note").is_none(),
+            "{one}"
+        );
+    }
 }
 
-/// Every change has its line: who, what, which ids; never a key or the
-/// token, nor the note, which may name a person.
-fn audited(gw: &Gateway, keys: &[(String, String)], revoked: &str) {
-    let logs = plain(&gw.logs());
-    let made_line = logs
-        .lines()
-        .find(|l| l.contains("invite.create"))
-        .unwrap_or_else(|| panic!("no audit line for the keys:\n{logs}"));
-    assert!(made_line.contains("admin=viktor"), "{made_line}");
-    assert!(made_line.contains("baylee_gateway::audit"), "{made_line}");
-    for (id, _) in keys {
-        assert!(made_line.contains(id.as_str()), "{made_line}");
+/// What the language-model collector asks to prove that a database is its
+/// gateway's own (`crates/baylee-train`, `llm_collector4::teacher`): the
+/// policy `nobody` for a profile no seat agent serves, set under a name it
+/// made up, which the gateway writes as `updated_by` in its own database.
+/// Pinned here because the collector's own tests stand a gateway in.
+#[test]
+fn the_collectors_probe_writes_the_name_it_was_given() {
+    let c = console("admin_probe", &[]);
+    for actor in [
+        "llm-collector-0123456789abcdef0123456789abcdef",
+        "llm-collector-fedcba9876543210fedcba9876543210",
+    ] {
+        let (status, _, body) = ask(
+            c.port,
+            "PUT",
+            "/admin/llm/access/llm-collector-probe",
+            &[
+                ("Authorization", BEARER),
+                ("X-Baylee-Admin", actor),
+                ("Content-Type", "application/json"),
+            ],
+            r#"{"policy":"nobody"}"#,
+        );
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(
+            c.gw.scalar(&format!(
+                "SELECT count(*) FROM llm_profile_access \
+                 WHERE profile_id = 'llm-collector-probe' AND policy = 'nobody' \
+                   AND NOT default_for_registered AND updated_by = '{actor}'"
+            )),
+            1,
+            "{actor}"
+        );
     }
-    let revoke_line = logs
-        .lines()
-        .find(|l| l.contains("invite.revoke"))
-        .unwrap_or_else(|| panic!("no audit line for the revocation:\n{logs}"));
-    assert!(revoke_line.contains(revoked), "{revoke_line}");
-    assert!(revoke_line.contains("admin=viktor"), "{revoke_line}");
-    let secrets = keys.iter().map(|(_, key)| key.as_str());
-    for secret in secrets.chain([TOKEN, "for Max"]) {
-        assert!(!logs.contains(secret), "{secret} in the log:\n{logs}");
-    }
+    assert_eq!(
+        c.gw.scalar("SELECT count(*) FROM llm_profile_access"),
+        1,
+        "one row, set twice"
+    );
 }
 
 /// The gateway refuses to start with a console it cannot keep safe, and

@@ -273,7 +273,6 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 // The old store had none.
                 guest: Set(false),
                 // Nor keys: an imported account was never admitted by one.
-                invite_id: Set(None),
                 terms_version: Set(None),
                 terms_accepted_at: Set(None),
                 must_change_password: Set(false),

@@ -1,7 +1,7 @@
 # web/site — the landing page at https://gateway.baylee.app/
 
 A static page: what Baylee is, what it can do today, where the cards stand,
-the closed beta, self-hosting, the licence, and a download button that picks
+the open beta, self-hosting, the licence, and a download button that picks
 the right file for the visitor's system. English and German (`?lang=de|en`,
 the choice remembered in `localStorage`, else the browser's language; the two
 buttons switch by hand; without JavaScript both languages show). `?theme=dark|light`
@@ -16,7 +16,8 @@ included) with its files, sizes and date, for the latest `ci.yml` run on
 address without a token; there is no token in the page). When GitHub does not
 answer, the page keeps its static text and links to the releases page. Where
 the gateway serves the page, `site.js` also reads the gateway's own `/info`
-and `/health` (same origin) for the beta section.
+and `/health` (same origin) for the beta section; its `registration` reads
+`off` as no new accounts and any other word as open.
 
 The download goes straight to the release file on GitHub
 (`browser_download_url`), which GitHub serves as an attachment, so the page

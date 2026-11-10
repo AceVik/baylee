@@ -29,8 +29,9 @@ DATABASE_URL=… npm run serve:e2e         # the seeded service, to look at by h
 
 The end-to-end harness (`e2e/harness.ts`) makes a schema of its own, adds an
 admin through the binary's `admin add`, starts a `baylee-gateway` in a
-second schema as a closed beta with its admin console on a loopback port
-(two players let in with keys its `invite create` made), starts the service
+second schema, open to newcomers (`BAYLEE_REGISTRATION=open`) and letting
+guests in, with its admin console on a loopback port (two players written
+into its database as accounts from before Baylee Central), starts the service
 with `FEEDBACK_WEB_DIR=dist` and that console, hands reports in through
 `/intake/reports` as a gateway does, and drops both schemas afterwards.
 `e2e/admin.spec.ts` drives the reports list, a report and the console at
@@ -207,10 +208,13 @@ Unlicense. All are compatible with AGPL-3.0; of the non-MIT ones only
     count of offline games this service hears beat, `/ui/api/admin/offline`), four 30-day bar charts (reports,
     with bugs and crashes apart; games; players; new accounts and guests;
     hover, touch or arrow keys for a day, and a table view), the open
-    tables, every count the gateway keeps, and a Services panel: whether
+    tables, every count the gateway keeps, a Services panel (whether
     the gateway answered and how fast, its build, and this service's
-    build (`/health`); asked again every 15 seconds while the page is
-    visible and not while it is hidden.
+    build, `/health`) and the latest changes made through the console,
+    every kind, each under its action as audited (no word list, so the
+    closed beta's old `gateway.invite.*` rows still read as written; Blocked
+    cards and Models show only their own); asked again every 15 seconds
+    while the page is visible and not while it is hidden.
   - Live (`/admin/live`): who is online and where, every waiting and
     running table with its chairs, decks and readiness, the agents, and
     the server: CPU (with the load averages), memory, disk, network in and
@@ -245,10 +249,6 @@ Unlicense. All are compatible with AGPL-3.0; of the non-MIT ones only
     players see, after a second question; the blocks in force, each lifted
     after a second question; the earlier ones, folded; the latest card
     changes (`docs/protocol.md` §"Blocked cards").
-  - Beta keys (`/admin/keys`): made (each shown once, with Copy, Copy all
-    and, where the browser can, Share), listed and filtered by state
-    (never the key, which is kept only as a hash), revoked after a second
-    question; the latest console changes.
   - Models (`/admin/models`, `src/admin/Models.tsx`, beta.7): the hosted
     language models (`docs/feedback.md` §"Hosted models"): the connected
     seat agents, each profile with its state, games, caps and spend, per
