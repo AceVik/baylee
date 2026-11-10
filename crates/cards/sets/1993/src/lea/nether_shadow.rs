@@ -36,4 +36,4 @@ card!(
     ),],
 );
 
-// Behavior: engine/card_tests/creatures/nether_shadow.rs.
+// Behavior: crates/cards/testkit/card_tests/creatures/nether_shadow.rs.

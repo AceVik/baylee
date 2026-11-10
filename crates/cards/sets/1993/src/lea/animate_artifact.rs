@@ -34,4 +34,4 @@ card!(
     ],
 );
 
-// Behavior: engine/card_tests/enchantments/animate_artifact.rs.
+// Behavior: crates/cards/testkit/card_tests/enchantments/animate_artifact.rs.

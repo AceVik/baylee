@@ -3,7 +3,7 @@
 //! Oracle: When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains "Enchanted creature loses flying."
 //! Set: SUM #147 — Summer Magic / Edgar | Scryfall ID: 784cc686-e5a2-4835-8ff2-820461868ffa | Oracle ID: e8e35b49-8cfb-4fb5-89aa-8050f15b11bf
 // IMPLEMENTED — conditional enter trigger, damage, then a static ability
-// gained by this Aura. Behavior: engine/card_tests/enchantments/earthbind.rs.
+// gained by this Aura. Behavior: crates/cards/testkit/card_tests/enchantments/earthbind.rs.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

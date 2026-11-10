@@ -3,7 +3,7 @@
 //! Oracle: Enchanted land has indestructible and can't be enchanted by other Auras.
 //! Set: TSB #4 — Time Spiral Timeshifted | Scryfall ID: ded79afb-2a65-49e8-81c3-757e5d4c2203 | Oracle ID: 4627691c-4ed4-4add-9cc3-2e019be2f9fd
 // IMPLEMENTED — enchanted land has indestructible and permits only this Aura.
-// Tests: engine/card_tests/enchantments/consecrate_land.rs.
+// Tests: crates/cards/testkit/card_tests/enchantments/consecrate_land.rs.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

@@ -25,4 +25,4 @@ card!(
     )],
 );
 
-// Behavior: engine/card_tests/artifacts/sunglasses_of_urza.rs.
+// Behavior: crates/cards/testkit/card_tests/artifacts/sunglasses_of_urza.rs.
