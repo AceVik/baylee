@@ -25,6 +25,13 @@ encodes its own boards. Without a shared trunk it carries its own memory.
 
 `AUXILIARY_TARGETS` is the hook for stage B's extra auxiliary heads: each entry
 `name -> fn(student_outputs, batch, plans) -> loss` joins the total. Empty today.
+
+A student with the deliberation block (thinking revision 2, `--think-supervision`)
+adds `thinking_terms` through the same hook: every step of the block gets this
+loss's own target (R in scope where N != R, r1 elsewhere), a penalty for being
+worse than the step before, and a confidence trained on whether its answer is
+that target. The reference never deliberates: its block is switched off, so it
+stays r1 whatever the student's block learns.
 """
 from __future__ import annotations
 
@@ -137,6 +144,10 @@ class Reference:
         self.net = copied
         self.own_rules = not rules_frozen
         self.net.eval()
+        block = getattr(self.net, "deliberation", None)
+        if block is not None:
+            # r1 is the heads' first proposal; zero steps return it exactly.
+            block.steps_override, block.collect = 0, False
         for parameter in self.net.parameters():
             parameter.requires_grad_(False)
         # Stage A: everything before the heads is frozen, so boards and memory are r1's.
@@ -273,6 +284,92 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
     return total, torch.cat((sums.detach(), dens.detach()))
 
 
+def thinking_terms(frames, reference, batch, plans, scope, config):
+    """Per-step terms of the deliberation block under this loss's targets.
+
+    `frames[t]["logits"]` is `[S + 1, B, C]` (step 0: the heads' first proposal).
+    A step's loss at a decision is the distillation loss it would have as the
+    final answer: cross-entropy to R at in-scope single choices where N != R
+    (with the rule groups' weights), `kl_weight` * KL(r1 || step) at every other
+    single choice and at subsets. From these: the mean over the steps before
+    the last (deep supervision; the last step is `distill_loss`'s own), a
+    penalty where a step is worse than the one before, and the confidence
+    against "this step's answer is its target" (R, or r1's own answer). The
+    consequence term is left out: the game's outcome belongs to the answer that
+    was played, not to R. Blocker pairs and scalars are not deliberated.
+
+    Returns (loss, stats): per step the in-scope N != R decisions answered as
+    R `[S + 1]`, then their count.
+    """
+    device = next((f["logits"].device for f in frames or () if f is not None), None)
+    if device is None:
+        raise ValueError("No thinking trace: the deliberation block must collect during deferred readouts")
+    get = lambda key: batch[key].to(device, non_blocking=True)
+    valid = get("step_valid")
+    weight = torch.where(valid, get("loss_weight"), 0.)
+    decision = get("is_decision") & valid & (weight > 0)
+    heads = get("head")
+    _, in_scope = scope.masks(batch, device)
+    multiplier = scope.multiplier(batch, device)
+    differs = get("n_ne_r")
+    zero = torch.zeros((), device=device)
+    deep = improve = confidence = weights = decisions = count = zero
+    right_at_r = None
+    for t, (frame, plan) in enumerate(zip(frames, plans, strict=True)):
+        if frame is None or frame["logits"].shape[0] < 2 or not (plan.heads[0] or plan.heads[1]):
+            continue
+        logits = frame["logits"].float()
+        steps, width = logits.shape[0] - 1, logits.shape[2]
+        mask = get("cand_mask")[:, t, :width]
+        ref = reference[t][1].float()
+        parts = []
+        if plan.heads[0]:
+            genuine = decision[:, t] & (heads[:, t] == 0) & (mask.sum(-1) > 1)
+            to_r = genuine & in_scope[:, t] & differs[:, t]
+            target = torch.where(to_r, get("single_idx")[:, t], 0)
+            log_s = torch.log_softmax(torch.where(mask[None], logits, -1e9), -1)
+            log_r = torch.log_softmax(torch.where(mask, ref, -1e9), -1)
+            ce = -log_s.gather(2, target[None, :, None].expand(steps + 1, -1, 1))[..., 0]
+            kl = torch.where(mask[None], log_r.exp()[None] * (log_r[None] - log_s), 0.).sum(-1)
+            ce_weight = multiplier[:, t] if multiplier is not None else torch.ones_like(weight[:, t])
+            losses = torch.where(to_r[None], ce * ce_weight[None], scope.kl_weight * kl)
+            answer = torch.where(mask[None], logits, -1e9).argmax(-1)
+            wanted = torch.where(to_r, target, torch.where(mask, ref, -1e9).argmax(-1))
+            right = (answer == wanted[None]) & genuine[None]
+            hits = (right & to_r[None]).sum(-1).to(losses.dtype)
+            right_at_r = hits if right_at_r is None else right_at_r + hits
+            count = count + to_r.sum()
+            parts.append((losses, genuine, right))
+        if plan.heads[1]:
+            selected = decision[:, t] & (heads[:, t] == 1)
+            free = get("cand_free_mask")[:, t, :width]
+            eligible = selected[:, None] & mask & (free > 0)
+            entries = torch.where(eligible[None], _bernoulli_kl(torch.where(eligible[None], logits, 0.),
+                                                                torch.where(eligible, ref, 0.)[None]), 0.)
+            free = torch.where(eligible, free, 0.)
+            losses = scope.kl_weight * (entries * free[None]).sum(-1) / free.sum(-1).clamp(min=1.)[None]
+            genuine = eligible.any(-1)
+            right = ~(eligible[None] & ((logits > 0) != (ref > 0)[None])).any(-1) & genuine[None]
+            parts.append((losses, genuine, right))
+        for losses, genuine, right in parts:
+            w = weight[:, t] * genuine
+            if steps > 1:
+                deep = deep + (losses[1:steps] * w).sum() / (steps - 1)
+            gain = F.relu(losses[1:] - losses[:-1].detach() + config.improve_margin)
+            improve = improve + (gain * w).sum() / steps
+            weights = weights + w.sum()
+            known = genuine.to(losses.dtype)
+            confidence = confidence + (F.binary_cross_entropy_with_logits(
+                frame["confidence"].float(), right[1:].to(losses.dtype), reduction="none") * known).sum() / steps
+            decisions = decisions + known.sum()
+    total = (config.deep_weight * deep / weights.clamp(min=1e-6)
+             + config.improve_weight * improve / weights.clamp(min=1e-6)
+             + config.confidence_weight * confidence / decisions.clamp(min=1.))
+    if right_at_r is None:
+        return total, torch.zeros(2, device=device)
+    return total, torch.cat((right_at_r.detach(), count.detach().to(right_at_r.dtype)[None]))
+
+
 def term_means(stats):
     n = len(TERMS)
     return {name: float(stats[i] / stats[n + i]) if float(stats[n + i]) > 0 else None
@@ -339,8 +436,15 @@ def agreement(prepared, batch, plans, scope, scalar_tolerance):
 
 @torch.no_grad()
 def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_tolerance,
-                     thinking_steps=2, bf16=None):
-    """Held-out agreement with R by group and subtype and every KL guard, over whole trajectories."""
+                     thinking_steps=2, bf16=None, think=None):
+    """Held-out agreement with R by group and subtype and every KL guard, over whole trajectories.
+
+    With the thinking terms' configuration `think`, also the share of in-scope
+    N != R decisions each deliberation step answers as R
+    (`val_distill_think_top1_r_at_n_ne_r_by_step`; step 0 is the heads' first
+    proposal, the last step is the net's answer).
+    """
+    think_steps = None
     from .prefetch import prefetch_batches
     net.eval()
     bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported() if bf16 is None else bf16
@@ -366,6 +470,10 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
         ref = reference.outputs(host, batch, boards, hidden, plans, device, bf16, board_chunk)
         _, step_stats = distill_loss(prepared, ref, batch, plans, scope)
         stats += step_stats
+        if think is not None and any(frame is not None for frame in net.thinking_frames or ()):
+            _, by_step = thinking_terms(net.thinking_frames, ref, batch, plans, scope, think)
+            if by_step.numel() > 2:
+                think_steps = by_step if think_steps is None else think_steps + by_step
         for name, row in agreement(prepared, batch, plans, scope, scalar_tolerance).items():
             table[name] = table[name] + row if name in table else row
         valid = batch["step_valid"].to(device)
@@ -385,6 +493,10 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
         metrics[f"val_distill_{group}_top1_r"] = agree / count if count else None
         metrics[f"val_distill_{group}_top1_r_at_n_ne_r"] = agree_differ / differ if differ else None
         metrics[f"val_distill_{group}_n_top1_r"] = (count - differ) / count if count else None
+    if think_steps is not None:
+        metrics["val_distill_think_n_ne_r"] = int(think_steps[-1])
+        metrics["val_distill_think_top1_r_at_n_ne_r_by_step"] = (
+            (think_steps[:-1] / think_steps[-1]).tolist() if float(think_steps[-1]) > 0 else None)
     sse, drift, frames = value.cpu().tolist()
     metrics.update(val_mse=sse / max(frames, 1), val_value_mse_to_r1=drift / max(frames, 1), val_frames=int(frames),
                    val_distill_selection=metrics["val_distill_distilled_top1_r_at_n_ne_r"])

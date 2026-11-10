@@ -19,13 +19,22 @@ encoder, relational block, lower layers and the memory (`recurrent_cell`,
 layer L, so the backward pass stops there by itself.
 
 `--freeze-value-head` freezes `seat_value_head` and `aux_head` in any mode.
+
+A net with the deliberation block (thinking revision 2) trains it wherever the
+candidate head trains: with the head in stage A ("A + block") and with the
+upper trunk in stage B ("B + block"). The block sits after the heads, so the
+boards and memory of stage A stay r1's and the reference shares them as before.
+The adapter mode leaves it frozen. `--train-thinking-only` (the block alone)
+is its own mode and combines with none of these.
 """
 from __future__ import annotations
 
 import torch
 from torch import nn
 
-HEAD_PREFIXES = ("cand_proj.", "cand_scorer.", "cand_ctx_proj.", "cand_context_gate.", "cand_decoder.")
+THINKING_PREFIX = "deliberation."
+HEAD_PREFIXES = ("cand_proj.", "cand_scorer.", "cand_ctx_proj.", "cand_context_gate.", "cand_decoder.",
+                 THINKING_PREFIX)
 OTHER_HEADS = ("pair_blk_proj.", "pair_atk_proj.", "pair_scorer.", "scalar_head.")
 VALUE_HEADS = ("seat_value_head.", "aux_head.")
 
@@ -93,9 +102,13 @@ def apply_partial_training(net, args):
     trainable = [n for n, p in net.named_parameters() if p.requires_grad]
     if not trainable:
         raise ValueError("Partial training leaves no trainable parameter")
-    return dict(version=1, mode=mode, adapter_rank=rank, trainable_trunk_from_layer=from_layer,
-                freeze_value_head=freeze_value,
-                trainable_parameters=sum(p.numel() for p in net.parameters() if p.requires_grad))
+    description = dict(version=1, mode=mode, adapter_rank=rank, trainable_trunk_from_layer=from_layer,
+                       freeze_value_head=freeze_value,
+                       trainable_parameters=sum(p.numel() for p in net.parameters() if p.requires_grad))
+    # Named only for a net that has the block, so every other run's identity stays as it was.
+    if any(n.startswith(THINKING_PREFIX) for n in trainable):
+        description["deliberation"] = "trains"
+    return description
 
 
 def below_layer_frozen(net, layer):
