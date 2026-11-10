@@ -233,6 +233,7 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
         &[None; 2],
         Some(player),
         true,
+        false,
         5000,
         true,
         None,
@@ -243,6 +244,38 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
     .unwrap();
     assert!(!outcome.1, "the fixture finishes its game");
     (outcome.0, outcome.4, outcome.7, outcome.9)
+}
+
+/// `--house-as-seat` through the evaluator's loop: the house chair is taken
+/// over and answered from the socket's view (`house_seat`), and the deal
+/// plays to its end with no answer refused.
+#[test]
+fn a_seated_house_plays_a_deal_to_its_end() {
+    let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();
+    let mut player = Fixture::new(false, flat);
+    let outcome = play_one_table(
+        "seated-house-test",
+        0,
+        0,
+        12,
+        34,
+        &[&deck, &deck],
+        &[AIProfile::SHARP; 2],
+        &[],
+        &[None; 2],
+        Some(&mut player),
+        true,
+        true,
+        5000,
+        false,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(!outcome.1, "the deal ends before the answer cap");
+    assert_eq!((outcome.3, outcome.4), (0, 0), "no fallback, no refusal");
 }
 
 fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {

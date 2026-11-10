@@ -52,6 +52,7 @@ mod attempts;
 mod collector;
 mod diagnostics;
 mod failure_terminal;
+mod house_seat;
 mod lookahead;
 mod precision;
 mod random_seat;
@@ -142,6 +143,9 @@ fn main() -> anyhow::Result<()> {
     }
     let collection = collector::Contract::new(&args, model_identity.as_ref())?;
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
+        bail!(refusal);
+    }
+    if let Some(refusal) = house_as_seat_refusal(&args, &collection) {
         bail!(refusal);
     }
     let mut choice_guard = parse_choice_guard(&args.choice_guard)?;
@@ -542,6 +546,7 @@ fn main() -> anyhow::Result<()> {
         let k_steps = args.thinking_steps;
         let temp = args.temperature;
         let fair = args.fair_scouting;
+        let house_as_seat = args.house_as_seat;
         let no_base = args.no_baseline;
         let catalog = catalog_read(&args);
         let format = if args.legacy_v3 {
@@ -674,6 +679,7 @@ fn main() -> anyhow::Result<()> {
                     &teams_arc,
                     Some(net.as_mut()),
                     fair,
+                    house_as_seat,
                     max_decisions,
                     shard_file.is_some(),
                     shadow.as_mut(),
@@ -753,6 +759,7 @@ fn main() -> anyhow::Result<()> {
                         &teams_arc,
                         None,
                         fair,
+                        false,
                         max_decisions,
                         false,
                         None,
@@ -905,7 +912,7 @@ fn main() -> anyhow::Result<()> {
         "decks_manifest": args.decks_manifest,
         "deck_split": args.deck_split,
         "held_out_cards": args.held_out_cards,
-        "against": args.against,
+        "against": against_label(&args),
         "baseline": if args.no_baseline { Value::Null } else { json!(args.baseline) },
         "no_baseline": args.no_baseline,
         "thinking_steps": args.thinking_steps,

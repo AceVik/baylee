@@ -188,6 +188,13 @@ struct Args {
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).
     #[arg(long)]
     no_baseline: bool,
+    /// The house chairs answer as a seat's `--mind house` does over the
+    /// gateway (`baylee_seat::HouseMind`, the ladder's `house:<level>`): from
+    /// the socket's view, with no decision context and no scouting report,
+    /// not as an in-process house chair. Compares the seat path's opponent
+    /// with the benchmark's; the summary's `against` reads `seat:<level>`.
+    #[arg(long)]
+    house_as_seat: bool,
     /// Optional output directory for recorded games (`run.json`, `games.jsonl`, `records/`).
     #[arg(long)]
     record_out: Option<PathBuf>,
@@ -375,6 +382,39 @@ fn search_refusal(
         return Some("--search scores leaves with an MTG outcome critic, not a research utility");
     }
     None
+}
+
+/// Why `--house-as-seat` cannot run with `args`, if it cannot: it is a
+/// measurement of the seat under test against seated house chairs, and every
+/// other house answer of the run (the baseline game, a fallback) still comes
+/// from an in-process chair.
+fn house_as_seat_refusal(args: &Args, collection: &collector::Contract) -> Option<&'static str> {
+    if !args.house_as_seat {
+        return None;
+    }
+    if collection.purpose != collector::Purpose::Evaluation {
+        return Some("--house-as-seat requires evaluation collection purpose");
+    }
+    if !args.no_baseline {
+        return Some("--house-as-seat needs --no-baseline: the baseline game seats no net");
+    }
+    if args.opponent_model.is_some() {
+        return Some("--house-as-seat seats the house: no neural opponent");
+    }
+    if args.record_out.is_some() || args.shadow_teacher.is_some() || args.search.is_some() {
+        return Some("--house-as-seat is for numbers only: no records, shadow labels or search");
+    }
+    None
+}
+
+/// The opponent the summary names: a seated house reads `seat:<level>`, so
+/// a table never pairs it with the in-process house of the same level.
+fn against_label(args: &Args) -> String {
+    if args.house_as_seat {
+        format!("seat:{}", args.against)
+    } else {
+        args.against.clone()
+    }
 }
 
 /// What `run.json` and the summary say about the search, when there is one.

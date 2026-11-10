@@ -85,6 +85,7 @@ fn play_one_table(
     teams: &[Option<u8>],
     mut net: Option<&mut dyn EvaluationPlayer>,
     fair_scouting: bool,
+    house_as_seat: bool,
     max_decisions: u64,
     record_steps: bool,
     mut shadow: Option<&mut shadow::ShadowGame>,
@@ -130,6 +131,17 @@ fn play_one_table(
         // `run.json` says so (`TeamHands::RUN_KEY`), for convert4's replay.
         session.apply_team_hand_sharing();
     }
+    let seated_houses: Vec<(PlayerId, baylee_ai::HeuristicAgent)> = match net.as_deref() {
+        Some(n) if house_as_seat => (0..n_seats)
+            .filter(|&s| !n.controls_seat(s, focal_seat, teams))
+            .map(|s| {
+                let pid = PlayerId::new(u8::try_from(s)?);
+                session.take_over(pid);
+                Ok((pid, house_seat::agent(game_id, pid, profiles[s], teams)))
+            })
+            .collect::<anyhow::Result<_>>()?,
+        _ => Vec::new(),
+    };
     if let Some(shadow) = shadow.as_deref_mut() {
         let seat = PlayerId::new(u8::try_from(focal_seat)?);
         shadow.attach(&mut session, seat, &decks[focal_seat].deck)?;
@@ -271,6 +283,18 @@ fn play_one_table(
             if let Some(shadow) = shadow.as_deref_mut() {
                 shadow.hear(routed);
             }
+            continue;
+        }
+        // A seated house answers from the view a socket is sent, without the
+        // decision context or the scouting report an in-process chair gets.
+        if let Some((pid, (pending, view), agent)) = seated_houses
+            .iter()
+            .find_map(|(pid, agent)| Some((*pid, session.view_for_with_context(*pid)?, agent)))
+        {
+            let action = agent.act(&view, &pending);
+            session
+                .act_slice(pid, action, 0)
+                .map_err(|error| anyhow::anyhow!("seated house {pid:?} refused: {error:?}"))?;
             continue;
         }
 
