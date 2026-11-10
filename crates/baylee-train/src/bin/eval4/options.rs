@@ -117,6 +117,12 @@ struct Args {
     /// The net never saw such a candidate. Never for training.
     #[arg(long)]
     menu_payable: bool,
+    /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
+    /// states a confidence below THRESHOLD is thought through again at DEEP
+    /// deliberation steps. Needs a model with the deliberation block
+    /// (`docs/proposals/baylee-ai-thinking.md`). Evaluation only.
+    #[arg(long)]
+    think_adaptive: Option<String>,
     /// `--menu-payable`: added to each added option's logit.
     #[arg(long, default_value_t = 0.0, requires = "menu_payable")]
     menu_payable_bias: f32,
@@ -353,6 +359,8 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    /// `--think-adaptive`: second passes over the run.
+    thinking: baylee_train::netplay4::ThinkingUse4,
     tactician:
         std::collections::BTreeMap<String, baylee_train::netplay4::tactician::TacticianStats4>,
 }
