@@ -87,7 +87,10 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--candidate-context-revision", type=int, choices=(1, 2, 3), default=1,
                     help="2: menu-context gate; 3: gate plus candidate-to-board attention")
     ap.add_argument("--candidate-context-warmstart", action="store_true", help="Explicit weights-only candidate context revision 1 to 2 transfer")
+    from .learner_options import add_learner_options, check_learner_options
+    add_learner_options(ap)
     args = ap.parse_args()
+    check_learner_options(args, ap)
     if args.depth_schedule == "fixed" and args.thinking_curriculum:
         ap.error("--depth-schedule fixed conflicts with --thinking-curriculum")
     args.depth_schedule = args.depth_schedule or ("legacy_frame_cycle" if args.thinking_curriculum else "fixed")

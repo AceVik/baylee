@@ -43,6 +43,7 @@ from .objective import selection_score, check_resume_objective
 from .optimizer_groups import build_optimizer_groups, check_resume_schedule
 from .optimizer_step import update_parameters
 from .candidate_column import carries_column
+from .phase_profile import NullProfile, PhaseProfile
 
 
 def main(default_architecture="v4") -> None:
@@ -103,9 +104,22 @@ def main(default_architecture="v4") -> None:
         val_ds, batch_size=args.validation_batch_size, shuffle=False, seed=args.seed
     )
 
+    windows = None
+    if args.window_burn_in >= 0:
+        from .windows import WindowTraining
+        windows = WindowTraining(train_ds, args.window_burn_in, args.window_length, args.batch_size, args.seed,
+                                 args.window_entity_buckets, args.window_epoch_fraction)
+        train_sampler = windows.sampler
+        identity["window_learner"] = dict(burn_in=args.window_burn_in, length=args.window_length,
+                                          entity_buckets=args.window_entity_buckets,
+                                          state_refresh=args.window_state_refresh, version=1)
+        print("[windows] plan " + json.dumps(windows.statistics), flush=True)
+    if args.passive_grad_window >= 0:
+        identity["passive_grad_window"] = args.passive_grad_window
+
     nw = args.num_workers if len(train_ds) >= 32 else 0
     train_loader = DataLoader(
-        train_ds,
+        train_ds if windows is None else windows.lanes,
         batch_sampler=train_sampler,
         generator=torch.Generator().manual_seed(args.seed + 1000),
         collate_fn=D4.collate_trajectories,
@@ -371,6 +385,25 @@ def main(default_architecture="v4") -> None:
         print(f"[validation4] step={step_num} " + json.dumps(metrics, sort_keys=True), flush=True)
         return metrics
 
+    if args.vectorized_rule_closure and net.rules is not None:
+        net.rules.vectorized_closure = True
+    profile = NullProfile()
+    if args.phase_profile:
+        from .windows import trajectory_rows, decision_flags
+        flags = decision_flags(train_ds, trajectory_rows(train_ds))
+        profile = PhaseProfile(args.phase_profile, args.phase_profile_warmup, args.phase_profile_steps,
+                               args.phase_profile_sync, device,
+                               frames_per_game=sum(len(f) for f in flags) / len(flags),
+                               decisions_per_game=sum(int(f.sum()) for f in flags) / len(flags))
+
+    def refresh_windows(reason):
+        began = time.perf_counter()
+        windows.refresh(net, device, args.window_state_lanes, args.thinking_steps, use_bf16,
+                        args.num_workers, args.board_token_budget)
+        net.train()
+        print(f"[windows] states reason={reason} pieces={len(windows.pieces)} "
+              f"seconds={time.perf_counter() - began:.1f} frames={windows.statistics['frames']}", flush=True)
+
     t0 = time.perf_counter()
     stop = False
     val_metrics = dict(best_val_metrics)
@@ -393,9 +426,12 @@ def main(default_architecture="v4") -> None:
             train_sampler.epoch = epoch - 1
             train_sampler.start_batch = resume_batch if epoch == resume_epoch else 0
             next_batch = train_sampler.start_batch
+            if windows is not None:
+                refresh_windows(f"epoch{epoch}")
 
-            for batch_idx, (host, staged) in enumerate(prefetch_batches(train_loader, device, args.gpu_prefetch),
+            for batch_idx, (host, staged) in enumerate(profile.wrap(prefetch_batches(train_loader, device, args.gpu_prefetch)),
                                                       start=train_sampler.start_batch):
+                profile.begin_step(step_num, host)
                 # A rare name-card question can pad many ordinary frames to a very
                 # wide C. Keep large batches on the host and transfer one time step.
                 plans = None if args.reference_execution else plan_batch(host, step_num, schedule=depth_schedule)
@@ -404,13 +440,19 @@ def main(default_architecture="v4") -> None:
                 B, U = batch["step_valid"].shape
                 opt.zero_grad(set_to_none=True)
                 is_new = batch["is_new_traj"].to(device, non_blocking=True)
-                if h is None or h.shape[0] != B:
+                if h is None or h.shape[0] != B or windows is not None:
                     h = torch.zeros(
                         (B, M.RECURRENT_SLOTS, cfg.d_model), dtype=torch.float32, device=device
                     )
                 else:
                     h = h.detach()
                     h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
+                resets = None if windows is None else windows.resets(host, device)
+                grad_window = None
+                if args.passive_grad_window >= 0:
+                    from .burn_in import GradWindow, window_mask
+                    grad_window = GradWindow(window_mask(host, args.passive_grad_window), device)
+                profile.mark("plan_transfer")
 
                 traj_loss = torch.zeros((), device=device)
                 with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
@@ -418,12 +460,20 @@ def main(default_architecture="v4") -> None:
                     net.prepare_structure(
                         None if args.reference_execution else (host["entity_rules"], host["cand_rules"])
                     )
-                    boards = encode_boards(net, batch, args.board_chunk, device)
+                    profile.mark("rule_structure")
+                    if grad_window is None:
+                        boards = encode_boards(net, batch, args.board_chunk, device)
+                    else:
+                        from .burn_in import encode_boards_windowed
+                        boards = encode_boards_windowed(net, batch, args.board_chunk, device, grad_window)
+                profile.mark("board_encoding")
 
                 prepared = None
                 if args.decision_chunk > 1:
                     prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
-                                                              args.decision_chunk, device, use_bf16)
+                                                              args.decision_chunk, device, use_bf16,
+                                                              grad_window=grad_window, resets=resets)
+                    profile.mark("recurrence_readouts")
                     with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                         aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
                     traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans, loss_config)
@@ -474,14 +524,16 @@ def main(default_architecture="v4") -> None:
                         traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
                         epoch_stats[:3] += st[:3] / U
                         epoch_stats[3:] += st[3:]
+                profile.mark("loss")
                 # The anchor joins only a loss that reaches trainable weights,
                 # so passive batches still leave Adam and the schedule alone.
                 if anchor is not None and traj_loss.requires_grad:
                     traj_loss = traj_loss + anchor.penalty()
+                profile.mark("anchor_penalty")
                 updated = ((args.train_candidate_column is None
                             or carries_column(host, args.train_candidate_column))
                            and update_parameters(traj_loss, net, opt, checkpoint_writer,
-                                                 optimizer_schedule, optimizer_updates + 1))
+                                                 optimizer_schedule, optimizer_updates + 1, profile=profile))
                 optimizer_updates += int(updated)
                 net.clear_structure()
 
@@ -495,6 +547,10 @@ def main(default_architecture="v4") -> None:
                           f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
                           f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
                           f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
+                profile.end_step()
+                if (windows is not None and args.window_state_refresh and updated
+                        and optimizer_updates % args.window_state_refresh == 0):
+                    refresh_windows(f"update{optimizer_updates}")
                 stop = ((args.max_steps > 0 and step_num >= args.max_steps)
                         or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds))
                 if step_num % args.checkpoint_every == 0 or stop:
@@ -529,6 +585,11 @@ def main(default_architecture="v4") -> None:
             if stop:
                 break
 
+    profile.finish(command=dict(batch_size=args.batch_size, unroll=args.unroll, freeze_trunk=args.freeze_trunk,
+                                passive_grad_window=args.passive_grad_window, window_burn_in=args.window_burn_in,
+                                window_length=args.window_length, window_entity_buckets=args.window_entity_buckets,
+                                vectorized_rule_closure=args.vectorized_rule_closure),
+                   window_plan=None if windows is None else windows.statistics)
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {

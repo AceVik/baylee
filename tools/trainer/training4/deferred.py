@@ -78,7 +78,7 @@ def _cand_groups(plans, cand_times, chunk, token_limit=None):
             yield tuple(pending)
 
 
-def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=False):
+def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=False, grad_window=None, resets=None):
     """Return per-frame model outputs and the exact final persistent memory.
 
     The first pass retains the full recurrent autograd chain. The second pass
@@ -86,6 +86,11 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
     across the unroll so each stage runs in dense device batches with zero
     host-device synchronization. Keeping autocast scoped to each memory update
     preserves its original precision.
+
+    Opt-in, both None by default: `grad_window` (a `training4.burn_in.GradWindow`)
+    keeps the memory update differentiable only on its frames and detaches it
+    elsewhere; `resets[t]`, when not None, is `(rows, states)` and replaces those
+    lanes' memory by stored, detached states before frame t is observed.
     """
     if boards is None or plans is None:
         raise ValueError("Deferred readouts require pre-encoded boards and CPU execution plans")
@@ -97,9 +102,15 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
     decision_all = batch["is_decision"].to(device, non_blocking=True).long()
     memories, thinking = [], []
     for t, plan in enumerate(plans):
+        if resets is not None and resets[t] is not None:
+            rows, states = resets[t]
+            hidden = torch.where(rows[:, None, None], states, hidden)
         k = decision_all[:, t] * plan.thinking
-        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
-            observed = net.observe_memory(boards[t][0], hidden, k)
+        if grad_window is None:
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
+                observed = net.observe_memory(boards[t][0], hidden, k)
+        else:
+            observed = grad_window.observe(net, t, boards[t][0], hidden, k, device, bf16)
         memories.append(observed)
         thinking.append(k)
         hidden = torch.where(valid_all[:, t, None, None], observed.float(), hidden)
