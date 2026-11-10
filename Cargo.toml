@@ -344,6 +344,12 @@ debug = "line-tables-only"
 # the disk ever saved.
 debug = "line-tables-only"
 
+# Dependencies without debug info: a backtrace through our code keeps its
+# files and lines, and the test programs, each linking the engine and every
+# card, link and pass `dsymutil` faster (owner, 10.11.2026: faster rebuilds).
+[profile.dev.package."*"]
+debug = false
+
 # The engine hashes its state on every step, and unoptimised xxh3 was the top
 # of the debug profile of the slowest test. A dependency, so it is compiled once.
 [profile.dev.package.xxhash-rust]
