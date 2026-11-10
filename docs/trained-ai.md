@@ -1142,7 +1142,12 @@ menu and the executed answer against the record, makes `R` the policy target
 `N` beside it (JSON steps `n_ne_r` and `net_answer`; BST4 flags bit 7 =
 `N ≠ R`); every other decision frame keeps its place at weight 0, and the value
 targets are the outcomes. `meta.json` carries `bundle_distillation` with its
-counts; a game that does not bind fails the conversion.
+counts; a game that does not bind fails the conversion. In the CPU smoke of 10
+November (2 deals with the layer playing, 2 DAgger deals against `sharp`, 2 in
+self-play) every one of 1,545 labels bound; 289 had `N ≠ R` (245 at priority,
+mostly without a group firing: the layer's own reads), the layer played `R` at
+every labelled step and the student `N`, never `R`; with the flags off the game
+records are the same as before.
 
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s

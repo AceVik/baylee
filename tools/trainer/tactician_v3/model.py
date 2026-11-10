@@ -38,6 +38,8 @@ class Config:
     ffn_mult: int = 4
     dropout: float = 0.0
     detach_passes: bool = True
+    # No attention across units: every unit is scored from its own row alone.
+    independent: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -47,7 +49,8 @@ class Block(nn.Module):
     """Pre-norm self-attention and feed-forward, attention written out so the
     graph exports as plain MatMul/Softmax ops at any number of units."""
 
-    def __init__(self, width: int, heads: int, ffn_mult: int, dropout: float):
+    def __init__(self, width: int, heads: int, ffn_mult: int, dropout: float,
+                 independent: bool = False):
         super().__init__()
         if width % heads:
             raise ValueError("width must divide into heads")
@@ -59,6 +62,9 @@ class Block(nn.Module):
         self.ffn = nn.Sequential(nn.Linear(width, ffn_mult * width), nn.GELU(),
                                  nn.Linear(ffn_mult * width, width))
         self.drop = nn.Dropout(dropout)
+        # Each token attends to itself only: the same weights and per-unit
+        # computation, no information across units (the independent head).
+        self.independent = independent
 
     def forward(self, x, bias):
         b = x.shape[0]
@@ -69,6 +75,10 @@ class Block(nn.Module):
         q = q.reshape(b, -1, h, dh).transpose(1, 2)
         k = k.reshape(b, -1, h, dh).transpose(1, 2)
         v = v.reshape(b, -1, h, dh).transpose(1, 2)
+        if self.independent:
+            y = v.transpose(1, 2).reshape(b, -1, width)
+            x = x + self.drop(self.out(y))
+            return x + self.drop(self.ffn(self.norm2(x)))
         scores = torch.matmul(q, k.transpose(-1, -2)) * (dh ** -0.5)
         if bias is not None:
             scores = scores + bias
@@ -91,7 +101,7 @@ class TacticianV3(nn.Module):
         self.null_emb = nn.Parameter(torch.zeros(w))
         self.pass_emb = nn.Embedding(MAX_PASSES, w)
         self.proposal_in = nn.Linear(4, w)
-        self.blocks = nn.ModuleList(Block(w, cfg.heads, cfg.ffn_mult, cfg.dropout)
+        self.blocks = nn.ModuleList(Block(w, cfg.heads, cfg.ffn_mult, cfg.dropout, cfg.independent)
                                     for _ in range(cfg.layers))
         self.norm = nn.LayerNorm(w)
         self.unit_head = nn.Linear(w, 1)
