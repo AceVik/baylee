@@ -2,3 +2,15 @@
 [[profile.default.overrides]]
 filter = 'test(every_implemented_card_survives_a_game) | test(a_table_of_more_than_two_plays_itself) | test(every_question_this_suite_reaches_gets_an_answer) | test(self_play_acceptance_decks_terminates_without_panics) | test(a_cue_renders_the_same_bytes_twice) | test(streamed_frames_match_collecting_conversion_with_bounded_memory)'
 priority = 100
+
+# The tests that talk to the one PostgreSQL container: the gateway's end-to-end
+# program (each test starts a gateway with its own pool) and the store's. On a
+# machine other work also loads, eighty of them timed out on 10.11.2026 waiting
+# for a connection, none of them wrong; alone, all passed. So at most six run
+# at once; the rest of the suite fills the other threads.
+[test-groups]
+postgres = { max-threads = 6 }
+
+[[profile.default.overrides]]
+filter = '(package(baylee-gateway) & kind(test)) | package(baylee-db)'
+test-group = 'postgres'
