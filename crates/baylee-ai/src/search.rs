@@ -79,6 +79,35 @@ fn worth(f: Fighter) -> i64 {
     100 + i64::from(f.worth) * 120 + i64::from(f.power.max(0) + f.toughness.max(0)) * 30
 }
 
+/// Whether `profile` prices damage by the life it leaves: a level that
+/// prices the retaliation (lookahead 2, `expert`), from `AIProfile::RACE`.
+///
+/// Measured on 10.11.2026 (eval4, train split, 2048 duel rows): `expert`
+/// over itself without them and without `ABILITY_MANA`, 51.6 %, 59 seeds
+/// for and 26 against (ability mana alone moved sharp by 22 seeds); the same
+/// prices on `sharp`, whose search has no swing-back to weigh them against,
+/// 49.7 %. The gain is in the two prices together.
+fn races(profile: AIProfile) -> bool {
+    profile.lookahead >= 2 && profile.plays(AIProfile::RACE)
+}
+
+/// What `damage` to a player at `life` is worth on the material scale, a
+/// point at a time: 90 while the point taken leaves more than fourteen, 160
+/// down to eight, 300 below. The flat 45 of the search before priced the
+/// last points of a race as the first, so a creature traded for the damage
+/// that leaves an opponent at two was weighed as if they stood at twenty;
+/// and the swing-back, priced the same way, keeps more home the lower this
+/// seat's own life.
+fn race_damage(life: i32, damage: i32) -> i64 {
+    (0..damage.max(0))
+        .map(|i| match life - i {
+            l if l > 14 => 90,
+            l if l > 7 => 160,
+            _ => 300,
+        })
+        .sum()
+}
+
 fn has(f: Fighter, keyword: KeywordSet) -> bool {
     f.keywords & keyword.bits() != 0
 }
@@ -292,6 +321,9 @@ struct Position {
     life: i32,
     enemy_life: i32,
     horizon: u8,
+    /// Whether damage to a player is priced by the life it leaves
+    /// ([`race_damage`], `AIProfile::RACE`) rather than flat.
+    race: bool,
 }
 
 impl Position {
@@ -344,10 +376,13 @@ impl Position {
         } else {
             self.walker_losses(outcomes)
         };
-        let mut value = balance.material
-            + walkers
-            + i64::from(balance.damage) * 45
-            + i64::from(balance.gain - balance.enemy_gain) * 35;
+        let damage = if self.race {
+            race_damage(self.enemy_life + balance.enemy_gain, balance.damage)
+        } else {
+            i64::from(balance.damage) * 45
+        };
+        let mut value =
+            balance.material + walkers + damage + i64::from(balance.gain - balance.enemy_gain) * 35;
         if self.horizon < 2 {
             return value;
         }
@@ -355,7 +390,12 @@ impl Position {
         if commander_lethal || incoming >= self.life + balance.gain {
             return -WIN + value;
         }
-        value -= i64::from(incoming) * 50 + losses / 2;
+        let incoming = if self.race {
+            race_damage(self.life + balance.gain, incoming) * 3 / 4
+        } else {
+            i64::from(incoming) * 50
+        };
+        value -= incoming + losses / 2;
         value
     }
 
@@ -605,6 +645,7 @@ fn attack_position(
             life: view.seat(view.seat).map_or(20, |s| s.life),
             enemy_life: view.seat(victim).map_or(20, |s| s.life),
             horizon: profile.lookahead.min(2),
+            race: races(profile),
         }
         .cached(),
     )
@@ -842,6 +883,10 @@ pub fn blockers(
         life: i32::MAX,
         enemy_life: life,
         horizon: 0,
+        // A block keeps the flat price: priced by the life it leaves, the
+        // damage a chump block saves outweighed the creature at ten life
+        // and the seat threw blockers away while nothing threatened it.
+        race: false,
     }
     .cached();
     let mut reply = Reply {
@@ -881,6 +926,31 @@ pub fn blockers(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A point of damage is priced by the life it leaves, so the same three
+    /// points are worth more the nearer the end, and nothing below zero.
+    #[test]
+    fn damage_near_the_end_of_a_race_is_worth_more() {
+        assert_eq!(race_damage(20, 3), 3 * 90);
+        assert_eq!(race_damage(15, 3), 90 + 2 * 160, "15 → 14 → 13");
+        assert_eq!(race_damage(8, 3), 160 + 2 * 300, "8 → 7 → 6");
+        assert!(race_damage(4, 3) > race_damage(10, 3));
+        assert_eq!(race_damage(20, 0), 0);
+        assert_eq!(race_damage(20, -2), 0, "no damage is worth nothing");
+        assert!(races(AIProfile::EXPERT) && races(AIProfile::SEER));
+        for profile in [
+            AIProfile::SHARP,
+            AIProfile::SHARP_2026_11,
+            AIProfile::STEADY,
+        ] {
+            assert!(!races(profile), "{profile:?}");
+        }
+        assert!(!races(AIProfile {
+            generation: AIProfile::INSTANT_TIMING,
+            ..AIProfile::EXPERT
+        }));
+    }
+
     fn fighter(p: i32, t: i32, k: KeywordSet) -> Fighter {
         Fighter {
             power: p,

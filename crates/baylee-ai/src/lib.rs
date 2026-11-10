@@ -36,6 +36,7 @@ mod restricted;
 pub mod search;
 mod stall;
 mod tactics;
+mod timing;
 mod worth;
 pub use restricted::only_for as mana_restriction;
 pub use stall::StallMemory;
@@ -398,6 +399,13 @@ impl HeuristicAgent {
                 source,
                 ability_index,
             };
+        }
+        // 6. Mana toward an ability worth its price that waits for the mana
+        //    to float before the engine offers it (`activate::floating`).
+        if self.taps_for_abilities()
+            && let Some(action) = activate::float_for(view, legal, self)
+        {
+            return action;
         }
         PlayerAction::PassPriority
     }

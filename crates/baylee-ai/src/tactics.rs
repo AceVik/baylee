@@ -771,6 +771,10 @@ impl HeuristicAgent {
         if let Some(action) = self.ability_targets(view, offer, context) {
             return Some(action);
         }
+        // A combat trick goes to the creature whose exchange it turns.
+        if let Some(action) = self.trick_answer(view, objects, (min, max), context) {
+            return Some(action);
+        }
         // A flicker is worth what the flicker does to the one it names —
         // its entering again, its counters lost (CR 400.7), its owner taking
         // it home — and not what the creature is worth: ranked by size it

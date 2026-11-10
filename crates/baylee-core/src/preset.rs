@@ -610,8 +610,27 @@ impl AIProfile {
     /// the stack as for a permanent (Spell Blast): the house announces an X
     /// some spell has, or does not cast it.
     pub const EXACT_SPELL_X: u16 = 2;
+    /// A level that manages its open mana ([`HoldUp`] other than `None`)
+    /// casts an instant at its moment: a combat trick once blocks are
+    /// declared and only where it turns an exchange, anything lasting in its
+    /// own main phase or the opponents' combat or end step, never in an
+    /// upkeep or a draw step; and it keeps mana up for a counterspell, not
+    /// for any cheap instant.
+    pub const INSTANT_TIMING: u16 = 3;
+    /// A level that prices the retaliation (lookahead 2, `expert`) prices
+    /// combat damage to a player by the life it leaves: a point near the
+    /// end of a race is worth more than one at twenty.
+    pub const RACE: u16 = 4;
+    /// A level that manages its open mana with care ([`HoldUp::ThreatAware`]:
+    /// `sharp` and `expert`) makes mana for an ability worth its price,
+    /// which the engine offers only once the mana floats: an equip, a pump,
+    /// a draw it pays for.
+    pub const ABILITY_MANA: u16 = 5;
+    /// The level that peeks (`seer`) keeps or throws back an opening hand by
+    /// the next three cards of its own library, which it is told.
+    pub const SEER_DRAWS: u16 = 6;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::EXACT_SPELL_X;
+    pub const GENERATION: u16 = Self::SEER_DRAWS;
 
     /// Whether this profile plays the house code of `generation` and later,
     /// as every level does and a frozen reference before it does not.

@@ -393,6 +393,8 @@ fn holding_up_interaction_changes_a_tap_out() {
     let mut v = view(0, &[20, 20], vec![permanent(obj(1), PlayerId::new(0), 2)]);
     v.phase = baylee_view::Phase::FirstMain;
     v.seats[0].mana_pool.blue = 2;
+    // An opponent with cards to cast, which a counterspell is kept for.
+    v.seats[1].hand_count = 3;
     v.hand = vec![hand_card(2, "Sol Ring"), hand_card(3, "Mana Drain")];
     let pending = Pending::Priority {
         player: v.seat,
@@ -402,10 +404,13 @@ fn holding_up_interaction_changes_a_tap_out() {
             ..Default::default()
         }),
     };
-    assert_eq!(
-        HeuristicAgent::new(AIProfile::STEADY).act(&v, &pending),
-        PlayerAction::PassPriority
-    );
+    for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::PassPriority,
+            "{profile:?}"
+        );
+    }
     assert_eq!(
         HeuristicAgent::new(AIProfile {
             hold_up: baylee_core::preset::HoldUp::None,
@@ -414,11 +419,21 @@ fn holding_up_interaction_changes_a_tap_out() {
         .act(&v, &pending),
         PlayerAction::CastSpell { card: obj(2) }
     );
-    // Threat-aware releases the reserve at an empty opposing table.
-    assert_eq!(
-        HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
-        PlayerAction::CastSpell { card: obj(2) }
-    );
+    // The reserve is released at an empty opposing hand: by threat-aware
+    // levels before `AIProfile::INSTANT_TIMING`, by every level that keeps
+    // a counter up since.
+    v.seats[1].hand_count = 0;
+    for profile in [
+        AIProfile::STEADY,
+        AIProfile::SHARP,
+        AIProfile::SHARP_2026_11,
+    ] {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(2) },
+            "{profile:?}"
+        );
+    }
 }
 
 #[test]

@@ -129,6 +129,10 @@ pub(crate) struct Strategy {
     pub known_threat: bool,
     pub scouted_opponents: bool,
     pub tribe: Option<SubtypeId>,
+    /// The next cards of this seat's own library, top first: whether each
+    /// is played as a land. Told only to a level that peeks; `None` where
+    /// nothing was told.
+    pub own_draws: [Option<bool>; 3],
 }
 
 /// Whether a card's effects contain a board sweeper.
@@ -255,6 +259,10 @@ impl HeuristicAgent {
                 }
                 if deck.artifacts > deck.creatures {
                     plan.artifact_bonus += 120;
+                }
+                for (draw, index) in plan.own_draws.iter_mut().zip(seat.library.iter().flatten()) {
+                    *draw = baylee_cards::by_index(*index)
+                        .map(|def| def.land_faces_from_hand().next().is_some());
                 }
             } else if self.hostile(seat.player, view.seat) {
                 plan.scouted_opponents |= seat.hand.is_some();

@@ -395,7 +395,21 @@ fn passive_land_game(selection: Selection4) -> SearchTally {
     let played = play(&mut player, Some(&mut search));
     assert_eq!(played.1, 0, "no searched answer refused");
     assert_eq!(search.tally.rollout_steps, 0, "H = 0");
-    assert_eq!(search.tally.leaves.immediate, search.tally.rollouts);
+    // Nothing plays on at H = 0: every leaf is the candidate's own
+    // position, scored at once, or one the candidate itself ended (the
+    // game over, the cast taken back). Which of those a game meets is the
+    // house opponent's to decide, and it moves with the house.
+    let leaves = search.tally.leaves;
+    assert_eq!(
+        leaves.settled + leaves.horizon + leaves.turn_end,
+        0,
+        "{leaves:?}"
+    );
+    assert_eq!(
+        leaves.immediate + leaves.terminal + leaves.stopped,
+        search.tally.rollouts
+    );
+    assert!(leaves.immediate > 0);
     search.tally
 }
 

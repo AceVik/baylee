@@ -226,6 +226,11 @@ fn a_delve_spell_is_priced_with_the_graveyard_before_the_first_tap() {
         o
     };
     let mut v = view(0, &[20, 20], vec![island(20), island(21)]);
+    // A main phase: the levels that time their instants (`timing`) cast a
+    // draw there or in an opponent's end step, and this test is about its
+    // price, not its moment.
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
     v.hand = vec![hand_card(1, "Dig Through Time")];
     // Six cards in the graveyard, which is what turns {6}{U}{U} into
     // {U}{U} — exactly the two Islands beside it.

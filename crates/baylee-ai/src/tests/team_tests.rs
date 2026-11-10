@@ -83,9 +83,11 @@ fn a_sweeper_counts_what_it_takes_from_an_ally() {
 }
 
 /// **An ally who holds the answer up lets this seat develop.** Seat 1
-/// keeps a creature in play and a Lightning Bolt in hand with one Mountain:
-/// on its own it keeps that Mountain up for the Bolt rather than play a
-/// Raging Goblin with it. Shown that its ally in
+/// keeps a creature in play and a Counterspell in hand with one land: on
+/// its own it keeps that land up for the counter rather than play a
+/// Raging Goblin with it (a counterspell is what a level that times its
+/// instants keeps mana up for, `AIProfile::INSTANT_TIMING`; before it, a
+/// Lightning Bolt was kept up too). Shown that its ally in
 /// the lower seat holds a Counterspell over two untapped Islands, it plays
 /// its second creature instead. The ally in the lower seat is the one who
 /// holds, so two allies who see each other never both tap out.
@@ -109,10 +111,7 @@ fn an_ally_holding_the_answer_lets_this_seat_develop() {
     v.phase = baylee_view::Phase::FirstMain;
     v.active = me;
     v.awaiting = Some(me);
-    v.hand = vec![
-        hand_card(1, "Lightning Bolt"),
-        hand_card(2, "Raging Goblin"),
-    ];
+    v.hand = vec![hand_card(1, "Counterspell"), hand_card(2, "Raging Goblin")];
     v.seats[2].hand_count = 3;
     let pending = Pending::Priority {
         player: me,

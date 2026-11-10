@@ -11,9 +11,9 @@ is offered (§"The frozen reference").
 | --- | --- | --- | --- |
 | novice | Keeps every hand | ±800 deterministic score noise; taps out | Individual trades |
 | casual | Rejects fewer than two or more than five lands | ±400 noise; taps out | Individual trades |
-| steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; reserves cheap interaction after establishing a creature | Individual trades |
-| sharp | Same opening policy as steady | ±30 seeded score noise; releases the reserve when opponents have no visible threat or cards | Searches whole attack sets and blocking assignments, including gang blocks |
-| expert | Same opening policy as sharp | ±12 seeded noise | Also simulates retaliation by surviving opponents |
+| steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; casts an instant at its moment and keeps mana up for a counterspell or, before combat, a trick (§"When an instant is cast") | Individual trades; a trick once blocks are declared |
+| sharp | Same opening policy as steady | ±30 seeded score noise; also makes mana for an ability worth its price (§"Mana for an ability") | Searches whole attack sets and blocking assignments, including gang blocks |
+| expert | Same opening policy as sharp | ±12 seeded noise | Also simulates retaliation by surviving opponents, and prices the damage of an attack by the life it leaves |
 | seer (unfair) | As expert | As expert, and is told every opponent's decklist and hand and the next three cards of every library | As expert |
 
 All levels plan coloured payments through the same renderer-free mana matcher
@@ -128,10 +128,10 @@ card its caster was replacing anyway (#226). Among the rest, a counter names
 the spell worth most: its own material plus the material of what of this
 seat's it is aimed at, so Path to Exile on this seat's creature outranks
 Ancestral Recall at the same cost. Everything but a cantrip is still
-countered on sight: the worth ranks what is up at once, and nothing holds a
-counter back for a threat that has not been cast. So a Counterspell is
-traded for a lone Dark Ritual whose caster has nothing left to spend the
-mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
+countered on sight: the worth ranks what is up at once, and
+nothing holds a counter back for a threat that has not been cast. So a
+Counterspell is traded for a lone Dark Ritual whose caster has nothing left
+to spend the mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
 pins that as a limitation.
 Removal needs something opposing on the battlefield, and a permanent this
 seat's own spell or ability on the stack already removes — by destruction,
@@ -342,10 +342,11 @@ What the house does with it, and with its side, at `AIProfile::TEAM_PLAY`
   at what it is already taking (`worth::answered`).
 - An ally's board is the side's: a sweeper that takes an ally's creatures is
   priced with them as losses (`sweeper_net_worth`).
-- An ally in a lower seat who holds a cheap instant and the untapped lands
-  for it holds the answer up for the side, and this seat develops instead of
-  keeping its own mana up (`an_ally_holds_the_answer`); the lower seat keeps
-  its own, so two allies who see each other never both tap out.
+- An ally in a lower seat who holds a cheap instant (a counterspell, from
+  `AIProfile::INSTANT_TIMING`) and the untapped lands for it holds the answer
+  up for the side, and this seat develops instead of keeping its own mana up
+  (`an_ally_holds_the_answer`); the lower seat keeps its own, so two allies
+  who see each other never both tap out.
 
 The audit found the rest already playing as a team: targets are chosen as
 friendly or hostile by side (`HeuristicAgent::hostile`, and a counter weighs
@@ -511,19 +512,28 @@ ultimate when affordable, else the largest plus), and a scry, surveil or
 reorder is valued only at `mulligan_skill >= 2` (STEADY and up); both are designed
 differences, not gaps.
 
-**Open: an ability with a mana cost is taken only when the mana already
-floats.** The engine offers such an ability only once the pool covers it
-(`Engine::can_afford`), and nothing in the agent floats mana for an ability
-the way `policy::aim` floats it for a spell. So these rows stay at or near
-nought whatever `worth` makes of them: Riptide Laboratory (worth using only
-to save a doomed Wizard, which is at instant speed in answer to removal),
-Sensei's Divining Top (a reorder, worth something from STEADY up),
-General Tazri's five-colour pump, and the equip costs of Sword of Hearth and
-Home and Helm of the Host (taken the few times the mana floated). Two rows
-have no reader either: nothing in the agent answers the engine's suspend
-offer (`LegalActions::suspendable`: Ancestral Vision, Profane Tutor), and
-Raffine's Tower's cycling is a card in hand, which `activate::printed` does
-not reach. The planner is the next slice.
+**Mana for an ability.** The engine offers an ability with a mana cost only
+once the pool covers it (`Engine::can_afford`), and until
+`AIProfile::ABILITY_MANA` nothing in the agent made mana for one the way
+`policy::aim` floats it for a spell. So these rows stayed at or near nought
+whatever `worth` made of them: Riptide Laboratory (worth using only to save
+a doomed Wizard, which is at instant speed in answer to removal), Sensei's
+Divining Top (a reorder, worth something from STEADY up), General Tazri's
+five-colour pump, and the equip costs of Sword of Hearth and Home and Helm
+of the Host (taken the few times the mana floated). `sharp` and `expert`
+(`HoldUp::ThreatAware`) now tap toward the ability worth most
+by the same measure (`activate::floating`), one source at a time, within
+the mana a main phase keeps up: one printed on a permanent of theirs, used
+from the battlefield, with no limit or condition, a fixed mana cost and at
+most a tap of itself besides, at a moment its timing allows. Once the mana
+floats the engine offers it and `activate::choose` takes it. The levels
+below and the frozen reference leave such an ability as before. It changed
+22 of 1,024 seeds against `sharp` without it (train split, 15 for, 7 against):
+few decks print such an ability that `worth` prices above its cost. Two
+rows have no reader either: nothing in the agent answers the engine's
+suspend offer (`LegalActions::suspendable`: Ancestral Vision, Profane
+Tutor), and Raffine's Tower's cycling is a card in hand, which
+`activate::printed` does not reach.
 
 **Inspirit, Flagship Vessel was a card finding, not an agent one.** Station
 is "tap another untapped creature you control" as a cost (CR 702.184a). The
@@ -1006,7 +1016,15 @@ A level's own list sets its creature, draw and artifact priorities and its
 tribe. `seer` alone also reads its opponents' lists, hands and library tops:
 cheap creature density and interaction set its interaction priority, a known
 opposing sweeper discourages committing a third creature, and known empty
-threats release reserved mana. These are heuristic adjustments, not a
+threats release reserved mana. From `AIProfile::SEER_DRAWS` it keeps or
+throws back an opening hand by the next three cards of its own library
+(`keep_with_known_draws`): kept when those draws make two lands by its
+second turn and three by its third, with a land and two spells in hand and
+no more than six lands among the hand and the draws. Measured against itself
+without it on the train split (2048 duel rows, 10.11.2026): 50.9 %, 67
+seeds for and 50 against. A combat searched with the opponent's known trick
+on the worst creature for it was tried and dropped: it changed 22 of 1,024
+seeds, 11 each way. These are heuristic adjustments, not a
 learned classifier or a complete combo planner. Reports carry card
 identities without actionable hidden object handles.
 
@@ -1040,6 +1058,56 @@ chairs to differ says so with `with_seed`.
 See [the coverage TODO ledger](ai-coverage-todo.md) for concrete tests to add as
 new rules and complete deck families become available. Unsupported cards are
 not counted as successful end-to-end coverage.
+
+## When an instant is cast
+
+The house used to cast every instant at the first priority it held one it
+could pay for: a Titanic Growth in the opponent's upkeep on whatever ranked
+first, a Plummet in its own draw step. And `steady` kept the mana up for
+any cheap instant once it had a creature, so a green deck holding a Titanic
+Growth left two lands open instead of casting a creature, then threw the
+Growth away in the next upkeep. Measured against `casual` on 10.11.2026,
+`steady` with that hold-up switched off won more than with it (50.4 % to
+48.4 %, test split, 512 duel rows).
+
+From `AIProfile::INSTANT_TIMING`, a level that manages its open mana
+(`HoldUp` other than `None`: `steady`, `sharp`, `expert`; `timing.rs`) reads
+what an instant-speed card is for (`timing::purpose`) and casts it when that
+can happen:
+
+- a **counter** when something worth countering is on the stack, as before;
+- a **combat trick**, a boon to one creature until the turn or the combat
+  ends (a pump, a keyword) with nothing lasting beside it but a card drawn,
+  once blocks are declared and only where it turns an exchange by at least
+  a one-drop's worth: a creature of its side that would die survives, one
+  of the other side's that would live dies, or an unblocked attack becomes
+  lethal. Its target is the creature it turns (`trick_target`), not the one
+  `tactics::rank` would name first;
+- anything **lasting** (removal, damage, a draw, a token, a flash creature)
+  in its own main phase, or in an opponent's turn once they attack or in
+  their end step; never in an upkeep or a draw step.
+
+A sorcery-speed card is not timed: the engine offers it in a main phase
+alone. And what such a level keeps up in its own main phase
+(`timed_reserve`) is a counterspell's mana while it has a creature and an
+opponent holds a card, and, before combat while a creature of its own can
+attack, a trick's: what it would develop goes down after combat, where the
+trick has had its chance. Never mana for an instant that could as well be
+cast now. `novice`, `casual` and the frozen reference keep casting at the
+first chance (`timing_tests.rs` pins both sides).
+
+Measured with eval4 (`--random-policy`, house against house, each game
+counted once by `house_duplicate`, train split, 2048 duel rows, 10.11.2026):
+`steady` against `casual` went from 48.2 % (generation 2) to 52.1 %, and
+50.5 % with the old hold-up switched off.
+
+Control piloting for `expert` (counter mana kept up with no creature of its
+own, a small creature spell let through while the opponent holds cards) was
+built and measured, and dropped: 49.8 % against `expert` without it in
+constructed duels, and 48.7 % in Victory's commander duels (228 games on
+round-robin pairings, the deck turned 5 seeds for it and 8 against). So a
+counter is still cast on the first spell worth one, and a level keeps
+counter mana up only once it has a creature.
 
 ## The order of its triggers
 
@@ -1084,6 +1152,20 @@ estimates. It does not sample guessed cards and pretend they
 are observed. A full-game searching successor would need a view-derived belief
 state and a determinization adapter; no live host `GameState` belongs in that
 API.
+
+A leaf prices combat damage to the defending player at 45 a point. From
+`AIProfile::RACE`, expert's attack search prices it by the life it leaves
+(`search::race_damage`: 90 a point while more than fourteen are left, 160
+down to eight, 300 below), and the swing-back at three quarters of the same
+price by this seat's own life, so the last points of a race are worth more
+than the first and a low life keeps more at home. Its block search keeps
+the flat price: priced by the life it leaves, a chump block outweighed the
+creature at ten life while nothing threatened the seat. On the train split
+(2048 duel rows, 10.11.2026) expert won 51.6 % against itself without these prices
+and without `ABILITY_MANA` (59 seeds for, 26 against; with the prices in
+both searches and no ability mana, 52.1 %, 65 for and 22 against); the
+same prices on sharp, which has no
+swing-back to set against them, 49.7 % against sharp without them.
 
 Sharp gets 16,384 reply-tree nodes per decision, expert 262,144. A sharp
 candidate gets at most 4,096; an expert candidate gets at most 196,608, enough
@@ -1188,11 +1270,24 @@ field the reference does not set, and the test stays green. That field is
 `AIProfile::generation`: every level plays `AIProfile::GENERATION`, the
 reference `FROZEN_2026_11` (0, which is also what a profile written before
 the field reads as), and a change says the generation it arrived in and
-asks `profile.plays(...)`. The first is `TEAM_PLAY` ("The house plays as a team, and
-teammates show each other their hands", above), the second
-`EXACT_SPELL_X`: an X that must equal a target's mana value is planned
-for a spell on the stack as for a permanent (Spell Blast announces an X
-some spell has, or is not cast). Only a change
+asks `profile.plays(...)`. The generations so far:
+
+1. `TEAM_PLAY` ("The house plays as a team, and teammates show each other
+   their hands", above).
+2. `EXACT_SPELL_X`: an X that must equal a target's mana value is planned
+   for a spell on the stack as for a permanent (Spell Blast announces an X
+   some spell has, or is not cast).
+3. `INSTANT_TIMING`: a level that manages its open mana casts an instant
+   at its moment and keeps mana up for a counterspell (§"When an instant
+   is cast").
+4. `RACE`: `expert`'s attack search prices damage by the life it leaves
+   (§"What the search means").
+5. `ABILITY_MANA`: `sharp` and `expert` make mana for an ability worth its
+   price (§"Mana for an ability", above).
+6. `SEER_DRAWS`: `seer` mulligans by the draws it is told (§"Fair by
+   default, and the one level that peeks").
+
+Only a change
 that has to move the reference, such as an engine or card fix that changes
 these games, re-records it, in a commit of its own that says why:
 `BAYLEE_REFERENCE_RERECORD=1 cargo nextest run -p baylee-gamehost --test

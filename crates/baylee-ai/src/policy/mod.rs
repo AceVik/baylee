@@ -54,6 +54,52 @@ fn cheapest_answer(hand: &[baylee_view::HandObject]) -> u32 {
         .unwrap_or(0)
 }
 
+/// The mana value of the cheapest counterspell of at most three mana in
+/// `hand`, a modal one included; nought for none. What a level that times
+/// its instants keeps up ([`crate::AIProfile::INSTANT_TIMING`]).
+fn cheapest_counter(hand: &[baylee_view::HandObject]) -> u32 {
+    cheapest_held(hand, |spells| {
+        spells.iter().any(|ability| match ability {
+            AbilityDef::Spell { effects, .. } => {
+                crate::timing::purpose(effects, 0) == crate::timing::Purpose::Counter
+            }
+            AbilityDef::ModalSpell { modes, .. } => {
+                modes.iter().any(|m| m.effects.iter().any(counter))
+            }
+            _ => false,
+        })
+    })
+}
+
+/// The mana value of the cheapest combat trick of at most three mana in
+/// `hand` ([`crate::timing::Purpose::Trick`]); nought for none.
+fn cheapest_trick(hand: &[baylee_view::HandObject]) -> u32 {
+    cheapest_held(hand, |spells| {
+        crate::timing::cast_effects(spells).is_some_and(|effects| {
+            matches!(
+                crate::timing::purpose(effects, 0),
+                crate::timing::Purpose::Trick(_)
+            )
+        })
+    })
+}
+
+/// The mana value of the cheapest instant of at most three mana in `hand`
+/// whose printed spell abilities `is` says yes to.
+fn cheapest_held(hand: &[baylee_view::HandObject], is: impl Fn(&[AbilityDef]) -> bool) -> u32 {
+    hand.iter()
+        .filter(|c| c.types.contains(TypeSet::INSTANT))
+        .filter(|c| face(c.card).is_some_and(|f| f.mana_cost.cmc() <= 3))
+        .filter(|c| {
+            baylee_cards::by_index(c.card.index)
+                .is_some_and(|def| is(def.abilities_for_face(usize::from(c.card.face))))
+        })
+        .map(|c| c.mana_value)
+        .filter(|&v| v > 0)
+        .min()
+        .unwrap_or(0)
+}
+
 fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
     face.types.contains(TypeSet::INSTANT)
         || baylee_cards::by_index(card.index).is_some_and(|definition| {
@@ -381,6 +427,38 @@ impl HeuristicAgent {
         i64::try_from(mix(seed) % (2 * width + 1)).unwrap_or(0) - i64::try_from(width).unwrap_or(0)
     }
 
+    /// Whether a level that peeks keeps this hand, reading the draws it is
+    /// told (`Strategy::own_draws`, [`crate::AIProfile::SEER_DRAWS`]):
+    /// `None` for every other level, or when nothing was told.
+    ///
+    /// A hand with `lands` lands is kept when its land drops are made by the
+    /// draws it will see: two lands by its second turn, three by its third
+    /// (a seat on the play draws first in its second turn, CR 103.8a), at
+    /// least one land in hand, two spells or more, and no more than six lands
+    /// among the hand and the three draws. A two-lander whose next draws are
+    /// spells is thrown back, and a one-lander whose next draws are lands is
+    /// kept.
+    fn keep_with_known_draws(&self, view: &PlayerView, lands: usize) -> Option<bool> {
+        if !self.profile.peeks() || !self.profile.plays(crate::AIProfile::SEER_DRAWS) {
+            return None;
+        }
+        let draws = self.strategy.own_draws;
+        if draws.iter().any(Option::is_none) {
+            return None;
+        }
+        let drawn = |n: usize| draws.iter().take(n).filter(|d| **d == Some(true)).count();
+        let on_the_play = view.active == view.seat;
+        let by_turn = |turn: usize| lands + drawn(if on_the_play { turn - 1 } else { turn });
+        let spells = view.hand.len() - lands;
+        Some(
+            lands >= 1
+                && by_turn(2) >= 2
+                && by_turn(3) >= 3
+                && spells >= 2
+                && lands + drawn(3) <= 6,
+        )
+    }
+
     pub(crate) fn mulligan(&self, view: &PlayerView, taken: u8, free: bool) -> PlayerAction {
         let skill = self.profile.mulligan_skill;
         // Four cards can still play; repeatedly demanding an ideal seven
@@ -390,6 +468,13 @@ impl HeuristicAgent {
             return PlayerAction::MulliganKeep;
         }
         let lands = view.hand.iter().filter(|c| plays_as_land(c.card)).count();
+        if let Some(keep) = self.keep_with_known_draws(view, lands) {
+            return if keep {
+                PlayerAction::MulliganKeep
+            } else {
+                PlayerAction::MulliganTake
+            };
+        }
         let balance = (2..=5).contains(&lands);
         let curve = skill < 2
             || view.hand.iter().any(|card| {
@@ -967,8 +1052,45 @@ impl HeuristicAgent {
     ) -> Option<PlayerAction> {
         let reserve = self.reserve(view, own_main_phase(view));
         self.spend_on(view, legal, reserve, |view, id, card, _| {
+            if self.times_instants() && !self.instant_moment(view, card) {
+                return None;
+            }
             Some(self.spell_score(view, card) + self.noise(view, id))
         })
+    }
+
+    /// Whether now is `card`'s moment ([`crate::timing`]): always for a
+    /// card the engine offers at sorcery speed alone, and for an
+    /// instant-speed one when what it is for can happen now.
+    fn instant_moment(&self, view: &PlayerView, card: CardIdentity) -> bool {
+        let Some(f) = face(card) else {
+            return true;
+        };
+        if !has_instant_speed(card, f) {
+            return true;
+        }
+        let spells = baylee_cards::by_index(card.index).map_or(&[][..], |def| {
+            def.abilities_for_face(usize::from(card.face))
+        });
+        // A modal spell that can counter is held as a counter is; its other
+        // modes read as lasting. A spell that prints its own moment (a
+        // casting condition, Camouflage's piles) keeps it: `spell_score`
+        // asks `optional::not_now` of it.
+        let own_moment = spells.iter().any(|ability| match ability {
+            AbilityDef::ModalSpell { modes, .. } => {
+                modes.iter().any(|m| m.effects.iter().any(counter))
+            }
+            AbilityDef::Spell {
+                condition, effects, ..
+            } => {
+                condition.is_some()
+                    || effects
+                        .iter()
+                        .any(|e| matches!(e, Effect::BlockInPilesAtRandomThisTurn))
+            }
+            _ => false,
+        });
+        own_moment || self.its_moment(view, crate::timing::cast_effects(spells).unwrap_or(&[]), 0)
     }
 
     /// The spell worth casting most by `score`, or the next mana ability
@@ -1108,12 +1230,16 @@ impl HeuristicAgent {
         best.map(|(_, action)| action)
     }
 
-    fn reserve(&self, view: &PlayerView, main: bool) -> u32 {
-        if !main
-            || self.profile.hold_up == HoldUp::None
-            || !view
-                .battlefield_of(view.seat)
-                .any(|o| o.types.contains(TypeSet::CREATURE))
+    pub(crate) fn reserve(&self, view: &PlayerView, main: bool) -> u32 {
+        if !main || self.profile.hold_up == HoldUp::None {
+            return 0;
+        }
+        if self.times_instants() {
+            return self.timed_reserve(view);
+        }
+        if !view
+            .battlefield_of(view.seat)
+            .any(|o| o.types.contains(TypeSet::CREATURE))
         {
             return 0;
         }
@@ -1136,26 +1262,70 @@ impl HeuristicAgent {
         let held = cheapest_answer(&view.hand);
         if held > 0
             && self.profile.plays(crate::AIProfile::TEAM_PLAY)
-            && self.an_ally_holds_the_answer(view)
+            && self.an_ally_holds_the_answer(view, cheapest_answer)
         {
             return 0;
         }
         held
     }
 
+    /// What a level that times its instants keeps up in its own main phase
+    /// ([`crate::timing`]). Before combat, a combat trick's mana while a
+    /// creature of its own can attack: what it would develop goes down
+    /// after combat, where the trick has had its chance. And once it has a
+    /// creature, a counterspell's mana while an opponent holds a card to
+    /// cast. Never mana for an instant that could as well be cast now, nor
+    /// for one whose moment is the opponents' end step.
+    fn timed_reserve(&self, view: &PlayerView) -> u32 {
+        let mut creatures = view
+            .battlefield_of(view.seat)
+            .filter(|o| o.types.contains(TypeSet::CREATURE));
+        let mut can_attack = false;
+        let mut any = false;
+        for o in &mut creatures {
+            any = true;
+            can_attack |= crate::combat::ready(o) && !o.summoning_sick;
+        }
+        let trick = if view.phase == baylee_view::Phase::FirstMain && can_attack {
+            cheapest_trick(&view.hand)
+        } else {
+            0
+        };
+        let threat = view
+            .seats
+            .iter()
+            .any(|s| self.hostile(s.player, view.seat) && s.hand_count > 0);
+        let quiet = self.strategy.scouted_opponents && !self.strategy.known_threat;
+        let mut counter = if any && threat && !quiet {
+            cheapest_counter(&view.hand)
+        } else {
+            0
+        };
+        if counter > 0 && self.an_ally_holds_the_answer(view, cheapest_counter) {
+            counter = 0;
+        }
+        trick.max(counter)
+    }
+
     /// Whether a teammate this seat is shown the hand of holds a cheap
-    /// instant and the untapped lands to cast it, and is the one of the two
-    /// who keeps it up: the lower seat. Then this seat develops instead of
-    /// holding mana up beside it, and the side still has its answer. The
-    /// lower seat keeps its own up, so two allies who see each other's hands
-    /// never both tap out on the strength of the other.
-    fn an_ally_holds_the_answer(&self, view: &PlayerView) -> bool {
+    /// answer (`held` measures a hand: [`cheapest_answer`], or
+    /// [`cheapest_counter`] from [`crate::AIProfile::INSTANT_TIMING`]) and
+    /// the untapped lands to cast it, and is the one of the two who keeps it
+    /// up: the lower seat. Then this seat develops instead of holding mana
+    /// up beside it, and the side still has its answer. The lower seat keeps
+    /// its own up, so two allies who see each other's hands never both tap
+    /// out on the strength of the other.
+    fn an_ally_holds_the_answer(
+        &self,
+        view: &PlayerView,
+        held: fn(&[baylee_view::HandObject]) -> u32,
+    ) -> bool {
         view.shared_hands.iter().any(|hand| {
             let ally = hand.player;
             if ally >= view.seat || self.hostile(ally, view.seat) {
                 return false;
             }
-            let held = cheapest_answer(&hand.cards);
+            let held = held(&hand.cards);
             let open = view
                 .battlefield_of(ally)
                 .filter(|o| o.types.contains(TypeSet::LAND))

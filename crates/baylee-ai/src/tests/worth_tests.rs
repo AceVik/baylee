@@ -396,6 +396,56 @@ fn a_sword_is_equipped_to_the_creature_that_can_swing_with_it() {
     );
 }
 
+/// **The mana for an equip is made, not waited for** (`activate::floating`,
+/// `AIProfile::ABILITY_MANA`). With nothing floating the engine offers no
+/// equip, and every level used to leave the Sword in play unworn. `sharp`
+/// and `expert` tap toward it; the levels that do not manage their mana
+/// that carefully, and the frozen reference, pass as before.
+#[test]
+fn the_mana_for_a_worthwhile_equip_is_made_by_the_careful_levels() {
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            card(1, ME, "Sword of Hearth and Home", TypeSet::ARTIFACT),
+            permanent(obj(2), ME, 2),
+            island(5, ME),
+            island(6, ME),
+        ],
+    );
+    main_phase(&mut v);
+    let unpaid = Pending::Priority {
+        player: ME,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            mana_abilities: vec![obj(5), obj(6)],
+            ..Default::default()
+        }),
+    };
+    for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+        assert!(
+            matches!(
+                HeuristicAgent::new(profile).act(&v, &unpaid),
+                PlayerAction::ActivateManaAbility { source } if source == obj(5) || source == obj(6)
+            ),
+            "{profile:?}"
+        );
+    }
+    for profile in [AIProfile::STEADY, AIProfile::SHARP_2026_11] {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &unpaid),
+            PlayerAction::PassPriority,
+            "{profile:?}"
+        );
+    }
+    // Nor in the opponent's turn, where an equip cannot be used.
+    their_end_step(&mut v);
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SHARP).act(&v, &unpaid),
+        PlayerAction::PassPriority
+    );
+}
+
 /// On the only creature there is, moving it again is mana for nothing.
 #[test]
 fn a_sword_is_not_moved_onto_the_creature_already_wearing_it() {
