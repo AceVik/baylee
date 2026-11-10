@@ -154,6 +154,10 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 - `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`: all three, or it refuses to start; none at all = listening dev harness (`PORT`, `0` and `BAYLEE_PORT_FILE` as on the gateway; `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
 - `BAYLEE_ENGINE_PUMP_STEPS` (attached transport only, default `128`, integer `1..=128`; invalid values refuse launch). `1` publishes each house-pump slice for local neural-seat experiments. A socket action followed by house work can still share one output batch; this does not expose internal automatic actions or guarantee training-equivalent observations for mixed house/socket tables. Two connected socket seats receive their own filtered view after every explicit answer.
 
+## House AI tests (`baylee-gamehost`)
+
+- `BAYLEE_REFERENCE_RERECORD` (set: `reference_profile`'s test plays the frozen `sharp-2026-11` tables and writes their answers to its fixture instead of checking them; only in a commit of its own that says why the reference had to move, `docs/house-ai.md` §"The frozen reference").
+
 ## Client (`baylee-client`)
 
 - `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; in a browser `?game=…&token=…`.

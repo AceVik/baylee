@@ -2,6 +2,8 @@
 
 The five names in `AIProfile::NAMED` drive both the offline picker and the
 network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
+Measurements name `sharp-2026-11`, a frozen copy of `sharp` that no player
+is offered (§"The frozen reference").
 
 | Profile | Opening hand | Spell selection and mana | Combat |
 | --- | --- | --- | --- |
@@ -991,6 +993,41 @@ answer out would violate the stronger requirement that the same complete input
 always produce the same action. Latency is measured externally with
 `cargo bench -p baylee-ai --bench decisions -- --quick`; time is never a
 policy input. Custom profile horizons above two are capped.
+
+## The frozen reference: `sharp-2026-11`
+
+Training measures BayleeAI against `sharp`, and the house is meant to get
+better, so the benchmark is frozen apart from the level (owner, 10.11.2026).
+`AIProfile::SHARP_2026_11` is `sharp` as it played on 10.11.2026, its
+constants written out rather than borrowed from `SHARP`, and
+`AIProfile::REFERENCES` names it `sharp-2026-11`. A player never sees it:
+`AIProfile::named`, which the lobby, the gateway and the client ask, knows
+only the levels of `NAMED`. The tools that measure take both lists through
+`AIProfile::lookup` and `resolve`: `eval4 --against`/`--baseline`, `arena`,
+`league` (`house:sharp-2026-11`), `selfplay --profiles`, the collector's
+`house:<level>`, `ai_match` and `baylee-seat --level`. Today it plays exactly
+as `sharp`; a run that is to stay comparable after the house moves names it.
+
+The constants are half of a profile; the other half is the code they drive,
+and `crates/baylee-gamehost/tests/reference_profile.rs` pins that. Six
+tables (the scoreboard's duels on the house decks, and one two-against-two
+table, whose answers read teams) are played from the start with the
+reference in every chair, seated as the benchmark seats it: `Session::new`,
+`describe`, fair scouting, the house answering through `pump`. Every answer
+is in `tests/reference/sharp-2026-11.json` with the public table after it
+(the record's `seen`, the same on every build), and the fixture's FNV-1a
+answer hash is over all of them. The test reports the first difference as
+one of two things: the reference answered differently with the same table
+before it, or the same answer led to a different table (the engine moved).
+
+So a change that means to make the house play better goes behind a profile
+field the reference does not set, and the test stays green. Only a change
+that has to move the reference, such as an engine or card fix that changes
+these games, re-records it, in a commit of its own that says why:
+`BAYLEE_REFERENCE_RERECORD=1 cargo nextest run -p baylee-gamehost --test
+integration reference_profile`. A frozen runtime (`--builds`) stays the way
+to compare numbers across builds; the fixture is what keeps the reference
+from drifting by accident between them.
 
 ## Evidence
 

@@ -265,11 +265,12 @@ pub fn house_level(entry: &str) -> Option<&str> {
 
 /// The [`Chain`] of the house at `level`: the mind `baylee-seat join --mind
 /// house --level <level>` declares (`declare::house`), and no fallback.
-/// Refused for a level the house does not play (`AIProfile::NAMED`).
+/// Refused for a level the house does not play (`AIProfile::NAMED`, or a
+/// frozen reference of `AIProfile::REFERENCES`).
 fn house_chain(level: &str) -> anyhow::Result<Chain> {
     let levels = baylee_core::preset::AIProfile::NAMED.map(|(name, _)| name);
     ensure!(
-        levels.contains(&level),
+        baylee_core::preset::AIProfile::lookup(level).is_some(),
         "No house level called {level}: the house plays {}",
         levels.join(", ")
     );

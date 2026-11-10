@@ -521,13 +521,7 @@ fn main() -> anyhow::Result<()> {
     let profiles: Vec<(&'static str, AIProfile)> = args
         .profiles
         .iter()
-        .map(|key| {
-            AIProfile::NAMED
-                .iter()
-                .find(|(name, _)| name == key)
-                .copied()
-                .with_context(|| format!("unknown profile {key}"))
-        })
+        .map(|key| AIProfile::lookup(key).with_context(|| format!("unknown profile {key}")))
         .collect::<anyhow::Result<_>>()?;
     let pairs: Vec<(usize, usize)> = (0..decks.len())
         .flat_map(|a| (0..decks.len()).map(move |b| (a, b)))
