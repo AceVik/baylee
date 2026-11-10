@@ -2649,6 +2649,32 @@ the same answers to the same snapshot hashes and differ in the two capture
 fields alone, and four in five of the forks taken in them were refused
 before.
 
+**The activator** (`activation_target_choice`: who is activating, for a
+target question another seat may answer, and the seats it named) is held
+the same way, and its release does move hashes, because it is in
+`Engine::snapshot_hash`. `start_activation` used to name it before three
+returns that are no activation — turning a permanent face up (CR 116.2b) and
+unlocking a door (CR 116.2m), special actions taken through the activation
+door, and a prepared cast — and a loyalty activation, which finishes in
+`finish_loyalty_activation`, pushed its ability and kept it. Each left the
+activator standing with nothing in flight until the next activation was
+pressed, and every position in between hashed it in and was refused as
+`Continuation("activation_target_choice")`. Since 10 November 2026 it is
+named after those returns and released where a loyalty ability is pushed,
+as every other activation releases it. Nothing reads it but its own target
+question, the hash, the fork and the prints, so play is unchanged; the
+hashes of exactly those positions move. A record written before this
+carries the old hash at every input after a loyalty ability, a face-up, a
+door unlock or a prepared cast, up to the next activation pressed (or the
+next granted mana ability), and no other. `record::replay_exact` (and so
+`convert4`'s audit) rejects such a record on a later build: its opening
+hash matches, so the check does not fall back to `seen`. `record::replay`
+on a later build accepts it through `seen`, as it does every hash a change
+moves. `engine/activation_choice_tests.rs` plays the change in lockstep
+against the engine as it was, on a deck built to reach every path and on
+the house decks: the same answers, the same hashes everywhere but at those
+positions, and there the activator is the whole difference.
+
 The twin-game test compares the two forks with `Engine::fingerprint` (every
 field) and their whole journals, so a new field or note that carries a real
 hidden card into a fork fails it as soon as the fixture exercises it — that

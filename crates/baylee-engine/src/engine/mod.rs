@@ -520,6 +520,13 @@ pub struct Engine<L: CardLookup> {
     /// taken where the ability reaches the stack, so an activation refused
     /// in between cannot hand it to the next one.
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    /// Who is activating, for a target question another seat may answer,
+    /// and the seats that question named. Named as an activation starts,
+    /// after the special actions and the prepared cast `start_activation`
+    /// also carries (none of them an activation), and let go of where the
+    /// ability reaches the stack, the loyalty path's included, or the
+    /// activation is reversed. It is in the snapshot hash, so an activator
+    /// left standing moved every hash after it.
     activation_target_choice: targeting::ActivationTargetChoice,
     /// Incarnations fixed at target announcement, before cost payment.
     activation_target_references: crate::sources::TargetReferences,
@@ -2089,6 +2096,8 @@ mod invariants;
 
 #[cfg(test)]
 mod activation_capture_tests;
+#[cfg(test)]
+mod activation_choice_tests;
 #[cfg(test)]
 mod activation_flow_tests;
 #[cfg(test)]

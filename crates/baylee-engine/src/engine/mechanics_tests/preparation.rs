@@ -347,3 +347,42 @@ fn a_token_copy_has_prepare_characteristics_independent_of_its_body() {
     assert_eq!(object.base.power, None);
     assert_eq!(engine.state().names.get(object.base.name), "Lesson");
 }
+
+/// A prepared cast taken through the activation door is a cast, not an
+/// activation, and names no activator (`activation_target_choice`): not
+/// once it is cancelled, and not once it is on the stack. It used to name
+/// one on its way through `start_activation` and keep it, which the
+/// snapshot hash read and the fork refused as an activation in progress
+/// (`activation_choice_tests`).
+#[test]
+fn a_prepared_cast_names_no_activator() {
+    let (mut engine, scholar) = table();
+    floating(&mut engine);
+    let prepared_cast = PlayerAction::ActivateAbility {
+        source: scholar,
+        ability_index: crate::choice::PREPARED_CAST,
+    };
+    let names_none = |engine: &Bench| {
+        let choice = &engine.activation_target_choice;
+        choice.controller.is_none() && choice.opponent.is_none() && choice.second_players.is_empty()
+    };
+    engine.apply(me(), prepared_cast.clone()).unwrap();
+    assert!(names_none(&engine), "announcing");
+    engine.apply(me(), PlayerAction::CancelCast).unwrap();
+    assert!(names_none(&engine), "cancelled");
+    engine.apply(me(), prepared_cast).unwrap();
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![scholar],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    assert!(
+        !engine.state().zones.list(ZoneLocation::Stack).is_empty(),
+        "the prepared spell is on the stack"
+    );
+    assert!(names_none(&engine), "cast");
+}
