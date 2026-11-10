@@ -203,6 +203,11 @@ path = "src/bin/deck_catalog4.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "seated_decks4"
+path = "src/bin/seated_decks4.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "bughunt_decks"
 path = "src/bin/bughunt_decks.rs"
 required-features = ["play"]
