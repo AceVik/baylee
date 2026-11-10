@@ -1330,8 +1330,33 @@ impl<L: CardLookup> Engine<L> {
 
     /// Determinism hash (state + suspended resolution + machine fields).
     #[must_use]
-    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
     pub fn snapshot_hash(&self) -> u64 {
+        self.snapshot_hash_naming(&self.activation_target_choice)
+    }
+
+    /// The hash a build from before the activator boundary (commit
+    /// eb40dc593) wrote for this position, had it still named `seat` as
+    /// the activator, which it did after `seat`'s loyalty ability, a
+    /// permanent `seat` turned face up, a door `seat` unlocked or a cast
+    /// `seat` prepared, until the next activation was pressed
+    /// (`docs/engine-internals.md` §"Forking a simulation").
+    ///
+    /// For a replay audit to tell a record written before that boundary,
+    /// whose hashes differ from this build's by that field alone, from a
+    /// record that diverges. Nothing in a game reads it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn snapshot_hash_naming_stale_activator(&self, seat: PlayerId) -> u64 {
+        self.snapshot_hash_naming(&targeting::ActivationTargetChoice {
+            controller: Some(seat),
+            ..self.activation_target_choice.clone()
+        })
+    }
+
+    /// [`Self::snapshot_hash`], with `target_choice` folded in where the
+    /// engine's own activator goes.
+    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
+    fn snapshot_hash_naming(&self, target_choice: &targeting::ActivationTargetChoice) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
         if let Some(PlanKind::ChooseTwoBasicLandTypes { object, first }) =
@@ -1453,7 +1478,7 @@ impl<L: CardLookup> Engine<L> {
         extra = extra
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&(
-                &self.activation_target_choice,
+                target_choice,
                 &self.activation_payment,
                 &self.activation_mode,
             )));

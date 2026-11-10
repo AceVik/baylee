@@ -2659,21 +2659,40 @@ door, and a prepared cast — and a loyalty activation, which finishes in
 `finish_loyalty_activation`, pushed its ability and kept it. Each left the
 activator standing with nothing in flight until the next activation was
 pressed, and every position in between hashed it in and was refused as
-`Continuation("activation_target_choice")`. Since 10 November 2026 it is
-named after those returns and released where a loyalty ability is pushed,
-as every other activation releases it. Nothing reads it but its own target
-question, the hash, the fork and the prints, so play is unchanged; the
-hashes of exactly those positions move. A record written before this
-carries the old hash at every input after a loyalty ability, a face-up, a
-door unlock or a prepared cast, up to the next activation pressed (or the
-next granted mana ability), and no other. `record::replay_exact` (and so
-`convert4`'s audit) rejects such a record on a later build: its opening
-hash matches, so the check does not fall back to `seen`. `record::replay`
-on a later build accepts it through `seen`, as it does every hash a change
-moves. `engine/activation_choice_tests.rs` plays the change in lockstep
-against the engine as it was, on a deck built to reach every path and on
-the house decks: the same answers, the same hashes everywhere but at those
-positions, and there the activator is the whole difference.
+`Continuation("activation_target_choice")`. From commit eb40dc593 (the
+**activator boundary**) it is named after those returns and released where
+a loyalty ability is pushed, as every other activation releases it. Nothing
+reads it but its own target question, the hash, the fork and the prints, so
+play is unchanged; the hashes of exactly those positions move.
+`engine/activation_choice_tests.rs` plays the change in lockstep against the
+engine as it was, on a deck built to reach every path and on the house
+decks: the same answers, the same hashes everywhere but at those positions,
+and there the activator is the whole difference, and the hash the old engine
+wrote is `Engine::snapshot_hash_naming_stale_activator` of the new one.
+
+A record written before the boundary carries the old hash at every input
+after a loyalty ability, a face-up, a door unlock or a prepared cast (during
+the cast too), up to the next activation pressed (or the next granted mana
+ability), and no other. **Convert records written before eb40dc593 with the
+runtime that wrote them.** A later `convert4` holds to that: its exact audit
+(`record::replay_exact`) diverges at those inputs, and where every
+divergence is that activator (`convert4::activator_boundary::refusal`) the
+game is refused by name — the build that wrote it, the build converting
+it, the boundary and the rule — and the run stops after
+`rejected-games.json` lists every such game; it never leaves the game out
+as an ordinary divergence, and `--llm-bc-skip-unreplayable` does not take
+it. The header's build string (`version+build.N (commit)`) names a commit
+but not where it stands to the boundary, so the hashes decide. Only a record
+that opens with the converting build's hash meets this refusal; one that
+opens otherwise is another build's to `convert4` already (checked by `seen`
+in an LLM-BC conversion, an opening divergence in every other).
+`record::replay` on a later build accepts such a record through `seen`, as it
+does every hash a change moves. Datasets already converted stay valid as
+converted. `boundary_scan4 --root <dir> | --run <run> | --dataset
+<meta.json> --out <jsonl>` (`baylee-train`) lists, per run, the games that
+cross the boundary (read from their actions alone), the games that open with
+its own build's hash, and the games a `convert4` of that build refuses
+(both).
 
 The twin-game test compares the two forks with `Engine::fingerprint` (every
 field) and their whole journals, so a new field or note that carries a real

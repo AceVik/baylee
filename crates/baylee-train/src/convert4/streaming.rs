@@ -185,6 +185,10 @@ pub(super) fn terminal_targets(
     // training labels. Future information never reaches encode_state4.
     // A record from another build fails at its opening hash; only callers
     // whose labels carry no behaviour probabilities may check it by `seen`.
+    // One from before the activator boundary opens with this build's hash
+    // and departs from it only where that build still named an activator:
+    // it is refused by name, so that it is converted where it was written
+    // and never left out as an ordinary divergence.
     let (engine, check) = match baylee_gamehost::record::replay_exact(record) {
         Ok(checked) if checked.ended => (checked.engine, ReplayCheck::Exact),
         Ok(_) => return Err("record has no verified terminal state".into()),
@@ -192,6 +196,10 @@ pub(super) fn terminal_targets(
             replay_seen_across_builds(record)?,
             ReplayCheck::SeenAcrossBuilds,
         ),
+        Err(e @ baylee_gamehost::record::ReplayError::Diverged { n: Some(_), .. }) => {
+            return Err(super::activator_boundary::refusal(record)
+                .unwrap_or_else(|| format!("replay audit: {e:?}")));
+        }
         Err(e) => return Err(format!("replay audit: {e:?}")),
     };
     let Some(header) = record.split(|&b| b == b'\n').find(|l| !l.is_empty()) else {

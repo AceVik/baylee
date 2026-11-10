@@ -2,6 +2,7 @@ use super::*;
 use crate::housedeck::HouseDeck;
 use crate::selfplay::{Caps, play_with_options, table};
 use baylee_core::preset::AIProfile;
+use baylee_engine::choice::PlayerAction;
 use std::time::Duration;
 
 /// Streams a house self-play record, which shares no hand, at `encoder`.
@@ -446,4 +447,178 @@ fn records_from_another_build_convert_only_by_their_public_table_and_only_when_a
     let tampered = as_another_build(&played.record, Some(12));
     let error = terminal_targets(&tampered, true).unwrap_err();
     assert!(error.contains("after input 12"), "{error}");
+}
+
+/// A record as a build from before the activator boundary
+/// ([`ACTIVATOR_BOUNDARY`]) wrote it: that build still named `activator`
+/// after its loyalty ability, so every hash from input `from` on is the one
+/// naming it, the engine's own reading of what the old build wrote
+/// (`activation_choice_tests` holds the two equal in lockstep), and the
+/// header names that build.
+fn as_written_before_the_boundary(record: &[u8], from: u64, activator: PlayerId) -> Vec<u8> {
+    let mut engine = None;
+    let mut out = Vec::new();
+    for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let mut value: serde_json::Value = serde_json::from_slice(line).unwrap();
+        match serde_json::from_slice::<Line>(line).unwrap() {
+            Line::Header { preset, .. } => {
+                engine = Some(
+                    baylee_engine::engine::Engine::new(&preset, baylee_gamehost::RegistryLookup)
+                        .unwrap(),
+                );
+                value["build"] = "0.1.0-beta.9c+build.0 (1259551af4)".into();
+            }
+            Line::Input {
+                n, seat, action, ..
+            } => {
+                let engine = engine.as_mut().unwrap();
+                engine.apply(PlayerId::new(seat), action).unwrap();
+                if n >= from {
+                    value["hash"] = format!(
+                        "{:016x}",
+                        engine.snapshot_hash_naming_stale_activator(activator)
+                    )
+                    .into();
+                }
+            }
+            _ => {}
+        }
+        out.extend(serde_json::to_vec(&value).unwrap());
+        out.push(b'\n');
+    }
+    out
+}
+
+/// A recorded game on this build in which seat 0 activates The Theorist,
+/// Jace Beleren's +1 and seat 1 then concedes: the record, and the input
+/// that activated the ability.
+fn jace_game() -> (Vec<u8>, u64) {
+    const OWNER: PlayerId = PlayerId::new(0);
+    const OTHER: PlayerId = PlayerId::new(1);
+    let card = |name: &str| baylee_core::preset::DeckEntry {
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: baylee_core::ids::PrintRef::new(0),
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+    };
+    let deck = HouseDeck::named("victory").unwrap();
+    let mut preset = crate::selfplay::table_for(12, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
+    preset.format = baylee_core::preset::FormatId::Freeform;
+    preset.modifiers.clear();
+    for seat in &mut preset.seats {
+        seat.deck = vec![card("Forest"); 32];
+        seat.commanders.clear();
+        seat.sideboard.clear();
+        seat.starting_life = Some(20);
+        seat.starting_hand = Some(vec![]);
+        seat.starting_battlefield = vec![];
+    }
+    preset.seats[0].starting_battlefield = vec![card("The Theorist, Jace Beleren")];
+    let mut session = baylee_gamehost::Session::new_recorded(&preset, "this build").unwrap();
+    session.take_over(OWNER);
+    session.take_over(OTHER);
+    let mut answers = 0_u64;
+    let mut act = |session: &mut baylee_gamehost::Session, action: PlayerAction| {
+        let seat = session.pending().asked().unwrap();
+        session.act(seat, action).unwrap();
+        answers += 1;
+        answers - 1
+    };
+    while !(session.observe_view(OWNER).phase == baylee_view::Phase::FirstMain
+        && matches!(session.pending(), Pending::Priority { player, .. } if *player == OWNER))
+    {
+        let action = match session.pending() {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("{other:?}"),
+        };
+        act(&mut session, action);
+    }
+    let jace = session
+        .observe_view(OWNER)
+        .battlefield
+        .iter()
+        .find(|o| o.name == "The Theorist, Jace Beleren")
+        .unwrap()
+        .id;
+    let from = act(
+        &mut session,
+        PlayerAction::ActivateAbility {
+            source: jace,
+            ability_index: 1,
+        },
+    );
+    while !session.state().zones.stack_is_empty() {
+        act(&mut session, PlayerAction::PassPriority);
+    }
+    session.act(OTHER, PlayerAction::Concede).unwrap();
+    (session.take_record(), from)
+}
+
+/// A game with a loyalty ability, written before the activator boundary
+/// and converted after it, is refused by name: the build that wrote it, the
+/// build converting it, the boundary and the rule, never an ordinary
+/// divergence and never a game quietly left out. Both ways the audit runs,
+/// exactly and by the public table, since its opening hash is this build's.
+/// A hash that is neither this build's nor the old one's is a divergence as
+/// before.
+#[test]
+fn a_record_from_before_the_activator_boundary_is_refused_by_name() {
+    const OWNER: PlayerId = PlayerId::new(0);
+    let (record, from) = jace_game();
+    let (_, check) = terminal_targets(&record, false).unwrap();
+    assert_eq!(check, ReplayCheck::Exact, "this build's own record");
+    // The scan reads the loyalty ability off the actions alone, and finds
+    // nothing in the same record without it.
+    let crossing = super::activator_boundary::crossings(&record).unwrap();
+    assert_eq!(
+        crossing,
+        super::activator_boundary::Crossings {
+            loyalty: 1,
+            ..Default::default()
+        }
+    );
+    let without: Vec<u8> = record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .filter(|l| !String::from_utf8_lossy(l).contains("\"ActivateAbility\""))
+        .flat_map(|l| l.iter().copied().chain(*b"\n"))
+        .collect();
+    assert!(
+        !super::activator_boundary::crossings(&without)
+            .unwrap()
+            .any()
+    );
+
+    let old = as_written_before_the_boundary(&record, from, OWNER);
+    // It opens with this build's hash, which is why the exact audit plays on
+    // into it rather than refusing it at the header as another build's.
+    assert!(super::activator_boundary::opens_as_this_build(&old));
+    assert!(!super::activator_boundary::opens_as_this_build(
+        &as_another_build(&old, None)
+    ));
+    for across_builds in [false, true] {
+        let error = terminal_targets(&old, across_builds).unwrap_err();
+        assert!(error.starts_with(BOUNDARY_REFUSAL), "{error}");
+        for named in [
+            "1259551af4",
+            baylee_gamehost::record::this_build(),
+            BOUNDARY_RULE,
+            &format!("from input {from}"),
+        ] {
+            assert!(error.contains(named), "{named} in: {error}");
+        }
+    }
+
+    let mut tampered = Vec::new();
+    for line in old.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let mut value: serde_json::Value = serde_json::from_slice(line).unwrap();
+        if value["kind"] == "input" && value["n"].as_u64() == Some(from + 1) {
+            value["hash"] = "0123456789abcdef".into();
+        }
+        tampered.extend(serde_json::to_vec(&value).unwrap());
+        tampered.push(b'\n');
+    }
+    let error = terminal_targets(&tampered, false).unwrap_err();
+    assert!(error.starts_with("replay audit: Diverged"), "{error}");
 }

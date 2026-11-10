@@ -220,3 +220,8 @@ required-features = ["play"]
 name = "npu_mux4"
 path = "src/bin/npu_mux4.rs"
 required-features = ["onnx"]
+
+[[bin]]
+name = "boundary_scan4"
+path = "src/bin/boundary_scan4.rs"
+required-features = ["play"]

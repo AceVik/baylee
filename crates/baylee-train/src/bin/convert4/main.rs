@@ -155,6 +155,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
+mod boundary;
 mod llm;
 mod on_policy;
 mod output;
@@ -660,6 +661,7 @@ fn main() -> anyhow::Result<()> {
         args.out.join("rejected-games.json"),
         serde_json::to_vec_pretty(&*rejected)?,
     )?;
+    boundary::refuse_records_before_it(&rejected)?;
 
     if is_on_policy {
         anyhow::ensure!(

@@ -272,6 +272,70 @@ fn kind(engine: &Engine<RegistryLookup>, action: &PlayerAction) -> &'static str 
     }
 }
 
+/// A position where the engine as it was (`then`) holds an activator the
+/// engine as it is (`now`) does not: nothing is in flight, the field is the
+/// whole difference in the print and in the hash, and the hash the engine
+/// as it was wrote is the one a replay audit asks for
+/// (`snapshot_hash_naming_stale_activator`). Whether the engine as it is
+/// forks here where the engine as it was refused.
+fn moved(
+    now: &mut Engine<RegistryLookup>,
+    then: &Engine<RegistryLookup>,
+    differing: &[&str],
+    at: &str,
+    seed: u64,
+) -> bool {
+    let (old, new) = (
+        &then.activation_target_choice,
+        &now.activation_target_choice,
+    );
+    assert!(
+        old.controller.is_some()
+            && new.controller.is_none()
+            && old.opponent == new.opponent
+            && old.second_players == new.second_players,
+        "{at}: {old:?} before, {new:?} now"
+    );
+    assert!(
+        now.pending_plan.is_none() && now.activation_payment.is_none(),
+        "{at}: the activator differs with an activation in flight"
+    );
+    // The light print shows the field beside the second targets, which the
+    // caller found equal.
+    assert_eq!(differing, ["activation_second_targets"], "{at}");
+    assert_ne!(now.snapshot_hash(), then.snapshot_hash(), "{at}");
+    let kept = std::mem::replace(
+        &mut now.activation_target_choice,
+        then.activation_target_choice.clone(),
+    );
+    assert_eq!(
+        now.snapshot_hash(),
+        then.snapshot_hash(),
+        "{at}: the activator is the whole difference"
+    );
+    now.activation_target_choice = kept;
+    let seat = then.activation_target_choice.controller.expect("checked");
+    assert_eq!(
+        now.snapshot_hash_naming_stale_activator(seat),
+        then.snapshot_hash(),
+        "{at}"
+    );
+    let Some(asked) = now.pending().asked() else {
+        return false;
+    };
+    if !matches!(now.pending(), Pending::Priority { .. })
+        || now.fork_for(asked, DeckKnowledge::Known, seed).is_err()
+    {
+        return false;
+    }
+    assert_eq!(
+        then.fork_for(asked, DeckKnowledge::Known, seed).err(),
+        Some(STALE),
+        "{at}"
+    );
+    true
+}
+
 /// Deck `a` against deck `b` at `seed`, each seat's battlefield set by
 /// `board`, played twice in lockstep to its end or `cap` decisions, as the
 /// engine is and as it was, with the refusal sweep's seeded answers. Every
@@ -316,46 +380,7 @@ fn lockstep(
             );
         } else {
             reached.moved += 1;
-            let (old, new) = (
-                &then.activation_target_choice,
-                &now.activation_target_choice,
-            );
-            assert!(
-                old.controller.is_some()
-                    && new.controller.is_none()
-                    && old.opponent == new.opponent
-                    && old.second_players == new.second_players,
-                "{at}: {old:?} before, {new:?} now"
-            );
-            assert!(
-                now.pending_plan.is_none() && now.activation_payment.is_none(),
-                "{at}: the activator differs with an activation in flight"
-            );
-            // The light print shows the field beside the second targets,
-            // which are equal (above).
-            assert_eq!(differing, vec!["activation_second_targets"], "{at}");
-            assert_ne!(now.snapshot_hash(), then.snapshot_hash(), "{at}");
-            let kept = std::mem::replace(
-                &mut now.activation_target_choice,
-                then.activation_target_choice.clone(),
-            );
-            assert_eq!(
-                now.snapshot_hash(),
-                then.snapshot_hash(),
-                "{at}: the activator is the whole difference"
-            );
-            now.activation_target_choice = kept;
-            if let Some(asked) = now.pending().asked()
-                && matches!(now.pending(), Pending::Priority { .. })
-                && now.fork_for(asked, DeckKnowledge::Known, seed).is_ok()
-            {
-                assert_eq!(
-                    then.fork_for(asked, DeckKnowledge::Known, seed).err(),
-                    Some(STALE),
-                    "{at}"
-                );
-                reached.forks_gained += 1;
-            }
+            reached.forks_gained += usize::from(moved(&mut now, &then, &differing, &at, seed));
         }
         let pending = now.pending().clone();
         let Some(asked) = pending.asked() else {
