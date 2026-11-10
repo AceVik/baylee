@@ -1,8 +1,12 @@
+use super::games::game_rows;
 use super::{case_key, flag, number, read_json, summarize};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 /// Bind a completed evaluation to its recorded executable and frozen inputs.
 ///
@@ -108,8 +112,8 @@ pub fn compare(
         ("both_win", 0),
     ]);
     let mut pairs = Vec::new();
-    for (key, a) in left {
-        let b = right[&key];
+    for (key, a) in &left {
+        let b = &right[key];
         ensure!(
             a["base_utility"] == b["base_utility"] && a["base_capped"] == b["base_capped"],
             "Repeated house baseline differs on an identical deal"
@@ -249,21 +253,36 @@ fn report(
         "selection":"No automatic promotion; repeated selection on this suite needs an untouched final seed/deck holdout."}),
     )
 }
-type CaseKey = (u64, u64, Vec<String>, u64);
-fn index(value: &Value) -> Result<BTreeMap<CaseKey, &Value>> {
-    let mut result = BTreeMap::new();
-    for row in value["deal_details"]
+/// A game: table, seed, decks and the key `games::game_rows` gives it.
+type CaseKey = (u64, u64, Vec<String>, String);
+/// An evaluation's games, every declared deal present: a case is a game, the
+/// rows of one team game made one, never a row.
+fn index(value: &Value) -> Result<BTreeMap<CaseKey, Value>> {
+    let rows = value["deal_details"]
         .as_array()
-        .context("missing deal_details")?
-    {
+        .context("missing deal_details")?;
+    let mut seen = BTreeSet::new();
+    for row in rows {
         ensure!(
-            result.insert(case_key(row, true)?, row).is_none(),
+            seen.insert(case_key(row, true)?),
             "Duplicate table/seed/decks/focal-seat case"
         );
     }
     ensure!(
-        Some(result.len() as u64) == value["deals"].as_u64(),
+        Some(rows.len() as u64) == value["deals"].as_u64(),
         "Evaluation is missing declared deals"
     );
+    let mut result = BTreeMap::new();
+    for game in game_rows(value)? {
+        let (table, seed, decks, _) = case_key(&game, false)?;
+        let name = game["game"]
+            .as_str()
+            .context("a game without its key")?
+            .to_owned();
+        ensure!(
+            result.insert((table, seed, decks, name), game).is_none(),
+            "Duplicate table/seed/decks/side game"
+        );
+    }
     Ok(result)
 }

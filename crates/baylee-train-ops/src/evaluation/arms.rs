@@ -8,12 +8,14 @@
 //! difference carries the noise of its games, and more seeds only shrink it.
 // Counts are bounded by resident JSON input sizes, well below f64's exact 2^53 range.
 #![allow(clippy::cast_precision_loss)]
+use super::games::{game_counts, game_rows};
 use super::{case_key, flag, number, summarize};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-type Key = (u64, u64, Vec<String>, u64);
+/// A game: table, seed, decks and the key [`game_rows`] gives it.
+type Key = (u64, u64, Vec<String>, String);
 
 /// The keys of the protocol that must match, whatever the arm changes.
 const SAME: [&str; 8] = [
@@ -27,18 +29,26 @@ const SAME: [&str; 8] = [
     "evaluator_revision",
 ];
 
-fn deals(value: &Value) -> Result<BTreeMap<Key, &Value>> {
-    let mut rows = BTreeMap::new();
-    for row in value["deal_details"]
-        .as_array()
-        .context("missing deal_details")?
-    {
+/// A run's games, the rows of one team game made one: an arm is compared game
+/// by game, never row by row.
+fn deals(value: &Value) -> Result<BTreeMap<Key, Value>> {
+    let mut games = BTreeMap::new();
+    for game in game_rows(value)? {
+        let (table, seed, decks, _) = case_key(&game, false)?;
+        let name = game["game"].as_str().context("a game without its key")?;
         ensure!(
-            rows.insert(case_key(row, true)?, row).is_none(),
-            "Duplicate table/seed/decks/focal-seat case"
+            games
+                .insert((table, seed, decks, name.to_owned()), game.clone())
+                .is_none(),
+            "Duplicate table/seed/decks/side game"
         );
     }
-    Ok(rows)
+    Ok(games)
+}
+
+/// How many rows a run holds: a deal per focal seat.
+fn rows(value: &Value) -> usize {
+    value["deal_details"].as_array().map_or(0, Vec::len)
 }
 
 /// `candidates` against `reference`. The reference may hold more deals than
@@ -128,13 +138,13 @@ fn compare(
     let mut rows = Vec::with_capacity(first.len());
     let seeds = runs.len() as f64;
     for (key, row) in &first {
-        let reference_row = baseline[key];
+        let reference_row = &baseline[key];
         let reference_score = number(reference_row, "net_utility")?;
         let mut score = 0.0;
         let mut capped = false;
         for run in &runs {
-            score += number(run[key], "net_utility")?;
-            capped |= flag(run[key], "net_capped")?;
+            score += number(&run[key], "net_utility")?;
+            capped |= flag(&run[key], "net_capped")?;
         }
         score /= seeds;
         arm_wins += score;
@@ -148,16 +158,22 @@ fn compare(
         }
         rows.push(
             json!({"table": row["table"], "seed": row["seed"], "decks": row["decks"],
-            "net_utility": score, "base_utility": reference_score,
+            "game": key.3, "net_utility": score, "base_utility": reference_score,
             "net_capped": capped, "base_capped": flag(reference_row, "net_capped")?}),
         );
     }
     let per_seed: Vec<Value> = candidates
         .iter()
-        .map(|run| json!({"policy_seed": run["policy_seed"], "net_wins": run["net_wins"]}))
-        .collect();
+        .map(|run| {
+            Ok(json!({"policy_seed": run["policy_seed"],
+                "game_wins": game_counts(run)?["game_wins"]}))
+        })
+        .collect::<Result<_>>()?;
+    // `games` are what is compared; `deal_rows` what eval4 wrote, a row per
+    // focal seat, which a team game has one of per seat of the net's team.
     Ok(json!({
-        "deals": first.len(),
+        "games": first.len(),
+        "deal_rows": self::rows(&candidates[0]),
         "seeds": candidates.len(),
         "arm_wins_mean": arm_wins,
         "reference_wins": reference_wins,
@@ -192,7 +208,7 @@ pub fn pool_arms(reports: &[Value], resamples: usize) -> Result<Value> {
         );
     }
     Ok(json!({
-        "deals": rows.len(), "seeds": reports[0]["seeds"],
+        "games": rows.len(), "deal_rows": total("deal_rows"), "seeds": reports[0]["seeds"],
         "arm_wins_mean": total("arm_wins_mean"), "reference_wins": total("reference_wins"),
         "better": total("better"), "equal": total("equal"), "worse": total("worse"),
         "paired": summarize(&json!({"deal_details": rows}), resamples)?,
@@ -217,7 +233,7 @@ mod tests {
         let one = compare_arm(&[run(2, &[1.0, 1.0, 0.0, 1.0])], &reference, 100).unwrap();
         let two = compare_arm(&[other_arm], &other_reference, 100).unwrap();
         let pooled = pool_arms(&[one, two], 100).unwrap();
-        assert_eq!(pooled["deals"], 8);
+        assert_eq!(pooled["games"], 8);
         assert_eq!(pooled["better"], 3.0);
         assert_eq!(pooled["paired"]["paired_utility_difference"], 0.375);
     }
@@ -277,7 +293,44 @@ mod tests {
         let reference = run(1, &[0.0, 1.0, 0.0, 1.0]);
         let arm = run(2, &[1.0, 1.0]);
         let report = compare_arm(&[arm], &reference, 10).unwrap();
-        assert_eq!(report["deals"], 2);
+        assert_eq!(report["games"], 2);
         assert_eq!(report["reference_wins"], 1.0);
+    }
+
+    #[test]
+    fn a_team_game_is_compared_once() {
+        // One 2v2 table: the net as seats 0 and 2, and as seats 1 and 3, each
+        // side written once per seat of its team.
+        let team = |seed: u64, scores: &[f64]| {
+            let mut value = run(seed, scores);
+            value["seats"] = json!(4);
+            value["teams"] = json!([1, 2, 1, 2]);
+            for (seat, row) in value["deal_details"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .enumerate()
+            {
+                row["table"] = json!(0);
+                row["seed"] = json!(7);
+                row["focal_seat"] = json!(seat);
+                row["decks"] = json!(["a", "b", "c", "d"]);
+            }
+            value
+        };
+        let reference = team(1, &[0.0, 1.0, 0.0, 1.0]);
+        let report = compare_arm(&[team(2, &[1.0; 4])], &reference, 10).unwrap();
+        assert_eq!(
+            [
+                &report["games"],
+                &report["deal_rows"],
+                &report["better"],
+                &report["equal"]
+            ],
+            [&json!(2), &json!(4), &json!(1), &json!(1)]
+        );
+        assert_eq!(report["arm_wins_mean"], 2.0);
+        assert_eq!(report["reference_wins"], 1.0);
+        assert_eq!(report["per_seed"][0]["game_wins"], 2);
     }
 }
