@@ -1035,3 +1035,18 @@ fn a_step_without_exploration_records_as_before() {
         step
     );
 }
+
+/// An Encoder 10 learner's collection binds as Encoder 7's does: same widths.
+#[test]
+fn an_encoder10_producer_binds_at_encoder7_widths() {
+    let mut run = serde_json::json!({"model_identity":{"encoder_version":10,"model_version":5,
+        "architecture":"baylee_ai_v5_relational_v2","global_feat_width":null}});
+    assert!(ProducerEncoder::from_run(&run).is_ok());
+    run["model_identity"]["global_feat_width"] = serde_json::json!(80);
+    assert!(ProducerEncoder::from_run(&run).is_ok());
+    run["model_identity"]["global_feat_width"] = serde_json::json!(82);
+    assert!(ProducerEncoder::from_run(&run).is_err());
+    run["model_identity"]["global_feat_width"] = serde_json::json!(80);
+    run["model_identity"]["architecture"] = serde_json::json!("baylee_ai_v5_relational_v1");
+    assert!(ProducerEncoder::from_run(&run).is_err());
+}
