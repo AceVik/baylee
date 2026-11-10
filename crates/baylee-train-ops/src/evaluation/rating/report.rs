@@ -1,7 +1,7 @@
 //! A rating's table as JSON, and as markdown read back from that JSON.
 use super::fit::{Pair, Place, expected};
 use super::games::Match;
-use super::{Options, Roster, bootstrap};
+use super::{Footing, Options, Roster, bootstrap};
 use serde_json::{Value, json};
 use std::fmt::Write as _;
 
@@ -16,10 +16,10 @@ pub(super) struct Table<'a> {
     /// Every pair's games, unweighted.
     pub observed: &'a [Pair],
     pub fitted: &'a [Place],
-    pub links: &'a [Option<f64>],
+    pub footings: &'a [Footing],
     pub by_deal: &'a [Vec<f64>],
     pub by_deck: Option<&'a [Vec<f64>]>,
-    pub decks: usize,
+    pub decks: &'a bootstrap::DeckDraw,
     pub without_decks: usize,
     pub options: &'a Options,
 }
@@ -59,11 +59,30 @@ fn flags(table: &Table<'_>, player: usize, deal: &Value, deck: &Value) -> Vec<St
         )),
         Place::Unanchored => flags.push(format!("refused: no path of games to {reference}")),
     }
-    if let Some(link) = table.links[player]
-        && link < table.options.thin_link_games
-        && matches!(table.fitted[player], Place::Rated(_))
-    {
-        flags.push(format!("thin: {link} games link it to {reference}"));
+    let footing = &table.footings[player];
+    if matches!(table.fitted[player], Place::Rated(_)) {
+        if !footing.through.is_empty() {
+            let names: Vec<&str> = footing
+                .through
+                .iter()
+                .map(|&other| roster.names[other].as_str())
+                .collect();
+            flags.push(format!(
+                "single link: every path to {reference} runs through {}",
+                names.join(" and ")
+            ));
+        }
+        if let Some(link) = footing.link
+            && link < table.options.thin_link_games
+        {
+            flags.push(format!("thin: {link} games link it to {reference}"));
+        }
+        for (assumption, left) in &footing.leans {
+            let link = footing.link.unwrap_or(0.0);
+            flags.push(format!(
+                "rests on an assumption (link {link} games, {left} without it): {assumption}"
+            ));
+        }
     }
     for (kind, spread) in [("deal", deal), ("deck", deck)] {
         let lost =
@@ -118,11 +137,22 @@ pub(super) fn table(table: &Table<'_>) -> Value {
             Place::Undetermined => "undetermined",
             Place::Unanchored => "refused",
         };
+        let footing = &table.footings[player];
+        let through: Vec<&String> = footing
+            .through
+            .iter()
+            .map(|&other| &roster.names[other])
+            .collect();
+        let leans: Vec<Value> = footing
+            .leans
+            .iter()
+            .map(|(assumption, left)| json!({"assumption": assumption, "link_without": left}))
+            .collect();
         players.push(json!({"player": name, "status": status,
             "rating": rating(table.fitted[player]), "by_deal": deal, "by_deck": deck,
             "games": games, "score": if games > 0.0 { Some(score / games) } else { None },
-            "opponents": opponents, "link_games": table.links[player],
-            "unfair": roster.unfair[player],
+            "opponents": opponents, "link_games": footing.link, "only_through": through,
+            "leans_on": leans, "unfair": roster.unfair[player],
             "flags": flags(table, player, &deal, &deck)}));
     }
     let order = |player: &Value| -> (u8, f64) {
@@ -140,7 +170,8 @@ pub(super) fn table(table: &Table<'_>) -> Value {
         a.0.cmp(&b.0).then(a.1.total_cmp(&b.1))
     });
     json!({"players": players, "pairs": fit_check(table), "inputs": inputs(table.matches),
-        "decks": table.decks, "games_without_decks": table.without_decks})
+        "decks": table.decks.decks, "deck_bootstrap": {"draws": table.decks.kind,
+            "units": table.decks.units}, "games_without_decks": table.without_decks})
 }
 
 /// Every pair's observed score next to the one the fit implies, the higher
@@ -183,12 +214,15 @@ fn inputs(matches: &[Match]) -> Vec<Value> {
             let mut decks: Vec<&String> = found.games.iter().flat_map(|g| &g.decks).collect();
             decks.sort_unstable();
             decks.dedup();
+            // `drawn`: a score between 0 and 1, a draw, a deal stopped at its
+            // cap, or a team game whose seats' replays split.
             json!({"source": found.source, "kind": found.kind, "player": found.player,
-                "opponent": found.opponent, "games": found.games.len(), "deals": found.deals,
-                "score": found.games.iter().map(|g| g.score).sum::<f64>(),
+                "opponent": found.opponent, "games": found.games.len(), "rows": found.rows,
+                "deals": found.deals, "score": found.games.iter().map(|g| g.score).sum::<f64>(),
                 "won": count(|s| s >= 1.0), "lost": count(|s| s <= 0.0),
-                "drawn_or_capped": count(|s| s > 0.0 && s < 1.0), "capped": found.caps,
-                "decks": decks.len(), "input": found.input, "note": found.note})
+                "drawn": count(|s| s > 0.0 && s < 1.0), "capped": found.caps,
+                "decks": decks.len(), "input": found.input, "assumptions": found.assumptions,
+                "first_of": found.chosen, "note": found.note})
         })
         .collect()
 }
@@ -244,12 +278,17 @@ pub fn markdown(report: &Value) -> String {
     let _ = writeln!(
         out,
         "Bradley-Terry on the Elo scale: a player rated d above another scores 1 / (1 + 10^(-d/400)). \
-         A draw, or a deal stopped at its answer cap, counts one half. Anchors held: {}. \
-         95 % intervals from {} resamples (seed {}): **by deal**, each input's deals drawn again \
-         (a deal keeps its seat rotations); **by deck**, the format's decks drawn again, a game \
-         counting once per draw of each of its decks. **link** is the fewest games whose removal \
-         would cut the player off the anchors; under {} it is flagged thin. Unfair players are \
-         rated after the fair ones, against them held.\n",
+         A draw, or a deal stopped at its answer cap, counts one half. In a team format a game is \
+         one table and the side the net controls: the rows of one team's seats replay it, so \
+         they count once. Anchors held: {}. 95 % intervals from {} resamples (seed {}): \
+         **by deal**, each input's deals drawn again (a table keeps its seat rotations); \
+         **by deck**, the format's decks drawn again, a game weighing the product of its two \
+         decks' draws (with more than two decks a game, the tables' deck sets are drawn instead). \
+         **link** is the fewest games whose removal would cut the player off the anchors; under \
+         {} it is flagged thin. **only through** names the players every path to an anchor runs \
+         through: such a rating is no better than that link. A rating that **rests on an \
+         assumption** would keep less than half its link without the inputs that assume it. \
+         Unfair players are rated after the fair ones, against them held.\n",
         anchors.join(", "),
         report["resamples"],
         report["seed"],
@@ -260,49 +299,16 @@ pub fn markdown(report: &Value) -> String {
         players(&mut out, table);
         let _ = writeln!(
             out,
-            "\n{} decks; {} games without decks.\n",
-            table["decks"], table["games_without_decks"]
+            "\n{} decks; the bootstrap by deck draws {} {}; {} games without decks.\n",
+            table["decks"],
+            table["deck_bootstrap"]["units"],
+            text(&table["deck_bootstrap"]["draws"]),
+            table["games_without_decks"]
         );
         pairs(&mut out, table);
         inputs_table(&mut out, table);
     }
     out
-}
-
-/// The ratings, best first, with what each rests on.
-fn players(out: &mut String, table: &Value) {
-    out.push_str(
-        "| player | rating | by deal | by deck | games | link | rests on (games, its score) | flags |\n\
-         | --- | --: | --- | --- | --: | --: | --- | --- |\n",
-    );
-    for player in items(&table["players"]) {
-        let rests: Vec<String> = items(&player["opponents"])
-            .map(|o| {
-                format!(
-                    "{} {} ({})",
-                    text(&o["opponent"]),
-                    whole(&o["games"]),
-                    percent(&o["score"])
-                )
-            })
-            .collect();
-        let rated = match text(&player["status"]) {
-            "rated" | "anchor" => whole(&player["rating"]),
-            other => other.to_owned(),
-        };
-        let flags: Vec<&str> = items(&player["flags"]).filter_map(Value::as_str).collect();
-        let _ = writeln!(
-            out,
-            "| {} | {rated} | {} | {} | {} | {} | {} | {} |",
-            text(&player["player"]),
-            interval(&player["by_deal"]),
-            interval(&player["by_deck"]),
-            whole(&player["games"]),
-            optional(&player["link_games"]),
-            rests.join("; "),
-            flags.join("; ")
-        );
-    }
 }
 
 /// Every pair's observed score against the one the fit implies.
@@ -338,27 +344,101 @@ fn pairs(out: &mut String, table: &Value) {
     }
 }
 
-/// The inputs, and what each says of its own sides.
+/// The ratings, best first, with what each rests on: its opponents, the
+/// players every path to an anchor runs through, and its flags.
+fn players(out: &mut String, table: &Value) {
+    out.push_str(
+        "| player | rating | by deal | by deck | games | link | only through | rests on (games, its score) | flags |\n\
+         | --- | --: | --- | --- | --: | --: | --- | --- | --- |\n",
+    );
+    for player in items(&table["players"]) {
+        let rests: Vec<String> = items(&player["opponents"])
+            .map(|o| {
+                format!(
+                    "{} {} ({})",
+                    text(&o["opponent"]),
+                    whole(&o["games"]),
+                    percent(&o["score"])
+                )
+            })
+            .collect();
+        let rated = match text(&player["status"]) {
+            "rated" | "anchor" => whole(&player["rating"]),
+            other => other.to_owned(),
+        };
+        let through: Vec<&str> = items(&player["only_through"])
+            .filter_map(Value::as_str)
+            .collect();
+        let flags: Vec<String> = items(&player["flags"])
+            .filter_map(Value::as_str)
+            .map(|flag| {
+                // What makes a rating weak is set in bold, so it is read.
+                if flag.starts_with("single link") || flag.starts_with("rests on") {
+                    format!("**{flag}**")
+                } else {
+                    flag.to_owned()
+                }
+            })
+            .collect();
+        let _ = writeln!(
+            out,
+            "| {} | {rated} | {} | {} | {} | {} | {} | {} | {} |",
+            text(&player["player"]),
+            interval(&player["by_deal"]),
+            interval(&player["by_deck"]),
+            whole(&player["games"]),
+            optional(&player["link_games"]),
+            if through.is_empty() {
+                String::new()
+            } else {
+                format!("**{}**", through.join(", "))
+            },
+            rests.join("; "),
+            flags.join("; ")
+        );
+    }
+}
+
+/// The inputs: what each says of its own sides, what it assumes, and which
+/// `first_of` candidate was read.
 fn inputs_table(out: &mut String, table: &Value) {
     out.push_str(
         "\n### Inputs\n\n\
-         | input | player | opponent | games | won-drawn-lost | caps | the input says |\n\
-         | --- | --- | --- | --: | --- | --: | --- |\n",
+         A team game is one table and side: the rows of one team's seats replay it. \
+         Drawn counts draws, capped deals and team games whose replays split.\n\n\
+         | input | player | opponent | games (rows) | won-drawn-lost | caps | the input says | assumes |\n\
+         | --- | --- | --- | --: | --- | --: | --- | --- |\n",
     );
     for input in items(&table["inputs"]) {
+        let mut assumes: Vec<String> = items(&input["assumptions"])
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect();
+        if !input["first_of"].is_null() {
+            assumes.push(format!(
+                "first_of: candidate {} of {}",
+                input["first_of"]["candidate"], input["first_of"]["of"]
+            ));
+        }
+        let rows = if input["rows"] == input["games"] {
+            String::new()
+        } else {
+            format!(" ({})", input["rows"])
+        };
         let _ = writeln!(
             out,
-            "| {} | {} | {} | {} | {}-{}-{} | {} | {} against {} |",
+            "| {} | {} | {} | {}{rows} | {}-{}-{} | {} | {} against {} | {} |",
             text(&input["source"]),
             text(&input["player"]),
             text(&input["opponent"]),
             input["games"],
             input["won"],
-            input["drawn_or_capped"],
+            input["drawn"],
             input["lost"],
             input["capped"],
             text(&input["input"]["player"]),
-            text(&input["input"]["opponent"])
+            text(&input["input"]["opponent"]),
+            assumes.join("; ")
         );
     }
     out.push('\n');

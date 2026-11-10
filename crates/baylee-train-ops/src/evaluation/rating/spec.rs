@@ -11,8 +11,12 @@ use std::path::{Path, PathBuf};
 /// ```json
 /// {"matches": [
 ///    {"file": "q6/eval-r1b-tac-1v1-test.json", "player": "r1+bundle", "opponent": "sharp-2026-11"},
-///    {"ladder": "ladder/ds2a", "player": "r1+bundle", "opponent": "deepseek-low"}],
-///  "anchors": {"random": 0, "sharp-2026-11": 1000},
+///    {"ladder": "ladder/ds2a", "player": "r1+bundle", "opponent": "deepseek-low",
+///     "assumption": "the fp32 export plays as the fp16 one"},
+///    {"first_of": [{"file": "q6/eval-r1b-tac-3v3-test.json"},
+///                  {"file": "m1/eval-r1b-tac-3v3-test.json", "assumption": "df9c7e3ca plays as main"}],
+///     "player": "r1+bundle", "opponent": "sharp-2026-11"}],
+///  "anchors": {"sharp-2026-11": 1000},
 ///  "unfair": ["seer"]}
 /// ```
 #[derive(Debug, Clone, Deserialize)]
@@ -33,14 +37,19 @@ pub struct Spec {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MatchSpec {
-    /// An `eval4` summary (its `--out`): the player is the net's side, every
-    /// game one of its `deal_details`.
+    /// An `eval4` summary (its `--out`): the player is the side the net
+    /// controls, every game one of its deals.
     #[serde(default)]
     pub file: Option<PathBuf>,
     /// A `ladder4` root: the player is the net's chair, the opponent the
     /// profile's; clean games only.
     #[serde(default)]
     pub ladder: Option<PathBuf>,
+    /// `eval4` summaries of the same deals, best first: the first that exists
+    /// is read and the others never, so a run on a newer runtime takes the
+    /// place of an older stand-in without counting a deal twice.
+    #[serde(default)]
+    pub first_of: Option<Vec<Candidate>>,
     /// The name of the side under test.
     pub player: String,
     /// The name of the other side.
@@ -55,22 +64,51 @@ pub struct MatchSpec {
     /// A ladder root's games of this mode only.
     #[serde(default)]
     pub mode: Option<String>,
+    /// What has to hold for this input to be a game of `player` against
+    /// `opponent`, such as an FP32 export playing as its FP16 one. A rating
+    /// that leans on it says so.
+    #[serde(default)]
+    pub assumption: Option<String>,
     /// Free text carried into the report.
     #[serde(default)]
     pub note: Option<String>,
 }
 
+/// One summary a `first_of` may read.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Candidate {
+    /// The `eval4` summary.
+    pub file: PathBuf,
+    /// What has to hold when this one is read, beside the entry's own.
+    #[serde(default)]
+    pub assumption: Option<String>,
+}
+
 impl MatchSpec {
-    /// The input's path, whichever kind it is.
+    /// Every path the entry names, read or not.
+    pub fn paths(&self) -> Vec<&Path> {
+        let mut paths: Vec<&Path> = self
+            .file
+            .iter()
+            .chain(&self.ladder)
+            .map(PathBuf::as_path)
+            .collect();
+        paths.extend(self.first_of.iter().flatten().map(|c| c.file.as_path()));
+        paths
+    }
+
+    /// The path that names the entry in messages.
     pub fn source(&self) -> Option<&Path> {
-        self.file.as_deref().or(self.ladder.as_deref())
+        self.paths().into_iter().next()
     }
 }
 
 impl Spec {
     /// Reads a spec; relative paths are read from the spec's directory, and
-    /// every input is named by its canonical path, so that one listed twice
-    /// under two spellings is still seen.
+    /// every input that exists is named by its canonical path, so that one
+    /// listed twice under two spellings is still seen. A `first_of` candidate
+    /// may be missing; a `file` or `ladder` may not.
     ///
     /// # Errors
     /// Rejects unreadable or malformed specs, missing inputs and any spec
@@ -87,6 +125,10 @@ impl Spec {
                 *source = joined
                     .canonicalize()
                     .with_context(|| format!("input {}", joined.display()))?;
+            }
+            for candidate in entry.first_of.iter_mut().flatten() {
+                let joined = base.join(&candidate.file);
+                candidate.file = joined.canonicalize().unwrap_or(joined);
             }
         }
         spec.check()?;
@@ -116,14 +158,17 @@ impl Spec {
         for entry in &self.matches {
             let source = entry
                 .source()
-                .context("a match needs a `file` or a `ladder`")?;
+                .context("a match needs a `file`, a `ladder` or a `first_of`")?;
+            let kinds = usize::from(entry.file.is_some())
+                + usize::from(entry.ladder.is_some())
+                + usize::from(entry.first_of.is_some());
             ensure!(
-                entry.file.is_none() || entry.ladder.is_none(),
-                "a match names one input, `file` or `ladder`: {}",
+                kinds == 1,
+                "a match names one input, `file`, `ladder` or `first_of`: {}",
                 source.display()
             );
             ensure!(
-                entry.file.is_none() || (entry.profile.is_none() && entry.mode.is_none()),
+                entry.ladder.is_some() || (entry.profile.is_none() && entry.mode.is_none()),
                 "`profile` and `mode` choose games of a ladder root, not of {}",
                 source.display()
             );
@@ -141,11 +186,13 @@ impl Spec {
                 source.display(),
                 entry.player
             );
-            ensure!(
-                inputs.insert((source.to_path_buf(), &entry.profile, &entry.mode)),
-                "{} is listed twice: its games would count twice",
-                source.display()
-            );
+            for path in entry.paths() {
+                ensure!(
+                    inputs.insert((path.to_path_buf(), &entry.profile, &entry.mode)),
+                    "{} is listed twice: its games would count twice",
+                    path.display()
+                );
+            }
         }
         Ok(())
     }

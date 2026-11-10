@@ -283,3 +283,40 @@ pub(super) fn link(player: usize, held: &[bool], pairs: &[Pair]) -> f64 {
         flow += bottleneck;
     }
 }
+
+/// The players every path of games from `player` to a held player runs
+/// through: take one away and `player` is cut off. None for a held player or
+/// one without a path.
+pub(super) fn cuts(player: usize, held: &[bool], pairs: &[Pair]) -> Vec<usize> {
+    let count = held.len();
+    let mut next = vec![Vec::new(); count];
+    for pair in pairs.iter().filter(|pair| pair.games > 0.0) {
+        next[pair.a].push(pair.b);
+        next[pair.b].push(pair.a);
+    }
+    // Whether `player` reaches a held player without entering `avoid`, and
+    // whom it reaches.
+    let reach = |avoid: Option<usize>| -> (bool, Vec<bool>) {
+        let mut seen = vec![false; count];
+        seen[player] = true;
+        let mut queue = VecDeque::from([player]);
+        let mut found = false;
+        while let Some(node) = queue.pop_front() {
+            found |= held[node];
+            for &other in &next[node] {
+                if !seen[other] && Some(other) != avoid {
+                    seen[other] = true;
+                    queue.push_back(other);
+                }
+            }
+        }
+        (found, seen)
+    };
+    let (linked, seen) = reach(None);
+    if held[player] || !linked {
+        return Vec::new();
+    }
+    (0..count)
+        .filter(|&other| other != player && seen[other] && !held[other] && !reach(Some(other)).0)
+        .collect()
+}
