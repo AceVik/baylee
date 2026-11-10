@@ -37,7 +37,9 @@ mod critic;
 pub use critic::CriticSemantics4;
 mod decision;
 mod diagnostic;
+mod explore;
 pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
+pub use explore::RuleExplorer4;
 mod abi;
 mod fallback;
 mod grouped;
@@ -217,6 +219,9 @@ pub struct NetPlayer4 {
     /// `eval4 --distill-labels`: the whole net's distillation labels, kept per
     /// answer; `None` everywhere else, live play included.
     distill: Option<distill::Distill4>,
+    /// `eval4 --explore-rules`: the learner's rule proposals as recorded
+    /// exploration in on-policy collection; `None` everywhere else.
+    explorer: Option<explore::RuleExplorer4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -418,6 +423,25 @@ impl NetPlayer4 {
         self.tactician = Some(tactician);
     }
 
+    /// Sets `eval4 --explore-rules`: from the next game on, the layer's
+    /// answers are proposed as recorded exploration. On-policy collection
+    /// only; never for evaluation or live play.
+    pub fn set_explorer(&mut self, explorer: RuleExplorer4) {
+        self.explorer = Some(explorer);
+    }
+
+    /// The latest decision's exploration record, taken: `None` without an
+    /// explorer or when the decision never reached the raw sampler.
+    pub fn take_exploration(&mut self) -> Option<baylee_train_ops::exploration::StepExploration> {
+        self.explorer.as_mut().and_then(RuleExplorer4::take_last)
+    }
+
+    /// The current game's mixture stream, with an explorer.
+    #[must_use]
+    pub fn exploration_game(&self) -> Option<baylee_train_ops::exploration::GameExploration> {
+        self.explorer.as_ref().map(RuleExplorer4::game)
+    }
+
     /// The tactician's decisions kept since this was last asked.
     pub fn take_tactician_records(&mut self) -> Vec<tactician::TacticianRecord4> {
         self.tactician
@@ -576,6 +600,7 @@ impl NetPlayer4 {
             thinking_use: ThinkingUse4::default(),
             last_depth: files.thinking_steps,
             distill: None,
+            explorer: None,
         }
     }
 
@@ -775,6 +800,9 @@ impl NetPlayer4 {
         self.rng = Rng::new(policy_seed ^ 0x9e37_79b9_7f4a_7c15);
         if let Some(tactician) = &mut self.tactician {
             tactician.reseed(policy_seed);
+        }
+        if let Some(explorer) = &mut self.explorer {
+            explorer.reseed(policy_seed);
         }
         self.reset_game();
     }
