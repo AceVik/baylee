@@ -106,10 +106,6 @@ pub enum Field {
     /// left empty. Not drawn while a guest is kept for this gateway, whose
     /// name is already its own.
     GuestName,
-    /// The closed-beta key (#317), drawn above the guest's name and the tabs
-    /// on a gateway that asks for one, while there is a new account or a new
-    /// guest to make: one key for either door.
-    InviteKey,
     /// The name the account signs in with (#269). Until the end of 2026 an
     /// account from before usernames may type its address here instead.
     #[default]
@@ -770,9 +766,6 @@ pub enum LobbyRequest {
         display_name: String,
         /// The password to set.
         password: String,
-        /// The closed-beta key as typed, on a gateway that asks for one
-        /// (#317); `None` elsewhere, and then no field is sent.
-        invite_key: Option<String>,
     },
     /// `POST /auth/login`.
     LogIn {
@@ -795,8 +788,6 @@ pub enum LobbyRequest {
     PlayAsGuest {
         /// The name to be seen by, or `None` for the gateway's `Guest`.
         display_name: Option<String>,
-        /// The closed-beta key, as for [`LobbyRequest::Register`].
-        invite_key: Option<String>,
     },
     /// `POST /auth/logout`: the session that was just signed out of ends on
     /// the gateway too, and a guest's with the guest. Carries its token,
@@ -1185,39 +1176,35 @@ enum Performer {
 }
 
 /// Who may make an account on a gateway, as its `GET /auth/config` (and
-/// `GET /info`) says: `registration`, since #317.
+/// `GET /info`) says: `registration`, `open` or `off`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Registration {
     /// Anybody.
     #[default]
     Open,
-    /// Somebody with a closed-beta key; a new guest needs one too.
-    Invite,
     /// Nobody.
     Off,
 }
 
 impl Registration {
     /// What a gateway said: its `registration`, when it names one of the
-    /// three, else its older `registration_enabled`, which a gateway from
-    /// before keys sends alone. A word this client does not know is read
-    /// by that older answer as well, so a gateway newer than this client
-    /// is never taken for a closed one it is not.
+    /// two, else its older `registration_enabled`, which a gateway from
+    /// before the word sends alone. A word this client does not know is
+    /// read by that older answer as well, so a gateway newer than this
+    /// client is never taken for a closed one it is not. An older gateway's
+    /// `invite` is such a word: this client offers what the flag and the
+    /// gateway's other fields say, sends no key, and a refusal the gateway
+    /// then sends is said as the gateway's own sentence.
     #[must_use]
     pub fn read(registration_enabled: bool, registration: Option<&str>) -> Self {
         match registration {
             Some("open") => Self::Open,
-            Some("invite") => Self::Invite,
             Some("off") => Self::Off,
             _ if registration_enabled => Self::Open,
             _ => Self::Off,
         }
     }
 }
-
-/// A closed beta's form was sent without its key: the lobby has said so and
-/// put the caret in the box.
-struct KeyMissing;
 
 /// Who a gateway lets in, from its `GET /auth/config`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1278,7 +1265,6 @@ pub struct Lobby {
     focus: Field,
     username: TextBuffer,
     guest_name: TextBuffer,
-    invite_key: TextBuffer,
     gateway_url: TextBuffer,
     gateway_search: TextBuffer,
     gateway_selection: GatewaySelection,
@@ -1403,9 +1389,9 @@ pub struct Lobby {
     /// The password the admin gave, held while the new-password face asks
     /// for the player's own (beta.8); `None` otherwise.
     password_change: Option<String>,
-    /// The front door shows the guest's face (WP1): a name to play under
-    /// and, on a closed beta, the key. Only read on the sign-in screen while
-    /// not registering; see [`Lobby::face`].
+    /// The front door shows the guest's face (WP1): a name to play under.
+    /// Only read on the sign-in screen while not registering; see
+    /// [`Lobby::face`].
     guest_face: bool,
     /// No field has the caret: the keyboard's focus stands on a control
     /// (a button, the eye) instead, so a typed letter goes nowhere (WP1, the
@@ -1419,9 +1405,9 @@ pub enum Face {
     /// Username, password, Sign in; Create account and Play as guest under.
     #[default]
     SignIn,
-    /// Username, display name, the password twice, the key on a closed beta.
+    /// Username, display name, the password twice.
     Create,
-    /// A display name, the key on a closed beta.
+    /// A display name.
     Guest,
     /// The password twice, after an admin reset it (beta.8): the player
     /// chooses their own before anything else.
@@ -1556,7 +1542,6 @@ impl Lobby {
             Field::Gateway => FieldKind::Url,
             Field::DisplayName
             | Field::GuestName
-            | Field::InviteKey
             | Field::GatewaySearch
             | Field::Search
             | Field::DeckSearch
@@ -1590,7 +1575,6 @@ impl Lobby {
             Field::GatewaySearch => &self.gateway_search,
             Field::Username => &self.username,
             Field::GuestName => &self.guest_name,
-            Field::InviteKey => &self.invite_key,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
             Field::PasswordAgain => &self.password_again,
@@ -1796,38 +1780,10 @@ impl Lobby {
         self.leave_hidden_fields();
     }
 
-    /// Whether the sign-in form asks for a closed-beta key (#317): the
-    /// gateway wants one, and there is a new account or a new guest to make
-    /// with it — the sign-up form, or a guest's name to play under.
-    #[must_use]
-    pub fn invite_key_offered(&self) -> bool {
-        self.doors.registration == Registration::Invite
-            && self.gateway_chosen()
-            && (self.registering() || self.guest_name_offered())
-    }
-
-    /// The key to send with a new account or guest: what was typed, on a
-    /// gateway that asks for one, or [`KeyMissing`] with a refusal on the
-    /// status line when nothing was. `Ok(None)` is a gateway that asks for
-    /// none.
-    fn invite_key_to_send(&mut self) -> Result<Option<String>, KeyMissing> {
-        if self.doors.registration != Registration::Invite {
-            return Ok(None);
-        }
-        let key = self.invite_key.text().trim();
-        if key.is_empty() {
-            self.refuse(Phrase::NeedInviteKey);
-            self.focus_on(Field::InviteKey);
-            return Err(KeyMissing);
-        }
-        Ok(Some(key.to_string()))
-    }
-
     /// The caret out of a field the sign-in form no longer draws.
     fn leave_hidden_fields(&mut self) {
         let hidden = match self.focus {
             Field::GuestName => !self.guest_name_offered(),
-            Field::InviteKey => !self.invite_key_offered(),
             _ => false,
         };
         if hidden {
@@ -1998,15 +1954,10 @@ impl Lobby {
             self.enter_as_guest(kept);
             return Some(LobbyRequest::ListDecks);
         }
-        let Ok(invite_key) = self.invite_key_to_send() else {
-            self.busy = false;
-            return None;
-        };
         self.note(Phrase::JoiningAsGuest);
         let name = self.guest_name.text().trim();
         Some(LobbyRequest::PlayAsGuest {
             display_name: (!name.is_empty()).then(|| name.to_string()),
-            invite_key,
         })
     }
 
@@ -2023,7 +1974,6 @@ impl Lobby {
         self.kept_guest = Some(kept);
         self.password.clear();
         self.password_again.clear();
-        self.invite_key.clear();
         self.screen = Screen::Table;
         self.note(Phrase::PlayingAsGuest);
     }
@@ -2108,9 +2058,6 @@ impl Lobby {
         if field == Field::GuestName && !self.guest_name_offered() {
             return;
         }
-        if field == Field::InviteKey && !self.invite_key_offered() {
-            return;
-        }
         if self.revealed != Some(field) {
             self.revealed = None;
         }
@@ -2191,9 +2138,8 @@ impl Lobby {
             // Signing up: four, in the order they are drawn, and the direction
             // finally reads. The display name and the repeated password are
             // drawn only for signing up, so only that ring has them.
-            // One face at a time (WP1), each in the order it is drawn: the
-            // key last, under the fields it goes with.
-            let form: &[Field] = match self.face() {
+            // One face at a time (WP1), each in the order it is drawn.
+            let ring: &[Field] = match self.face() {
                 Face::Create => &[
                     Field::Username,
                     Field::DisplayName,
@@ -2204,10 +2150,6 @@ impl Lobby {
                 Face::SignIn => &[Field::Username, Field::Password],
                 Face::NewPassword => &[Field::Password, Field::PasswordAgain],
             };
-            let key = self.invite_key_offered().then_some(Field::InviteKey);
-            let mut ring = Vec::new();
-            ring.extend_from_slice(form);
-            ring.extend(key);
             self.focus = match ring.iter().position(|field| *field == self.focus) {
                 Some(at) => {
                     let next = match dir {
@@ -2274,7 +2216,6 @@ impl Lobby {
             Screen::SignIn { registering } => match self.focus {
                 Field::Gateway | Field::GatewaySearch => !self.gateway_chosen(),
                 Field::GuestName => self.guest_name_offered(),
-                Field::InviteKey => self.invite_key_offered(),
                 Field::Username => {
                     self.gateway_chosen() && !matches!(self.face(), Face::Guest | Face::NewPassword)
                 }
@@ -2385,8 +2326,6 @@ impl Lobby {
             if registering && matches!(self.focus, Field::DisplayName | Field::PasswordAgain) {
                 self.focus = Field::Password;
                 self.focus_epoch += 1;
-            } else if registering && self.focus == Field::InviteKey {
-                self.leave_hidden_fields();
             } else if self.focus == Field::Password {
                 // The caret has not moved, but the field under it has become
                 // a different *kind* of field — see [`Lobby::field_kind`] —
@@ -2489,11 +2428,6 @@ impl Lobby {
             self.password_again.select_all();
             return None;
         }
-        let invite_key = if registering {
-            self.invite_key_to_send().ok()?
-        } else {
-            None
-        };
         self.busy = true;
         if registering {
             self.note(Phrase::CreatingAccount);
@@ -2501,7 +2435,6 @@ impl Lobby {
                 username,
                 display_name: self.display_name.text().trim().to_string(),
                 password: self.password.text().to_string(),
-                invite_key,
             })
         } else {
             self.note(Phrase::SigningIn);
@@ -2770,7 +2703,6 @@ impl Lobby {
             Field::GatewaySearch => &mut self.gateway_search,
             Field::Username => &mut self.username,
             Field::GuestName => &mut self.guest_name,
-            Field::InviteKey => &mut self.invite_key,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,
             Field::PasswordAgain => &mut self.password_again,

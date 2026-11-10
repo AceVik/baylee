@@ -69,9 +69,6 @@ impl Lobby {
             // in the form go straight into a log-in.
             LobbyEvent::Registered => {
                 self.note(Phrase::AccountCreated);
-                // Spent: a key admits an account once, and one left in the
-                // box would only be sent again with the next new one.
-                self.invite_key.clear();
                 self.busy = true;
                 Some(LobbyRequest::LogIn {
                     username: self.username.text().trim().to_string(),

@@ -27,7 +27,6 @@ mod front_terms;
 mod gateway;
 mod guests;
 mod header;
-mod invites;
 mod legality;
 mod perf;
 mod printings;

@@ -33,6 +33,18 @@ fn a_field_can_be_replaced_wholesale() {
     assert_eq!(lobby.field(Field::Username), "", "clearing works too");
 }
 
+/// A paste is one line: the line breaks, tabs and other control characters
+/// a copied text brings along stay out of the box.
+#[test]
+fn a_paste_is_one_line() {
+    let mut lobby = Lobby::new();
+    lobby.set_guests_enabled(true);
+    lobby.open_guest_face();
+    assert_eq!(lobby.focus(), Field::GuestName);
+    lobby.insert("Cas\r\nper\t\u{7}\n");
+    assert_eq!(lobby.field(Field::GuestName), "Casper");
+}
+
 #[test]
 fn a_password_can_be_shown_and_covered_again() {
     let mut lobby = Lobby::new();

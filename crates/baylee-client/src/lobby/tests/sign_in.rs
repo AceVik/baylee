@@ -87,6 +87,39 @@ fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
     assert_eq!(said(Phrase::PasswordAgain.text(Lang::En)), 1);
 }
 
+/// A refusal the gateway sends stands on the form, where the player is: its
+/// own sentence, labelled as the gateway's, and the face it refused kept.
+#[test]
+fn a_gateways_refusal_stands_on_the_form() {
+    let mut app = headless();
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
+    settle(&mut app);
+    let said = gateway_error(
+        Lang::En,
+        &answer(403, r#"{"error":"no new accounts today"}"#),
+    );
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(LobbyEvent::Failed(said)));
+    settle(&mut app);
+    let drawn = labels(&mut app);
+    assert!(
+        drawn.iter().any(|l| {
+            l.starts_with(Phrase::RefusalOther.text(Lang::En))
+                && l.contains("no new accounts today")
+        }),
+        "{drawn:?}"
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.face(),
+        baylee_client_core::lobby::Face::Create,
+        "the form it refused stays up"
+    );
+}
+
 #[test]
 fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
     fn lit(app: &mut App) -> Vec<(String, Press)> {

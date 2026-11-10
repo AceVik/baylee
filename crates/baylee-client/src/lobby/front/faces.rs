@@ -4,9 +4,8 @@
 //!
 //! Each face is built from its `TabOrder` (`front::keys`): every control it
 //! draws carries the stop of that name, and the walker visits them in the
-//! table's order. The beta key opens under the button chosen (the create
-//! and guest faces), never on the sign-in face; Sign in is the one primary
-//! (the blue face) right under the fields.
+//! table's order. Sign in is the one primary (the blue face) right under
+//! the fields.
 
 use super::super::field::{FieldStops, text_field_with};
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
@@ -387,31 +386,6 @@ fn glyph_button(
     wrapper
 }
 
-/// The gateway's badge for a closed beta.
-fn beta_badge(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
-    let badge = commands
-        .spawn((
-            Node {
-                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(2.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(tokens::GOLD.with_alpha(0.18)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let words = controls::label(
-        commands,
-        kit,
-        Phrase::FrontClosedBeta.text(lang),
-        kit.m.small,
-        tokens::GOLD,
-    );
-    commands.entity(badge).add_child(words);
-    badge
-}
-
 /// A reach dot.
 fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
     commands
@@ -564,10 +538,6 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit, _music_on
         ))
         .id();
     commands.entity(line).add_children(&[reach, name]);
-    if state.lobby.registration() == Registration::Invite {
-        let badge = beta_badge(commands, kit, lang);
-        commands.entity(line).add_child(badge);
-    }
     commands.entity(names).add_child(line);
     if let Some(address) = words.address.as_ref().filter(|_| !phone) {
         let at = controls::label(commands, kit, address, kit.m.small, tokens::MUTED);
@@ -690,10 +660,6 @@ fn face_head(
         ))
         .id();
     commands.entity(chip).add_children(&[reach, name]);
-    if state.lobby.registration() == Registration::Invite {
-        let badge = beta_badge(commands, kit, lang);
-        commands.entity(chip).add_child(badge);
-    }
     commands.entity(head).add_children(&[back, words, chip]);
     head
 }
@@ -964,19 +930,10 @@ pub(super) fn sign_in(
     if let Some(&third) = doors.get(2) {
         commands.entity(card).add_child(third);
     }
-    let new_one =
-        lobby.registration_enabled() || (lobby.guest_offered() && lobby.kept_guest().is_none());
-    if lobby.registration() == Registration::Invite && new_one {
-        let hint = surfaces::prose(commands, kit, Phrase::FrontKeyHint.text(lang), true);
-        commands
-            .entity(hint)
-            .insert(TextLayout::justify(Justify::Center));
-        commands.entity(card).add_child(hint);
-    }
 }
 
 /// The create-account face: username and display name, the password twice,
-/// the key on a closed beta, Create account.
+/// Create account.
 pub(super) fn create(
     commands: &mut Commands,
     card: Entity,
@@ -1038,39 +995,14 @@ pub(super) fn create(
     );
     let passwords = pair(commands, kit, password, Some(again));
     commands.entity(card).add_children(&[names, passwords]);
-    if lobby.invite_key_offered() {
-        let key = field(
-            commands,
-            state,
-            kit,
-            Field::InviteKey,
-            Phrase::InviteKey,
-            Some(Phrase::InviteKeyShape.text(lang)),
-            help(kit, Phrase::InviteKeyHint.text(lang)),
-            None,
-        );
-        if kit.m.frame == Frame::Phone {
-            // A phone's form ends above the keyboard: the key and the
-            // primary share the last row (§2.7).
-            let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
-            let last = pair(commands, kit, key, Some(go));
-            commands.entity(card).add_child(last);
-        } else {
-            commands.entity(card).add_child(key);
-            let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
-            commands.entity(card).add_child(go);
-        }
-    } else {
-        let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
-        commands.entity(card).add_child(go);
-    }
+    let go = submit(commands, state, kit, Phrase::CreateAccount.text(lang));
+    commands.entity(card).add_child(go);
     if let Some(said) = status(commands, state, kit) {
         commands.entity(card).add_child(said);
     }
 }
 
-/// The guest's face: a display name, the key on a closed beta, what a
-/// guest is, Play as guest.
+/// The guest's face: a display name, what a guest is, Play as guest.
 pub(super) fn guest(
     commands: &mut Commands,
     card: Entity,
@@ -1099,19 +1031,7 @@ pub(super) fn guest(
         help(kit, Phrase::AccountNameHint.text(lang)),
         None,
     );
-    let key = lobby.invite_key_offered().then(|| {
-        field(
-            commands,
-            state,
-            kit,
-            Field::InviteKey,
-            Phrase::InviteKey,
-            Some(Phrase::InviteKeyShape.text(lang)),
-            help(kit, Phrase::InviteKeyHint.text(lang)),
-            None,
-        )
-    });
-    let row = pair(commands, kit, name, key);
+    let row = pair(commands, kit, name, None);
     let notice = surfaces::prose(commands, kit, Phrase::GuestNotice.text(lang), true);
     commands.entity(card).add_children(&[row, notice]);
     let go = submit(commands, state, kit, Phrase::FrontGuestTitle.text(lang));
