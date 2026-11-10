@@ -26,6 +26,7 @@ pub mod convert;
 pub mod convert3;
 #[cfg(feature = "play")]
 pub mod convert4;
+pub mod deals4;
 pub mod deckgen;
 #[cfg(feature = "play")]
 pub mod decksplit;
@@ -64,6 +65,8 @@ pub mod npu_mux4;
 pub mod onnx;
 #[cfg(feature = "play")]
 pub mod policy;
+#[cfg(feature = "play")]
+pub mod reactivity;
 #[cfg(feature = "play")]
 pub mod selfplay;
 pub mod working;
