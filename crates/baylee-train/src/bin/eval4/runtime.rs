@@ -93,7 +93,14 @@ trait EvaluationPlayer {
     }
     /// Records a step of a seat this player answered: its last decision's
     /// labels when the policy answered it (`answered`).
-    fn distill_step(&mut self, _seat: u8, _decision_seq: u64, _record_offset: usize, _answered: bool) {}
+    fn distill_step(
+        &mut self,
+        _seat: u8,
+        _decision_seq: u64,
+        _record_offset: usize,
+        _answered: bool,
+    ) {
+    }
     /// The game's distillation steps, taken; `None` without `--distill-labels`.
     fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
         None

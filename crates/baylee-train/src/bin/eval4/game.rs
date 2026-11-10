@@ -573,7 +573,8 @@ fn play_one_table(
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;
-                    let (fb_sequence, fb_offset) = (session.decision_seq(), session.record_pending());
+                    let (fb_sequence, fb_offset) =
+                        (session.decision_seq(), session.record_pending());
                     let routed = session.act_slice(pid, fb, 0);
                     let accepted = routed.is_ok();
                     if let (Some(shadow), Ok(routed)) = (shadow.as_deref_mut(), routed) {

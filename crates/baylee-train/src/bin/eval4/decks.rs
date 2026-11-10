@@ -28,6 +28,45 @@ fn load_manifest_decks(
     Ok((decks, skipped))
 }
 
+/// The manifest decks `--deck-weights` asks for: a JSON object of deck id to
+/// weight, each deck as many times as its weight (absent: once, 0: never).
+/// The copies come in rounds, every deck of weight at least `r` in round `r`,
+/// so the deals' walk through the list meets a heavy deck more often without
+/// seating it against itself.
+///
+/// # Errors
+/// A weight that names no selected deck, or one that is no whole number.
+fn weighted_decks(decks: Vec<HouseDeck>, weights: &Value) -> anyhow::Result<Vec<HouseDeck>> {
+    let weights = weights
+        .as_object()
+        .context("--deck-weights is a JSON object of deck id to weight")?;
+    let mut by_deck = Vec::with_capacity(decks.len());
+    for deck in decks {
+        let weight = match weights.get(&deck.key) {
+            None => 1,
+            Some(weight) => weight
+                .as_u64()
+                .with_context(|| format!("--deck-weights {}: not a whole number", deck.key))?,
+        };
+        by_deck.push((deck, weight));
+    }
+    for id in weights.keys() {
+        anyhow::ensure!(
+            by_deck.iter().any(|(deck, _)| deck.key == *id),
+            "--deck-weights names {id}, which this run did not select"
+        );
+    }
+    let rounds = by_deck.iter().map(|(_, weight)| *weight).max().unwrap_or(0);
+    Ok((1..=rounds)
+        .flat_map(|round| {
+            by_deck
+                .iter()
+                .filter(move |(_, weight)| *weight >= round)
+                .map(|(deck, _)| deck.clone())
+        })
+        .collect())
+}
+
 fn shape_matches(shape_filter: &str, entry_fmt: &str) -> bool {
     if shape_filter.is_empty() || shape_filter == "all" {
         return true;
@@ -275,6 +314,25 @@ fn load_expanded_training_decks(
 mod manifest_deck_tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn deck_weights_repeat_decks_in_rounds_and_name_only_selected_decks() {
+        let text = fs::read_to_string(repo_root().join("data/decks/breya.txt")).unwrap();
+        let deck = |key: &str| HouseDeck::parse_any(key, &text).unwrap();
+        let decks = vec![deck("a"), deck("b"), deck("c")];
+        let keys = |decks: Vec<HouseDeck>| decks.into_iter().map(|d| d.key).collect::<Vec<_>>();
+        assert_eq!(
+            keys(weighted_decks(decks.clone(), &json!({"a": 3, "b": 0})).unwrap()),
+            ["a", "c", "a", "a"]
+        );
+        assert_eq!(
+            keys(weighted_decks(decks.clone(), &json!({})).unwrap()),
+            ["a", "b", "c"]
+        );
+        assert!(weighted_decks(decks.clone(), &json!({"z": 2})).is_err());
+        assert!(weighted_decks(decks.clone(), &json!({"a": 1.5})).is_err());
+        assert!(weighted_decks(decks, &json!(["a"])).is_err());
+    }
 
     /// A selected deck that is missing is reported; one the split filters
     /// out is not a skip.
