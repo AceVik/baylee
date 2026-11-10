@@ -2,6 +2,7 @@
 pub mod arms;
 pub mod calibration;
 pub mod diagnostics;
+pub mod ladder;
 mod paired;
 mod summary;
 pub mod value_report;
