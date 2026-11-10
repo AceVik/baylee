@@ -513,6 +513,22 @@ impl ProducerEncoder {
                 Some(5),
                 Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2"),
             ) if identity["global_feat_width"] == 82 => 9,
+            // Encoder 7 with the target side in candidate slot 12: no width
+            // moves, and the replay encodes candidates as Encoder 10.
+            (
+                Some(10),
+                Some(5),
+                Some(
+                    "baylee_ai_v5_relational_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v3",
+                ),
+            ) if identity["global_feat_width"]
+                .as_u64()
+                .is_none_or(|width| width == 80) =>
+            {
+                10
+            }
             _ => return Err("Missing or unsupported producer encoder identity".into()),
         };
         Ok(Self { encoder_version })
