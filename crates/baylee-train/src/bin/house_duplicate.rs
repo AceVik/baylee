@@ -18,9 +18,12 @@
 //!
 //! Each seed is played from both sides, so its luck (decks, draws, seats)
 //! cancels. Reports the measured level's share of decided games with a
-//! Wilson 95 % interval, the seeds by how many of their sides it won, and
-//! per deck its side's results with each level playing it and the seeds
-//! where the level alone made the difference.
+//! Wilson 95 % interval, the seeds by how many of their sides it won, the
+//! two-sided sign test over the seeds it turned (won from every side, or
+//! lost from every side), which is what the ladder's gate reads, the
+//! per-deck rule (no deck of ten seeds or more turned against more often
+//! than for), and per deck its side's results with each level playing it
+//! and the seeds where the level alone made the difference.
 
 use anyhow::{Context as _, bail, ensure};
 use clap::Parser;
@@ -109,6 +112,42 @@ impl Deck {
 #[allow(clippy::cast_precision_loss, reason = "game counts are small")]
 fn rate(k: u64, n: u64) -> f64 {
     if n == 0 { 0.0 } else { k as f64 / n as f64 }
+}
+
+/// The two-sided exact sign test of `wins` against `losses`: the chance,
+/// were the two levels equal, of a split at least this uneven.
+///
+/// The test a duplicate pairing is read by. Each seed is played from both
+/// sides, and a seed the level won from one side and lost from the other
+/// says nothing about the level; only the seeds it won from every side or
+/// lost from every side do, and under equal levels each of those is a fair
+/// coin. The Wilson interval over games treats every game as independent
+/// and is far wider.
+fn sign_test(wins: u64, losses: u64) -> f64 {
+    let n = wins + losses;
+    if n == 0 {
+        return 1.0;
+    }
+    let tail = wins.max(losses);
+    // ln C(n, i) − n ln 2 for each i ≥ tail, summed in the log domain so
+    // that thousands of seeds neither underflow nor overflow.
+    #[allow(clippy::cast_precision_loss, reason = "seed counts are small")]
+    let ln = |x: u64| (x as f64).ln();
+    let mut ln_choose = 0.0_f64;
+    let mut terms = Vec::new();
+    for i in 0..=n {
+        if i >= tail {
+            terms.push(ln_choose);
+        }
+        if i < n {
+            ln_choose += ln(n - i) - ln(i + 1);
+        }
+    }
+    #[allow(clippy::cast_precision_loss, reason = "seed counts are small")]
+    let half = -(n as f64) * std::f64::consts::LN_2;
+    let top = terms.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let sum: f64 = terms.iter().map(|t| (t - top).exp()).sum();
+    (2.0 * (top + sum.ln() + half).exp()).min(1.0)
 }
 
 /// The Wilson score interval at 95 %.
@@ -224,18 +263,20 @@ fn collect(
     Ok((other, games, rows))
 }
 
-/// Each seed from its sides: how many of them the level won, and per deck
-/// what its seat's side scored with each level in it.
+/// Each seed from its sides: how many of them the level won, per deck what
+/// its seat's side scored with each level in it, and the seeds it turned:
+/// won from every side it played, and lost from every side.
 fn tally(
     games: &BTreeMap<Key, Game>,
     seats: usize,
-) -> (BTreeMap<String, u64>, BTreeMap<String, Deck>) {
+) -> (BTreeMap<String, u64>, BTreeMap<String, Deck>, (u64, u64)) {
     let mut by_seed: BTreeMap<u64, Vec<(&Vec<usize>, &Game)>> = BTreeMap::new();
     for ((seed, seated), game) in games {
         by_seed.entry(*seed).or_default().push((seated, game));
     }
     let mut sides = BTreeMap::<String, u64>::new();
     let mut per_deck: BTreeMap<String, Deck> = BTreeMap::new();
+    let mut turned = (0, 0);
     for played in by_seed.values() {
         let label = if played.iter().any(|(_, g)| g.result == Result::Open) {
             "with an open game".to_owned()
@@ -244,6 +285,11 @@ fn tally(
                 .iter()
                 .filter(|(_, g)| g.result == Result::Won)
                 .count();
+            if played.len() > 1 && won == played.len() {
+                turned.0 += 1;
+            } else if played.len() > 1 && won == 0 {
+                turned.1 += 1;
+            }
             format!("{won} of {}", played.len())
         };
         *sides.entry(label).or_default() += 1;
@@ -264,7 +310,45 @@ fn tally(
                 .add(mine.result, flipped(theirs.result));
         }
     }
-    (sides, per_deck)
+    (sides, per_deck, turned)
+}
+
+/// The per-deck rule: how many decks the level sat at in ten seeds or more,
+/// and those of them it turned against more often than for.
+fn deck_rule(per_deck: &BTreeMap<String, Deck>) -> (usize, Vec<&String>) {
+    let ten = |d: &Deck| d.with_level.decided + d.with_level.open >= 10;
+    let decks = per_deck.values().filter(|d| ten(d)).count();
+    let broken = per_deck
+        .iter()
+        .filter(|(_, d)| ten(d) && d.turned_against > d.turned_for)
+        .map(|(deck, _)| deck)
+        .collect();
+    (decks, broken)
+}
+
+/// The per-deck rule's line, then each deck's line.
+fn print_decks(level: &str, per_deck: &BTreeMap<String, Deck>, decks: usize, broken: &[&String]) {
+    let names: Vec<&str> = broken.iter().map(|deck| deck.as_str()).collect();
+    println!(
+        "per-deck rule: {} of {decks} decks with ten seeds or more turned against more often than for{}",
+        broken.len(),
+        if names.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", names.join(", "))
+        }
+    );
+    println!("per deck: its side with {level}, and the seeds the level alone turned");
+    for (deck, d) in per_deck {
+        println!(
+            "  {deck:48} {:3} of {:3} ({:5.1} %)  turned {:2} for, {:2} against",
+            d.with_level.won,
+            d.with_level.decided,
+            100.0 * rate(d.with_level.won, d.with_level.decided),
+            d.turned_for,
+            d.turned_against
+        );
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -298,7 +382,9 @@ fn main() -> anyhow::Result<()> {
     for game in games.values() {
         all.add(game.result);
     }
-    let (sides, per_deck) = tally(&games, seats);
+    let (sides, per_deck, (turned_for, turned_against)) = tally(&games, seats);
+    let p = sign_test(turned_for, turned_against);
+    let (decks_of_ten, broken) = deck_rule(&per_deck);
 
     let (low, high) = wilson(all.won, all.decided);
     println!(
@@ -319,17 +405,10 @@ fn main() -> anyhow::Result<()> {
             .collect::<Vec<_>>()
             .join(", ")
     );
-    println!("per deck: its side with {level}, and the seeds the level alone turned");
-    for (deck, d) in &per_deck {
-        println!(
-            "  {deck:48} {:3} of {:3} ({:5.1} %)  turned {:2} for, {:2} against",
-            d.with_level.won,
-            d.with_level.decided,
-            100.0 * rate(d.with_level.won, d.with_level.decided),
-            d.turned_for,
-            d.turned_against
-        );
-    }
+    println!(
+        "sign test over the seeds the level turned: {turned_for} for, {turned_against} against, two-sided p = {p:.4}"
+    );
+    print_decks(&level, &per_deck, decks_of_ten, &broken);
     if let Some(out) = &args.out {
         let report = json!({
             "level": level,
@@ -337,6 +416,8 @@ fn main() -> anyhow::Result<()> {
             "rows": rows,
             "games": all.json(),
             "seeds_by_sides_won": sides,
+            "sign_test": {"for": turned_for, "against": turned_against, "p": p},
+            "per_deck_rule": {"decks_with_ten_seeds": decks_of_ten, "turned_against": broken},
             "per_deck": per_deck.iter().map(|(deck, d)| (deck.clone(), json!({
                 "with_level": d.with_level.json(),
                 "with_other": d.with_other.json(),
@@ -377,5 +458,21 @@ mod tests {
         assert_eq!(focal(&row(0, 0.5)), Result::Open);
         let (low, high) = wilson(50, 100);
         assert!(low < 0.5 && high > 0.5 && (0.5 - low - (high - 0.5)).abs() < 1e-9);
+    }
+
+    /// The sign test against values worked out by hand: 9 of 10 is 22/1024
+    /// two-sided, an even split is 1, nothing turned is 1, and a lopsided
+    /// thousand neither underflows nor exceeds one.
+    #[test]
+    fn the_sign_test_is_the_two_sided_binomial_tail() {
+        assert!((sign_test(9, 1) - 22.0 / 1024.0).abs() < 1e-12);
+        assert!((sign_test(1, 9) - 22.0 / 1024.0).abs() < 1e-12);
+        assert!((sign_test(5, 5) - 1.0).abs() < 1e-12);
+        assert!((sign_test(0, 0) - 1.0).abs() < 1e-12);
+        assert!((sign_test(3, 0) - 0.25).abs() < 1e-12);
+        let big = sign_test(600, 400);
+        assert!(big > 0.0 && big < 1e-9, "{big}");
+        assert!((sign_test(500, 500) - 1.0).abs() < 1e-9);
+        assert!(sign_test(133, 90) < 0.01 && sign_test(133, 90) > 0.001);
     }
 }

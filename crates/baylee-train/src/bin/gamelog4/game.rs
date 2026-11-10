@@ -64,23 +64,36 @@ pub(super) struct Game {
 impl Game {
     /// Reads deal `game` of the record directory `run`.
     pub(super) fn load(run: &Path, game: u64) -> anyhow::Result<Self> {
+        Self::load_as(run, game, None)
+    }
+
+    /// [`Self::load`], read from `seat`'s chair when given. A `selfplay`
+    /// run, the house against the house, names no focal seat and keeps no
+    /// rollout sidecar: every answer in it is the house's, and which chair
+    /// to follow is the reader's choice.
+    pub(super) fn load_as(run: &Path, game: u64, seat: Option<u8>) -> anyhow::Result<Self> {
         let row = row(run, game)?;
-        let seat = PlayerId::new(u8::try_from(
-            row["focal_seat"]
-                .as_u64()
-                .context("the game has no focal seat")?,
-        )?);
-        let sources = row["rollout_sidecar"]
-            .as_array()
-            .context("the game has no rollout sidecar")?
-            .iter()
-            .map(|step| {
-                step["provenance"]["source"]
-                    .as_str()
-                    .unwrap_or("?")
-                    .to_owned()
-            })
-            .collect();
+        let seat = PlayerId::new(match seat {
+            Some(seat) => seat,
+            None => u8::try_from(
+                row["focal_seat"]
+                    .as_u64()
+                    .context("the game has no focal seat (name one with --seat)")?,
+            )?,
+        });
+        let sources = match row["rollout_sidecar"].as_array() {
+            Some(steps) => steps
+                .iter()
+                .map(|step| {
+                    step["provenance"]["source"]
+                        .as_str()
+                        .unwrap_or("?")
+                        .to_owned()
+                })
+                .collect(),
+            None if row["focal_seat"].is_null() => Vec::new(),
+            None => bail!("the game has no rollout sidecar"),
+        };
         let lines = record(run, &row)?;
         Ok(Self {
             row,
@@ -160,7 +173,14 @@ impl Game {
                             asked: asked.as_ref().map(|(_, view)| view),
                             pending: session.pending(),
                             action,
-                            source: sources.next().map_or("?", String::as_str),
+                            source: sources.next().map_or(
+                                if self.sources.is_empty() {
+                                    "house"
+                                } else {
+                                    "?"
+                                },
+                                String::as_str,
+                            ),
                         }))?;
                     } else {
                         visit(Event::Other { views: &views })?;

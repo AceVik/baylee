@@ -59,6 +59,7 @@ mod failure_terminal;
 mod house_seat;
 mod lookahead;
 mod precision;
+mod profile_spec;
 mod random_seat;
 mod seat_players;
 mod select;
@@ -548,6 +549,23 @@ fn main() -> anyhow::Result<()> {
             .map(|dir| File::create(dir.join("games.jsonl")).map(BufWriter::new))
             .transpose()?,
     ));
+    let baseline_lines = Arc::new(Mutex::new(
+        args.record_baseline
+            .as_ref()
+            .map(|dir| -> anyhow::Result<_> {
+                anyhow::ensure!(
+                    !dir.exists() || fs::read_dir(dir)?.next().is_none(),
+                    "--record-baseline must be new or empty"
+                );
+                anyhow::ensure!(
+                    !args.no_baseline,
+                    "--record-baseline needs the baseline game"
+                );
+                fs::create_dir_all(dir.join("records"))?;
+                Ok(BufWriter::new(File::create(dir.join("games.jsonl"))?))
+            })
+            .transpose()?,
+    ));
     let value_log = args
         .value_log
         .as_ref()
@@ -577,6 +595,10 @@ fn main() -> anyhow::Result<()> {
         let one_deal_per_game = args.one_deal_per_game;
         let stats_arc = stats_arc.clone();
         let games_lines = games_lines.clone();
+        let baseline_lines = baseline_lines.clone();
+        let baseline_out = args.record_baseline.clone();
+        let baseline_name = args.baseline.clone();
+        let against_name = args.against.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
         let shadow_spec = shadow_spec.clone();
@@ -644,6 +666,13 @@ fn main() -> anyhow::Result<()> {
             }
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
+                Some(dir) => Some((
+                    BufWriter::new(File::create(dir.join("records").join(&shard_name))?),
+                    0_u64,
+                )),
+                None => None,
+            };
+            let mut baseline_shard = match &baseline_out {
                 Some(dir) => Some((
                     BufWriter::new(File::create(dir.join("records").join(&shard_name))?),
                     0_u64,
@@ -795,7 +824,7 @@ fn main() -> anyhow::Result<()> {
                 let (base_u, base_capped) = if no_base {
                     (0.0, false)
                 } else {
-                    let (bu, bc, _, _, _, _, _, _, _, _, _) = play_one_table(
+                    let (bu, bc, _, _, _, _, _, base_bytes, base_outcome, _, _) = play_one_table(
                         &deal_game_id,
                         d,
                         focal_seat,
@@ -809,12 +838,45 @@ fn main() -> anyhow::Result<()> {
                         fair,
                         false,
                         max_decisions,
-                        false,
+                        baseline_shard.is_some(),
                         None,
                         None,
                         None,
                         None,
                     )?;
+                    // The house against the house, laid out as a `selfplay`
+                    // run: no focal seat and no sidecar, so `gamelog4 show`
+                    // follows the chair its `--seat` names.
+                    if let Some((f, offset)) = &mut baseline_shard {
+                        let mut gz = GzEncoder::new(Vec::new(), Compression::fast());
+                        gz.write_all(&base_bytes)?;
+                        let compressed = gz.finish()?;
+                        f.write_all(&compressed)?;
+                        f.flush()?;
+                        let line = json!({
+                            "game": deal_game_id,
+                            "i": d,
+                            "seed": seed,
+                            "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>(),
+                            "profiles": (0..seats).map(|s| if is_net_seat(s, focal_seat, &teams_arc) {
+                                &baseline_name
+                            } else {
+                                &against_name
+                            }).collect::<Vec<_>>(),
+                            "baseline_seat": focal_seat,
+                            "outcome": base_outcome,
+                            "baseline_utility": bu,
+                            "capped": bc,
+                            "shard": shard_name,
+                            "offset": *offset,
+                            "len": compressed.len(),
+                        });
+                        *offset += compressed.len() as u64;
+                        if let Some(index) = baseline_lines.lock().expect("baseline lock").as_mut() {
+                            writeln!(index, "{}", serde_json::to_string(&line)?)?;
+                            index.flush()?;
+                        }
+                    }
                     (bu, bc)
                 };
 

@@ -87,7 +87,9 @@ struct Args {
     /// Team assignment per seat (e.g. `1,2,1,2` for 2v2); empty = FFA.
     #[arg(long, value_delimiter = ',')]
     teams: Vec<u8>,
-    /// Opponent house profile (`novice`, `casual`, `steady`, `sharp`, `expert`).
+    /// Opponent house profile (`novice`, `casual`, `steady`, `sharp`, `expert`),
+    /// with knobs for an ablation after a colon (`steady:hold_up=none`,
+    /// `profile_spec.rs`).
     #[arg(long, default_value = "steady")]
     against: String,
     /// Dev-only ceilings (`netplay4::tactics::guard`), comma separated: `cast`,
@@ -131,6 +133,12 @@ struct Args {
     /// commas, or `@FILE` holding a JSON list of keys.
     #[arg(long, requires = "write_deals")]
     pilot_decks: Option<String>,
+    /// Also records every baseline game, the house against the house, into
+    /// this new directory, laid out as a `selfplay` run is (`games.jsonl`,
+    /// `records/`), for `gamelog4 show --seat`: how to read the deals one
+    /// house level lost from both sides. Numbers only; never training data.
+    #[arg(long)]
+    record_baseline: Option<std::path::PathBuf>,
     /// Dev only: a raw net may sample at any temperature, below sampler 2's
     /// boundary too, and `--choice-guard` may run above zero. Never for training.
     #[arg(long)]
@@ -165,7 +173,8 @@ struct Args {
     /// enter training, a league or a dataset.
     #[arg(long)]
     numbers_only: bool,
-    /// Baseline house profile for duplicate comparison (`steady`, `sharp`, `expert`).
+    /// Baseline house profile for duplicate comparison (`steady`, `sharp`, `expert`),
+    /// with knobs as `--against` takes them.
     #[arg(long, default_value = "steady")]
     baseline: String,
     /// Latent thinking steps `K` (`1..=8`).
@@ -578,6 +587,6 @@ fn parse_choice_guard(text: &str) -> anyhow::Result<Option<ChoiceGuard4>> {
     Ok(Some(guard))
 }
 
-fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {
-    AIProfile::resolve(name).with_context(|| format!("unknown AIProfile {name}"))
+fn parse_profile(spec: &str) -> anyhow::Result<AIProfile> {
+    profile_spec::parse(spec)
 }

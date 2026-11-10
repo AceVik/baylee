@@ -10,11 +10,13 @@ use crate::board;
 use crate::game::{Event, Game};
 use crate::names::{self, Names};
 
-/// Which part of a game to print.
+/// Which part of a game to print, and from whose chair.
 pub(super) struct Shown {
     pub from_turn: u32,
     pub to_turn: u32,
     pub forced: bool,
+    /// The chair to follow; the run's focal seat when `None`.
+    pub seat: Option<u8>,
 }
 
 impl Shown {
@@ -94,9 +96,9 @@ fn describe(pending: &Pending, action: &PlayerAction, names: &Names) -> String {
     text
 }
 
-/// Prints game `game` of the eval4 record directory `run`.
+/// Prints game `game` of the eval4 or selfplay record directory `run`.
 pub(super) fn show(run: &Path, game: u64, shown: &Shown) -> anyhow::Result<()> {
-    let record = Game::load(run, game)?;
+    let record = Game::load_as(run, game, shown.seat)?;
     println!(
         "{} · deal {game} · seed {} · the net is {} · outcome {}",
         record.row["game"].as_str().unwrap_or("?"),

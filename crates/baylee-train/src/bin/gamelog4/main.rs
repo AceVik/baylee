@@ -50,7 +50,8 @@ enum Command {
         #[arg(long, value_enum, default_value_t = losses::Which::Lost)]
         which: losses::Which,
     },
-    /// Prints one game of an eval4 `--record-out` directory.
+    /// Prints one game of an eval4 `--record-out` directory, or of a
+    /// `selfplay` run (the house against the house) from `--seat`'s chair.
     Show {
         /// The run's record directory (`games.jsonl` and `records/`).
         #[arg(long)]
@@ -67,6 +68,10 @@ enum Command {
         /// Also print the evaluated seat's forced answers.
         #[arg(long)]
         forced: bool,
+        /// The chair whose answers to print: needed for a `selfplay` run,
+        /// which has no evaluated seat; for an eval4 run, its focal seat.
+        #[arg(long)]
+        seat: Option<u8>,
     },
     /// Counts recurring mistakes over deals of a summary.
     Patterns {
@@ -162,6 +167,7 @@ fn main() -> anyhow::Result<()> {
             from_turn,
             to_turn,
             forced,
+            seat,
         } => show::show(
             &run,
             game,
@@ -169,6 +175,7 @@ fn main() -> anyhow::Result<()> {
                 from_turn,
                 to_turn: to_turn.unwrap_or(u32::MAX),
                 forced,
+                seat,
             },
         ),
         Command::Patterns {
