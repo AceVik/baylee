@@ -30,7 +30,7 @@ impl<L: CardLookup> Engine<L> {
                 "the transformed spell cannot be cast",
             ));
         }
-        let make_mana = self.compute_legal(player).has_mana_source();
+        let make_mana = self.free_cast_makes_mana(player);
         let adjustment = casting::face_adjustment(&self.state, player, card.object, def, 1, None);
         let reduction = casting::printed_reduction(&self.state, &def.faces[1], player, card.object);
         let base = adjustment.price(ManaCost::ZERO, reduction);

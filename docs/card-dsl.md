@@ -3514,7 +3514,10 @@ mere presentation references eligible damage sources.
 
 The wire offers `LegalActions::granted_actions`, each with a never-reused
 `GrantedActionId`, source/provenance, timing, cost and already-bound result.
-`TakeGrantedAction { id }` validates against the current offer. No client selects
+`TakeGrantedAction { id }` validates against the current offer. A grant whose
+mana cost the pool cannot pay is offered only while the payment window it would
+open has a way to make mana (`docs/engine-internals.md`, "Can this seat make
+mana?"). No client selects
 new recipients or implicitly pays life. Numeric limitation: plain and snow pool counters now use `u32`, with an exact
 `u64` total across colors. One recorded payment is bounded by `u32` total units;
 individual restricted/rider entries and the existing single mana-production

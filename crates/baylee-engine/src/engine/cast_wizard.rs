@@ -1644,6 +1644,23 @@ impl<L: CardLookup> Engine<L> {
         legal.has_mana_source()
     }
 
+    /// Whether a free cast's options may count on mana `player` makes
+    /// while paying (CR 601.2g): [`Self::can_make_mana_for_cast`].
+    ///
+    /// The free-cast offers (a linked or immediate free play, a
+    /// transformed back face, a cast an effect commands) used to ask
+    /// `has_mana_source` of the offer as priority would list it, where an
+    /// entry in `abilities` is any activation at all: a seat with a
+    /// Prodigal Sorcerer and every land tapped was offered a mode whose
+    /// mana nothing could make.
+    pub(super) fn free_cast_makes_mana(&self, player: PlayerId) -> bool {
+        #[cfg(test)]
+        if super::granted::ASK_MANA_AS_BEFORE.with(std::cell::Cell::get) {
+            return self.compute_legal(player).has_mana_source();
+        }
+        self.can_make_mana_for_cast(player)
+    }
+
     /// Whether the floating mana is all that pays this cast's total once no
     /// mana is left to make, so the greatest X it pays is known before X is
     /// asked.

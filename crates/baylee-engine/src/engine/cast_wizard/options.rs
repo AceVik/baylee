@@ -34,8 +34,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
-        let defer_mana =
-            pay_in_window || (commanded && self.compute_legal(player).has_mana_source());
+        let defer_mana = pay_in_window || (commanded && self.free_cast_makes_mana(player));
         let paying = if pay_in_window {
             casting::Paying::DuringTheCast
         } else {
