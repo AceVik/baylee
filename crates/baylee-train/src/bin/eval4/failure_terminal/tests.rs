@@ -409,7 +409,7 @@ fn collector_stops_before_applying_internal_house_proposal() {
         None,
         Some(7),
         None,
-        None,
+        crate::DecisionLogs::default(),
     )
     .unwrap();
     assert_eq!(result.3, 0);
@@ -442,7 +442,7 @@ fn collector_stops_before_applying_internal_house_proposal() {
             None,
             Some(7),
             None,
-            None,
+            crate::DecisionLogs::default(),
         )
         .unwrap();
         assert_eq!(result.3, 0);

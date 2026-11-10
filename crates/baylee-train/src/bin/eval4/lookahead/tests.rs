@@ -239,7 +239,7 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
         None,
         None,
         search,
-        None,
+        crate::DecisionLogs::default(),
     )
     .unwrap();
     assert!(!outcome.1, "the fixture finishes its game");
@@ -271,7 +271,7 @@ fn a_seated_house_plays_a_deal_to_its_end() {
         None,
         None,
         None,
-        None,
+        crate::DecisionLogs::default(),
     )
     .unwrap();
     assert!(!outcome.1, "the deal ends before the answer cap");

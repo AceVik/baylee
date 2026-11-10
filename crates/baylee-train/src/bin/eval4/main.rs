@@ -151,6 +151,10 @@ fn main() -> anyhow::Result<()> {
     if let Some(refusal) = house_as_seat_refusal(&args, &collection) {
         bail!(refusal);
     }
+    if let Some(refusal) = memory_reset_refusal(&args, &collection) {
+        bail!(refusal);
+    }
+    let memory_reset = memory_reset(&args);
     let mut choice_guard = parse_choice_guard(&args.choice_guard)?;
     if choice_guard.is_some()
         && (!args.raw_policy
@@ -456,6 +460,11 @@ fn main() -> anyhow::Result<()> {
         if let Some(setup) = &tactician_setup {
             run["tactician"] = setup.metadata();
         }
+        if memory_reset != baylee_train::netplay4::MemoryReset4::Off {
+            // Only runs that forget name it: no replay of their records
+            // reproduces what the seat under test read.
+            run["memory_reset"] = json!(memory_reset);
+        }
         if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -516,6 +525,15 @@ fn main() -> anyhow::Result<()> {
         .as_ref()
         .map(|path| File::create(path).map(|file| Arc::new(Mutex::new(BufWriter::new(file)))))
         .transpose()?;
+    let decision_trace = args
+        .record_out
+        .as_ref()
+        .filter(|_| args.decision_trace)
+        .map(|dir| {
+            File::create(dir.join(baylee_train_ops::divergence::TRACE_FILE))
+                .map(|file| Arc::new(Mutex::new(BufWriter::new(file))))
+        })
+        .transpose()?;
     let attempts = attempts::prepare(&args, &decks_arc)?;
     let shared_nets = SharedNets::open(
         args.inference_batch,
@@ -563,6 +581,7 @@ fn main() -> anyhow::Result<()> {
         let attempts = attempts.clone();
         let search_max = args.search_max_decisions_per_game;
         let value_log = value_log.clone();
+        let decision_trace = decision_trace.clone();
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
         let random_policy = args.random_policy;
         let tactician_setup = tactician_setup.clone();
@@ -588,6 +607,12 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(bias) = menu_payable {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
+            }
+            if memory_reset != baylee_train::netplay4::MemoryReset4::Off {
+                anyhow::ensure!(net.set_memory_reset(memory_reset), "--memory-reset needs a net");
+            }
+            if decision_trace.is_some() {
+                anyhow::ensure!(net.keep_menus(), "--decision-trace needs a net");
             }
             let mut tactician_sink = None;
             if let Some(setup) = &tactician_setup {
@@ -690,7 +715,7 @@ fn main() -> anyhow::Result<()> {
                         Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
                     } else {None},
                     game_search.as_mut(),
-                    value_log.as_deref(),
+                    DecisionLogs { value: value_log.as_deref(), trace: decision_trace.as_deref() },
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
@@ -768,7 +793,7 @@ fn main() -> anyhow::Result<()> {
                         None,
                         None,
                         None,
-                        None,
+                        DecisionLogs::default(),
                     )?;
                     (bu, bc)
                 };
@@ -982,6 +1007,10 @@ fn main() -> anyhow::Result<()> {
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
     summary["random_policy"] = json!(args.random_policy);
+    if memory_reset != baylee_train::netplay4::MemoryReset4::Off {
+        // Only runs that forget name it, as run.json does: pairing reads it.
+        summary["memory_reset"] = json!(memory_reset);
+    }
     summary["tactician"] = tactician_setup.as_ref().map_or(
         Value::Null,
         |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),

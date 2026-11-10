@@ -231,6 +231,7 @@ fn main() -> anyhow::Result<()> {
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
+        refuse_measurement(&run_json).with_context(|| run_dir.display().to_string())?;
         let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
         if on_policy.is_some() {
             anyhow::ensure!(
@@ -733,6 +734,17 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A run that measured something other than the policy it records makes no
+/// dataset: `eval4 --memory-reset` forgot the net's memory, so no replay
+/// reproduces what it read.
+fn refuse_measurement(run: &Value) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        run.get("memory_reset").is_none_or(Value::is_null),
+        "a --memory-reset run is a measurement, never data"
+    );
+    Ok(())
+}
+
 fn write_f32_bin(path: &Path, data: &[f32]) -> anyhow::Result<()> {
     let mut f = BufWriter::new(File::create(path)?);
     for &v in data {
@@ -745,6 +757,14 @@ fn write_f32_bin(path: &Path, data: &[f32]) -> anyhow::Result<()> {
 #[cfg(test)]
 mod encoder_cli_tests {
     use super::*;
+
+    #[test]
+    fn a_memory_reset_run_makes_no_dataset() {
+        refuse_measurement(&json!({"policy_mode": "raw"})).unwrap();
+        refuse_measurement(&json!({"memory_reset": null})).unwrap();
+        assert!(refuse_measurement(&json!({"memory_reset": "decision"})).is_err());
+        assert!(refuse_measurement(&json!({"memory_reset": "turn"})).is_err());
+    }
 
     #[test]
     fn encoder_selection_is_explicit_and_unsupported_versions_fail() {

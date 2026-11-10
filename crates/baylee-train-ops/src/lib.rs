@@ -5,6 +5,7 @@ pub mod batch_audit;
 pub mod collector;
 pub mod corpus;
 pub mod digests;
+pub mod divergence;
 pub mod evaluation;
 pub mod files;
 #[cfg(target_os = "linux")]

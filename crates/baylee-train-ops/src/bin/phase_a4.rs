@@ -105,6 +105,20 @@ enum Command {
         /// The roots of the runs.
         roots: Vec<PathBuf>,
     },
+    /// Where two recorded runs of the same deals part (`eval4 --record-out DIR
+    /// --decision-trace`): per deal the first decision of the seat under test
+    /// whose answers differ, its kind and head and the reference run's logit
+    /// margin there, and a table of kinds by margin (`baylee_train_ops::divergence`).
+    Diverge {
+        /// The reference run's record directory (the normal run).
+        #[arg(long)]
+        reference: PathBuf,
+        /// The other run's record directory (`--memory-reset decision`, ...).
+        #[arg(long)]
+        other: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// A plan of rule groups, each replaying only what a shadow run says it reaches.
     GroupPlan {
         /// The shadow runs of dev and fresh, in that order.
@@ -979,6 +993,15 @@ fn main() -> Result<()> {
         }
         Command::Ladder { out, roots } => {
             atomic_json(&out, &ladder_table(&roots)?)?;
+        }
+        Command::Diverge {
+            reference,
+            other,
+            out,
+        } => {
+            let report = baylee_train_ops::divergence::diverge(&reference, &other)?;
+            atomic_json(&out, &report)?;
+            print!("{}", baylee_train_ops::divergence::table(&report));
         }
         Command::GroupPlan {
             shadow,

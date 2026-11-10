@@ -102,6 +102,8 @@ mod tests {
             tactic_rules: crate::netplay4::TacticRules4::default(),
             last_menu: None,
             dirty_h_seats: 0,
+            memory_reset: crate::netplay4::MemoryReset4::Off,
+            memory_turns: BTreeMap::new(),
         };
         let answer = net.act_detailed(&view, &pending, &[]);
         assert_eq!(answer.provenance.source, SourceKind4::House);

@@ -54,6 +54,51 @@ fn value_line(
         "board": own_board, "opp_board": view.battlefield.len() - own_board})
 }
 
+/// The per-decision logs of the seat under test: `--value-log` and
+/// `--decision-trace`; the baseline game keeps neither.
+#[derive(Clone, Copy, Default)]
+struct DecisionLogs<'a> {
+    value: Option<&'a Mutex<BufWriter<File>>>,
+    trace: Option<&'a Mutex<BufWriter<File>>>,
+}
+
+/// One line of `--decision-trace` ([`baylee_train_ops::divergence::TraceLine`]):
+/// the decision, its answer, and the margin of the logits the net read.
+fn trace_line(
+    deal: u64,
+    n: u32,
+    seq: u64,
+    view: &baylee_view::PlayerView,
+    pending: &Pending,
+    answer: &baylee_train::netplay4::Answer4,
+    menu: Option<&Value>,
+) -> anyhow::Result<String> {
+    let margin = menu.and_then(baylee_train_ops::divergence::menu_margin);
+    let options = menu.map(|menu| {
+        ["options", "pairs"]
+            .iter()
+            .filter_map(|key| menu[*key].as_array())
+            .map(Vec::len)
+            .sum::<usize>()
+    });
+    let word = |value: Value| value.as_str().map(str::to_owned).unwrap_or_default();
+    let line = baylee_train_ops::divergence::TraceLine {
+        i: deal,
+        n,
+        seq,
+        turn: view.turn,
+        seat: view.seat.get(),
+        kind: word(json!(baylee_train::features4::PendingKind4::of(pending))),
+        head: menu.and_then(|menu| u8::try_from(menu["head"].as_u64()?).ok()),
+        source: word(json!(answer.provenance.source)),
+        action: json!(answer.action),
+        margin: margin.map(|(margin, ..)| margin),
+        margin_kind: margin.map(|(_, kind, ..)| kind.to_owned()),
+        options: options.and_then(|count| u32::try_from(count).ok()),
+    };
+    Ok(serde_json::to_string(&line)?)
+}
+
 type TableOutcome = (
     f32,
     bool,
@@ -91,7 +136,7 @@ fn play_one_table(
     mut shadow: Option<&mut shadow::ShadowGame>,
     research_encoder: Option<u32>,
     mut search: Option<&mut lookahead::GameSearch>,
-    value_log: Option<&Mutex<BufWriter<File>>>,
+    logs: DecisionLogs<'_>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -149,6 +194,7 @@ fn play_one_table(
 
     let mut fallback_events = Vec::new();
     let mut net_answers = 0_u64;
+    let mut trace_n = 0_u32;
     let mut fallbacks = 0_u64;
     let mut refused = 0_u64;
     let mut stalls = 0_u64;
@@ -404,7 +450,7 @@ fn play_one_table(
                     );
                 }
                 let dt_ms = t0.elapsed().as_secs_f64() * 1000.0;
-                if let Some(log) = value_log
+                if let Some(log) = logs.value
                     && s == focal_seat
                 {
                     let line = value_line(
@@ -417,6 +463,24 @@ fn play_one_table(
                         n.observed_value(pid),
                     );
                     writeln!(log.lock().expect("value log lock"), "{line}")?;
+                }
+                // The menu is taken at every answer, so a forced or fallback
+                // answer never inherits the last neural decision's logits.
+                let menu = n.take_menu();
+                if let Some(log) = logs.trace
+                    && is_net_seat(s, focal_seat, teams)
+                {
+                    let line = trace_line(
+                        deal_idx,
+                        trace_n,
+                        session.decision_seq(),
+                        &view,
+                        &pending,
+                        &ans,
+                        menu.as_ref(),
+                    )?;
+                    trace_n += 1;
+                    writeln!(log.lock().expect("decision trace lock"), "{line}")?;
                 }
                 if ans.provenance.source == SourceKind4::Net {
                     latencies.push(dt_ms);
