@@ -254,12 +254,18 @@ def main(default_architecture="v4") -> None:
         identity["partial_training"] = {k: v for k, v in partial.items() if k != "trainable_parameters"}
         print("[partial] " + json.dumps(partial), flush=True)
     reference = None
+    scope = None
     if reference_weights is not None:
-        reference = Reference(reference_weights.to(device), net)
+        from .distill import Scope
+        reference = Reference(reference_weights.to(device), net, args.trainable_trunk_from_layer)
+        scope = Scope.from_options(args.distill_kinds, args.distill_kl_weight, args.distill_subtypes,
+                                   args.distill_group_weights, (train_ds, val_ds))
         identity["bundle_distillation"] = dict(contract="bundle_distillation_v1", kinds=list(args.distill_kinds),
-                                               kl_weight=args.distill_kl_weight, version=1)
-        print(f"[distill] reference shared_trunk={reference.shared_trunk} kinds={list(args.distill_kinds)} "
-              f"kl_weight={args.distill_kl_weight}", flush=True)
+                                               subtypes=list(args.distill_subtypes) or None,
+                                               group_weights=args.distill_group_weights or None,
+                                               kl_weight=args.distill_kl_weight, version=2)
+        print(f"[distill] reference shared_trunk={reference.shared_trunk} shared_lower={reference.shared_lower} "
+              f"scope={scope}", flush=True)
     anchor = None
     if args.anchor_l2:
         from .rules_only import ParameterAnchor
@@ -386,7 +392,7 @@ def main(default_architecture="v4") -> None:
         was_training = net.training
         if reference is not None:
             from .distill import evaluate_distill
-            metrics = evaluate_distill(net, reference, val_loader, device, args.distill_kinds, args.distill_kl_weight,
+            metrics = evaluate_distill(net, reference, val_loader, device, scope,
                                        args.board_chunk, args.distill_scalar_tolerance, depth_schedule.selection_k)
         else:
             metrics = evaluate_depths(net, val_loader, device, depth_schedule,
@@ -501,7 +507,11 @@ def main(default_architecture="v4") -> None:
                         None if args.reference_execution else (host["entity_rules"], host["cand_rules"])
                     )
                     profile.mark("rule_structure")
-                    if grad_window is None:
+                    if grad_window is None and reference is not None:
+                        # Stage B: the reference reuses the inputs of the first trained layer.
+                        with reference.capturing(net):
+                            boards = encode_boards(net, batch, args.board_chunk, device)
+                    elif grad_window is None:
                         boards = encode_boards(net, batch, args.board_chunk, device)
                     else:
                         from .burn_in import encode_boards_windowed
@@ -519,8 +529,8 @@ def main(default_architecture="v4") -> None:
                         ref_prepared = reference.outputs(host, batch, boards, h, plans, device, use_bf16,
                                                          args.board_chunk, resets=resets)
                         profile.mark("distill_reference")
-                        traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, args.distill_kinds,
-                                                         args.distill_kl_weight, AUXILIARY_TARGETS)
+                        traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, scope,
+                                                         AUXILIARY_TARGETS)
                         distill_stats = dstats if distill_stats is None else distill_stats + dstats
                     else:
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):

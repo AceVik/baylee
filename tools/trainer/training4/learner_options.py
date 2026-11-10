@@ -39,6 +39,13 @@ def add_learner_options(parser):
     parser.add_argument("--distill-kl-weight", type=float, default=1.0, help="Weight of every KL-to-r1 term")
     parser.add_argument("--distill-scalar-tolerance", type=float, default=0.05,
                         help="A scalar agrees with R within this normalized distance")
+    parser.add_argument("--distill-subtypes", default="",
+                        help="Comma-separated subtypes of --distill-kinds that get CE to R (e.g. "
+                             "cast,pass,instant_their_turn,spend); the kinds' other subtypes stay under the KL. "
+                             "Empty = every subtype")
+    parser.add_argument("--distill-group-weights", default="",
+                        help="Comma-separated group=weight over the step's fired rule groups; a CE row's weight "
+                             "is the product of its fired groups' weights (others 1). Empty = off")
     parser.add_argument("--skip-final-validation", action="store_true",
                         help="Throughput probes only: no held-out pass after a --max-steps/time-budget stop")
     parser.add_argument("--vectorized-rule-closure", action="store_true",
@@ -76,6 +83,19 @@ def check_learner_options(args, parser):
         args.distill_kinds = tuple(sorted({int(k) for k in args.distill_kinds.split(",") if k.strip()}))
     except ValueError:
         parser.error("--distill-kinds is a comma-separated list of pending kinds")
+    args.distill_subtypes = tuple(sorted({s.strip() for s in args.distill_subtypes.split(",") if s.strip()}))
+    weights = {}
+    for item in (i.strip() for i in args.distill_group_weights.split(",") if i.strip()):
+        name, _, number = item.partition("=")
+        try:
+            weights[name.strip()] = float(number)
+        except ValueError:
+            parser.error("--distill-group-weights is a comma-separated list of group=weight")
+        if not name.strip() or not weights[name.strip()] >= 0:
+            parser.error("--distill-group-weights needs named groups with nonnegative weights")
+    args.distill_group_weights = weights
+    if (args.distill_subtypes or weights) and not args.distill_bundle:
+        parser.error("--distill-subtypes and --distill-group-weights require --distill-bundle")
     if args.distill_bundle:
         if not args.distill_kinds or args.distill_kl_weight < 0 or args.distill_scalar_tolerance < 0:
             parser.error("--distill-bundle needs kinds and a nonnegative KL weight and scalar tolerance")
