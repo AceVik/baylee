@@ -37,6 +37,23 @@ fn output_parent(path: &Path) -> Result<&Path> {
 /// # Errors
 /// Returns serialization or filesystem errors, removing the temporary on failure.
 pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
+    publish(path, |file| {
+        serde_json::to_writer_pretty(&mut *file, value)?;
+        file.write_all(b"\n")?;
+        Ok(())
+    })
+}
+
+/// Publish a flushed text file as [`atomic_json`] publishes JSON.
+/// # Errors
+/// Returns filesystem errors, removing the temporary on failure.
+pub fn atomic_text(path: &Path, text: &str) -> Result<()> {
+    publish(path, |file| Ok(file.write_all(text.as_bytes())?))
+}
+
+/// Write a temporary beside `path`, flush it, rename it over `path` and sync
+/// the parent directory; the temporary is removed on failure.
+fn publish(path: &Path, write: impl FnOnce(&mut File) -> Result<()>) -> Result<()> {
     let parent = output_parent(path)?;
     fs::create_dir_all(parent)?;
     let tmp = parent.join(format!(
@@ -48,8 +65,7 @@ pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
     ));
     let result = (|| -> Result<()> {
         let mut file = OpenOptions::new().write(true).create_new(true).open(&tmp)?;
-        serde_json::to_writer_pretty(&mut file, value)?;
-        file.write_all(b"\n")?;
+        write(&mut file)?;
         file.sync_all()?;
         fs::rename(&tmp, path)?;
         #[cfg(unix)]
