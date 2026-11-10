@@ -26,6 +26,8 @@ pub(super) struct GameBinding {
     source_game: String,
     record_sha256: String,
     seats: Vec<Value>,
+    /// ε of the learner's rule-proposal exploration, when it explored.
+    exploration: Option<f64>,
 }
 
 fn ordinary_contract(contract: &Value) -> anyhow::Result<()> {
@@ -234,6 +236,7 @@ impl RunBinding {
             source_game,
             record_sha256,
             seats: seats.clone(),
+            exploration: None,
         })
     }
 }
@@ -246,11 +249,23 @@ impl GameBinding {
         );
         Ok(())
     }
+    /// The game as converted, with ε when its learner explored.
+    #[must_use]
+    pub fn with_exploration(mut self, epsilon: Option<f64>) -> Self {
+        self.exploration = epsilon;
+        self
+    }
     fn manifest(&self, game_id: u32) -> Value {
-        json!({"game_id":game_id,"complete":true,"capped":false,"fallback_answers":0,
+        let mut manifest = json!({"game_id":game_id,"complete":true,"capped":false,"fallback_answers":0,
             "refused_answers":0,"unencoded_decisions":0,"seats":self.seats,
             "source_run_sha256":self.run.source_run_sha256,"record_sha256":self.record_sha256,
-            "source_game":self.source_game})
+            "source_game":self.source_game});
+        if let Some(epsilon) = self.exploration {
+            // Only exploring games name it, so other manifests stay as they were.
+            manifest["behavior_mixture"] = json!({
+                "contract": baylee_train_ops::exploration::CONTRACT, "epsilon": epsilon});
+        }
+        manifest
     }
 }
 

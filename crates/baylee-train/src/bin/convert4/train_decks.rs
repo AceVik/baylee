@@ -132,6 +132,7 @@ mod tests {
             shadow: None,
             llm: None,
             distill: None,
+            explored: false,
             deck_keys: keys,
         }
     }
