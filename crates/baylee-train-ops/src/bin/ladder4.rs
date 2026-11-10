@@ -38,9 +38,19 @@ struct Args {
     /// The spend book of the run, which holds the file's caps.
     #[arg(long)]
     ledger: PathBuf,
-    /// A deck manifest: `{"decks":[{"key","path"}]}`.
+    /// A deck manifest: `{"decks":[{"key","path"}]}`. A deck without a `key`
+    /// goes by its `id`, as in `manifest.v4.json`.
     #[arg(long)]
     decks: PathBuf,
+    /// Plays only the manifest's decks this file names, in the manifest's
+    /// order: an `eval4` summary's `accepted_deck_keys`, so that the seat
+    /// plays the decks an evaluation played.
+    #[arg(long)]
+    keep_decks: Option<PathBuf>,
+    /// Where a deck's relative `path` is read from (a manifest's repository
+    /// decks); without it, from the working directory.
+    #[arg(long)]
+    deck_root: Option<PathBuf>,
     /// `PROFILE:MODE:GAMES`, MODE being `raw`, `tactical` or `tactical=GROUPS`.
     #[arg(long, required = true)]
     arm: Vec<String>,
@@ -85,11 +95,60 @@ struct Game {
     llm_key: String,
 }
 
-fn schedule(args: &Args) -> Result<Vec<Game>> {
-    let manifest = read_json(&args.decks)?;
-    let decks = manifest["decks"]
+/// A deck's name in a manifest: its `key`, else its `id`.
+fn deck_key(deck: &Value) -> &str {
+    deck["key"]
+        .as_str()
+        .or_else(|| deck["id"].as_str())
+        .unwrap_or("")
+}
+
+/// The decks of `manifest` a ladder plays: those `keep` names (all without
+/// it), in the manifest's order, each with its `key` and its `path` resolved
+/// against `root`.
+fn ladder_decks(manifest: &Value, keep: Option<&Value>, root: Option<&Path>) -> Result<Vec<Value>> {
+    let kept: Option<std::collections::BTreeSet<&str>> = keep
+        .map(|keep| {
+            keep["accepted_deck_keys"]
+                .as_array()
+                .context("the kept decks name no accepted_deck_keys")
+                .map(|keys| keys.iter().filter_map(Value::as_str).collect())
+        })
+        .transpose()?;
+    let mut decks = Vec::new();
+    for deck in manifest["decks"]
         .as_array()
-        .context("manifest has no decks")?;
+        .context("manifest has no decks")?
+    {
+        let key = deck_key(deck);
+        if kept.as_ref().is_some_and(|kept| !kept.contains(key)) {
+            continue;
+        }
+        let path = Path::new(deck["path"].as_str().context("deck path")?);
+        let path = match root {
+            Some(root) if path.is_relative() => root.join(path),
+            _ => path.to_path_buf(),
+        };
+        decks.push(json!({"key": key, "path": path}));
+    }
+    if let Some(kept) = &kept {
+        ensure!(
+            decks.len() == kept.len(),
+            "the manifest holds {} of the {} decks to keep",
+            decks.len(),
+            kept.len()
+        );
+    }
+    Ok(decks)
+}
+
+fn schedule(args: &Args) -> Result<Vec<Game>> {
+    let keep = args.keep_decks.as_deref().map(read_json).transpose()?;
+    let decks = ladder_decks(
+        &read_json(&args.decks)?,
+        keep.as_ref(),
+        args.deck_root.as_deref(),
+    )?;
     ensure!(decks.len() >= 2, "A ladder needs two decks");
     let mut games = Vec::new();
     for arm in &args.arm {
@@ -554,6 +613,32 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The seat plays the decks an evaluation played: a `manifest.v4.json`'s
+    /// decks by id, those an `eval4` summary accepted, repository paths read
+    /// from the repository.
+    #[test]
+    fn a_ladder_keeps_the_decks_an_evaluation_accepted() {
+        let manifest = json!({"decks": [
+            {"id": "eval/a", "path": "data/decks/eval/a.txt", "split": "test"},
+            {"id": "x", "path": "/decks/x.txt", "split": "train"},
+            {"id": "y", "path": "/decks/y.txt", "split": "test"},
+        ]});
+        let keep = json!({"accepted_deck_keys": ["y", "eval/a"]});
+        let decks = ladder_decks(&manifest, Some(&keep), Some(Path::new("/repo"))).unwrap();
+        assert_eq!(
+            decks,
+            [
+                json!({"key": "eval/a", "path": "/repo/data/decks/eval/a.txt"}),
+                json!({"key": "y", "path": "/decks/y.txt"}),
+            ]
+        );
+        assert_eq!(ladder_decks(&manifest, None, None).unwrap().len(), 3);
+        let missing = json!({"accepted_deck_keys": ["y", "gone"]});
+        assert!(ladder_decks(&manifest, Some(&missing), None).is_err());
+        let keyed = json!({"decks": [{"key": "k", "id": "i", "path": "/k.txt"}]});
+        assert_eq!(ladder_decks(&keyed, None, None).unwrap()[0]["key"], "k");
+    }
 
     #[test]
     fn a_game_plays_the_main_deck_alone() {
