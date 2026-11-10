@@ -7,7 +7,7 @@ import dataset4 as D
 from .checkpoint import collection_plan, file_digest, load_source, merged_checkpoint, publish
 from .extract import cached_features
 from .fit import fit
-from .metrics import assert_disjoint_games
+from .metrics import assert_disjoint_games, stride_indices, turn_start_report
 from .model_identity import source_identity
 
 
@@ -28,6 +28,12 @@ def main():
     parser.add_argument("--cache-dir", default="~/baylee-data/v4/value-calibration-cache")
     parser.add_argument("--max-samples", type=int, default=200000)
     parser.add_argument("--collection-plan", help="JSON whose model_sha256 must match the source checkpoint")
+    parser.add_argument("--accept-greedy-net", action="store_true",
+                        help="Count trajectories with the net's temperature-0 decisions as learner games "
+                             "(default: only sampled ones with a recorded logprob)")
+    parser.add_argument("--turn-starts", action="store_true",
+                        help="Also sample each turn's first frame and report turn starts on the held-out games; "
+                             "the fit and the other groups keep the stride samples only")
     args = parser.parse_args()
     if min(args.batch_size, args.unroll, args.sample_every, args.head_batch_size, args.max_samples) < 1 or args.epochs < 0 or args.lr <= 0 or args.board_chunk < 0:
         parser.error("Invalid calibration size, epoch count or learning rate")
@@ -55,9 +61,15 @@ def main():
         if dataset.structure.digest != net.rules.digest:
             raise ValueError("Dataset and source use different rule catalogs")
     caches = [cached_features(net, ds, cache_root, source_hash, args.sample_every,
-                              args.batch_size, args.board_chunk, args.max_samples) for ds in datasets]
-    head, report = fit(net.seat_value_head, *caches, device, args.epochs, args.lr,
+                              args.batch_size, args.board_chunk, args.max_samples,
+                              args.accept_greedy_net, args.turn_starts) for ds in datasets]
+    # Turn-start samples are extra; the fit and the ordinary groups keep the stride.
+    stride_caches = ([cache.restrict(stride_indices(cache, args.sample_every)) for cache in caches]
+                     if args.turn_starts else caches)
+    head, report = fit(net.seat_value_head, *stride_caches, device, args.epochs, args.lr,
                        args.seed, args.head_batch_size)
+    if args.turn_starts:
+        report["validation_turn_starts"] = turn_start_report(head, caches[1], device)
     if file_digest(source_path) != source_hash:
         raise RuntimeError("Source checkpoint changed during calibration")
     provenance = dict(kind="isolated_value_calibration", source=str(source_path.resolve()),
