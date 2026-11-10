@@ -35,8 +35,19 @@
 //! the two in step.
 
 pub mod generated;
+pub mod sets;
 
 pub use generated::ROWS;
+pub use sets::SETS;
+
+/// The day `set` was released (`YYYY-MM-DD`), as [`SETS`] records it: what
+/// decides the group of `crates/cards/sets` a card first printed there lies in.
+#[must_use]
+pub fn released(set: &str) -> Option<&'static str> {
+    SETS.binary_search_by(|(code, _)| (*code).cmp(set))
+        .ok()
+        .map(|i| SETS[i].1)
+}
 
 use baylee_core::ids::CardIndex;
 
@@ -129,6 +140,32 @@ impl Row {
 #[cfg(test)]
 mod tests {
     use super::{ROWS, row_by_name};
+
+    /// Every set a ledger row names has a release day, so every card the
+    /// ledger knows has a group of `crates/cards/sets` to lie in; and the
+    /// table is sorted, which [`super::released`]'s binary search needs.
+    #[test]
+    fn every_ledger_set_has_a_release_day() {
+        let sets = super::SETS;
+        assert!(
+            sets.windows(2).all(|w| w[0].0 < w[1].0),
+            "SETS is sorted and unique"
+        );
+        let missing: std::collections::BTreeSet<&str> = ROWS
+            .iter()
+            .map(|row| row.set)
+            .filter(|set| super::released(set).is_none())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "no release day for {missing:?}: run `cargo xtask sets`"
+        );
+        assert!(
+            sets.iter()
+                .all(|(_, day)| day.len() == 10 && day.as_bytes()[4] == b'-'),
+            "days are YYYY-MM-DD"
+        );
+    }
 
     /// [`row_by_name`] falls back to the front face, and that second tier is
     /// only an answer while it is an *unambiguous* one. Two ways it could
