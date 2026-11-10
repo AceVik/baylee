@@ -662,7 +662,7 @@ below remain the basis for runtime card images and finishes.
    CI restores it from its own cache and `xtask` refetches whatever is
    missing, so holding the line costs nothing.
 9. **The English Oracle, compiled in.**
-   `crates/baylee-cards/src/generated_oracle.rs` holds the English Oracle
+   `crates/cards/src/generated_oracle.rs` holds the English Oracle
    text of every card in the pool, one string per face. It is not a new kind
    of thing in the tree: every card file already carries the same words as
    its `//! Oracle:` header, on the footing clause 2a names for card names
@@ -904,7 +904,7 @@ was found in AGENTS.md, CLAUDE.md, NOTICE or this document. This records a confl
 with the project's claimed policy basis, not a conclusion about copyright law.
 
 A concrete existing example is the triggered land-tap/damage implementation in
-`crates/baylee-cards/src/cards/enchantments/mv_4/manabarbs.rs:25`; completing
+`crates/cards/src/cards/enchantments/mv_4/manabarbs.rs:25`; completing
 Power Surge would add another rules implementation. The legal guardrail (§"Guardrails for every change")
 requires stopping and telling the owner when a requested change conflicts with
 an explicit prohibition. Further card implementation is therefore held pending

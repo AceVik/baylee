@@ -11,7 +11,7 @@ use regex::Regex;
 
 pub(super) const LEDGER: &str = "crates/baylee-cards-index/src/generated.rs";
 const CORE_INDEX: &str = "crates/baylee-core/src/generated/index";
-const CARDS: &str = "crates/baylee-cards/src/cards";
+const CARDS: &str = "crates/cards/src/cards";
 const UNPLAYABLE: &str = "data/unplayable.tsv";
 
 /// Everything the card status is measured from: a commit that changes none
@@ -260,7 +260,7 @@ pub(super) fn parse(files: &BTreeMap<String, String>) -> Result<Catalog> {
                 "duplicate core set header"
             );
         }
-        if path.starts_with("crates/baylee-cards/src/cards/")
+        if path.starts_with("crates/cards/src/cards/")
             && Path::new(path).extension().is_some_and(|ext| ext == "rs")
             && text.contains("card!(")
         {

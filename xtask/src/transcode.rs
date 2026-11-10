@@ -38,7 +38,7 @@ impl Narrow<'_> {
             None => None,
         };
         let stubs = if self.stubs {
-            Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
+            Some(stub_names(&root.join("crates/cards/src/cards"))?)
         } else {
             None
         };

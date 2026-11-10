@@ -1,0 +1,26 @@
+[package]
+name = "baylee-card-tests-lands-2"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Card tests: lands-2"
+
+[lints]
+workspace = true
+
+[lib]
+path = "../../testkit/card_tests/shard_lands_2.rs"
+doctest = false
+
+[dev-dependencies]
+# Its tests look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
+baylee-card-testkit = { path = "../../testkit", features = ["enabled"] }
+baylee-engine = { workspace = true, features = ["test-support"] }
+baylee-cards = { workspace = true, features = ["mutate"] }
+baylee-cards-dsl.workspace = true
+baylee-core.workspace = true
+serde_json.workspace = true
+smallvec.workspace = true
+uuid.workspace = true

@@ -71,9 +71,9 @@ fn completion_writes_only_the_selected_unfinished_source() {
     let sibling = add_stub(&fixture, BOUNCE, false);
     let sibling_before = fs::read(&sibling).unwrap();
     let sentinels = [
-        "crates/baylee-cards/src/cards/mod.rs",
-        "crates/baylee-cards/src/generated_lines.rs",
-        "crates/baylee-cards/src/generated_names.rs",
+        "crates/cards/src/cards/mod.rs",
+        "crates/cards/src/generated_lines.rs",
+        "crates/cards/src/generated_names.rs",
         "crates/baylee-core/src/generated/index/mod.rs",
     ];
     for relative in sentinels {
@@ -156,7 +156,7 @@ fn an_unrelated_test_file_does_not_promote_an_untested_stub() {
     let wrong = fixture
         .dir
         .path()
-        .join("crates/baylee-engine/src/engine/card_tests/instants/mv_2/lightning_bolt.rs");
+        .join("crates/cards/testkit/card_tests/instants/mv_2/lightning_bolt.rs");
     write(&wrong, fs::read(&original).unwrap());
     fs::remove_file(original).unwrap();
     complete(&fixture, &[BOLT], false).unwrap();
@@ -300,7 +300,7 @@ fn completion_refuses_a_stub_outside_its_canonical_path() {
     let wrong = fixture
         .dir
         .path()
-        .join("crates/baylee-cards/src/cards/instants/mv_2/lightning_bolt.rs");
+        .join("crates/cards/src/cards/instants/mv_2/lightning_bolt.rs");
     write(&wrong, fs::read(&original).unwrap());
     fs::remove_file(&original).unwrap();
     let before = fs::read(&wrong).unwrap();

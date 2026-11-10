@@ -18,8 +18,8 @@ the defects earlier batches shipped. Read it whole before the first edit.
 4. `docs/card-identity.md` §"Who may write what".
 5. The last three sections of `docs/llm-learnings.md`.
 6. One finished card and its test as the model to copy:
-   `crates/baylee-cards/src/cards/enchantments/auras/mv_1/brainwash.rs` and
-   `crates/baylee-engine/src/engine/card_tests/enchantments/auras/mv_1/brainwash.rs`.
+   `crates/cards/src/cards/enchantments/auras/mv_1/brainwash.rs` and
+   `crates/cards/testkit/card_tests/enchantments/auras/mv_1/brainwash.rs`.
    For a pattern the card needs, one of these: an activated ability with a
    composite cost, `lands/fetch/polluted_delta.rs`; a trigger with filter
    algebra, `creatures/mv_2/ondu_cleric.rs`; an alternative (pitch) cost,
@@ -29,7 +29,7 @@ the defects earlier batches shipped. Read it whole before the first edit.
    multiplication, `creatures/mv_5/elesh_norn_mother_of_machines.rs`; a
    clone, `creatures/mv_4/spark_double.rs`; a planeswalker,
    `planeswalkers/mv_4/jace_the_mind_sculptor.rs` (all under
-   `crates/baylee-cards/src/cards/`).
+   `crates/cards/src/cards/`).
 
 ## 1. The rules of a card batch
 
@@ -63,7 +63,7 @@ the defects earlier batches shipped. Read it whole before the first edit.
   (`card!`, `face!`, `activated!`, `triggered!`, `static_ability!`,
   `cost!`, `mana_ability!`), `field = value` in parentheses.
 - Filters: the generic ones on `Filter`, this pool's in
-  `crates/baylee-cards/src/filters.rs`. No per-card filter statics.
+  `crates/cards/src/filters.rs`. No per-card filter statics.
 - **Read every sentence for its subject.** Earlier batches lost exactly
   these words, and every gate passed:
   - "you cast" / "you control" / "your": Derelor taxed every black spell
@@ -129,7 +129,7 @@ and this section, not by reopening the card file. A different model reviews
 both afterwards (§7).
 
 - **One file per card, at the card's own path:** `cards/<type>/<dir>/<slug>.rs`
-  is tested in `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`,
+  is tested in `crates/cards/testkit/card_tests/<type>/<dir>/<slug>.rs`,
   with a `mod` line in the parent module in alphabetical order. It compiles in
   a crate of its own (`docs/cards.md` §"Where a card test compiles"): run it
   with `cargo test -p 'baylee-card-tests-*' <slug>`. Never a

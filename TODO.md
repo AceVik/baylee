@@ -10,7 +10,7 @@ ok-game / issues).
 
 ## Format
 
-- **Card Name** (`crates/baylee-cards/src/cards/…`) — what is wrong, and what
+- **Card Name** (`crates/cards/src/cards/…`) — what is wrong, and what
   the ruletext says instead. CR citations where they settle it.
 
 ## Checks completed
@@ -27,7 +27,7 @@ ok-game / issues).
   actionable gaps were closed:
   - **Oasis** — new test
     `oasis_prevents_the_next_point_of_damage_to_a_creature_and_no_more`
-    (`crates/baylee-engine/src/engine/card_tests/lands.rs`). A shielded Hill
+    (`crates/cards/testkit/card_tests/lands.rs`). A shielded Hill
     Giant takes a Lightning Bolt for 2 and lives; the unshielded mirror takes
     all 3 and dies, so the survival cannot pass on a Bolt that dealt nothing
     (CR 615.1). Mutant `348:0` killed.
@@ -145,7 +145,7 @@ card carries the exact reason in its file; the missing pieces, grouped, are:
 
 All 21 now carry engine tests derived from the Scryfall oracle text and
 rulings (`scratchpad/arn-tests/`), not from the implementation — 35 tests in
-`crates/baylee-engine/src/engine/card_tests/{creatures,artifacts,enchantments,instants,sorceries}.rs`,
+`crates/cards/testkit/card_tests/{creatures,artifacts,enchantments,instants,sorceries}.rs`,
 each with a `card_index(...)` helper (L3). Every loggable ability fires in
 the suite; the 17 permanents leave the battlefield clean under
 `BAYLEE_LEAVE_LOG`; and every listed ability mutant was run individually and

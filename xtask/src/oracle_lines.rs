@@ -29,7 +29,7 @@ pub(crate) const AMBIGUITY_ONE_IN: usize = 25;
 /// reading and no reading at all rather than a second ceiling.
 pub(crate) const ABILITIES_WALKED_FLOOR: usize = 2000;
 
-/// Renders `crates/baylee-cards/src/generated_lines.rs`: per card, per
+/// Renders `crates/cards/src/generated_lines.rs`: per card, per
 /// face, which printed sentence each ability came from.
 ///
 /// The answer has to be precomputed, and it has to be precomputed *here*.
@@ -188,7 +188,7 @@ pub(crate) fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
 /// reading from a cache that is mostly empty, not one card from the next.
 pub(crate) const ORACLE_WRITTEN_FLOOR: usize = 2500;
 
-/// Renders `crates/baylee-cards/src/generated_oracle.rs`: per card, per
+/// Renders `crates/cards/src/generated_oracle.rs`: per card, per
 /// printed face, the English Oracle text.
 ///
 /// It is the text [`render_ability_lines`] counts sentences in and places

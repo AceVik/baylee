@@ -39,7 +39,7 @@ Why there and not in a crate of its own:
   browser, the client's second card list. A crate of its own would bring
   nothing but a third file.
 - **Whoever links the crate decides.** The server-side copy
-  `baylee_cards::pool::PoolCard` (`crates/baylee-cards/src/pool.rs:107`) gets
+  `baylee_cards::pool::PoolCard` (`crates/cards/src/pool.rs:107`) gets
   three new fields (§4) and **no** trait implementation. Otherwise
   `baylee-cards` would have to link the parser crate — and `baylee-cards`
   hangs in every engine build. The server does not filter: `GET /pool`
@@ -273,14 +273,14 @@ impl Field {
 | `power` | `pow` | `stats` (`deckbuilder.rs:87`), split at the `/` |
 | `toughness` | `tou` | the same, right half |
 | `powtou` | `pt` | the sum of both halves |
-| `loyalty` | `loy` | `stats` without a `/` (`crates/baylee-cards/src/pool.rs:178-181`: P/T wins, otherwise loyalty) |
+| `loyalty` | `loy` | `stats` without a `/` (`crates/cards/src/pool.rs:178-181`: P/T wins, otherwise loyalty) |
 | `devotion` | — | purely out of `mana_cost`, no new field |
 | `is` | `has`, `not` | `commander` (`:99`), `basic_land` (`:102`), `two_faced` (`:106`), `coverage` (`:93`) |
 
 Three traps that have to be named in the dialog and cannot be programmed
 away:
 
-- **`colors` is front-face only.** `crates/baylee-cards/src/pool.rs:110-111`
+- **`colors` is front-face only.** `crates/cards/src/pool.rs:110-111`
   takes `def.faces.first()`, `:124` builds `letters(cost.colors())` out of the
   cost alone. `FaceDef::color_indicator`
   (`crates/baylee-cards-dsl/src/lib.rs:228-231`) does not flow into it.
@@ -305,7 +305,7 @@ away:
 | Field | Aliases | out of what |
 |---|---|---|
 | `keyword` | `kw` | `CardDef::all_keywords()` (`crates/baylee-cards-dsl/src/lib.rs:141-147`) through a **new** `KeywordSet::words()`. There is none: `fn words` exists only three times in the workspace, all in `crates/baylee-core/src/types.rs:185,290,460`. 34 bits, `FLYING = 0` (`dsl/lib.rs:342`) through `NIGHTBOUND = 33` (`:375`). |
-| `subtype` | — (and `t:goblin`) | `FaceDef::subtypes` (`dsl/lib.rs:194`) through `baylee_core::generated::subtypes::name` (`crates/baylee-core/src/generated/subtypes.rs:1596`) — exactly the call `pool::type_line` already makes (`crates/baylee-cards/src/pool.rs:162-166`). What goes on the wire are the English **words**, never the `SubtypeId`. |
+| `subtype` | — (and `t:goblin`) | `FaceDef::subtypes` (`dsl/lib.rs:194`) through `baylee_core::generated::subtypes::name` (`crates/baylee-core/src/generated/subtypes.rs:1596`) — exactly the call `pool::type_line` already makes (`crates/cards/src/pool.rs:162-166`). What goes on the wire are the English **words**, never the `SubtypeId`. |
 | `supertype` | — (and `is:legendary`, `t:legendary`) | `FaceDef::supertypes` (`dsl/lib.rs:193`) through `SupertypeSet::words` (`crates/baylee-core/src/types.rs:290`) |
 
 ### Not answerable — a named refusal
@@ -474,7 +474,7 @@ list, with a different reach and the same named refusals.
 
 ### Which fields `PoolCard` gains — both copies
 
-**Server side, `crates/baylee-cards/src/pool.rs`** (struct up to `:93`,
+**Server side, `crates/cards/src/pool.rs`** (struct up to `:93`,
 written in `row`, `:107-141`), three fields with
 `#[serde(skip_serializing_if = "Vec::is_empty")]` like `alt_names` (`:92`):
 
@@ -990,7 +990,7 @@ step 6.
 **1. The three wire fields.** `KeywordSet::words()` in
 `crates/baylee-cards-dsl/src/lib.rs` out of the same `keywords!` macro
 (`dsl/lib.rs:333-339`); `subtypes`, `supertypes`, `keywords` on
-`baylee_cards::pool::PoolCard` (`crates/baylee-cards/src/pool.rs`, struct and
+`baylee_cards::pool::PoolCard` (`crates/cards/src/pool.rs`, struct and
 `row` from `:107` on) and on `deckbuilder::PoolCard` (`deckbuilder.rs:67-121`).
 *Proof:* every card whose `all_keywords()` carries `FLYING` has "flying" in
 the row; a card's `subtypes` list is exactly what `type_line` writes after the
@@ -1064,7 +1064,7 @@ honesty rule.
 
 **No `is:split` / `is:mdfc` / `is:transform` / `is:adventure`.** What stands
 on the wire is a single bit, `two_faced` (`deckbuilder.rs:106`, out of
-`faces.len() > 1`, `crates/baylee-cards/src/pool.rs:136`). It cannot tell the
+`faces.len() > 1`, `crates/cards/src/pool.rs:136`). It cannot tell the
 four apart. What is offered is `is:doublesided` ("double-sided"); the other
 four refuse with "Read as text only".
 
@@ -1074,7 +1074,7 @@ yes is worse than a named refusal.
 
 **Back faces are not repaired.** `cmc`, `colors`, `kinds`, `type_line`,
 `mana_cost`, `stats` all come out of `def.faces.first()`
-(`crates/baylee-cards/src/pool.rs:110-111`, read at `:121-128`). Fire // Ice
+(`crates/cards/src/pool.rs:110-111`, read at `:121-128`). Fire // Ice
 answers `mv=2` instead of 4, and `color_indicator`
 (`crates/baylee-cards-dsl/src/lib.rs:228-231`) flows in nowhere, so a
 transformed back face is colourless. The dialog then draws correct chips over

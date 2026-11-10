@@ -50,7 +50,7 @@ pub(crate) fn card_batch(
     )?;
     // One walk of the tree rather than one per card: `cards/` is a taxonomy
     // now, and a card is found by its slug wherever it has been filed.
-    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    let files = card_files(&root.join("crates/cards/src/cards"))?;
     let wanted: Vec<String> = if let Some(list) = cards {
         list.split(',').map(|s| s.trim().to_string()).collect()
     } else {
@@ -136,7 +136,7 @@ pub(crate) fn card_prompt(name: &str, file: &str, package: &Path, has_script: bo
          Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
          not another card, not the DSL.\n\n\
          Read first, in this order:\n\
-         - `crates/baylee-cards/AGENTS.md` — the playbook you are bound by.\n\
+         - `crates/cards/AGENTS.md` — the playbook you are bound by.\n\
          - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
          {script_line}\
          - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
@@ -228,7 +228,7 @@ pub(crate) fn land_report(
     // write these", and counting them would throw that away.
     let mut not_a_land: Vec<String> = Vec::new();
     let mut shapes: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    let files = card_files(&root.join("crates/cards/src/cards"))?;
     for name in &names {
         // A finished card is nobody's worklist, whoever finished it — and a
         // card with no file at all is not one either.

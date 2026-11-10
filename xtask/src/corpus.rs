@@ -234,7 +234,7 @@ pub(crate) fn token_ledger(
     };
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/generated_tokens.rs"),
+        &root.join("crates/cards/src/generated_tokens.rs"),
         &render_token_ledger(root, &bodies)?,
         changed,
     )

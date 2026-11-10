@@ -15,7 +15,7 @@ impl Fixture {
     fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let cache = dir.path().join("cache");
-        let cards = dir.path().join("crates/baylee-cards/src/cards");
+        let cards = dir.path().join("crates/cards/src/cards");
         fs::create_dir_all(&cache).unwrap();
         fs::create_dir_all(&cards).unwrap();
         fs::create_dir_all(dir.path().join("data")).unwrap();

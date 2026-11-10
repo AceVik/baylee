@@ -5,7 +5,7 @@ work reads `docs/card-agent-brief.md` first (it adds the defects earlier
 batches shipped), then this page, then `docs/card-dsl.md` (the vocabulary)
 and `docs/card-identity.md` (indices and who may write what).
 
-- Codegen writes stubs, `generated.rs`, `cards/mod.rs`, `generated_tokens.rs` (in `crates/baylee-cards/src/`), `crates/baylee-core/src/generated/` (`subtypes.rs`; `index/`, per-set files globbed into `index::`; prefix rule and door test: `docs/card-identity.md` §"Who may write what") and four compiled-pool tables: `generated_lines.rs` (`docs/client.md` §"Which ability is on the stack"), `generated_names.rs`, `generated_sides.rs`, `generated_oracle.rs`. Two-phase: run codegen twice; `decks::name_table_tests` fail in between.
+- Codegen writes stubs, `generated.rs`, `cards/mod.rs`, `generated_tokens.rs` (in `crates/cards/src/`), `crates/baylee-core/src/generated/` (`subtypes.rs`; `index/`, per-set files globbed into `index::`; prefix rule and door test: `docs/card-identity.md` §"Who may write what") and four compiled-pool tables: `generated_lines.rs` (`docs/client.md` §"Which ability is on the stack"), `generated_names.rs`, `generated_sides.rs`, `generated_oracle.rs`. Two-phase: run codegen twice; `decks::name_table_tests` fail in between.
 - Edit only `coverage`, `keywords`, `abilities`; the rest is generated, except a transforming DFC back face's `keywords`, `color_indicator`, `castable_from_hand`.
 - Name the index as a constant (`index = index::MOX_OPAL`); a number does not compile.
 - `CardIndex` is the append-only ledger `baylee_cards_index::ROWS` (`crates/baylee-cards-index`) over the whole corpus; decks and replays store it, so it never changes. Only `xtask ledger` writes it; codegen fails on a rowless card. Pool cards the corpus filter drops go in additive `data/corpus-keep.tsv`.
@@ -84,9 +84,9 @@ and `docs/card-identity.md` (indices and who may write what).
 - `static_ability!(filter, modifier)` has no layer (`Modifier::layer`); raw literals must agree (`lints::every_layer_in_the_pool_is_the_one_its_modifier_derives`). `equip!("{2}")` takes only the cost.
 - `condition = Some(…)` gives `AbilityDef::ActivatedConditional`; every match handles both twins.
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` in printed order; `Cost::FREE`, `Cost::TAP`. Readers emit costs only via `body::cost_literal`.
-- Generic filters on `Filter` (`CREATURE`, `NONLAND`, …); pool-specific ones in `crates/baylee-cards/src/filters.rs` next to `crate::tokens` (Magic knowledge vs. this pool's). No per-card filter statics.
+- Generic filters on `Filter` (`CREATURE`, `NONLAND`, …); pool-specific ones in `crates/cards/src/filters.rs` next to `crate::tokens` (Magic knowledge vs. this pool's). No per-card filter statics.
 - Some tests exist only to fail on broken convention.
-- Every card added, fixed or refactored is played in `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`, the card's own path (or `combo_tests/`), on the shared `testkit`, via `card_index("<oracle id>")` (where it compiles: §"Where a card test compiles"); `baylee-tools hooks require-card-tests` checks recursively (restored stubs and `Coverage::Generated` cards exempt; a Generated card whose test exists asks for a codegen run). Never in the card file. A fix also needs a test beside the broken rule that fails on the old code. Diff `pool-dump` around no-rules-change refactors.
+- Every card added, fixed or refactored is played in `crates/cards/testkit/card_tests/<type>/<dir>/<slug>.rs`, the card's own path (or `combo_tests/`), on the shared `testkit`, via `card_index("<oracle id>")` (where it compiles: §"Where a card test compiles"); `baylee-tools hooks require-card-tests` checks recursively (restored stubs and `Coverage::Generated` cards exempt; a Generated card whose test exists asks for a codegen run). Never in the card file. A fix also needs a test beside the broken rule that fails on the old code. Diff `pool-dump` around no-rules-change refactors.
 
 ## Where a card compiles
 
@@ -96,7 +96,7 @@ Since 10.11.2026 the cards compile apart from the libraries that read them, so a
 - `baylee-cards-base` holds what a card file is written with (`tokens`, `generated_tokens`, `filters`) and `generated`, the door to the pool's tables: `unsafe extern "Rust"` statics of exactly the types the pool exports, which the pool holds to each other at compile time. A program that reads a card and does not link the pool fails to link, naming `baylee_cards_pool_all`; that is the whole fix.
 - `baylee-cards` is the registry as libraries read it (`by_index`, `by_oracle_id`, decks, formats, lines, Oracle text, …), and re-exports `base`'s modules under their old paths. It no longer holds a card.
 
-The files have not moved yet: the pool and the base reach them in `crates/baylee-cards/src/` through `#[path]`, and codegen writes where it always did. Splitting the pool by year of first printing is the next step.
+The files have not moved yet: the pool and the base reach them in `crates/cards/src/` through `#[path]`, and codegen writes where it always did. Splitting the pool by year of first printing is the next step.
 
 ## Where a card test compiles
 

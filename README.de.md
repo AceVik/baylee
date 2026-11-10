@@ -939,7 +939,7 @@ ohne Darstellung und enthält die meisten Client-Tests; der 3D-Tisch ist mit
 [Bevy](https://bevyengine.org/) gebaut. **seal** ist die Verschlüsselung des
 Chats. **Gateway** und **Agent** enthalten überhaupt keine Regeln. Karten
 sind Rust-Code in einer kleinen DSL, eine Datei pro Karte unter
-`crates/baylee-cards/src/cards/`.
+`crates/cards/src/cards/`.
 
 Zum Weiterlesen (englisch):
 
@@ -968,7 +968,7 @@ paar Punkte:
 - Lass das Gate laufen, bevor du pushst. Die CI baut außerdem für Windows,
   macOS, wasm32 und die minimale Rust-Version.
 - Jede Karte, die du hinzufügst oder reparierst, bekommt einen Test, der sie
-  spielt, in `crates/baylee-engine/src/engine/card_tests/`.
+  spielt, in `crates/cards/testkit/card_tests/`.
 - Die Engine bleibt deterministisch: kein `std::time`, kein Zufall außer dem
   Generator mit festem Startwert, keine Iteration über Hash-Maps in heißen
   Pfaden.

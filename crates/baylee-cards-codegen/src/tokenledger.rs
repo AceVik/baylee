@@ -322,7 +322,7 @@ fn same_definition(a: &str, b: &str) -> bool {
     bare(a) == bare(b)
 }
 
-/// Renders the ledger as `crates/baylee-cards/src/generated_tokens.rs`.
+/// Renders the ledger as `crates/cards/src/generated_tokens.rs`.
 ///
 /// [`parse`] reads exactly what this writes, and `codegen --check` is what
 /// holds the pair to it: a round trip that lost a row would hand the next run

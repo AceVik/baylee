@@ -117,7 +117,7 @@ use std::path::{Path, PathBuf};
 // ---------------------------------------------------------------------------
 
 /// The card tree, absolute and fixed when this file is compiled.
-const CARD_TREE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../baylee-cards/src/cards");
+const CARD_TREE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../cards/src/cards");
 
 /// Every `.rs` under `dir`, recursively and in a fixed order.
 ///

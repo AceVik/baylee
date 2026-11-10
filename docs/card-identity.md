@@ -136,7 +136,7 @@ one name would otherwise hand one of them the other's index.
 | `baylee_cards::decks::by_name(s)` | O(1), two perfect hashes | no card **in the pool** prints that name, as either its front face or its whole `A // B` |
 | `generated::by_oracle_id(s)` | O(log n), a binary search over `ALL` | same as `by_index` |
 
-`by_name` is `crates/baylee-cards/src/generated_names.rs`, a compile-time
+`by_name` is `crates/cards/src/generated_names.rs`, a compile-time
 perfect hash over the pool's 1365 names: a 512-entry displacement table, a
 2048-slot table of `u16` positions, and the names themselves beside the
 answer. The arithmetic it shares with its generator is `baylee_core::phf`, and
@@ -282,7 +282,7 @@ has:
   `baylee_cards::tokens::ALL`, which is how a client knows a Soldier is a
   Soldier and which picture it wears. A token has no printing, so it has no
   `CardIndex` and no `PrintRef`; the index is the whole of its identity. The
-  table it indexes lives in `crates/baylee-cards/src/generated_tokens.rs`,
+  table it indexes lives in `crates/cards/src/generated_tokens.rs`,
   written by `cargo xtask codegen`, and may only ever be appended to — an
   insertion in the middle renumbers every token after it and hands one of
   them another's picture.

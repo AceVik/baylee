@@ -337,7 +337,7 @@ pub(crate) fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> any
         return Ok(());
     }
 
-    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    let files = card_files(&root.join("crates/cards/src/cards"))?;
     let (mut machine, mut not_implemented, mut no_script) = (0, 0, 0);
     // Two drops that used to be anonymous. A `continue` with no
     // counter is how a reader loses a whole population and still

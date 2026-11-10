@@ -7,7 +7,7 @@ Never hack around the DSL; extend the DSL instead (in a new milestone).
 
 ## File standard (one file per card)
 
-Location: under `crates/baylee-cards/src/cards/`, in the branch the card's own
+Location: under `crates/cards/src/cards/`, in the branch the card's own
 type line puts it in — `instants/mv_1/swords_to_plowshares.rs`. The next section is
 the whole rule; `cargo xtask codegen` computes it, so never place or move a
 card file by hand. Header is mandatory and must be kept truthful (it's the
@@ -1492,7 +1492,7 @@ from drifting. `f!` is for the combination no constant carries — which is
 most of them, since a constant earns its place by being wanted twice.
 
 A filter that is about *this pool* rather than about Magic goes in
-`crates/baylee-cards/src/filters.rs` (`YOUR_ALLIES`, `ANOTHER_ALLY`), beside
+`crates/cards/src/filters.rs` (`YOUR_ALLIES`, `ANOTHER_ALLY`), beside
 `crate::tokens`, which draws the same line. It earns a place there by being
 written twice; one card's own compound filter stays in that card's file,
 where the oracle sentence it encodes is a line above it.

@@ -31,7 +31,7 @@ const RUNS: &[Run] = &[
             "crates/baylee-gateway/src",
             "crates/baylee-protocol/src",
             "crates/baylee-core/src",
-            "crates/baylee-cards/src/pool.rs",
+            "crates/cards/src/pool.rs",
             "crates/baylee-catalog/src",
             "crates/baylee-cardtext/src",
             "crates/baylee-db/src/console.rs",

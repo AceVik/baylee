@@ -1634,9 +1634,9 @@ rally"* in the account's preferences and sends it into the next one.
 
 **Getting the text is the client's job, and no text crosses the engine
 boundary.** The source is codegen, and what it emits is an *index* rather than
-the text: `crates/baylee-cards/src/generated_lines.rs` says, per card and per
+the text: `crates/cards/src/generated_lines.rs` says, per card and per
 **face**, which printed sentence each ability came from, and
-`crates/baylee-cards/src/lines.rs` is the reader
+`crates/cards/src/lines.rs` is the reader
 (`lines::ability_line(card, face, index)`). A client then splits the printed
 text of the printing and language its player chose and takes that sentence, so
 a loyalty ability draws as what it does instead of as `+1`.

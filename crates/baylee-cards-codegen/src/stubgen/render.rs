@@ -254,7 +254,7 @@ fn render_card(
     // assertions like `assert_eq!(*filter, BASIC_LAND_FILTER)`, which compares
     // the filter with itself. Behaviour is tested in baylee-engine, and a rule
     // that must hold for *every* card belongs in the cross-cutting tests at
-    // the foot of baylee-cards/src/lib.rs.
+    // the foot of crates/cards/src/lib.rs.
     if land.is_none() {
         out.push_str("// TODO(card): implement abilities, see docs/card-dsl.md.\n");
     }

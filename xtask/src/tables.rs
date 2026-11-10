@@ -165,7 +165,7 @@ pub(crate) fn ability_lines(root: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Renders `crates/baylee-cards/src/generated_names.rs`: the pool's names
+/// Renders `crates/cards/src/generated_names.rs`: the pool's names
 /// placed in a perfect hash, so resolving one costs a hash and a string
 /// compare instead of a walk over 1365 cards.
 ///
@@ -218,7 +218,7 @@ pub(crate) fn render_name_table() -> anyhow::Result<String> {
     Ok(names::render(&entries, &whole)?)
 }
 
-/// Renders `crates/baylee-cards/src/generated_sides.rs`: which cards have a
+/// Renders `crates/cards/src/generated_sides.rs`: which cards have a
 /// back to show, and which are double-faced in the sense CR 712.1 gives it.
 ///
 /// # Why a table and not a field
@@ -468,7 +468,7 @@ fn render_turns(out: &mut String, turned: &BTreeMap<u32, Vec<u8>>) {
     out.push_str("];\n\n");
 }
 
-/// Renders `crates/baylee-cards/src/generated_tokens.rs`: the token ledger.
+/// Renders `crates/cards/src/generated_tokens.rs`: the token ledger.
 ///
 /// Reads the table it is about to rewrite, which is what makes the ids
 /// append-only, and then adds whatever is new — the same shape
@@ -488,7 +488,7 @@ pub(crate) fn render_token_ledger(
     /// grows, so anything under this is a reader that has stopped reading.
     const HAND_WRITTEN_FLOOR: usize = 14;
 
-    let tokens = root.join("crates/baylee-cards/src/tokens.rs");
+    let tokens = root.join("crates/cards/src/tokens.rs");
     let text = fs::read_to_string(&tokens)?;
     let hand: Vec<String> = text
         .lines()
@@ -506,7 +506,7 @@ pub(crate) fn render_token_ledger(
         tokens.display()
     );
 
-    let path = root.join("crates/baylee-cards/src/generated_tokens.rs");
+    let path = root.join("crates/cards/src/generated_tokens.rs");
     let existing = match fs::read_to_string(&path) {
         Ok(text) => tokenledger::parse(&text)?,
         // No ledger at all is the first run, and only the first run: every

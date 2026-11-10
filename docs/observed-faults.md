@@ -77,7 +77,7 @@ gateway for the same reason.
 Reported: "Fetchland Effekt fügt irgend was in den Manapool statt mich ein
 passendes Land aus der Bibliothek auswählen zu lassen."
 
-The card is not the fault. `crates/baylee-cards/src/cards/flooded_strand.rs` is
+The card is not the fault. `crates/cards/src/cards/flooded_strand.rs` is
 an `activated!` with `CostPart::TapSelf`, `SacrificeSelf`, `PayLife(1)` and
 `Effect::SearchLibrary { finds: &[Find::BATTLEFIELD] }`. There is no mana
 ability on it.
@@ -3129,7 +3129,7 @@ the same player and the question has one answer, which is what makes today's
 code right there and is also the reason a duel need not be asked.
 
 And the card claims more than it does.
-`crates/baylee-cards/src/cards/planeswalkers/mv_3/aminatou_the_fateshifter.rs`
+`crates/cards/src/cards/planeswalkers/mv_3/aminatou_the_fateshifter.rs`
 carries `coverage = Coverage::Implemented` under its own header comment
 reading `// PARTIAL — +1 and −1 implemented; −6 needs directional multiplayer
 control rotation`. The two contradict each other and the header is the one

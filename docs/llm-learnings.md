@@ -276,7 +276,7 @@ Completing all 67 remaining cards of *Fallen Empires* (`16 Coverage::Generated` 
 3. **Pool-wide census and vocabulary tables in `baylee-engine`, `baylee-cards`, `baylee-cards-dsl`, and `baylee-ai`.**
    Adding new DSL variants (`CostPart`, `Effect`, `Modifier`, `CountExpr`, `TokenSpec`, `PermanentFilter`) or promoting hand-owned cards requires updating:
    - `docs/card-dsl.md` (checked against `baylee-cards-dsl` source AST by `docs_sync` tests),
-   - `crates/baylee-cards/src/lints/tests/entries.rs` (custom counter carrier ceiling),
+   - `crates/cards/src/lints/tests/entries.rs` (custom counter carrier ceiling),
    - `crates/baylee-engine/src/effects.rs` (`THE_CENSUS`), `land_mana_tests.rs`, `this_object_tests.rs`, and `vocabulary_tests.rs`,
    - `crates/baylee-ai/src/tests/worth_tests.rs` (implemented pool count `(readers, total)`).
 
@@ -291,7 +291,7 @@ creatures; Package 6: 1,309 triggered creatures) promoted all 4,969 cards to
 `Coverage::Implemented` and surfaced eight reusable lessons:
 
 1. **Test-scanner `oracle_id` discipline.** `xtask codegen` scans all files under
-   `crates/baylee-engine/src/engine/card_tests/` for quoted `oracle_id` UUID
+   `crates/cards/testkit/card_tests/` for quoted `oracle_id` UUID
    strings to decide which `Coverage::Generated` cards are tested and promote
    them to `Coverage::Implemented`. Any fixture helper card referenced by UUID
    in a test suite must already be `Coverage::Implemented`, or else it will
@@ -1105,7 +1105,7 @@ Open milestones discovered tonight:
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lived in
-  `crates/baylee-cards/AGENTS.md` (folded into `docs/card-agent-brief.md`
+  `crates/cards/AGENTS.md` (folded into `docs/card-agent-brief.md`
   on 20.10.2026).
 - `cargo run -p xtask -- card-batch` prepares per-card task packages in
   `target/card-batch/<slug>/` (STUB + SCRIPT + SCRYFALL + EXEMPLAR + PROMPT).
@@ -1606,7 +1606,7 @@ would have eaten one.
 ### Prompt rules these batches earn
 
 - Never invent a `generated_tokens::` constant. Grep
-  `crates/baylee-cards/src/generated_tokens.rs` for the shape you want and
+  `crates/cards/src/generated_tokens.rs` for the shape you want and
   copy the name; the fields are `&TokenDef`, so it is borrowed.
 - `activate(&mut engine, seat, card, index)` finds the **first** object with
   that card index. A test that seats two copies, or whose preset already
@@ -5017,7 +5017,7 @@ land type"; both are convention tests that fire on a first try.
 
 ### Final 24 Partial cards completed and live client verification (2026-10-18)
 
-- Completed all 24 remaining `Coverage::Partial` cards across three waves, bringing `Coverage::Partial` to **0** across `crates/baylee-cards/src/cards/` (**4,081 Implemented, 4,081 tested**, `0` convention problems in `xtask validate`, converged `xtask codegen`):
+- Completed all 24 remaining `Coverage::Partial` cards across three waves, bringing `Coverage::Partial` to **0** across `crates/cards/src/cards/` (**4,081 Implemented, 4,081 tested**, `0` convention problems in `xtask validate`, converged `xtask codegen`):
   - Wave 1: `Twists and Turns // Mycoid Maze`, `Profane Procession // Tomb of the Dusk Rose`, `Northampton Farm`, `Hostile Hostel // Creeping Inn`.
   - Wave 2A: `Caverns of Despair`, `Oubliette`, `Stangg`, `Tetravus`, `Shelkin Brownie`, `Tolaria`, `Master of the Hunt`, `Underdark Rift`.
   - Wave 2B: `City in a Bottle`, `Golgothian Sylex`, `All Hallow's Eve`, `Firestorm Phoenix`, `Eureka`, `Tawnos's Coffin`, `Gemstone Caverns`.
@@ -5309,7 +5309,7 @@ resolved battle-damage holds:
 ## 2026-10-19 — Package 6 (1,309 triggered creatures: 4,969 / 4,969 `Coverage::Generated` cards promoted to `Coverage::Implemented`)
 
 - Audited and behaviorally tested the final 1,309 triggered creatures in
-  `crates/baylee-engine/src/engine/card_tests/creatures/pkg6_triggered/`
+  `crates/cards/testkit/card_tests/creatures/pkg6_triggered/`
   (`494 Trigger::ETB`, `195 Trigger::Dies`, `193 Trigger::EntersBattlefield`,
   `146 Trigger::SpellCast`, `108 Trigger::Attacks`, `94 Trigger::StepBegin`,
   `65 Trigger::DealsCombatDamageToPlayer`, `20 Trigger::BecomesTapped`,
@@ -5396,7 +5396,7 @@ resolved battle-damage holds:
   - When hand-implementing a card stub, always remove the `// GENERATED STUB` comment
     line; otherwise two-phase `xtask codegen` treats the file as an un-adopted stub
     and overwrites the hand-written implementation.
-  - Raised the custom-counter ceiling in `crates/baylee-cards/src/lints/tests/entries.rs`
+  - Raised the custom-counter ceiling in `crates/cards/src/lints/tests/entries.rs`
     from `100` to `130` as *Ice Age* adds carriers of age, ice, wind, healing,
     sleight and paralyzation counters (`counters::HEALING`, `SLEIGHT`,
     `PARALYZATION` and `MUSIC` are new ids).

@@ -210,7 +210,7 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
     // `validate` reads every card's header off disk, so it has to find the
     // files the taxonomy filed rather than the ones a flat directory used to
     // hold. A walk that found nothing would report a clean pool.
-    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    let files = card_files(&root.join("crates/cards/src/cards"))?;
     // The compiled pool beside the files: the scope check reads the filters
     // a card was built from, which no amount of reading its source text
     // gives you.

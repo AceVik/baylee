@@ -17,7 +17,7 @@ build that ships (see [Not in a shipped build](#not-in-a-shipped-build)).
 | hook | code |
 |------|------|
 | firing recorder | `crates/baylee-engine/src/ability_log.rs` and one call at each door named below, all `cfg(any(test, feature = "test-support"))` |
-| mutation switch | `crates/baylee-cards/src/mutate.rs`, applied in `baylee_cards::{by_index, by_oracle_id, all}` |
+| mutation switch | `crates/cards/src/mutate.rs`, applied in `baylee_cards::{by_index, by_oracle_id, all}` |
 | projection check | `crates/baylee-engine/src/engine/invariants.rs` |
 | leave probe | `crates/baylee-engine/src/engine/leave_probe_tests.rs` (`#[cfg(test)]`) |
 | their own tests | `crates/baylee-engine/src/engine/verification_tests.rs` (compiled in `baylee-card-tests-verification`), `invariants::tests`, `baylee_cards::mutate::tests`, `leave_probe_tests::representative_cards_leave_cleanly_by_every_route` |
@@ -204,7 +204,7 @@ binary whose `--list --format terse` prints it.
 Then one process per mutant and binary, naming the tests to run:
 
 ```bash
-cd crates/baylee-card-tests-instants-1    # cargo runs a binary in its package; do the same
+cd crates/cards/tests/instants-1    # cargo runs a binary in its package; do the same
 BAYLEE_MUTATE=<card>:<index> ../../target/debug/deps/baylee_card_tests_instants_1-<hash> \
     --exact <test> [<test> …] --test-threads=1
 ```

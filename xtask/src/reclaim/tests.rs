@@ -76,14 +76,14 @@ impl Fixture {
 
     fn source(&self, name: &str) -> PathBuf {
         self.dir.path().join(format!(
-            "crates/baylee-cards/src/cards/instants/mv_1/{}.rs",
+            "crates/cards/src/cards/instants/mv_1/{}.rs",
             stubgen::slug(name)
         ))
     }
 
     fn test(&self, name: &str) -> PathBuf {
         self.dir.path().join(format!(
-            "crates/baylee-engine/src/engine/card_tests/instants/mv_1/{}.rs",
+            "crates/cards/testkit/card_tests/instants/mv_1/{}.rs",
             stubgen::slug(name)
         ))
     }
@@ -174,13 +174,13 @@ fn reclamation_changes_only_the_explicitly_selected_card_source() {
     let selected_before = fs::read(&selected).unwrap();
     let sibling_before = fs::read(&sibling).unwrap();
     let sentinels = [
-        "crates/baylee-cards/src/cards/mod.rs",
-        "crates/baylee-cards/src/generated.rs",
-        "crates/baylee-cards/src/generated_lines.rs",
-        "crates/baylee-cards/src/generated_names.rs",
-        "crates/baylee-cards/src/generated_oracle.rs",
-        "crates/baylee-cards/src/generated_sides.rs",
-        "crates/baylee-cards/src/generated_tokens.rs",
+        "crates/cards/src/cards/mod.rs",
+        "crates/cards/src/generated.rs",
+        "crates/cards/src/generated_lines.rs",
+        "crates/cards/src/generated_names.rs",
+        "crates/cards/src/generated_oracle.rs",
+        "crates/cards/src/generated_sides.rs",
+        "crates/cards/src/generated_tokens.rs",
         "crates/baylee-core/src/generated/index/mod.rs",
     ];
     for relative in sentinels {
@@ -319,7 +319,7 @@ fn an_existing_source_at_a_noncanonical_path_is_not_moved_or_reclaimed() {
     let wrong = f
         .dir
         .path()
-        .join("crates/baylee-cards/src/cards/instants/mv_2/lightning_bolt.rs");
+        .join("crates/cards/src/cards/instants/mv_2/lightning_bolt.rs");
     write(&wrong, fs::read(&original).unwrap());
     fs::remove_file(&original).unwrap();
     let before = fs::read(&wrong).unwrap();

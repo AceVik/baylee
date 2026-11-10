@@ -62,7 +62,7 @@ legal offers, then pays the structurally discovered sacrifice grant on
 another creature: only that recipient leaves, its grantor stays, and exactly
 two black mana arrive with no stack item. The existing engine card test
 `engine::card_tests::instants::mv_1::rain_of_filth::rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana_ability`
-in `crates/baylee-engine/src/engine/card_tests/instants/mv_1/rain_of_filth.rs`
+in `crates/cards/testkit/card_tests/instants/mv_1/rain_of_filth.rs`
 provides Rain of Filth's board evidence: a granted land is sacrificed for
 exactly one black mana with no stack item, opposing and later lands receive
 no grant, and the remaining grant expires. This engine test covers the paid

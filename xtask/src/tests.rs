@@ -380,17 +380,17 @@ fn a_batch_reports_only_the_cards_it_did_not_ask_for() {
         .map(|n| super::stubgen::slug(n))
         .collect();
     let porcelain = concat!(
-        "?? crates/baylee-cards/src/cards/lands/pain/yavimaya_coast.rs\n",
-        " M crates/baylee-cards/src/cards/artifacts/mv_0/mox_opal.rs\n",
-        " M crates/baylee-cards/src/cards/instants/mv_1/swords_to_plowshares.rs\n",
-        "R  crates/baylee-cards/src/cards/a.rs -> crates/baylee-cards/src/cards/lands/utility/karakas.rs\n",
+        "?? crates/cards/src/cards/lands/pain/yavimaya_coast.rs\n",
+        " M crates/cards/src/cards/artifacts/mv_0/mox_opal.rs\n",
+        " M crates/cards/src/cards/instants/mv_1/swords_to_plowshares.rs\n",
+        "R  crates/cards/src/cards/a.rs -> crates/cards/src/cards/lands/utility/karakas.rs\n",
     );
     let drift = super::drift_from_status(porcelain, &asked);
     assert_eq!(
         drift,
         vec![
-            "crates/baylee-cards/src/cards/instants/mv_1/swords_to_plowshares.rs".to_string(),
-            "crates/baylee-cards/src/cards/lands/utility/karakas.rs".to_string(),
+            "crates/cards/src/cards/instants/mv_1/swords_to_plowshares.rs".to_string(),
+            "crates/cards/src/cards/lands/utility/karakas.rs".to_string(),
         ],
         "the new card is this batch's own output and the asked-for rewrite is \
          expected; the other two are somebody else's change arriving inside it"
@@ -1007,7 +1007,7 @@ fn formatting_many_at_once_is_formatting_each_alone() {
         "fn broken( {".to_string(),
         std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../crates/baylee-cards/src/generated.rs"),
+                .join("../crates/cards/src/generated.rs"),
         )
         .expect("the registry"),
     ];
@@ -1054,8 +1054,8 @@ fn no_generated_card_already_has_its_card_test() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("xtask lives in <workspace>/xtask");
-    let cards = root.join("crates/baylee-cards/src/cards");
-    let tests = root.join("crates/baylee-engine/src/engine/card_tests");
+    let cards = root.join("crates/cards/src/cards");
+    let tests = root.join("crates/cards/testkit/card_tests");
     let holds = crate::coverage_holds::load(root).unwrap();
     let files = super::card_files(&cards).unwrap();
     assert!(
@@ -1089,19 +1089,16 @@ fn batch_registry_growth_is_expected_but_other_module_changes_are_not() {
     let asked = std::collections::BTreeSet::new();
     for status in [" M", "M "] {
         assert!(
-            super::drift_from_status(
-                &format!("{status} crates/baylee-cards/src/cards/mod.rs\n"),
-                &asked
-            )
-            .is_empty(),
+            super::drift_from_status(&format!("{status} crates/cards/src/cards/mod.rs\n"), &asked)
+                .is_empty(),
             "{status}"
         );
     }
     for line in [
-        " D crates/baylee-cards/src/cards/mod.rs",
-        " M crates/baylee-cards/src/cards/creatures/mod.rs",
-        "R  crates/baylee-cards/src/cards/x.rs -> crates/baylee-cards/src/cards/mod.rs",
-        " M crates/baylee-cards/src/cards/creatures/real_card.rs",
+        " D crates/cards/src/cards/mod.rs",
+        " M crates/cards/src/cards/creatures/mod.rs",
+        "R  crates/cards/src/cards/x.rs -> crates/cards/src/cards/mod.rs",
+        " M crates/cards/src/cards/creatures/real_card.rs",
     ] {
         assert_eq!(super::drift_from_status(line, &asked).len(), 1, "{line}");
     }

@@ -33,6 +33,9 @@ use sha2::{Digest, Sha256};
 
 /// The engine's sources, relative to the repository root.
 pub const ENGINE_SRC: &str = "crates/baylee-engine/src";
+/// The card tests and their kits (`baylee-card-testkit`), out of the engine's
+/// sources since 10.11.2026 (`docs/cards.md` §"Where a card test compiles").
+const CARD_TESTS_SRC: &str = "crates/cards/testkit";
 
 /// The ledger's constants, relative to the repository root.
 pub const INDEX_SRC: &str = "crates/baylee-core/src/generated/index";
@@ -118,10 +121,11 @@ impl Working {
     /// When a source directory cannot be read.
     pub fn scan(root: &Path) -> io::Result<Self> {
         let consts = index_constants(&root.join(INDEX_SRC))?;
-        let src = root.join(ENGINE_SRC);
         let mut tested: BTreeMap<CardIndex, Evidence> = BTreeMap::new();
         let mut unknown = BTreeSet::new();
-        for (file, text) in test_code(&src)? {
+        let mut code = test_code(&root.join(ENGINE_SRC))?;
+        code.extend(test_code(&root.join(CARD_TESTS_SRC))?);
+        for (file, text) in code {
             for (how, card) in named_cards(&text, &consts, &mut unknown) {
                 let better = tested.get(&card).is_none_or(|e| how < e.how);
                 if better {

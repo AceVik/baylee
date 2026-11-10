@@ -217,7 +217,7 @@ struct Emitted {
     holds: &'static str,
 }
 
-/// Renders `crates/baylee-cards/src/generated_names.rs`.
+/// Renders `crates/cards/src/generated_names.rs`.
 ///
 /// The entries are sorted by name here rather than trusted to arrive in an
 /// order, so the file is the same whatever order the pool was walked in.

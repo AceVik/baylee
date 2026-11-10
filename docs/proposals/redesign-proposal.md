@@ -32,7 +32,7 @@ not design a "no art" mode beyond what `docs/client.md` §Images already has
 (`Failure::Unresolved/Load`, retries, the constructed text face).
 
 **The fetchland.** Flooded Strand is authored correctly
-(`crates/baylee-cards/src/cards/flooded_strand.rs:28-37` — `activated!`, index
+(`crates/cards/src/cards/flooded_strand.rs:28-37` — `activated!`, index
 0, `mana_ability: false`). The client turns its one ability into
 `ActivateManaAbility` whenever the land is *also* in `legal.mana_abilities`:
 

@@ -56,7 +56,7 @@ pub(crate) fn batch_step(root: &Path, what: &str, args: &[&str]) -> anyhow::Resu
     anyhow::ensure!(
         status.success(),
         "batch stopped at `{what}` — the tree was clean before this, so this puts \
-         it back:\n    git restore . && git clean -f crates/baylee-cards/src/cards"
+         it back:\n    git restore . && git clean -f crates/cards/src/cards"
     );
     // Named, not inferred. A step that says nothing on success is a step
     // nobody can tell apart from one that did not run, and the whole reason
@@ -79,12 +79,7 @@ pub(crate) fn batch_step(root: &Path, what: &str, args: &[&str]) -> anyhow::Resu
 /// Untracked (`??`) card files are the batch's own output and are expected.
 pub(crate) fn cards_changed_unasked(root: &Path, added: &[String]) -> anyhow::Result<Vec<String>> {
     let out = std::process::Command::new("git")
-        .args([
-            "status",
-            "--porcelain",
-            "--",
-            "crates/baylee-cards/src/cards",
-        ])
+        .args(["status", "--porcelain", "--", "crates/cards/src/cards"])
         .current_dir(root)
         .output()?;
     anyhow::ensure!(out.status.success(), "git status failed during the batch");
@@ -114,7 +109,7 @@ pub(crate) fn drift_from_status(porcelain: &str, asked: &BTreeSet<String>) -> Ve
         // Codegen adds module declarations here for every new card. This
         // exact registry is not a card; deletion, renames and other mod.rs
         // paths must still be reported rather than broadly ignored.
-        if path == "crates/baylee-cards/src/cards/mod.rs" && status.trim() == "M" {
+        if path == "crates/cards/src/cards/mod.rs" && status.trim() == "M" {
             continue;
         }
         let slug = Path::new(path)
@@ -256,7 +251,7 @@ pub(crate) fn batch(
          and it does not belong in a commit about new cards. Take it on its own:\n\
          \n    cargo run -p xtask -- refresh-oracle\n\
          \nand commit that first. Then put this batch back and run it again:\n\
-         \n    git restore . && git clean -f crates/baylee-cards/src/cards",
+         \n    git restore . && git clean -f crates/cards/src/cards",
         drift.len(),
         drift
             .iter()
@@ -289,7 +284,7 @@ pub(crate) fn batch(
          \x20       cargo test --workspace --all-targets\n\
          \nThe pool-wide engine sweeps are in it, and they are what actually play the\n\
          new cards. The way back, if it is red:\n\
-         \n    git restore . && git clean -f crates/baylee-cards/src/cards\n",
+         \n    git restore . && git clean -f crates/cards/src/cards\n",
         additions.len()
     );
     Ok(())

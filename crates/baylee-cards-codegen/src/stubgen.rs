@@ -920,7 +920,7 @@ fn transcode_card(
     Some(body)
 }
 
-/// Renders `crates/baylee-cards/src/cards/mod.rs`.
+/// Renders `crates/cards/src/cards/mod.rs`.
 #[must_use]
 pub fn render_cards_mod(stubs: &[StubInfo]) -> String {
     let mut out = String::from(
@@ -971,7 +971,7 @@ fn fnv1a(mut hash: u64, bytes: &[u8]) -> u64 {
     hash
 }
 
-/// Renders `crates/baylee-cards/src/generated.rs` (registry tables).
+/// Renders `crates/cards/src/generated.rs` (registry tables).
 #[must_use]
 pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
     let mut by_oracle: Vec<&StubInfo> = stubs.iter().collect();

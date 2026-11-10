@@ -151,7 +151,7 @@ is the expensive one.
 
 ### the three card sets
 
-- **the pool** — the 1365 cards this repo compiles (`crates/baylee-cards`).
+- **the pool** — the 1365 cards this repo compiles (`crates/cards`).
 - **the corpus** — the 33 694 cards the ledger numbers, scanned by
   `baylee-catalog corpus`. A superset of the pool.
 - **the reference** — the external, GPL-licensed card-script corpus. Read as an

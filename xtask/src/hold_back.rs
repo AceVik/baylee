@@ -37,7 +37,7 @@ pub(crate) fn run(
     let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS)?;
     let cats = compiled_catalogs();
     let cycles = layout::LandCycles::parse(&fs::read_to_string(root.join("data/land-cycles.tsv"))?);
-    let cards = root.join("crates/baylee-cards/src/cards");
+    let cards = root.join("crates/cards/src/cards");
     let files = card_files(&cards)?;
     let cache = root.join(cache);
     let mut selected = BTreeSet::new();

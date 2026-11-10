@@ -902,7 +902,7 @@ the client's logic without a renderer and holds most of the client's tests;
 the 3D table is built with [Bevy](https://bevyengine.org/). **seal** is the
 chat's encryption. The **gateway** and the **agent** link no rules at all.
 Cards are Rust code, written in a small DSL, one file per card under
-`crates/baylee-cards/src/cards/`.
+`crates/cards/src/cards/`.
 
 Where to read on:
 
@@ -931,7 +931,7 @@ names the document for each area. A few points:
 - Run the gate before you push. CI also builds for Windows, macOS, wasm32 and
   the minimum Rust version.
 - Every card you add or fix gets a test that plays it, in
-  `crates/baylee-engine/src/engine/card_tests/`.
+  `crates/cards/testkit/card_tests/`.
 - The engine stays deterministic: no `std::time`, no randomness except the
   seeded RNG, no hash-map iteration in hot paths.
 - Nothing that shows a card, symbol, font or sound is merged without checking

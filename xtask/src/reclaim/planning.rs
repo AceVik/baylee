@@ -51,7 +51,7 @@ pub(super) fn plan_with_mode(
         BTreeSet::new()
     };
     let holds = crate::coverage_holds::load_completing_stubs(root, &completing)?;
-    let cards_dir = root.join("crates/baylee-cards/src/cards");
+    let cards_dir = root.join("crates/cards/src/cards");
     let files = crate::card_files(&cards_dir)?;
     let cats = crate::hold_back::compiled_catalogs();
     let cycles =
@@ -120,7 +120,7 @@ impl RenderContext<'_> {
         );
         let tested = self
             .root
-            .join("crates/baylee-engine/src/engine/card_tests")
+            .join("crates/cards/testkit/card_tests")
             .join(&canonical)
             .is_file();
         let implemented = self.holds.accepts_tests(&row.oracle_id, tested);

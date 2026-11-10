@@ -56,7 +56,7 @@ pub(crate) fn cards(
     // introduced the layout. Placement is therefore a reconciliation, not a
     // write: find every card file first, move the misplaced ones, and only
     // then decide what to write.
-    let cards_dir = root.join("crates/baylee-cards/src/cards");
+    let cards_dir = root.join("crates/cards/src/cards");
     let cycles = layout::LandCycles::parse(
         &fs::read_to_string(root.join("data/land-cycles.tsv")).unwrap_or_default(),
     );
@@ -67,7 +67,7 @@ pub(crate) fn cards(
     // same path under `card_tests/`, or any engine test naming its oracle id:
     // the older cards are played in shared modules (`card_tests/creatures.rs`,
     // `*_tests.rs`), and a path-only check demoted 257 of them.
-    let card_tests = root.join("crates/baylee-engine/src/engine/card_tests");
+    let card_tests = root.join("crates/cards/testkit/card_tests");
     let named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
     let coverage_holds = crate::coverage_holds::load(root)?;
 
@@ -183,7 +183,7 @@ pub(crate) fn cards(
     refuse_orphans(found.values(), &cards_dir)?;
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/cards/mod.rs"),
+        &root.join("crates/cards/src/cards/mod.rs"),
         &stubgen::render_cards_mod(&stubs),
         changed,
     )?;
@@ -193,7 +193,7 @@ pub(crate) fn cards(
     let slots = ledger.slots();
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/generated.rs"),
+        &root.join("crates/cards/src/generated.rs"),
         &stubgen::render_registry(&stubs, slots),
         changed,
     )?;
@@ -375,7 +375,7 @@ pub(crate) fn codegen(
         // the file comes out byte for byte as it went in.
         write_or_check(
             check,
-            &root.join("crates/baylee-cards/src/generated_tokens.rs"),
+            &root.join("crates/cards/src/generated_tokens.rs"),
             &render_token_ledger(root, &[])?,
             &mut changed,
         )?;
@@ -443,7 +443,7 @@ pub(crate) fn codegen(
     //    sources makes a `--check` failure unreadable.
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/generated_lines.rs"),
+        &root.join("crates/cards/src/generated_lines.rs"),
         &render_ability_lines(root)?,
         &mut changed,
     )?;
@@ -455,7 +455,7 @@ pub(crate) fn codegen(
     //    failure rather than a name that silently resolves to nothing.
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/generated_names.rs"),
+        &root.join("crates/cards/src/generated_names.rs"),
         &render_name_table()?,
         &mut changed,
     )?;
@@ -469,7 +469,7 @@ pub(crate) fn codegen(
     //    directions (#115).
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/generated_sides.rs"),
+        &root.join("crates/cards/src/generated_sides.rs"),
         &render_sides_table(root)?,
         &mut changed,
     )?;
@@ -480,7 +480,7 @@ pub(crate) fn codegen(
     //    language has none that pairs with it. Two-phase like stage 5.
     write_or_check(
         check,
-        &root.join("crates/baylee-cards/src/generated_oracle.rs"),
+        &root.join("crates/cards/src/generated_oracle.rs"),
         &render_oracle(root)?,
         &mut changed,
     )?;
