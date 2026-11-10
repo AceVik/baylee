@@ -563,7 +563,9 @@ fn the_recorder_logs_a_game_ending_trigger_and_the_skips_a_question_applies() {
 }
 
 /// In a card test crate the engine does not link the pool: the recorder learns it
-/// from the test kit's lookup, the first time a card is looked up.
+/// from the test kit's lookup, the first time a card is looked up. The pool is
+/// process-wide, so an earlier test in this binary may have set it already;
+/// what this holds is that after a kit lookup it is set, and is the real pool.
 #[test]
 fn the_recorder_learns_the_pool_from_the_kits_lookup() {
     use baylee_engine::state::CardLookup as _;
@@ -571,7 +573,7 @@ fn the_recorder_learns_the_pool_from_the_kits_lookup() {
     assert!(super::testkit::RegistryLookup.card(bolt).is_some());
     let pool = ability_log::POOL
         .get()
-        .expect("the lookup told the recorder the pool");
+        .expect("after a kit lookup the recorder knows the pool");
     assert!(std::ptr::eq(
         pool(bolt).expect("the pool has Lightning Bolt"),
         baylee_cards::by_index(bolt).unwrap()
