@@ -402,6 +402,21 @@ class DistillOptions(unittest.TestCase):
         with patch("sys.argv", argv), contextlib.redirect_stderr(io.StringIO()):
             return parse_args("v5")[0]
 
+    def test_round0_arms_parse_with_subtypes_and_group_weights(self):
+        scope = ["--distill-subtypes", "cast,pass,instant_their_turn,spend"]
+        arm_b = [a for a in self.STAGE_A if a != "--train-policy-head-only"]
+        for argv in ([*self.STAGE_A, *scope], [*arm_b, "--trainable-trunk-from-layer", "8", "--freeze-value-head", *scope]):
+            args = self.parse(argv)
+            self.assertEqual(args.distill_subtypes, ("cast", "instant_their_turn", "pass", "spend"))
+            self.assertEqual(args.distill_group_weights, {})
+        args = self.parse([*self.STAGE_A, "--distill-group-weights", "mass=2,react=1.5"])
+        self.assertEqual(args.distill_group_weights, {"mass": 2.0, "react": 1.5})
+        for bad in (["--distill-group-weights", "mass"], ["--distill-group-weights", "mass=-1"]):
+            with self.subTest(bad=bad), self.assertRaises(SystemExit):
+                self.parse([*self.STAGE_A, *bad])
+        with self.assertRaises(SystemExit):
+            self.parse(["train5", "--data", "d", "--out", "o", "--distill-subtypes", "cast"])
+
     def test_stage_a_recipe_parses_and_guards_reject_mixtures(self):
         args = self.parse(self.STAGE_A)
         self.assertEqual((args.distill_kinds, args.checkpoint_selection), ((0,), "distill_n_ne_r"))

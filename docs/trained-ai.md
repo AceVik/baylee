@@ -1836,6 +1836,17 @@ saved checkpoint, so exports keep the plain architecture),
 heads; no gradient is recorded below L) and `--freeze-value-head`. With the
 trunk frozen the reference reads the student's own boards and memory, and the
 decision-window learner's stored H stays exact, so it is computed once.
+`--distill-subtypes cast,pass,instant_their_turn,spend` narrows the
+cross-entropy to those subtypes of the distilled kinds; their other subtypes stay
+under their own reported KL (`kl_kind_out_of_scope`), and validation reports the
+`N ≠ R` agreement per subtype while selection keeps the pooled scope.
+`--distill-group-weights mass=2,...` weights a cross-entropy row by the product
+of the weights of the rule groups that fired there (others 1). Frames carry the
+subtype and the fired groups as JSON step fields (`distill_subtype`, `fired`) or
+in an optional BST4 trailing block `BDX1` (u8 subtype, three reserved bytes, u64
+group mask), indexing `meta.json`'s `bundle_distillation.subtypes` and `.groups`.
+In stage B the r1 reference runs only its own layers from L on, on the inputs the
+student's layer L received.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
 `net.pt` is now selected by validation policy loss by default. The previous
