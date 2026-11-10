@@ -1,6 +1,7 @@
 //! Offline matched evaluation statistics and frozen-job verification.
 pub mod arms;
 pub mod calibration;
+pub mod decks;
 pub mod diagnostics;
 mod paired;
 mod summary;

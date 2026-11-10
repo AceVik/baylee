@@ -8,6 +8,7 @@
 #![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::arms::{compare_arm, compare_builds, compare_exports, pool_arms};
+use baylee_train_ops::evaluation::decks::{DeckFilter, by_deck, markdown as decks_markdown};
 use baylee_train_ops::evaluation::value_report::{read_positions, report, value_gap};
 use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
@@ -66,7 +67,7 @@ enum Command {
         /// Where the evaluations are.
         #[arg(long)]
         root: PathBuf,
-        /// A second root to look in, for arms of an earlier plan.
+        /// Resamples of the table bootstrap.
         #[arg(long, default_value_t = 20_000)]
         resamples: usize,
         /// The arms are exports of one net (precision, a head): only the model
@@ -77,6 +78,20 @@ enum Command {
         /// rule): only the build may differ.
         #[arg(long)]
         builds: bool,
+        /// Also break each pair down by deck: per deck the net piloted and per
+        /// deck it met, the deals, the arm's and the reference's wins and the
+        /// difference, largest first (`evaluation::decks`).
+        #[arg(long)]
+        by_deck: bool,
+        /// `--by-deck`: only the deals the net piloted with this deck.
+        #[arg(long, requires = "by_deck")]
+        pilot_deck: Option<String>,
+        /// `--by-deck`: only the deals with this deck among the net's opponents.
+        #[arg(long, requires = "by_deck")]
+        opponent_deck: Option<String>,
+        /// `--by-deck`: a deck with fewer deals is marked small (`*`).
+        #[arg(long, default_value_t = 10, requires = "by_deck")]
+        small: usize,
         #[arg(long)]
         out: PathBuf,
         pairs: Vec<String>,
@@ -448,7 +463,43 @@ fn pair(root: &Path, spec: &str, resamples: usize, pairing: Pairing) -> Result<V
     let mut report = compared(&runs, &baseline, resamples)?;
     report["arm"] = json!(candidates);
     report["reference"] = json!(reference);
+    // Who sits with whom, for a breakdown by deck: a teammate is no opponent.
+    report["teams"] = baseline["teams"].clone();
     Ok(report)
+}
+
+/// `report`'s pairs by deck under `filter`, printed and kept in the report.
+fn deck_breakdown(report: &mut Value, filter: &DeckFilter, small: usize) -> Result<()> {
+    let teams: Vec<u64> = report["teams"]
+        .as_array()
+        .map(|teams| teams.iter().filter_map(Value::as_u64).collect())
+        .unwrap_or_default();
+    let rows = report["rows"]
+        .as_array()
+        .context("a report without its rows")?;
+    let breakdown = by_deck(rows, &teams, filter, small)?;
+    println!(
+        "\n{} ~ {}: {} deals{}{}",
+        report["arm"].as_str().unwrap_or(""),
+        report["reference"].as_str().unwrap_or(""),
+        breakdown["deals"],
+        filter
+            .pilot
+            .as_ref()
+            .map_or(String::new(), |deck| format!(", piloting {deck}")),
+        filter
+            .opponent
+            .as_ref()
+            .map_or(String::new(), |deck| format!(", against {deck}")),
+    );
+    for (title, key) in [("pilot deck", "by_pilot"), ("opponent deck", "by_opponent")] {
+        let rows = breakdown[key]
+            .as_array()
+            .context("a breakdown without its rows")?;
+        println!("\n{}", decks_markdown(title, rows));
+    }
+    report["by_deck"] = breakdown;
+    Ok(())
 }
 
 fn row(report: &Value) -> Result<String> {
@@ -864,16 +915,18 @@ fn survey_row(word: &str, text: &str) -> Value {
     })
 }
 
-/// The table of `pairs`, printed and written to `out`.
+/// The table of `pairs`, printed and written to `out`; with `decks`, each
+/// pair broken down by deck too.
 fn table(
     root: &Path,
     resamples: usize,
     pairing: Pairing,
+    decks: Option<(&DeckFilter, usize)>,
     out: &Path,
     pairs: &[String],
 ) -> Result<()> {
     // `A~B/C~D` is one arm on two sets of deals, pooled.
-    let reports: Vec<Value> = pairs
+    let mut reports: Vec<Value> = pairs
         .iter()
         .map(|spec| {
             if !spec.contains('/') {
@@ -886,6 +939,7 @@ fn table(
             let mut pooled = pool_arms(&parts, resamples)?;
             pooled["arm"] = json!(format!("{spec} (pooled)"));
             pooled["reference"] = json!("");
+            pooled["teams"] = parts[0]["teams"].clone();
             Ok(pooled)
         })
         .collect::<Result<_>>()?;
@@ -893,6 +947,11 @@ fn table(
     println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
     for report in &reports {
         println!("{}", row(report)?);
+    }
+    if let Some((filter, small)) = decks {
+        for report in &mut reports {
+            deck_breakdown(report, filter, small)?;
+        }
     }
     let kept: Vec<Value> = reports
         .into_iter()
@@ -938,6 +997,10 @@ fn main() -> Result<()> {
             resamples,
             exports,
             builds,
+            by_deck,
+            pilot_deck,
+            opponent_deck,
+            small,
             out,
             pairs,
         } => {
@@ -948,7 +1011,12 @@ fn main() -> Result<()> {
             } else {
                 Pairing::Arm
             };
-            table(&root, resamples, pairing, &out, &pairs)?;
+            let filter = DeckFilter {
+                pilot: pilot_deck,
+                opponent: opponent_deck,
+            };
+            let decks = by_deck.then_some((&filter, small));
+            table(&root, resamples, pairing, decks, &out, &pairs)?;
         }
         Command::Surveys {
             root,
@@ -1041,4 +1109,65 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A run of one arm: deals 0..4 of a two-seat table, the decks seated
+    /// as `decks`, the net's results as `scores`.
+    fn run(policy_seed: u64, scores: &[f64]) -> Value {
+        let decks = [
+            ["victory", "elves"],
+            ["victory", "elves"],
+            ["burn", "victory"],
+            ["burn", "victory"],
+        ];
+        let details: Vec<Value> = scores
+            .iter()
+            .enumerate()
+            .map(|(deal, score)| {
+                json!({"deal": deal, "table": deal / 2, "seed": 7 + deal / 2,
+                    "focal_seat": deal % 2, "decks": decks[deal],
+                    "net_utility": score, "net_capped": false})
+            })
+            .collect();
+        json!({"against": "sharp", "seats": 2, "teams": [], "shape": "commander",
+            "deck_split": "test", "first_seed": 7, "deal_offset": 0, "model": "m",
+            "evaluator_revision": "r", "evaluator_dirty": false, "precision": "float16",
+            "policy_seed": policy_seed, "net_wins": 0, "deal_details": details})
+    }
+
+    #[test]
+    fn a_table_by_deck_keeps_the_breakdown_of_each_pair() {
+        let root = std::env::temp_dir().join(format!("phase-a4-decks-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        atomic_json(&root.join("eval-tac.json"), &run(1, &[1.0, 0.0, 1.0, 1.0])).unwrap();
+        atomic_json(&root.join("eval-raw.json"), &run(1, &[0.0, 0.0, 0.0, 1.0])).unwrap();
+        let out = root.join("table.json");
+        let filter = DeckFilter {
+            pilot: Some("victory".into()),
+            opponent: None,
+        };
+        table(
+            &root,
+            100,
+            Pairing::Arm,
+            Some((&filter, 10)),
+            &out,
+            &["tac~raw".to_owned()],
+        )
+        .unwrap();
+        let written = read_json(&out).unwrap();
+        let breakdown = &written[0]["by_deck"];
+        // Victory pilots deal 0 (seat 0) and deal 3 (seat 1).
+        assert_eq!(breakdown["deals"], 2);
+        assert_eq!(breakdown["by_pilot"][0]["deck"], "victory");
+        assert_eq!(breakdown["by_pilot"][0]["difference"], 0.5);
+        let opponents = breakdown["by_opponent"].as_array().unwrap();
+        assert_eq!(opponents.len(), 2);
+        assert!(written[0].get("rows").is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
