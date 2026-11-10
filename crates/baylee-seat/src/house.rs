@@ -43,7 +43,7 @@ impl HouseMind {
     /// for a name it does not know.
     #[must_use]
     pub fn named(level: &str) -> Option<Self> {
-        AIProfile::named(level).map(Self::new)
+        AIProfile::resolve(level).map(Self::new)
     }
 
     /// The house's answer, synchronously.

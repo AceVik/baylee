@@ -30,8 +30,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() != 3 {
         return Err("usage: ai_match PROFILE_A PROFILE_B SEED,SEED,... (JSON to stdout)".into());
     }
-    let a = AIProfile::named(&args[0]).ok_or("unknown profile A")?;
-    let b = AIProfile::named(&args[1]).ok_or("unknown profile B")?;
+    let a = AIProfile::resolve(&args[0]).ok_or("unknown profile A")?;
+    let b = AIProfile::resolve(&args[1]).ok_or("unknown profile B")?;
     let seeds: Vec<u64> = args[2]
         .split(',')
         .map(str::parse)

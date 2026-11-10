@@ -1303,6 +1303,21 @@ Do not turn evaluation fixtures, branch counterfactuals or held-out diagnostics
 into training labels. Compare current source and candidate with the same
 validator/runtime before attributing a metric difference to learning.
 
+A fresh seed set is fresh shuffles, not fresh pairings. `eval4` seats deck
+`(table · seats + seat) mod n` whatever `--first-seed` is, so the test and the
+fresh runs of one protocol meet the same pairs of decks: at two seats and an
+even `n` a deck only ever meets one opponent. A 512-deal 1v1 run of the 78
+constructed test decks covers 39 pairings, each deck piloted six or seven times
+against the same partner. Read a fresh-seed result as a second sample of those
+39 pairings, not of the deck pool.
+
+On-policy collection (`--collection-purpose on-policy-training`, and any run
+with `--shape all`) seats the expanded pool of its `--deck-split`, which a
+collection must name `train`. Until 10.11.2026 that pool read every split of
+the manifest: such collections seated the 85 test and 80 val decks of
+`decks-20261107c` that hold no held-out card. Check a dataset's lineage by the
+decks its games seated (`run.json` and the records), not by its flags.
+
 ```text
 /absolute/pinned/paired_eval4 /absolute/candidate/eval.json /absolute/reference/eval.json --candidate-job /absolute/candidate/job.json --reference-job /absolute/reference/job.json --out /absolute/NEW/paired.json
 ```

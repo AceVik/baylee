@@ -565,6 +565,24 @@ impl AIProfile {
         }
     }
 
+    /// `sharp` as it played on 10.11.2026, frozen as the benchmark that
+    /// training measures against (owner, 10.11.2026).
+    ///
+    /// Written out rather than `Self::SHARP`, so a change to `sharp` does
+    /// not move it. The constants are half of it; the other half is the
+    /// code they drive, which `baylee-gamehost`'s `reference_profile` test
+    /// pins: the answers this profile gives over a fixed set of games, at a
+    /// fair table, as the benchmark plays it. A change to the house that is
+    /// meant to make `sharp` play differently goes behind a field this
+    /// profile does not set, so this one keeps answering as it did.
+    pub const SHARP_2026_11: Self = Self {
+        lookahead: 1,
+        temperature_milli: 30,
+        mulligan_skill: 2,
+        politics: Politics::AttackLeader,
+        hold_up: HoldUp::ThreatAware,
+    };
+
     /// The profiles a player can choose between, weakest first.
     pub const NAMED: [(&'static str, Self); 5] = [
         ("novice", Self::NOVICE),
@@ -574,13 +592,34 @@ impl AIProfile {
         ("expert", Self::EXPERT),
     ];
 
-    /// Looks a profile up by the key a client sends.
+    /// Frozen profiles that measurements name, never offered to a player.
+    pub const REFERENCES: [(&'static str, Self); 1] = [("sharp-2026-11", Self::SHARP_2026_11)];
+
+    /// Looks a profile up by the key a client sends: one of [`Self::NAMED`].
     #[must_use]
     pub fn named(key: &str) -> Option<Self> {
         Self::NAMED
             .iter()
             .find(|(name, _)| *name == key)
             .map(|(_, profile)| *profile)
+    }
+
+    /// A level a player may choose ([`Self::NAMED`]) or a frozen reference
+    /// ([`Self::REFERENCES`]), with its name as the lists spell it: what a
+    /// tool that measures against the house takes on its command line.
+    #[must_use]
+    pub fn lookup(key: &str) -> Option<(&'static str, Self)> {
+        Self::NAMED
+            .iter()
+            .chain(&Self::REFERENCES)
+            .find(|(name, _)| *name == key)
+            .copied()
+    }
+
+    /// [`Self::lookup`] without the name.
+    #[must_use]
+    pub fn resolve(key: &str) -> Option<Self> {
+        Self::lookup(key).map(|(_, profile)| profile)
     }
 }
 
@@ -1303,6 +1342,38 @@ mod tests {
         assert_eq!(AIProfile::NOVICE.node_budget(), 0);
         assert_eq!(AIProfile::SHARP.node_budget(), 16_384);
         assert_eq!(AIProfile::EXPERT.node_budget(), 262_144);
+    }
+
+    /// A frozen reference is found by the tools that measure against it and
+    /// never by a client choosing a level: it is not one, and a lobby that
+    /// took its name would offer a benchmark as a difficulty.
+    #[test]
+    fn a_reference_is_found_by_the_tools_and_never_offered_to_a_player() {
+        for (key, profile) in AIProfile::REFERENCES {
+            assert_eq!(AIProfile::named(key), None, "{key} reached a lobby");
+            assert_eq!(AIProfile::lookup(key), Some((key, profile)));
+            assert_eq!(AIProfile::resolve(key), Some(profile));
+            assert!(
+                AIProfile::NAMED.iter().all(|(name, _)| *name != key),
+                "{key} is both a level and a reference"
+            );
+        }
+        for (key, profile) in AIProfile::NAMED {
+            assert_eq!(AIProfile::lookup(key), Some((key, profile)));
+        }
+        assert_eq!(AIProfile::resolve("sharp-2026-12"), None);
+        // The constants the reference was frozen with: the profile's half of
+        // the freeze. The code's half is `baylee-gamehost`'s pinned answers.
+        assert_eq!(
+            AIProfile::SHARP_2026_11,
+            AIProfile {
+                lookahead: 1,
+                temperature_milli: 30,
+                mulligan_skill: 2,
+                politics: Politics::AttackLeader,
+                hold_up: HoldUp::ThreatAware,
+            }
+        );
     }
 
     /// A room that chose no format says nothing about one on the wire, a
