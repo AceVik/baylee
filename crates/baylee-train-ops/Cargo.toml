@@ -49,6 +49,10 @@ name = "phase_a4"
 path = "src/bin/phase_a4.rs"
 
 [[bin]]
+name = "matrix4"
+path = "src/bin/matrix4.rs"
+
+[[bin]]
 name = "ladder4"
 path = "src/bin/ladder4.rs"
 
