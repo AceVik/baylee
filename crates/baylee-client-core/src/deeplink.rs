@@ -121,10 +121,12 @@ pub enum Origins {
     AlsoLoopback,
 }
 
-/// Reads a link, or answers `None` for anything that is not exactly one.
+/// Reads a link, or answers `None` for anything that is not exactly one:
+/// printable ASCII only, so no space, tab or line break that a URL parser
+/// would quietly strip or trim.
 #[must_use]
 pub fn read(text: &str, origins: Origins) -> Option<Link> {
-    if text.len() > MAX_LEN || !text.is_ascii() {
+    if text.len() > MAX_LEN || !text.bytes().all(|byte| byte.is_ascii_graphic()) {
         return None;
     }
     let url = url::Url::parse(text).ok()?;
@@ -312,6 +314,9 @@ mod tests {
             "baylee://gateway/add?name=x&origin=https%3A%2F%2Fa.example",
             "baylee://gateway/add?origin=https%3A%2F%2Fa.example#x",
             "baylee://gateway/add?origin=https%3A%2F%2Fa.example\u{e9}",
+            " baylee://open",
+            "baylee://open\n",
+            "baylee://sign\tin",
         ] {
             assert_eq!(read(text, Origins::AlsoLoopback), None, "{text}");
         }
@@ -456,6 +461,13 @@ mod tests {
             format!("baylee://pair:1?h={h}&s={s}"),
             format!("baylee://pair?h={h}%26s={s}"),
             format!("baylee://pair?h= {h}&s={s}"),
+            // A URL parser strips tabs and line breaks and trims spaces;
+            // the reader takes none of them.
+            format!(" baylee://pair?h={h}&s={s}"),
+            format!("baylee://pair?h={h}&s={s} "),
+            format!("baylee://pair?h={h}\n&s={s}"),
+            format!("baylee://pair?h={}\t{}&s={s}", &h[..20], &h[20..]),
+            format!("baylee://pair?h={h}&s={s}\r\n"),
             format!("baylee://open?h={h}&s={s}"),
             "baylee://pair".to_string(),
             "baylee://pair?".to_string(),

@@ -7,8 +7,10 @@
 //! the claim's keys and, once redeemed, the session. The lobby sees only the
 //! code, the account's name, and how it ended. The worker reads the lobby's
 //! answers on a channel kept in Central's state ([`super::State`]): whatever
-//! ends that state (`‹`, a sign-out, the window closing) drops the channel,
-//! and the worker takes that as a no and signs a session it holds out.
+//! ends that state (`‹`, a sign-out) drops the channel, and the worker takes
+//! that as a no and signs a session it holds out. A client that quits while
+//! the question stands sends nothing: that session runs out at Central, as
+//! a password session does when a client quits.
 #![forbid(unsafe_code)]
 
 use super::super::{Field, LobbyState, Mailbox, Reply};
@@ -28,6 +30,9 @@ const WAIT: Duration = Duration::from_mins(5);
 /// How often Central is asked whether the page approved: about once a
 /// second, which Central's 300 answers per pairing allow for five minutes.
 const POLL_EVERY: Duration = Duration::from_secs(1);
+
+/// How long the question stands before its Sign in is heard.
+const ARMED_AFTER: Duration = Duration::from_millis(700);
 
 /// Each pairing's number, so a worker's news about an earlier one, which a
 /// cancel left running, is never read as the current one's.
@@ -81,6 +86,8 @@ pub(crate) struct Pairing {
     id: u64,
     answers: mpsc::SyncSender<Answer>,
     pub(crate) stage: Stage,
+    /// When the question came up: a yes is heard only [`ARMED_AFTER`] later.
+    asked_at: Option<Instant>,
 }
 
 /// How a pairing ended without a sign-in: what the sign-in form says.
@@ -238,6 +245,7 @@ pub(crate) fn start(state: &mut LobbyState, mailbox: &Mailbox, link: PairLink) {
         id,
         answers,
         stage: Stage::Claiming,
+        asked_at: None,
     });
     state.lobby.clear_status();
 }
@@ -373,7 +381,10 @@ pub(in crate::lobby) fn receive(
     };
     match news {
         News::Waiting(code) => pairing.stage = Stage::Waiting { code },
-        News::Asking(who) => pairing.stage = Stage::Asking { who },
+        News::Asking(who) => {
+            pairing.stage = Stage::Asking { who };
+            pairing.asked_at = Some(Instant::now());
+        }
         News::Ended(ending) => {
             end(state);
             let phrase = ending.phrase();
@@ -415,13 +426,20 @@ pub(crate) fn cancel(state: &mut LobbyState) {
 }
 
 /// The player's yes to the question: the worker restores the account.
-/// Nothing at any other stage.
+/// Nothing at any other stage, nor in the question's first moment: the
+/// page's approval brings it up at a moment the page chooses, under a
+/// pointer that may be on its way to Cancel.
 pub(crate) fn confirm(state: &mut LobbyState) {
     let Some(pairing) = state
         .central
         .as_mut()
         .and_then(|central| central.pairing.as_mut())
-        .filter(|pairing| matches!(pairing.stage, Stage::Asking { .. }))
+        .filter(|pairing| {
+            matches!(pairing.stage, Stage::Asking { .. })
+                && pairing
+                    .asked_at
+                    .is_some_and(|at| at.elapsed() >= ARMED_AFTER)
+        })
     else {
         return;
     };

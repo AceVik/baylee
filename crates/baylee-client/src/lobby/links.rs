@@ -33,6 +33,13 @@ pub(super) fn follow(
     let Some(link) = arrived.link.clone() else {
         return;
     };
+    // One pairing at a time: a pairing link that comes while one runs is
+    // dropped, not followed the moment its panel closes (as the panel a
+    // page firing links would otherwise bring back after every Cancel).
+    if matches!(link, Link::Pair(_)) && state.pairing_up() {
+        arrived.link = None;
+        return;
+    }
     if !at_rest(&state) {
         return;
     }
@@ -335,7 +342,16 @@ mod tests {
             "the pairing's panel stands over it"
         );
         assert!(app.world().resource::<Arrived>().link.is_none());
-        // Another link waits while the panel stands.
+        // Another pairing link is dropped while the panel stands; any other
+        // link waits.
+        send(
+            &mut app,
+            Link::Pair(baylee_client_core::deeplink::PairLink::new(
+                [3; 32], [4; 32],
+            )),
+        );
+        assert!(app.world().resource::<Arrived>().link.is_none());
+        assert!(state(&app).pairing_up(), "the first pairing stands");
         send(&mut app, Link::SignIn);
         assert_eq!(app.world().resource::<Arrived>().link, Some(Link::SignIn));
         let mailbox = app.world().resource::<Mailbox>().clone();

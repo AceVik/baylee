@@ -80,19 +80,52 @@ impl Arrived {
     }
 }
 
-/// How links are read: the pace, by the clock it started on.
+/// How links are read: the pace, by the clock it started on, and the
+/// pairings already read.
 #[derive(Resource)]
 struct Reading {
     pace: Pace,
     since: web_time::Instant,
+    /// Each pairing link's handle read lately, newest last, wiped when
+    /// forgotten: the same link again (a second click on the page) is no
+    /// new pairing, and claiming it again would read at Central as another
+    /// program's claim. A handle claims nothing without the link's secret.
+    pairings: VecDeque<zeroize::Zeroizing<[u8; 32]>>,
 }
+
+/// How many pairings [`Reading`] remembers.
+const PAIRINGS_KEPT: usize = 16;
 
 impl Default for Reading {
     fn default() -> Self {
         Self {
             pace: Pace::default(),
             since: web_time::Instant::now(),
+            pairings: VecDeque::new(),
         }
+    }
+}
+
+impl Reading {
+    /// Whether `link` is new: any link but a pairing is, and a pairing is
+    /// unless its handle was read before. A new pairing is remembered.
+    fn first_reading(&mut self, link: &Link) -> bool {
+        let Link::Pair(pairing) = link else {
+            return true;
+        };
+        if self
+            .pairings
+            .iter()
+            .any(|handle| **handle == *pairing.handle())
+        {
+            return false;
+        }
+        if self.pairings.len() >= PAIRINGS_KEPT {
+            self.pairings.pop_front();
+        }
+        self.pairings
+            .push_back(zeroize::Zeroizing::new(*pairing.handle()));
+        true
     }
 }
 
@@ -148,6 +181,10 @@ fn intake(
         };
         let now = reading.since.elapsed();
         if !reading.pace.admit(now) {
+            continue;
+        }
+        if !reading.first_reading(&link) {
+            info!("links: a pairing link read again, dropped");
             continue;
         }
         info!("links: {}", link.kind());
@@ -289,6 +326,28 @@ mod tests {
             "the eleventh link within the minute is not read"
         );
         assert!(INBOX.lock().unwrap().is_empty());
+    }
+
+    /// A pairing link read again (a second click on the page) is no new
+    /// pairing; another pairing is, and so is any other link, again.
+    #[test]
+    fn a_pairing_link_is_read_once() {
+        let mut reading = Reading::default();
+        let pairing = |handle| Link::Pair(deeplink::PairLink::new([handle; 32], [9; 32]));
+        assert!(reading.first_reading(&pairing(1)));
+        assert!(!reading.first_reading(&pairing(1)), "the same link again");
+        assert!(reading.first_reading(&pairing(2)));
+        assert!(reading.first_reading(&Link::SignIn));
+        assert!(reading.first_reading(&Link::SignIn));
+        // Sixteen are remembered; the oldest then goes.
+        for handle in 3..=17 {
+            assert!(reading.first_reading(&pairing(handle)));
+        }
+        assert!(
+            reading.first_reading(&pairing(1)),
+            "forgotten after sixteen others"
+        );
+        assert!(!reading.first_reading(&pairing(17)));
     }
 
     /// A pairing link waits no longer than its two minutes, game or not;

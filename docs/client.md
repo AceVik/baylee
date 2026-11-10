@@ -10533,7 +10533,12 @@ carries a secret: `deeplink::PairLink` wipes both values when dropped and
 prints `[REDACTED]`, the inbox's texts are wiped once read, and a pairing
 link that waits for the lobby (a game, a question) is dropped after those
 two minutes (`links::PAIR_WAIT`). The ten-a-minute pace is the other
-links'.
+links'. A link read is printable ASCII only (no space, tab or line break,
+which a URL parser would strip), for every link. The same pairing link
+read again (a second click on the page; the last sixteen handles are
+kept) is dropped, since a second claim would read at Central as another
+program's, and a pairing link that comes while a pairing runs is dropped
+too: one pairing at a time.
 
 **Who it is for.** The lobby follows it at rest, only while nobody is
 signed in (not at Central, not at a gateway, not offline): Central's
@@ -10556,8 +10561,10 @@ pairing then runs out on the page.
    opened from the seal under the link's secret.
 4. The panel asks "Sign in as `Name#tag` (`username`)?", the username alone
    without both, with the names Central's redeem gave. Only the Sign in
-   button says yes; Cancel, `Esc` and a tap beside the panel say no, and no
-   key says yes.
+   button says yes, and only once the question has stood 0.7 s (the page's
+   approval brings it up when the page likes, under a pointer that may be
+   on its way to Cancel); Cancel, `Esc` and a tap beside the panel say no,
+   and no key says yes.
 5. Yes restores the account as a password sign-in does (document, restore
    confirmed, Central's terms, a waiting move) and the lobby is signed in
    at Central, the form's name the account's username. The header's
@@ -10570,7 +10577,8 @@ ended at Central (cancelled on the page, used, expired), refused at the
 redeem, Central out of reach, or an update required. The pairing lives in
 Central's state (`central::State::pairing`): whatever ends the form ends
 it, and its worker reads the dropped channel as a no and signs out a
-session it redeemed. While the panel stands it takes every press and key
+session it redeemed. A client that quits while the question stands sends
+nothing; that session runs out at Central, as a password session does. While the panel stands it takes every press and key
 but its own (`clicks::run`, `keyboard`, `shortcuts::modal_by`), and other
 links wait. dev-control's `/state` names its stage (`pairing-waiting`,
 `pairing-question`, …), never the code or the name. A unit test's Central

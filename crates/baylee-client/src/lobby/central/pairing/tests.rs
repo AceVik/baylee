@@ -292,7 +292,16 @@ fn lobby_pairing(stage: Stage) -> (LobbyState, mpsc::Receiver<Answer>, u64) {
     super::super::from_link(&mut state);
     let (answers, heard) = mpsc::sync_channel(1);
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
-    state.central.as_mut().unwrap().pairing = Some(Pairing { id, answers, stage });
+    // A question that has stood a while.
+    let asked_at = matches!(stage, Stage::Asking { .. })
+        .then(|| Instant::now().checked_sub(Duration::from_secs(5)))
+        .flatten();
+    state.central.as_mut().unwrap().pairing = Some(Pairing {
+        id,
+        answers,
+        stage,
+        asked_at,
+    });
     (state, heard, id)
 }
 
@@ -357,6 +366,25 @@ fn the_yes_is_heard_only_when_the_question_stands() {
     confirm(&mut state);
     assert_eq!(heard.try_recv(), Ok(Answer::Yes));
     assert_eq!(state.pairing().unwrap().stage, Stage::Finishing);
+}
+
+/// The page's approval brings the question up when the page likes: a
+/// press in its first moment, meant for what stood there before, is no yes.
+#[test]
+fn a_yes_in_the_question_s_first_moment_is_not_heard() {
+    let (mut state, heard, id) = lobby_pairing(Stage::Waiting {
+        code: "4KQ-7MX".into(),
+    });
+    tell(&mut state, id, News::Asking("pairing_player".into()));
+    confirm(&mut state);
+    assert!(heard.try_recv().is_err(), "too soon");
+    assert!(matches!(
+        state.pairing().unwrap().stage,
+        Stage::Asking { .. }
+    ));
+    std::thread::sleep(ARMED_AFTER);
+    confirm(&mut state);
+    assert_eq!(heard.try_recv(), Ok(Answer::Yes));
 }
 
 #[test]
