@@ -68,6 +68,7 @@ fn act(
         },
         free_mask: target.free_mask,
         pick_sequence: target.pick_sequence,
+        exploration: None,
     };
     let mut binding = failure_terminal::sample_binding(session, seat, 7, &action, &step).unwrap();
     session.act_slice(seat, action, 0).unwrap();

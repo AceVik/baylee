@@ -167,6 +167,17 @@ impl TacticRules4 {
         self.on.iter().any(|on| *on)
     }
 
+    /// The names of the groups on, in the groups' order.
+    #[must_use]
+    pub fn names(&self) -> Vec<&'static str> {
+        GROUPS
+            .iter()
+            .zip(self.on)
+            .filter(|&(_, on)| on)
+            .map(|((_, name), _)| *name)
+            .collect()
+    }
+
     const fn count(&mut self, group: RuleGroup) {
         self.fired[group as usize] += 1;
     }

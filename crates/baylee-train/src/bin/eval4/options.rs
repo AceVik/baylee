@@ -153,6 +153,20 @@ struct Args {
     /// would have changed: a deal no group touches is the same game with it on.
     #[arg(long)]
     tactics_shadow: bool,
+    /// On-policy collection only: rule proposals as recorded exploration
+    /// (`netplay4::explore`). At each learner decision the tactical layer with
+    /// these groups (a comma list as `--tactics-rules` reads it, `all`, or
+    /// `measured` for the bundle `BayleeAI` is measured with) answers on the
+    /// same logits; where it differs from the net's sample, its answer is
+    /// played with probability `--explore-epsilon`. Each step records π, μ
+    /// and the proposer; the records are exploration records, outcomes their
+    /// only labels.
+    #[arg(long, requires = "explore_epsilon")]
+    explore_rules: Option<String>,
+    /// With `--explore-rules`: the probability ε, `0 < ε < 1`, of playing
+    /// the layer's answer where it differs from the net's.
+    #[arg(long, requires = "explore_rules")]
+    explore_epsilon: Option<f64>,
     /// Plays only these deals, a JSON list: the deals a shadow run says a group
     /// reaches. The rest of `--deals` are skipped, and the same deal is the same game.
     #[arg(long)]
@@ -567,6 +581,9 @@ struct EvalStats {
     thinking: baylee_train::netplay4::ThinkingUse4,
     tactician:
         std::collections::BTreeMap<String, baylee_train::netplay4::tactician::TacticianStats4>,
+    /// `--explore-rules`: decisions explored and layer answers played.
+    exploration_draws: u64,
+    exploration_played: u64,
 }
 
 /// Why `--search` cannot run with `args`, if it cannot.
@@ -618,6 +635,48 @@ fn house_as_seat_refusal(args: &Args, collection: &collector::Contract) -> Optio
         return Some("--house-as-seat is for numbers only: no records, shadow labels or search");
     }
     None
+}
+
+/// `--explore-rules`/`--explore-epsilon`: the learner's rule groups and the
+/// run's exploration contract, or `None` without them. Only an on-policy
+/// collection explores, and only its raw learner: an evaluation plays the
+/// policy it measures.
+fn exploration_setup(
+    args: &Args,
+    collection: &collector::Contract,
+) -> anyhow::Result<
+    Option<(
+        baylee_train::netplay4::TacticRules4,
+        baylee_train_ops::exploration::RunExploration,
+    )>,
+> {
+    let (Some(list), Some(epsilon)) = (args.explore_rules.as_deref(), args.explore_epsilon) else {
+        return Ok(None);
+    };
+    anyhow::ensure!(
+        collection.purpose == collector::Purpose::OnPolicyTraining,
+        "--explore-rules explores in --collection-purpose on-policy-training only"
+    );
+    anyhow::ensure!(
+        !args.legacy_v3
+            && args.tactician_windows.is_none()
+            && args.search.is_none()
+            && !args.random_policy
+            && args.choice_guard == "off"
+            && args.tactics_rules.is_empty()
+            && !args.tactics_shadow,
+        "--explore-rules explores the raw learner alone: no tactician, search, random seat, \
+         guard or tactics rules"
+    );
+    let list = if list == "measured" {
+        baylee_train_ops::measured::RULE_GROUPS
+    } else {
+        list
+    };
+    let rules = baylee_train::netplay4::TacticRules4::parse(list)?;
+    let run = baylee_train_ops::exploration::RunExploration::new(epsilon, list, &rules.names());
+    run.validate()?;
+    Ok(Some((rules, run)))
 }
 
 /// The opponent the summary names: a seated house reads `seat:<level>`, so
