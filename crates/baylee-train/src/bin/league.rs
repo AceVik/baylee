@@ -145,11 +145,8 @@ impl Opponent {
             return Ok(Self::SelfPlay);
         }
         if let Some(p) = spec.strip_prefix("house:") {
-            let (name, profile) = AIProfile::NAMED
-                .iter()
-                .find(|(n, _)| *n == p)
-                .copied()
-                .with_context(|| format!("unknown house profile {p}"))?;
+            let (name, profile) =
+                AIProfile::lookup(p).with_context(|| format!("unknown house profile {p}"))?;
             return Ok(Self::House(name, profile));
         }
         if let Some(path) = spec.strip_prefix("net:") {

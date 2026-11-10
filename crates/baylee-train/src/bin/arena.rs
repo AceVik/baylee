@@ -207,7 +207,7 @@ impl Net {
 }
 
 fn profile(name: &str) -> anyhow::Result<AIProfile> {
-    AIProfile::named(name).with_context(|| format!("unknown profile {name}"))
+    AIProfile::resolve(name).with_context(|| format!("unknown profile {name}"))
 }
 
 /// Who plays a deal's watched seat: the net, or the house at the net's

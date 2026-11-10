@@ -542,5 +542,5 @@ fn parse_choice_guard(text: &str) -> anyhow::Result<Option<ChoiceGuard4>> {
 }
 
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {
-    AIProfile::named(name).with_context(|| format!("unknown AIProfile {name}"))
+    AIProfile::resolve(name).with_context(|| format!("unknown AIProfile {name}"))
 }

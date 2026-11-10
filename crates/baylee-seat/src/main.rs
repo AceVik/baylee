@@ -1435,7 +1435,7 @@ async fn sit_down(
     unstarted: &Unstarted,
     fallen: &Fallen,
 ) -> anyhow::Result<Seated> {
-    let profile = AIProfile::named(&join.level)
+    let profile = AIProfile::resolve(&join.level)
         .with_context(|| format!("no house level called «{}»", join.level))?;
     if let Some(why) = join.fallback_files_fault() {
         bail!(why);
@@ -1785,7 +1785,7 @@ impl OrderReader {
             self.disclosure.prefix()
         );
         let join = self.ordered(&order, env)?;
-        let level = AIProfile::named(&join.level)
+        let level = AIProfile::resolve(&join.level)
             .with_context(|| format!("no house level called «{}»", join.level))?;
         let chosen = choose(
             &join,

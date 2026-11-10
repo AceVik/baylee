@@ -19,4 +19,5 @@ mod ai_mindslaver;
 mod ai_miracle;
 mod ai_upkeep_payments;
 mod ai_ward;
+mod reference_profile;
 mod view_patches;
