@@ -3165,7 +3165,10 @@ first. The first that exists is read, so a run on the main runtime takes the pla
 the same deal of one pair are refused. Each input records the house label its summary used (`against`): `sharp` and `sharp-2026-11` map to
 one player while they play alike. A draw, or a deal stopped at its answer cap, counts one half. Each format (`1v1`, `2v2`, `3v3`, `ffaN`) is
 a table of its own. In a team format a game is a table and the side the net controls. eval4 writes one row per seat of that team, and those
-rows replay one game (they split in 1 table of 64 in 2v2), so they count once, at their mean.
+rows replay one game (they split in 1 table of 64 in 2v2), so they count once, at their mean. eval4 seeds the net's policy per deal, not per
+table, so the rows replay exactly only at temperature 0; at a sampling temperature they are draws of the net's play on one deal, still one game.
+eval4 writes the `game` key on every row and counts `games`, `game_wins`, `game_draws` and `game_losses` beside its row counts (`counted_as`
+says which are which); `evaluation::games` is that rule, and `phase_a4 table`, `paired_eval4` and `rating4` read games through it.
 Anchors hold their ratings. Fair players are fitted from fair games first, and unfair ones after, against the fair ratings held. A player
 with no path of games to an anchor is refused. One that never dropped a point on any path to one is named above every rating instead of
 being fitted to infinity. Each rating has two 95 % bootstrap intervals. **By deal** draws each input's deals again: an `eval4` table with
