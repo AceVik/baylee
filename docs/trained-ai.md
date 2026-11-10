@@ -1816,6 +1816,26 @@ the pass of the untouched `--init` weights. `--window-entity-buckets` packs
 pieces of similar size together. These runs start fresh from `--init` only.
 `--vectorized-rule-closure` builds the active rule closure's index arrays with
 numpy (identical tensors). `--skip-final-validation` is for throughput probes.
+Bundle distillation (`training4/distill.py`, `training4/partial.py`), off by
+default and for fresh `--init` runs only: `--distill-bundle` reads
+`bundle_distillation_v1` datasets, whose policy targets hold R, the tactical
+layer's answer with the bundle, at the recorded seat's decisions, and whose
+header flag bit 7 marks N != R (N, the net's greedy answer). Such a dataset is
+refused without the flag, and the flag refuses any other dataset. The loss is
+cross-entropy to R at `--distill-kinds` (pending kinds, priority = 0 by default)
+where N != R, plus `--distill-kl-weight` times KL to the frozen `--init` policy
+everywhere else (those kinds where N = R, other single choices, subsets and
+pairs per free entry, the scalar's squared distance); each term is logged.
+`--checkpoint-selection distill_n_ne_r` keeps the snapshot with the highest
+top-1 agreement with R where N != R at the distilled kinds; validation reports
+that agreement per group, every KL and the value's drift from r1. What learns:
+`--train-policy-head-only` (stage A, the candidate head), `--adapter-on-candidate-head R`
+(stage A, a rank-R update of `cand_scorer.0` merged into its weight in every
+saved checkpoint, so exports keep the plain architecture),
+`--trainable-trunk-from-layer L` (stage B, layers >= L, thinking block and
+heads; no gradient is recorded below L) and `--freeze-value-head`. With the
+trunk frozen the reference reads the student's own boards and memory, and the
+decision-window learner's stored H stays exact, so it is computed once.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
 `net.pt` is now selected by validation policy loss by default. The previous
