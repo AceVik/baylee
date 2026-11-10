@@ -61,6 +61,10 @@ name = "generation4"
 path = "src/bin/generation4.rs"
 
 [[bin]]
+name = "league4"
+path = "src/bin/league4.rs"
+
+[[bin]]
 name = "ladder4"
 path = "src/bin/ladder4.rs"
 
