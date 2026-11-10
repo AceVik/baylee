@@ -12,6 +12,7 @@ zero.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -105,12 +106,10 @@ class Store:
         def move(t, floating):
             t = t.to(device)
             return t.to(dtype) if floating and dtype is not None else t
-        return Store(move(self.states, True), move(self.units, True), move(self.tails, True),
-                     move(self.labels, False), move(self.nets, False), move(self.groups, False),
-                     move(self.n, False), move(self.unit_offset, False),
-                     move(self.tail_offset, False), move(self.window, False),
-                     self.seed, self.game, self.fired, self.kinds, self.seat, self.sources,
-                     self.zero_parts)
+        floats = ("states", "units", "tails")
+        tensors = floats + ("labels", "nets", "groups", "n", "unit_offset", "tail_offset", "window")
+        return dataclasses.replace(
+            self, **{name: move(getattr(self, name), name in floats) for name in tensors})
 
     def split(self, held_out_mod: int):
         """Decision indices of the training and held-out games: a table is held

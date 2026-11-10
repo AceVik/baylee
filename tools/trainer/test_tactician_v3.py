@@ -279,6 +279,18 @@ class Priority(unittest.TestCase):
         self.assertEqual(decision_kind(*self.record(1, 0, True, paying=True)), "pay")
         self.assertEqual(decision_kind(dict(window="block"), np.zeros((1, ROW_TAIL))), "block")
 
+    def test_moving_a_store_keeps_every_decision_s_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_records(Path(tmp) / "r")
+            store = read_records([Path(tmp) / "r"])
+        moved = store.to("cpu", torch.float16)
+        self.assertEqual(moved.kinds, store.kinds)
+        self.assertEqual(moved.fired, store.fired)
+        self.assertEqual(moved.sources, store.sources)
+        self.assertTrue((moved.seat == store.seat).all())
+        self.assertEqual(moved.states.dtype, torch.float16)
+        self.assertIn("priority", set(moved.kinds) | {"priority"})
+
     def test_the_prior_and_the_facts_are_ablated_alone(self):
         with tempfile.TemporaryDirectory() as tmp:
             write_records(Path(tmp) / "r")
