@@ -499,7 +499,7 @@ fn adjust_subset(
         let going = attack::going(cands, logits, pending);
         let free = attack::free_swings(view, pending, &going);
         if !free.is_empty() {
-            attack::send(cands, logits, &free);
+            attack::send(cands, logits, view, pending, &free);
             rules.count(RuleGroup::Press);
         }
     }

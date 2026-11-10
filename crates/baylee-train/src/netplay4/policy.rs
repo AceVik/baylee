@@ -388,27 +388,67 @@ impl PolicySampler4<'_> {
                                 min,
                                 max,
                                 reason:
+                                    baylee_engine::choice::NumberPrompt::DivideDamage {
+                                        target,
+                                        left,
+                                        ..
+                                    },
+                                ..
+                            } if *max > *min => {
+                                let rem_t = match target {
+                                    baylee_engine::choice::TargetRef::Object(oid) => {
+                                        view.object(oid.object).map_or(*max, |o| {
+                                            u32::try_from(
+                                                (i32::from(o.toughness.unwrap_or(1))
+                                                    - i32::from(o.damage))
+                                                .max(1),
+                                            )
+                                            .unwrap_or(1)
+                                        })
+                                    }
+                                    baylee_engine::choice::TargetRef::Player(pid) => {
+                                        view.seat(*pid).map_or(*max, |s| {
+                                            u32::try_from(s.life.max(1)).unwrap_or(*max)
+                                        })
+                                    }
+                                };
+                                let assign = rem_t.min(*left).clamp(*min, *max);
+                                normalize_scalar_choice(assign, *min, *max)
+                            }
+                            Pending::ChooseNumber {
+                                min,
+                                max,
+                                reason:
                                     baylee_engine::choice::NumberPrompt::CombatDamage {
+                                        source,
                                         recipient,
                                         index,
                                         of,
                                         left,
                                         lethal,
-                                        ..
                                     },
                                 ..
                             } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
                                 // A trampler's question says what is lethal, and
                                 // its last blocker is asked too (CR 702.19b).
+                                let src_dt = view.object(*source).is_some_and(|o| {
+                                    (o.keywords
+                                        & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits())
+                                        != 0
+                                });
                                 let rem_t = lethal.unwrap_or_else(|| {
-                                    view.object(*recipient).map_or(*max, |o| {
-                                        u32::try_from(
-                                            (i32::from(o.toughness.unwrap_or(1))
-                                                - i32::from(o.damage))
-                                            .max(1),
-                                        )
-                                        .unwrap_or(1)
-                                    })
+                                    if src_dt {
+                                        1
+                                    } else {
+                                        view.object(*recipient).map_or(*max, |o| {
+                                            u32::try_from(
+                                                (i32::from(o.toughness.unwrap_or(1))
+                                                    - i32::from(o.damage))
+                                                .max(1),
+                                            )
+                                            .unwrap_or(1)
+                                        })
+                                    }
                                 });
                                 let assign = if rem_t <= *left {
                                     rem_t.clamp(*min, *max)

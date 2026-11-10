@@ -359,3 +359,13 @@ OfficialListsAreReadOnly = official lists are read-only
 ThatListIsForAnotherFormat = that list is for another format
 
 ThisTableHasNoList = this table has no list
+
+HandSharingIsDisabledInThisMode = hand sharing is disabled in this mode
+
+ContinuousHandSharingIsDisabledInThisMode = continuous hand sharing is disabled in this mode; use ShareHandOnce
+
+HandsMayBeSharedOnlyWithTeammates = hands may be shared only with teammates
+
+AlreadySharingWithThatTeammate = already sharing with that teammate
+
+NoPendingRequestFromThatSeat = no pending request from that seat

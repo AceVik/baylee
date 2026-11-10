@@ -56,6 +56,22 @@ pub(super) fn is_a_fair_trade(attacker: &PublicObject, blocker: &PublicObject) -
     kills(attacker, blocker) && worth(blocker) <= worth(attacker)
 }
 
+fn may_solo_block_attacker(attacker: &PublicObject, pending: &Pending) -> bool {
+    if has(attacker, KeywordSet::MENACE) {
+        return false;
+    }
+    if let Pending::ChooseBlockers { bounds, .. } = pending {
+        for bound in bounds {
+            if bound.attacker == attacker.id
+                && (bound.min_blockers > 1 || bound.max_blockers == 0)
+            {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 /// The attackers on `me` a declaration left open that a free blocker passes
 /// `test` for.
 pub(super) fn left_open(
@@ -77,7 +93,7 @@ pub(super) fn left_open(
             attacker.defending == Defender::Player(me) && !blocked.contains(&attacker.creature)
         })
         .filter_map(|attacker| view.object(attacker.creature))
-        .filter(|hitter| !has(hitter, KeywordSet::MENACE))
+        .filter(|hitter| may_solo_block_attacker(hitter, pending))
         .filter(|hitter| {
             blockers.iter().any(|option| {
                 !busy.contains(&option.blocker)
@@ -116,6 +132,11 @@ fn add_blocks(
     let declared = taken(logits);
     let mut busy: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.0).collect();
     let blocked: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.1).collect();
+    let max_blks = if cands.max_choices > 0 {
+        cands.max_choices as usize
+    } else {
+        usize::MAX
+    };
     let mut open: Vec<&PublicObject> = view
         .combat
         .attackers
@@ -124,11 +145,14 @@ fn add_blocks(
             attacker.defending == Defender::Player(me) && !blocked.contains(&attacker.creature)
         })
         .filter_map(|attacker| view.object(attacker.creature))
-        .filter(|attacker| !has(attacker, KeywordSet::MENACE))
+        .filter(|attacker| may_solo_block_attacker(attacker, pending))
         .collect();
     open.sort_by_key(|attacker| std::cmp::Reverse(hit(attacker)));
     let mut added = false;
     for hitter in open {
+        if busy.len() >= max_blks {
+            break;
+        }
         let best = (0..n)
             .filter(|&index| cands.pair_objects[index].1 == hitter.id)
             .filter_map(|index| {
@@ -219,7 +243,7 @@ pub(super) fn chumps(
         if !too_much(my_life, damage) {
             break;
         }
-        if has(attacker, KeywordSet::MENACE) || has(attacker, KeywordSet::TRAMPLE) {
+        if !may_solo_block_attacker(attacker, pending) || has(attacker, KeywordSet::TRAMPLE) {
             continue;
         }
         let chump = blockers
@@ -252,13 +276,25 @@ pub(super) fn chump_for_life(
         .filter(|(_, logit)| **logit > 0.0)
         .map(|(pair, _)| *pair)
         .collect();
+    let max_blks = if cands.max_choices > 0 {
+        cands.max_choices as usize
+    } else {
+        usize::MAX
+    };
+    let mut busy_count = declared.iter().map(|p| p.0).collect::<BTreeSet<_>>().len();
     let added = chumps(view, pending, &declared);
+    let mut any_added = false;
     for (blocker, attacker) in &added {
+        if busy_count >= max_blks {
+            break;
+        }
         for (pair, logit) in cands.pair_objects.iter().zip(logits.iter_mut()) {
             if pair.0 == *blocker {
                 *logit = if pair.1 == *attacker { SURE } else { NEVER };
             }
         }
+        busy_count += 1;
+        any_added = true;
     }
-    !added.is_empty()
+    any_added
 }

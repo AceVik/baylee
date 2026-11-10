@@ -186,6 +186,23 @@ impl<L: CardLookup + Clone> Engine<L> {
         decks: DeckKnowledge,
         policy_seed: u64,
     ) -> Result<Self, ForkRefusal> {
+        self.fork_for_with_shared(
+            seat,
+            decks,
+            policy_seed,
+            baylee_core::ids::SeatSet::new(),
+        )
+    }
+
+    /// As [`Self::fork_for`], additionally keeping the hands of any teammates
+    /// in `shared_hands` who have shared their full hand with `seat`.
+    pub fn fork_for_with_shared(
+        &self,
+        seat: PlayerId,
+        decks: DeckKnowledge,
+        policy_seed: u64,
+        shared_hands: baylee_core::ids::SeatSet,
+    ) -> Result<Self, ForkRefusal> {
         if usize::from(seat.get()) >= self.state.players.len() {
             return Err(ForkRefusal::NoSuchSeat(seat));
         }
@@ -196,8 +213,11 @@ impl<L: CardLookup + Clone> Engine<L> {
             return Err(ForkRefusal::GameOver);
         }
         driver::check_settled(self)?;
-        let sees_hand =
-            |owner| self.may_inspect_private(seat, owner) || self.state.hand_revealed(owner);
+        let sees_hand = |owner| {
+            self.may_inspect_private(seat, owner)
+                || self.state.hand_revealed(owner)
+                || shared_hands.contains(owner)
+        };
         let deal = redeal::Deal::plan(&self.state, seat, &sees_hand)?;
         self.state.audit_fork(&|id| deal.is_retired(id))?;
         transcript::check(&self.state.journal, seat)?;

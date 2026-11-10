@@ -323,24 +323,28 @@ pub(super) fn world<T: ForkSource4>(
     seat: PlayerId,
     seed: u64,
 ) -> Result<SimulationSession, ForkRefusal> {
-    world_with_opponent(table, seat, seed, false)
+    world_with_opponent(table, seat, seed, &[], false)
 }
 
-/// World `seed`, forked from `table` for `seat`, with other chairs either
-/// kept for neural rollout answers (`neural_opponent = true`) or handed to
-/// the house (`false`).
+/// World `seed`, forked from `table` for `seat`, with teammates and (when
+/// `neural_opponent = true`) opponents kept for neural rollout answers, and
+/// non-teammate chairs handed to the house when `neural_opponent = false`.
 fn world_with_opponent<T: ForkSource4>(
     table: &T,
     seat: PlayerId,
     seed: u64,
+    teams: &[Option<u8>],
     neural_opponent: bool,
 ) -> Result<SimulationSession, ForkRefusal> {
     let mut world = table.fork(seat, seed)?;
-    for other in 0..world.state().players.len() {
-        if let Ok(other) = u8::try_from(other).map(PlayerId::new)
+    let my_team = teams.get(usize::from(seat.get())).copied().flatten();
+    for other_idx in 0..world.state().players.len() {
+        if let Ok(other) = u8::try_from(other_idx).map(PlayerId::new)
             && other != seat
         {
-            if neural_opponent {
+            let same_team =
+                my_team.is_some() && teams.get(other_idx).copied().flatten() == my_team;
+            if neural_opponent || same_team {
                 world.take_over(other);
             } else {
                 world.release(other);
@@ -576,7 +580,7 @@ impl<S> Rounds<'_, S> {
         seed: u64,
         neural_opponent: bool,
     ) -> Result<SimulationSession, ForkRefusal> {
-        world_with_opponent(table, self.view.seat, seed, neural_opponent)
+        world_with_opponent(table, self.view.seat, seed, self.teams, neural_opponent)
     }
 
     /// Runs `jobs` one by one on `player`, restored to the root before each.

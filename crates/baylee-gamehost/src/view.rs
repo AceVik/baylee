@@ -835,6 +835,37 @@ pub(crate) fn show_whole_hand(state: &GameState, view: &mut PlayerView, owner: P
     }
 }
 
+/// Adds a one-time snapshot of `owner`'s hand (`shown_ids`, sorted), showing
+/// only those cards from the snapshot that are still in `owner`'s hand right
+/// now (along with any publicly revealed cards in `owner`'s hand).
+pub(crate) fn show_hand_snapshot(
+    state: &GameState,
+    view: &mut PlayerView,
+    owner: PlayerId,
+    shown_ids: &[ObjectId],
+) {
+    if state.hand_revealed(owner) {
+        show_whole_hand(state, view, owner);
+        return;
+    }
+    let cards = hand_matching(state, owner, |id| {
+        state.hand_card_revealed(id) || shown_ids.binary_search(&id).is_ok()
+    });
+    if cards.is_empty() {
+        return;
+    }
+    let hand = baylee_view::SharedHand {
+        public: false,
+        player: owner,
+        cards,
+    };
+    if let Some(existing) = view.shared_hands.iter_mut().find(|h| h.player == owner) {
+        *existing = hand;
+    } else {
+        view.shared_hands.push(hand);
+    }
+}
+
 /// Teferi, Time Raveler's +1 for `seat`: its sorceries may be cast as though
 /// they had flash. The same reading `casting::timing_allows` makes, an
 /// effect the seat controls; an opponent's +1 is not this seat's.

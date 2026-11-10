@@ -9,14 +9,15 @@
 //! [`Session`]: super::Session
 //! [`SimulationSession`]: super::SimulationSession
 
-use super::{RegistryLookup, SeatKind};
+use super::{RegistryLookup, SeatKind, seat_byte};
 use baylee_ai::HeuristicAgent;
 use baylee_ai::intelligence::{DeckIntel, LibraryAccess};
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_view::{HouseAnswer, PlayerView};
+use std::collections::BTreeMap;
 
 /// A table as the house and its agents read it, borrowed from whichever
 /// session holds it.
@@ -28,6 +29,8 @@ pub(super) struct Table<'a> {
     pub(super) fair_scouting: bool,
     pub(super) seq: u64,
     pub(super) house_answered: &'a [Option<HouseAnswer>],
+    pub(super) showing: &'a [SeatSet],
+    pub(super) shown_once: &'a BTreeMap<(u8, u8), Vec<ObjectId>>,
 }
 
 impl Table<'_> {
@@ -78,7 +81,8 @@ impl Table<'_> {
     /// ([`Session::view_for`](super::Session::view_for)).
     pub(super) fn view_for(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
         let pending = self.engine.pending_for(seat)?.clone();
-        let view = self.agent_view(seat, &pending);
+        let mut view = self.agent_view(seat, &pending);
+        self.show_shared_hands(&mut view, seat);
         Some((pending, view))
     }
 
@@ -86,7 +90,7 @@ impl Table<'_> {
     /// ([`Session::observe_view`](super::Session::observe_view)).
     pub(super) fn observe_view(&self, seat: PlayerId) -> PlayerView {
         let engine = self.engine;
-        crate::view::player_view(
+        let mut view = crate::view::player_view(
             engine.state(),
             seat,
             self.seq,
@@ -106,7 +110,51 @@ impl Table<'_> {
                 ballots: engine.ballots(),
             },
             self.house_answered,
-        )
+        );
+        self.show_shared_hands(&mut view, seat);
+        view
+    }
+
+    /// Populates `view.shared_hands` with any teammate hands shared (continuously
+    /// or as a one-time snapshot) with `seat`, provided `seat` is answered over a
+    /// socket or driven by an external model (`SeatKind::answers_over_socket`).
+    /// House heuristic chairs (`SeatKind::Ai` / `SeatKind::StandIn`) are never
+    /// shown voluntary hand shares.
+    fn show_shared_hands(&self, view: &mut PlayerView, seat: PlayerId) {
+        if self.showing.iter().all(|s| s.is_empty()) && self.shown_once.is_empty() {
+            return;
+        }
+        let at = usize::from(seat.get());
+        if !self.seats.get(at).is_some_and(SeatKind::answers_over_socket) {
+            return;
+        }
+        let state = self.engine.state();
+        if state.has_left(seat) || matches!(self.engine.pending(), Pending::GameOver(_)) {
+            return;
+        }
+        let Some(team) = self.teams.get(at).copied().flatten() else {
+            return;
+        };
+        let mut added = false;
+        for (i, _) in self.seats.iter().enumerate() {
+            if i == at {
+                continue;
+            }
+            let owner = PlayerId::new(seat_byte(i));
+            if self.teams.get(i).copied().flatten() != Some(team) || state.has_left(owner) {
+                continue;
+            }
+            if self.showing.get(i).is_some_and(|s| s.contains(seat)) {
+                crate::view::show_whole_hand(state, view, owner);
+                added = true;
+            } else if let Some(ids) = self.shown_once.get(&(owner.get(), seat.get())) {
+                crate::view::show_hand_snapshot(state, view, owner, ids);
+                added = true;
+            }
+        }
+        if added {
+            view.shared_hands.sort_by_key(|hand| hand.player);
+        }
     }
 
     /// `view` with the owner's current cast and targets.

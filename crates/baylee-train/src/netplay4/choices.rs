@@ -218,7 +218,7 @@ pub(super) fn mask_non_priority_single_choice(
                     .battlefield
                     .iter()
                     .filter(|o| {
-                        o.controller != actor
+                        super::tactics::is_opponent(actor, o.controller)
                             && o.types.contains(TypeSet::CREATURE)
                             && !o.status.contains(ObjectStatus::PHASED_OUT)
                     })
@@ -465,10 +465,14 @@ pub(super) fn adjust_subset_logits(
         } => {
             let mut pos_attacker_ids = Vec::new();
             let mut non_engine_powers = Vec::new();
-            let first_def_pid = defenders.iter().find_map(|d| match d {
-                Defender::Player(p) => Some(*p),
-                _ => None,
-            });
+            let def_players: Vec<PlayerId> = defenders
+                .iter()
+                .filter_map(|d| match d {
+                    Defender::Player(p) => Some(*p),
+                    _ => None,
+                })
+                .collect();
+            let first_def_pid = choose_attack_target_player(view, actor, &def_players);
             let mut unblockable_dmg = 0_i32;
             for cand in &cands.candidates[..n] {
                 if let Some(oid) = cand.object_id
@@ -630,6 +634,37 @@ pub(super) fn adjust_subset_logits(
                 }
             }
 
+            let search_attackers: BTreeSet<ObjectId> = if let Some(def_pid) = first_def_pid {
+                let search_eligible: Vec<ObjectId> = pos_attacker_ids
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        required.contains(id)
+                            || (!hold_back_for_crackback.contains(id)
+                                && view.object(*id).is_some_and(|o| {
+                                    !is_protected_engine_or_catastrophic_ltb(view, o)
+                                        && !is_suicide_attack_into_blockers(
+                                            view,
+                                            o,
+                                            def_pid,
+                                            total_pos_attackers,
+                                        )
+                                }))
+                    })
+                    .collect();
+                baylee_ai::search::attackers(
+                    view,
+                    &search_eligible,
+                    def_pid,
+                    baylee_core::preset::AIProfile::SHARP,
+                )
+                .attackers
+                .into_iter()
+                .collect()
+            } else {
+                BTreeSet::new()
+            };
+
             for (i, cand) in cands.candidates[..n].iter().enumerate() {
                 let Some(att_id) = cand.object_id else {
                     continue;
@@ -653,6 +688,10 @@ pub(super) fn adjust_subset_logits(
                 let Some(Defender::Player(def_pid)) = def_target else {
                     continue;
                 };
+                if def_players.len() > 1 && Some(def_pid) != first_def_pid {
+                    out[i] = -20.0;
+                    continue;
+                }
                 let is_fragile_engine = is_protected_engine_or_catastrophic_ltb(view, att_obj);
                 let total_def_blockers = view
                     .battlefield_of(def_pid)
@@ -688,8 +727,13 @@ pub(super) fn adjust_subset_logits(
                     .take(guaranteed_unblocked_count)
                     .sum();
                 let has_vigilance = has_kw(att_obj, KeywordSet::VIGILANCE);
-                if is_unblockable && unblockable_dmg >= def_life {
-                    out[i] = out[i].max(4.0);
+                let focus_bonus = if def_players.len() > 1 && Some(def_pid) == first_def_pid {
+                    1.25_f32
+                } else {
+                    0.0_f32
+                };
+                if is_unblockable && Some(def_pid) == first_def_pid && unblockable_dmg >= def_life {
+                    out[i] = out[i].max(4.0) + focus_bonus;
                     continue;
                 }
                 let opp_total_crackback_power: i32 = view
@@ -732,7 +776,7 @@ pub(super) fn adjust_subset_logits(
                     && (has_vigilance
                         || (my_life >= 10 && my_life - opp_total_crackback_power >= 5));
                 if is_unkillable_juggernaut {
-                    out[i] = out[i].max(2.0);
+                    out[i] = out[i].max(2.0) + focus_bonus;
                     continue;
                 }
                 let death_payoff = friendly_creature_death_payoff(view, actor, att_obj);
@@ -756,11 +800,15 @@ pub(super) fn adjust_subset_logits(
                                 || my_life >= 12
                                 || my_life - opp_total_crackback_power >= 5)));
                 if go_wide_alpha {
-                    out[i] = out[i].max(2.0);
+                    out[i] = out[i].max(2.0) + focus_bonus;
                     continue;
                 }
                 if is_suicide_attack_into_blockers(view, att_obj, def_pid, total_pos_attackers) {
                     out[i] = -20.0;
+                } else if Some(def_pid) == first_def_pid && search_attackers.contains(&att_id) {
+                    out[i] = out[i].max(2.5) + focus_bonus;
+                } else if focus_bonus > 0.0 {
+                    out[i] += focus_bonus;
                 }
             }
         }
@@ -814,13 +862,13 @@ pub(super) fn adjust_subset_logits(
             let fixed_dmg = active_source_fixed_damage(view, active_source);
             let any_opp_player_target = cands.candidates[..n]
                 .iter()
-                .any(|cand| cand.player_id.is_some_and(|p| p != actor));
+                .any(|cand| cand.player_id.is_some_and(|p| super::tactics::is_opponent(actor, p)));
             let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
                 cands.candidates[..n].iter().any(|cand| {
                     cand.object_id
                         .and_then(|oid| view.object(oid))
                         .is_some_and(|o| {
-                            o.controller != actor
+                            super::tactics::is_opponent(actor, o.controller)
                                 && o.types.contains(TypeSet::CREATURE)
                                 && !has_kw(o, KeywordSet::INDESTRUCTIBLE)
                                 && !(any_opp_player_target
@@ -836,15 +884,21 @@ pub(super) fn adjust_subset_logits(
             let any_urgent_ench_target = cands.candidates[..n].iter().any(|cand| {
                 cand.object_id
                     .and_then(|oid| view.object(oid))
-                    .is_some_and(|o| o.controller != actor && is_urgent_enchantment(o))
+                    .is_some_and(|o| {
+                        super::tactics::is_opponent(actor, o.controller) && is_urgent_enchantment(o)
+                    })
             });
             if intent != TargetIntent::Neutral {
                 for (i, cand) in cands.candidates[..n].iter().enumerate() {
                     let obj_opt = cand.object_id.and_then(|oid| view.object(oid));
-                    let is_friendly = obj_opt.is_some_and(|o| o.controller == actor)
-                        || cand.player_id == Some(actor);
-                    let is_hostile = obj_opt.is_some_and(|o| o.controller != actor)
-                        || cand.player_id.is_some_and(|p| p != actor);
+                    let is_friendly = obj_opt
+                        .is_some_and(|o| super::tactics::is_ally(actor, o.controller))
+                        || cand.player_id.is_some_and(|p| super::tactics::is_ally(actor, p));
+                    let is_hostile = obj_opt
+                        .is_some_and(|o| super::tactics::is_opponent(actor, o.controller))
+                        || cand
+                            .player_id
+                            .is_some_and(|p| super::tactics::is_opponent(actor, p));
                     match intent {
                         TargetIntent::Hostile => {
                             if is_friendly {
@@ -951,7 +1005,7 @@ fn is_single_target_concentrated_source(
 }
 
 pub(super) fn beneficial_creature_target_tier(actor: PlayerId, o: &PublicObject) -> i32 {
-    if o.controller != actor || !o.types.contains(TypeSet::CREATURE) {
+    if super::tactics::is_opponent(actor, o.controller) || !o.types.contains(TypeSet::CREATURE) {
         return 0;
     }
     let p = i32::from(o.power.unwrap_or(0)).max(0);
@@ -1529,6 +1583,33 @@ pub(super) fn adjust_pair_logits(
         .values()
         .flat_map(|v| v.iter().copied())
         .collect();
+    let is_favorable_solo_trade = |blk_id: ObjectId, atk_id: ObjectId| -> bool {
+        let (ap, at, _a_dt, a_fs, _, a_mn, a_ind) = atk_stats(atk_id);
+        if a_mn || a_ind || ap <= 0 {
+            return false;
+        }
+        let (bp, bt, b_dt, b_fs, _b_ind) = blk_stats(blk_id);
+        if !(bp >= at || b_dt) || (a_fs && !b_fs && ap >= bt) {
+            return false;
+        }
+        let Some(blk_obj) = view.object(blk_id) else {
+            return false;
+        };
+        if is_protected_engine_or_catastrophic_ltb(view, blk_obj)
+            || dies_self_damage_amount(blk_obj) >= my_life
+        {
+            return false;
+        }
+        let Some(atk_obj) = view.object(atk_id) else {
+            return ap > bp;
+        };
+        let atk_worth = super::tactics::rules::read::worth(atk_obj);
+        let blk_worth = super::tactics::rules::read::worth(blk_obj);
+        ap > bp
+            || atk_worth > blk_worth
+            || (super::tactics::rules::read::hits_for_value(atk_obj) && blk_worth <= atk_worth + 2)
+            || (ap == bp && ap >= 2 && (my_life <= 14 || my_life - raw_unblocked_dmg <= 10))
+    };
     let has_missed_kill = (0..n).any(|i| {
         let [b_idx, a_idx] = cands.pairs[i];
         if b_idx < 0 || a_idx < 0 {
@@ -1552,9 +1633,7 @@ pub(super) fn adjust_pair_logits(
             return false;
         }
         let survives = b_ind || (b_fs && !a_fs) || (!a_dt && bt > ap);
-        let favorable_trade_at_low_life =
-            my_life - raw_unblocked_dmg <= 4 && ap >= 2 && ap >= bp && !(a_fs && !b_fs && ap >= bt);
-        survives || favorable_trade_at_low_life
+        survives || is_favorable_solo_trade(blk_id, atk_id)
     });
     let has_missed_gang_kill = attackers.iter().any(|&atk_id| {
         if !attacks_me(atk_id) || atk_max_blockers(atk_id) < 2 {
@@ -1664,13 +1743,14 @@ pub(super) fn adjust_pair_logits(
                             )
                         })
                     });
-                let trades_favorably = kills
-                    && !(a_fs && !b_fs && ap >= bt)
-                    && (ap > bp
-                        || (atk_has_active_engine && bt == 1 && ap >= 1)
-                        || (ap == bp
-                            && ap >= 2
-                            && (my_life <= 12 || my_life - raw_unblocked_dmg <= 8)));
+                let trades_favorably = is_favorable_solo_trade(blk_id, atk_id)
+                    || (kills
+                        && !(a_fs && !b_fs && ap >= bt)
+                        && (ap > bp
+                            || (atk_has_active_engine && bt == 1 && ap >= 1)
+                            || (ap == bp
+                                && ap >= 2
+                                && (my_life <= 12 || my_life - raw_unblocked_dmg <= 8))));
                 let pointless_solo_chump =
                     assigned.len() == 1 && !kills && !survives && !need_survival_blocks;
                 if !pointless_solo_chump
@@ -1871,8 +1951,13 @@ pub(super) fn adjust_pair_logits(
                     return false;
                 }
                 let kills = bp >= at || b_dt;
-                let favorable_or_wanted =
-                    ap >= bp || raw_logits[i] > 0.0 || raw_unblocked_dmg >= my_life;
+                let favorable_or_wanted = is_favorable_solo_trade(blk_id, atk_id)
+                    || raw_unblocked_dmg >= my_life
+                    || (raw_logits[i] > 0.0
+                        && view.object(blk_id).is_none_or(|bo| {
+                            !is_protected_engine_or_catastrophic_ltb(view, bo)
+                                && dies_self_damage_amount(bo) < my_life
+                        }));
                 kills && favorable_or_wanted
             })
             .min_by(|&i, &j| {
@@ -2154,6 +2239,37 @@ pub(super) fn adjust_pair_logits(
         }
     }
     out
+}
+
+pub(in crate::netplay4) fn choose_attack_target_player(
+    view: &PlayerView,
+    _actor: PlayerId,
+    def_players: &[PlayerId],
+) -> Option<PlayerId> {
+    if def_players.is_empty() {
+        return None;
+    }
+    if def_players.len() == 1 {
+        return Some(def_players[0]);
+    }
+    if let Some(m) = view.monarch
+        && def_players.contains(&m)
+    {
+        return Some(m);
+    }
+    def_players.iter().copied().min_by_key(|&pid| {
+        let life = view.seat(pid).map_or(20, |s| s.life);
+        let blks = view
+            .battlefield_of(pid)
+            .filter(|b| {
+                b.types.contains(TypeSet::CREATURE)
+                    && !b.status.contains(ObjectStatus::TAPPED)
+                    && !b.status.contains(ObjectStatus::PHASED_OUT)
+                    && !has_kw(b, KeywordSet::CANT_BLOCK)
+            })
+            .count() as i32;
+        life * 4 + blks * 6
+    })
 }
 
 fn can_legally_block(att: &PublicObject, blk: &PublicObject) -> bool {
@@ -3039,7 +3155,7 @@ pub(super) fn is_urgent_enchantment(obj: &PublicObject) -> bool {
 fn opp_has_urgent_enchantment(view: &PlayerView, actor: PlayerId) -> bool {
     view.battlefield
         .iter()
-        .any(|o| o.controller != actor && is_urgent_enchantment(o))
+        .any(|o| super::tactics::is_opponent(actor, o.controller) && is_urgent_enchantment(o))
 }
 
 pub(super) fn mode_destroys_enchantment(mode: &baylee_cards_dsl::SpellMode) -> bool {

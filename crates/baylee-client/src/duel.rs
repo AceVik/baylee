@@ -1002,6 +1002,25 @@ impl Duel {
         std::mem::take(&mut self.outbox)
     }
 
+    /// Queues a seat-level setting (`ShareHand`, `ShareHandOnce`,
+    /// `RequestHand`, `DeclineHand`) to be sent on the next `flush_outbox`
+    /// without clearing the active `Interaction`.
+    pub fn submit_seat_setting(&mut self, setting: baylee_view::SeatSetting) {
+        self.last_error = None;
+        self.seat_settings_outbox.push(setting);
+    }
+
+    /// The seat settings queued for the host but not yet sent.
+    #[must_use]
+    pub fn seat_settings_outbox(&self) -> &[baylee_view::SeatSetting] {
+        &self.seat_settings_outbox
+    }
+
+    /// Takes the queued seat settings, as `flush_outbox` does on a frame.
+    pub fn take_seat_settings_outbox(&mut self) -> Vec<baylee_view::SeatSetting> {
+        std::mem::take(&mut self.seat_settings_outbox)
+    }
+
     /// The local seat, once the static payload has arrived.
     #[must_use]
     pub fn seat(&self) -> Option<PlayerId> {

@@ -61,11 +61,13 @@ impl Named {
             .find(|object| object.id == id)
     }
 
-    /// Whether this is `me` or something of `me`'s: `None` when no side reads off it.
+    /// Whether this is `me` or something of `me`'s (or an ally's): `None` when no side reads off it.
     fn is_mine(self, view: &PlayerView, me: PlayerId) -> Option<bool> {
         match self {
-            Self::Player(player) => Some(player == me),
-            Self::Object(_) => self.in_play(view).map(|object| object.controller == me),
+            Self::Player(player) => Some(super::super::is_ally(me, player)),
+            Self::Object(_) => self
+                .in_play(view)
+                .map(|object| super::super::is_ally(me, object.controller)),
             Self::Nothing => None,
         }
     }
@@ -111,11 +113,14 @@ fn common_gate(parts: &[&'static [Effect]]) -> Option<&'static Filter> {
     gate
 }
 
-/// What `me`'s own kills already on the stack name: a second one there is wasted.
+/// What `me`'s (or an ally's) kills already on the stack name: a second one there is wasted.
 pub(super) fn doomed(view: &PlayerView, me: PlayerId) -> Vec<ObjectId> {
     view.stack
         .iter()
-        .filter(|item| item.controller == me && kills_outright(&asked_effects(view, item.id)))
+        .filter(|item| {
+            super::super::is_ally(me, item.controller)
+                && kills_outright(&asked_effects(view, item.id))
+        })
         .flat_map(|item| &item.targets)
         .filter_map(|target| match target {
             TargetRef::Object(named) => Some(named.object),
@@ -231,7 +236,10 @@ fn aim(
     let killable = |target: &Named| {
         target
             .in_play(view)
-            .filter(|object| object.controller != me && object.types.intersects(TypeSet::CREATURE))
+            .filter(|object| {
+                super::super::is_opponent(me, object.controller)
+                    && object.types.intersects(TypeSet::CREATURE)
+            })
             .filter(|object| !survives(object, damage))
     };
     let Some(top) = named.iter().filter_map(killable).map(worth).max() else {
@@ -240,7 +248,7 @@ fn aim(
     // A land is no answer while something that fights is in reach.
     for (index, target) in named.iter().enumerate() {
         if target.in_play(view).is_some_and(|object| {
-            object.controller != me
+            super::super::is_opponent(me, object.controller)
                 && object.types.contains(TypeSet::LAND)
                 && !object.types.contains(TypeSet::CREATURE)
         }) {

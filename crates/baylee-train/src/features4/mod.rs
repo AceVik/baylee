@@ -28,7 +28,7 @@
 // Counts and coordinates are deliberately normalized into the f32 model ABI.
 #![allow(clippy::cast_precision_loss)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_core::color::Color;
 use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId};

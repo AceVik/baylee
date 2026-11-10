@@ -54,6 +54,7 @@ impl Duel {
             owed_plan: None,
             priority_legal: None,
             outbox: Vec::new(),
+            seat_settings_outbox: Vec::new(),
             subtype_filter: String::new(),
             naming: Default::default(),
             pool_facts: Default::default(),

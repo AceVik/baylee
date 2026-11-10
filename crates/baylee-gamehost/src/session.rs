@@ -8,8 +8,8 @@ use std::sync::Arc;
 use baylee_ai::intelligence::DeckIntel;
 use baylee_ai::{HeuristicAgent, policy_seed};
 use baylee_cards::dsl::CardDef;
-use baylee_core::ids::{CardIndex, PlayerId, SeatSet};
-use baylee_core::preset::{GamePreset, HouseRules, PrintInfo, SeatController};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId, SeatSet};
+use baylee_core::preset::{AiHandSharePolicy, GamePreset, HouseRules, PrintInfo, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
@@ -254,11 +254,18 @@ pub struct Session {
     /// every view ([`Session::shows_hand`]), so a seat that left the game is
     /// shown nothing more without this having to be told.
     showing: Vec<SeatSet>,
+    /// `(owner, viewer)` → sorted `ObjectId`s of the one-time hand snapshot
+    /// `owner` shared with `viewer` via [`baylee_view::SeatSetting::ShareHandOnce`].
+    /// Only cards from this snapshot that are still in `owner`'s hand are shown.
+    shown_once: BTreeMap<(u8, u8), Vec<ObjectId>>,
     /// Per seat, the teammates asking to see its hand, not yet answered.
     asking: Vec<SeatSet>,
     /// `(owner, asker)` → the turn the owner turned the asker down in. The
     /// asker may ask again from the next turn on.
     declined: BTreeMap<(u8, u8), u32>,
+    /// How AI chairs answer hand-sharing requests when the table's
+    /// [`HandSharingRule`] permits sharing.
+    ai_hand_share_policy: AiHandSharePolicy,
     /// The game's record (#315), when the host asked for one
     /// ([`Session::new_recorded`]); `None` in the client's own table, which
     /// has nowhere to keep it.
@@ -361,8 +368,10 @@ impl Session {
             sent: vec![ViewSender::default(); preset.seats.len()],
             statics_sent: vec![StaticSender::default(); preset.seats.len()],
             showing: vec![SeatSet::new(); preset.seats.len()],
+            shown_once: BTreeMap::new(),
             asking: vec![SeatSet::new(); preset.seats.len()],
             declined: BTreeMap::new(),
+            ai_hand_share_policy: AiHandSharePolicy::default(),
             record: None,
             minds: vec![None; preset.seats.len()],
             unsaid: vec![false; preset.seats.len()],
@@ -428,6 +437,8 @@ impl Session {
             fair_scouting: self.fair_scouting,
             seq: self.seq,
             house_answered: &self.house_answered,
+            showing: &self.showing,
+            shown_once: &self.shown_once,
         }
     }
 

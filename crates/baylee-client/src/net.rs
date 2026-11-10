@@ -759,6 +759,18 @@ impl DuelHost for NetworkHost {
         self.flush();
     }
 
+    fn seat_setting(&mut self, setting: baylee_view::SeatSetting) {
+        if self.ticket.watch {
+            return;
+        }
+        self.outbox.push(Envelope {
+            msg: Some(v1::envelope::Msg::SeatSetting(v1::SeatSettingMsg {
+                setting: baylee_core::wire::encode(&setting),
+            })),
+        });
+        self.flush();
+    }
+
     fn ready(&mut self) {
         self.pending_ready = !self.ticket.watch;
     }

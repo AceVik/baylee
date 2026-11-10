@@ -43,6 +43,7 @@ pub fn compute_subset_free_mask(
             required,
             alone,
             *minimum_required,
+            Some(cands.max_choices),
         );
         for i in order {
             let Some(id) = cands.candidates[i].object_id else {
@@ -106,10 +107,15 @@ pub fn compute_pair_free_mask(
         }
     }
 
+    let max_blk = if cands.min_choices == 0 {
+        cands.max_choices as usize
+    } else {
+        usize::MAX
+    };
     let mut used_blockers: Vec<ObjectId> = Vec::new();
     for i in order {
         let (blk, _atk) = cands.pair_objects[i];
-        if used_blockers.contains(&blk) {
+        if used_blockers.len() >= max_blk || used_blockers.contains(&blk) {
             free_mask[i] = 0;
         } else {
             free_mask[i] = 1;
@@ -575,9 +581,22 @@ pub fn decode_action4(
         },
 
         HeadKind4::PairPick => {
-            if let Pending::ChooseBlockers { .. } = pending {
+            if let Pending::ChooseBlockers { obeying, .. } = pending {
+                if cands.pair_objects.is_empty() {
+                    return Some(PlayerAction::DeclareBlockers {
+                        blockers: obeying.clone(),
+                    });
+                }
+                let max_blk = if cands.min_choices == 0 {
+                    cands.max_choices as usize
+                } else {
+                    usize::MAX
+                };
                 let mut blockers: Vec<(ObjectId, ObjectId)> = Vec::new();
                 for (idx, &(blk, atk)) in cands.pair_objects.iter().enumerate() {
+                    if blockers.len() >= max_blk {
+                        break;
+                    }
                     if choice.multi_mask.get(idx).copied().unwrap_or(0) != 0
                         && !blockers.iter().any(|&(b, _)| b == blk)
                     {
@@ -602,11 +621,32 @@ pub fn decode_action4(
 }
 
 fn choose_best_attack_target(view: &PlayerView, targets: &[Defender]) -> Option<Defender> {
-    // Prefer an opponent player who can be killed or has the lowest positive life
+    let multi_player = targets
+        .iter()
+        .filter(|d| matches!(d, Defender::Player(_)))
+        .count()
+        > 1;
+    // Prefer an opponent player who can be killed or has the lowest effective life
     let mut best: Option<(i32, Defender)> = None;
     for &def in targets {
         let score = match def {
-            Defender::Player(pid) => view.seats.get(pid.get() as usize).map_or(20, |s| -s.life),
+            Defender::Player(pid) => {
+                let life = view.seats.get(pid.get() as usize).map_or(20, |s| s.life);
+                if multi_player {
+                    let untapped_blockers = view
+                        .battlefield_of(pid)
+                        .filter(|o| {
+                            o.types.contains(TypeSet::CREATURE)
+                                && !o.status.contains(ObjectStatus::TAPPED)
+                                && !o.status.contains(ObjectStatus::PHASED_OUT)
+                                && (o.keywords & baylee_cards_dsl::KeywordSet::CANT_BLOCK.bits()) == 0
+                        })
+                        .count() as i32;
+                    -(life * 4 + untapped_blockers * 6)
+                } else {
+                    -life
+                }
+            }
             Defender::Planeswalker(_) | Defender::Battle(_) => 0,
         };
         if best.is_none_or(|(b_score, _)| score > b_score) {

@@ -77,12 +77,13 @@ pub(super) fn turned_by(view: &PlayerView, me: PlayerId, pump: (i32, i32)) -> Ve
         .filter(|block| lone(block.attacker))
         .filter_map(|block| {
             let (attacker, blocker) = (view.object(block.attacker)?, view.object(block.blocker)?);
-            let (mine, theirs) = if attacker.controller == me {
+            let (mine, theirs) = if super::super::is_ally(me, attacker.controller) {
                 (attacker, blocker)
             } else {
                 (blocker, attacker)
             };
-            (mine.controller == me && turns_the_fight(mine, theirs, pump)).then_some(mine.id)
+            (super::super::is_ally(me, mine.controller) && turns_the_fight(mine, theirs, pump))
+                .then_some(mine.id)
         })
         .collect()
 }

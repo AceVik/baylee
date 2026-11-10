@@ -82,12 +82,12 @@ use crate::transcript::{Event, Note};
 use crate::wake::{MIND_STOPS, Standing, Verdict, WakeFilter, Why};
 use baylee_ai::AIProfile;
 use baylee_client_core::automation::{RailRow, RailSide};
-use baylee_core::ids::PlayerId;
-use baylee_core::preset::FormatId;
+use baylee_core::ids::{PlayerId, SeatSet};
+use baylee_core::preset::{AiHandSharePolicy, FormatId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::win::GameResult;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::PlayerView;
+use baylee_view::{PlayerView, SeatSetting};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -427,6 +427,9 @@ pub struct SeatCore {
     /// What the seat tells the table answers it ([`SeatCore::with_mind`]),
     /// sent on every socket before its ready; `None` sends nothing.
     mind: Option<v1::SeatMind>,
+    hand_share_policy: AiHandSharePolicy,
+    hand_share_policy_explicit: bool,
+    proactive_share_sent: bool,
     checked: bool,
     asking: Asking,
     failures: u32,
@@ -453,6 +456,9 @@ impl SeatCore {
             questions: 0,
             ready_sent: false,
             mind: None,
+            hand_share_policy: AiHandSharePolicy::default(),
+            hand_share_policy_explicit: false,
+            proactive_share_sent: false,
             checked: false,
             asking: Asking::Mind,
             failures: 0,
@@ -476,6 +482,20 @@ impl SeatCore {
     pub fn with_mind(mut self, mind: v1::SeatMind) -> Self {
         self.mind = Some(mind);
         self
+    }
+
+    /// Configures how this AI seat shares its hand with teammates.
+    #[must_use]
+    pub fn with_hand_share_policy(mut self, policy: AiHandSharePolicy) -> Self {
+        self.hand_share_policy = policy;
+        self.hand_share_policy_explicit = true;
+        self
+    }
+
+    /// Updates how this AI seat shares its hand with teammates.
+    pub fn set_hand_share_policy(&mut self, policy: AiHandSharePolicy) {
+        self.hand_share_policy = policy;
+        self.hand_share_policy_explicit = true;
     }
 
     /// Another mind answers the seat from now on: a model swapped while
@@ -629,6 +649,7 @@ impl SeatCore {
     /// and a mind that was down is on again.
     pub fn resumed(&mut self) -> Vec<Step> {
         self.ready_sent = false;
+        self.proactive_share_sent = false;
         if self.asking == Asking::Down {
             self.asking = Asking::Mind;
         }
@@ -778,7 +799,7 @@ impl SeatCore {
         }
         self.stats.turns = self.stats.turns.max(view.turn);
         if self.ready_sent {
-            return Vec::new();
+            return self.hand_share_steps();
         }
         self.ready_sent = true;
         let declared = self.mind.clone().map(|mind| {
@@ -792,6 +813,112 @@ impl SeatCore {
                 msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
             })])
             .collect()
+    }
+
+    fn seat_setting_step(setting: SeatSetting) -> Step {
+        Step::Send(Envelope {
+            msg: Some(v1::envelope::Msg::SeatSetting(v1::SeatSettingMsg {
+                setting: baylee_core::wire::encode(&setting),
+            })),
+        })
+    }
+
+    /// Answers incoming `view.hand_requests` from teammates and, for trained
+    /// net seats (`Disclosure::Net`) or when `AlwaysContinuous` is explicitly
+    /// configured, proactively shares this seat's hand continuously with all
+    /// non-house teammates.
+    fn hand_share_steps(&mut self) -> Vec<Step> {
+        if self.life != Life::Playing {
+            return Vec::new();
+        }
+        let (Some(statics), Some(view)) = (self.memory.statics(), self.memory.view()) else {
+            return Vec::new();
+        };
+        let me = statics.your_seat;
+        let my_team = statics
+            .seats
+            .get(usize::from(me.get()))
+            .and_then(|s| s.team);
+        let Some(team) = my_team else {
+            return Vec::new();
+        };
+        let mates: SeatSet = statics
+            .seats
+            .iter()
+            .filter(|s| {
+                s.player != me
+                    && s.team == Some(team)
+                    && !s.is_ai
+                    && view.seat(s.player).is_some_and(|sv| sv.loss.is_none())
+            })
+            .map(|s| s.player)
+            .collect();
+        if mates.is_empty() {
+            return Vec::new();
+        }
+        let mut steps = Vec::new();
+        let proactive =
+            self.disclosure == Disclosure::Net || self.hand_share_policy_explicit;
+        match self.hand_share_policy {
+            AiHandSharePolicy::AlwaysContinuous => {
+                if proactive && !self.proactive_share_sent {
+                    self.proactive_share_sent = true;
+                    if view.hand_shared_with != mates {
+                        steps.push(Self::seat_setting_step(SeatSetting::ShareHand(mates)));
+                        return steps;
+                    }
+                }
+                if !view.hand_requests.is_empty() {
+                    let reqs: SeatSet = view
+                        .hand_requests
+                        .iter()
+                        .filter(|&p| mates.contains(p))
+                        .collect();
+                    if !reqs.is_empty() {
+                        if self.proactive_share_sent && view.hand_shared_with.is_empty() {
+                            // Continuous share was refused (e.g. OnceOnly mode); fall back to snapshot.
+                            steps.push(Self::seat_setting_step(SeatSetting::ShareHandOnce(reqs)));
+                        } else {
+                            let combined: SeatSet = view
+                                .hand_shared_with
+                                .iter()
+                                .chain(reqs.iter())
+                                .collect();
+                            self.proactive_share_sent = true;
+                            steps.push(Self::seat_setting_step(SeatSetting::ShareHand(combined)));
+                        }
+                    }
+                }
+            }
+            AiHandSharePolicy::OnRequestContinuous => {
+                if !view.hand_requests.is_empty() {
+                    let combined: SeatSet = view
+                        .hand_shared_with
+                        .iter()
+                        .chain(view.hand_requests.iter().filter(|&p| mates.contains(p)))
+                        .collect();
+                    if combined != view.hand_shared_with {
+                        steps.push(Self::seat_setting_step(SeatSetting::ShareHand(combined)));
+                    }
+                }
+            }
+            AiHandSharePolicy::OnRequestOnce => {
+                let reqs: SeatSet = view
+                    .hand_requests
+                    .iter()
+                    .filter(|&p| mates.contains(p))
+                    .collect();
+                if !reqs.is_empty() {
+                    steps.push(Self::seat_setting_step(SeatSetting::ShareHandOnce(reqs)));
+                }
+            }
+            AiHandSharePolicy::Never => {
+                for asker in view.hand_requests.iter().filter(|&p| mates.contains(p)) {
+                    steps.push(Self::seat_setting_step(SeatSetting::DeclineHand(asker)));
+                }
+            }
+        }
+        steps
     }
 
     fn leave(&mut self, reason: String) -> Vec<Step> {
@@ -839,6 +966,7 @@ impl SeatCore {
         }
         let withdrawn = self.thinking();
         let mut steps: Vec<Step> = withdrawn.map(Step::Cancel).into_iter().collect();
+        steps.extend(self.hand_share_steps());
         if let Some(gone) = withdrawn {
             self.note(gone, Event::Withdrawn);
         }

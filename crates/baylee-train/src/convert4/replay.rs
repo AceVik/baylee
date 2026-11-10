@@ -218,6 +218,7 @@ fn replay_feature_frames(
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }
+    session.apply_team_hand_sharing();
 
     let mut knowledge: Vec<SeatKnowledge4> = (0..seat_count)
         .map(|s| SeatKnowledge4::from_preset(&preset, PlayerId::new(s as u8)))

@@ -113,6 +113,13 @@ pub trait DuelHost: Send + Sync + 'static {
     /// Sends the local seat's answer.
     fn submit(&mut self, action: PlayerAction);
 
+    /// Sends a seat-level setting (`ShareHand`, `ShareHandOnce`, `RequestHand`,
+    /// `DeclineHand`), which neither answers a pending choice nor touches the
+    /// engine's snapshot hash.
+    fn seat_setting(&mut self, setting: baylee_view::SeatSetting) {
+        let _ = setting;
+    }
+
     /// Says this seat has drawn its table (#256), so the engine can open it
     /// once every seat has. Called after the table
     /// and its required assets have been prepared by the renderer.
@@ -615,6 +622,15 @@ impl DuelHost for LocalHost {
                     push_host_message(&mut self.pending_out, envelope, &mut self.views);
                 }
             }
+        }
+        self.take_the_record();
+    }
+
+    fn seat_setting(&mut self, setting: baylee_view::SeatSetting) {
+        self.session.tell_time(wall_ms());
+        match self.session.seat_setting(self.seat, setting) {
+            Ok(routed) => self.absorb(routed),
+            Err(reason) => self.pending_out.push(HostMessage::Failed(reason)),
         }
         self.take_the_record();
     }

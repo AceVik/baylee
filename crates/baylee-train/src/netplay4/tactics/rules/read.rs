@@ -22,7 +22,7 @@ pub(in crate::netplay4) fn opponents(
 ) -> impl Iterator<Item = PlayerId> + '_ {
     view.seats
         .iter()
-        .filter(move |seat| seat.player != me && seat.life > 0)
+        .filter(move |seat| super::super::is_opponent(me, seat.player) && seat.life > 0)
         .map(|seat| seat.player)
 }
 
@@ -244,7 +244,7 @@ pub(in crate::netplay4) fn blockers_of<'a>(
 
 /// Whether `object` prints a trigger on hitting a player with damage: what a
 /// block on it stops and a damage count does not see.
-pub(super) fn hits_for_value(object: &PublicObject) -> bool {
+pub(in crate::netplay4) fn hits_for_value(object: &PublicObject) -> bool {
     abilities_of_battlefield_object(object).is_some_and(|abilities| {
         abilities.iter().any(|ability| {
             let AbilityDef::Triggered { trigger, .. } = ability else {

@@ -62,11 +62,21 @@ impl NetPlayer4 {
     /// [`Self::act_detailed`] up to noting its answer ([`Self::conclude`]),
     /// with the policy's ranking of the legal answers when `rank` asks for
     /// it and the answer is the policy's own single choice.
+    pub(super) fn decide(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        rank: bool,
+    ) -> RootDecision4 {
+        tactics::with_team_context(teams, || self.decide_inner(view, pending, teams, rank))
+    }
+
     #[allow(
         clippy::too_many_lines,
         reason = "One decision pipeline records provenance for forced, guarded, neural and fallback answers"
     )]
-    pub(super) fn decide(
+    fn decide_inner(
         &mut self,
         view: &PlayerView,
         pending: &Pending,

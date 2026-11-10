@@ -148,14 +148,13 @@ fn main() -> anyhow::Result<()> {
     if choice_guard.is_some()
         && (!args.raw_policy
             || (args.temperature != 0.0 && !args.dev_free_temperature)
-            || args.seats != 2
             || args.legacy_v3
             || args.search.is_some()
             || args.shadow_teacher.is_some()
             || collection.purpose != collector::Purpose::Evaluation)
     {
         bail!(
-            "--choice-guard is a measurement: it needs --raw-policy at temperature 0, two seats \
+            "--choice-guard is a measurement: it needs --raw-policy at temperature 0 \
              and no search, shadow or collection, and its records are no training data"
         );
     }
@@ -175,13 +174,12 @@ fn main() -> anyhow::Result<()> {
         .transpose()?;
     if tactic_rules.any()
         && (args.raw_policy && choice_guard.is_none()
-            || args.seats != 2
             || args.legacy_v3
             || args.shadow_teacher.is_some()
             || collection.purpose != collector::Purpose::Evaluation)
     {
         bail!(
-            "--tactics-rules plays through the tactical layer, in a measurement of two seats: \
+            "--tactics-rules plays through the tactical layer in an evaluation measurement: \
              no shadow or collection, and its records are no training data"
         );
     }
