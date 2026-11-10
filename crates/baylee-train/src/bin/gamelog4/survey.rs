@@ -83,10 +83,7 @@ impl Survey {
         }
     }
 
-    #[allow(
-        clippy::cast_precision_loss,
-        reason = "counts of a few thousand games"
-    )]
+    #[allow(clippy::cast_precision_loss, reason = "counts of a few thousand games")]
     fn print(&self) {
         println!(
             "{} games ({} lost), {} turns, {} own turns, {} decisions not forced",
