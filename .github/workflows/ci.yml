@@ -578,4 +578,5 @@ jobs:
           # titlebar, no safe upgrade. audit-check reads no deny.toml, and on a
           # warning it opens an issue this read-only token may not write, so
           # the job went red on a notice that is not a vulnerability.
-          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387
+          # RUSTSEC-2026-0459: SQLite, in the lockfile only, linked by nothing.
+          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2026-0459

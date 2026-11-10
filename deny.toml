@@ -21,6 +21,13 @@ ignore = [
     # shipped-features job rejects changes to that scope. elliptic-curve0.13
     # requires bigint0.5; the upstream fix>=0.7.6 needs a compatible SDK update.
     "RUSTSEC-2026-0387",
+    # SQLite in `libsqlite3-sys` (a crafted database with a `-wal` file of
+    # another page size; local). It is in `Cargo.lock` only as the optional
+    # SQLite driver of sqlx's macros: no build of ours links it
+    # (`cargo tree -i libsqlite3-sys --target all -e all --all-features`
+    # prints nothing), we open no SQLite file, and sqlx-sqlite 0.9 caps it
+    # below the fixed 0.39, so only a sqlx release can move it.
+    "RUSTSEC-2026-0459",
 ]
 
 [licenses]
