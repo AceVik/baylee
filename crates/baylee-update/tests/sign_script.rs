@@ -279,7 +279,9 @@ fn the_release_workflow_signs_before_it_publishes() {
     let config = std::fs::read_to_string(root().join(".cargo/config.toml")).unwrap();
     assert!(
         build.contains("BAYLEE_RELEASE_BUILD: '1'")
-            && build.contains("cargo build-client --profile dist")
+            && build.contains("cargo build-client --profile \"$PACKAGE_PROFILE\"")
+            // A release, which comes with the client's profile, builds `dist`.
+            && build.contains("PACKAGE_PROFILE: ${{ inputs.client-profile != '' && 'dist' || 'package-check' }}")
             && config.contains(
                 "build-client = \"build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat\""
             ),
