@@ -13,8 +13,8 @@
 
 use crate::HeuristicAgent;
 use crate::intelligence::DeckIntel;
-use baylee_cards_dsl::{AbilityDef, CopyMod, Effect};
-use baylee_core::ids::SeatSet;
+use baylee_cards_dsl::{AbilityDef, CardDef, CopyMod, Effect};
+use baylee_core::ids::{CardIndex, SeatSet};
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::{DecisionContext, DecisionNote, ability_effects};
@@ -30,9 +30,19 @@ pub struct Noted {
 }
 
 impl Noted {
-    /// Rebuilds what `note` names.
+    /// The largest X a note is read with. A note comes over a socket, and
+    /// the house prices an X it is told in arithmetic of its own; no table
+    /// announces one near this, and a larger one is read as this.
+    pub const X_CEILING: u32 = u16::MAX as u32;
+
+    /// Rebuilds what `note` names. Whatever the note says, this does not
+    /// panic: an index past its list, a card the registry does not hold or
+    /// holds without a face, and an X past [`Self::X_CEILING`] are read as
+    /// nothing or as the ceiling.
     #[must_use]
-    pub fn new(note: DecisionNote) -> Self {
+    pub fn new(mut note: DecisionNote) -> Self {
+        note.x = note.x.min(Self::X_CEILING);
+        note.x_targets = note.x_targets.map(|count| count.min(Self::X_CEILING));
         let effects = asking_effects(&note);
         let copying = note.copying.then(|| copy_mods(&note).unwrap_or(&[]));
         Self {
@@ -53,6 +63,8 @@ impl Noted {
     pub fn context(&self) -> DecisionContext<'_> {
         let note = &self.note;
         DecisionContext {
+            // Told to this seat only as its own (`Engine::decision_note_for`).
+            actor: None,
             source: note.source,
             printed: note
                 .printed
@@ -81,7 +93,19 @@ fn printed_list(note: &DecisionNote) -> Option<&'static [AbilityDef]> {
         return baylee_cards::tokens::by_token_id(token).map(|def| def.abilities);
     }
     let (card, face) = note.printed?;
-    Some(baylee_cards::by_index(card)?.abilities_for_face(usize::from(face)))
+    face_abilities(card, face)
+}
+
+/// The abilities printed on `face` of `card`, or `None` where the registry
+/// holds no such card or one with no face to read
+/// (`CardDef::abilities_for_face` reads face 0 unasked).
+fn face_abilities(card: CardIndex, face: u8) -> Option<&'static [AbilityDef]> {
+    abilities_of(baylee_cards::by_index(card)?, face)
+}
+
+/// [`face_abilities`] of a definition in hand.
+fn abilities_of(def: &CardDef, face: u8) -> Option<&'static [AbilityDef]> {
+    (!def.faces.is_empty()).then(|| def.abilities_for_face(usize::from(face)))
 }
 
 /// The effects the asking ability or spell asks with, what is still to run
@@ -120,11 +144,7 @@ fn asking_effects(note: &DecisionNote) -> Vec<Effect> {
 /// The copy modifications the note says are printed for its source.
 fn copy_mods(note: &DecisionNote) -> Option<&'static [CopyMod]> {
     let (card, face, at) = note.copy_mods?;
-    let def = baylee_cards::by_index(card)?;
-    match def
-        .abilities_for_face(usize::from(face))
-        .get(usize::try_from(at).ok()?)?
-    {
+    match face_abilities(card, face)?.get(usize::try_from(at).ok()?)? {
         AbilityDef::CopyOnEnter { mods, .. } => Some(*mods),
         _ => None,
     }
@@ -170,5 +190,54 @@ pub fn answer_as_seated(
     match deck {
         Some(deck) => agent.act_with_own_deck(&view, pending, &noted.context(), deck),
         None => agent.act_with_context(&view, pending, &noted.context()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A definition with no face is read as no list, where
+    /// `CardDef::abilities_for_face` would index past it.
+    #[test]
+    fn a_card_with_no_face_is_read_as_nothing() {
+        assert!(CardDef::DEFAULT.faces.is_empty());
+        assert_eq!(abilities_of(&CardDef::DEFAULT, 0), None);
+        assert_eq!(abilities_of(&CardDef::DEFAULT, u8::MAX), None);
+    }
+
+    /// An X or a target count from a hostile note is read as the ceiling,
+    /// and every index past its list as nothing.
+    #[test]
+    fn a_hostile_note_is_read_within_bounds() {
+        let elves = baylee_cards::decks::by_name("Llanowar Elves").expect("in the pool");
+        let noted = Noted::new(DecisionNote {
+            printed: Some((elves, u8::MAX)),
+            ability: Some(u32::MAX),
+            mode: Some(u32::MAX),
+            done: Some(u32::MAX),
+            x: u32::MAX,
+            x_targets: Some(u32::MAX),
+            copying: true,
+            copy_mods: Some((elves, u8::MAX, u32::MAX)),
+            ..DecisionNote::default()
+        });
+        let context = noted.context();
+        assert_eq!(context.x, Noted::X_CEILING);
+        assert_eq!(context.x_targets, Some(Noted::X_CEILING));
+        assert!(context.effects.is_empty());
+        assert_eq!(context.copying, Some(&[][..]));
+        let unknown = Noted::new(DecisionNote {
+            printed: Some((CardIndex::new(u32::MAX), 0)),
+            token: None,
+            ..DecisionNote::default()
+        });
+        assert!(unknown.context().effects.is_empty());
+        let no_token = Noted::new(DecisionNote {
+            token: Some(u16::MAX),
+            ability: Some(0),
+            ..DecisionNote::default()
+        });
+        assert!(no_token.context().effects.is_empty());
     }
 }

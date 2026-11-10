@@ -1035,9 +1035,26 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
     }
     let context = engine.decision_context();
     let id = context.source?;
-    let mut source = public_object(&ViewBoard::new(engine.state()), id, seat)?;
-    if let Some(printed) = context.printed {
-        source.rules = Some(rules_face(printed));
+    let state = engine.state();
+    let object = state.object(id)?;
+    let controlled = engine.controlled_players(seat);
+    // The source as the seat's view shows it, or not at all where the view
+    // does not (an opponent's hand, a library): its identity and its text
+    // only where the seat may name it.
+    let viewer = zones::entitled_viewer(object, seat, controlled);
+    if !zones::shown_elsewhere(object, viewer) {
+        return None;
+    }
+    let mut source = public_object(&ViewBoard::new(state), id, viewer)?;
+    let named = may_name(object, seat, controlled);
+    match context.printed {
+        Some(printed) if named && card_shown(state, printed.card(), seat, controlled) => {
+            source.rules = Some(rules_face(printed));
+        }
+        // The asking text is printed on a card the seat is not shown (the
+        // grantor of a granted ability): no line of it.
+        Some(_) => source.rules = None,
+        None => {}
     }
     if let Some(token) = context
         .provenance
@@ -1045,7 +1062,8 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
         .and_then(baylee_engine::object::AbilityOrigin::token)
     {
         source.rules = None;
-        source.token = Some(token.get() - 1);
+        source.token = Some(token.get() - 1)
+            .filter(|&token| named && token_shown(state, token, seat, controlled));
     }
     let text = source.rules.and_then(|rules| {
         let face = usize::from(rules.face);
@@ -1098,35 +1116,97 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
 /// What `seat` is told its question is about ([`DecisionNote`]), or `None`
 /// where the question explains itself or is not `seat`'s.
 ///
-/// Only the seat that answers is told (`decision_actor`, as
-/// [`targeting_context`]), and only of a source it may see with its
-/// identity: for one it may not, the note keeps the cast route, the X and
-/// the targets the seat has named itself, and drops which card asks. So it
-/// tells the seat nothing its view does not: the asking spell is its own
-/// cast or an object on the table, the ability is printed on a card it is
-/// shown, and the rest is what the seat chose.
+/// Only the seat that answers is told, and only of its own announcement or
+/// a resolving object (`Engine::decision_note_for`). The note names which
+/// card asks only where the seat may name the source ([`may_name`]: in a
+/// zone its view shows, and not face down to it) and is shown every card
+/// whose printed text the note points into ([`card_shown`]: the grantor of
+/// a granted ability, the original of a copy). Otherwise the note keeps
+/// the cast route, the X and the targets the seat has named itself, and
+/// drops which card asks. So it tells the seat nothing its view does not.
 ///
 /// [`DecisionNote`]: baylee_engine::engine::DecisionNote
-pub(crate) fn decision_note<L: baylee_engine::state::CardLookup>(
+pub fn decision_note<L: baylee_engine::state::CardLookup>(
     engine: &baylee_engine::engine::Engine<L>,
     seat: PlayerId,
 ) -> Option<baylee_engine::engine::DecisionNote> {
-    if engine.decision_actor() != Some(seat) {
-        return None;
-    }
-    let note = engine.decision_note();
-    let seen = note
-        .source
-        .and_then(|id| public_object(&ViewBoard::new(engine.state()), id, seat));
-    let note = match seen {
-        Some(object)
-            if object.card.is_some() || object.rules.is_some() || object.token.is_some() =>
-        {
-            note
-        }
-        _ => note.without_identity(),
-    };
+    let note = engine.decision_note_for(seat)?;
+    let note = as_shown(note, engine.state(), seat, engine.controlled_players(seat));
     (!note.is_empty()).then_some(note)
+}
+
+/// `note` as `seat` may be told it: whole where it may name the source and
+/// is shown every card and token the note points into, and otherwise
+/// without the asking card's identity.
+fn as_shown(
+    note: baylee_engine::engine::DecisionNote,
+    state: &GameState,
+    seat: PlayerId,
+    controlled: baylee_core::ids::SeatSet,
+) -> baylee_engine::engine::DecisionNote {
+    let named = note
+        .source
+        .and_then(|id| state.object(id))
+        .is_some_and(|object| may_name(object, seat, controlled))
+        && note
+            .printed
+            .is_none_or(|(card, _)| card_shown(state, card, seat, controlled))
+        && note
+            .copy_mods
+            .is_none_or(|(card, _, _)| card_shown(state, card, seat, controlled))
+        && note
+            .token
+            .is_none_or(|token| token_shown(state, token, seat, controlled));
+    if named { note } else { note.without_identity() }
+}
+
+/// Whether `seat` may be told which card `object` is: it lies in a zone the
+/// seat's view shows, read as the player entitled to look for it (a player
+/// the seat controls lends it their hand, CR 724.4), and it is not face
+/// down to that player (CR 708.5). [`may_know_card`] alone answers only the
+/// second: a card in an opponent's hand is face up.
+fn may_name(object: &GameObject, seat: PlayerId, controlled: baylee_core::ids::SeatSet) -> bool {
+    let viewer = zones::entitled_viewer(object, seat, controlled);
+    zones::shown_elsewhere(object, viewer) && may_know_card(object, viewer)
+}
+
+/// Whether `seat` is shown a card printed as `card`: some object it may
+/// name ([`may_name`]) is that card or carries its printed rules (a copy).
+/// The text of a granted or copied ability is printed on another card than
+/// the one that asks, and a note or a targeting context points into it only
+/// where this holds.
+fn card_shown(
+    state: &GameState,
+    card: baylee_core::ids::CardIndex,
+    seat: PlayerId,
+    controlled: baylee_core::ids::SeatSet,
+) -> bool {
+    state.arena.iter().any(|(_, object)| {
+        (object.card.is_some_and(|printing| printing.index == card)
+            || object
+                .printed_face()
+                .is_some_and(|face| face.card() == card))
+            && may_name(object, seat, controlled)
+    })
+}
+
+/// Whether `seat` is shown a token made from registry token `token` (the
+/// numbering of [`baylee_view::PublicObject::token`]), as [`card_shown`]
+/// for a card.
+fn token_shown(
+    state: &GameState,
+    token: u16,
+    seat: PlayerId,
+    controlled: baylee_core::ids::SeatSet,
+) -> bool {
+    state.arena.iter().any(|(_, object)| {
+        state
+            .merged_top(object)
+            .token
+            .map(baylee_cards::tokens::token_id)
+            == Some(token)
+            && may_name(object, seat, controlled)
+    })
 }
 
 #[cfg(test)]

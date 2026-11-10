@@ -5648,15 +5648,37 @@ from the card registry (`baylee_ai::noted`), so `baylee-seat --mind house`
 and its house fallback answer from the context the table's own house reads
 (`docs/house-ai.md` §"The seated house").
 
-It tells the seat nothing its view does not. The host builds it
-(`gamehost::view::decision_note`) only for the seat that answers the
-question (`decision_actor`, as `targeting`), never for a spectator or a
-replay, and only names the asking card where that seat may see the source
-with its identity (`public_object` with a card, rules or token): for a
-source it may not, the note keeps the route, the X and the targets the seat
-named itself and drops which card asks (`DecisionNote::without_identity`).
-A note the seat cannot read is no note; the question stands as before. The
-gateway forwards it as every seat frame, without decoding it.
+It tells the seat nothing its view does not:
+
+- **Who is told.** Only the seat that answers the question
+  (`decision_actor`), never a spectator or a replay, and only about its
+  own announcement: the context names the player whose cast, activation,
+  trigger or entering permanent it explains (`DecisionContext::actor`), and
+  the note goes to the seat that answers for that player (itself, or its
+  controller under CR 724) or to none (`Engine::decision_note_for`). A
+  question another seat answers in the middle of someone's announcement (an
+  opponent naming the targets) carries no note. A resolving spell or
+  ability is on the stack for everyone, so its note goes to whichever seat
+  it asks.
+- **Which card it names.** The asking card only where the seat may name the
+  source: in a zone its view shows, read as the player entitled to look
+  (its own hand, a controlled player's hand, the public zones), and not
+  face down to it (`view::may_name`). And only where the seat is shown every
+  card the note points into (`view::card_shown`): a granted ability's text
+  is printed on its grantor, a copy's modifications on the copy's card, so
+  a grantor in an opponent's hand is never named through the ability it
+  granted. Otherwise the note keeps the route, the X and the targets the
+  seat named itself and drops which card asks
+  (`DecisionNote::without_identity`). The targeting context of the view
+  (`targeting`) follows the same two rules.
+- **What a reader accepts.** A note that does not read is no note; the
+  question stands as before. `first_targets` reads at most
+  `DecisionNote::MAX_FIRST_TARGETS` (64) and a frame that names more does
+  not read; the house reads an X or a target count past `u16::MAX` as that,
+  and an index past its list, a card or token the registry does not hold or
+  a card with no face as nothing (`baylee_ai::noted::Noted`).
+
+The gateway forwards it as every seat frame, without decoding it.
 
 ## Mutate and dungeon resolution choices (protocol 35, view 82)
 

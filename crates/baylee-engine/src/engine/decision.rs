@@ -4,7 +4,7 @@ use super::{Engine, PlanKind};
 use crate::choice::CastModeKind;
 use crate::state::CardLookup;
 use baylee_cards_dsl::{AbilityDef, CopyMod, CostPart, Effect};
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 
 /// Rules context for an agent's current answer. Borrowed, never serialized.
@@ -12,6 +12,17 @@ use baylee_core::mana::ManaCost;
 /// trying to infer this from the last permanent played loses that information.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DecisionContext<'a> {
+    /// The player whose own announcement this context explains: the caster
+    /// while a cast is announced (CR 601.2), the activator or the trigger's
+    /// controller while its targets are chosen (CR 602.2b, 603.3d), the
+    /// controller of a permanent that chooses as it enters. `None` while a
+    /// spell or ability resolves: the context then explains an object on the
+    /// stack, which every player sees, to whichever player it asks.
+    ///
+    /// The context is told only to the seat that answers for this player
+    /// (`DecisionNote`, CR 724.1), so a question another seat answers in the
+    /// middle of an announcement is not explained with it.
+    pub actor: Option<PlayerId>,
     /// The object whose spell or ability is asking.
     pub source: Option<ObjectId>,
     /// Captured printed rules, including copies and a chosen back face.
@@ -124,8 +135,10 @@ impl<L: CardLookup> Engine<L> {
         if let Some(wizard) = &self.cast_wizard {
             return self.wizard_context(wizard);
         }
+        let controller = |id: ObjectId| self.state.object(id).map(|o| o.controller);
         if let Some((source, copying)) = self.state.entries.copying() {
             return DecisionContext {
+                actor: controller(source),
                 source: Some(source),
                 copying: Some(copying),
                 ..DecisionContext::default()
@@ -133,6 +146,7 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(PlanKind::CopyOnEnter { object, .. }) = &self.pending_plan {
             return DecisionContext {
+                actor: controller(*object),
                 source: Some(*object),
                 copying: self.copy_on_enter(*object).map(|(_, mods)| mods),
                 ..DecisionContext::default()
@@ -140,6 +154,7 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(PlanKind::SpellEnding { spell }) = &self.pending_plan {
             return DecisionContext {
+                actor: controller(*spell),
                 source: Some(*spell),
                 ..DecisionContext::default()
             };
@@ -156,6 +171,7 @@ impl<L: CardLookup> Engine<L> {
                         .and_then(crate::object::GameObject::printed_face)
                 });
             return DecisionContext {
+                actor: Some(trigger.controller),
                 source: Some(trigger.source),
                 printed,
                 ability_index: Some(trigger.ability_index),
@@ -231,9 +247,24 @@ impl<L: CardLookup> Engine<L> {
             }),
             _ => None,
         };
+        // Whose activation or trigger it is: a trigger's controller, and the
+        // activator, who answers unless an opponent was named to choose the
+        // targets (`activation_target_choice`).
+        let actor = match &self.pending_plan {
+            Some(PlanKind::Trigger { .. }) => self.trigger_queue.front().map(|t| t.controller),
+            Some(
+                PlanKind::TriggerSecondTarget { on_stack }
+                | PlanKind::DivideDamage { on_stack, .. },
+            ) => controller(*on_stack),
+            _ => self
+                .activation_target_choice
+                .controller
+                .or_else(|| self.pending.asked()),
+        };
         if let Some((source, index, mode)) = handle {
             if let Some(grant) = self.granted_definition(source, index) {
                 return DecisionContext {
+                    actor,
                     source: Some(source),
                     printed: grant
                         .provenance
@@ -275,6 +306,7 @@ impl<L: CardLookup> Engine<L> {
             });
             let provenance = list.as_ref().map(|list| list.origin(index as usize));
             return DecisionContext {
+                actor,
                 source: Some(source),
                 printed: provenance
                     .and_then(|origin| origin.origin)
@@ -354,6 +386,7 @@ impl<L: CardLookup> Engine<L> {
             _ => None,
         };
         DecisionContext {
+            actor: Some(wizard.player),
             source: Some(wizard.card),
             provenance: None,
             printed: u8::try_from(face)

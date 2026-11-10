@@ -12,7 +12,7 @@
 //! a note or a deck (the view alone).
 
 use baylee_cards::decks::{house_deck, preset_for_all};
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::preset::{AIProfile, FormatId, GamePreset, SeatController};
 use baylee_engine::choice::Pending;
 use baylee_engine::engine::DecisionNote;
@@ -61,6 +61,38 @@ fn note(session: &mut Session, seat: PlayerId) -> Option<DecisionNote> {
         })
 }
 
+/// A note no honest table sends, on top of what the table said, in one of
+/// three shapes: a card the registry does not hold, a real card's face and
+/// every index past its list, and a token the registry does not hold. Each
+/// has an X at the top of its range and first targets at the reader's
+/// bound that name nothing on the table.
+fn hostile(said: Option<&DecisionNote>, shape: u32) -> DecisionNote {
+    let real = baylee_cards::decks::by_name("Llanowar Elves").expect("in the pool");
+    let mut note = said.cloned().unwrap_or_default();
+    note.x = u32::MAX;
+    note.x_targets = Some(u32::MAX);
+    note.ability = Some(u32::MAX);
+    note.mode = Some(u32::MAX);
+    note.done = Some(u32::MAX);
+    note.second_instance = true;
+    note.copying = true;
+    note.first_targets = (0..DecisionNote::MAX_FIRST_TARGETS)
+        .map(|i| ObjectId::new(ObjectId::MAX_SLOT - u32::try_from(i).expect("small"), 7))
+        .collect();
+    match shape % 3 {
+        0 => {
+            note.printed = Some((CardIndex::new(u32::MAX), u8::MAX));
+            note.copy_mods = Some((CardIndex::new(u32::MAX), u8::MAX, u32::MAX));
+        }
+        1 => {
+            note.printed = Some((real, u8::MAX));
+            note.copy_mods = Some((real, u8::MAX, u32::MAX));
+        }
+        _ => note.token = Some(u16::MAX),
+    }
+    note
+}
+
 fn table(seed: u64, names: &[&str]) -> GamePreset {
     let decks: Vec<_> = names.iter().map(|name| deck(name)).collect();
     let refs: Vec<_> = decks.iter().collect();
@@ -97,7 +129,7 @@ fn compare(game: &str, preset: &GamePreset, tally: &mut BTreeMap<String, Agreeme
         })
         .collect();
     let mind = HouseMind::new(AIProfile::SHARP);
-    for _ in 0..20_000 {
+    for step in 0..20_000 {
         if matches!(session.pending(), Pending::GameOver(_)) {
             break;
         }
@@ -111,6 +143,13 @@ fn compare(game: &str, preset: &GamePreset, tally: &mut BTreeMap<String, Agreeme
         let said = note(&mut session, seat);
         let context = &contexts[usize::from(seat.get())];
         let now = mind.answer_noted(context, &view, &pending, said.as_ref());
+        // A hostile table's note in its place is answered, not panicked on.
+        let _ = mind.answer_noted(
+            context,
+            &view,
+            &pending,
+            Some(&hostile(said.as_ref(), step)),
+        );
         let before = baylee_ai::HeuristicAgent::new(AIProfile::SHARP)
             .with_teams(context.teams.clone())
             .with_seed(baylee_ai::policy_seed(game, seat.get()))

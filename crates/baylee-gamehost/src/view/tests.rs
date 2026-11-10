@@ -26,6 +26,7 @@ mod hidden_exile;
 mod historical;
 mod log;
 mod mana;
+mod notes;
 mod objects;
 mod printings;
 mod report_refs;

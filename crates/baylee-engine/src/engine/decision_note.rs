@@ -16,7 +16,7 @@ use super::{DecisionContext, Engine};
 use crate::choice::CastModeKind;
 use crate::state::CardLookup;
 use baylee_cards_dsl::AbilityDef;
-use baylee_core::ids::{CardIndex, ObjectId};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 use serde::{Deserialize, Serialize};
 
@@ -74,8 +74,14 @@ pub struct DecisionNote {
     /// The question is the second instance of the word "target".
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub second_instance: bool,
-    /// What the first instance chose, while the second is asked.
-    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    /// What the first instance chose, while the second is asked: at most
+    /// [`DecisionNote::MAX_FIRST_TARGETS`], and a note that names more does
+    /// not read.
+    #[serde(
+        default,
+        skip_serializing_if = "baylee_core::wire::left_out",
+        deserialize_with = "at_most_max_first_targets"
+    )]
     pub first_targets: Vec<ObjectId>,
     /// The question is which object the source enters as a copy of.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
@@ -87,6 +93,12 @@ pub struct DecisionNote {
 }
 
 impl DecisionNote {
+    /// The most first-instance targets a note names. A second "target" is
+    /// asked of spells and abilities whose first names one or two; the bound
+    /// is what a reader allocates for a note at most, whatever a frame
+    /// claims.
+    pub const MAX_FIRST_TARGETS: usize = 64;
+
     /// Whether the note says nothing: the question explains itself.
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -114,11 +126,24 @@ impl DecisionNote {
 
 impl<L: CardLookup> Engine<L> {
     /// The public part of [`Self::decision_context`], owned
-    /// ([`DecisionNote`]). Like the context it explains the current choice
-    /// to whoever answers it; the host decides who that may be.
+    /// ([`DecisionNote`]), for `seat`: `None` unless `seat` answers the
+    /// current question ([`Self::decision_actor`]) and the context is that
+    /// seat's own — its announcement, or one of a player it controls (CR
+    /// 724.1), or a resolving object every player sees
+    /// ([`DecisionContext::actor`]). Which identities the note may then keep
+    /// is the host's to decide by what the seat is shown.
     #[must_use]
-    pub fn decision_note(&self) -> DecisionNote {
+    pub fn decision_note_for(&self, seat: PlayerId) -> Option<DecisionNote> {
+        if self.decision_actor() != Some(seat) {
+            return None;
+        }
         let context = self.decision_context();
+        if context
+            .actor
+            .is_some_and(|actor| self.controlled_actor(actor) != seat)
+        {
+            return None;
+        }
         // A resolving spell or ability asks with the part of its program
         // still to run, a slice of the resolution's own list; a context
         // from anywhere else borrows a printed list, never that one. So the
@@ -136,7 +161,7 @@ impl<L: CardLookup> Engine<L> {
             .copying
             .zip(context.source)
             .and_then(|(mods, source)| self.copy_mods_origin(source, mods));
-        note_of(&context, done, copy_mods)
+        Some(note_of(&context, done, copy_mods))
     }
 
     /// The card, face and ability that print `mods` for `source`, where
@@ -186,10 +211,50 @@ fn note_of(
         x: context.x,
         x_targets: context.x_targets,
         second_instance: context.second_instance,
-        first_targets: context.first_targets.to_vec(),
+        first_targets: context
+            .first_targets
+            .iter()
+            .take(DecisionNote::MAX_FIRST_TARGETS)
+            .copied()
+            .collect(),
         copying: context.copying.is_some(),
         copy_mods,
     }
+}
+
+/// Reads `first_targets` one by one and refuses the note at the first past
+/// [`DecisionNote::MAX_FIRST_TARGETS`], so a frame that claims more costs
+/// the reader no more than the bound.
+fn at_most_max_first_targets<'de, D: serde::Deserializer<'de>>(
+    reader: D,
+) -> Result<Vec<ObjectId>, D::Error> {
+    struct AtMost;
+    impl<'de> serde::de::Visitor<'de> for AtMost {
+        type Value = Vec<ObjectId>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "at most {} objects", DecisionNote::MAX_FIRST_TARGETS)
+        }
+
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> Result<Self::Value, A::Error> {
+            let mut targets = Vec::with_capacity(
+                seq.size_hint()
+                    .unwrap_or(0)
+                    .min(DecisionNote::MAX_FIRST_TARGETS),
+            );
+            while let Some(target) = seq.next_element()? {
+                if targets.len() == DecisionNote::MAX_FIRST_TARGETS {
+                    return Err(serde::de::Error::invalid_length(targets.len() + 1, &self));
+                }
+                targets.push(target);
+            }
+            Ok(targets)
+        }
+    }
+    reader.deserialize_seq(AtMost)
 }
 
 #[cfg(test)]
@@ -228,5 +293,27 @@ mod tests {
             (None, None, None)
         );
         assert_eq!(bare.x, 3, "the X stays: the seat chose it");
+    }
+
+    /// A reader keeps at most the bound of first targets, and a frame that
+    /// names more is no note.
+    #[test]
+    fn a_note_naming_more_first_targets_than_the_bound_does_not_read() {
+        let naming = |count: usize| DecisionNote {
+            second_instance: true,
+            first_targets: (0..count)
+                .map(|i| ObjectId::new(u32::try_from(i).expect("small"), 0))
+                .collect(),
+            ..DecisionNote::default()
+        };
+        let most = naming(DecisionNote::MAX_FIRST_TARGETS);
+        let read: DecisionNote = baylee_core::wire::decode(&baylee_core::wire::encode(&most))
+            .expect("a note at the bound reads");
+        assert_eq!(read, most);
+        let over = baylee_core::wire::encode(&naming(DecisionNote::MAX_FIRST_TARGETS + 1));
+        assert!(baylee_core::wire::decode::<DecisionNote>(&over).is_err());
+        let json = serde_json::to_string(&naming(DecisionNote::MAX_FIRST_TARGETS + 1))
+            .expect("a note writes as JSON");
+        assert!(serde_json::from_str::<DecisionNote>(&json).is_err());
     }
 }

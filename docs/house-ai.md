@@ -1142,10 +1142,20 @@ table's answer at all 3,070 of its questions; with the view alone it had
 given it at 3,028. The difference was all in questions a context explains:
 target choices (68 of 68, from 30), numbers (2 of 2, from 0) and players
 (2 of 2, from 0). Its own deck changed no answer the view alone missed in
-these games. The test asserts at least 99 %, and more than before.
-`tests/question_note.rs` holds the note to its rule: told to the asked seat
-alone, read back off the wire as built, and naming no card the seat cannot
-see.
+these games. The test asserts at least 99 %, and more than before. At the
+same questions it also answers a hostile note in place of the table's (a
+card or token the registry does not hold, every index past its list, the
+largest X, first targets that name nothing) without panicking: a note is
+read within bounds (`Noted`, `docs/protocol.md` §"What a question is
+about").
+`tests/question_note.rs` holds the note to its rule over two duels and a
+game of two teams: told to the asked seat alone, read back off the wire as
+built, and naming no card outside the zones the seat sees. The view's own
+tests (`view/tests/notes.rs`) cover a face-down source, a grantor and a
+copy's card the seat is not shown, a token, a cast and a granted ability;
+`tests/ai_mindslaver.rs` covers a controlled turn, whose notes go to the
+controller; and the card sweep (`harness::play_report`) builds every
+seat's note at every question.
 
 ## The frozen reference: `sharp-2026-11`
 
