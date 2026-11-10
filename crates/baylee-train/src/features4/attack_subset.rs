@@ -3,7 +3,6 @@ struct AttackSubset<'a> {
     required: &'a [ObjectId],
     alone: &'a [ObjectId],
     minimum: usize,
-    max: usize,
     remaining: BTreeMap<ObjectId, usize>,
     chosen: Vec<ObjectId>,
 }
@@ -14,7 +13,6 @@ impl<'a> AttackSubset<'a> {
         required: &'a [ObjectId],
         alone: &'a [ObjectId],
         minimum: Option<u32>,
-        max: Option<u32>,
     ) -> Self {
         let mut remaining = BTreeMap::new();
         for id in ids {
@@ -24,7 +22,6 @@ impl<'a> AttackSubset<'a> {
             required,
             alone,
             minimum: minimum.map_or(required.len(), |n| n as usize),
-            max: max.filter(|&m| m > 0).map_or(usize::MAX, |m| m as usize),
             remaining,
             chosen: Vec::new(),
         }
@@ -45,9 +42,6 @@ impl<'a> AttackSubset<'a> {
 
     fn feasible(&self, extra: Option<ObjectId>) -> bool {
         let selected: Vec<_> = self.chosen.iter().copied().chain(extra).collect();
-        if selected.len() > self.max {
-            return false;
-        }
         let solo = selected.iter().any(|id| self.alone.contains(id));
         if solo && selected.len() != 1 {
             return false;
@@ -71,11 +65,9 @@ impl<'a> AttackSubset<'a> {
             .filter(remaining)
             .filter(|id| !self.alone.contains(id))
             .count();
-        let room_left = self.max.saturating_sub(selected.len());
-        obeyed + together.min(room_left) >= self.minimum
+        obeyed + together >= self.minimum
             || (selected.is_empty()
                 && self.minimum <= 1
-                && self.max >= 1
                 && self
                     .required
                     .iter()
@@ -91,11 +83,11 @@ mod attack_subset_tests {
     #[test]
     fn alternative_required_solo_attackers_are_not_forced_together() {
         let ids = [ObjectId::new(1, 0), ObjectId::new(2, 0)];
-        let mut choice = AttackSubset::new(ids.into_iter(), &ids, &ids, Some(1), None);
+        let mut choice = AttackSubset::new(ids.into_iter(), &ids, &ids, Some(1));
         assert_eq!(choice.options(ids[0]), (true, true));
         choice.take(ids[0]);
         assert_eq!(choice.options(ids[1]), (false, true));
-        let mut choice = AttackSubset::new(ids.into_iter(), &ids, &ids, Some(1), None);
+        let mut choice = AttackSubset::new(ids.into_iter(), &ids, &ids, Some(1));
         assert_eq!(choice.options(ids[0]), (true, true));
         assert_eq!(choice.options(ids[1]), (true, false));
     }
@@ -107,7 +99,7 @@ mod attack_subset_tests {
             ObjectId::new(2, 0),
             ObjectId::new(3, 0),
         ];
-        let mut choice = AttackSubset::new(ids.into_iter(), &ids[1..], &ids[..1], Some(2), None);
+        let mut choice = AttackSubset::new(ids.into_iter(), &ids[1..], &ids[..1], Some(2));
         assert_eq!(choice.options(ids[0]), (false, true));
         assert_eq!(choice.options(ids[1]), (true, false));
         choice.take(ids[1]);

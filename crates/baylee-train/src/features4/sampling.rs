@@ -43,7 +43,7 @@ pub fn sample_subset_constrained(
         ..
     } = pending
     {
-        let mut greedy_best: BTreeMap<ObjectId, (usize, f32, f32, usize)> = BTreeMap::new();
+        let mut greedy_best: BTreeMap<ObjectId, (usize, f32, f32)> = BTreeMap::new();
         for &(i, p) in &order {
             if let Some(id) = cands.candidates[i].object_id {
                 let noise = if tau > 1e-4 && tau <= 0.35 {
@@ -54,41 +54,19 @@ pub fn sample_subset_constrained(
                 let l_noisy = logits[i] + noise;
                 let entry = greedy_best
                     .entry(id)
-                    .or_insert((i, f32::NEG_INFINITY, 0.0, 0));
+                    .or_insert((i, f32::NEG_INFINITY, 0.0));
                 if l_noisy > entry.1 {
                     entry.0 = i;
                     entry.1 = l_noisy;
                 }
                 entry.2 += p;
-                entry.3 += 1;
             }
         }
-        let max_atk = if cands.max_choices > 0 {
-            cands.max_choices as usize
-        } else {
-            usize::MAX
-        };
-        let top_capped: Option<BTreeSet<ObjectId>> =
-            if tau <= 0.35 && max_atk < greedy_best.len() {
-                let mut ranked: Vec<(ObjectId, bool, f32)> = greedy_best
-                    .iter()
-                    .map(|(&id, &(_, best_l, _, _))| (id, required.contains(&id), best_l))
-                    .collect();
-                ranked.sort_by(|a, b| {
-                    b.1.cmp(&a.1)
-                        .then_with(|| b.2.total_cmp(&a.2))
-                        .then_with(|| a.0.cmp(&b.0))
-                });
-                Some(ranked.into_iter().take(max_atk).map(|(id, _, _)| id).collect())
-            } else {
-                None
-            };
         let mut subset = AttackSubset::new(
             cands.candidates[..n].iter().filter_map(|c| c.object_id),
             required,
             alone,
             *minimum_required,
-            Some(cands.max_choices),
         );
         for &(i, p) in &order {
             let Some(id) = cands.candidates[i].object_id else {
@@ -99,14 +77,12 @@ pub fn sample_subset_constrained(
             let take = can_take
                 && (!can_skip
                     || if tau <= 0.35 {
-                        let &(best_i, best_l, p_sum, def_cnt) =
+                        let &(best_i, best_l, p_sum) =
                             greedy_best.get(&id).expect("counted above");
-                        let p_mean = p_sum / (def_cnt.max(1) as f32);
                         i == best_i
-                            && top_capped.as_ref().is_none_or(|s| s.contains(&id))
                             && (required.contains(&id)
                                 || best_l > 0.0
-                                || (p_mean > 0.50 && best_l > -0.65))
+                                || (p_sum > 0.50 && best_l > -0.65))
                     } else {
                         (rng.unit() as f32) < p
                     });
@@ -253,23 +229,6 @@ pub fn sample_pairs_constrained(
         }
     }
 
-    let max_blk = if cands.min_choices == 0 {
-        cands.max_choices as usize
-    } else {
-        usize::MAX
-    };
-    let top_blk_capped: Option<BTreeSet<u64>> =
-        if tau <= 0.35 && max_blk < greedy_blk_best.len() {
-            let mut ranked: Vec<(u64, f32)> = greedy_blk_best
-                .iter()
-                .map(|(&key, &(_, best_l, _))| (key, best_l))
-                .collect();
-            ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-            Some(ranked.into_iter().take(max_blk).map(|(k, _)| k).collect())
-        } else {
-            None
-        };
-
     let mut used_blockers = Vec::new();
     for &(i, p) in &order {
         let [b_idx, a_idx] = cands.pairs[i];
@@ -279,18 +238,16 @@ pub fn sample_pairs_constrained(
             continue;
         }
         let (blk, _atk) = cands.pair_objects[i];
-        if used_blockers.len() >= max_blk || used_blockers.contains(&blk) {
+        if used_blockers.contains(&blk) {
             mask[i] = 0;
             free_mask[i] = 0;
         } else {
             free_mask[i] = 1;
             let take = if tau <= 0.35 {
-                let key = pack_object_id(blk);
-                let &(best_i, best_l, p_sum) =
-                    greedy_blk_best.get(&key).expect("counted above");
-                i == best_i
-                    && top_blk_capped.as_ref().is_none_or(|s| s.contains(&key))
-                    && (best_l > 0.0 || (p_sum > 0.50 && best_l > -0.65))
+                let &(best_i, best_l, p_sum) = greedy_blk_best
+                    .get(&pack_object_id(blk))
+                    .expect("counted above");
+                i == best_i && (best_l > 0.0 || (p_sum > 0.50 && best_l > -0.65))
             } else {
                 (rng.unit() as f32) < p
             };

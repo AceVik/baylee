@@ -534,11 +534,7 @@ pub fn encode_candidates4(
         } => {
             out.head = HeadKind4::SubsetPick;
             out.min_choices = minimum_required.unwrap_or(required.len() as u32);
-            let max_atk = bounded_attackers_max(view, defenders, attackers.len() as u32, out.min_choices);
-            out.max_choices = max_atk;
-            if max_atk == 0 && out.min_choices == 0 {
-                return out;
-            }
+            out.max_choices = attackers.len() as u32;
             let best_def = choose_best_attack_target(view, defenders);
             let per_attacker_defs: Vec<(ObjectId, Vec<Defender>)> = attackers
                 .iter()
@@ -725,13 +721,6 @@ pub fn encode_candidates4(
 
         Pending::ChooseBlockers { blockers, .. } => {
             out.head = HeadKind4::PairPick;
-            if let Some(cap) = active_blockers_cap(view, blockers.len() as u32) {
-                out.min_choices = 0;
-                out.max_choices = cap;
-                if cap == 0 {
-                    return out;
-                }
-            }
             let max_atk = blockers
                 .iter()
                 .map(|b| b.attackers.len())
@@ -765,110 +754,6 @@ pub fn encode_candidates4(
     }
 
     out
-}
-
-fn bounded_attackers_max(
-    view: &PlayerView,
-    defenders: &[Defender],
-    max: u32,
-    min: u32,
-) -> u32 {
-    if max == 0 {
-        return 0;
-    }
-    let mut cap = max;
-    let has_caverns = view.battlefield.iter().any(|o| {
-        !o.status.contains(ObjectStatus::PHASED_OUT)
-            && o.card.is_some_and(|c| {
-                c.index == baylee_core::generated::index::CAVERNS_OF_DESPAIR
-            })
-    });
-    if has_caverns {
-        cap = cap.min(2);
-    }
-    let actor = view.decision_player.unwrap_or(view.seat);
-    let min_mana_tax = defenders
-        .iter()
-        .map(|d| {
-            let def_pid = match *d {
-                Defender::Player(p) => Some(p),
-                Defender::Planeswalker(id) | Defender::Battle(id) => {
-                    view.object(id).map(|o| o.controller)
-                }
-            };
-            let Some(pid) = def_pid else {
-                return 0_u32;
-            };
-            view.battlefield_of(pid)
-                .filter(|o| {
-                    !o.status.contains(ObjectStatus::PHASED_OUT)
-                        && !o.status.contains(ObjectStatus::TAPPED)
-                        && o.card.is_some_and(|c| {
-                            c.index == baylee_core::generated::index::ARCHANGEL_OF_TITHES
-                        })
-                })
-                .count() as u32
-        })
-        .min()
-        .unwrap_or(0);
-    let pool_total = view
-        .seat(actor)
-        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
-    let reach = pool_total.saturating_add(untapped_mana_production(view, actor));
-    if let Some(most) = reach.checked_div(min_mana_tax) {
-        cap = cap.min(most);
-    }
-    cap.max(min)
-}
-
-fn active_blockers_cap(view: &PlayerView, max: u32) -> Option<u32> {
-    if max == 0 {
-        return None;
-    }
-    let mut cap = max;
-    let mut capped = false;
-    let has_caverns = view.battlefield.iter().any(|o| {
-        !o.status.contains(ObjectStatus::PHASED_OUT)
-            && o.card.is_some_and(|c| {
-                c.index == baylee_core::generated::index::CAVERNS_OF_DESPAIR
-            })
-    });
-    if has_caverns {
-        let mut already: BTreeSet<ObjectId> = BTreeSet::new();
-        for b in &view.combat.blockers {
-            already.insert(b.blocker);
-        }
-        let rem = 2_u32.saturating_sub(already.len() as u32);
-        if rem < cap {
-            cap = rem;
-            capped = true;
-        }
-    }
-    let atk_archangels = view
-        .combat
-        .attackers
-        .iter()
-        .filter(|a| {
-            view.object(a.creature).is_some_and(|o| {
-                !o.status.contains(ObjectStatus::PHASED_OUT)
-                    && o.card.is_some_and(|c| {
-                        c.index == baylee_core::generated::index::ARCHANGEL_OF_TITHES
-                    })
-            })
-        })
-        .count() as u32;
-    let actor = view.decision_player.unwrap_or(view.seat);
-    let pool_total = view
-        .seat(actor)
-        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
-    let reach = pool_total.saturating_add(untapped_mana_production(view, actor));
-    if let Some(rem) = reach.checked_div(atk_archangels)
-        && rem < cap
-    {
-        cap = rem;
-        capped = true;
-    }
-    capped.then_some(cap)
 }
 
 /// Bounds open-ended `ChooseNumber` prompts (`max > 64`, e.g. `2_147_483_647` on
