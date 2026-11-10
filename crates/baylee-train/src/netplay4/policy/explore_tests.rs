@@ -251,19 +251,32 @@ fn subsets_and_pairs_mix_exactly_and_replay() {
 /// Two Grizzly Bears a side: seat 0 declaring its attack, or (`block`)
 /// declaring its blockers against seat 1's bears.
 fn combat(block: bool) -> (PlayerView, Pending) {
+    combat_with(&["Grizzly Bears"; 2], &["Grizzly Bears"; 2], block)
+}
+
+/// These boards: seat 0 declaring its attack, or (`block`) declaring its
+/// blockers against all of seat 1's creatures.
+fn combat_with(mine: &[&str], theirs: &[&str], block: bool) -> (PlayerView, Pending) {
     use baylee_core::ids::Defender;
     let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
     let mut preset = crate::selfplay::table_for(31, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
     preset.format = baylee_core::preset::FormatId::Freeform;
     preset.modifiers.clear();
-    let mut bears = preset.seats[0].deck[0];
-    bears.card = baylee_cards::decks::by_name("Grizzly Bears").unwrap();
-    bears.rule_print = None;
-    bears.choices = baylee_core::card_metadata::DeckChoices::default();
-    for seat in &mut preset.seats {
+    let card = |name: &str| {
+        let mut entry = preset.seats[0].deck[0];
+        entry.card = baylee_cards::decks::by_name(name).unwrap();
+        entry.rule_print = None;
+        entry.choices = baylee_core::card_metadata::DeckChoices::default();
+        entry
+    };
+    let boards: [Vec<_>; 2] = [
+        mine.iter().map(|n| card(n)).collect(),
+        theirs.iter().map(|n| card(n)).collect(),
+    ];
+    for (seat, board) in preset.seats.iter_mut().zip(boards) {
         seat.commanders.clear();
         seat.starting_hand = Some(vec![]);
-        seat.starting_battlefield = vec![bears; 2];
+        seat.starting_battlefield = board;
     }
     let me = PlayerId::new(0);
     let mut session = baylee_gamehost::Session::new(&preset).unwrap();
@@ -275,7 +288,7 @@ fn combat(block: bool) -> (PlayerView, Pending) {
         let asked = pending.asked().unwrap();
         let reached = match &pending {
             Pending::ChooseAttackers { attackers, .. } => {
-                !block && asked == me && attackers.len() == 2
+                !block && asked == me && attackers.len() == mine.len()
             }
             Pending::ChooseBlockers { .. } => block && asked == me,
             _ => false,
@@ -408,5 +421,57 @@ fn the_coins_are_the_seeded_stream() {
         coins
             .iter()
             .all(|&coin| coin.to_bits() == stream.unit().to_bits())
+    );
+}
+
+/// Wall of Stone against an attacking Grizzly Bears: the net leaves it at
+/// home, and the `wall` group alone puts a blocker that would live in the
+/// way. A played block names that group.
+#[test]
+fn a_played_answer_one_group_changed_names_the_group() {
+    let (view, pending) = combat_with(&["Wall of Stone"], &["Grizzly Bears"], true);
+    let cands = menu(&view, &pending);
+    let logits = vec![-2.0_f32; cands.pairs.len()];
+    for (groups, block) in [("", 0), ("wall", 1), (RULE_GROUPS, 1)] {
+        let mut rules = TacticRules4::parse(groups).unwrap();
+        let adjusted = tactical_pair_logits(&mut rules, &cands, &logits, &view, &pending);
+        let (mask, ..) = sample_pairs_constrained(&adjusted, &cands, 0.0, &mut Rng::new(1));
+        assert_eq!(mask, [block], "{groups:?}");
+        let fired: Vec<_> = rules
+            .take_fired()
+            .into_iter()
+            .filter(|&(_, count)| count > 0)
+            .collect();
+        assert_eq!(
+            fired,
+            if block == 1 {
+                vec![("wall", 1)]
+            } else {
+                vec![]
+            }
+        );
+    }
+    let mut explorer = RuleExplorer4::new(TacticRules4::parse("wall").unwrap(), 0.5).unwrap();
+    let mut played = Vec::new();
+    for seed in 0..64 {
+        explorer.reseed(seed);
+        decide(
+            Some(&mut explorer),
+            seed,
+            &view,
+            &pending,
+            &cands,
+            &logits,
+            0.2,
+        );
+        let record = explorer.take_last().unwrap();
+        if record.played {
+            played.push(record.proposer);
+        }
+    }
+    assert!(!played.is_empty());
+    assert!(
+        played.iter().all(|proposer| proposer == "rule:wall"),
+        "{played:?}"
     );
 }
