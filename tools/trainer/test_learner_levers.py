@@ -368,7 +368,8 @@ class DriverRoute(unittest.TestCase):
         states = []
         with tempfile.TemporaryDirectory() as temporary:
             for extra in ([], ["--passive-grad-window", "4", "--phase-profile", str(Path(temporary) / "p.json"),
-                               "--phase-profile-warmup", "0", "--phase-profile-steps", "1", "--vectorized-rule-closure"]):
+                               "--phase-profile-warmup", "0", "--phase-profile-steps", "1", "--vectorized-rule-closure",
+                               "--skip-final-validation"]):
                 output = Path(temporary) / str(len(extra))
                 argv = ["train5", "--data", "fake", "--out", str(output), "--d-model", "32", "--layers", "1",
                         "--heads", "4", "--d-ff", "64", "--batch-size", "4", "--unroll", "4", "--board-chunk", "2",
@@ -382,6 +383,8 @@ class DriverRoute(unittest.TestCase):
                         patch.object(driver.torch, "set_num_threads"), contextlib.redirect_stdout(io.StringIO()):
                     driver.main("v5")
                 states.append(torch.load(output / "last.pt", map_location="cpu", weights_only=False))
+                meta = json.loads((output / "meta.json").read_text())
+                self.assertEqual(bool(meta["val_metrics"]), not extra)
             self.assertTrue((Path(temporary) / "p.json").exists())
         self.assertEqual(states[1]["passive_grad_window"], 4)
         for name, value in states[0]["state_dict"].items():
