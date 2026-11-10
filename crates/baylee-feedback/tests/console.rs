@@ -5,9 +5,10 @@
 //!
 //! What they hold: nothing reaches the gateway without a session; a change
 //! also wants the UI's CSRF proof; what reaches it carries the service's
-//! token and the admin's name and nothing the page chose beyond the four
-//! fields; the gateway refusing the token is not a sign-out; and the audit
-//! names ids, never a key.
+//! token and the admin's name and nothing the page chose beyond the fields
+//! a route takes; the gateway refusing the token is not a sign-out; the
+//! audit names ids, never a key or a reason; and the closed beta's key
+//! routes are gone.
 
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU16, Ordering};
@@ -24,8 +25,8 @@ use uuid::Uuid;
 const NAME: &str = "viktor";
 const PASSWORD: &str = "a long enough password";
 const CONSOLE_TOKEN: &str = "the-gateways-admin-token-0123456789abcdef";
-const KEY: &str = "BAYLEE-ABCD-EFGH-JKMN-PQRS";
-const KEY_ID: &str = "0199aaaa-0000-7000-8000-0000000000aa";
+/// An account the people pages ask for.
+const ACCOUNT_ID: &str = "0199aaaa-0000-7000-8000-0000000000aa";
 /// The block the stand-in gateway makes, and the card it is on.
 const BLOCK_ID: &str = "0199bbbb-0000-7000-8000-0000000000bb";
 const BLOCKED_NAME: &str = "Baleful Strix";
@@ -91,7 +92,6 @@ async fn stub() -> Stub {
                         axum::Json(serde_json::json!({ "accounts": { "registered": 3 } }))
                             .into_response()
                     }
-                    ("GET", "/admin/invites") => axum::Json(serde_json::json!([])).into_response(),
                     ("GET", path)
                         if path == "/admin/live"
                             || path == "/admin/metrics"
@@ -99,19 +99,6 @@ async fn stub() -> Stub {
                             || path.starts_with("/admin/accounts") =>
                     {
                         axum::Json(serde_json::json!({})).into_response()
-                    }
-                    ("POST", "/admin/invites") => (
-                        StatusCode::CREATED,
-                        axum::Json(serde_json::json!({
-                            "keys": [{ "id": KEY_ID, "key": KEY }],
-                            "uses": 1,
-                            "expires_at": null,
-                            "note": "for Max",
-                        })),
-                    )
-                        .into_response(),
-                    ("DELETE", path) if path.starts_with("/admin/invites/") => {
-                        StatusCode::NO_CONTENT.into_response()
                     }
                     // As the gateway answers: the mode it was given, in
                     // force, chosen here.
@@ -364,16 +351,13 @@ async fn nothing_reaches_the_gateway_without_a_session() {
     let service = Service::start("nosession", Some(&gw.url)).await;
     for (method, path, body) in [
         ("GET", "/ui/api/admin/stats", None),
-        ("GET", "/ui/api/admin/invites", None),
         ("GET", "/ui/api/admin/audit", None),
         ("GET", "/ui/api/admin/live", None),
         ("GET", "/ui/api/admin/metrics", None),
         ("GET", "/ui/api/admin/sets", None),
         ("GET", "/ui/api/admin/sets/lea", None),
         ("GET", "/ui/api/admin/accounts", None),
-        ("GET", &format!("/ui/api/admin/accounts/{KEY_ID}"), None),
-        ("POST", "/ui/api/admin/invites", Some("{}")),
-        ("DELETE", &format!("/ui/api/admin/invites/{KEY_ID}"), None),
+        ("GET", &format!("/ui/api/admin/accounts/{ACCOUNT_ID}"), None),
         ("GET", "/ui/api/admin/cards/search?q=forest", None),
         ("GET", "/ui/api/admin/cards/blocks", None),
         (
@@ -429,9 +413,9 @@ async fn a_signed_in_admin_reaches_the_gateway_with_the_services_token_and_name(
     assert_eq!(answer.status, 200, "{}", answer.text());
     assert_eq!(answer.json()["accounts"]["registered"], 3);
     let answer = service
-        .call("GET", "/ui/api/admin/invites", &with_cookie(&cookie), None)
+        .call("GET", "/ui/api/admin/live", &with_cookie(&cookie), None)
         .await;
-    assert_eq!((answer.status, answer.text().as_str()), (200, "[]"));
+    assert_eq!((answer.status, answer.text().as_str()), (200, "{}"));
 
     let seen = gw.seen();
     assert_eq!(seen.len(), 2, "{seen:?}");
@@ -446,7 +430,7 @@ async fn a_signed_in_admin_reaches_the_gateway_with_the_services_token_and_name(
         }
     }
     assert_eq!(seen[0].path, "/admin/stats");
-    assert_eq!(seen[1].path, "/admin/invites");
+    assert_eq!(seen[1].path, "/admin/live");
     service.close().await;
     gw.server.abort();
 }
@@ -459,7 +443,7 @@ async fn the_people_pages_pass_on_only_the_fields_they_read() {
     for path in [
         "/ui/api/admin/live".to_owned(),
         "/ui/api/admin/accounts?q=Al%20ice&kind=guest&online=true&offset=50&limit=25".to_owned(),
-        format!("/ui/api/admin/accounts/{KEY_ID}"),
+        format!("/ui/api/admin/accounts/{ACCOUNT_ID}"),
         "/ui/api/admin/metrics".to_owned(),
         "/ui/api/admin/sets".to_owned(),
         "/ui/api/admin/sets/LEA".to_owned(),
@@ -488,7 +472,7 @@ async fn the_people_pages_pass_on_only_the_fields_they_read() {
         [
             "/admin/live".to_owned(),
             "/admin/accounts?q=Al%20ice&kind=guest&online=true&offset=50&limit=25".to_owned(),
-            format!("/admin/accounts/{KEY_ID}"),
+            format!("/admin/accounts/{ACCOUNT_ID}"),
             "/admin/metrics".to_owned(),
             "/admin/sets".to_owned(),
             // Lower-cased here, so the gateway sees one spelling.
@@ -499,90 +483,33 @@ async fn the_people_pages_pass_on_only_the_fields_they_read() {
     gw.server.abort();
 }
 
+/// The closed beta's keys are gone (10.11.2026): their pages' routes are
+/// no routes of the service's, for a signed-in admin with the proof too,
+/// and nothing reaches the gateway.
 #[tokio::test(flavor = "multi_thread")]
-async fn a_change_wants_the_proof_passes_only_its_fields_and_is_audited_without_a_key() {
+async fn the_closed_betas_key_routes_are_gone() {
     let gw = stub().await;
-    let service = Service::start("writes", Some(&gw.url)).await;
+    let service = Service::start("nokeys", Some(&gw.url)).await;
     let cookie = service.login().await;
-    let order = r#"{"count":2,"note":"for Max","expires":"30d","uses":1}"#;
-    let delete = format!("/ui/api/admin/invites/{KEY_ID}");
-
-    // No header, a foreign origin, or a cross-site fetch: refused here.
-    let bare = with_cookie(&cookie);
-    let mut foreign = with_cookie(&cookie);
-    foreign.push(("origin", "https://evil.example".into()));
-    foreign.push((ui::CSRF_HEADER, "1".into()));
-    let mut cross = service.proof();
-    cross.push(("cookie", cookie.clone()));
-    cross.push(("sec-fetch-site", "cross-site".into()));
-    for headers in [&bare, &foreign, &cross] {
-        let answer = service
-            .call("POST", "/ui/api/admin/invites", headers, Some(order))
-            .await;
-        assert_eq!(answer.status, 403, "{}", answer.text());
-        let answer = service.call("DELETE", &delete, headers, None).await;
-        assert_eq!(answer.status, 403, "{}", answer.text());
-    }
-    assert!(gw.seen().is_empty(), "{:?}", gw.seen());
-
     let mut proved = service.proof();
-    proved.push(("cookie", cookie.clone()));
-    // Only the four fields, and only an id.
-    for body in [
-        r#"{"count":1,"admin":"someone"}"#,
-        "not json",
-        r#"{"uses":-1}"#,
+    proved.push(("cookie", cookie));
+    for (method, path, body) in [
+        ("GET", "/ui/api/admin/invites".to_owned(), None),
+        (
+            "POST",
+            "/ui/api/admin/invites".to_owned(),
+            Some(r#"{"count":1}"#),
+        ),
+        (
+            "DELETE",
+            format!("/ui/api/admin/invites/{ACCOUNT_ID}"),
+            None,
+        ),
     ] {
-        let answer = service
-            .call("POST", "/ui/api/admin/invites", &proved, Some(body))
-            .await;
-        assert_eq!(answer.status, 400, "{body}: {}", answer.text());
+        let answer = service.call(method, &path, &proved, body).await;
+        assert_eq!(answer.status, 404, "{method} {path}: {}", answer.text());
     }
-    let answer = service
-        .call("DELETE", "/ui/api/admin/invites/..%2Fstats", &proved, None)
-        .await;
-    assert_eq!(answer.status, 400);
     assert!(gw.seen().is_empty(), "{:?}", gw.seen());
-
-    let answer = service
-        .call("POST", "/ui/api/admin/invites", &proved, Some(order))
-        .await;
-    assert_eq!(answer.status, 201, "{}", answer.text());
-    assert_eq!(answer.json()["keys"][0]["key"], KEY, "the key, shown once");
-    let answer = service.call("DELETE", &delete, &proved, None).await;
-    assert_eq!(answer.status, 204, "{}", answer.text());
-
-    let seen = gw.seen();
-    assert_eq!(seen.len(), 2, "{seen:?}");
-    assert_eq!(
-        (seen[0].method.as_str(), seen[0].path.as_str()),
-        ("POST", "/admin/invites")
-    );
-    assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&seen[0].body).unwrap(),
-        serde_json::json!({ "uses": 1, "expires": "30d", "note": "for Max", "count": 2 })
-    );
-    assert_eq!(seen[0].header("x-baylee-admin"), Some(NAME));
-    assert_eq!(
-        (seen[1].method.as_str(), seen[1].path.as_str()),
-        ("DELETE", format!("/admin/invites/{KEY_ID}").as_str())
-    );
-
-    let audit = service
-        .call("GET", "/ui/api/admin/audit", &with_cookie(&cookie), None)
-        .await;
-    assert_eq!(audit.status, 200);
-    let rows = audit.json();
-    let rows = rows.as_array().unwrap();
-    assert_eq!(rows.len(), 2, "{rows:?}");
-    assert_eq!(rows[0]["action"], "gateway.invite.revoke", "newest first");
-    assert_eq!(rows[1]["action"], "gateway.invite.create");
-    for row in rows {
-        assert_eq!(row["actor"], NAME);
-        assert!(row["detail"].as_str().unwrap().contains(KEY_ID), "{row}");
-    }
-    assert!(!audit.text().contains(KEY), "a key in the audit");
-    assert!(!audit.text().contains("for Max"), "a note in the audit");
     service.close().await;
     gw.server.abort();
 }
