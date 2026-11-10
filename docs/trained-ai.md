@@ -1130,6 +1130,23 @@ enters trigger such as Flametongue Kavu's), and menus of more than one
 target (`SubsetPick`) are not expanded yet; "up to one" is a single target
 whose answers include none.
 
+**Combat declarations as roots (v4, `--search-combat N`).** The engine forks
+at a declaration of attackers or blockers as at priority (the offer is
+public; `docs/engine-internals.md` §"Forking a simulation"). With N > 0 such
+a declaration is a root when the policy's declaration is its own: it is
+compared with up to N − 1 others built from it — no attack or no block, all
+in, and each creature's part changed alone (an attacker added or taken out
+at its defender; a blocker dropped or moved to another attacker it may
+block) — those world 0 refuses dropped before the rounds. The subset and
+pair heads give no ranking over declarations, so the policy's declaration
+has prior 1 and every other 0: under `prior` selection another declaration
+must beat its mean by c / (1 + n). A changed declaration is recorded as the
+search's answer; `convert4` encodes its mask from the recorded declaration.
+The contract is `belief_lookahead_v4`. Its worlds are dealt from the real
+decks like every search's, so it is an offline teacher only (owner, 6
+November: hidden cards as an offline target, never an input or in the
+shipped path).
+
 **Worlds.** For each world p of P, the table is forked for the deciding seat
 with the policy seed `derive(search_seed, "world", decision_seq, p)`, where
 `search_seed = derive(deal policy seed, "search")` (SplitMix64, each purpose

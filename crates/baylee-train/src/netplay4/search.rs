@@ -42,6 +42,9 @@ pub const SEARCH_CONTRACT: &str = "belief_lookahead_v2";
 /// The contract of a search whose casts are tried at each of their targets
 /// ([`SearchConfig4::with_targets`]); otherwise [`SEARCH_CONTRACT`]'s.
 pub const SEARCH_CONTRACT_TARGETS: &str = "belief_lookahead_v3";
+/// The contract of a search that also takes combat declarations as roots
+/// ([`SearchConfig4::with_combat`]), with or without targets.
+pub const SEARCH_CONTRACT_COMBAT: &str = "belief_lookahead_v4";
 
 /// How a search chooses among its candidates once their worlds are played.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
@@ -113,6 +116,7 @@ pub struct SearchConfig4 {
     threads: usize,
     targets: usize,
     neural_opponent: bool,
+    combat: usize,
 }
 
 impl SearchConfig4 {
@@ -128,6 +132,8 @@ impl SearchConfig4 {
     pub const DEFAULT_THREADS: usize = 16;
     /// The most targets one cast is tried at.
     pub const MAX_TARGETS: usize = 8;
+    /// The most declarations one combat root compares.
+    pub const MAX_COMBAT: usize = 16;
 
     /// `candidates` answers (K, the policy's own first), each tried in
     /// `particles` worlds (P), each rolled out at most `horizon` decisions
@@ -160,6 +166,7 @@ impl SearchConfig4 {
             threads: Self::DEFAULT_THREADS,
             targets: 0,
             neural_opponent: false,
+            combat: 0,
         })
     }
 
@@ -206,10 +213,35 @@ impl SearchConfig4 {
         self.targets
     }
 
+    /// The same search, also taking a declaration of attackers or blockers
+    /// as a root (v4, `search/combat.rs`): the policy's declaration and up
+    /// to `combat - 1` others built from it are compared. `0` (the default)
+    /// leaves declarations to the policy.
+    ///
+    /// # Errors
+    /// When `combat` is past [`Self::MAX_COMBAT`].
+    pub fn with_combat(self, combat: usize) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            combat <= Self::MAX_COMBAT,
+            "search combat declarations must be at most {}",
+            Self::MAX_COMBAT
+        );
+        Ok(Self { combat, ..self })
+    }
+
+    /// The most declarations a combat root compares; `0` when declarations
+    /// are left to the policy.
+    #[must_use]
+    pub const fn combat(&self) -> usize {
+        self.combat
+    }
+
     /// The contract this search keeps.
     #[must_use]
     pub const fn contract(&self) -> &'static str {
-        if self.targets > 0 {
+        if self.combat > 0 {
+            SEARCH_CONTRACT_COMBAT
+        } else if self.targets > 0 {
             SEARCH_CONTRACT_TARGETS
         } else {
             SEARCH_CONTRACT
@@ -312,6 +344,16 @@ impl SearchConfig4 {
             metadata["target_prior"] = json!("root_prior_times_softmax_at_the_target_question");
             metadata["target_follow"] =
                 json!("the_chosen_target_answers_the_seats_next_target_question_at_the_table");
+        }
+        if self.combat > 0 {
+            metadata["combat"] = json!(self.combat);
+            metadata["combat_roots"] =
+                json!("declarations_of_attackers_and_blockers_whose_answer_is_the_policys_own");
+            metadata["combat_candidates"] = json!(
+                "the_policys_declaration_then_none_all_in_and_each_creatures_part_changed_alone_\
+                 those_world_0_refuses_dropped"
+            );
+            metadata["combat_prior"] = json!("one_for_the_policys_declaration_zero_for_the_others");
         }
         metadata
     }
@@ -876,7 +918,15 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     search_seed: u64,
 ) -> anyhow::Result<SearchedAnswer4> {
     let decision = player.decide(view, pending, teams);
-    if let Some(reason) = root_skip(view, pending, &decision, config.candidates) {
+    // A declaration of attackers or blockers (v4): searched when the
+    // declaration is the policy's own, its others built from it.
+    let declaration = config.combat > 0 && combat::is_declaration(pending);
+    let skip = if declaration {
+        (decision.answer.provenance.source != SourceKind4::Net).then_some(SearchSkip4::NotPolicy)
+    } else {
+        root_skip(view, pending, &decision, config.candidates)
+    };
+    if let Some(reason) = skip {
         return Ok(unsearched(
             player,
             view,
@@ -885,17 +935,35 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         ));
     }
     let root = player.snapshot();
-    let ranked = candidates(view, &decision, config.candidates);
-    let expanded = targets::Probe {
-        view,
-        teams,
-        decision: &decision,
-        root: &root,
-        targets: config.targets,
-        seed: world_seed(search_seed, table.decision_seq(), 0),
-    }
-    .expand(player, table, ranked);
+    let first_world = world_seed(search_seed, table.decision_seq(), 0);
+    let expanded = if declaration {
+        combat::playable(
+            table,
+            view.seat,
+            pending,
+            &decision.answer.action,
+            config.combat,
+            first_world,
+        )
+        .map_err(Stop::Refused)
+    } else {
+        let ranked = candidates(view, &decision, config.candidates);
+        targets::Probe {
+            view,
+            teams,
+            decision: &decision,
+            root: &root,
+            targets: config.targets,
+            seed: first_world,
+        }
+        .expand(player, table, ranked)
+    };
     let candidates = match expanded {
+        // A declaration the policy alone may make (or the table refuses).
+        Ok(candidates) if declaration && candidates.len() < 2 => {
+            let skip = SearchOutcome4::Skipped(SearchSkip4::CandidateRefused);
+            return Ok(unsearched(player, view, decision, skip));
+        }
         Ok(candidates) => candidates,
         Err(Stop::Refused(refusal)) => {
             player.restore(&root);
@@ -917,7 +985,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     }
     .play(player, table, config, search_seed);
     player.restore(&root);
-    let Played { mut report, worlds } = match rounds {
+    let Played { report, worlds } = match rounds {
         Ok(Some(played)) => played,
         Ok(None) => {
             return Ok(unsearched(
@@ -937,8 +1005,44 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         }
         Err(Stop::Failed(error)) => return Err(error),
     };
-    report.priors = select::priors(&decision, &candidates);
-    let choice = select::choose(config.selection, &worlds, &report.priors);
+    Ok(choose_and_answer(
+        player,
+        view,
+        pending,
+        decision,
+        &candidates,
+        Played { report, worlds },
+        config.selection,
+        declaration,
+    ))
+}
+
+/// The candidate the selection picks over the played worlds, concluded as
+/// the player's answer and recorded as the search's.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The searched decision's parts, handed on whole"
+)]
+fn choose_and_answer<P: SearchPlayer4>(
+    player: &mut P,
+    view: &PlayerView,
+    pending: &Pending,
+    decision: RootDecision4,
+    candidates: &[Candidate4],
+    played: Played,
+    selection: Selection4,
+    declaration: bool,
+) -> SearchedAnswer4 {
+    let Played { mut report, worlds } = played;
+    report.priors = if declaration {
+        // No ranking over declarations: the policy's own is its whole prior.
+        (0..candidates.len())
+            .map(|at| if at == 0 { 1.0 } else { 0.0 })
+            .collect()
+    } else {
+        select::priors(&decision, candidates)
+    };
+    let choice = select::choose(selection, &worlds, &report.priors);
     report.chosen = choice.chosen;
     report.means = choice.means;
     report.diffs = choice.diffs;
@@ -950,15 +1054,19 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     player.conclude(view, &decision, &pick.action);
     player.attribute_to_search(pending, decision.answer.provenance.source);
     let own = decision.answer;
-    let target = if report.changed {
+    let target = if !report.changed {
+        own.target
+    } else if declaration {
+        // A declaration's target is its mask over the subset or pair head's
+        // candidates, which convert4 encodes from the recorded declaration.
+        TeacherTarget4::default()
+    } else {
         TeacherTarget4 {
             single_idx: u16::try_from(pick.index).unwrap_or(u16::MAX),
             ..TeacherTarget4::default()
         }
-    } else {
-        own.target
     };
-    Ok(SearchedAnswer4 {
+    SearchedAnswer4 {
         answer: Answer4 {
             action: pick.action.clone(),
             value: own.value,
@@ -973,7 +1081,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         },
         outcome: SearchOutcome4::Searched(Box::new(report)),
         follow: chosen.target.as_ref().map(|target| target.action.clone()),
-    })
+    }
 }
 
 /// Answers `seat`'s target question `pending` (`view` is its view of it)
@@ -1033,6 +1141,7 @@ pub fn follow_decision<P: SearchPlayer4>(
 
 mod rollout;
 use rollout::{Played, Rounds, Stop};
+mod combat;
 mod select;
 mod targets;
 

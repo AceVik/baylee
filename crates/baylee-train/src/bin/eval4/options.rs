@@ -264,6 +264,14 @@ struct Args {
     /// releasing them to the house AI.
     #[arg(long, requires = "search")]
     search_neural_opponent: bool,
+    /// Also take a declaration of attackers or blockers as a root: the
+    /// policy's own declaration and up to this many minus one others built
+    /// from it (none, all in, each creature's part changed alone), each
+    /// played in the worlds (contract `belief_lookahead_v4`). Offline only:
+    /// its worlds are dealt from the real decks. `0` (the default) leaves
+    /// declarations to the policy.
+    #[arg(long, default_value_t = 0, requires = "search")]
+    search_combat: usize,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -300,6 +308,7 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_selection(selection)?
         .with_threads(args.search_threads)?
         .with_targets(args.search_targets)?
+        .with_combat(args.search_combat)?
         .with_neural_opponent(args.search_neural_opponent);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.

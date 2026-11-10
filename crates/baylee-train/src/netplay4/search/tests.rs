@@ -104,10 +104,12 @@ impl SearchPlayer4 for Mock {
         let state = crate::features7::encode_state7(view, Some(pending), None, teams);
         let cands = crate::features7::encode_candidates7_grouped(&state, view, pending);
         let policy = cands.head == HeadKind4::SingleChoice && cands.candidates.len() > 1;
+        // A declaration with a creature to declare is the policy's own too.
+        let declares = combat::is_declaration(pending) && cands.candidates.len() > 1;
         let action = (self.own)(view, pending)
             .filter(|a| pending.answer_fault(a).is_none())
             .unwrap_or_else(|| HeuristicAgent::new(AIProfile::STEADY).act(view, pending));
-        let source = if policy {
+        let source = if policy || declares {
             SourceKind4::Net
         } else {
             SourceKind4::Forced
@@ -1109,6 +1111,119 @@ fn without_targets_a_cast_is_one_candidate() {
     assert_eq!(report.candidates, 1);
     assert_eq!(report.targets, [None]);
     assert_eq!(result.follow, None);
+}
+
+/// Drives the table, seat 0 by the steady house, until seat 0 is asked to
+/// declare attackers with two creatures able to attack, past the opening
+/// turns, and the table forks there.
+fn attack_root(session: &mut Session) -> (Pending, PlayerView) {
+    for _ in 0..5000 {
+        assert!(!matches!(session.pending(), Pending::GameOver(_)));
+        if session.needs_pump() {
+            session.pump_at_most(1);
+            continue;
+        }
+        let (pending, view) = session.view_for_with_context(ME).unwrap();
+        if matches!(&pending, Pending::ChooseAttackers { attackers, .. } if attackers.len() >= 2)
+            && KnownDecks(session).fork(ME, 1).is_ok()
+        {
+            return (pending, view);
+        }
+        let action = session.house_action(ME).unwrap();
+        session.act_slice(ME, action, 0).unwrap();
+    }
+    panic!("no declaration of attackers to search");
+}
+
+/// Declares no attackers and blocks with nothing.
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "One signature for every stand-in policy"
+)]
+fn holds_back(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
+    match pending {
+        Pending::ChooseAttackers { .. } => {
+            Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+        }
+        Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers { blockers: vec![] }),
+        _ => None,
+    }
+}
+
+/// A critic that likes the other side's life lost.
+fn their_life_lost(view: &PlayerView) -> f32 {
+    let lowest = view
+        .seats
+        .iter()
+        .filter(|seat| seat.player != view.seat)
+        .map(|seat| seat.life)
+        .min()
+        .unwrap_or(20);
+    0.5 + f32::from(u8::try_from((20 - lowest).clamp(0, 20)).unwrap_or(0)) / 40.0
+}
+
+/// With combat roots on, a declaration of attackers is searched: the
+/// policy's declaration first, every candidate a declaration the engine
+/// takes, and the answer one of them, recorded as the search's. Without
+/// them the declaration is the policy's, as before.
+#[test]
+fn a_declaration_of_attackers_is_searched_with_combat_roots() {
+    let mut table = table(5);
+    let (pending, view) = attack_root(&mut table);
+    let mut player = Mock::new(holds_back, their_life_lost);
+    player.observe(&view).unwrap();
+    let before = player.snapshot();
+    let plain = search_decision(
+        &mut player,
+        &KnownDecks(&table),
+        &view,
+        &pending,
+        &[],
+        config(4, 2, 4),
+        SEED,
+    )
+    .unwrap();
+    assert!(
+        matches!(
+            plain.outcome,
+            SearchOutcome4::Skipped(SearchSkip4::NotPriority)
+        ),
+        "{:?}",
+        plain.outcome
+    );
+    player.restore(&before);
+    let combat = config(4, 2, 4).with_combat(6).unwrap();
+    assert_eq!(combat.contract(), SEARCH_CONTRACT_COMBAT);
+    let result = search_decision(
+        &mut player,
+        &KnownDecks(&table),
+        &view,
+        &pending,
+        &[],
+        combat,
+        SEED,
+    )
+    .unwrap();
+    let SearchOutcome4::Searched(report) = &result.outcome else {
+        panic!("the declaration is searched: {:?}", result.outcome);
+    };
+    assert!(report.candidates >= 2, "{report:?}");
+    assert_eq!(
+        report.actions[0],
+        PlayerAction::DeclareAttackers { attackers: vec![] },
+        "the policy's declaration first"
+    );
+    assert!(
+        report
+            .actions
+            .iter()
+            .all(|action| matches!(action, PlayerAction::DeclareAttackers { .. }))
+    );
+    assert!((report.priors[0] - 1.0).abs() < f64::EPSILON);
+    assert!(report.priors[1..].iter().all(|prior| *prior == 0.0));
+    assert!(report.actions.contains(&result.answer.action));
+    assert_eq!(result.answer.provenance.source, SourceKind4::Search);
+    assert!(pending.answer_fault(&result.answer.action).is_none());
 }
 
 #[test]

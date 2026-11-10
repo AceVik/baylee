@@ -413,8 +413,15 @@ impl Start<'_> {
             PlayerAction::CastSpell { card } => Some(card),
             _ => None,
         };
-        let root_snapshot_hash =
-            (!matches!(*action, PlayerAction::PassPriority)).then(|| world.snapshot_hash());
+        // A pass or a declaration takes nothing back; a cast or activation
+        // that comes back to the root's hash was reversed.
+        let root_snapshot_hash = (!matches!(
+            *action,
+            PlayerAction::PassPriority
+                | PlayerAction::DeclareAttackers { .. }
+                | PlayerAction::DeclareBlockers { .. }
+        ))
+        .then(|| world.snapshot_hash());
         let journal_cursor = world.state().journal.len();
         player.conclude(self.view, self.decision, action);
         player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
