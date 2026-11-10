@@ -6,18 +6,18 @@
 //! does (`crates/baylee-gateway/tests/common/mod.rs`, `login`).
 //!
 //! Only into its own: [`OwnDatabase::prove`] has the gateway behind the
-//! collector's admin token make a one-use closed-beta key, finds that key's
-//! row in `--database-url`, has the gateway revoke it and finds the
-//! revocation there too. A database that does not show both is another
+//! collector's admin token write a name nobody could guess into its own
+//! database (the policy of a hosted-model profile no seat agent serves, set
+//! by that name), finds the name in `--database-url`, and does it again
+//! under a second name. A database that does not show both is another
 //! gateway's, or none's, and is refused before anything is written to it:
 //! the gateways running beside the collector's have their own databases and
 //! their own admin tokens.
 //!
 //! The account is what registration made before the cutover: an `llmt…`
 //! username by the protocol's rule, a display name that says what plays its
-//! chair ([`Sits`]), no address, no
-//! closed-beta key, English, and the tag the database hands out, so the
-//! official export sees and anonymises it as it did. Its password hash is
+//! chair ([`Sits`]), no address, English, and the tag the database hands
+//! out, so the official export sees and anonymises it as it did. Its password hash is
 //! random bytes in the hash's shape: there is no password, and no route
 //! that would take one.
 use std::io::Read as _;
@@ -81,17 +81,21 @@ impl OwnDatabase {
     /// that does not show the key made and then revoked: nothing is written
     /// to that database.
     pub async fn prove(admin: &AdminCleanup, db: DatabaseConnection) -> anyhow::Result<Self> {
-        let probe = admin.make_probe_key().await?;
-        let made = key_revoked(&db, probe).await;
-        // Revoked whatever was seen: the key admits nobody after the proof.
-        let revoked = admin.revoke_probe_key(probe).await;
-        let after = key_revoked(&db, probe).await;
-        revoked?;
-        ensure!(
-            matches!((made, after), (Ok(Some(false)), Ok(Some(true)))),
-            "--database-url is not the database of the gateway behind --admin-url; \
-             nothing was written to it"
-        );
+        // Twice, each time under a name nobody could have written before,
+        // so the database is seen to change with the gateway, not to hold
+        // one answer by chance.
+        for _ in 0..2 {
+            let mut nonce = [0_u8; 16];
+            urandom(&mut nonce)?;
+            let actor = format!("llm-collector-{}", baylee_train_ops::files::hex(&nonce));
+            admin.mark_probe(&actor).await?;
+            let seen = probe_marked_by(&db).await;
+            ensure!(
+                matches!(&seen, Ok(Some(by)) if *by == actor),
+                "--database-url is not the database of the gateway behind --admin-url; \
+                 nothing was written to it"
+            );
+        }
         Ok(Self { db })
     }
 
@@ -162,18 +166,19 @@ impl OwnDatabase {
     }
 }
 
-/// Whether the closed-beta key `id` is revoked in `db`; `None` where `db`
-/// has no such key.
-async fn key_revoked(db: &DatabaseConnection, id: uuid::Uuid) -> anyhow::Result<Option<bool>> {
+/// Who last set the probe profile's policy in `db`
+/// ([`crate::admin_cleanup::PROBE_PROFILE`]); `None` where `db` has no
+/// policy for it.
+async fn probe_marked_by(db: &DatabaseConnection) -> anyhow::Result<Option<String>> {
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT revoked_at IS NOT NULL AS revoked FROM invite WHERE id = $1",
-            [id.into()],
+            "SELECT updated_by FROM llm_profile_access WHERE profile_id = $1",
+            [crate::admin_cleanup::PROBE_PROFILE.into()],
         ))
         .await?;
     Ok(row
-        .map(|row| row.try_get::<bool>("", "revoked"))
+        .map(|row| row.try_get::<String>("", "updated_by"))
         .transpose()?)
 }
 
