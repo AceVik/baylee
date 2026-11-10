@@ -2989,9 +2989,13 @@ needed a key its operator had made. Since then:
 - Migration `m20261110_000030_drop_invites` drops the table `invite` (the
   keys' hashes and notes) and `account.invite_id` (which key let an account
   in); the accounts and the rest of their rows stay. A gateway built before
-  it does not run on a database migrated past it, since it reads
-  `account.invite_id` with every account; the migration's `down` gives the
-  column and the table back, empty.
+  it refuses to start on a database migrated past it: its migrator finds a
+  row in `seaql_migrations` it has no file for, as with any newer migration.
+  Nothing in the repository runs a migration's `down`, so going back to an
+  older build means restoring the backup taken before the deploy, or, with
+  the gateway stopped, making the table, the column and its index again
+  empty as the migration's `down` does and deleting its row
+  (`m20261110_000030_drop_invites`) from `seaql_migrations`.
 - The guest door's limits per address (ten in five minutes, thirty a day)
   and `BAYLEE_GUEST_CAP` are as they were. Only the key tries' own budget on
   the sign-in limiter (eight in five minutes per address) went with the

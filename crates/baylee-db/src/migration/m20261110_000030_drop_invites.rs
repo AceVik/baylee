@@ -8,9 +8,14 @@
 //! column (its foreign key goes with it), then the table. The accounts stay,
 //! every other column of theirs untouched.
 //!
-//! A gateway built before this migration selects `account.invite_id` with
-//! every account it reads, so it does not run on a database migrated past
-//! here; [`Migration::down`] gives it the column back, empty.
+//! A gateway built before this migration does not start on a database
+//! migrated past here: its migrator finds a row in `seaql_migrations` it has
+//! no file for and refuses, as it would for any newer migration (and past
+//! that it would read `account.invite_id` with every account). Nothing in
+//! the repository runs a migration's `down`, so going back to an older build
+//! means restoring the backup taken before the deploy, or, with the gateway
+//! stopped, running [`Migration::down`]'s statements by hand and deleting
+//! this migration's row from `seaql_migrations`.
 #![forbid(unsafe_code)]
 use sea_orm_migration::prelude::*;
 
