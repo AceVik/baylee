@@ -208,6 +208,12 @@ struct Args {
     /// Optional path to `data/decks/manifest.v4.json` to load real-world decks.
     #[arg(long)]
     decks_manifest: Option<PathBuf>,
+    /// A JSON object of manifest deck id to a whole weight: each selected
+    /// deck plays as often as its weight (absent: 1, 0: not at all), the
+    /// copies in rounds through the deck list. With `--decks-manifest`, not
+    /// with the expanded training decks.
+    #[arg(long)]
+    deck_weights: Option<PathBuf>,
     /// Split to filter when `--decks-manifest` is given (`train`, `val`, `test`).
     #[arg(long, default_value = "test")]
     deck_split: String,

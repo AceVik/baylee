@@ -358,6 +358,19 @@ fn main() -> anyhow::Result<()> {
         && !args.held_out_cards
         && args.holdout_tier.is_empty())
         || args.shape == "all";
+    let deck_weights = args
+        .deck_weights
+        .as_ref()
+        .map(|path| -> anyhow::Result<Value> {
+            anyhow::ensure!(
+                args.decks_manifest.is_some() && !use_expanded_training_variance,
+                "--deck-weights weighs --decks-manifest decks, not the expanded training decks"
+            );
+            Ok(serde_json::from_slice(&fs::read(path).with_context(
+                || format!("reading --deck-weights {}", path.display()),
+            )?)?)
+        })
+        .transpose()?;
 
     let (decks, manifest_accepted_deck_count, manifest_skipped_decks) =
         if use_expanded_training_variance {
@@ -382,7 +395,10 @@ fn main() -> anyhow::Result<()> {
                     &args.holdout_tier,
                     args.held_out_cards,
                 )?;
-                decks.extend(loaded);
+                decks.extend(match &deck_weights {
+                    Some(weights) => weighted_decks(loaded, weights)?,
+                    None => loaded,
+                });
                 manifest_skipped_decks = skipped;
             }
             let manifest_accepted_deck_count = decks.len();
@@ -465,6 +481,7 @@ fn main() -> anyhow::Result<()> {
             "collection_contract": collection.metadata(),
             "planned_deals": args.deals,"deal_offset": args.deal_offset,
             "deck_split":args.deck_split,"decks_manifest":args.decks_manifest,
+            "deck_weights": args.deck_weights.as_ref().map(|path| json!({"path": path, "weights": deck_weights})),
             "held_out_cards":args.held_out_cards,"holdout_tier":args.holdout_tier,
             "decks": deck_json,
             "seats": args.seats,
