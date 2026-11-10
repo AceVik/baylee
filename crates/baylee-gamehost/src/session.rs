@@ -315,20 +315,26 @@ fn seat_byte(index: usize) -> u8 {
     u8::try_from(index).unwrap_or(u8::MAX)
 }
 
-fn mix64(mut z: u64) -> u64 {
-    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    z ^ (z >> 31)
-}
-
-/// One-way 24-bit cosmetic tabletop seed derived from `preset` and the initial
-/// game state. Identical for every seat, spectator, and replay of the game,
-/// while folding 64+ bits down to 24 bits so `preset.seed` cannot be recovered.
+/// The cosmetic tabletop seed: the same for every seat, spectator and replay
+/// of the game, because it is derived from the preset and the opening public
+/// table, which a replay has too.
+///
+/// `preset.seed` dealt the hands, so this must not give it away. A chain of
+/// invertible mixers would: with the public table known, 24 bits of output
+/// leave 2^40 candidate seeds, few enough to test offline against a seat's
+/// own opening hand. SHA-256 is not invertible, so finding the seed from this
+/// costs a search of all 2^64 seeds, the same search a seat's hand alone
+/// already demands.
 fn table_seed_of(preset: &GamePreset, state: &baylee_engine::state::GameState) -> u64 {
-    let mut acc = mix64(preset.seed ^ 0xba11_ee7a_b1e5_eed1);
-    acc = mix64(acc ^ crate::record::seen(state));
-    acc = mix64(acc ^ (preset.seats.len() as u64));
-    (acc & 0x00ff_ffff) | 0x0100_0000
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(b"baylee table surface v1\0");
+    hash.update(preset.seed.to_le_bytes());
+    hash.update(crate::record::seen(state).to_le_bytes());
+    hash.update((preset.seats.len() as u64).to_le_bytes());
+    let digest = hash.finalize();
+    let low = u64::from(digest[0]) | u64::from(digest[1]) << 8 | u64::from(digest[2]) << 16;
+    low | 0x0100_0000
 }
 
 impl Session {

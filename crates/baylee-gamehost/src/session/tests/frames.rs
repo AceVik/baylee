@@ -599,3 +599,21 @@ fn a_spectator_arriving_makes_the_public_stream_whole() {
     assert_eq!(early.view(), late.view());
     assert_eq!(early.view().map(|view| view.seq), Some(session.seq()));
 }
+
+/// The table's surface seed is the same for every seat, set apart from zero,
+/// and moves with the game seed. It is a one-way digest of that seed
+/// (`table_seed_of`): one that came from an invertible mixer would let a seat
+/// narrow the seed that dealt the hands down to a few candidates.
+#[test]
+fn the_table_seed_is_shared_and_follows_the_game_seed() {
+    let mut preset = test_preset();
+    let first = Session::new(&preset).expect("a session");
+    let seed = first.game_static(PlayerId::new(0)).table_seed;
+    assert_eq!(seed, first.game_static(PlayerId::new(1)).table_seed);
+    assert_eq!(seed >> 24, 1, "24 bits and the marker bit: {seed:#x}");
+    let again = Session::new(&preset).expect("a session");
+    assert_eq!(again.game_static(PlayerId::new(0)).table_seed, seed);
+    preset.seed ^= 1;
+    let other = Session::new(&preset).expect("a session");
+    assert_ne!(other.game_static(PlayerId::new(0)).table_seed, seed);
+}

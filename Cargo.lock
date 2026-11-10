@@ -1470,6 +1470,7 @@ dependencies = [
  "baylee-view",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "tracing",
  "uuid",
 ]

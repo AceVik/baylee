@@ -29,6 +29,9 @@ baylee-protocol.workspace = true
 baylee-view.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The table surface's seed is a one-way digest of the game seed
+# (`session::table_seed_of`); an invertible mixer would give the seed away.
+sha2.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 
