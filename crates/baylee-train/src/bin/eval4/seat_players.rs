@@ -244,6 +244,20 @@ impl EvaluationPlayer for SeatPlayers {
                 .as_deref()
                 .map_or(0, EvaluationPlayer::distill_unencodable)
     }
+    /// Only the seat under test forgets; a neural opponent keeps its memory.
+    fn set_memory_reset(&mut self, reset: baylee_train::netplay4::MemoryReset4) -> bool {
+        self.learner.set_memory_reset(reset)
+    }
+    fn keep_menus(&mut self) -> bool {
+        self.learner.keep_menus()
+    }
+    fn take_menu(&mut self) -> Option<serde_json::Value> {
+        if self.last_was_learner {
+            self.learner.take_menu()
+        } else {
+            None
+        }
+    }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.player(usize::from(seat.get()))?.observed_value(seat)
     }

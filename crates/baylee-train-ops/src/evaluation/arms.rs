@@ -29,6 +29,12 @@ const SAME: [&str; 8] = [
     "evaluator_revision",
 ];
 
+/// When a run's seat under test forgot its recurrent memory (`eval4
+/// --memory-reset`); `off` for a summary without the key.
+fn memory_reset(run: &Value) -> &str {
+    run["memory_reset"].as_str().unwrap_or("off")
+}
+
 /// A run's games, the rows of one team game made one: an arm is compared game
 /// by game, never row by row.
 fn deals(value: &Value) -> Result<BTreeMap<Key, Value>> {
@@ -127,6 +133,11 @@ fn compare(
             deals(run)?.keys().eq(first.keys()),
             "Every run of an arm must hold the same deals"
         );
+        // `eval4 --memory-reset` plays another policy: an arm's seeds forget alike.
+        ensure!(
+            memory_reset(run) == memory_reset(&candidates[0]),
+            "The runs of an arm differ in memory_reset"
+        );
     }
     ensure!(
         first.keys().all(|key| baseline.contains_key(key)),
@@ -176,6 +187,7 @@ fn compare(
         "games": first.len(),
         "deal_rows": self::rows(&candidates[0]),
         "seeds": candidates.len(),
+        "memory_reset": {"arm": memory_reset(&candidates[0]), "reference": memory_reset(reference)},
         "arm_wins_mean": arm_wins,
         "reference_wins": reference_wins,
         "better": better, "equal": equal, "worse": worse,
@@ -293,6 +305,24 @@ mod tests {
         arm["model"] = json!("m");
         arm["evaluator_dirty"] = json!(true);
         assert!(compare_builds(&[arm], &reference, 10).is_err());
+    }
+
+    /// A run that forgot its memory is another policy: its arm says so, and
+    /// it never pools with a run that did not forget.
+    #[test]
+    fn an_arms_runs_forget_alike_and_the_report_says_how() {
+        let reference = run(1, &[0.0, 1.0]);
+        let mut zero = run(2, &[1.0, 1.0]);
+        zero["memory_reset"] = json!("decision");
+        let report = compare_arm(std::slice::from_ref(&zero), &reference, 10).unwrap();
+        assert_eq!(
+            report["memory_reset"],
+            json!({"arm": "decision", "reference": "off"})
+        );
+        assert!(compare_arm(&[zero.clone(), run(3, &[1.0, 1.0])], &reference, 10).is_err());
+        let mut turn = run(3, &[1.0, 1.0]);
+        turn["memory_reset"] = json!("turn");
+        assert!(compare_arm(&[zero, turn], &reference, 10).is_err());
     }
 
     #[test]

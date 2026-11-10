@@ -48,6 +48,10 @@ mod identity;
 mod inference;
 use inference::StepRow;
 mod live_init;
+mod memory;
+#[cfg(test)]
+mod memory_tests;
+pub use memory::MemoryReset4;
 mod menu;
 pub use identity::{ModelIdentity, inspect_model_identity};
 pub use menu::{MenuStats4, PayableMenu4};
@@ -217,6 +221,11 @@ pub struct NetPlayer4 {
     /// `eval4 --distill-labels`: the whole net's distillation labels, kept per
     /// answer; `None` everywhere else, live play included.
     distill: Option<distill::Distill4>,
+    /// `eval4 --memory-reset`: when the recurrent memory H is forgotten; off,
+    /// as trained, everywhere else.
+    memory_reset: MemoryReset4,
+    /// The turn each seat last observed, for [`MemoryReset4::Turn`].
+    memory_turns: BTreeMap<u8, u32>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -412,6 +421,33 @@ impl NetPlayer4 {
         self.rule_refs_left_out
     }
 
+    /// Sets `eval4 --memory-reset` ([`MemoryReset4`]): from the next view on,
+    /// this net forgets its recurrent memory at that point. A measurement.
+    pub const fn set_memory_reset(&mut self, reset: MemoryReset4) {
+        self.memory_reset = reset;
+    }
+
+    /// When this net forgets its recurrent memory.
+    #[must_use]
+    pub const fn memory_reset(&self) -> MemoryReset4 {
+        self.memory_reset
+    }
+
+    /// Keeps each neural decision's menu with its logits, for
+    /// [`Self::take_menu`] (`eval4 --decision-trace`, a journal).
+    pub fn keep_menus(&mut self) {
+        self.last_menu = Some(serde_json::Value::Null);
+    }
+
+    /// The latest neural decision's menu with its logits, taken: `None`
+    /// without [`Self::keep_menus`] or when no decision ran the net since.
+    pub fn take_menu(&mut self) -> Option<serde_json::Value> {
+        self.last_menu
+            .as_mut()
+            .map(std::mem::take)
+            .filter(|menu| !menu.is_null())
+    }
+
     /// Sets `eval4 --tactician-windows`: from the next game on, `tactician`
     /// answers its windows. Evaluation and collection harnesses only.
     pub fn set_tactician(&mut self, tactician: tactician::Tactician4) {
@@ -576,6 +612,8 @@ impl NetPlayer4 {
             thinking_use: ThinkingUse4::default(),
             last_depth: files.thinking_steps,
             distill: None,
+            memory_reset: MemoryReset4::Off,
+            memory_turns: BTreeMap::new(),
         }
     }
 
@@ -755,6 +793,7 @@ impl NetPlayer4 {
     pub fn reset_game(&mut self) {
         self.teams.clear();
         self.h_states.clear();
+        self.memory_turns.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
@@ -784,6 +823,7 @@ impl NetPlayer4 {
     pub fn init_game(&mut self, preset: &GamePreset) {
         self.teams = preset.seats.iter().map(|s| s.team).collect();
         self.h_states.clear();
+        self.memory_turns.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
@@ -827,11 +867,19 @@ impl NetPlayer4 {
         if new_cursor == prev_cursor {
             return Ok(());
         }
-        let pre_h = self
-            .h_states
-            .entry(s)
-            .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
-            .clone();
+        // `--memory-reset` forgets H before this view's K=0 update, never
+        // between it and the decision that reads it ([`MemoryReset4`]).
+        let pre_h = if self
+            .memory_reset
+            .starts_fresh(&mut self.memory_turns, s, view.turn)
+        {
+            vec![0.0_f32; RECURRENT_SLOTS * self.d_model]
+        } else {
+            self.h_states
+                .entry(s)
+                .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
+                .clone()
+        };
         let state = if self.encoder_version == 9 {
             crate::features9::encode_state9(view, None, self.knowledge.get(&s), &self.teams)
         } else if self.encoder_version == 8 {

@@ -409,7 +409,7 @@ fn collector_stops_before_applying_internal_house_proposal() {
         None,
         Some(7),
         None,
-        None,
+        crate::DecisionLogs::default(),
         None,
     )
     .unwrap();
@@ -443,7 +443,7 @@ fn collector_stops_before_applying_internal_house_proposal() {
             None,
             Some(7),
             None,
-            None,
+            crate::DecisionLogs::default(),
             None,
         )
         .unwrap();

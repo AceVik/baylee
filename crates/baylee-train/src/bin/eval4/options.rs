@@ -226,6 +226,18 @@ struct Args {
     /// and where the game stands, for `value_report4`. The outcome is in `--out`.
     #[arg(long)]
     value_log: Option<PathBuf>,
+    /// A measurement of the recurrent memory H (`netplay4::MemoryReset4`):
+    /// the seat under test forgets it before every view's observation update
+    /// (`decision`: each answer reads only its own view), or before the first
+    /// view of each turn (`turn`). Its explicit observation ledger is kept.
+    /// Evaluation only; `run.json` and the summary name it.
+    #[arg(long, value_enum)]
+    memory_reset: Option<MemoryResetArg>,
+    /// Writes `RECORD_OUT/decisions.jsonl`: one line per decision of the seat
+    /// under test, with its kind, head, answer and logit margin, for
+    /// `phase_a4 diverge`.
+    #[arg(long, requires = "record_out")]
+    decision_trace: bool,
     /// Plays `--opponent-model` under this policy (`raw`, `tactical`) instead
     /// of the seat under test's. Only for evaluation.
     #[arg(long, requires = "opponent_model")]
@@ -616,6 +628,47 @@ fn house_as_seat_refusal(args: &Args, collection: &collector::Contract) -> Optio
     }
     if args.record_out.is_some() || args.shadow_teacher.is_some() || args.search.is_some() {
         return Some("--house-as-seat is for numbers only: no records, shadow labels or search");
+    }
+    None
+}
+
+/// `--memory-reset`'s words.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum MemoryResetArg {
+    Decision,
+    Turn,
+}
+
+/// The memory reset the seat under test plays with.
+fn memory_reset(args: &Args) -> baylee_train::netplay4::MemoryReset4 {
+    use baylee_train::netplay4::MemoryReset4;
+    match args.memory_reset {
+        None => MemoryReset4::Off,
+        Some(MemoryResetArg::Decision) => MemoryReset4::Decision,
+        Some(MemoryResetArg::Turn) => MemoryReset4::Turn,
+    }
+}
+
+/// Why `--memory-reset` or `--decision-trace` cannot run with `args`, if
+/// they cannot: a reset plays another policy than the one recorded
+/// probabilities and searches assume, so it measures an evaluation only.
+fn memory_reset_refusal(args: &Args, collection: &collector::Contract) -> Option<&'static str> {
+    if args.memory_reset.is_some() {
+        if collection.purpose != collector::Purpose::Evaluation {
+            return Some("--memory-reset is a measurement: evaluation purpose only");
+        }
+        if args.legacy_v3 || args.random_policy {
+            return Some("--memory-reset needs a v4/v5 net under test");
+        }
+        if args.search.is_some()
+            || args.shadow_teacher.is_some()
+            || args.tactician_windows.is_some()
+        {
+            return Some("--memory-reset plays no search, shadow teacher or tactician");
+        }
+    }
+    if args.decision_trace && (args.legacy_v3 || args.search.is_some()) {
+        return Some("--decision-trace reads a v4/v5 net's own menus: no legacy net or search");
     }
     None
 }

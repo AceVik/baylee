@@ -45,7 +45,7 @@ fn deal(focal: usize) -> (f32, String) {
         None,
         None,
         None,
-        None,
+        crate::DecisionLogs::default(),
         None,
     )
     .unwrap();
