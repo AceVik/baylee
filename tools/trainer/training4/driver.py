@@ -480,11 +480,39 @@ def main(default_architecture="v4") -> None:
         origin = windows.refresh(net, device, args.window_state_lanes, args.thinking_steps, use_bf16,
                                  args.window_state_workers, args.board_token_budget,
                                  cache=args.window_state_cache if initial else None,
-                                 source=file_digest(init_pt) if initial else None)
+                                 source=file_digest(init_pt) if initial else None,
+                                 seats=args.window_state_seats, store_bf16=args.window_state_bf16,
+                                 run_dir=out_dir)
         net.train()
         print(f"[windows] states reason={reason} origin={origin} pieces={len(windows.pieces)} "
               f"seconds={time.perf_counter() - began:.1f} frames={windows.statistics['frames']} "
               f"pass={json.dumps(windows.timing if origin == 'computed' else {})}", flush=True)
+        if args.report_peak_rss:
+            from .memory_budget import peak_memory
+            print("[memory] after window states " + json.dumps(peak_memory()), flush=True)
+
+    if windows is not None:
+        # Before any state pass: refuse a run whose host memory would not fit.
+        from .memory_budget import check, memory_limit, window_estimate
+        store_bytes = windows.store_bytes(cfg.d_model, args.window_state_seats, args.window_state_bf16)
+        estimate = window_estimate(windows.statistics["frames"], len(windows.pieces), store_bytes, False,
+                                   args.window_state_workers, args.window_state_lanes, args.unroll,
+                                   args.num_workers, args.batch_size, args.window_length)
+        limit, source = memory_limit(args.memory_limit_gib)
+        # Store files on disk: a new initial cache, and the run's own store once
+        # the weights below the heads change (a later epoch or a refresh).
+        cache = Path(args.window_state_cache).expanduser() if args.window_state_cache and args.init else None
+        stores = [] if cache is None or cache.exists() else [(cache.parent, store_bytes)]
+        frozen = partial is not None and upstream_frozen(net)
+        if cache is None or (not frozen and (args.epochs > 1 or args.window_state_refresh > 0)):
+            stores.append((out_dir, store_bytes))
+        total = check(estimate, limit, args.memory_budget_fraction, stores)
+        print("[memory] budget " + json.dumps(dict(estimate_gib=round(total / 2**30, 2), limit_gib=round(limit / 2**30, 2),
+                                                    limit_source=source, fraction=args.memory_budget_fraction,
+                                                    store_gib=round(store_bytes / 2**30, 2),
+                                                    store_dirs=[str(d) for d, _ in stores],
+                                                    holders_gib={k: round(v / 2**30, 2) for k, v in estimate.items()})),
+              flush=True)
 
     t0 = time.perf_counter()
     stop = False
@@ -712,6 +740,11 @@ def main(default_architecture="v4") -> None:
             if stop:
                 break
 
+    if windows is not None:
+        windows.close()
+    if args.report_peak_rss:
+        from .memory_budget import peak_memory
+        print("[memory] at end " + json.dumps(peak_memory()), flush=True)
     profile.finish(command=dict(batch_size=args.batch_size, unroll=args.unroll, freeze_trunk=args.freeze_trunk,
                                 passive_grad_window=args.passive_grad_window, window_burn_in=args.window_burn_in,
                                 window_length=args.window_length, window_entity_buckets=args.window_entity_buckets,
