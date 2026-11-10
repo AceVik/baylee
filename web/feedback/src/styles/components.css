@@ -795,13 +795,13 @@ input.full {
 
 /* Number columns: the term left, the number right, never broken. */
 .facts.stat-facts,
-.facts.invite-facts,
+.facts.block-facts,
 .facts.llm-facts {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .facts.stat-facts dd,
-.facts.invite-facts dd,
+.facts.block-facts dd,
 .facts.llm-facts dd {
   text-align: right;
   white-space: nowrap;

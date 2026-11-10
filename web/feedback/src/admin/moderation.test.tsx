@@ -276,8 +276,6 @@ describe("on the admin pages", () => {
     has_email: false,
     confirmed: false,
     lang: "de",
-    by_key: false,
-    key_note: null,
     terms_version: null,
     decks: 0,
     games: 0,

@@ -74,59 +74,6 @@ stats-unlimited = unlimited
 stats-agentGames = games on agents
 stats-version = Build
 stats-registration = Registration
-stats-keys = Beta keys
-stats-activeKeys = Active keys
-stats-usesLeft = uses left
-stats-admitted = Accounts admitted
-stats-usedUp = used up
-stats-expired = expired
-stats-revoked = revoked
-
-invites-title = Closed beta keys
-invites-create = Make keys
-invites-count = How many
-invites-uses = Accounts per key
-invites-expires = Expires
-invites-never = Never
-invites-hours12 = In 12 hours
-invites-day1 = In 1 day
-invites-days7 = In 7 days
-invites-days30 = In 30 days
-invites-days90 = In 90 days
-invites-note = Note (who it is for)
-invites-notePlaceholder = e.g. Max
-invites-making = Making…
-invites-made =
-    { $n ->
-        [one] { $n } new key: shown only now
-       *[other] { $n } new keys: shown only now
-    }
-invites-madeHint = Only a hash of each key is kept. Copy them before you leave this page.
-invites-copy = Copy
-invites-copyAll = Copy all
-invites-copied = Copied
-invites-share = Share
-invites-done = Done
-invites-list = All keys
-invites-none = No keys yet.
-invites-created = Made
-invites-state = State
-invites-usesLeft = Uses left
-invites-admitted = Admitted
-invites-expiresAt = Expires
-invites-noteColumn = Note
-invites-revoke = Revoke…
-invites-revokeConfirm = Revoke this key? Nobody can use it after this.
-invites-revokeYes = Revoke for good
-invites-revokeNo = Keep it
-invites-revoked = Key revoked.
-invites-neverExpires = never
-invites-noKeyShown = Keys are not listed: only their hashes are kept.
-
-state-active = active
-state-used_up = used up
-state-expired = expired
-state-revoked = revoked
 
 audit-title = Recent changes
 audit-none = Nothing changed here yet.
@@ -135,7 +82,6 @@ sec-label = Admin sections
 sec-overview = Overview
 sec-live = Live
 sec-accounts = Accounts
-sec-keys = Beta keys
 
 admin-auto = Auto refresh
 admin-retry = Try again
@@ -186,7 +132,6 @@ stats-avgGame = Average game (30 days)
 stats-data = Data
 stats-guestsNew = New guests
 stats-withEmail = with an address
-stats-byKey = admitted by a key
 stats-awaitingEngine = seats awaiting an engine
 stats-reports = Reports
 
@@ -263,7 +208,6 @@ acc-prev = Previous
 acc-next = Next
 acc-never = —
 acc-activeHint = From the session's last renewal: accurate to 6 hours for an account, a day for a guest.
-acc-byKey = beta key
 acc-clear = Clear
 acc-tagFilter = Only the account tagged #{ $tag }
 
@@ -312,9 +256,6 @@ det-emailConfirmed = confirmed { $when }
 det-terms = Terms of use
 det-termsNone = not accepted
 det-termsAccepted = { $version }, { $when }
-det-key = Beta key
-det-keyNone = none
-det-keyUsed = yes
 det-now = Right now
 det-offline = offline
 det-openTable = Show on Live
@@ -332,8 +273,6 @@ det-houseShort = House AI
 det-notFound = There is no such account (any more).
 det-lasted = lasted { $d }
 det-updated = changed { $when }
-
-keys-summary = { $active } active · { $left } uses left · { $admitted } admitted
 
 status-new = New
 status-triaged = Triaged

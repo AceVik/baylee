@@ -477,12 +477,10 @@
     if (!info || typeof info.name !== "string") return;
     setKV("gateway-card", "name", [document.createTextNode(info.name)]);
     if (info.version) setKV("gateway-card", "version", [el("code", { text: String(info.version).split(" ")[0] })]);
-    var reg = info.registration;
-    var words = reg === "invite" ? t("closed beta: a new account or guest needs a key", "geschlossene Beta: neues Konto oder Gast braucht einen Schlüssel")
-      : reg === "off" ? t("no new accounts", "keine neuen Konten")
-      : t("open", "offen");
+    // `off`, or open: anything else, a word this page does not know included.
+    var words = info.registration === "off" ? t("no new accounts", "keine neuen Konten") : t("open", "offen");
     setKV("gateway-card", "registration", [words]);
-    stat("stat-gateway", [el("span", { class: "dot ok", "aria-hidden": "true" }), reg === "invite" ? t("up, closed beta", "erreichbar, geschlossene Beta") : t("up", "erreichbar")]);
+    stat("stat-gateway", [el("span", { class: "dot ok", "aria-hidden": "true" }), t("up", "erreichbar")]);
   });
   gw("/health").then(function (h) {
     if (!h || !h.games) return;

@@ -17,9 +17,19 @@ import {
   type LlmState,
   type SeatHost,
 } from "../api";
-import { formatAgo, formatCount, formatDuration, formatWhen, localeOf, t, type Key, type Lang } from "../i18n";
+import { formatAgo, formatCount, formatDuration, localeOf, t, type Key, type Lang } from "../i18n";
 import { AccessPanel } from "./ModelAccess";
-import { Badge, describe, Freshness, LIVE_MS, Panel, useNow, useVisibleInterval, type Tone } from "./shared";
+import {
+  Badge,
+  ConsoleChanges,
+  describe,
+  Freshness,
+  LIVE_MS,
+  Panel,
+  useNow,
+  useVisibleInterval,
+  type Tone,
+} from "./shared";
 
 const STATE_TONE: Record<LlmState, Tone> = {
   available: "ok",
@@ -1387,23 +1397,7 @@ export function Models({ lang }: { lang: Lang }) {
         </Panel>
       )}
 
-      <Panel id="llm-audit-title" title={t(lang, "audit.title")} className="audit-panel">
-        {changes.length === 0 ? (
-          <p className="empty">{t(lang, "audit.none")}</p>
-        ) : (
-          <ol className="audit console-audit">
-            {changes.map((c) => (
-              <li key={`${c.at}-${c.action}-${c.detail ?? ""}`}>
-                <span className="muted" title={formatWhen(lang, c.at)}>
-                  {formatAgo(lang, c.at, now)}
-                </span>{" "}
-                <strong>{c.actor}</strong> <Badge>{c.action.replace(/^gateway\.llm\./, "")}</Badge>
-                {c.detail !== null && <span className="muted small audit-detail mono"> {c.detail}</span>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Panel>
+      <ConsoleChanges lang={lang} id="llm-audit-title" changes={changes} now={now} strip="gateway.llm." mono />
 
       {asking !== null && <ConfirmDialog lang={lang} ask={asking} onClose={closeAsk} />}
       {editing !== null && hosts !== null && (

@@ -64,7 +64,6 @@ export function AccountDetail({ lang, id }: { lang: Lang; id: string }) {
                 <Badge tone={detail.guest ? "muted" : "accent"}>
                   {t(lang, detail.guest ? "acc.guest" : "acc.registered")}
                 </Badge>
-                {detail.by_key && <Badge tone="accent">{t(lang, "acc.byKey")}</Badge>}
                 {detail.ban != null && <Badge tone="danger">{t(lang, "mod.banned")}</Badge>}
               </p>
             </div>
@@ -135,10 +134,6 @@ export function AccountDetail({ lang, id }: { lang: Lang; id: string }) {
                           version: detail.terms_version,
                           when: detail.terms_accepted_at === null ? "" : formatWhen(lang, detail.terms_accepted_at),
                         }),
-                  ],
-                  [
-                    t(lang, "det.key"),
-                    detail.by_key ? (detail.key_note ?? t(lang, "det.keyUsed")) : t(lang, "det.keyNone"),
                   ],
                 ]}
               />
