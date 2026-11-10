@@ -26,19 +26,19 @@ const SEND: f32 = 3.0;
 
 /// The attackers the sampler would send on these logits: its greedy reading.
 fn sent(cands: &EncodedCandidates4, logits: &[f32], required: &[ObjectId]) -> Vec<ObjectId> {
-    let mut best: BTreeMap<ObjectId, (f32, f32, usize)> = BTreeMap::new();
+    let mut best: BTreeMap<ObjectId, (f32, f32)> = BTreeMap::new();
     for (cand, &logit) in cands.candidates.iter().zip(logits) {
         if let Some(id) = cand.object_id {
-            let entry = best.entry(id).or_insert((f32::NEG_INFINITY, 0.0, 0));
+            let entry = best.entry(id).or_insert((f32::NEG_INFINITY, 0.0));
             entry.0 = entry.0.max(logit);
             entry.1 += 1.0 / (1.0 + (-logit).exp());
-            entry.2 += 1;
         }
     }
+    // The sampler's greedy reading (`features4::sampling`), which sums the
+    // chances over an attacker's defenders.
     best.into_iter()
-        .filter(|(id, (top, chance, cnt))| {
-            let mean_chance = *chance / ((*cnt).max(1) as f32);
-            required.contains(id) || *top > 0.0 || (mean_chance > 0.50 && *top > -0.65)
+        .filter(|(id, (top, chance))| {
+            required.contains(id) || *top > 0.0 || (*chance > 0.50 && *top > -0.65)
         })
         .map(|(id, _)| id)
         .collect()
