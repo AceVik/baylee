@@ -11,6 +11,10 @@
 //! Within a block the runs go table by table, seed set by seed set, arm by arm,
 //! model by model: every model's run of one arm lands before the next arm, so
 //! the pairs a block exists for are readable as early as possible.
+//!
+//! Several specs (`--spec A --spec B`) make one plan: their runs in that
+//! order, each on its own runtime, under the first spec's execution root and
+//! working directory. Two runtimes of one change are planned that way.
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::atomic_json;
 use clap::{Parser, Subcommand};
@@ -30,9 +34,9 @@ struct Args {
 enum Command {
     /// Writes the `train_ops pipeline` plan of a spec's runs not yet done.
     Plan {
-        /// The matrix spec (JSON).
-        #[arg(long)]
-        spec: PathBuf,
+        /// The matrix specs (JSON), their runs played in this order.
+        #[arg(long, required = true)]
+        spec: Vec<PathBuf>,
         /// Where the plan goes.
         #[arg(long)]
         out: PathBuf,
@@ -248,18 +252,30 @@ fn stages(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Vec<Value>> {
     Ok(stages)
 }
 
-fn plan(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Value> {
-    validate(spec)?;
-    let stages = stages(spec, done)?;
-    ensure!(!stages.is_empty(), "every run of the spec is done");
+fn plan(specs: &[Spec], done: &dyn Fn(&Path) -> bool) -> Result<Value> {
+    let first = specs.first().context("a plan needs a spec")?;
+    let mut stages = Vec::new();
+    for spec in specs {
+        validate(spec)?;
+        stages.extend(self::stages(spec, done)?);
+    }
+    ensure!(!stages.is_empty(), "every run of the specs is done");
+    let mut names = BTreeSet::new();
+    for stage in &stages {
+        let name = stage["name"].as_str().unwrap_or_default();
+        ensure!(
+            names.insert(name.to_owned()),
+            "two specs plan the run {name}"
+        );
+    }
     let total: f64 = stages
         .iter()
         .filter_map(|stage| stage["timeout_seconds"].as_f64())
         .sum();
     Ok(json!({
         "version": 1,
-        "root": spec.root.join(&spec.execution),
-        "cwd": spec.cwd,
+        "root": first.root.join(&first.execution),
+        "cwd": first.cwd,
         "total_timeout_seconds": total,
         "stages": stages,
     }))
@@ -269,10 +285,16 @@ fn main() -> Result<()> {
     let args = Args::parse();
     match args.command {
         Command::Plan { spec, out } => {
-            let text = std::fs::read_to_string(&spec)
-                .with_context(|| format!("read {}", spec.display()))?;
-            let spec: Spec = serde_json::from_str(&text).context("parse the spec")?;
-            let plan = plan(&spec, &|path: &Path| path.exists())?;
+            let specs: Vec<Spec> = spec
+                .iter()
+                .map(|path| {
+                    let text = std::fs::read_to_string(path)
+                        .with_context(|| format!("read {}", path.display()))?;
+                    serde_json::from_str(&text)
+                        .with_context(|| format!("parse the spec {}", path.display()))
+                })
+                .collect::<Result<_>>()?;
+            let plan = plan(&specs, &|path: &Path| path.exists())?;
             let stages = plan["stages"].as_array().map_or(0, Vec::len);
             atomic_json(&out, &plan)?;
             println!(
@@ -320,7 +342,7 @@ mod tests {
 
     #[test]
     fn runs_go_arm_by_arm_and_every_model_of_an_arm_lands_together() {
-        let plan = plan(&spec(), &|_| false).unwrap();
+        let plan = plan(&[spec()], &|_| false).unwrap();
         assert_eq!(
             names(&plan),
             [
@@ -337,7 +359,7 @@ mod tests {
 
     #[test]
     fn a_run_carries_its_table_seed_and_arm() {
-        let plan = plan(&spec(), &|_| false).unwrap();
+        let plan = plan(&[spec()], &|_| false).unwrap();
         let stage = &plan["stages"][5];
         let command: Vec<&str> = stage["command"]
             .as_array()
@@ -365,7 +387,7 @@ mod tests {
     #[test]
     fn a_done_run_is_left_out_so_a_new_plan_resumes() {
         let done = |path: &Path| path.ends_with("eval-r1-raw-1v1-test.json");
-        let plan = plan(&spec(), &done).unwrap();
+        let plan = plan(&[spec()], &done).unwrap();
         assert_eq!(names(&plan)[0], "gen4s1-raw-1v1-test");
         assert_eq!(names(&plan).len(), 5);
     }
@@ -375,21 +397,43 @@ mod tests {
         let mut spec = spec();
         let model = spec.models.remove("r1").unwrap();
         spec.models.insert("r1-4eb".into(), model);
-        assert!(plan(&spec, &|_| false).is_err());
+        assert!(plan(std::slice::from_ref(&spec), &|_| false).is_err());
     }
 
     #[test]
     fn the_matrix_sets_the_model_and_seats_itself() {
         let mut spec = spec();
         spec.common.push("--seats".into());
-        assert!(plan(&spec, &|_| false).is_err());
+        assert!(plan(std::slice::from_ref(&spec), &|_| false).is_err());
     }
 
     #[test]
     fn an_unknown_arm_is_named() {
         let mut spec = spec();
         spec.blocks[0].arms.push("search".into());
-        let error = plan(&spec, &|_| false).unwrap_err().to_string();
+        let error = plan(std::slice::from_ref(&spec), &|_| false)
+            .unwrap_err()
+            .to_string();
         assert!(error.contains("search"), "{error}");
+    }
+
+    /// Two runtimes of one change: the second spec's runs follow the first's,
+    /// each with its own `eval4`, under the first spec's execution root.
+    #[test]
+    fn two_specs_make_one_plan_in_order() {
+        let mut other = spec();
+        other.runtime = PathBuf::from("/old");
+        other.execution = "execution-b".into();
+        other.models = BTreeMap::from([("r1old".to_owned(), PathBuf::from("/m/r1"))]);
+        other.blocks.truncate(1);
+        other.blocks[0].models = vec!["r1old".into()];
+        let plan = plan(&[spec(), other], &|_| false).unwrap();
+        let names = names(&plan);
+        assert_eq!(names.len(), 8);
+        assert_eq!(names[6..], ["r1old-raw-1v1-test", "r1old-tac-1v1-test"]);
+        assert_eq!(plan["stages"][7]["command"][0], "/old/eval4");
+        assert_eq!(plan["root"], "/out/execution-a");
+        // The same run planned twice is refused.
+        assert!(super::plan(&[spec(), spec()], &|_| false).is_err());
     }
 }
