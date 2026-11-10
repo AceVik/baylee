@@ -247,6 +247,7 @@ fn recorded_grouped_attack_preserves_exact_neural_mask_and_lp_but_house_labels_s
                     },
                     free_mask: free.clone(),
                     pick_sequence: sequence.clone(),
+                    exploration: None,
                 }
             } else {
                 RolloutStepSidecar4::default()

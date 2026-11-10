@@ -151,6 +151,7 @@ fn main() -> anyhow::Result<()> {
     if let Some(refusal) = house_as_seat_refusal(&args, &collection) {
         bail!(refusal);
     }
+    let exploration = exploration_setup(&args, &collection)?;
     let mut choice_guard = parse_choice_guard(&args.choice_guard)?;
     if choice_guard.is_some()
         && (!args.raw_policy
@@ -456,6 +457,11 @@ fn main() -> anyhow::Result<()> {
         if let Some(setup) = &tactician_setup {
             run["tactician"] = setup.metadata();
         }
+        if let Some((_, contract)) = &exploration {
+            // Only exploring runs name it: their records are exploration
+            // records, outcomes their only labels.
+            run["exploration"] = json!(contract);
+        }
         if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -566,6 +572,9 @@ fn main() -> anyhow::Result<()> {
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
         let random_policy = args.random_policy;
         let tactician_setup = tactician_setup.clone();
+        let explore = exploration
+            .as_ref()
+            .map(|(rules, contract)| (*rules, contract.epsilon));
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -588,6 +597,10 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(bias) = menu_payable {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
+            }
+            if let Some((rules, epsilon)) = explore {
+                let explorer = baylee_train::netplay4::RuleExplorer4::new(rules, epsilon)?;
+                anyhow::ensure!(net.set_explorer(explorer), "--explore-rules needs a net");
             }
             let mut tactician_sink = None;
             if let Some(setup) = &tactician_setup {
@@ -692,6 +705,8 @@ fn main() -> anyhow::Result<()> {
                     game_search.as_mut(),
                     value_log.as_deref(),
                 )?;
+                // The learner's mixture stream this game: its seed and draws.
+                let game_exploration = net.exploration_game();
 
                 if let Some((f, offset)) = &mut shard_file {
                     diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
@@ -732,6 +747,10 @@ fn main() -> anyhow::Result<()> {
                     if let Some(search) = &game_search {
                         // Only searched runs name it, as run.json does.
                         entry["search_events"] = json!(search.events);
+                    }
+                    if let Some(game) = &game_exploration {
+                        // Only exploring runs name it, as run.json does.
+                        entry["exploration"] = json!(game);
                     }
                     let line = serde_json::to_string(&entry)?;
                     *offset += len;
@@ -812,6 +831,13 @@ fn main() -> anyhow::Result<()> {
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
                 if let Some(search) = &game_search {
                     st.search.add(&search.tally);
+                }
+                if let Some(game) = &game_exploration {
+                    st.exploration_draws += u64::from(game.draws);
+                    st.exploration_played += u64::from(game.played);
+                    if let Some(deal) = st.deal_details.last_mut() {
+                        deal["exploration"] = json!(game);
+                    }
                 }
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
@@ -982,6 +1008,10 @@ fn main() -> anyhow::Result<()> {
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
     summary["random_policy"] = json!(args.random_policy);
+    if let Some((_, contract)) = &exploration {
+        summary["exploration"] = json!({"contract": contract,
+            "explored_decisions": st.exploration_draws, "rule_answers_played": st.exploration_played});
+    }
     summary["tactician"] = tactician_setup.as_ref().map_or(
         Value::Null,
         |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),

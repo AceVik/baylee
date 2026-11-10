@@ -48,6 +48,11 @@ pub struct RolloutStepSidecar4 {
     /// Exact rollout `pick_sequence` visit order.
     #[serde(default)]
     pub pick_sequence: Vec<u16>,
+    /// `eval4 --explore-rules`: the behaviour mixture at an explored
+    /// learner decision. Absent, and absent from the record's bytes, in
+    /// every other step and run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exploration: Option<baylee_train_ops::exploration::StepExploration>,
 }
 
 /// One v4 trajectory step (`Step4`) for supervised imitation, auxiliary heads,

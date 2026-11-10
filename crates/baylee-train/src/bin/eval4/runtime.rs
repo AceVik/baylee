@@ -64,6 +64,18 @@ trait EvaluationPlayer {
     ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
         Vec::new()
     }
+    /// Sets `--explore-rules` on the learner, which only a net can honour.
+    fn set_explorer(&mut self, _explorer: baylee_train::netplay4::RuleExplorer4) -> bool {
+        false
+    }
+    /// The latest answer's exploration record, taken.
+    fn take_exploration(&mut self) -> Option<baylee_train_ops::exploration::StepExploration> {
+        None
+    }
+    /// The current game's mixture stream, when the learner explores.
+    fn exploration_game(&self) -> Option<baylee_train_ops::exploration::GameExploration> {
+        None
+    }
     /// What `--menu-payable` counted since this was last asked.
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
@@ -140,6 +152,16 @@ impl EvaluationPlayer for NetPlayer4 {
         &mut self,
     ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
         Self::take_tactician_records(self)
+    }
+    fn set_explorer(&mut self, explorer: baylee_train::netplay4::RuleExplorer4) -> bool {
+        Self::set_explorer(self, explorer);
+        true
+    }
+    fn take_exploration(&mut self) -> Option<baylee_train_ops::exploration::StepExploration> {
+        Self::take_exploration(self)
+    }
+    fn exploration_game(&self) -> Option<baylee_train_ops::exploration::GameExploration> {
+        Self::exploration_game(self)
     }
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         Self::take_menu_stats(self)

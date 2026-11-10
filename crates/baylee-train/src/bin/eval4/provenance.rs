@@ -141,3 +141,108 @@ mod producer_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod exploration_tests {
+    use super::*;
+
+    fn on_policy(extra: &[&str]) -> Result<Args, clap::Error> {
+        let mut argv = vec![
+            "eval4",
+            "--model",
+            "m",
+            "--out",
+            "o",
+            "--record-out",
+            "r",
+            "--collection-purpose",
+            "on-policy-training",
+            "--raw-policy",
+            "--temperature",
+            "0.7",
+        ];
+        argv.extend_from_slice(extra);
+        Args::try_parse_from(argv)
+    }
+
+    fn identity() -> ModelIdentity {
+        ModelIdentity {
+            model_family: "v5",
+            model_version: 5,
+            encoder_version: 10,
+            global_feat_width: None,
+            critic_semantics: None,
+            architecture: Some("baylee_ai_v5_relational_v2".into()),
+            onnx_sha256: "a".repeat(64),
+            depth_graph_sha256: std::collections::BTreeMap::from([
+                (0, "b".repeat(64)),
+                (2, "c".repeat(64)),
+            ]),
+            metadata_sha256: "d".repeat(64),
+            source_checkpoint_sha256: Some("e".repeat(64)),
+            precision: None,
+        }
+    }
+
+    fn setup(
+        args: &Args,
+    ) -> anyhow::Result<
+        Option<(
+            baylee_train::netplay4::TacticRules4,
+            baylee_train_ops::exploration::RunExploration,
+        )>,
+    > {
+        let contract = collector::Contract::new(args, Some(&identity()))?;
+        exploration_setup(args, &contract)
+    }
+
+    #[test]
+    fn without_the_flags_a_collection_explores_nothing() {
+        assert!(setup(&on_policy(&[]).unwrap()).unwrap().is_none());
+    }
+
+    #[test]
+    fn measured_explores_with_the_bundle_and_says_so() {
+        let args = on_policy(&["--explore-rules", "measured", "--explore-epsilon", "0.2"]).unwrap();
+        let (rules, contract) = setup(&args).unwrap().unwrap();
+        let mut names = rules.names();
+        names.sort_unstable();
+        let mut bundle: Vec<&str> = baylee_train_ops::measured::RULE_GROUPS.split(',').collect();
+        bundle.sort_unstable();
+        assert_eq!(names, bundle);
+        assert_eq!(contract.rules, baylee_train_ops::measured::RULE_GROUPS);
+        assert_eq!(contract.records, "exploration");
+        assert_eq!(contract.labels, "outcomes_only");
+        assert_eq!(contract.proposers.len(), 2 + rules.names().len());
+        contract.validate().unwrap();
+    }
+
+    #[test]
+    fn exploration_is_an_on_policy_collection_of_the_raw_learner_only() {
+        for (extra, why) in [
+            (&["--explore-rules", "mass"][..], "ε is required"),
+            (&["--explore-epsilon", "0.2"][..], "groups are required"),
+        ] {
+            assert!(on_policy(extra).is_err(), "{why}");
+        }
+        for epsilon in ["0", "1", "1.5", "NaN"] {
+            let args = on_policy(&["--explore-rules", "mass", "--explore-epsilon", epsilon]).unwrap();
+            assert!(setup(&args).is_err(), "ε {epsilon}");
+        }
+        let args = on_policy(&["--explore-rules", "nope", "--explore-epsilon", "0.2"]).unwrap();
+        assert!(setup(&args).is_err(), "an unknown group");
+        let mut args = on_policy(&["--explore-rules", "mass", "--explore-epsilon", "0.2"]).unwrap();
+        args.collection_purpose = collector::Purpose::Evaluation;
+        assert!(setup(&args).is_err(), "an evaluation plays what it measures");
+        let args = on_policy(&[
+            "--explore-rules",
+            "mass",
+            "--explore-epsilon",
+            "0.2",
+            "--tactics-rules",
+            "mass",
+        ])
+        .unwrap();
+        assert!(exploration_setup(&args, &collector::Contract::new(&args, Some(&identity())).unwrap()).is_err());
+    }
+}
