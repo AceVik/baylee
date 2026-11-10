@@ -312,7 +312,7 @@ def train(args):
             optimizer.step()
             scheduler.step()
             step += 1
-            running += float(loss) * len(batch.window)
+            running += float(loss.detach()) * len(batch.window)
             seen += len(batch.window)
         held = evaluate(net, store, select_idx, args.eval_batch, device, cfg.passes,
                         group_windows)

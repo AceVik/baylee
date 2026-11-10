@@ -1133,6 +1133,25 @@ fits the stage-1 records instead (their `R`, the layer with no rule group, as
 the label, columns 5 and 11 zeroed on reading); `--zero-parts state,unit,look`
 reads parts of the rows as zero, to see which part carries what the label needs.
 
+**The probe, measured on 10 November** (CPU, width 256, 4 layers, `T = 1`, 14
+epochs, still rising when the cap stopped it; the stage-1 records of r1, 68,919
+decisions; the reported half of the held-out tables, 3,802 decisions, 795 with
+`N ≠ R`; the label is the layer with no rule group, so no group can be named):
+
+| Window, `N ≠ R` | Decisions | Exact | Per unit | Changed units |
+| --- | --- | --- | --- | --- |
+| attack | 439 | 54.9 % | 67.6 % | 56.8 % |
+| block | 193 | 54.4 % | 88.7 % | 58.8 % |
+| target | 163 | 41.1 % | 75.5 % | 45.4 % |
+| all | 795 | 52.0 % | 80.9 % | 54.7 % |
+
+On every decision it agrees with `R` in 87.6 % (`N` in 79.1 %); its confidence is
+calibrated (ECE 0.010). A sample of the training tables reads 56.6 % at `N ≠ R`:
+underfit, not overfit. With the trunk's embeddings read as zero the head learnt
+as fast (44 % at `N ≠ R` after four epochs, the whole head 32 %); with the look
+read as zero it stayed at 12 %: what the layer reads is in the look, not in the
+frozen embedding.
+
 **Export** (`tactician_head_v2`): `tactician.onnx` takes `rows` `[U, 2d + 128]`
 (the null row first) and gives `logits` `[U − 1]` (the last pass's) and
 `confidence` `[1]`; `T` is fixed per export (`passes`; `train_tactician_v3.py
@@ -1155,6 +1174,10 @@ at priority and stay) and the tactician at the windows, against the bundle. The
 summary's `tactician.latency` gives the tactician's cost per decision and the
 net's forward alone, by window and in all (median, p90, p99, max); it runs on
 the CPU, one intra-op thread per session, a pool of eight sessions per process.
+At width 512, 4 layers (13.9 M parameters, d = 640) a decision cost a median
+4.3 ms at `T = 1`, 8.5 ms at 2, 12.3 ms at 3 and 15.2 ms at 4 (p90 5.0, 9.8,
+13.8, 17.5 ms), almost all of it the net's forward (10 November, CPU smoke,
+4 deals per `T` on a loaded machine; the stage-1 head took 0.12 ms).
 
 ### Lookahead search (`eval4 --search K,P,H`)
 
