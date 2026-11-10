@@ -118,6 +118,15 @@ pub enum DistillSubtype4 {
 /// [`DistillSubtype4::Target`].
 pub const TARGET_GROUPS: [&str; 2] = ["side", "aim"];
 
+/// The tactical layer's rule groups in the order of their bit in a
+/// distillation dataset's fired mask (`bundle_distillation.groups`): the
+/// table of `netplay4::tactics::rules`, which a test there holds equal, kept
+/// here so that a converter built without the net reads it too.
+pub const FIRED_GROUPS: [&str; 20] = [
+    "void", "side", "mass", "gift", "race", "trip", "aim", "spend", "react", "trade", "press",
+    "walker", "chump", "keep", "land", "ping", "curve", "wall", "burn", "trick",
+];
+
 impl DistillSubtype4 {
     /// Every subtype, in code order.
     pub const ALL: [Self; 10] = [
