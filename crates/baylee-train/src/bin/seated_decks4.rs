@@ -27,14 +27,13 @@ use baylee_cards_pool as _;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
-use std::io::{BufRead as _, BufReader, Read as _, Seek as _, SeekFrom};
+use std::io::{BufRead as _, BufReader};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, ensure};
-use baylee_train::housedeck::HouseDeck;
+use baylee_train::decksplit::{Book, Cards, Match, Seat, record_seats, run_deck_keys};
 use baylee_train::working::repo_root;
 use clap::Parser;
-use flate2::read::GzDecoder;
 use serde_json::{Map, Value, json};
 
 #[derive(Parser)]
@@ -90,151 +89,8 @@ fn manifest_of(manifest: &Value, keep: &BTreeSet<&str>) -> Value {
     copy
 }
 
-/// A deck's identity across builds: its main deck and commanders, as sorted
-/// card indices (indices are never reused, `docs/card-identity.md`).
-type Cards = Vec<u32>;
-
-struct Entry {
-    split: String,
-    format: String,
-    held_out_cards: bool,
-}
-
-/// The manifest, by key and by cards.
-struct Book {
-    entries: BTreeMap<String, Entry>,
-    by_cards: BTreeMap<Cards, String>,
-    distinct: BTreeMap<String, BTreeSet<u32>>,
-    unreadable: Vec<String>,
-}
-
-/// The share of distinct cards two decks hold in common.
-fn share(mine: &BTreeSet<u32>, theirs: &BTreeSet<u32>) -> f64 {
-    let common = mine.intersection(theirs).count();
-    let all = mine.union(theirs).count().max(1);
-    #[allow(clippy::cast_precision_loss, reason = "a few hundred cards")]
-    let share = common as f64 / all as f64;
-    share
-}
-
-fn cards_of(deck: &HouseDeck) -> Cards {
-    let mut cards: Cards = deck
-        .deck
-        .main
-        .iter()
-        .chain(&deck.deck.commanders)
-        .map(|card| card.index.get())
-        .collect();
-    cards.sort_unstable();
-    cards
-}
-
-impl Book {
-    fn read(manifest: &Value, root: &Path) -> Self {
-        let mut book = Self {
-            entries: BTreeMap::new(),
-            by_cards: BTreeMap::new(),
-            distinct: BTreeMap::new(),
-            unreadable: Vec::new(),
-        };
-        for entry in manifest["decks"].as_array().into_iter().flatten() {
-            let Some(id) = entry["id"].as_str() else {
-                continue;
-            };
-            book.entries.insert(
-                id.to_owned(),
-                Entry {
-                    split: entry["split"].as_str().unwrap_or("?").to_owned(),
-                    format: entry["format"].as_str().unwrap_or("?").to_owned(),
-                    held_out_cards: entry["contains_held_out_cards"].as_bool() == Some(true),
-                },
-            );
-            let deck = entry["path"]
-                .as_str()
-                .context("no path")
-                .and_then(|path| Ok(std::fs::read_to_string(root.join(path))?))
-                .and_then(|text| HouseDeck::parse_any(id, &text));
-            match deck {
-                Ok(deck) => {
-                    let cards = cards_of(&deck);
-                    book.distinct
-                        .insert(id.to_owned(), cards.iter().copied().collect());
-                    book.by_cards.entry(cards).or_insert_with(|| id.to_owned());
-                }
-                Err(_) => book.unreadable.push(id.to_owned()),
-            }
-        }
-        book
-    }
-
-    /// The manifest deck sharing most distinct cards with `cards`, and the share.
-    fn nearest(&self, cards: &Cards) -> Option<(&str, f64)> {
-        let mine: BTreeSet<u32> = cards.iter().copied().collect();
-        self.distinct
-            .iter()
-            .map(|(id, theirs)| (id.as_str(), share(&mine, theirs)))
-            .max_by(|a, b| a.1.total_cmp(&b.1))
-    }
-}
-
-/// One seat of one game: what names it and what it held.
-struct Seat {
-    key: Option<String>,
-    cards: Option<Cards>,
-}
-
-/// How a seated deck was matched, and to which manifest deck.
-#[derive(Clone, Debug, PartialEq)]
-struct Match {
-    id: Option<String>,
-    how: String,
-}
-
-fn identify(book: &Book, seat: &Seat, near: f64, cache: &mut BTreeMap<Cards, Match>) -> Match {
-    if let Some(key) = &seat.key
-        && book.entries.contains_key(key)
-    {
-        // The same key in another corpus may hold another list: say how close.
-        let how = match (&seat.cards, book.distinct.get(key)) {
-            (Some(cards), _) if book.by_cards.get(cards) == Some(key) => "key+cards".to_owned(),
-            (Some(cards), Some(theirs)) => {
-                format!("key {:.2}", share(&cards.iter().copied().collect(), theirs))
-            }
-            _ => "key".to_owned(),
-        };
-        return Match {
-            id: Some(key.clone()),
-            how,
-        };
-    }
-    let Some(cards) = &seat.cards else {
-        return Match {
-            id: None,
-            how: "no cards".into(),
-        };
-    };
-    if let Some(id) = book.by_cards.get(cards) {
-        return Match {
-            id: Some(id.clone()),
-            how: "cards".into(),
-        };
-    }
-    cache
-        .entry(cards.clone())
-        .or_insert_with(|| match book.nearest(cards) {
-            Some((id, share)) if share >= near => Match {
-                id: Some(id.to_owned()),
-                how: format!("near {share:.2}"),
-            },
-            _ => Match {
-                id: None,
-                how: "unmatched".into(),
-            },
-        })
-        .clone()
-}
-
-/// The seats of a record's header, from the game's shard.
+/// The seats of a game's record header, from its shard (`row`'s `shard`,
+/// `offset`, `len`); `None` for a row that names no record.
 fn header_seats(run: &Path, row: &Value) -> anyhow::Result<Option<Vec<Cards>>> {
     let (Some(shard), Some(offset), Some(len)) = (
         row["shard"].as_str(),
@@ -243,33 +99,7 @@ fn header_seats(run: &Path, row: &Value) -> anyhow::Result<Option<Vec<Cards>>> {
     ) else {
         return Ok(None);
     };
-    let path = run.join("records").join(shard);
-    let mut file = File::open(&path).with_context(|| format!("opening {}", path.display()))?;
-    file.seek(SeekFrom::Start(offset))?;
-    let mut line = String::new();
-    BufReader::new(GzDecoder::new(file.take(len))).read_line(&mut line)?;
-    let header: Value = serde_json::from_str(&line)?;
-    ensure!(
-        header["kind"] == "header",
-        "{}: the record does not begin with its header",
-        path.display()
-    );
-    let seats = header["preset"]["seats"]
-        .as_array()
-        .context("a header without seats")?
-        .iter()
-        .map(|seat| {
-            let mut cards: Cards = ["deck", "commanders"]
-                .iter()
-                .flat_map(|part| seat[*part].as_array().into_iter().flatten())
-                .filter_map(|entry| entry["card"].as_u64())
-                .map(|card| u32::try_from(card).unwrap_or(u32::MAX))
-                .collect();
-            cards.sort_unstable();
-            cards
-        })
-        .collect();
-    Ok(Some(seats))
+    record_seats(&run.join("records").join(shard), offset, len).map(Some)
 }
 
 /// The keys a game's row gives its seats, if it gives any.
@@ -305,22 +135,7 @@ fn read_run(run: &Path, book: &Book, near: f64) -> anyhow::Result<(Seated, Value
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
         .unwrap_or(Value::Null);
     // The run's own deck list names a header's cards (eval4: `decks[]{key, cards}`).
-    let named: BTreeMap<Cards, String> = meta["decks"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|deck| {
-            let key = deck["key"].as_str()?;
-            let mut cards: Cards = deck["cards"]
-                .as_array()?
-                .iter()
-                .filter_map(Value::as_u64)
-                .map(|card| u32::try_from(card).unwrap_or(u32::MAX))
-                .collect();
-            cards.sort_unstable();
-            Some((cards, key.to_owned()))
-        })
-        .collect();
+    let named = run_deck_keys(&meta);
     let file = File::open(run.join("games.jsonl"))?;
     let mut seated = Seated::default();
     let mut cache = BTreeMap::new();
@@ -368,7 +183,7 @@ impl Seated {
     ) {
         let mut splits = BTreeSet::new();
         for seat in seats {
-            let found = identify(book, &seat, near, cache);
+            let found = book.identify(&seat, near, cache);
             let (name, split) = match &found.id {
                 Some(id) => (
                     id.clone(),
@@ -494,7 +309,7 @@ fn main() -> anyhow::Result<()> {
     eprintln!(
         "[seated_decks4] {} manifest decks, {} by cards, {} unreadable",
         book.entries.len(),
-        book.by_cards.len(),
+        book.by_cards(),
         book.unreadable.len()
     );
     let mut runs = args.run.clone();
@@ -624,6 +439,8 @@ fn write_never_seated(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_train::decksplit::cards_of;
+    use baylee_train::housedeck::HouseDeck;
 
     fn book() -> Book {
         let manifest = json!({"decks": [
@@ -649,13 +466,13 @@ mod tests {
             key: Some("eval/red-burn".into()),
             cards: None,
         };
-        assert_eq!(identify(&book, &by_key, 0.8, &mut cache).how, "key");
+        assert_eq!(book.identify(&by_key, 0.8, &mut cache).how, "key");
         // Another corpus's key for the same cards (a collector's `house-002`).
         let by_cards = Seat {
             key: Some("house-002".into()),
             cards: Some(azorius.clone()),
         };
-        let found = identify(&book, &by_cards, 0.8, &mut cache);
+        let found = book.identify(&by_cards, 0.8, &mut cache);
         assert_eq!(found.id.as_deref(), Some("eval/azorius-control"));
         assert_eq!(found.how, "cards");
         // One copy fewer of one card is still the same deck's lineage.
@@ -663,8 +480,7 @@ mod tests {
         cut.remove(0);
         cut.push(u32::MAX - 1);
         cut.sort_unstable();
-        let near = identify(
-            &book,
+        let near = book.identify(
             &Seat {
                 key: None,
                 cards: Some(cut),
@@ -678,7 +494,7 @@ mod tests {
             key: Some("gen-con-001".into()),
             cards: Some(vec![1, 2, 3]),
         };
-        assert_eq!(identify(&book, &stranger, 0.8, &mut cache).id, None);
+        assert_eq!(book.identify(&stranger, 0.8, &mut cache).id, None);
     }
 
     /// A pool's manifest is the original's entries, unchanged, and no other.

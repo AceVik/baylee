@@ -107,25 +107,14 @@ fn shuffle_slice<T>(items: &mut [T], rng: &mut baylee_train::deckgen::Rng) {
 }
 
 /// The house templates (`data/decks/*.txt`) `manifest` lists in another split
-/// than `split`. A template is the same deck as its manifest entry under
-/// another key (`victory` for `house/victory`), so the split that keeps the
-/// entry out of a pool keeps the template out too.
+/// than `split` (`baylee_train::decksplit::files_outside`, which `league` and
+/// `selfplay --decks` read too).
 fn templates_of_other_splits(
     manifest: &Value,
     root: &std::path::Path,
     split: &str,
 ) -> BTreeSet<PathBuf> {
-    if split.is_empty() || split == "all" {
-        return BTreeSet::new();
-    }
-    manifest["decks"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|entry| entry["split"].as_str() != Some(split))
-        .filter_map(|entry| entry["path"].as_str())
-        .filter_map(|path| fs::canonicalize(root.join(path)).ok())
-        .collect()
+    baylee_train::decksplit::files_outside(manifest, root, split)
 }
 
 /// Expands training deck variance across the manifest decks of `split` in
