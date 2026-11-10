@@ -439,6 +439,14 @@ pub(super) fn mask_non_priority_single_choice(
     }
 }
 
+/// Whether the house AI's attacker search (`baylee_ai::search::attackers`)
+/// may lift the net's attack logits in [`adjust_subset_logits`]. Off: the
+/// owner's direction of 8 November keeps the house AI an opponent and a
+/// yardstick, never a part of the trained AI's play, and hand-written rules
+/// give way to a learned tactician rather than grow. Turning it on is the
+/// owner's decision.
+const HOUSE_ATTACK_SEARCH: bool = false;
+
 /// Adjusts `SubsetPick` candidate logits before constrained subset sampling
 /// (`ChooseAttackers`, `ChooseTargets`, `DiscardChoice`, `MulliganBottom`, `ChooseCards`).
 #[allow(
@@ -634,7 +642,9 @@ pub(super) fn adjust_subset_logits(
                 }
             }
 
-            let search_attackers: BTreeSet<ObjectId> = if let Some(def_pid) = first_def_pid {
+            let search_attackers: BTreeSet<ObjectId> = if HOUSE_ATTACK_SEARCH
+                && let Some(def_pid) = first_def_pid
+            {
                 let search_eligible: Vec<ObjectId> = pos_attacker_ids
                     .iter()
                     .copied()
