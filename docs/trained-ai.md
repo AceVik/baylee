@@ -1399,11 +1399,24 @@ the policy targets: a decision answered as `Search` keeps its weight, the
 net's own unsearched decisions keep `--search-unsearched-weight` (default 0)
 of theirs, and the house's, forced answers and passive frames keep their
 frames for memory and value but no policy weight. Every run must name a
-search in its `run.json` and carry its rollout sidecar; separate
-`--val-runs` are refused. The dataset header records the weighting and each
-run's search under `search_distillation` and is not PPO-eligible. Its
-games are played by the search, so the value targets are the searched
-player's outcomes.
+search in its `run.json` and carry its rollout sidecar, and must say it was
+played by the raw policy alone: `policy_mode` raw, `choice_guard` off, no
+`tactics_rules`, not `numbers_only`. A run in tactics mode records the
+tactical layer's answer as the policy's own, so its unchanged answers would
+enter as targets, and tactical records stay out of training; a run that
+does not say is refused too. Separate `--val-runs` are refused. The dataset
+header records the weighting and each run's search under
+`search_distillation` and is not PPO-eligible. Its games are played by the
+search, so the value targets are the searched player's outcomes.
+
+**Teammates' hands in a replay (`convert4::TeamHands`).** Which hands a seat
+saw is a seat setting the record does not hold. `eval4` shares every team's
+hands on the net's tables and says so in `run.json`
+(`"team_hand_sharing": true`); `convert4` shows teammate hands in a replay
+only when the run says it shared them, none when it says `false`, and
+refuses a team game whose run does not say, so a team game of people,
+language models or a shadow seat never gives a seat's features a hand it did
+not see.
 
 ### BayleeAI v5 relational pilot
 
