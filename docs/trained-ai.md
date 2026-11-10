@@ -575,6 +575,74 @@ such as legal-target, legal-block or tutor-match relationships require a
 separately versioned, view-only encoder change; they are not silently supplied
 by the new model.
 
+### Rule proposals as exploration (`eval4 --explore-rules`)
+
+On-policy RL lets the net learn to play alone from self-play outcomes. The rule
+groups over the tactical layer (§"Rule groups over the tactical layer") take
+part only as *exploration proposals* while collecting: never a label, never at
+evaluation. Contract `rule_proposal_mixture_v1`
+(`baylee_train_ops::exploration`, `netplay4::explore`).
+
+**Collection.** `eval4 --collection-purpose on-policy-training --explore-rules
+GROUPS --explore-epsilon EPS` (a list as `--tactics-rules` reads it, `all`, or
+`measured` for the 18-group bundle; 0 < ε < 1). At every learner decision the
+raw sampler draws the net's answer N at temperature 0.7 as before; the layer
+with those groups answers R on the same logits at temperature 0, as
+`--choice-guard tactical --tactics-rules` plays it, read on copies of the net's
+stream, groups and guard, so the net's own draw is unchanged. One coin per
+explored decision comes from the mixture's own stream, seeded per game with
+the learner's policy seed xor a fixed salt. Where R differs from N and the coin
+falls under ε, R is played. Every head is covered: priority and the other
+single choices (targets, modes, mulligans), subsets (attackers, several
+targets, cards), blocker pairs and numbers. Only the learner explores; a
+self-play copy plays its own policy. Evaluations, a tactician, search, a guard
+or `--tactics-rules` refuse it.
+
+**What a step records** (`rollout_sidecar[i].exploration`): π, the net's
+probability of the executed action at 0.7, stays the behaviour log-probability
+the replay must reproduce; μ(a) = (1 − ε)·π(a) + ε·1[a = R] (μ = π where the
+layer has no answer that decodes exactly); `rule` (`same`, `differs`,
+`absent`), `played`, the coin and its draw index, and the proposer: `net`,
+`rule:<group>` when exactly one group changed the layer's answer, else
+`rules`. A number has no density: π is the point mass at the net's answer and
+the step claims no probability. A layer answer outside the sampler's support
+is never played. `games.jsonl` gives each game's stream (seed, draws, played);
+`run.json` says `exploration` with records `exploration` and labels
+`outcomes_only`. Without the flags no byte of a record changes.
+
+**Conversion and admission.** `convert4` checks every exploring game against
+its seeded stream (each coin, played exactly when the answer differs and the
+coin is under ε, the proposer, ln μ to the bit) and writes ln μ into the BST4
+header's reserved word: flag bit 3 marks it, bit 4/5 a same/different answer,
+bit 6 a played one, bits 8–15 the proposer's index in `meta.json`
+`behavior_mixture.proposers`. Frames without exploration keep both at zero, so
+old datasets read as before. Exploration records are no supervised data:
+`convert4` refuses them for shadow, LLM, live, self-imitation and
+search-distillation conversions and outside an on-policy collection, gives
+every decision of an exploring game policy weight 0 and writes
+`supervised_eligible: false`; `collection.json` names each exploring game's ε.
+`admit-policy`/`verify-admission` audit π as before and check that every
+learner decision the net answered carries μ, no other frame does, μ matches π,
+ε and the recorded proposal, and no decision weighs anything supervised; the
+receipt counts explored decisions and played answers.
+
+**Learning from it.** `train_rl4.py` and `train_policy4.py` take
+`--behavior-denominator executed_policy|behavior_mixture`; exploration data
+must name one, other data keeps π. With `behavior_mixture` ln μ is the PPO
+denominator (`behavior_lp`), π stays beside it (`executed_policy_lp`) and is
+still replayed at 0.001; the full-PPO resume contract binds which one a run
+used. The KL gate still reads `behavior_lp`, so against μ an explored row starts
+with a nonzero divergence: the learner effort chooses its anchor. A supervised
+anchor of exploration records is refused.
+
+**An iteration.** `league4 plan --spec SPEC --out PLAN` writes the pipeline of
+one RL iteration: collections (self-play with the current snapshot, historical
+runs against past snapshots, runs against a house profile), each with its deals,
+first deal seed and policy seed, all with the same optional exploration; then
+`convert4` and `admit-policy` bound to the snapshot's checkpoint. The learner
+stage is planned elsewhere. Nothing here is measured yet: it records and checks
+exploration, it claims no strength.
+
 ### Encoder 10: the side of a target candidate (November 2026)
 
 Encoder 10 is Encoder 7 with one signed value on target candidates: candidate slot
@@ -2232,7 +2300,9 @@ cards' rules, never from a card's name and never from anything the view does not
 | `burn` | burn waits for something to kill or a game to close |
 | `trick` | a pump goes off in the blocks when it turns a one-on-one fight |
 
-They answer through the tactical layer, so their records are tactical records and stay out of training. `eval4 --tactics-shadow` plays as the
+They answer through the tactical layer, so their records are tactical records and stay out of training. In on-policy collection they
+may only propose exploration (`eval4 --explore-rules`, §"Rule proposals as exploration"): an answer played and recorded with its
+behaviour probability, never a label. `eval4 --tactics-shadow` plays as the
 layer plays and counts per deal what each group alone would have changed. A deal a group does not touch is the same game with it on, so
 `phase_a4 group-plan` replays only the deals a group reaches (`eval4 --only-deals`) and `phase_a4 group-table` reads the whole paired
 comparison from the shadow run and those replays.
