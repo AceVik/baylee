@@ -3,6 +3,7 @@ pub mod arms;
 pub mod calibration;
 pub mod decks;
 pub mod diagnostics;
+pub mod ladder;
 mod paired;
 pub mod search_parity;
 mod summary;
