@@ -24,6 +24,59 @@ const RENEW_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
 /// How soon a failed renewal is tried again (a Central restarting, or not
 /// renewing yet).
 const RENEW_RETRY: std::time::Duration = std::time::Duration::from_mins(1);
+/// How soon Central's `/v1/ws` push socket is dialled again after a dial
+/// that failed or a socket that closed; each failure in a row doubles it.
+const REDIAL_FIRST: std::time::Duration = std::time::Duration::from_secs(2);
+/// The longest wait between two dials of the push socket: a Central that is
+/// down costs one thread and handshake a minute, not one every 2 s.
+const REDIAL_MAX: std::time::Duration = std::time::Duration::from_mins(1);
+/// How long a push socket must have stood live for its close to start the
+/// redials over at [`REDIAL_FIRST`]. Saying "ready" is not enough: a Central
+/// that accepts and closes again at once is backed off like one that refuses.
+const REDIAL_SETTLED: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// The pace of the push socket's redials.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Redial {
+    /// The wait the next failure gets.
+    wait: std::time::Duration,
+    /// Since when the socket standing now has said it is live.
+    live_since: Option<std::time::Instant>,
+}
+
+impl Default for Redial {
+    fn default() -> Self {
+        Self {
+            wait: REDIAL_FIRST,
+            live_since: None,
+        }
+    }
+}
+
+impl Redial {
+    /// The socket standing says it is live (its first saying counts).
+    fn live(&mut self, now: std::time::Instant) {
+        self.live_since.get_or_insert(now);
+    }
+
+    /// When to dial next, after a dial that failed or a socket that closed
+    /// at `now`: the wait doubles each time, unless the socket that closed
+    /// stood live for [`REDIAL_SETTLED`].
+    fn next_dial(&mut self, now: std::time::Instant) -> std::time::Instant {
+        let stood = self
+            .live_since
+            .take()
+            .map_or(std::time::Duration::ZERO, |at| {
+                now.saturating_duration_since(at)
+            });
+        if stood >= REDIAL_SETTLED {
+            self.wait = REDIAL_FIRST;
+        }
+        let wait = self.wait;
+        self.wait = (self.wait * 2).min(REDIAL_MAX);
+        now + wait
+    }
+}
 
 struct PendingSave {
     gateways: Vec<String>,
@@ -226,15 +279,17 @@ impl Handle {
             .name("central-account".into())
             .spawn(move || {
                 let fallback_interval = std::time::Duration::from_secs(10);
-                let redial_every = std::time::Duration::from_secs(2);
+                let mut redial = Redial::default();
                 let mut checked = std::time::Instant::now();
                 let mut renew_at = std::time::Instant::now() + RENEW_EVERY;
                 let mut ws = None;
                 let mut next_dial = std::time::Instant::now();
                 loop {
                     if ws.is_none() && std::time::Instant::now() >= next_dial {
-                        next_dial = std::time::Instant::now() + redial_every;
                         ws = dial_central_ws(&account);
+                        if ws.is_none() {
+                            next_dial = redial.next_dial(std::time::Instant::now());
+                        }
                     }
                     if let Some((_, rx)) = &ws {
                         let (disconnected, revoked) = drain_central_ws(
@@ -259,7 +314,9 @@ impl Handle {
                                 worker_presence_seq.fetch_add(1, Ordering::AcqRel);
                             }
                             ws = None;
-                            next_dial = std::time::Instant::now() + redial_every;
+                            next_dial = redial.next_dial(std::time::Instant::now());
+                        } else if worker_ws_live.load(Ordering::Acquire) {
+                            redial.live(std::time::Instant::now());
                         }
                     }
                     if !worker_ws_live.load(Ordering::Acquire)
@@ -1212,6 +1269,29 @@ pub(crate) fn demo_central_lobby(state: &mut LobbyState) {
 mod tests {
     use super::*;
     use baylee_client_core::lobby::{LobbyRequest, gateway_info::Probe};
+
+    #[test]
+    fn the_push_socket_backs_off_while_it_fails_and_starts_over_once_it_stood() {
+        use std::time::{Duration, Instant};
+        let t = Instant::now();
+        let mut redial = Redial::default();
+        let waits: Vec<Duration> = (0..8).map(|_| redial.next_dial(t) - t).collect();
+        assert_eq!(waits[0], REDIAL_FIRST);
+        assert_eq!(waits[1], REDIAL_FIRST * 2);
+        assert!(waits.windows(2).all(|w| w[0] <= w[1]));
+        assert_eq!(waits[7], REDIAL_MAX, "capped, never every 2 s for ever");
+        // Live, said ready, closed a second later: still backed off.
+        redial.live(t);
+        let closed = t + Duration::from_secs(1);
+        assert_eq!(redial.next_dial(closed) - closed, REDIAL_MAX);
+        // A socket that stood starts the redials over; only its first
+        // saying it is live counts.
+        redial.live(t);
+        redial.live(t + REDIAL_SETTLED);
+        let closed = t + REDIAL_SETTLED;
+        assert_eq!(redial.next_dial(closed) - closed, REDIAL_FIRST);
+        assert_eq!(redial.next_dial(closed) - closed, REDIAL_FIRST * 2);
+    }
 
     #[test]
     fn central_account_deletion_never_sends_a_password_to_the_gateway() {

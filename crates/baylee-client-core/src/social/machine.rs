@@ -769,6 +769,7 @@ impl Social {
                             ],
                             until_answered: true,
                             about: Some(ToastAbout::FriendRequest(tag)),
+                            line: None,
                         }));
                         if self.status != Status::Dnd {
                             out.push(Effect::Sound(ChatCue::FriendRequest));
@@ -830,6 +831,7 @@ impl Social {
                         ],
                         until_answered: true,
                         about: Some(ToastAbout::GroupInvite(id)),
+                        line: None,
                     }));
                 }
                 self.refresh_candidates();
@@ -1147,6 +1149,21 @@ impl Social {
     #[must_use]
     pub fn conversation(&self, id: &ConvId) -> Option<&Conversation> {
         self.convs.iter().find(|c| c.id == *id)
+    }
+
+    /// Who wrote the message that raised `toast` and what the toast shows
+    /// of it ([`Body::preview`]): `None` without such a line, once it is
+    /// gone from memory, when it is hidden (an ignored sender) or mine.
+    #[must_use]
+    pub fn toast_line(&self, toast: &ChatToast) -> Option<(Person, Body)> {
+        let key = toast.line.as_ref()?;
+        let line = self.conversation(&key.conv)?.line(&key.id)?;
+        match &line.kind {
+            LineKind::Message { from, mine, body } if !*mine && !line.hidden => {
+                Some((from.clone(), body.preview()))
+            }
+            _ => None,
+        }
     }
 
     /// The All tab: the latest `limit` lines of every conversation, in
@@ -1733,6 +1750,7 @@ fn toast(phrase: ChatPhrase, args: Vec<String>) -> Effect {
         actions: Vec::new(),
         until_answered: false,
         about: None,
+        line: None,
     })
 }
 
@@ -1741,16 +1759,6 @@ fn refusal_toast(status: u16) -> Effect {
         429 => toast(ChatPhrase::ToastSlowDown, vec![]),
         _ => toast(ChatPhrase::ToastRefused, vec![]),
     }
-}
-
-/// A toast's preview of a text: one line, at most 80 characters.
-fn preview(text: &str) -> String {
-    let line: String = text.replace('\n', " ");
-    let mut out: String = line.chars().take(80).collect();
-    if line.chars().count() > 80 {
-        out.push('…');
-    }
-    out
 }
 
 /// `dd.mm.` of a time (UTC; the shell draws local times itself).

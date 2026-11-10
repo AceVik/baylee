@@ -7,6 +7,12 @@ use std::{
     collections::BTreeSet,
     sync::{Mutex, mpsc},
 };
+
+/// How often the inbox and contacts are read while Central's push socket is
+/// live, in milliseconds. A push wakes a read at once; this is the floor
+/// under a socket that stopped pushing without closing.
+const LIVE_POLL_MS: u64 = 60_000;
+
 pub(in crate::social) fn tick(host: &mut SocialHost, now: u64) {
     if host.machine.is_none() {
         host.central = None;
@@ -120,6 +126,10 @@ fn sync_ws_signals(host: &mut SocialHost, now: u64) {
     } else if !bridge.handle.ws_live() && bridge.next == u64::MAX {
         bridge.next = now + 2000;
         bridge.metadata_at = now + 5000;
+    } else if bridge.next == u64::MAX && now >= bridge.live_poll_at {
+        // A socket that says it is live and pushes nothing may be half-open:
+        // read the inbox anyway, slowly, so it cannot stop chat for good.
+        bridge.next = 0;
     }
 }
 
@@ -131,8 +141,10 @@ fn apply_personal_snapshot(host: &mut SocialHost, snapshot: Option<wire::Snapsho
         return;
     };
     bridge.personal = snapshot;
+    // Never "not until a push": a socket that drops mid-poll leaves this as
+    // it stands, and contacts must still come again within the minute.
     bridge.metadata_at = if bridge.handle.ws_live() {
-        u64::MAX
+        now + LIVE_POLL_MS
     } else {
         now + 5000
     };
@@ -217,6 +229,7 @@ fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: 
                         bridge.next = if more || pending_push {
                             0
                         } else if bridge.handle.ws_live() {
+                            bridge.live_poll_at = now + LIVE_POLL_MS;
                             u64::MAX
                         } else {
                             now + 2000

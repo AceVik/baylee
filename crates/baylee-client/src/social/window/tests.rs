@@ -388,3 +388,24 @@ fn a_links_print_is_used_only_when_the_print_table_knows_it() {
         identity(7)
     );
 }
+
+/// Bevy's `RelativeCursorPosition` is centred: a press a quarter in from the
+/// left edge is a quarter across, not the field's start.
+#[test]
+fn a_press_in_the_composer_lands_where_it_is_across_the_box() {
+    let at = |x: f32| {
+        composer::across(&bevy::ui::RelativeCursorPosition {
+            cursor_over: true,
+            normalized: Some(bevy::math::Vec2::new(x, 0.0)),
+        })
+    };
+    assert!(at(-0.5).abs() < f32::EPSILON);
+    assert!((at(-0.25) - 0.25).abs() < f32::EPSILON);
+    assert!((at(0.0) - 0.5).abs() < f32::EPSILON);
+    assert!((at(0.5) - 1.0).abs() < f32::EPSILON);
+    assert!(
+        (at(0.9) - 1.0).abs() < f32::EPSILON,
+        "clamped past the edge"
+    );
+    assert!(composer::across(&bevy::ui::RelativeCursorPosition::default()).abs() < f32::EPSILON);
+}

@@ -29,6 +29,7 @@ fn app() -> App {
                     actions: Vec::new(),
                     until_answered: true,
                     about: None,
+                    line: None,
                 },
                 0.0,
             )],
@@ -80,6 +81,19 @@ fn drawn_toast_text_opens_its_conversation_once_on_release() {
     );
     testing::frame(&mut app, PointerId::Mouse, None, &[]);
     assert_eq!(app.world().resource::<SocialHost>().asks.len(), 1);
+}
+
+#[test]
+fn a_toasts_words_have_a_ceiling_and_clip_below_it() {
+    let mut app = app();
+    let open = control(&mut app, &ToastPress::Open(1));
+    let node = app.world().get::<Node>(open).expect("the words' box");
+    assert!(
+        matches!(node.max_height, Val::Px(h) if h > 0.0 && h <= WORDS_MAX_HEIGHT * 2.0),
+        "{:?}",
+        node.max_height
+    );
+    assert_eq!(node.overflow, Overflow::clip());
 }
 
 #[test]
@@ -178,6 +192,7 @@ fn an_answered_request_takes_its_toast_away() {
                 actions: Vec::new(),
                 until_answered: true,
                 about,
+                line: None,
             },
             0.0,
         )
@@ -212,6 +227,7 @@ fn entering_a_duel_clears_table_invite_toasts_but_keeps_other_toasts() {
                 actions: Vec::new(),
                 until_answered: true,
                 about,
+                line: None,
             },
             0.0,
         )

@@ -16,6 +16,9 @@ pub type ConvId = Conv;
 /// history file (§10.2).
 pub const LINES_KEPT: usize = 500;
 
+/// The most characters of a message a toast shows ([`Body::preview`]).
+pub const PREVIEW_CHARS: usize = 80;
+
 /// One line, named: its conversation and its id (a message's `UUIDv7`, or
 /// `local-<n>` for a line this client wrote itself).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -122,6 +125,32 @@ impl Body {
             mentions,
             emote: self.emote,
         })
+    }
+
+    /// The body as a toast shows it: one line (every line break a space), at
+    /// most [`PREVIEW_CHARS`] characters and `…` where it was cut, with only
+    /// the links and mentions that lie wholly inside what is kept: whatever
+    /// a sender writes, a toast holds one short line of it.
+    #[must_use]
+    pub fn preview(&self) -> Self {
+        // One character for one: the spans still count the same characters.
+        let line = self.text.replace('\n', " ");
+        let mut text: String = line.chars().take(PREVIEW_CHARS).collect();
+        if line.chars().count() > PREVIEW_CHARS {
+            text.push('…');
+        }
+        let kept = |at: [usize; 2]| at[1] <= PREVIEW_CHARS;
+        Self {
+            text,
+            links: self.links.iter().filter(|l| kept(l.at)).cloned().collect(),
+            mentions: self
+                .mentions
+                .iter()
+                .filter(|m| kept(m.at))
+                .cloned()
+                .collect(),
+            emote: self.emote,
+        }
     }
 
     /// Whether `tag` is mentioned.

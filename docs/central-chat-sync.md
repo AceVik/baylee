@@ -162,8 +162,12 @@ worker. The render thread neither performs HTTP nor owns the account master key.
 One bounded flight and at most 16 queued operations serve contacts, groups, device
 registration, key lookup and encrypted delivery. Inbox polling coalesces at two
 seconds, membership refreshes every five seconds, and failures back off to thirty
-seconds. Definitive session rejection drops unlocked keys and prevents automatic
-legacy fallback. Late inbox pages cannot advance a restarted or locked session's
+seconds. While Central's `/v1/ws` push socket is live, a push wakes a read at
+once and the inbox and membership are still read once a minute, so a socket that
+stopped pushing without closing cannot stop chat; the socket is redialled after
+two seconds, doubling to a minute while dials keep failing, and starts over only
+after a socket stood live for thirty seconds. Definitive session rejection drops
+unlocked keys and prevents automatic legacy fallback. Late inbox pages cannot advance a restarted or locked session's
 cursor. Uncertain sends retain the exact ciphertext and request ID across retries;
 retries leave room for inbox and directory reads.
 Local queue saturation keeps a send pending for retry. Locally abandoned sends,

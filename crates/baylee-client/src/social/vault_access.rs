@@ -89,6 +89,14 @@ pub(crate) struct Access {
     ack: AckGate,
     #[cfg(not(target_arch = "wasm32"))]
     job: Option<Job>,
+    /// A restore that came back busy (Central's 429, its terms) is not
+    /// started again before this `now_ms`; zero when none did.
+    #[cfg(not(target_arch = "wasm32"))]
+    busy_until: u64,
+    /// The wait the next busy restore gets, in milliseconds: zero until one
+    /// came back busy, then doubling to `native::BUSY_WAIT_MAX_MS`.
+    #[cfg(not(target_arch = "wasm32"))]
+    busy_wait: u64,
 }
 
 impl Access {

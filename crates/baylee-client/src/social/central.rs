@@ -45,6 +45,9 @@ pub(super) struct Bridge {
     cursor: u64,
     generation: u64,
     next: u64,
+    /// When a live push socket that pushed nothing is read anyway
+    /// (`poll::LIVE_POLL_MS` after the last read), while `next` waits on it.
+    live_poll_at: u64,
     metadata_at: u64,
     backoff: u64,
     seen_chat_seq: u64,
@@ -80,6 +83,7 @@ impl Bridge {
             cursor: 0,
             generation: 0,
             next: 0,
+            live_poll_at: 0,
             metadata_at: 0,
             backoff: 2000,
             seen_chat_seq,

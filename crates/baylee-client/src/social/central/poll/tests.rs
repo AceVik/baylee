@@ -170,7 +170,7 @@ fn live_central_websocket_suppresses_timer_polling_and_wakes_on_push() {
     complete(&mut host, poll(0), Ok(answer(0)), 100);
     let bridge = host.central.as_ref().unwrap();
     assert_eq!(bridge.next, u64::MAX);
-    assert_eq!(bridge.metadata_at, u64::MAX);
+    assert_eq!(bridge.metadata_at, 100 + LIVE_POLL_MS);
 
     tick(&mut host, 10_000);
     assert!(
@@ -187,4 +187,80 @@ fn live_central_websocket_suppresses_timer_polling_and_wakes_on_push() {
         ),
         "social WebSocket push immediately schedules metadata+inbox poll"
     );
+}
+
+#[test]
+fn a_live_socket_that_pushes_nothing_still_gets_a_slow_read_with_contacts() {
+    let mut host = host();
+    let bridge = host.central.as_mut().unwrap();
+    bridge.jobs.clear();
+    bridge.ready = true;
+    bridge.welcomed = true;
+    bridge.handle.set_ws_live_for_test(true);
+    complete(&mut host, poll(0), Ok(answer(0)), 100);
+    tick(&mut host, 100 + LIVE_POLL_MS - 1);
+    assert!(host.central.as_ref().unwrap().jobs.is_empty());
+    tick(&mut host, 100 + LIVE_POLL_MS);
+    assert!(
+        matches!(
+            host.central.as_ref().unwrap().jobs.front(),
+            Some(Job::Poll { metadata: true, .. })
+        ),
+        "a half-open socket cannot stop chat for good"
+    );
+}
+
+#[test]
+fn a_socket_lost_mid_read_leaves_no_contacts_read_waiting_for_ever() {
+    let mut host = host();
+    let bridge = host.central.as_mut().unwrap();
+    bridge.jobs.clear();
+    bridge.ready = true;
+    bridge.welcomed = true;
+    bridge.handle.set_ws_live_for_test(true);
+    complete(&mut host, poll(0), Ok(answer(0)), 100);
+    // A push wakes a read without contacts; the socket goes while it runs.
+    let bridge = host.central.as_mut().unwrap();
+    bridge.next = 0;
+    bridge.handle.set_ws_live_for_test(false);
+    let mut quiet = answer(0);
+    if let Reply::Poll { snapshot, .. } = &mut quiet {
+        *snapshot = None;
+    }
+    complete(&mut host, poll(0), Ok(quiet), 200);
+    let bridge = host.central.as_ref().unwrap();
+    assert_eq!(bridge.next, 2200);
+    assert!(bridge.metadata_at <= 100 + LIVE_POLL_MS);
+}
+
+#[test]
+fn while_the_socket_is_live_a_queued_job_leaves_at_once_and_a_failure_still_waits() {
+    let mut host = host();
+    let (handle, sent) = crate::lobby::central::Handle::queued_for_test();
+    let bridge = host.central.as_mut().unwrap();
+    bridge.handle = handle;
+    bridge.jobs.clear();
+    bridge.ready = true;
+    bridge.welcomed = true;
+    bridge.handle.set_ws_live_for_test(true);
+    complete(&mut host, poll(0), Ok(answer(0)), 100);
+    let connect = || Job::Connect {
+        own: "0007".into(),
+        device: "synthetic".into(),
+    };
+    let bridge = host.central.as_mut().unwrap();
+    assert!(bridge.queue(connect()));
+    tick(&mut host, 200);
+    assert!(
+        host.central.as_ref().unwrap().flight.is_some(),
+        "not held a minute"
+    );
+    assert!(sent.try_recv().is_ok());
+    let bridge = host.central.as_mut().unwrap();
+    bridge.flight = None;
+    failed(&mut host, connect(), Error::Unavailable, 300);
+    tick(&mut host, 400);
+    let bridge = host.central.as_ref().unwrap();
+    assert!(bridge.flight.is_none(), "the backoff still holds");
+    assert_eq!(bridge.jobs.len(), 1);
 }

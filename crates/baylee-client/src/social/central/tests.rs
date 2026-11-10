@@ -179,3 +179,84 @@ fn central_friend_presence_updates_from_central_ws_without_any_gateway() {
         wire::Shown::Online
     );
 }
+
+#[test]
+fn a_game_gateway_opens_only_so_many_table_conversations_and_no_other_kind() {
+    let mut host = host();
+    let person = |tag: &str| wire::Person {
+        tag: tag.into(),
+        handle: format!("P#{tag}"),
+        guest: false,
+    };
+    // `n` members: this account (0007) and `n - 1` others.
+    let members = |n: usize| {
+        let mut all = vec![person("0009"); n];
+        if let Some(first) = all.first_mut() {
+            *first = person("0007");
+        }
+        all
+    };
+    let frame = |conv: &str, n: usize| {
+        transport::LinkNews::Frame(
+            serde_json::to_string(&Down::Members {
+                conv: conv.into(),
+                members: members(n),
+            })
+            .unwrap(),
+        )
+    };
+    let conversations = |host: &SocialHost| host.machine.as_ref().unwrap().conversations().len();
+    let before = conversations(&host);
+    for conv in ["global", "dm:0007:0009", "grp:0193", "not a conversation"] {
+        assert!(gateway_news(&mut host, &frame(conv, 1)));
+    }
+    assert!(gateway_news(&mut host, &frame("tbl:empty", 0)));
+    assert!(host.central.as_ref().unwrap().game.tables.is_empty());
+    assert_eq!(
+        conversations(&host),
+        before,
+        "no other kind reaches the chat"
+    );
+    for n in 0..100 {
+        gateway_news(&mut host, &frame(&format!("tbl:game-{n}"), 1));
+        gateway_news(&mut host, &frame(&format!("team:game-{n}:1"), 1));
+    }
+    let tables = &host.central.as_ref().unwrap().game.tables;
+    assert_eq!(tables.len(), gateway::MAX_TABLE_CONVS);
+    let opened = conversations(&host);
+    assert!(opened > before, "the tables it may name reach the chat");
+    assert!(opened <= before + gateway::MAX_TABLE_CONVS);
+    // A known one still updates; one ended or left makes room for the next.
+    gateway_news(&mut host, &frame("tbl:game-0", 2));
+    assert_eq!(
+        host.central.as_ref().unwrap().game.tables[0].members.len(),
+        2
+    );
+    gateway_news(&mut host, &frame("tbl:game-0", 0));
+    let left = Down::Members {
+        conv: "team:game-0:1".into(),
+        members: vec![person("0009")],
+    };
+    gateway_news(
+        &mut host,
+        &transport::LinkNews::Frame(serde_json::to_string(&left).unwrap()),
+    );
+    assert_eq!(
+        host.central.as_ref().unwrap().game.tables.len(),
+        gateway::MAX_TABLE_CONVS - 2
+    );
+    gateway_news(&mut host, &frame("tbl:game-new", 1));
+    let tables = &host.central.as_ref().unwrap().game.tables;
+    assert!(tables.iter().any(|t| t.conv == "tbl:game-new"));
+    // A table without this account among its members is not opened at all.
+    let elsewhere = Down::Members {
+        conv: "tbl:elsewhere".into(),
+        members: vec![person("0009")],
+    };
+    gateway_news(
+        &mut host,
+        &transport::LinkNews::Frame(serde_json::to_string(&elsewhere).unwrap()),
+    );
+    let tables = &host.central.as_ref().unwrap().game.tables;
+    assert!(!tables.iter().any(|t| t.conv == "tbl:elsewhere"));
+}

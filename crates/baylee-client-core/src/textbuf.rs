@@ -23,6 +23,16 @@
 //! password.
 
 use std::ops::Range;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// The revisions every edit of every buffer takes in turn, so two different
+/// texts never share one ([`TextBuffer::revision`]). Zero is left to the
+/// empty default buffer.
+static REVISIONS: AtomicU64 = AtomicU64::new(1);
+
+fn next_revision() -> u64 {
+    REVISIONS.fetch_add(1, Ordering::Relaxed)
+}
 
 /// How far one movement reaches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,12 +80,23 @@ pub struct Segments<'a> {
 /// The caret is `cursor`. `anchor` is the other end of a selection and is
 /// `None` when there is none; it is never `Some` and equal to `cursor`, so
 /// [`TextBuffer::selection`] answering `Some` always means a non-empty run.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct TextBuffer {
     text: String,
     cursor: usize,
     anchor: Option<usize>,
+    /// Which edit the text is ([`TextBuffer::revision`]); not part of what
+    /// the buffer holds, so equality leaves it out.
+    revision: u64,
 }
+
+impl PartialEq for TextBuffer {
+    fn eq(&self, other: &Self) -> bool {
+        (&self.text, self.cursor, self.anchor) == (&other.text, other.cursor, other.anchor)
+    }
+}
+
+impl Eq for TextBuffer {}
 
 impl TextBuffer {
     /// A buffer holding `text`, with the caret after it and nothing selected.
@@ -85,7 +106,17 @@ impl TextBuffer {
             cursor: text.len(),
             text: text.to_string(),
             anchor: None,
+            revision: next_revision(),
         }
+    }
+
+    /// Which edit the text is: a different number whenever the text may
+    /// differ, from any buffer, ever. A drawn field compares this rather
+    /// than keep a copy of what it drew, which for a password would be the
+    /// password, outside [`TextBuffer::clear`]'s zeroizing.
+    #[must_use]
+    pub const fn revision(&self) -> u64 {
+        self.revision
     }
 
     /// What the field holds.
@@ -143,6 +174,7 @@ impl TextBuffer {
         zeroize::Zeroize::zeroize(&mut self.text);
         self.cursor = 0;
         self.anchor = None;
+        self.revision = next_revision();
     }
 
     /// Replaces contents and caret wholesale — the browser's `<input>` said
@@ -154,7 +186,10 @@ impl TextBuffer {
     /// string at it, and a field that ate an umlaut is not the place to find
     /// that out.
     pub fn set(&mut self, text: &str, cursor: usize, anchor: Option<usize>) {
-        self.text = text.to_string();
+        if self.text != text {
+            self.text = text.to_string();
+            self.revision = next_revision();
+        }
         self.place(cursor, anchor);
     }
 
@@ -209,6 +244,7 @@ impl TextBuffer {
         let range = self.selection().unwrap_or(self.cursor..self.cursor);
         let at = range.start;
         self.text.replace_range(range, s);
+        self.revision = next_revision();
         self.cursor = at + s.len();
         self.anchor = None;
     }
@@ -223,6 +259,7 @@ impl TextBuffer {
             return;
         };
         self.text.replace_range(prev..self.cursor, "");
+        self.revision = next_revision();
         self.cursor = prev;
     }
 
@@ -236,6 +273,7 @@ impl TextBuffer {
             return;
         };
         self.text.replace_range(self.cursor..next, "");
+        self.revision = next_revision();
     }
 
     /// Moves the caret, extending the selection when `select` is set.
@@ -615,6 +653,34 @@ mod tests {
             "cd",
             "and the run itself is the same run either way"
         );
+    }
+
+    #[test]
+    fn every_edit_takes_a_revision_no_other_text_ever_had_and_the_caret_takes_none() {
+        let mut buf = TextBuffer::new("hunter2");
+        let mut seen = vec![buf.revision()];
+        let mut edit = |buf: &mut TextBuffer, what: &dyn Fn(&mut TextBuffer)| {
+            what(buf);
+            assert!(!seen.contains(&buf.revision()), "{seen:?}");
+            seen.push(buf.revision());
+        };
+        edit(&mut buf, &|b| b.insert("x"));
+        edit(&mut buf, &|b| b.delete_back());
+        buf.move_caret(Step::Line, Dir::Left, false);
+        edit(&mut buf, &|b| b.delete_forward());
+        edit(&mut buf, &|b| b.set("other", 1, None));
+        edit(&mut buf, &|b| b.clear());
+        // A buffer made in its place never repeats a revision drawn before.
+        let replaced = TextBuffer::new("hunter2");
+        assert!(!seen.contains(&replaced.revision()));
+        assert_eq!(replaced, TextBuffer::new("hunter2"), "equality is the text");
+        let before = buf.revision();
+        buf.insert("ab");
+        let typed = buf.revision();
+        buf.move_caret(Step::Char, Dir::Left, true);
+        buf.set("ab", 0, None);
+        assert_eq!(buf.revision(), typed, "a caret or the same text is no edit");
+        assert_ne!(typed, before);
     }
 
     #[test]

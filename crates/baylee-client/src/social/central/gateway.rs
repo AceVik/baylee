@@ -1,6 +1,24 @@
 //! The game gateway serves only game-scoped chat (table, team, invites);
 //! personal chats, contacts, and friend presence live exclusively on Baylee Central.
 use super::{Down, HttpTag, SocialHost, apply, now_ms, personal, transport, wire};
+
+/// The most table and team conversations a game gateway's `Members` frames
+/// may open beside its snapshot, each with this account among its members.
+/// A player sits at one table and its team at a time, and a table left or
+/// ended leaves the list; a gateway that names more is not believed, so a
+/// hostile one cannot grow the list (and the chat's conversations) without
+/// bound.
+pub(super) const MAX_TABLE_CONVS: usize = 32;
+
+/// Whether `conv` is a table's or a team's conversation: the only kinds a
+/// game gateway names in a `Members` frame.
+fn game_conv(conv: &str) -> bool {
+    matches!(
+        conv.parse::<wire::Conv>(),
+        Ok(wire::Conv::Table { .. } | wire::Conv::Team { .. })
+    )
+}
+
 pub(super) enum Registration {
     Waiting(u64),
     Pending,
@@ -98,23 +116,37 @@ fn receive_frame(host: &mut SocialHost, frame: Down) {
             ref conv,
             ref members,
         } => {
-            if members.is_empty() {
-                bridge.game.tables.retain(|table| table.conv != *conv);
-            } else if let Some(table) = bridge
+            let known = bridge
                 .game
                 .tables
-                .iter_mut()
-                .find(|table| table.conv == *conv)
-            {
-                table.members.clone_from(members);
-            } else {
-                bridge.game.tables.push(wire::TableConv {
-                    conv: conv.clone(),
-                    name: String::new(),
-                    members: members.clone(),
-                });
+                .iter()
+                .position(|table| table.conv == *conv);
+            // A table this account has left goes as one that ended does, so
+            // a long session's tables never fill the list below.
+            let mine = members.iter().any(|m| m.tag == bridge.session.tag);
+            match known {
+                Some(at) if !mine => {
+                    bridge.game.tables.remove(at);
+                    Some(frame)
+                }
+                Some(at) => {
+                    bridge.game.tables[at].members.clone_from(members);
+                    Some(frame)
+                }
+                // Only a table's or a team's conversation of this account's
+                // is the game gateway's to name, and only so many: anything
+                // else, or one past the cap, reaches neither this list nor
+                // the chat.
+                None if mine && game_conv(conv) && bridge.game.tables.len() < MAX_TABLE_CONVS => {
+                    bridge.game.tables.push(wire::TableConv {
+                        conv: conv.clone(),
+                        name: String::new(),
+                        members: members.clone(),
+                    });
+                    Some(frame)
+                }
+                None => None,
             }
-            Some(frame)
         }
         Down::Presence {
             ref tag,

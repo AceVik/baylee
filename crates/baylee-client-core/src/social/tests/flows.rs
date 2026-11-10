@@ -1053,6 +1053,34 @@ fn with_toast_text_on_only_a_toast_carries_the_received_text() {
 }
 
 #[test]
+fn a_toast_shows_the_line_that_raised_it_cut_short_and_never_a_hidden_one() {
+    let (mut gw, mut alice, mut bob) = pair();
+    let long = "w".repeat(200);
+    bob.say(&mut gw, &format!("/w Alice {long}"));
+    alice.deliver(&mut gw);
+    let toast = alice
+        .log
+        .iter()
+        .find_map(|e| match e {
+            Effect::Toast(t) if t.line.is_some() => Some(t.clone()),
+            _ => None,
+        })
+        .expect("the whisper raised a toast");
+    assert_eq!(toast.line, Some(only_key(&alice, DM_AB)));
+    bob.say(&mut gw, "/w Alice a later line");
+    alice.deliver(&mut gw);
+    let (from, body) = alice.social.toast_line(&toast).expect("its line");
+    assert_eq!(from.tag, BOB);
+    assert_eq!(
+        body.text,
+        format!("{}…", "w".repeat(80)),
+        "the raising line, cut as the preview cuts it, not the newest"
+    );
+    alice.act(&mut gw, Intent::Ignore { tag: BOB.into() });
+    assert_eq!(alice.social.toast_line(&toast), None, "an ignored line");
+}
+
+#[test]
 fn the_state_file_and_the_effects_hold_no_secret() {
     let (mut gw, mut alice, mut bob) = pair();
     talk(&mut gw, &mut alice, &mut bob);

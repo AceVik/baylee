@@ -1,6 +1,6 @@
 //! Received text is cleaned before it is drawn (§10.7), and a body's spans survive only an untouched text.
 
-use crate::social::convs::{Body, BodyLink, BodyMention};
+use crate::social::convs::{Body, BodyLink, BodyMention, PREVIEW_CHARS};
 use crate::social::text::{self, MAX_LINE_BREAKS};
 
 fn link(start: usize, end: usize) -> BodyLink {
@@ -267,4 +267,31 @@ fn mentions_tag_finds_only_mentioned_tags() {
     let b = body("[@Bob#0012]", Vec::new(), vec![mention(0, 11, "0012")]);
     assert!(b.mentions_tag("0012"));
     assert!(!b.mentions_tag("af03"));
+}
+
+#[test]
+fn a_toast_preview_is_one_short_line_with_only_the_spans_it_keeps() {
+    let text = format!("[Bolt]{}{}", "\n".repeat(30), "x".repeat(1000));
+    let b = body(&text, vec![link(0, 6), link(90, 96)], Vec::new());
+    let shown = b.preview();
+    assert!(
+        !shown.text.contains('\n'),
+        "a line break never reaches a toast"
+    );
+    assert_eq!(shown.text.chars().count(), PREVIEW_CHARS + 1);
+    assert!(shown.text.ends_with('…'));
+    assert_eq!(
+        shown.links,
+        vec![link(0, 6)],
+        "a link past the cut is dropped"
+    );
+    // A span that ends right at the cut stays; one past it would cover the `…`.
+    let edge = body(
+        &"y".repeat(100),
+        Vec::new(),
+        vec![mention(70, 80, "0012"), mention(80, 82, "0012")],
+    );
+    assert_eq!(edge.preview().mentions, vec![mention(70, 80, "0012")]);
+    let short = body("hi\nthere", Vec::new(), Vec::new());
+    assert_eq!(short.preview().text, "hi there", "nothing cut, no `…`");
 }

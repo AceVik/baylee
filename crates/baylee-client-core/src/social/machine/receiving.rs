@@ -53,7 +53,7 @@ impl Social {
         entry.open = true;
         let muted = entry.muted;
         entry.insert(ChatLine {
-            key,
+            key: key.clone(),
             at,
             kind: LineKind::Message {
                 from: from.clone(),
@@ -97,6 +97,7 @@ impl Social {
                     actions: Vec::new(),
                     until_answered: false,
                     about: None,
+                    line: Some(key),
                 }));
             }
             if let Some(cue) = notify.sound {
@@ -373,7 +374,7 @@ impl Social {
                 let (phrase, args) = if mentions_me {
                     (ChatPhrase::ToastMention, vec![name])
                 } else if self.prefs.toast_text {
-                    (ChatPhrase::ToastWhisper, vec![name, preview(&body.text)])
+                    (ChatPhrase::ToastWhisper, vec![name, body.preview().text])
                 } else {
                     (ChatPhrase::ToastWhisperQuiet, vec![name])
                 };
@@ -384,6 +385,7 @@ impl Social {
                     actions: Vec::new(),
                     until_answered: false,
                     about: None,
+                    line: Some(key),
                 }));
             }
             if let Some(cue) = notify.sound {
@@ -456,6 +458,7 @@ impl Social {
             ],
             until_answered: true,
             about: Some(ToastAbout::TableInvite(id)),
+            line: None,
         }));
         if self.status != Status::Dnd {
             out.push(Effect::Sound(ChatCue::FriendRequest));

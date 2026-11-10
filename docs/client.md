@@ -10016,7 +10016,10 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   siblings give it their room (each lets go of a fixed width, `Squeezed`,
   and gets it back), and slides over the table at a table. Card links in
   the chat (history and composer) preview as a pool row does, from the
-  compiled pool until the builder's has come. Toasts with buttons stay until answered. The
+  compiled pool until the builder's has come. Toasts with buttons stay until answered. A
+  message's toast shows the line that raised it (`ChatToast::line`), never a
+  later or hidden one, as one line of at most 80 characters
+  (`Body::preview`), and its words stand at most five lines high. The
   encryption notice stands the first time the chat opens on a device, and
   from every lock; Chat & privacy holds the server settings, history length,
   sounds, this account's devices and Forget this device.

@@ -46,9 +46,27 @@ pub(crate) enum Choice {
     ImportKeychain,
 }
 
+/// The first wait after a restore came back busy, in milliseconds.
+const BUSY_WAIT_FIRST_MS: u64 = 2_000;
+/// The longest: Central answering 429 is asked once a minute, not each frame.
+const BUSY_WAIT_MAX_MS: u64 = 60_000;
+
 impl Access {
     pub(crate) fn busy(&self) -> bool {
         self.job.is_some()
+    }
+
+    /// Whether a busy error may be cleared so the restore starts again: the
+    /// local worker is free and any wait a busy restore earned has passed.
+    fn busy_retry_due(&self, worker_busy: bool, now: u64) -> bool {
+        matches!(self.error, Some(Error::Busy)) && !worker_busy && now >= self.busy_until
+    }
+
+    /// A restore came back busy: the next waits, longer each time in a row.
+    /// Only the timing changes; nothing about keys or the job.
+    fn came_back_busy(&mut self, now: u64) {
+        self.busy_wait = (self.busy_wait * 2).clamp(BUSY_WAIT_FIRST_MS, BUSY_WAIT_MAX_MS);
+        self.busy_until = now.saturating_add(self.busy_wait);
     }
 }
 
@@ -57,7 +75,12 @@ pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
         sync.queue(false);
     }
     host.vault.central = lobby.central_handle();
-    if matches!(host.vault.error, Some(Error::Busy)) && !WORKER_BUSY.load(Ordering::Acquire) {
+    // Central's terms waiting end the chat session (`driver::wanted_session`),
+    // and with it this wait: their acceptance starts afresh at once.
+    if host
+        .vault
+        .busy_retry_due(WORKER_BUSY.load(Ordering::Acquire), now_ms())
+    {
         host.vault.error = None;
         host.vault.attempted = false;
     }
@@ -131,12 +154,15 @@ fn follow_with(
                     host.disk = Some(ready.disk);
                     host.vault.sync = ready.sync;
                     host.vault.error = None;
+                    host.vault.busy_wait = 0;
+                    host.vault.busy_until = 0;
                     crate::social::central::attach(host, host.vault.central.clone());
                     host.carry_out(ready.effects);
                 }
                 Err(Error::Busy) => {
                     host.vault.error = Some(Error::Busy);
                     host.vault.attempted = false;
+                    host.vault.came_back_busy(now_ms());
                 }
                 Err(error) => host.vault.error = Some(error),
             }

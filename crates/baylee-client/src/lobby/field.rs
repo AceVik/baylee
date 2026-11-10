@@ -435,8 +435,10 @@ pub(super) struct RunsOf {
     lead: bool,
     hint: Option<String>,
     metrics: Metrics,
-    /// The text, caret and selection the runs were drawn for.
-    at: (String, usize, Option<std::ops::Range<usize>>),
+    /// The text's revision, the caret and the selection the runs were drawn
+    /// for: never the text itself, which for a password would be a copy
+    /// outside the buffer's zeroizing ([`baylee_client_core::textbuf::TextBuffer::revision`]).
+    at: (u64, usize, Option<std::ops::Range<usize>>),
 }
 
 /// What an empty box says it is for, in muted ink, clipped rather than
@@ -473,7 +475,7 @@ fn mark_runs(commands: &mut Commands, boxed: Entity, metrics: Metrics, look: &Fi
             hint: look.hint.map(str::to_string),
             metrics,
             at: (
-                look.buffer.text().to_string(),
+                look.buffer.revision(),
                 look.buffer.cursor(),
                 look.buffer.selection(),
             ),
@@ -509,11 +511,7 @@ pub(super) fn retrace_runs(
             continue;
         }
         let buffer = state.lobby.buffer(focus);
-        let at = (
-            buffer.text().to_string(),
-            buffer.cursor(),
-            buffer.selection(),
-        );
+        let at = (buffer.revision(), buffer.cursor(), buffer.selection());
         if drawn.at == at {
             continue;
         }

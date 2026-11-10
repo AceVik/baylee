@@ -25,6 +25,12 @@ const STANDS: f32 = 15.0;
 /// How many stand at once.
 const AT_ONCE: usize = 3;
 
+/// The tallest a toast's words stand, in chat pixels: five lines, room for
+/// a sentence around an 80-character preview. Anything longer is clipped
+/// here, so neither a sender nor a long name makes a taller toast or pushes
+/// a request's buttons out of its card.
+const WORDS_MAX_HEIGHT: f32 = 96.0;
+
 #[cfg(test)]
 mod tests;
 
@@ -187,7 +193,10 @@ fn presses(
 }
 
 /// Resolves the sender person and message body (with card links and mentions)
-/// associated with a standing toast, when available in the social state machine.
+/// associated with a standing toast, when available in the social state machine:
+/// the body is the line that raised the toast, cut as its preview is
+/// ([`baylee_client_core::social::Social::toast_line`]), never whatever came
+/// into the conversation since, and never a hidden line.
 fn toast_context(
     machine: Option<&baylee_client_core::social::Social>,
     toast: &ChatToast,
@@ -198,15 +207,7 @@ fn toast_context(
     let Some(machine) = machine else {
         return (None, None);
     };
-    if let Some(ref conv) = toast.conv
-        && let Some(c) = machine.conversation(conv)
-        && let Some((from, body)) = c.lines.iter().rev().find_map(|line| match &line.kind {
-            baylee_client_core::social::LineKind::Message { from, body, mine } if !*mine => {
-                Some((from.clone(), body.clone()))
-            }
-            _ => None,
-        })
-    {
+    if let Some((from, body)) = machine.toast_line(toast) {
         return (Some(from), Some(body));
     }
     if let Some(ToastAbout::FriendRequest(ref tag)) = toast.about {
@@ -447,6 +448,8 @@ fn sync(
                 Node {
                     width: Val::Percent(100.0),
                     min_width: zpx(0.0),
+                    max_height: zpx(WORDS_MAX_HEIGHT),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),

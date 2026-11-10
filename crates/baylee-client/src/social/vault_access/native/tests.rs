@@ -106,6 +106,49 @@ fn completed_unlock_uses_preferences_changed_after_worker_started() {
 }
 
 #[test]
+fn a_restore_central_turned_away_as_busy_waits_longer_each_time_before_the_next() {
+    let mut host = SocialHost::default();
+    let mut lobby = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    let mut busy = |host: &mut SocialHost| {
+        let (sender, receiver) = mpsc::channel();
+        sender
+            .send(Err(Error::Busy))
+            .unwrap_or_else(|_| panic!("receiver must remain connected"));
+        host.vault.job = Some(Job {
+            receiver: Mutex::new(receiver),
+            cancelled: Arc::new(AtomicBool::new(false)),
+        });
+        let before = now_ms();
+        follow_with(host, &mut lobby, |_, _| panic!("no job should start"));
+        assert!(matches!(host.vault.error, Some(Error::Busy)));
+        host.vault.busy_until - before
+    };
+    let first = busy(&mut host);
+    assert!(first >= BUSY_WAIT_FIRST_MS, "{first}");
+    let at = host.vault.busy_until;
+    assert!(
+        !host.vault.busy_retry_due(false, at - 1),
+        "not on the next frame"
+    );
+    assert!(
+        !host.vault.busy_retry_due(true, at),
+        "nor while the worker runs"
+    );
+    assert!(host.vault.busy_retry_due(false, at));
+    let second = busy(&mut host);
+    assert!(second > first, "{second} after {first}");
+    for _ in 0..10 {
+        busy(&mut host);
+    }
+    assert_eq!(host.vault.busy_wait, BUSY_WAIT_MAX_MS);
+    host.end();
+    assert_eq!(
+        host.vault.busy_until, 0,
+        "a new sign-in does not inherit it"
+    );
+}
+
+#[test]
 fn ending_session_drops_stores_and_cancels_inflight_job() {
     let mut host = SocialHost {
         store: Some(Box::new(social::vault::MemorySecrets::new())),

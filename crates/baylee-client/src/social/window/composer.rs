@@ -441,6 +441,13 @@ fn placeholder(machine: &Social, target: &Target, lang: Lang) -> String {
 #[derive(Component)]
 pub(super) struct ComposerTextBox;
 
+/// How far across the box the pointer is, 0 at its left edge and 1 at its
+/// right, clamped. Bevy's `normalized` has the node's centre at 0 and its
+/// edges at ±0.5 (`ComputedNode::normalize_point`).
+pub(super) fn across(rel: &bevy::ui::RelativeCursorPosition) -> f32 {
+    rel.normalized.map_or(0.0, |p| (p.x + 0.5).clamp(0.0, 1.0))
+}
+
 /// Places the caret or extends the selection when clicking and dragging inside the composer box.
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub(super) fn composer_cursor_drag(
@@ -465,7 +472,7 @@ pub(super) fn composer_cursor_drag(
         return;
     };
     let width = (computed.size().x * computed.inverse_scale_factor()).max(1.0);
-    let x = (rel.normalized.map_or(0.0, |p| p.x).clamp(0.0, 1.0) * width).max(0.0);
+    let x = across(rel) * width;
     let char_w = (z(TABLE_INKS.pt) * 0.52).max(1.0);
     let char_idx = (x / char_w).round() as usize;
     let text = machine.composer().text();

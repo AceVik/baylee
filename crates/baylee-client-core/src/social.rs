@@ -326,6 +326,10 @@ pub struct ChatToast {
     /// asker can take back: it goes once that is no longer open
     /// ([`Social::still_asks`]).
     pub about: Option<ToastAbout>,
+    /// The message that raised it (a whisper, a mention): the one line it
+    /// shows, never whatever is newest in `conv` when it is drawn
+    /// ([`Social::toast_line`]).
+    pub line: Option<LineKey>,
 }
 
 /// What a toast that waits for an answer asks about.
