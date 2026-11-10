@@ -3,7 +3,7 @@
 //!
 //! - `db`: `baylee-db`'s schema suite, plus named gateway e2e targets.
 //! - `integration`: a real gateway and Central against the same isolated
-//!   database (`baylee-gateway`'s ignored `e2e_central`).
+//!   database (`baylee-gateway`'s ignored `e2e_central` tests, a module of its `e2e` test program).
 //! - `client`: the native client driven through dev-control against that
 //!   integration fixture.
 //!
@@ -153,10 +153,23 @@ pub fn db(gateway_tests: &[String], config: Option<&Path>, failure: bool) -> Res
         );
         for (package, target) in suites {
             println!("Testing {package}/{target}");
-            let mut test = test_command(
-                &options,
-                &["-p", package, "--test", target, "--", "--test-threads=1"],
-            );
+            // The gateway's end-to-end tests are one program (`tests/e2e.rs`),
+            // each file a module: a suite is its module's tests.
+            let module = format!("{target}::");
+            let args: Vec<&str> = if package == "baylee-gateway" {
+                vec![
+                    "-p",
+                    package,
+                    "--test",
+                    "e2e",
+                    "--",
+                    &module,
+                    "--test-threads=1",
+                ]
+            } else {
+                vec!["-p", package, "--test", target, "--", "--test-threads=1"]
+            };
+            let mut test = test_command(&options, &args);
             test.env("DATABASE_URL", pg.admin_url());
             let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(300), None)?;
             println!("{}", done.stdout);
@@ -215,7 +228,7 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
     let options = cargo_options(config)?;
     let build = Owned::spawn(&mut test_command(
         &options,
-        &["-p", "baylee-gateway", "--test", "e2e_central", "--no-run"],
+        &["-p", "baylee-gateway", "--test", "e2e", "--no-run"],
     ))?
     .wait(Duration::from_secs(300), cancel)?;
     print!("{}{}", build.stdout, build.stderr);
@@ -245,8 +258,9 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
                 "-p",
                 "baylee-gateway",
                 "--test",
-                "e2e_central",
+                "e2e",
                 "--",
+                "e2e_central::",
                 "--ignored",
                 "--test-threads=1",
             ],
