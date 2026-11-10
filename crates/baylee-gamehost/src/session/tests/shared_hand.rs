@@ -362,12 +362,49 @@ fn driven_team_seats_observe_shared_hands_and_preserve_them_in_forks() {
     let fork_obs0 = fork.observe_view(p0);
     assert_eq!(hands_shown(&fork_obs0), vec![p1]);
     assert_eq!(
-        fork_obs0.shared_hands[0].cards,
-        obs0.shared_hands[0].cards,
+        fork_obs0.shared_hands[0].cards, obs0.shared_hands[0].cards,
         "teammate's shared hand is preserved in the lookahead fork"
     );
     assert!(
         !fork_obs0.shared_hands.iter().any(|h| h.player == p2),
         "opponent's hand is never shown"
+    );
+}
+
+/// Under `OnceOnly` a player may not show a teammate their hand for good,
+/// only as it stands; and a snapshot reaches that teammate alone: no
+/// opponent's view and no spectator's carries it.
+#[test]
+fn a_snapshot_reaches_the_teammate_alone_and_once_only_refuses_for_good() {
+    let mut preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    preset.house_rules.hand_sharing = baylee_core::preset::HandSharingRule::OnceOnly;
+    let mut session = a_kept_table_from(preset, [false; 4]);
+    let p0 = PlayerId::new(0);
+    assert!(
+        session
+            .seat_setting(p0, SeatSetting::ShareHand(seats(&[1])))
+            .is_err(),
+        "a teammate who plays over a socket is refused a hand for good too"
+    );
+    session
+        .seat_setting(p0, SeatSetting::ShareHandOnce(seats(&[1])))
+        .expect("shown once");
+    assert_eq!(
+        hands_shown(&seat_view(&session, PlayerId::new(1))),
+        vec![p0]
+    );
+    for opponent in [2, 3] {
+        assert!(
+            hands_shown(&seat_view(&session, PlayerId::new(opponent))).is_empty(),
+            "seat {opponent} is no teammate"
+        );
+    }
+    assert!(
+        session
+            .spectator_view()
+            .revealed_hands
+            .iter()
+            .all(|hand| hand.player != p0),
+        "a spectator is shown no snapshot"
     );
 }
