@@ -22,7 +22,20 @@ def add_learner_options(parser):
                         help="1c: stop each epoch after this fraction of its window batches")
     parser.add_argument("--window-state-workers", type=int, default=4, help="1c: loader workers of the H pass")
     parser.add_argument("--window-state-cache", default="",
-                        help="1c: reuse/write the initial H pass of this exact plan and --init checkpoint")
+                        help="1c: reuse/write the initial H pass of this exact plan and --init checkpoint "
+                             "(a JSON key file beside its .states store file and .entities.npy)")
+    parser.add_argument("--window-state-seats", type=int, default=8,
+                        help="1c: store memory slots 0..N only (global and N seats); a frame with a seat beyond N "
+                             "fails. 2 for duels. Default 8 keeps every slot")
+    parser.add_argument("--window-state-bf16", action="store_true",
+                        help="1c: store H as bf16 (half the bytes; rounds H, so the stored-H parity is approximate)")
+    parser.add_argument("--memory-limit-gib", type=float, default=0.,
+                        help="Host memory limit for the budget check, e.g. the train_ops stage's memory_gib; it can "
+                             "only tighten the cgroup's memory.max (0 = that, else MemTotal)")
+    parser.add_argument("--memory-budget-fraction", type=float, default=0.5,
+                        help="Refuse a window run whose estimated host memory exceeds this fraction of the limit")
+    parser.add_argument("--report-peak-rss", action="store_true",
+                        help="Print peak host memory after the window-state pass and at the end")
     parser.add_argument("--train-policy-head-only", action="store_true",
                         help="Stage A: freeze everything but the candidate (priority) head")
     parser.add_argument("--adapter-on-candidate-head", type=int, default=0, metavar="RANK",
@@ -67,6 +80,10 @@ def check_learner_options(args, parser):
             parser.error("Window lanes must be positive and the refresh nonnegative")
         if not 0 < args.window_epoch_fraction <= 1:
             parser.error("--window-epoch-fraction must be in (0, 1]")
+        if not 1 <= args.window_state_seats <= 8:
+            parser.error("--window-state-seats must be between 1 and 8")
+    if args.memory_limit_gib < 0 or not 0 < args.memory_budget_fraction <= 1:
+        parser.error("--memory-limit-gib must be nonnegative and --memory-budget-fraction in (0, 1]")
     if args.phase_profile and (args.phase_profile_warmup < 0 or args.phase_profile_steps < 1):
         parser.error("Phase profile needs nonnegative warmup and positive steps")
     stages = [args.train_policy_head_only, args.adapter_on_candidate_head > 0, args.trainable_trunk_from_layer >= 0]

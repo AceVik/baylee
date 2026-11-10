@@ -2336,7 +2336,18 @@ per trajectory and packed into `--window-length` lanes; each piece starts from a
 stored H, so gradient never crosses a piece start. The stored H comes from a
 no-grad pass of the current weights over every passive frame at each epoch
 (`--window-state-refresh N` also every N updates); `--window-state-cache` reuses
-the pass of the untouched `--init` weights. `--window-entity-buckets` packs
+the pass of the untouched `--init` weights (a JSON key beside a `.states` file;
+an older Torch cache is refused unread). The stored H lives in a file in the
+cache's or the run's directory, read and written with positional I/O, so it
+sits in the reclaimable page cache and never in a process's resident set.
+`--window-state-seats S` stores memory slots 0..S only (2 for duels, a third of
+every slot; the other slots hold nothing any output reads, and a frame with a
+seat beyond S fails); `--window-state-bf16` halves the store and rounds H.
+Before the pass the run refuses an estimate of its host memory above
+`--memory-budget-fraction` (0.5) of the limit (`--memory-limit-gib`, else the
+cgroup's `memory.max`, else MemTotal) and a store above the free disk;
+`--report-peak-rss` prints VmHWM, ru_maxrss and the cgroup's peak after the
+pass and at the end. `--window-entity-buckets` packs
 pieces of similar size together. These runs start fresh from `--init` only.
 `--vectorized-rule-closure` builds the active rule closure's index arrays with
 numpy (identical tensors). `--skip-final-validation` is for throughput probes.
