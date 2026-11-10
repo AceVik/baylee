@@ -1,5 +1,6 @@
 //! Native training administration. Rules and neural tensor math live elsewhere.
 pub mod admission;
+pub mod anomaly;
 pub mod batch_audit;
 #[cfg(target_os = "linux")]
 pub mod collector;
