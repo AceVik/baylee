@@ -15,8 +15,7 @@
 //! --chair <n>` instead reuses a chair an account already holds (the host's,
 //! or one it joined) and its session from first-line stdin JSON; it creates
 //! no account or deck. The gateway is `--gateway`, else
-//! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
-//! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
+//! `BAYLEE_GATEWAY`, else the local default; a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
 //! bridge is doing; `--transcripts <dir>` keeps every question and answer as
 //! JSON lines, and a language model's every message and reply beside them.
@@ -264,9 +263,6 @@ struct Join {
     /// The room's password [default: `BAYLEE_ROOM_PASSWORD`].
     #[arg(long)]
     password: Option<String>,
-    /// A closed beta's key [default: `BAYLEE_INVITE_KEY`].
-    #[arg(long)]
-    invite_key: Option<String>,
     /// The longest one answer may take, whatever the table's clock allows
     /// [default: 60].
     #[arg(long)]
@@ -1598,14 +1594,9 @@ async fn sit_as_guest(
         .password
         .clone()
         .or_else(|| std::env::var("BAYLEE_ROOM_PASSWORD").ok());
-    let invite_key = join
-        .invite_key
-        .clone()
-        .or_else(|| std::env::var("BAYLEE_INVITE_KEY").ok());
     let session = lobby
         .guest(&GuestSignIn {
             display_name: display_name.to_string(),
-            invite_key,
         })
         .await?;
     let Some(room) = lobby.room(&session, &join.room).await? else {

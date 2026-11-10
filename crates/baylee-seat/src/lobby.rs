@@ -122,8 +122,6 @@ impl Room {
 pub struct GuestSignIn {
     /// The name other players see, with the mind's prefix.
     pub display_name: String,
-    /// The closed-beta key, for a gateway that asks for one.
-    pub invite_key: Option<String>,
 }
 
 /// A signed-in session. The token is never logged.
@@ -268,12 +266,11 @@ impl Lobby {
     /// A guest account and its session (`POST /auth/guest`).
     ///
     /// # Errors
-    /// When the gateway takes no guests, the name, or the key.
+    /// When the gateway takes no guests or refuses the name.
     pub async fn guest(&self, sign_in: &GuestSignIn) -> anyhow::Result<Session> {
         let body = serde_json::json!({
             "display_name": sign_in.display_name,
             "lang": "en",
-            "invite_key": sign_in.invite_key,
         });
         let answer = self.call("POST", "/auth/guest", None, Some(body)).await?;
         let token = answer.expect_ok("sign in as a guest")?.string("token")?;

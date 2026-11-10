@@ -141,7 +141,6 @@ async fn main() -> anyhow::Result<()> {
     let session = lobby
         .guest(&GuestSignIn {
             display_name: name.clone(),
-            invite_key: None,
         })
         .await?;
     let mut presence = presence::Presence::start(lobby.connect_lobby(&session).await?);
