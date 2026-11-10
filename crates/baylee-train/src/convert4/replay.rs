@@ -6,8 +6,8 @@ use baylee_gamehost::record::MindKind;
 use super::{
     AuxTargets4, CoverageMatrix4, HeadKind4, Line, MAX_SEATS, Pending, PendingKind4, PlayerId,
     RECORD_VERSION, ReplaySummary, RolloutStepSidecar4, SeatKnowledge4, Session, Source,
-    SourceKind4, Step4, StepProvenance4, Targets, TeacherTarget4, encode_candidates7_grouped,
-    encode_state7, encode_teacher_action4,
+    SourceKind4, Step4, StepProvenance4, Targets, TeacherTarget4, TeamHands,
+    encode_candidates7_grouped, encode_state7, encode_teacher_action4,
 };
 
 const fn is_client_only_live_action(action: &PlayerAction) -> bool {
@@ -37,53 +37,6 @@ fn is_payable_cast(pending: &Pending, action: &PlayerAction) -> bool {
 
 #[allow(
     clippy::too_many_lines,
-    reason = "Keep audited replay and observation ordering contiguous"
-)]
-#[allow(
-    clippy::cast_precision_loss,
-    reason = "Outcome counts are normalized into f32 model targets"
-)]
-pub(super) fn replay_frames(
-    record: &[u8],
-    game_id: u32,
-    include_passive_obs: bool,
-    sidecar: Option<&[RolloutStepSidecar4]>,
-    emit: impl FnMut(Step4, i32) -> Result<(), String>,
-) -> Result<ReplaySummary, String> {
-    replay_frames_shadow(record, game_id, include_passive_obs, sidecar, None, emit)
-}
-
-#[allow(
-    clippy::too_many_lines,
-    reason = "Audited chronological observation and decision replay"
-)]
-#[allow(
-    clippy::cast_precision_loss,
-    reason = "Existing normalized auxiliary values"
-)]
-pub(super) fn replay_frames_shadow(
-    record: &[u8],
-    game_id: u32,
-    include_passive_obs: bool,
-    sidecar: Option<&[RolloutStepSidecar4]>,
-    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
-    emit: impl FnMut(Step4, i32) -> Result<(), String>,
-) -> Result<ReplaySummary, String> {
-    replay_frames_modes(
-        record,
-        game_id,
-        include_passive_obs,
-        sidecar,
-        shadow,
-        None,
-        false,
-        7,
-        emit,
-    )
-}
-
-#[allow(
-    clippy::too_many_lines,
     reason = "Audited chronological observation and decision replay"
 )]
 #[allow(
@@ -100,6 +53,7 @@ pub(super) fn replay_frames_modes(
     llm: Option<&mut super::llm_bc::LlmBc4>,
     live_bc: bool,
     encoder_version: u32,
+    team_hands: TeamHands,
     emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
     let replay = replay_feature_frames(
@@ -111,6 +65,7 @@ pub(super) fn replay_frames_modes(
         llm,
         live_bc,
         encoder_version,
+        team_hands,
         FeaturePurpose::Ordinary,
         emit,
     )?;
@@ -144,6 +99,7 @@ pub(super) fn replay_research_frames(
         None,
         false,
         encoder,
+        TeamHands::Unknown,
         FeaturePurpose::Research { natural },
         emit,
     )
@@ -170,6 +126,7 @@ fn replay_feature_frames(
     mut llm: Option<&mut super::llm_bc::LlmBc4>,
     live_bc: bool,
     encoder_version: u32,
+    team_hands: TeamHands,
     purpose: FeaturePurpose,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<super::streaming::FeatureReplaySummary, String> {
@@ -218,7 +175,7 @@ fn replay_feature_frames(
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }
-    session.apply_team_hand_sharing();
+    team_hands.apply(&mut session, &preset)?;
 
     let mut knowledge: Vec<SeatKnowledge4> = (0..seat_count)
         .map(|s| SeatKnowledge4::from_preset(&preset, PlayerId::new(s as u8)))

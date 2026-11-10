@@ -20,7 +20,7 @@ use baylee_train::carddsl::{
     ABILITY_DSL_WIDTH, CARD_DSL_WIDTH, DSL_VERSION, MAX_ABILITIES, UNKNOWN_CARD,
     card_ability_table, card_back_summary_table, card_summary_table, token_summary_table,
 };
-use baylee_train::convert4::{ProducerEncoder, RolloutStepSidecar4, Step4};
+use baylee_train::convert4::{ProducerEncoder, RolloutStepSidecar4, Step4, TeamHands};
 use baylee_train::features4::{
     CoverageMatrix4, MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS,
 };
@@ -116,6 +116,8 @@ struct GameRef {
     /// Self-imitation weight per seat (`--game-weights`).
     seat_weights: Option<[f32; MAX_SEATS]>,
     producer_encoder: Option<ProducerEncoder>,
+    /// What the run's producer says about teammates' hands.
+    team_hands: TeamHands,
     on_policy: Option<on_policy::GameBinding>,
     shard_path: PathBuf,
     offset: u64,
@@ -317,6 +319,7 @@ fn main() -> anyhow::Result<()> {
                 } else {
                     None
                 },
+                team_hands: TeamHands::from_run(&run_json),
                 game_id,
                 shard_path: if args.shadow_bc || args.llm_bc {
                     run_dir.join("records").join(shard_name).canonicalize()?
@@ -575,16 +578,18 @@ fn main() -> anyhow::Result<()> {
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
                 };
+                // Every path shows teammates the hands the run's producer showed
+                // them, and refuses a team game whose producer does not say.
                 let result = if let Some(source)=&gref.llm {
-                    source.verify(&bytes).and_then(|mut labels|baylee_train::convert4::stream_game4_with_encoder(&bytes,gref.game_id,true,None,None,Some(&mut labels),false,encoder_version,emit))
+                    source.verify(&bytes).and_then(|mut labels|baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,true,None,None,Some(&mut labels),false,encoder_version,None,gref.team_hands,emit))
                 } else if let Some(source) = &gref.shadow {
                     source.verify(&bytes,&structure_sha256).and_then(|mut labels|
-                        baylee_train::convert4::stream_game4_with_encoder(&bytes,gref.game_id,true,
-                            Some(gref.sidecar.as_deref().expect("checked behavior sidecar")),Some(&mut labels),None,false,encoder_version,emit))
+                        baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,true,
+                            Some(gref.sidecar.as_deref().expect("checked behavior sidecar")),Some(&mut labels),None,false,encoder_version,None,gref.team_hands,emit))
                 } else if live_bc {
-                    baylee_train::convert4::stream_game4_with_encoder(&bytes,gref.game_id,include_passive,None,None,None,true,encoder_version,emit)
+                    baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,None,None,None,true,encoder_version,None,gref.team_hands,emit)
                 } else {
-                    baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),emit)
+                    baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),gref.team_hands,emit)
                 };
                 let extracted = match result {
                     Ok(ex) => ex,

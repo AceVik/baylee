@@ -266,7 +266,8 @@ fn terminal_targets_live(record: &[u8]) -> Result<Targets, String> {
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }
-    session.apply_team_hand_sharing();
+    // Labels only: which hands a seat saw changes no action's effect, so this
+    // replay shows none (`TeamHands` decides it for the feature replay).
     let mut rec_winners: Option<Vec<u8>> = None;
     let mut final_turn: u32 = 1;
     for line in lines {
@@ -513,11 +514,14 @@ pub fn stream_game4_with_encoder(
         live_bc,
         encoder_version,
         None,
+        super::TeamHands::Unknown,
         emit,
     )
 }
 
-/// Convert with an explicit verified neural producer identity.
+/// Convert with an explicit verified neural producer identity, and the hands
+/// the producer showed teammates ([`super::TeamHands`]; the other entry points
+/// say [`super::TeamHands::Unknown`] and so refuse team games).
 ///
 /// # Errors
 /// Encoder 8 sidecars require a matching producer; all ordinary replay checks apply.
@@ -532,6 +536,7 @@ pub fn stream_game4_with_encoder_and_producer(
     live_bc: bool,
     encoder_version: u32,
     producer: Option<&ProducerEncoder>,
+    team_hands: super::TeamHands,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
     if !matches!(encoder_version, 7..=10) {
@@ -579,6 +584,7 @@ pub fn stream_game4_with_encoder_and_producer(
         llm,
         live_bc,
         encoder_version,
+        team_hands,
         |step, life| {
             let seat = step.seat as usize;
             if let Some((mut previous, previous_life)) = pending[seat].take() {

@@ -151,12 +151,38 @@ pub fn extract_game4_with_sidecar(
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
 ) -> Result<ExtractedGame4, String> {
-    let mut raw_steps = Vec::new();
-    let summary = replay::replay_frames(
+    extract_game4_with_team_hands(
         record,
         game_id,
         include_passive_obs,
         sidecar,
+        TeamHands::Unknown,
+    )
+}
+
+/// As [`extract_game4_with_sidecar`], with the hands the record's producer
+/// showed teammates; the other entry points refuse a team game.
+///
+/// # Errors
+/// As [`extract_game4_with_sidecar`], and a team game of [`TeamHands::Unknown`].
+pub fn extract_game4_with_team_hands(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    team_hands: TeamHands,
+) -> Result<ExtractedGame4, String> {
+    let mut raw_steps = Vec::new();
+    let summary = replay::replay_frames_modes(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        None,
+        None,
+        false,
+        7,
+        team_hands,
         |step, life| {
             raw_steps.push((step, life));
             Ok(())
@@ -188,6 +214,7 @@ mod replay;
 pub mod research;
 pub mod shadow_bc;
 mod streaming;
+mod team_hands;
 #[cfg(test)]
 use streaming::terminal_targets;
 pub use streaming::{
@@ -196,6 +223,7 @@ pub use streaming::{
     stream_game4_with_encoder_and_producer,
 };
 use streaming::{ReplaySummary, Targets};
+pub use team_hands::TeamHands;
 
 #[cfg(test)]
 mod tests;

@@ -429,6 +429,10 @@ fn main() -> anyhow::Result<()> {
             .context("policy metadata object")?
             .clone(),
         );
+        // Every recorded game is a net's table, where `play_one_table` shares
+        // each team's hands (`Session::apply_team_hand_sharing`). The record
+        // cannot say so; convert4 shows them in a replay only on this word.
+        run[baylee_train::convert4::TeamHands::RUN_KEY] = json!(true);
         if args.inference_batch > 0 {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);

@@ -127,6 +127,7 @@ fn play_one_table(
                 session.take_over(PlayerId::new(s as u8));
             }
         }
+        // `run.json` says so (`TeamHands::RUN_KEY`), for convert4's replay.
         session.apply_team_hand_sharing();
     }
     if let Some(shadow) = shadow.as_deref_mut() {

@@ -4,6 +4,27 @@ use crate::selfplay::{Caps, play_with_options, table};
 use baylee_core::preset::AIProfile;
 use std::time::Duration;
 
+/// Streams a house self-play record, which shares no hand, at `encoder`.
+fn stream(
+    record: &[u8],
+    encoder: u32,
+    emit: &mut dyn FnMut(Step4) -> Result<(), String>,
+) -> Result<StreamedGame4, String> {
+    stream_game4_with_encoder_and_producer(
+        record,
+        17,
+        true,
+        None,
+        None,
+        None,
+        false,
+        encoder,
+        None,
+        TeamHands::Private,
+        emit,
+    )
+}
+
 #[test]
 fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
     let a = HouseDeck::named("allytifact").unwrap();
@@ -24,9 +45,11 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
             true,
         );
         assert!(played.outcome.finished());
-        let original = extract_game4(&played.record, 17, true).unwrap();
+        let original =
+            extract_game4_with_team_hands(&played.record, 17, true, None, TeamHands::Private)
+                .unwrap();
         let mut streamed = Vec::new();
-        let result = stream_game4(&played.record, 17, true, None, |frame| {
+        let result = stream(&played.record, 7, &mut |frame| {
             streamed.push(frame);
             Ok(())
         })
@@ -44,20 +67,10 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
         };
         assert_eq!(ordered(streamed), ordered(original.steps));
         let mut payment_frames = Vec::new();
-        let payment_result = stream_game4_with_encoder(
-            &played.record,
-            17,
-            true,
-            None,
-            None,
-            None,
-            false,
-            8,
-            |frame| {
-                payment_frames.push(frame);
-                Ok(())
-            },
-        )
+        let payment_result = stream(&played.record, 8, &mut |frame| {
+            payment_frames.push(frame);
+            Ok(())
+        })
         .unwrap();
         assert_eq!(payment_result.unencoded_decisions, 0);
         assert!(!payment_frames.is_empty());
@@ -95,7 +108,7 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
         }
         let mut emitted = 0;
         assert!(
-            stream_game4(&bad, 17, true, None, |_| {
+            stream(&bad, 7, &mut |_| {
                 emitted += 1;
                 Ok(())
             })
@@ -103,13 +116,82 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
         );
         assert_eq!(emitted, 0);
         assert!(
-            stream_game4(&played.record, 17, true, None, |_| Err(
-                "test output failure".into()
-            ))
+            stream(
+                &played.record,
+                7,
+                &mut |_| Err("test output failure".into())
+            )
             .unwrap_err()
             .contains("test output failure")
         );
     }
+}
+
+/// A seat's features show a teammate's hand only when the record's producer
+/// showed it: seat settings are not in the record, so a replay that shared
+/// by default would give a team game of people or language models hands
+/// their seats never saw.
+#[test]
+fn a_replay_shows_teammates_hands_only_when_the_producer_did() {
+    let a = HouseDeck::named("allytifact").unwrap();
+    let b = HouseDeck::named("victory").unwrap();
+    let preset =
+        crate::selfplay::table_for(23, &[&a, &b, &a, &b], &[AIProfile::SHARP; 4], &[1, 2, 1, 2]);
+    let played = play_with_options(
+        &preset,
+        "team-hands",
+        Caps {
+            answers: 10_000,
+            wall: Duration::from_secs(60),
+        },
+        true,
+    );
+    assert!(played.outcome.finished());
+    // Frames that hold a card of a teammate's hand, over the whole game.
+    let shown = |team_hands| -> Result<usize, String> {
+        let mut shown = 0;
+        stream_game4_with_encoder_and_producer(
+            &played.record,
+            1,
+            true,
+            None,
+            None,
+            None,
+            false,
+            7,
+            None,
+            team_hands,
+            |frame| {
+                shown += usize::from(
+                    frame
+                        .state
+                        .entity_zone_ids
+                        .contains(&(crate::features4::EntityZone4::SharedHand as u8)),
+                );
+                Ok(())
+            },
+        )?;
+        Ok(shown)
+    };
+    assert_eq!(shown(TeamHands::Private), Ok(0));
+    assert!(shown(TeamHands::Shared).unwrap() > 0);
+    let refused = shown(TeamHands::Unknown).unwrap_err();
+    assert!(refused.contains(TeamHands::RUN_KEY), "{refused}");
+    // The entry points that know no producer refuse a team game too.
+    assert!(stream_game4(&played.record, 1, true, None, |_| Ok(())).is_err());
+    assert!(extract_game4(&played.record, 1, true).is_err());
+    // A duel has no teammate: nothing to share, nothing to refuse.
+    let duel = crate::selfplay::table_for(23, &[&a, &b], &[AIProfile::SHARP; 2], &[]);
+    let duel = play_with_options(
+        &duel,
+        "team-hands-duel",
+        Caps {
+            answers: 10_000,
+            wall: Duration::from_secs(60),
+        },
+        true,
+    );
+    assert!(stream_game4(&duel.record, 1, true, None, |_| Ok(())).is_ok());
 }
 
 /// Training and evaluation play by the timestamps, so that the net's numbers
@@ -264,6 +346,7 @@ fn encoder8_sidecars_require_matching_verified_producer_before_replay() {
         false,
         8,
         Some(&producer7),
+        TeamHands::Unknown,
         |_| {
             emitted += 1;
             Ok(())
