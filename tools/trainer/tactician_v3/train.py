@@ -294,7 +294,8 @@ def train(args, store=None):
     store = dataclasses.replace(store, zero_parts=parts)
     cfg = Config(d_model=store.d_model, width=args.width, layers=args.layers, heads=args.heads,
                  passes=args.passes, ffn_mult=args.ffn_mult, dropout=args.dropout,
-                 detach_passes=not args.through_passes)
+                 detach_passes=not args.through_passes,
+                 independent=bool(getattr(args, "independent", False)))
     net = TacticianV3(cfg).to(device)
     group_windows = parse_groups(args.group_softmax)
     optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)

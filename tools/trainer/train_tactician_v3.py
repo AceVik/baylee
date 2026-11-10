@@ -29,6 +29,8 @@ def main(argv=None):
                     help="refinement passes T; 1 unless a measurement shows more help")
     tr.add_argument("--ffn-mult", type=int, default=4)
     tr.add_argument("--dropout", type=float, default=0.0)
+    tr.add_argument("--independent", action="store_true",
+                    help="score every unit from its own row alone: no attention across units")
     tr.add_argument("--through-passes", action="store_true",
                     help="let gradients run through the previous pass's proposal")
     tr.add_argument("--lr", type=float, default=3e-4)

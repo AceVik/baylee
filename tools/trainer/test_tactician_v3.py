@@ -180,6 +180,25 @@ class Model(unittest.TestCase):
                     self.assertTrue(torch.allclose(l_all[b, :n], l_one[0], atol=1e-5))
                     self.assertTrue(torch.allclose(c_all[b], c_one[0], atol=1e-5))
 
+    def test_the_independent_head_scores_a_unit_from_its_own_row_alone(self):
+        torch.manual_seed(0)
+        net = TacticianV3(Config(d_model=D, width=16, layers=2, heads=4, passes=1, ffn_mult=2,
+                                 independent=True)).eval()
+        rows = random_rows(D, 4, 0, 1)[None]
+        other = rows.clone()
+        other[0, 3] = torch.randn(other.shape[-1])
+        with torch.no_grad():
+            a, _ = net(rows, None, 1)[0]
+            b, _ = net(other, None, 1)[0]
+        # Unit 2 (row 3) changed; every other unit scores as before.
+        self.assertTrue(torch.allclose(a[0, [0, 1, 3]], b[0, [0, 1, 3]], atol=1e-6))
+        self.assertFalse(torch.allclose(a[0, 2], b[0, 2]))
+        joint = tiny(1)
+        with torch.no_grad():
+            c, _ = joint(rows, None, 1)[0]
+            e, _ = joint(other, None, 1)[0]
+        self.assertFalse(torch.allclose(c[0, 0], e[0, 0], atol=1e-6))
+
     def test_a_pass_reads_the_one_before(self):
         net = tiny(3)
         rows = random_rows(D, 4, 0, 1)[None]

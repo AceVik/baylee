@@ -313,3 +313,61 @@ pub(super) fn publish_ready(
     fs::rename(temporary, path)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A decision frame, its flags word read back from the packed BST4.
+    fn flags_of(n_ne_r: Option<bool>) -> u32 {
+        let dir = std::env::temp_dir().join(format!(
+            "bst4-flags-{}-{}",
+            std::process::id(),
+            n_ne_r.map_or(2, u8::from)
+        ));
+        let mut writer = GameWriter::new(&dir, false, 1, Arc::default()).unwrap();
+        let step = Step4 {
+            game_id: 1,
+            seat: 0,
+            step_cursor: 0,
+            turn: 1,
+            is_decision: true,
+            loss_weight: 1.0,
+            is_terminal: false,
+            state: baylee_train::features4::EncodedState4::default(),
+            head: 0,
+            pending_kind: 0,
+            cand_feat: vec![],
+            cand_entity_idx: vec![],
+            cand_rel_seat_idx: vec![],
+            cand_card_id: vec![],
+            cand_face_id: vec![],
+            cand_ability_idx: vec![],
+            cand_rule_refs: vec![],
+            pairs: vec![],
+            target: baylee_train::features4::TeacherTarget4::default(),
+            outcome: 0.5,
+            aux: baylee_train::convert4::AuxTargets4::default(),
+            provenance: baylee_train::features4::StepProvenance4::default(),
+            shadow_label: None,
+            llm_label: None,
+            seat_input: Some(0),
+            n_ne_r,
+            net_answer: None,
+        };
+        writer.pack_bst4(&step).unwrap();
+        let flags = u32::from_le_bytes(writer.bst4_buf[24..28].try_into().unwrap());
+        drop(writer);
+        let _ = fs::remove_dir_all(&dir);
+        flags
+    }
+
+    /// Bundle distillation marks `N ≠ R` in flags bit 7 and nothing else
+    /// moves: a frame without the label packs as before.
+    #[test]
+    fn n_ne_r_is_flags_bit_seven() {
+        assert_eq!(flags_of(None), 1);
+        assert_eq!(flags_of(Some(false)), 1);
+        assert_eq!(flags_of(Some(true)), 1 | 1 << 7);
+    }
+}
