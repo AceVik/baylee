@@ -1,5 +1,6 @@
 use super::*;
 use flate2::{Compression, write::GzEncoder};
+use std::fs::File;
 use std::io::Write;
 
 fn row(seat: u8, cursor: u32, terminal: bool) -> Value {

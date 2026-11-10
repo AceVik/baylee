@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs::{self, File},
+    fs,
     path::{Component, Path, PathBuf},
 };
 
@@ -242,7 +242,7 @@ fn collection_roles(
 pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<Value> {
     let source_sha = files::sha256(checkpoint)?;
     let collection_sha = files::sha256(collection_path)?;
-    let collection: Collection = serde_json::from_reader(File::open(collection_path)?)?;
+    let collection: Collection = serde_json::from_slice(&fs::read(collection_path)?)?;
     let roles = collection_roles(&collection, &source_sha)?;
     let meta = files::read_json(&root.join("meta.json"))?;
     ensure!(
