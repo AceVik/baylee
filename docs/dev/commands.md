@@ -42,7 +42,7 @@ cargo test -p baylee-engine --lib -- --exact engine::keyword_tests::no_card_clai
 cargo test -p baylee-engine --lib -- --list
 cargo test -p baylee-card-tests-instants-1 lightning_bolt          # one card's tests, in its crate
 cargo test -p 'baylee-card-tests-*'                               # every card test
-cargo build --workspace --bins && cargo test -p baylee-gateway --test e2e_processes -- --ignored
+cargo build --workspace --bins && cargo test -p baylee-gateway --test e2e e2e_processes:: -- --ignored
 cargo test -p baylee-catalog --test cardtext_provenance -- --ignored
 cargo bench -p baylee-engine --bench basics -- --quick   # vs docs/perf-baseline.md
 BAYLEE_ABILITY_LOG=<dir> cargo test -p baylee-engine -p 'baylee-card-tests-*' --lib   # which abilities fired, per test; BAYLEE_MUTATE=<card>:<index> takes one away (docs/verification-hooks.md)

@@ -537,7 +537,7 @@ command beside it.
 
 | What | Command |
 |---|---|
-| Gateway under load | `DATABASE_URL=… cargo test --release -p baylee-gateway --test load -- --ignored --nocapture` (knobs `LOAD_GAMES`, `LOAD_LOBBY`, `LOAD_CHURN`, `LOAD_ECHOES`, `LOAD_ECHO_HZ`, `LOAD_BLAST`, `LOAD_BYTES`) |
+| Gateway under load | `DATABASE_URL=… cargo test --release -p baylee-gateway --test e2e load:: -- --ignored --nocapture` (knobs `LOAD_GAMES`, `LOAD_LOBBY`, `LOAD_CHURN`, `LOAD_ECHOES`, `LOAD_ECHO_HZ`, `LOAD_BLAST`, `LOAD_BYTES`) |
 | One frame in the engine process | `cargo bench -p baylee-engine-server --bench frames` |
 | Catalog search | `EXPLAIN (ANALYZE, BUFFERS)` of `search_sql()` (`crates/baylee-catalog/src/sql.rs`) against an ingested catalog |
 | Engine-server start | spawn the dev harness with `PORT=0 BAYLEE_PORT_FILE=…` and time the port file |

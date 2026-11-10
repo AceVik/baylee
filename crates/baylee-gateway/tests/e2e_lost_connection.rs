@@ -11,10 +11,7 @@
 
 #![allow(clippy::missing_docs_in_private_items)]
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
-mod common;
+use crate::common;
 
 use baylee_protocol::v1;
 use common::{Socket, attach_agent_clocked, http, json_field, login, spawn_gateway};

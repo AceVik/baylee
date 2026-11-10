@@ -9,10 +9,7 @@
 
 #![allow(clippy::missing_docs_in_private_items)]
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
-mod common;
+use crate::common;
 
 use baylee_protocol::v1::{self, Envelope};
 use baylee_protocol::{TICKET_REFUSED, chair_redeem_path, chair_ticket_path};

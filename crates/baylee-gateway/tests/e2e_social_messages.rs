@@ -8,10 +8,7 @@
 
 #![allow(clippy::missing_docs_in_private_items, dead_code)]
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
-mod common;
+use crate::common;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;

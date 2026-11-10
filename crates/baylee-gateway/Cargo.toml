@@ -4,9 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Gateway: accounts, decks, lobby, and game hosting for baylee"
+# The end-to-end tests are one program (`tests/e2e.rs`), not one per file:
+# each linked the gateway, the engine and every card.
+autotests = false
 
 [lints]
 workspace = true
+
+[[test]]
+name = "e2e"
+path = "tests/e2e.rs"
 
 [features]
 # A developer's table: `BAYLEE_DEV_SEAT_BOARD` puts named cards on named
