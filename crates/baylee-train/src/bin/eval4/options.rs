@@ -272,6 +272,10 @@ struct Args {
     /// declarations to the policy.
     #[arg(long, default_value_t = 0, requires = "search")]
     search_combat: usize,
+    /// With `--search-combat`: combat declarations are the only roots;
+    /// priority decisions are answered by the policy (skipped as `roots`).
+    #[arg(long, requires = "search_combat")]
+    search_combat_only: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -309,6 +313,7 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_threads(args.search_threads)?
         .with_targets(args.search_targets)?
         .with_combat(args.search_combat)?
+        .with_combat_only(args.search_combat_only)
         .with_neural_opponent(args.search_neural_opponent);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.

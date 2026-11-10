@@ -850,6 +850,7 @@ fn a_searched_game_answers_legally_and_names_every_root_it_skips() {
                         assert!(matches!(view.phase, Phase::Beginning | Phase::Ending));
                     }
                     SearchSkip4::NotPolicy | SearchSkip4::CandidateRefused => {}
+                    SearchSkip4::Roots => panic!("no search here takes combat alone"),
                 }
                 reason.key().to_owned()
             }
@@ -1224,6 +1225,39 @@ fn a_declaration_of_attackers_is_searched_with_combat_roots() {
     assert!(report.actions.contains(&result.answer.action));
     assert_eq!(result.answer.provenance.source, SourceKind4::Search);
     assert!(pending.answer_fault(&result.answer.action).is_none());
+}
+
+/// A search for attacks and blocks alone leaves a priority decision to the
+/// policy, and says why.
+#[test]
+fn combat_only_leaves_priority_to_the_policy() {
+    let mut table = table(5);
+    let (pending, view) = root(&mut table, any_root);
+    let mut player = Mock::new(steady, flat);
+    player.observe(&view).unwrap();
+    let config = config(4, 2, 4)
+        .with_combat(6)
+        .unwrap()
+        .with_combat_only(true);
+    let result = search_decision(
+        &mut player,
+        &KnownDecks(&table),
+        &view,
+        &pending,
+        &[],
+        config,
+        SEED,
+    )
+    .unwrap();
+    assert!(
+        matches!(result.outcome, SearchOutcome4::Skipped(SearchSkip4::Roots)),
+        "{:?}",
+        result.outcome
+    );
+    assert_eq!(
+        config.metadata()["roots"],
+        "declarations_of_attackers_and_blockers_only"
+    );
 }
 
 #[test]

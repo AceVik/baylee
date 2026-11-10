@@ -117,6 +117,7 @@ pub struct SearchConfig4 {
     targets: usize,
     neural_opponent: bool,
     combat: usize,
+    combat_only: bool,
 }
 
 impl SearchConfig4 {
@@ -167,6 +168,7 @@ impl SearchConfig4 {
             targets: 0,
             neural_opponent: false,
             combat: 0,
+            combat_only: false,
         })
     }
 
@@ -234,6 +236,24 @@ impl SearchConfig4 {
     #[must_use]
     pub const fn combat(&self) -> usize {
         self.combat
+    }
+
+    /// The same search taking combat declarations alone as roots when
+    /// `combat_only` (priority decisions answered by the policy, counted as
+    /// [`SearchSkip4::Roots`]): a teacher for attacks and blocks whose
+    /// budget goes to them.
+    #[must_use]
+    pub const fn with_combat_only(self, combat_only: bool) -> Self {
+        Self {
+            combat_only,
+            ..self
+        }
+    }
+
+    /// Whether combat declarations are the only roots.
+    #[must_use]
+    pub const fn combat_only(&self) -> bool {
+        self.combat_only
     }
 
     /// The contract this search keeps.
@@ -354,6 +374,9 @@ impl SearchConfig4 {
                  those_world_0_refuses_dropped"
             );
             metadata["combat_prior"] = json!("one_for_the_policys_declaration_zero_for_the_others");
+            if self.combat_only {
+                metadata["roots"] = json!("declarations_of_attackers_and_blockers_only");
+            }
         }
         metadata
     }
@@ -572,6 +595,9 @@ pub enum SearchSkip4 {
     NotPolicy,
     /// A candidate was refused in its world before one round completed.
     CandidateRefused,
+    /// A priority decision in a search that takes combat declarations
+    /// alone as roots ([`SearchConfig4::combat_only`]).
+    Roots,
 }
 
 impl SearchSkip4 {
@@ -583,6 +609,7 @@ impl SearchSkip4 {
             Self::Phase => "phase",
             Self::NotPolicy => "not_policy",
             Self::CandidateRefused => "candidate_refused",
+            Self::Roots => "roots",
         }
     }
 }
@@ -923,6 +950,8 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     let declaration = config.combat > 0 && combat::is_declaration(pending);
     let skip = if declaration {
         (decision.answer.provenance.source != SourceKind4::Net).then_some(SearchSkip4::NotPolicy)
+    } else if config.combat_only {
+        Some(SearchSkip4::Roots)
     } else {
         root_skip(view, pending, &decision, config.candidates)
     };
