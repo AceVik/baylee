@@ -3,6 +3,7 @@ use super::{
 };
 use anyhow::Context as _;
 use baylee_train::features4::SourceKind4;
+use baylee_train_ops::exploration::frame::FrameMixture;
 use flate2::write::ZlibEncoder;
 use std::io::Write as _;
 
@@ -20,6 +21,9 @@ pub(super) struct GameWriter {
     bst4_buf: Vec<u8>,
     zlib_buf: Vec<u8>,
     roots: Arc<std::collections::BTreeMap<String, u32>>,
+    /// The dataset's proposer table (`meta.json` `behavior_mixture.proposers`);
+    /// empty without exploration.
+    proposers: Arc<Vec<String>>,
 }
 
 impl GameWriter {
@@ -46,7 +50,16 @@ impl GameWriter {
             bst4_buf: Vec::with_capacity(32 * 1024),
             zlib_buf: Vec::with_capacity(16 * 1024),
             roots,
+            proposers: Arc::default(),
         })
+    }
+
+    /// Frames index this proposer table (`meta.json` `behavior_mixture.proposers`):
+    /// a dataset of exploration records.
+    #[must_use]
+    pub fn with_proposers(mut self, proposers: Arc<Vec<String>>) -> Self {
+        self.proposers = proposers;
+        self
     }
 
     #[allow(
@@ -80,9 +93,32 @@ impl GameWriter {
         let n_mm = step.target.multi_mask.len();
         let n_fm = step.target.free_mask.len();
 
+        // An explored decision adds the mixture's flag bits and puts ln μ in
+        // the reserved word; every other frame keeps both as they were.
+        let mixture = step
+            .behavior_mixture
+            .as_ref()
+            .map(|explored| {
+                let proposer = self
+                    .proposers
+                    .iter()
+                    .position(|name| *name == explored.proposer)
+                    .with_context(|| {
+                        format!("proposer {} outside the dataset's table", explored.proposer)
+                    })?;
+                anyhow::Ok(FrameMixture {
+                    mixture_logprob: explored.mixture_logprob,
+                    rule: explored.rule,
+                    played: explored.played,
+                    proposer: u8::try_from(proposer)?,
+                })
+            })
+            .transpose()?;
         let flags = u32::from(step.is_decision)
             | (u32::from(step.is_terminal) << 1)
-            | (u32::from(step.provenance.has_logprob) << 2);
+            | (u32::from(step.provenance.has_logprob) << 2)
+            | mixture.as_ref().map_or(0, FrameMixture::flags);
+        let reserved = mixture.as_ref().map_or(0, FrameMixture::word);
         let src_kind: u32 = match step.provenance.source {
             SourceKind4::Net => 0,
             SourceKind4::House => 1,
@@ -103,7 +139,7 @@ impl GameWriter {
             u32::from(step.head),
             u32::from(step.pending_kind),
             src_kind,
-            0_u32,
+            reserved,
         ] {
             self.bst4_buf.extend_from_slice(&v.to_le_bytes());
         }

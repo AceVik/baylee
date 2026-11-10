@@ -113,6 +113,10 @@ pub struct Step4 {
     /// Executed external LLM target; never neural behavior probabilities.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub llm_label: Option<llm_bc::LlmLabelProvenance4>,
+    /// `eval4 --explore-rules`: the behaviour mixture of an explored learner
+    /// decision, beside its recorded π; absent from ordinary output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub behavior_mixture: Option<baylee_train_ops::exploration::StepExploration>,
 }
 
 /// Summary returned by [`extract_game4`].

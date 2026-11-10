@@ -255,6 +255,7 @@ mod tests {
             },
             shadow_label: Some(label),
             llm_label: None,
+            behavior_mixture: None,
         };
         let mut writer = FrameLabels::new(&directory, 1, &source).unwrap();
         writer.push(&step).unwrap();

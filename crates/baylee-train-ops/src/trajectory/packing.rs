@@ -1,4 +1,5 @@
 //! Existing BST4 little-endian frame ABI, shared by native cache and admission.
+use crate::exploration::frame::{self, FrameMixture};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -330,6 +331,9 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
     let free = usize::try_from(free)?;
     let start = raw.len() - multi - free;
     let flags = word(raw, 24)?;
+    // The rule-proposal mixture's bits and reserved word; both zero, and
+    // nothing added below, in a frame without exploration.
+    let mixture = FrameMixture::decode(flags, word(raw, frame::WORD_OFFSET)?)?;
     let source = match word(raw, 36)? {
         0 => "Net",
         1 => "House",
@@ -338,7 +342,10 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
         4 => "External",
         _ => anyhow::bail!("unknown BST4 provenance"),
     };
-    Ok(
-        json!({"global_feat_width":gw,"game_id":word(raw,8)?,"seat":word(raw,12)?,"step_cursor":word(raw,16)?,"turn":word(raw,20)?,"is_decision":flags&1!=0,"is_terminal":flags&2!=0,"head":word(raw,28)?,"pending_kind":word(raw,32)?,"loss_weight":real(raw,52)?,"outcome":real(raw,60)?,"cand_feat":vec![Value::Null;usize::try_from(candidates)?],"pairs":vec![Value::Null;usize::try_from(pairs)?],"target":{"single_idx":i32::from_le_bytes(raw[48..52].try_into()?),"scalar_norm":real(raw,56)?,"multi_mask":raw[start..start+multi],"free_mask":raw[start+multi..]},"provenance":{"source":source,"thinking_steps":i32::from_le_bytes(raw[44..48].try_into()?),"has_logprob":flags&4!=0,"behavior_logprob":real(raw,80)?,"temperature":real(raw,84)?}}),
-    )
+    let mut value = json!({"global_feat_width":gw,"game_id":word(raw,8)?,"seat":word(raw,12)?,"step_cursor":word(raw,16)?,"turn":word(raw,20)?,"is_decision":flags&1!=0,"is_terminal":flags&2!=0,"head":word(raw,28)?,"pending_kind":word(raw,32)?,"loss_weight":real(raw,52)?,"outcome":real(raw,60)?,"cand_feat":vec![Value::Null;usize::try_from(candidates)?],"pairs":vec![Value::Null;usize::try_from(pairs)?],"target":{"single_idx":i32::from_le_bytes(raw[48..52].try_into()?),"scalar_norm":real(raw,56)?,"multi_mask":raw[start..start+multi],"free_mask":raw[start+multi..]},"provenance":{"source":source,"thinking_steps":i32::from_le_bytes(raw[44..48].try_into()?),"has_logprob":flags&4!=0,"behavior_logprob":real(raw,80)?,"temperature":real(raw,84)?}});
+    if let Some(mixture) = mixture {
+        value["behavior_mixture"] = json!({"mixture_logprob": mixture.mixture_logprob,
+            "rule": mixture.rule, "played": mixture.played, "proposer": mixture.proposer});
+    }
+    Ok(value)
 }

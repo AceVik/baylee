@@ -38,6 +38,10 @@ from trajectory_store4 import BST4_HDR, BST4_MAGIC, TrajectoryStore4
 from structure_data4 import StructureData
 import orjson
 
+#: BST4 flag of an explored decision: the header's reserved word holds ln μ
+#: of the rule-proposal behaviour mixture (`baylee_train_ops::exploration`).
+MIXTURE_FLAG = 1 << 3
+
 SOURCE_KIND_MAP = {
     "Net": 0,
     "House": 1,
@@ -45,6 +49,20 @@ SOURCE_KIND_MAP = {
     "Search": 3,
     "External": 4,
 }
+
+
+def frame_mixture(flags: int, reserved: int, behavior_logprob: float) -> tuple[bool, float]:
+    """A BST4 frame's rule-proposal behaviour mixture (`baylee_train_ops::exploration::frame`).
+
+    An explored decision sets ``MIXTURE_FLAG`` and holds ln μ as f32 bits in
+    the header's reserved word; any other frame keeps the word zero, and its
+    behaviour is the net's own, μ = π.
+    """
+    if not flags & MIXTURE_FLAG:
+        if reserved:
+            raise ValueError("BST4 reserved word set without the mixture flag")
+        return False, behavior_logprob
+    return True, float(np.array(reserved, dtype=np.uint32).view(np.float32))
 
 
 def padded_stack(arrays: list[np.ndarray]) -> np.ndarray:
@@ -237,7 +255,7 @@ class TrajectoryDataset4(Dataset):
     def _encode_bst4(self, buf: bytes) -> dict[str, np.ndarray]:
         (
             _magic, _ver, _game_id, _seat, _step_cursor, _turn, flags, head,
-            _pending_kind, src_kind, _pad0, thinking_steps, raw_single_idx,
+            _pending_kind, src_kind, reserved, thinking_steps, raw_single_idx,
             loss_weight, scalar_norm, outcome, aux0, aux1, aux2, aux3,
             behavior_logprob, temp_val, n_ent_raw, ent_width, ent_rule_cols,
             seat_width, global_width, n_edg_raw, n_cand_raw, cand_width,
@@ -335,6 +353,7 @@ class TrajectoryDataset4(Dataset):
         is_decision = bool(flags & 1)
         is_terminal = bool(flags & 2)
         has_lp = bool(flags & 4)
+        has_mixture, mixture_logprob = frame_mixture(flags, reserved, behavior_logprob)
         if is_decision and head == 0 and not 0 <= raw_single_idx < n_cand:
             raise ValueError("Decision target is outside the represented candidate set")
         single_idx = min(max(raw_single_idx, 0), max(n_cand - 1, 0))
@@ -404,6 +423,8 @@ class TrajectoryDataset4(Dataset):
             "outcome": np.array(outcome, dtype=np.float32),
             "aux_target": np.array([aux0, aux1, aux2, aux3], dtype=np.float32),
             "behavior_logprob": np.array(behavior_logprob, dtype=np.float32),
+            "behavior_mixture_logprob": np.array(mixture_logprob, dtype=np.float32),
+            "has_behavior_mixture": np.array(has_mixture, dtype=bool),
             "has_logprob": np.array(has_lp, dtype=bool),
             "source_kind": np.array(src_kind, dtype=np.int64),
             "temperature": np.array(temp_val, dtype=np.float32),
@@ -569,6 +590,8 @@ class TrajectoryDataset4(Dataset):
         src_kind = parse_source_kind(prov.get("source", "House"))
         has_lp = bool(prov.get("has_logprob", False))
         temp_val = float(prov.get("temperature", 0.0))
+        behavior_logprob = float(prov.get("behavior_logprob", 0.0))
+        mixture = st.get("behavior_mixture")
 
         return {
             "entity_feat": ent_feat,
@@ -600,9 +623,12 @@ class TrajectoryDataset4(Dataset):
             "scalar_target": np.array(float(tgt["scalar_norm"]), dtype=np.float32),
             "outcome": np.array(float(st["outcome"]), dtype=np.float32),
             "aux_target": aux_vec,
-            "behavior_logprob": np.array(
-                float(prov.get("behavior_logprob", 0.0)), dtype=np.float32
+            "behavior_logprob": np.array(behavior_logprob, dtype=np.float32),
+            "behavior_mixture_logprob": np.array(
+                behavior_logprob if mixture is None else float(mixture["mixture_logprob"]),
+                dtype=np.float32,
             ),
+            "has_behavior_mixture": np.array(mixture is not None, dtype=bool),
             "has_logprob": np.array(has_lp, dtype=bool),
             "source_kind": np.array(src_kind, dtype=np.int64),
             "temperature": np.array(temp_val, dtype=np.float32),
@@ -631,6 +657,7 @@ class TrajectoryDataset4(Dataset):
             dummy["loss_weight"] = np.array(0.0, dtype=np.float32)
             dummy["is_terminal"] = np.array(False, dtype=bool)
             dummy["has_logprob"] = np.array(False, dtype=bool)
+            dummy["has_behavior_mixture"] = np.array(False, dtype=bool)
             dummy["cand_mask"][0] = True
             dummy["pair_mask"][0] = True
             encoded.extend([dummy] * pad_count)

@@ -447,3 +447,27 @@ fn records_from_another_build_convert_only_by_their_public_table_and_only_when_a
     let error = terminal_targets(&tampered, true).unwrap_err();
     assert!(error.contains("after input 12"), "{error}");
 }
+
+/// Without `eval4 --explore-rules` a rollout step's record is the bytes it
+/// always was, and a record written before the field reads back unchanged.
+#[test]
+fn a_step_without_exploration_records_as_before() {
+    let step = RolloutStepSidecar4 {
+        provenance: StepProvenance4 {
+            source: SourceKind4::Net,
+            temperature: 0.7,
+            thinking_steps: 2,
+            behavior_logprob: -0.5,
+            has_logprob: true,
+        },
+        free_mask: vec![1, 0],
+        pick_sequence: vec![0, 1],
+        exploration: None,
+    };
+    let before = r#"{"provenance":{"source":"Net","temperature":0.7,"thinking_steps":2,"behavior_logprob":-0.5,"has_logprob":true},"free_mask":[1,0],"pick_sequence":[0,1]}"#;
+    assert_eq!(serde_json::to_string(&step).unwrap(), before);
+    assert_eq!(
+        serde_json::from_str::<RolloutStepSidecar4>(before).unwrap(),
+        step
+    );
+}

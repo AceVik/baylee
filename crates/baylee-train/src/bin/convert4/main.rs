@@ -118,6 +118,9 @@ struct GameRef {
     game_id: u32,
     /// Self-imitation weight per seat (`--game-weights`).
     seat_weights: Option<[f32; MAX_SEATS]>,
+    /// Whether the learner explored with rule proposals (`eval4
+    /// --explore-rules`): its decisions weigh nothing supervised.
+    explored: bool,
     producer_encoder: Option<ProducerEncoder>,
     /// What the run's producer says about teammates' hands.
     team_hands: TeamHands,
@@ -155,6 +158,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
+mod exploration;
 mod llm;
 mod on_policy;
 mod output;
@@ -222,6 +226,7 @@ fn main() -> anyhow::Result<()> {
     let mut policy_sources = Vec::new();
     let mut shadow_seen = BTreeSet::new();
     let mut llm_seen = BTreeSet::new();
+    let mut explored_runs = Vec::new();
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
@@ -231,6 +236,19 @@ fn main() -> anyhow::Result<()> {
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
         let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
+        let run_exploration = exploration::run_contract(&run_json)?;
+        if let Some(contract) = &run_exploration {
+            exploration::refuse_supervised(&exploration::Modes {
+                on_policy: on_policy.is_some(),
+                shadow_bc: args.shadow_bc,
+                llm_bc: args.llm_bc,
+                live_bc: args.live_bc,
+                self_imitation: args.game_weights.is_some(),
+                search_targets: args.search_targets,
+            })
+            .with_context(|| format!("{}", run_dir.display()))?;
+            explored_runs.push(contract.clone());
+        }
         if on_policy.is_some() {
             anyhow::ensure!(
                 args.include_passive_obs
@@ -310,12 +328,38 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             let seed = v["seed"].as_u64().unwrap_or(0);
-            let sidecar: Option<Vec<RolloutStepSidecar4>> = v
-                .get("rollout_sidecar")
-                .and_then(|sc| serde_json::from_value(sc.clone()).ok());
+            let sidecar: Option<Vec<RolloutStepSidecar4>> =
+                match (&run_exploration, v.get("rollout_sidecar")) {
+                    // An exploring game's records are read whole or not at all.
+                    (Some(_), Some(sidecar)) => Some(
+                        serde_json::from_value(sidecar.clone())
+                            .context("an exploring game's sidecar")?,
+                    ),
+                    (Some(_), None) => bail!("an exploring game without its rollout sidecar"),
+                    (None, sidecar) => {
+                        sidecar.and_then(|sc| serde_json::from_value(sc.clone()).ok())
+                    }
+                };
+            // An exploring game's coins, proposals and ln μ check against its
+            // seeded stream and the run's ε; any other game carries none.
+            let game_epsilon = if let Some(contract) = &run_exploration {
+                let stream = serde_json::from_value(
+                    v.get("exploration")
+                        .cloned()
+                        .context("an exploring game without its mixture stream")?,
+                )?;
+                exploration::verify_game(sidecar.as_deref().unwrap_or_default(), &stream, contract)
+                    .with_context(|| format!("{} game {}", run_dir.display(), v["game"]))?;
+                Some(contract.epsilon)
+            } else {
+                exploration::refuse_undeclared(&v, sidecar.as_deref())?;
+                None
+            };
+            let policy_game = policy_game.map(|game| game.with_exploration(game_epsilon));
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
                 seat_weights,
+                explored: game_epsilon.is_some(),
                 on_policy: policy_game,
                 producer_encoder: if matches!(args.encoder_version, 8 | 9) && sidecar.is_some() {
                     Some(ProducerEncoder::from_run(&run_json).map_err(anyhow::Error::msg)?)
@@ -405,6 +449,12 @@ fn main() -> anyhow::Result<()> {
             .collect::<Vec<_>>(),
     )?;
     let rule_roots = Arc::new(structure.roots.clone());
+    // The proposer table an exploring dataset's frames index; empty otherwise.
+    let proposers = Arc::new(if explored_runs.is_empty() {
+        Vec::new()
+    } else {
+        exploration::proposer_table(&explored_runs)
+    });
     let started = Instant::now();
     let is_on_policy = games.iter().any(|game| game.on_policy.is_some());
     anyhow::ensure!(
@@ -529,6 +579,12 @@ fn main() -> anyhow::Result<()> {
         meta["search_distillation"] = targets.metadata(games_arc.len());
         meta["ppo_eligible"] = json!(false);
     }
+    if !proposers.is_empty() {
+        // Exploration records: ln μ beside π for the learner, and no
+        // supervised label in any frame.
+        meta["behavior_mixture"] = exploration::metadata(&proposers);
+        meta["supervised_eligible"] = json!(false);
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -544,6 +600,7 @@ fn main() -> anyhow::Result<()> {
         let val_rows = val_rows.clone();
         let root = args.out.clone();
         let rule_roots = rule_roots.clone();
+        let proposers = proposers.clone();
         let structure_sha256 = structure_sha256.clone();
         let cov_total = cov_total.clone();
         let unencoded_total = unencoded_total.clone();
@@ -568,7 +625,7 @@ fn main() -> anyhow::Result<()> {
                 journal_worker(&journal, gref, "replaying")?;
                 let bytes = read_member(&gref.shard_path, gref.offset, gref.len)?;
                 if let Some(binding)=&gref.on_policy {binding.verify(&bytes)?;}
-                let mut writer = GameWriter::new(&root, gref.validation, gref.game_id, rule_roots.clone())?;
+                let mut writer = GameWriter::new(&root, gref.validation, gref.game_id, rule_roots.clone())?.with_proposers(proposers.clone());
                 let mut frame_labels = gref.shadow.as_ref()
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
@@ -576,6 +633,7 @@ fn main() -> anyhow::Result<()> {
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let emit = |mut step: Step4| {
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
+                    if gref.explored { exploration::apply(&mut step); }
                     if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}

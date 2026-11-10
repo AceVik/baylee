@@ -510,6 +510,7 @@ mod tests {
             },
             shadow_label: None,
             llm_label: None,
+            behavior_mixture: None,
         }
     }
 
