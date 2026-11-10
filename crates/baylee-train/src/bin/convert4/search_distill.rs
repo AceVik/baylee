@@ -307,7 +307,17 @@ impl GameCursor<'_> {
 
         if step.is_decision && step.provenance.source == SourceKind4::Search {
             if let Some(events) = self.events {
-                if step.pending_kind == PendingKind4::Priority as u8 {
+                // A root (priority, or a combat declaration with
+                // `--search-combat`) has an event of its own; any other
+                // searched question is a target its cast's search followed.
+                let root = [
+                    PendingKind4::Priority,
+                    PendingKind4::DeclareAttackers,
+                    PendingKind4::DeclareBlockers,
+                ]
+                .iter()
+                .any(|kind| step.pending_kind == *kind as u8);
+                if root {
                     if let Some(ev) = events.seats[seat].get(self.next_event[seat]) {
                         event_idx = self.next_event[seat];
                         self.next_event[seat] += 1;
@@ -468,6 +478,77 @@ mod tests {
             run.as_object_mut().expect("object").remove(key);
             assert!(targets.admit(&run).is_err(), "{key}");
         }
+    }
+
+    /// A searched decision of `kind` at `seat`, weight 1.
+    fn searched(seat: u8, kind: PendingKind4) -> Step4 {
+        Step4 {
+            game_id: 1,
+            seat,
+            step_cursor: 0,
+            turn: 3,
+            is_decision: true,
+            loss_weight: 1.0,
+            is_terminal: false,
+            state: baylee_train::features4::EncodedState4::default(),
+            head: 0,
+            pending_kind: kind as u8,
+            cand_feat: vec![],
+            cand_entity_idx: vec![],
+            cand_rel_seat_idx: vec![],
+            cand_card_id: vec![],
+            cand_face_id: vec![],
+            cand_ability_idx: vec![],
+            cand_rule_refs: vec![],
+            pairs: vec![],
+            target: baylee_train::features4::TeacherTarget4::default(),
+            outcome: 0.5,
+            aux: baylee_train::convert4::AuxTargets4::default(),
+            provenance: baylee_train::features4::StepProvenance4 {
+                source: SourceKind4::Search,
+                ..baylee_train::features4::StepProvenance4::default()
+            },
+            shadow_label: None,
+            llm_label: None,
+        }
+    }
+
+    /// A declaration searched as a root (`--search-combat`) takes the next
+    /// event of its seat, as a priority root does; a target question still
+    /// follows its cast's event. Otherwise every later event would be read
+    /// one decision late.
+    #[test]
+    fn a_searched_declaration_takes_its_own_event() {
+        let game = json!({"search_events": [
+            {"accepted": true, "seat": 0, "turn": 3, "chosen": 1, "diffs": [0.0, 0.1],
+             "candidates": ["PassPriority", "PassPriority"], "action": "PassPriority"},
+            {"accepted": true, "seat": 0, "turn": 3, "chosen": 0, "diffs": [0.0, -0.1],
+             "candidates": [{"DeclareAttackers": {"attackers": []}}, {"DeclareAttackers": {"attackers": []}}],
+             "action": {"DeclareAttackers": {"attackers": []}}},
+            {"accepted": true, "seat": 0, "turn": 3, "chosen": 1, "diffs": [0.0, 0.2],
+             "candidates": ["PassPriority", "PassPriority"], "action": "PassPriority"},
+        ]});
+        let events = GameSearchEvents::from_game(&game);
+        let weighting = Targets::with_options(0.0, 0.25, false)
+            .expect("weights in range")
+            .weighting();
+        let mut cursor = weighting.cursor(Some(&events));
+        let weights: Vec<f32> = [
+            PendingKind4::Priority,
+            PendingKind4::DeclareAttackers,
+            PendingKind4::Priority,
+            PendingKind4::ChooseTargets,
+        ]
+        .into_iter()
+        .map(|kind| {
+            let mut step = searched(0, kind);
+            cursor.apply(&mut step);
+            step.loss_weight
+        })
+        .collect();
+        // Changed, unchanged (the declaration's own event), changed, and the
+        // target that follows the third root inherits its change.
+        assert_eq!(weights, [1.0, 0.25, 1.0, 1.0]);
     }
 
     #[test]
