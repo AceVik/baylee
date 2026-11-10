@@ -32,11 +32,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, ensure};
 use baylee_train::convert4::distill_labels::{
-    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillStep4, DistillSubtype4, menu_signature,
+    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillStep4, DistillSubtype4, FIRED_GROUPS,
+    menu_signature,
 };
 use baylee_train::convert4::{NetAnswer4, Step4};
 use baylee_train::features4::{HeadKind4, SourceKind4, TeacherTarget4};
-use baylee_train::netplay4::TacticRules4;
 use baylee_train_ops::tactician_labels::NO_SUBTYPE;
 use serde_json::{Value, json};
 
@@ -167,7 +167,7 @@ impl Runs {
             "loss_weight": "1 at labelled decisions of the recorded seats, 0 elsewhere",
             "value_targets": "game outcomes, as usual",
             "subtypes": DistillSubtype4::ALL.map(DistillSubtype4::name),
-            "groups": TacticRules4::group_names(),
+            "groups": FIRED_GROUPS,
             "bst4_flags": {"bit_7": "N != R"},
             "bst4_block": {
                 "frames": "every decision frame of a recorded seat (labelled, or a fallback at weight 0)",
@@ -427,9 +427,9 @@ impl<'a> Cursor<'a> {
 }
 
 /// The mask of the groups that fired: bit `i` for the `i`-th of
-/// [`TacticRules4::group_names`].
+/// [`FIRED_GROUPS`].
 fn fired_mask(fired: &[String]) -> Result<u64, String> {
-    let names = TacticRules4::group_names();
+    let names = FIRED_GROUPS;
     fired.iter().try_fold(0_u64, |mask, group| {
         let bit = names
             .iter()
@@ -612,10 +612,7 @@ mod tests {
         let distilled = step.distill.as_ref().unwrap();
         // The block: spend's code, and the bit of the group `spend`.
         assert_eq!(distilled.subtype_code, 3);
-        let spend_bit = TacticRules4::group_names()
-            .iter()
-            .position(|g| *g == "spend")
-            .unwrap();
+        let spend_bit = FIRED_GROUPS.iter().position(|g| *g == "spend").unwrap();
         assert_eq!(distilled.fired_mask, 1 << spend_bit);
         let line = distilled.label.as_ref().unwrap();
         assert!(line.n_ne_r);

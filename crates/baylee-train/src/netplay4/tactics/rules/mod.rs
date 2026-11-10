@@ -134,7 +134,8 @@ impl TacticRules4 {
     }
 
     /// Every group's name, in a fixed order: bit `i` of a distillation
-    /// dataset's fired mask is the `i`-th (`bundle_distillation.groups`).
+    /// dataset's fired mask is the `i`-th (`bundle_distillation.groups`,
+    /// `convert4::distill_labels::FIRED_GROUPS`, held equal by a test).
     #[must_use]
     pub fn group_names() -> [&'static str; GROUPS.len()] {
         GROUPS.map(|(_, name)| name)

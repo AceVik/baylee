@@ -485,3 +485,14 @@ fn no_group_on_changes_nothing() {
     assert!(TacticRules4::parse("all").unwrap().any());
     assert!(TacticRules4::parse("nonsense").is_err());
 }
+
+/// A distillation dataset names its fired-mask bits by
+/// `convert4::distill_labels::FIRED_GROUPS`, which a converter built without
+/// the net reads: it is this table, in this order.
+#[test]
+fn the_fired_mask_bits_are_the_rule_table() {
+    assert_eq!(
+        TacticRules4::group_names(),
+        crate::convert4::distill_labels::FIRED_GROUPS
+    );
+}
