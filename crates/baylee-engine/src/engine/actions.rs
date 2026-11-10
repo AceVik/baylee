@@ -2391,6 +2391,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.activation_targets_answered = false;
         self.activation_target_players.clear();
+        self.release_activation_capture();
         self.pending_plan = None;
         self.regrant_priority = Some(player);
     }

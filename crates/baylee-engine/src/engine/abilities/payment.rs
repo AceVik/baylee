@@ -299,6 +299,12 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         if mana_ability {
+            // The activation ends here, with no push to take what it
+            // captured: the ability resolves below without the stack
+            // (CR 605.3b). Released before it runs, because a colour it asks
+            // returns from this function early and leaves the resolution
+            // waiting, which is no longer the activation's business.
+            self.release_activation_capture();
             self.activation_target_choice =
                 super::super::targeting::ActivationTargetChoice::default();
             self.record_activation(player, source, activated_source_version, &cost, None);

@@ -22,6 +22,15 @@ mod restrictions;
 mod stack;
 mod x_value;
 
+#[cfg(test)]
+thread_local! {
+    /// Set, [`Engine::release_activation_capture`] does nothing: the engine
+    /// as it was before the release, for `activation_capture_tests`' twin
+    /// games, which hold the release to changing nothing but the fork.
+    pub(in crate::engine) static KEEP_STALE_CAPTURE: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
+
 /// A determined activation price keeps every printed and imposed cost part
 /// beside its mana and source permissions. Owning the parts lets payment
 /// windows and counter continuations retain the exact announced price.

@@ -581,11 +581,22 @@ pub struct Engine<L: CardLookup> {
     /// after setting it cannot lend its list to the next ability anything
     /// pushes.
     ///
+    /// And emptied wherever an activation ends: the push takes it, and a
+    /// mana ability (which resolves without the stack, CR 605.3b) and a
+    /// reversal release it (`Engine::release_activation_capture`). So it is
+    /// `Some` only while an activation is being made, which is how
+    /// `Engine::fork_for` reads it. It used to outlive both, and the settled
+    /// priority after any mana ability but a basic land type's (which taps
+    /// without this checklist) was refused a fork.
+    ///
     /// [`Engine::hand_over_trigger_abilities`]: crate::engine::Engine
     #[cfg(feature = "test-support")]
     pub activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
     #[cfg(not(feature = "test-support"))]
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    /// The granted ability an activation is making, read before paying can
+    /// remove its grantor; held and released with
+    /// [`Engine::activating_abilities`].
     activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     /// What each seat may do beyond answering its own choices.
     ///
@@ -2076,6 +2087,8 @@ mod spend_riders;
 #[cfg(any(test, feature = "fuzz"))]
 mod invariants;
 
+#[cfg(test)]
+mod activation_capture_tests;
 #[cfg(test)]
 mod activation_flow_tests;
 #[cfg(test)]

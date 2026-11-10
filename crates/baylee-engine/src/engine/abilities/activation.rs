@@ -851,6 +851,30 @@ impl<L: CardLookup> Engine<L> {
         self.complete_paid_activation(completion, work.paid);
         Ok(())
     }
+
+    /// Lets go of what an activation captured for its push: the source's
+    /// ability list ([`Engine::activating_abilities`]) and a granted
+    /// ability's definition (`activating_grant`).
+    ///
+    /// The push takes them; this is for the two other ways an activation
+    /// ends. A mana ability goes on no stack and resolves at once
+    /// (CR 605.3b), and an activation refused after an answer is reversed
+    /// (`reverse_activation`). Left standing, the capture outlived its
+    /// activation: the settled priority after it was refused a fork as an
+    /// activation in progress, and the next reads of the same source (a
+    /// trigger's push, the offer's words and walls for its activated
+    /// abilities) took the list as it was then rather than as it is.
+    ///
+    /// [`Engine::activating_abilities`]: crate::engine::Engine
+    pub(in crate::engine) fn release_activation_capture(&mut self) {
+        #[cfg(test)]
+        if super::KEEP_STALE_CAPTURE.with(std::cell::Cell::get) {
+            return;
+        }
+        self.activating_abilities = None;
+        self.activating_grant = None;
+    }
+
     pub(super) fn record_activation(
         &mut self,
         player: PlayerId,

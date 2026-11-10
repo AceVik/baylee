@@ -2621,6 +2621,34 @@ whose seats send no automation settings); an unknown deck. Every refusal
 depends on what the seat can see — when draws happened, what is public,
 what the pool's multiset is — never on where a hidden card is.
 
+**An activation is in progress from its press until it ends**, and what it
+captured for its push is part of it: `activating_abilities` (the source's
+ability list, read before a cost can move the source — the Glasspool Mimic
+case) and `activating_grant` (a granted ability's definition). Each way an
+activation ends empties both: the push takes them, and a mana ability, which
+goes on no stack and resolves at once (CR 605.3b), and a reversal after an
+answer (`reverse_activation`) release them
+(`Engine::release_activation_capture`). So the fork's refusal on these two
+fields names an activation still being made. Until 10 November 2026 a mana
+ability and a reversal left the capture standing, keyed by its source, until
+the next push or activation took or overwrote it, and the settled priority
+after any mana ability but a basic land type's (which taps without the
+activation checklist) was refused as `Continuation("activating_abilities")`:
+2,901 of 6,859 roots one `eval4 --search` run attempted. In play the release
+changes nothing: the only later readers of a stale capture were the next push
+from the same source (a trigger) and what is read of that source's activated
+abilities before its next activation captures afresh (the offer's
+conditions, words and target walls, a mode question). Each of them now reads
+the source itself, which gives the same list unless the source's abilities
+or words changed in between, where the stale list was the wrong one. The
+capture is in neither snapshot hash (it is in `Engine::fingerprint` and the
+decision checkpoint). The lockstep games in
+`engine/activation_capture_tests.rs` hold that: every house deck plays its
+neighbour with the release and without it (a test-only switch), the two take
+the same answers to the same snapshot hashes and differ in the two capture
+fields alone, and four in five of the forks taken in them were refused
+before.
+
 The twin-game test compares the two forks with `Engine::fingerprint` (every
 field) and their whole journals, so a new field or note that carries a real
 hidden card into a fork fails it as soon as the fixture exercises it — that
