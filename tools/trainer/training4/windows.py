@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 import random
+import time
 
 import numpy as np
 import torch
@@ -110,7 +111,7 @@ def piece_maxima(values, offsets, pieces):
 
 @torch.no_grad()
 def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, workers=2, token_budget=0,
-                  nograd_scale=8):
+                  nograd_scale=8, timing_out=None):
     """Stored H entering every piece start, from one no-grad pass over all frames.
 
     Lanes stream whole trajectories in order, as validation does, and reset H at
@@ -141,6 +142,12 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
                         num_workers=workers, pin_memory=device.type == "cuda",
                         **({"prefetch_factor": 4} if workers else {}))
     hidden = None
+    # Loader workers verify the packed cache before their first read; report
+    # that start apart from the steady pass.
+    began = time.perf_counter()
+    timing = {} if timing_out is None else timing_out
+    timing.clear()
+    timing.update(first_batch_s=None, frames=0, encoded=0)
     net.clear_structure()
     with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
         net.prepare_structure()
@@ -184,9 +191,18 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
                 hidden = torch.where(batch["step_valid"][:, t, None, None], observed.float(), hidden)
             for pids, values in captured:
                 states[torch.tensor(pids)] = values.float().cpu()
+            timing["frames"] += int(valid.sum())
+            timing["encoded"] += int(rows.numel())
+            if timing["first_batch_s"] is None:
+                timing["first_batch_s"] = time.perf_counter() - began
+                timing["first_batch_frames"] = timing["frames"]
+                steady = time.perf_counter()
     finally:
         net.clear_structure()
         del loader
+    timing["total_s"] = time.perf_counter() - began
+    if timing["first_batch_s"] is not None:
+        timing["steady_s"] = time.perf_counter() - steady
     return states, piece_maxima(entity_counts, offsets, pieces)
 
 
@@ -304,6 +320,7 @@ class WindowTraining:
         self.statistics = plan_statistics(self.decisions, self.pieces)
         self.states = None
         self.entities = None
+        self.timing = {}
         self.lanes = WindowLanes(dataset, self.rows, self.pieces, length)
         self.sampler = WindowBatchSampler(self, lanes_per_batch, length, seed, entity_bucket, fraction)
 
@@ -325,7 +342,8 @@ class WindowTraining:
             return "cache"
         # Pageable on purpose: with B=0 the table is about 23 KB per decision.
         self.states, self.entities = window_states(net, self.dataset, self.pieces, device, lanes,
-                                                   thinking_steps, bf16, workers, token_budget)
+                                                   thinking_steps, bf16, workers, token_budget,
+                                                   timing_out=self.timing)
         if cache is not None:
             Path(cache).parent.mkdir(parents=True, exist_ok=True)
             temporary = Path(str(cache) + ".tmp")
