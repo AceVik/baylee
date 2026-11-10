@@ -93,9 +93,20 @@ fn copied_oracle_row_grows_inside_the_existing_scroll_viewport() {
     let mut bodies = app
         .world_mut()
         .query_filtered::<&Node, With<stack::StackBody>>();
+    let body = bodies.single(app.world()).unwrap();
+    assert_eq!(body.overflow, Overflow::scroll_y());
     assert_eq!(
-        bodies.single(app.world()).unwrap().overflow,
-        Overflow::scroll_y()
+        body.max_height,
+        percent(100),
+        "StackBody must bound its cross-axis height to StackViewport so Taffy scrolls instead of clipping"
+    );
+    let mut panels = app
+        .world_mut()
+        .query_filtered::<&Pickable, With<stack::StackPanel>>();
+    assert_eq!(
+        panels.single(app.world()).unwrap(),
+        &Pickable::default(),
+        "StackPanel must block pointer raycasts from falling through to the table behind it"
     );
 }
 

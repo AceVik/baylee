@@ -185,17 +185,37 @@ pub(super) fn fill_list(
         prefix: tab == ChatTab::All,
         timestamps: filter.timestamps,
     };
-    let appended = same_list
+    let can_patch = same_list
         && !with_log
         && base == drawn.chat_base
         && !drawn.chat_lines.is_empty()
-        && signature.len() > drawn.chat_lines.len()
-        && signature.starts_with(&drawn.chat_lines)
+        && drawn.chat_rows.len() == drawn.chat_lines.len()
+        && signature.len() >= drawn.chat_lines.len()
+        && signature[..drawn.chat_lines.len()]
+            .iter()
+            .zip(&drawn.chat_lines)
+            .all(|(a, b)| a.0 == b.0 && a.1 == b.1)
         && chat[drawn.chat_lines.len()..]
             .iter()
             .all(|(_, line)| stamp_of(line) > newest);
-    if appended {
-        for (order, (conv, line)) in chat.iter().enumerate().skip(drawn.chat_lines.len()) {
+    if can_patch {
+        let old_len = drawn.chat_lines.len();
+        for (i, ((conv, line), (next_sig, prev_sig))) in chat[..old_len]
+            .iter()
+            .zip(signature[..old_len].iter().zip(&drawn.chat_lines))
+            .enumerate()
+        {
+            if next_sig != prev_sig {
+                let row = drawn.chat_rows[i];
+                let swatch = swatch_of(duel, line.from_tag());
+                commands.entity(row).despawn_children();
+                rows::fill_row(
+                    commands, row, fonts, lang, machine, conv, line, &inks, style, swatch,
+                );
+            }
+        }
+        let grew = chat.len() > old_len;
+        for (order, (conv, line)) in chat.iter().enumerate().skip(old_len) {
             let swatch = swatch_of(duel, line.from_tag());
             let row = rows::spawn_row(
                 commands, fonts, lang, machine, conv, line, &inks, style, swatch,
@@ -205,11 +225,12 @@ pub(super) fn fill_list(
                 Arrive::default(),
             ));
             commands.entity(list).add_child(row);
+            drawn.chat_rows.push(row);
             drawn.newest = drawn.newest.max(stamp_of(line));
         }
         drawn.list_key = key;
         drawn.chat_lines = signature;
-        if let Ok((mut follow, _)) = lists.get_mut(list) {
+        if grew && let Ok((mut follow, _)) = lists.get_mut(list) {
             if ui.follow || follow.stuck {
                 follow.stuck = true;
             } else {
@@ -222,6 +243,7 @@ pub(super) fn fill_list(
     drawn.list_key = key;
     drawn.chat_base = base;
     drawn.chat_lines = signature;
+    drawn.chat_rows.clear();
     drawn.log_lines = 0;
     drawn.shown_tab = Some(tab);
     drawn.rows.reset();
@@ -233,6 +255,7 @@ pub(super) fn fill_list(
         let row = rows::spawn_row(
             commands, fonts, lang, machine, conv, line, &inks, style, swatch,
         );
+        drawn.chat_rows.push(row);
         let stamp = stamp_of(line);
         commands
             .entity(row)
@@ -394,7 +417,7 @@ pub(super) fn note_the_marker(
     mut shown: Local<Option<(ChatTab, Option<String>)>>,
     mut was_focused: Local<bool>,
 ) {
-    let focused = windows.iter().any(|w| w.focused);
+    let focused = super::window_focused(&windows);
     let regained = focused && !*was_focused;
     *was_focused = focused;
     let now = (ui.open && !ui.minimised && ui.tab != ChatTab::Log)

@@ -371,7 +371,11 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // (`shared_name.rs` tests it), so 86 still names the shape.
     // 90: madness as imported engine variants a reader of 89 cannot parse; the
     // view's own declarations are unchanged, so only the number moves.
-    const RECORDED: (u32, u64) = (90, 2_318_126_510_594_302_051);
+    // `PublicObject::chosen_color` and `PublicObject::chosen_x` are additive,
+    // defaulted and omitted when `None`, so 90 still names the shape.
+    // `GameStatic::table_seed` is additive, defaulted and omitted when zero, so
+    // 90 still names the shape.
+    const RECORDED: (u32, u64) = (90, 6_702_446_822_327_946_934);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

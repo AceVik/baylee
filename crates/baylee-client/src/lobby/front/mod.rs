@@ -359,15 +359,16 @@ pub(super) fn show_scene(
     } else {
         crate::vista::HAZE_IN
     };
+    let unauthenticated = matches!(state.lobby.screen(), Screen::SignIn { .. })
+        && !state.central_ready()
+        && !state.lobby.offline();
     scene.set_if_neq(crate::vista::FrontScene {
         stage: if entrance.active() {
             crate::vista::arrival(entrance.progress())
         } else {
             crate::vista::passage(motion.progress(), peak)
         },
-        shown: matches!(state.lobby.screen(), Screen::SignIn { .. })
-            || state.showing_gateway_hub()
-            || entrance.active(),
+        shown: unauthenticated || entrance.active(),
         entering: entrance.active(),
         portal: entrance.progress(),
     });

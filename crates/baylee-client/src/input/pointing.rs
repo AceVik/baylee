@@ -24,9 +24,10 @@ pub fn pointer(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     seats: SeatPresses,
-    (peek_chips, scrollbars): (
+    (peek_chips, scrollbars, group_toggles): (
         Query<&crate::hud::peeks::PeekChip>,
         Query<&bevy::ui_widgets::Scrollbar>,
+        Query<&crate::hud::stack::StackGroupToggle>,
     ),
     seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
@@ -55,11 +56,13 @@ pub fn pointer(
         if duel.tear.is_some() && find_in_lineage(e, &cards, &parents).is_some() {
             continue;
         }
-        // A scrollbar is pressed to scroll, never to choose: a stack row's
-        // bar lies inside the row, and the row stands for its spell, so a
-        // press on the bar — or the click a drag of its thumb ends in —
-        // would otherwise target the spell or mark a stop on it.
-        if find_in_lineage(e, &scrollbars, &parents).is_some() {
+        // A scrollbar or a group-fold button is pressed to scroll or fold,
+        // never to choose: both lie inside a stack row, and the row stands
+        // for its spell, so a press there would otherwise target the spell
+        // or mark a stop on it.
+        if find_in_lineage(e, &scrollbars, &parents).is_some()
+            || find_in_lineage(e, &group_toggles, &parents).is_some()
+        {
             continue;
         }
         if let Some(object) = find_in_lineage(e, &cards, &parents)
@@ -322,7 +325,10 @@ fn find_hand_in_lineage<'a>(
 
 fn still_over(
     hovers: Option<&bevy::picking::hover::HoverMap>,
+    cards: &Query<&CardVisual>,
     hand_cards: &Query<(&HandCardVisual, Has<crate::hud::StackRowCard>)>,
+    tray_cards: &Query<&TrayCard>,
+    choice_previews: &Query<&crate::hud::ChoicePreview>,
     parents: &Query<&ChildOf>,
     hovered: Option<ObjectId>,
 ) -> bool {
@@ -331,8 +337,13 @@ fn still_over(
             .values()
             .flat_map(|over| over.keys().copied())
             .any(|entity| {
-                find_hand_in_lineage(entity, hand_cards, parents)
-                    .is_some_and(|(h, _)| hovered == Some(h.object))
+                find_in_lineage(entity, cards, parents).is_some_and(|v| hovered == Some(v.object))
+                    || find_hand_in_lineage(entity, hand_cards, parents)
+                        .is_some_and(|(h, _)| hovered == Some(h.object))
+                    || find_in_lineage(entity, tray_cards, parents)
+                        .is_some_and(|t| hovered == Some(t.object))
+                    || find_in_lineage(entity, choice_previews, parents)
+                        .is_some_and(|t| hovered == Some(t.object))
             })
     })
 }
@@ -358,7 +369,11 @@ type TableCamera<'w, 's> =
 /// pointer only speaks when it has actually moved. The grace of a few frames
 /// covers the gap between a `CursorMoved` and the picking pass that follows
 /// it, so a genuine mouse move is never swallowed.
-#[allow(clippy::too_many_arguments)] // three picking queries plus the two event streams
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::too_many_lines
+)] // three picking queries plus the two event streams
 pub fn pointer_hover(
     mut overs: MessageReader<PointerOver>,
     mut outs: MessageReader<PointerOut>,
@@ -374,7 +389,13 @@ pub fn pointer_hover(
     piles: Query<&crate::table::PileVisual>,
     parents: Query<&ChildOf>,
     places: Query<&GlobalTransform>,
-    (table_camera, hovers): (TableCamera, Option<Res<bevy::picking::hover::HoverMap>>),
+    (table_camera, hovers, ui_nodes, ui, group_toggles): (
+        TableCamera,
+        Option<Res<bevy::picking::hover::HoverMap>>,
+        Query<(&ComputedNode, &UiGlobalTransform)>,
+        Option<Res<UiScale>>,
+        Query<&crate::hud::stack::StackGroupToggle>,
+    ),
     mut duel: ResMut<Duel>,
 ) {
     // `hovered` has four writers and only one of them is this system. A hover
@@ -498,6 +519,12 @@ pub fn pointer_hover(
                     .view
                     .as_ref()
                     .and_then(|view| hover_zone(view, v.object));
+            } else if find_in_lineage(over.entity, &group_toggles, &parents).is_some() {
+                if *source == HoverSource::Stack {
+                    duel.hovered = None;
+                    duel.hovered_at = None;
+                    *source = HoverSource::Elsewhere;
+                }
             } else if let Some((h, stack)) =
                 find_hand_in_lineage(over.entity, &hand_cards, &parents)
             {
@@ -508,14 +535,36 @@ pub fn pointer_hover(
                 } else {
                     HoverSource::Hand
                 };
-            } else if let Some(t) = find_in_lineage(over.entity, &tray_cards, &parents) {
-                // A row in the zone browser. It is a card drawn 74 px across,
-                // which is enough to pick out and not enough to read, so it
-                // previews like every other card the pointer finds — the
-                // panel standing beside the pointer, because a tray row has
-                // no place of its own in the HUD's layout.
+            } else if let Some((row, t)) = lineage_bearer(over.entity, &tray_cards, &parents) {
+                // A row or tile in the zone browser: placed beside the row's
+                // or tile's box in logical window pixels (`PreviewAt::in_ui`
+                // divides the UI scale back out), preferring the right window
+                // edge across the left two-thirds of a wide row so the card
+                // names and zone tabs on the left stay uncovered.
                 duel.hovered = Some(t.object);
-                duel.hovered_at = Some(HoverSpot::Point(at));
+                let ui_scale = ui.as_deref().map_or(1.0, |ui| ui.0);
+                let spot = ui_nodes
+                    .get(row)
+                    .ok()
+                    .map(|(node, place)| {
+                        let scale = node.inverse_scale_factor * ui_scale;
+                        let size = node.size() * scale;
+                        let centre = place.translation * scale;
+                        (size, centre)
+                    })
+                    .filter(|(size, _)| size.x > 0.0 && size.y > 0.0)
+                    .map_or(HoverSpot::Point(at), |(size, centre)| {
+                        let mut rect = Rect::from_center_size(centre, size);
+                        if size.x > 200.0 {
+                            if at.x > rect.min.x + size.x * 0.65 {
+                                rect.max.x += 1.0;
+                            } else {
+                                rect.min.x -= 1.0;
+                            }
+                        }
+                        HoverSpot::Card(rect)
+                    });
+                duel.hovered_at = Some(spot);
                 *source = HoverSource::Tray;
             } else if let Some(t) = find_in_lineage(over.entity, &choice_previews, &parents) {
                 duel.hovered = Some(t.object);
@@ -530,6 +579,10 @@ pub fn pointer_hover(
             }
         }
         for out in outs.read() {
+            let is_card = find_in_lineage(out.entity, &cards, &parents).is_some()
+                || find_hand_in_lineage(out.entity, &hand_cards, &parents).is_some()
+                || find_in_lineage(out.entity, &tray_cards, &parents).is_some()
+                || find_in_lineage(out.entity, &choice_previews, &parents).is_some();
             let is_current = find_in_lineage(out.entity, &cards, &parents)
                 .is_some_and(|v| duel.hovered == Some(v.object))
                 || find_hand_in_lineage(out.entity, &hand_cards, &parents)
@@ -537,8 +590,19 @@ pub fn pointer_hover(
                 || find_in_lineage(out.entity, &tray_cards, &parents)
                     .is_some_and(|t| duel.hovered == Some(t.object))
                 || find_in_lineage(out.entity, &choice_previews, &parents)
-                    .is_some_and(|t| duel.hovered == Some(t.object));
-            if is_current && !still_over(hovers.as_deref(), &hand_cards, &parents, duel.hovered) {
+                    .is_some_and(|t| duel.hovered == Some(t.object))
+                || (is_card && hovers.is_some() && *source != HoverSource::Elsewhere);
+            if is_current
+                && !still_over(
+                    hovers.as_deref(),
+                    &cards,
+                    &hand_cards,
+                    &tray_cards,
+                    &choice_previews,
+                    &parents,
+                    duel.hovered,
+                )
+            {
                 duel.hovered = None;
                 duel.hovered_at = None;
                 *source = HoverSource::Elsewhere;

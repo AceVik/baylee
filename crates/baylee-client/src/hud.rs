@@ -1986,11 +1986,11 @@ pub use sheet::{
     place_ability_sheet, sync_ability_sheet, zoom_the_sheet,
 };
 pub use slip::{SlipWash, wash_the_slip_in};
-pub(crate) use stack::{StackControls, StackPanel};
 pub use stack::{
-    StackFold, StackMotion, StackTextBar, StackTextBox, StackTextRow, StackTextScroll, TextNudge,
-    ease_the_stack_in, fold_the_stack, stack_text, stack_text_keys,
+    StackButton, StackFold, StackMotion, StackTextBar, StackTextBox, StackTextRow, StackTextScroll,
+    TextNudge, ease_the_stack_in, fold_the_stack, stack_text, stack_text_keys,
 };
+pub(crate) use stack::{StackControls, StackPanel};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
 pub use tray::{TrayCarry, TrayReveal, TrayRevision, carry_the_rows, reveal_tray, sync_tray};

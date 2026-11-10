@@ -37,6 +37,7 @@ fn app() -> App {
         prints: Vec::new(),
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
     });
     duel.receive_view(
         ViewBuilder::new(2)

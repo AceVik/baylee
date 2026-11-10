@@ -8053,6 +8053,12 @@ components:
           format: int64
           minimum: 0
           description: How many matching tables were skipped before this page.
+        stats:
+          $ref: "#/components/schemas/LobbyStats"
+          description: >-
+            Three exact numbers for the lobby's header (`players_online`, `tables_waiting`,
+            `games_running`), pushed with every page so a client watching `GET /lobby/ws`
+            never needs to poll `GET /lobby/stats`.
         total:
           type: integer
           format: int64
@@ -8061,6 +8067,7 @@ components:
       required:
       - limit
       - offset
+      - stats
       - total
       allOf:
       - $ref: "#/components/schemas/LobbyListing"

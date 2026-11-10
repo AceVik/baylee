@@ -763,6 +763,9 @@ impl Social {
     }
 
     fn open_conv(&mut self, id: &ConvId, now_ms: u64, out: &mut Vec<Effect>) {
+        if let Some(partner) = id.partner(&self.me.tag) {
+            self.state.last_whisper = Some(partner.to_string());
+        }
         let conv = self.conv_entry(id, now_ms);
         conv.open = true;
         self.switch_tab(id);

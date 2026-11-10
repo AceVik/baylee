@@ -46,7 +46,9 @@ pub(super) fn archive(
     // The remote read must succeed even for an initial import. Unavailability,
     // corruption, or an existing remote root must never trigger a local fallback.
     let remote = MemoryDisk {
-        files: handle.chat_history(device.clone()).map_err(|_| Error::Io)?,
+        files: handle
+            .chat_history(device.clone())
+            .map_err(super::account_err)?,
     };
     if local.is_none_or(|local| local.device != device.device || local.key != device.key) {
         return Ok(remote);

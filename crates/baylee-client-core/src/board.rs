@@ -914,6 +914,7 @@ impl StackTarget {
 
 /// One item on the stack.
 #[derive(Clone, PartialEq, Debug)]
+#[allow(clippy::struct_excessive_bools)] // independent stack cast facts
 pub struct StackItem {
     /// Object handle.
     pub id: ObjectId,
@@ -942,6 +943,25 @@ pub struct StackItem {
     pub times_kicked: u8,
     /// Whether its buyback cost was paid (CR 702.27a).
     pub bought_back: bool,
+    /// Whether this spell was cast via flashback (CR 702.34).
+    pub flashed_back: bool,
+    /// Creature or land subtype chosen for this spell on cast or entry.
+    pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Card name chosen for this spell on cast or entry.
+    pub chosen_name: Option<baylee_view::NamedFace>,
+    ///Opponent or player chosen for this spell on cast or entry.
+    pub chosen_opponent: Option<PlayerId>,
+    /// Color chosen for this spell on cast or entry.
+    pub chosen_color: Option<baylee_core::mana::ManaColor>,
+    /// Value of X announced for this spell or ability on the stack (CR 601.2b).
+    pub chosen_x: Option<u32>,
+    /// Whether this spell is face-down on the stack (Morph / Disguise, CR 708.2).
+    pub face_down: bool,
+    /// Protector chosen for a Battle spell on the stack.
+    pub battle_protector: Option<PlayerId>,
+    /// When a copy/Clone spell on the stack already wears the copied object's
+    /// face in `art` and `name`, the art of the copier's own printed card.
+    pub copy_original: Option<ImageKey>,
 }
 
 impl StackItem {
@@ -957,6 +977,53 @@ impl StackItem {
             .bought_back
             .then(|| crate::Phrase::StackBoughtBack.text(lang).to_string());
         kicked.into_iter().chain(bought).collect()
+    }
+
+    /// Whether two stack entries represent the same effect (same controller,
+    /// card/source, ability sentence, targets, and choices) and may be grouped
+    /// together when consecutive on the stack.
+    #[must_use]
+    pub fn same_effect(&self, other: &Self) -> bool {
+        let same_kind = match (self.kind, other.kind) {
+            (StackKind::Spell, StackKind::Spell) => true,
+            (
+                StackKind::Ability {
+                    source: s1,
+                    text: t1,
+                    rules: r1,
+                    ability: a1,
+                    token: tok1,
+                },
+                StackKind::Ability {
+                    source: s2,
+                    text: t2,
+                    rules: r2,
+                    ability: a2,
+                    token: tok2,
+                },
+            ) => {
+                (t1, r1, a1, tok1) == (t2, r2, a2, tok2)
+                    && (s1 == s2 || t1.is_some() || r1.is_some() || a1.is_some() || tok1.is_some())
+            }
+            _ => false,
+        };
+        same_kind
+            && self.controller == other.controller
+            && self.name == other.name
+            && self.art == other.art
+            && self.targets == other.targets
+            && self.modes == other.modes
+            && self.times_kicked == other.times_kicked
+            && self.bought_back == other.bought_back
+            && self.flashed_back == other.flashed_back
+            && self.chosen_subtype == other.chosen_subtype
+            && self.chosen_name == other.chosen_name
+            && self.chosen_opponent == other.chosen_opponent
+            && self.chosen_color == other.chosen_color
+            && self.chosen_x == other.chosen_x
+            && self.face_down == other.face_down
+            && self.battle_protector == other.battle_protector
+            && self.copy_original == other.copy_original
     }
 }
 
@@ -1215,41 +1282,7 @@ impl BoardModel {
             .stack
             .iter()
             .enumerate()
-            .map(|(i, o)| {
-                let kind = match o.stack_item {
-                    Some(baylee_view::StackItem::Ability {
-                        source,
-                        text,
-                        rules,
-                        ability,
-                        token,
-                    }) => StackKind::Ability {
-                        source,
-                        text,
-                        rules,
-                        ability,
-                        token,
-                    },
-                    _ => StackKind::Spell,
-                };
-                let art = stack_art(&lookup, o, kind, reg);
-                StackItem {
-                    id: o.id,
-                    name: o.name.to_string(),
-                    kind,
-                    controller: o.controller,
-                    targets: o
-                        .targets
-                        .iter()
-                        .map(|t| stack_target(&lookup, *t))
-                        .collect(),
-                    art,
-                    depth: depth_base - 1 - i,
-                    modes: None,
-                    times_kicked: o.times_kicked,
-                    bought_back: o.bought_back,
-                }
-            })
+            .map(|(i, o)| build_stack_item(view, &lookup, reg, o, depth_base - 1 - i))
             .rev()
             .collect();
 
@@ -1381,6 +1414,7 @@ impl BoardModel {
         }
         keys.extend(self.hand.iter().map(|h| h.art));
         keys.extend(self.stack.iter().filter_map(|s| s.art));
+        keys.extend(self.stack.iter().filter_map(|s| s.copy_original));
         // A target's thumbnail is drawn beside the spell that points at it,
         // so it has to be resident too — a target on the stack may well be a
         // card in a graveyard or an exile zone that nothing else is drawing.
@@ -1834,6 +1868,73 @@ fn fanned(object: &PublicObject) -> FannedCard {
         object: object.id,
         art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
         name: object.name.to_string(),
+    }
+}
+
+/// Builds one [`StackItem`] from a stack [`PublicObject`].
+fn build_stack_item(
+    view: &PlayerView,
+    lookup: &Lookup<'_>,
+    reg: Registry<'_>,
+    o: &PublicObject,
+    depth: usize,
+) -> StackItem {
+    let kind = match o.stack_item {
+        Some(baylee_view::StackItem::Ability {
+            source,
+            text,
+            rules,
+            ability,
+            token,
+        }) => StackKind::Ability {
+            source,
+            text,
+            rules,
+            ability,
+            token,
+        },
+        _ => StackKind::Spell,
+    };
+    let art = stack_art(lookup, o, kind, reg);
+    let mut targets: Vec<StackTarget> =
+        o.targets.iter().map(|t| stack_target(lookup, *t)).collect();
+    if targets.is_empty()
+        && let Some(host) = o.attached_to
+    {
+        let host_obj = lookup.object(host);
+        targets.push(StackTarget {
+            what: TargetRef::Object(baylee_core::ids::DamageSourceRef {
+                object: host,
+                version: 0,
+            }),
+            is_current: host_obj.is_some(),
+            name: host_obj.map(|h| h.name.to_string()),
+            art: host_obj.and_then(|h| art_of(h, ArtSize::Small, reg)),
+        });
+    }
+    let copy_original = (kind == StackKind::Spell)
+        .then(|| original_in(o, ArtSize::Small, reg, view))
+        .flatten();
+    StackItem {
+        id: o.id,
+        name: o.name.to_string(),
+        kind,
+        controller: o.controller,
+        targets,
+        art,
+        depth,
+        modes: None,
+        times_kicked: o.times_kicked,
+        bought_back: o.bought_back,
+        flashed_back: o.status.is_flashed_back(),
+        chosen_subtype: o.chosen_subtype,
+        chosen_name: o.chosen_name,
+        chosen_opponent: o.chosen_opponent,
+        chosen_color: o.chosen_color,
+        chosen_x: o.chosen_x,
+        face_down: o.status.contains(baylee_view::ObjectStatus::FACE_DOWN) || o.name == "Face-down",
+        battle_protector: o.battle_protector,
+        copy_original,
     }
 }
 

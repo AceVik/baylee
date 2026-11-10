@@ -3,13 +3,18 @@ use crate::{
     reports::{self, Part, ReportIntake},
     wire::{Request, Response},
 };
-use std::{io::Read, time::Duration};
+use std::{
+    io::Read,
+    sync::{Mutex, PoisonError},
+    time::Duration,
+};
 use zeroize::Zeroizing;
 
 /// Strict native credential transport, bound to one trusted Central endpoint.
 pub struct CentralHttp {
     endpoint: Endpoint,
     agent: ureq::Agent,
+    last_bearer: Mutex<Option<Zeroizing<String>>>,
 }
 
 impl CentralHttp {
@@ -17,13 +22,26 @@ impl CentralHttp {
     #[must_use]
     pub fn new(endpoint: Endpoint) -> Self {
         let agent = agent(endpoint.legacy_origin().is_some());
-        Self { endpoint, agent }
+        Self {
+            endpoint,
+            agent,
+            last_bearer: Mutex::new(None),
+        }
     }
 
     /// Trusted endpoint selected locally, never from a gateway response.
     #[must_use]
     pub const fn endpoint(&self) -> &Endpoint {
         &self.endpoint
+    }
+
+    /// Returns a zeroizing copy of the active bearer header, if authenticated.
+    #[must_use]
+    pub fn last_bearer(&self) -> Option<Zeroizing<String>> {
+        self.last_bearer
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// Central's published signing keys, as the JWKS document it serves: only
@@ -80,6 +98,18 @@ impl CentralHttp {
         } else {
             &[100, 250, 700][..]
         };
+        if let Some(token) = bearer {
+            *self
+                .last_bearer
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner) = Some(token.header());
+        }
+        if matches!(request, Request::Logout) {
+            *self
+                .last_bearer
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner) = None;
+        }
         retry_busy(
             attempts,
             || {

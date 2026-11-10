@@ -1,5 +1,6 @@
 //! The lobby listing, as one account sees it.
 
+use super::LobbyStats;
 use crate::{
     ErrorBody, HeaderMap, Json, Query, Serialize, Shared, State, StatusCode, authed, lobby,
 };
@@ -36,6 +37,10 @@ pub(crate) struct LobbyPage {
     limit: usize,
     /// @description How many matching tables were skipped before this page.
     offset: usize,
+    /// @description Three exact numbers for the lobby's header (`players_online`,
+    /// `tables_waiting`, `games_running`), pushed with every page so a client
+    /// watching `GET /lobby/ws` never needs to poll `GET /lobby/stats`.
+    stats: LobbyStats,
     /// @description How many tables the search matched, over every page.
     total: usize,
 }
@@ -67,16 +72,31 @@ pub(crate) async fn lobby_page(
     // still lists rooms, and creating or starting one answers 503. Said here
     // so a client can say so first, and pushed again whenever it changes.
     let agents_available = state.agents.lock().any_connected();
-    let lobby = state.lobby.lock();
-    let (games, total) = lobby.page(account_id, &names, query);
+    let (games, total, mut online, tables_waiting, games_running) = {
+        let lobby = state.lobby.lock();
+        let (games, total) = lobby.page(account_id, &names, query);
+        (
+            games,
+            total,
+            lobby.bridging_accounts(),
+            lobby.waiting().count(),
+            lobby.running().count(),
+        )
+    };
+    online.extend(state.presence.accounts());
     LobbyPage {
         listing: LobbyListing {
             agents_available,
             games,
         },
-        total,
-        offset: query.offset,
         limit: query.page(),
+        offset: query.offset,
+        stats: LobbyStats {
+            games_running,
+            players_online: online.len(),
+            tables_waiting,
+        },
+        total,
     }
 }
 

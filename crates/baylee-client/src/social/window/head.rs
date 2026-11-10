@@ -37,8 +37,9 @@ pub(super) fn head_parts(
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     column_gap: zpx(4.0),
-                    padding: UiRect::new(zpx(8.0), zpx(8.0), zpx(0.0), zpx(0.0)),
+                    padding: UiRect::new(zpx(8.0), zpx(8.0), zpx(2.0), zpx(0.0)),
                     border: UiRect::bottom(zpx(2.0)),
                     ..default()
                 },
@@ -233,7 +234,7 @@ pub(super) fn group_bar(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(inks.ground),
+                BackgroundColor(inks.ground.with_alpha(0.94)),
                 BorderColor::all(inks.line),
                 stacked(20),
             ))

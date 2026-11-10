@@ -6,6 +6,9 @@ use super::*;
 /// The session the lobby is signed in to, if any.
 fn wanted_session(lobby: &LobbyState) -> Option<Session> {
     if lobby.central_ready() {
+        if lobby.central_terms_pending() {
+            return None;
+        }
         let raw_handle = {
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -34,21 +37,20 @@ fn wanted_session(lobby: &LobbyState) -> Option<Session> {
         } else {
             (format!("{raw_handle}#0000"), "0000".to_string())
         };
-        let (gateway, token) = match lobby.lobby.token() {
+        let gateway = if lobby.gateway.trim().is_empty() {
+            baylee_client_core::lobby::gateway_list::PINNED.to_string()
+        } else {
+            lobby.gateway.trim_end_matches('/').to_string()
+        };
+        let token = match lobby.lobby.token() {
             Some(tok)
                 if !lobby.lobby.offline()
                     && !lobby.lobby.guest()
                     && !lobby.gateway.trim().is_empty() =>
             {
-                (
-                    lobby.gateway.trim_end_matches('/').to_string(),
-                    tok.to_string(),
-                )
+                tok.to_string()
             }
-            _ => (
-                baylee_client_core::lobby::gateway_list::PINNED.to_string(),
-                String::new(),
-            ),
+            _ => String::new(),
         };
         return Some(Session {
             gateway,
@@ -140,13 +142,17 @@ pub(super) fn drive(
                 host.info = InfoState::Known(social);
                 if let Some((version, keep)) = social
                     && version == baylee_protocol::social::SOCIAL_VERSION
-                    && host.machine.is_none()
                 {
-                    let chat = prefs
-                        .as_deref()
-                        .map(|p| p.all().chat.clone())
-                        .unwrap_or_default();
-                    host.start(keep, chat);
+                    if host.machine.is_none() {
+                        let chat = prefs
+                            .as_deref()
+                            .map(|p| p.all().chat.clone())
+                            .unwrap_or_default();
+                        host.start(keep, chat);
+                    } else if let Some(machine) = host.machine.as_mut() {
+                        host.keep_days = keep;
+                        machine.set_keep_days(keep);
+                    }
                 }
             }
             Arrived::Http { tag, status, body } => {
@@ -224,7 +230,7 @@ pub(super) fn drive(
             .as_millis()
             .try_into()
             .unwrap_or(u64::MAX);
-        let focused = windows.iter().any(|w| w.focused);
+        let focused = super::window::window_focused(&windows);
         if let Some(machine) = host.machine.as_mut() {
             machine.set_focus(focused);
             let effects = machine.tick(now, idle_ms);

@@ -409,18 +409,14 @@ pub(crate) async fn join_game(
         }
         chair.joined_seq = Some(seq);
         let seat = chair.seat;
-        if invited && let Some(invite) = body.invite.as_deref() {
-            let spent = state.social.invites.lock().spend(
-                invite,
-                chair.account_id.as_deref().unwrap_or_default(),
-                &id,
-                std::time::Instant::now(),
-            );
-            if let Some((_, tell)) = spent {
-                for (to, frame) in tell {
-                    state.social.push(&to, &frame);
-                }
-            }
+        let tell = state.social.invites.lock().spend_joined(
+            invited.then_some(body.invite.as_deref()).flatten(),
+            chair.account_id.as_deref().unwrap_or_default(),
+            &id,
+            std::time::Instant::now(),
+        );
+        for (to, frame) in tell {
+            state.social.push(&to, &frame);
         }
         seat
     };

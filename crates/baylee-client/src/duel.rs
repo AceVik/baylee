@@ -127,6 +127,15 @@ impl Duel {
         })
     }
 
+    /// Whether the stack entry currently at the top of the stack (resolving
+    /// next) is the one the player marked with [`Duel::stack_selected`].
+    #[must_use]
+    pub(crate) fn at_marked_stack_top(&self) -> bool {
+        self.stack_selected
+            .zip(self.view.as_ref().and_then(|v| v.stack.last()))
+            .is_some_and(|(marked, top)| marked == top.id)
+    }
+
     /// Queues an action for the host.
     ///
     /// Queuing rather than sending directly keeps every mutation of the game on
@@ -145,6 +154,9 @@ impl Duel {
                 .is_some_and(|i| i.is_mine() && matches!(i.pending(), Pending::Priority { .. }))
         {
             self.stack_stop_requested = false;
+            if self.at_marked_stack_top() {
+                self.stack_selected = None;
+            }
         }
         if let PlayerAction::SetPriorityHold(hold) = &action {
             self.stack_stop_requested = matches!(
@@ -286,6 +298,10 @@ impl Duel {
             self.perspective_epoch = self.perspective_epoch.wrapping_add(1);
         }
         self.view = Some(view);
+        if self.ending().is_some() {
+            self.hovered = None;
+            self.hovered_at = None;
+        }
         let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
@@ -948,6 +964,10 @@ impl Duel {
         // …and so is a half-pressed concession. The game moved on.
         self.concede_armed = false;
         self.leave_armed = false;
+        if self.ending().is_some() {
+            self.hovered = None;
+            self.hovered_at = None;
+        }
         // An armed deed survives this, and that is the point. Only a question
         // that is *not* this seat's priority window takes it — everything
         // armable is a priority-window action. This seat's, whoever it
@@ -1051,6 +1071,9 @@ impl Duel {
     /// that changed hands shows its active seat, now or once nothing holds
     /// the table still; a seat waiting to be shown is shown when that is so.
     fn follow_the_turn(&mut self, view: &PlayerView) {
+        if view.seats.len() <= 2 {
+            return;
+        }
         let question_for_me = view.awaiting == Some(view.seat);
         let pointer_on_interest = self.hovered.is_some_and(|id| {
             view.object(id)

@@ -199,3 +199,32 @@ fn an_answered_request_takes_its_toast_away() {
         "nothing more to take"
     );
 }
+
+#[test]
+fn entering_a_duel_clears_table_invite_toasts_but_keeps_other_toasts() {
+    let asking = |n: u64, about: Option<ToastAbout>| {
+        (
+            n,
+            ChatToast {
+                phrase: ChatPhrase::ToastJoinInvite,
+                args: Vec::new(),
+                conv: None,
+                actions: Vec::new(),
+                until_answered: true,
+                about,
+            },
+            0.0,
+        )
+    };
+    let mut standing = vec![
+        asking(1, Some(ToastAbout::TableInvite("inv-1".into()))),
+        asking(2, Some(ToastAbout::FriendRequest("0064".into()))),
+        asking(3, None),
+    ];
+    assert!(withdraw_table_invites(&mut standing));
+    assert_eq!(
+        standing.iter().map(|(n, ..)| *n).collect::<Vec<_>>(),
+        [2, 3],
+    );
+    assert!(!withdraw_table_invites(&mut standing));
+}

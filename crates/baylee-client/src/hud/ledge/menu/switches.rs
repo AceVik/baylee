@@ -28,7 +28,7 @@ fn switch<M: Component>(
     marker: M,
     flip: fn(&mut crate::settings::ClientSettings),
 ) -> Entity {
-    let metrics = crate::lobby::Metrics::of(MENU_W);
+    let metrics = menu_metrics();
     let button = crate::lobby::button(
         commands,
         fonts,

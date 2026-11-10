@@ -205,11 +205,13 @@ fn ribbon(x: f32, down: f32, t: f32) -> vec4<f32> {
 /// The colour of a falling ribbon, in linear light.
 fn liquid(r: vec4<f32>, x: f32, down: f32, t: f32) -> vec3<f32> {
     let flow = sqrt(max(down, 0.0)) * 3.2 - t * 1.7;
-    let pulse = 0.65 + 0.35 * vnoise(vec2<f32>(x * 7.0, flow * 4.0));
+    let pulse = 0.60
+        + 0.25 * vnoise(vec2<f32>(x * 7.0, flow * 4.0))
+        + 0.15 * vnoise(vec2<f32>(x * 13.5 - flow * 2.3, flow * 7.8 + x * 4.1));
     // Lava cools as it falls: white-hot at the cut, a dark glow at the tip.
-    let lava = to_linear(mix(LAVA_HOT, LAVA_COOL, smoothstep(0.0, 1.0, r.w))) * (0.75 + 0.5 * pulse);
+    let lava = to_linear(mix(LAVA_HOT, LAVA_COOL, smoothstep(0.0, 1.0, r.w))) * (0.75 + 0.52 * pulse);
     // Water is seen through: dim in its body, bright at its rim.
-    let water = to_linear(WATER) * (0.45 + 0.3 * pulse) + to_linear(WATER_RIM) * r.y * 0.55;
+    let water = to_linear(WATER) * (0.45 + 0.32 * pulse) + to_linear(WATER_RIM) * r.y * 0.58;
     return mix(water, lava, step(0.5, r.z));
 }
 
@@ -445,15 +447,27 @@ fn vnoise(p: vec2<f32>) -> f32 {
 fn fbm(p: vec2<f32>) -> f32 {
     var sum = 0.0;
     var amplitude = 0.5;
-    var total = 0.0;
     var at = p;
     for (var i = 0; i < 4; i = i + 1) {
         sum = sum + amplitude * vnoise(at);
-        total = total + amplitude;
         at = at * 2.03;
         amplitude = amplitude * 0.5;
     }
-    return sum / total;
+    return sum * (1.0 / 0.9375);
+}
+
+/// Four octaves rotated between scales (~36.8 deg Pythagorean step, scale ~2.022)
+/// so dynamic fluid currents and molten crust plates show zero grid-axis alignment.
+fn fbm_rot(p: vec2<f32>) -> f32 {
+    var sum = 0.0;
+    var amplitude = 0.5;
+    var at = p;
+    for (var i = 0; i < 4; i = i + 1) {
+        sum = sum + amplitude * vnoise(at);
+        at = vec2<f32>(at.x * 1.62 - at.y * 1.21, at.x * 1.21 + at.y * 1.62) + vec2<f32>(3.17, 7.41);
+        amplitude = amplitude * 0.5;
+    }
+    return sum * (1.0 / 0.9375);
 }
 
 /// A rounded rectangle's signed distance: negative inside, positive outside.
@@ -481,13 +495,12 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
 // Distance to a cellular seam. Two scales form connected trunks and finer
 // capillaries; domain warping removes the straight polygon edges. Fixed loops
 // and scalar noise keep the network in the existing opaque material pass.
-fn vein_distance(p: vec2<f32>, texel_offset: vec2<f32>) -> f32 {
+fn vein_distance(p: vec2<f32>, texel_offset: vec2<f32>, last: vec2<i32>) -> f32 {
     let cell = floor(p);
     let local = fract(p);
     var nearest = 8.0;
     var second = 8.0;
     let base = vec2<i32>(cell + texel_offset);
-    let last = vec2<i32>(textureDimensions(vein_points)) - vec2<i32>(1);
     for (var y = -1; y <= 1; y += 1) {
         for (var x = -1; x <= 1; x += 1) {
             let offset = vec2<f32>(f32(x), f32(y));
@@ -554,8 +567,9 @@ fn veins_at(p: vec2<f32>) -> Veins {
         heat = vnoise(warp * 0.19 + 42.0);
         silt = fbm(p * 0.34);
     }
-    let trunk = vein_distance(warp * 0.28, params.veins.xy);
-    let capillary = vein_distance(warp * 0.73 + 8.3, params.veins.zw);
+    let last_vein = vec2<i32>(textureDimensions(vein_points)) - vec2<i32>(1);
+    let trunk = vein_distance(warp * 0.28, params.veins.xy, last_vein);
+    let capillary = vein_distance(warp * 0.73 + 8.3, params.veins.zw, last_vein);
     // Fine branches fade between the larger vessels instead of filling every
     // cell with equally bright cracks. Water and molten rock share junctions.
     let branch = min(trunk, capillary * 3.2 + 0.012 + smoothstep(0.04, 0.20, trunk) * 0.065);
@@ -581,40 +595,70 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     // veins `water` and `lava` are exactly zero, the mixes below would keep
     // `colour` as it is, and most of the cloth is away from the veins
     // (`docs/perf-client.md`).
-    // Advected ripples, refracted caustics and narrow reflected crests.
+    // Domain-warped fractal streamlines, bifurcated caustic ridges, and bank eddies.
     if water > 0.0 {
-        let flow = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * 0.34);
-        let current = fbm(flow);
-        let ripple = sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8);
-        let crest = pow(max(ripple, 0.0), 14.0);
-        let depth = (1.0 - smoothstep(0.0, 1.3, water_d));
-        var river = mix(vec3<f32>(0.018, 0.12, 0.16), vec3<f32>(0.012, 0.047, 0.075), depth);
-        river += vec3<f32>(0.08, 0.27, 0.31) * current * 0.30;
+        let depth = 1.0 - smoothstep(0.0, 1.3, water_d);
+        let speed = 0.26 + 0.14 * depth;
+        let flow_base = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * speed);
+        let eddy = vnoise(flow_base * 0.55 + vec2<f32>(t * 0.11, -t * 0.08)) - 0.5;
+        let flow = flow_base + vec2<f32>(eddy * 0.38, -eddy * 0.24);
+        let current = fbm_rot(flow);
+        let c_a = abs(vnoise(flow * 2.1 + vec2<f32>(t * 0.28, -t * 0.19)) - 0.5);
+        let c_b = abs(
+            vnoise(
+                vec2<f32>(flow.x * 1.7 - flow.y * 1.3, flow.x * 1.3 + flow.y * 1.7) * 1.6
+                    - vec2<f32>(t * 0.21, t * 0.31),
+            ) - 0.5,
+        );
+        let caustic = smoothstep(0.22, 0.015, c_a * 0.6 + c_b * 0.4) * (0.45 + 0.55 * depth);
+        let ripple = max(sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8), 0.0);
+        let r2 = ripple * ripple;
+        let r4 = r2 * r2;
+        let r8 = r4 * r4;
+        let crest = r8 * r4 * r2;
+        var river = mix(vec3<f32>(0.018, 0.12, 0.16), vec3<f32>(0.010, 0.045, 0.078), depth);
+        river += vec3<f32>(0.08, 0.27, 0.31) * current * 0.26;
+        river += vec3<f32>(0.11, 0.36, 0.42) * caustic * 0.22;
         river += vec3<f32>(0.32, 0.52, 0.55) * crest * 0.065;
         let foam = smoothstep(0.52, 0.76, current) * (1.0 - depth) * 0.20;
         river += vec3<f32>(0.38, 0.49, 0.46) * foam;
         colour = mix(colour, river, water);
     }
 
-    // Slower molten flow carries dark crust islands over glowing seams.
+    // Poiseuille-sheared molten flow carries cooled basalt plates over dual-scale glowing fissures.
     if lava > 0.0 {
-        let molten_uv = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * 0.23);
-        let crust = fbm(molten_uv);
-        let crack = 1.0 - smoothstep(0.008, 0.09, abs(crust - 0.49));
-        let core = 1.0 - smoothstep(0.1, 1.0, lava_d);
-        var molten = mix(vec3<f32>(0.10, 0.023, 0.006), vec3<f32>(0.30, 0.075, 0.012), crack);
-        molten += vec3<f32>(0.19, 0.11, 0.026) * crack * core;
-        // Cooling at the confluence forms black glass and a thin pale steam veil.
+        let core = 1.0 - smoothstep(0.08, 1.0, lava_d);
+        let shear = 0.17 + 0.11 * core;
+        let molten_base = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * shear);
+        let plume = vnoise(molten_base * 0.42 + vec2<f32>(11.3, -t * 0.09)) - 0.5;
+        let molten_uv = molten_base + vec2<f32>(plume * 0.42, plume * 0.28);
+        let crust = fbm_rot(molten_uv);
+        let crack_main = 1.0 - smoothstep(0.007, 0.088, abs(crust - 0.49));
+        let sub_crust = vnoise(
+            vec2<f32>(
+                molten_uv.x * 2.1 - molten_uv.y * 1.4,
+                molten_uv.x * 1.4 + molten_uv.y * 2.1,
+            ) + vec2<f32>(t * 0.14, -t * 0.18),
+        );
+        let crack_fine = (1.0 - smoothstep(0.010, 0.105, abs(sub_crust - 0.50)))
+            * smoothstep(0.28, 0.62, crust)
+            * 0.52;
+        let crack = clamp(crack_main + crack_fine, 0.0, 1.0);
+        var molten = mix(vec3<f32>(0.085, 0.019, 0.005), vec3<f32>(0.31, 0.078, 0.012), crack);
+        molten += vec3<f32>(0.21, 0.12, 0.028) * crack * core;
+        molten += vec3<f32>(0.09, 0.024, 0.004) * core * smoothstep(0.46, 0.78, crust);
+        // Cooling at the confluence forms black obsidian glass and a thin pale steam veil.
         let contact = water * lava;
         molten = mix(molten, vec3<f32>(0.018, 0.026, 0.031), contact * (0.65 + crust * 0.25));
         colour = mix(colour, molten, lava);
         if contact > 0.0 {
-            let steam = vnoise(vec2<f32>(p.x * 1.8 + t * 0.05, p.y * 1.2 - t * 0.16));
-            colour += vec3<f32>(0.11, 0.15, 0.16) * contact * smoothstep(0.40, 0.80, steam) * 0.25;
+            let steam = fbm_rot(vec2<f32>(p.x * 1.8 + t * 0.05, p.y * 1.2 - t * 0.16));
+            colour += vec3<f32>(0.11, 0.15, 0.16) * contact * smoothstep(0.40, 0.78, steam) * 0.26;
         }
     }
     // The broad reflection belongs to the glass above both rivers.
-    let reflection = exp(-pow((p.y + p.x * 0.28 + 2.5) * 0.23, 2.0));
+    let refl_arg = (p.y + p.x * 0.28 + 2.5) * 0.23;
+    let reflection = exp(-refl_arg * refl_arg);
     return colour + vec3<f32>(0.035, 0.052, 0.06) * reflection;
 }
 

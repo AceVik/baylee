@@ -1,5 +1,6 @@
-//! The game gateway cannot replace Central contacts or acknowledge personal sends.
-use super::{Down, HttpTag, OsEntropy, SocialHost, apply, now_ms, personal, transport, wire};
+//! The game gateway serves only game-scoped chat (table, team, invites);
+//! personal chats, contacts, and friend presence live exclusively on Baylee Central.
+use super::{Down, HttpTag, SocialHost, apply, now_ms, personal, transport, wire};
 pub(super) enum Registration {
     Waiting(u64),
     Pending,
@@ -14,6 +15,9 @@ pub(in crate::social) fn gateway_http(
 ) -> bool {
     if host.central.is_none() {
         return false;
+    }
+    if matches!(tag, HttpTag::AddFriend(_) | HttpTag::Friendship(_)) {
+        return true;
     }
     if matches!(tag, HttpTag::RegisterDevice) {
         if let Some(bridge) = host.central.as_mut() {
@@ -54,6 +58,7 @@ pub(in crate::social) fn gateway_news(host: &mut SocialHost, news: &transport::L
         transport::LinkNews::Down
         | transport::LinkNews::Refused
         | transport::LinkNews::Unauthorized => {
+            bridge.game_welcomed = false;
             let pending = std::mem::take(&mut bridge.game_requests);
             for req in pending {
                 super::refused(host, req, wire::Why::Off);
@@ -74,6 +79,7 @@ fn receive_frame(host: &mut SocialHost, frame: Down) {
         | Down::Refused { req: None, .. } => None,
         Down::Snapshot(snapshot) => {
             bridge.game = snapshot;
+            bridge.game_welcomed = true;
             Some(Down::Snapshot(bridge.snapshot()))
         }
         Down::Sent { req, .. } | Down::Refused { req: Some(req), .. }
@@ -81,50 +87,32 @@ fn receive_frame(host: &mut SocialHost, frame: Down) {
         {
             None
         }
-        Down::Msg {
-            seq,
-            at,
-            conv,
-            from,
-            sealed,
-        } if conv.starts_with("grp:") => {
-            let group = bridge
-                .game
-                .groups
-                .iter()
-                .find(|group| conv == format!("grp:{}", group.id))
-                .cloned();
-            if let Some(group) = group
-                && let Some(machine) = host.machine.as_mut()
-            {
-                let effects = machine.on_legacy_group(
-                    baylee_client_core::social::RetainedMessage {
-                        seq,
-                        at,
-                        conv,
-                        from,
-                        sealed,
-                    },
-                    &group,
-                    now_ms(),
-                    &mut OsEntropy,
-                );
-                host.carry_out(effects);
-            }
+        Down::Msg { ref conv, .. }
+        | Down::Members { ref conv, .. }
+        | Down::Notice { ref conv, .. }
+            if personal(conv) =>
+        {
             None
         }
-        Down::Members { ref conv, .. } | Down::Notice { ref conv, .. } if personal(conv) => None,
         Down::Members {
             ref conv,
             ref members,
         } => {
-            if let Some(table) = bridge
+            if members.is_empty() {
+                bridge.game.tables.retain(|table| table.conv != *conv);
+            } else if let Some(table) = bridge
                 .game
                 .tables
                 .iter_mut()
                 .find(|table| table.conv == *conv)
             {
                 table.members.clone_from(members);
+            } else {
+                bridge.game.tables.push(wire::TableConv {
+                    conv: conv.clone(),
+                    name: String::new(),
+                    members: members.clone(),
+                });
             }
             Some(frame)
         }
@@ -140,7 +128,7 @@ fn receive_frame(host: &mut SocialHost, frame: Down) {
             {
                 friend.presence.clone_from(presence);
             }
-            Some(frame)
+            Some(Down::Snapshot(bridge.snapshot()))
         }
         Down::Invite(ref invite) => {
             bridge.game.invites.retain(|old| old.id != invite.id);
@@ -162,7 +150,7 @@ pub(super) fn register(host: &mut SocialHost, now: u64) {
     let Some(bridge) = host.central.as_mut() else {
         return;
     };
-    if bridge.session.token.is_empty() {
+    if bridge.session.token.is_empty() || bridge.session.gateway.is_empty() {
         return;
     }
     if !bridge.wanted || !matches!(bridge.game_state, Registration::Waiting(at) if now >= at) {

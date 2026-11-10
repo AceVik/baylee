@@ -43,12 +43,17 @@ use bevy::prelude::*;
 pub struct Touched {
     /// The cards with something to draw.
     cards: HashMap<ObjectId, Touch>,
-    /// The card the finger is currently down on.
+    /// The card the finger is currently down on, and whether that press is in
+    /// the hand (`true`) or on a stack row (`false`).
     ///
     /// Held because a release names the card it landed on, and a press
     /// dragged off one card and released over another has to lift the *first*
-    /// one. Without it a card could be left pressed for ever.
-    under_the_finger: Option<ObjectId>,
+    /// one. Without it a card could be left pressed for ever. Keeping the
+    /// zone alongside the id prevents a press in the hand from matching a
+    /// release on the stack slot the same object moved into, while still
+    /// rescuing a tap on a stack row whose entity [`crate::hud::HudRevision`]
+    /// rebuilt on hover between press and release.
+    under_the_finger: Option<(ObjectId, bool)>,
     /// The finger has come off the card it was on and nothing has answered.
     ///
     /// A release over the same card is left to the click that follows it,
@@ -78,17 +83,24 @@ impl Touched {
         self.cards.get(&object).map_or(rest, Touch::lift)
     }
 
-    /// Puts the finger down on `object`, lifting whatever it was on before.
+    /// Puts the finger down on `object` in the hand, lifting whatever it was
+    /// on before.
     fn press(&mut self, object: ObjectId) {
         self.lift_the_finger();
         self.cards.entry(object).or_default().down();
-        self.under_the_finger = Some(object);
+        self.under_the_finger = Some((object, true));
+    }
+
+    /// Records a press on a stack row without sinking any card in the hand.
+    fn press_stack(&mut self, object: ObjectId) {
+        self.lift_the_finger();
+        self.under_the_finger = Some((object, false));
     }
 
     /// Answers the tap the finger is making, if it is making one.
     fn release(&mut self, answer: Answer) {
         self.let_go = false;
-        if let Some(object) = self.under_the_finger.take()
+        if let Some((object, true)) = self.under_the_finger.take()
             && let Some(touch) = self.cards.get_mut(&object)
         {
             touch.up(answer);
@@ -96,13 +108,13 @@ impl Touched {
     }
 
     /// The finger came off over `card` — `None` for the felt, or for a node
-    /// that is not a card in the row.
+    /// that is not a card in the hand or stack row.
     ///
     /// Coming off the card it was on is not an answer and is not a refusal
     /// either: it is the half of a tap whose other half is the click. So it
     /// is recorded and not acted on, and [`Self::let_go`] says what happens
     /// when the click never comes.
-    fn release_over(&mut self, card: Option<ObjectId>) {
+    fn release_over(&mut self, card: Option<(ObjectId, bool)>) {
         if card.is_some() && card == self.under_the_finger {
             self.let_go = true;
         } else {
@@ -119,18 +131,54 @@ impl Touched {
     /// on it first would play every land twice.
     #[must_use]
     pub fn swallowed_tap(&self) -> Option<ObjectId> {
-        self.let_go.then_some(self.under_the_finger).flatten()
+        self.let_go
+            .then_some(self.under_the_finger.map(|(object, _)| object))
+            .flatten()
     }
 
     /// Takes the finger off whatever it was on without answering anything.
     fn lift_the_finger(&mut self) {
         self.let_go = false;
-        if let Some(object) = self.under_the_finger.take()
+        if let Some((object, true)) = self.under_the_finger.take()
             && let Some(touch) = self.cards.get_mut(&object)
         {
             touch.released_elsewhere();
         }
     }
+}
+
+/// Finds a hand card (`true`) or stack row (`false`) in `entity`'s lineage,
+/// ignoring scrollbars and stack-group fold badges nested inside a stack row.
+fn find_finger_target(
+    entity: Entity,
+    cards: &Query<(
+        &crate::hud::HandCardVisual,
+        Has<crate::hud::HandRowCard>,
+        Has<crate::hud::StackRowCard>,
+    )>,
+    scrollbars: &Query<&bevy::ui_widgets::Scrollbar>,
+    group_toggles: &Query<&crate::hud::stack::StackGroupToggle>,
+    parents: &Query<&ChildOf>,
+) -> Option<(ObjectId, bool)> {
+    if crate::input::find_in_lineage(entity, scrollbars, parents).is_some()
+        || crate::input::find_in_lineage(entity, group_toggles, parents).is_some()
+    {
+        return None;
+    }
+    let mut current = Some(entity);
+    for _ in 0..6 {
+        let e = current?;
+        if let Ok((card, in_hand, on_stack)) = cards.get(e) {
+            if in_hand {
+                return Some((card.object, true));
+            }
+            if on_stack {
+                return Some((card.object, false));
+            }
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    None
 }
 
 /// Reads the press and the release, and says which card each one landed on.
@@ -139,26 +187,35 @@ impl Touched {
 /// [`crate::input::pointer`]'s, written straight into the map when it resolves
 /// the click, and this system only has to handle the release that resolves
 /// *nothing* — a press dragged off the card, or let go over the felt.
+#[allow(clippy::type_complexity)] // single card query distinguishing hand rows and stack rows
 pub fn watch_the_finger(
     mut downs: MessageReader<PointerPress>,
     mut ups: MessageReader<PointerRelease>,
-    hand_cards: Query<&crate::hud::HandCardVisual, With<crate::hud::HandRowCard>>,
+    cards: Query<(
+        &crate::hud::HandCardVisual,
+        Has<crate::hud::HandRowCard>,
+        Has<crate::hud::StackRowCard>,
+    )>,
+    (scrollbars, group_toggles): (
+        Query<&bevy::ui_widgets::Scrollbar>,
+        Query<&crate::hud::stack::StackGroupToggle>,
+    ),
     parents: Query<&ChildOf>,
     mut touched: ResMut<Touched>,
 ) {
     for down in downs.read() {
-        if let Some(card) = crate::input::find_in_lineage(down.entity, &hand_cards, &parents) {
-            touched.press(card.object);
-        } else {
-            touched.lift_the_finger();
+        match find_finger_target(down.entity, &cards, &scrollbars, &group_toggles, &parents) {
+            Some((object, true)) => touched.press(object),
+            Some((object, false)) => touched.press_stack(object),
+            None => touched.lift_the_finger(),
         }
     }
     // A release over the card the finger is on is left alone: the click that
     // follows it is what says whether the tap took, and it arrives on the
     // same frame. Everything else is a press that asked nothing.
     for up in ups.read() {
-        let landed = crate::input::find_in_lineage(up.entity, &hand_cards, &parents);
-        touched.release_over(landed.map(|c| c.object));
+        let landed = find_finger_target(up.entity, &cards, &scrollbars, &group_toggles, &parents);
+        touched.release_over(landed);
     }
 }
 
@@ -260,7 +317,9 @@ pub fn settle(
     // it settles, and a node born this frame carries whatever the *previous*
     // frame's pose was, so pruning first leaves that stale pose on the screen
     // until something else rebuilds the row.
-    let held = touched.under_the_finger;
+    let held = touched
+        .under_the_finger
+        .and_then(|(object, in_hand)| in_hand.then_some(object));
     touched.cards.retain(|object, touch| {
         Some(*object) == held
             || Some(*object) == armed
@@ -625,11 +684,13 @@ mod running {
         );
     }
 
-    /// One slot in the stack panel: the wider component and not the marker.
+    /// One slot in the stack panel: the wider component plus `StackRowCard`,
+    /// never `HandRowCard`.
     fn stack_slot(app: &mut App, object: ObjectId) -> Entity {
         app.world_mut()
             .spawn((
                 crate::hud::HandCardVisual { object },
+                crate::hud::StackRowCard,
                 Node {
                     top: Val::Px(0.0),
                     ..default()
@@ -679,6 +740,49 @@ mod running {
         assert!(
             top_of(&app, card).abs() < f32::EPSILON,
             "and it was not the hand card that gave way either"
+        );
+    }
+
+    /// A tap on a stack row whose entity is rebuilt between press and release
+    /// (for instance when `HudRevision` rebuilds the stack panel on hover)
+    /// still reports its `swallowed_tap` without sinking any card.
+    #[test]
+    fn a_rebuilt_stack_slot_still_reports_its_swallowed_tap_without_sinking() {
+        let mut app = App::new();
+        app.add_message::<PointerPress>()
+            .add_message::<PointerRelease>()
+            .init_resource::<Touched>()
+            .add_systems(Update, watch_the_finger);
+        let mut window = Window::default();
+        window.resolution.set(1728.0, 1052.0);
+        app.world_mut().spawn((window, PrimaryWindow));
+        let onstack = ObjectId::new(11, 0);
+        let first = stack_slot(&mut app, onstack);
+
+        press(&mut app, first);
+        app.update();
+        assert_eq!(
+            app.world().resource::<Touched>().swallowed_tap(),
+            None,
+            "not released yet"
+        );
+        assert!(
+            app.world()
+                .resource::<Touched>()
+                .lift_of(onstack, 0.0)
+                .abs()
+                < f32::EPSILON,
+            "a stack row never sinks"
+        );
+
+        app.world_mut().entity_mut(first).despawn();
+        let rebuilt = stack_slot(&mut app, onstack);
+        release(&mut app, rebuilt);
+        app.update();
+        assert_eq!(
+            app.world().resource::<Touched>().swallowed_tap(),
+            Some(onstack),
+            "rebuilt stack row still reports the swallowed tap"
         );
     }
 }

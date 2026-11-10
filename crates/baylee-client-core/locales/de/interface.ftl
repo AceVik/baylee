@@ -1340,6 +1340,7 @@ TargetingTargets = Ziele
 TargetingPage = Ziele { $first }–{ $last } von { $total }. Auswahl auch direkt am Tisch möglich.
 CastKicked = Mit Bonuskosten
 CastDisguise = Verkleidung – 2/2, Abwehr {"{"}2{"}"}
+CastMorph = Morph – 2/2 verdeckt
 TurnFaceUp = Aufdecken
 UnlockDoor = { $door } entsperren
 CastPrototype = Prototyp

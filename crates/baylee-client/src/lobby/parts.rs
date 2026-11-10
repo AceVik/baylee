@@ -291,6 +291,7 @@ pub(super) fn art_with_credit(
             Node {
                 flex_direction: FlexDirection::Column,
                 row_gap: kit.m.px(3.0),
+                width: kit.m.px(width),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -307,7 +308,6 @@ pub(super) fn art_with_credit(
             Text::new(Phrase::ArtCredit.fill(lang, &[&art.artist])),
             crate::hud::tf_italic(kit.fonts, kit.m.small),
             TextColor(tokens::MUTED),
-            TextLayout::no_wrap(),
             Pickable::IGNORE,
         ))
         .id();

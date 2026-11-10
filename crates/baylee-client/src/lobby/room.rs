@@ -889,7 +889,8 @@ fn seat_card(
             tokens::GOLD,
         );
         commands.entity(deck_line).add_child(chip);
-    } else if !seat.format.is_empty()
+    } else if !seat.deck.is_empty()
+        && !seat.format.is_empty()
         && let Some(theirs) = table_format
     {
         let chip = if client_core::lobby::play::fits(theirs, &seat.format) {
@@ -993,6 +994,7 @@ fn seat_card(
                 None,
                 Press::Room(RoomPress::RoomDeck(index, seat.seat, at)),
             );
+            walk(commands, b);
             commands.entity(picks).add_child(b);
         }
         commands.entity(card).add_child(picks);
@@ -1555,6 +1557,13 @@ impl RoomPress {
             }
             RoomPress::RoomDeckPicker(seat) => {
                 state.room_deck_seat = (state.room_deck_seat != Some(seat)).then_some(seat);
+                if state.room_deck_seat.is_some()
+                    && state.lobby.decks().is_empty()
+                    && !state.lobby.busy()
+                {
+                    let request = state.lobby.refresh();
+                    dispatch(state, mailbox, request);
+                }
             }
             RoomPress::RoomSetup(seat) => {
                 state.room_setup_seat = (state.room_setup_seat != Some(seat)).then_some(seat);

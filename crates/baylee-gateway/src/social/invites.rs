@@ -126,6 +126,55 @@ impl Invites {
         Some((invite, tell))
     }
 
+    /// Spends any live `join` invite for `account` to `game` (starting with
+    /// `id` when named): answers the invite(s) `Accepted`, and who to tell.
+    pub(crate) fn spend_joined(
+        &mut self,
+        id: Option<&str>,
+        account: &str,
+        game: &str,
+        now: Instant,
+    ) -> Tell {
+        let mut tell = Tell::new();
+        if let Some(id) = id
+            && let Some((_, mut one)) = self.spend(id, account, game, now)
+        {
+            tell.append(&mut one);
+        }
+        let matching: Vec<String> = self
+            .live
+            .values()
+            .filter(|i| {
+                i.to == account && i.game == game && i.kind == InviteKind::Join && i.live(now)
+            })
+            .map(|i| i.id.clone())
+            .collect();
+        for inv_id in matching {
+            if let Some((_, mut one)) = self.spend(&inv_id, account, game, now) {
+                tell.append(&mut one);
+            }
+        }
+        tell
+    }
+
+    /// Drops every `join` invite to `game` once the room has started.
+    pub(crate) fn close_started(&mut self, game: &str) -> Tell {
+        let started: Vec<String> = self
+            .live
+            .values()
+            .filter(|i| i.game == game && i.kind == InviteKind::Join)
+            .map(|i| i.id.clone())
+            .collect();
+        let mut tell = Tell::new();
+        for id in started {
+            if let Some(invite) = self.live.remove(&id) {
+                tell.push((invite.from.clone(), invite.gone(None)));
+                tell.push((invite.to.clone(), invite.gone(None)));
+            }
+        }
+        tell
+    }
+
     /// `caller` closes invite `id`: its invitee declines (`declined`) or
     /// lets it go, or its inviter withdraws it. `None` when `caller` is
     /// neither, or there is no such invite.

@@ -11,9 +11,7 @@ use baylee_client_core::social::{
 use baylee_protocol::social::Conv;
 use bevy::prelude::*;
 
-use crate::hud::logpanel::{
-    CLOCK_AIR, CLOCK_W, SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT, clock_bundle, clock_drop_at,
-};
+use crate::hud::logpanel::{SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT};
 use crate::hud::{UiFonts, palette, tf, tf_bold, tf_italic};
 
 /// Sky cyan: the public Lobby chat for everyone online.
@@ -47,27 +45,20 @@ pub(crate) struct Inks {
     pub pt: f32,
 }
 
-/// The table's inks: the log's warm panel (§7).
-pub(crate) const TABLE_INKS: Inks = Inks {
-    ground: palette::DIALOG,
-    lit: palette::DIALOG_LIT,
-    line: palette::DIALOG_LINE,
-    ink: palette::DIALOG_INK,
-    soft: palette::DIALOG_SOFT,
-    link: palette::CANDLE,
-    accent: palette::CANDLE,
-    pt: crate::hud::logpanel::LOG_LINE_PT,
-};
+/// The table's inks: unified with the lobby's kit panel so in-game chat and
+/// lobby chat share the exact same visual design.
+pub(crate) const TABLE_INKS: Inks = LOBBY_INKS;
 
 /// The lobby's chat surfaces: the kit's panel navy, opaque (the kit's own
 /// token is a hair translucent, and over the vista a list must not show
 /// the picture through it).
 pub(crate) const LOBBY_GROUND: Color = Color::srgb(0.035, 0.075, 0.105);
 
-/// The lobby's inks: the kit's panel.
+/// The lobby's inks: the kit's panel, translucent so the tavern lobby and
+/// the game table shine through behind the chat.
 pub(crate) const LOBBY_INKS: Inks = Inks {
-    ground: LOBBY_GROUND,
-    lit: Color::srgba(0.07, 0.13, 0.17, 0.98),
+    ground: Color::srgba(0.035, 0.075, 0.105, 0.66),
+    lit: Color::srgba(0.07, 0.13, 0.17, 0.34),
     line: crate::shellkit::tokens::BORDER,
     ink: crate::shellkit::tokens::INK,
     soft: crate::shellkit::tokens::MUTED,
@@ -208,9 +199,34 @@ pub(crate) fn plain_text(machine: &Social, conv: &ConvId, line: &ChatLine) -> St
     }
 }
 
+/// Distinct speaker colour so the sender's name and left message bar stand out
+/// clearly for each user.
+pub(crate) fn sender_colour(tag: &str, mine: bool, swatch: Option<Color>, inks: &Inks) -> Color {
+    const PALETTE: [Color; 8] = [
+        Color::srgb(0.95, 0.78, 0.42),
+        Color::srgb(0.54, 0.88, 0.64),
+        Color::srgb(0.95, 0.60, 0.55),
+        Color::srgb(0.68, 0.75, 0.98),
+        Color::srgb(0.96, 0.68, 0.44),
+        Color::srgb(0.86, 0.64, 0.94),
+        Color::srgb(0.48, 0.86, 0.84),
+        Color::srgb(0.94, 0.62, 0.78),
+    ];
+    if let Some(seat) = swatch {
+        return seat;
+    }
+    if mine {
+        return inks.accent;
+    }
+    let hash = tag.bytes().fold(0usize, |acc, b| {
+        acc.wrapping_mul(31).wrapping_add(b as usize)
+    });
+    PALETTE[hash % PALETTE.len()]
+}
+
 /// Spawns a chat line's row. `swatch` is the sender's seat colour at this
 /// table, when they hold a chair here.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one row builder for every kind of line (§5)
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_row(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -222,14 +238,13 @@ pub(crate) fn spawn_row(
     style: RowStyle,
     swatch: Option<Color>,
 ) -> Entity {
-    let ink = channel_ink(conv, inks);
     let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 column_gap: zpx(SWATCH_GAP),
                 flex_shrink: 0.0,
-                padding: UiRect::horizontal(zpx(2.0)),
+                padding: UiRect::axes(zpx(3.0), zpx(1.5)),
                 border_radius: BorderRadius::all(zpx(3.0)),
                 ..default()
             },
@@ -242,42 +257,53 @@ pub(crate) fn spawn_row(
             },
         ))
         .id();
+    fill_row(
+        commands, row, fonts, lang, machine, conv, line, inks, style, swatch,
+    );
+    row
+}
+
+/// Populates a chat line's row entity in-place so state transitions
+/// (`Pending` -> `Final`) never despawn the row entity or interrupt its
+/// arrival animation.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one row builder for every kind of line (§5)
+pub(crate) fn fill_row(
+    commands: &mut Commands,
+    row: Entity,
+    fonts: &UiFonts,
+    lang: Lang,
+    machine: &Social,
+    conv: &ConvId,
+    line: &ChatLine,
+    inks: &Inks,
+    style: RowStyle,
+    swatch: Option<Color>,
+) {
+    let ink = channel_ink(conv, inks);
     if line.mentions_me {
         commands
             .entity(row)
-            .insert(BackgroundColor(palette::ACTIVE.with_alpha(0.10)));
+            .insert(BackgroundColor(palette::ACTIVE.with_alpha(0.12)));
     }
-    if style.timestamps && !matches!(line.kind, LineKind::Divider) {
-        // The log's own time column (`logpanel::clock_bundle`), at the
-        // window's zoom: the two lists read alike (feedback of 24.10.2026).
-        let time = commands
-            .spawn(clock_bundle(fonts, z(inks.pt), inks.soft, clock(line.at)))
-            .insert(Node {
-                width: zpx(CLOCK_W),
-                margin: UiRect {
-                    top: zpx(clock_drop_at(inks.pt)),
-                    right: zpx(CLOCK_AIR),
+    let bar_col = match &line.kind {
+        LineKind::Message { from, mine, .. } => Some(sender_colour(&from.tag, *mine, swatch, inks)),
+        _ => swatch,
+    };
+    if let Some(swatch_col) = bar_col {
+        let swatch_node = commands
+            .spawn((
+                Node {
+                    width: zpx(SWATCH_W),
+                    flex_shrink: 0.0,
+                    border_radius: BorderRadius::all(zpx(SWATCH_W / 2.0)),
                     ..default()
                 },
-                flex_shrink: 0.0,
-                ..default()
-            })
+                BackgroundColor(swatch_col),
+                Pickable::IGNORE,
+            ))
             .id();
-        commands.entity(row).add_child(time);
+        commands.entity(row).add_child(swatch_node);
     }
-    let swatch = commands
-        .spawn((
-            Node {
-                width: zpx(SWATCH_W),
-                flex_shrink: 0.0,
-                border_radius: BorderRadius::all(zpx(SWATCH_W / 2.0)),
-                ..default()
-            },
-            BackgroundColor(swatch.unwrap_or(Color::NONE)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(row).add_child(swatch);
     let sentence = commands
         .spawn((
             Text::default(),
@@ -303,6 +329,14 @@ pub(crate) fn spawn_row(
         commands.entity(sentence).add_child(id);
         id
     };
+    if style.timestamps && !matches!(line.kind, LineKind::Divider) {
+        span(
+            commands,
+            format!("{}   ", clock(line.at)),
+            tf(fonts, z(inks.pt * 0.78)),
+            inks.soft.with_alpha(0.60),
+        );
+    }
     match &line.kind {
         LineKind::Divider => {
             span(
@@ -333,33 +367,60 @@ pub(crate) fn spawn_row(
                     tf_italic(fonts, z(inks.pt)),
                     inks.soft,
                 );
-                return row;
+                return;
             }
             let faded = if line.state == LineState::Pending {
-                0.6
+                0.72
             } else {
                 1.0
             };
-            let ink = ink.with_alpha(faded);
+            let channel_col = ink.with_alpha(faded);
+            let body_col = match conv {
+                Conv::Global | Conv::Table { .. } => inks.ink.with_alpha(faded),
+                _ => channel_col,
+            };
+            let name_col = sender_colour(&from.tag, *mine, swatch, inks).with_alpha(faded);
             let private = matches!(conv, Conv::Dm { .. });
             if (style.prefix || private)
                 && let Some(prefix) = prefix(machine, conv, line, lang)
             {
-                // A whisper's label is its name (bold, a press answers it);
-                // a channel's prefix is quieter.
-                let font = if private {
-                    tf_bold(fonts, z(inks.pt))
+                if private {
+                    let id = if let Some((dir, rest)) = prefix.split_once(' ') {
+                        span(
+                            commands,
+                            format!("{dir} "),
+                            tf(fonts, z(inks.pt * 0.82)),
+                            WHISPER_INK.with_alpha(0.58 * faded),
+                        );
+                        span(
+                            commands,
+                            format!("{rest} "),
+                            tf_bold(fonts, z(inks.pt)),
+                            name_col,
+                        )
+                    } else {
+                        span(
+                            commands,
+                            format!("{prefix} "),
+                            tf_bold(fonts, z(inks.pt)),
+                            name_col,
+                        )
+                    };
+                    if let Some(partner) = conv.partner(&machine.me().tag) {
+                        let person = machine.person(partner);
+                        commands.entity(id).insert(ChatName {
+                            handle: person.handle,
+                            tag: person.tag,
+                            guest: person.guest,
+                        });
+                    }
                 } else {
-                    tf(fonts, z(inks.pt))
-                };
-                let id = span(commands, format!("{prefix} "), font, ink);
-                if private && let Some(partner) = conv.partner(&machine.me().tag) {
-                    let person = machine.person(partner);
-                    commands.entity(id).insert(ChatName {
-                        handle: person.handle,
-                        tag: person.tag,
-                        guest: person.guest,
-                    });
+                    span(
+                        commands,
+                        format!("{prefix} "),
+                        tf(fonts, z(inks.pt * 0.80)),
+                        channel_col.with_alpha(0.62 * faded),
+                    );
                 }
             }
             let name = machine.shown_name(from);
@@ -375,7 +436,7 @@ pub(crate) fn spawn_row(
                 } else {
                     format!("{name}: ")
                 };
-                let id = span(commands, label, tf_bold(fonts, z(inks.pt)), ink);
+                let id = span(commands, label, tf_bold(fonts, z(inks.pt)), name_col);
                 if !*mine {
                     commands.entity(id).insert(ChatName {
                         handle: from.handle.clone(),
@@ -392,10 +453,19 @@ pub(crate) fn spawn_row(
                         } else {
                             tf(fonts, z(inks.pt))
                         };
-                        span(commands, text, font, ink);
+                        span(commands, text, font, body_col);
                     }
                     Piece::Mention => {
-                        span(commands, text, tf_bold(fonts, z(inks.pt)), ink);
+                        let shown = text
+                            .strip_prefix("[@")
+                            .and_then(|s| s.strip_suffix(']'))
+                            .map_or_else(|| text.clone(), |s| format!("@{s}"));
+                        let mention_col = if private {
+                            palette::CANDLE.with_alpha(faded)
+                        } else {
+                            WHISPER_INK.with_alpha(faded)
+                        };
+                        span(commands, shown, tf_bold(fonts, z(inks.pt)), mention_col);
                     }
                     Piece::Link(link) => {
                         let font = TextFont {
@@ -433,7 +503,6 @@ pub(crate) fn spawn_row(
             }
         }
     }
-    row
 }
 
 /// A notice that is a refusal or an error, drawn in `DANGER` (§5).

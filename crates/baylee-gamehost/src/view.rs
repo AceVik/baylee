@@ -769,6 +769,7 @@ pub fn spectator_view(
     ballots: &[baylee_engine::resolve::Ballot],
 ) -> baylee_view::SpectatorView {
     let nobody = SeatSet::new();
+    let mut references = None;
     let board = ViewBoard::new(state);
     baylee_view::SpectatorView {
         seq,
@@ -791,6 +792,13 @@ pub fn spectator_view(
         ballots: ballot_views(ballots),
         // What only the engine knows; `Session::spectator_view` fills it in.
         controls: Vec::new(),
+        target_objects: target_objects(
+            state,
+            SPECTATOR,
+            None,
+            &SeatContext::default(),
+            &mut references,
+        ),
         library_tops: state
             .players
             .iter()
@@ -881,6 +889,7 @@ pub fn game_static(
         seats,
         decision_secs: no_limit_is_none(house_rules.decision_timeout_secs),
         reconnect_secs: no_limit_is_none(house_rules.reconnect_window_secs),
+        table_seed: 0,
         prints: prints
             .iter()
             .enumerate()

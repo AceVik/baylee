@@ -65,6 +65,10 @@ pub struct SpectatorView {
     /// seat ([`PlayerView::controls`]).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub controls: Vec<crate::PlayerControl>,
+    /// Objects targeted by spells or abilities on the stack, resolved to the
+    /// exact incarnation targeted ([`PlayerView::target_objects`]).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub target_objects: Vec<crate::DamageSourceView>,
 }
 
 impl SpectatorView {
@@ -80,7 +84,7 @@ impl SpectatorView {
             decision_player: None,
             controlled_hands: Vec::new(),
             damage_sources: Vec::new(),
-            target_objects: Vec::new(),
+            target_objects: self.target_objects,
             targeting: None,
             casting: None,
             announced_cast: None,
@@ -153,10 +157,12 @@ impl SpectatorView {
             .chain(&self.command)
             .flatten()
             .filter_map(|o| o.card);
+        let targets = self.target_objects.iter().filter_map(|t| t.card);
         commanders
             .chain(revealed)
             .chain(flat)
             .chain(nested)
+            .chain(targets)
             .map(|c| c.print)
     }
 }

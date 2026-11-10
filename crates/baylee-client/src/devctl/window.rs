@@ -112,11 +112,26 @@ fn parse_monitor(value: &str) -> Result<MonitorSelection, String> {
         })
 }
 
+pub(crate) fn window_pos() -> Option<IVec2> {
+    let raw = std::env::var("BAYLEE_DEV_WINDOW_POS").ok()?;
+    let (x, y) = raw.split_once(',').or_else(|| raw.split_once('x'))?;
+    let x = x.trim().parse::<i32>().ok()?;
+    let y = y.trim().parse::<i32>().ok()?;
+    ((-32768..=32767).contains(&x) && (-32768..=32767).contains(&y)).then_some(IVec2::new(x, y))
+}
+
 pub(crate) fn configure_monitor(
     monitors: Res<WinitMonitors>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
     mut exit: MessageWriter<AppExit>,
 ) {
+    if let Some(at) = window_pos() {
+        if let Ok(mut window) = windows.single_mut() {
+            window.position = bevy::window::WindowPosition::At(at);
+            window.set_maximized(false);
+        }
+        return;
+    }
     let Ok(Some(selection)) = monitor_selection() else {
         return;
     };

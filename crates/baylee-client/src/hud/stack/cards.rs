@@ -208,14 +208,130 @@ pub(in crate::hud) fn spawn_walker_line(
     line
 }
 
-/// The arrow and everything a stack entry points at, as one wrapping row.
+/// Whether `item` has any targets or cast/entering choices to display in the
+/// `→` target/choice row.
+pub(in crate::hud) fn has_targets_or_choices(
+    item: &baylee_client_core::board::StackItem,
+    lang: Lang,
+    full: bool,
+) -> bool {
+    !item.targets.is_empty()
+        || item.copy_original.is_some()
+        || item.chosen_x.is_some()
+        || (item.face_down && item.art.is_some())
+        || item.flashed_back
+        || item.chosen_subtype.is_some()
+        || item.chosen_name.is_some()
+        || item.chosen_color.is_some()
+        || item.chosen_opponent.is_some()
+        || item.battle_protector.is_some()
+        || (!full && (item.modes.is_some() || !item.announced_costs(lang).is_empty()))
+}
+
+fn color_word(color: baylee_core::mana::ManaColor, lang: Lang) -> &'static str {
+    use baylee_core::mana::ManaColor;
+    match color {
+        ManaColor::White => Phrase::ColorWhite,
+        ManaColor::Blue => Phrase::ColorBlue,
+        ManaColor::Black => Phrase::ColorBlack,
+        ManaColor::Red => Phrase::ColorRed,
+        ManaColor::Green => Phrase::ColorGreen,
+        ManaColor::Colorless => Phrase::ColorColourless,
+    }
+    .text(lang)
+}
+
+/// Non-target choices made for `item` when cast or as it enters (copied
+/// object, chosen X, face-down cast, chosen opponent/protector, chosen card
+/// name, chosen color, chosen creature/land subtype, and on queued rows chosen
+/// modes and kicker/buyback costs).
+pub(in crate::hud) fn stack_choice_chips(
+    item: &baylee_client_core::board::StackItem,
+    lang: Lang,
+    full: bool,
+    view: &PlayerView,
+    statics: &GameStatic,
+    faces: &FaceCtx<'_>,
+) -> Vec<(Option<char>, String)> {
+    let mut chips = Vec::new();
+    if let Some(x) = item.chosen_x {
+        chips.push((None, format!("X = {x}")));
+    }
+    if item.face_down && item.art.is_some() {
+        chips.push((
+            None,
+            match lang {
+                Lang::De => "Verdeckt".to_string(),
+                Lang::En => "Face-down".to_string(),
+            },
+        ));
+    }
+    if item.flashed_back {
+        chips.push((
+            None,
+            match lang {
+                Lang::De => "Rückblende".to_string(),
+                Lang::En => "Flashback".to_string(),
+            },
+        ));
+    }
+    if item.copy_original.is_some() {
+        let copied_name = view.object(item.id).map_or_else(
+            || item.name.clone(),
+            |o| crate::face::name_of(o, view, faces.texts),
+        );
+        chips.push((None, copied_name));
+    }
+    if let Some(opponent) = item.chosen_opponent {
+        chips.push((Some(glyph::HEART), statics.seat_name(opponent).to_string()));
+    }
+    if let Some(protector) = item.battle_protector {
+        chips.push((
+            None,
+            Phrase::BattleProtectedBy.fill(lang, &[statics.seat_name(protector)]),
+        ));
+    }
+    if let Some(named) = item.chosen_name
+        && let Some(face) =
+            baylee_cards::by_index(named.card).and_then(|d| d.faces.get(usize::from(named.face)))
+    {
+        chips.push((None, Phrase::ChosenName.fill(lang, &[face.name])));
+    }
+    if let Some(color) = item.chosen_color {
+        chips.push((None, color_word(color, lang).to_string()));
+    }
+    if let Some(subtype) = item.chosen_subtype
+        && let Some(english) = baylee_core::generated::subtypes::name(subtype)
+    {
+        chips.push((
+            None,
+            baylee_client_core::type_names::name(english, lang).to_string(),
+        ));
+    }
+    if !full {
+        if let Some((rules, set)) = item.modes {
+            for i in (0..8_usize).filter(|i| set & (1 << i) != 0) {
+                let words = crate::choices::mode_words(Some(faces.texts), rules.card, i)
+                    .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]));
+                chips.push((None, super::fit(&format!("\u{2022} {words}"), 180.0, 11.0)));
+            }
+        }
+        for cost in item.announced_costs(lang) {
+            chips.push((None, cost));
+        }
+    }
+    chips
+}
+
+/// The arrow and everything a stack entry points at or chose on cast/entry,
+/// as one wrapping row.
 #[allow(clippy::too_many_arguments)] // the same slot arguments again
 pub(in crate::hud) fn spawn_stack_targets(
     commands: &mut Commands,
     lang: Lang,
     item: &baylee_client_core::board::StackItem,
     key: StackKey,
-    full: bool,
+    (full, compact): (bool, bool),
     view: &PlayerView,
     statics: &GameStatic,
     textures: &mut CardTextures,
@@ -240,22 +356,21 @@ pub(in crate::hud) fn spawn_stack_targets(
         ))
         .id();
 
-    // The arrow belongs to the sentence, not to the queue: a queued row is
-    // already the narrow one, and a glyph that is a third of its body width
-    // buys nothing a thumbnail sitting under a name does not already say.
-    if full {
-        let arrow = commands
-            .spawn((
-                Text::new("→"),
-                tf(fonts, 14.0),
-                TextColor(palette::CANDLE),
-                Arriving::ink(key, palette::CANDLE.alpha()),
-                // A label, and the row's hover is the row's — as above.
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(row).add_child(arrow);
-    }
+    let arrow = commands
+        .spawn((
+            Text::new("→"),
+            tf(fonts, if full { 14.0 } else { 12.0 }),
+            TextColor(palette::CANDLE),
+            Arriving::ink(key, palette::CANDLE.alpha()),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            // A label, and the row's hover is the row's — as above.
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_child(arrow);
 
     for target in &item.targets {
         let chip = spawn_stack_target(
@@ -263,7 +378,7 @@ pub(in crate::hud) fn spawn_stack_targets(
             lang,
             target,
             key,
-            full,
+            (full, compact),
             view,
             statics,
             textures,
@@ -272,6 +387,39 @@ pub(in crate::hud) fn spawn_stack_targets(
             faces,
             cards.as_deref_mut(),
         );
+        commands.entity(row).add_child(chip);
+    }
+
+    if item.copy_original.is_some()
+        && let Some(copied_art) = item.art
+    {
+        let (width, height) = if full {
+            (STACK_TARGET_W, STACK_TARGET_H)
+        } else {
+            (STACK_QUEUED_TARGET_W, STACK_QUEUED_TARGET_H)
+        };
+        let card = spawn_stack_card(
+            commands,
+            lang,
+            key,
+            None,
+            Some(copied_art),
+            None,
+            width,
+            height,
+            statics,
+            textures,
+            assets,
+            fonts,
+            cards,
+            &faces.widths,
+        );
+        commands.entity(row).add_child(card);
+    }
+
+    let size = if full { 12.0 } else { 11.0 };
+    for (glyph, label) in stack_choice_chips(item, lang, full, view, statics, faces) {
+        let chip = spawn_choice_chip(commands, fonts, key, size, glyph, label);
         commands.entity(row).add_child(chip);
     }
     row
@@ -287,12 +435,15 @@ pub(in crate::hud) fn stack_face(
     faces: &FaceCtx<'_>,
     textures: &CardTextures,
 ) -> Option<CardFace> {
+    if item.face_down && item.art.is_none() {
+        return None;
+    }
     let object = view.object(item.id)?;
-    faces.object(object, textures, item.art)
+    faces.object(object, textures, item.copy_original.or(item.art))
 }
 
-/// A card in the stack panel: its art, its face, or a plain plate with the
-/// card's back colour when the seat may not know what it is.
+/// A card in the stack panel: its art, its face, or the card back when the
+/// seat may not know what it is.
 #[allow(clippy::too_many_arguments)] // the slot, the card, and the stores
 pub(in crate::hud) fn spawn_stack_card(
     commands: &mut Commands,
@@ -348,26 +499,30 @@ pub(in crate::hud) fn spawn_stack_card(
             commands.entity(slot).insert(Pickable::IGNORE);
         }
     }
-    if let Some(key) = art {
-        let image = textures.get(key, statics, assets);
-        let visual = spawn_card_art(
-            commands,
-            lang,
-            image,
-            face.as_ref(),
-            width,
-            height,
-            crate::face::Detail::Compact,
-            fonts,
+    let (image, look) = match art {
+        Some(key) => (
+            textures.get(key, statics, assets),
             // Nothing on the stack is on a battlefield, so no glow: the
             // border says what the rules have made a *permanent*, and a
             // spell wearing one would be claiming something untrue.
             CardLook::art(key, finish_of(statics, Some(key))),
-            cards,
-            widths,
-        );
-        commands.entity(slot).add_child(visual);
-    }
+        ),
+        None => (textures.card_back(), CardLook::back(FinishTreatment::Plain)),
+    };
+    let visual = spawn_card_art(
+        commands,
+        lang,
+        image,
+        face.as_ref(),
+        width,
+        height,
+        crate::face::Detail::Compact,
+        fonts,
+        look,
+        cards,
+        widths,
+    );
+    commands.entity(slot).add_child(visual);
     // The picture's own fade, laid over it rather than mixed into it. The art
     // is a `MaterialNode` on a material shared with every card that looks the
     // same, so an alpha written there would fade the hand as well; a veil the
@@ -399,7 +554,7 @@ pub(in crate::hud) fn spawn_stack_target(
     lang: Lang,
     target: &baylee_client_core::board::StackTarget,
     key: StackKey,
-    full: bool,
+    (full, compact): (bool, bool),
     view: &PlayerView,
     statics: &GameStatic,
     textures: &mut CardTextures,
@@ -414,7 +569,7 @@ pub(in crate::hud) fn spawn_stack_target(
         (STACK_QUEUED_TARGET_W, STACK_QUEUED_TARGET_H)
     };
     if target.art.is_some() && target.is_current {
-        return spawn_stack_card(
+        let card = spawn_stack_card(
             commands,
             lang,
             key,
@@ -430,6 +585,43 @@ pub(in crate::hud) fn spawn_stack_target(
             cards,
             &faces.widths,
         );
+        if compact {
+            return card;
+        }
+        let label = crate::choices::target_label(
+            lang,
+            target.what,
+            crate::choices::FaceNames {
+                view: Some(view),
+                texts: Some(faces.texts),
+            },
+            Some(statics),
+        );
+        if label.is_empty() {
+            return card;
+        }
+        let size = if full { 12.0 } else { 11.0 };
+        let name = commands
+            .spawn((
+                Text::new(label),
+                tf(fonts, size),
+                TextColor(palette::INK),
+                Arriving::ink(key, palette::INK.alpha()),
+                Pickable::IGNORE,
+            ))
+            .id();
+        return commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(4.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .add_children(&[card, name])
+            .id();
     }
     // A player is a name and a heart, not a rectangle pretending to be a
     // card. Anything else with no picture (a token, something face down) is
@@ -450,6 +642,17 @@ pub(in crate::hud) fn spawn_stack_target(
         ),
     };
     let size = if full { 12.0 } else { 11.0 };
+    spawn_choice_chip(commands, fonts, key, size, glyph, label)
+}
+
+pub(in crate::hud) fn spawn_choice_chip(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    key: StackKey,
+    size: f32,
+    glyph: Option<char>,
+    label: String,
+) -> Entity {
     let chip = commands
         .spawn((
             Node {
@@ -457,10 +660,12 @@ pub(in crate::hud) fn spawn_stack_target(
                 column_gap: px(4),
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(px(6.0), px(3.0)),
+                border: UiRect::all(px(1.0)),
                 border_radius: BorderRadius::all(px(9)),
                 ..default()
             },
             BackgroundColor(palette::DIALOG_LIT),
+            BorderColor::all(palette::DIALOG_LINE),
             Pickable::IGNORE,
             Arriving::fill(key, palette::DIALOG_LIT.alpha()),
         ))

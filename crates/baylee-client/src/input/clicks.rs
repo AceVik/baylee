@@ -387,6 +387,7 @@ pub(super) fn browser_click(
         return true;
     }
     if let Some(card) = find_in_lineage(entity, &tray.cards, parents) {
+        duel.browser.stop_typing();
         activate_card(duel, card.object);
         return true;
     }

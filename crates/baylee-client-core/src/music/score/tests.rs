@@ -272,7 +272,6 @@ fn every_scene_has_finite_audio_and_headroom() {
                     previous = *frame;
                 }
                 let rms = (power / (frames.len() * 2) as f64).sqrt();
-                eprintln!("{theme:?}/{movement:?}: peak={peak:.3} rms={rms:.4} jump={jump:.3}");
                 assert!(
                     (0.008..0.88).contains(&peak),
                     "{theme:?}/{movement:?}: {peak}"
@@ -461,20 +460,27 @@ fn sample_banks_change_without_resetting_the_musical_phrase() {
 }
 
 #[test]
-fn title_to_lobby_and_theme_choice_preserve_the_memorial_waveform() {
+fn title_and_lobby_share_continuous_tavern_sheet_music_performance() {
     let left = Arc::new(ScoreControl::default());
     let right = Arc::new(ScoreControl::default());
     let mut a = Tune::with_control(left.clone());
     let mut b = Tune::with_control(right.clone());
     let mut x = [[0.0; 2]; 256];
     let mut y = [[0.0; 2]; 256];
-    for i in 0..1200 {
+    for i in 0..600 {
+        if i == 150 {
+            right.set(Movement::Lobby.request(Theme::Ember));
+        }
         if i == 300 {
             right.set(Movement::Lobby.request(Theme::Lantern));
         }
         a.render(&mut x);
         b.render(&mut y);
-        assert_eq!(x, y, "sign-in must not interrupt a held note or its room");
+        assert_eq!(
+            x, y,
+            "title to lobby and theme choice preserve the continuous tavern sheet-music score"
+        );
     }
     assert_eq!(b.position.movement, Movement::Lobby);
+    assert_eq!(b.position.theme, Theme::Lantern);
 }

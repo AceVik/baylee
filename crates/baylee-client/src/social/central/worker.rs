@@ -44,6 +44,7 @@ pub(super) enum Reply {
         tag: HttpTag,
         status: u16,
         body: Vec<u8>,
+        snapshot: Option<wire::Snapshot>,
     },
     Keys {
         tags: Vec<String>,
@@ -80,10 +81,17 @@ pub(super) fn run(account: &Account, job: &Job, retries: &Retries) -> Result<Rep
                 });
             }
             let (status, body) = http::run(account, own, tag, *method, path, body.as_ref())?;
+            let snapshot = matches!(
+                tag,
+                HttpTag::AddFriend(_) | HttpTag::Friendship(_) | HttpTag::Group
+            )
+            .then(|| mapping::snapshot(account).ok())
+            .flatten();
             Ok(Reply::Http {
                 tag: tag.clone(),
                 status,
                 body: serde_json::to_vec(&body).map_err(|_| Error::Rejected)?,
+                snapshot,
             })
         }
         Job::Send {

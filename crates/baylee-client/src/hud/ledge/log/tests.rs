@@ -646,6 +646,7 @@ fn two_teams() -> GameStatic {
     GameStatic {
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
         view_version: baylee_view::VIEW_VERSION,
         game_id: "g".into(),
         your_seat: PlayerId::new(0),

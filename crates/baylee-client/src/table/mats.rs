@@ -279,6 +279,12 @@ pub fn sync_table(
     };
 
     let recut = (slab.cut - span).abs().max_element() > 1e-3;
+    let repattern = materials.get(&handle.0).is_some_and(|m| {
+        (m.params.pattern - duel.table_pattern.0)
+            .abs()
+            .max_element()
+            > 1e-4
+    });
     let next = slab.shown + (want - slab.shown) * ease;
     // Below a step this small nothing on screen changes, so stop. A slab that
     // reached its colour and went on writing would touch a material — and so
@@ -295,7 +301,7 @@ pub fn sync_table(
         && (next_tail - slab.tail).abs().max_element() <= 1e-4
         && (slab.source - source).abs().max_element() <= 1e-4
         && (slab.motion - motion).abs() <= f32::EPSILON;
-    if still && !recut {
+    if still && !recut && !repattern {
         return;
     }
     slab.shown = next;
@@ -309,9 +315,10 @@ pub fn sync_table(
         *mesh = Mesh3d(meshes.add(slab_mesh(span)));
     }
     if let Some(mut material) = materials.get_mut(&handle.0) {
-        if recut {
+        if recut || repattern {
             material.params.span = span;
             material.params.corner = tabletop::table_corner(span);
+            material.params.pattern = duel.table_pattern.0;
             // A bigger slab reaches cells the old table did not hold.
             let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
             // Replaced, never removed: the old points go when their last

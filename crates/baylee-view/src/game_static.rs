@@ -114,9 +114,34 @@ pub struct GameStatic {
     /// and this payload has to be honest about a table the gateway did not
     /// make.
     pub reconnect_secs: Option<u32>,
+    /// Cosmetic seed for the shared tabletop pattern (stone veins and water
+    /// warp), identical for every seat, spectator, and replay of the table.
+    ///
+    /// Derived from a truncated 24-bit one-way digest so the engine's shuffle
+    /// RNG seed cannot be recovered from it.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub table_seed: u64,
 }
 
 impl GameStatic {
+    /// Deterministic seed for the shared tabletop surface, identical for every
+    /// seat, spectator, and replay at the same table.
+    #[must_use]
+    pub fn surface_seed(&self) -> u64 {
+        if self.table_seed != 0 {
+            return self.table_seed;
+        }
+        if self.game_id.is_empty() {
+            return 0;
+        }
+        let mut h = 0xcbf2_9ce4_8422_2325_u64;
+        for &b in self.game_id.as_bytes() {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0100_0000_01b3);
+        }
+        h
+    }
+
     /// Resolves a print reference against the print table.
     #[must_use]
     pub fn print(&self, print: PrintRef) -> Option<&PrintEntry> {

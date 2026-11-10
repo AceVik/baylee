@@ -26,7 +26,7 @@ pub(super) fn prepare(
     if !known {
         handle
             .archive_chat_device(device.clone())
-            .map_err(|_| Error::Io)?;
+            .map_err(super::account_err)?;
         records.push(device.clone());
     }
     Ok((device, base))

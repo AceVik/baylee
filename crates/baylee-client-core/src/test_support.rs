@@ -82,6 +82,8 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         chosen_subtype: None,
         chosen_name: None,
         chosen_opponent: None,
+        chosen_color: None,
+        chosen_x: None,
         unlocked_doors: None,
         suspended: false,
         token: None,
@@ -344,6 +346,7 @@ pub fn statics(count: u16) -> GameStatic {
     GameStatic {
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
         view_version: baylee_view::VIEW_VERSION,
         game_id: "test-game".to_string(),
         your_seat: PlayerId::new(0),

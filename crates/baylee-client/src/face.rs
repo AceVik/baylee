@@ -144,8 +144,28 @@ pub fn of_object(
         .and_then(|c| baylee_cards::by_index(c.index).map(|def| (def, c)))
         .and_then(|(def, c)| def.faces.get(c.face as usize));
     let cost = printed.map(|f| &f.mana_cost);
-    let text = card_of(object, view).and_then(|(card, face)| texts.face(card, face));
+    let card_face = card_of(object, view);
+    let text = card_face.and_then(|(card, face)| texts.face(card, face));
     let mut face = CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref());
+    if text.is_none()
+        && card_face.is_none()
+        && object.status.contains(baylee_view::ObjectStatus::TOKEN)
+    {
+        if let Some(token_id) = object.token
+            && let Some(token_def) = baylee_cards::tokens::by_token_id(token_id)
+        {
+            for idx in 0..u32::try_from(token_def.abilities.len()).unwrap_or(0) {
+                if let Some(blocks) = crate::cardtext::token_sentence(token_id, idx) {
+                    face.body.extend(blocks);
+                }
+            }
+            if token_def.abilities.is_empty() || !face.body.is_empty() {
+                face.text_pending = false;
+            }
+        } else if object.keywords == 0 && object.ability_sources.is_empty() {
+            face.text_pending = false;
+        }
+    }
     let lang = texts.display_language();
     for change in &object.word_changes {
         let kind = if change.basic_land_type {
@@ -201,7 +221,17 @@ pub fn name_of(
     texts: &crate::cardtext::CardTexts,
 ) -> String {
     let text = card_of(object, Some(view)).and_then(|(card, face)| texts.face(card, face));
-    baylee_client_core::card_face::shown_name(&object.name, text.as_ref()).to_string()
+    let shown = baylee_client_core::card_face::shown_name(&object.name, text.as_ref());
+    if shown.is_empty() || shown == "Face-down" {
+        if let Some(text) = &text {
+            return text.name.clone();
+        }
+        return match texts.display_language() {
+            Lang::De => "Verdeckt".to_string(),
+            Lang::En => "Face-down".to_string(),
+        };
+    }
+    shown.to_string()
 }
 
 /// What one *named* face of a card is called, in the player's own language.

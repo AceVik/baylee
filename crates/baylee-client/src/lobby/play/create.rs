@@ -752,7 +752,7 @@ pub(super) fn create_sheet(
         .text(lang),
         &body,
         &[cancel, open],
-        (),
+        super::super::Scrollable(super::super::List::Check),
     );
     let close_x = parts::icon_button(
         commands,

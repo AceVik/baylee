@@ -98,6 +98,61 @@ fn a_click_on_a_stack_row_answers_the_question_it_was_asked() {
     );
 }
 
+#[test]
+fn clicking_stack_group_toggle_does_not_select_or_mark_stack_row() {
+    use baylee_core::ids::PlayerId;
+    use baylee_engine::choice::Pending;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::touch::Touched>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<bevy::picking::events::PointerClick>()
+        .insert_resource(crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::ChooseTargets {
+                    player: PlayerId::new(0),
+                    options: vec![obj(200)],
+                    player_options: vec![],
+                    min: 1,
+                    max: 1,
+                    reason: baylee_engine::choice::TargetPrompt::Targets,
+                },
+                PlayerId::new(0),
+            )),
+            ..default()
+        })
+        .init_resource::<crate::input::TrayGlide>()
+        .add_systems(Update, pointer);
+
+    let row = app
+        .world_mut()
+        .spawn((
+            crate::hud::HandCardVisual { object: obj(200) },
+            crate::hud::StackRowCard,
+        ))
+        .id();
+    let badge = app
+        .world_mut()
+        .spawn((crate::hud::stack::StackGroupToggle, ChildOf(row)))
+        .id();
+
+    click(&mut app, badge);
+
+    let duel = app.world().resource::<crate::Duel>();
+    assert_eq!(
+        duel.interaction
+            .as_ref()
+            .expect("the question is still standing")
+            .selected()
+            .count(),
+        0,
+        "clicking the group fold button must not choose or mark the stack row"
+    );
+}
+
 /// The keyboard's half of the same gap.
 ///
 /// `cursor_grid` was built out of the *board* — the hand and each seat's

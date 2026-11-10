@@ -867,7 +867,10 @@ impl EngineRunner {
                     .iter()
                     .map(frames::spectator_frame),
             );
+            out.push(frames::spectator_frame(&frames::spectators(changed.count)));
             out.push(frames::spectator_frame(&curtain()));
+        } else if changed.count > 0 {
+            out.push(frames::spectator_frame(&frames::spectators(changed.count)));
         }
         out
     }

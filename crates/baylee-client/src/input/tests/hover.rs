@@ -415,3 +415,78 @@ fn moving_onto_a_row_s_own_scrollbar_keeps_the_row_hovered() {
     app.update();
     assert_eq!(app.world().resource::<crate::Duel>().hovered, None);
 }
+
+/// When the zone browser rebuilds under a still pointer (e.g. a new spell
+/// enters the stack while the "All" tab is open, shifting the hovered row down
+/// and placing the new row under the cursor) and the pointer then leaves that
+/// replacement row for empty space, the stale tray hover is cleared even though
+/// the `PointerOut` names the replacement row rather than the originally
+/// hovered row.
+#[test]
+fn leaving_a_tray_row_that_replaced_the_hovered_row_under_a_still_pointer_clears_hover() {
+    use bevy::picking::backend::HitData;
+    use bevy::picking::events::{PointerOut, PointerOver};
+    use bevy::picking::hover::HoverMap;
+    use bevy::picking::pointer::PointerId;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_message::<PointerOver>()
+        .add_message::<PointerOut>()
+        .add_message::<bevy::window::CursorMoved>()
+        .insert_resource(crate::Duel::default())
+        .init_resource::<HoverMap>()
+        .add_systems(Update, pointer_hover);
+
+    let row_a = app
+        .world_mut()
+        .spawn(crate::hud::TrayCard { object: obj(30) })
+        .id();
+    hover(&mut app, row_a);
+    assert_eq!(app.world().resource::<crate::Duel>().hovered, Some(obj(30)));
+
+    // The zone browser rebuilds while the pointer is still: `row_a` is
+    // despawned, a new row for `obj(30)` is spawned lower down, and `row_b`
+    // (`obj(72)`) now sits where the pointer was.
+    app.world_mut().entity_mut(row_a).despawn();
+    app.world_mut()
+        .spawn(crate::hud::TrayCard { object: obj(30) });
+    let row_b = app
+        .world_mut()
+        .spawn(crate::hud::TrayCard { object: obj(72) })
+        .id();
+    app.update();
+    assert_eq!(
+        app.world().resource::<crate::Duel>().hovered,
+        Some(obj(30)),
+        "still in the tray while the pointer has not moved"
+    );
+
+    // Now the pointer moves off `row_b` onto empty space (`HoverMap` is empty).
+    app.world_mut().resource_mut::<HoverMap>().0.clear();
+    let at = pointer_at(&mut app);
+    let window = app
+        .world_mut()
+        .query_filtered::<Entity, With<bevy::window::PrimaryWindow>>()
+        .single(app.world())
+        .unwrap();
+    app.world_mut().write_message(bevy::window::CursorMoved {
+        window,
+        position: Vec2::ONE,
+        delta: None,
+    });
+    app.world_mut().write_message(crate::test_pointer::aim(
+        PointerId::Mouse,
+        at,
+        crate::test_pointer::Out {
+            hit: HitData::new(row_b, 0.0, None, None),
+        },
+        row_b,
+    ));
+    app.update();
+    assert_eq!(
+        app.world().resource::<crate::Duel>().hovered,
+        None,
+        "leaving the replacement row for empty space clears the stale tray hover"
+    );
+}

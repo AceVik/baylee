@@ -33,6 +33,9 @@ impl ObjectStatus {
     pub const MELDED_CARD: Self = Self(32);
     /// Token identity, including anonymous copies and merged token tops.
     pub const TOKEN: Self = Self(64);
+    /// Cast via flashback on the stack (CR 702.34): exiled instead of put into
+    /// its owner's graveyard as it resolves.
+    pub const FLASHBACK: Self = Self(128);
 
     /// Builds a status from the engine's raw bits.
     #[must_use]
@@ -75,5 +78,11 @@ impl ObjectStatus {
     #[must_use]
     pub const fn has_no_abilities(self) -> bool {
         self.contains(Self::NO_ABILITIES)
+    }
+
+    /// Whether this spell on the stack was cast via flashback ([`Self::FLASHBACK`]).
+    #[must_use]
+    pub const fn is_flashed_back(self) -> bool {
+        self.contains(Self::FLASHBACK)
     }
 }

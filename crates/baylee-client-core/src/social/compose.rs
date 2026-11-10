@@ -179,6 +179,14 @@ impl Composer {
         &self.buffer
     }
 
+    /// Places the caret and optional selection anchor (in byte offsets).
+    pub fn place(&mut self, cursor: usize, anchor: Option<usize>) {
+        self.buffer.place(cursor, anchor);
+        self.recall = None;
+        self.completing = None;
+        self.refresh();
+    }
+
     /// The target chip.
     #[must_use]
     pub fn target(&self) -> &Target {
@@ -411,18 +419,21 @@ impl Composer {
         (!text.is_empty()).then(|| (self.target.clone(), self.body_of(text, false)))
     }
 
-    /// `text` as a body, its `[Name]` and `[@Name#tag]` brackets made links
-    /// and mentions where they name a candidate (spans in characters).
+    /// `text` as a body, its `[Name]` and `[@Name#tag]` brackets (as well as
+    /// bare `@Name` / `@Name#tag` mentions and accidentally doubled
+    /// `[[Name]]` brackets) made links and mentions where they name a
+    /// candidate (spans in characters).
     #[must_use]
     pub fn body_of(&self, text: &str, emote: bool) -> Body {
+        let text = collapse_double_brackets(text);
         let chars = |byte: usize| text[..byte].chars().count();
         let mut body = Body {
-            text: text.to_string(),
+            text: text.clone(),
             links: Vec::new(),
             mentions: Vec::new(),
             emote,
         };
-        for Span { at, target } in refs::parse(text, &self.candidates, &self.picked) {
+        for Span { at, target } in refs::parse(&text, &self.candidates, &self.picked) {
             let span = [chars(at.start), chars(at.end)];
             match target {
                 refs::Target::Card(card) => body.links.push(BodyLink {
@@ -441,6 +452,21 @@ impl Composer {
                 }
             }
         }
+        for (start, end, tag) in bare_mentions(&text, &self.candidates.players) {
+            let span = [chars(start), chars(end)];
+            let overlaps = body
+                .mentions
+                .iter()
+                .any(|m| span[0] < m.at[1] && m.at[0] < span[1])
+                || body
+                    .links
+                    .iter()
+                    .any(|l| span[0] < l.at[1] && l.at[0] < span[1]);
+            if !overlaps {
+                body.mentions.push(BodyMention { at: span, tag });
+            }
+        }
+        body.mentions.sort_by_key(|m| m.at[0]);
         body
     }
 
@@ -740,4 +766,83 @@ fn column_in(text: &str, start: usize, end: usize, column: usize) -> usize {
         at -= 1;
     }
     at
+}
+
+/// Collapses `[[inner]]` to `[inner]` when `inner` is a single-line reference
+/// without nested brackets, preventing double-bracketed card links like
+/// `[[Wild Mongrel]]`.
+fn collapse_double_brackets(text: &str) -> String {
+    if !text.contains("[[") {
+        return text.to_string();
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(open) = rest.find("[[") {
+        out.push_str(&rest[..open]);
+        let after_open = &rest[open + 2..];
+        if let Some(close) = after_open.find("]]") {
+            let inner = &after_open[..close];
+            if !inner.is_empty() && !inner.contains(['[', ']', '\n']) {
+                out.push('[');
+                out.push_str(inner);
+                out.push(']');
+                rest = &after_open[close + 2..];
+                continue;
+            }
+        }
+        out.push_str("[[");
+        rest = after_open;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Finds unbracketed `@Name#tag` and `@Name` player mentions in `text`.
+fn bare_mentions(text: &str, players: &[refs::PlayerRef]) -> Vec<(usize, usize, String)> {
+    let mut out = Vec::new();
+    for (at, ch) in text.char_indices() {
+        if ch != '@' {
+            continue;
+        }
+        let prev = text[..at].chars().next_back();
+        if prev.is_some_and(|p| p == '[' || p.is_alphanumeric() || p == '@') {
+            continue;
+        }
+        let after = &text[at + 1..];
+        let mut best_match: Option<(usize, String)> = None;
+        for player in players {
+            let Some(tag) = player.tag.as_ref() else {
+                continue;
+            };
+            let short = player
+                .name
+                .split_once('#')
+                .map_or(player.name.as_str(), |(s, _)| s);
+            for candidate in [player.name.as_str(), short] {
+                if candidate.is_empty() {
+                    continue;
+                }
+                let len = candidate.len();
+                if after.len() >= len
+                    && after.is_char_boundary(len)
+                    && after[..len].eq_ignore_ascii_case(candidate)
+                {
+                    let next_ch = after[len..].chars().next();
+                    let boundary =
+                        next_ch.is_none_or(|c| !c.is_alphanumeric() && c != '#' && c != '_');
+                    if boundary
+                        && best_match
+                            .as_ref()
+                            .is_none_or(|(best_len, _)| len > *best_len)
+                    {
+                        best_match = Some((len, tag.clone()));
+                    }
+                }
+            }
+        }
+        if let Some((len, tag)) = best_match {
+            out.push((at, at + 1 + len, tag));
+        }
+    }
+    out
 }

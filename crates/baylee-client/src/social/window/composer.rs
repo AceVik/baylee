@@ -65,29 +65,78 @@ pub(super) fn composer_parts(
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
+                align_self: AlignSelf::FlexEnd,
+                margin: UiRect::bottom(zpx(1.0)),
                 column_gap: zpx(4.0),
-                padding: UiRect::axes(zpx(8.0), zpx(2.0)),
+                padding: UiRect::axes(zpx(7.0), zpx(2.0)),
                 height: zpx(22.0),
                 border_radius: BorderRadius::all(zpx(4.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(chip_ink.with_alpha(0.15)),
-            Feel::new(chip_ink.with_alpha(0.15)),
+            BackgroundColor(chip_ink.with_alpha(0.14)),
+            Feel::new(chip_ink.with_alpha(0.14)),
             children![
                 (
                     Text::new(chip_text),
-                    tf_bold(fonts, z(11.5)),
+                    tf_bold(fonts, z(11.0)),
                     TextColor(chip_ink),
                     Pickable::IGNORE,
                 ),
                 (
                     Text::new(glyph::CHEVRON_DOWN.to_string()),
                     icon_tf(fonts, z(7.0)),
-                    TextColor(chip_ink),
+                    TextColor(chip_ink.with_alpha(0.85)),
                     Pickable::IGNORE,
                 ),
             ],
+        ))
+        .id();
+    let sep = commands
+        .spawn((
+            Node {
+                width: zpx(1.0),
+                height: zpx(14.0),
+                align_self: AlignSelf::Center,
+                margin: UiRect::ZERO,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(inks.line.with_alpha(0.45)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let row = commands
+        .spawn((Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            column_gap: zpx(6.0),
+            padding: UiRect::axes(zpx(8.0), zpx(5.0)),
+            min_height: zpx(38.0),
+            ..default()
+        },))
+        .id();
+    let frame = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                min_width: zpx(0.0),
+                min_height: zpx(28.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: zpx(4.0),
+                padding: UiRect::axes(zpx(4.0), zpx(2.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(6.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.015, 0.036, 0.054, 0.50)),
+            BorderColor::all(if focused {
+                inks.accent.with_alpha(0.85)
+            } else {
+                inks.line.with_alpha(0.55)
+            }),
+            Pickable::IGNORE,
         ))
         .id();
     // A guest reads the lobby's chat and does not write in it: the box gives
@@ -101,31 +150,32 @@ pub(super) fn composer_parts(
                 Node {
                     flex_grow: 1.0,
                     min_width: zpx(0.0),
-                    padding: UiRect::axes(zpx(6.0), zpx(4.0)),
+                    padding: UiRect::new(zpx(0.0), zpx(4.0), zpx(3.0), zpx(3.0)),
                     ..default()
                 },
                 Pickable::IGNORE,
             ))
             .id();
-        return vec![chip, why];
+        commands.entity(frame).add_children(&[chip, sep, why]);
+        commands.entity(row).add_child(frame);
+        return vec![row];
     }
     let text = c.text();
     let field = commands
         .spawn((
             UiButton,
             ChatPress::Field,
+            ComposerTextBox,
+            bevy::ui::RelativeCursorPosition::default(),
             Text::default(),
             tf(fonts, z(inks.pt)),
             TextColor(inks.ink),
             Node {
                 flex_grow: 1.0,
                 min_width: zpx(0.0),
-                padding: UiRect::axes(zpx(6.0), zpx(4.0)),
-                border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(4.0)),
+                padding: UiRect::new(zpx(0.0), zpx(4.0), zpx(3.0), zpx(3.0)),
                 ..default()
             },
-            BorderColor::all(if focused { inks.accent } else { Color::NONE }),
         ))
         .id();
     if text.is_empty() && !focused {
@@ -202,16 +252,19 @@ pub(super) fn composer_parts(
                 .as_ref()
                 .is_some_and(|r| r.start <= from && to <= r.end);
             let (font, colour) = match (chosen, link) {
-                (true, _) => (tf(fonts, z(inks.pt)), inks.accent),
+                (true, _) => (tf(fonts, z(inks.pt)), Color::WHITE),
                 (false, Some(_)) => (link_font.clone(), inks.link),
                 (false, None) => (tf(fonts, z(inks.pt)), inks.ink),
             };
-            let span = commands
-                .spawn((TextSpan::new(&text[from..to]), font, TextColor(colour)))
-                .id();
-            if let Some((_, link)) = link {
-                commands.entity(span).insert(link.clone());
+            let mut span_cmd =
+                commands.spawn((TextSpan::new(&text[from..to]), font, TextColor(colour)));
+            if chosen {
+                span_cmd.insert(BackgroundColor(inks.accent.with_alpha(0.32)));
             }
+            if let Some((_, link)) = link {
+                span_cmd.insert(link.clone());
+            }
+            let span = span_cmd.id();
             commands.entity(field).add_child(span);
         }
         if focused && selection.is_none() && caret == text.len() {
@@ -249,25 +302,37 @@ pub(super) fn composer_parts(
             ))
             .id()
     });
+    let can_send = !text.trim().is_empty();
+    let send_bg = if can_send {
+        inks.accent.with_alpha(0.16)
+    } else {
+        Color::NONE
+    };
     let send = commands
         .spawn((
             UiButton,
             ChatPress::Send,
             Node {
-                width: zpx(26.0),
-                height: zpx(24.0),
+                width: zpx(24.0),
+                height: zpx(22.0),
+                align_self: AlignSelf::FlexEnd,
+                margin: UiRect::bottom(zpx(1.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border_radius: BorderRadius::all(zpx(4.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            Feel::new(Color::NONE),
+            BackgroundColor(send_bg),
+            Feel::new(send_bg),
             children![(
                 Text::new(glyph::SEND.to_string()),
                 icon_tf(fonts, z(10.0)),
-                TextColor(inks.soft),
+                TextColor(if can_send {
+                    inks.accent
+                } else {
+                    inks.soft.with_alpha(0.55)
+                }),
                 Pickable::IGNORE,
             )],
         ))
@@ -297,38 +362,18 @@ pub(super) fn composer_parts(
             ))
             .id()
     });
-    let row = commands.spawn((Node {
-        flex_direction: FlexDirection::Row,
-        align_items: AlignItems::Center,
-        column_gap: zpx(6.0),
-        padding: UiRect::axes(zpx(6.0), zpx(5.0)),
-        min_height: zpx(36.0),
-        ..default()
-    },));
-    let row = row.id();
-    // The box and its light: the field's text can hold only spans, so the
-    // light is a sibling over it in a frame of the box's shape (`glass`).
-    let frame = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                min_width: zpx(0.0),
-                border_radius: BorderRadius::all(zpx(4.0)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
     let light = commands
         .spawn(crate::social::glass::layer(
             crate::social::glass::Glass::Field,
-            zpx(4.0),
+            zpx(6.0),
         ))
         .id();
-    commands.entity(frame).add_children(&[field, light]);
-    let mut kids = vec![chip, frame];
-    kids.extend(hint);
-    kids.push(send);
+    let mut inner = vec![chip, sep, field];
+    inner.extend(hint);
+    inner.push(send);
+    inner.push(light);
+    commands.entity(frame).add_children(&inner);
+    let mut kids = vec![frame];
     kids.extend(lock);
     commands.entity(row).add_children(&kids);
     let mut out = vec![row];
@@ -347,7 +392,7 @@ pub(super) fn composer_parts(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(inks.ground),
+                BackgroundColor(inks.ground.with_alpha(0.94)),
                 BorderColor::all(inks.accent.with_alpha(0.6)),
                 stacked(30),
             ))
@@ -390,4 +435,53 @@ fn placeholder(machine: &Social, target: &Target, lang: Lang) -> String {
         }
     };
     format!("{write} · {}", ChatPhrase::ComposeHint.text(lang))
+}
+
+/// Marker on the composer's editable text node for mouse cursor placement and drag selection.
+#[derive(Component)]
+pub(super) struct ComposerTextBox;
+
+/// Places the caret or extends the selection when clicking and dragging inside the composer box.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+pub(super) fn composer_cursor_drag(
+    buttons: Option<Res<ButtonInput<MouseButton>>>,
+    mut host: ResMut<SocialHost>,
+    mut ui: ResMut<ChatUi>,
+    boxes: Query<(&bevy::ui::RelativeCursorPosition, &ComputedNode), With<ComposerTextBox>>,
+    mut anchor: Local<Option<usize>>,
+) {
+    let Some(buttons) = buttons else {
+        return;
+    };
+    if !buttons.pressed(MouseButton::Left) {
+        *anchor = None;
+        return;
+    }
+    let Ok((rel, computed)) = boxes.single() else {
+        *anchor = None;
+        return;
+    };
+    let Some(machine) = host.machine.as_mut() else {
+        return;
+    };
+    let width = (computed.size().x * computed.inverse_scale_factor()).max(1.0);
+    let x = (rel.normalized.map_or(0.0, |p| p.x).clamp(0.0, 1.0) * width).max(0.0);
+    let char_w = (z(TABLE_INKS.pt) * 0.52).max(1.0);
+    let char_idx = (x / char_w).round() as usize;
+    let text = machine.composer().text();
+    let byte = text
+        .char_indices()
+        .nth(char_idx)
+        .map_or(text.len(), |(b, _)| b);
+    if buttons.just_pressed(MouseButton::Left) && rel.cursor_over() {
+        ui.typing = true;
+        ui.field = Field::Composer;
+        *anchor = Some(byte);
+        machine.composer_mut().place(byte, None);
+    } else if let Some(start) = *anchor
+        && (machine.composer().buffer().cursor() != byte
+            || machine.composer().buffer().selection().is_some() != (start != byte))
+    {
+        machine.composer_mut().place(byte, Some(start));
+    }
 }

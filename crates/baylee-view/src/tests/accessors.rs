@@ -109,6 +109,7 @@ fn a_print_is_found_by_its_index_and_a_hidden_or_missing_one_is_none() {
         ],
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
     };
     assert_eq!(game.print(PrintRef::new(0)).unwrap().scryfall_id, "abc");
     assert!(
@@ -135,6 +136,7 @@ fn a_seat_with_no_identity_is_named_by_a_fallback_never_by_another_seat() {
         prints: vec![],
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
     };
     assert_eq!(game.seat_name(PlayerId::new(1)), "Alice");
     assert_eq!(game.seat_name(PlayerId::new(0)), "Unknown seat");

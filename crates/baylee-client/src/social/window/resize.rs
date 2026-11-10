@@ -13,9 +13,9 @@ const MIN_H: f32 = 240.0;
 const MARGIN: f32 = 24.0;
 pub(super) const HANDLE: f32 = 18.0;
 
-/// The top-right corner the player drags.
-#[derive(Component)]
-pub(crate) struct ResizeHandle;
+/// The corner the player drags (top-right in the lobby, top-left at a table).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ResizeHandle(pub(super) Frame);
 
 /// The size chosen in this session and the drag currently changing it.
 #[derive(Resource, Default)]
@@ -52,17 +52,26 @@ pub(crate) fn lobby_panel_size(
 }
 
 /// Draws a large, quiet corner target without spending a text glyph on it.
+#[cfg(test)]
 pub(super) fn handle(commands: &mut Commands) -> Entity {
+    handle_for(commands, Frame::Lobby)
+}
+
+/// Draws the resize corner for `frame` (top-right in the lobby, top-left at a table).
+pub(super) fn handle_for(commands: &mut Commands, frame: Frame) -> Entity {
+    let at_table = frame == Frame::Table;
     let mark = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                right: zpx(4.0),
+                left: if at_table { zpx(4.0) } else { Val::Auto },
+                right: if at_table { Val::Auto } else { zpx(4.0) },
                 top: zpx(4.0),
                 width: zpx(8.0),
                 height: zpx(8.0),
                 border: UiRect {
-                    right: zpx(2.0),
+                    left: if at_table { zpx(2.0) } else { Val::ZERO },
+                    right: if at_table { Val::ZERO } else { zpx(2.0) },
                     top: zpx(2.0),
                     ..UiRect::ZERO
                 },
@@ -74,11 +83,12 @@ pub(super) fn handle(commands: &mut Commands) -> Entity {
         .id();
     commands
         .spawn((
-            ResizeHandle,
+            ResizeHandle(frame),
             ZIndex(2),
             Node {
                 position_type: PositionType::Absolute,
-                right: zpx(0.0),
+                left: if at_table { zpx(0.0) } else { Val::Auto },
+                right: if at_table { Val::Auto } else { zpx(0.0) },
                 top: zpx(0.0),
                 width: zpx(HANDLE),
                 height: zpx(HANDLE),
@@ -95,7 +105,7 @@ pub(super) fn handle(commands: &mut Commands) -> Entity {
 pub(super) fn resize(
     drags: Option<MessageReader<PointerDrag>>,
     ends: Option<MessageReader<PointerDragEnd>>,
-    handles: Query<(), With<ResizeHandle>>,
+    handles: Query<&ResizeHandle>,
     ui: Res<ChatUi>,
     windows: Query<&Window>,
     scale: Option<Res<UiScale>>,
@@ -110,11 +120,10 @@ pub(super) fn resize(
         crate::hud::scale::desktop_space(w, scale.as_deref())
     });
     for drag in drags.read() {
-        if drag.button != PointerButton::Primary
-            || !handles.contains(drag.entity)
-            || !ui.open
-            || ui.minimised
-        {
+        let Ok(ResizeHandle(frame)) = handles.get(drag.entity) else {
+            continue;
+        };
+        if drag.button != PointerButton::Primary || !ui.open || ui.minimised {
             continue;
         }
         let current = lobby_panel_size(
@@ -126,8 +135,13 @@ pub(super) fn resize(
         );
         let start = *sizing.start.get_or_insert(current);
         let scale = scale.as_deref().map_or(1.0, |scale| scale.0) * zoom.0;
+        let dx = if *frame == Frame::Table {
+            -drag.distance.x
+        } else {
+            drag.distance.x
+        };
         let asked = ChatWindowSize {
-            width: start.width + drag.distance.x / scale,
+            width: start.width + dx / scale,
             height: start.height - drag.distance.y / scale,
         };
         let next = lobby_panel_size(Some(asked), window, zoom.0);
@@ -153,18 +167,24 @@ pub(super) fn resize(
 pub(super) fn cursor(
     mut commands: Commands,
     hovers: Option<Res<HoverMap>>,
-    handles: Query<(), With<ResizeHandle>>,
+    handles: Query<&ResizeHandle>,
     windows: Query<(Entity, Option<&CursorIcon>), With<PrimaryWindow>>,
 ) {
-    let over = hovers.as_deref().is_some_and(|hover| {
+    let hovered = hovers.as_deref().and_then(|hover| {
         hover
-            .get(&PointerId::Mouse)
-            .is_some_and(|hits| hits.keys().any(|entity| handles.contains(*entity)))
+            .get(&PointerId::Mouse)?
+            .keys()
+            .find_map(|entity| handles.get(*entity).ok().copied())
     });
-    if !over {
+    let Some(ResizeHandle(frame)) = hovered else {
         return;
-    }
-    let want = CursorIcon::System(SystemCursorIcon::NeswResize);
+    };
+    let icon = if frame == Frame::Table {
+        SystemCursorIcon::NwseResize
+    } else {
+        SystemCursorIcon::NeswResize
+    };
+    let want = CursorIcon::System(icon);
     for (window, now) in &windows {
         if now != Some(&want) {
             commands.entity(window).insert(want.clone());

@@ -138,38 +138,7 @@ fn follow_with(
                     host.vault.error = Some(Error::Busy);
                     host.vault.attempted = false;
                 }
-                Err(error) => {
-                    if host.vault.central.is_some()
-                        && let Some(session) = host.session.clone()
-                    {
-                        let disk: ChatHome = Box::new(social::disk::MemoryDisk::new());
-                        let store = Box::new(social::vault::MemorySecrets::new());
-                        let me = Me {
-                            tag: session.tag,
-                            handle: session.handle,
-                            guest: false,
-                            gateway: session.gateway,
-                        };
-                        let (mut machine, effects) = Social::start(
-                            me,
-                            None,
-                            None,
-                            host.vault.prefs.clone(),
-                            now_ms(),
-                            &mut OsEntropy,
-                        );
-                        machine.set_key_home(social::KeyHome::Memory);
-                        machine.set_keep_days(host.keep_days);
-                        host.store = Some(store);
-                        host.disk = Some(disk);
-                        host.machine = Some(machine);
-                        host.vault.error = None;
-                        crate::social::central::attach(host, host.vault.central.clone());
-                        host.carry_out(effects);
-                    } else {
-                        host.vault.error = Some(error);
-                    }
-                }
+                Err(error) => host.vault.error = Some(error),
             }
         }
     }

@@ -110,6 +110,7 @@ fn the_table_list_is_paged_in_both_directions() {
         offset: 0,
         limit: PAGE,
         agents_available: true,
+        stats: None,
     }));
     assert!(lobby.more(), "three tables did not fit");
     assert_eq!(lobby.page(false), None, "the first page is the first page");
@@ -128,6 +129,7 @@ fn the_table_list_is_paged_in_both_directions() {
         offset: PAGE,
         limit: PAGE,
         agents_available: true,
+        stats: None,
     }));
     assert!(!lobby.more(), "that was the end of the list");
     assert_eq!(lobby.page(true), None);
@@ -152,6 +154,7 @@ fn searching_starts_the_list_again() {
         offset: 0,
         limit: PAGE,
         agents_available: true,
+        stats: None,
     }));
     lobby.page(true);
     lobby.apply(LobbyEvent::Games(GameListing {
@@ -160,6 +163,7 @@ fn searching_starts_the_list_again() {
         offset: PAGE,
         limit: PAGE,
         agents_available: true,
+        stats: None,
     }));
     assert_eq!(lobby.offset(), PAGE);
 
@@ -186,6 +190,7 @@ fn a_page_that_no_longer_exists_falls_back_to_the_first() {
         offset: 0,
         limit: PAGE,
         agents_available: true,
+        stats: None,
     }));
     lobby.page(true);
     let next = lobby.apply(LobbyEvent::Games(GameListing {
@@ -194,6 +199,7 @@ fn a_page_that_no_longer_exists_falls_back_to_the_first() {
         offset: PAGE,
         limit: PAGE,
         agents_available: true,
+        stats: None,
     }));
     assert_eq!(
         next,

@@ -335,6 +335,12 @@ pub struct PublicObject {
     /// Opponent publicly chosen as this permanent entered (Black Vise).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub chosen_opponent: Option<PlayerId>,
+    /// Color publicly chosen for this permanent or spell as it entered or was cast.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub chosen_color: Option<baylee_core::mana::ManaColor>,
+    /// Value of X announced for this spell or ability on the stack (CR 601.2b).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub chosen_x: Option<u32>,
     /// A Room's doors (CR 709.5c): `[left, right]`, each `true` while that
     /// half is unlocked; `None` for anything that is not a Room on the
     /// battlefield. Public, as the designations are. A locked half has no
@@ -686,6 +692,7 @@ impl PublicObject {
             chosen_subtype: self.chosen_subtype,
             chosen_name: self.chosen_name,
             chosen_opponent: self.chosen_opponent,
+            chosen_color: self.chosen_color,
             unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
             colors: self.colors,
@@ -740,6 +747,7 @@ pub struct ObjectSummaryKey {
     /// at, and a pile shows one label.
     chosen_name: Option<NamedFace>,
     chosen_opponent: Option<PlayerId>,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
     /// Two Rooms with different doors open are different cards to act on:
     /// one has a door left to unlock.
     unlocked_doors: Option<[bool; 2]>,

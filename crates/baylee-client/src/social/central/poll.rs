@@ -53,19 +53,25 @@ pub(in crate::social) fn tick(host: &mut SocialHost, now: u64) {
         apply(host, frame);
     }
     super::gateway::register(host, now);
+    sync_ws_signals(host, now);
     let Some(bridge) = host.central.as_mut() else {
         return;
     };
-    if bridge.flight.is_some() || now < bridge.next {
+    if bridge.flight.is_some() {
         return;
     }
-    if bridge.jobs.is_empty() && bridge.ready && bridge.wanted {
+    if bridge.jobs.is_empty() {
+        if !bridge.ready || !bridge.wanted || now < bridge.next {
+            return;
+        }
         bridge.jobs.push_back(Job::Poll {
             device: bridge.device.clone(),
             after: bridge.cursor,
             generation: bridge.generation,
             metadata: now >= bridge.metadata_at,
         });
+    } else if bridge.next != u64::MAX && now < bridge.next {
+        return;
     }
     let Some(job) = bridge.jobs.front().cloned() else {
         return;
@@ -86,6 +92,54 @@ pub(in crate::social) fn tick(host: &mut SocialHost, now: u64) {
     }
 }
 
+fn sync_ws_signals(host: &mut SocialHost, now: u64) {
+    let Some(bridge) = host.central.as_mut() else {
+        return;
+    };
+    let chat_seq = bridge.handle.chat_seq();
+    let social_seq = bridge.handle.social_seq();
+    let presence_seq = bridge.handle.presence_seq();
+    if presence_seq != bridge.seen_presence_seq {
+        bridge.seen_presence_seq = presence_seq;
+        if bridge.ready && bridge.welcomed {
+            let snapshot = bridge.snapshot();
+            apply(host, Down::Snapshot(snapshot));
+        }
+    }
+    let Some(bridge) = host.central.as_mut() else {
+        return;
+    };
+    if social_seq != bridge.seen_social_seq {
+        bridge.seen_social_seq = social_seq;
+        bridge.seen_chat_seq = chat_seq;
+        bridge.metadata_at = 0;
+        bridge.next = 0;
+    } else if chat_seq != bridge.seen_chat_seq {
+        bridge.seen_chat_seq = chat_seq;
+        bridge.next = 0;
+    } else if !bridge.handle.ws_live() && bridge.next == u64::MAX {
+        bridge.next = now + 2000;
+        bridge.metadata_at = now + 5000;
+    }
+}
+
+fn apply_personal_snapshot(host: &mut SocialHost, snapshot: Option<wire::Snapshot>, now: u64) {
+    let Some(snapshot) = snapshot else {
+        return;
+    };
+    let Some(bridge) = host.central.as_mut() else {
+        return;
+    };
+    bridge.personal = snapshot;
+    bridge.metadata_at = if bridge.handle.ws_live() {
+        u64::MAX
+    } else {
+        now + 5000
+    };
+    let merged = bridge.snapshot();
+    apply(host, Down::Snapshot(merged));
+}
+
 fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: u64) {
     let Some(bridge) = host.central.as_mut() else {
         return;
@@ -101,8 +155,14 @@ fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: 
                     bridge.game_registration = Some(registration);
                     http_answer(host, HttpTag::RegisterDevice, 201, &[]);
                 }
-                Reply::Http { tag, status, body } => {
+                Reply::Http {
+                    tag,
+                    status,
+                    body,
+                    snapshot,
+                } => {
                     bridge.metadata_at = 0;
+                    apply_personal_snapshot(host, snapshot, now);
                     http_answer(host, tag, status, &body);
                 }
                 Reply::Keys {
@@ -128,12 +188,7 @@ fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: 
                     if generation != bridge.generation || !bridge.wanted {
                         return;
                     }
-                    if let Some(snapshot) = snapshot {
-                        bridge.personal = snapshot;
-                        bridge.metadata_at = now + 5000;
-                        let snapshot = bridge.snapshot();
-                        apply(host, Down::Snapshot(snapshot));
-                    }
+                    apply_personal_snapshot(host, snapshot, now);
                     let tags = messages
                         .iter()
                         .map(|message| message.from.tag.clone())
@@ -157,7 +212,15 @@ fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: 
                         && bridge.wanted
                     {
                         bridge.cursor = after;
-                        bridge.next = if more { 0 } else { now + 2000 };
+                        let pending_push = bridge.handle.chat_seq() != bridge.seen_chat_seq
+                            || bridge.handle.social_seq() != bridge.seen_social_seq;
+                        bridge.next = if more || pending_push {
+                            0
+                        } else if bridge.handle.ws_live() {
+                            u64::MAX
+                        } else {
+                            now + 2000
+                        };
                     }
                 }
             }
@@ -173,7 +236,12 @@ fn failed(host: &mut SocialHost, job: Job, error: Error, now: u64) {
     bridge.next = now + bridge.backoff;
     bridge.backoff = (bridge.backoff * 2).min(30_000);
     match job {
-        job @ Job::Connect { .. } if matches!(error, Error::Unavailable | Error::Busy) => {
+        job @ Job::Connect { .. }
+            if matches!(
+                error,
+                Error::Unavailable | Error::Busy | Error::TermsRequired
+            ) =>
+        {
             bridge.jobs.push_front(job);
         }
         Job::Connect { .. } => {

@@ -371,6 +371,9 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
                 face: 0,
             });
         }),
+        ("chosen_color", |o| {
+            o.chosen_color = Some(baylee_core::mana::ManaColor::Blue);
+        }),
         ("unlocked_doors", |o| o.unlocked_doors = Some([false, true])),
         ("colors", |o| o.colors = ColorSet::ALL),
         ("keywords", |o| o.keywords = 1),

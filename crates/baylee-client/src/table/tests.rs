@@ -399,6 +399,7 @@ fn a_printing_a_seat_has_not_earned_is_drawn_plain() {
     let statics = baylee_view::GameStatic {
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
         view_version: baylee_view::VIEW_VERSION,
         game_id: String::new(),
         your_seat: baylee_core::ids::PlayerId::new(0),

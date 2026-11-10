@@ -219,14 +219,23 @@ impl SocialHost {
         self.asks.clear();
     }
 
-    /// Updates only the game gateway and token while keeping Central's account
-    /// chat machine, vault, and polling bridge intact.
+    /// Updates the game gateway binding (or token) while keeping Central's
+    /// account-owned chat machine, vault, and Central bridge intact across
+    /// gateway selection and token renewal.
     fn rebind_central_gateway(&mut self, wanted: Option<&Session>) -> bool {
         let (Some(old), Some(next)) = (self.session.as_ref(), wanted) else {
             return false;
         };
         if old.guest || next.guest || old.tag != next.tag || old.handle != next.handle {
             return false;
+        }
+        if old.gateway == next.gateway && !old.token.is_empty() && !next.token.is_empty() {
+            self.session = Some(next.clone());
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(bridge) = self.central.as_mut() {
+                bridge.session = next.clone();
+            }
+            return true;
         }
         self.socket.hang();
         self.socket = Socket::default();
@@ -366,7 +375,7 @@ impl Default for ChatUi {
         Self {
             open: false,
             vault_open: false,
-            tab: ChatTab::Log,
+            tab: ChatTab::Global,
             last_chat_tab: None,
             typing: false,
             swallow: false,
@@ -756,6 +765,7 @@ fn table_context(
     duel: Option<Res<crate::Duel>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     mut host: ResMut<SocialHost>,
+    mut ui: ResMut<ChatUi>,
 ) {
     if host.machine.is_none() {
         return;
@@ -765,10 +775,21 @@ fn table_context(
     if host.table.as_ref() == Some(&next) {
         return;
     }
+    let old_conv = host
+        .table
+        .as_ref()
+        .and_then(|t| t.as_ref())
+        .and_then(TableContext::table_conv);
+    let new_conv = next.as_ref().and_then(TableContext::table_conv);
     host.table = Some(next.clone());
     if let Some(machine) = host.machine.as_mut() {
         let effects = machine.on_table(next);
         host.carry_out(effects);
+    }
+    if new_conv.is_some() && new_conv != old_conv {
+        ui.open = true;
+        ui.minimised = false;
+        window::select_tab(&mut host, &mut ui, ChatTab::Table);
     }
 }
 
@@ -892,6 +913,7 @@ pub(crate) fn state_json(host: &SocialHost, ui: &ChatUi) -> serde_json::Value {
         "incoming": friends.incoming.iter().map(|p| p.handle.clone()).collect::<Vec<_>>(),
         "outgoing": friends.outgoing.iter().map(|p| p.handle.clone()).collect::<Vec<_>>(),
         "groups": machine.contacts().groups.iter().map(|g| serde_json::json!({"id": g.id, "name": g.name, "members": g.members.len()})).collect::<Vec<_>>(),
+        "group_invites": machine.contacts().group_invites.iter().map(|i| serde_json::json!({"group": i.group, "name": i.name, "from": i.inviter.handle})).collect::<Vec<_>>(),
         "invites": machine.contacts().invites.iter().map(|i| serde_json::json!({"id": i.invite.id, "from": i.invite.from.handle, "game": i.invite.game})).collect::<Vec<_>>(),
         "conversations": machine.conversations().iter().map(|c| serde_json::json!({
             "id": c.id.to_string(),

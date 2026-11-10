@@ -112,7 +112,12 @@ pub(in crate::hud) fn ability_sentence(
     if let Some(token) = token {
         return crate::cardtext::token_sentence(token.token, token.index);
     }
-    let rules = rules?;
+    let rules = rules.or_else(|| {
+        ability.map(|ability| baylee_view::RulesFace {
+            card: ability.card,
+            face: 0,
+        })
+    })?;
     let card = rules.card;
     text.and_then(|at| crate::cardtext::sentence(Some(faces.texts), card, at))
         .or_else(|| {
@@ -128,6 +133,30 @@ pub(in crate::hud) fn ability_sentence(
                         of: own.of,
                     },
                 );
+            }
+            if matches!(
+                ability.index,
+                baylee_core::ids::AbilityRef::SYNTHETIC | baylee_core::ids::AbilityRef::MIRACLE
+            ) {
+                let oracle = faces
+                    .texts
+                    .face(card, rules.face)
+                    .map(|t| t.oracle_text)
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| baylee_cards::oracle::face(card, face).map(str::to_owned))?;
+                if let Some(line) = oracle.lines().find(|l| {
+                    l.starts_with("Madness ")
+                        || l.starts_with("Madness—")
+                        || l.starts_with("Wahnsinn ")
+                        || l.starts_with("Wahnsinn—")
+                        || l.starts_with("Miracle ")
+                        || l.starts_with("Miracle—")
+                        || l.starts_with("Wunder ")
+                        || l.starts_with("Wunder—")
+                }) {
+                    return Some(baylee_client_core::card_face::split_blocks(line));
+                }
+                return Some(baylee_client_core::card_face::split_blocks(&oracle));
             }
             // Embedded grants (Vesuvan's upkeep ability) have no standalone
             // sentence. Preserve the complete source Oracle, never the face
@@ -430,4 +459,47 @@ pub(in crate::hud) fn cut_words(text: &str, budget: usize) -> String {
         return cut(text, budget);
     }
     format!("{kept}…")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn synthetic_madness_trigger_on_the_stack_extracts_its_madness_line_and_reminder() {
+        let texts = crate::cardtext::CardTexts::default();
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let faces = FaceCtx {
+            texts: &texts,
+            mode: &mode,
+            settings: &settings,
+            view: None,
+            widths: crate::face::Widths::of(None),
+        };
+        let wurm = baylee_core::ids::CardIndex::new(5423);
+        let blocks = ability_sentence(
+            None,
+            None,
+            Some(baylee_core::ids::AbilityRef::new(
+                wurm,
+                baylee_core::ids::AbilityRef::SYNTHETIC,
+            )),
+            None,
+            &faces,
+        )
+        .expect("synthetic madness trigger extracts its printed madness line");
+        assert!(
+            blocks
+                .iter()
+                .any(|b| matches!(b, TextBlock::Rules(s) if s.contains("Madness"))),
+            "expected Madness rules block, got {blocks:?}"
+        );
+        assert!(
+            blocks
+                .iter()
+                .any(|b| matches!(b, TextBlock::Reminder(s) if s.contains("discard"))),
+            "expected Madness reminder block, got {blocks:?}"
+        );
+    }
 }

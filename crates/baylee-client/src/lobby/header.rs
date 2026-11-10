@@ -1493,6 +1493,9 @@ fn back_to_the_table(cx: Cx<'_, '_, '_, '_, '_>) {
             if cx.state.room_away {
                 cx.state.room_away = false;
             }
+            if cx.state.hub != Hub::Play {
+                cx.state.hub = Hub::Play;
+            }
             if cx.state.settings.is_open() {
                 cx.state.settings = SettingsPane::Closed;
             }
@@ -1610,13 +1613,15 @@ pub(super) struct Asked {
     info_in: f32,
 }
 
-/// Asks `GET /me` once a session, `GET /lobby/stats` every
-/// [`STATS_EVERY`] seconds on the hub, and `/info` every [`INFO_EVERY`]:
-/// side questions off the lobby's one-request chain, read-only here.
+/// Asks `GET /me` once a session, and only falls back to polling
+/// `GET /lobby/stats` and `/info` while `/lobby/ws` (`feed.live()`) is not
+/// connected (while connected, `/lobby/ws` pushes `stats` and `agents_available`
+/// on every change).
 pub(super) fn follow_the_account(
     time: Res<Time>,
     state: Res<LobbyState>,
     mailbox: Res<Mailbox>,
+    feed: Option<Res<super::feed::Feed>>,
     mut asked: Local<Asked>,
 ) {
     let token = match state.lobby.token() {
@@ -1628,8 +1633,8 @@ pub(super) fn follow_the_account(
     };
     let session = state.lobby.session_serial();
     if asked.me_for != Some(session) {
-        // A new session: who it is, at once; the counts at once; `/info`
-        // again only after a while (choosing the gateway just asked it).
+        // A new session: who it is, at once; `/lobby/ws` pushes the counts on
+        // connect, so the fallback timers wait unless the feed is down.
         if state.lobby.me().is_none() {
             http::ask_aside(
                 &state.gateway,
@@ -1642,11 +1647,16 @@ pub(super) fn follow_the_account(
         }
         *asked = Asked {
             me_for: Some(session),
-            stats_in: 0.0,
+            stats_in: STATS_EVERY,
             info_in: INFO_EVERY,
         };
     }
     if !matches!(state.lobby.screen(), Screen::Table) {
+        return;
+    }
+    if feed.as_ref().is_some_and(|f| f.live()) {
+        asked.stats_in = STATS_EVERY;
+        asked.info_in = INFO_EVERY;
         return;
     }
     asked.stats_in -= time.delta_secs();

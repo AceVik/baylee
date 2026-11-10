@@ -123,8 +123,16 @@ pub struct TablePattern(
 );
 
 impl TablePattern {
-    fn from_seed(seed: u64) -> Self {
-        let bytes = seed.to_le_bytes();
+    /// Derives a deterministic table pattern from `seed`, mixing through
+    /// `SplitMix64` so any table seed yields uniformly distributed offset,
+    /// angle, and scale parameters.
+    #[must_use]
+    pub fn from_seed(seed: u64) -> Self {
+        let mut z = seed.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        let mixed = z ^ (z >> 31);
+        let bytes = mixed.to_le_bytes();
         let part = |i| f32::from(u16::from_le_bytes([bytes[i], bytes[i + 1]])) / 256.0;
         Self(Vec4::new(part(0), part(2), part(4), part(6)))
     }
@@ -362,6 +370,45 @@ mod pattern_tests {
         assert!(b.cmpge(Vec4::ZERO).all() && b.cmplt(Vec4::splat(256.0)).all());
         assert_eq!(a, TablePattern::from_seed(0).0);
         assert_eq!(b, TablePattern::from_seed(u64::MAX).0);
+    }
+
+    #[test]
+    fn all_seats_and_replays_share_the_same_seeded_table_pattern() {
+        use baylee_core::ids::PlayerId;
+        use baylee_gamehost::replay::{Perspective, Verify, project};
+        use std::ops::ControlFlow;
+
+        let preset = crate::host::tests::duel_preset();
+        let mut session = baylee_gamehost::Session::new_recorded(&preset, "test").expect("session");
+        let s0 = session.game_static(PlayerId::new(0));
+        let s1 = session.game_static(PlayerId::new(1));
+        assert_ne!(s0.table_seed, 0);
+        assert_eq!(s0.surface_seed(), s1.surface_seed());
+        assert_eq!(
+            TablePattern::from_seed(s0.surface_seed()).0,
+            TablePattern::from_seed(s1.surface_seed()).0,
+        );
+
+        let record = session.take_record();
+        let mut replay_seed = None;
+        let _ = project(
+            &record,
+            vec!["P0".into(), "P1".into()],
+            Perspective::Public,
+            Verify::Stop,
+            |moment| {
+                for frame in &moment.frames {
+                    if let Some(baylee_protocol::v1::envelope::Msg::GameStatic(msg)) = &frame.msg
+                        && let Ok(st) =
+                            baylee_core::wire::decode::<baylee_view::GameStatic>(&msg.statics)
+                    {
+                        replay_seed = Some(st.surface_seed());
+                    }
+                }
+                ControlFlow::Break(())
+            },
+        );
+        assert_eq!(replay_seed, Some(s0.surface_seed()));
     }
 }
 

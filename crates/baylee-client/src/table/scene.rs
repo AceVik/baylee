@@ -713,12 +713,14 @@ fn pose_of(
     // Where the card stands with nothing touching it, kept before the two
     // branches below add what is. See [`CardRest`].
     let resting = transform;
-    if placement.selected || placement.offer.armed {
-        transform.translation.y += SELECTED_LIFT;
-        transform.scale *= SELECTED_SCALE;
-    } else if hovered == Some(placement.object) {
-        transform.translation.y += HOVER_LIFT;
-        transform.scale *= HOVER_SCALE;
+    if !placement.tucked {
+        if placement.selected || placement.offer.armed {
+            transform.translation.y += SELECTED_LIFT;
+            transform.scale *= SELECTED_SCALE;
+        } else if hovered == Some(placement.object) {
+            transform.translation.y += HOVER_LIFT;
+            transform.scale *= HOVER_SCALE;
+        }
     }
 
     (transform, resting)

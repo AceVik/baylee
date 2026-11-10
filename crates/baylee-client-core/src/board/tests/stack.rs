@@ -283,3 +283,58 @@ fn a_stack_entry_takes_the_modes_the_log_announced() {
     m.take_modes(&crate::gamelog::LogBook::new());
     assert!(m.stack.iter().all(|item| item.modes.is_none()));
 }
+
+#[test]
+fn a_stack_entry_carries_entering_choices_and_groups_identical_effects() {
+    use baylee_core::generated::subtypes::creature;
+    let bears = printed(1, 1, "Grizzly Bears", 11);
+    let mut clone_spell = printed(10, 0, "Grizzly Bears", 99);
+    clone_spell.stack_item = Some(StackItem::Spell);
+    clone_spell.chosen_subtype = Some(creature::ELF);
+    clone_spell.chosen_opponent = Some(PlayerId::new(1));
+    clone_spell.attached_to = Some(ObjectId::new(1, 0));
+
+    let mut trigger_a = token(20, 0, "Soul Warden", 0, 0);
+    trigger_a.card = None;
+    trigger_a.stack_item = Some(StackItem::Ability {
+        token: None,
+        source: ObjectId::new(5, 0),
+        ability: Some(AbilityRef::new(CardIndex::new(42), 0)),
+        text: None,
+        rules: None,
+    });
+    let mut trigger_b = trigger_a.clone();
+    trigger_b.id = ObjectId::new(21, 0);
+
+    let view = ViewBuilder::new(2)
+        .with_battlefield(1, [bears])
+        .with_stack(vec![clone_spell, trigger_a, trigger_b])
+        .build();
+    let reg = Registry::of(&|name| match name {
+        "Grizzly Bears" => Some(Wears::Card(CardIndex::new(11), 0)),
+        _ => None,
+    });
+    let m = BoardModel::from_view(&view, Openings::none(), &[], reg);
+    assert_eq!(m.stack.len(), 3);
+    assert!(
+        m.stack[0].same_effect(&m.stack[1]),
+        "two identical triggers group together"
+    );
+    assert!(
+        !m.stack[0].same_effect(&m.stack[2]),
+        "different effects never group"
+    );
+    let spell = &m.stack[2];
+    assert_eq!(spell.chosen_subtype, Some(creature::ELF));
+    assert_eq!(spell.chosen_opponent, Some(PlayerId::new(1)));
+    assert_eq!(spell.targets.len(), 1);
+    assert_eq!(spell.targets[0].name.as_deref(), Some("Grizzly Bears"));
+    assert_eq!(
+        spell.copy_original,
+        Some(ImageKey::new(PrintRef::new(99), 0, ArtSize::Small))
+    );
+    assert!(
+        m.required_images()
+            .contains(&ImageKey::new(PrintRef::new(99), 0, ArtSize::Small))
+    );
+}

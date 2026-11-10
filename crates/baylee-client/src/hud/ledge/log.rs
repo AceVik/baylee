@@ -300,7 +300,7 @@ pub(crate) fn spawn_log_panel(commands: &mut Commands) -> Entity {
             LogPanel,
             LogZoom::default(),
             root_node(),
-            BackgroundColor(palette::DIALOG),
+            BackgroundColor(palette::DIALOG.with_alpha(0.68)),
             BorderColor::all(palette::DIALOG_LINE),
             ZIndex(Z_LOG),
             Visibility::Hidden,
@@ -331,12 +331,16 @@ pub fn sync_log(
         (Entity, Option<&Children>, &mut LogZoom, &mut Node),
         (With<LogPanel>, Without<virtual_list::LogSpacer>),
     >,
-    mut lists: Query<(Entity, &mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    mut lists: Query<
+        (Entity, &mut LogFollow, &mut ScrollPosition),
+        (With<LogList>, Without<crate::social::window::Part>),
+    >,
     nodes: Query<&ComputedNode>,
     mut spacers: Query<&mut Node, With<virtual_list::LogSpacer>>,
     chat: Option<Res<crate::social::SocialHost>>,
     folds: Option<Res<LogFolds>>,
 ) {
+    let _ = &chat;
     let Ok((panel, standing, mut fold, mut node)) = panel.single_mut() else {
         return;
     };
@@ -350,20 +354,6 @@ pub fn sync_log(
         node.height = px(height);
     }
     let lang = Lang::of(&settings.lang);
-    // With a social session the panel is the chat window, the log one of
-    // its tabs (the beta.8 chat window design §1): `social::window` fills
-    // it. What is drawn here is forgotten, so the log comes back whole if
-    // the session ends mid-game.
-    if chat.as_ref().is_some_and(|c| c.active()) {
-        let open = duel.log_open && duel.ending().is_none();
-        if open == fold.closing {
-            fold.closing = !open;
-            fold.t = 0.0;
-        }
-        revision.panel = None;
-        revision.rows.reset();
-        return;
-    }
     // A finished game closes it, for the menu's reason: `DuelSet::Input`
     // does not run in `Finished`, so its cross would answer nothing. The end
     // screen shows the whole log instead.
@@ -837,9 +827,9 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG),
+            BackgroundColor(palette::DIALOG.with_alpha(0.45)),
             BorderColor::all(palette::DIALOG_LINE),
-            Feel::new(palette::DIALOG),
+            Feel::new(palette::DIALOG.with_alpha(0.45)),
             children![(
                 Text::new(glyph::CLOSE.to_string()),
                 icon_tf(fonts, LOG_CLOSE_PT),
@@ -861,7 +851,7 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
                 border_radius: BorderRadius::top(px(STRIP_R)),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG_LIT),
+            BackgroundColor(palette::DIALOG_LIT.with_alpha(0.36)),
             BorderColor::all(palette::DIALOG_LINE),
             Pickable::IGNORE,
         ))

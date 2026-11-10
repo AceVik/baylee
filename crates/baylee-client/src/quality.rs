@@ -533,22 +533,28 @@ fn pace(
     in_use: Res<InUse>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
+    front: Option<Res<crate::vista::FrontScene>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     winit: Option<ResMut<WinitSettings>>,
     mut resting: ResMut<Resting>,
 ) {
     let passive = watched_from_behind();
-    let untouched_secs = if passive {
+    let menu = phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed);
+    let still = ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use));
+    // While the interior tavern loop is visible in the lobby (`!front.shown`),
+    // keep the 60 fps cadence rather than dropping to the 30 fps menu settle cap.
+    let tavern_loop_active = menu && !still && front.is_some_and(|f| !f.shown);
+    let untouched_secs = if passive || tavern_loop_active {
         0.0
     } else {
         (time.elapsed_secs_f64() - watch.last_input) as f32
     };
     let showing = Showing {
-        focused: focused(&windows) || passive,
+        focused: focused(&windows) || passive || tavern_loop_active,
         hidden: watch.hidden || minimised(&windows),
-        menu: phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed),
+        menu,
         untouched_secs,
-        still: ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use)),
+        still,
     };
     resting.set_if_neq(Resting(in_use.0.rests(showing)));
     let Some(mut winit) = winit else {

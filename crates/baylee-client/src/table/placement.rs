@@ -144,6 +144,9 @@ pub(super) struct Placement {
     /// How much higher the next card of this card's row stands, which the
     /// strip lies a share of: see [`STRIP_STEP_SHARE`].
     pub(super) rung: f32,
+    /// Whether this card is tucked under a host permanent (#305), so hovering
+    /// or selecting it must not lift its quad above the host's face.
+    pub(super) tucked: bool,
     /// Whether the card is drawn: false for the cards of a scrolled row
     /// outside the run it shows (`LanePacking::window`).
     pub(super) shown: bool,
@@ -301,6 +304,7 @@ fn tuck(
             // No plate: a tucked card says nothing of its own.
             room: cardplate::PlateRoom::OPEN,
             rung: drop,
+            tucked: true,
             shown,
         });
     }
@@ -404,6 +408,7 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
                     // nothing lies over a merged card's cell.
                     covered: packing.covered(i, &window),
                     room: packing.plate_room(i, &window, &tapped, &staged),
+                    tucked: false,
                     shown,
                     rung: LANE_RISE / steps,
                     tapped: turned,
@@ -520,6 +525,7 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
                         crests: [None; cardcrest::MAX_CRESTS],
                         covered: false,
                         room: cardplate::PlateRoom::OPEN,
+                        tucked: false,
                         shown: true,
                         rung: 0.0,
                     });
@@ -562,6 +568,7 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
                 crests: [None; cardcrest::MAX_CRESTS],
                 covered: false,
                 room: cardplate::PlateRoom::OPEN,
+                tucked: false,
                 shown: true,
                 rung: 0.0,
             });

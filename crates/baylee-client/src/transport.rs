@@ -24,6 +24,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use native::{
     WsReceiver, WsSender, fetch, fetch_blocking, fetch_limited, tls, ws_connect,
+    ws_connect_with_bearer,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -215,13 +216,32 @@ mod native {
         url: impl Into<String>,
         options: ewebsock::Options,
     ) -> Result<(WsSender, WsReceiver), String> {
-        let url = url.into();
+        ws_connect_inner(url.into(), None, options)
+    }
+
+    /// Opens a WebSocket with an `Authorization: Bearer ...` header so the
+    /// session token never travels in a URL.
+    pub(crate) fn ws_connect_with_bearer(
+        url: impl Into<String>,
+        bearer: zeroize::Zeroizing<String>,
+        options: ewebsock::Options,
+    ) -> Result<(WsSender, WsReceiver), String> {
+        ws_connect_inner(url.into(), Some(bearer), options)
+    }
+
+    fn ws_connect_inner(
+        url: String,
+        bearer: Option<zeroize::Zeroizing<String>>,
+        options: ewebsock::Options,
+    ) -> Result<(WsSender, WsReceiver), String> {
         let (receiver, on_event) = WsReceiver::new();
         let (sender, rx) = sender::channel(Arc::clone(&on_event), receiver.cancellation());
         std::thread::Builder::new()
             .name("baylee-socket".to_owned())
             .spawn(move || {
-                if let Err(err) = run_socket(&url, &options, &*on_event, &rx) {
+                if let Err(err) =
+                    run_socket_with_bearer(&url, bearer.as_deref(), &options, &*on_event, &rx)
+                {
                     let _ = on_event(WsEvent::Error(err));
                 }
             })
@@ -255,14 +275,26 @@ mod native {
             .max_frame_size(max_frame_size)
     }
 
+    #[cfg(test)]
     fn run_socket(
         url: &str,
         options: &ewebsock::Options,
         on_event: &(dyn Fn(WsEvent) -> ControlFlow<()> + Send),
         rx: &sender::SocketQueue,
     ) -> Result<(), String> {
-        run_socket_with_budget(
+        run_socket_with_bearer(url, None, options, on_event, rx)
+    }
+
+    fn run_socket_with_bearer(
+        url: &str,
+        bearer: Option<&String>,
+        options: &ewebsock::Options,
+        on_event: &(dyn Fn(WsEvent) -> ControlFlow<()> + Send),
+        rx: &sender::SocketQueue,
+    ) -> Result<(), String> {
+        run_socket_with_budget_and_bearer(
             url,
+            bearer,
             options,
             on_event,
             rx,
@@ -281,6 +313,7 @@ mod native {
         })
     }
 
+    #[cfg(test)]
     fn run_socket_with_budget(
         url: &str,
         options: &ewebsock::Options,
@@ -288,15 +321,46 @@ mod native {
         rx: &sender::SocketQueue,
         budget: std::time::Duration,
     ) -> Result<(), String> {
+        run_socket_with_budget_and_bearer(url, None, options, on_event, rx, budget)
+    }
+
+    fn build_ws_request(
+        url: &str,
+        bearer: Option<&String>,
+    ) -> Result<(tungstenite::http::Uri, tungstenite::http::Request<()>), String> {
+        use tungstenite::client::IntoClientRequest as _;
         let uri: tungstenite::http::Uri = url
             .parse()
             .map_err(|err| format!("Failed to parse WebSocket URL: {err}"))?;
         check_address(&uri, "ws", "wss")?;
+        let mut request = uri
+            .clone()
+            .into_client_request()
+            .map_err(|err| format!("Failed to build WebSocket request: {err}"))?;
+        if let Some(bearer) = bearer {
+            let value = tungstenite::http::HeaderValue::from_str(bearer.as_str())
+                .map_err(|_| "Invalid Authorization header".to_owned())?;
+            request
+                .headers_mut()
+                .insert(tungstenite::http::header::AUTHORIZATION, value);
+        }
+        Ok((uri, request))
+    }
+
+    fn run_socket_with_budget_and_bearer(
+        url: &str,
+        bearer: Option<&String>,
+        options: &ewebsock::Options,
+        on_event: &(dyn Fn(WsEvent) -> ControlFlow<()> + Send),
+        rx: &sender::SocketQueue,
+        budget: std::time::Duration,
+    ) -> Result<(), String> {
+        let (uri, request) = build_ws_request(url, bearer)?;
         let stream = handshake::Stream::connect(&uri, budget)?;
         let read_timeout = options.read_timeout;
         let config = socket_config(options);
         let (mut socket, _) = tungstenite::client_tls_with_config(
-            uri,
+            request,
             stream,
             Some(config),
             Some(tungstenite::Connector::Rustls(socket_tls())),

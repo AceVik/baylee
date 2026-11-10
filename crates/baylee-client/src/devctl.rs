@@ -261,7 +261,8 @@ fn shell_knobs(
     }
 }
 
-/// `/window {"width":844,"height":390}`: sets the window's logical size.
+/// `/window {"width":844,"height":390,"x":100,"y":100}`: sets the window's
+/// logical size and, optionally, its physical screen position (`x`, `y`).
 ///
 /// The shell is checked at seven sizes (the shell design, §2.7), and a
 /// relaunch per size costs a sign-in each — which at a phone's height the
@@ -274,11 +275,21 @@ fn resize(body: &str, win: &mut Window) -> String {
             .and_then(|v| v.parse::<f32>().ok())
             .filter(|v| (320.0..=7680.0).contains(v))
     };
+    let coord = |key| {
+        field(body, key)
+            .and_then(|v| v.parse::<i32>().ok())
+            .filter(|v| (-32768..=32767).contains(v))
+    };
     match (size("width"), size("height")) {
         (Some(width), Some(height)) => {
             win.set_maximized(false);
             win.resolution.set(width, height);
-            format!("{{\"ok\":true,\"width\":{width},\"height\":{height}}}")
+            if let (Some(x), Some(y)) = (coord("x"), coord("y")) {
+                win.position = bevy::window::WindowPosition::At(IVec2::new(x, y));
+                format!("{{\"ok\":true,\"width\":{width},\"height\":{height},\"x\":{x},\"y\":{y}}}")
+            } else {
+                format!("{{\"ok\":true,\"width\":{width},\"height\":{height}}}")
+            }
         }
         _ => "{\"error\":\"width and height, 320 to 7680\"}".to_string(),
     }

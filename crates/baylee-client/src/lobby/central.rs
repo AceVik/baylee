@@ -11,7 +11,7 @@ use baylee_account::{Account, Endpoint, Error};
 use baylee_client_core::{Phrase, i18n::Lang, lobby::gateway_list, prefs::Preferences};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc,
 };
 
@@ -37,32 +37,87 @@ pub(crate) struct Handle {
     active: Arc<AtomicBool>,
     /// The worker leaves the Central session open when it stops.
     stays: Arc<AtomicBool>,
+    /// Whether the Central `/v1/ws` push stream is currently connected.
+    ws_live: Arc<AtomicBool>,
+    /// Incremented whenever Central pushes a `chat` or `social` event over `/v1/ws`.
+    chat_seq: Arc<AtomicU64>,
+    /// Incremented whenever Central pushes a `social` event over `/v1/ws`.
+    social_seq: Arc<AtomicU64>,
+    /// Incremented whenever Central pushes a `presence` event over `/v1/ws`.
+    presence_seq: Arc<AtomicU64>,
+    /// Public 4-hex tags of the caller's accepted Central friends currently connected to `/v1/ws`.
+    online_tags: Arc<Mutex<std::collections::BTreeSet<String>>>,
+}
+
+#[derive(serde::Deserialize)]
+struct CentralWsPush {
+    event: String,
+    #[serde(default)]
+    online: Vec<String>,
 }
 
 impl Handle {
-    #[cfg(test)]
-    pub(crate) fn unavailable_for_test() -> Self {
-        let (send, receive) = mpsc::sync_channel(1);
-        drop(receive);
+    #[cfg(any(test, feature = "dev-control"))]
+    fn from_sender(send: mpsc::SyncSender<Job>) -> Self {
         Self {
             send,
             active: Arc::new(AtomicBool::new(true)),
             stays: Arc::new(AtomicBool::new(false)),
+            ws_live: Arc::new(AtomicBool::new(false)),
+            chat_seq: Arc::new(AtomicU64::new(0)),
+            social_seq: Arc::new(AtomicU64::new(0)),
+            presence_seq: Arc::new(AtomicU64::new(0)),
+            online_tags: Arc::new(Mutex::new(std::collections::BTreeSet::new())),
         }
+    }
+    #[cfg(test)]
+    pub(crate) fn unavailable_for_test() -> Self {
+        let (send, receive) = mpsc::sync_channel(1);
+        drop(receive);
+        Self::from_sender(send)
     }
     /// A handle whose jobs the test receives, instead of a worker.
     #[cfg(test)]
     pub(crate) fn queued_for_test() -> (Self, mpsc::Receiver<Job>) {
         let (send, receive) = mpsc::sync_channel(4);
-        let handle = Self {
-            send,
-            active: Arc::new(AtomicBool::new(true)),
-            stays: Arc::new(AtomicBool::new(false)),
-        };
-        (handle, receive)
+        (Self::from_sender(send), receive)
     }
     pub(crate) fn is_active(&self) -> bool {
         self.active.load(Ordering::Acquire)
+    }
+    pub(crate) fn ws_live(&self) -> bool {
+        self.ws_live.load(Ordering::Acquire)
+    }
+    pub(crate) fn chat_seq(&self) -> u64 {
+        self.chat_seq.load(Ordering::Acquire)
+    }
+    pub(crate) fn social_seq(&self) -> u64 {
+        self.social_seq.load(Ordering::Acquire)
+    }
+    pub(crate) fn presence_seq(&self) -> u64 {
+        self.presence_seq.load(Ordering::Acquire)
+    }
+    pub(crate) fn online_tags(&self) -> std::collections::BTreeSet<String> {
+        self.online_tags
+            .lock()
+            .map(|set| set.clone())
+            .unwrap_or_default()
+    }
+    #[cfg(test)]
+    pub(crate) fn set_ws_live_for_test(&self, live: bool) {
+        self.ws_live.store(live, Ordering::Release);
+    }
+    #[cfg(test)]
+    pub(crate) fn push_social_for_test(&self) {
+        self.social_seq.fetch_add(1, Ordering::AcqRel);
+        self.chat_seq.fetch_add(1, Ordering::AcqRel);
+    }
+    #[cfg(test)]
+    pub(crate) fn set_online_tags_for_test(&self, tags: impl IntoIterator<Item = String>) {
+        if let Ok(mut set) = self.online_tags.lock() {
+            *set = tags.into_iter().collect();
+        }
+        self.presence_seq.fetch_add(1, Ordering::AcqRel);
     }
     /// A client restarting into an update stays signed in: signing out at Central
     /// ends the gateway's session too, and the next client takes that one up.
@@ -157,24 +212,65 @@ impl Handle {
         let worker_active = active.clone();
         let stays = Arc::new(AtomicBool::new(false));
         let worker_stays = stays.clone();
+        let ws_live = Arc::new(AtomicBool::new(false));
+        let worker_ws_live = ws_live.clone();
+        let chat_seq = Arc::new(AtomicU64::new(0));
+        let worker_chat_seq = chat_seq.clone();
+        let social_seq = Arc::new(AtomicU64::new(0));
+        let worker_social_seq = social_seq.clone();
+        let presence_seq = Arc::new(AtomicU64::new(0));
+        let worker_presence_seq = presence_seq.clone();
+        let online_tags = Arc::new(Mutex::new(std::collections::BTreeSet::new()));
+        let worker_online_tags = online_tags.clone();
         std::thread::Builder::new()
             .name("central-account".into())
             .spawn(move || {
-                let interval = std::time::Duration::from_secs(10);
+                let fallback_interval = std::time::Duration::from_secs(10);
+                let redial_every = std::time::Duration::from_secs(2);
                 let mut checked = std::time::Instant::now();
                 let mut renew_at = std::time::Instant::now() + RENEW_EVERY;
+                let mut ws = None;
+                let mut next_dial = std::time::Instant::now();
                 loop {
-                    if checked.elapsed() >= interval {
+                    if ws.is_none() && std::time::Instant::now() >= next_dial {
+                        next_dial = std::time::Instant::now() + redial_every;
+                        ws = dial_central_ws(&account);
+                    }
+                    if let Some((_, rx)) = &ws {
+                        let (disconnected, revoked) = drain_central_ws(
+                            rx,
+                            &worker_ws_live,
+                            &worker_chat_seq,
+                            &worker_social_seq,
+                            &worker_presence_seq,
+                            &worker_online_tags,
+                        );
+                        if revoked {
+                            worker_ws_live.store(false, Ordering::Release);
+                            worker_active.store(false, Ordering::Release);
+                            break;
+                        }
+                        if disconnected {
+                            worker_ws_live.store(false, Ordering::Release);
+                            if let Ok(mut set) = worker_online_tags.lock()
+                                && !set.is_empty()
+                            {
+                                set.clear();
+                                worker_presence_seq.fetch_add(1, Ordering::AcqRel);
+                            }
+                            ws = None;
+                            next_dial = std::time::Instant::now() + redial_every;
+                        }
+                    }
+                    if !worker_ws_live.load(Ordering::Acquire)
+                        && checked.elapsed() >= fallback_interval
+                    {
                         if matches!(account.check_active(), Err(Error::Rejected)) {
                             worker_active.store(false, Ordering::Release);
                             break;
                         }
                         checked = std::time::Instant::now();
                     }
-                    // The session, and every game admitted from it, lasts while
-                    // the client runs (Central caps it at 12 hours). A failed
-                    // renewal is tried again a minute later and ends nothing:
-                    // the check above says whether the session lives.
                     if std::time::Instant::now() >= renew_at {
                         let next = if account.renew().is_ok() {
                             RENEW_EVERY
@@ -183,12 +279,14 @@ impl Handle {
                         };
                         renew_at = std::time::Instant::now() + next;
                     }
-                    match receive.recv_timeout(interval.saturating_sub(checked.elapsed())) {
+                    match receive.recv_timeout(std::time::Duration::from_millis(50)) {
                         Ok(job) => job(&mut account),
                         Err(mpsc::RecvTimeoutError::Timeout) => {}
                         Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     }
                 }
+                worker_ws_live.store(false, Ordering::Release);
+                drop(ws);
                 if !worker_stays.load(Ordering::Acquire) {
                     let _ = account.logout();
                 }
@@ -198,6 +296,11 @@ impl Handle {
             send,
             active,
             stays,
+            ws_live,
+            chat_seq,
+            social_seq,
+            presence_seq,
+            online_tags,
         })
     }
 
@@ -216,6 +319,76 @@ impl Handle {
             }))
             .is_ok()
     }
+}
+
+fn drain_central_ws(
+    rx: &crate::transport::WsReceiver,
+    ws_live: &AtomicBool,
+    chat_seq: &AtomicU64,
+    social_seq: &AtomicU64,
+    presence_seq: &AtomicU64,
+    online_tags: &Mutex<std::collections::BTreeSet<String>>,
+) -> (bool, bool) {
+    let mut disconnected = false;
+    let mut revoked = false;
+    for event in crate::transport::drain_socket(rx) {
+        match event {
+            ewebsock::WsEvent::Message(ewebsock::WsMessage::Text(text)) => {
+                if let Ok(parsed) = serde_json::from_str::<CentralWsPush>(&text) {
+                    match parsed.event.as_str() {
+                        "ready" => {
+                            ws_live.store(true, Ordering::Release);
+                            chat_seq.fetch_add(1, Ordering::AcqRel);
+                            social_seq.fetch_add(1, Ordering::AcqRel);
+                        }
+                        "chat" => {
+                            chat_seq.fetch_add(1, Ordering::AcqRel);
+                        }
+                        "social" => {
+                            social_seq.fetch_add(1, Ordering::AcqRel);
+                            chat_seq.fetch_add(1, Ordering::AcqRel);
+                        }
+                        "presence" => {
+                            if let Ok(mut set) = online_tags.lock() {
+                                *set = parsed.online.into_iter().collect();
+                            }
+                            presence_seq.fetch_add(1, Ordering::AcqRel);
+                        }
+                        "revoked" => {
+                            revoked = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            ewebsock::WsEvent::Opened | ewebsock::WsEvent::Message(_) => {}
+            ewebsock::WsEvent::Closed | ewebsock::WsEvent::Error(_) => {
+                disconnected = true;
+                break;
+            }
+        }
+    }
+    (disconnected, revoked)
+}
+
+fn dial_central_ws(
+    account: &Account,
+) -> Option<(crate::transport::WsSender, crate::transport::WsReceiver)> {
+    let bearer = account.bearer_header()?;
+    let origin = account.endpoint_origin().trim_end_matches('/');
+    let ws_origin = if let Some(rest) = origin.strip_prefix("https://") {
+        format!("wss://{rest}")
+    } else {
+        let rest = origin.strip_prefix("http://")?;
+        format!("ws://{rest}")
+    };
+    let url = format!("{ws_origin}/v1/ws");
+    let options = ewebsock::Options {
+        max_incoming_frame_size: 4096,
+        ..ewebsock::Options::default()
+    };
+    crate::transport::ws_connect_with_bearer(url, bearer, options).ok()
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -953,11 +1126,7 @@ pub(super) fn restored_for_test(state: &mut LobbyState, gateways: Vec<String>) {
     }
     let (send, _receive) = mpsc::sync_channel::<Job>(4);
     let restored = Restored {
-        handle: Handle {
-            send,
-            active: Arc::new(AtomicBool::new(true)),
-            stays: Arc::new(AtomicBool::new(false)),
-        },
+        handle: Handle::from_sender(send),
         gateways,
         preferences: Preferences::default(),
         terms_pending: false,
@@ -1025,11 +1194,7 @@ pub(crate) fn demo_central_lobby(state: &mut LobbyState) {
     );
     let (send, _receive) = mpsc::sync_channel::<Job>(4);
     let restored = Restored {
-        handle: Handle {
-            send,
-            active: Arc::new(AtomicBool::new(true)),
-            stays: Arc::new(AtomicBool::new(false)),
-        },
+        handle: Handle::from_sender(send),
         gateways: urls,
         preferences: Preferences::default(),
         terms_pending: false,
@@ -1104,11 +1269,7 @@ mod tests {
         let (send, _receive) = mpsc::sync_channel::<Job>(4);
         let mut prefs = crate::prefs::Prefs::default();
         let restored = Restored {
-            handle: Handle {
-                send,
-                active: Arc::new(AtomicBool::new(true)),
-                stays: Arc::new(AtomicBool::new(false)),
-            },
+            handle: Handle::from_sender(send),
             gateways: vec![source.clone()],
             preferences: Preferences::default(),
             terms_pending: false,
@@ -1154,11 +1315,7 @@ mod tests {
         let other = "http://127.0.0.1:28766".to_string();
         state.probes.insert(other.clone(), Probe::Older);
         let restored = Restored {
-            handle: Handle {
-                send,
-                active: Arc::new(AtomicBool::new(true)),
-                stays: Arc::new(AtomicBool::new(false)),
-            },
+            handle: Handle::from_sender(send),
             gateways: vec![other.clone()],
             preferences: Preferences::default(),
             terms_pending: false,
@@ -1190,11 +1347,7 @@ mod tests {
         bound(&mut state);
         let (send, jobs) = mpsc::sync_channel::<Job>(4);
         let restored = Restored {
-            handle: Handle {
-                send,
-                active: Arc::new(AtomicBool::new(true)),
-                stays: Arc::new(AtomicBool::new(false)),
-            },
+            handle: Handle::from_sender(send),
             gateways: Vec::new(),
             preferences: Preferences::default(),
             terms_pending: true,
@@ -1240,11 +1393,7 @@ mod tests {
         }
         let (send, jobs) = mpsc::sync_channel::<Job>(4);
         let restored = Restored {
-            handle: Handle {
-                send,
-                active: Arc::new(AtomicBool::new(true)),
-                stays: Arc::new(AtomicBool::new(false)),
-            },
+            handle: Handle::from_sender(send),
             gateways: vec![gateway_list::KEYED.into(), other.clone()],
             preferences: Preferences::default(),
             terms_pending: false,

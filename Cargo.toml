@@ -337,6 +337,18 @@ debug = "line-tables-only"
 opt-level = 3
 debug-assertions = false
 
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+debug-assertions = false
+
+[profile.dev.package.zune-core]
+opt-level = 3
+debug-assertions = false
+
+[profile.dev.package.image]
+opt-level = 3
+debug-assertions = false
+
 # CLI image/audio kernels need optimisation even during development. Keep the
 # game profiles unchanged; unwind lets the native DMG guard detach on failure.
 [profile.tools]

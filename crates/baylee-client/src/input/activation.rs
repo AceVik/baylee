@@ -400,6 +400,8 @@ fn open_pile(duel: &mut Duel, object: ObjectId) -> bool {
     });
     if let Some(zone) = opening {
         duel.browser.open_at(zone);
+        duel.hovered = None;
+        duel.hovered_at = None;
         return true;
     }
     false

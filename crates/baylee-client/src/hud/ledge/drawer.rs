@@ -1594,10 +1594,18 @@ fn chooser(
         // piece of furniture — the row and the shelf's own OK.
         let fill = if on {
             palette::CANDLE.with_alpha(PICKED_WASH)
+        } else if option.assigned {
+            palette::CANDLE.with_alpha(PICKED_WASH * 0.75)
         } else {
             fill
         };
-        let edge = if on { palette::CANDLE } else { edge };
+        let edge = if on {
+            palette::CANDLE
+        } else if option.assigned {
+            palette::CANDLE.with_alpha(0.65)
+        } else {
+            edge
+        };
         let button = commands
             .spawn((
                 ChoiceButton {
@@ -1646,6 +1654,17 @@ fn chooser(
             commands
                 .entity(button)
                 .insert(ChoicePreview { object: *object });
+        }
+        if option.assigned {
+            let check = commands
+                .spawn((
+                    Text::new(glyph::CHECK.to_string()),
+                    icon_tf(fonts, 11.0),
+                    TextColor(palette::CANDLE),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(button).add_child(check);
         }
         if let Some(pip) = option.pip {
             let mark = crate::manaui::spawn_pip(commands, fonts, pip, PIP_PT);
