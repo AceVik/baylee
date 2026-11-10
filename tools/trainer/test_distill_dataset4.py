@@ -7,6 +7,7 @@ exactly where the JSON steps have a label.
 Needs a recorded run and the binaries of one build:
     BAYLEE_DISTILL_RECORDS  an eval4 --record-out of a --distill-labels run
     BAYLEE_CONVERT4         that build's convert4
+    BAYLEE_TRAIN_MANIFEST   the deck manifest whose train split the run's decks are in
 and that build's trajectory_cache4 on PATH. Skipped without them.
 """
 from __future__ import annotations
@@ -25,6 +26,7 @@ from training4.distill import check_datasets
 
 RECORDS = os.environ.get("BAYLEE_DISTILL_RECORDS")
 CONVERT4 = os.environ.get("BAYLEE_CONVERT4")
+MANIFEST = os.environ.get("BAYLEE_TRAIN_MANIFEST")
 
 
 def json_steps(root: Path) -> dict:
@@ -39,20 +41,24 @@ def json_steps(root: Path) -> dict:
     return labels
 
 
-@unittest.skipUnless(RECORDS and CONVERT4, "set BAYLEE_DISTILL_RECORDS and BAYLEE_CONVERT4")
+@unittest.skipUnless(RECORDS and CONVERT4 and MANIFEST,
+                     "set BAYLEE_DISTILL_RECORDS, BAYLEE_CONVERT4 and BAYLEE_TRAIN_MANIFEST")
 class DistillDataset4(unittest.TestCase):
     def test_the_trainer_reads_what_convert4_wrote(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "dataset"
             subprocess.run([CONVERT4, "--encoder-version", "10", "--bundle-distill",
-                            "--include-passive-obs", "--runs", RECORDS, "--out", str(out),
+                            "--include-passive-obs", "--train-manifest", MANIFEST, "--runs", RECORDS,
+                            "--out", str(out),
                             "--threads", "2", "--val-every", "2"],
                            check=True, capture_output=True)
             meta = json.loads((out / "meta.json").read_text())
             vocab = meta["bundle_distillation"]
             self.assertEqual(meta["bundle_distillation_status"], "complete")
             self.assertEqual(vocab["subtypes"], ["cast", "pass", "instant_their_turn", "spend",
-                                                 "pay", "mana", "activate", "land", "other"])
+                                                 "pay", "mana", "activate", "land", "other", "target"])
+            self.assertTrue(vocab["decks"]["all_train"])
+            self.assertGreater(vocab["decks"]["count"], 0)
             labels = json_steps(out)
             seen, kinds, subtypes = Counter(), Counter(), Counter()
             for split in ("train", "val"):
