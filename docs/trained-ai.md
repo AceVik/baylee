@@ -2299,6 +2299,29 @@ Measured on 2026-11-06, B-refresh with plain tactics against the 18-group bundle
 Round 1 is the comparison fixed before play. Round 2 was added after reading it, so the last two columns are extended after a look. The bundle's +7 pp
 against `sharp` does not show here: no interval excludes zero, and against Flash it leans the other way.
 
+## One rating scale
+
+`rating4` (`baylee_train_ops::evaluation::rating`) puts `BayleeAI`'s champions and arms, the house levels, random and the language models on one
+Bradley-Terry scale in Elo units: a player rated d above another scores 1 / (1 + 10^(-d/400)) against it. It plays nothing. It reads the
+matches that exist: `eval4` summaries (each of `deal_details` a game, `net_utility` its score) and `ladder4` roots (clean games only, as
+`phase_a4 ladder` counts them). A summary does not name its arms, so a JSON spec names the two players of every input:
+`{"matches": [{"file": "q6/eval-r1b-tac-1v1-test.json", "player": "r1+bundle", "opponent": "sharp-2026-11"}, {"ladder": "ladder/ds2a", ...}],
+"anchors": {"sharp-2026-11": 1000}, "unfair": ["seer"]}`. Each input records the house label its summary used (`against`), so `sharp` and
+`sharp-2026-11` can be mapped to one player while they play alike. A draw, or a deal stopped at its answer cap, counts one half.
+Each format (`1v1`, `2v2`, `ffaN`) is a table of its own. Anchors hold their ratings. The fair players are fitted from fair games first,
+and the unfair ones after, against the fair ratings held, so a seeing player never moves a fair rating and never links one to an anchor.
+A player with no path of games to an anchor is refused, and one that never dropped a point on any path to one is named above every rating
+instead of being fitted to infinity. Each rating has two 95 % bootstrap intervals. **By deal** draws each input's deals again: an
+`eval4` table with its seat rotations, or a ladder's deck pair with both seatings. **By deck** draws the format's decks again, and a game
+weighs the product of its decks' draws. `link` is the fewest games whose removal cuts a player off the anchors (a minimum cut). Under 200
+it is flagged. The fit check sets every pair's observed score beside the one the ratings imply.
+
+The first 1v1 table (10 November 2026, `v6t-campaign/rating/`) found that random = 0 and `sharp` = 1000 cannot both be held on this scale.
+Random scores 4.3 % against `sharp`, which is 539 Elo, and the pinned pair misfits by 16 standard errors. With `sharp-2026-11` the only
+anchor, random comes out at 496 [460, 529]. Its three paths agree: directly, through B-refresh raw, and through B-refresh with the plain
+layer, each pair within 1.1 standard errors of the fit. Against `sharp-2026-11` = 1000: r1 with the bundle 1034 [1018, 1051], r1 raw 867,
+the seated house 943, DeepSeek-low 1116 [1060, 1175] (95 ladder games through r1, flagged thin).
+
 ## Where it stands (2026-09-30)
 
 - **Value net v2** (8.2M parameters, d002→d003: 200k games, every 32nd decision):
