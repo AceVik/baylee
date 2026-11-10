@@ -1798,6 +1798,24 @@ default follows the training batch size for compatibility. Resume checks this
 scoring setting; old checkpoints implicitly used their training batch size.
 Full optimized validation logs progress every 500 batches without per-frame
 device synchronization.
+Learner throughput levers (`training4/learner_options.py`), all off by default:
+`--phase-profile PATH` writes per-phase step times for a warmup/measured window
+(`--phase-profile-sync` waits for the GPU at each boundary, so phases are
+completion times; without it they are the host's issue times), with NVML GPU
+utilization and the card-naming steps' share. `--passive-grad-window W` keeps
+gradient only on frames up to W before a decision of the same lane; the other
+frames encode their boards under no_grad and detach their memory update
+(burn-in), while value/auxiliary heads still train on them. With W covering an
+unpadded unroll the update is bit-identical to the default.
+`--window-burn-in B` trains only the windows `[decision - B, decision]`, merged
+per trajectory and packed into `--window-length` lanes; each piece starts from a
+stored H, so gradient never crosses a piece start. The stored H comes from a
+no-grad pass of the current weights over every passive frame at each epoch
+(`--window-state-refresh N` also every N updates); `--window-state-cache` reuses
+the pass of the untouched `--init` weights. `--window-entity-buckets` packs
+pieces of similar size together. These runs start fresh from `--init` only.
+`--vectorized-rule-closure` builds the active rule closure's index arrays with
+numpy (identical tensors). `--skip-final-validation` is for throughput probes.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
 `net.pt` is now selected by validation policy loss by default. The previous
