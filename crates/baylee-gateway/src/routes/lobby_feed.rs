@@ -123,11 +123,8 @@ pub(crate) async fn run_lobby_socket(
     query: lobby::LobbyQuery,
     mut socket: WebSocket,
 ) {
-    // Subscribed before the first send, so a change that lands while the
-    // opening listing is being rendered is not lost between the two.
-    let mut changed = state.lobby_changed.subscribe();
-    // And before asking whether the account is still there (#292): one
-    // deleted after the door read its session is refused here, and one
+    // Subscribed before asking whether the account is still there (#292):
+    // one deleted after the door read its session is refused here, and one
     // deleted later is named on `departed`.
     let mut departed = state.departed.subscribe();
     if !matches!(store::account(&state.db, &account_id).await, Ok(Some(_))) {
@@ -135,8 +132,13 @@ pub(crate) async fn run_lobby_socket(
         return;
     }
     // Counted as present for as long as this socket is open, and no longer:
-    // every return below drops it (`GET /lobby/stats`).
+    // every return below drops it (`GET /lobby/stats`). Before subscribing to
+    // the lobby's changes, so the wake its own arrival may send everybody is
+    // not news to this socket, whose opening page already counts it.
     let present = state.presence.enter(&account_id);
+    // Subscribed before the first send, so a change that lands while the
+    // opening listing is being rendered is not lost between the two.
+    let mut changed = state.lobby_changed.subscribe();
     serve_listing(
         &state,
         &account_id,
@@ -168,10 +170,20 @@ async fn serve_listing(
     let mut ping = tokio::time::interval(PING_EVERY);
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
+    let mut sent = axum::extract::ws::Utf8Bytes::default();
     loop {
-        let payload = listing_page(state, account_id, query).await.to_string();
-        if socket.send(Message::Text(payload.into())).await.is_err() {
-            return;
+        let page: axum::extract::ws::Utf8Bytes = listing_page(state, account_id, query)
+            .await
+            .to_string()
+            .into();
+        // A wake for what this reader cannot see (a table on another page, an
+        // arrival its opening page already counted) renders the page it has,
+        // and that is not sent again.
+        if page.as_str() != sent.as_str() {
+            if socket.send(Message::Text(page.clone())).await.is_err() {
+                return;
+            }
+            sent = page;
         }
         loop {
             tokio::select! {

@@ -551,6 +551,7 @@ async fn main() {
     spawn_session_sweep(state.clone());
     central::spawn_local_check(state.clone());
     metrics::spawn(state.clone());
+    presence::spawn(state.clone());
     // A pasted token's link first: whether Central's sign-in reaches this
     // gateway depends on it.
     central::restore(&state).await;

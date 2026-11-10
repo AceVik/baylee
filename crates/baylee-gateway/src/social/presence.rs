@@ -396,8 +396,8 @@ async fn push_members(state: &Shared, convs: BTreeMap<String, (String, BTreeSet<
     }
 }
 
-/// The loop that publishes presence and memberships: on every lobby change
-/// and once a second.
+/// The loop that publishes presence and memberships: on a lobby change, as
+/// [`publish_soon`] lets it, and once a second.
 pub(crate) fn spawn(state: Shared) {
     if !state.social.on() {
         return;
@@ -411,10 +411,12 @@ pub(crate) fn spawn(state: Shared) {
                     if matches!(news, Err(tokio::sync::broadcast::error::RecvError::Closed)) {
                         return;
                     }
+                    // Any session can move the lobby, if only by opening
+                    // and closing sockets: what this skips, the tick says.
+                    publish_soon(&state).await;
                 }
-                _ = tick.tick() => {}
+                _ = tick.tick() => publish(&state).await,
             }
-            publish(&state).await;
         }
     });
 }

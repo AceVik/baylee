@@ -72,18 +72,7 @@ pub(crate) async fn lobby_page(
     // still lists rooms, and creating or starting one answers 503. Said here
     // so a client can say so first, and pushed again whenever it changes.
     let agents_available = state.agents.lock().any_connected();
-    let (games, total, mut online, tables_waiting, games_running) = {
-        let lobby = state.lobby.lock();
-        let (games, total) = lobby.page(account_id, &names, query);
-        (
-            games,
-            total,
-            lobby.bridging_accounts(),
-            lobby.waiting().count(),
-            lobby.running().count(),
-        )
-    };
-    online.extend(state.presence.accounts());
+    let (games, total) = state.lobby.lock().page(account_id, &names, query);
     LobbyPage {
         listing: LobbyListing {
             agents_available,
@@ -91,11 +80,7 @@ pub(crate) async fn lobby_page(
         },
         limit: query.page(),
         offset: query.offset,
-        stats: LobbyStats {
-            games_running,
-            players_online: online.len(),
-            tables_waiting,
-        },
+        stats: super::current_stats(state),
         total,
     }
 }

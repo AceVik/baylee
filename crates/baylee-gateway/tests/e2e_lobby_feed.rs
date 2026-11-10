@@ -154,6 +154,41 @@ async fn the_lobby_socket_pushes_a_change_nobody_asked_about() {
     assert!(second.contains("\"yours\":false"), "{second}");
 }
 
+/// An account arriving within a second of another is told to the lobby at
+/// the end of that second (`presence.rs`). That late wake is news to the
+/// sockets already open, not to the one that arrived: its opening page
+/// counted both, and it is not sent that page again.
+#[tokio::test]
+async fn an_arrival_the_opening_page_counted_is_not_pushed_to_it_again() {
+    let gw = spawn_gateway("lobby-feed-held");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+
+    let early = login(port, "e-player", "Early");
+    let watcher = login(port, "l-player", "Late");
+    let opener = login(port, "p-player", "Opener");
+    let deck = make_deck(port, &opener, "d");
+
+    let (mut first, _) = tokio_tungstenite::connect_async(&common::lobby_url(port, &early, ""))
+        .await
+        .expect("open the early lobby socket");
+    next_text(&mut first).await;
+    let (mut socket, _) = tokio_tungstenite::connect_async(&common::lobby_url(port, &watcher, ""))
+        .await
+        .expect("open the late lobby socket");
+    let opening = next_text(&mut socket).await;
+    assert!(opening.contains("\"players_online\":2"), "{opening}");
+
+    // Past the second and the round of the task that tells what it held.
+    tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
+    let create = format!("{{\"deck_id\":\"{deck}\",\"seats\":2,\"name\":\"Pushed\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&opener), &create);
+    assert_eq!(status, 200, "{body}");
+
+    let next = next_text(&mut socket).await;
+    assert!(next.contains("Pushed"), "the opening page again: {next}");
+}
+
 /// The socket takes its token and its query out of **one** query string, which
 /// serde flattens — and a flattened struct is deserialized from a map of
 /// strings, so `offset=8` reached a `usize` field as `"8"` and the upgrade was

@@ -230,3 +230,186 @@ impl Invites {
         tell
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An invite `id` from `from` to `to` for `game`, issued at `issued`.
+    fn invite(
+        id: &str,
+        (from, to): (&str, &str),
+        game: &str,
+        kind: InviteKind,
+        issued: Instant,
+    ) -> Invite {
+        Invite {
+            id: id.to_owned(),
+            from: from.to_owned(),
+            from_person: Person {
+                tag: from.to_owned(),
+                handle: format!("{from}#0000"),
+                guest: false,
+            },
+            to: to.to_owned(),
+            game: game.to_owned(),
+            kind,
+            table: TableBrief {
+                name: game.to_owned(),
+                seats: 2,
+                taken: 1,
+                state: "waiting".to_owned(),
+                locked: true,
+            },
+            issued,
+        }
+    }
+
+    /// `me` invited to `room` twice to sit down and once to watch, `other`
+    /// invited to it as well, and `me` invited to another room.
+    fn open(issued: Instant) -> Invites {
+        let all = [
+            invite("mine", ("host", "me"), "room", InviteKind::Join, issued),
+            invite(
+                "mine-too",
+                ("friend", "me"),
+                "room",
+                InviteKind::Join,
+                issued,
+            ),
+            invite("watch", ("fan", "me"), "room", InviteKind::Watch, issued),
+            invite(
+                "theirs",
+                ("host", "other"),
+                "room",
+                InviteKind::Join,
+                issued,
+            ),
+            invite("elsewhere", ("host", "me"), "far", InviteKind::Join, issued),
+        ];
+        Invites {
+            live: all.into_iter().map(|i| (i.id.clone(), i)).collect(),
+        }
+    }
+
+    fn told(to: &str, id: &str, answer: Option<InviteAnswer>) -> (String, Down) {
+        (
+            to.to_owned(),
+            Down::InviteGone {
+                id: id.to_owned(),
+                answer,
+            },
+        )
+    }
+
+    /// What `tell` says, in an order that does not hang on the map's.
+    fn sorted(mut tell: Tell) -> Tell {
+        tell.sort_by_key(|(to, frame)| (to.clone(), format!("{frame:?}")));
+        tell
+    }
+
+    /// The invites still open, by id.
+    fn left(invites: &Invites) -> Vec<&str> {
+        let mut ids: Vec<&str> = invites.live.keys().map(String::as_str).collect();
+        ids.sort_unstable();
+        ids
+    }
+
+    const ACCEPTED: Option<InviteAnswer> = Some(InviteAnswer::Accepted);
+
+    #[test]
+    fn joining_spends_only_the_joiners_own_join_invites_to_that_room() {
+        let now = Instant::now();
+        let mut invites = open(now);
+        let tell = invites.spend_joined(None, "me", "room", now);
+        assert_eq!(
+            sorted(tell),
+            sorted(vec![
+                told("host", "mine", ACCEPTED),
+                told("me", "mine", ACCEPTED),
+                told("friend", "mine-too", ACCEPTED),
+                told("me", "mine-too", ACCEPTED),
+            ]),
+        );
+        assert_eq!(
+            left(&invites),
+            ["elsewhere", "theirs", "watch"],
+            "another's invite to the room, an invite to another room and one to watch stay"
+        );
+    }
+
+    #[test]
+    fn an_invite_named_on_the_join_is_told_once_beside_the_others() {
+        let now = Instant::now();
+        let mut invites = open(now);
+        let tell = invites.spend_joined(Some("mine"), "me", "room", now);
+        assert_eq!(
+            sorted(tell),
+            sorted(vec![
+                told("host", "mine", ACCEPTED),
+                told("me", "mine", ACCEPTED),
+                told("friend", "mine-too", ACCEPTED),
+                told("me", "mine-too", ACCEPTED),
+            ]),
+        );
+        assert_eq!(left(&invites), ["elsewhere", "theirs", "watch"]);
+    }
+
+    #[test]
+    fn an_invite_of_somebody_else_named_on_the_join_is_left_alone() {
+        let now = Instant::now();
+        let mut invites = open(now);
+        let tell = invites.spend_joined(Some("theirs"), "me", "room", now);
+        assert!(
+            !tell.iter().any(|(to, _)| to == "other"),
+            "the other invitee was told: {tell:?}"
+        );
+        assert_eq!(tell.len(), 4, "{tell:?}");
+        assert_eq!(left(&invites), ["elsewhere", "theirs", "watch"]);
+    }
+
+    #[test]
+    fn a_lapsed_join_invite_is_not_answered_accepted() {
+        let then = Instant::now();
+        let now = then + LIFETIME;
+        let mut invites = open(now);
+        let lapsed = invite("lapsed", ("old", "me"), "room", InviteKind::Join, then);
+        invites.live.insert(lapsed.id.clone(), lapsed);
+        let tell = invites.spend_joined(Some("lapsed"), "me", "room", now);
+        assert!(
+            !tell.iter().any(|(to, _)| to == "old"),
+            "a lapsed invite was spent: {tell:?}"
+        );
+        assert_eq!(tell.len(), 4, "the live ones are: {tell:?}");
+        assert_eq!(
+            left(&invites),
+            ["elsewhere", "lapsed", "theirs", "watch"],
+            "the lapsed one waits for the sweep"
+        );
+    }
+
+    #[test]
+    fn a_room_that_starts_closes_its_join_invites_and_no_other() {
+        let now = Instant::now();
+        let mut invites = open(now);
+        let tell = invites.close_started("room");
+        assert_eq!(
+            sorted(tell),
+            sorted(vec![
+                told("host", "mine", None),
+                told("me", "mine", None),
+                told("friend", "mine-too", None),
+                told("me", "mine-too", None),
+                told("host", "theirs", None),
+                told("other", "theirs", None),
+            ]),
+            "every join invite to the room, gone unanswered, to both ends"
+        );
+        assert_eq!(
+            left(&invites),
+            ["elsewhere", "watch"],
+            "an invite to watch the room and one to another room stay"
+        );
+        assert!(invites.close_started("room").is_empty(), "and only once");
+    }
+}

@@ -37,7 +37,7 @@ pub(crate) async fn lobby_stats(
 
 /// Reads the gateway's three header numbers from memory right now.
 pub(crate) fn current_stats(state: &Shared) -> LobbyStats {
-    let (mut online, tables_waiting, games_running) = {
+    let (bridging, tables_waiting, games_running) = {
         let lobby = state.lobby.lock();
         (
             lobby.bridging_accounts(),
@@ -45,10 +45,9 @@ pub(crate) fn current_stats(state: &Shared) -> LobbyStats {
             lobby.running().count(),
         )
     };
-    online.extend(state.presence.accounts());
     LobbyStats {
         games_running,
-        players_online: online.len(),
+        players_online: state.presence.count_with(&bridging),
         tables_waiting,
     }
 }
@@ -59,12 +58,12 @@ pub(crate) fn current_stats(state: &Shared) -> LobbyStats {
 pub(crate) struct LobbyStats {
     // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
     /// @description Games being played; a finished table is neither.
-    pub(crate) games_running: usize,
+    games_running: usize,
     /// @description Distinct accounts with a socket open (the lobby feed,
     /// or their own chair's at a running game), together with those whose
     /// seat bridge plays a chair of a running game. A chair held for a
     /// player whose connection is gone does not count them.
-    pub(crate) players_online: usize,
+    players_online: usize,
     /// @description Tables waiting for players.
-    pub(crate) tables_waiting: usize,
+    tables_waiting: usize,
 }
