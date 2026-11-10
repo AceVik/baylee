@@ -410,6 +410,50 @@ mod manifest_deck_tests {
         }
     }
 
+    /// A split carved out of train (`holdout2`) is selected by its name and
+    /// is in no train pool, the plain one or the expanded one.
+    #[test]
+    fn a_carved_out_split_is_selected_by_name_and_never_as_train() {
+        let manifest = json!({"decks": [
+            {"id": "eval/azorius-control", "path": "data/decks/eval/azorius-control.txt",
+             "split": "holdout2", "format": "constructed"},
+            {"id": "eval/red-burn", "path": "data/decks/eval/red-burn.txt",
+             "split": "train", "format": "constructed"},
+        ]});
+        let root = repo_root();
+        let keys =
+            |decks: Vec<HouseDeck>| decks.into_iter().map(|deck| deck.key).collect::<Vec<_>>();
+        let (holdout, _) =
+            select_manifest_decks(&manifest, &root, "holdout2", "constructed", "", false);
+        assert_eq!(keys(holdout), ["eval/azorius-control"]);
+        let (train, _) = select_manifest_decks(&manifest, &root, "train", "all", "", false);
+        assert_eq!(keys(train), ["eval/red-burn"]);
+        let path = std::env::temp_dir().join(format!("holdout2-{}.json", std::process::id()));
+        fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let working = Working::scan(&root).unwrap();
+        let held = deckgen::held_out(&working, 20);
+        let pool = deckgen::pool_for_working(&working, &held);
+        let (expanded, _, _) = load_expanded_training_decks(
+            Some(&path),
+            "train",
+            &working,
+            &held,
+            &pool,
+            2,
+            7,
+            7_777,
+            64,
+        )
+        .unwrap();
+        assert!(
+            expanded
+                .iter()
+                .all(|deck| deck.key != "eval/azorius-control")
+        );
+        assert!(expanded.iter().any(|deck| deck.key == "eval/red-burn"));
+        fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn a_template_is_held_out_where_its_manifest_entry_is() {
         let manifest = json!({"decks": [
