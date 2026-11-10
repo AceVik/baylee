@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use baylee_core::ids::{ObjectId, PlayerId, TargetRef};
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::PlayerAction;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_train::netplay4::reading;
 use baylee_view::{PlayerView, PublicObject, StackItem};
 use serde::Serialize;
@@ -50,6 +50,67 @@ struct Counter {
     /// `opponent`, `own`, `teammate` or `unknown`.
     whose: String,
     poor: bool,
+    /// Where and against what the seat cast it, when the cast was its own
+    /// answer in the record.
+    cast: Option<CastContext>,
+}
+
+/// The table as the seat cast a spell: whose turn and which step, the
+/// spells already on the stack by whose, and the legal targets the seat
+/// was asked to choose among (`None` when no target question came).
+#[derive(Clone, Debug, Default, Serialize)]
+struct CastContext {
+    turn_of: String,
+    step: String,
+    own_spells_on_stack: u32,
+    opponent_spells_on_stack: u32,
+    targets_offered: Option<u32>,
+    opponent_targets_offered: Option<u32>,
+}
+
+impl CastContext {
+    /// The context of a cast answered at `view`.
+    fn at(view: &PlayerView, side: &[PlayerId]) -> Self {
+        let (mut own, mut opponent) = (0, 0);
+        for spell in view
+            .stack
+            .iter()
+            .filter(|o| matches!(o.stack_item, None | Some(StackItem::Spell)))
+        {
+            if whose(view.seat, spell.controller, side) == "opponent" {
+                opponent += 1;
+            } else {
+                own += 1;
+            }
+        }
+        Self {
+            turn_of: whose(view.seat, view.active, side).to_owned(),
+            step: format!("{:?}", view.step),
+            own_spells_on_stack: own,
+            opponent_spells_on_stack: opponent,
+            targets_offered: None,
+            opponent_targets_offered: None,
+        }
+    }
+
+    /// Whether an opponent's spell stood to be aimed at instead: offered
+    /// by the target question, or (no question) on the stack.
+    fn opponent_alternative(&self) -> bool {
+        match self.opponent_targets_offered {
+            Some(offered) => offered > 0,
+            None => self.opponent_spells_on_stack > 0,
+        }
+    }
+
+    /// Whether the seat's own spell was the one legal target: the target
+    /// question offered one option, or no question came and only one
+    /// spell, the seat's, stood on the stack.
+    fn own_only(&self) -> bool {
+        match self.targets_offered {
+            Some(offered) => offered == 1 && self.opponent_targets_offered == Some(0),
+            None => self.opponent_spells_on_stack == 0 && self.own_spells_on_stack == 1,
+        }
+    }
 }
 
 /// A spell's kind: its first card type, in the order a reader names it.
@@ -143,6 +204,8 @@ fn game(run: &Path, deal: u64, seed: Option<u64>) -> anyhow::Result<Vec<Counter>
     // hand to stack), and the counterspells already counted while they
     // stay on the stack.
     let mut cast_by: BTreeMap<ObjectId, String> = BTreeMap::new();
+    let mut cast_at: BTreeMap<ObjectId, CastContext> = BTreeMap::new();
+    let mut last_cast: Option<ObjectId> = None;
     let mut counted: BTreeSet<ObjectId> = BTreeSet::new();
     let mut found = Vec::new();
     game.replay(false, |event| {
@@ -150,6 +213,27 @@ fn game(run: &Path, deal: u64, seed: Option<u64>) -> anyhow::Result<Vec<Counter>
             return Ok(());
         };
         let view = &decision.views[seat];
+        // The first target question after a cast is that cast's: its legal
+        // options, and how many of them are an opponent's.
+        if let Pending::ChooseTargets { options, .. } = decision.pending
+            && let Some(card) = decision
+                .asked
+                .and_then(|asked| asked.announced_cast)
+                .or(last_cast)
+            && let Some(context) = cast_at.get_mut(&card)
+            && context.targets_offered.is_none()
+        {
+            let opponent = options
+                .iter()
+                .filter(|id| {
+                    view.stack.iter().any(|o| {
+                        o.id == **id && whose(view.seat, o.controller, &side) == "opponent"
+                    })
+                })
+                .count();
+            context.targets_offered = u32::try_from(options.len()).ok();
+            context.opponent_targets_offered = u32::try_from(opponent).ok();
+        }
         counted.retain(|id| view.stack.iter().any(|o| o.id == *id));
         for spell in &view.stack {
             if spell.controller != view.seat
@@ -179,14 +263,43 @@ fn game(run: &Path, deal: u64, seed: Option<u64>) -> anyhow::Result<Vec<Counter>
                 mana_value,
                 whose,
                 poor,
+                cast: cast_at.get(&spell.id).cloned(),
             });
         }
         if let PlayerAction::CastSpell { card } = decision.action {
             cast_by.insert(*card, decision.source.to_owned());
+            cast_at.insert(*card, CastContext::at(view, &side));
+            last_cast = Some(*card);
         }
         Ok(())
     })?;
     Ok(found)
+}
+
+/// The counters aimed at the seat's own spells, by where they were cast:
+/// whose turn and step, whether an opponent's spell was there to aim at
+/// instead, and whether the own spell was the one legal target.
+fn own_target(counters: &[Counter]) -> Value {
+    let own: Vec<&Counter> = counters.iter().filter(|c| c.whose == "own").collect();
+    let mut by_turn_step: BTreeMap<String, u64> = BTreeMap::new();
+    let (mut known, mut alternative, mut only, mut asked) = (0, 0, 0, 0);
+    for context in own.iter().filter_map(|c| c.cast.as_ref()) {
+        known += 1;
+        *by_turn_step
+            .entry(format!("{} turn, {}", context.turn_of, context.step))
+            .or_default() += 1;
+        alternative += u64::from(context.opponent_alternative());
+        only += u64::from(context.own_only());
+        asked += u64::from(context.targets_offered.is_some());
+    }
+    json!({
+        "count": own.len(),
+        "cast_seen": known,
+        "with_an_opponent_spell_to_aim_at": alternative,
+        "own_spell_the_only_target": only,
+        "target_question_asked": asked,
+        "by_turn_and_step": by_turn_step,
+    })
 }
 
 /// Counts the seat's counterspells over every game of `run`; prints the
@@ -253,6 +366,7 @@ pub(super) fn count(run: &Path, threads: usize, out: Option<&Path>) -> anyhow::R
         "by_kind": tally(|c| c.kind.clone()),
         "by_mana_value": tally(|c| c.mana_value.map_or_else(|| "-".to_owned(), |mv| mv.to_string())),
         "by_source": tally(|c| c.source.clone()),
+        "own_target": own_target(&counters),
         "poor_cases": counters.iter().filter(|c| c.poor).collect::<Vec<_>>(),
         "not_judged": "whether the countered spell would have done anything",
     });
@@ -284,5 +398,29 @@ mod tests {
         assert_eq!(whose(p0, p2, &side), "teammate");
         assert_eq!(whose(p0, p1, &side), "opponent");
         assert_eq!(whose(p0, p1, &[p0]), "opponent");
+    }
+
+    #[test]
+    fn a_cast_reads_its_target_question_before_the_stack() {
+        let alone = CastContext {
+            own_spells_on_stack: 1,
+            ..CastContext::default()
+        };
+        assert!(alone.own_only() && !alone.opponent_alternative());
+        let offered = CastContext {
+            own_spells_on_stack: 1,
+            opponent_spells_on_stack: 1,
+            targets_offered: Some(1),
+            opponent_targets_offered: Some(0),
+            ..CastContext::default()
+        };
+        // An opponent's spell the counter cannot target is no alternative.
+        assert!(offered.own_only() && !offered.opponent_alternative());
+        let choice = CastContext {
+            targets_offered: Some(2),
+            opponent_targets_offered: Some(1),
+            ..offered
+        };
+        assert!(!choice.own_only() && choice.opponent_alternative());
     }
 }
