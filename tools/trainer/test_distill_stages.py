@@ -177,6 +177,33 @@ class DistillLoss(unittest.TestCase):
         self.assertEqual(mask[1, 1].item(), 1.5)
         self.assertEqual(mask[2, 2].item(), 1.)
 
+    def test_target_questions_join_the_scope_like_priority(self):
+        """ChooseTargets (kind 8) with subtype `target` gets CE at N != R, pools and reports alone."""
+        batch = with_subtypes(distill_batch())
+        vocabulary = SUBTYPES + ("target",)
+        batch["distill_subtype"][0, 2] = vocabulary.index("target")   # (0,2) ChooseTargets, N != R, R = 3
+        data = [SimpleNamespace(distill_subtypes=list(vocabulary), distill_groups=[])] * 2
+        scope = D.Scope.from_options((0, 8), 1., ("cast", "pass", "instant_their_turn", "spend", "target"), {}, data)
+        plans = plan_batch(batch, 0)
+        student = known_student()
+        logp = lambda lane, t, i: float(torch.log_softmax(student[t][1][lane, :4], -1)[i])
+        _, stats = D.distill_loss(student, copy.deepcopy(student), batch, plans, scope)
+        self.assertAlmostEqual(D.term_means(stats)["ce_r"], -(logp(0, 0, 1) + logp(0, 2, 3)) / 2, places=5)
+        # CE: cast, target; KL at N = R in scope: pass, spend; out of scope: mana, land; no other single choice.
+        self.assertEqual(stats[len(D.TERMS):].tolist()[:4], [2., 2., 2., 0.])
+        groups = {k: v.tolist() for k, v in D.agreement(student, batch, plans, scope, .05).items()}
+        self.assertEqual(groups["subtype:target"], [1, 1, 1, 1])
+        self.assertEqual(groups["distilled"], [4, 2, 4, 2])
+        self.assertEqual(groups["single"], [0, 0, 0, 0])
+        # A target question where neither group fired carries no subtype: it stays under the KL.
+        batch["distill_subtype"][0, 2] = -1
+        _, stats = D.distill_loss(student, copy.deepcopy(student), batch, plans, scope)
+        self.assertAlmostEqual(D.term_means(stats)["ce_r"], -logp(0, 0, 1), places=5)
+        self.assertEqual(stats[len(D.TERMS):].tolist()[:4], [1., 2., 3., 0.])
+        groups = {k: v.tolist() for k, v in D.agreement(student, batch, plans, scope, .05).items()}
+        self.assertEqual(groups["subtype:unknown"], [1, 1, 1, 1])
+        self.assertEqual(groups["distilled"], [3, 1, 3, 1])
+
     def test_scope_resolves_names_against_one_shared_vocabulary(self):
         data = [SimpleNamespace(distill_subtypes=list(SUBTYPES), distill_groups=["mass", "react"])] * 2
         scope = D.Scope.from_options((0,), .5, ("spend", "cast"), {"react": 2.}, data)
