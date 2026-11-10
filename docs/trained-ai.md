@@ -153,12 +153,14 @@ A collector pairing (`llm_collector4 collect --pairings-file`) may name
 `house:<level>` for a seat instead of a profile: the house plays it at that
 level (`baylee-seat join --mind house`), so each teacher can be measured
 against the opponent the trained net is benchmarked against (`house:sharp`).
-A seated house is not quite the evaluator's: it answers from its socket's
-view with `HeuristicAgent::act`, without the decision context and the
-scouting report of its own deck that an in-process chair answers with
-(`Session::house_answer`). `eval4 --house-as-seat` plays the net against
-the seated kind, so a ladder's house rung and the evaluator can be compared
-on the same opponent.
+A seated house answers as the evaluator's in-process chair does since
+10.11.2026: from its socket's view, the note the table sends beside each
+question (the decision context's public part) and the deck it brought
+(`baylee_ai::noted::answer_as_seated`, `docs/house-ai.md` §"The seated
+house"). Before that it answered from the view alone and was about eight
+points weaker. `eval4 --house-as-seat` plays the net against the seated
+kind, so a ladder's house rung and the evaluator can be compared on the
+same opponent.
 It sits in the chair of the slot's second account, `HOUSE-bench-<slot>`
 (hosting where it plays seat 0, joining chair 1 otherwise): a chair ticket
 seats only a language model, and a chair must be called what plays it.

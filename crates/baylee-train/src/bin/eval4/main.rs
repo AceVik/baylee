@@ -565,7 +565,7 @@ fn main() -> anyhow::Result<()> {
         let policy_seed = args.policy_seed;
         let k_steps = args.thinking_steps;
         let temp = args.temperature;
-        let fair = args.fair_scouting;
+        let fair = args.fair_scouting && !args.seer_peeks;
         let house_as_seat = args.house_as_seat;
         let no_base = args.no_baseline;
         let catalog = catalog_read(&args);
@@ -1013,6 +1013,7 @@ fn main() -> anyhow::Result<()> {
         None => Value::Null,
     };
     summary["random_policy"] = json!(args.random_policy);
+    summary["seer_peeks"] = json!(args.seer_peeks);
     summary["tactician"] = tactician_setup.as_ref().map_or(
         Value::Null,
         |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),

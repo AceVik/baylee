@@ -456,6 +456,22 @@ impl Session {
         self.frames_read = false;
     }
 
+    /// What `seat` is told its question is about, beside the question
+    /// (`ChoiceRequest::context`, `view::decision_note`): `None` where the
+    /// question explains itself or is not `seat`'s. For a harness that
+    /// answers a chair as a seat over a socket would (`eval4 --house-as-seat`).
+    #[must_use]
+    pub fn question_note(&self, seat: PlayerId) -> Option<baylee_engine::engine::DecisionNote> {
+        crate::view::decision_note(&self.engine, seat)
+    }
+
+    /// `pending`, as the question `seat` is asked: with what it is about
+    /// (`view::decision_note`), which only the seat it asks is told.
+    fn question(&self, seat: PlayerId, pending: &Pending) -> Envelope {
+        let note = crate::view::decision_note(&self.engine, seat);
+        question_envelope(self.seq, pending, note.as_ref())
+    }
+
     /// The table as the house and its agents read it ([`table::Table`]).
     fn table(&self) -> table::Table<'_> {
         table::Table {
@@ -651,11 +667,22 @@ fn state_delta(seq: u64, view_frame: Vec<u8>, log: Vec<u8>) -> Envelope {
 }
 
 fn choice_envelope(seq: u64, pending: &Pending) -> Envelope {
+    question_envelope(seq, pending, None)
+}
+
+/// A question and what it is about (`view::decision_note`), for the seat it
+/// asks.
+fn question_envelope(
+    seq: u64,
+    pending: &Pending,
+    note: Option<&baylee_engine::engine::DecisionNote>,
+) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: String::new(),
             seq,
             pending: baylee_core::wire::encode(pending),
+            context: note.map(baylee_core::wire::encode).unwrap_or_default(),
         })),
     }
 }

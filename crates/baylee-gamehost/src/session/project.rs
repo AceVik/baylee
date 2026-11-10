@@ -602,6 +602,7 @@ pub fn summary(record: &[u8]) -> Result<Summary, ReplayError> {
                     SeatController::Ai(profile) => Controller::House(
                         baylee_core::preset::AIProfile::NAMED
                             .iter()
+                            .chain(&baylee_core::preset::AIProfile::REFERENCES)
                             .find(|(_, named)| named == profile)
                             .map(|(key, _)| (*key).to_owned())
                             .unwrap_or_default(),

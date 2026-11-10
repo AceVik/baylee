@@ -968,7 +968,10 @@ The host answers (`scouting::request`): it checks the **current**
 alone whatever it asked (`own_deck_only`). `Session::set_fair_scouting`
 holds even `seer` to its own deck, which is what evaluation and self-play
 set, so a measurement never depends on hidden cards whatever it seats; a
-hosted table never calls it, because its fair levels are fair without it. A
+hosted table never calls it, because its fair levels are fair without it.
+To measure `seer` itself, eval4 takes `--seer-peeks`, which lets the level
+that peeks be told what it peeks at and holds every other chair fair as
+before; its summary says so (`seer_peeks`). A
 profile built from the protobuf `AiProfile` message is fair, since the
 message has no field for sight; a peeking profile is chosen by its name.
 `Sight` reads as `Fair` from a preset or record written before it.
@@ -1097,6 +1100,52 @@ answer out would violate the stronger requirement that the same complete input
 always produce the same action. Latency is measured externally with
 `cargo bench -p baylee-ai --bench decisions -- --quick`; time is never a
 policy input. Custom profile horizons above two are capped.
+
+## The seated house
+
+`baylee-seat --mind house` (the ladder's and the collector's `house:<level>`)
+and the LLM seat's house fallback answer as the table's own house chair
+does (owner, 10.11.2026). An in-process chair answers from the engine's
+`DecisionContext` and the report of its own deck; a seat used to answer
+from its socket's view alone, which measured about 8 points weaker than the
+benchmark's in-process `sharp` (v6t campaign, L1s).
+
+Now the seat is given both, from what a player at the table is given:
+
+- **The decision context.** The table sends the asked seat a
+  `DecisionNote` beside its question (`ChoiceRequest.context`,
+  `docs/protocol.md` §"What a question is about"): which printed ability or
+  mode asks, how far a resolving ability has run, the cast route, the X,
+  the second instance of "target" and what the first chose, a clone's
+  copy question. `baylee_ai::noted::Noted` rebuilds the context from the
+  card registry. What the registry cannot give back (an ability a
+  continuous effect grants, a reflexive trigger's body, a resolution's
+  spliced operations) stays empty, as the in-process house leaves an
+  ability it cannot read.
+- **Its own deck.** The seat knows the deck it brought
+  (`GameContext::deck`); `HouseMind` analyses it as the host analyses a
+  submitted list and answers through `HeuristicAgent::act_with_own_deck`,
+  the report a fair chair is handed in-process, built from the seat's own
+  list. A seat that knows no deck answers without it.
+
+Both `HouseMind` and eval4 `--house-as-seat` answer through one function,
+`baylee_ai::noted::answer_as_seated`, which also strips the socket view as
+`Session::agent_view` builds a house chair's (`seated_view`).
+
+`baylee-seat/tests/seated_house.rs` holds the two to each other: at every
+question of four hosted duels on the house decks, the seated house's answer
+(from `view_for_with_context`, the question's note and the deck list) is set
+beside the answer the table's own chair gave.
+On 10.11.2026, over four duels (allytifact–victory, victory–maik,
+schwarzrand–weltenbaum, maik–schwarzrand), the seated house gave the
+table's answer at all 3,070 of its questions; with the view alone it had
+given it at 3,028. The difference was all in questions a context explains:
+target choices (68 of 68, from 30), numbers (2 of 2, from 0) and players
+(2 of 2, from 0). Its own deck changed no answer the view alone missed in
+these games. The test asserts at least 99 %, and more than before.
+`tests/question_note.rs` holds the note to its rule: told to the asked seat
+alone, read back off the wire as built, and naming no card the seat cannot
+see.
 
 ## The frozen reference: `sharp-2026-11`
 

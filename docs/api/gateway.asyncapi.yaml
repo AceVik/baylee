@@ -237,6 +237,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -942,6 +947,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -1666,6 +1676,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -2332,6 +2347,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -2998,6 +3018,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -3666,6 +3691,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -4336,6 +4366,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -5058,6 +5093,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -5724,6 +5764,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -6390,6 +6435,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -7058,6 +7108,11 @@ channels:
               uint64 seq = 2;
               // baylee_core::wire-encoded engine Pending.
               bytes pending = 3;
+              // baylee_core::wire-encoded engine DecisionNote: what the question is
+              // about (which printed ability or mode asks, the X, the cast route), sent
+              // only to the seat it asks and only for a source that seat may see. Empty
+              // when the question explains itself; a client may ignore it.
+              bytes context = 4;
             }
 
             // Client → server: the seat's answer.
@@ -8324,6 +8379,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -8990,6 +9050,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -9656,6 +9721,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -10322,6 +10392,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -10988,6 +11063,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -11654,6 +11734,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -12320,6 +12405,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -12992,6 +13082,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -13658,6 +13753,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -14324,6 +14424,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -14990,6 +15095,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -15656,6 +15766,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -16322,6 +16437,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -16988,6 +17108,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -17660,6 +17785,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -18326,6 +18456,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -18998,6 +19133,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -19664,6 +19804,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -20330,6 +20475,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -20996,6 +21146,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -21662,6 +21817,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -22328,6 +22488,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -22994,6 +23159,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -23660,6 +23830,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -24326,6 +24501,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -24992,6 +25172,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -25658,6 +25843,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -26324,6 +26514,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -26990,6 +27185,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -27656,6 +27856,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -28322,6 +28527,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -28988,6 +29198,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -29654,6 +29869,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -30320,6 +30540,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.
@@ -30986,6 +31211,11 @@ components:
             uint64 seq = 2;
             // baylee_core::wire-encoded engine Pending.
             bytes pending = 3;
+            // baylee_core::wire-encoded engine DecisionNote: what the question is
+            // about (which printed ability or mode asks, the X, the cast route), sent
+            // only to the seat it asks and only for a source that seat may see. Empty
+            // when the question explains itself; a client may ignore it.
+            bytes context = 4;
           }
 
           // Client → server: the seat's answer.

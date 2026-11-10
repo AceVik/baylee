@@ -1993,8 +1993,11 @@ context and a private scouting report to an active house AI. A fair level
 (every level but `seer`, `docs/house-ai.md` §"Fair by default, and the one
 level that peeks") is told its own submitted deck and nothing hidden; only
 `seer` is given the privilege of current hands, opponents' submitted decks
-and library depth, and every list of levels labels it unfair. None is added to `Pending`, `PlayerView`,
-`GameStatic`, or a protocol envelope, so this does not change the view version.
+and library depth, and every list of levels labels it unfair. No scouting
+report is added to `Pending`, `PlayerView`, `GameStatic`, or a protocol
+envelope, so this does not change the view version. The decision context's
+public part does ride beside a seat's question, for the seat it asks
+(§"What a question is about").
 
 The authorization lives in `gamehost::scouting::request`, which checks the
 current controller and its level for every call. Only `SeatKind::Ai`
@@ -5627,6 +5630,33 @@ still charges the right price. No protocol or view version moves.
 Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
 linked counters will be removed. The German/English client and seat narrator
 explain the consequence before confirmation. No view schema change is needed.
+
+### What a question is about
+
+`ChoiceRequest.context` (field 4, additive: absent or empty reads as no
+note, and an old client ignores it) is a `baylee_core::wire`-encoded
+`baylee_engine::engine::DecisionNote`: the public part of the engine's
+`DecisionContext` for the question it rides with, owned. Which printed
+ability or mode asks (`printed` as card and face, or a registry `token`,
+`ability` as its place in that printed list, `mode`), how far a resolving
+ability has run (`done`), the cast route (`cast_mode`, `alternative_cost`,
+`cost`), the X (`x`, `life_x`, `x_targets`), the second instance of
+"target" and what the first chose (`second_instance`, `first_targets`),
+and whether the question is what a clone enters as a copy of (`copying`,
+`copy_mods`). A seat that answers as the house does rebuilds the context
+from the card registry (`baylee_ai::noted`), so `baylee-seat --mind house`
+and its house fallback answer from the context the table's own house reads
+(`docs/house-ai.md` §"The seated house").
+
+It tells the seat nothing its view does not. The host builds it
+(`gamehost::view::decision_note`) only for the seat that answers the
+question (`decision_actor`, as `targeting`), never for a spectator or a
+replay, and only names the asking card where that seat may see the source
+with its identity (`public_object` with a card, rules or token): for a
+source it may not, the note keeps the route, the X and the targets the seat
+named itself and drops which card asks (`DecisionNote::without_identity`).
+A note the seat cannot read is no note; the question stands as before. The
+gateway forwards it as every seat frame, without decoding it.
 
 ## Mutate and dungeon resolution choices (protocol 35, view 82)
 

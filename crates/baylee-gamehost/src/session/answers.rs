@@ -1,4 +1,4 @@
-use super::{Session, by_clock, choice_envelope, clock_answer, frames_of};
+use super::{Session, by_clock, clock_answer, frames_of};
 use crate::record::Source;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -163,7 +163,7 @@ impl Session {
         let mut out = frames_of(self.seq, frame, log);
         let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));
         if let Some(pending) = self.engine.pending_for(seat).or(over) {
-            out.push(choice_envelope(self.seq, pending));
+            out.push(self.question(seat, pending));
         }
         out
     }

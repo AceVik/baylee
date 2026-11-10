@@ -177,6 +177,7 @@ impl LlmChair {
                 continuing: false,
                 // This chair keeps no `until` plan, so none ever ends.
                 held: None,
+                note: None,
             };
             // A call is counted before it is sent, so games in flight
             // together never pass the cap; past it the house answers.

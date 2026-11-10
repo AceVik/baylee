@@ -93,6 +93,7 @@ fn moments() -> Vec<TapeMoment> {
             game_id: String::new(),
             seq: 9,
             pending: baylee_core::wire::encode(pending),
+            context: Vec::new(),
         })),
     };
     vec![
@@ -190,6 +191,7 @@ fn from_moments_keeps_only_the_end_of_the_questions() {
             game_id: String::new(),
             seq: 1,
             pending: baylee_core::wire::encode(pending),
+            context: Vec::new(),
         })),
     };
     let moment = |frames| TapeMoment {

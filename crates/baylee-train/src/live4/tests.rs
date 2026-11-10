@@ -147,6 +147,7 @@ fn question(seq: u64) -> Vec<u8> {
         game_id: "test-game".into(),
         seq,
         pending: baylee_core::wire::encode(&pending),
+        context: Vec::new(),
     }))
 }
 
@@ -279,6 +280,7 @@ fn simultaneous_opening_resends_at_later_seq_are_not_answered_twice() {
                 game_id: "test-game".into(),
                 seq,
                 pending: baylee_core::wire::encode(&pending),
+                context: Vec::new(),
             }))
         };
         assert_eq!(seat.hear(&ask(1)).unwrap().len(), 1);
@@ -307,6 +309,7 @@ fn changed_opening_count_and_normal_identical_question_at_later_seq_are_new_choi
             game_id: "test-game".into(),
             seq,
             pending: baylee_core::wire::encode(&pending),
+            context: Vec::new(),
         }));
         assert_eq!(seat.hear(&ask).unwrap().len(), 1);
     }
@@ -430,6 +433,7 @@ fn wire_draw_offer_reports_rule_override_separately_from_learned_net() {
                 game_id: "test-game".into(),
                 seq: 1,
                 pending: baylee_core::wire::encode(&pending),
+                context: Vec::new(),
             },
         )))
         .unwrap();
@@ -820,6 +824,7 @@ fn a_decision_for_a_controlled_player_is_answered() {
                 player: them,
                 options: vec![ManaColor::Red, ManaColor::Green],
             }),
+            context: Vec::new(),
         }))
     };
     let awaiting = |seq: u64, who: PlayerId| {

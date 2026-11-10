@@ -27,6 +27,7 @@ mod granted;
 mod held;
 pub mod intelligence;
 mod land;
+pub mod noted;
 mod optional;
 mod policy;
 mod proliferate;

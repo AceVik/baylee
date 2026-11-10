@@ -64,8 +64,11 @@ pub struct DecisionContext<'a> {
     pub copying: Option<&'static [CopyMod]>,
 }
 
-/// Effects of the chosen ability or mode. An unknown ability stays unknown.
-fn effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [Effect] {
+/// Effects of the chosen ability or mode. An unknown ability stays unknown:
+/// what a printed ability asks with, read the way [`Engine::decision_context`]
+/// reads it, for a seat that rebuilds the context from a [`super::DecisionNote`].
+#[must_use]
+pub fn ability_effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [Effect] {
     match ability {
         AbilityDef::Spell { effects, .. }
         | AbilityDef::Activated { effects, .. }
@@ -281,7 +284,7 @@ impl<L: CardLookup> Engine<L> {
                 mode,
                 effects: list
                     .and_then(|list| list.abilities.get(index as usize))
-                    .map_or(&[], |a| effects(a, mode)),
+                    .map_or(&[], |a| ability_effects(a, mode)),
                 x: self.activation_x.unwrap_or(0),
                 second_instance: matches!(
                     self.pending_plan,
@@ -367,7 +370,7 @@ impl<L: CardLookup> Engine<L> {
                 .abilities_for_face(face)
                 .iter()
                 .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
-                .map_or(&[], |a| effects(a, mode)),
+                .map_or(&[], |a| ability_effects(a, mode)),
             cast_mode: wizard.option,
             alternative_cost: wizard.alternative_cost,
             cost: wizard
@@ -435,7 +438,7 @@ mod provenance_tests {
         };
         let original = engine.state.printed_ability_list(source).unwrap();
         let copied = compose(original, &own, 0, mods, None);
-        let captured_effects = effects(copied.abilities.get(1).unwrap(), None);
+        let captured_effects = ability_effects(copied.abilities.get(1).unwrap(), None);
         engine.activating_abilities = Some((source, copied));
         engine.pending_plan = Some(PlanKind::ActivateAbility {
             source,

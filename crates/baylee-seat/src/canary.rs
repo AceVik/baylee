@@ -63,6 +63,7 @@ pub fn question(budget: Duration) -> Request {
         retry: None,
         continuing: false,
         held: None,
+        note: None,
     }
 }
 

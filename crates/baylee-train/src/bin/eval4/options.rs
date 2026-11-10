@@ -192,13 +192,18 @@ struct Args {
     /// (`seer`) too; every other level is fair at any table.
     #[arg(long, default_value_t = true)]
     fair_scouting: bool,
+    /// Let a level that peeks (`seer`) be told what it peeks at, despite
+    /// `--fair-scouting`: for measuring `seer` against the fair levels, never
+    /// for a benchmark of the net. Every other level stays fair either way.
+    #[arg(long)]
+    seer_peeks: bool,
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).
     #[arg(long)]
     no_baseline: bool,
     /// The house chairs answer as a seat's `--mind house` does over the
     /// gateway (`baylee_seat::HouseMind`, the ladder's `house:<level>`): from
-    /// the socket's view, with no decision context and no scouting report,
-    /// not as an in-process house chair. Compares the seat path's opponent
+    /// the socket's view, the note beside its question and its own deck list
+    /// (`baylee_ai::noted::answer_as_seated`), not as an in-process chair. Compares the seat path's opponent
     /// with the benchmark's; the summary's `against` reads `seat:<level>`.
     #[arg(long)]
     house_as_seat: bool,

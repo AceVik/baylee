@@ -1095,5 +1095,39 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
     })
 }
 
+/// What `seat` is told its question is about ([`DecisionNote`]), or `None`
+/// where the question explains itself or is not `seat`'s.
+///
+/// Only the seat that answers is told (`decision_actor`, as
+/// [`targeting_context`]), and only of a source it may see with its
+/// identity: for one it may not, the note keeps the cast route, the X and
+/// the targets the seat has named itself, and drops which card asks. So it
+/// tells the seat nothing its view does not: the asking spell is its own
+/// cast or an object on the table, the ability is printed on a card it is
+/// shown, and the rest is what the seat chose.
+///
+/// [`DecisionNote`]: baylee_engine::engine::DecisionNote
+pub(crate) fn decision_note<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+    seat: PlayerId,
+) -> Option<baylee_engine::engine::DecisionNote> {
+    if engine.decision_actor() != Some(seat) {
+        return None;
+    }
+    let note = engine.decision_note();
+    let seen = note
+        .source
+        .and_then(|id| public_object(&ViewBoard::new(engine.state()), id, seat));
+    let note = match seen {
+        Some(object)
+            if object.card.is_some() || object.rules.is_some() || object.token.is_some() =>
+        {
+            note
+        }
+        _ => note.without_identity(),
+    };
+    (!note.is_empty()).then_some(note)
+}
+
 #[cfg(test)]
 mod tests;
