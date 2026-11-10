@@ -171,7 +171,8 @@ fn load_expanded_training_decks(
         let raw =
             fs::read(mpath).with_context(|| format!("reading manifest {}", mpath.display()))?;
         let val: Value = serde_json::from_slice(&raw)?;
-        let (loaded, m_skipped) = select_manifest_decks(&val, &repo_root(), split, "all", "", false);
+        let (loaded, m_skipped) =
+            select_manifest_decks(&val, &repo_root(), split, "all", "", false);
         skipped = m_skipped;
         for deck in loaded {
             let usable = if deck.failing(working).is_empty() {
@@ -304,7 +305,12 @@ mod manifest_deck_tests {
         assert!(decks.is_empty());
         assert_eq!(skipped.len(), 1);
         assert_eq!(skipped[0]["id"], "gone");
-        assert!(skipped[0]["reason"].as_str().unwrap().starts_with("unreadable"));
+        assert!(
+            skipped[0]["reason"]
+                .as_str()
+                .unwrap()
+                .starts_with("unreadable")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -333,7 +339,11 @@ mod manifest_deck_tests {
             .filter(|entry| entry["split"] != "train")
             .filter_map(|entry| entry["path"].as_str())
             .filter(|path| path.starts_with("data/decks/") && path.matches('/').count() == 2)
-            .map(|path| path["data/decks/".len()..].trim_end_matches(".txt").to_owned())
+            .map(|path| {
+                path["data/decks/".len()..]
+                    .trim_end_matches(".txt")
+                    .to_owned()
+            })
             .collect()
     }
 
@@ -346,7 +356,11 @@ mod manifest_deck_tests {
         assert!(!held_templates.is_empty());
         for deck in decks {
             if let Some(split) = splits.get(&deck.key) {
-                assert_eq!(split, "train", "{} of the {split} split was seated", deck.key);
+                assert_eq!(
+                    split, "train",
+                    "{} of the {split} split was seated",
+                    deck.key
+                );
             }
             assert!(
                 !held_templates.contains(&deck.key),
@@ -366,8 +380,7 @@ mod manifest_deck_tests {
         let held = deckgen::held_out(&working, 20);
         let pool = deckgen::pool_for_working(&working, &held);
         let manifest_path = repo_root().join("data/decks/manifest.v4.json");
-        let manifest: Value =
-            serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        let manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
         for seats in [2, 4] {
             let (decks, _, _) = load_expanded_training_decks(
                 Some(&manifest_path),
@@ -390,7 +403,8 @@ mod manifest_deck_tests {
         .unwrap();
         assert_train_only(&decks, &manifest);
         for shape in ["all", "constructed", "commander"] {
-            let (decks, _) = select_manifest_decks(&manifest, &repo_root(), "train", shape, "", false);
+            let (decks, _) =
+                select_manifest_decks(&manifest, &repo_root(), "train", shape, "", false);
             assert!(!decks.is_empty(), "{shape}");
             assert_train_only(&decks, &manifest);
         }
@@ -443,7 +457,9 @@ mod manifest_deck_tests {
                 .filter_map(|entry| entry["id"].as_str())
                 .collect();
             assert!(
-                decks.iter().any(|deck| of_format.contains(deck.key.as_str())),
+                decks
+                    .iter()
+                    .any(|deck| of_format.contains(deck.key.as_str())),
                 "no {format} deck of the train split"
             );
         }
