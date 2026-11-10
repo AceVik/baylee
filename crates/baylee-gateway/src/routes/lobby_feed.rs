@@ -20,7 +20,9 @@ use crate::{
 /// sent as the socket opens and again, whole, whenever anything in the lobby
 /// changes (a table opened or closed, a chair taken, freed, arranged or
 /// readied, a game started or ended, the first engine agent arriving or the
-/// last one leaving). It is the object `GET /lobby/games` answers for the
+/// last one leaving, an account coming online or going, told at most once a
+/// second). A page identical to the one this socket was sent last is not
+/// sent again. It is the object `GET /lobby/games` answers for the
 /// same query, rendered for the caller. A reader that falls behind is sent
 /// the newest page, never the ones it missed. A change of search or page is
 /// a new subscription, so close the socket and open another with the new

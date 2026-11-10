@@ -2562,6 +2562,9 @@ A signed-in player may watch a running table whose host allowed it
   waited for by the curtain, never on a clock, and may leave at any time.
 - **Seats are told.** Each attached seat is sent `Spectators { count }`
   (inside its `SeatFrame`) when the count moves and when it attaches.
+- **Spectators are told too.** The watch socket is sent the same
+  `Spectators { count }` after a snapshot and whenever the count moves while
+  anybody watches.
 
 ## The curtain: prepare together, enter together (#256)
 
@@ -3878,7 +3881,12 @@ joined first; a group nobody is left in is deleted.
 **Table invites** live ten minutes in the gateway's memory.
 `POST /lobby/games/{id}/join` takes an additive `invite: "<id>"`: a live
 `join` invite for the caller and this room stands in for the room's password
-and is spent by the join (`invite_gone {answer:"accepted"}` to both). A
+and is spent by the join (`invite_gone {answer:"accepted"}` to both). Any
+join, with or without one named, also spends every other live `join` invite
+the caller holds to that room, each answered the same way. Once the room
+starts, its remaining `join` invites are closed: `invite_gone {answer:null}`
+to both ends. `watch` invites and invites to other rooms are left as they
+are. A
 `watch` invite is only a pointer: watching uses the spectator door as
 always.
 
@@ -5059,6 +5067,14 @@ also what a deploy looks like from the lobby: it stops this machine's agent
 before it replaces the gateway (`baylee-deploy`, crate baylee-ops). A listing
 without the field comes from an older gateway and means `true`. It is an
 added field, not a new message, so `PROTOCOL_VERSION` does not move.
+
+Every listing, pushed or asked for, also carries `stats`, the three numbers
+of `GET /lobby/stats` below, so the lobby header needs no second request. A
+pushed page that would be byte-for-byte the one this socket was sent last is
+not sent again. An account's first socket opening or its last closing wakes
+the lobby at once if nothing came or went in the second before; whatever
+comes or goes within that second is told once, at its end, so
+`players_online` may lag about a second.
 
 ### How busy it is: `GET /lobby/stats` (WG-0)
 
