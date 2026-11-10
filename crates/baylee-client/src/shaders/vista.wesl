@@ -1,4 +1,4 @@
-// Baylee's World (front door) & Enchanted Aventurian Tavern (lobby interior).
+// Baylee's World (front door) & an enchanted tavern (lobby interior).
 // Both scenes stream 16:9 4K 60fps video loops into `sanctuary`.
 // All textures are original; live effects never sample card art.
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;

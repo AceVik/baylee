@@ -610,7 +610,7 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
                     - vec2<f32>(t * 0.21, t * 0.31),
             ) - 0.5,
         );
-        let caustic = smoothstep(0.22, 0.015, c_a * 0.6 + c_b * 0.4) * (0.45 + 0.55 * depth);
+        let caustic = (1.0 - smoothstep(0.015, 0.22, c_a * 0.6 + c_b * 0.4)) * (0.45 + 0.55 * depth);
         let ripple = max(sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8), 0.0);
         let r2 = ripple * ripple;
         let r4 = r2 * r2;
