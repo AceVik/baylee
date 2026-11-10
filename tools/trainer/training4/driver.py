@@ -398,10 +398,18 @@ def main(default_architecture="v4") -> None:
 
     def refresh_windows(reason):
         began = time.perf_counter()
-        windows.refresh(net, device, args.window_state_lanes, args.thinking_steps, use_bf16,
-                        args.num_workers, args.board_token_budget)
+        # Only the untouched --init weights may reuse a cached pass.
+        initial = optimizer_updates == 0 and args.init and args.window_state_cache
+        if initial:
+            from torch_io4 import file_digest
+            init_pt = Path(args.init).expanduser()
+            init_pt = init_pt / "net.pt" if init_pt.is_dir() else init_pt
+        origin = windows.refresh(net, device, args.window_state_lanes, args.thinking_steps, use_bf16,
+                                 args.window_state_workers, args.board_token_budget,
+                                 cache=args.window_state_cache if initial else None,
+                                 source=file_digest(init_pt) if initial else None)
         net.train()
-        print(f"[windows] states reason={reason} pieces={len(windows.pieces)} "
+        print(f"[windows] states reason={reason} origin={origin} pieces={len(windows.pieces)} "
               f"seconds={time.perf_counter() - began:.1f} frames={windows.statistics['frames']}", flush=True)
 
     t0 = time.perf_counter()

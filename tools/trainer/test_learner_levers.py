@@ -261,6 +261,24 @@ class DecisionWindows(unittest.TestCase):
                                                                    rtol=1e-5, atol=1e-5)
                                     t += 1
 
+    def test_state_cache_reuses_only_the_same_plan_and_weights(self):
+        decisions = [np.array([0, 0, 1, 0, 1, 0], bool), np.array([0, 1, 0, 0], bool)]
+        dataset = FakeTrajectories([6, 4], 4, decisions)
+        net = tiny_net().eval()
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = Path(temporary) / "states.pt"
+            first = W.WindowTraining(dataset, 1, 4, 2, seed=0)
+            with torch.no_grad():
+                self.assertEqual(first.refresh(net, CPU, 2, 2, False, 0, 0, cache=cache, source="a"), "computed")
+            second = W.WindowTraining(dataset, 1, 4, 2, seed=0)
+            with patch.object(W, "window_states", side_effect=AssertionError("recomputed")):
+                self.assertEqual(second.refresh(net, CPU, 2, 2, False, 0, 0, cache=cache, source="a"), "cache")
+                with self.assertRaisesRegex(ValueError, "another plan"):
+                    second.refresh(net, CPU, 2, 2, False, 0, 0, cache=cache, source="b")
+                with self.assertRaisesRegex(ValueError, "another plan"):
+                    W.WindowTraining(dataset, 2, 4, 2, seed=0).refresh(net, CPU, 2, 2, False, 0, 0, cache=cache, source="a")
+            torch.testing.assert_close(second.states, first.states, rtol=0, atol=0)
+
     def test_reset_gradient_stops_at_piece_start(self):
         decisions = [np.array([0, 1, 0, 0, 1], bool)]
         dataset = FakeTrajectories([5], 5, decisions)

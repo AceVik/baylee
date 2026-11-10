@@ -15,6 +15,8 @@ never change memory (K>0 keeps H), so that pass encodes passive frames only.
 """
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 import random
 
 import numpy as np
@@ -305,10 +307,30 @@ class WindowTraining:
         self.lanes = WindowLanes(dataset, self.rows, self.pieces, length)
         self.sampler = WindowBatchSampler(self, lanes_per_batch, length, seed, entity_bucket, fraction)
 
-    def refresh(self, net, device, lanes, thinking_steps, bf16, workers, token_budget):
+    def refresh(self, net, device, lanes, thinking_steps, bf16, workers, token_budget, cache=None, source=None):
+        """Recompute stored H with the current weights.
+
+        `cache`, with `source` naming the exact weights, reuses an earlier pass of
+        the same plan and weights; it is only for the untouched initial weights.
+        """
+        key = dict(version=1, source=source, burn_in=self.burn_in, length=self.length,
+                   fingerprint=self.dataset.fingerprint, thinking_steps=thinking_steps, bf16=bool(bf16),
+                   pieces=hashlib.sha256(self.pieces.tobytes()).hexdigest())
+        if cache is not None and Path(cache).exists():
+            saved = torch.load(cache, map_location="cpu", weights_only=False)
+            if saved["key"] != key:
+                raise ValueError("Window state cache belongs to another plan or checkpoint")
+            self.states, self.entities = saved["states"], saved["entities"]
+            return "cache"
         # Pageable on purpose: with B=0 the table is about 23 KB per decision.
         self.states, self.entities = window_states(net, self.dataset, self.pieces, device, lanes,
                                                    thinking_steps, bf16, workers, token_budget)
+        if cache is not None:
+            Path(cache).parent.mkdir(parents=True, exist_ok=True)
+            temporary = Path(str(cache) + ".tmp")
+            torch.save(dict(key=key, states=self.states, entities=self.entities), temporary)
+            temporary.replace(cache)
+        return "computed"
 
     def resets(self, host, device):
         """Per frame, the lanes whose memory a stored state replaces, or None."""
