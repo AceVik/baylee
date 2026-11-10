@@ -46,10 +46,13 @@ impl Table<'_> {
     ///   slow machine, legally and invisibly (#87). A clock's answer is
     ///   where it would bite first, since that view exists because the
     ///   number ran out.
-    /// - **No teammate's hand** (#265). Only `Session::show_hands` puts one
-    ///   into a view, on the way to a socket, and this never calls it, so a
-    ///   chair the house holds for an absent player is played from what it
-    ///   was played from before hands could be shown.
+    /// - **No teammate's hand** (#265). This builder adds none. Only
+    ///   `Session::show_hands` (on the way to a socket) and
+    ///   [`Self::show_shared_hands`] (for `view_for` and `observe_view`) put
+    ///   one into a view, and both only for a seat answered over a socket or
+    ///   by an external model, so a chair the house holds for an absent
+    ///   player is played from what it was played from before hands could be
+    ///   shown.
     pub(super) fn agent_view(&self, player: PlayerId, pending: &Pending) -> PlayerView {
         let engine = self.engine;
         crate::view::player_view(
