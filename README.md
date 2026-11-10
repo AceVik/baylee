@@ -28,12 +28,12 @@
 </p>
 
 > [!NOTE]
-> **Baylee is in closed beta.** This page describes version **0.1.0-beta.8b**,
+> **Baylee is in open beta.** This page describes version **0.1.0-beta.8b**,
 > a pre-release for **Windows, macOS and Linux** computers. The public server,
 > **Baylee Sanctuary** at `https://gateway.baylee.app`, is played with a Baylee
-> account, and creating one at [baylee.app](https://baylee.app/register)
-> takes a closed-beta key. Without a key you can still play offline against
-> the house AI, build decks, or run a server of your own for your group.
+> account, which anybody can create at [baylee.app](https://baylee.app/register).
+> Without an account you can still play offline against the house AI, build
+> decks, or run a server of your own for your group.
 
 ## Contents
 
@@ -412,15 +412,13 @@ first sign in there, and again when they change. Where the operator names a
 legal notice (Impressum), the client links it on the front door's *About*,
 beside the terms and under *Settings → Network*.
 
-### Getting in: closed-beta keys
+### Getting in
 
-Baylee Sanctuary is a closed beta: **creating a Baylee account needs a
-key** of the form `CENTRAL-XXXX-XXXX-XXXX-XXXX`, which you enter on the
-website's sign-up form. Keys are handed out by the project owner
-([@AceVik](https://github.com/AceVik)). Once you have an account, you sign
-in with username and password and need no key again. A gateway someone runs
-for their own group can be a closed beta too, with keys of its own
-(`BAYLEE-XXXX-XXXX-XXXX-XXXX`, [below](#4-closed-beta-keys)).
+Baylee Sanctuary is an open beta: **anybody can create a Baylee account** on
+the website's sign-up form, and signs in with username and password from
+then on. The closed beta's keys are gone. A gateway someone runs for their
+own group decides for itself whether it lets anybody new in
+([below](#4-who-may-come-in-new)).
 
 ## Playing with friends
 
@@ -597,7 +595,7 @@ How it gets in: your client asks the gateway for a short-lived **chair
 ticket** for that chair and hands it to the seat bridge (`baylee-seat`,
 which ships with the client). The model sits in the chair as *your*
 delegate, named `LLM-…`, without an account of its own, so when you are
-signed in with an account this works on a closed-beta gateway too. If the model fails, runs out of time or answers
+signed in with an account this works on a gateway that takes no guests too. If the model fails, runs out of time or answers
 something illegal, the house answers that one question for it.
 
 **For tinkerers**, the same bridge runs from a terminal. Start a local
@@ -742,7 +740,7 @@ arguments it is an unauthenticated development harness.
 | `PORT` | Port to listen on (default `28766`). |
 | `BAYLEE_AGENT_TOKEN` | The agent's secret. Without it, no agent can connect. |
 | `BAYLEE_GATEWAY_NAME` | The name clients show for the gateway. |
-| `BAYLEE_REGISTRATION` | Who may come in new as a guest. Unset: anybody. `invite`: closed beta, keys needed. `off`: nobody new. Accounts are Baylee Central's, never the gateway's. |
+| `BAYLEE_REGISTRATION` | Whether a Baylee account new to this gateway may come in. Unset or `open`: anybody (the open beta's setting). `off`: nobody new. `invite`, the closed beta's setting, now stops the gateway from starting. Accounts are Baylee Central's, never the gateway's. |
 | `BAYLEE_AUTH_MODE` | Whom the gateway lets in: `guests`, `central` (Baylee Central's accounts, the default) or `mixed` (both). Unset, the admin console chooses (*Who comes in*); set, it wins and locks that choice. A gateway not connected to Central lets no Central account in yet, so for your own group set `guests`. `BAYLEE_GUEST_CAP` limits live guests (default 1000). |
 | `BAYLEE_TRUSTED_PROXIES` | Address of your reverse proxy, so rate limits see the real client IP. |
 | `BAYLEE_ART_PATH` / `BAYLEE_DECK_IMAGE_PATH` | Where card art is cached and uploaded sleeves/mats are stored (`off` disables them). |
@@ -758,21 +756,14 @@ The gateway answers `GET /source` with its licence, version and commit
 without asking for sign-in. The AGPL requires you to offer your source to the
 people who use your server, and this route does that for you.
 
-### 4. Closed-beta keys
+### 4. Who may come in new
 
-With `BAYLEE_REGISTRATION=invite`, you create keys on the server:
-
-```bash
-baylee-gateway invite create --uses 1 --expires 30d --note "Max"
-baylee-gateway invite list
-baylee-gateway invite revoke <id>
-```
-
-The command only needs `DATABASE_URL`; the gateway does not have to be
-running. Each key is printed once and only its hash is stored. On a server
-set up with `baylee-deploy` (crate baylee-ops), the wrapper
-`sudo baylee-invite …` reads the gateway's settings for you. The admin
-console below does the same in the browser.
+`BAYLEE_REGISTRATION=open`, or leaving it unset, lets anybody new in; `off`
+lets in no Baylee account that is new to your gateway, while guests are
+`BAYLEE_AUTH_MODE`'s to allow. The closed beta's keys and the
+`baylee-gateway invite` command are gone: a gateway still set to
+`BAYLEE_REGISTRATION=invite` refuses to start until you choose `open` or
+`off`.
 
 ### 5. Card text (optional)
 
@@ -810,7 +801,7 @@ forward, with a web interface for reading them. The same interface is the
 `baylee-feedback admin add`: an overview with the server's load, who is
 online and at which table, accounts (ban, delete), ending
 a running game, blocking a card from play for a while or for good (players
-are told why), beta keys, who comes in (guests, Baylee accounts or both), and the hosted language models (which seat agent
+are told why), who comes in (guests, Baylee accounts or both), and the hosted language models (which seat agent
 runs which model, their keys, and which players may seat each). The
 gateway's side of it listens only on the local machine
 (`BAYLEE_ADMIN_TOKEN`, `BAYLEE_ADMIN_BIND`). Setting it up is described in

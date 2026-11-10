@@ -1,4 +1,4 @@
-# Protocol
+| play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |# Protocol
 
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
@@ -390,7 +390,7 @@ is no account yet:
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
  "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
- "registration":"invite","guests":true,"auth_mode":"mixed","impressum":"https://example.org/impressum"}
+ "registration":"open","guests":true,"auth_mode":"mixed","impressum":"https://example.org/impressum"}
 ```
 
 - `auth_mode` is who comes in: `guests`, `central` (Baylee Central's
@@ -437,11 +437,12 @@ is no account yet:
   door's About, the terms sheet and Settings → Network; it opens only on
   the player's click, in the system browser, and only that address. Absent
   from a gateway older than the field.
-- `registration` is who may make an account: `open`, `invite` (a closed
-  beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
-  guests. Both are absent from a gateway older than #317. They are here so a
-  gateway list can say what a gateway takes before anything is saved;
-  `GET /auth/config` says the same for the form.
+- `registration` is who may come in new: `open` or `off`
+  (§"Who may come in new"); a gateway from the closed beta may still say
+  `invite`. `guests` is whether it takes guests. Both are absent from a
+  gateway older than #317. They are here so a gateway list can say what a
+  gateway takes before anything is saved; `GET /auth/config` says the same
+  for the form.
 - `replays` is `{"version": 1}` (the tape's version) where the gateway
   replays the hosted games an account sat at (§"Replays"), `null` where
   `BAYLEE_REPLAY_JOBS=0`. Absent from a gateway older than replays.
@@ -2936,7 +2937,8 @@ so a guest is `Guest#1a2b` to the other players.
   `mixed` open it, `central`, the default, keeps it shut (`403` `this gateway
   takes no guests`); `GET /auth/config` says `guests_enabled`, so a client
   offers what the gateway takes. It replaces `BAYLEE_GUESTS`, which is read
-  no more. `BAYLEE_REGISTRATION` is a switch of its own.
+  no more. `BAYLEE_REGISTRATION` is a switch of its own (§"Who may come in
+  new").
 - **`central`** in `GET /auth/config` says whether the gateway takes Baylee
   Central sign-ins (`POST /auth/central/login`): it is connected
   (`BAYLEE_CENTRAL_CONFIG_FILE`) and its mode is `central` or `mixed`
@@ -2953,61 +2955,53 @@ so a guest is `Guest#1a2b` to the other players.
 Turning a guest into an account, keeping its decks, is not part of this
 (#269 leaves it to an issue of its own).
 
-## A closed beta: keys (#317)
+## Who may come in new (`BAYLEE_REGISTRATION`)
 
-`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new guest
-needs a key** (accounts are Baylee Central's, §"Accounts are Baylee
-Central's"). A guest coming back with its session needs none (the session is
-the guest). `off` and unset are as before; a mode without guests
-(`BAYLEE_AUTH_MODE`) still closes the guest door, key or no key.
+`BAYLEE_REGISTRATION` says whether anybody new comes in: `open` (unset, and
+any value but the three below) or `off` (`off`, `0` or `false`). `off` shuts
+the door to a Baylee Central account new at this gateway unless an admin's
+session brings it (`docs/central-login.md` §"Who a gateway lets in"); the
+guest door is the auth mode's alone (`BAYLEE_AUTH_MODE`). `GET /info` and
+`GET /auth/config` carry `"registration": "open" | "off"`. The open beta
+runs `open`.
 
-- **Where it goes.** `POST /auth/guest` takes an optional `invite_key`
-  beside its other fields. A gateway that is not a closed beta ignores it; a
-  client sends it only where the gateway said `invite`, so an older gateway
-  is sent exactly what it always was.
-- **What the gateway says.** `GET /info` and `GET /auth/config` carry
-  `"registration": "open" | "invite" | "off"`.
-- **Its shape.** `BAYLEE-XXXX-XXXX-XXXX-XXXX`: sixteen characters of
-  Crockford base32, 80 random bits, the prefix and dashes only for the eye.
-  The gateway reads a key the way a person copies one: case, spaces, dashes
-  (also typographic ones) and the prefix do not matter, `O` is `0`, and `I`
-  and `L` are `1`.
-- **Refusals**, all `403`:
-  - no key, or a blank one: `this gateway is a closed beta: a new account
-    or guest needs a closed beta key. If there is no field for one, update
-    Baylee`. That last sentence is for a beta.1 client, which shows a
-    gateway's refusal as it is and has no field for a key;
-  - a key that is malformed, unknown, used up, expired or revoked, all in
-    one sentence so a guess learns nothing: `this closed beta key is not
-    valid`.
-  Every key offered (a missing or blank one is not a try) counts against the
-  sign-in limiter under the caller's address: eight in five minutes, then
-  `429` `too many attempts` before the key is even read. A key that admits
-  somebody clears that count, as a right password does. The ordinary per-address limit of registration and guests
-  still applies too.
-- **Kept as a hash.** The table `invite` holds SHA-256 of the key's
-  canonical sixteen characters, never the key, with a note, the uses left
-  (default one), an optional expiry and a revocation time. Redeeming is one
-  `UPDATE … WHERE uses_left > 0 AND revoked_at IS NULL AND (expires_at IS
-  NULL OR expires_at > now) RETURNING id` in the transaction that inserts
-  the account: two players racing for the last use make one account, and a
-  registration refused after the key (a username taken meanwhile) rolls the
-  use back. The account keeps which key let it in (`account.invite_id`,
-  `ON DELETE SET NULL`). No key is ever logged.
-- **Made on the server.** `baylee-gateway invite` needs only
-  `DATABASE_URL`, and `baylee-invite` (installed by `baylee-deploy stage`)
-  runs it with the gateway's settings:
-  `create [--uses N] [--expires 30d|12h] [--note "…"] [--count K]` prints
-  one key per line on stdout, and nothing else, so it pipes; `list` shows
-  every key's id, note, uses left, accounts admitted, expiry and state,
-  never a key; `revoke <id>` closes one. A key is shown once, when made.
-  The admin console below makes, lists and revokes keys the same way.
+**The closed beta's keys are gone** (#317; owner, 10.11.2026). Until then
+`BAYLEE_REGISTRATION=invite` made a gateway a closed beta, where a new guest
+needed a key its operator had made. Since then:
+
+- `BAYLEE_REGISTRATION=invite` stops the gateway's start, before the
+  database, and names `open` and `off`. Neither is guessed for the operator:
+  read as `open` it would let in the strangers the key kept out, read as
+  `off` it would keep out the players the open beta is for.
+- `POST /auth/guest` reads no `invite_key`. A client from the closed beta
+  that still sends one is let in as any guest is: the field is unknown there,
+  and unknown fields are ignored.
+- A gateway from the closed beta may still say `"registration": "invite"`.
+  A client reads it as any word it does not know (by the older
+  `registration_enabled`), sends no key, and shows that gateway's refusal as
+  it is.
+- `baylee-gateway invite …` and `baylee-invite …` say the keys are gone and
+  exit `2`, starting nothing. `baylee-deploy stage` still installs
+  `baylee-invite`, for one release: the deploy already on a server stages it
+  by name, and this way it replaces the old wrapper instead of failing.
+- The admin console's `/admin/invites` routes are `404`, as any unknown path
+  is, and its numbers count no key.
+- Migration `m20261110_000030_drop_invites` drops the table `invite` (the
+  keys' hashes and notes) and `account.invite_id` (which key let an account
+  in); the accounts and the rest of their rows stay. A gateway built before
+  it does not run on a database migrated past it, since it reads
+  `account.invite_id` with every account; the migration's `down` gives the
+  column and the table back, empty.
+- The guest door's limits per address (ten in five minutes, thirty a day)
+  and `BAYLEE_GUEST_CAP` are as they were. Only the key tries' own budget on
+  the sign-in limiter (eight in five minutes per address) went with the
+  keys.
 
 ## The admin console
 
 What a gateway's operator asks of it without a shell: how busy it is, in
-counts and by day, who is online and at which table, its accounts, and its
-closed-beta keys and its blocked cards. Meant for one caller, the feedback
+counts and by day, who is online and at which table, its accounts and its
+blocked cards. Meant for one caller, the feedback
 service's Overview on the same machine (`docs/feedback.md` §"The admin
 console"), which signs its admins in itself; the gateway takes no player's
 session here and knows no admin.
@@ -3060,9 +3054,6 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
 | `PUT /admin/accounts/{id}/ban` | `{"reason", "until"?}`: bans it; `DELETE` the same path lifts the ban; §"Acting on an account" |
 | `POST /admin/games/{id}/close` | `{"reason"}`: ends a running game through its engine; `202`; §"Acting on a game" |
-| `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
-| `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
-| `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
 | `GET /admin/cards/search?q=` | `{"cards": [{"index", "name", "type_line", "mana_cost", "coverage", "scryfall_id", "blocked"}]}`: the pool's cards whose English name holds `q` (any case) or whose index is `q`, those starting with it first, then by name, at most 25; `blocked` is `null` or the block in force (§"Blocked cards"); an empty `q` finds nothing, one over 100 characters is `400` |
 | `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
 | `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
@@ -3091,11 +3082,10 @@ are `action=central.link` with the gateway's id and `action=central.unlink`.
 
 **Audit.** Every change is a log line on the target `baylee_gateway::audit`
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
-`action=invite.create` with `count`, `uses`, `expires` and the key `ids`,
-`action=invite.revoke` with the `id`, `action=card.block` with the block's
-`id`, the card's `index` and name and `until`, `action=card.unblock` with
-the `id`, `index` and name, or `action=auth_mode.set` with the `mode`. Never a key, the token, a key's note or a block's
-reason, either of which may name a person. Reads are not audited.
+`action=card.block` with the block's `id`, the card's `index` and name and
+`until`, `action=card.unblock` with the `id`, `index` and name, or
+`action=auth_mode.set` with the `mode`. Never the token or a block's
+reason, which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
 statement (`baylee_db::stats`), one for the days (`baylee_db::console::daily`)
@@ -3105,9 +3095,9 @@ anything per person:
 ```json
 {
   "at": "2026-10-08T12:00:00Z",
-  "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
+  "gateway": { "name": "Baylee EU", "registration": "open", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
                "uptime_secs": 86400, "terms": true, "central": true, "auth_mode": "central", "auth_mode_source": "default" },
-  "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
+  "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2,
                 "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 }, "decks": 77 },
   "guests": { "enabled": true, "live": 7, "cap": 1000, "created": { "today_utc": 2, "last_7d": 5, "last_30d": 7 } },
   "online": { "players": 9, "in_lobby": 6, "seated": 4, "sessions_live": 52, "accounts_signed_in": 44 },
@@ -3116,7 +3106,6 @@ anything per person:
              "finished": 301, "finished_since": { "today_utc": 3, "last_7d": 29, "last_30d": 301 },
              "record_bytes": 52428800, "avg_secs_30d": 1260 },
   "agents": { "connected": 1, "local": 1, "capacity": null, "games": 2 },
-  "invites": { "total": 50, "active": 9, "used_up": 30, "expired": 6, "revoked": 5, "uses_left": 11, "admitted": 40 },
   "daily": [ { "day": "2026-09-10", "registered": 1, "guests": 0, "started": 12, "finished": 11, "players": 5 }, … ]
 }
 ```
@@ -3136,8 +3125,6 @@ anything per person:
   and 30 × 24 hours.
 - `agents.capacity` is the sum of the agents' capacities, `null` when one
   of them has none.
-- `invites.uses_left` sums the uses of the keys that still admit somebody;
-  `admitted` counts the existing accounts a key let in.
 - `daily` is the last 30 UTC days, oldest first, today last: accounts and
   guests made that day that still exist, records started and finished, and
   the accounts that sat in a game started that day. `guests.created` counts
@@ -3214,14 +3201,13 @@ confirmed), a deck's cards or a record's bytes (`baylee_db::console`).
   password, never what.
 - `GET /admin/accounts`: `{"total", "online", "accounts": [{"id",
   "username", "display_name", "tag", "handle", "guest", "created_at",
-  "has_email", "confirmed", "lang", "by_key", "key_note", "terms_version",
+  "has_email", "confirmed", "lang", "terms_version",
   "decks", "games", "sessions", "active_at", "in_lobby", "playing",
   "online"}]}`. `games` counts the records the account sat in; `sessions`
   its live sessions; `active_at` its latest session's expiry less the
   session's lifetime, the last renewal: the account was active then, or
   up to a renewal interval (6 hours, a guest's a day) later. No
   sign-in time is stored, so this is the closest the store can say.
-  `key_note` is the note of the key that admitted it.
 - `GET /admin/accounts/{id}`: the same row, `in_lobby`, `online` and
   `table` (`{"id", "name", "state"}` of the table it sits at, or `null`),
   with `confirmed_at`, `terms_accepted_at`, `deck_list` (`[{"id", "name",
@@ -4128,7 +4114,7 @@ from a curl recipe into a contract:
 | --- | --- | --- |
 | which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version, source, registration, guests}` |
 | sign in | `POST /auth/central/login` `{ticket}`: an `admit` ticket Baylee Central issued for this gateway (`docs/central-login.md`) | `{token, expires_at, username, display_name, terms_stale?}`; `403` with `ban` for a banned account |
-| play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
+| play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
 | leave for good | `DELETE /account` `{}` | `204`; `403` for a banned account |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
@@ -4881,7 +4867,7 @@ A language model at a table is a seat bridge (`baylee-seat join`) the
 host's client starts (`docs/llm-seat.md` §"A language model at your
 table"). It used to sit down as a guest, so a gateway with
 `BAYLEE_GUESTS=off`, one whose guest cap was reached and a closed beta
-(`BAYLEE_REGISTRATION=invite`) seated none. Now the host hands the bridge
+(#317, gone since) seated none. Now the host hands the bridge
 one chair of its room on its own word (owner, 06.10.2026), and the bridge
 needs no account at all (`crates/baylee-gateway/src/chair.rs`):
 

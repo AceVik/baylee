@@ -42,7 +42,7 @@ contact production or run a release.
 | `art/music/memorial/prepare.py`, `prepare_bank.py` | `cargo tools art memorial score`, `bank` (see `art/music/memorial/README.md`) |
 | `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
 | `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
-| `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-invite`, `baylee-reboot` (crate baylee-ops) |
+| `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-reboot`, and `baylee-invite`, which since the open beta (10.11.2026) only says the closed beta's keys are gone (crate baylee-ops) |
 | `scripts/macos-runner/runner.sh` | `baylee-macos-runner` (crate baylee-runner) |
 | `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|shipped-features\|wasm]`, `land`, `ci-changes`, `deploy` |
 | `scripts/mobile/*.sh` | `cargo dev android [env]`, `ios-sim`, `serve-lan` |
@@ -112,7 +112,11 @@ its ledger/coverage consistency checks and excludes disallowed images.
 ## The server's commands
 
 `baylee-deploy`, `baylee-invite` and `baylee-reboot` are the binaries of crate
-`baylee-ops`, installed into `/usr/local/sbin` by every stage. They read the
+`baylee-ops`, installed into `/usr/local/sbin` by every stage. `baylee-invite`
+made the closed beta's keys; since the open beta it says they are gone and
+runs nothing, and it is installed only so that the deploy already on a
+server, which stages it by name, replaces the old wrapper with it. A later
+release removes it once every server has run that deploy. They read the
 gateway's health and info JSON themselves: counts must be nonnegative
 integers, and missing, malformed or oversized state counts as unknown, so the
 deploy and the reboot keep waiting. `local_running` falls back to `running`
