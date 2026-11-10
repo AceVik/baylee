@@ -12,7 +12,8 @@ use crate::engine::Engine;
 use crate::state::CardLookup;
 use baylee_core::ids::PlayerId;
 
-/// Whether the engine stands at an ordinary priority decision whose
+/// Whether the engine stands at an ordinary priority decision, or at a
+/// combat declaration (declare attackers, declare blockers), whose
 /// continuation names no hidden card.
 ///
 /// The latches of the priority round and of the turn (passes, priority
@@ -22,6 +23,13 @@ use baylee_core::ids::PlayerId;
 /// suspends an operation half done is refused, because its continuation
 /// may hold a hidden card's id, a library top, or a choice offered from a
 /// hand, and a deal under it would leave it pointing at a different card.
+///
+/// A declaration is a turn-based action asked at the start of its step
+/// (CR 508.1, CR 509.1) with nothing suspended: what it offers — the
+/// creatures that may attack, the defenders, the blocks each blocker may
+/// make — is the battlefield's and the players', all public, and names no
+/// hidden card. An attack cost or a "can't attack unless" reads public
+/// permanents too (CR 508.1c, 508.1d).
 ///
 /// # Errors
 /// [`ForkRefusal::OpeningHands`], [`ForkRefusal::Continuation`],
@@ -152,7 +160,14 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
     if *breaking_loop || action_loops.holds_signature() {
         return Err(ForkRefusal::LoopWatch);
     }
-    if !*awaiting_answer || !matches!(pending, Pending::Priority { .. }) {
+    if !*awaiting_answer
+        || !matches!(
+            pending,
+            Pending::Priority { .. }
+                | Pending::ChooseAttackers { .. }
+                | Pending::ChooseBlockers { .. }
+        )
+    {
         return Err(ForkRefusal::NotPriority);
     }
     Ok(())

@@ -68,6 +68,7 @@ struct Table {
     their_side: Vec<DeckEntry>,
     my_field: Vec<DeckEntry>,
     my_side: Vec<DeckEntry>,
+    mine: Vec<DeckEntry>,
 }
 
 impl Table {
@@ -80,6 +81,7 @@ impl Table {
             their_side: vec![],
             my_field: vec![],
             my_side: vec![],
+            mine: my_deck(),
         }
     }
 
@@ -118,7 +120,7 @@ impl Table {
             }],
             seats: vec![
                 seat(
-                    my_deck(),
+                    self.mine.clone(),
                     Some(vec![entry(forest()), entry(forest()), entry(elves())]),
                     self.my_field.clone(),
                     self.my_side.clone(),
@@ -570,6 +572,171 @@ fn the_fork_continues_the_game() {
         format!("{:?}", fork.pending()),
         format!("{:?}", source.pending())
     );
+}
+
+/// My third turn, asked to declare attackers with the Elves I cast on my
+/// first: a library of Forests, so that what I drew is the same card
+/// whatever the seed, and only their side differs between two seeds. They
+/// open with six cards, so their draw keeps them at seven and no discard
+/// shows me a card of theirs.
+fn my_attack(seed: u64) -> Engine<RegistryLookup> {
+    let mut table = Table::new(seed, their_deck());
+    table.mine = deck(&[forest()]);
+    table.their_hand = Some(deck(&[named("Mountain"), named("Swamp"), elves()])[..6].to_vec());
+    let mut engine = table.settled_main();
+    cast_from_hand(&mut engine, ME, elves());
+    step_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { player, attackers, .. }
+            if *player == ME && !attackers.is_empty())
+    });
+    engine
+}
+
+/// [`step`]s until `stop` holds: passes, no attacks or blocks, the kit's
+/// first answer to anything else (their discard to hand size).
+#[track_caller]
+fn step_until(engine: &mut Engine<RegistryLookup>, stop: impl Fn(&Engine<RegistryLookup>) -> bool) {
+    for _ in 0..400 {
+        if stop(engine) {
+            return;
+        }
+        step(engine);
+    }
+    panic!("never reached: {:?}", engine.pending());
+}
+
+/// Steps `source` and `fork` alike to the end of the combat they stand in,
+/// their public facts equal at every step. Past combat a hidden card may
+/// show (their discard to hand size), and there the two may part.
+#[track_caller]
+fn through_combat(source: &mut Engine<RegistryLookup>, fork: &mut Engine<RegistryLookup>) {
+    while source.state().turn.phase == Phase::Combat {
+        assert_eq!(public_facts(fork), public_facts(source));
+        step(source);
+        step(fork);
+    }
+    assert_eq!(public_facts(fork), public_facts(source));
+}
+
+/// A combat declaration is a turn-based action asked with nothing
+/// suspended (CR 508.1), and what it offers is public: a fork taken there
+/// offers the same attack, and the same attack takes both games through
+/// their blocks and the damage to the same board.
+#[test]
+fn a_fork_at_a_declaration_continues_the_game() {
+    let mut source = my_attack(23);
+    let mut fork = fork(&source, 11);
+    assert_eq!(public_facts(&fork), public_facts(&source));
+    assert_eq!(
+        format!("{:?}", fork.pending()),
+        format!("{:?}", source.pending()),
+        "the same creatures and defenders offered"
+    );
+    let Pending::ChooseAttackers {
+        attackers,
+        defenders,
+        ..
+    } = source.pending().clone()
+    else {
+        unreachable!("my_attack stops at my declaration")
+    };
+    let attack = PlayerAction::DeclareAttackers {
+        attackers: vec![(attackers[0], defenders[0])],
+    };
+    for engine in [&mut source, &mut fork] {
+        engine.apply(ME, attack.clone()).unwrap();
+    }
+    through_combat(&mut source, &mut fork);
+    assert!(
+        source.state().players[1].life < 20,
+        "the Elves connected in both"
+    );
+}
+
+/// Their first turn: their Elves (on the battlefield from the start) attack
+/// me, and I am asked to block with mine. I have drawn nothing yet, so two
+/// seeds differ only in their hand and library and in my library's order.
+fn their_attack(seed: u64) -> Engine<RegistryLookup> {
+    let mut table = Table::new(seed, their_deck());
+    table.their_field = vec![entry(elves())];
+    table.my_field = vec![entry(elves())];
+    let mut engine = table.settled_main();
+    step_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == THEM),
+    );
+    let Pending::ChooseAttackers {
+        attackers,
+        defenders,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    engine
+        .apply(
+            THEM,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attackers[0], defenders[0])],
+            },
+        )
+        .unwrap();
+    step_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseBlockers { player, .. } if *player == ME),
+    );
+    engine
+}
+
+/// Two games I cannot tell apart at my declaration of blockers — their hand
+/// and library, and my library's order, differ by seed — fork into the same
+/// game there, and stay the same as both are played on past their discard.
+#[test]
+fn hidden_arrangement_does_not_reach_a_fork_at_a_declaration() {
+    let (one, two) = (their_attack(1), their_attack(2));
+    assert_eq!(
+        public_facts(&one),
+        public_facts(&two),
+        "I see the same game"
+    );
+    assert_ne!(
+        identities(&hidden_zones(&one))[0],
+        identities(&hidden_zones(&two))[0],
+        "their hands differ"
+    );
+    let (mut a, mut b) = (fork(&one, 7), fork(&two, 7));
+    let start = a.state().turn.number;
+    while a.state().turn.number < start + 2 {
+        assert_indistinguishable(&a, &b);
+        assert_eq!(a.journal().entries(), b.journal().entries());
+        step(&mut a);
+        step(&mut b);
+    }
+}
+
+/// Their Elves attack me and mine may block: a fork for me at my
+/// declaration of blockers offers the same blocks, and the same block takes
+/// both games to the same board.
+#[test]
+fn a_fork_at_my_blocks_continues_the_game() {
+    let mut source = their_attack(29);
+    let mut fork = fork(&source, 5);
+    assert_eq!(public_facts(&fork), public_facts(&source));
+    assert_eq!(
+        format!("{:?}", fork.pending()),
+        format!("{:?}", source.pending())
+    );
+    let Pending::ChooseBlockers { blockers, .. } = source.pending().clone() else {
+        unreachable!()
+    };
+    let option = &blockers[0];
+    let block = PlayerAction::DeclareBlockers {
+        blockers: vec![(option.blocker, option.attackers[0])],
+    };
+    for engine in [&mut source, &mut fork] {
+        engine.apply(ME, block.clone()).unwrap();
+    }
+    through_combat(&mut source, &mut fork);
 }
 
 /// A fork taken while they hold priority over my Elves, one pass made,

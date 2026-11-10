@@ -76,8 +76,9 @@ pub enum ForkRefusal {
     /// seed.
     #[error("the opening hands are still being decided")]
     OpeningHands,
-    /// The engine is asking something other than ordinary priority.
-    #[error("the engine is not at an ordinary priority decision")]
+    /// The engine is asking something other than ordinary priority or a
+    /// combat declaration (declare attackers, declare blockers).
+    #[error("the engine is not at an ordinary priority decision or a combat declaration")]
     NotPriority,
     /// The driver holds a suspended operation (a resolution, a cast, a
     /// payment window, queued triggers), named by its field. Its
@@ -175,7 +176,7 @@ impl<L: CardLookup + Clone> Engine<L> {
     ///
     /// # Errors
     /// A [`ForkRefusal`] for every position the first version cannot fork
-    /// faithfully: anything but ordinary priority, a suspended operation,
+    /// faithfully: anything but ordinary priority or a combat declaration, a suspended operation,
     /// face-down objects, hidden exile, a hidden card with rules state of
     /// its own or a static that works where it hides, something public
     /// pointing at a hidden card, an unknown deck. Every refusal depends on

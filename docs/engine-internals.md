@@ -2588,7 +2588,10 @@ happened.
 
 **Refused** (`ForkRefusal`), because v1 cannot deal under them without
 leaking or dropping a rules fact: the opening mulligans (they run on streams
-of the real seed); any question but ordinary priority; any suspended
+of the real seed); any question but ordinary priority or a combat
+declaration (declare attackers, declare blockers: a turn-based action asked
+at the start of its step with nothing suspended, whose offer — attackers,
+defenders, the blocks each blocker may make — is public); any suspended
 operation, named by its driver field (a resolution, a payment window, a
 cast or activation in progress, queued triggers, entry questions, delayed
 or upkeep work, a library-top announcement, a draw or discard being asked,

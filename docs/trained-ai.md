@@ -1013,7 +1013,8 @@ depth graph; the old outputs are the same ops. Per unit the head reads
 `[state | unit | window code (16) | look (112)]`, and a null row with no unit.
 
 **The look** is a one-step read of the other side's answers per unit. The engine
-forks only at ordinary priority (a combat declaration is `NotPriority`, a target
+forked only at ordinary priority when this was built (combat declarations fork
+since November 10; a target
 mid-cast a `Continuation`), so it is computed: the expected castable
 instant-speed cards in their hand by effect family, over a fixed prior of the
 train-split decks conditioned only on what the seat sees (colours shown, open
