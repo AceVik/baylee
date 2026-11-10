@@ -19,6 +19,16 @@ fn is_net_seat(seat: usize, focal_seat: usize, teams: &[Option<u8>]) -> bool {
     false
 }
 
+/// Whether `focal_seat` is the first seat of its team (`--one-deal-per-game`):
+/// the focal seats of one team replay one game, and this one plays it. A seat
+/// without a team is a side of its own.
+fn leads_its_side(focal_seat: usize, teams: &[Option<u8>]) -> bool {
+    match teams.get(focal_seat).copied().flatten() {
+        Some(team) => !teams[..focal_seat].contains(&Some(team)),
+        None => true,
+    }
+}
+
 /// One line of `--value-log`: the value heads at a decision of the seat under
 /// test and where the game stands. `settled` is the search's kind of leaf as
 /// far as a view can say: the seat's own main phase, nothing on the stack, no
@@ -566,5 +576,29 @@ fn play_one_table(
             }
             break;
         }
+    }
+}
+
+#[cfg(test)]
+mod one_deal_per_game_tests {
+    use super::leads_its_side;
+
+    #[test]
+    fn a_team_plays_its_game_from_its_first_seat_only() {
+        let teams = |t: &[u8]| t.iter().map(|&team| Some(team)).collect::<Vec<_>>();
+        let leading = |teams: &[Option<u8>]| {
+            (0..teams.len())
+                .filter(|&seat| leads_its_side(seat, teams))
+                .collect::<Vec<_>>()
+        };
+        // 2v2, 3v3 and 4v4 as eval4 seats them: two games a table.
+        assert_eq!(leading(&teams(&[1, 2, 1, 2])), [0, 1]);
+        assert_eq!(leading(&teams(&[1, 2, 1, 2, 1, 2])), [0, 1]);
+        assert_eq!(leading(&teams(&[1, 2, 1, 2, 1, 2, 1, 2])), [0, 1]);
+        assert_eq!(leading(&teams(&[1, 1, 2, 2])), [0, 2]);
+        // Without teams every focal seat is a game of its own.
+        assert_eq!(leading(&[None, None]), [0, 1]);
+        assert_eq!(leading(&[None, None, None, None]), [0, 1, 2, 3]);
+        assert_eq!(leading(&[]), Vec::<usize>::new());
     }
 }

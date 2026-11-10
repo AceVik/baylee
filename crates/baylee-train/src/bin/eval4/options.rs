@@ -108,6 +108,13 @@ struct Args {
     /// reaches. The rest of `--deals` are skipped, and the same deal is the same game.
     #[arg(long)]
     only_deals: Option<std::path::PathBuf>,
+    /// In a team format, plays one deal per game: the deal whose focal seat is
+    /// its team's first seat. The other focal seats of a team replay the same
+    /// game (same seed, decks and seats under the net), so a team run otherwise
+    /// plays each game once per seat of the net's team. Without teams every
+    /// focal seat is a game of its own and nothing is skipped.
+    #[arg(long)]
+    one_deal_per_game: bool,
     /// Dev only: a raw net may sample at any temperature, below sampler 2's
     /// boundary too, and `--choice-guard` may run above zero. Never for training.
     #[arg(long)]

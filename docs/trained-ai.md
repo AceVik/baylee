@@ -2267,6 +2267,11 @@ layer plays and counts per deal what each group alone would have changed. A deal
 `phase_a4 group-plan` replays only the deals a group reaches (`eval4 --only-deals`) and `phase_a4 group-table` reads the whole paired
 comparison from the shadow run and those replays.
 
+A team run replays its games: deal `d` is table `d / seats` with focal seat `d % seats`, and the focal seats of one team play one game
+(the same seed, decks and seats under the net). `eval4 --one-deal-per-game` plays only the deal whose focal seat is its team's first
+seat: at `--teams 1,2,…` two games a table, so `--deals` = seats × tables plays 2 × tables, and the summary says `one_deal_per_game`.
+Without teams it skips nothing.
+
 Measured on 2026-11-06 for B-refresh against `sharp`, each group alone on 1024 dev and 1024 fresh deals against plain tactics (500 and 503 of 1024
 won; raw plays 364 and 378). `mass` gives +3.5 pp [+2.7, +4.4] and `react` +2.4 [+1.4, +3.4], pooled over both splits; no other group's interval
 lies above zero. A group with a negative estimate entered only if readers found its class deciding at least three ladder games: `keep` (-0.3 [-0.8, +0.2])

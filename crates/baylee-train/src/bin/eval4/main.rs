@@ -554,6 +554,7 @@ fn main() -> anyhow::Result<()> {
         let teams_arc = teams_arc.clone();
         let next_deal = next_deal.clone();
         let only_deals = only_deals.clone();
+        let one_deal_per_game = args.one_deal_per_game;
         let stats_arc = stats_arc.clone();
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
@@ -635,6 +636,9 @@ fn main() -> anyhow::Result<()> {
                     break;
                 }
                 if only_deals.as_ref().is_some_and(|only| !only.contains(&d)) {
+                    continue;
+                }
+                if one_deal_per_game && !leads_its_side((d as usize) % seats, &teams_arc) {
                     continue;
                 }
                 // A watching model that said a limit teaches no further game.
@@ -995,6 +999,7 @@ fn main() -> anyhow::Result<()> {
     summary["house_counts_include_tactical_demonstrations"] =
         json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
     summary["sampling_version"] = json!(2);
+    summary["one_deal_per_game"] = json!(args.one_deal_per_game);
     summary["deal_details"] = json!(st.deal_details);
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
