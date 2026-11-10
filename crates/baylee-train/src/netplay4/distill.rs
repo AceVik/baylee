@@ -30,8 +30,10 @@ use baylee_core::ids::ObjectId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 
-use super::policy::{layer_scalar, sample_categorical};
-use super::{ChoiceGuard4, TacticRules4, TacticalParts, choices, tactics};
+use super::policy::{
+    layer_scalar, sample_categorical, tactical_pair_logits, tactical_subset_logits,
+};
+use super::{ChoiceGuard4, TacticRules4, TacticalParts, tactics};
 use crate::deckgen::Rng;
 use crate::features4::{
     EncodedCandidates4, HeadKind4, PendingKind4, TeacherTarget4, decode_action4,
@@ -275,17 +277,10 @@ pub(super) fn rules_target(q: &Question<'_>, rules: TacticRules4) -> (TeacherTar
         }
         HeadKind4::SubsetPick => {
             let n = cands.candidates.len();
-            let mut adjusted = choices::adjust_subset_logits(
-                cands,
-                &q.cand_logits[..n],
-                q.view,
-                q.pending,
-                q.active_source,
-            );
-            tactics::rules::subset(
+            let adjusted = tactical_subset_logits(
                 &mut rules,
                 cands,
-                &mut adjusted,
+                &q.cand_logits[..n],
                 q.view,
                 q.pending,
                 q.active_source,
@@ -295,13 +290,13 @@ pub(super) fn rules_target(q: &Question<'_>, rules: TacticRules4) -> (TeacherTar
             ))
         }
         HeadKind4::PairPick => {
-            let mut adjusted = choices::adjust_pair_logits(
+            let adjusted = tactical_pair_logits(
+                &mut rules,
                 cands,
                 &q.pair_logits[..cands.pairs.len()],
                 q.view,
                 q.pending,
             );
-            tactics::rules::pairs(&mut rules, cands, &mut adjusted, q.view, q.pending);
             set_target(sample_pairs_constrained(
                 &adjusted, cands, q.pending, 0.0, &mut rng,
             ))

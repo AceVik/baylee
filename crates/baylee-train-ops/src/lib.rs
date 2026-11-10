@@ -8,6 +8,7 @@ pub mod corpus;
 pub mod digests;
 pub mod divergence;
 pub mod evaluation;
+pub mod exploration;
 pub mod files;
 #[cfg(target_os = "linux")]
 pub mod guard;
