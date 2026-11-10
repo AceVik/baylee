@@ -76,6 +76,12 @@ impl HeuristicAgent {
         }
     }
 
+    /// The level this agent plays at.
+    #[must_use]
+    pub const fn profile(&self) -> AIProfile {
+        self.profile
+    }
+
     /// How many answers this agent and its clones built that broke the
     /// question they answered (`Pending::answer_fault`), each refitted to
     /// the nearest answer inside it before it was given (`held::refit`) and

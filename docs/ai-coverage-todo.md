@@ -184,5 +184,6 @@ exactly like a measured one, and being right about some of them is what makes
 the rest believable.
 
 Security tests must continue to reject scouting by a human, an invalid seat,
-a human driving an AI chair and an AI standing in for a disconnected human.
+a human driving an AI chair and an AI standing in for a disconnected human,
+and to hold every level but `seer` to its own deck (`tests/fair_house.rs`).
 Scouting must leave human views and print-table disclosure unchanged.

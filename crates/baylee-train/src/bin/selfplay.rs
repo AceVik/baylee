@@ -149,9 +149,9 @@ struct Args {
     /// --teams`); none = every seat for itself. Needs three seats or more.
     #[arg(long, value_delimiter = ',')]
     teams: Vec<u8>,
-    /// Clamp AI scouting requests so `sharp` and `expert` teachers only see
-    /// their own submitted decklist and never peek at opponent decks, opponent
-    /// hands, or library order.
+    /// Hold every house chair to its own submitted decklist, the level that
+    /// peeks (`seer`) too. Every other level never sees an opponent's deck,
+    /// hand or library order at any table (owner, 10.11.2026).
     #[arg(long)]
     fair_scouting: bool,
     /// Optional path to `data/decks/manifest.v4.json` to load real-world decks.

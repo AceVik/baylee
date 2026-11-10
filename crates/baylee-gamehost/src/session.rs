@@ -290,9 +290,10 @@ pub struct Session {
     retold: Vec<(u64, u8)>,
     /// What the spectators have been told, together (`spectators.rs`).
     gallery: spectators::Gallery,
-    /// When true, clamp AI scouting requests so even `sharp` and `expert`
-    /// teachers only see their own decklist and never peek at opponent decks,
-    /// opponent hands, or library order (used for fair imitation learning).
+    /// When true, even a level that peeks (`seer`) is told only its own
+    /// decklist, never an opponent's decklist or hand or any library order,
+    /// so a whole table is fair whatever its chairs play at. Every other level
+    /// is fair anyway (`scouting::request`); evaluation and self-play set it.
     fair_scouting: bool,
     /// The action currently being applied by the engine, kept across the
     /// `engine.apply` call so a panic handler can record the exact triggering
@@ -421,13 +422,13 @@ impl Session {
         Some(session)
     }
 
-    /// Enables or disables fair-scouting mode for AI seats.
+    /// Makes the whole table fair, or lets a level that peeks peek.
     ///
-    /// When `fair` is `true`, [`HeuristicAgent`] seats still receive their own
-    /// decklist intelligence and full combat/heuristic search (`sharp`,
-    /// `expert`), but requests for opponent decklists, opponent hands, and
-    /// upcoming library order are clamped off so teacher trajectories never
-    /// depend on hidden information.
+    /// Every level but `seer` is fair at any table: it is told its own
+    /// decklist and nothing hidden (owner, 10.11.2026), so a hosted game,
+    /// which never calls this, is fair unless a player chose `seer`. With
+    /// `fair` set even `seer` is told only its own decklist, so a measurement
+    /// never depends on hidden information whatever it seats.
     pub fn set_fair_scouting(&mut self, fair: bool) {
         self.fair_scouting = fair;
     }

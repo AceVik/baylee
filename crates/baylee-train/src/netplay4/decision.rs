@@ -251,7 +251,7 @@ impl NetPlayer4 {
                     .unwrap_or(action);
                 let provenance = self.policy_mode.provenance(
                     self.temperature,
-                    self.thinking_steps,
+                    self.last_depth,
                     cands.head,
                     logprob,
                 );

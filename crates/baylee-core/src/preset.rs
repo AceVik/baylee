@@ -493,6 +493,25 @@ pub enum HoldUp {
     ThreatAware,
 }
 
+/// What a house AI plays from: its seat's view, or also what is hidden.
+///
+/// A player at the table knows their own view and their own decklist, and
+/// every level a player is offered by default knows exactly that
+/// (owner, 10.11.2026). Peeking is a level of its own, `seer`, chosen on
+/// purpose and listed as unfair wherever levels are listed.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Sight {
+    /// The seat's own view and its own submitted decklist.
+    #[default]
+    Fair,
+    /// Also every opponent's decklist and hand, and the next cards of every
+    /// library, which the host discloses to it (`baylee-gamehost`'s
+    /// `scouting::request`). Only the in-process host can: a seat over a
+    /// socket is sent none of it, so a seat bridge refuses a peeking level.
+    Peeking,
+}
+
 /// Difficulty profile of an AI seat (one code path, parameterized).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
@@ -508,6 +527,10 @@ pub struct AIProfile {
     pub politics: Politics,
     /// Open-mana discipline.
     pub hold_up: HoldUp,
+    /// Whether it plays from its seat's view or also from what is hidden.
+    /// Absent on the wire and in a record from before it: fair.
+    #[serde(default)]
+    pub sight: Sight,
 }
 
 impl Default for AIProfile {
@@ -524,6 +547,7 @@ impl AIProfile {
         mulligan_skill: 0,
         politics: Politics::Random,
         hold_up: HoldUp::None,
+        sight: Sight::Fair,
     };
     /// Fixes land-starved hands, but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
@@ -538,6 +562,7 @@ impl AIProfile {
         mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
+        sight: Sight::Fair,
     };
     /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
@@ -552,6 +577,20 @@ impl AIProfile {
         temperature_milli: 12,
         ..Self::SHARP
     };
+    /// `expert` that peeks: it is told every opponent's decklist and hand
+    /// and the next three cards of every library. Unfair by design, listed
+    /// as unfair, and never a default.
+    pub const SEER: Self = Self {
+        sight: Sight::Peeking,
+        ..Self::EXPERT
+    };
+
+    /// Whether this level plays from hidden information
+    /// ([`Sight::Peeking`]).
+    #[must_use]
+    pub const fn peeks(self) -> bool {
+        matches!(self.sight, Sight::Peeking)
+    }
 
     /// Deterministic search work per decision. A clock cutoff would make the
     /// same view choose differently on different machines; benchmarks measure
@@ -581,15 +620,19 @@ impl AIProfile {
         mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::ThreatAware,
+        sight: Sight::Fair,
     };
 
-    /// The profiles a player can choose between, weakest first.
-    pub const NAMED: [(&'static str, Self); 5] = [
+    /// The profiles a player can choose between, weakest first. The last,
+    /// `seer`, is the one that peeks ([`Self::peeks`]); a list that shows
+    /// these says so beside it.
+    pub const NAMED: [(&'static str, Self); 6] = [
         ("novice", Self::NOVICE),
         ("casual", Self::CASUAL),
         ("steady", Self::STEADY),
         ("sharp", Self::SHARP),
         ("expert", Self::EXPERT),
+        ("seer", Self::SEER),
     ];
 
     /// Frozen profiles that measurements name, never offered to a player.
@@ -1372,8 +1415,41 @@ mod tests {
                 mulligan_skill: 2,
                 politics: Politics::AttackLeader,
                 hold_up: HoldUp::ThreatAware,
+                sight: Sight::Fair,
             }
         );
+    }
+
+    /// Exactly one level peeks, it is the last a list shows, it is no
+    /// default, and the reference is fair (owner, 10.11.2026). A profile
+    /// written before `sight` existed reads as fair: nothing on the wire or
+    /// in a record can make an old profile start peeking.
+    #[test]
+    fn only_the_seer_peeks_and_nothing_peeks_by_default() {
+        let peeking: Vec<&str> = AIProfile::NAMED
+            .iter()
+            .filter(|(_, profile)| profile.peeks())
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(peeking, ["seer"]);
+        assert_eq!(AIProfile::NAMED.last().map(|(name, _)| *name), Some("seer"));
+        assert!(!AIProfile::default().peeks());
+        assert_eq!(Sight::default(), Sight::Fair);
+        assert!(AIProfile::REFERENCES.iter().all(|(_, p)| !p.peeks()));
+        assert_eq!(
+            AIProfile::SEER,
+            AIProfile {
+                sight: Sight::Peeking,
+                ..AIProfile::EXPERT
+            },
+            "the seer is expert with its eyes open, nothing else"
+        );
+        let old = r#"{"lookahead":2,"temperature_milli":12,"mulligan_skill":2,
+            "politics":"AttackLeader","hold_up":"ThreatAware"}"#;
+        let read: AIProfile = serde_json::from_str(old).expect("an old profile reads");
+        assert_eq!(read, AIProfile::EXPERT);
+        let said = serde_json::to_value(AIProfile::SEER).expect("a profile writes");
+        assert_eq!(said["sight"], "peeking");
     }
 
     /// A room that chose no format says nothing about one on the wire, a

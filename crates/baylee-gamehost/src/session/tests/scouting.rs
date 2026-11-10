@@ -5,7 +5,9 @@ fn scouting_is_revoked_on_takeover_and_never_granted_to_human_standins() {
     use baylee_ai::intelligence::{LibraryAccess, ScoutingRequest};
     let mut preset = split_preset();
     preset.seats[0].controller = SeatController::Open;
-    preset.seats[1].controller = SeatController::Ai(AIProfile::EXPERT);
+    // The level that peeks: a fair one is told its own deck alone
+    // (`scouting::tests::a_fair_chair_asking_for_everything_is_told_its_own_deck`).
+    preset.seats[1].controller = SeatController::Ai(AIProfile::SEER);
     preset.seats[1].sideboard = vec![DeckEntry {
         rule_print: None,
         choices: baylee_core::card_metadata::DeckChoices::default(),
@@ -87,6 +89,8 @@ fn scouting_top_cards_are_bounded_ordered_and_do_not_change_human_views() {
     let mut preset = test_preset();
     preset.seats[1].deck[2].card = forest();
     preset.seats[1].deck[8].card = forest();
+    // Library order is told only to the level that peeks.
+    preset.seats[1].controller = SeatController::Ai(AIProfile::SEER);
     let session = Session::new(&preset).unwrap();
     let before = crate::view::player_view(
         session.engine.state(),

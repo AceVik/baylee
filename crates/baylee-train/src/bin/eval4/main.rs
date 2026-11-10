@@ -131,6 +131,22 @@ fn main() -> anyhow::Result<()> {
     if args.thinking_steps == 0 && args.legacy_v3 {
         bail!("--legacy-v3 has no thinking steps to leave out");
     }
+    let think_adaptive = args
+        .think_adaptive
+        .as_deref()
+        .map(|text| baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps))
+        .transpose()?;
+    if think_adaptive.is_some()
+        && (args.legacy_v3
+            || args.random_policy
+            || args.search.is_some()
+            || args.collection_purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--think-adaptive is an evaluation of a v5 net: no legacy model, random policy, \
+             search or collection (a recorded behaviour policy plays one depth)"
+        );
+    }
     let policy_mode = if args.raw_policy {
         PolicyMode4::Raw
     } else {
@@ -583,6 +599,12 @@ fn main() -> anyhow::Result<()> {
             if let Some(guard) = choice_guard {
                 anyhow::ensure!(net.set_choice_guard(&guard), "--choice-guard needs a net");
             }
+            if let Some(adaptive) = think_adaptive {
+                anyhow::ensure!(
+                    net.set_adaptive_thinking(adaptive)?,
+                    "--think-adaptive needs a net"
+                );
+            }
             if tactic_rules.any() {
                 anyhow::ensure!(net.set_tactic_rules(tactic_rules), "--tactics-rules needs a net");
             }
@@ -791,7 +813,9 @@ fn main() -> anyhow::Result<()> {
                 let guard_fired = net.take_choice_guard_fired();
                 let rules_fired = net.take_tactic_rules_fired();
                 let menu_stats = net.take_menu_stats();
+                let thinking_use = net.take_thinking_use();
                 let mut st = stats_arc.lock().expect("stats lock");
+                st.thinking.add(&thinking_use);
                 if let Some(deal_menu) = &menu_stats {
                     st.menu.get_or_insert_default().add(deal_menu);
                 }
@@ -801,6 +825,7 @@ fn main() -> anyhow::Result<()> {
                     "choice_guard_fired": guard_fired,
                     "tactic_rules_fired": rules_fired,
                     "menu": menu_stats,
+                    "thinking": think_adaptive.map(|_| thinking_use.report()),
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
                     "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
@@ -981,6 +1006,11 @@ fn main() -> anyhow::Result<()> {
         "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
+    summary["think_adaptive"] = json!(think_adaptive);
+    summary["thinking"] = match think_adaptive {
+        Some(_) => st.thinking.report(),
+        None => Value::Null,
+    };
     summary["random_policy"] = json!(args.random_policy);
     summary["tactician"] = tactician_setup.as_ref().map_or(
         Value::Null,

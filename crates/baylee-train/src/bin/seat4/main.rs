@@ -68,6 +68,12 @@ struct Args {
         value_parser = clap::value_parser!(u8).range(1..=8)
     )]
     thinking_steps: u8,
+    /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
+    /// states a confidence below THRESHOLD is thought through again at DEEP
+    /// deliberation steps. Needs a model with the deliberation block; off
+    /// unless asked (`docs/proposals/baylee-ai-thinking.md`).
+    #[arg(long)]
+    think_adaptive: Option<String>,
     /// Completed games before exiting; zero keeps hosting new rooms.
     #[arg(long, default_value_t = 1)]
     games: u32,
@@ -345,6 +351,7 @@ fn prepare_audit(
                     "producer_binary_sha256":audit::producer_sha256()?,
                     "policy_contract":brain.policy_mode().contract(),
                     "temperature":args.temperature,"thinking_steps":args.thinking_steps,
+                    "think_adaptive":brain.adaptive_thinking(),
                     "base_policy_seed":args.policy_seed,"effective_policy_seed":policy_seed,
                     "game_index":game,"seat":seat,
                     "seat_rng_rule":"base_xor_game_rotation17_xor_physical_seat_v1",
@@ -463,6 +470,10 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
         })
         .with_temperature(args.temperature)
         .with_thinking_steps(args.thinking_steps);
+    if let Some(text) = &args.think_adaptive {
+        let adaptive = baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps)?;
+        brain.set_adaptive_thinking(adaptive.deep, adaptive.threshold)?;
+    }
     brain.set_tactic_rules(TacticRules4::parse(&args.tactics_rules)?);
     Ok(brain)
 }
