@@ -23,8 +23,10 @@ pub(super) struct Game {
     pub deal: usize,
     /// Every seat's deck. The bootstrap by deck draws these.
     pub decks: Vec<String>,
-    /// An `eval4` game's identity across inputs, `seed/table/side`: two
-    /// inputs of one pair holding the same are one measurement twice.
+    /// An `eval4` game's identity across inputs, `seed/table/side/decks`: two
+    /// inputs of one pair holding the same are one measurement twice. The
+    /// decks are part of it because two deck pools run from one first seed
+    /// share seeds and tables but are different games.
     pub key: Option<String>,
 }
 
@@ -236,11 +238,12 @@ fn eval(path: &Path) -> Result<Read> {
         let name = game["game"].as_str().context("a game without its key")?;
         let next = tables.len();
         let deal = *tables.entry((table, seed, decks.clone())).or_insert(next);
+        let key = format!("{seed}/{name}/{}", decks.join(","));
         games.push(Game {
             score,
             deal,
             decks,
-            key: Some(format!("{seed}/{name}")),
+            key: Some(key),
         });
     }
     Ok(Read {
