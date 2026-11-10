@@ -42,6 +42,18 @@ pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
         .get(usize::from(card.face))
 }
 
+/// The mana value of the cheapest instant of at most three mana in `hand`,
+/// the interaction a main phase keeps up; nought for none.
+fn cheapest_answer(hand: &[baylee_view::HandObject]) -> u32 {
+    hand.iter()
+        .filter(|c| c.types.contains(TypeSet::INSTANT))
+        .filter(|c| face(c.card).is_some_and(|f| f.mana_cost.cmc() <= 3))
+        .map(|c| c.mana_value)
+        .filter(|&v| v > 0)
+        .min()
+        .unwrap_or(0)
+}
+
 fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
     face.types.contains(TypeSet::INSTANT)
         || baylee_cards::by_index(card.index).is_some_and(|definition| {
@@ -1121,14 +1133,36 @@ impl HeuristicAgent {
         {
             return 0;
         }
-        view.hand
-            .iter()
-            .filter(|c| c.types.contains(TypeSet::INSTANT))
-            .filter(|c| face(c.card).is_some_and(|f| f.mana_cost.cmc() <= 3))
-            .map(|c| c.mana_value)
-            .filter(|&v| v > 0)
-            .min()
-            .unwrap_or(0)
+        let held = cheapest_answer(&view.hand);
+        if held > 0
+            && self.profile.plays(crate::AIProfile::TEAM_PLAY)
+            && self.an_ally_holds_the_answer(view)
+        {
+            return 0;
+        }
+        held
+    }
+
+    /// Whether a teammate this seat is shown the hand of holds a cheap
+    /// instant and the untapped lands to cast it, and is the one of the two
+    /// who keeps it up: the lower seat. Then this seat develops instead of
+    /// holding mana up beside it, and the side still has its answer. The
+    /// lower seat keeps its own up, so two allies who see each other's hands
+    /// never both tap out on the strength of the other.
+    fn an_ally_holds_the_answer(&self, view: &PlayerView) -> bool {
+        view.shared_hands.iter().any(|hand| {
+            let ally = hand.player;
+            if ally >= view.seat || self.hostile(ally, view.seat) {
+                return false;
+            }
+            let held = cheapest_answer(&hand.cards);
+            let open = view
+                .battlefield_of(ally)
+                .filter(|o| o.types.contains(TypeSet::LAND))
+                .filter(|o| !o.status.contains(baylee_view::ObjectStatus::TAPPED))
+                .count();
+            held > 0 && usize::try_from(held).is_ok_and(|held| open >= held)
+        })
     }
 
     fn bad_removal_exchange(
@@ -1285,9 +1319,15 @@ impl HeuristicAgent {
                     continue;
                 }
                 let worth = Self::permanent_worth(view, o);
+                // An ally's board is its side's where its level plays as a
+                // team: a Wrath that takes a teammate's creatures with the
+                // opponents' is no free trade.
+                let ours = o.controller == view.seat
+                    || (self.profile.plays(crate::AIProfile::TEAM_PLAY)
+                        && !self.hostile(o.controller, view.seat));
                 if self.hostile(o.controller, view.seat) {
                     net += worth;
-                } else if !opponents_only && o.controller == view.seat {
+                } else if !opponents_only && ours {
                     net -= worth;
                 }
             }

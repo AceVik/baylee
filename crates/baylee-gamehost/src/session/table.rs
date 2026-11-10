@@ -13,7 +13,7 @@ use super::{RegistryLookup, SeatKind, seat_byte};
 use baylee_ai::HeuristicAgent;
 use baylee_ai::intelligence::DeckIntel;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
-use baylee_core::preset::AIProfile;
+use baylee_core::preset::{AIProfile, AiHandSharePolicy, HandSharingRule};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_view::{HouseAnswer, PlayerView};
@@ -31,6 +31,28 @@ pub(super) struct Table<'a> {
     pub(super) house_answered: &'a [Option<HouseAnswer>],
     pub(super) showing: &'a [SeatSet],
     pub(super) shown_once: &'a BTreeMap<(u8, u8), Vec<ObjectId>>,
+    /// The table's rule for showing a teammate a hand.
+    pub(super) hand_sharing: HandSharingRule,
+    /// How the house's chairs show their hands to teammates.
+    pub(super) ai_hand_share_policy: AiHandSharePolicy,
+}
+
+/// Whether the chair `kind` is read teammates' hands it was shown: a seat
+/// answered over a socket or by an external model, and a chair the house
+/// plays at a level that plays as a team (`AIProfile::TEAM_PLAY`). A frozen
+/// reference is shown none, so a benchmark table plays as it was frozen.
+pub(super) fn reads_shared_hands(kind: &SeatKind) -> bool {
+    match kind {
+        SeatKind::Human | SeatKind::Driven(_) => true,
+        SeatKind::Ai(agent) | SeatKind::StandIn(agent) => {
+            agent.profile().plays(AIProfile::TEAM_PLAY)
+        }
+    }
+}
+
+/// Whether the chair `kind` is the house playing as a team.
+fn house_on_a_team(kind: Option<&SeatKind>) -> bool {
+    matches!(kind, Some(SeatKind::Ai(agent)) if agent.profile().plays(AIProfile::TEAM_PLAY))
 }
 
 impl Table<'_> {
@@ -46,13 +68,12 @@ impl Table<'_> {
     ///   slow machine, legally and invisibly (#87). A clock's answer is
     ///   where it would bite first, since that view exists because the
     ///   number ran out.
-    /// - **No teammate's hand** (#265). This builder adds none. Only
-    ///   `Session::show_hands` (on the way to a socket) and
-    ///   [`Self::show_shared_hands`] (for `view_for` and `observe_view`) put
-    ///   one into a view, and both only for a seat answered over a socket or
-    ///   by an external model, so a chair the house holds for an absent
-    ///   player is played from what it was played from before hands could be
-    ///   shown.
+    /// - **No teammate's hand** here. This builder adds none; a hand a
+    ///   teammate shows is added by [`Self::show_shared_hands`] for the
+    ///   chairs that read one (`house_answer`, `view_for`, `observe_view`)
+    ///   and by `Session::show_hands` on the way to a socket, each under the
+    ///   table's rule. A clock's answer for a player is given from this view
+    ///   alone.
     pub(super) fn agent_view(&self, player: PlayerId, pending: &Pending) -> PlayerView {
         let engine = self.engine;
         crate::view::player_view(
@@ -78,6 +99,15 @@ impl Table<'_> {
             },
             self.house_answered,
         )
+    }
+
+    /// The view the house answers in `player`'s chair from: [`Self::agent_view`]
+    /// and the hands its teammates show it, where its level plays as a
+    /// team ([`Self::show_shared_hands`]).
+    pub(super) fn house_view(&self, player: PlayerId, pending: &Pending) -> PlayerView {
+        let mut view = self.agent_view(player, pending);
+        self.show_shared_hands(&mut view, player);
+        view
     }
 
     /// `seat`'s question and the view it answers from
@@ -118,21 +148,27 @@ impl Table<'_> {
         view
     }
 
-    /// Populates `view.shared_hands` with any teammate hands shared (continuously
-    /// or as a one-time snapshot) with `seat`, provided `seat` is answered over a
-    /// socket or driven by an external model (`SeatKind::answers_over_socket`).
-    /// House heuristic chairs (`SeatKind::Ai` / `SeatKind::StandIn`) are never
-    /// shown voluntary hand shares.
+    /// Populates `view.shared_hands` with the teammates' hands `seat` is
+    /// shown, continuously or as a one-time snapshot, where its chair reads
+    /// them ([`reads_shared_hands`]).
+    ///
+    /// Read afresh for every view, against everything that makes a share
+    /// legal: the table's rule (nothing at all under
+    /// [`HandSharingRule::Disabled`], no continuous share but under
+    /// [`HandSharingRule::Allowed`]), a team both seats are on, and both
+    /// still in a game that is still going. So an opponent's hand is never
+    /// added, and a share ends the moment its owner leaves or loses.
+    ///
+    /// Two house chairs on one side show each other their hands without
+    /// asking, as [`AiHandSharePolicy`] has the house share continuously
+    /// ([`Self::house_shows_house`]); a person's hand reaches the house only
+    /// where the person shared it.
     fn show_shared_hands(&self, view: &mut PlayerView, seat: PlayerId) {
-        if self.showing.iter().all(|s| s.is_empty()) && self.shown_once.is_empty() {
+        if self.hand_sharing == HandSharingRule::Disabled {
             return;
         }
         let at = usize::from(seat.get());
-        if !self
-            .seats
-            .get(at)
-            .is_some_and(SeatKind::answers_over_socket)
-        {
+        if !self.seats.get(at).is_some_and(reads_shared_hands) {
             return;
         }
         let state = self.engine.state();
@@ -142,6 +178,7 @@ impl Table<'_> {
         let Some(team) = self.teams.get(at).copied().flatten() else {
             return;
         };
+        let continuous = self.hand_sharing == HandSharingRule::Allowed;
         let mut added = false;
         for (i, _) in self.seats.iter().enumerate() {
             if i == at {
@@ -151,7 +188,10 @@ impl Table<'_> {
             if self.teams.get(i).copied().flatten() != Some(team) || state.has_left(owner) {
                 continue;
             }
-            if self.showing.get(i).is_some_and(|s| s.contains(seat)) {
+            if continuous
+                && (self.showing.get(i).is_some_and(|s| s.contains(seat))
+                    || self.house_shows_house(i, at))
+            {
                 crate::view::show_whole_hand(state, view, owner);
                 added = true;
             } else if let Some(ids) = self.shown_once.get(&(owner.get(), seat.get())) {
@@ -162,6 +202,21 @@ impl Table<'_> {
         if added {
             view.shared_hands.sort_by_key(|hand| hand.player);
         }
+    }
+
+    /// Whether the house chair at `owner` shows its hand to the house chair
+    /// at `viewer`, both on one side: where both play as a team and the
+    /// house shares continuously. Asking is implied: a house chair asks a
+    /// house teammate the moment it could, and is answered as a person who
+    /// asked would be (`Session::ai_answer_hand_request`), so the share is
+    /// read here rather than kept.
+    fn house_shows_house(&self, owner: usize, viewer: usize) -> bool {
+        house_on_a_team(self.seats.get(owner))
+            && house_on_a_team(self.seats.get(viewer))
+            && matches!(
+                self.ai_hand_share_policy,
+                AiHandSharePolicy::AlwaysContinuous | AiHandSharePolicy::OnRequestContinuous
+            )
     }
 
     /// `view` with the owner's current cast and targets.
@@ -252,7 +307,7 @@ impl Table<'_> {
         else {
             return None;
         };
-        let view = self.agent_view(player, pending);
+        let view = self.house_view(player, pending);
         let context = self.engine.decision_context();
         let scouting = agent.scouting_request(pending).and_then(|mut request| {
             if self.fair_scouting {

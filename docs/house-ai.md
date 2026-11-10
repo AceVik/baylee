@@ -304,14 +304,79 @@ holds for an absent player
 (`session::tests::a_seat_the_house_answers_is_never_told_the_log`). What an
 agent knows of the past is what its view shows now.
 
-An agent is never handed a teammate's hand either (#265). Every view an
-agent answers from is built by `Session::agent_view`, which leaves
-`shared_hands` and the three sets beside it empty; only a view on its way to
-a socket carries them. A chair the house AI plays is never shown a hand, and
-shows its own at once to a teammate who asks: showing it changes nothing its
-agent sees. A chair the house holds for an absent player keeps the shares
-its player was given, is played without them, and leaves requests to the
-player (`view::tests::no_agent_is_handed_a_teammates_hand`).
+**The house plays as a team, and teammates show each other their hands**
+(owner, 10.11.2026). This replaced #265's rule that no agent is handed a
+teammate's hand. What a house chair is shown is still only what a player in
+its chair could be shown, by a share the table's `HandSharingRule` permits,
+and `Table::show_shared_hands` reads the rule, the sides and `has_left`
+again for every view it builds (`Table::house_view`, which `house_answer`
+answers from):
+
+- *House with house.* Two house chairs on one side show each other their
+  hands without asking, where the rule is `Allowed` and
+  `AiHandSharePolicy` shares continuously (`Table::house_shows_house`).
+  Under `OnceOnly`, `Never` or `OnRequestOnce` they show none.
+- *House with a person.* The person decides. The house asks each person on
+  its side once, when the table is made (`Session::house_asks_its_teammates`,
+  their `hand_requests`), and reads their hand only if they show it; it
+  shows its own to a person who asks, as before.
+- *A chair the house holds for an absent player* plays with the hands its
+  player was shown, since the shares are its player's; it neither asks nor
+  answers a request, which wait for the player
+  (`view::tests::a_stand_in_plays_with_the_hands_its_player_was_shown`).
+- Never an opponent's hand, nothing under `Disabled`, and a share ends when
+  its owner leaves the game or loses (`session::tests::shared_hand`:
+  `house_teammates_show_each_other_their_hands_and_never_an_opponents`,
+  `the_tables_rule_holds_for_the_house_too`,
+  `a_teammate_who_has_left_shows_no_hand`,
+  `the_house_asks_a_person_on_its_side_and_reads_only_what_it_is_shown`).
+- The frozen reference `sharp-2026-11` is shown no hand, shows none to a
+  house teammate and asks nobody, so BayleeAI's benchmark tables play as
+  they did (`the_frozen_reference_shares_no_hand_with_the_house`); `seer`
+  peeks anyway.
+
+What the house does with it, and with its side, at `AIProfile::TEAM_PLAY`
+(`src/tests/team_tests.rs`, each test asking the frozen reference too):
+
+- An ally's removal or counter on the stack is the side's: nothing is aimed
+  at what it is already taking (`worth::answered`).
+- An ally's board is the side's: a sweeper that takes an ally's creatures is
+  priced with them as losses (`sweeper_net_worth`).
+- An ally in a lower seat who holds a cheap instant and the untapped lands
+  for it holds the answer up for the side, and this seat develops instead of
+  keeping its own mana up (`an_ally_holds_the_answer`); the lower seat keeps
+  its own, so two allies who see each other never both tap out.
+
+The audit found the rest already playing as a team: targets are chosen as
+friendly or hostile by side (`HeuristicAgent::hostile`, and a counter weighs
+what a spell is aimed at of the whole side), and the engine offers an attack
+at opponents and their planeswalkers alone (`combat::defender_options`),
+which `tests/team_play.rs` holds every level to on a two-against-two table.
+The engine asks each defending player for the blocks of what attacks it
+(`Engine::ask_blockers`), so in the formats it plays no block protects an
+ally; a shared-life format would change that.
+
+Measured on 10.11.2026 (commit a83eca936's selfplay build, CPU):
+
+- *Exercised.* Over 40 two-against-two tables on the five house decks,
+  every chair `sharp` (`session::tests::team_exercise`, run by hand), a
+  teammate's hand was in view at 122,379 of 125,453 house decisions
+  (97.5 %), and the answer differed from the frozen reference's in the same
+  chair at 39 of them (0.03 %), every one with a hand in view. Per deck the
+  share in view was 95.8–99.2 % (Victory 95.8 %), and the answers changed
+  2 (Victory, maik) to 23 (schwarzrand) times.
+- *Worth.* eval4 `--random-policy`, house against house on the campaign's
+  test decks (`decks-20261107c`, constructed), 512 deals per format and run,
+  `sharp` against `sharp-2026-11` and swapped, read by `house_duplicate`,
+  which counts each game once: eval4 rotates the focal seat over a deal's
+  seats with one seed, so a run repeats each game once per seat of a side.
+  Two against two: 133 of 252 decided games (52.8 %, Wilson 95 % 46.6–58.9);
+  team play turned 7 seeds (won from both sides) and lost none. Three against
+  three: 85 of 168 (50.6 %, 43.1–58.1); 3 seeds turned for it, 2 against.
+  Small, as the 0.03 % says it must be, and in its favour where it shows. No
+  deck stands out; the constructed test decks hold no Victory (a Commander
+  deck), so Victory's team play is measured above only by how often it is
+  exercised.
 
 **A mode is chosen by what it reaches, not by where it is printed.** A modal
 spell whose every effect sits under a mode is offered no normal cast
@@ -1060,7 +1125,12 @@ one of two things: the reference answered differently with the same table
 before it, or the same answer led to a different table (the engine moved).
 
 So a change that means to make the house play better goes behind a profile
-field the reference does not set, and the test stays green. Only a change
+field the reference does not set, and the test stays green. That field is
+`AIProfile::generation`: every level plays `AIProfile::GENERATION`, the
+reference `FROZEN_2026_11` (0, which is also what a profile written before
+the field reads as), and a change says the generation it arrived in and
+asks `profile.plays(...)`. The first is `TEAM_PLAY` ("The house plays as a team, and
+teammates show each other their hands", above). Only a change
 that has to move the reference, such as an engine or card fix that changes
 these games, re-records it, in a commit of its own that says why:
 `BAYLEE_REFERENCE_RERECORD=1 cargo nextest run -p baylee-gamehost --test

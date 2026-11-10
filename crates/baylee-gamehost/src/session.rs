@@ -416,6 +416,7 @@ impl Session {
         // A unit test reads a frame on its own, so it is sent whole views; a
         // debug build goes on proving each patch beside them. The tests that
         // read a stream are `tests/view_patches.rs` and the end-to-end suites.
+        session.house_asks_its_teammates();
         if cfg!(test) {
             session.tell_views_whole();
         }
@@ -467,6 +468,8 @@ impl Session {
             house_answered: &self.house_answered,
             showing: &self.showing,
             shown_once: &self.shown_once,
+            hand_sharing: self.house_rules.hand_sharing,
+            ai_hand_share_policy: self.ai_hand_share_policy,
         }
     }
 

@@ -131,6 +131,12 @@ name = "selfplay"
 path = "src/bin/selfplay.rs"
 required-features = ["play"]
 
+# Counts eval4 house-against-house games once, paired by seed (`docs/house-ai.md`).
+[[bin]]
+name = "house_duplicate"
+path = "src/bin/house_duplicate.rs"
+required-features = ["play"]
+
 [[bin]]
 name = "inspect"
 path = "src/bin/inspect.rs"

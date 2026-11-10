@@ -849,7 +849,7 @@ impl HeuristicAgent {
         let worth = Self::permanent_worth(view, o);
         if !self.hostile(o.controller, view.seat) {
             -worth
-        } else if Self::answered(view, o) {
+        } else if self.answered(view, o) {
             0
         } else {
             worth
@@ -865,9 +865,18 @@ impl HeuristicAgent {
     /// Swords resolved first, and Path had no target left (CR 608.2b), a
     /// card thrown away (22.10.2026). Once the first has left the stack,
     /// countered or fizzled, the second is worth its card again.
-    pub(crate) fn answered(view: &PlayerView, o: &PublicObject) -> bool {
+    ///
+    /// An ally's answer counts as this seat's where its level plays as a
+    /// team (`AIProfile::TEAM_PLAY`): a teammate's Path on its way to a
+    /// creature is that creature dealt with for the whole side.
+    pub(crate) fn answered(&self, view: &PlayerView, o: &PublicObject) -> bool {
+        let ours = |seat| {
+            seat == view.seat
+                || (self.profile.plays(crate::AIProfile::TEAM_PLAY)
+                    && !self.hostile(seat, view.seat))
+        };
         view.stack.iter().any(|s| {
-            s.controller == view.seat
+            ours(s.controller)
                 && crate::tactics::stack_removes(view, s, o)
                 && s.targets.iter().any(|target| match target {
                     TargetRef::Object(source) => {
@@ -985,7 +994,7 @@ impl HeuristicAgent {
     fn bounce(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         let tempo = i64::from(o.mana_value) * 60 + 50;
         if self.hostile(o.controller, view.seat) {
-            if Self::answered(view, o) {
+            if self.answered(view, o) {
                 return 0;
             }
             // A token does not come back (CR 111.7).
@@ -1339,7 +1348,7 @@ impl HeuristicAgent {
                 total += if lethal {
                     self.removal(view, o)
                 } else if pure_debuff {
-                    if Self::answered(view, o) {
+                    if self.answered(view, o) {
                         0
                     } else {
                         -i64::from(power) * 20 - i64::from(toughness) * 15

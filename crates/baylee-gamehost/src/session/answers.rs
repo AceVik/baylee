@@ -44,6 +44,13 @@ impl Session {
         self.table().agent_view(player, pending)
     }
 
+    /// The view the house in `player`'s chair answers from, with the hands its
+    /// teammates show it (`table::Table::house_view`).
+    #[cfg(test)]
+    pub(crate) fn house_view(&self, player: PlayerId, pending: &Pending) -> PlayerView {
+        self.table().house_view(player, pending)
+    }
+
     /// What an agent that is not the house answers `seat`'s current question
     /// from — the question and the house's own view of it — or `None` when
     /// `seat` is asked nothing.

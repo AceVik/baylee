@@ -868,7 +868,7 @@ impl HeuristicAgent {
         let mut hostile: Vec<&PublicObject> = objects
             .iter()
             .filter_map(|id| view.object(*id))
-            .filter(|o| self.hostile(o.controller, view.seat) && !Self::answered(view, o))
+            .filter(|o| self.hostile(o.controller, view.seat) && !self.answered(view, o))
             .collect();
         hostile.sort_by_key(|o| (std::cmp::Reverse(material(o)), o.id));
         let mut left = i64::from(total);
@@ -982,7 +982,7 @@ impl HeuristicAgent {
                     if friendly != beneficial {
                         return -score - 10_000;
                     }
-                    if !beneficial && (spent.contains(id) || Self::answered(view, o)) {
+                    if !beneficial && (spent.contains(id) || self.answered(view, o)) {
                         return 0;
                     }
                     if friendly {
