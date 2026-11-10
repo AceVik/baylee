@@ -2055,7 +2055,11 @@ decision-window learner's stored H stays exact, so it is computed once.
 `--distill-subtypes cast,pass,instant_their_turn,spend` narrows the
 cross-entropy to those subtypes of the distilled kinds; their other subtypes stay
 under their own reported KL (`kl_kind_out_of_scope`), and validation reports the
-`N ≠ R` agreement per subtype while selection keeps the pooled scope.
+`N ≠ R` agreement per subtype while selection keeps the pooled scope. Single-choice
+target questions join the same way: with `--distill-kinds 0,8` (priority,
+ChooseTargets) and the subtype `target`, which the data side sets only where
+`side` or `aim` fired, they get cross-entropy to R; other target questions carry
+no subtype and stay under the KL.
 `--distill-group-weights mass=2,...` weights a cross-entropy row by the product
 of the weights of the rule groups that fired there (others 1). Frames carry the
 subtype and the fired groups as JSON step fields (`distill_subtype`, `fired`) or
