@@ -68,6 +68,7 @@ fn rate_matches(
         options.resamples > 0,
         "bootstrap resamples must be positive"
     );
+    once(&matches)?;
     let mut formats = BTreeMap::<String, Vec<Match>>::new();
     for found in matches {
         formats.entry(found.format.clone()).or_default().push(found);
@@ -86,6 +87,31 @@ fn rate_matches(
         "bootstrap_rng": "splitmix64-rejection-v1",
         "thin_link_games": options.thin_link_games,
         "formats": tables}))
+}
+
+/// Refuses two inputs that hold the same `eval4` game of one pair of players:
+/// a rerun of the same deals on another build is one measurement, not two.
+fn once(matches: &[Match]) -> Result<()> {
+    let mut seen = BTreeMap::new();
+    for found in matches {
+        let pair = if found.player < found.opponent {
+            (&found.player, &found.opponent)
+        } else {
+            (&found.opponent, &found.player)
+        };
+        for key in found.games.iter().filter_map(|game| game.key.as_ref()) {
+            if let Some(other) = seen.insert((&found.format, pair, key), &found.source) {
+                anyhow::bail!(
+                    "{other} and {} both hold game {key} of {} against {}: list one, \
+                     or both in one `first_of`",
+                    found.source,
+                    found.player,
+                    found.opponent
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 /// The players of one format.
@@ -193,8 +219,15 @@ fn stages(
     (fair, held, theirs)
 }
 
-/// How many games link each player to the players held in its stage.
-fn links(roster: &Roster, pairs: &[Pair], places: &[Place]) -> Vec<Option<f64>> {
+/// `measure(player, held, pairs)` for every player but the anchors, on the
+/// games of its stage: a fair player's to the anchors, an unfair player's to
+/// the anchors and the rated fair players.
+fn per_stage<T>(
+    roster: &Roster,
+    pairs: &[Pair],
+    places: &[Place],
+    measure: impl Fn(usize, &[bool], &[Pair]) -> T,
+) -> Vec<Option<T>> {
     let (fair, held, theirs) = stages(roster, pairs, Some(places));
     let anchors: Vec<bool> = roster.held.iter().map(Option::is_some).collect();
     let held: Vec<bool> = held.iter().map(Option::is_some).collect();
@@ -203,10 +236,71 @@ fn links(roster: &Roster, pairs: &[Pair], places: &[Place]) -> Vec<Option<f64>> 
             if anchors[player] {
                 None
             } else if roster.unfair[player] {
-                Some(fit::link(player, &held, &theirs))
+                Some(measure(player, &held, &theirs))
             } else {
-                Some(fit::link(player, &anchors, &fair))
+                Some(measure(player, &anchors, &fair))
             }
+        })
+        .collect()
+}
+
+/// What holds a player's rating to the anchors.
+pub(super) struct Footing {
+    /// The games that link it to the players held in its stage (a minimum
+    /// cut); none for an anchor.
+    pub link: Option<f64>,
+    /// The players every path from it to the held ones runs through.
+    pub through: Vec<usize>,
+    /// The assumptions without whose inputs its link would keep less than
+    /// half its games, with the games it would keep.
+    pub leans: Vec<(String, f64)>,
+}
+
+/// Every player's footing: its link, the players its link runs through, and
+/// the assumptions it leans on.
+fn footings(roster: &Roster, matches: &[Match], pairs: &[Pair], places: &[Place]) -> Vec<Footing> {
+    let links = per_stage(roster, pairs, places, fit::link);
+    let through = per_stage(roster, pairs, places, fit::cuts);
+    let assumptions: BTreeSet<&String> = matches
+        .iter()
+        .flat_map(|found| &found.assumptions)
+        .collect();
+    let mut leans = vec![Vec::new(); roster.names.len()];
+    for assumption in assumptions {
+        let weights: Vec<Vec<f64>> = matches
+            .iter()
+            .map(|found| {
+                let kept = if found.assumptions.contains(assumption) {
+                    0.0
+                } else {
+                    1.0
+                };
+                vec![kept; found.games.len()]
+            })
+            .collect();
+        let without = per_stage(
+            roster,
+            &self::pairs(roster, matches, &weights),
+            places,
+            fit::link,
+        );
+        for (player, (full, left)) in links.iter().zip(&without).enumerate() {
+            if let (Some(full), Some(left)) = (full, left)
+                && *full > 0.0
+                && *left < full / 2.0
+            {
+                leans[player].push((assumption.clone(), *left));
+            }
+        }
+    }
+    links
+        .into_iter()
+        .zip(through)
+        .zip(leans)
+        .map(|((link, through), leans)| Footing {
+            link,
+            through: through.unwrap_or_default(),
+            leans,
         })
         .collect()
 }
@@ -219,18 +313,18 @@ fn table(roster: &Roster, matches: &[Match], options: &Options) -> Result<Value>
         .collect();
     let observed = pairs(roster, matches, &ones);
     let fitted = places(roster, &observed)?;
-    let links = links(roster, &observed, &fitted);
+    let footings = footings(roster, matches, &observed, &fitted);
     let mut state = options.seed;
     let by_deal = draws(roster, matches, options.resamples, || {
         bootstrap::by_deal(matches, &mut state)
     })?;
-    let decks = bootstrap::decks(matches);
-    let by_deck = if decks.is_empty() {
+    let decks = bootstrap::DeckDraw::new(matches);
+    let by_deck = if decks.units == 0 {
         None
     } else {
         let mut state = options.seed ^ DECK_STREAM;
         Some(draws(roster, matches, options.resamples, || {
-            bootstrap::by_deck(matches, &decks, &mut state)
+            decks.weights(&mut state)
         })?)
     };
     let without_decks = matches
@@ -243,10 +337,10 @@ fn table(roster: &Roster, matches: &[Match], options: &Options) -> Result<Value>
         matches,
         observed: &observed,
         fitted: &fitted,
-        links: &links,
+        footings: &footings,
         by_deal: &by_deal,
         by_deck: by_deck.as_deref(),
-        decks: decks.len(),
+        decks: &decks,
         without_decks,
         options,
     }))

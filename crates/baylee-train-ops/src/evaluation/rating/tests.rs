@@ -29,6 +29,7 @@ fn played(player: &str, opponent: &str, difference: f64, games: usize, state: &m
                 DECKS[(i / 2) % DECKS.len()].to_owned(),
                 DECKS[(i / 2 + 1 + i / 24) % DECKS.len()].to_owned(),
             ],
+            key: None,
         })
         .collect();
     scored(player, opponent, games)
@@ -43,7 +44,10 @@ fn scored(player: &str, opponent: &str, games: Vec<Game>) -> Match {
         format: "1v1".to_owned(),
         deals: games.iter().map(|game| game.deal + 1).max().unwrap_or(0),
         games,
+        rows: 0,
         caps: 0,
+        assumptions: Vec::new(),
+        chosen: Value::Null,
         input: json!({}),
         note: None,
     }
@@ -61,6 +65,7 @@ fn results(player: &str, opponent: &str, scores: &[f64]) -> Match {
                 DECKS[deal % 12].to_owned(),
                 DECKS[(deal + 5) % 12].to_owned(),
             ],
+            key: None,
         })
         .collect();
     scored(player, opponent, games)
@@ -209,7 +214,7 @@ fn draws_count_one_half() {
     assert_eq!(
         (
             input["won"].clone(),
-            input["drawn_or_capped"].clone(),
+            input["drawn"].clone(),
             input["lost"].clone()
         ),
         (json!(30), json!(40), json!(30))
@@ -497,4 +502,161 @@ fn summaries_and_ladder_roots_are_read_as_games() {
             "anchors": {"sharp": 1000}}),
     );
     assert!(Spec::read(&base.join("twice.json")).is_err());
+}
+
+#[test]
+fn a_team_game_counts_once_however_many_seats_replayed_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path();
+    // One 2v2 table: seats 0 and 2 are one team, 1 and 3 the other. The net's
+    // team of seats 0 and 2 split its replays; the other lost both.
+    let rows: Vec<Value> = [1.0, 0.0, 0.0, 0.0]
+        .iter()
+        .zip(0..)
+        .map(|(&utility, seat)| {
+            let mut row = row(0, seat, utility, false);
+            row["decks"] = json!(["eval/a", "eval/b", "eval/c", "eval/d"]);
+            row
+        })
+        .collect();
+    write(
+        &base.join("teams.json"),
+        &json!({"seats": 4, "teams": [1, 2, 1, 2], "against": "sharp", "deal_details": rows}),
+    );
+    write(
+        &base.join("spec.json"),
+        &json!({"matches": [{"file": "teams.json", "player": "net", "opponent": "sharp",
+            "format": "2v2"}], "anchors": {"sharp": 1000}}),
+    );
+    let report = rate(&Spec::read(&base.join("spec.json")).unwrap(), &options(1)).unwrap();
+    // Four decks a game: the bootstrap by deck draws the tables' deck sets.
+    assert_eq!(
+        report["formats"]["2v2"]["deck_bootstrap"],
+        json!({"draws": "deck sets", "units": 1})
+    );
+    let input = &report["formats"]["2v2"]["inputs"][0];
+    assert_eq!(
+        (
+            input["games"].clone(),
+            input["rows"].clone(),
+            input["score"].clone()
+        ),
+        (json!(2), json!(4), json!(0.5))
+    );
+    assert_eq!(
+        (
+            input["won"].clone(),
+            input["drawn"].clone(),
+            input["lost"].clone()
+        ),
+        (json!(0), json!(1), json!(1))
+    );
+}
+
+#[test]
+fn the_same_deals_count_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path();
+    let summary = json!({"seats": 2, "teams": [], "against": "sharp",
+        "deal_details": [row(0, 0, 1.0, false), row(0, 1, 0.0, false), row(1, 0, 1.0, false),
+            row(1, 1, 1.0, false)]});
+    write(&base.join("main.json"), &summary);
+    write(&base.join("old.json"), &summary);
+    let run = |name: &str, matches: Value| {
+        write(
+            &base.join(name),
+            &json!({"matches": matches, "anchors": {"sharp": 1000}}),
+        );
+        rate(&Spec::read(&base.join(name)).unwrap(), &options(1))
+    };
+    let twice = run(
+        "twice.json",
+        json!([{"file": "main.json", "player": "net", "opponent": "sharp"},
+            {"file": "old.json", "player": "net", "opponent": "sharp"}]),
+    );
+    assert!(
+        format!("{:#}", twice.unwrap_err()).contains("both hold game"),
+        "a rerun of the same deals is one measurement"
+    );
+    // Another player on the same deals is another match.
+    run(
+        "arms.json",
+        json!([{"file": "main.json", "player": "net", "opponent": "sharp"},
+            {"file": "old.json", "player": "other arm", "opponent": "sharp"}]),
+    )
+    .unwrap();
+    let stand_in = run(
+        "stand-in.json",
+        json!([{"first_of": [{"file": "not-yet-run.json"},
+            {"file": "old.json", "assumption": "the old build plays as main"}],
+            "player": "net", "opponent": "sharp"}]),
+    )
+    .unwrap();
+    let input = &stand_in["formats"]["1v1"]["inputs"][0];
+    assert!(input["source"].as_str().unwrap().ends_with("old.json"));
+    assert_eq!(input["assumptions"], json!(["the old build plays as main"]));
+    assert_eq!(input["first_of"]["candidate"], 2);
+    let replaced = run(
+        "replaced.json",
+        json!([{"first_of": [{"file": "main.json"},
+            {"file": "old.json", "assumption": "the old build plays as main"}],
+            "player": "net", "opponent": "sharp"}]),
+    )
+    .unwrap();
+    let input = &replaced["formats"]["1v1"]["inputs"][0];
+    assert!(input["source"].as_str().unwrap().ends_with("main.json"));
+    assert_eq!(input["assumptions"], json!([]));
+}
+
+#[test]
+fn weak_footings_are_named() {
+    let mut state = 51;
+    let assumed = |mut found: Match| {
+        found.assumptions = vec!["fp32 plays as fp16".to_owned()];
+        found
+    };
+    let report = rate_matches(
+        &anchors(&[("sharp", 1_000.0)]),
+        &BTreeSet::new(),
+        vec![
+            played("net", "sharp", 50.0, 1_000, &mut state),
+            assumed(played("llm", "net", 80.0, 100, &mut state)),
+            played("both", "net", 0.0, 300, &mut state),
+            played("both", "sharp", 0.0, 300, &mut state),
+        ],
+        &options(19),
+    )
+    .unwrap();
+    let llm = player(&report, "1v1", "llm");
+    assert_eq!(llm["only_through"], json!(["net"]));
+    assert_eq!(
+        llm["leans_on"],
+        json!([{"assumption": "fp32 plays as fp16", "link_without": 0.0}])
+    );
+    let flags: Vec<&str> = llm["flags"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|flag| flag.as_str().unwrap())
+        .collect();
+    assert!(
+        flags.contains(&"single link: every path to an anchor runs through net"),
+        "{flags:?}"
+    );
+    assert!(
+        flags
+            .iter()
+            .any(|flag| flag.starts_with("rests on an assumption")),
+        "{flags:?}"
+    );
+    for name in ["net", "both"] {
+        let solid = player(&report, "1v1", name);
+        assert_eq!(solid["only_through"], json!([]), "{solid}");
+        assert_eq!(solid["leans_on"], json!([]), "{solid}");
+    }
+    let markdown = markdown(&report);
+    assert!(
+        markdown.contains("**single link: every path to an anchor runs through net**"),
+        "{markdown}"
+    );
 }

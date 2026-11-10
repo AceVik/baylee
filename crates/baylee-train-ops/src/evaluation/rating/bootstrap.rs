@@ -2,10 +2,10 @@
 //! rating's draws say: by deal (each input's deals drawn again) and by deck
 //! (the format's decks drawn again). Both use the evaluation's `SplitMix64`
 //! stream, so one seed gives one table.
-use super::games::Match;
+use super::games::{Game, Match};
 use crate::evaluation::sample;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Each input's deals drawn with replacement, as many as it has; a game
 /// weighs as often as its deal was drawn, so a table's seat rotations, or a
@@ -23,50 +23,77 @@ pub(super) fn by_deal(matches: &[Match], state: &mut u64) -> Vec<Vec<f64>> {
         .collect()
 }
 
-/// Every deck the format's games were dealt, each with its index.
-pub(super) fn decks(matches: &[Match]) -> BTreeMap<&str, usize> {
-    let mut names: Vec<&str> = matches
-        .iter()
-        .flat_map(|found| &found.games)
-        .flat_map(|game| game.decks.iter().map(String::as_str))
-        .collect();
-    names.sort_unstable();
-    names.dedup();
-    names
-        .into_iter()
-        .enumerate()
-        .map(|(i, name)| (name, i))
-        .collect()
+/// What the bootstrap by deck draws. In a format of two decks a game it is
+/// every deck alone: a game weighs the product of its two decks' draws, so a
+/// deck's games come and go together across every pairing it played in. With
+/// more decks a game that product survives a draw only when all of them were
+/// drawn (about 6 % of games at six decks), and nearly every resample leaves
+/// a player without games; there the unit is a table's set of decks.
+pub(super) struct DeckDraw {
+    /// `decks` or `deck sets`.
+    pub kind: &'static str,
+    /// The distinct decks of the format.
+    pub decks: usize,
+    /// How many units a draw draws from.
+    pub units: usize,
+    /// Per match, per game, the units its weight multiplies; none for a game
+    /// without decks, which weighs one.
+    games: Vec<Vec<Vec<usize>>>,
 }
 
-/// The format's decks drawn with replacement, as many as there are, one draw
-/// for all inputs; a game weighs the product of its decks' draws (a deck drawn
-/// twice doubles each of its games, one not drawn removes them). A game
-/// without decks weighs one.
-pub(super) fn by_deck(
-    matches: &[Match],
-    decks: &BTreeMap<&str, usize>,
-    state: &mut u64,
-) -> Vec<Vec<f64>> {
-    let mut drawn = vec![0.0; decks.len()];
-    for _ in 0..decks.len() {
-        drawn[sample(state, decks.len())] += 1.0;
+impl DeckDraw {
+    pub(super) fn new(matches: &[Match]) -> Self {
+        let all = || matches.iter().flat_map(|found| &found.games);
+        let decks: BTreeSet<&String> = all().flat_map(|game| &game.decks).collect();
+        let alone = all().all(|game| game.decks.len() <= 2);
+        let mut index = BTreeMap::new();
+        for game in all() {
+            for unit in units_of(game, alone) {
+                let next = index.len();
+                index.entry(unit).or_insert(next);
+            }
+        }
+        let games = matches
+            .iter()
+            .map(|found| {
+                found
+                    .games
+                    .iter()
+                    .map(|game| {
+                        units_of(game, alone)
+                            .iter()
+                            .map(|unit| index[unit])
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect();
+        Self {
+            kind: if alone { "decks" } else { "deck sets" },
+            decks: decks.len(),
+            units: index.len(),
+            games,
+        }
     }
-    matches
-        .iter()
-        .map(|found| {
-            found
-                .games
-                .iter()
-                .map(|game| {
-                    game.decks
-                        .iter()
-                        .map(|deck| drawn[decks[deck.as_str()]])
-                        .product()
-                })
-                .collect()
-        })
-        .collect()
+
+    /// The units drawn with replacement, as many as there are, one draw for all
+    /// inputs; a game weighs the product of its units' draws (a unit drawn
+    /// twice doubles its games, one not drawn removes them).
+    pub(super) fn weights(&self, state: &mut u64) -> Vec<Vec<f64>> {
+        let mut drawn = vec![0.0; self.units];
+        for _ in 0..self.units {
+            drawn[sample(state, self.units)] += 1.0;
+        }
+        self.games
+            .iter()
+            .map(|games| {
+                games
+                    .iter()
+                    .map(|units| units.iter().map(|&unit| drawn[unit]).product())
+                    .collect()
+            })
+            .collect()
+    }
 }
 
 /// What one player's draws say: the central 95 % of the rated draws by
@@ -83,4 +110,17 @@ pub(super) fn spread(draws: &[f64]) -> Value {
     };
     json!({"interval": [at(0.025), at(0.975)], "resamples": draws.len(),
         "unrated": draws.len() - rated.len(), "unbounded": unbounded})
+}
+
+/// The units of a game's weight: each deck alone, or its decks as one set.
+fn units_of(game: &Game, alone: bool) -> Vec<Vec<&String>> {
+    if alone {
+        game.decks.iter().map(|deck| vec![deck]).collect()
+    } else if game.decks.is_empty() {
+        Vec::new()
+    } else {
+        let mut set: Vec<&String> = game.decks.iter().collect();
+        set.sort_unstable();
+        vec![set]
+    }
 }
