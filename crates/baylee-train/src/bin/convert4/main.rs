@@ -52,6 +52,12 @@ struct Args {
     /// When supplied, every --runs game is training and every --val-runs game validation.
     #[arg(long, value_delimiter = ',')]
     val_runs: Vec<PathBuf>,
+    /// The deck manifest whose train split a dataset may be played with
+    /// (`manifest.v4.holdout2.json`): a game of `--runs` or `--val-runs` that
+    /// seated a deck it puts in another split (test, val, holdout2), by key,
+    /// cards or near, stops the conversion by name (`train_decks.rs`).
+    #[arg(long)]
+    train_manifest: PathBuf,
     /// Output dataset directory; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -130,6 +136,8 @@ struct GameRef {
     validation: bool,
     shadow: Option<shadow::Source>,
     llm: Option<llm::Source>,
+    /// The deck keys the game's row gives its seats, if any.
+    deck_keys: Vec<Option<String>>,
 }
 
 fn read_member(path: &Path, offset: u64, len: u64) -> anyhow::Result<Vec<u8>> {
@@ -164,6 +172,7 @@ mod research;
 mod search_distill;
 mod self_imitation;
 mod shadow;
+mod train_decks;
 mod unreplayable;
 use output::{GameWriter, publish_ready};
 
@@ -324,6 +333,7 @@ fn main() -> anyhow::Result<()> {
                     None
                 },
                 team_hands: TeamHands::from_run(&run_json),
+                deck_keys: train_decks::row_keys(&v),
                 game_id,
                 shard_path: if args.shadow_bc || args.llm_bc {
                     run_dir.join("records").join(shard_name).canonicalize()?
@@ -407,6 +417,12 @@ fn main() -> anyhow::Result<()> {
     )?;
     let rule_roots = Arc::new(structure.roots.clone());
     let started = Instant::now();
+    // No game of a training dataset seated a deck outside the train split.
+    let train_guard = baylee_train::decksplit::TrainOnly::load(
+        &args.train_manifest,
+        &baylee_train::working::repo_root(),
+    )?;
+    train_decks::check(&train_guard, &games)?;
     let is_on_policy = games.iter().any(|game| game.on_policy.is_some());
     anyhow::ensure!(
         !is_on_policy || games.iter().all(|game| game.on_policy.is_some()),
@@ -448,6 +464,7 @@ fn main() -> anyhow::Result<()> {
         "ppo_eligible": policy_sources.iter().all(|r| r["collection_contract"]["purpose"] == "on_policy_training"),
         "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) && policy_sources.iter().all(|r| r["model_identity"]["encoder_version"].as_u64() == Some(u64::from(args.encoder_version))) { json!(2) } else { Value::Null },
         "package_target_steps": args.shard_steps,
+        "train_decks": train_guard.metadata(),
         "streaming_frames_per_worker": MAX_SEATS,
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
         "sampling_version": 2,
@@ -748,19 +765,20 @@ mod encoder_cli_tests {
 
     #[test]
     fn encoder_selection_is_explicit_and_unsupported_versions_fail() {
-        let default = Args::try_parse_from(["convert4", "--out", "dataset"]).unwrap();
+        let base = ["convert4", "--out", "dataset", "--train-manifest", "m.json"];
+        let with = |extra: &[&'static str]| Args::try_parse_from(base.iter().chain(extra));
+        let default = with(&[]).unwrap();
         assert_eq!(default.encoder_version, 7);
-        let payment =
-            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "8"])
-                .unwrap();
+        let payment = with(&["--encoder-version", "8"]).unwrap();
         assert_eq!(payment.encoder_version, 8);
-        let announcement =
-            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "9"])
-                .unwrap();
+        let announcement = with(&["--encoder-version", "9"]).unwrap();
         assert_eq!(announcement.encoder_version, 9);
-        assert!(
-            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "11"])
-                .is_err()
-        );
+        assert!(with(&["--encoder-version", "11"]).is_err());
+    }
+
+    /// No training conversion runs without the manifest that guards its decks.
+    #[test]
+    fn a_conversion_names_its_train_manifest() {
+        assert!(Args::try_parse_from(["convert4", "--out", "dataset"]).is_err());
     }
 }

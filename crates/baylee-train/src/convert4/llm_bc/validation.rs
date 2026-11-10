@@ -56,6 +56,12 @@ pub(super) fn load(
             && request["semantic_quality_gate"] == false,
         "LLM run must be technical BC-only"
     );
+    // An evaluation (`llm_collector4 collect --evaluation`) may have seated
+    // any deck: its games are numbers only, never BC.
+    ensure!(
+        request["numbers_only"] != true,
+        "LLM game {game} is an evaluation's, numbers only"
+    );
     for check in [
         "connection",
         "view_boundary",
