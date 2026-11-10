@@ -342,8 +342,7 @@ fn world_with_opponent<T: ForkSource4>(
         if let Ok(other) = u8::try_from(other_idx).map(PlayerId::new)
             && other != seat
         {
-            let same_team =
-                my_team.is_some() && teams.get(other_idx).copied().flatten() == my_team;
+            let same_team = my_team.is_some() && teams.get(other_idx).copied().flatten() == my_team;
             if neural_opponent || same_team {
                 world.take_over(other);
             } else {

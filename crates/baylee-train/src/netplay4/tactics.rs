@@ -280,7 +280,9 @@ pub(super) fn select_single_choice(
                         .candidates
                         .iter()
                         .filter_map(|cand| cand_obj(cand).and_then(|oid| view.object(oid)))
-                        .filter(|o| is_ally(actor, o.controller) && o.types.contains(TypeSet::CREATURE))
+                        .filter(|o| {
+                            is_ally(actor, o.controller) && o.types.contains(TypeSet::CREATURE)
+                        })
                         .map(|o| super::choices::beneficial_creature_target_tier(actor, o))
                         .max()
                         .unwrap_or(0);
@@ -2156,7 +2158,9 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
             }
             if is_counterspell_effects(effects)
                 && (view.stack.iter().all(|s| is_ally(actor, s.controller))
-                    || view.top_of_stack().is_some_and(|top| is_ally(actor, top.controller)))
+                    || view
+                        .top_of_stack()
+                        .is_some_and(|top| is_ally(actor, top.controller)))
             {
                 continue;
             }
@@ -2303,10 +2307,9 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                     && view.phase != Phase::Combat
                 {
                     let dmg = i32::try_from(dmg_u).unwrap_or(2);
-                    let opp_low_life = view
-                        .seats
-                        .iter()
-                        .any(|s| is_opponent(actor, s.player) && s.life > 0 && s.life <= dmg * 2 + 1);
+                    let opp_low_life = view.seats.iter().any(|s| {
+                        is_opponent(actor, s.player) && s.life > 0 && s.life <= dmg * 2 + 1
+                    });
                     let opp_has_killable_target = view.battlefield.iter().any(|o| {
                         is_opponent(actor, o.controller)
                             && !o.status.contains(ObjectStatus::PHASED_OUT)
@@ -3815,9 +3818,10 @@ fn is_friendly_target_action(view: &PlayerView, actor: PlayerId, action: &Player
             if players.iter().any(|&p| is_ally(actor, p)) {
                 return true;
             }
-            objects
-                .iter()
-                .any(|&oid| view.object(oid).is_some_and(|o| is_ally(actor, o.controller)))
+            objects.iter().any(|&oid| {
+                view.object(oid)
+                    .is_some_and(|o| is_ally(actor, o.controller))
+            })
         }
         _ => false,
     }
@@ -3830,9 +3834,10 @@ fn is_hostile_target_action(view: &PlayerView, actor: PlayerId, action: &PlayerA
             if players.iter().any(|&p| is_opponent(actor, p)) {
                 return true;
             }
-            objects
-                .iter()
-                .any(|&oid| view.object(oid).is_some_and(|o| is_opponent(actor, o.controller)))
+            objects.iter().any(|&oid| {
+                view.object(oid)
+                    .is_some_and(|o| is_opponent(actor, o.controller))
+            })
         }
         _ => false,
     }

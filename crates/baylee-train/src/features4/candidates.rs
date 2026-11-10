@@ -811,12 +811,12 @@ fn bounded_attackers_max(
         })
         .min()
         .unwrap_or(0);
-    if min_mana_tax > 0 {
-        let pool_total = view
-            .seat(actor)
-            .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
-        let reach = pool_total.saturating_add(untapped_mana_production(view, actor));
-        cap = cap.min(reach / min_mana_tax);
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
+    let reach = pool_total.saturating_add(untapped_mana_production(view, actor));
+    if let Some(most) = reach.checked_div(min_mana_tax) {
+        cap = cap.min(most);
     }
     cap.max(min)
 }
@@ -857,17 +857,16 @@ fn active_blockers_cap(view: &PlayerView, max: u32) -> Option<u32> {
             })
         })
         .count() as u32;
-    if atk_archangels > 0 {
-        let actor = view.decision_player.unwrap_or(view.seat);
-        let pool_total = view
-            .seat(actor)
-            .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
-        let reach = pool_total.saturating_add(untapped_mana_production(view, actor));
-        let rem = reach / atk_archangels;
-        if rem < cap {
-            cap = rem;
-            capped = true;
-        }
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
+    let reach = pool_total.saturating_add(untapped_mana_production(view, actor));
+    if let Some(rem) = reach.checked_div(atk_archangels)
+        && rem < cap
+    {
+        cap = rem;
+        capped = true;
     }
     capped.then_some(cap)
 }

@@ -62,8 +62,7 @@ fn may_solo_block_attacker(attacker: &PublicObject, pending: &Pending) -> bool {
     }
     if let Pending::ChooseBlockers { bounds, .. } = pending {
         for bound in bounds {
-            if bound.attacker == attacker.id
-                && (bound.min_blockers > 1 || bound.max_blockers == 0)
+            if bound.attacker == attacker.id && (bound.min_blockers > 1 || bound.max_blockers == 0)
             {
                 return false;
             }

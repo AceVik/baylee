@@ -186,16 +186,15 @@ impl<L: CardLookup + Clone> Engine<L> {
         decks: DeckKnowledge,
         policy_seed: u64,
     ) -> Result<Self, ForkRefusal> {
-        self.fork_for_with_shared(
-            seat,
-            decks,
-            policy_seed,
-            baylee_core::ids::SeatSet::new(),
-        )
+        self.fork_for_with_shared(seat, decks, policy_seed, baylee_core::ids::SeatSet::new())
     }
 
     /// As [`Self::fork_for`], additionally keeping the hands of any teammates
     /// in `shared_hands` who have shared their full hand with `seat`.
+    ///
+    /// # Errors
+    /// As [`Self::fork_for`]: when `seat` is not at the table, or the fork
+    /// is refused for the reasons [`ForkRefusal`] names.
     pub fn fork_for_with_shared(
         &self,
         seat: PlayerId,

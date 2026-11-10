@@ -128,7 +128,11 @@ impl Table<'_> {
             return;
         }
         let at = usize::from(seat.get());
-        if !self.seats.get(at).is_some_and(SeatKind::answers_over_socket) {
+        if !self
+            .seats
+            .get(at)
+            .is_some_and(SeatKind::answers_over_socket)
+        {
             return;
         }
         let state = self.engine.state();

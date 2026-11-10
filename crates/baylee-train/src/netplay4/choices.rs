@@ -642,38 +642,37 @@ pub(super) fn adjust_subset_logits(
                 }
             }
 
-            let search_attackers: BTreeSet<ObjectId> = if HOUSE_ATTACK_SEARCH
-                && let Some(def_pid) = first_def_pid
-            {
-                let search_eligible: Vec<ObjectId> = pos_attacker_ids
-                    .iter()
-                    .copied()
-                    .filter(|id| {
-                        required.contains(id)
-                            || (!hold_back_for_crackback.contains(id)
-                                && view.object(*id).is_some_and(|o| {
-                                    !is_protected_engine_or_catastrophic_ltb(view, o)
-                                        && !is_suicide_attack_into_blockers(
-                                            view,
-                                            o,
-                                            def_pid,
-                                            total_pos_attackers,
-                                        )
-                                }))
-                    })
-                    .collect();
-                baylee_ai::search::attackers(
-                    view,
-                    &search_eligible,
-                    def_pid,
-                    baylee_core::preset::AIProfile::SHARP,
-                )
-                .attackers
-                .into_iter()
-                .collect()
-            } else {
-                BTreeSet::new()
-            };
+            let search_attackers: BTreeSet<ObjectId> =
+                if HOUSE_ATTACK_SEARCH && let Some(def_pid) = first_def_pid {
+                    let search_eligible: Vec<ObjectId> = pos_attacker_ids
+                        .iter()
+                        .copied()
+                        .filter(|id| {
+                            required.contains(id)
+                                || (!hold_back_for_crackback.contains(id)
+                                    && view.object(*id).is_some_and(|o| {
+                                        !is_protected_engine_or_catastrophic_ltb(view, o)
+                                            && !is_suicide_attack_into_blockers(
+                                                view,
+                                                o,
+                                                def_pid,
+                                                total_pos_attackers,
+                                            )
+                                    }))
+                        })
+                        .collect();
+                    baylee_ai::search::attackers(
+                        view,
+                        &search_eligible,
+                        def_pid,
+                        baylee_core::preset::AIProfile::SHARP,
+                    )
+                    .attackers
+                    .into_iter()
+                    .collect()
+                } else {
+                    BTreeSet::new()
+                };
 
             for (i, cand) in cands.candidates[..n].iter().enumerate() {
                 let Some(att_id) = cand.object_id else {
@@ -870,9 +869,10 @@ pub(super) fn adjust_subset_logits(
         Pending::ChooseTargets { min, .. } => {
             let intent = classify_active_target_intent(view, actor, active_source);
             let fixed_dmg = active_source_fixed_damage(view, active_source);
-            let any_opp_player_target = cands.candidates[..n]
-                .iter()
-                .any(|cand| cand.player_id.is_some_and(|p| super::tactics::is_opponent(actor, p)));
+            let any_opp_player_target = cands.candidates[..n].iter().any(|cand| {
+                cand.player_id
+                    .is_some_and(|p| super::tactics::is_opponent(actor, p))
+            });
             let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
                 cands.candidates[..n].iter().any(|cand| {
                     cand.object_id
@@ -903,7 +903,9 @@ pub(super) fn adjust_subset_logits(
                     let obj_opt = cand.object_id.and_then(|oid| view.object(oid));
                     let is_friendly = obj_opt
                         .is_some_and(|o| super::tactics::is_ally(actor, o.controller))
-                        || cand.player_id.is_some_and(|p| super::tactics::is_ally(actor, p));
+                        || cand
+                            .player_id
+                            .is_some_and(|p| super::tactics::is_ally(actor, p));
                     let is_hostile = obj_opt
                         .is_some_and(|o| super::tactics::is_opponent(actor, o.controller))
                         || cand

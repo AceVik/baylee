@@ -65,7 +65,9 @@ fn doomed(view: &PlayerView, me: PlayerId, object: &PublicObject) -> bool {
 fn killable(view: &PlayerView, me: PlayerId, damage: i32) -> impl Iterator<Item = &PublicObject> {
     view.battlefield
         .iter()
-        .filter(move |object| super::super::is_opponent(me, object.controller) && is_creature(object))
+        .filter(move |object| {
+            super::super::is_opponent(me, object.controller) && is_creature(object)
+        })
         .filter(move |object| {
             toughness_left(object) <= damage && !has(object, KeywordSet::INDESTRUCTIBLE)
         })

@@ -754,10 +754,10 @@ mod attached {
                 Some(ws_config()),
             )
             .await?;
-            return play(ws, attach, pump_budget).await;
+            return Box::pin(play(ws, attach, pump_budget)).await;
         }
         let ws = dial(&attach.url).await?;
-        play(ws, attach, pump_budget).await
+        Box::pin(play(ws, attach, pump_budget)).await
     }
 
     /// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`).

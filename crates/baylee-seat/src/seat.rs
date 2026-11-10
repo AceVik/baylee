@@ -405,6 +405,10 @@ enum Asking {
 }
 
 /// The seat, without its socket or its mind.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent facts about one seat, none of them a state of another"
+)]
 pub struct SeatCore {
     config: BridgeConfig,
     deck: DeckList,
@@ -857,8 +861,7 @@ impl SeatCore {
             return Vec::new();
         }
         let mut steps = Vec::new();
-        let proactive =
-            self.disclosure == Disclosure::Net || self.hand_share_policy_explicit;
+        let proactive = self.disclosure == Disclosure::Net || self.hand_share_policy_explicit;
         match self.hand_share_policy {
             AiHandSharePolicy::AlwaysContinuous => {
                 if proactive && !self.proactive_share_sent {
@@ -879,11 +882,8 @@ impl SeatCore {
                             // Continuous share was refused (e.g. OnceOnly mode); fall back to snapshot.
                             steps.push(Self::seat_setting_step(SeatSetting::ShareHandOnce(reqs)));
                         } else {
-                            let combined: SeatSet = view
-                                .hand_shared_with
-                                .iter()
-                                .chain(reqs.iter())
-                                .collect();
+                            let combined: SeatSet =
+                                view.hand_shared_with.iter().chain(reqs.iter()).collect();
                             self.proactive_share_sent = true;
                             steps.push(Self::seat_setting_step(SeatSetting::ShareHand(combined)));
                         }

@@ -432,8 +432,7 @@ impl PolicySampler4<'_> {
                                 // A trampler's question says what is lethal, and
                                 // its last blocker is asked too (CR 702.19b).
                                 let src_dt = view.object(*source).is_some_and(|o| {
-                                    (o.keywords
-                                        & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits())
+                                    (o.keywords & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits())
                                         != 0
                                 });
                                 let rem_t = lethal.unwrap_or_else(|| {
