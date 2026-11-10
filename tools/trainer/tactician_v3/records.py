@@ -200,7 +200,9 @@ def decision_kind(record: dict, tail: np.ndarray) -> str:
     `pay` (a cost is being paid), `pass` (R passes), `spend` (N passes, R
     acts in the seat's own turn), `instant_their_turn` (R casts or
     activates in the other side's turn), `cast`, `activate`, `mana`,
-    `land`, `other`."""
+    `land`, `other`. The same rule as `PrioritySubtype4::of`
+    (`crates/baylee-train/src/convert4/distill_labels.rs`), which names the
+    priority subtypes of the whole-net distillation dataset."""
     if record["window"] != "priority":
         return record["window"]
     facts = tail[0, WINDOW_WIDTH + FACT_COLUMNS[0]:WINDOW_WIDTH + FACT_COLUMNS[1]]

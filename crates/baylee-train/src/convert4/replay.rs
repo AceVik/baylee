@@ -328,8 +328,7 @@ fn replay_feature_frames(
                                     shadow_label: None,
                                     llm_label: None,
                                     seat_input: None,
-                                    n_ne_r: None,
-                                    net_answer: None,
+                                    distill: None,
                                 },
                                 cur_life,
                             )?;
@@ -546,8 +545,7 @@ fn replay_feature_frames(
                             llm_label,
                             seat_input: matches!(by, Source::Seat)
                                 .then(|| u32::try_from(input_idx - 1).unwrap_or(u32::MAX)),
-                            n_ne_r: None,
-                            net_answer: None,
+                            distill: None,
                         },
                         cur_life,
                     )?;

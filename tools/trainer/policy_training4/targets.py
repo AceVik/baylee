@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 import dataset4 as D
 import model4 as M
-from trajectory_store4 import BST4_HDR, BST4_MAGIC
+from trajectory_store4 import BST4_HDR, BST4_MAGIC, bst4_payload_end
 from train_rl4 import action_logprob_and_kl
 from training4.execution import encode_boards
 
@@ -53,13 +53,14 @@ def _raw_choice(step):
 
 
 def _bst4_choice(blob: bytes) -> bool:
+    header = BST4_HDR.unpack_from(blob, 0)
     (
         _magic, _ver, _game_id, _seat, _step_cursor, _turn, flags, head, _pending_kind,
         src_kind, _pad0, _k, _single_idx, _loss_weight, _scalar_norm, _outcome,
         _aux0, _aux1, _aux2, _aux3, logprob, temperature,
         _n_ent, _ent_width, _ent_rule_cols, _seat_width, _global_width, _n_edg,
         n_cand, _cand_width, _cand_rule_cols, n_pair, n_mm, n_fm,
-    ) = BST4_HDR.unpack_from(blob, 0)
+    ) = header
     is_decision = bool(flags & 1)
     has_logprob = bool(flags & 4)
     if not (is_decision and src_kind == 0 and has_logprob):
@@ -72,8 +73,10 @@ def _bst4_choice(blob: bytes) -> bool:
         size = n_cand if head == 1 else n_pair
         if n_mm != size or n_fm != size:
             raise ValueError('Malformed stochastic neural mask length')
-        mm = blob[len(blob) - n_mm - n_fm : len(blob) - n_fm]
-        fm = blob[len(blob) - n_fm :]
+        # The masks end the payload; a distillation block may follow.
+        end = bst4_payload_end(header)
+        mm = blob[end - n_mm - n_fm : end - n_fm]
+        fm = blob[end - n_fm : end]
         if any(b not in (0, 1) for b in mm) or any(b not in (0, 1) for b in fm):
             raise ValueError('Malformed stochastic neural mask values')
         return temperature > 0.35 and any(fm)

@@ -322,13 +322,14 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
         .into_iter()
         .try_fold(HEADER_SIZE as u64, |sum, n| sum.checked_add(n?).or(None))
         .context("BST4 dimensions overflow")?;
-    ensure!(
-        length == raw.len() as u64,
-        "BST4 payload shape/length mismatch"
-    );
+    // A distillation dataset may append exactly one block after the payload.
+    let payload = usize::try_from(length)?;
+    ensure!(payload <= raw.len(), "BST4 payload shape/length mismatch");
+    crate::tactician_labels::trailing_distill_block(&raw[payload..])
+        .context("BST4 payload shape/length mismatch")?;
     let multi = usize::try_from(multi)?;
     let free = usize::try_from(free)?;
-    let start = raw.len() - multi - free;
+    let start = payload - multi - free;
     let flags = word(raw, 24)?;
     let source = match word(raw, 36)? {
         0 => "Net",
@@ -339,6 +340,6 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
         _ => anyhow::bail!("unknown BST4 provenance"),
     };
     Ok(
-        json!({"global_feat_width":gw,"game_id":word(raw,8)?,"seat":word(raw,12)?,"step_cursor":word(raw,16)?,"turn":word(raw,20)?,"is_decision":flags&1!=0,"is_terminal":flags&2!=0,"head":word(raw,28)?,"pending_kind":word(raw,32)?,"loss_weight":real(raw,52)?,"outcome":real(raw,60)?,"cand_feat":vec![Value::Null;usize::try_from(candidates)?],"pairs":vec![Value::Null;usize::try_from(pairs)?],"target":{"single_idx":i32::from_le_bytes(raw[48..52].try_into()?),"scalar_norm":real(raw,56)?,"multi_mask":raw[start..start+multi],"free_mask":raw[start+multi..]},"provenance":{"source":source,"thinking_steps":i32::from_le_bytes(raw[44..48].try_into()?),"has_logprob":flags&4!=0,"behavior_logprob":real(raw,80)?,"temperature":real(raw,84)?}}),
+        json!({"global_feat_width":gw,"game_id":word(raw,8)?,"seat":word(raw,12)?,"step_cursor":word(raw,16)?,"turn":word(raw,20)?,"is_decision":flags&1!=0,"is_terminal":flags&2!=0,"head":word(raw,28)?,"pending_kind":word(raw,32)?,"loss_weight":real(raw,52)?,"outcome":real(raw,60)?,"cand_feat":vec![Value::Null;usize::try_from(candidates)?],"pairs":vec![Value::Null;usize::try_from(pairs)?],"target":{"single_idx":i32::from_le_bytes(raw[48..52].try_into()?),"scalar_norm":real(raw,56)?,"multi_mask":raw[start..start+multi],"free_mask":raw[start+multi..payload]},"provenance":{"source":source,"thinking_steps":i32::from_le_bytes(raw[44..48].try_into()?),"has_logprob":flags&4!=0,"behavior_logprob":real(raw,80)?,"temperature":real(raw,84)?}}),
     )
 }
