@@ -125,7 +125,6 @@ impl OwnDatabase {
             confirmed_at: Set(None),
             lang: Set("en".into()),
             guest: Set(false),
-            invite_id: Set(None),
             terms_version: Set(None),
             terms_accepted_at: Set(None),
             must_change_password: Set(false),

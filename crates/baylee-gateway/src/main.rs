@@ -27,7 +27,6 @@ mod cosmetics;
 mod departure;
 mod engine;
 mod handle;
-mod invite;
 mod legacyexport;
 mod llmaccess;
 mod lobby;
@@ -40,6 +39,7 @@ mod poolfacts;
 mod presence;
 mod record;
 mod recordexport;
+mod registration;
 mod replays;
 mod report;
 mod room;
@@ -120,14 +120,13 @@ struct AppState {
     /// rate no address reaches [`DEFAULT_GUEST_CAP`] before its first guests
     /// lapse, so none can shut the guest door by itself.
     guest_limiter: auth::RateLimiter,
-    /// Tries of a closed beta's key at the guest door (#317): eight in five
-    /// minutes per address, on a budget of their own beside [`Self::limiter`],
-    /// so that guessing at eighty bits stays a guess.
+    /// Tries of a locked room's password, per account and room: eight in
+    /// five minutes, on a budget of their own beside [`Self::limiter`].
     sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
-    /// Who may register (`BAYLEE_REGISTRATION`): anybody, somebody with a
-    /// closed-beta key (`invite`, #317), or nobody (`off`).
-    registration: invite::Registration,
+    /// Who may come in new (`BAYLEE_REGISTRATION`): anybody (`open`) or
+    /// nobody (`off`).
+    registration: registration::Registration,
     /// Who comes in: guests, Baylee Central's accounts, or both
     /// (`BAYLEE_AUTH_MODE` or the console, `authmode.rs`).
     auth_mode: authmode::Setting,
@@ -334,12 +333,14 @@ type Shared = Arc<AppState>;
 #[tokio::main]
 #[allow(clippy::too_many_lines)] // one statement per setting and route, read top to bottom
 async fn main() {
-    // The operator's command for closed-beta keys (#317), before anything
-    // else: it prints keys on standard output, where a log line would be
-    // read as one, and it needs no port, agent or setting but the database.
+    // The closed beta's key command (#317) is gone with its keys. Asked for
+    // anyway (a wrapper an older deploy installed, a habit), it says so and
+    // stops, before anything else: without this a gateway would start with
+    // whatever settings the shell held, and migrate the database it names.
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("invite") {
-        std::process::exit(invite::cli(&args[1..]).await);
+        eprintln!("{}", registration::INVITE_COMMAND_GONE);
+        std::process::exit(2);
     }
     // The anonymised export of game records for training and balancing,
     // likewise the operator's and the database's alone.
@@ -368,6 +369,9 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_IMPRESSUM_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
+    let registration =
+        registration::Registration::from_env(std::env::var("BAYLEE_REGISTRATION").ok().as_deref())
+            .unwrap_or_else(|why| panic!("BAYLEE_REGISTRATION: {why}"));
     let auth_mode = authmode::Setting::from_env(std::env::var("BAYLEE_AUTH_MODE").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_AUTH_MODE: {why}"));
     // Where reports go and each account's budget for them, refused as early
@@ -498,9 +502,7 @@ async fn main() {
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
             .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
-        registration: invite::Registration::from_env(
-            std::env::var("BAYLEE_REGISTRATION").ok().as_deref(),
-        ),
+        registration,
         auth_mode,
         guest_cap,
         display_name,
@@ -1071,9 +1073,10 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
 
 /// Whether a switch is on: whether hosts may hand chairs to seat bridges
 /// (`BAYLEE_CHAIR_TICKETS`), as `BAYLEE_GUESTS` was read until the auth
-/// mode replaced it. `BAYLEE_REGISTRATION` has three answers since
-/// #317 ([`invite::Registration::from_env`]) and reads its two old ones the
-/// same way, so that an operator still learns one reading.
+/// mode replaced it. `BAYLEE_REGISTRATION` has a reader of its own
+/// ([`registration::Registration::from_env`]), which refuses the closed
+/// beta's `invite` and reads the rest the same way, so that an operator
+/// still learns one reading.
 ///
 /// **Three spellings shut the door and every other value leaves it open**,
 /// which is the wrong way round for the one switch an operator reaches for

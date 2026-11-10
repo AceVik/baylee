@@ -4,59 +4,22 @@
 //! gateway connected to Central takes no guests (`docs/central-login.md`).
 
 use crate::{
-    AppState, ConnectInfo, Deserialize, ErrorBody, HeaderMap, Json, Path, Router, Serialize,
-    Shared, SocketAddr, State, StatusCode, account, auth, auth_config, authed, db_down, delete,
-    err, get, get_settings, handle, invite, post, put_settings, rate_limit_ip, store,
+    ConnectInfo, Deserialize, ErrorBody, HeaderMap, Json, Path, Router, Serialize, Shared,
+    SocketAddr, State, StatusCode, account, auth, auth_config, authed, db_down, delete, err, get,
+    get_settings, handle, post, put_settings, rate_limit_ip, store,
 };
 
 use super::terms::{accept_terms, terms, terms_stale};
 
-/// The closed-beta key a new guest brings (#317), as the hash
-/// its row is found by; `None` on a gateway that asks for none.
-///
-/// A request that brings no key is refused in words a client from before
-/// keys can show ([`invite::KEY_NEEDED`]). Every key brought is counted
-/// against the address it came from, on the sign-in limiter, before
-/// anything else is done with it: eight tries in five minutes, whether they
-/// were well formed or not, so that guessing at eighty bits stays a guess.
-/// A key that is not one is refused as a key that admits nobody is, in one
-/// sentence ([`invite::KEY_INVALID`]). The key itself is never logged.
-pub(crate) fn admission(
-    state: &AppState,
-    ip: &str,
-    offered: Option<&str>,
-) -> Result<Option<Vec<u8>>, (StatusCode, Json<ErrorBody>)> {
-    if state.registration != invite::Registration::Invite {
-        return Ok(None);
-    }
-    let Some(offered) = offered.filter(|key| !key.trim().is_empty()) else {
-        return Err(err(StatusCode::FORBIDDEN, invite::KEY_NEEDED));
-    };
-    if !state.sign_in_limiter.allow(&invite_budget(ip)) {
-        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
-    }
-    invite::canonical(offered)
-        .map(|key| Some(invite::digest(&key)))
-        .ok_or_else(|| err(StatusCode::FORBIDDEN, invite::KEY_INVALID))
-}
-
-/// A key admitted somebody: the tries from that address start over.
-pub(crate) fn admitted(state: &AppState, ip: &str, key: Option<&[u8]>) {
-    if key.is_some() {
-        state.sign_in_limiter.forget(&invite_budget(ip));
-    }
-}
-
-/// What the sign-in limiter counts an address's key tries under.
-pub(crate) fn invite_budget(ip: &str) -> String {
-    format!("invite:{ip}")
-}
-
 /// What `POST /auth/guest` takes (#269). Every field is optional, and an
 /// empty body is a guest called `Guest`.
 ///
+/// Fields it does not know are ignored rather than refused: a client from
+/// the closed beta (#317) still sends an `invite_key`, and is let in as any
+/// guest is.
+///
 /// @description What `POST /auth/guest` takes. Every field is optional:
-/// `{}` is a guest called `Guest`.
+/// `{}` is a guest called `Guest`. Unknown fields are ignored.
 /// @openapi
 #[derive(Deserialize, Default)]
 pub(crate) struct GuestBody {
@@ -71,13 +34,6 @@ pub(crate) struct GuestBody {
     /// The language it asks in.
     #[serde(default)]
     lang: String,
-    /// @description The closed-beta key a new guest needs where
-    /// registration is `invite`; ignored elsewhere.
-    /// @internal
-    /// The closed-beta key a new guest needs on a gateway with
-    /// `BAYLEE_REGISTRATION=invite` (#317).
-    #[serde(default)]
-    invite_key: Option<String>,
 }
 
 /// What `POST /auth/guest` answers.
@@ -130,12 +86,12 @@ fn language_tag(lang: String) -> String {
 /// session, in one answer: the session is the guest. It lasts 29 to 30 days
 /// past the last call made with its token, and the guest is deleted with
 /// its decks and preferences when it lapses or signs out. A guest may not
-/// upload pictures. On a closed beta a new guest needs a key.
+/// upload pictures.
 /// @tag Accounts
 /// @security none
 /// @return 400: `$ErrorBody` "The display name breaks its rule"
-/// @return 403: `$ErrorBody` "This gateway takes no guests (its mode is `central`), or a closed beta's key is missing or not valid"
-/// @return 429: `$ErrorBody` "Too many attempts from this address, or too many keys tried"
+/// @return 403: `$ErrorBody` "This gateway takes no guests (its mode is `central`)"
+/// @return 429: `$ErrorBody` "Too many attempts from this address"
 /// @return 503: `$ErrorBody` "No guest seats are free (`BAYLEE_GUEST_CAP`), or the gateway's database is unavailable"
 pub(crate) async fn guest(
     State(state): State<Shared>,
@@ -159,9 +115,6 @@ pub(crate) async fn guest(
     if !auth::valid_display_name(&display_name) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid display name"));
     }
-    // A closed beta's guest door is a door too (#317). A guest this device
-    // keeps comes back with its session and never asks this route again.
-    let key = admission(&state, &ip, body.invite_key.as_deref())?;
     if !state.guest_limiter.allow(&ip) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
@@ -177,7 +130,7 @@ pub(crate) async fn guest(
         }
     }
     let issued = auth::IssuedToken::lasting(auth::Lifetime::GUEST);
-    let Some(account) = store::create_guest(
+    let account = store::create_guest(
         &state.db,
         store::NewGuest {
             display_name,
@@ -186,14 +139,9 @@ pub(crate) async fn guest(
         },
         auth::token_digest(&issued.token),
         issued.expires_at,
-        key.as_deref(),
     )
     .await
-    .map_err(|e| db_down(&e))?
-    else {
-        return Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID));
-    };
-    admitted(&state, &ip, key.as_deref());
+    .map_err(|e| db_down(&e))?;
     Ok(Json(GuestSignedIn {
         token: issued.token,
         expires_at: issued.expires_at,

@@ -2,7 +2,7 @@
 //! for a seat bridge"): the host asks for a chair ticket for one open chair
 //! of its room, and a seat bridge that redeems it sits there on the host's
 //! word, with no account of its own. So a language model gets to a table
-//! where the gateway takes no guests, is full of them, or is a closed beta.
+//! where the gateway takes no guests or is full of them.
 //!
 //! Each test runs its own gateway on its own schema; the engine is the
 //! real one, in process.
@@ -148,7 +148,7 @@ async fn stored(gw: &Gateway, game: &str) {
     panic!("the game's record was never completed");
 }
 
-/// The owner's case (06.10.2026): a closed beta that takes no guests. The
+/// The owner's case (06.10.2026): a gateway that takes no guests. The
 /// host's bridge sits on the host's ticket all the same, the room shows it
 /// as the host's, it is ready the moment it sits, the table calls it what
 /// it said it is, and the record names the host as the one who answers for
@@ -156,16 +156,10 @@ async fn stored(gw: &Gateway, game: &str) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn a_hosts_bridge_sits_where_no_guest_may_and_the_record_names_the_host() {
-    let gw = spawn_gateway_with(
-        "chair_no_guests",
-        &[
-            ("BAYLEE_REGISTRATION", "invite".into()),
-            ("BAYLEE_AUTH_MODE", "central".into()),
-        ],
-    );
+    let gw = spawn_gateway_with("chair_no_guests", &[("BAYLEE_AUTH_MODE", "central".into())]);
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
-    // An account the closed beta let in, with its session.
+    // An account, with its session.
     let host = login(port, "hosta", "Hosta");
     let host_id = me(port, &host);
     // The door a bridge used to need is shut.
