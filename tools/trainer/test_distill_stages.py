@@ -272,6 +272,42 @@ class ReferencePolicy(unittest.TestCase):
         self.assertFalse(any(p.requires_grad for p in shared.net.parameters()))
 
 
+class DistillOptions(unittest.TestCase):
+    STAGE_A = ["train5", "--data", "d", "--out", "o", "--init", "i", "--train-policy-head-only", "--distill-bundle",
+               "--distill-kinds", "0", "--distill-kl-weight", "1.0", "--checkpoint-selection", "distill_n_ne_r",
+               "--anchor-l2", "0.15", "--lr", "6e-5", "--batch-size", "8", "--board-chunk", "32",
+               "--board-token-budget", "32768", "--decision-chunk", "4", "--window-burn-in", "0",
+               "--window-entity-buckets", "16", "--loss-version", "5", "--loss-normalization", "unroll_per_head"]
+
+    def parse(self, argv):
+        from training4.cli import parse_args
+        with patch("sys.argv", argv), contextlib.redirect_stderr(io.StringIO()):
+            return parse_args("v5")[0]
+
+    def test_stage_a_recipe_parses_and_guards_reject_mixtures(self):
+        args = self.parse(self.STAGE_A)
+        self.assertEqual((args.distill_kinds, args.checkpoint_selection), ((0,), "distill_n_ne_r"))
+        args = self.parse([*self.STAGE_A, "--distill-kinds", "0,11"])
+        self.assertEqual(args.distill_kinds, (0, 11))
+        for change in (["--adapter-on-candidate-head", "8"],                 # two stage-A modes
+                       ["--freeze-trunk"],                                    # replaced by partial training
+                       ["--checkpoint-selection", "policy"],                  # distillation selects on N != R
+                       ["--decision-chunk", "1", "--window-burn-in", "-1"],   # needs the deferred path
+                       ["--resume", "last.pt"]):                              # fresh --init only
+            argv = [a for a in self.STAGE_A]
+            if change[0] == "--checkpoint-selection":
+                argv[argv.index("--checkpoint-selection") + 1] = change[1]
+            elif change[0] == "--decision-chunk":
+                argv[argv.index("--decision-chunk") + 1] = "1"
+                argv[argv.index("--window-burn-in") + 1] = "-1"
+            else:
+                argv += change
+            with self.subTest(change=change), self.assertRaises(SystemExit):
+                self.parse(argv)
+        with self.assertRaises(SystemExit):
+            self.parse(["train5", "--data", "d", "--out", "o", "--checkpoint-selection", "distill_n_ne_r"])
+
+
 class DistillValidation(unittest.TestCase):
     def test_untouched_student_has_zero_guards_and_n_rate_selection_inputs(self):
         torch.set_num_threads(1)
