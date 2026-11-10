@@ -313,7 +313,8 @@ class WindowTraining:
         `cache`, with `source` naming the exact weights, reuses an earlier pass of
         the same plan and weights; it is only for the untouched initial weights.
         """
-        key = dict(version=1, source=source, burn_in=self.burn_in, length=self.length,
+        # The pieces' digest pins every stored start; lane length only matters through it.
+        key = dict(version=1, source=source, burn_in=self.burn_in,
                    fingerprint=self.dataset.fingerprint, thinking_steps=thinking_steps, bf16=bool(bf16),
                    pieces=hashlib.sha256(self.pieces.tobytes()).hexdigest())
         if cache is not None and Path(cache).exists():
