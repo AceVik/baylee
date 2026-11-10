@@ -112,6 +112,13 @@ describe("the routes", () => {
     expect(parseRoute("/admin/sets/LEA", "")).toEqual({ page: "admin", section: "sets", id: "LEA" });
     expect(parseRoute("/admin/live/x", "")).toEqual({ page: "list", search: "" });
   });
+
+  test("know no keys: the closed beta's page is the list, as any unknown admin path is", () => {
+    for (const path of ["/admin/keys", "/admin/keys/", "/admin/keys/0199aaaa"]) {
+      expect(parseRoute(path, "?x=1")).toEqual({ page: "list", search: "?x=1" });
+      expect(parseRoute(path, "?x=1")).toEqual(parseRoute("/admin/nowhere", "?x=1"));
+    }
+  });
 });
 
 describe("the server on the live page", () => {
@@ -264,8 +271,8 @@ describe("the overview's services and reports", () => {
         return {
           body: {
             at: "2026-10-10T12:00:00Z",
-            gateway: { name: "Baylee EU", version: "0.1.0-beta.7 (gw)", registration: "invite", uptime_secs: 7200 },
-            accounts: { registered: 1, with_email: 0, confirmed_email: 0, admitted_by_key: 0, created: none },
+            gateway: { name: "Baylee EU", version: "0.1.0-beta.7 (gw)", registration: "open", uptime_secs: 7200 },
+            accounts: { registered: 1, with_email: 0, confirmed_email: 0, created: none },
             guests: { enabled: true, live: 0, cap: null },
             online: { players: 0, in_lobby: 0, seated: 0, sessions_live: 0, accounts_signed_in: 0 },
             games: {
@@ -279,7 +286,6 @@ describe("the overview's services and reports", () => {
               finished_since: none,
             },
             agents: { connected: 0, local: 0, capacity: null, games: 0 },
-            invites: { total: 0, active: 0, used_up: 0, expired: 0, revoked: 0, uses_left: 0, admitted: 0 },
             daily: [{ day: "2026-10-10", registered: 0, guests: 0, started: 1, finished: 0, players: 2 }],
           },
         };

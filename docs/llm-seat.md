@@ -1184,8 +1184,8 @@ holds the processes).
   never a log. The bridge redeems it with its name (`LLM-…`) and its deck
   and sits in the chair as the host's delegate, with no account of its
   own, so it gets in where the gateway takes no guests
-  (`BAYLEE_AUTH_MODE=central`, the default), its guest cap is reached, or it is a closed beta
-  (`BAYLEE_REGISTRATION=invite`). The room lists the chair under the
+  (`BAYLEE_AUTH_MODE=central`, the default) or its guest cap is reached.
+  The room lists the chair under the
   bridge's name with the host's handle (`delegated_by`), and the game's
   record names the host as the one who answers for it
   (`game_record_seat.delegated_by`), never as the one who played it. A

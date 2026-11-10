@@ -103,7 +103,6 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         confirmed_at: Set(None),
         lang: Set("de".to_owned()),
         guest: Set(false),
-        invite_id: Set(None),
         terms_version: Set(None),
         terms_accepted_at: Set(None),
         must_change_password: Set(false),

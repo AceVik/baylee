@@ -1,6 +1,6 @@
 /* The console's pages: the overview's charts, Live (players, tables,
-   agents, the server), the accounts, the sets, the blocked cards and the
-   beta keys. Built from `components.css`; only what is a page's own is here. */
+   agents, the server), the accounts, the sets and the blocked cards. Built
+   from `components.css`; only what is a page's own is here. */
 
 /* ----------------------------------------------------------------- charts */
 
@@ -751,64 +751,13 @@ table.sets td.set-bar .progress-wrap + span {
   cursor: pointer;
 }
 
-/* -------------------------------------------------------------- beta keys */
+/* The blocks, each a card in a grid: in force, or ended (lifted or run out). */
 
-.invites {
+.blocks {
   margin-top: var(--sp-6);
 }
 
-.invites > h2 {
-  font-size: var(--fs-xl);
-}
-
-.invites > h3 {
-  margin-top: var(--sp-6);
-}
-
-.create-form,
-.made {
-  display: grid;
-  gap: var(--sp-4);
-}
-
-/* Three fields a row, the note under them across. */
-@media (min-width: 641px) {
-  .create-form .form-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.create-form h3,
-.made h3 {
-  margin: 0;
-}
-
-.create-form > button {
-  justify-self: start;
-}
-
-.made-keys {
-  display: grid;
-  gap: var(--sp-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.made-keys li {
-  display: flex;
-  gap: var(--sp-2);
-}
-
-.made-keys input.key {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-lg);
-  letter-spacing: 0.02em;
-}
-
-.invite-list {
+.block-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
   gap: var(--sp-3);
@@ -817,7 +766,7 @@ table.sets td.set-bar .progress-wrap + span {
   padding: 0;
 }
 
-.invite {
+.block {
   display: grid;
   align-content: start;
   gap: var(--sp-2);
@@ -829,37 +778,35 @@ table.sets td.set-bar .progress-wrap + span {
   box-shadow: var(--shadow-xs);
 }
 
-.invite-head {
+.block-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: var(--sp-2);
 }
 
-.invite-note {
+.block-name {
   min-width: 0;
   font-weight: var(--fw-semibold);
 }
 
-.invite.state-revoked,
-.invite.state-expired,
-.invite.state-used_up {
+.block.state-expired {
   background: var(--surface-alt);
   box-shadow: none;
   color: var(--text-muted);
 }
 
-.invite-state.state-active {
+.block-state.state-active {
   background: var(--ok-soft);
   color: var(--ok);
 }
 
-.invite-state.state-revoked {
+.block-state.state-ended {
   background: var(--danger-soft);
   color: var(--danger);
 }
 
-.invite > button {
+.block > button {
   justify-self: start;
 }
 

@@ -373,9 +373,8 @@ pub async fn for_export(db: &impl ConnectionTrait, game_id: &str) -> Result<Opti
 }
 
 /// Everything that names an account linked to a seat of `game_id` (one that
-/// played it, or whose seat bridge did): its id, email, username, display
-/// name and invite key's id, as text. The export refuses a record in which
-/// any of them is found.
+/// played it, or whose seat bridge did): its id, email, username and display
+/// name, as text. The export refuses a record in which any of them is found.
 ///
 /// # Errors
 ///
@@ -387,8 +386,8 @@ pub async fn seated_identities(
     let rows = db
         .query_all_raw(Statement::from_sql_and_values(
             db.get_database_backend(),
-            "SELECT DISTINCT unnest(ARRAY[a.id::text, a.email, a.username, a.display_name, \
-                                          a.invite_id::text]) AS said \
+            "SELECT DISTINCT unnest(ARRAY[a.id::text, a.email, a.username, \
+                                          a.display_name]) AS said \
              FROM game_record_seat s \
              JOIN account a ON a.id = s.account_id OR a.id = s.delegated_by \
              WHERE s.game_id = $1",

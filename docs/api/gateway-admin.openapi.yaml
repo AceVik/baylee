@@ -2,7 +2,7 @@ openapi: "3.1.0"
 info:
   title: Baylee gateway admin console
   version: 0.1.0-beta.9c
-  description: "A gateway's admin console: counts, accounts, beta keys, card blocks, hosted models and the terms. It listens on its own loopback address only, never on the public port or the unix socket, and refuses a browser's request before it reads the token (`docs/protocol.md` §\"The admin console\")."
+  description: "A gateway's admin console: counts, accounts, card blocks, hosted models and the terms. It listens on its own loopback address only, never on the public port or the unix socket, and refuses a browser's request before it reads the token (`docs/protocol.md` §\"The admin console\")."
   license:
     name: AGPL-3.0-only
     identifier: AGPL-3.0-only
@@ -15,8 +15,8 @@ paths:
       summary: How busy this gateway is, in counts
       description: |-
         Counts and sums only, no field naming a person: accounts,
-        guests, who is online, games, engine agents, friends and chat, beta
-        keys, and the last 30 UTC days.
+        guests, who is online, games, engine agents, friends and chat, and
+        the last 30 UTC days.
       operationId: stats
       tags:
       - Admin
@@ -593,233 +593,6 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "404":
           description: No such account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: >-
-            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
-            is refused too until the window passes
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-                format: int64
-                minimum: 0
-              description: "Seconds to wait: 300"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  /admin/invites:
-    get:
-      summary: Every closed-beta key, never the keys
-      description: |-
-        Every key made, newest first, with what it can still do.
-        Never a key: only its hash is stored, so no route can show one again.
-      operationId: list_invites
-      tags:
-      - Admin
-      security:
-      - adminToken: []
-      servers:
-      - url: http://127.0.0.1:28767
-        description: The admin listener (loopback only)
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ListedInvite"
-        "401":
-          description: >-
-            The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin
-            session
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: >-
-            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
-            `Host` that is not this machine, refused before the token is read
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: >-
-            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
-            is refused too until the window passes
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-                format: int64
-                minimum: 0
-              description: "Seconds to wait: 300"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-    post:
-      summary: Make closed-beta keys
-      description: |-
-        Makes keys as `baylee-gateway invite create` does, in one
-        transaction, and answers them: the one time they exist outside the hand
-        they are given to.
-      operationId: create_invites
-      tags:
-      - Admin
-      parameters:
-      - name: X-Baylee-Admin
-        in: header
-        required: true
-        description: >-
-          The acting admin's name, for the audit line; ignored when the bearer is a
-          Central admin session, whose account acts
-        schema:
-          type: string
-          pattern: ^[\w.-]{1,64}$
-      security:
-      - adminToken: []
-      servers:
-      - url: http://127.0.0.1:28767
-        description: The admin listener (loopback only)
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateBody"
-        required: true
-      responses:
-        "201":
-          description: The keys, shown this once
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MadeInvites"
-        "400":
-          description: >-
-            No valid `X-Baylee-Admin`, not a request for keys (an unknown field included),
-            or a value `invite create` refuses, in its words
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: >-
-            The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin
-            session
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: >-
-            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
-            `Host` that is not this machine, refused before the token is read
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "413":
-          description: The body is over 16 KiB
-        "429":
-          description: >-
-            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
-            is refused too until the window passes
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-                format: int64
-                minimum: 0
-              description: "Seconds to wait: 300"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  "/admin/invites/{id}":
-    delete:
-      summary: Revoke a closed-beta key
-      description: |-
-        Revokes a key as `baylee-gateway invite revoke` does; it
-        admits nobody from now on and stays listed, revoked.
-      operationId: revoke_invite
-      tags:
-      - Admin
-      parameters:
-      - name: X-Baylee-Admin
-        in: header
-        required: true
-        description: >-
-          The acting admin's name, for the audit line; ignored when the bearer is a
-          Central admin session, whose account acts
-        schema:
-          type: string
-          pattern: ^[\w.-]{1,64}$
-      - name: id
-        in: path
-        required: true
-        description: The key's id
-        schema:
-          type: string
-          format: uuid
-      security:
-      - adminToken: []
-      servers:
-      - url: http://127.0.0.1:28767
-        description: The admin listener (loopback only)
-      responses:
-        "204":
-          description: Revoked
-        "400":
-          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: >-
-            The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin
-            session
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: >-
-            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
-            `Host` that is not this machine, refused before the token is read
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: No key by that id that is not revoked already
           content:
             application/json:
               schema:
@@ -3559,10 +3332,6 @@ components:
           type: integer
           format: int64
           description: Of those, the ones whose address was confirmed.
-        admitted_by_key:
-          type: integer
-          format: int64
-          description: Registered accounts a closed-beta key let in, that still exist.
         created:
           $ref: "#/components/schemas/ConsoleSince"
           description: Registered accounts made in each window that still exist.
@@ -3574,7 +3343,6 @@ components:
       - registered
       - with_email
       - confirmed_email
-      - admitted_by_key
       - created
       - decks
       description: "`GET /admin/stats`'s registered accounts."
@@ -3640,16 +3408,6 @@ components:
         lang:
           type: string
           description: The language code it registered in.
-        by_key:
-          type: boolean
-          description: Whether a closed-beta key admitted it.
-        key_note:
-          type:
-          - string
-          - "null"
-          description: >-
-            The note of the key that admitted it; `null` when no key did, or the key is
-            gone or has no note.
         terms_version:
           type:
           - string
@@ -3691,8 +3449,6 @@ components:
       - has_email
       - confirmed
       - lang
-      - by_key
-      - key_note
       - terms_version
       - decks
       - games
@@ -4082,7 +3838,7 @@ components:
           description: The name it shows (`BAYLEE_GATEWAY_NAME`), `null` for none.
         registration:
           $ref: "#/components/schemas/Registration"
-          description: Who may make an account.
+          description: Who may come in new (`BAYLEE_REGISTRATION`).
         uptime_secs:
           type: integer
           format: int64
@@ -4143,46 +3899,6 @@ components:
       - cap
       - created
       description: "`GET /admin/stats`'s guests."
-    ConsoleInviteCounts:
-      type: object
-      properties:
-        total:
-          type: integer
-          format: int64
-          description: Keys ever made.
-        active:
-          type: integer
-          format: int64
-          description: "Keys that admit somebody now: not revoked, not expired, a use left."
-        used_up:
-          type: integer
-          format: int64
-          description: Keys not revoked and not expired, with no use left.
-        expired:
-          type: integer
-          format: int64
-          description: Keys not revoked whose expiry has passed.
-        revoked:
-          type: integer
-          format: int64
-          description: Keys revoked.
-        uses_left:
-          type: integer
-          format: int64
-          description: The uses the active keys have left, together.
-        admitted:
-          type: integer
-          format: int64
-          description: The existing accounts a key let in.
-      required:
-      - total
-      - active
-      - used_up
-      - expired
-      - revoked
-      - uses_left
-      - admitted
-      description: "`GET /admin/stats`'s closed-beta keys."
     ConsoleLive:
       type: object
       properties:
@@ -4352,9 +4068,6 @@ components:
               type: integer
             sockets:
               type: integer
-        invites:
-          $ref: "#/components/schemas/ConsoleInviteCounts"
-          description: The closed-beta keys.
         daily:
           type: array
           items:
@@ -4369,7 +4082,6 @@ components:
       - games
       - agents
       - social
-      - invites
       - daily
       description: "`GET /admin/stats`."
     ConsoleStatus:
@@ -4480,38 +4192,6 @@ components:
       - set_at
       - set_by
       description: The pasted token, as the console shows it.
-    CreateBody:
-      type: object
-      properties:
-        uses:
-          type:
-          - integer
-          - "null"
-          format: int64
-          description: How many accounts each key admits, 1 to 1000; 1 when absent.
-          minimum: 1
-          maximum: 1000
-        expires:
-          type:
-          - string
-          - "null"
-          description: "How long the keys admit anybody, in days or hours, 1 to 3650 of them: `30d`, `12h`; for ever when absent."
-          example: 30d
-        note:
-          type:
-          - string
-          - "null"
-          description: "Who the keys are for: one line, at most 100 characters."
-        count:
-          type:
-          - integer
-          - "null"
-          format: int64
-          description: How many keys, 1 to 100; 1 when absent.
-          minimum: 1
-          maximum: 100
-      additionalProperties: false
-      description: "`baylee-gateway invite create`'s flags as fields, read by the command's own parser: the same defaults, bounds and refusals. Every field may be left out."
     DeckRefusal:
       type: object
       properties:
@@ -4915,60 +4595,6 @@ components:
       - lifted_by
       - state
       description: One card block as the console lists it.
-    ListedInvite:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: The key's id, which `DELETE /admin/invites/{id}` takes.
-        created_at:
-          type: string
-          description: When it was made, RFC 3339 in UTC.
-          format: date-time
-        note:
-          type:
-          - string
-          - "null"
-          description: Who it is for, or `null`.
-        uses_left:
-          type: integer
-          format: int32
-          description: How many more accounts it may admit.
-        expires_at:
-          type:
-          - string
-          - "null"
-          description: When it stops admitting anybody, RFC 3339 in UTC; `null` for never.
-          format: date-time
-        revoked_at:
-          type:
-          - string
-          - "null"
-          description: When it was revoked, RFC 3339 in UTC, or `null`.
-          format: date-time
-        admitted:
-          type: integer
-          format: int64
-          description: How many accounts that still exist it admitted.
-        state:
-          type: string
-          description: "What it can still do: `revoked`, `expired`, `used_up` (no use left) or `active`."
-          enum:
-          - active
-          - used_up
-          - expired
-          - revoked
-      required:
-      - id
-      - created_at
-      - note
-      - uses_left
-      - expires_at
-      - revoked_at
-      - admitted
-      - state
-      description: "One closed-beta key as the console lists it: never the key, which is not kept."
     LiveAgent:
       type: object
       properties:
@@ -5245,49 +4871,6 @@ components:
       required:
       - accounts
       description: "`GET /admin/accounts/lookup`."
-    MadeInvite:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Its id.
-        key:
-          type: string
-          description: "The key, to hand on: it is never shown again."
-      required:
-      - id
-      - key
-      description: One key made.
-    MadeInvites:
-      type: object
-      properties:
-        keys:
-          type: array
-          items:
-            $ref: "#/components/schemas/MadeInvite"
-          description: Each key and its id.
-        uses:
-          type: integer
-          format: int32
-          description: How many accounts each key admits.
-        expires_at:
-          type:
-          - string
-          - "null"
-          description: When they stop admitting anybody, RFC 3339 in UTC; `null` for never.
-          format: date-time
-        note:
-          type:
-          - string
-          - "null"
-          description: Who they are for, `null` for nobody named.
-      required:
-      - keys
-      - uses
-      - expires_at
-      - note
-      description: "`POST /admin/invites`: the keys made, the one time they are shown."
     MetricsHistory:
       type: object
       properties:
@@ -6016,9 +5599,8 @@ components:
       type: string
       enum:
       - open
-      - invite
       - "off"
-      description: "Who may make an account: `open` (anybody), `invite` (somebody with a beta key; a new guest needs one too) or `off`."
+      description: "Who may come in new: `open` (anybody) or `off` (nobody). A gateway from before the open beta may still say `invite`."
     SampleShown:
       type: object
       properties:

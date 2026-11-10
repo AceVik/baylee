@@ -47,7 +47,6 @@ fn a_new_guest_is_asked_for_under_the_name_typed_or_none() {
         lobby.play_as_guest(),
         Some(LobbyRequest::PlayAsGuest {
             display_name: Some("Casper".to_string()),
-            invite_key: None,
         })
     );
     assert!(lobby.busy());
@@ -56,10 +55,7 @@ fn a_new_guest_is_asked_for_under_the_name_typed_or_none() {
     let mut lobby = welcoming();
     assert_eq!(
         lobby.play_as_guest(),
-        Some(LobbyRequest::PlayAsGuest {
-            display_name: None,
-            invite_key: None,
-        }),
+        Some(LobbyRequest::PlayAsGuest { display_name: None }),
         "nothing typed is the gateway's own name for a guest"
     );
 }

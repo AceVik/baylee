@@ -21,7 +21,7 @@
 //! export does not know refuses the record rather than passing through, a
 //! seat's `Human` controller loses its account number, and the written text
 //! is searched for everything that names an account seated at the game (its
-//! id, email, username, display name, invite key) and refused on a find.
+//! id, email, username and display name) and refused on a find.
 //! Refused records are counted, never named.
 
 use std::io::{Read as _, Write as _};

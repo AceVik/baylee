@@ -84,13 +84,13 @@ pub(super) fn clears_a_despawned_focus(app: &mut App) {
     );
 }
 
-/// A front door at a closed beta that takes guests: the sign-in face.
+/// A front door at an open gateway that takes guests: the sign-in face.
 fn at_the_door() -> App {
     let mut app = headless();
     clears_a_despawned_focus(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
-        state.lobby.set_registration(Registration::Invite);
+        state.lobby.set_registration(Registration::Open);
         state.lobby.set_guests_enabled(true);
         state.lobby.focus_on(Field::Username);
     }

@@ -6,9 +6,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { api, SignedOut, type BlockOrder, type CardBlock, type CardHit, type ConsoleChange } from "../api";
-import { formatAgo, formatCount, formatWhen, t, type Key, type Lang } from "../i18n";
+import { formatCount, formatWhen, t, type Key, type Lang } from "../i18n";
 import { CardChip } from "../reports/pieces";
-import { Badge, describe, Panel, useNow } from "./shared";
+import { Badge, ConsoleChanges, describe, useNow } from "./shared";
 
 /** How long the form offers, in hours; `0` for no end, `-1` for a moment picked. */
 const DURATIONS: { hours: number; label: Key }[] = [
@@ -334,17 +334,17 @@ function BlockItem({
     }
   };
   return (
-    <li className={`invite block state-${block.state}`} data-testid="card-block">
-      <div className="invite-head">
-        <span className="invite-note">
+    <li className={`block state-${block.state}`} data-testid="card-block">
+      <div className="block-head">
+        <span className="block-name">
           <CardChip name={block.name} scryfallId={null} lang={lang} />
         </span>
-        <span className={`tag invite-state state-${block.state === "active" ? "active" : "revoked"}`}>
+        <span className={`tag block-state state-${block.state === "active" ? "active" : "ended"}`}>
           {t(lang, `cardstate.${block.state}`)}
         </span>
       </div>
       <p className="block-reason">{block.reason}</p>
-      <dl className="facts invite-facts">
+      <dl className="facts block-facts">
         <div className="fact">
           <dt>{t(lang, "cards.ends")}</dt>
           <dd>{block.until === null ? t(lang, "cards.never") : formatWhen(lang, block.until)}</dd>
@@ -441,7 +441,7 @@ export function Cards({ lang }: { lang: Lang }) {
     shown.length === 0 ? (
       <p className="empty">{t(lang, empty)}</p>
     ) : (
-      <ul className="invite-list">
+      <ul className="block-list">
         {shown.map((block) => (
           <BlockItem
             key={block.id}
@@ -478,7 +478,7 @@ export function Cards({ lang }: { lang: Lang }) {
           {error}
         </p>
       )}
-      <section className="invites card-blocks" aria-labelledby="blocks-title">
+      <section className="blocks" aria-labelledby="blocks-title">
         <h2 id="blocks-title" className="sr-only">
           {t(lang, "cards.title")}
         </h2>
@@ -502,23 +502,7 @@ export function Cards({ lang }: { lang: Lang }) {
             {list(earlier, "cards.noHistory")}
           </details>
         )}
-        <Panel id="card-audit-title" title={t(lang, "audit.title")} className="audit-panel">
-          {changes.length === 0 ? (
-            <p className="empty">{t(lang, "audit.none")}</p>
-          ) : (
-            <ol className="audit console-audit">
-              {changes.map((c) => (
-                <li key={`${c.at}-${c.action}-${c.detail ?? ""}`}>
-                  <span className="muted" title={formatWhen(lang, c.at)}>
-                    {formatAgo(lang, c.at, now)}
-                  </span>{" "}
-                  <strong>{c.actor}</strong> <Badge>{c.action}</Badge>
-                  {c.detail !== null && <span className="muted small audit-detail"> {c.detail}</span>}
-                </li>
-              ))}
-            </ol>
-          )}
-        </Panel>
+        <ConsoleChanges lang={lang} id="card-audit-title" changes={changes} now={now} />
       </section>
     </>
   );

@@ -97,6 +97,8 @@ Since 10.11.2026 the cards compile apart from the libraries that read them, so a
 - `baylee-cards-base` holds what a card file is written with (`tokens`, `generated_tokens`, `filters`) and `generated`, the door to the pool's tables: `unsafe extern "Rust"` statics of exactly the types the pool exports, which the pool holds to each other at compile time. A program that reads a card and does not link the pool fails to link, naming `baylee_cards_pool_all`; that is the whole fix.
 - `baylee-cards` is the registry as libraries read it (`by_index`, `by_oracle_id`, decks, formats, lines, Oracle text, …), and re-exports `base`'s modules under their old paths. It no longer holds a card.
 
+Measured back to back on the MacBook on 10.11.2026, before the groups (8b5e494ce) and with them (4fe2be85b): `hyperfine`, three runs after a warm-up, dev profile, a target directory of its own for each side, one appended comment line per run. A changed card rebuilt the client in 21.4 s instead of 25.6 s, its own card-test crate in 4.0 s instead of 10.8 s, and every test in 55.1 s instead of 62.1 s. A changed card test (3.0 s against 2.9 s for its crate) and a changed engine file (53.5 s against 52.4 s for every test) cost what they did.
+
 A game record (replay, log) stores `CardIndex`es, which the ledger only appends to, and a replay on a later build is checked against `seen`, a digest of the public table written in those indices (`baylee-gamehost/src/record/seen.rs`). Neither names a group, a path or `POOL_HASH` (which only keys the client's `/pool` cache), so adding cards, or a whole new group, leaves every stored game readable.
 
 ## Where a card test compiles

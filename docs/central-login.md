@@ -656,9 +656,9 @@ takes guests is its mode's (§"Who a gateway lets in").
 The official gateway admits a moved account as the legacy account it moved
 from, linking the two at its first admission (§"Legacy migration"), and an
 account registered at Central (no legacy account) as a new local projection,
-as a registered gateway does; Central's beta key stood in for the gateway's at
-sign-up, so only `BAYLEE_REGISTRATION=off` refuses it (baylee-central
-`docs/web-accounts.md`).
+as a registered gateway does; only `BAYLEE_REGISTRATION=off` refuses it, as
+it refuses every account new at a gateway but an admin's (`docs/protocol.md`
+§"Who may come in new").
 A moved account keeps its display name and tag at Central: the cutover's
 export carries both, the name only when it keeps `auth::valid_display_name`
 (a name from before that rule, or from `gateway-store.json`, stays behind,

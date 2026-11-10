@@ -223,20 +223,12 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         }
         // An account registered at Central has no legacy account: the
         // official gateway makes it a projection, as a registered gateway
-        // does. Central's beta key stood in for this gateway's at sign-up,
-        // so only `BAYLEE_REGISTRATION=off` closes the door (baylee-central
-        // `docs/web-accounts.md`).
-        (true, None) => baylee_db::central::projection(
+        // does. Only `BAYLEE_REGISTRATION=off` closes the door to an account
+        // new here; an admin comes in either way.
+        (true, None) | (false, _) => baylee_db::central::projection(
             &state.db,
             central,
-            admin || state.registration != crate::invite::Registration::Off,
-        )
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
-        (false, _) => baylee_db::central::projection(
-            &state.db,
-            central,
-            admin || state.registration == crate::invite::Registration::Open,
+            admin || state.registration == crate::registration::Registration::Open,
         )
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,

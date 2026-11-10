@@ -210,19 +210,13 @@ pub(super) fn build(
             ),
             Expect::LoggedIn,
         ),
-        LobbyRequest::PlayAsGuest {
-            display_name,
-            invite_key,
-        } => {
-            let mut body = serde_json::json!({ "display_name": display_name, "lang": lang });
-            if let Some(key) = invite_key {
-                body["invite_key"] = key.into();
-            }
-            (
-                json_post(&format!("{base}/auth/guest"), &body),
-                Expect::Guest,
-            )
-        }
+        LobbyRequest::PlayAsGuest { display_name } => (
+            json_post(
+                &format!("{base}/auth/guest"),
+                &serde_json::json!({ "display_name": display_name, "lang": lang }),
+            ),
+            Expect::Guest,
+        ),
         // Signed with the token it ends, which the lobby no longer holds.
         LobbyRequest::LogOut { token } => (
             bearer(
@@ -926,14 +920,6 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
             || Phrase::GatewayAnswered.fill(lang, &[&response.status.to_string()]),
             |b| match b.error.as_str() {
                 "invalid display name" => Phrase::AccountNameHint.text(lang).to_string(),
-                // The two refusals of a closed beta (#317), in the player's
-                // language and with what to do about them.
-                "this closed beta key is not valid" => {
-                    Phrase::InviteKeyInvalid.text(lang).to_string()
-                }
-                needed if needed.starts_with("this gateway is a closed beta:") => {
-                    Phrase::InviteKeyNeeded.text(lang).to_string()
-                }
                 "weak password" | "invalid password" => {
                     Phrase::AccountPasswordInvalid.text(lang).to_string()
                 }
@@ -961,8 +947,9 @@ pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbo
 )]
 struct AuthConfig {
     registration_enabled: bool,
-    /// `open`, `invite` or `off` (#317). Absent from a gateway from before
-    /// keys, which [`Registration::read`] answers from the flag above.
+    /// `open` or `off`. Absent from a gateway from before the word, which
+    /// [`Registration::read`] answers from the flag above, as it answers a
+    /// word it does not know (an older gateway's `invite` among them).
     #[serde(default)]
     registration: Option<String>,
     /// Whether `GET /art/…` serves card images.

@@ -60,23 +60,10 @@ async function readPort(file: string, child: ChildProcess, what: string): Promis
 }
 
 /**
- * Lets `name` into the gateway as a guest with the closed beta's `key`; the
- * status. Nobody registers at a gateway any more: accounts are Baylee
- * Central's, and a key admits a guest.
- */
-export async function admitGuest(name: string, key: string): Promise<number> {
-  const response = await fetch(`http://127.0.0.1:${gateway().port}/auth/guest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ display_name: name, invite_key: key }),
-  });
-  return response.status;
-}
-
-/**
- * A real baylee-gateway, a closed beta with its admin console on a loopback
- * port of its own, in a schema of its own; two accounts from before Baylee
- * Central took the sign-in over, as its database holds them.
+ * A real baylee-gateway, open to newcomers, with its admin console on a
+ * loopback port of its own, in a schema of its own; two accounts from before
+ * Baylee Central took the sign-in over, written into its database as it
+ * holds them.
  */
 async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: ChildProcess; schema: string }> {
   const bin = binary("baylee-gateway", "BAYLEE_GATEWAY_BIN");
@@ -96,7 +83,9 @@ async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: Ch
       BAYLEE_ADMIN_TOKEN: CONSOLE_TOKEN,
       BAYLEE_ADMIN_BIND: "127.0.0.1:0",
       BAYLEE_ADMIN_PORT_FILE: adminFile,
-      BAYLEE_REGISTRATION: "invite",
+      // Open, as unset is, but named so a shell's own setting cannot reach
+      // the gateway: one still set to the closed beta's value refuses to start.
+      BAYLEE_REGISTRATION: "open",
       // Guests come in only where the mode says so; unset is `central`.
       BAYLEE_AUTH_MODE: "guests",
       // A pasted gateway token talks to Baylee Central; here to a closed

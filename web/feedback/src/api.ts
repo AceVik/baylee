@@ -248,6 +248,7 @@ export interface Stats {
   gateway: {
     name: string | null;
     version: string;
+    /** `open` or `off`, shown as the gateway says it; one from before the open beta may say `invite`. */
     registration: string;
     commit?: string;
     built_at?: string;
@@ -264,7 +265,6 @@ export interface Stats {
     registered: number;
     with_email: number;
     confirmed_email: number;
-    admitted_by_key: number;
     created: Since;
     decks?: number;
   };
@@ -289,15 +289,6 @@ export interface Stats {
     avg_secs_30d?: number;
   };
   agents: { connected: number; local: number; capacity: number | null; games: number };
-  invites: {
-    total: number;
-    active: number;
-    used_up: number;
-    expired: number;
-    revoked: number;
-    uses_left: number;
-    admitted: number;
-  };
   daily?: Day[];
 }
 
@@ -496,8 +487,6 @@ export interface AccountRow {
   has_email: boolean;
   confirmed: boolean;
   lang: string;
-  by_key: boolean;
-  key_note: string | null;
   terms_version: string | null;
   decks: number;
   games: number;
@@ -608,21 +597,6 @@ export function parseAccountFilter(search: string): AccountFilter {
   return filter;
 }
 
-export const INVITE_STATES = ["active", "used_up", "expired", "revoked"] as const;
-export type InviteState = (typeof INVITE_STATES)[number];
-
-/** A closed-beta key as the gateway lists it: never the key. */
-export interface Invite {
-  id: string;
-  created_at: string;
-  note: string | null;
-  uses_left: number;
-  expires_at: string | null;
-  revoked_at: string | null;
-  admitted: number;
-  state: InviteState;
-}
-
 /** Who a gateway lets in: guests, Baylee Central's accounts, or both. */
 export type AuthModeName = "guests" | "central" | "mixed";
 
@@ -651,22 +625,6 @@ export interface CentralLink {
     expires_at: string;
   } | null;
   check: "ok" | "rejected" | "unavailable" | null;
-}
-
-/** What `invite create` takes, as fields. */
-export interface InviteOrder {
-  count?: number;
-  uses?: number;
-  expires?: string;
-  note?: string;
-}
-
-/** Keys just made: the only time a key is shown. */
-export interface MadeKeys {
-  keys: { id: string; key: string }[];
-  uses: number;
-  expires_at: string | null;
-  note: string | null;
 }
 
 /** A card's block as the gateway tells it: `until` null for no end. */
@@ -1200,11 +1158,6 @@ export const api = {
       );
     },
     account: (id: string) => json<AccountDetail>("GET", `/ui/api/admin/accounts/${encodeURIComponent(id)}`),
-    invites: () => json<Invite[]>("GET", "/ui/api/admin/invites"),
-    create: (order: InviteOrder) => json<MadeKeys>("POST", "/ui/api/admin/invites", order),
-    revoke: async (id: string) => {
-      await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
-    },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
     authMode: {
       get: () => json<AuthModeState>("GET", "/ui/api/admin/auth-mode"),
