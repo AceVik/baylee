@@ -96,6 +96,7 @@ class DistillDataset4(unittest.TestCase):
                     seen["n_ne_r"] += label["n_ne_r"]
                     kinds[label["label_kind"]] += 1
                     subtypes[subtype] += subtype is not None
+                data.store.close()
             counts = vocab["counts"]
             self.assertEqual(seen["labelled"], len(labels))
             self.assertEqual(seen["labelled"], counts["labelled"])
