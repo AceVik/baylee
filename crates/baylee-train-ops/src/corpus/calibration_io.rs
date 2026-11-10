@@ -3,7 +3,12 @@ use super::bc_metadata;
 use crate::files;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
-use std::{collections::BTreeSet, fs::File, io::Read, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs::File,
+    io::{BufRead, BufReader, Read},
+    path::{Path, PathBuf},
+};
 /// Validate sealed records and return the eligible tensor-row indices.
 /// # Errors
 /// Rejects incomplete, changed, empty, incompatible or oversized feature caches.
@@ -67,6 +72,76 @@ pub fn admit(
     );
     Ok(json!({"meta":meta,"indices":indices}))
 }
+/// The deal seed of every converted game: `ready/game-*.json` names each game's
+/// source shard and offset, and the run's `games.jsonl` (the shard's grandparent)
+/// gives that record's seed.
+/// # Errors
+/// Rejects unreadable metadata, duplicate games and any game without a seed.
+fn game_seeds(data: &Path) -> Result<Value> {
+    let mut wanted: BTreeMap<(PathBuf, String, u64), Vec<u64>> = BTreeMap::new();
+    let mut games = 0usize;
+    for entry in std::fs::read_dir(data.join("ready"))? {
+        let path = entry?.path();
+        if path.extension().is_none_or(|e| e != "json") {
+            continue;
+        }
+        let ready = files::read_json(&path)?;
+        let shard = Path::new(
+            ready["source_shard"]
+                .as_str()
+                .context("ready record without source shard")?,
+        );
+        let run = shard
+            .parent()
+            .and_then(Path::parent)
+            .context("source shard outside a run directory")?;
+        let name = shard
+            .file_name()
+            .and_then(|n| n.to_str())
+            .context("source shard without a name")?;
+        let offset = ready["source_offset"]
+            .as_u64()
+            .context("ready record without source offset")?;
+        let game = ready["game_id"]
+            .as_u64()
+            .context("ready record without game id")?;
+        wanted
+            .entry((run.to_path_buf(), name.to_owned(), offset))
+            .or_default()
+            .push(game);
+        games += 1;
+    }
+    let runs: BTreeSet<PathBuf> = wanted.keys().map(|key| key.0.clone()).collect();
+    let mut seeds = BTreeMap::new();
+    for run in runs {
+        for line in BufReader::new(File::open(run.join("games.jsonl"))?).lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let record: Value = serde_json::from_str(&line)?;
+            let key = (
+                run.clone(),
+                record["shard"].as_str().unwrap_or_default().to_owned(),
+                record["offset"].as_u64().unwrap_or(u64::MAX),
+            );
+            if let Some(ids) = wanted.get(&key) {
+                let seed = record["seed"]
+                    .as_u64()
+                    .context("game record without seed")?;
+                for id in ids {
+                    ensure!(seeds.insert(*id, seed).is_none(), "game {id} matched twice");
+                }
+            }
+        }
+    }
+    ensure!(
+        seeds.len() == games,
+        "{} of {games} converted games have no recorded seed",
+        games - seeds.len()
+    );
+    Ok(json!(seeds))
+}
 fn identity(value: &Value) -> Value {
     json!({"version":2,"source_sha256":value["source_hash"],"dataset_fingerprint":value["dataset_fingerprint"],"extraction_sources_sha256":value["extraction_sources_sha256"],"device_type":value["device_type"],"structure_sha256":value["structure_sha256"],"sample_every":value["stride"],"unroll":value["unroll"],"board_chunk":value["board_chunk"],"thinking":"recorded positive K on Net decisions; otherwise K1; passive K0","precision":"float32","sampling":"cursor stride plus first and terminal; no frame skipping"})
 }
@@ -101,6 +176,11 @@ pub fn run(value: &Value) -> Result<Value> {
                 json!({"path":path,"sha256":files::sha256(&path)?,"model_sha256":value["source_hash"]}),
             )
         }
+        Some("game_seeds") => game_seeds(Path::new(
+            value["data_dir"]
+                .as_str()
+                .context("missing dataset directory")?,
+        )),
         _ => bail!("unsupported calibration metadata operation"),
     }
 }
@@ -154,5 +234,46 @@ mod tests {
                 .is_null()
         );
         Ok(())
+    }
+    #[test]
+    fn game_seeds_join_ready_records_to_their_runs_games() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let data = root.path().join("dataset");
+        let run = root.path().join("run");
+        std::fs::create_dir_all(data.join("ready"))?;
+        std::fs::create_dir_all(run.join("records"))?;
+        let shard = run.join("records").join("w00-0000.jsonl.gz");
+        for (game, offset) in [(1, 0), (2, 120), (3, 0)] {
+            let shard = if game == 3 {
+                run.join("records").join("w01-0000.jsonl.gz")
+            } else {
+                shard.clone()
+            };
+            files::atomic_json(
+                &data.join("ready").join(format!("game-{game:06}.json")),
+                &json!({"game_id":game,"source_shard":shard,"source_offset":offset,"split":"val"}),
+            )?;
+        }
+        std::fs::write(
+            run.join("games.jsonl"),
+            "{\"shard\":\"w00-0000.jsonl.gz\",\"offset\":0,\"seed\":1150301000000000010}\n\
+             {\"shard\":\"w00-0000.jsonl.gz\",\"offset\":120,\"seed\":1150301000000000020}\n\
+             {\"shard\":\"w01-0000.jsonl.gz\",\"offset\":0,\"seed\":1150301000000000030}\n",
+        )?;
+        let seeds = run_kind(&data)?;
+        assert_eq!(
+            seeds,
+            json!({"1":1_150_301_000_000_000_010_u64,"2":1_150_301_000_000_000_020_u64,
+                   "3":1_150_301_000_000_000_030_u64})
+        );
+        std::fs::write(
+            run.join("games.jsonl"),
+            "{\"shard\":\"w00-0000.jsonl.gz\",\"offset\":0,\"seed\":1}\n",
+        )?;
+        assert!(run_kind(&data).is_err());
+        Ok(())
+    }
+    fn run_kind(data: &Path) -> Result<Value> {
+        run(&json!({"kind":"game_seeds","data_dir":data}))
     }
 }

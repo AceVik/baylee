@@ -99,7 +99,7 @@ pub fn sample(state: &mut u64, bound: usize) -> usize {
         }
     }
 }
-fn quantile(values: &[f64], q: f64) -> f64 {
+pub(super) fn quantile(values: &[f64], q: f64) -> f64 {
     let x = q * (values.len() - 1) as f64;
     let i = x.floor() as usize;
     values[i] + (values[x.ceil() as usize] - values[i]) * (x - i as f64)

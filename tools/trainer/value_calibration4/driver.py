@@ -2,12 +2,14 @@
 import argparse
 import json
 from pathlib import Path
+import numpy as np
 import torch
 import dataset4 as D
 from .checkpoint import collection_plan, file_digest, load_source, merged_checkpoint, publish
 from .extract import cached_features
 from .fit import fit
-from .metrics import assert_disjoint_games, stride_indices, turn_start_report
+from .metrics import (assert_disjoint_games, bootstrap, evaluate, game_seeds, seed_halves, stride_indices,
+                      training_priors, turn_start_indices, turn_start_report)
 from .model_identity import source_identity
 
 
@@ -34,7 +36,18 @@ def main():
     parser.add_argument("--turn-starts", action="store_true",
                         help="Also sample each turn's first frame and report turn starts on the held-out games; "
                              "the fit and the other groups keep the stride samples only")
+    parser.add_argument("--report-half-by-seed", action="store_true",
+                        help="Select the epoch on held-out games with (seed // --held-out-mod) even and report "
+                             "metrics and game-bootstrap intervals on the odd half only")
+    parser.add_argument("--learner-trajectories-only", action="store_true",
+                        help="Run the net only over trajectories with an eligible decision (from packed headers); "
+                             "an opponent seat's are skipped instead of scanned and excluded")
+    parser.add_argument("--held-out-mod", type=int, default=10, help="The dataset's convert4 --val-every")
+    parser.add_argument("--bootstrap-resamples", type=int, default=2000)
+    parser.add_argument("--bootstrap-seed", type=int, default=20261110)
     args = parser.parse_args()
+    if args.held_out_mod < 1 or args.bootstrap_resamples < 1 or args.bootstrap_seed < 0:
+        parser.error("Held-out modulus, bootstrap resamples and seed must be positive")
     if min(args.batch_size, args.unroll, args.sample_every, args.head_batch_size, args.max_samples) < 1 or args.epochs < 0 or args.lr <= 0 or args.board_chunk < 0:
         parser.error("Invalid calibration size, epoch count or learning rate")
     output = Path(args.out).expanduser().resolve()
@@ -62,13 +75,44 @@ def main():
             raise ValueError("Dataset and source use different rule catalogs")
     caches = [cached_features(net, ds, cache_root, source_hash, args.sample_every,
                               args.batch_size, args.board_chunk, args.max_samples,
-                              args.accept_greedy_net, args.turn_starts) for ds in datasets]
+                              args.accept_greedy_net, args.turn_starts, args.learner_trajectories_only)
+              for ds in datasets]
     # Turn-start samples are extra; the fit and the ordinary groups keep the stride.
     stride_caches = ([cache.restrict(stride_indices(cache, args.sample_every)) for cache in caches]
                      if args.turn_starts else caches)
-    head, report = fit(net.seat_value_head, *stride_caches, device, args.epochs, args.lr,
+    selecting = stride_caches[1]
+    if args.report_half_by_seed:
+        seeds = game_seeds(Path(args.data).expanduser())
+        select_idx, report_idx = seed_halves(stride_caches[1], seeds, args.held_out_mod)
+        if not len(select_idx) or not len(report_idx):
+            raise ValueError("Both held-out halves need games")
+        selecting = stride_caches[1].restrict(select_idx)
+    head, report = fit(net.seat_value_head, stride_caches[0], selecting, device, args.epochs, args.lr,
                        args.seed, args.head_batch_size)
-    if args.turn_starts:
+    if args.report_half_by_seed:
+        # The epoch was chosen on the even half; everything below reads only the odd half.
+        priors, fallback = training_priors(stride_caches[0])
+        reported = stride_caches[1].restrict(report_idx)
+        decisions = report_idx[reported.records["decision"][report_idx]]
+        report["validation_scope"] = "epoch selection on held-out games with (seed // held_out_mod) even"
+        half = dict(scope="held-out games with (seed // held_out_mod) odd; nothing was selected on them",
+                    games=len(set(reported.records["game"][report_idx].tolist())),
+                    evaluation=evaluate(head, reported, device, priors, fallback),
+                    bootstrap=dict(all=bootstrap(head, reported, report_idx, device,
+                                                 args.bootstrap_resamples, args.bootstrap_seed)))
+        if len(decisions):
+            half["bootstrap"]["decision_samples"] = bootstrap(head, reported, decisions, device,
+                                                              args.bootstrap_resamples, args.bootstrap_seed)
+        if args.turn_starts:
+            full = caches[1]
+            games = set(full.records["game"][report_idx].tolist())
+            in_half = full.indices[np.isin(full.records["game"][full.indices], list(games))]
+            starts = full.restrict(in_half)
+            half["turn_starts"] = turn_start_report(head, starts, device)
+            half["bootstrap"]["turn_starts"] = bootstrap(head, starts, turn_start_indices(starts), device,
+                                                         args.bootstrap_resamples, args.bootstrap_seed)
+        report["reported_half"] = half
+    elif args.turn_starts:
         report["validation_turn_starts"] = turn_start_report(head, caches[1], device)
     if file_digest(source_path) != source_hash:
         raise RuntimeError("Source checkpoint changed during calibration")
