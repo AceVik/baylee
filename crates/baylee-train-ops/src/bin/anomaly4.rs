@@ -35,6 +35,13 @@ struct Args {
     /// The converting build's `convert4` (default: the job's runtime's).
     #[arg(long)]
     convert4: Option<PathBuf>,
+    /// The `gamelog4` that counts the net's counterspells in a run's
+    /// records (default: the one beside the converting `convert4`).
+    #[arg(long)]
+    gamelog4: Option<PathBuf>,
+    /// Skip the counterspell watch, which replays every recorded game.
+    #[arg(long)]
+    no_counters: bool,
     /// Replay one finished recorded game in this many (0: none).
     #[arg(long, default_value_t = 64)]
     sample: u64,
@@ -127,6 +134,27 @@ fn report(args: &Args, result: &Path) -> anyhow::Result<Report> {
         Source::Job(job) => {
             let stderr = fs::read_to_string(result.join("stderr.log")).unwrap_or_default();
             (anomaly::from_job(&job, &stderr, result), None, None)
+        }
+    };
+    report.counters = match (
+        &records,
+        args.gamelog4.clone().or_else(|| {
+            convert4
+                .as_ref()
+                .and_then(|c| c.parent())
+                .map(|dir| dir.join("gamelog4"))
+        }),
+    ) {
+        _ if args.no_counters => Value::String("not asked (--no-counters)".to_owned()),
+        (None, _) => Value::String("no records".to_owned()),
+        (Some(_), None) => Value::String("no gamelog4: name --gamelog4".to_owned()),
+        (Some(_), Some(gamelog4)) if !gamelog4.is_file() => {
+            Value::String(format!("no gamelog4: {} is missing", gamelog4.display()))
+        }
+        (Some(records), Some(gamelog4)) => {
+            let (counted, entries) = anomaly::counter_watch(records, &gamelog4);
+            report.entries.extend(entries);
+            counted
         }
     };
     report.replay = match (records, convert4) {

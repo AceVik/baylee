@@ -23,6 +23,10 @@ pub fn from_ladder(ladder: &Value, root: &Path) -> Report {
         report.totals.insert("summary".to_owned(), summary.clone());
     }
     for game in ladder["games"].as_array().into_iter().flatten() {
+        // A game the ladder never began (it was stopped first) is no game.
+        if game.get("not_started").is_some() {
+            continue;
+        }
         report.games += 1;
         let index = game["game"].as_u64();
         let place = |entry: Entry| entry.at(index, None, None);

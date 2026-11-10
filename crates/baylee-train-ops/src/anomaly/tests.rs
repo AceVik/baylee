@@ -218,7 +218,8 @@ fn a_ladder_names_its_seat_failures_and_knows_the_sign_in_limit() {
         {"game": 0, "phase": "game-complete", "timed_out": false, "failure": null, "seconds": 9.0},
         {"game": 1, "phase": null, "timed_out": true, "failure": null, "seconds": 900.0},
         {"game": 2, "error": "seat4 ended before it opened a room"},
-        {"game": 3, "phase": "game-complete", "timed_out": false, "failure": "lost the socket"}
+        {"game": 3, "phase": "game-complete", "timed_out": false, "failure": "lost the socket"},
+        {"game": 4, "not_started": "stopped"}
     ], "summary": {"x": {"games": 4}}});
     let report = from_ladder(&ladder, dir.path());
     assert_eq!(report.games, 4);
@@ -324,8 +325,22 @@ fn the_harvest_adds_a_place_once_however_many_runs_met_it() {
         Class::New,
         "thread 'w' panicked at x.rs:1:1",
     ));
-    let reports = [first, report("eval-b"), report("eval-c")];
-    assert_eq!(harvest(&list, &reports, "2026-11-10").unwrap(), 3);
+    // Two ladders' game 9: no seed, so one row each.
+    let ladder = |name: &str| {
+        let mut report = Report::new(Path::new(&format!("/l/{name}")), "ladder4");
+        report.entries.push(
+            Entry::new(Kind::SeatTimeout, Class::New, "ran out of time").at(Some(9), None, None),
+        );
+        report
+    };
+    let reports = [
+        first,
+        report("eval-b"),
+        report("eval-c"),
+        ladder("sh1"),
+        ladder("sh2"),
+    ];
+    assert_eq!(harvest(&list, &reports, "2026-11-10").unwrap(), 5);
     let text = fs::read_to_string(&list).unwrap();
     assert!(text.contains(
         "| 2026-11-10 | eval-a +2 more | answer cap | seed 189, deal 379, table 189, seat 1 | the net game hit the answer cap (in 3 runs) | open |"
@@ -334,6 +349,8 @@ fn the_harvest_adds_a_place_once_however_many_runs_met_it() {
         "| 2026-11-10 | eval-a | engine refusal | seed 42, deal 3, table 1, seat 0 | refused a \\| b | open |"
     ));
     assert!(text.contains("| eval-a | panic | the run | thread 'w' panicked at x.rs:1:1 |"));
+    assert!(text.contains("| sh1 | seat timeout | deal 9 | ran out of time |"));
+    assert!(text.contains("| sh2 | seat timeout | deal 9 | ran out of time |"));
     assert!(!text.contains("plain"));
     // A later harvest of another run meeting the same deal adds nothing.
     assert_eq!(
@@ -383,4 +400,30 @@ fn a_job_without_its_result_is_new_only_when_it_panicked() {
             .entries
             .is_empty()
     );
+}
+
+#[test]
+fn the_counter_watch_flags_a_run_whose_counters_go_astray() {
+    let counted = |poor: u32, total: u32| {
+        json!({"counterspells": total, "poor": poor,
+               "poor_share": if total == 0 { serde_json::Value::Null } else { json!(f64::from(poor) / f64::from(total)) },
+               "cheap_at_most": 1, "by_whose": {"opponent": total - poor, "own": poor},
+               "by_kind": {"creature": total}})
+    };
+    assert!(super::counters::entries(&counted(0, 0)).is_empty());
+    let calm = super::counters::entries(&counted(1, 10));
+    assert_eq!(
+        (calm[0].kind, calm[0].class, calm[0].count),
+        (Kind::CounterTargets, Class::Expected, 1)
+    );
+    let astray = super::counters::entries(&counted(4, 10));
+    assert_eq!(astray[0].class, Class::New);
+    assert!(
+        astray[0].what.starts_with("4 of 10 counterspells"),
+        "{}",
+        astray[0].what
+    );
+    let mut report = Report::new(Path::new("/r/eval-c.json"), "eval4");
+    report.counters = counted(4, 10);
+    assert!(markdown(&report).contains("10 counterspells by the net's seat"));
 }

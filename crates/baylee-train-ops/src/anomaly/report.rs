@@ -73,6 +73,19 @@ pub fn markdown(report: &Report) -> String {
         }
         out.push('\n');
     }
+    replay_section(&mut out, report);
+    counter_section(&mut out, report);
+    if !report.not_recorded.is_empty() {
+        let _ = writeln!(out, "## Not recorded\n");
+        for note in &report.not_recorded {
+            let _ = writeln!(out, "- {note}");
+        }
+    }
+    out
+}
+
+/// The replay-exact audit's paragraph.
+fn replay_section(out: &mut String, report: &Report) {
     let _ = writeln!(out, "## Replay-exact audit\n");
     let replay = &report.replay;
     if replay.status.starts_with("ran") {
@@ -95,13 +108,31 @@ pub fn markdown(report: &Report) -> String {
     } else {
         let _ = writeln!(out, "{}.\n", replay.status);
     }
-    if !report.not_recorded.is_empty() {
-        let _ = writeln!(out, "## Not recorded\n");
-        for note in &report.not_recorded {
-            let _ = writeln!(out, "- {note}");
+}
+
+/// The counterspell watch's paragraph.
+fn counter_section(out: &mut String, report: &Report) {
+    let _ = writeln!(out, "## Counterspell watch\n");
+    match &report.counters {
+        serde_json::Value::String(why) => {
+            let _ = writeln!(out, "{why}.\n");
+        }
+        counted => {
+            let _ = writeln!(
+                out,
+                "{} counterspells by the net's seat in {} replayed games, {} on a poor target \
+                 (share {}); by whose {}, by kind {}.\n",
+                counted["counterspells"],
+                counted["replayed"],
+                counted["poor"],
+                counted["poor_share"]
+                    .as_f64()
+                    .map_or_else(|| "-".to_owned(), |s| format!("{:.0}%", s * 100.0)),
+                counted["by_whose"],
+                counted["by_kind"]
+            );
         }
     }
-    out
 }
 
 /// Where in the run an entry is, as words.

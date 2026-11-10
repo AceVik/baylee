@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::{Class, Entry, Kind, Report, root_class};
 
-/// The train_ops job that wrote a result: its command, its stderr, the
+/// The `train_ops` job that wrote a result: its command, its stderr, the
 /// runtime it ran from and the records it kept.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Job {

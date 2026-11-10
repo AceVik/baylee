@@ -16,6 +16,7 @@
 //! limit), and `expected` when the game does it by design (a search root
 //! refused over an operation in flight, house fallbacks below a threshold).
 
+mod counters;
 mod eval;
 mod harvest;
 mod ladder;
@@ -29,6 +30,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub use counters::{POOR_SHARE, watch as counter_watch};
 pub use eval::{Job, from_eval4, from_job, job_of, panics_in};
 pub use harvest::append as harvest;
 pub use ladder::from_ladder;
@@ -73,6 +75,9 @@ pub enum Kind {
     Boundary,
     /// A job that ended without its result.
     RunFailed,
+    /// The net's seat's counterspells on poor targets (the counterspell
+    /// watch).
+    CounterTargets,
 }
 
 impl Kind {
@@ -81,6 +86,7 @@ impl Kind {
     pub const fn label(self) -> &'static str {
         match self {
             Self::RunFailed => "run failed",
+            Self::CounterTargets => "counter targets",
             Self::Panic => "panic",
             Self::RefusedRoot => "refused root",
             Self::EngineRefusal => "engine refusal",
@@ -212,6 +218,8 @@ pub struct Report {
     pub entries: Vec<Entry>,
     /// The replay-exact audit.
     pub replay: Replay,
+    /// The counterspell watch (`gamelog4 counters`), or why there is none.
+    pub counters: Value,
     /// Which of the engine's own checks the replay ran.
     pub invariants: String,
     /// What would be useful and the run does not record.
@@ -241,6 +249,7 @@ impl Report {
             counts: BTreeMap::new(),
             entries: Vec::new(),
             replay: Replay::not_run("not asked"),
+            counters: Value::String("not asked".to_owned()),
             invariants: INVARIANTS.to_owned(),
             not_recorded: Vec::new(),
         }
