@@ -329,6 +329,7 @@ fn main() -> anyhow::Result<()> {
         if use_expanded_training_variance {
             load_expanded_training_decks(
                 args.decks_manifest.as_ref(),
+                &args.deck_split,
                 &working,
                 &held,
                 &pool,
