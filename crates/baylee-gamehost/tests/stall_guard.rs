@@ -105,3 +105,83 @@ fn a_cast_the_engine_took_back_is_not_cast_again_from_the_same_position() {
         );
     }
 }
+
+fn entry(name: &str) -> baylee_core::preset::DeckEntry {
+    baylee_core::preset::DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).expect("registered fixture"),
+        print: baylee_core::ids::PrintRef::new(0),
+    }
+}
+
+/// An ability used again on purpose is not a stall: each use changes the
+/// position once it resolves, so the guard lets the next one through. The
+/// hardest case is a free one, which spends no mana: Flowstone Hellion's
+/// "{0}: +1/+0 and -0/-1 until end of turn". The house's 3/3 Hellion faces
+/// a player at 5 life with nothing to block it, pumps, waits for the pump to
+/// resolve, pumps again from the 4/2 it is now, and attacks as a 5/1 for
+/// exactly the 5. Between the two pumps only the Hellion's power and
+/// toughness differ.
+#[test]
+fn an_ability_used_again_on_purpose_is_used_again() {
+    let them = PlayerId::new(1);
+    let mut preset = baylee_cards::decks::probe_preset(23, entry("Mountain").card).unwrap();
+    preset.house_rules.starting_player = Some(HOUSE.get());
+    for seat in &mut preset.seats {
+        seat.starting_hand = Some(vec![]);
+        seat.starting_battlefield.clear();
+    }
+    preset.seats[usize::from(HOUSE.get())].starting_battlefield = vec![entry("Flowstone Hellion")];
+    preset.seats[usize::from(them.get())].starting_life = Some(5);
+    for level in [
+        AIProfile::SHARP_2026_11,
+        AIProfile::SHARP,
+        AIProfile::EXPERT,
+    ] {
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agents = [HeuristicAgent::new(level), HeuristicAgent::new(level)];
+        let hellion = engine
+            .state()
+            .arena
+            .iter()
+            .find(|(_, o)| {
+                o.card
+                    .is_some_and(|c| c.index == entry("Flowstone Hellion").card)
+            })
+            .map(|(id, _)| id)
+            .expect("the Hellion is on the battlefield");
+        let mut pumps = 0;
+        let mut trail = Vec::new();
+        for seq in 0..300 {
+            if matches!(engine.pending(), Pending::GameOver(_)) {
+                break;
+            }
+            let actor = engine.decision_actor().expect("somebody is asked");
+            let pending = engine.pending().clone();
+            let view = seen(&engine, actor, seq);
+            let action = agents[usize::from(actor.get())].act_with_context(
+                &view,
+                &pending,
+                &engine.decision_context(),
+            );
+            pumps += u32::from(matches!(
+                action,
+                PlayerAction::ActivateAbility { source, .. } if source == hellion
+            ));
+            if actor == HOUSE && !matches!(action, PlayerAction::PassPriority) {
+                trail.push(format!("t{} {:?}: {action:?}", view.turn, view.step));
+            }
+            engine
+                .apply(actor, action.clone())
+                .unwrap_or_else(|err| panic!("{action:?} for {pending:?} was refused: {err}"));
+        }
+        assert!(
+            matches!(engine.pending(), Pending::GameOver(_))
+                && engine.state().players[usize::from(them.get())].life <= 0,
+            "{level:?}: the Hellion did not pump them out ({pumps} pumps, life {})",
+            engine.state().players[usize::from(them.get())].life
+        );
+        assert_eq!(pumps, 2, "{level:?}: two pumps, one at a time: {trail:#?}");
+    }
+}
