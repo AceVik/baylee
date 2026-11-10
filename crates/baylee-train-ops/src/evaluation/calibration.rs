@@ -278,7 +278,7 @@ fn bootstrap(value: &Value) -> Result<Value> {
     let estimate = paired_metrics(&all, &trajectories, &truth, &before, &after, float32)?;
     let mut state = seed;
     // Columns: the eight metrics, then after minus before for each metric pair.
-    let mut draws = vec![Vec::with_capacity(resamples); 12];
+    let mut draws: Vec<Vec<_>> = (0..12).map(|_| Vec::with_capacity(resamples)).collect();
     for _ in 0..resamples {
         let (mut positions, mut copies) = (Vec::with_capacity(count), Vec::with_capacity(count));
         for copy in 0..clusters.len() {
