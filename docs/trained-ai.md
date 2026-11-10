@@ -153,12 +153,14 @@ A collector pairing (`llm_collector4 collect --pairings-file`) may name
 `house:<level>` for a seat instead of a profile: the house plays it at that
 level (`baylee-seat join --mind house`), so each teacher can be measured
 against the opponent the trained net is benchmarked against (`house:sharp`).
-A seated house is not quite the evaluator's: it answers from its socket's
-view with `HeuristicAgent::act`, without the decision context and the
-scouting report of its own deck that an in-process chair answers with
-(`Session::house_answer`). `eval4 --house-as-seat` plays the net against
-the seated kind, so a ladder's house rung and the evaluator can be compared
-on the same opponent.
+A seated house answers as the evaluator's in-process chair does since
+10.11.2026: from its socket's view, the note the table sends beside each
+question (the decision context's public part) and the deck it brought
+(`baylee_ai::noted::answer_as_seated`, `docs/house-ai.md` §"The seated
+house"). Before that it answered from the view alone and was about eight
+points weaker. `eval4 --house-as-seat` plays the net against the seated
+kind, so a ladder's house rung and the evaluator can be compared on the
+same opponent.
 It sits in the chair of the slot's second account, `HOUSE-bench-<slot>`
 (hosting where it plays seat 0, joining chair 1 otherwise): a chair ticket
 seats only a language model, and a chair must be called what plays it.
@@ -223,7 +225,7 @@ initial weights, seeds, update budgets and unchanged validation definitions.
 `eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
 can collect separate, view-only teacher labels on states visited by the neural
 actor. The original executed-action record and rollout probabilities remain
-separate from the teacher labels. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+separate from the teacher labels. `convert4 --runs DIR --train-manifest MANIFEST --out NEW_DIR --include-passive-obs --shadow-bc`
 replays complete records, verifies source/view/menu identities and reconstructs
 each teacher target. Unlabelled decisions retain their chronological position
 with zero policy weight; actual outcomes remain available for value/auxiliary
@@ -1194,17 +1196,22 @@ table order), with the counts by kind, by subtype and at `N ≠ R` by group,
 and each JSON steps file's SHA-256 is beside it. A game that does not bind, a
 label whose subtype is not the one its kind, question and groups give it (a
 priority label recorded before subtypes) or a group with no bit fails the
-conversion. `--train-manifest` (required) names the deck manifest: a run any of
-whose `run.json` decks (every deck its tables are taken from) the manifest
-puts outside the train split, or does not list, is refused with the deck and
-its split; `meta.json` keeps the manifest, its SHA-256 and the count of decks,
-all train. The readers that check a frame's length
+conversion. Beside convert4's check of every game's seated decks against
+`--train-manifest` (every training conversion), bundle distillation refuses a
+run any of whose `run.json` decks (every deck its tables are taken from) that
+manifest puts outside the train split, or does not list, with the deck and its
+split; `bundle_distillation.decks` keeps the manifest, its SHA-256 and the
+count of decks, all train. The readers that check a frame's length
 (`trajectory::packing`, behind `trajectory_cache4`) admit exactly one valid
 block and nothing else; the Python readers take the masks at the payload's end
 (`trajectory_store4.bst4_payload_end`, `bst4_distill_block`). `eval4
 --deck-weights FILE` (a JSON object of manifest deck id to a whole weight)
 plays each selected deck as often as its weight, the copies in rounds through
-the deck list, and records the weights in `run.json`. In the CPU smoke of 10
+the deck list, and records the weights in `run.json`. In self-play the same
+net sits in both chairs: at temperature 0 the two deals of a table (the focal
+seat swapped) are one game, and with both seats labelled each would be
+trained twice, so a self-play collection plays one deal per table (`--deals
+2N --only-deals` the even deals: N distinct games). In the CPU smoke of 10
 November (2 deals with the layer playing, 2 DAgger deals against `sharp`, 2 in
 self-play) every one of 1,545 labels bound; 289 had `N ≠ R` (245 at priority,
 mostly without a group firing: the layer's own reads), the layer played `R` at

@@ -201,6 +201,7 @@ fn question_frame(seq: u64, pending: &Pending) -> Message {
         game_id: GAME.into(),
         seq,
         pending: baylee_core::wire::encode(&pending),
+        context: Vec::new(),
     }))
 }
 

@@ -109,26 +109,30 @@ fn a_hand_is_shown_to_nobody_once_the_game_is_over() {
     assert!(show_to(&mut session, 0, &[1, 2]).is_err());
 }
 
-/// No agent is handed a teammate's hand. A chair the house holds for an
-/// absent player keeps the share its player was given, and the house
-/// plays it from a view with none of it; the player finds it again on
-/// coming back, which is what makes the first half more than an empty
-/// field.
+/// A chair the house holds for an absent player is played with the hands
+/// its player was shown, since those shares are the player's, and with no
+/// other: it neither asks nor answers a request, which wait for the player
+/// (owner, 10.11.2026; this replaced #265's rule that no agent is handed a
+/// teammate's hand). The player finds both again on coming back.
 #[test]
-fn no_agent_is_handed_a_teammates_hand() {
+fn a_stand_in_plays_with_the_hands_its_player_was_shown() {
     let mut session = three_and_one();
     show_to(&mut session, 0, &[1]).expect("shows");
     crate::session::tests::ask(&mut session, 2, 1).expect("asks");
     assert!(session.stand_in(PlayerId::new(1)));
     let pending = session.pending().clone();
-    let agent = session.agent_view(PlayerId::new(1), &pending);
-    assert!(agent.shared_hands.is_empty());
-    assert!(agent.hand_shared_with.is_empty());
+    let house = session.house_view(PlayerId::new(1), &pending);
+    assert_eq!(
+        hands_shown(&house),
+        vec![PlayerId::new(0)],
+        "its player's share"
+    );
+    assert!(house.hand_shared_with.is_empty());
     assert!(
-        agent.hand_requests.is_empty(),
+        house.hand_requests.is_empty(),
         "the house answers no request"
     );
-    assert!(agent.hand_requested.is_empty());
+    assert!(house.hand_requested.is_empty());
     assert!(session.hand_back(PlayerId::new(1)));
     let view = seat_view(&session, PlayerId::new(1));
     assert_eq!(hands_shown(&view), vec![PlayerId::new(0)]);

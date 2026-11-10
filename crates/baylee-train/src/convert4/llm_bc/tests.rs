@@ -373,3 +373,21 @@ fn codex_provider_model_effort_kind_spoofs_are_rejected() {
         assert!(f.load().is_err(), "{field}={spoof}");
     }
 }
+
+/// A game of `llm_collector4 collect --evaluation` may have seated any deck:
+/// numbers only, never BC.
+#[test]
+fn an_evaluation_game_is_numbers_only_never_bc() {
+    let mut f = Fixture::new("llm", "gemini-4-argon-low");
+    let read = |name: &str| -> Value {
+        serde_json::from_slice(&std::fs::read(f.root.join(name)).unwrap()).unwrap()
+    };
+    let mut request = read("request.json");
+    let technical = read("technical.json");
+    request["numbers_only"] = json!(true);
+    let receipt = json!({"status":"admitted","request":request,"technical":technical});
+    f.manifest["request"] = pin(&f.root, "request.json", &request);
+    f.manifest["admitted_receipt"] = pin(&f.root, "receipt.json", &receipt);
+    let error = f.load().err().unwrap();
+    assert!(error.contains("numbers only"), "{error}");
+}

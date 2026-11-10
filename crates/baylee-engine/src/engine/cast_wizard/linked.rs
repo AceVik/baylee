@@ -34,7 +34,7 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
             .ok_or(EngineError::IllegalAction("linked card is gone"))?;
-        let make_mana = self.compute_legal(player).has_mana_source();
+        let make_mana = self.free_cast_makes_mana(player);
         let mut options = Vec::new();
         if self.linked_spell_face_allowed(player, card, def, 0) {
             if casting::modes_are_the_only_way(def, 0) {

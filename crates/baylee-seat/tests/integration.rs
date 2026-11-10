@@ -16,6 +16,7 @@ mod cli_mind;
 mod closed_room;
 mod reconnect_window;
 mod refused_chair;
+mod seated_house;
 mod selfplay;
 mod stopped;
 mod tethered;

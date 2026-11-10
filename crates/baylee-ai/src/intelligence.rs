@@ -194,6 +194,38 @@ impl HeuristicAgent {
         })
     }
 
+    /// Answer as the house answers at a fair table, from the seat's own deck
+    /// and nothing hidden: the report a fair chair is given in-process
+    /// (`baylee-gamehost`'s `scouting::request`, own deck only), built here
+    /// from `deck`, which the seat brought and so knows.
+    ///
+    /// One path for both hosts of the house: an in-process chair is handed
+    /// the same report by the host, and a seat over a socket builds it from
+    /// its own list (`baylee_seat::HouseMind`), so the two answer alike
+    /// wherever their views and contexts agree.
+    #[must_use]
+    pub fn act_with_own_deck(
+        &self,
+        view: &PlayerView,
+        pending: &Pending,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+        deck: &DeckIntel,
+    ) -> baylee_engine::choice::PlayerAction {
+        if self.scouting_request(pending).is_none() {
+            return self.act_with_context(view, pending, context);
+        }
+        let report = ScoutingReport {
+            seats: vec![ScoutedSeat {
+                player: view.seat,
+                deck,
+                hand: None,
+                library: None,
+                sideboard: None,
+            }],
+        };
+        self.act_with_scouting(view, pending, context, &report)
+    }
+
     /// Answer with a host-authorized scouting report. Only numerical tactical
     /// summaries live in the temporary controller; the original stays clean.
     #[must_use]

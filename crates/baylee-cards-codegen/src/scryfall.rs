@@ -500,6 +500,45 @@ pub fn fetch_catalog(
     Ok(resp.data)
 }
 
+/// One set as Scryfall's `/sets` lists it: its code and the day it was
+/// released. That day decides which group of `crates/cards/sets` a card first
+/// printed in it belongs to ([`crate::layout`]).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ScryfallSet {
+    /// Lower-case set code (`lea`, `10e`).
+    pub code: String,
+    /// `YYYY-MM-DD`; absent for a set Scryfall has not dated.
+    pub released_at: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SetList {
+    data: Vec<ScryfallSet>,
+}
+
+/// Fetches Scryfall's `/sets` with caching (`sets.json` in `cache_dir`).
+///
+/// # Errors
+/// HTTP/IO/JSON errors.
+pub fn fetch_sets(agent: &ureq::Agent, cache_dir: &Path) -> Result<Vec<ScryfallSet>, CodegenError> {
+    let file = cache_dir.join("sets.json");
+    if file.exists() {
+        let text = fs::read_to_string(&file).map_err(CodegenError::io(&file))?;
+        return Ok(serde_json::from_str::<SetList>(&text)?.data);
+    }
+    let url = format!("{API}/sets");
+    let text: serde_json::Value = get_json(agent, &url).map_err(|e| CodegenError::Http {
+        url: url.clone(),
+        message: match e {
+            FetchError::NotFound => "no set listing".to_string(),
+            FetchError::Other(message) => message,
+        },
+    })?;
+    fs::create_dir_all(cache_dir).map_err(CodegenError::io(cache_dir))?;
+    fs::write(&file, serde_json::to_string_pretty(&text)?).map_err(CodegenError::io(&file))?;
+    Ok(serde_json::from_value::<SetList>(text)?.data)
+}
+
 /// Fetches every subtype catalog there is, in id-assignment order, normalized.
 ///
 /// Six callers used to spell the six catalogs out, one `fetch_catalog` line

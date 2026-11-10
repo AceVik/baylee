@@ -40,6 +40,8 @@ pub struct SimulationSession {
     house_answered: Vec<Option<HouseAnswer>>,
     showing: Vec<SeatSet>,
     shown_once: BTreeMap<(u8, u8), Vec<ObjectId>>,
+    hand_sharing: baylee_core::preset::HandSharingRule,
+    ai_hand_share_policy: baylee_core::preset::AiHandSharePolicy,
     seat: PlayerId,
 }
 
@@ -114,6 +116,8 @@ impl Session {
             house_answered: self.house_answered.clone(),
             showing: self.showing.clone(),
             shown_once: self.shown_once.clone(),
+            hand_sharing: self.house_rules.hand_sharing,
+            ai_hand_share_policy: self.ai_hand_share_policy,
             seat,
         })
     }
@@ -131,6 +135,8 @@ impl SimulationSession {
             house_answered: &self.house_answered,
             showing: &self.showing,
             shown_once: &self.shown_once,
+            hand_sharing: self.hand_sharing,
+            ai_hand_share_policy: self.ai_hand_share_policy,
         }
     }
 

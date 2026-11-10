@@ -48,9 +48,9 @@ pub(crate) fn card_batch(
     let script_index: BTreeMap<String, String> = serde_json::from_str(
         &fs::read_to_string(root.join("data/script-index.json")).unwrap_or_default(),
     )?;
-    // One walk of the tree rather than one per card: `cards/` is a taxonomy
-    // now, and a card is found by its slug wherever it has been filed.
-    let files = card_files(&root.join("crates/cards/src/cards"))?;
+    // One walk of the tree rather than one per card: the cards lie in group
+    // and set folders, and a card is found by its slug wherever it lies.
+    let files = card_files(&root.join(crate::layout::SETS_DIR))?;
     let wanted: Vec<String> = if let Some(list) = cards {
         list.split(',').map(|s| s.trim().to_string()).collect()
     } else {
@@ -133,10 +133,10 @@ pub(crate) fn card_prompt(name: &str, file: &str, package: &Path, has_script: bo
     let prompt = format!(
         "# Implement `{name}` in this repository\n\n\
          Edit exactly one file: `{file}`.\n\
-         Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
+         Touch nothing else — not the pool's `generated.rs`, not a group's `lib.rs`,\n\
          not another card, not the DSL.\n\n\
          Read first, in this order:\n\
-         - `crates/cards/AGENTS.md` — the playbook you are bound by.\n\
+         - `docs/card-agent-brief.md`, then `docs/cards.md` — the rules you are bound by.\n\
          - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
          {script_line}\
          - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
@@ -228,7 +228,7 @@ pub(crate) fn land_report(
     // write these", and counting them would throw that away.
     let mut not_a_land: Vec<String> = Vec::new();
     let mut shapes: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    let files = card_files(&root.join("crates/cards/src/cards"))?;
+    let files = card_files(&root.join(crate::layout::SETS_DIR))?;
     for name in &names {
         // A finished card is nobody's worklist, whoever finished it — and a
         // card with no file at all is not one either.

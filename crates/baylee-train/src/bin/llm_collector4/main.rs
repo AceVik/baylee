@@ -98,6 +98,17 @@ enum Commands {
         pairings_file: Option<PathBuf>,
         #[arg(long)]
         deck_manifest: PathBuf,
+        /// The deck manifest whose train split teacher games may seat
+        /// (`manifest.v4.holdout2.json`): every deck of `--deck-manifest`
+        /// must be a train deck of it, read by key, cards or near, or the
+        /// run does not start. Required unless `--evaluation`.
+        #[arg(long, required_unless_present = "evaluation")]
+        train_manifest: Option<PathBuf>,
+        /// An evaluation, numbers only: any deck may be seated, and every
+        /// attempt's request says `numbers_only` and not `bc_only`, so no
+        /// conversion takes its games as training data.
+        #[arg(long, conflicts_with = "train_manifest")]
+        evaluation: bool,
         #[arg(long, default_value_t = 50)]
         concurrency: usize,
         /// Maximum assigned attempts for this controller run, including failures.
@@ -172,6 +183,8 @@ async fn main() -> anyhow::Result<()> {
             profiles_config,
             pairings_file,
             deck_manifest,
+            train_manifest,
+            evaluation,
             concurrency,
             max_attempts,
             call_timeout_seconds,
@@ -190,6 +203,8 @@ async fn main() -> anyhow::Result<()> {
                 profiles_config,
                 pairings_file,
                 deck_manifest,
+                train_manifest,
+                evaluation,
                 concurrency,
                 max_attempts,
                 call_timeout_seconds,
@@ -613,6 +628,8 @@ async fn run_collect(
     profiles_config: PathBuf,
     pairings_file: Option<PathBuf>,
     deck_manifest: PathBuf,
+    train_manifest: Option<PathBuf>,
+    evaluation: bool,
     concurrency: usize,
     max_attempts: Option<usize>,
     call_timeout_seconds: u64,
@@ -650,7 +667,25 @@ async fn run_collect(
         game_timeout_seconds,
     )?
     .with_report_games(report_games)
-    .with_starting_life(starting_life)?;
+    .with_starting_life(starting_life)?
+    .numbers_only(evaluation);
+    // Teacher games are training data: they seat the train decks alone.
+    if let Some(manifest) = &train_manifest {
+        let guard = baylee_train::decksplit::TrainOnly::load(
+            manifest,
+            &baylee_train::working::repo_root(),
+        )?;
+        let refused = sched.train_deck_refusals(&guard)?;
+        ensure!(
+            refused.is_empty(),
+            "{} decks of {} are not train decks of {}; a teacher collection seats train \
+             decks only (an evaluation says --evaluation):\n{}",
+            refused.len(),
+            deck_manifest.display(),
+            manifest.display(),
+            refused.join("\n")
+        );
+    }
     let initial_summary = sched.summarize()?;
     let seats_the_house = sched.seats_the_house();
     let sched = Arc::new(Mutex::new(sched));

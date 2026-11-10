@@ -531,6 +531,12 @@ pub struct AIProfile {
     /// Absent on the wire and in a record from before it: fair.
     #[serde(default)]
     pub sight: Sight,
+    /// Which house code it plays ([`Self::GENERATION`]): a change that makes
+    /// the house play differently says the generation it arrived in, and a
+    /// profile frozen before it never meets it. Absent on the wire and in a
+    /// record from before it: 0, the house as it was frozen on 10.11.2026.
+    #[serde(default)]
+    pub generation: u16,
 }
 
 impl Default for AIProfile {
@@ -548,6 +554,7 @@ impl AIProfile {
         politics: Politics::Random,
         hold_up: HoldUp::None,
         sight: Sight::Fair,
+        generation: Self::GENERATION,
     };
     /// Fixes land-starved hands, but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
@@ -563,6 +570,7 @@ impl AIProfile {
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
         sight: Sight::Fair,
+        generation: Self::GENERATION,
     };
     /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
@@ -590,6 +598,22 @@ impl AIProfile {
     #[must_use]
     pub const fn peeks(self) -> bool {
         matches!(self.sight, Sight::Peeking)
+    }
+
+    /// The house as it was frozen on 10.11.2026 ([`Self::SHARP_2026_11`]).
+    pub const FROZEN_2026_11: u16 = 0;
+    /// The house plays as a team: house teammates show each other their
+    /// hands and read what they are shown, and an ally's board and spells
+    /// count as its side's (owner, 10.11.2026).
+    pub const TEAM_PLAY: u16 = 1;
+    /// What every level a player is offered plays: the newest generation.
+    pub const GENERATION: u16 = Self::TEAM_PLAY;
+
+    /// Whether this profile plays the house code of `generation` and later,
+    /// as every level does and a frozen reference before it does not.
+    #[must_use]
+    pub const fn plays(self, generation: u16) -> bool {
+        self.generation >= generation
     }
 
     /// Deterministic search work per decision. A clock cutoff would make the
@@ -621,6 +645,7 @@ impl AIProfile {
         politics: Politics::AttackLeader,
         hold_up: HoldUp::ThreatAware,
         sight: Sight::Fair,
+        generation: Self::FROZEN_2026_11,
     };
 
     /// The profiles a player can choose between, weakest first. The last,
@@ -1416,6 +1441,7 @@ mod tests {
                 politics: Politics::AttackLeader,
                 hold_up: HoldUp::ThreatAware,
                 sight: Sight::Fair,
+                generation: 0,
             }
         );
     }
@@ -1447,9 +1473,33 @@ mod tests {
         let old = r#"{"lookahead":2,"temperature_milli":12,"mulligan_skill":2,
             "politics":"AttackLeader","hold_up":"ThreatAware"}"#;
         let read: AIProfile = serde_json::from_str(old).expect("an old profile reads");
-        assert_eq!(read, AIProfile::EXPERT);
+        assert_eq!(
+            read,
+            AIProfile {
+                generation: AIProfile::FROZEN_2026_11,
+                ..AIProfile::EXPERT
+            }
+        );
         let said = serde_json::to_value(AIProfile::SEER).expect("a profile writes");
         assert_eq!(said["sight"], "peeking");
+    }
+
+    /// Every level a player is offered plays the newest house code, and the
+    /// frozen reference the code of the day it was frozen, so a change behind
+    /// a generation reaches the levels and never the benchmark.
+    #[test]
+    fn every_level_plays_the_newest_generation_and_the_reference_its_own() {
+        for (name, profile) in AIProfile::NAMED {
+            assert_eq!(profile.generation, AIProfile::GENERATION, "{name}");
+            assert!(profile.plays(AIProfile::TEAM_PLAY), "{name}");
+        }
+        assert_eq!(
+            AIProfile::SHARP_2026_11.generation,
+            AIProfile::FROZEN_2026_11
+        );
+        assert!(!AIProfile::SHARP_2026_11.plays(AIProfile::TEAM_PLAY));
+        assert!(AIProfile::SHARP_2026_11.plays(AIProfile::FROZEN_2026_11));
+        assert!(AIProfile::default().plays(AIProfile::GENERATION));
     }
 
     /// A room that chose no format says nothing about one on the wire, a

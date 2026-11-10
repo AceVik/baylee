@@ -939,7 +939,7 @@ ohne Darstellung und enthält die meisten Client-Tests; der 3D-Tisch ist mit
 [Bevy](https://bevyengine.org/) gebaut. **seal** ist die Verschlüsselung des
 Chats. **Gateway** und **Agent** enthalten überhaupt keine Regeln. Karten
 sind Rust-Code in einer kleinen DSL, eine Datei pro Karte unter
-`crates/cards/src/cards/`.
+`crates/cards/sets/`, gruppiert nach dem Jahr ihres ersten Drucks.
 
 Zum Weiterlesen (englisch):
 

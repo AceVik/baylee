@@ -6,11 +6,11 @@ use super::{
     set_line, slug, transcode_card, vanilla,
 };
 
-/// Renders one stub file, and says where under `cards/` it belongs.
+/// Renders one stub file, and says where under `crates/cards/sets` it belongs.
 ///
-/// `tested` answers whether a card test exists at a path relative to
-/// `cards/` (the same relative path under `card_tests/`); it decides
-/// between `Implemented` and `Generated` for a card read in full.
+/// `tested` answers whether a card test exists for the card's slug (a file
+/// named after it under `card_tests/`); it decides between `Implemented` and
+/// `Generated` for a card read in full.
 ///
 /// # Errors
 /// [`CodegenError::Mana`] when a mana cost fails validation.
@@ -23,7 +23,6 @@ pub fn render_stub(
     cats: &SubtypeCatalogs,
     scripts: Option<&crate::scriptgen::ScriptLookup>,
     tokens: Option<&crate::tokengen::TokenLookup>,
-    cycles: &crate::layout::LandCycles,
     tested: &dyn Fn(&str) -> bool,
 ) -> Result<(StubInfo, String), CodegenError> {
     // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
@@ -40,7 +39,7 @@ pub fn render_stub(
         })
         .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
 
-    render_card(card, row, ledger, cats, cycles, land.as_ref(), tested, None)
+    render_card(card, row, ledger, cats, land.as_ref(), tested, None)
 }
 
 /// Render an explicitly reviewed card as an unimplemented stub, bypassing
@@ -56,19 +55,9 @@ pub fn render_unimplemented(
     row: &LedgerEntry,
     ledger: &IndexLedger,
     cats: &SubtypeCatalogs,
-    cycles: &crate::layout::LandCycles,
     reason: &str,
 ) -> Result<(StubInfo, String), CodegenError> {
-    render_card(
-        card,
-        row,
-        ledger,
-        cats,
-        cycles,
-        None,
-        &|_| false,
-        Some(reason),
-    )
+    render_card(card, row, ledger, cats, None, &|_| false, Some(reason))
 }
 
 // Shared canonical rendering for ordinary generation and explicit review holds.
@@ -78,7 +67,6 @@ fn render_card(
     row: &LedgerEntry,
     ledger: &IndexLedger,
     cats: &SubtypeCatalogs,
-    cycles: &crate::layout::LandCycles,
     land: Option<&CardBody>,
     tested: &dyn Fn(&str) -> bool,
     held: Option<&str>,
@@ -86,7 +74,7 @@ fn render_card(
     let slug = slug(card.name.split(" // ").next().unwrap_or(&card.name));
     let faces = faces_of(card);
     let oracle_id = card.oracle_id.clone().unwrap_or_default();
-    let path = crate::layout::path_for(card, &slug, cycles);
+    let path = crate::layout::path_for(&card.name, &row.set, &slug)?;
     let mut out = String::with_capacity(4096);
     // Human-verifiable header (docs/card-dsl.md).
     out.push_str(&format!("//! {} \u{2014} ", card.name));
@@ -226,7 +214,7 @@ fn render_card(
         &face_defs,
         land,
         ledger,
-        land.is_some() && tested(&path),
+        land.is_some() && tested(&slug),
     )?;
     let statics = land.as_ref().map_or("", |b| b.statics.as_str());
     // Only when something names one: an unused import is a warning now that

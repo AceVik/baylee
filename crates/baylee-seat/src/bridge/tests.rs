@@ -90,6 +90,7 @@ fn put_with(core: &mut SeatCore, seq: u64, tweak: impl FnOnce(&mut PlayerView)) 
             game_id: "test-game".into(),
             seq,
             pending: baylee_core::wire::encode(&pending),
+            context: Vec::new(),
         },
     )))
 }

@@ -210,6 +210,11 @@ pub struct Request {
     /// How the model's last `until` ended, when it passed something or a
     /// wake ended it: told once, in the next message.
     pub held: Option<crate::wake::Held>,
+    /// What the question is about, as the table sent it beside the
+    /// question (`DecisionNote`: which printed ability or mode asks, the X,
+    /// the cast route); `None` where it explains itself. The house reads it
+    /// as the in-process house reads the engine's decision context.
+    pub note: Option<baylee_engine::engine::DecisionNote>,
 }
 
 /// An answer and why it was refused: [`Request::retry`].

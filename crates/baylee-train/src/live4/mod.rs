@@ -230,7 +230,9 @@ impl<B: Brain4> LiveSeat4<B> {
             Heard::View => {
                 self.observe_latest()?;
             }
-            Heard::Question { seq, pending, raw } => {
+            Heard::Question {
+                seq, pending, raw, ..
+            } => {
                 if let Pending::GameOver(result) = &*pending {
                     self.report.won = Some(
                         result

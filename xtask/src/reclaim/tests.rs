@@ -5,7 +5,7 @@ mod promote_generated;
 
 use super::plan;
 use crate::{Cli, Cmd, Parser};
-use baylee_cards_codegen::{ledger, scryfall, stubgen};
+use baylee_cards_codegen::{layout, ledger, scryfall, stubgen};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -65,7 +65,6 @@ impl Fixture {
         let scripts = dir.path().join("scripts");
         fs::create_dir_all(&cache).unwrap();
         fs::create_dir_all(&scripts).unwrap();
-        write(&dir.path().join("data/land-cycles.tsv"), "");
         write(&dir.path().join("data/card-test-holds.tsv"), "");
         Self {
             dir,
@@ -74,16 +73,19 @@ impl Fixture {
         }
     }
 
+    /// Where codegen files the card: the group and set of its first printing.
     fn source(&self, name: &str) -> PathBuf {
-        self.dir.path().join(format!(
-            "crates/cards/src/cards/instants/mv_1/{}.rs",
-            stubgen::slug(name)
-        ))
+        let set = baylee_cards_index::row_by_name(name)
+            .expect("a ledger card")
+            .set;
+        self.dir.path().join(layout::SETS_DIR).join(
+            layout::path_for(name, set, &stubgen::slug(name)).expect("a set with a release day"),
+        )
     }
 
     fn test(&self, name: &str) -> PathBuf {
         self.dir.path().join(format!(
-            "crates/cards/testkit/card_tests/instants/mv_1/{}.rs",
+            "crates/cards/testkit/card_tests/instants/{}.rs",
             stubgen::slug(name)
         ))
     }
@@ -174,8 +176,10 @@ fn reclamation_changes_only_the_explicitly_selected_card_source() {
     let selected_before = fs::read(&selected).unwrap();
     let sibling_before = fs::read(&sibling).unwrap();
     let sentinels = [
-        "crates/cards/src/cards/mod.rs",
-        "crates/cards/src/generated.rs",
+        "crates/cards/sets/1993/src/lib.rs",
+        "crates/cards/sets/1993/Cargo.toml",
+        "crates/cards/pool/src/generated.rs",
+        "crates/cards/pool/Cargo.toml",
         "crates/cards/src/generated_lines.rs",
         "crates/cards/src/generated_names.rs",
         "crates/cards/src/generated_oracle.rs",
@@ -319,7 +323,7 @@ fn an_existing_source_at_a_noncanonical_path_is_not_moved_or_reclaimed() {
     let wrong = f
         .dir
         .path()
-        .join("crates/cards/src/cards/instants/mv_2/lightning_bolt.rs");
+        .join("crates/cards/sets/1993/src/wrong/lightning_bolt.rs");
     write(&wrong, fs::read(&original).unwrap());
     fs::remove_file(&original).unwrap();
     let before = fs::read(&wrong).unwrap();

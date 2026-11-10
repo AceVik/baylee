@@ -54,7 +54,7 @@ impl Session {
             .map(|env| (seat, env))
             .collect();
         if let Some(pending) = self.engine.pending_for(seat) {
-            out.push((seat, choice_envelope(self.seq, pending)));
+            out.push((seat, self.question(seat, pending)));
         }
         out
     }
@@ -109,7 +109,7 @@ impl Session {
                 }
                 for seat in awaited.iter() {
                     if let Some(pending) = self.engine.pending_for(seat) {
-                        out.push((seat, choice_envelope(self.seq, pending)));
+                        out.push((seat, self.question(seat, pending)));
                     }
                 }
                 self.tell_spectators(&mut out);

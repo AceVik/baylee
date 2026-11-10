@@ -380,17 +380,17 @@ fn a_batch_reports_only_the_cards_it_did_not_ask_for() {
         .map(|n| super::stubgen::slug(n))
         .collect();
     let porcelain = concat!(
-        "?? crates/cards/src/cards/lands/pain/yavimaya_coast.rs\n",
-        " M crates/cards/src/cards/artifacts/mv_0/mox_opal.rs\n",
-        " M crates/cards/src/cards/instants/mv_1/swords_to_plowshares.rs\n",
-        "R  crates/cards/src/cards/a.rs -> crates/cards/src/cards/lands/utility/karakas.rs\n",
+        "?? crates/cards/sets/1995/src/ice/yavimaya_coast.rs\n",
+        " M crates/cards/sets/2010/src/som/mox_opal.rs\n",
+        " M crates/cards/sets/1993/src/lea/swords_to_plowshares.rs\n",
+        "R  crates/cards/sets/a.rs -> crates/cards/sets/1994/src/leg/karakas.rs\n",
     );
     let drift = super::drift_from_status(porcelain, &asked);
     assert_eq!(
         drift,
         vec![
-            "crates/cards/src/cards/instants/mv_1/swords_to_plowshares.rs".to_string(),
-            "crates/cards/src/cards/lands/utility/karakas.rs".to_string(),
+            "crates/cards/sets/1993/src/lea/swords_to_plowshares.rs".to_string(),
+            "crates/cards/sets/1994/src/leg/karakas.rs".to_string(),
         ],
         "the new card is this batch's own output and the asked-for rewrite is \
          expected; the other two are somebody else's change arriving inside it"
@@ -596,7 +596,7 @@ fn the_set_header_yields_the_printing_id_and_not_the_oracle_one() {
 
 /// The pool names a card by its front face or the way the ledger names
 /// it, and both slug to one file. Without this the run says `codegen
-/// complete` and leaves `cards/mod.rs` declaring the module twice — which
+/// complete` and leaves a group's `lib.rs` declaring the module twice — which
 /// `codegen` then cannot repair, because `xtask` links `baylee-cards`.
 #[test]
 fn one_card_written_two_ways_is_refused_before_anything_is_written() {
@@ -1007,7 +1007,7 @@ fn formatting_many_at_once_is_formatting_each_alone() {
         "fn broken( {".to_string(),
         std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../crates/cards/src/generated.rs"),
+                .join("../crates/cards/pool/src/generated.rs"),
         )
         .expect("the registry"),
     ];
@@ -1045,37 +1045,35 @@ fn the_attack_without_tapping_verb_carries_controller_scope() {
     }
 }
 
-/// A `Coverage::Generated` card is untested by definition: once its card
-/// test exists at the card's own path, codegen writes it `Implemented` unless
-/// an explicit coverage hold documents incomplete acceptance. Otherwise a tree
-/// holding both is one codegen run behind (`stubgen::read_coverage`).
+/// A `Coverage::Generated` card is untested by definition: once a card test
+/// named after it exists under `card_tests/`, codegen writes it `Implemented`
+/// unless an explicit coverage hold documents incomplete acceptance. Otherwise
+/// a tree holding both is one codegen run behind (`stubgen::read_coverage`).
 #[test]
 fn no_generated_card_already_has_its_card_test() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("xtask lives in <workspace>/xtask");
-    let cards = root.join("crates/cards/src/cards");
-    let tests = root.join("crates/cards/testkit/card_tests");
+    let tested = super::layout::tested_slugs(&root.join(super::layout::CARD_TESTS_DIR)).unwrap();
     let holds = crate::coverage_holds::load(root).unwrap();
-    let files = super::card_files(&cards).unwrap();
+    let files = super::card_files(&root.join(super::layout::SETS_DIR)).unwrap();
     assert!(
         files.len() > 1000,
         "the walk found {} card files",
         files.len()
     );
     let behind: Vec<String> = files
-        .values()
-        .filter(|path| {
-            let rel = path.strip_prefix(&cards).expect("under cards/");
+        .iter()
+        .filter(|(slug, path)| {
             std::fs::read_to_string(path).is_ok_and(|text| {
                 let id = crate::files::knob(&text, "oracle_id")
                     .and_then(|value| crate::files::quoted_value(value, "\""));
                 crate::files::knob(&text, "coverage")
                     .is_some_and(|value| value.starts_with("Coverage::Generated"))
-                    && id.is_some_and(|id| holds.accepts_tests(&id, tests.join(rel).is_file()))
+                    && id.is_some_and(|id| holds.accepts_tests(&id, tested.contains(*slug)))
             })
         })
-        .map(|path| path.display().to_string())
+        .map(|(_, path)| path.display().to_string())
         .collect();
     assert!(
         behind.is_empty(),
@@ -1088,17 +1086,23 @@ fn no_generated_card_already_has_its_card_test() {
 fn batch_registry_growth_is_expected_but_other_module_changes_are_not() {
     let asked = std::collections::BTreeSet::new();
     for status in [" M", "M "] {
-        assert!(
-            super::drift_from_status(&format!("{status} crates/cards/src/cards/mod.rs\n"), &asked)
-                .is_empty(),
-            "{status}"
-        );
+        for generated in [
+            "crates/cards/sets/1993/src/lib.rs",
+            "crates/cards/sets/2021-q1/Cargo.toml",
+            "crates/cards/pool/src/generated.rs",
+            "crates/cards/pool/Cargo.toml",
+        ] {
+            assert!(
+                super::drift_from_status(&format!("{status} {generated}\n"), &asked).is_empty(),
+                "{status} {generated}"
+            );
+        }
     }
     for line in [
-        " D crates/cards/src/cards/mod.rs",
-        " M crates/cards/src/cards/creatures/mod.rs",
-        "R  crates/cards/src/cards/x.rs -> crates/cards/src/cards/mod.rs",
-        " M crates/cards/src/cards/creatures/real_card.rs",
+        " D crates/cards/sets/1993/src/lib.rs",
+        " M crates/cards/sets/1993/src/lea/lib.rs",
+        "R  crates/cards/sets/x.rs -> crates/cards/sets/1993/src/lib.rs",
+        " M crates/cards/sets/1993/src/lea/real_card.rs",
     ] {
         assert_eq!(super::drift_from_status(line, &asked).len(), 1, "{line}");
     }

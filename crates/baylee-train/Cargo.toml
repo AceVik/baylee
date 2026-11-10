@@ -131,6 +131,12 @@ name = "selfplay"
 path = "src/bin/selfplay.rs"
 required-features = ["play"]
 
+# Counts eval4 house-against-house games once, paired by seed (`docs/house-ai.md`).
+[[bin]]
+name = "house_duplicate"
+path = "src/bin/house_duplicate.rs"
+required-features = ["play"]
+
 [[bin]]
 name = "inspect"
 path = "src/bin/inspect.rs"
@@ -224,4 +230,9 @@ required-features = ["onnx"]
 [[bin]]
 name = "boundary_scan4"
 path = "src/bin/boundary_scan4.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "seated_decks4"
+path = "src/bin/seated_decks4.rs"
 required-features = ["play"]

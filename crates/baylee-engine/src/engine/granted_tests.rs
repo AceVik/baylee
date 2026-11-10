@@ -1,5 +1,5 @@
 //! Temporary special actions share payments, but never pay life implicitly.
-use super::synthetic::{SyntheticLookup, creature, preset, walk_past};
+use super::synthetic::{SyntheticLookup, creature, forest, preset, walk_past};
 use super::*;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::ids::GrantedActionId;
@@ -53,11 +53,14 @@ fn fixture() -> (Engine<SyntheticLookup>, ObjectId) {
     fixture_seats(2)
 }
 fn fixture_seats(seats: usize) -> (Engine<SyntheticLookup>, ObjectId) {
+    fixture_on(seats, &[BODY])
+}
+fn fixture_on(seats: usize, battlefield: &[u32]) -> (Engine<SyntheticLookup>, ObjectId) {
     let def = Box::leak(Box::new(CardDef {
         abilities: ABILITIES,
         ..*creature(BODY, "Permission subject", 2, 2, &[])
     }));
-    let mut settings = preset(91_116, &[BODY]);
+    let mut settings = preset(91_116, battlefield);
     while settings.seats.len() < seats {
         settings.seats.push(settings.seats[1].clone());
     }
@@ -380,4 +383,121 @@ fn granted_concession_discards_permission_and_nested_payment_in_multiplayer() {
     );
     assert_eq!(before, engine.fingerprint());
     engine.apply(survivor, PlayerAction::PassPriority).unwrap();
+}
+
+fn offered_grants(engine: &Engine<SyntheticLookup>) -> Vec<GrantedActionId> {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    legal.granted_actions.iter().map(|offer| offer.id).collect()
+}
+
+/// Nafs Asp's "pay {1}" at deal 359 of the v6 priority probe, reduced: no
+/// land to tap, an activation the seat can press for nothing, one it cannot
+/// pay ({4}), and a granted action that costs {1}. Nothing makes the {1}, so
+/// the action is not offered. It was, because the offer asked
+/// `has_mana_source` while `abilities` still held every activation; the
+/// payment window it opened then found nothing to pay with and refused it.
+#[test]
+fn a_granted_action_nothing_can_pay_for_is_not_offered() {
+    let (mut engine, body) = fixture();
+    let shield = grant(&mut engine, body, 1);
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority")
+    };
+    assert!(legal.abilities.contains(&(body, 0)), "{legal:?}");
+    assert!(
+        legal
+            .unpaid_abilities
+            .iter()
+            .any(|&(source, index, _)| (source, index) == (body, 2)),
+        "{legal:?}"
+    );
+    assert!(legal.mana_abilities.is_empty(), "{legal:?}");
+    assert!(!offered_grants(&engine).contains(&shield));
+    let before = engine.fingerprint();
+    assert!(
+        engine
+            .apply(USER, PlayerAction::TakeGrantedAction { id: shield })
+            .is_err()
+    );
+    assert_eq!(engine.fingerprint(), before);
+
+    // As it was: offered, and the press refused.
+    let (offered, refused) = as_before(|| {
+        engine.refresh_offer();
+        let offered = offered_grants(&engine).contains(&shield);
+        let before = engine.fingerprint();
+        let refused = engine
+            .apply(USER, PlayerAction::TakeGrantedAction { id: shield })
+            .is_err();
+        assert_eq!(engine.fingerprint(), before);
+        (offered, refused)
+    });
+    assert!(offered && refused, "offered {offered}, refused {refused}");
+    engine.refresh_offer();
+    assert!(!offered_grants(&engine).contains(&shield));
+}
+
+/// What pays a granted action keeps it on offer: mana in the pool pays it
+/// at once, and an untapped land pays it in the window it opens. (A granted
+/// mana permission does too: `granted_priority_permission_can_pay_using_
+/// mana_only_permission`.)
+#[test]
+fn a_granted_action_mana_can_pay_for_stays_offered() {
+    let (mut engine, body) = fixture();
+    let shield = grant(&mut engine, body, 1);
+    engine.state.players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 1);
+    engine.refresh_offer();
+    assert!(offered_grants(&engine).contains(&shield));
+    take(&mut engine, shield);
+    assert!(engine.payment_window().is_none());
+    assert!(!engine.state.shields.is_empty());
+
+    let (mut engine, body) = fixture_on(2, &[BODY, forest()]);
+    let land = engine
+        .state
+        .battlefield_seen()
+        .find(|id| engine.state.object(*id).unwrap().card.unwrap().index.get() == forest())
+        .unwrap();
+    let shield = grant(&mut engine, body, 1);
+    assert!(offered_grants(&engine).contains(&shield));
+    take(&mut engine, shield);
+    assert!(engine.payment_window().is_some());
+    engine
+        .apply(USER, PlayerAction::ActivateManaAbility { source: land })
+        .unwrap();
+    if engine.payment_window().is_some() {
+        engine.apply(USER, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(engine.payment_window().is_none());
+    assert!(!engine.state.shields.is_empty());
+}
+
+/// A free cast counts on mana to come only from what a payment window
+/// would offer: an untapped land, not an activation that makes none. As it
+/// was, the free-cast offers asked the list priority shows, where the
+/// seat's free activations read as mana sources.
+#[test]
+fn a_free_cast_counts_on_mana_only_a_window_could_make() {
+    let (engine, _) = fixture();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority")
+    };
+    assert!(!legal.abilities.is_empty() && legal.mana_abilities.is_empty());
+    assert!(!engine.free_cast_makes_mana(USER));
+    assert!(as_before(|| engine.free_cast_makes_mana(USER)));
+    let (engine, _) = fixture_on(2, &[BODY, forest()]);
+    assert!(engine.free_cast_makes_mana(USER));
+    assert!(as_before(|| engine.free_cast_makes_mana(USER)));
+}
+
+/// Runs `f` with "can this seat make mana?" asked as it was.
+fn as_before<T>(f: impl FnOnce() -> T) -> T {
+    super::granted::ASK_MANA_AS_BEFORE.with(|before| before.set(true));
+    let out = f();
+    super::granted::ASK_MANA_AS_BEFORE.with(|before| before.set(false));
+    out
 }

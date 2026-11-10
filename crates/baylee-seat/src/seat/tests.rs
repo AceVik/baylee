@@ -70,6 +70,7 @@ fn asked(seq: u64, pending: &Pending) -> Vec<u8> {
         game_id: "test-game".into(),
         seq,
         pending: baylee_core::wire::encode(pending),
+        context: Vec::new(),
     }))
 }
 

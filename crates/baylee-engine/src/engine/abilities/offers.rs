@@ -847,6 +847,8 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|(s, i, _)| s == source && i == index)
         });
+        // Only now is `abilities` the list a payment window narrows.
+        self.settle_granted_offers(player, &mut legal);
         self.offer_cast_ways(player, &mut legal);
         legal
     }

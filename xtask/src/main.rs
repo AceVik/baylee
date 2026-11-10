@@ -26,6 +26,7 @@ mod oracle_lines;
 mod precons;
 mod printings;
 mod reclaim;
+mod sets;
 mod tables;
 mod transcode;
 mod update_key;
@@ -150,6 +151,7 @@ fn main() -> anyhow::Result<()> {
             None if subtypes => codegen::subtypes(&root, check, &cache),
             None => codegen(&root, check, tables, registry, &scripts, &cache),
         },
+        Cmd::Sets { check, cache } => sets::run(&root, &cache, check),
         Cmd::Ledger {
             corpus,
             check,
