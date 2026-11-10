@@ -36,8 +36,7 @@ pub(crate) fn run(
     anyhow::ensure!(!names.is_empty(), "select at least one card to hold back");
     let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS)?;
     let cats = compiled_catalogs();
-    let cycles = layout::LandCycles::parse(&fs::read_to_string(root.join("data/land-cycles.tsv"))?);
-    let cards = root.join("crates/cards/src/cards");
+    let cards = root.join(layout::SETS_DIR);
     let files = card_files(&cards)?;
     let cache = root.join(cache);
     let mut selected = BTreeSet::new();
@@ -53,8 +52,7 @@ pub(crate) fn run(
             .with_context(|| format!("no card file for {name}"))?;
         let source = fs::read_to_string(path)?;
         let printing = reviewed_printing(&cache, row, &source)?;
-        let (_, output) =
-            stubgen::render_unimplemented(&printing, row, &ledger, &cats, &cycles, reason)?;
+        let (_, output) = stubgen::render_unimplemented(&printing, row, &ledger, &cats, reason)?;
         plan.push((path.clone(), output));
     }
     let sources: Vec<_> = plan.iter().map(|(_, text)| text.clone()).collect();

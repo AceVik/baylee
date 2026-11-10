@@ -5,12 +5,11 @@ use crate::{BTreeSet, Path, fs, ledger, scriptgen, scripts, stubgen};
 use anyhow::Context;
 
 struct RenderContext<'a> {
-    root: &'a Path,
     cache: &'a Path,
     cards_dir: &'a Path,
     ledger: &'a ledger::IndexLedger,
     cats: &'a crate::catalog::SubtypeCatalogs,
-    cycles: &'a crate::layout::LandCycles,
+    tested_slugs: &'a BTreeSet<String>,
     holds: &'a crate::coverage_holds::CoverageHolds,
     lookup: &'a scriptgen::ScriptLookup,
     tokens: Option<&'a crate::tokengen::TokenLookup>,
@@ -51,11 +50,10 @@ pub(super) fn plan_with_mode(
         BTreeSet::new()
     };
     let holds = crate::coverage_holds::load_completing_stubs(root, &completing)?;
-    let cards_dir = root.join("crates/cards/src/cards");
+    let cards_dir = root.join(crate::layout::SETS_DIR);
     let files = crate::card_files(&cards_dir)?;
     let cats = crate::hold_back::compiled_catalogs();
-    let cycles =
-        crate::layout::LandCycles::parse(&fs::read_to_string(root.join("data/land-cycles.tsv"))?);
+    let tested_slugs = crate::layout::tested_slugs(&root.join(crate::layout::CARD_TESTS_DIR))?;
     let scripts_dir = crate::scripts_root(root, scripts);
     anyhow::ensure!(
         scripts_dir.is_dir(),
@@ -67,12 +65,11 @@ pub(super) fn plan_with_mode(
     let tokens = crate::tokengen::TokenLookup::beside(&scripts_dir)?;
     let cache = root.join(cache);
     let context = RenderContext {
-        root,
         cache: &cache,
         cards_dir: &cards_dir,
         ledger: &ledger,
         cats: &cats,
-        cycles: &cycles,
+        tested_slugs: &tested_slugs,
         holds: &holds,
         lookup: &lookup,
         tokens: tokens.as_ref(),
@@ -105,7 +102,7 @@ impl RenderContext<'_> {
         let original = fs::read_to_string(path)?;
         let printing = identity::pinned_printing(self.cache, row, &original, self.mode)?;
         let slug = crate::front_face_slug(&row.name);
-        let canonical = crate::layout::path_for(&printing, &slug, self.cycles);
+        let canonical = crate::layout::path_for(&row.name, &row.set, &slug)?;
         anyhow::ensure!(
             path == self.cards_dir.join(&canonical).as_path(),
             "{} is not at its canonical path {canonical}; {} never moves cards",
@@ -118,11 +115,7 @@ impl RenderContext<'_> {
             "{} source path resolves outside its canonical card location",
             row.name
         );
-        let tested = self
-            .root
-            .join("crates/cards/testkit/card_tests")
-            .join(&canonical)
-            .is_file();
+        let tested = self.tested_slugs.contains(&slug);
         let implemented = self.holds.accepts_tests(&row.oracle_id, tested);
         anyhow::ensure!(
             self.mode == Mode::CompleteStub || implemented,
@@ -147,7 +140,6 @@ impl RenderContext<'_> {
             self.cats,
             Some(self.lookup),
             self.tokens,
-            self.cycles,
             &|_| implemented,
         )?;
         anyhow::ensure!(

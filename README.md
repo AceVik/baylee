@@ -902,7 +902,7 @@ the client's logic without a renderer and holds most of the client's tests;
 the 3D table is built with [Bevy](https://bevyengine.org/). **seal** is the
 chat's encryption. The **gateway** and the **agent** link no rules at all.
 Cards are Rust code, written in a small DSL, one file per card under
-`crates/cards/src/cards/`.
+`crates/cards/sets/`, grouped by the year of its first printing.
 
 Where to read on:
 
