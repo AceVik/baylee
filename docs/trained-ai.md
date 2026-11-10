@@ -1176,7 +1176,11 @@ block and nothing else; the Python readers take the masks at the payload's end
 (`trajectory_store4.bst4_payload_end`, `bst4_distill_block`). `eval4
 --deck-weights FILE` (a JSON object of manifest deck id to a whole weight)
 plays each selected deck as often as its weight, the copies in rounds through
-the deck list, and records the weights in `run.json`. In the CPU smoke of 10
+the deck list, and records the weights in `run.json`. In self-play the same
+net sits in both chairs: at temperature 0 the two deals of a table (the focal
+seat swapped) are one game, and with both seats labelled each would be
+trained twice, so a self-play collection plays one deal per table (`--deals
+2N --only-deals` the even deals: N distinct games). In the CPU smoke of 10
 November (2 deals with the layer playing, 2 DAgger deals against `sharp`, 2 in
 self-play) every one of 1,545 labels bound; 289 had `N ≠ R` (245 at priority,
 mostly without a group firing: the layer's own reads), the layer played `R` at
