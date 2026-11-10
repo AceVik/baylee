@@ -305,6 +305,16 @@ inherits = "release"
 debug = "line-tables-only"
 strip = "none"
 
+# A main push's client packages: the `dist` recipe without whole-program
+# optimisation. They check that the three binaries build, pack and install
+# on every target, and are never shipped: a tag builds its own in `dist`,
+# profile-guided on the Mac (`.github/workflows/client-packages.yml`,
+# owner 10.11.2026: the sharp settings are for real releases only).
+[profile.package-check]
+inherits = "dist"
+lto = "off"
+codegen-units = 16
+
 # Optimized CI tests retain release semantics without repeating LTO for every
 # test executable. Shipping binaries still use the unchanged dist profile.
 [profile.ci-release]

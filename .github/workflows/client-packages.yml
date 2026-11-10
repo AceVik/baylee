@@ -106,6 +106,13 @@ jobs:
       # stamps the same name (`baylee_build::TARGET`), and `target/<triple>` stays.
       BAYLEE_TARGET_VARIANT: ${{ matrix.variant }}
       PACKAGE_NAME: ${{ matrix.target }}${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
+      # The profile the client is built in. A release (a tag: it comes with the
+      # client's profile) ships `dist`, thin LTO at one codegen unit, and the
+      # Mac arm client profile-guided on top. A main push's packages are never
+      # shipped, since a tag builds its own (docs/releasing.md §"Build reuse and
+      # caches"), so they check the recipe in `package-check`, which links in
+      # a fraction of the time (owner, 10.11.2026).
+      PACKAGE_PROFILE: ${{ inputs.client-profile != '' && 'dist' || 'package-check' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -190,7 +197,7 @@ jobs:
         env:
           BAYLEE_RELEASE_BUILD: '1'
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: cargo build-client --profile dist --target "$PACKAGE_TARGET"
+        run: cargo build-client --profile "$PACKAGE_PROFILE" --target "$PACKAGE_TARGET"
       - if: inputs.source-run == '' && !matrix.variant
         shell: bash
         env:
@@ -202,7 +209,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
         run: |
-          archive=$(cargo tools package client "target/$PACKAGE_TARGET/dist" "$PACKAGE_NAME" "$PACKAGE_VERSION")
+          archive=$(cargo tools package client "target/$PACKAGE_TARGET/$PACKAGE_PROFILE" "$PACKAGE_NAME" "$PACKAGE_VERSION")
           mkdir -p out
           cp "$archive" out/
       # The installers wrap the tree `package client` just packed: a dmg, an

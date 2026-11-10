@@ -7,7 +7,8 @@ The PM owns releases and the workspace version (`docs/dictionary.md`, Revier).
 A push to `main` builds the desktop packages, alongside the CI checks. A tag
 `v<version>` on that green commit makes `.github/workflows/release.yml` build them
 again, the macOS arm client from the commit's profile (§"The client's profile"), sign
-them and publish a GitHub Release. A dry run promotes the CI archives instead. The
+them and publish a GitHub Release. A dry run promotes the CI archives instead
+(built in `package-check`, so never what a release ships). The
 release has one
 archive per desktop target (Linux, Windows x86_64/aarch64 and macOS aarch64),
 each with a `.sha256` and a signature (`.sig`, §"Signing") beside it. Every
@@ -21,7 +22,7 @@ archive and also runs locally. Beside each archive stand its installers (a
 dmg, a setup `.exe`, an AppImage and a `.deb`, §"Installers"), made from the
 same tree in the same CI job.
 
-The binaries are built with `--profile dist` (`Cargo.toml`), which is
+A release's binaries are built with `--profile dist` (`Cargo.toml`), which is
 `release` plus line tables and no strip, so a crash report keeps file and line.
 Fat LTO was measured and does not fit: it needs 17 GB at link time, and a free
 runner has at most 16 GB. On x86_64 the target CPU is `x86-64-v3` (owner,
@@ -134,11 +135,16 @@ release.
 
 `.github/workflows/client-packages.yml` is the one packaging recipe. Main CI
 links the three shipped binaries (`baylee-client`, `baylee-launch`,
-`baylee-seat`: `cargo build-client`) in `dist` on each of the six shipping
+`baylee-seat`: `cargo build-client`) on each of the six shipping
 targets, with `--workspace` as the selection so their dependencies' features
 unify exactly as a whole-workspace build would, checks every target of the
 client crates that carry a platform `cfg` (`cargo check-client`), and uploads
-the client/launcher archives. Only the client is built for every platform
+the client/launcher archives. A main push builds them in `package-check`: the `dist` recipe
+without LTO and at 16 codegen units, because they are never shipped. A tag
+builds its own in `dist`, with the Mac arm client profile-guided on top,
+and only a release pays for that link (owner, 10.11.2026). Its dependencies
+then start without a cache, since main's caches hold `package-check`
+builds. Only the client is built for every platform
 (owner, 29.10.2026). The servers and tools run on Linux x86_64, where the
 tests build all of them. The nightly `build` matrix links the client natively
 on the other four platforms, and the gateway, agent and engine server on Linux
