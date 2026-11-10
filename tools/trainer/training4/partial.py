@@ -98,6 +98,14 @@ def apply_partial_training(net, args):
                 trainable_parameters=sum(p.numel() for p in net.parameters() if p.requires_grad))
 
 
+def below_layer_frozen(net, layer):
+    """True when everything that feeds trunk layer `layer` is frozen (stage B's lower part)."""
+    downstream = (tuple(f"trunk_layers.{i}." for i in range(layer, len(net.trunk_layers)))
+                  + ("trunk_norm.", "thinking_block.", "recurrent_cell.", "h_norm.")
+                  + HEAD_PREFIXES + OTHER_HEADS + VALUE_HEADS)
+    return not any(p.requires_grad for n, p in net.named_parameters() if not n.startswith(downstream))
+
+
 def upstream_frozen(net):
     """True when nothing before the policy heads learns: boards and memory are fixed."""
     return not any(p.requires_grad for n, p in net.named_parameters()
