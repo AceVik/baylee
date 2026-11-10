@@ -60,6 +60,7 @@ mod snapshot;
 pub use snapshot::{ColdMeta4, PlayerSnapshot4};
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
+pub mod distill;
 pub mod tactician;
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
@@ -182,6 +183,9 @@ pub struct NetPlayer4 {
     /// `eval4 --tactician`: answers the attack, block and target questions
     /// it names; `None` everywhere else, live play included.
     tactician: Option<tactician::Tactician4>,
+    /// `eval4 --distill-labels`: the whole net's distillation labels, kept per
+    /// answer; `None` everywhere else, live play included.
+    distill: Option<distill::Distill4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -388,6 +392,37 @@ impl NetPlayer4 {
             .unwrap_or_default()
     }
 
+    /// Sets `eval4 --distill-labels`: from the next decision on, every answer
+    /// of the policy is labelled with `N` and the layer's `R`.
+    pub fn set_distill(&mut self, distill: distill::Distill4) {
+        self.distill = Some(distill);
+    }
+
+    /// The labels of the decision this net answered last, taken.
+    pub fn take_distill_label(&mut self) -> Option<distill::DistillLabel4> {
+        self.distill
+            .as_mut()
+            .and_then(distill::Distill4::take_label)
+    }
+
+    /// Records a step of this net's seat ([`distill::Distill4::step`]).
+    pub fn distill_step(
+        &mut self,
+        seat: u8,
+        decision_seq: u64,
+        record_byte_offset: usize,
+        answered: bool,
+    ) {
+        if let Some(distill) = &mut self.distill {
+            distill.step(seat, decision_seq, record_byte_offset, answered);
+        }
+    }
+
+    /// The game's distillation steps, taken; `None` without `--distill-labels`.
+    pub fn take_distill_steps(&mut self) -> Option<Vec<distill::DistillStep4>> {
+        self.distill.as_mut().map(distill::Distill4::take_steps)
+    }
+
     /// Sets `eval4 --choice-guard` (`tactics::guard`) for this net.
     pub const fn set_choice_guard(&mut self, guard: ChoiceGuard4) {
         self.choice_guard = guard;
@@ -468,6 +503,7 @@ impl NetPlayer4 {
             last_menu: None,
             dirty_h_seats: 0,
             tactician: None,
+            distill: None,
         }
     }
 

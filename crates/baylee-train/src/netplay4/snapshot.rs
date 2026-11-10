@@ -615,6 +615,7 @@ impl NetPlayer4 {
             last_menu: _,
             dirty_h_seats: _,
             tactician: _,
+            distill: _,
         } = self;
         PlayerSnapshot4 {
             teams: teams.clone(),

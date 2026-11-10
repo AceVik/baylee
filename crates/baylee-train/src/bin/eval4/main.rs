@@ -230,6 +230,29 @@ fn main() -> anyhow::Result<()> {
              copy of the seat"
         );
     }
+    let distill_rules = args
+        .distill_labels
+        .as_deref()
+        .map(baylee_train::netplay4::TacticRules4::parse)
+        .transpose()?;
+    if distill_rules.is_some()
+        && (!args.raw_policy
+            || args.temperature != 0.0
+            || args.legacy_v3
+            || args.search.is_some()
+            || args.shadow_teacher.is_some()
+            || args.random_policy
+            || args.menu_payable
+            || collection.purpose != collector::Purpose::Evaluation
+            || (collection.opponent_path.is_some()
+                && collection.opponent_role != collector::OpponentRole::SelfPlay))
+    {
+        bail!(
+            "--distill-labels labels the net's own answers: --raw-policy at temperature 0, against \
+             the house or a self-play copy, no search, shadow, random seat, payable menu or \
+             collection purpose"
+        );
+    }
     let dev_arm = args.dev_free_temperature || args.menu_payable;
     if dev_arm
         && (args.legacy_v3
@@ -480,6 +503,17 @@ fn main() -> anyhow::Result<()> {
             // Only runs that accept another catalog than this build's name it.
             run["catalog"] = catalog.clone();
         }
+        if let Some(groups) = &args.distill_labels {
+            // convert4 reads this run only with --bundle-distill; every other
+            // reader refuses the contract.
+            run["distill"] = json!({
+                "contract": baylee_train::netplay4::distill::DISTILL_CONTRACT,
+                "label_rules": groups,
+                "label": "the tactical layer's answer R under label_rules, read on copies; N the net's raw greedy answer",
+                "sidecar": "games.jsonl distill_sidecar, one entry per rollout_sidecar step",
+                "players": {"choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules},
+            });
+        }
         if let Some(setup) = &tactician_setup {
             run["tactician"] = setup.metadata();
             if setup.keeps_labels() {
@@ -638,6 +672,12 @@ fn main() -> anyhow::Result<()> {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
             }
             let mut tactician_sink = None;
+            if let Some(rules) = distill_rules {
+                anyhow::ensure!(
+                    net.set_distill(&baylee_train::netplay4::distill::Distill4::new(rules)),
+                    "--distill-labels needs a net"
+                );
+            }
             if let Some(setup) = &tactician_setup {
                 anyhow::ensure!(
                     net.set_tactician(setup.tactician()?),
@@ -741,6 +781,8 @@ fn main() -> anyhow::Result<()> {
                     value_log.as_deref(),
                 )?;
 
+                // `--distill-labels`: one entry per rollout step of the net's seats.
+                let distill_steps = net.take_distill_steps();
                 if let Some((f, offset)) = &mut shard_file {
                     diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
                     if let Some(search) = game_search.as_mut() {
@@ -780,6 +822,15 @@ fn main() -> anyhow::Result<()> {
                     if let Some(search) = &game_search {
                         // Only searched runs name it, as run.json does.
                         entry["search_events"] = json!(search.events);
+                    }
+                    if let Some(steps) = &distill_steps {
+                        // Only labelling runs name it; aligned step for step with
+                        // `rollout_sidecar`, which convert4 checks.
+                        anyhow::ensure!(
+                            entry["rollout_sidecar"].as_array().map(Vec::len) == Some(steps.len()),
+                            "distillation steps out of step with the rollout sidecar"
+                        );
+                        entry["distill_sidecar"] = json!(steps);
                     }
                     let line = serde_json::to_string(&entry)?;
                     *offset += len;

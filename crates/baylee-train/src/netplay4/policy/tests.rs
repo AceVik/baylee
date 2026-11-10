@@ -39,6 +39,7 @@ fn select(
     let mut rng = Rng::new(77);
     let (action, _, lp, target) = PolicySampler4 {
         tactician: None,
+        distill: None,
         mode,
         temperature: 0.8,
         rng: &mut rng,
@@ -231,6 +232,7 @@ fn raw_sampler_refuses_unsupported_temperatures_and_nonfinite_outputs() {
         let mut rng = Rng::new(1);
         let result = PolicySampler4 {
             tactician: None,
+            distill: None,
             mode: PolicyMode4::Raw,
             temperature,
             rng: &mut rng,

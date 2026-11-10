@@ -1079,9 +1079,10 @@ The owner's decision of 10 November: a separately trained tactician that in the
 end plays alone, trunk and tactician, no rule. Its bootstrap, and only its
 bootstrap, imitates the tactical layer at the windows (attack, block, single
 target); the trunk and every other training are unchanged. At play it builds the
-answer itself (`netplay4::tactician::{imitate, build, net}`). Instant-speed,
-priority and mulligan windows are not built: whether distillation may extend
-there is the owner's to decide.
+answer itself (`netplay4::tactician::{imitate, build, net}`). The owner's
+decision of the same evening: priority goes into the net's own policy head by
+DAgger, not into the tactician; the look stays an input that reads and decides
+nothing. Mulligan and other instant-speed windows are not built.
 
 **Collection, the layer plays** (`--tactician-imitate ε --tactician-out DIR`,
 with `--raw-policy --choice-guard tactical --tactics-rules …`, against `sharp`
@@ -1103,6 +1104,45 @@ groups plays.
 `rows_read_rules: false` and `groups` (each unit's attacker or blocker; one
 group at a target) beside the blob of the state, the units' embeddings and the
 rows' tails. The tails never carry `R`: window-code columns 5 and 11 stay zero.
+
+**Priority records** (`--tactician-windows priority`, never part of `all`):
+every priority decision of the recorded seat (cast, pass, play a land, activate,
+tap for mana, pay) is kept like a window, with the net's logits over the
+candidates, `N`, `R`, `fired`, the state and each candidate's embedding. The look
+of a priority row (columns 76–99) reads the candidate action: its kind, whether
+it is instant speed and on the other side's turn, whether it can be cast now
+(`legal.castable` or `payable`), what is on the stack, the body of the object it
+names. Stage S1 rows carry the trivial facts in look columns 100–111 (whose
+turn, stack, untapped mana on both sides, hands, step, paying, turn). "Instant
+speed" reads the instant type; flash is not visible on a hand card.
+`tools/trainer/probe_priority.py` fits the set transformer on four feature
+sets on one read of the records: logits and facts; plus the embeddings; plus
+the look; the look without the prior's castable instants (columns 0–24). It
+reports exact top-1 at `N ≠ R` on held-out tables per set, per decision kind
+(pass, spend, cast, instant on their turn, pay, mana, activate, land) and per
+rule group that fired.
+
+**Whole-net distillation** (`bundle_distillation_v1`). `eval4 --distill-labels
+GROUPS` (with `--record-out`, temperature 0, against `sharp` or a self-play
+copy) labels every answer the policy gives: `N`, and `R` under `GROUPS` read on
+copies at the same view and logits exactly as `--choice-guard tactical
+--tactics-rules GROUPS` plays it, with the groups that changed it, the menu the
+targets index and the answer executed (`netplay4::distill`). Covered: priority,
+the other single choices (targets, modes), subsets (attackers, several targets,
+cards), pairs (blockers) and numbers; forced answers, fallbacks and trigger
+orders carry none. The labels go to `games.jsonl` as `distill_sidecar`, one
+entry per `rollout_sidecar` step. Whoever plays: the layer, or the net as the
+student (DAgger: `--raw-policy` and no guard; `R` is never played). A test
+holds, at every kind of decision, that the copy read is what the layer plays.
+`convert4 --bundle-distill --include-passive-obs` reads only runs whose
+`run.json` declares the contract (every other conversion and reader refuses
+it): at each labelled decision of the recorded seats it checks the seat, the
+menu and the executed answer against the record, makes `R` the policy target
+(`single_idx`, `multi_mask`, `free_mask`, `scalar_norm`) at weight 1 and keeps
+`N` beside it (JSON steps `n_ne_r` and `net_answer`; BST4 flags bit 7 =
+`N ≠ R`); every other decision frame keeps its place at weight 0, and the value
+targets are the outcomes. `meta.json` carries `bundle_distillation` with its
+counts; a game that does not bind fails the conversion.
 
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
