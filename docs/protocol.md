@@ -243,6 +243,21 @@ the new field and samples of exact, any-color and directed spending.
 Absent fields decode as `None`; old clients ignore the added field. Updated
 clients keep different choices in separate board groups and show the seat name.
 
+## Chosen colour, announced X, flashback and the table's seed (compatible view-90 additions)
+
+`PublicObject.chosen_color` is the colour publicly chosen for a permanent or
+spell as it entered or was cast; a face-down permanent's is shown only to
+those who may know the card. `PublicObject.chosen_x` is the X announced for a
+spell or ability on the stack (CR 601.2b).
+`ObjectStatus::FLASHBACK` (128) marks a spell cast by flashback.
+`SpectatorView.target_objects` names what the stack targets, hidden as a
+player's view hides it. `GameStatic.table_seed` is the cosmetic seed every
+seat, spectator and replay of a game draws the table's surface from: a
+one-way digest of the game, from which the game's seed cannot be recovered.
+All are additive, defaulted and omitted at their default, so 90 still names
+the shape; an old payload's `table_seed` reads 0 and the client falls back to
+the game's id.
+
 ## Private hand inspection (protocol 9)
 
 `ChoicePrompt::LookAtHand` suspends resolution until the inspecting player sends
@@ -1661,10 +1676,24 @@ seat says. `setting` is a `baylee_view::SeatSetting`:
 | `ShareHand(SeatSet)` | `{"ShareHand":2}` | show my hand to exactly these teammates (a bitmask: 2 is seat 1, 0 is nobody) |
 | `RequestHand(PlayerId)` | `{"RequestHand":1}` | ask seat 1 to show me their hand |
 | `DeclineHand(PlayerId)` | `{"DeclineHand":1}` | turn down seat 1's request |
+| `ShareHandOnce(SeatSet)` | `{"ShareHandOnce":2}` | show seat 1 the cards in my hand now, once (0 withdraws every such snapshot) |
 
 `ShareHand` names the whole set, so showing, withdrawing and accepting a
 request are one message. Showing a hand to a teammate who asked answers the
 request.
+
+`ShareHandOnce` was added after the other three and stays last: the binary
+encoding names a variant by its place, so an older client's settings keep
+their meaning, and an older engine refuses the new one as unreadable. It
+freezes the cards in the hand at that moment: the teammate keeps seeing those
+of them still in the hand, and nothing drawn later. `ShareHand` to a set that
+leaves a teammate out, or `DeclineHand` of that teammate, withdraws the
+snapshot shown to them.
+
+**The table's rule** is `HouseRules::hand_sharing` (additive, omitted at its
+default `Allowed`): `OnceOnly` refuses a non-empty `ShareHand` and allows
+`ShareHandOnce`; `Disabled` refuses every share and request. A table hosted
+through a room is `Allowed`, because the room does not offer the choice yet.
 
 **The answer is the views it changed**, to each seat whose view changed, with
 a new `seq`, and nothing else: no question is re-sent, so a teammate's share
@@ -1681,6 +1710,8 @@ It is refused when:
 - it would show a hand to a chair the house AI plays;
 - it asks again in the same turn it was turned down (from the next turn on,
   it may).
+- the table's rule refuses it (`hand sharing is disabled in this mode`, or
+  `continuous hand sharing is disabled in this mode; use one-time sharing`).
 
 It is heard **before the curtain** as well: it is no decision and runs no
 clock. Its views are the ones `Session::show` builds, with no pump and no
@@ -1716,10 +1747,12 @@ back from away, which may be sent a read-only snapshot.
   player does. Released back to the house, it follows the first rule: every
   share made to it is withdrawn, and every request waiting on it is accepted.
 
-**Agents receive public reveals, but no voluntary disclosures.**
+**The house's agents receive public reveals, but no voluntary disclosures.**
 `Session::agent_view` includes only rule-revealed `shared_hands` and leaves
 the three sharing/request sets empty. `Session::show_hands` adds voluntary
-shares on the socket path. The seat bridge's `house_view` retains entries
+shares on the socket path, and `view_for` and `observe_view` add them for a
+seat answered over a socket or by an external model; a house chair is never
+given one. The seat bridge's `house_view` retains entries
 marked `public` while removing voluntary shares (`docs/house-ai.md`).
 
 **The game log is unchanged.** Showing a hand shows the cards it holds now,
