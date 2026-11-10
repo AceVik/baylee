@@ -20,6 +20,9 @@ def add_learner_options(parser):
                         help="1c: pack lanes within entity-count buckets of this width (0 = no bucketing)")
     parser.add_argument("--window-epoch-fraction", type=float, default=1.0,
                         help="1c: stop each epoch after this fraction of its window batches")
+    parser.add_argument("--window-state-workers", type=int, default=4, help="1c: loader workers of the H pass")
+    parser.add_argument("--window-state-cache", default="",
+                        help="1c: reuse/write the initial H pass of this exact plan and --init checkpoint")
     parser.add_argument("--vectorized-rule-closure", action="store_true",
                         help="Build the active rule closure's index arrays with numpy instead of a per-node loop")
 
