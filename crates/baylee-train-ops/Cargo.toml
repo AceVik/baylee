@@ -41,6 +41,10 @@ name = "watch_run4"
 path = "src/bin/watch_run4.rs"
 
 [[bin]]
+name = "anomaly4"
+path = "src/bin/anomaly4.rs"
+
+[[bin]]
 name = "summarize_eval4"
 path = "src/bin/summarize_eval4.rs"
 
