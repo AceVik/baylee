@@ -72,6 +72,7 @@ fn act(session: &mut Session, sidecar: &mut Samples, action: PlayerAction) {
         },
         free_mask: vec![],
         pick_sequence: vec![],
+        exploration: None,
     };
     let mut binding = sample_binding(session, seat, 7, &action, &step).unwrap();
     session.act_slice(seat, action, 0).unwrap();
