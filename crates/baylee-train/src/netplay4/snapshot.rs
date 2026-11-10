@@ -690,6 +690,11 @@ impl NetPlayer4 {
                 self.h_states.clone_from(&snapshot.h_states);
                 self.dirty_h_seats = 0xff;
             } else {
+                // The slot last served another session, maybe of more seats:
+                // a seat this session does not have must not ride along into
+                // its state at the next `swap_out_hot`.
+                self.h_states
+                    .retain(|seat, _| snapshot.h_states_fp16.contains_key(seat));
                 for (&seat, h16) in &snapshot.h_states_fp16 {
                     let dst = self.h_states.entry(seat).or_default();
                     unpack_f16_slice_to_f32(h16, dst);
@@ -978,6 +983,37 @@ mod tests {
         net.restore(&before);
         assert_eq!(fingerprint(&net), printed);
         assert_eq!(net.observed_value(seat), Some(0.25));
+    }
+
+    /// One worker slot serves a four-seat session, then a duel without
+    /// affinity: the duel's state keeps its own two seats, and the four-seat
+    /// session's other seats do not ride along into it.
+    #[test]
+    fn a_switch_to_a_smaller_table_carries_no_seat_of_the_last_session() {
+        let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
+        let steady = baylee_core::preset::AIProfile::STEADY;
+        let four = crate::selfplay::table_for(5, &[&deck; 4], &[steady; 4], &[1, 2, 1, 2]);
+        let duel = crate::selfplay::table_for(6, &[&deck; 2], &[steady; 2], &[]);
+        let mut net = player();
+        net.init_game(&four);
+        let mut big = net.take_hot_snapshot();
+        net.init_game(&duel);
+        let mut small = net.take_hot_snapshot();
+        let seats = |snapshot: &PlayerSnapshot4| -> Vec<u8> {
+            snapshot.h_states_fp16.keys().copied().collect()
+        };
+        assert_eq!(seats(&big), [0, 1, 2, 3]);
+        assert_eq!(seats(&small), [0, 1]);
+
+        net.swap_in_hot(&mut big, true);
+        net.h_states.get_mut(&3).unwrap()[0] = 0.5;
+        net.dirty_h_seats |= 1 << 3;
+        net.swap_out_hot(&mut big);
+        net.swap_in_hot(&mut small, true);
+        assert_eq!(net.h_states.keys().copied().collect::<Vec<_>>(), [0, 1]);
+        net.swap_out_hot(&mut small);
+        assert_eq!(seats(&small), [0, 1]);
+        assert_eq!(seats(&big), [0, 1, 2, 3]);
     }
 
     #[test]

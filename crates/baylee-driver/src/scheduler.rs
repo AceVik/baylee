@@ -310,8 +310,12 @@ impl<S: SnapshottableState> TieredSessionPool4<S> {
     /// Ensures all `session_ids` are resident in Hot RAM simultaneously and moves their
     /// `Box<S>` pointers out in $O(1)$ without cloning for parallel wave execution.
     ///
+    /// All or nothing: every session is checked before any is moved out, so a
+    /// wave that fails here leaves no session checked out.
+    ///
     /// # Errors
-    /// If `session_ids.len() > max_hot_sessions`, any session is unknown, or SSD page-in fails.
+    /// If `session_ids.len() > max_hot_sessions`, a session is unknown, named twice or
+    /// already checked out, or SSD page-in fails.
     pub fn checkout_wave_boxes(
         &mut self,
         session_ids: &[u64],
@@ -323,6 +327,17 @@ impl<S: SnapshottableState> TieredSessionPool4<S> {
             session_ids.len(),
             self.config.max_hot_sessions
         );
+        let mut named = BTreeSet::new();
+        for &sid in session_ids {
+            ensure!(named.insert(sid), "session {sid} is named twice in a wave");
+            match self.sessions.get(&sid).map(|rec| &rec.residency) {
+                None => bail!("unknown session {sid}"),
+                Some(SessionResidency4::CheckedOut { .. }) => {
+                    bail!("session {sid} is already checked out")
+                }
+                Some(SessionResidency4::Hot { .. } | SessionResidency4::Cold(_)) => {}
+            }
+        }
         for &sid in session_ids {
             if self.is_hot(sid) {
                 metrics.hot_ram_hits += 1;

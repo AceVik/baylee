@@ -5,6 +5,7 @@
 //! skips redundant `h_states` unpacking via `(session_id, state_revision)` slot affinity,
 //! and executes waves of up to `M` concurrent sessions in parallel via `std::thread::scope`.
 
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::time::Instant;
 
 use anyhow::ensure;
@@ -19,14 +20,41 @@ struct WorkerSlot4<B: SnapshottableBrain> {
     bound_revision: u64,
 }
 
+/// A session's step panicked in a worker slot. Its state is half-updated and
+/// must not be kept: the caller closes the session rather than checking a
+/// state back in that no step produced. The slot itself forgets the session.
+#[derive(Debug)]
+pub struct SlotPanicked {
+    /// The session whose step panicked.
+    pub session_id: u64,
+}
+
+impl std::fmt::Display for SlotPanicked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "a worker slot panicked stepping session {}",
+            self.session_id
+        )
+    }
+}
+
+impl std::error::Error for SlotPanicked {}
+
 /// Result of a single worker slot inside [`NpuWorkerPool4::execute_wave`].
+///
+/// Every task of a wave comes back as one of these, whatever happened to it,
+/// so no session the caller checked out is left behind.
 pub struct WaveSlotOutput4<S, R> {
     /// Session ID processed by this slot.
     pub session_id: u64,
-    /// Output returned by the closure.
-    pub output: R,
-    /// Updated session snapshot box after the step (zero heap allocation).
-    pub snapshot: Box<S>,
+    /// What the closure returned; an error also when the wave was refused
+    /// before it ran, or when the step panicked ([`SlotPanicked`]).
+    pub output: anyhow::Result<R>,
+    /// The session's state to check back in: updated after a step that
+    /// returned, untouched when the wave was refused, `None` when the step
+    /// panicked or its thread was lost (the session must then be closed).
+    pub snapshot: Option<Box<S>>,
     /// Context-switch time (`swap_in_hot` + `swap_out_hot`) in microseconds.
     pub switch_us: u64,
     /// Whether `h_states` unpacking was skipped because the slot already held `(session_id, state_revision)`.
@@ -100,7 +128,9 @@ impl<B: SnapshottableBrain> NpuWorkerPool4<B> {
     /// already matches the slot!), runs `op`, and swaps the updated state back into `snapshot`.
     ///
     /// # Errors
-    /// Propagates any error returned by `op`.
+    /// Propagates any error returned by `op`. A panic in `op` is caught and
+    /// returned as [`SlotPanicked`]: `snapshot` then holds a half-updated
+    /// state the caller must not keep, and the slot forgets the session.
     #[allow(clippy::cast_possible_truncation)]
     pub fn execute_switched<R>(
         &mut self,
@@ -133,7 +163,7 @@ impl<B: SnapshottableBrain> NpuWorkerPool4<B> {
         slot.player.swap_in_hot(snapshot, !affinity_hit);
         let switch_in_us = t0.elapsed().as_micros() as u64;
 
-        let res = op(&mut slot.player);
+        let res = catch_unwind(AssertUnwindSafe(|| op(&mut slot.player)));
 
         let t1 = Instant::now();
         slot.player.swap_out_hot(snapshot);
@@ -141,37 +171,54 @@ impl<B: SnapshottableBrain> NpuWorkerPool4<B> {
 
         metrics.context_switches += 1;
         metrics.record_switch_us(switch_in_us + switch_out_us);
-        res
+        res.unwrap_or_else(|_| {
+            slot.bound_session = None;
+            Err(SlotPanicked { session_id }.into())
+        })
     }
 
     /// Executes a wave of up to `worker_slots` distinct sessions in parallel across
     /// worker threads using zero-clone $O(1)$ pointer swaps (`swap_in_hot` / `swap_out_hot`).
     ///
-    /// # Errors
-    /// If `tasks.len() > worker_slots` or any worker closure returns an error.
+    /// Every task comes back as a [`WaveSlotOutput4`], whatever happened to it:
+    /// a wave larger than `worker_slots` runs nothing and hands every state back
+    /// untouched with an error; a step that returns an error hands its state
+    /// back as the step left it; a step that panics hands back no state
+    /// ([`SlotPanicked`]), and its slot forgets the session.
     #[allow(clippy::cast_possible_truncation)]
     pub fn execute_wave<T, R, F>(
         &mut self,
         tasks: Vec<(u64, Box<B::State>, u64, T)>,
         metrics: &mut MuxMetrics4,
         op: F,
-    ) -> anyhow::Result<Vec<WaveSlotOutput4<B::State, R>>>
+    ) -> Vec<WaveSlotOutput4<B::State, R>>
     where
         T: Send,
         R: Send,
         F: Fn(&mut B, T) -> anyhow::Result<R> + Sync,
     {
-        ensure!(
-            tasks.len() <= self.slots.len(),
-            "wave size ({}) exceeds worker_slots ({})",
-            tasks.len(),
-            self.slots.len()
-        );
+        if tasks.len() > self.slots.len() {
+            let slots = self.slots.len();
+            let size = tasks.len();
+            return tasks
+                .into_iter()
+                .map(|(session_id, snapshot, _, _)| WaveSlotOutput4 {
+                    session_id,
+                    output: Err(anyhow::anyhow!(
+                        "wave size ({size}) exceeds worker_slots ({slots})"
+                    )),
+                    snapshot: Some(snapshot),
+                    switch_us: 0,
+                    affinity_hit: false,
+                })
+                .collect();
+        }
         if tasks.is_empty() {
-            return Ok(Vec::new());
+            return Vec::new();
         }
 
-        let results: Vec<anyhow::Result<WaveSlotOutput4<B::State, R>>> =
+        let session_ids: Vec<u64> = tasks.iter().map(|task| task.0).collect();
+        let joined: Vec<std::thread::Result<WaveSlotOutput4<B::State, R>>> =
             std::thread::scope(|scope| {
                 let mut handles = Vec::with_capacity(tasks.len());
                 for (slot, (session_id, mut snapshot, state_revision, item)) in
@@ -189,42 +236,54 @@ impl<B: SnapshottableBrain> NpuWorkerPool4<B> {
                         slot.player.swap_in_hot(&mut snapshot, !affinity_hit);
                         let switch_in_us = t0.elapsed().as_micros() as u64;
 
-                        let res = op_ref(&mut slot.player, item);
+                        let res = catch_unwind(AssertUnwindSafe(|| op_ref(&mut slot.player, item)));
 
                         let t1 = Instant::now();
                         slot.player.swap_out_hot(&mut snapshot);
                         let switch_out_us = t1.elapsed().as_micros() as u64;
-                        let output = res?;
-
-                        Ok(WaveSlotOutput4 {
+                        let (output, snapshot) = if let Ok(output) = res {
+                            (output, Some(snapshot))
+                        } else {
+                            slot.bound_session = None;
+                            (Err(SlotPanicked { session_id }.into()), None)
+                        };
+                        WaveSlotOutput4 {
                             session_id,
                             output,
                             snapshot,
                             switch_us: switch_in_us + switch_out_us,
                             affinity_hit,
-                        })
+                        }
                     }));
                 }
                 handles
                     .into_iter()
-                    .map(|h| {
-                        h.join()
-                            .unwrap_or_else(|_| Err(anyhow::anyhow!("worker slot thread panicked")))
-                    })
+                    .map(std::thread::ScopedJoinHandle::join)
                     .collect()
             });
 
         metrics.waves_dispatched += 1;
-        let mut outputs = Vec::with_capacity(results.len());
-        for res in results {
-            let out = res?;
-            metrics.context_switches += 1;
-            if out.affinity_hit {
-                metrics.affinity_hits += 1;
-            }
-            metrics.record_switch_us(out.switch_us);
-            outputs.push(out);
-        }
-        Ok(outputs)
+        joined
+            .into_iter()
+            .zip(session_ids)
+            .map(|(joined, session_id)| match joined {
+                Ok(out) => {
+                    metrics.context_switches += 1;
+                    if out.affinity_hit {
+                        metrics.affinity_hits += 1;
+                    }
+                    metrics.record_switch_us(out.switch_us);
+                    out
+                }
+                // The slot's own switch panicked: its state is gone with the thread.
+                Err(_) => WaveSlotOutput4 {
+                    session_id,
+                    output: Err(SlotPanicked { session_id }.into()),
+                    snapshot: None,
+                    switch_us: 0,
+                    affinity_hit: false,
+                },
+            })
+            .collect()
     }
 }
