@@ -293,17 +293,25 @@ def main(default_architecture="v4") -> None:
                                                subtypes=list(args.distill_subtypes) or None,
                                                group_weights=args.distill_group_weights or None,
                                                kl_weight=args.distill_kl_weight, version=2)
+        if args.think_loss is not None:
+            # The per-step terms take this loss's targets; no consequence term.
+            identity["thinking"]["targets"] = "bundle_distillation_scope_v1"
         print(f"[distill] reference shared_trunk={reference.shared_trunk} shared_lower={reference.shared_lower} "
               f"scope={scope}", flush=True)
     anchor = None
     if args.anchor_l2:
         from .rules_only import ParameterAnchor
-        anchor = ParameterAnchor(net, args.anchor_l2)
+        # A block the warm start has just attached has no trained value to stay near.
+        anchor = ParameterAnchor(net, args.anchor_l2,
+                                 fresh=("deliberation.",) if args.thinking_warmstart else ())
+        if not anchor.pairs:
+            # The fresh block trains alone: nothing trained before is moving.
+            anchor = None
     opt_groups, optimizer_schedule = build_optimizer_groups(
         net, args.lr, architecture=args.architecture, freeze_trunk=args.freeze_trunk,
         relational_lr=args.relational_lr, output_lr=args.relational_output_lr,
         warmup_steps=args.relational_warmup_steps,
-        decay=args.train_candidate_column is None and anchor is None)
+        decay=args.train_candidate_column is None and anchor is None, thinking_lr=args.thinking_lr)
     opt = torch.optim.AdamW(
         opt_groups,
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
@@ -422,7 +430,8 @@ def main(default_architecture="v4") -> None:
         if reference is not None:
             from .distill import evaluate_distill
             metrics = evaluate_distill(net, reference, val_loader, device, scope,
-                                       args.board_chunk, args.distill_scalar_tolerance, depth_schedule.selection_k)
+                                       args.board_chunk, args.distill_scalar_tolerance, depth_schedule.selection_k,
+                                       think=args.think_loss)
         else:
             metrics = evaluate_depths(net, val_loader, device, depth_schedule,
                 lambda n, loader, dev, k: evaluate(n, loader, dev, k) if args.reference_execution
@@ -559,8 +568,19 @@ def main(default_architecture="v4") -> None:
                         ref_prepared = reference.outputs(host, batch, boards, h, plans, device, use_bf16,
                                                          args.board_chunk, resets=resets)
                         profile.mark("distill_reference")
-                        traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, scope,
-                                                         AUXILIARY_TARGETS)
+                        extra = AUXILIARY_TARGETS
+                        if args.think_loss is not None and any(f is not None for f in net.thinking_frames):
+                            from .distill import thinking_terms
+
+                            def think_extra(_prepared, think_batch, think_plans):
+                                nonlocal think_stats
+                                value, by_step = thinking_terms(net.thinking_frames, ref_prepared, think_batch,
+                                                                think_plans, scope, args.think_loss)
+                                if by_step.numel() > 2:
+                                    think_stats = by_step if think_stats is None else think_stats + by_step
+                                return value
+                            extra = {**AUXILIARY_TARGETS, "thinking": think_extra}
+                        traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, scope, extra)
                         distill_stats = dstats if distill_stats is None else distill_stats + dstats
                     else:
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
