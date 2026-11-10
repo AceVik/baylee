@@ -248,40 +248,44 @@ const GAMES: [Game; 2] = [
     },
 ];
 
-/// Per encoder, the digest of each of [`GAMES`], from 6934c1c2c.
+/// Per encoder, the digest of each of [`GAMES`], from 6934c1c2c; fireball's
+/// moved with #420, which stopped the view naming targets for objects off the
+/// stack (`object_targets`). The encoders did not change: the game's view
+/// did, and the knowledge encoder reads `target_objects`. Retaken with the
+/// encoders as they were before that merge.
 const PINNED: [(Encoder, [&str; 2]); 5] = [
     (
         Encoder::V4,
         [
-            "e2682abe4b3eb56347f2f41eb35aa2010ede2b15022b2752e8989b436fc4bea1",
+            "e3c50fbe51dece1d9763d322ad5b0c5fdac96f1ee375a9ec0a3bea59f3259557",
             "b9fe402b7bfda9831257ae444acac5188f3e33fd3717622dc4c72440b6a62a81",
         ],
     ),
     (
         Encoder::V7,
         [
-            "a496379eff93693a5711c07c378c767cec7ef3dd446a28ba2a05b4ac93ba7bb3",
+            "f5f6c3fb4bf547312c39b5de1f666d3351d56e25846edc52b21419905af4636d",
             "b5288f526f78104faed5ebe6b2fb75dfab07357330c4a40126836235842b5da9",
         ],
     ),
     (
         Encoder::V8,
         [
-            "a37580430ea0c3398c804d1e19a3a5cc887e5c0bddfac39baedd8649b3058648",
+            "1b56590566835fb1f5f2132c2e1cad6a2bf8456843bcf44a1bcd135aaf05969a",
             "2c8588f82241f1c175ba57d88074705f5fe6a15c8947f64de040c39f9a58b5f6",
         ],
     ),
     (
         Encoder::V9,
         [
-            "f4ec25377879cc3f0858f5991212327f293d8be7556003600f7477e246b27548",
+            "e2574d5d0bab83fadc55059e5719215a718b12af9eed439ad4967c3f59d680be",
             "a931690c161fdc7d7fa9f18c1db25df86d50b999d1bde5f216197042457a8923",
         ],
     ),
     (
         Encoder::V10,
         [
-            "4b52b48c209eec39cbccd9ade6f8164e2b786d449ea20ef5652a61ab3390004e",
+            "5bfe6d784c5708737207d81dc174bf202d196a1f07b08f2c104868f3de51d833",
             "8e32b680ae5cff6931a0c2703c801b1e50bb097fa726f5eaafedba0bdbf5dc00",
         ],
     ),
