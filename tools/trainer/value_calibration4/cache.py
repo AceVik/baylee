@@ -1,4 +1,5 @@
 """Versioned disk records; only small indices/predictions are held in RAM."""
+import copy
 import json
 from pathlib import Path
 import numpy as np
@@ -41,6 +42,14 @@ class FeatureCache:
         self.records = np.memmap(self.path / "records.bin", mode="r", dtype=dtype,
                                  shape=(self.meta["records"],))
         self.indices=np.asarray(admitted['indices'],dtype=np.int64)
+
+    def restrict(self, indices):
+        """The same admitted records, limited to `indices` (a subset of this cache's)."""
+        if not np.isin(indices, self.indices).all():
+            raise ValueError("A restricted calibration cache may only drop admitted records")
+        view = copy.copy(self)
+        view.indices = np.asarray(indices, dtype=np.int64)
+        return view
 
     def tensor_batch(self, indices, device):
         import torch

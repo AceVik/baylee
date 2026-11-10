@@ -16,8 +16,15 @@ from tensor_io4 import TensorPublication
 
 @torch.no_grad()
 def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
-            max_samples=200000):
-    """Write detached records and return complete learner eligibility metadata."""
+            max_samples=200000, greedy=False, turn_starts=False):
+    """Write detached records and return complete learner eligibility metadata.
+
+    Opt-in: `greedy` makes trajectories with the net's temperature-0 decisions
+    eligible; `turn_starts` also samples every frame whose turn (global_feat[0],
+    turn/20) is above its trajectory's previous frame's, i.e. each turn's first
+    frame below turn 20. Those extra records are told apart afterwards: they are
+    the samples off the cursor stride (`metrics.stride_indices`).
+    """
     device = next(net.parameters()).device
     if any(p.dtype != torch.float32 for p in net.parameters()):
         raise ValueError("Feature extraction requires float32 parameters")
@@ -29,6 +36,7 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
     eligible = set()
     counts, scanned = {}, 0
     scanned_trajectories = set()
+    last_turn = {}
     captured = []
     hook = net.seat_value_head.register_forward_pre_hook(lambda _module, inputs: captured.append(inputs[0].detach()))
     h = None
@@ -47,7 +55,7 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
                 h = torch.where(host["is_new_traj"].to(device)[:, None, None], torch.zeros_like(h), h)
                 # Board chunks only group independent spatial encodings.
                 boards = encode_boards(net, host, board_chunk, device)
-                neural = neural_decisions(host)
+                neural = neural_decisions(host, greedy)
                 for lane, idx in enumerate(ids):
                     if idx >= 0 and neural[lane].any():
                         eligible.add(segment_to_traj[idx])
@@ -80,7 +88,12 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
                         index = dataset.store.index[int(rows[t])]
                         cursor = int(index["cursor"])
                         terminal = bool(host["is_terminal"][lane, t])
-                        if cursor % stride and not terminal and not first:
+                        turn_start = False
+                        if turn_starts:
+                            turn = float(host["global_feat"][lane, t, 0])
+                            turn_start = trajectory in last_turn and turn > last_turn[trajectory]
+                            last_turn[trajectory] = turn
+                        if cursor % stride and not terminal and not first and not turn_start:
                             continue
                         if count >= max_samples:
                             raise ValueError("Calibration sample limit exceeded; increase --max-samples explicitly")
@@ -120,14 +133,20 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
         net.clear_structure()
 
 
-def cached_features(net, dataset, cache_root, source_hash, stride, batch_size, board_chunk, max_samples):
+def cached_features(net, dataset, cache_root, source_hash, stride, batch_size, board_chunk, max_samples,
+                    greedy=False, turn_starts=False):
     settings = identity(source_hash, dataset, stride, board_chunk, next(net.parameters()).device.type)
     settings["batch_size"] = batch_size
+    # Opt-in modes change eligibility and sampling, so they are part of the cache key.
+    if greedy:
+        settings["eligibility"] = "net_decisions_any_temperature"
+    if turn_starts:
+        settings["extra_samples"] = "turn_starts_below_20"
     destination=Path(cache_root).expanduser()/key_for(settings)
     options=dict(width=net.cfg.d_model,settings=settings,max_samples=max_samples)
     with TensorPublication('cache',destination,**options) as publication:
         if not publication.receipt['reused']:
-            meta=extract(net,dataset,publication.path,stride,batch_size,board_chunk,max_samples)
+            meta=extract(net,dataset,publication.path,stride,batch_size,board_chunk,max_samples,greedy,turn_starts)
             meta['identity']=settings
             publication.commit(metadata=meta)
     cache = FeatureCache(destination, net.cfg.d_model)

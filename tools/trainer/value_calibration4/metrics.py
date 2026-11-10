@@ -46,3 +46,37 @@ def evaluate(head, cache, device, priors, fallback):
 
 def assert_disjoint_games(train, validation):
     _metrics('disjoint',left=train.store.index['game'].tolist(),right=validation.store.index['game'].tolist())
+
+
+def stride_indices(cache, stride):
+    """The cache's ordinary samples: cursor stride, each trajectory's first and terminal frame."""
+    cursor = cache.records["cursor"][cache.indices]
+    keep = (cursor % stride == 0) | cache.records["terminal"][cache.indices]
+    return cache.indices[keep]
+
+
+def turn_start_indices(cache):
+    """Each trajectory's earliest sample of every turn below 20.
+
+    With `--turn-starts` every turn's first frame is sampled, so the earliest
+    sample of a (trajectory, turn) is that turn's start. turn/20 is clipped at
+    one, so turns from 20 on cannot be told apart and are left out.
+    """
+    trajectory = cache.records["trajectory"][cache.indices]
+    turn = cache.records["turn_norm"][cache.indices]
+    cursor = cache.records["cursor"][cache.indices]
+    order = np.lexsort((cursor, turn, trajectory))
+    first = np.ones(len(order), dtype=bool)
+    first[1:] = (trajectory[order][1:] != trajectory[order][:-1]) | (turn[order][1:] != turn[order][:-1])
+    return cache.indices[np.sort(order[first & (turn[order] < 1.0)])]
+
+
+def turn_start_report(head, cache, device):
+    """Native calibration summaries of r1's own value and the refit head at turn starts."""
+    indices = turn_start_indices(cache)
+    subset = cache.restrict(indices)
+    truth = cache.records["outcome"][indices]
+    trajectories = cache.records["trajectory"][indices]
+    return dict(definition="first sampled frame of each turn below 20 per held-out learner trajectory",
+                source=summary(cache.records["source_value"][indices], truth, trajectories),
+                calibrated=summary(predictions(head, subset, device), truth, trajectories))
