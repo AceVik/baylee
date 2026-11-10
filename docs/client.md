@@ -10443,18 +10443,21 @@ The owner, 30.10.2026: baylee.app's gateway list links into the client,
 the client handles the player being signed in or not, and a link never
 does anything with consequences before the player confirms. The design and
 its open questions are `docs/proposals/deep-links.md`; this is slice 1 of
-it (no sign-in handoff: the client signs in with its own form).
+it, and the client's half of slice 3, signing in from the website (owner,
+10.11.2026; §"Signing in from the website").
 
 **The links.** `baylee://open` starts the client or brings it forward.
 `baylee://signin` does that, and opens Baylee Central's sign-in where
 nobody is signed in. `baylee://gateway/add?origin=<origin>` proposes a
 gateway: the origin percent-encoded, `https` and a DNS name with an
 optional port, nothing else (a `dev-control` build also takes a numeric
-loopback `http` origin, for tests). `client-core::deeplink::read` reads a
-link strictly: anything that is not exactly one of these, a link over
-2 KiB, a second or unknown parameter, is dropped without a word to the
-player. A link carries no secret and no text the client shows; the website
-puts nothing else into one. The log names a link's kind, never its text.
+loopback `http` origin, for tests). `baylee://pair?h=<handle>&s=<S>` signs
+in from baylee.app (below). `client-core::deeplink::read` reads a link
+strictly: anything that is not exactly one of these, a link over 2 KiB, a
+second or unknown parameter, is dropped without a word to the player. A
+link carries no text the client shows, and only the pairing link carries
+a secret; the website puts nothing else into one. The log names a link's
+kind, never its text.
 
 **How a link arrives** (`src/links.rs`). Windows and Linux start the
 launcher with the link as its argument (the setup's `HKCU\Software\Classes\baylee`,
@@ -10509,9 +10512,70 @@ sign-in wrote it into the device's settings, where it stayed after signing
 out.
 
 **Not yet.** Phones (no release build; on a phone a verified `https` link
-is the safer road), Wayland raising the window (the launcher carries the
-activation token; winit 0.30 cannot apply it to a window that exists), and
-signing in from the website (the proposal's slice 3, owner's questions).
+is the safer road), and Wayland raising the window (the launcher carries
+the activation token; winit 0.30 cannot apply it to a window that exists).
+
+### Signing in from the website
+
+A person signed in on baylee.app starts the client signed in, without
+typing the password again (owner, 10.11.2026: "Jetzt bauen und dem Client
+beibringen"). The contract is `docs/proposals/deep-links.md` §"Protocol
+specification"; Central's half is baylee-central `docs/web-accounts.md`
+§"Pairing"; the account's side is `docs/central-login.md` §"Signing in from
+the website".
+
+**The link.** `baylee://pair?h=<handle>&s=<S>`, written exactly so: `h`
+first, then `s`, each 43 characters of URL-safe base64 without padding
+that decode to 32 bytes (no bit set past the last byte), read as written
+and never percent-decoded. `S` is the page's one-time secret, a bearer for
+the two minutes the pairing may be claimed in, so the link is the one that
+carries a secret: `deeplink::PairLink` wipes both values when dropped and
+prints `[REDACTED]`, the inbox's texts are wiped once read, and a pairing
+link that waits for the lobby (a game, a question) is dropped after those
+two minutes (`links::PAIR_WAIT`). The ten-a-minute pace is the other
+links'.
+
+**Who it is for.** The lobby follows it at rest, only while nobody is
+signed in (not at Central, not at a gateway, not offline): Central's
+sign-in comes up as for `signin`, with `‹` back, and the pairing starts
+over it. Signed in anywhere, the client says so and drops the link; the
+pairing then runs out on the page.
+
+**The pairing** (`lobby/central/pairing.rs`, on a worker of its own;
+`baylee-account`'s `Account::claim_pairing`, `PairingClaim`,
+`PairedSession` over Central's SDK):
+
+1. The claim, sent once: the SDK makes the key pair and verifier, and a
+   second claim would be another program's to Central.
+2. While the page is asked (about once a second, at most five minutes), a
+   panel shows the comparison code the page shows beside its Approve, and
+   says to approve only that code. Central out of reach is asked again
+   until the five minutes are over.
+3. Approved, the pairing is redeemed once: a native session (which, as any
+   sign-in, ends the account's other native session) and the master key
+   opened from the seal under the link's secret.
+4. The panel asks "Sign in as `Name#tag` (`username`)?", the username alone
+   without both, with the names Central's redeem gave. Only the Sign in
+   button says yes; Cancel, `Esc` and a tap beside the panel say no, and no
+   key says yes.
+5. Yes restores the account as a password sign-in does (document, restore
+   confirmed, Central's terms, a waiting move) and the lobby is signed in
+   at Central, the form's name the account's username. The header's
+   `Name#tag` comes from the redeem: Central's export, which a password
+   sign-in reads it from, wants a password proof of the last 30 minutes.
+
+Every ending is said on Central's sign-in form: cancelled, out of time,
+claimed by another program first (with "do not approve it on baylee.app"),
+ended at Central (cancelled on the page, used, expired), refused at the
+redeem, Central out of reach, or an update required. The pairing lives in
+Central's state (`central::State::pairing`): whatever ends the form ends
+it, and its worker reads the dropped channel as a no and signs out a
+session it redeemed. While the panel stands it takes every press and key
+but its own (`clicks::run`, `keyboard`, `shortcuts::modal_by`), and other
+links wait. dev-control's `/state` names its stage (`pairing-waiting`,
+`pairing-question`, …), never the code or the name. A unit test's Central
+is a loopback port nobody answers on (`central::endpoint`), so no test
+reaches the live one.
 
 ## Where a packaged desktop build finds its fonts
 

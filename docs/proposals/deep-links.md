@@ -6,13 +6,20 @@ normative description is `docs/client.md` §"Links from the website", and
 two findings of building it correct this text: macOS delivers the link to
 the client, not the launcher, so the launcher changed only for Windows and
 Linux; and winit 0.30 owns the macOS app delegate, so the client asks
-`NSAppleEventManager` for the link. Slices 2 and 3 are not built. On the same
-day the owner chose how signing in from the website works (pairing with the
-master key, a key check, a vault key from the master key, rotation): the
-section "Protocol specification" below is that decision, and it replaces
+`NSAppleEventManager` for the link. On the same day the owner chose how
+signing in from the website works (pairing with the master key, a key
+check, a vault key from the master key, rotation): the section "Protocol
+specification" below is that decision, and it replaces
 the options A, B and C and questions 2 to 4. Its parts are named so Central's own design pass can take them up;
 Central work runs at the highest effort, and a new Central dependency needs the
 owner's approval. The questions the owner has to decide close this document.
+
+Slice 2 is not built. Of slice 3 the client's half is (10.11.2026, owner:
+"Jetzt bauen und dem Client beibringen"): the `pair` link, the key check
+after every password sign-in, the claim, the panel with the code, the
+question and the paired sign-in, normative in `docs/client.md` §"Signing in
+from the website" and `docs/central-login.md` §"Signing in from the
+website". The website's half, its pairing page, is built in Central at the same time.
 
 The owner's wish (22.10.2026, translated):
 

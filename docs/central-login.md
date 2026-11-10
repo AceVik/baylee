@@ -528,6 +528,61 @@ Its updater is unaffected, so the launch that finds the update still runs the ol
 and the next is fixed. A client started between steps 1 and 2 never sees this. From this
 release on, a client too old says so in its own words (`docs/protocol.md` §"Refusals").
 
+## Signing in from the website
+
+*The owner, 10.11.2026: the website's pairing page is built now, and the
+client learns the pairing link at the same time.* The contract is
+`docs/proposals/deep-links.md` §"Protocol specification"; Central's half is
+baylee-central `docs/web-accounts.md` §"Pairing" and `docs/crypto-protocol.md`
+§"Pairing", its SDK `central-client::pairing` at the pinned revision; the
+client's link and panel are `docs/client.md` §"Signing in from the website".
+
+**The key check, after every password sign-in.** `Account::login` calls the
+SDK's `ensure_key_check` right after the OPAQUE sign-in and before the
+restore: `KeyCheckStatus`, and `SetKeyCheck` with the check derived from the
+master key when Central has none. Central takes it only within two minutes
+of a password proof and never over one that is set, so a stolen session
+cannot plant its own. An account needs it before the website can approve a
+pairing; a new account gains it at the sign-in after its registration. A
+Central that cannot store it then costs the sign-in nothing: the next one
+tries again.
+
+**The client's half** (`crates/baylee-account/src/account/pairing.rs`):
+
+- `Account::claim_pairing(endpoint, handle, secret)` claims the pairing a
+  link names, at the Central the client is built for (never one a link
+  names), with the SDK's key pair, verifier and claim MAC. It is sent once:
+  a second claim of one link is another client's to Central, `Conflict`.
+- `PairingClaim::comparison_code` is the page's `XXX-XXX`;
+  `PairingClaim::approved` asks `PairPoll`; `PairingClaim::redeem` sends the
+  verifier once and opens the seal under the link's secret (the SDK ends a
+  session whose seal does not open).
+- `PairedSession::who` names the account for the client's question;
+  `accept` restores it exactly as after a password sign-in (the same
+  `Account::restore`: document read and checked, restore confirmed,
+  Central's terms, a waiting move); `decline`, and dropping it, sign the
+  session out.
+- `PairedSession::profile_handle` is the header's `Name#tag` from the
+  redeem's answer. `Account::profile_handle` reads it from Central's export,
+  which wants a password proof of the last 30 minutes; a paired session's
+  proof is the website's sign-in, which may be hours old.
+
+No password exists on a paired device, so its old local chat vaults gain no
+account wrapper there (`docs/password-vault.md` §"The account key"); the
+chat's import tries the account's key first, so a vault that has the
+wrapper from an earlier password sign-in opens. The session's 12 hours count
+from the website's password proof, never from the pairing.
+
+**Tested** in `baylee-gateway`'s `e2e_central::pairing` (`cargo dev central
+integration`, a real Central and PostgreSQL, the page's half through the
+identity service's browser entry): the key check stored by `Account::login`,
+the page's link read by `deeplink::read`, the claim, a second claim refused,
+the page's MAC check and the one code, the approval, the redeem replacing
+the password's session, the restored document, an admission at the bridged
+gateway, a pairing the page cancels, a no that leaves no native session, and
+a redeemed link that claims nothing. The worker's endings and the lobby are
+unit tests (`lobby::central::pairing::tests`, `lobby::links`).
+
 ## The official gateway's aliases
 
 The official gateway moved from `https://baylee.acevik.de` to

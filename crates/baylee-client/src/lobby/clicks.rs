@@ -319,6 +319,18 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
     } = cx;
     {
         let press = &press;
+        // The sign-in from baylee.app holds the screen above everything:
+        // only its own answers.
+        if state.pairing_up()
+            && !matches!(
+                press,
+                Press::Shared(
+                    SharedPress::PairCancel | SharedPress::PairSignIn | SharedPress::PickerNothing
+                )
+            )
+        {
+            return;
+        }
         // A sheet over the front door or the lobby holds the screen: only
         // its own controls answer (the terms are answered before anything
         // else; About is closed or followed to the source).

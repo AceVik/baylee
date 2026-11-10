@@ -15,6 +15,8 @@ use std::sync::{
     mpsc,
 };
 
+pub(crate) mod pairing;
+
 pub(crate) type Job = Box<dyn FnOnce(&mut Account) + Send>;
 type SaveResult = Arc<Mutex<Option<Result<(), Error>>>>;
 
@@ -466,6 +468,10 @@ pub(crate) struct State {
     /// A `baylee:` link opened this sign-in (`lobby::links`): `‹` goes back
     /// to the device's gateways, as from a gateway that asked for it.
     linked: bool,
+    /// A sign-in from baylee.app under way over this form ([`pairing`]).
+    /// Kept here so that whatever ends the form ends the pairing: its
+    /// worker reads the dropped channel as a no.
+    pub(crate) pairing: Option<pairing::Pairing>,
     /// Central's own terms wait for the signed-in account: their sheet is
     /// up before any gateway, nothing is admitted or synced (Central
     /// refuses tickets and writes until they are accepted).
@@ -504,6 +510,7 @@ pub(super) fn enable(state: &mut LobbyState) {
         bound: None,
         guest_door: None,
         linked: false,
+        pairing: None,
         terms_pending: false,
         admitting: false,
         turned_away: false,
@@ -653,6 +660,11 @@ const ATTACH_LIMIT: usize = 8;
 
 #[cfg_attr(not(feature = "dev-control"), allow(clippy::unnecessary_wraps))] // The dev override can fail.
 fn endpoint() -> Result<Endpoint, Error> {
+    // A unit test never reaches the live Central: a sign-in or a pairing it
+    // starts meets a loopback port nobody answers on.
+    if cfg!(test) {
+        return Endpoint::development("http://127.0.0.1:9");
+    }
     // Development is explicit and loopback-only; a bad override never falls back to live.
     #[cfg(feature = "dev-control")]
     if let Some(origin) = std::env::var_os("BAYLEE_CENTRAL_DEV_ENDPOINT") {
@@ -704,23 +716,8 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                     );
                 }
                 drop(password);
-                let Ok(preferences) = serde_json::from_value(account.data().preferences.clone())
-                else {
-                    let _ = account.logout();
-                    return Err(Error::Rejected);
-                };
-                let gateways = account.data().gateways.clone();
-                // Central's own terms come before any gateway: a sign-in
-                // that finds them unaccepted shows them first.
-                let terms_pending = account.central_terms_open();
-                let profile_handle = account.profile_handle().or_else(|| Some(username.clone()));
-                Ok(Restored {
-                    handle: Handle::start(account)?,
-                    gateways,
-                    preferences,
-                    terms_pending,
-                    profile_handle,
-                })
+                let profile_handle = account.profile_handle().unwrap_or(username);
+                restored(account, profile_handle)
             })();
             if let Ok(mut messages) = target.0.lock() {
                 messages.push(Reply::Remote(
@@ -734,6 +731,27 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
             .lobby
             .apply(LobbyEvent::Failed(message(state.lobby.lang()).into()));
     }
+}
+
+/// What a signed-in account brings to the lobby, its worker started: a
+/// password's sign-in or a pairing's, with its `Name#tag` (or username) for
+/// the header.
+fn restored(account: Account, profile_handle: String) -> Result<Restored, Error> {
+    let Ok(preferences) = serde_json::from_value(account.data().preferences.clone()) else {
+        let _ = account.logout();
+        return Err(Error::Rejected);
+    };
+    let gateways = account.data().gateways.clone();
+    // Central's own terms come before any gateway: a sign-in that finds them
+    // unaccepted shows them first.
+    let terms_pending = account.central_terms_open();
+    Ok(Restored {
+        handle: Handle::start(account)?,
+        gateways,
+        preferences,
+        terms_pending,
+        profile_handle: Some(profile_handle),
+    })
 }
 
 pub(super) fn receive(

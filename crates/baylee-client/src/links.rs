@@ -44,12 +44,14 @@ const ORIGINS: Origins = if cfg!(feature = "dev-control") {
     Origins::Public
 };
 
-/// A link handed to this client, from whichever way it came.
+/// A link handed to this client, from whichever way it came. One the full
+/// inbox has no room for is wiped: it may be a pairing link's secret.
 pub(crate) fn arrived(text: String) {
+    let mut text = zeroize::Zeroizing::new(text);
     if let Ok(mut inbox) = INBOX.lock()
         && inbox.len() < INBOX_CAP
     {
-        inbox.push_back(text);
+        inbox.push_back(std::mem::take(&mut *text));
     }
 }
 
@@ -57,7 +59,26 @@ pub(crate) fn arrived(text: String) {
 /// can (`lobby::links`): never in a game, never over a question already
 /// open. A newer link replaces one that waits.
 #[derive(Resource, Debug, Default)]
-pub struct Arrived(pub Option<Link>);
+pub struct Arrived {
+    /// The link that waits.
+    pub link: Option<Link>,
+    /// When it was read: a pairing link waits no longer than the two
+    /// minutes its pairing may be claimed in ([`PAIR_WAIT`]).
+    read_at: Option<web_time::Instant>,
+}
+
+/// How long a pairing link waits for the lobby: the two minutes its pairing
+/// may be claimed in. After that its secret is worth nothing to anyone, and
+/// it is dropped (and wiped) rather than kept through a game.
+pub const PAIR_WAIT: std::time::Duration = std::time::Duration::from_mins(2);
+
+impl Arrived {
+    /// Whether a pairing link waits, and has waited past [`PAIR_WAIT`].
+    fn stale_pairing(&self) -> bool {
+        matches!(self.link, Some(Link::Pair(_)))
+            && self.read_at.is_some_and(|at| at.elapsed() >= PAIR_WAIT)
+    }
+}
 
 /// How links are read: the pace, by the clock it started on.
 #[derive(Resource)]
@@ -84,7 +105,7 @@ impl Plugin for LinksPlugin {
         app.init_resource::<Arrived>()
             .init_resource::<Reading>()
             .add_systems(Startup, say_how_links_come)
-            .add_systems(PreUpdate, intake);
+            .add_systems(PreUpdate, (forget_a_stale_pairing, intake).chain());
     }
 
     /// Before the event loop runs: macOS delivers a cold start's link while
@@ -95,16 +116,31 @@ impl Plugin for LinksPlugin {
     }
 }
 
+/// Lets a pairing link that waited past [`PAIR_WAIT`] go, in a game too,
+/// where the lobby does not follow links.
+fn forget_a_stale_pairing(mut arrived: ResMut<Arrived>) {
+    // Read through `Deref` first: a frame with nothing to drop writes nothing.
+    if arrived.stale_pairing() {
+        arrived.link = None;
+        arrived.read_at = None;
+        info!("links: a pairing link waited too long, dropped");
+    }
+}
+
 /// Reads what came in since the last frame.
 fn intake(
     mut reading: ResMut<Reading>,
     mut arrived: ResMut<Arrived>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    let texts: Vec<String> = match INBOX.lock() {
-        Ok(mut inbox) if !inbox.is_empty() => inbox.drain(..).collect(),
+    let texts: Vec<zeroize::Zeroizing<String>> = match INBOX.lock() {
+        Ok(mut inbox) if !inbox.is_empty() => {
+            inbox.drain(..).map(zeroize::Zeroizing::new).collect()
+        }
         _ => return,
     };
+    // Each text is wiped when dropped: a pairing link's holds the page's
+    // secret.
     for text in texts {
         let Some(link) = deeplink::read(&text, ORIGINS) else {
             info!("links: not a link this client reads, dropped");
@@ -115,7 +151,8 @@ fn intake(
             continue;
         }
         info!("links: {}", link.kind());
-        arrived.0 = Some(link);
+        arrived.link = Some(link);
+        arrived.read_at = Some(web_time::Instant::now());
         for mut window in &mut windows {
             come_forward(&mut window);
         }
@@ -225,32 +262,52 @@ mod tests {
     fn a_link_is_read_strictly_and_the_latest_waits_for_the_lobby() {
         let mut app = app();
         app.update();
-        assert_eq!(app.world().resource::<Arrived>().0, None);
+        assert_eq!(app.world().resource::<Arrived>().link, None);
         arrived("baylee://gateway/add?origin=https%3A%2F%2Fa.example.org".into());
         arrived("baylee://gateway/add?origin=http%3A%2F%2Fnot-https.example".into());
         app.update();
         assert_eq!(
-            app.world().resource::<Arrived>().0,
+            app.world().resource::<Arrived>().link,
             Some(Link::AddGateway("https://a.example.org".into())),
             "the link that is one, and not the one that is not"
         );
         arrived("baylee://signin".into());
         app.update();
-        assert_eq!(app.world().resource::<Arrived>().0, Some(Link::SignIn));
+        assert_eq!(app.world().resource::<Arrived>().link, Some(Link::SignIn));
         // Ten a minute: the rest are dropped, not kept for later.
         for _ in 0..20 {
             arrived("baylee://open".into());
         }
         app.update();
-        assert_eq!(app.world().resource::<Arrived>().0, Some(Link::Open));
-        app.world_mut().resource_mut::<Arrived>().0 = None;
+        assert_eq!(app.world().resource::<Arrived>().link, Some(Link::Open));
+        app.world_mut().resource_mut::<Arrived>().link = None;
         arrived("baylee://signin".into());
         app.update();
         assert_eq!(
-            app.world().resource::<Arrived>().0,
+            app.world().resource::<Arrived>().link,
             None,
             "the eleventh link within the minute is not read"
         );
         assert!(INBOX.lock().unwrap().is_empty());
+    }
+
+    /// A pairing link waits no longer than its two minutes, game or not;
+    /// any other link waits until the lobby can follow it.
+    #[test]
+    fn a_pairing_link_waits_no_longer_than_its_claim_window() {
+        let pairing = Link::Pair(deeplink::PairLink::new([1; 32], [2; 32]));
+        let waited = |link: Link, secs: u64| {
+            let mut app = App::new();
+            app.insert_resource(Arrived {
+                link: Some(link),
+                read_at: web_time::Instant::now().checked_sub(std::time::Duration::from_secs(secs)),
+            })
+            .add_systems(Update, forget_a_stale_pairing);
+            app.update();
+            app.world().resource::<Arrived>().link.clone()
+        };
+        assert_eq!(waited(pairing.clone(), 60), Some(pairing.clone()));
+        assert_eq!(waited(pairing, PAIR_WAIT.as_secs()), None);
+        assert_eq!(waited(Link::SignIn, 3600), Some(Link::SignIn));
     }
 }

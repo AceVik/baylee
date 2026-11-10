@@ -76,6 +76,7 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
 pub(crate) fn modal_by(state: &LobbyState, screen: Context) -> Vec<&'static str> {
     [
         ("confirmation", state.confirmation.is_some()),
+        ("pairing", state.pairing_up()),
         ("terms", state.terms.up()),
         ("about", state.about_open),
         ("memorial", state.memorial.open),

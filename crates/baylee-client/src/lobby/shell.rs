@@ -706,6 +706,8 @@ pub(super) fn ui(
         *builder_drawn = None;
     }
     super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
+    #[cfg(not(target_arch = "wasm32"))]
+    super::confirm::draw_pairing(&mut commands, root, &state, &fonts, metrics);
     super::confirm::draw_refusal(&mut commands, root, &state, &fonts, metrics);
     if state.confirmation.is_some() || state.lobby.refusal().is_some() {
         *builder_drawn = None;

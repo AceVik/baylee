@@ -43,7 +43,8 @@ fn the_key_on_the_keep_button_keeps_the_hand() {
   starts it otherwise: `Launch::new().viewport(Viewport::PHONE)`,
   `.lang("de")`, `.text_step(TextStep::Xl)`, `.tours(true)`,
   `.setting("key", json)` (written into `client-settings.json` before the
-  start), `.env(…)`.
+  start), `.env(…)`, `.arg(…)` (an argument, as a launcher passes a
+  `baylee:` link on a cold start).
 - **Acting**: `click`, `right_click`, `hover`, `drag`, `scroll` (lines
   down, negative up, as the harness's `/scroll` counts them), `press`
   (`"K"`, `Key::named("KeyP").shift()`), `type_text`, `resize`, and the

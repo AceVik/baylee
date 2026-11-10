@@ -9,7 +9,10 @@
 //! the gateway joins the account's list; signed out, Central's sign-in comes
 //! first and the question after it, and `‹` back from that sign-in asks for
 //! this device's list instead; signed in at a gateway with accounts of its
-//! own, or playing offline, it joins this device's list.
+//! own, or playing offline, it joins this device's list. A pairing link
+//! opens Central's sign-in as `signin` does and starts the sign-in from
+//! baylee.app over it (`central::pairing`), where nobody is signed in;
+//! anywhere else it says so and is dropped.
 
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
@@ -21,9 +24,13 @@ use baylee_client_core::deeplink::Link;
 pub(super) const ACCOUNT_GATEWAYS: usize = 128;
 
 /// Follows the link that waits, once the lobby can.
-pub(super) fn follow(mut state: ResMut<LobbyState>, mut arrived: ResMut<Arrived>) {
+pub(super) fn follow(
+    mut state: ResMut<LobbyState>,
+    mut arrived: ResMut<Arrived>,
+    mailbox: Res<Mailbox>,
+) {
     // Read through `Deref` first: a frame with nothing to do writes nothing.
-    let Some(link) = arrived.0.clone() else {
+    let Some(link) = arrived.link.clone() else {
         return;
     };
     if !at_rest(&state) {
@@ -38,18 +45,43 @@ pub(super) fn follow(mut state: ResMut<LobbyState>, mut arrived: ResMut<Arrived>
             true
         }
         Link::AddGateway(url) => propose(&mut state, url),
+        Link::Pair(link) => {
+            pair(&mut state, &mailbox, link);
+            true
+        }
     };
     if done {
-        arrived.0 = None;
+        arrived.link = None;
     }
+}
+
+/// A pairing link: the sign-in from baylee.app, where nobody is signed in,
+/// over Central's sign-in. Anyone signed in (at Central, at a gateway, or
+/// playing offline) is told so, and the pairing then runs out on the page.
+fn pair(state: &mut LobbyState, mailbox: &Mailbox, link: baylee_client_core::deeplink::PairLink) {
+    // Central's sign-in may stand already (the form a launch opens): the
+    // pairing comes over it.
+    let nobody = !state.central_ready()
+        && state.lobby.token().is_none()
+        && state.offline.is_none()
+        && matches!(state.lobby.screen(), Screen::SignIn { .. });
+    if !nobody {
+        state.lobby.tell_refusal(Phrase::PairSignedIn, &[]);
+        return;
+    }
+    open_central(state);
+    super::central::pairing::start(state, mailbox, link);
 }
 
 /// Nothing is open over the lobby and nothing is under way: a question may
 /// stand up now without hiding another or being hidden by one.
 fn at_rest(state: &LobbyState) -> bool {
     state.confirmation.is_none()
+        && !state.pairing_up()
         && state.lobby.deleting_account().is_none()
         && !state.about_open
+        && !state.memorial.open
+        && state.community_dialog.is_none()
         && !state.terms.up()
         && !super::central::terms_pending(state)
         && !state.lobby.busy()
@@ -121,12 +153,13 @@ mod tests {
             crate::settings::ClientSettings::default(),
         ))
         .init_resource::<Arrived>()
+        .init_resource::<Mailbox>()
         .add_systems(Update, follow);
         app
     }
 
     fn send(app: &mut App, link: Link) {
-        app.world_mut().resource_mut::<Arrived>().0 = Some(link);
+        app.world_mut().resource_mut::<Arrived>().link = Some(link);
         app.update();
     }
 
@@ -155,14 +188,14 @@ mod tests {
         );
         assert_eq!(asking(&app), None, "nothing is asked over the sign-in");
         assert!(
-            app.world().resource::<Arrived>().0.is_some(),
+            app.world().resource::<Arrived>().link.is_some(),
             "the link is kept"
         );
         // Still waiting, frame after frame, while the player signs in.
         app.update();
         app.update();
         assert_eq!(asking(&app), None);
-        assert!(app.world().resource::<Arrived>().0.is_some());
+        assert!(app.world().resource::<Arrived>().link.is_some());
     }
 
     #[test]
@@ -179,7 +212,7 @@ mod tests {
         );
         app.update();
         assert_eq!(asking(&app), Some(ORIGIN));
-        assert!(app.world().resource::<Arrived>().0.is_none());
+        assert!(app.world().resource::<Arrived>().link.is_none());
         // Nothing is added by asking.
         assert!(!state(&app).gateways.iter().any(|g| g == ORIGIN));
     }
@@ -209,7 +242,7 @@ mod tests {
             .push(ORIGIN.into());
         send(&mut app, Link::AddGateway(ORIGIN.into()));
         assert_eq!(asking(&app), None);
-        assert!(app.world().resource::<Arrived>().0.is_none());
+        assert!(app.world().resource::<Arrived>().link.is_none());
         assert!(state(&app).lobby.status().contains(ORIGIN));
     }
 
@@ -227,7 +260,7 @@ mod tests {
             .push(gateway_list::PINNED.into());
         send(&mut app, Link::AddGateway(gateway_list::KEYED.into()));
         assert_eq!(asking(&app), None);
-        assert!(app.world().resource::<Arrived>().0.is_none());
+        assert!(app.world().resource::<Arrived>().link.is_none());
         assert!(state(&app).lobby.status().contains(gateway_list::PINNED));
     }
 
@@ -257,11 +290,11 @@ mod tests {
             !state(&app).central_pending(),
             "nothing moved under the question"
         );
-        assert_eq!(app.world().resource::<Arrived>().0, Some(Link::SignIn));
+        assert_eq!(app.world().resource::<Arrived>().link, Some(Link::SignIn));
         app.world_mut().resource_mut::<LobbyState>().confirmation = None;
         app.update();
         assert!(state(&app).central_pending());
-        assert_eq!(app.world().resource::<Arrived>().0, None);
+        assert_eq!(app.world().resource::<Arrived>().link, None);
     }
 
     #[test]
@@ -273,9 +306,76 @@ mod tests {
         }
         send(&mut app, Link::SignIn);
         assert!(state(&app).central_ready());
-        assert_eq!(app.world().resource::<Arrived>().0, None);
+        assert_eq!(app.world().resource::<Arrived>().link, None);
         send(&mut app, Link::Open);
-        assert_eq!(app.world().resource::<Arrived>().0, None);
+        assert_eq!(app.world().resource::<Arrived>().link, None);
+    }
+
+    fn pair_link() -> Link {
+        Link::Pair(baylee_client_core::deeplink::PairLink::new(
+            [1; 32], [2; 32],
+        ))
+    }
+
+    /// Signed out at the door, a pairing link opens Central's sign-in with
+    /// its way back and starts the sign-in from baylee.app over it. A unit
+    /// test's Central is a loopback port nobody answers on, so the pairing
+    /// ends there, said as Central out of reach: the failure path whole,
+    /// through the SDK.
+    #[test]
+    fn signed_out_a_pairing_link_starts_the_sign_in_from_the_website() {
+        let mut app = lobby();
+        send(&mut app, pair_link());
+        assert!(
+            state(&app).central_bound(),
+            "Central's sign-in, with a way back"
+        );
+        assert!(
+            state(&app).pairing_up(),
+            "the pairing's panel stands over it"
+        );
+        assert!(app.world().resource::<Arrived>().link.is_none());
+        // Another link waits while the panel stands.
+        send(&mut app, Link::SignIn);
+        assert_eq!(app.world().resource::<Arrived>().link, Some(Link::SignIn));
+        let mailbox = app.world().resource::<Mailbox>().clone();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        let ended = loop {
+            let replies = std::mem::take(&mut *mailbox.0.lock().unwrap());
+            if let Some(ending) = replies.into_iter().find_map(|reply| match reply {
+                Reply::Pairing(_, super::super::central::pairing::News::Ended(ending)) => {
+                    Some(ending)
+                }
+                _ => None,
+            }) {
+                break ending;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the worker said nothing"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        };
+        assert_eq!(ended, super::super::central::pairing::Ending::Unavailable);
+    }
+
+    /// Signed in, a pairing link is told and dropped: the pairing then runs
+    /// out on the page.
+    #[test]
+    fn signed_in_a_pairing_link_is_said_and_dropped() {
+        let mut app = lobby();
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            super::super::central::restored_for_test(&mut state, vec![gateway_list::PINNED.into()]);
+        }
+        send(&mut app, pair_link());
+        assert!(!state(&app).pairing_up());
+        assert!(state(&app).central_ready());
+        assert!(app.world().resource::<Arrived>().link.is_none());
+        assert_eq!(
+            state(&app).lobby.status(),
+            Phrase::PairSignedIn.text(state(&app).lobby.lang())
+        );
     }
 
     /// The whole of yes: the question's answer asks the address about

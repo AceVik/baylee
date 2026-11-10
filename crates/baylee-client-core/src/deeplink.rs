@@ -2,24 +2,33 @@
 //! (`docs/client.md` §"Links from the website").
 //!
 //! A link is the website's, or any page's: whoever wrote it, the client
-//! reads it as a stranger's words. So a link carries no secret and no text
-//! for the client to show, and it asks for one of three things only. Anything
-//! that is not exactly one of them is no link at all, and the caller drops it
-//! without a word to the player.
+//! reads it as a stranger's words. So a link carries no text for the client
+//! to show, and it asks for one of four things only. Anything that is not
+//! exactly one of them is no link at all, and the caller drops it without a
+//! word to the player.
 //!
 //! | Link | Asks |
 //! | --- | --- |
 //! | `baylee://open` | start the client, or bring it forward |
 //! | `baylee://signin` | as `open`, then Baylee Central's sign-in |
 //! | `baylee://gateway/add?origin=<origin>` | to propose a gateway |
+//! | `baylee://pair?h=<handle>&s=<secret>` | to sign in from baylee.app |
 //!
 //! The origin is percent-encoded, an `https` address of a DNS name with an
 //! optional port and nothing else. [`read`] answers it spelled as a saved
 //! address is (`https://host[:port]`), which is what the client shows when it
 //! asks, and what it saves when the player says yes.
+//!
+//! The pairing link is the one that carries a secret (`docs/proposals/
+//! deep-links.md` §"The link `baylee://pair`"): the page's one-time `S`, good
+//! for the two minutes a pairing may be claimed in. Both values are 32 bytes
+//! written as 43 characters of URL-safe base64 without padding, in this
+//! order and spelled exactly so: no padding, no percent-encoding, no other
+//! parameter. [`PairLink`] wipes them when dropped and never prints them.
 
 use std::collections::VecDeque;
 use std::time::Duration;
+use zeroize::Zeroizing;
 
 /// The scheme every link starts with.
 pub const SCHEME: &str = "baylee";
@@ -41,6 +50,9 @@ pub enum Link {
     /// Add this gateway, once the player has seen it and said yes: an
     /// origin as [`read`] spells it.
     AddGateway(String),
+    /// Sign in from baylee.app: claim the pairing the page started, with the
+    /// page's secret, where nobody is signed in.
+    Pair(PairLink),
 }
 
 impl Link {
@@ -51,7 +63,51 @@ impl Link {
             Link::Open => "an open link",
             Link::SignIn => "a sign-in link",
             Link::AddGateway(_) => "a gateway link",
+            Link::Pair(_) => "a pairing link",
         }
+    }
+}
+
+/// How many characters a pairing link's handle and secret each are: 32
+/// bytes in URL-safe base64 without padding.
+pub const PAIR_VALUE_CHARS: usize = 43;
+
+/// A pairing link's two values: the pairing's handle, which Central keeps
+/// only as a digest, and the page's one-time secret, which Central never
+/// sees. Together they claim the pairing, so both are wiped when dropped and
+/// neither is ever printed.
+#[derive(Clone, PartialEq, Eq)]
+pub struct PairLink {
+    handle: Zeroizing<[u8; 32]>,
+    secret: Zeroizing<[u8; 32]>,
+}
+
+impl PairLink {
+    /// A pairing link's values, as the page made them.
+    #[must_use]
+    pub fn new(handle: [u8; 32], secret: [u8; 32]) -> Self {
+        Self {
+            handle: Zeroizing::new(handle),
+            secret: Zeroizing::new(secret),
+        }
+    }
+
+    /// The pairing's handle.
+    #[must_use]
+    pub fn handle(&self) -> &[u8; 32] {
+        &self.handle
+    }
+
+    /// The page's one-time secret.
+    #[must_use]
+    pub fn secret(&self) -> &[u8; 32] {
+        &self.secret
+    }
+}
+
+impl std::fmt::Debug for PairLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("PairLink([REDACTED])")
     }
 }
 
@@ -91,6 +147,7 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
             }
             gateway_origin(&value, origins).map(Link::AddGateway)
         }
+        "pair" if matches!(url.path(), "" | "/") => pair(url.query()?).map(Link::Pair),
         _ => None,
     }
 }
@@ -98,6 +155,33 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
 /// No path but the root, no query.
 fn bare(url: &url::Url) -> bool {
     matches!(url.path(), "" | "/") && url.query().is_none()
+}
+
+/// A pairing link's query, read as written and never percent-decoded:
+/// exactly `h=<handle>&s=<secret>`, each value 43 characters that decode to
+/// 32 bytes as their encoder would have written them.
+fn pair(query: &str) -> Option<PairLink> {
+    let (handle, secret) = query.strip_prefix("h=")?.split_once("&s=")?;
+    Some(PairLink {
+        handle: pair_value(handle)?,
+        secret: pair_value(secret)?,
+    })
+}
+
+/// One of a pairing link's values: 43 characters of URL-safe base64 without
+/// padding and with no bit set past the 32nd byte. The decoded bytes are
+/// wiped once copied.
+fn pair_value(text: &str) -> Option<Zeroizing<[u8; 32]>> {
+    if text.len() != PAIR_VALUE_CHARS {
+        return None;
+    }
+    let bytes = Zeroizing::new(baylee_seal::b64::url::decode(text).ok()?);
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut value = Zeroizing::new([0; 32]);
+    value.copy_from_slice(&bytes);
+    Some(value)
 }
 
 /// A gateway link's origin, spelled as a saved address is, or `None`.
@@ -288,6 +372,110 @@ mod tests {
         )
         .expect("a link");
         assert!(!link.kind().contains("secret-name"));
+        let link = read(&pair_text(&HANDLE, &SECRET), Origins::Public).expect("a link");
+        assert_eq!(link.kind(), "a pairing link");
+    }
+
+    const HANDLE: [u8; 32] = [0xa5; 32];
+    /// Two `0xff` at a group's end write `_`, which only URL-safe base64 has.
+    const SECRET: [u8; 32] = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+        26, 27, 28, 0xff, 0xff, 31, 250,
+    ];
+
+    /// The link as the page writes it.
+    fn pair_text(handle: &[u8; 32], secret: &[u8; 32]) -> String {
+        let (h, s) = (b64(handle), b64(secret));
+        format!("baylee://pair?h={h}&s={s}")
+    }
+
+    fn b64(bytes: &[u8]) -> String {
+        baylee_seal::b64::url::encode(bytes)
+    }
+
+    #[test]
+    fn a_pairing_link_is_read_exactly_as_the_page_writes_it() {
+        let text = pair_text(&HANDLE, &SECRET);
+        assert_eq!(
+            text.len(),
+            "baylee://pair?h=&s=".len() + 2 * PAIR_VALUE_CHARS
+        );
+        let Some(Link::Pair(link)) = read(&text, Origins::Public) else {
+            panic!("a pairing link");
+        };
+        assert_eq!(link.handle(), &HANDLE);
+        assert_eq!(link.secret(), &SECRET);
+        assert_eq!(link, PairLink::new(HANDLE, SECRET));
+        // As the other links: a root path and the scheme in any case.
+        let (h, s) = (b64(&HANDLE), b64(&SECRET));
+        for text in [
+            format!("baylee://pair/?h={h}&s={s}"),
+            format!("Baylee://pair?h={h}&s={s}"),
+        ] {
+            assert_eq!(
+                read(&text, Origins::Public),
+                Some(Link::Pair(PairLink::new(HANDLE, SECRET))),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_pairing_link_takes_its_two_values_spelled_one_way_only() {
+        let (h, s) = (b64(&HANDLE), b64(&SECRET));
+        // The last character of a 32-byte value carries two bits past the
+        // last byte, which the encoder leaves clear.
+        let mut loose = s.clone();
+        loose.pop();
+        loose.push('B');
+        let percent = format!("%{:02X}{}", s.as_bytes()[0], &s[1..]);
+        let standard = s.replace('-', "+").replace('_', "/");
+        for text in [
+            format!("baylee://pair?s={s}&h={h}"),
+            format!("baylee://pair?h={h}"),
+            format!("baylee://pair?s={s}"),
+            format!("baylee://pair?h={h}&s={s}&x=1"),
+            format!("baylee://pair?h={h}&s={s}&s={s}"),
+            format!("baylee://pair?h={h}&h={h}&s={s}"),
+            format!("baylee://pair?x=1&h={h}&s={s}"),
+            format!("baylee://pair?H={h}&S={s}"),
+            format!("baylee://pair?h={h}&s={s}="),
+            format!("baylee://pair?h={h}=&s={s}"),
+            format!("baylee://pair?h={h}&s={}", &s[1..]),
+            format!("baylee://pair?h={}&s={s}", &h[1..]),
+            format!("baylee://pair?h={h}&s={s}A"),
+            format!("baylee://pair?h={h}&s={loose}"),
+            format!("baylee://pair?h={h}&s={percent}"),
+            format!("baylee://pair?h={h}&s={standard}"),
+            format!("baylee://pair?h=&s={s}"),
+            format!("baylee://pair?h={h}&s="),
+            format!("baylee://pair?h={h}&s={s}#x"),
+            format!("baylee://pair/x?h={h}&s={s}"),
+            format!("baylee://PAIR?h={h}&s={s}"),
+            format!("baylee://user@pair?h={h}&s={s}"),
+            format!("baylee://pair:1?h={h}&s={s}"),
+            format!("baylee://pair?h={h}%26s={s}"),
+            format!("baylee://pair?h= {h}&s={s}"),
+            format!("baylee://open?h={h}&s={s}"),
+            "baylee://pair".to_string(),
+            "baylee://pair?".to_string(),
+        ] {
+            assert_eq!(read(&text, Origins::AlsoLoopback), None, "{text}");
+        }
+        assert_ne!(
+            standard, s,
+            "the sample has a character only URL-safe base64 writes"
+        );
+    }
+
+    #[test]
+    fn a_pairing_link_never_prints_its_values() {
+        let link = read(&pair_text(&HANDLE, &SECRET), Origins::Public).expect("a link");
+        let printed = format!("{link:?}");
+        assert_eq!(printed, "Pair(PairLink([REDACTED]))");
+        for value in [b64(&HANDLE), b64(&SECRET)] {
+            assert!(!printed.contains(&value));
+        }
     }
 
     #[test]
@@ -306,10 +494,18 @@ mod tests {
 
     /// Every byte string a link could be is answered without a panic, and
     /// whatever is read as a gateway names an origin that reads again as
-    /// itself (a deterministic sweep standing in for a fuzzer).
+    /// itself, and whatever is read as a pairing is the one spelling of its
+    /// values (a deterministic sweep standing in for a fuzzer).
     #[test]
     fn no_text_upsets_the_reader() {
+        let (h, s) = (b64(&HANDLE), b64(&SECRET));
         let pieces = [
+            "pair",
+            "?h=",
+            "&s=",
+            h.as_str(),
+            s.as_str(),
+            &s[..42],
             "baylee://",
             "gateway",
             "/add",
@@ -347,12 +543,17 @@ mod tests {
             for _ in 0..next() % 7 {
                 text.push_str(pieces[next() % pieces.len()]);
             }
-            if let Some(Link::AddGateway(origin)) = read(&text, Origins::AlsoLoopback) {
-                assert_eq!(
+            match read(&text, Origins::AlsoLoopback) {
+                Some(Link::AddGateway(origin)) => assert_eq!(
                     gateway_origin(&origin, Origins::AlsoLoopback).as_deref(),
                     Some(origin.as_str()),
                     "{text}"
-                );
+                ),
+                Some(Link::Pair(link)) => {
+                    let written = pair_text(link.handle(), link.secret());
+                    assert!(text.ends_with(&written["baylee://".len()..]), "{text}");
+                }
+                _ => {}
             }
         }
     }

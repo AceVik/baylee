@@ -35,6 +35,7 @@ pub struct Launch {
     tours: bool,
     settings: Map<String, Value>,
     env: Vec<(String, String)>,
+    args: Vec<String>,
     monitor: Option<Monitor>,
 }
 
@@ -47,6 +48,7 @@ impl Default for Launch {
             tours: false,
             settings: Map::new(),
             env: Vec::new(),
+            args: Vec::new(),
             monitor: None,
         }
     }
@@ -99,6 +101,14 @@ impl Launch {
     #[must_use]
     pub fn env(mut self, key: &str, value: &str) -> Self {
         self.env.push((key.to_owned(), value.to_owned()));
+        self
+    }
+
+    /// An argument for the client, as a launcher passes a `baylee:` link
+    /// on a cold start.
+    #[must_use]
+    pub fn arg(mut self, arg: &str) -> Self {
+        self.args.push(arg.to_owned());
         self
     }
 
@@ -265,6 +275,7 @@ impl Client {
         for (key, value) in &launch.env {
             command.env(key, value);
         }
+        command.args(&launch.args);
         let child = command
             .spawn()
             .with_context(|| format!("starting {}", binary.display()))?;

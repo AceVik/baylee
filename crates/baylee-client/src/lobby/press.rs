@@ -53,6 +53,11 @@ pub(crate) enum SharedPress {
     PickLang(Lang),
     ConfirmDestructive,
     CancelDestructive,
+    /// The sign-in from baylee.app: cancel it, at any stage (also `Esc` and
+    /// a tap beside its panel).
+    PairCancel,
+    /// The sign-in from baylee.app: yes to the account its question names.
+    PairSignIn,
     /// Nothing. Carried by the picker's own panel so a tap inside it is
     /// not also a tap on the shade behind it, which would close it.
     PickerNothing,
@@ -165,6 +170,12 @@ impl SharedPress {
                 dispatch(state, mailbox, request);
             }
             SharedPress::CancelDestructive => state.confirmation = None,
+            #[cfg(not(target_arch = "wasm32"))]
+            SharedPress::PairCancel => super::central::pairing::cancel(state),
+            #[cfg(not(target_arch = "wasm32"))]
+            SharedPress::PairSignIn => super::central::pairing::confirm(state),
+            #[cfg(target_arch = "wasm32")]
+            SharedPress::PairCancel | SharedPress::PairSignIn => {}
             SharedPress::OpenMenu(menu) => {
                 state.menu = if state.menu == Some(menu) {
                     None

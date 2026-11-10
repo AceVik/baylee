@@ -1108,7 +1108,29 @@ impl LobbyState {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     #[must_use]
     pub(crate) fn asking(&self) -> Option<&'static str> {
-        self.confirmation.as_ref().map(confirm::Destructive::kind)
+        self.confirmation
+            .as_ref()
+            .map(confirm::Destructive::kind)
+            .or_else(|| self.pairing().map(|pairing| pairing.stage.kind()))
+    }
+
+    /// The sign-in from baylee.app under way, whose panel stands over the
+    /// lobby (`central::pairing`).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn pairing(&self) -> Option<&central::pairing::Pairing> {
+        self.central.as_ref()?.pairing.as_ref()
+    }
+
+    /// Whether that panel stands: it takes every press and key but its own.
+    pub(crate) fn pairing_up(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.pairing().is_some()
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
     }
 
     pub(crate) fn central_ready(&self) -> bool {
@@ -1251,6 +1273,11 @@ fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbo
 enum Reply {
     #[cfg(not(target_arch = "wasm32"))]
     Central(Result<Box<central::Restored>, baylee_account::Error>),
+    /// What the worker of a sign-in from baylee.app said, by the pairing's
+    /// number (`central::pairing`). Not bound to the gateway's epoch: the
+    /// pairing lives in Central's state and ends with it.
+    #[cfg(not(target_arch = "wasm32"))]
+    Pairing(u64, central::pairing::News),
     /// The gateway refused to renew the bearer: the gateway token may still
     /// carry the session on.
     BearerLost,

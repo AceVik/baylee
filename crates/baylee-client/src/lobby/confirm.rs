@@ -275,6 +275,108 @@ fn draw_proposal(
     commands.entity(root).add_child(shade);
 }
 
+/// The sign-in from baylee.app (`central::pairing`), over Central's sign-in:
+/// while the page is asked, the code it shows beside its Approve; then whom
+/// the session signs in as, with Cancel and Sign in. Cancel is what `Esc`
+/// and a tap beside the panel do, at every stage; no key says yes. Nothing
+/// in it comes from the link: the code is the client's own, the name
+/// Central's.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn draw_pairing(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) {
+    use super::central::pairing::Stage;
+    let Some(pairing) = state.pairing() else {
+        return;
+    };
+    let lang = state.lobby.lang();
+    let cancel_press = Press::Shared(SharedPress::PairCancel);
+    let (shade, panel) = modal(commands, metrics, cancel_press, false);
+    let (title, body, code) = match &pairing.stage {
+        Stage::Claiming => (
+            Phrase::PairTitle.fill(lang, &[]),
+            Phrase::PairClaiming,
+            None,
+        ),
+        Stage::Finishing => (
+            Phrase::PairTitle.fill(lang, &[]),
+            Phrase::PairFinishing,
+            None,
+        ),
+        Stage::Waiting { code } => (
+            Phrase::PairWaitingTitle.fill(lang, &[]),
+            Phrase::PairWaitingHint,
+            Some(code.as_str()),
+        ),
+        Stage::Asking { who } => (
+            Phrase::PairQuestion.fill(lang, &[who.as_str()]),
+            Phrase::PairQuestionHint,
+            None,
+        ),
+    };
+    let mut kids = vec![
+        dialog_header(commands, fonts, metrics, &title, None, false),
+        dialog_body(commands, fonts, metrics, body.text(lang)),
+    ];
+    if let Some(code) = code {
+        kids.push(code_line(commands, fonts, metrics, code));
+    }
+    let actions = action_row(commands);
+    let cancel = split_button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ActCancel.text(lang),
+        cancel_press,
+        SplitTone::Neutral,
+        true,
+    );
+    commands.entity(actions).add_child(cancel);
+    if matches!(pairing.stage, Stage::Asking { .. }) {
+        let yes = split_button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::SignIn.text(lang),
+            Press::Shared(SharedPress::PairSignIn),
+            SplitTone::Accent,
+            true,
+        );
+        commands.entity(actions).add_child(yes);
+    }
+    kids.push(actions);
+    commands.entity(panel).add_children(&kids);
+    commands.entity(shade).add_child(panel);
+    commands.entity(root).add_child(shade);
+}
+
+/// The pairing's comparison code, large and centred: the one thing the
+/// player compares with the page.
+#[cfg(not(target_arch = "wasm32"))]
+fn code_line(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, code: &str) -> Entity {
+    commands
+        .spawn((
+            Node {
+                width: percent(100),
+                justify_content: JustifyContent::Center,
+                padding: UiRect::axes(px(14), px(10)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_child((
+            Text::new(code),
+            tf_bold(fonts, metrics.head * 1.6),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
 /// Why a table's list turned a deck away, a line a reason. It stands over
 /// whatever screen the deck was brought from, because the door may be a
 /// room's, the Play screen's or an invite's.

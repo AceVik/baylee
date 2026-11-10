@@ -521,6 +521,58 @@ LinkGatewayKnown = { $url } is already in your gateways.
 # A link proposed a gateway, and the account's list is full.
 LinkGatewayListFull = Your account holds as many gateways as it can. Remove one before you add another.
 
+# A `baylee://pair` link (`docs/client.md` §"Signing in from the website"):
+# the panel's title while Baylee asks Baylee Central, and after the
+# player's yes.
+PairTitle = Signing in from baylee.app
+
+# Under that title, while the link's sign-in is claimed at Baylee Central.
+PairClaiming = Asking Baylee Central…
+
+# Under that title, after the player's yes, while the account is restored.
+PairFinishing = Signing in…
+
+# The panel while baylee.app is asked whether the player approved there.
+PairWaitingTitle = Continue on baylee.app
+
+# Under that title, above the code this client shows: the same code stands
+# on baylee.app beside its button to approve.
+PairWaitingHint = baylee.app shows a code beside its button to approve. Approve only if it is the code below; if it is another, cancel there and here.
+
+# The question after baylee.app approved: whom this computer signs in as.
+# `$who` is the account's display name and tag with its username in
+# brackets, or the username alone.
+# Arguments: who
+PairQuestion = Sign in as { $who }?
+
+# Under that question.
+PairQuestionHint = baylee.app approved this sign-in. Sign in only if this is your own account.
+
+# On the sign-in form: the player cancelled the sign-in from baylee.app, or
+# said no to its account.
+PairCancelled = The sign-in from baylee.app was cancelled.
+
+# On the sign-in form: nobody approved in five minutes, or the question
+# stood that long.
+PairExpired = The sign-in from baylee.app ran out of time. Start it again on baylee.app.
+
+# On the sign-in form: another program claimed the link's sign-in first,
+# so baylee.app must not approve it.
+PairClaimedElsewhere = Another program on this computer took the sign-in link before Baylee did. Do not approve it on baylee.app: cancel it there and start again.
+
+# On the sign-in form: the sign-in ended at Baylee Central (cancelled on
+# baylee.app, used, or out of time).
+PairEnded = The sign-in from baylee.app has ended: it was cancelled there, used, or ran out of time. Start it again on baylee.app.
+
+# On the sign-in form: Baylee Central refused to finish the sign-in.
+PairRefused = Baylee Central refused the sign-in from baylee.app. Start it again on baylee.app.
+
+# On the sign-in form: Baylee Central could not be reached.
+PairUnavailable = Baylee Central cannot be reached, so the sign-in from baylee.app stopped. Try again in a moment.
+
+# A sign-in link from baylee.app arrived while someone is signed in here.
+PairSignedIn = Baylee is signed in already. Sign out first to sign in from baylee.app.
+
 # Gateway row, beside its address, while it is being asked.
 GatewayCheckingShort = checking…
 

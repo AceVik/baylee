@@ -178,6 +178,10 @@ pub(super) fn poll(
                 Reply::Central(result) => {
                     super::central::receive(&mut state, &mut prefs, &mailbox, result);
                 }
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::Pairing(id, news) => {
+                    super::central::pairing::receive(&mut state, &mut prefs, &mailbox, id, news);
+                }
                 Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
                 Reply::VaultLogin(login) => state.vault_login = Some(login),
                 Reply::Event(event) => {

@@ -44,6 +44,16 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
+    // The sign-in from baylee.app holds the keyboard: `Esc` cancels it, and
+    // no key says yes (`Enter` included), so a stray key never signs in.
+    if state.pairing_up() {
+        keys.clear();
+        #[cfg(not(target_arch = "wasm32"))]
+        if codes.just_pressed(KeyCode::Escape) {
+            super::central::pairing::cancel(&mut state);
+        }
+        return;
+    }
     // The terms sheet answers its own keys (`front::terms::terms_keys`);
     // nothing under it takes one, except the account deletion's
     // confirmation that its Decline stood over it (below).
