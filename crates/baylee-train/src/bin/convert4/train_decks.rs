@@ -131,6 +131,7 @@ mod tests {
             validation: false,
             shadow: None,
             llm: None,
+            distill: None,
             deck_keys: keys,
         }
     }

@@ -899,7 +899,17 @@ mod admission_tests {
             Args::try_parse_from(["convert4", "--out", "o", "--bundle-distill", "--shadow-bc"])
                 .is_err()
         );
-        assert!(Args::try_parse_from(["convert4", "--out", "o", "--bundle-distill"]).is_ok());
+        assert!(
+            Args::try_parse_from([
+                "convert4",
+                "--out",
+                "o",
+                "--train-manifest",
+                "m.json",
+                "--bundle-distill"
+            ])
+            .is_ok()
+        );
     }
 }
 
