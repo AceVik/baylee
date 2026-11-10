@@ -53,6 +53,10 @@ name = "matrix4"
 path = "src/bin/matrix4.rs"
 
 [[bin]]
+name = "generation4"
+path = "src/bin/generation4.rs"
+
+[[bin]]
 name = "ladder4"
 path = "src/bin/ladder4.rs"
 
