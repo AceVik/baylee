@@ -10534,11 +10534,14 @@ prints `[REDACTED]`, the inbox's texts are wiped once read, and a pairing
 link that waits for the lobby (a game, a question) is dropped after those
 two minutes (`links::PAIR_WAIT`). The ten-a-minute pace is the other
 links'. A link read is printable ASCII only (no space, tab or line break,
-which a URL parser would strip), for every link. The same pairing link
-read again (a second click on the page; the last sixteen handles are
-kept) is dropped, since a second claim would read at Central as another
-program's, and a pairing link that comes while a pairing runs is dropped
-too: one pairing at a time.
+which a URL parser would strip), for every link. A pairing link this
+client claimed already is dropped without a word (a second click on the
+page, or the link again after the sign-in it gave), since a second claim
+would read at Central as another program's: the last sixteen claimed
+handles are kept in the lobby (`central::pairing::Claimed`), across
+sign-in and sign-out. A link only read, or refused because someone was
+signed in, is not used up. A pairing link that comes while a pairing runs
+is dropped: one pairing at a time.
 
 **Who it is for.** The lobby follows it at rest, only while nobody is
 signed in (not at Central, not at a gateway, not offline): Central's

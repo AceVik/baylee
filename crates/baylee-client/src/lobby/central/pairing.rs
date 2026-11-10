@@ -81,6 +81,34 @@ impl Stage {
     }
 }
 
+/// How many claimed pairings [`Claimed`] remembers.
+const CLAIMED_KEPT: usize = 16;
+
+/// The handles of the pairings this client claimed lately, newest last,
+/// wiped when forgotten. Kept in the lobby, not in Central's state, so a
+/// sign-in or a sign-out does not forget them: the same link again (a
+/// second click on the page, or the link once more after the sign-in it
+/// gave) is no new pairing, and a second claim would read at Central as
+/// another program's. A link only read, or refused because someone was
+/// signed in, is not remembered: it may come again. A handle claims nothing
+/// without the link's secret.
+#[derive(Default)]
+pub(crate) struct Claimed(std::collections::VecDeque<zeroize::Zeroizing<[u8; 32]>>);
+
+impl Claimed {
+    /// Whether this client claimed the pairing `handle` names.
+    pub(crate) fn contains(&self, handle: &[u8; 32]) -> bool {
+        self.0.iter().any(|claimed| **claimed == *handle)
+    }
+
+    fn remember(&mut self, handle: &[u8; 32]) {
+        if self.0.len() >= CLAIMED_KEPT {
+            self.0.pop_front();
+        }
+        self.0.push_back(zeroize::Zeroizing::new(*handle));
+    }
+}
+
 /// A pairing under way, kept in Central's state.
 pub(crate) struct Pairing {
     id: u64,
@@ -220,6 +248,7 @@ pub(crate) fn start(state: &mut LobbyState, mailbox: &Mailbox, link: PairLink) {
     else {
         return;
     };
+    let handle = zeroize::Zeroizing::new(*link.handle());
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
     let (answers, heard) = mpsc::sync_channel(1);
     let steps = Sdk {
@@ -241,6 +270,8 @@ pub(crate) fn start(state: &mut LobbyState, mailbox: &Mailbox, link: PairLink) {
         state.lobby.tell_refusal(Phrase::PairUnavailable, &[]);
         return;
     }
+    // Its claim is on its way: this link is never claimed again.
+    state.claimed_pairings.remember(&handle);
     central.pairing = Some(Pairing {
         id,
         answers,

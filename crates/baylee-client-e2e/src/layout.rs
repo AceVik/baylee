@@ -16,8 +16,10 @@
 //!   same pixels, so one press could mean either.
 //!
 //! Under a modal's shade (a pressable node over the whole window, which a
-//! tap answers) nothing else can be pressed: the pressable checks then read
-//! only the topmost shade's own nodes.
+//! tap answers, holding the modal's own pressable nodes) nothing else can be
+//! pressed: the pressable checks then read only the topmost shade's own
+//! nodes. A bare scrim over the window, with its menu beside it, is no
+//! shade.
 //! - **Small target** (only with [`Layout::touch`]): a pressable node smaller
 //!   than a finger can hit, 44 px. The desktop client's small text links are
 //!   23 px high by design, so this is a check for the coming phone builds
@@ -168,11 +170,19 @@ impl Layout {
         let shown =
             |i: usize| !nodes[i].hidden && !nodes[i].rect.is_empty() && !screen.scrolled_away(i);
         let ignored = |label: &str| self.ignore.iter().any(|w| label.contains(w.as_str()));
-        // A pressable node over the whole window is a modal's shade (a tap
-        // on it answers the modal): nothing under it can be pressed, so the
-        // pressable checks read only the topmost shade's own nodes.
+        // A pressable node over the whole window that holds pressable nodes
+        // of its own is a modal's shade (a tap on it answers the modal):
+        // nothing under it can be pressed, so the pressable checks read only
+        // the topmost shade's own nodes. A bare scrim (a menu's, with the
+        // menu beside it) holds none, and leaves everything checked.
         let shade = (0..nodes.len()).rev().find(|&i| {
-            nodes[i].pressable && shown(i) && nodes[i].rect.contains(&window, self.slack)
+            nodes[i].pressable
+                && shown(i)
+                && nodes[i].rect.contains(&window, self.slack)
+                && screen
+                    .subtree(i)
+                    .skip(1)
+                    .any(|(j, node)| node.pressable && shown(j))
         });
         let in_front = |i: usize| shade.is_none_or(|shade| screen.is_within(i, shade));
         let pressable: Vec<(usize, String)> = (0..nodes.len())

@@ -66,6 +66,12 @@ pub(super) fn follow(
 /// over Central's sign-in. Anyone signed in (at Central, at a gateway, or
 /// playing offline) is told so, and the pairing then runs out on the page.
 fn pair(state: &mut LobbyState, mailbox: &Mailbox, link: baylee_client_core::deeplink::PairLink) {
+    // A link this client claimed already (a second click on the page, or
+    // the link again after the sign-in it gave): nothing to do, nothing to
+    // say.
+    if state.claimed_pairings.contains(link.handle()) {
+        return;
+    }
     // Central's sign-in may stand already (the form a launch opens): the
     // pairing comes over it.
     let nobody = !state.central_ready()
@@ -392,6 +398,42 @@ mod tests {
             state(&app).lobby.status(),
             Phrase::PairSignedIn.text(state(&app).lobby.lang())
         );
+        // Signed out, as the sentence asks, the same link is followed: a
+        // link refused is not used up.
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            super::super::central::logout(&mut state, &mut crate::prefs::Prefs::default());
+        }
+        send(&mut app, pair_link());
+        assert!(state(&app).pairing_up(), "the refused link is followed now");
+    }
+
+    /// A link this client claimed is not claimed again (a second claim
+    /// would read at Central as another program's): a second click on the
+    /// page, or the link once more after its panel closed, is dropped
+    /// without a word; another pairing is followed.
+    #[test]
+    fn a_claimed_pairing_link_is_not_claimed_again() {
+        let mut app = lobby();
+        send(&mut app, pair_link());
+        assert!(state(&app).pairing_up());
+        super::super::central::pairing::cancel(&mut app.world_mut().resource_mut::<LobbyState>());
+        assert!(!state(&app).pairing_up());
+        let said = state(&app).lobby.status().to_string();
+        send(&mut app, pair_link());
+        assert!(
+            !state(&app).pairing_up(),
+            "the same link is not claimed again"
+        );
+        assert!(app.world().resource::<Arrived>().link.is_none());
+        assert_eq!(state(&app).lobby.status(), said, "and nothing more is said");
+        send(
+            &mut app,
+            Link::Pair(baylee_client_core::deeplink::PairLink::new(
+                [5; 32], [6; 32],
+            )),
+        );
+        assert!(state(&app).pairing_up(), "another pairing is followed");
     }
 
     /// The whole of yes: the question's answer asks the address about

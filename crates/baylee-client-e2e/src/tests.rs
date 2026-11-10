@@ -304,6 +304,37 @@ fn under_a_modal_s_shade_only_the_modal_is_checked() {
     assert_eq!(issues.len(), 1, "and only it: {issues:?}");
 }
 
+/// A bare scrim over the window (a menu's, the menu beside it) is no
+/// modal: the screen under it is still checked, so a fault there is found.
+#[test]
+fn a_bare_scrim_hides_nothing_from_the_checks() {
+    let stacked = edited(FRONT_LAPTOP, |before, state| {
+        let about = pressable(before, "About");
+        let offline = pressable(before, "Play offline");
+        let (from, to) = (before.nodes()[about].rect, before.nodes()[offline].rect);
+        shift(
+            before,
+            state,
+            about,
+            f64::from(to.x - from.x),
+            f64::from(to.y - from.y),
+        );
+        let window = before.window();
+        let rows = state["shell_nodes"].as_array_mut().expect("rows");
+        rows.push(json!({"d":0,"r":"scrim","x":0.0,"y":0.0,"w":window.w,"h":window.h,"i":true}));
+    });
+    let issues = stacked.layout().issues(&stacked);
+    assert!(
+        issues.iter().any(|issue| matches!(
+            issue,
+            Issue::Overlap { first, second, .. }
+                if (first.contains("About") && second.contains("Play offline"))
+                    || (first.contains("Play offline") && second.contains("About"))
+        )),
+        "the two controls under the scrim still overlap: {issues:?}"
+    );
+}
+
 #[test]
 fn small_targets_are_a_touch_check_only() {
     let phone = screen(FRONT_PHONE);

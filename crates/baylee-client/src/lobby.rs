@@ -604,6 +604,10 @@ pub struct LobbyState {
     /// back from it, the same link asks about this device's list instead
     /// (`links`).
     pub(super) link_asked_central: bool,
+    /// The pairing links this client claimed lately (`central::pairing`):
+    /// the same link again is dropped without a word.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) claimed_pairings: central::pairing::Claimed,
     /// The deck builder's own view state: its tabs, panes, menus, the
     /// keyboard's place and the save state (`crate::buildui::BuildUi`).
     pub(crate) build: crate::buildui::BuildUi,
@@ -986,6 +990,8 @@ impl LobbyState {
             confirm_restore: false,
             confirmation: None,
             link_asked_central: false,
+            #[cfg(not(target_arch = "wasm32"))]
+            claimed_pairings: central::pairing::Claimed::default(),
             build: crate::buildui::BuildUi::default(),
             drafts: crate::buildui::draft::Drafts::default(),
             deck_saves: baylee_client_core::deckbuilder::saves::SaveLine::default(),
