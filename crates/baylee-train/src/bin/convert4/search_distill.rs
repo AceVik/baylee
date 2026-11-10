@@ -107,7 +107,12 @@ impl Targets {
         self.weighting
     }
 
-    /// Admits one run: it must have been played with a search.
+    /// Admits one run: it must have been played with a search, by the raw
+    /// policy alone. A run in tactics mode (`--choice-guard`, a rule group)
+    /// answers by the tactical layer, and its unchanged answers would enter
+    /// as targets: tactical records stay out of training (owner, 6 November).
+    /// A run for numbers only may never enter a dataset. A run that does not
+    /// say how it played is refused, not assumed raw.
     pub(super) fn admit(&mut self, run_json: &Value) -> anyhow::Result<()> {
         let search = run_json
             .get("search")
@@ -116,6 +121,27 @@ impl Targets {
         ensure!(
             search.get("contract").and_then(Value::as_str).is_some(),
             "the run's search names no contract"
+        );
+        let said = |key: &str| run_json.get(key).unwrap_or(&Value::Null).to_string();
+        ensure!(
+            run_json.get("policy_mode").and_then(Value::as_str) == Some("raw"),
+            "--search-targets converts runs of the raw policy only; policy_mode is {}",
+            said("policy_mode")
+        );
+        ensure!(
+            run_json.get("choice_guard").and_then(Value::as_str) == Some("off"),
+            "--search-targets refuses a run with a choice guard (tactical records stay out of training); choice_guard is {}",
+            said("choice_guard")
+        );
+        ensure!(
+            run_json.get("tactics_rules").and_then(Value::as_str) == Some(""),
+            "--search-targets refuses a run with tactics rule groups (tactical records stay out of training); tactics_rules is {}",
+            said("tactics_rules")
+        );
+        ensure!(
+            run_json.get("numbers_only").and_then(Value::as_bool) == Some(false),
+            "--search-targets refuses a run for numbers only, or one that does not say; numbers_only is {}",
+            said("numbers_only")
         );
         self.searches.push(search.clone());
         Ok(())
@@ -381,19 +407,67 @@ mod tests {
         }
     }
 
+    /// A searched run of the raw policy, as `eval4 --search --raw-policy`
+    /// writes its `run.json`.
+    fn raw_searched_run() -> Value {
+        json!({"search": {"contract": "belief_lookahead_v2"}, "policy_mode": "raw",
+            "choice_guard": "off", "tactics_rules": "", "numbers_only": false})
+    }
+
     #[test]
     fn a_run_without_search_is_refused() {
         let mut targets = Targets::new(0.0).expect("weight in range");
-        assert!(targets.admit(&json!({"search": null})).is_err());
-        assert!(targets.admit(&json!({})).is_err());
-        assert!(targets.admit(&json!({"search": {}})).is_err());
+        for search in [Value::Null, json!({})] {
+            let mut run = raw_searched_run();
+            run["search"] = search;
+            assert!(targets.admit(&run).is_err());
+        }
+        let mut run = raw_searched_run();
+        run.as_object_mut().expect("object").remove("search");
+        assert!(targets.admit(&run).is_err());
         targets
-            .admit(&json!({"search": {"contract": "belief_lookahead_v2"}}))
-            .expect("a searched run");
+            .admit(&raw_searched_run())
+            .expect("a searched run of the raw policy");
         assert_eq!(
             targets.metadata(3)["searches"].as_array().map(Vec::len),
             Some(1)
         );
+    }
+
+    #[test]
+    fn a_searched_run_in_tactics_mode_is_refused() {
+        let mut targets = Targets::new(0.0).expect("weight in range");
+        for (key, value) in [
+            ("policy_mode", json!("tactical")),
+            ("choice_guard", json!("tactical")),
+            ("tactics_rules", json!("mass,react")),
+            ("numbers_only", json!(true)),
+        ] {
+            let mut run = raw_searched_run();
+            run[key] = value;
+            let error = targets.admit(&run).expect_err(key).to_string();
+            assert!(error.contains(key), "{key}: {error}");
+        }
+        assert!(
+            targets.metadata(0)["searches"]
+                .as_array()
+                .is_some_and(Vec::is_empty)
+        );
+    }
+
+    #[test]
+    fn a_searched_run_that_does_not_say_how_it_played_is_refused() {
+        let mut targets = Targets::new(0.0).expect("weight in range");
+        for key in [
+            "policy_mode",
+            "choice_guard",
+            "tactics_rules",
+            "numbers_only",
+        ] {
+            let mut run = raw_searched_run();
+            run.as_object_mut().expect("object").remove(key);
+            assert!(targets.admit(&run).is_err(), "{key}");
+        }
     }
 
     #[test]
