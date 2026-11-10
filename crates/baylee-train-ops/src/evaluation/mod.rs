@@ -4,6 +4,7 @@ pub mod calibration;
 pub mod diagnostics;
 pub mod ladder;
 mod paired;
+pub mod rating;
 mod summary;
 pub mod value_report;
 use crate::files::hex;

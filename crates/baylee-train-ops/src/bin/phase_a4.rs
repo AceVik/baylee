@@ -8,7 +8,7 @@
 #![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::arms::{compare_arm, compare_builds, compare_exports, pool_arms};
-use baylee_train_ops::evaluation::ladder::ladder_table;
+use baylee_train_ops::evaluation::ladder::{clean_score, ladder_table};
 use baylee_train_ops::evaluation::value_report::{read_positions, report, value_gap};
 use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
@@ -605,24 +605,38 @@ fn group_table(
 /// A clean game's result by its slot `(opponent, net's deck, model's deck)`.
 /// A slot is one seat of one deck pair; the arm's other games are left out.
 fn clean_slots(roots: &[PathBuf]) -> Result<BTreeMap<(String, String, String), f64>> {
-    let table = ladder_table(roots)?;
+    let table = printed_ladder_table(roots)?;
     let mut slots = BTreeMap::new();
     for game in table["games"].as_array().context("no games")? {
-        if game["played"] != true || game["house_finished"] != false {
+        let Some(won) = clean_score(game) else {
             continue;
-        }
-        let text = |key: &str| game[key].as_str().unwrap_or("").to_owned();
-        // A draw counts one half, as everywhere else in the evaluation.
-        let won = if game["net_won"] == true {
-            1.0
-        } else if game["drawn"] == true {
-            0.5
-        } else {
-            0.0
         };
+        let text = |key: &str| game[key].as_str().unwrap_or("").to_owned();
         slots.insert((text("profile"), text("net_deck"), text("llm_deck")), won);
     }
     Ok(slots)
+}
+
+/// [`ladder_table`] of `roots`, its arms printed as a markdown table.
+fn printed_ladder_table(roots: &[PathBuf]) -> Result<Value> {
+    let table = ladder_table(roots)?;
+    println!(
+        "| arm | scheduled | lost before play | clean games | net wins | house finished | net wins there |"
+    );
+    println!("| --- | --- | --- | --- | --- | --- | --- |");
+    for (arm, tally) in table["arms"].as_object().context("no arms")? {
+        let column = |index: usize| tally[index].as_u64().unwrap_or(0);
+        println!(
+            "| {arm} | {} | {} | {} | {} | {} | {} |",
+            column(0),
+            column(1),
+            column(2),
+            column(3),
+            column(4),
+            column(5)
+        );
+    }
+    Ok(table)
 }
 
 /// The deck pair of a slot, whichever seat it is.
@@ -900,7 +914,7 @@ fn main() -> Result<()> {
             atomic_json(&out, &Value::Array(rows))?;
         }
         Command::Ladder { out, roots } => {
-            atomic_json(&out, &ladder_table(&roots)?)?;
+            atomic_json(&out, &printed_ladder_table(&roots)?)?;
         }
         Command::GroupPlan {
             shadow,

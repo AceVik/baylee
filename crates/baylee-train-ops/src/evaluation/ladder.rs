@@ -27,7 +27,8 @@ fn seat_summary(root: &Path, game: u64) -> Result<Option<Value>> {
 }
 
 /// Every game of `roots`, by arm: lost before it began, played clean, or played
-/// with the house finishing for a model out of budget.
+/// with the house finishing for a model out of budget. The tally of an arm is in
+/// the order of `columns`.
 ///
 /// # Errors
 /// Rejects a root without a readable `ladder.json` or a played game without a number.
@@ -72,17 +73,23 @@ pub fn ladder_table(roots: &[PathBuf]) -> Result<Value> {
                 "turns": summary["turns"], "net_deck": game["net_deck"], "llm_deck": game["llm_deck"]}));
         }
     }
-    println!(
-        "| arm | scheduled | lost before play | clean games | net wins | house finished | net wins there |"
-    );
-    println!("| --- | --- | --- | --- | --- | --- | --- |");
-    for (arm, tally) in &arms {
-        println!(
-            "| {arm} | {} | {} | {} | {} | {} | {} |",
-            tally[0], tally[1], tally[2], tally[3], tally[4], tally[5]
-        );
-    }
     Ok(json!({"arms": arms, "games": games,
         "columns": ["scheduled", "lost_before_play", "clean", "clean_net_wins", "house_finished",
             "house_finished_net_wins", "house_answers"]}))
+}
+
+/// The net's score in a game of a [`ladder_table`] when the game is clean: played
+/// to its end by the model, the house finishing nothing. A draw counts one half,
+/// as everywhere else in the evaluation. `None` for every other game.
+pub fn clean_score(game: &Value) -> Option<f64> {
+    if game["played"] != true || game["house_finished"] != false {
+        return None;
+    }
+    Some(if game["net_won"] == true {
+        1.0
+    } else if game["drawn"] == true {
+        0.5
+    } else {
+        0.0
+    })
 }
