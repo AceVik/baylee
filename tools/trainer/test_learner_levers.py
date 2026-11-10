@@ -530,8 +530,8 @@ class MemoryBudget(unittest.TestCase):
 
     def test_round0_store_is_refused_in_ram_and_fits_as_a_duel_memory_map(self):
         from training4 import memory_budget as B
-        # The round-0 dataset: 1,911,621 window frames, 1,895,988 pieces, d_model 640, a 56 GiB unit.
-        frames, pieces, unit, guard = 1_911_621, 1_895_988, 56 * B.GIB, 48 * B.GIB
+        # The round-0 dataset: 6,743,989 frames, 1,895,988 pieces, d_model 640, a 56 GiB unit.
+        frames, pieces, unit, guard = 6_743_989, 1_895_988, 56 * B.GIB, 48 * B.GIB
         every_slot = W.StateStore.bytes_for(pieces, 8, 640)
         duel = W.StateStore.bytes_for(pieces, 2, 640)
         self.assertEqual(every_slot, 43_683_563_520)   # the store the OOM run held in RAM
