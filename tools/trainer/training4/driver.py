@@ -460,7 +460,8 @@ def main(default_architecture="v4") -> None:
                 grad_window = None
                 if args.passive_grad_window >= 0:
                     from .burn_in import GradWindow, window_mask
-                    grad_window = GradWindow(window_mask(host, args.passive_grad_window), device)
+                    grad_window = GradWindow(window_mask(host, args.passive_grad_window), device,
+                                             entity_counts=host["entity_mask"].sum(-1).reshape(-1).numpy())
                 profile.mark("plan_transfer")
 
                 traj_loss = torch.zeros((), device=device)
