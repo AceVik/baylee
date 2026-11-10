@@ -29,6 +29,7 @@ use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::convert4::RolloutStepSidecar4;
+use baylee_train::deals4::{Deal, DeckSchedule};
 use baylee_train::deckgen::{self, Archetype};
 use baylee_train::features4::{
     CoverageMatrix4, SourceKind4, StepProvenance4, view_only_state_hash,
@@ -60,6 +61,7 @@ mod lookahead;
 mod precision;
 mod random_seat;
 mod seat_players;
+mod select;
 mod shadow;
 mod tactician;
 
@@ -387,6 +389,20 @@ fn main() -> anyhow::Result<()> {
             args.seats
         );
     }
+    args.deck_schedule.check(args.seats, decks.len())?;
+    if let (Some(path), Some(pilots)) = (&args.write_deals, &args.pilot_decks) {
+        let pilots = select::pilot_keys(pilots)?;
+        let selection = select::select(
+            &decks,
+            args.deck_schedule,
+            args.seats,
+            args.deal_offset,
+            args.deals,
+            &pilots,
+        )?;
+        return select::write(path, &selection, decks.len());
+    }
+    let out = args.out.clone().context("--out names the summary")?;
 
     let accepted_deck_keys: Vec<_> = decks.iter().map(|deck| deck.key.clone()).collect();
     let accepted_deck_count = decks.len();
@@ -460,6 +476,10 @@ fn main() -> anyhow::Result<()> {
         if args.inference_batch > 0 {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);
+        }
+        if args.deck_schedule != DeckSchedule::Fixed {
+            // Only another seating names it, so the records of every run before stay as they were.
+            run["deck_schedule"] = json!(args.deck_schedule.name());
         }
         if let Some(search) = &search {
             // Only searched runs name it; convert4 certifies no policy-gradient
@@ -562,6 +582,7 @@ fn main() -> anyhow::Result<()> {
         let shadow_spec = shadow_spec.clone();
         let deals = end_deal;
         let seats = args.seats;
+        let deck_schedule = args.deck_schedule;
         let first_seed = args.first_seed;
         let policy_seed = args.policy_seed;
         let k_steps = args.thinking_steps;
@@ -646,14 +667,11 @@ fn main() -> anyhow::Result<()> {
                     break;
                 }
                 if let Some(ledger) = &attempts { ledger.claim(d, worker_id)?; }
-                let table_idx = (d as usize) / seats;
-                let focal_seat = (d as usize) % seats;
+                let deal = Deal::of(deck_schedule, d, seats, decks_arc.len());
+                let (table_idx, focal_seat) = (deal.table, deal.focal_seat);
                 let seed = first_seed + (table_idx as u64);
-                let mut table_decks = Vec::with_capacity(seats);
-                for s in 0..seats {
-                    let idx = (table_idx * seats + s) % decks_arc.len();
-                    table_decks.push(&decks_arc[idx]);
-                }
+                let table_decks: Vec<&HouseDeck> =
+                    deal.decks.iter().map(|&index| &decks_arc[index]).collect();
                 let mut profiles = vec![opp_profile; seats];
                 for (s, profile) in profiles.iter_mut().enumerate() {
                     if is_net_seat(s, focal_seat, &teams_arc) {
@@ -1037,6 +1055,10 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
+    if args.deck_schedule != DeckSchedule::Fixed {
+        // Only another seating names it, so every summary before reads as it did.
+        summary["deck_schedule"] = json!(args.deck_schedule.name());
+    }
     if let Some(catalog) = &catalog {
         summary["catalog"] = catalog.clone();
         summary["catalog"]["rule_refs_left_out"] = json!(st.rule_refs_left_out);
@@ -1055,10 +1077,10 @@ fn main() -> anyhow::Result<()> {
             "status":"unadmitted_native_collection_only"});
     }
 
-    if let Some(parent) = args.out.parent() {
+    if let Some(parent) = out.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(&args.out, serde_json::to_vec_pretty(&summary)?)?;
+    fs::write(&out, serde_json::to_vec_pretty(&summary)?)?;
     if collection.purpose != collector::Purpose::Evaluation {
         let directory = args.record_out.as_ref().context("collection output")?;
         baylee_train_ops::files::atomic_json(
@@ -1074,7 +1096,7 @@ fn main() -> anyhow::Result<()> {
         eprintln!(
             "[eval4] unadmitted failure-terminal research: {} attempts, summary={}",
             st.deals_completed,
-            args.out.display()
+            out.display()
         );
         return Ok(());
     }

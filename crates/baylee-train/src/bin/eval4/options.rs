@@ -115,6 +115,22 @@ struct Args {
     /// focal seat is a game of its own and nothing is skipped.
     #[arg(long)]
     one_deal_per_game: bool,
+    /// How the decks sit at the tables (`baylee_train::deals4`). `fixed` seats
+    /// deck `(table · seats + seat) mod n`, so with two seats and an even
+    /// number of decks a deck only ever meets one opponent; `round-robin` (two
+    /// seats) moves the opponent on every `n` tables, so that over `2n(n−1)`
+    /// deals every deck pilots against every other once from each seat.
+    #[arg(long, value_enum, default_value_t = DeckSchedule::Fixed)]
+    deck_schedule: DeckSchedule,
+    /// Writes the deals of `--deal-offset`.. `+ --deals` whose net pilots one
+    /// of `--pilot-decks`, as the JSON list `--only-deals` reads, out of the
+    /// decks these same flags select and seat, and exits without playing.
+    #[arg(long, requires = "pilot_decks")]
+    write_deals: Option<PathBuf>,
+    /// `--write-deals`: the decks the net pilots, as their keys separated by
+    /// commas, or `@FILE` holding a JSON list of keys.
+    #[arg(long, requires = "write_deals")]
+    pilot_decks: Option<String>,
     /// Dev only: a raw net may sample at any temperature, below sampler 2's
     /// boundary too, and `--choice-guard` may run above zero. Never for training.
     #[arg(long)]
@@ -218,8 +234,8 @@ struct Args {
     #[arg(long)]
     record_out: Option<PathBuf>,
     /// Output JSON summary file path.
-    #[arg(long)]
-    out: PathBuf,
+    #[arg(long, required_unless_present = "write_deals")]
+    out: Option<PathBuf>,
     /// Worker threads (`0` = all cores).
     #[arg(long, default_value_t = 0)]
     threads: usize,
