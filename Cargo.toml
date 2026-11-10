@@ -350,6 +350,40 @@ debug = "line-tables-only"
 [profile.dev.package."*"]
 debug = false
 
+# The gate's test run (`cargo dev gate`'s `test` step, nextest
+# `--cargo-profile gate`): the dev profile, with the crates the slowest tests
+# spend their time in at opt-level 1. Measured 10.11.2026 on the MacBook: three
+# of the slowest tests ran 3 to 5 times faster (63 s to 14 s), while the same
+# setting in the dev profile made every rebuild 30 to 35 s slower. So it is
+# the gate's alone, in a target directory of its own, and a developer's
+# rebuild stays quick.
+[profile.gate]
+inherits = "dev"
+
+[profile.gate.package.baylee-engine]
+opt-level = 1
+
+[profile.gate.package.baylee-core]
+opt-level = 1
+
+[profile.gate.package.baylee-cards-dsl]
+opt-level = 1
+
+[profile.gate.package.baylee-ai]
+opt-level = 1
+
+[profile.gate.package.baylee-gamehost]
+opt-level = 1
+
+[profile.gate.package.baylee-client-core]
+opt-level = 1
+
+[profile.gate.package.baylee-client]
+opt-level = 1
+
+[profile.gate.package.baylee-train]
+opt-level = 1
+
 # The engine hashes its state on every step, and unoptimised xxh3 was the top
 # of the debug profile of the slowest test. A dependency, so it is compiled once.
 [profile.dev.package.xxhash-rust]

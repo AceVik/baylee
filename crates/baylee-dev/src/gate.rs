@@ -40,6 +40,10 @@ pub fn full(all: bool) -> Result<i32> {
     let mut test = cargo_with([
         "nextest",
         "run",
+        // The dev profile with the hot crates at opt-level 1 (`Cargo.toml`
+        // `[profile.gate]`): the slowest tests run 3 to 5 times faster.
+        "--cargo-profile",
+        "gate",
         "--workspace",
         // Not `--all-targets`: nextest starts a bench target with `--bench`,
         // so criterion measures every bench for ten seconds as a "test".
