@@ -67,6 +67,8 @@ pub(super) fn answer(
     let legal = exact_action(window, step, &built).is_some();
     let (played, drawn) = choose(&built, legal, confidence, threshold, &net);
     let target = to_target(window, step, &played)?;
+    // The play path's cost; a relabelling read below is not part of it.
+    let micros = elapsed_micros(started);
     // DAgger: the layer's answer at the state the student reached, as the
     // label; it is read, never played.
     let (rules, fired) = label.map_or((None, Vec::new()), |rules| {
@@ -90,7 +92,7 @@ pub(super) fn answer(
         played,
         probability: 1.0,
         drawn,
-        micros: elapsed_micros(started),
+        micros,
         scores: None,
         groups: unit_groups(window, step.cands),
         rows_read_rules: Some(false),
