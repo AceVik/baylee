@@ -6848,6 +6848,8 @@ channels:
             }
         description: "Envelope case `choice_request`, only at the end: `pending` is a `Pending` of `GameOver` as `baylee_core::wire` writes it."
         x-protobuf-message: baylee.v1.Envelope
+      Spectators:
+        $ref: "#/components/messages/Spectators"
       Curtain:
         name: Curtain
         contentType: application/x-protobuf
@@ -7754,7 +7756,9 @@ operations:
       sent as the socket opens and again, whole, whenever anything in the lobby
       changes (a table opened or closed, a chair taken, freed, arranged or
       readied, a game started or ended, the first engine agent arriving or the
-      last one leaving). It is the object `GET /lobby/games` answers for the
+      last one leaving, an account coming online or going, told at most once a
+      second). A page identical to the one this socket was sent last is not
+      sent again. It is the object `GET /lobby/games` answers for the
       same query, rendered for the caller. A reader that falls behind is sent
       the newest page, never the ones it missed. A change of search or page is
       a new subscription, so close the socket and open another with the new
@@ -7920,6 +7924,7 @@ operations:
     - $ref: "#/channels/watch/messages/GameStaticMsg"
     - $ref: "#/channels/watch/messages/StateDelta"
     - $ref: "#/channels/watch/messages/ChoiceRequest"
+    - $ref: "#/channels/watch/messages/Spectators"
     - $ref: "#/channels/watch/messages/Curtain"
     - $ref: "#/channels/watch/messages/GameClosed"
     summary: A spectator's socket
@@ -28107,7 +28112,7 @@ components:
             // The house's level (`steady`, …), for `KIND_HOUSE`.
             string level = 5;
           }
-      description: "Envelope case `spectators`: how many people watch the table (`count`), sent when it moves and when the seat attaches."
+      description: "Envelope case `spectators`: how many people watch the table (`count`), sent when it moves and when the socket attaches."
       x-protobuf-message: baylee.v1.Envelope
     SpectatorsChanged:
       name: SpectatorsChanged
