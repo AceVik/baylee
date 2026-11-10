@@ -1161,6 +1161,474 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-cards-1993"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1994"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1995"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1996"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1997"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1998"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1999"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2000"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2001"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2002"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2003"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2004"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2005"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2006"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2007"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2008"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2009"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2010"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2011"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2012"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2013"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2014"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2015"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2016"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2017"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2018"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2019"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2020"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q1"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q2"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q3"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q4"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
 name = "baylee-cards-base"
 version = "0.1.0-beta.9c"
 dependencies = [
@@ -1180,6 +1648,7 @@ dependencies = [
  "heck 0.5.0",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "ureq",
 ]
@@ -1203,6 +1672,58 @@ dependencies = [
 name = "baylee-cards-pool"
 version = "0.1.0-beta.9c"
 dependencies = [
+ "baylee-cards-1993",
+ "baylee-cards-1994",
+ "baylee-cards-1995",
+ "baylee-cards-1996",
+ "baylee-cards-1997",
+ "baylee-cards-1998",
+ "baylee-cards-1999",
+ "baylee-cards-2000",
+ "baylee-cards-2001",
+ "baylee-cards-2002",
+ "baylee-cards-2003",
+ "baylee-cards-2004",
+ "baylee-cards-2005",
+ "baylee-cards-2006",
+ "baylee-cards-2007",
+ "baylee-cards-2008",
+ "baylee-cards-2009",
+ "baylee-cards-2010",
+ "baylee-cards-2011",
+ "baylee-cards-2012",
+ "baylee-cards-2013",
+ "baylee-cards-2014",
+ "baylee-cards-2015",
+ "baylee-cards-2016",
+ "baylee-cards-2017",
+ "baylee-cards-2018",
+ "baylee-cards-2019",
+ "baylee-cards-2020",
+ "baylee-cards-2021-q1",
+ "baylee-cards-2021-q2",
+ "baylee-cards-2021-q3",
+ "baylee-cards-2021-q4",
+ "baylee-cards-2022-q1",
+ "baylee-cards-2022-q2",
+ "baylee-cards-2022-q3",
+ "baylee-cards-2022-q4",
+ "baylee-cards-2023-q1",
+ "baylee-cards-2023-q2",
+ "baylee-cards-2023-q3",
+ "baylee-cards-2023-q4",
+ "baylee-cards-2024-q1",
+ "baylee-cards-2024-q2",
+ "baylee-cards-2024-q3",
+ "baylee-cards-2024-q4",
+ "baylee-cards-2025-q1",
+ "baylee-cards-2025-q2",
+ "baylee-cards-2025-q3",
+ "baylee-cards-2025-q4",
+ "baylee-cards-2026-q1",
+ "baylee-cards-2026-q2",
+ "baylee-cards-2026-q3",
+ "baylee-cards-2026-q4",
  "baylee-cards-base",
  "baylee-cards-dsl",
  "baylee-core",

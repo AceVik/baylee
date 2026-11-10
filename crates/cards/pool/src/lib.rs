@@ -1,6 +1,8 @@
-//! baylee-cards-pool — the card files and the registry's tables.
+//! baylee-cards-pool — the registry's tables over every card.
 //!
-//! Only programs depend on this crate: a binary, a test binary, a bench.
+//! The card files compile in one crate per group of `crates/cards/sets`
+//! (`baylee-cards-1993`, `baylee-cards-2021-q1`, …), which this crate depends
+//! on and its generated tables name. Only programs depend on this crate: a binary, a test binary, a bench.
 //! Libraries read the registry through `baylee_cards_base::generated`, which
 //! the linker connects to the statics exported here, so a changed card
 //! rebuilds this crate and relinks the programs that hold it, and no library
@@ -11,14 +13,9 @@
 
 #![warn(missing_docs)]
 
-pub use baylee_cards_base::{filters, generated_tokens, tokens};
 use baylee_cards_dsl::CardDef;
 
-/// Generated: one module per card.
-#[path = "../../src/cards/mod.rs"]
-pub mod cards;
 /// Generated: registry tables.
-#[path = "../../src/generated.rs"]
 mod generated;
 
 /// What `baylee_cards_base::generated::ALL` reads.

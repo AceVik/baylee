@@ -768,7 +768,7 @@ Row {{ index: CardIndex::new(2), oracle_id: "{OID3}", constant: "C", set: "zzq",
             "// 1 card first printed in `zzr`.".into(),
         ),
         (
-            "crates/cards/src/cards/a.rs".into(),
+            "crates/cards/sets/1993/src/lea/a.rs".into(),
             format!(
                 r#"card!( oracle_id = "{OID1}", scryfall_id = "{IMG}", coverage = Coverage::Partial(concat!("first ", "second")) );"#
             ),
@@ -833,11 +833,11 @@ fn catalog_rejects_core_counts_missing_headers_and_extra_sets() {
 #[test]
 fn catalog_rejects_duplicate_and_stray_pool_cards() {
     let mut f = sources();
-    let card = f["crates/cards/src/cards/a.rs"].clone();
-    f.insert("crates/cards/src/cards/b.rs".into(), card.clone());
+    let card = f["crates/cards/sets/1993/src/lea/a.rs"].clone();
+    f.insert("crates/cards/sets/1993/src/lea/b.rs".into(), card.clone());
     assert!(catalog::parse(&f).is_err());
     f.insert(
-        "crates/cards/src/cards/b.rs".into(),
+        "crates/cards/sets/1993/src/lea/b.rs".into(),
         card.replace(OID1, OTHER),
     );
     assert!(catalog::parse(&f).is_err());
@@ -985,7 +985,7 @@ fn test_the_card_status_is_fresh_until_an_input_changes() {
     git(&["commit", "-q", "-m", "status and an unrelated file"]);
     card_status::fresh(root, "HEAD").expect("no input changed");
 
-    put("crates/cards/src/cards/a.rs", "// b\n");
+    put("crates/cards/sets/a.rs", "// b\n");
     git(&["commit", "-qam", "a card changed"]);
     let stale = card_status::fresh(root, "HEAD").unwrap_err().to_string();
     assert!(stale.contains("1 card file(s) changed"), "{stale}");
