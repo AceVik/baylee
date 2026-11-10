@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::*;
 use crate::netplay4::tactician::tests::on_a_table::{D, ME, drive, prior, table};
 use crate::netplay4::tactician::tests_s1::windows;
-use crate::netplay4::tactician::{Drawn4, Tactician4, TacticianMode4};
+use crate::netplay4::tactician::{Drawn4, Tactician4, TacticianMode4, rules_answer_fired};
 use crate::netplay4::{ChoiceGuard4, NetPlayer4, StepEmbeddings4, TacticRules4, TacticalParts};
 
 /// What the seat plays at this question: through the tactical layer with
@@ -93,6 +93,27 @@ fn imitation_without_exploration_plays_exactly_the_layer_with_its_groups() {
                 assert_eq!(record.drawn, Drawn4::Rules);
                 assert_eq!(record.played, record.rules);
                 assert_eq!(record.rules.len(), units);
+                // DAgger reads the same answer on copies, where the layer
+                // does not play.
+                let rng = Rng::new(31);
+                let step = crate::netplay4::tactician::TacticianStep {
+                    cands: &cands,
+                    view: &view,
+                    pending: &pending,
+                    cand_logits: &logits,
+                    pair_logits: &logits,
+                    value: 0.4,
+                    embeddings: Some(&embeddings),
+                    active_source: None,
+                    rng: &rng,
+                };
+                let bundle = TacticRules4::parse(baylee_train_ops::measured::RULE_GROUPS).unwrap();
+                let (read, fired) = rules_answer_fired(window, &step, &logits[..units], bundle);
+                assert_eq!(read, record.rules, "{window:?}");
+                // The groups the record attributes its label to are those
+                // that changed something as the layer played.
+                let fired: Vec<String> = fired.iter().map(|&g| g.to_owned()).collect();
+                assert_eq!(record.fired, fired, "{window:?}");
                 session.act_slice(ME, layer.0, 0).unwrap();
                 met += 1;
                 if met >= 6 {

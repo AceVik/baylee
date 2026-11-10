@@ -25,7 +25,8 @@ def main(argv=None):
     tr.add_argument("--width", type=int, default=512)
     tr.add_argument("--layers", type=int, default=4)
     tr.add_argument("--heads", type=int, default=8)
-    tr.add_argument("--passes", type=int, default=4)
+    tr.add_argument("--passes", type=int, default=1,
+                    help="refinement passes T; 1 unless a measurement shows more help")
     tr.add_argument("--ffn-mult", type=int, default=4)
     tr.add_argument("--dropout", type=float, default=0.0)
     tr.add_argument("--through-passes", action="store_true",
@@ -48,12 +49,18 @@ def main(argv=None):
     tr.add_argument("--parity-rows", type=int, default=64,
                     help="held-out decisions every export is checked on")
     tr.add_argument("--export-passes", type=lambda s: [int(x) for x in s.split(",") if x],
-                    default=[1, 2, 3, 4], help="also export at these T (passes/T<k>)")
+                    default=[1], help="also export at these T (passes/T<k>)")
     tr.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     tr.add_argument("--bf16", action="store_true", help="autocast the forward to bfloat16 on CUDA")
     tr.add_argument("--data-on-device", action="store_true",
                     help="keep the records on the training device")
     tr.add_argument("--store-fp16", action="store_true", help="keep the records in float16")
+    tr.add_argument("--threads", type=int, default=0, help="CPU threads for torch (0: its own)")
+    tr.add_argument("--zero-parts", default="",
+                    help="ablation: row parts read as zero, a comma list of state, unit, look")
+    tr.add_argument("--stage1-probe", action="store_true",
+                    help="the offline probe: fit stage-1 outcome records (tactician_records_v1) "
+                         "to their rules answer, its columns zeroed; reports only, no export")
 
     ex = sub.add_parser("export", help="export a trained net.pt at T passes")
     ex.add_argument("--checkpoint", required=True)

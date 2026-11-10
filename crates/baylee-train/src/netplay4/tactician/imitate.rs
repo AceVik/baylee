@@ -71,6 +71,7 @@ pub(super) fn answer(
     layer: &TeacherTarget4,
     epsilon: f64,
     draw: f64,
+    fired: &[&'static str],
     prior: &look::LookPrior4,
 ) -> anyhow::Result<(TeacherTarget4, TacticianRecord4)> {
     let &Question {
@@ -121,6 +122,7 @@ pub(super) fn answer(
         built: None,
         confidence: None,
         net_micros: None,
+        fired: fired.iter().map(|&name| name.to_owned()).collect(),
         state: state.to_vec(),
         units: unit_embeddings.to_vec(),
         rows,

@@ -198,12 +198,14 @@ fn main() -> anyhow::Result<()> {
             || args.search.is_some()
             || args.shadow_teacher.is_some()
             || args.random_policy
-            || (collection.opponent_path.is_some() && args.tactician_imitate.is_none())
+            || (collection.opponent_path.is_some()
+                && args.tactician_imitate.is_none()
+                && args.tactician_relabel.is_none())
             || args.decks_manifest.is_none()
             || collection.purpose != collector::Purpose::Evaluation)
     {
         bail!(
-            "--tactician-windows plays the seat under test against the house (an imitating \
+            "--tactician-windows plays the seat under test against the house (a labelling \
              collection also against itself): --raw-policy at temperature 0, two seats, \
              --decks-manifest, no search, shadow, random seat or collection purpose; its records \
              train only the tactician"
@@ -219,11 +221,14 @@ fn main() -> anyhow::Result<()> {
              tactical (the layer plays the windows' heads)"
         );
     }
-    if args.tactician_imitate.is_some()
+    if (args.tactician_imitate.is_some() || args.tactician_relabel.is_some())
         && collection.opponent_path.is_some()
         && collection.opponent_role != collector::OpponentRole::SelfPlay
     {
-        bail!("--tactician-imitate plays against the house or a self-play copy of the seat");
+        bail!(
+            "--tactician-imitate and --tactician-relabel play against the house or a self-play \
+             copy of the seat"
+        );
     }
     let dev_arm = args.dev_free_temperature || args.menu_payable;
     if dev_arm
@@ -312,6 +317,7 @@ fn main() -> anyhow::Result<()> {
                 head: args.tactician.as_deref(),
                 margin: args.tactician_margin,
                 confidence: args.tactician_confidence,
+                relabel: args.tactician_relabel.as_deref(),
                 out: args.tactician_out.as_deref(),
             },
             &train,
@@ -476,7 +482,7 @@ fn main() -> anyhow::Result<()> {
         }
         if let Some(setup) = &tactician_setup {
             run["tactician"] = setup.metadata();
-            if setup.imitates() {
+            if setup.keeps_labels() {
                 // convert4 and every other reader of a run refuse this word.
                 run["labels"] =
                     json!(baylee_train::netplay4::tactician::imitate::IMITATION_CONTRACT);
@@ -511,7 +517,7 @@ fn main() -> anyhow::Result<()> {
     }
     if let Some(setup) = &tactician_setup {
         setup.write_run(&json!({
-            "run": "eval4-tactician-imitation",
+            "run": "eval4-tactician-labels",
             "model": args.model, "model_identity": model_identity,
             "evaluator_build": baylee_build::short(),
             "evaluator_revision": baylee_build::COMMIT, "evaluator_dirty": baylee_build::DIRTY,

@@ -25,6 +25,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use baylee_train::netplay4::TacticRules4;
 use baylee_train::netplay4::tactician::head::{self, TacticianHead4};
 use baylee_train::netplay4::tactician::imitate::IMITATION_CONTRACT;
 use baylee_train::netplay4::tactician::look::LookPrior4;
@@ -50,6 +51,9 @@ pub(super) struct TacticianArgs<'a> {
     pub(super) head: Option<&'a Path>,
     pub(super) margin: Option<f32>,
     pub(super) confidence: Option<f32>,
+    /// `--tactician-relabel`: `DAgger`, the layer's answer under these groups
+    /// kept as the label where the student plays.
+    pub(super) relabel: Option<&'a str>,
     pub(super) out: Option<&'a Path>,
 }
 
@@ -60,6 +64,8 @@ pub(super) struct TacticianSetup {
     mode: TacticianMode4,
     prior: Arc<LookPrior4>,
     out: Option<PathBuf>,
+    /// The rule groups a relabelling run labels with, as given.
+    relabel: Option<String>,
 }
 
 impl TacticianSetup {
@@ -79,6 +85,7 @@ impl TacticianSetup {
             head,
             margin,
             confidence,
+            relabel,
             out,
         } = *args;
         let Some(windows) = windows else {
@@ -88,13 +95,19 @@ impl TacticianSetup {
                     && head.is_none()
                     && out.is_none()
                     && margin.is_none()
-                    && confidence.is_none(),
+                    && confidence.is_none()
+                    && relabel.is_none(),
                 "--tactician-explore, --tactician-imitate, --tactician, --tactician-margin, \
-                 --tactician-confidence and --tactician-out need --tactician-windows"
+                 --tactician-confidence, --tactician-relabel and --tactician-out need \
+                 --tactician-windows"
             );
             return Ok(None);
         };
         let windows = Window4::parse_list(windows)?;
+        anyhow::ensure!(
+            relabel.is_none() || (head.is_some() && out.is_some()),
+            "--tactician-relabel needs a tactician_head_v2 net (--tactician) and --tactician-out"
+        );
         let mode = match (explore, imitate, head) {
             (Some(epsilon), None, None) => {
                 anyhow::ensure!(
@@ -118,7 +131,10 @@ impl TacticianSetup {
                 );
                 TacticianMode4::Imitate { epsilon }
             }
-            (None, None, Some(dir)) => play_mode(dir, margin, confidence)?,
+            (None, None, Some(dir)) => {
+                let label = relabel.map(TacticRules4::parse).transpose()?;
+                play_mode(dir, margin, confidence, label)?
+            }
             _ => anyhow::bail!(
                 "--tactician-windows needs exactly one of --tactician-explore, \
                  --tactician-imitate and --tactician"
@@ -137,20 +153,27 @@ impl TacticianSetup {
             mode,
             prior: Arc::new(prior),
             out: out.map(Path::to_path_buf),
+            relabel: relabel.map(str::to_owned),
         }))
     }
 
-    /// Whether the seat imitates the tactical layer.
-    pub(super) const fn imitates(&self) -> bool {
-        self.mode.imitates()
+    /// Whether the records keep the tactical layer's answers as labels
+    /// (imitation, or `DAgger` relabelling).
+    pub(super) const fn keeps_labels(&self) -> bool {
+        matches!(
+            self.mode,
+            TacticianMode4::Imitate { .. } | TacticianMode4::Build { label: Some(_), .. }
+        )
     }
 
     /// The contract of the records this run keeps.
     pub(super) const fn record_contract(&self) -> &'static str {
+        if self.keeps_labels() {
+            return IMITATION_CONTRACT;
+        }
         match &self.mode {
-            TacticianMode4::Explore { .. } | TacticianMode4::Play { .. } => RECORD_CONTRACT,
-            TacticianMode4::Imitate { .. } => IMITATION_CONTRACT,
             TacticianMode4::Build { .. } => BUILT_CONTRACT,
+            _ => RECORD_CONTRACT,
         }
     }
 
@@ -183,20 +206,27 @@ impl TacticianSetup {
             TacticianMode4::Play { head, margin } => {
                 json!({"play": {"head": head.identity(), "margin": margin}})
             }
-            TacticianMode4::Build { net, threshold } => json!({"build": {"net": net.identity(),
-                "threshold": threshold, "passes": net.passes(), "fallback": "the net's answer"}}),
+            TacticianMode4::Build { net, threshold, .. } => json!({"build": {
+                "net": net.identity(), "threshold": threshold, "passes": net.passes(),
+                "fallback": if *threshold > 0.0 { "the net's answer below the threshold" }
+                    else { "none: the bare tactician plays" },
+                "relabel": self.relabel.as_ref().map(|groups| json!({
+                    "label": "the tactical layer's answer at the student's state, never played",
+                    "tactics_rules": groups})),
+            }}),
         };
         json!({"windows": windows, "mode": mode, "prior": self.prior.summary(),
             "records": self.out, "record_contract": self.record_contract(), "row_tail": ROW_TAIL})
     }
 
-    /// Writes the record directory's own `run.json` for an imitating run:
-    /// its contract, what it may train, and the run's `metadata`.
+    /// Writes the record directory's own `run.json` for a run that keeps the
+    /// layer's answers as labels: its contract, what it may train, and the
+    /// run's `metadata`.
     ///
     /// # Errors
     /// I/O.
     pub(super) fn write_run(&self, run: &Value) -> anyhow::Result<()> {
-        let Some(out) = self.out.as_deref().filter(|_| self.imitates()) else {
+        let Some(out) = self.out.as_deref().filter(|_| self.keeps_labels()) else {
             return Ok(());
         };
         let marked = json!({
@@ -211,11 +241,13 @@ impl TacticianSetup {
     }
 }
 
-/// The play mode a trained head's directory names.
+/// The play mode a trained head's directory names. A `tactician_head_v2` net
+/// plays bare unless `confidence` sets a threshold.
 fn play_mode(
     dir: &Path,
     margin: Option<f32>,
     confidence: Option<f32>,
+    label: Option<TacticRules4>,
 ) -> anyhow::Result<TacticianMode4> {
     let contract = head::contract_of(dir)?;
     if contract == NET_CONTRACT {
@@ -225,15 +257,15 @@ fn play_mode(
             head::HEAD_CONTRACT
         );
         let net = TacticianNet4::load(dir, NET_SESSIONS)?;
-        let threshold = confidence.unwrap_or_else(|| net.threshold());
         return Ok(TacticianMode4::Build {
             net: Arc::new(net),
-            threshold,
+            threshold: confidence.unwrap_or(0.0),
+            label,
         });
     }
     anyhow::ensure!(
-        confidence.is_none(),
-        "--tactician-confidence is for a {NET_CONTRACT} net"
+        confidence.is_none() && label.is_none(),
+        "--tactician-confidence and --tactician-relabel are for a {NET_CONTRACT} net"
     );
     let head = TacticianHead4::load(dir)?;
     let margin = match margin {
@@ -391,6 +423,7 @@ mod tests {
             built: None,
             confidence: None,
             net_micros: None,
+            fired: vec!["trade".into()],
             state: (0..d).map(|i| i as f32).collect(),
             units: (0..units * d).map(|i| 100.0 + i as f32).collect(),
             rows: (0..(units + 1) * ROW_TAIL).map(|i| -(i as f32)).collect(),
