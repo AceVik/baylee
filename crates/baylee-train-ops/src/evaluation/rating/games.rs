@@ -7,13 +7,14 @@ use crate::measured::RULE_GROUPS;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// One game, from the player's side.
 #[derive(Clone, Debug)]
 pub(super) struct Game {
     /// 1 a win, ½ a draw or a deal stopped at its answer cap (as `eval4`'s
-    /// `net_utility` counts one), 0 a loss.
+    /// `net_utility` counts one), 0 a loss; the mean where seats of one team
+    /// replayed the same game.
     pub score: f64,
     /// The deal it belongs to within its match: an `eval4` table with every
     /// seat rotation of it, or a ladder's deck pair with both seatings. The
@@ -21,6 +22,9 @@ pub(super) struct Game {
     pub deal: usize,
     /// Every seat's deck. The bootstrap by deck draws these.
     pub decks: Vec<String>,
+    /// An `eval4` game's identity across inputs, `seed/table/side`: two
+    /// inputs of one pair holding the same are one measurement twice.
+    pub key: Option<String>,
 }
 
 /// One input: the games two named players played in it.
@@ -37,10 +41,16 @@ pub(super) struct Match {
     pub games: Vec<Game>,
     /// Distinct deals among `games`.
     pub deals: usize,
+    /// Rows the input holds: an `eval4` deal per focal seat, a ladder game.
+    pub rows: usize,
     /// Games stopped at their answer cap, counted one half.
     pub caps: usize,
     /// What the input itself says of its sides, to check the spec's names by.
     pub input: Value,
+    /// What has to hold for it to be a game of these two players.
+    pub assumptions: Vec<String>,
+    /// Which `first_of` candidate was read, when the entry has them.
+    pub chosen: Value,
     pub note: Option<String>,
 }
 
@@ -48,8 +58,33 @@ pub(super) struct Match {
 struct Read {
     format: String,
     games: Vec<Game>,
+    rows: usize,
     caps: usize,
     input: Value,
+}
+
+/// The input an entry reads: its path, whether it is a ladder root, what it
+/// assumes beside the entry, and which `first_of` candidate it is.
+fn chosen(entry: &MatchSpec) -> Result<(PathBuf, bool, Vec<String>, Value)> {
+    Ok(match (&entry.file, &entry.ladder, &entry.first_of) {
+        (Some(file), None, None) => (file.clone(), false, Vec::new(), Value::Null),
+        (None, Some(root), None) => (root.clone(), true, Vec::new(), Value::Null),
+        (None, None, Some(candidates)) => {
+            let (index, candidate) = candidates
+                .iter()
+                .enumerate()
+                .find(|(_, candidate)| candidate.file.exists())
+                .context("no `first_of` candidate exists")?;
+            let skipped: Vec<_> = candidates[..index].iter().map(|c| &c.file).collect();
+            (
+                candidate.file.clone(),
+                false,
+                candidate.assumption.iter().cloned().collect(),
+                json!({"candidate": index + 1, "of": candidates.len(), "missing": skipped}),
+            )
+        }
+        _ => bail!("a match names one input, `file`, `ladder` or `first_of`"),
+    })
 }
 
 /// Reads the input a spec entry names.
@@ -58,11 +93,11 @@ struct Read {
 /// Rejects unreadable inputs, inputs without games and a format other than the
 /// entry's `format`.
 pub(super) fn read(entry: &MatchSpec) -> Result<Match> {
-    let source = entry.source().context("a match needs an input")?;
-    let read = match (&entry.file, &entry.ladder) {
-        (Some(file), None) => eval(file),
-        (None, Some(root)) => ladder(root, entry.profile.as_deref(), entry.mode.as_deref()),
-        _ => bail!("a match names one input, `file` or `ladder`"),
+    let (source, is_ladder, extra, chosen) = chosen(entry)?;
+    let read = if is_ladder {
+        ladder(&source, entry.profile.as_deref(), entry.mode.as_deref())
+    } else {
+        eval(&source)
     }
     .with_context(|| format!("input {}", source.display()))?;
     if let Some(format) = &entry.format {
@@ -81,18 +116,17 @@ pub(super) fn read(entry: &MatchSpec) -> Result<Match> {
         .unwrap_or(0);
     Ok(Match {
         source: source.display().to_string(),
-        kind: if entry.file.is_some() {
-            "eval4"
-        } else {
-            "ladder4"
-        },
+        kind: if is_ladder { "ladder4" } else { "eval4" },
         player: entry.player.clone(),
         opponent: entry.opponent.clone(),
         format: read.format,
         games: read.games,
         deals,
+        rows: read.rows,
         caps: read.caps,
         input: read.input,
+        assumptions: entry.assumption.iter().cloned().chain(extra).collect(),
+        chosen,
         note: entry.note.clone(),
     })
 }
@@ -175,16 +209,28 @@ fn describe(summary: &Value) -> Value {
         "seats": summary["seats"], "teams": summary["teams"]})
 }
 
-/// Every deal of an `eval4` summary, the deals of one table kept together.
+/// Every game of an `eval4` summary: one per table and side the net held.
+/// In a team format each seat of the net's team is a focal seat of its own
+/// row, and those rows replay one game (they differ only where a seat's own
+/// random stream does), so they are one game scored as their mean. The games
+/// of one table share a deal.
 fn eval(path: &Path) -> Result<Read> {
     let summary = read_json(path)?;
     let format = format_of(&summary)?;
+    let teams: Vec<u64> = summary["teams"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|team| team.as_u64().context("a seat without a team"))
+        .collect::<Result<_>>()?;
     let rows = summary["deal_details"]
         .as_array()
         .context("summary without deal_details")?;
     ensure!(!rows.is_empty(), "summary without deals");
     let mut tables = BTreeMap::new();
-    let mut games = Vec::with_capacity(rows.len());
+    let mut decks = Vec::new();
+    // (deal, side) -> (seed, table, summed score, rows)
+    let mut sides = BTreeMap::<(usize, u64), (u64, u64, f64, usize)>::new();
     let mut caps = 0;
     for row in rows {
         let score = number(row, "net_utility")?;
@@ -193,15 +239,38 @@ fn eval(path: &Path) -> Result<Read> {
             "net_utility {score} outside [0, 1]"
         );
         caps += usize::from(flag(row, "net_capped")?);
-        let key = case_key(row, false)?;
-        let decks = key.2.clone();
+        let key = case_key(row, true)?;
+        let focal = key.3;
+        let side = if teams.is_empty() {
+            focal
+        } else {
+            *teams
+                .get(usize::try_from(focal)?)
+                .context("focal seat outside the teams")?
+        };
+        let (table, seed) = (key.0, key.1);
         let next = tables.len();
-        let deal = *tables.entry(key).or_insert(next);
-        games.push(Game { score, deal, decks });
+        let deal = *tables.entry((key.0, key.1, key.2.clone())).or_insert(next);
+        if deal == decks.len() {
+            decks.push(key.2);
+        }
+        let entry = sides.entry((deal, side)).or_insert((seed, table, 0.0, 0));
+        entry.2 += score;
+        entry.3 += 1;
     }
+    let games = sides
+        .into_iter()
+        .map(|((deal, side), (seed, table, sum, count))| Game {
+            score: sum / count as f64,
+            deal,
+            decks: decks[deal].clone(),
+            key: Some(format!("{seed}/{table}/{side}")),
+        })
+        .collect();
     Ok(Read {
         format,
         games,
+        rows: rows.len(),
         caps,
         input: describe(&summary),
     })
@@ -248,7 +317,12 @@ fn ladder(root: &Path, profile: Option<&str>, mode: Option<&str>) -> Result<Read
         pair.sort();
         let next = pairs.len();
         let deal = *pairs.entry(pair).or_insert(next);
-        games.push(Game { score, deal, decks });
+        games.push(Game {
+            score,
+            deal,
+            decks,
+            key: None,
+        });
     }
     ensure!(!games.is_empty(), "no clean game");
     let (profile, mode) = arms.into_iter().next().context("no arm")?;
@@ -256,6 +330,7 @@ fn ladder(root: &Path, profile: Option<&str>, mode: Option<&str>) -> Result<Read
     Ok(Read {
         format: "1v1".to_owned(),
         games,
+        rows: chosen.len(),
         caps: 0,
         input: json!({"player": format!("net {mode}"), "opponent": profile,
             "scheduled": chosen.len(), "lost_before_play": lost, "house_finished": house}),
