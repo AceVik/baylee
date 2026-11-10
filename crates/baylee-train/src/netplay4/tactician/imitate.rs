@@ -32,7 +32,7 @@ use crate::features4::TeacherTarget4;
 /// A mask of another size than the question's units.
 fn layer_mask(window: Window4, units: usize, layer: &TeacherTarget4) -> anyhow::Result<Vec<u8>> {
     match window {
-        Window4::Target => {
+        Window4::Target | Window4::Priority => {
             let index = usize::from(layer.single_idx);
             anyhow::ensure!(
                 index < units,

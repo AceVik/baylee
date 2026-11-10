@@ -56,8 +56,12 @@ def main(argv=None):
                     help="keep the records on the training device")
     tr.add_argument("--store-fp16", action="store_true", help="keep the records in float16")
     tr.add_argument("--threads", type=int, default=0, help="CPU threads for torch (0: its own)")
+    tr.add_argument("--windows", default="",
+                    help="fit and report only these windows (comma list; default every one)")
+    tr.add_argument("--no-export", action="store_true", help="report only; export nothing")
     tr.add_argument("--zero-parts", default="",
-                    help="ablation: row parts read as zero, a comma list of state, unit, look")
+                    help="ablation: row parts read as zero, a comma list of state, unit, look "
+                         "(look columns 0-99), prior (look 0-24), facts (look 100-111)")
     tr.add_argument("--stage1-probe", action="store_true",
                     help="the offline probe: fit stage-1 outcome records (tactician_records_v1) "
                          "to their rules answer, its columns zeroed; reports only, no export")

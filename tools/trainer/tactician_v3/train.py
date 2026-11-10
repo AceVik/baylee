@@ -17,6 +17,7 @@ tau, whose best tau becomes the threshold the seat plays with.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import math
@@ -28,7 +29,8 @@ import torch
 import torch.nn.functional as F
 
 from .model import NEG, Config, TacticianV3, decode, exact
-from .records import (ATTACK, BLOCK, RECORD_CONTRACT, ROW_TAIL, STAGE1_CONTRACT, TARGET,
+from .records import (ATTACK, BLOCK, PRIORITY, RECORD_CONTRACT, ROW_TAIL, STAGE1_CONTRACT,
+                      TARGET, ZERO_PARTS,
                       WINDOWS, read_records)
 
 CONTRACT = "tactician_head_v2"
@@ -70,7 +72,7 @@ def pass_losses(logits, confidence, batch, group_windows):
     per_set = bce.sum(dim=1) / umf.sum(dim=1).clamp(min=1.0)
     masked = logits.masked_fill(~um, NEG)
     target_ce = F.cross_entropy(masked, labels.argmax(dim=1), reduction="none")
-    is_target = (window == TARGET).to(logits.dtype)
+    is_target = ((window == TARGET) | (window == PRIORITY)).to(logits.dtype)
     unit_loss = (1.0 - is_target) * per_set + is_target * target_ce
     if group_windows:
         use = torch.zeros_like(is_target)
@@ -171,9 +173,14 @@ def evaluate(net, store, index, batch_size, device, passes, group_windows):
             sel = np.array([(name in groups) if name != "none" else not groups
                             for groups in fired], dtype=bool)
             by_group_differ[name] = reading_of(sel & differ, *parts)
+        # Per kind of decision (the window, or at priority what R did).
+        kinds = [store.kinds[i] for i in index]
+        by_kind_differ = {name: reading_of(np.array([k == name for k in kinds]) & differ, *parts)
+                          for name in sorted(set(kinds))}
         report["passes"].append(dict(
             t=t + 1, loss=reading["loss"] / max(decisions, 1), by_window=by_window,
             by_window_differ=by_window_differ, by_group_differ=by_group_differ,
+            by_kind_differ=by_kind_differ,
             calibration=calibration(conf, hit), thresholds=curve,
             threshold=best_threshold(curve)))
     return report
@@ -249,7 +256,9 @@ def split_held_out(store, held_idx, held_out_mod):
     return held_idx[select], held_idx[~select]
 
 
-def train(args):
+def train(args, store=None):
+    """Fits, reports and (unless a probe) exports one tactician; `store` reuses
+    records already read (the probe fits several feature sets on one read)."""
     from .export import export_dir
 
     out = Path(args.out)
@@ -261,8 +270,16 @@ def train(args):
     if args.threads:
         torch.set_num_threads(args.threads)
     started = time.time()
-    store = read_records(args.records, stage1_probe=args.stage1_probe)
+    store = store if store is not None else read_records(args.records,
+                                                         stage1_probe=args.stage1_probe)
     train_idx, held_idx = store.split(args.held_out_mod)
+    windows = [w for w in getattr(args, "windows", "").split(",") if w]
+    if windows:
+        unknown = set(windows) - set(WINDOWS)
+        if unknown:
+            raise ValueError(f"no window {sorted(unknown)}")
+        keep = np.isin(store.window.cpu().numpy(), [WINDOWS.index(w) for w in windows])
+        train_idx, held_idx = train_idx[keep[train_idx]], held_idx[keep[held_idx]]
     select_idx, report_idx = split_held_out(store, held_idx, args.held_out_mod)
     if len(train_idx) == 0 or len(select_idx) == 0 or len(report_idx) == 0:
         raise ValueError("a training split and both held-out halves are needed")
@@ -272,9 +289,9 @@ def train(args):
     store = store.to(device if args.data_on_device else "cpu",
                      torch.float16 if args.store_fp16 else None)
     parts = tuple(p for p in getattr(args, "zero_parts", "").split(",") if p)
-    if set(parts) - {"state", "unit", "look"}:
-        raise ValueError(f"--zero-parts names state, unit or look, not {parts}")
-    store.zero_parts = parts
+    if set(parts) - set(ZERO_PARTS):
+        raise ValueError(f"--zero-parts names {ZERO_PARTS}, not {parts}")
+    store = dataclasses.replace(store, zero_parts=parts)
     cfg = Config(d_model=store.d_model, width=args.width, layers=args.layers, heads=args.heads,
                  passes=args.passes, ffn_mult=args.ffn_mult, dropout=args.dropout,
                  detach_passes=not args.through_passes)
@@ -368,7 +385,7 @@ def train(args):
     report = dict(meta=meta, history=history, held_out=held, selection_half=chosen_on,
                   train_sample=trained, seconds=time.time() - started)
     (out / "report.json").write_text(json.dumps(report, indent=2))
-    if not args.stage1_probe:
+    if not args.stage1_probe and not getattr(args, "no_export", False):
         # A probe on stage-1 records is a measurement: nothing of it is played.
         check = [store.batch([i], "cpu").rows[0] for i in report_idx[: args.parity_rows]]
         for passes in sorted({cfg.passes, *args.export_passes}):

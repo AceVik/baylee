@@ -83,6 +83,10 @@ pub enum Window4 {
     Block,
     /// Choosing one target (or none, where none is allowed).
     Target,
+    /// Priority: one of the candidate actions (cast, activate, play a land,
+    /// pay, pass). Recorded for the priority probe and the whole net's
+    /// distillation; never part of `all`, which names the three windows above.
+    Priority,
 }
 
 impl Window4 {
@@ -93,6 +97,7 @@ impl Window4 {
             (Pending::ChooseAttackers { .. }, HeadKind4::SubsetPick) => Some(Self::Attack),
             (Pending::ChooseBlockers { .. }, HeadKind4::PairPick) => Some(Self::Block),
             (Pending::ChooseTargets { .. }, HeadKind4::SingleChoice) => Some(Self::Target),
+            (Pending::Priority { .. }, HeadKind4::SingleChoice) => Some(Self::Priority),
             _ => None,
         }
     }
@@ -102,21 +107,29 @@ impl Window4 {
     pub const fn units(self, cands: &EncodedCandidates4) -> usize {
         match self {
             Self::Block => cands.pairs.len(),
-            Self::Attack | Self::Target => cands.candidates.len(),
+            Self::Attack | Self::Target | Self::Priority => cands.candidates.len(),
         }
     }
 
-    /// The window's name in a list: `attack`, `block`, `target`.
+    /// Whether the answer is one unit (a single choice) rather than a set.
+    #[must_use]
+    pub const fn single(self) -> bool {
+        matches!(self, Self::Target | Self::Priority)
+    }
+
+    /// The window's name in a list: `attack`, `block`, `target`, `priority`.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Attack => "attack",
             Self::Block => "block",
             Self::Target => "target",
+            Self::Priority => "priority",
         }
     }
 
-    /// Reads a comma list of window names; `all` names every one.
+    /// Reads a comma list of window names; `all` names attack, block and
+    /// target (priority only by its own name).
     ///
     /// # Errors
     /// A word that names no window, or an empty list.
@@ -133,6 +146,9 @@ impl Window4 {
                 }
                 "target" => {
                     out.insert(Self::Target);
+                }
+                "priority" => {
+                    out.insert(Self::Priority);
                 }
                 other => anyhow::bail!("no tactician window {other}"),
             }
@@ -478,13 +494,13 @@ impl Tactician4 {
         })?;
         let logits = match window {
             Window4::Block => step.pair_logits,
-            Window4::Attack | Window4::Target => step.cand_logits,
+            Window4::Attack | Window4::Target | Window4::Priority => step.cand_logits,
         };
         anyhow::ensure!(logits.len() >= units, "fewer logits than units");
         let d = embeddings.state.len();
         let unit_embeddings = match window {
             Window4::Block => &embeddings.pairs,
-            Window4::Attack | Window4::Target => &embeddings.candidates,
+            Window4::Attack | Window4::Target | Window4::Priority => &embeddings.candidates,
         };
         anyhow::ensure!(
             d > 0 && unit_embeddings.len() == units * d,
@@ -653,7 +669,7 @@ fn unit_groups(window: Window4, cands: &EncodedCandidates4) -> Vec<u32> {
         u32::try_from(index).unwrap_or(u32::MAX)
     };
     match window {
-        Window4::Target => vec![0; cands.candidates.len()],
+        Window4::Target | Window4::Priority => vec![0; cands.candidates.len()],
         Window4::Attack => cands
             .candidates
             .iter()
@@ -680,7 +696,9 @@ fn one_hot(units: usize, index: usize) -> Vec<u8> {
 fn net_answer(window: Window4, step: &TacticianStep<'_>, logits: &[f32]) -> Vec<u8> {
     let mut rng = step.rng.clone();
     match window {
-        Window4::Target => one_hot(logits.len(), sample_categorical(logits, 0.0, &mut rng).0),
+        Window4::Target | Window4::Priority => {
+            one_hot(logits.len(), sample_categorical(logits, 0.0, &mut rng).0)
+        }
         Window4::Attack => {
             sample_subset_constrained(logits, step.cands, step.pending, 0.0, &mut rng).0
         }
@@ -719,7 +737,7 @@ pub(in crate::netplay4) fn rules_answer_fired(
     let before = rules;
     let mut rules = rules;
     let mask = match window {
-        Window4::Target => {
+        Window4::Target | Window4::Priority => {
             let (chosen, _) = tactics::rules::single_choice(
                 &mut rules,
                 step.cands,
@@ -792,7 +810,7 @@ fn target_of(window: Window4, mask: &[u8]) -> TeacherTarget4 {
         .map(|(i, _)| i as u16)
         .collect();
     match window {
-        Window4::Target => TeacherTarget4 {
+        Window4::Target | Window4::Priority => TeacherTarget4 {
             single_idx: picks.first().copied().unwrap_or(0),
             ..TeacherTarget4::default()
         },
@@ -814,7 +832,7 @@ fn exact_action(window: Window4, step: &TacticianStep<'_>, mask: &[u8]) -> Optio
     }
     let encoded = encode_executed_action4(step.cands, step.pending, &action)?;
     let same = match window {
-        Window4::Target => encoded.single_idx == target.single_idx,
+        Window4::Target | Window4::Priority => encoded.single_idx == target.single_idx,
         Window4::Attack | Window4::Block => encoded.multi_mask == target.multi_mask,
     };
     same.then_some(action)
@@ -850,7 +868,7 @@ fn neighbors(window: Window4, step: &TacticianStep<'_>, net: &[u8]) -> Vec<Vec<u
         }
     };
     match window {
-        Window4::Target => {
+        Window4::Target | Window4::Priority => {
             for i in 0..units {
                 offer(one_hot(units, i), &mut out);
             }
@@ -1009,7 +1027,7 @@ fn unit_keys(window: Window4, cands: &EncodedCandidates4) -> Vec<String> {
                 )
             })
             .collect(),
-        Window4::Target => cands
+        Window4::Target | Window4::Priority => cands
             .candidates
             .iter()
             .map(|c| {

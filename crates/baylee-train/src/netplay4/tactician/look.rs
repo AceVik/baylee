@@ -23,10 +23,10 @@
 //! | 40–43 | lives / 20, their visible swing back lethal, the seat's visible swing lethal |
 //! | 44–59 | an attacker: its body, evasion, their blockers that may block it, kill it, survive it |
 //! | 60–75 | a block pair: who kills whom, first strike, deathtouch, trample, what it stops |
-//! | 76–99 | a target: whose, what, its body and worth, its protections, its place in combat |
-//! | 100–111 | reserved, zero |
+//! | 76–99 | a target: whose, what, its body and worth, its protections, its place in combat; at priority, the candidate action ([`priority_columns`]) |
+//! | 100–111 | stage S1 rows: the trivial facts ([`fact_columns`]: whose turn, stack, untapped mana, hands, step, paying, turn); zero in stage-1 rows |
 //!
-//! The null row carries columns 0–43 only.
+//! The null row carries columns 0–43 and, in stage S1 rows, 100–111.
 #![allow(
     clippy::cast_precision_loss,
     reason = "counts of a few cards, creatures and mana sources become feature values"
@@ -39,7 +39,7 @@ use baylee_cards_dsl::KeywordSet;
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::PlayerAction;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{ObjectStatus, PlayerView, PublicObject};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -59,6 +59,8 @@ const STATE_COLUMNS: usize = 44;
 const ATTACK_AT: usize = 44;
 const BLOCK_AT: usize = 60;
 const TARGET_AT: usize = 76;
+/// The trivial facts of the position (stage S1 rows only).
+const FACTS_AT: usize = 100;
 
 /// One card of the prior.
 #[derive(Clone, Debug, PartialEq)]
@@ -459,6 +461,7 @@ fn window_code(
         Window4::Attack => 0,
         Window4::Block => 1,
         Window4::Target => 2,
+        Window4::Priority => 12,
     }] = 1.0;
     let units = net.len().max(1);
     out[9] = (units as f32 / 16.0).min(1.0);
@@ -473,7 +476,7 @@ fn window_code(
     let logit = logits[i];
     out[6] = logit.clamp(-8.0, 8.0) / 8.0;
     out[7] = match window {
-        Window4::Target => {
+        Window4::Target | Window4::Priority => {
             let max = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
             let sum: f32 = logits.iter().map(|l| (l - max).exp()).sum();
             (logit - max).exp() / sum.max(f32::MIN_POSITIVE)
@@ -497,12 +500,18 @@ pub(super) fn rows(
 ) -> Vec<f32> {
     let view = step.view;
     let state = state_columns(view, prior);
+    // Stage S1 rows (no `rules`) carry the trivial facts; stage-1 rows keep
+    // those columns zero, as their heads were trained.
+    let facts = rules.is_none().then(|| fact_columns(view));
     let units = net.len();
     let mut out = Vec::with_capacity((units + 1) * ROW_TAIL);
     for unit in std::iter::once(None).chain((0..units).map(Some)) {
         out.extend_from_slice(&window_code(window, unit, net, rules, logits));
         let mut look = [0.0_f32; LOOK_WIDTH];
         look[..STATE_COLUMNS].copy_from_slice(&state);
+        if let Some(facts) = &facts {
+            look[FACTS_AT..].copy_from_slice(facts);
+        }
         if let Some(i) = unit {
             match window {
                 Window4::Attack => {
@@ -526,10 +535,117 @@ pub(super) fn rows(
                     let action = step.cands.candidates[i].action.as_ref();
                     look[TARGET_AT..TARGET_AT + 24].copy_from_slice(&target_columns(view, action));
                 }
+                Window4::Priority => {
+                    let action = step.cands.candidates[i].action.as_ref();
+                    look[TARGET_AT..TARGET_AT + 24].copy_from_slice(&priority_columns(
+                        view,
+                        step.pending,
+                        action,
+                    ));
+                }
             }
         }
         out.extend_from_slice(&look);
     }
+    out
+}
+
+/// The trivial facts of the position, the same in every row (columns
+/// 100–111): whose turn, the stack, untapped mana, hands, the step, whether a
+/// cost is being paid, the turn.
+fn fact_columns(view: &PlayerView) -> [f32; LOOK_WIDTH - FACTS_AT] {
+    use baylee_view::Step;
+    let mut out = [0.0; LOOK_WIDTH - FACTS_AT];
+    let me = actor(view);
+    out[0] = flag(view.active == me);
+    out[1] = scaled(i32::try_from(view.stack.len()).unwrap_or(i32::MAX), 5.0);
+    let (_, _, my_open) = open_mana(view, me);
+    out[2] = my_open as f32 / 8.0;
+    if let Some(them) = other_side(view, me) {
+        let (_, _, their_open) = open_mana(view, them);
+        out[3] = their_open as f32 / 8.0;
+        out[5] = view.seat(them).map_or(0.0, |s| s.hand_count as f32 / 7.0);
+    }
+    out[4] = view.hand.len() as f32 / 7.0;
+    match view.step {
+        Step::Main => out[6] = 1.0,
+        Step::Untap | Step::Upkeep | Step::Draw => out[8] = 1.0,
+        Step::End | Step::Cleanup => out[9] = 1.0,
+        _ => out[7] = 1.0,
+    }
+    out[10] = flag(view.owed.is_some());
+    out[11] = (view.turn as f32 / 20.0).min(1.0);
+    out
+}
+
+/// A priority candidate's look (the target block, columns 76–99, which a
+/// priority row never needs): what the action is, whether it is instant
+/// speed and on the other side's turn, whether it can be cast now, what is
+/// on the stack to answer, and the body of the object it names.
+fn priority_columns(
+    view: &PlayerView,
+    pending: &Pending,
+    action: Option<&PlayerAction>,
+) -> [f32; 24] {
+    let mut out = [0.0; 24];
+    let me = actor(view);
+    let their_turn = view.active != me;
+    out[9] = flag(view.stack.iter().any(|o| o.controller != me));
+    out[10] = flag(view.stack.iter().any(|o| o.controller == me));
+    let Some(action) = action else {
+        return out;
+    };
+    let legal = match pending {
+        Pending::Priority { legal, .. } => Some(legal),
+        _ => None,
+    };
+    let (kind, object, instant, castable) = match action {
+        PlayerAction::PassPriority => (0, None, false, true),
+        PlayerAction::CastSpell { card } => {
+            let castable =
+                legal.is_some_and(|l| l.castable.contains(card) || l.payable.contains(card));
+            let instant = view
+                .hand
+                .iter()
+                .find(|h| h.id == *card)
+                .map(|h| h.types)
+                .or_else(|| view.object(*card).map(|o| o.types))
+                .is_some_and(|types| types.contains(TypeSet::INSTANT));
+            (1, Some(*card), instant, castable)
+        }
+        PlayerAction::ActivateAbility { source, .. } => (2, Some(*source), true, true),
+        PlayerAction::ActivateManaAbility { source } => (3, Some(*source), true, true),
+        PlayerAction::PlayLand { card } => (4, Some(*card), false, true),
+        _ => (5, None, false, true),
+    };
+    out[kind] = 1.0;
+    out[6] = flag(instant);
+    out[7] = flag(instant && their_turn);
+    out[8] = flag(castable);
+    let Some(id) = object else {
+        return out;
+    };
+    let (types, mana_value) = if let Some(hand) = view.hand.iter().find(|h| h.id == id) {
+        out[22] = 1.0;
+        (hand.types, hand.mana_value)
+    } else if let Some(object) = view.object(id) {
+        out[19] = scaled(power(object), 10.0);
+        out[20] = scaled(toughness_left(object), 10.0);
+        out[21] = flag(view.battlefield.iter().any(|o| o.id == id));
+        out[23] = flag(object.status.contains(ObjectStatus::TAPPED));
+        (object.types, object.mana_value)
+    } else {
+        return out;
+    };
+    let (_, _, my_open) = open_mana(view, me);
+    out[11] = flag(mana_value <= my_open);
+    out[12] = (mana_value as f32 / 10.0).min(1.0);
+    out[13] = flag(types.contains(TypeSet::CREATURE));
+    out[14] = flag(types.contains(TypeSet::LAND));
+    out[15] = flag(types.contains(TypeSet::SORCERY));
+    out[16] = flag(types.contains(TypeSet::INSTANT));
+    out[17] = flag(types.contains(TypeSet::ARTIFACT) || types.contains(TypeSet::ENCHANTMENT));
+    out[18] = flag(types.contains(TypeSet::PLANESWALKER));
     out
 }
 
