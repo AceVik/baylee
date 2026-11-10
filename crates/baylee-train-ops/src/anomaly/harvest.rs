@@ -25,11 +25,13 @@ fn cell(text: &str) -> String {
     text.replace('|', "\\|").replace('\n', " ")
 }
 
-/// One row: the runs that met it and the entry they met.
+/// One row: the runs that met it, each once, how many entries they had
+/// there and the first entry.
 struct Row<'a> {
     kind: Kind,
     at: String,
     runs: Vec<&'a str>,
+    entries: usize,
     entry: &'a Entry,
 }
 
@@ -58,6 +60,8 @@ impl Row<'_> {
         };
         let what = if self.runs.len() > 1 {
             format!("{} (in {} runs)", self.entry.what, self.runs.len())
+        } else if self.entries > 1 {
+            format!("{} ({} times)", self.entry.what, self.entries)
         } else {
             self.entry.what.clone()
         };
@@ -89,16 +93,17 @@ fn rows(reports: &[Report]) -> Vec<Row<'_>> {
                     format!("{}\n{}", report.run, entry.what),
                 )
             };
-            grouped
-                .entry(key)
-                .or_insert_with(|| Row {
-                    kind: entry.kind,
-                    at,
-                    runs: Vec::new(),
-                    entry,
-                })
-                .runs
-                .push(&report.run);
+            let row = grouped.entry(key).or_insert_with(|| Row {
+                kind: entry.kind,
+                at,
+                runs: Vec::new(),
+                entries: 0,
+                entry,
+            });
+            row.entries += 1;
+            if !row.runs.contains(&report.run.as_str()) {
+                row.runs.push(&report.run);
+            }
         }
     }
     let mut by_kind: BTreeMap<Kind, Vec<Row<'_>>> = BTreeMap::new();

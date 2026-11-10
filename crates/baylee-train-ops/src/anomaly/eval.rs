@@ -42,25 +42,33 @@ impl Job {
 
     /// A command that plays deal `deal` again: the job's own, one deal
     /// from `deal` on (`--deal-offset` keeps the table, decks and seat
-    /// rotation), one thread, a fresh output.
+    /// rotation), one thread, and every file it writes renamed into the
+    /// working directory, so it never writes over the run it reproduces.
     #[must_use]
     pub fn reproduce(&self, deal: u64) -> Option<String> {
+        /// The flags that write a file or directory, and the local name
+        /// each gets.
+        const WRITES: [(&str, &str); 3] = [
+            ("--record-out", "records"),
+            ("--tactician-out", "tactician"),
+            ("--value-log", "values.jsonl"),
+        ];
         let (program, args) = self.argv.split_first()?;
         let mut out = vec![program.clone()];
-        let mut skip = false;
-        for arg in args {
-            if skip {
-                skip = false;
-                continue;
-            }
+        let mut args = args.iter();
+        while let Some(arg) = args.next() {
             if matches!(
                 arg.as_str(),
-                "--deals" | "--deal-offset" | "--threads" | "--out" | "--record-out"
+                "--deals" | "--deal-offset" | "--threads" | "--out" | "--only-deals"
             ) {
-                skip = true;
-                continue;
+                args.next();
+            } else if let Some((flag, name)) = WRITES.iter().find(|(flag, _)| flag == arg) {
+                args.next();
+                out.push((*flag).to_owned());
+                out.push(format!("reproduce-deal-{deal}-{name}"));
+            } else {
+                out.push(arg.clone());
             }
-            out.push(arg.clone());
         }
         out.extend([
             "--deals".to_owned(),
