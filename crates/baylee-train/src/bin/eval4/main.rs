@@ -190,6 +190,7 @@ fn main() -> anyhow::Result<()> {
         bail!(refusal);
     }
     let memory_reset = memory_reset(&args);
+    let exploration = exploration_setup(&args, &collection)?;
     let mut choice_guard = parse_choice_guard(&args.choice_guard)?;
     if choice_guard.is_some()
         && (!args.raw_policy
@@ -684,6 +685,11 @@ fn main() -> anyhow::Result<()> {
             // reproduces what the seat under test read.
             run["memory_reset"] = json!(memory_reset);
         }
+        if let Some((_, contract)) = &exploration {
+            // Only exploring runs name it: their records are exploration
+            // records, outcomes their only labels.
+            run["exploration"] = json!(contract);
+        }
         if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -866,6 +872,9 @@ fn main() -> anyhow::Result<()> {
         let tactician_setup = tactician_setup.clone();
         let student_head = student_head.clone();
         let student_candidates = args.search_student_candidates;
+        let explore = exploration
+            .as_ref()
+            .map(|(rules, contract)| (*rules, contract.epsilon));
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -915,6 +924,10 @@ fn main() -> anyhow::Result<()> {
             }
             if decision_trace.is_some() {
                 anyhow::ensure!(net.keep_menus(), "--decision-trace needs a net");
+            }
+            if let Some((rules, epsilon)) = explore {
+                let explorer = baylee_train::netplay4::RuleExplorer4::new(rules, epsilon)?;
+                anyhow::ensure!(net.set_explorer(explorer), "--explore-rules needs a net");
             }
             let mut tactician_sink = None;
             if let Some(rules) = distill_rules {
@@ -1044,6 +1057,8 @@ fn main() -> anyhow::Result<()> {
                     DecisionLogs { value: value_log.as_deref(), trace: decision_trace.as_deref() },
                     game_teacher.as_mut(),
                 )?;
+                // The learner's mixture stream this game: its seed and draws.
+                let game_exploration = net.exploration_game();
 
                 // `--distill-labels`: one entry per rollout step of the net's seats.
                 let distill_steps = net.take_distill_steps();
@@ -1106,6 +1121,10 @@ fn main() -> anyhow::Result<()> {
                             "distillation steps out of step with the rollout sidecar"
                         );
                         entry["distill_sidecar"] = json!(steps);
+                    }
+                    if let Some(game) = &game_exploration {
+                        // Only exploring runs name it, as run.json does.
+                        entry["exploration"] = json!(game);
                     }
                     let line = serde_json::to_string(&entry)?;
                     *offset += len;
@@ -1233,6 +1252,13 @@ fn main() -> anyhow::Result<()> {
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
                 if let Some(search) = &game_search {
                     st.search.add(&search.tally);
+                }
+                if let Some(game) = &game_exploration {
+                    st.exploration_draws += u64::from(game.draws);
+                    st.exploration_played += u64::from(game.played);
+                    if let Some(deal) = st.deal_details.last_mut() {
+                        deal["exploration"] = json!(game);
+                    }
                 }
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
@@ -1440,6 +1466,10 @@ fn main() -> anyhow::Result<()> {
         None => Value::Null,
     };
     summary["random_policy"] = json!(args.random_policy);
+    if let Some((_, contract)) = &exploration {
+        summary["exploration"] = json!({"contract": contract,
+            "explored_decisions": st.exploration_draws, "rule_answers_played": st.exploration_played});
+    }
     summary["seer_peeks"] = json!(args.seer_peeks);
     summary["house_foresight"] = json!(args.house_foresight);
     summary["foresight_work"] = json!(args.foresight_work);

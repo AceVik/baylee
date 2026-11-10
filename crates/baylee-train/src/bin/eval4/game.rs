@@ -448,6 +448,7 @@ fn play_one_table(
                         },
                         free_mask: Vec::new(),
                         pick_sequence: Vec::new(),
+                        exploration: None,
                     });
                     if let Some(n) = net.as_deref_mut() {
                         n.distill_step(pid.get(), sequence, record_offset, false);
@@ -491,6 +492,13 @@ fn play_one_table(
                         target: baylee_train::features4::TeacherTarget4::default(),
                     },
                 };
+                // `--explore-rules`: only the learner's raw sampler explores.
+                let exploration = n.take_exploration();
+                anyhow::ensure!(
+                    exploration.is_none() || ans.provenance.source == SourceKind4::Net,
+                    "an exploration record on a {:?} answer",
+                    ans.provenance.source
+                );
                 if research_encoder.is_some() && ans.provenance.source == SourceKind4::House {
                     let repeated = n.fallback_diagnostic().is_some_and(|diagnostic| {
                         diagnostic.reason == baylee_train::netplay4::FallbackReason4::RepeatedView
@@ -593,6 +601,7 @@ fn play_one_table(
                                 provenance: ans.provenance,
                                 free_mask: ans.target.free_mask.clone(),
                                 pick_sequence: ans.target.pick_sequence.clone(),
+                                exploration: None,
                             },
                         )
                     })
@@ -632,6 +641,7 @@ fn play_one_table(
                             provenance: ans.provenance,
                             free_mask: ans.target.free_mask,
                             pick_sequence: ans.target.pick_sequence,
+                            exploration,
                         });
                         n.distill_step(
                             pid.get(),
@@ -680,6 +690,7 @@ fn play_one_table(
                             },
                             free_mask: Vec::new(),
                             pick_sequence: Vec::new(),
+                            exploration: None,
                         });
                         n.distill_step(pid.get(), fb_sequence, fb_offset, false);
                     }
