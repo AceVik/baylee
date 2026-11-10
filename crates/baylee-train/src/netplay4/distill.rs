@@ -32,7 +32,7 @@ use crate::features4::{
 };
 
 pub use crate::convert4::distill_labels::{
-    DistillLabel4, DistillStep4, PrioritySubtype4, menu_of, menu_signature,
+    DistillLabel4, DistillStep4, DistillSubtype4, menu_of, menu_signature,
 };
 pub use baylee_train_ops::tactician_labels::DISTILL_CONTRACT;
 
@@ -272,17 +272,20 @@ pub(super) fn label(
         _ => targets_differ(q.cands.head, &net, &rules_t),
     };
     let kind = kind_of(q.cands.head, q.pending);
-    let subtype = (kind == "priority").then(|| {
-        PrioritySubtype4::of(
+    let pending_kind = PendingKind4::of(q.pending) as u8;
+    let subtype = match kind {
+        "priority" => Some(DistillSubtype4::of(
             q.view.active == tactics::rules::read::actor(q.view),
             q.view.owed.is_some(),
             rules_action.as_ref(),
             net_action.as_ref(),
-        )
-    });
+        )),
+        "single" => DistillSubtype4::of_single(pending_kind, &fired),
+        _ => None,
+    };
     DistillLabel4 {
         kind: kind.to_owned(),
-        pending_kind: PendingKind4::of(q.pending) as u8,
+        pending_kind,
         menu_sha256: menu_of(q.cands),
         rules: rules_t,
         rules_action,

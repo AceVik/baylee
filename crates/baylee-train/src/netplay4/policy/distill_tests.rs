@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use super::*;
-use crate::netplay4::distill::{Distill4, DistillLabel4, PrioritySubtype4};
+use crate::netplay4::distill::{Distill4, DistillLabel4, DistillSubtype4};
 use crate::netplay4::tactician::tests::on_a_table::{D, ME, drive, table};
 use crate::netplay4::{ChoiceGuard4, NetPlayer4, TacticRules4, TacticalParts};
 
@@ -118,17 +118,25 @@ fn r_read_on_copies_is_what_the_layer_plays_and_a_student_plays_n() {
             assert_eq!(raw_label.fired, layer_label.fired);
             assert_eq!(raw_label.n_ne_r, layer_label.n_ne_r);
             // A priority label names its subtype, from R, N and the position;
-            // no other label has one.
+            // a target question is `target` where side or aim fired; no
+            // other label has one.
             assert_eq!(raw_label.subtype, layer_label.subtype);
-            assert_eq!(
-                raw_label.subtype,
-                (raw_label.kind == "priority").then(|| PrioritySubtype4::of(
+            let expected = match raw_label.kind.as_str() {
+                "priority" => Some(DistillSubtype4::of(
                     view.active == view.decision_player.unwrap_or(view.seat),
                     view.owed.is_some(),
                     raw_label.rules_action.as_ref(),
                     raw_label.net_action.as_ref(),
-                ))
-            );
+                )),
+                "single" if matches!(pending, Pending::ChooseTargets { .. }) => raw_label
+                    .fired
+                    .iter()
+                    .any(|group| group == "side" || group == "aim")
+                    .then_some(DistillSubtype4::Target),
+                _ => None,
+            };
+            assert_eq!(raw_label.subtype, expected, "{pending:?}");
+            assert!(DistillSubtype4::fits(&raw_label));
             subtypes.extend(raw_label.subtype);
             if raw_label.n_ne_r {
                 differing += 1;
@@ -154,7 +162,7 @@ fn r_read_on_copies_is_what_the_layer_plays_and_a_student_plays_n() {
         assert!(kinds.contains(kind), "no {kind} decision met: {kinds:?}");
     }
     // Priority decisions of several subtypes are met on these tables.
-    for subtype in [PrioritySubtype4::Pass, PrioritySubtype4::Land] {
+    for subtype in [DistillSubtype4::Pass, DistillSubtype4::Land] {
         assert!(
             subtypes.contains(&subtype),
             "no {subtype:?} met: {subtypes:?}"

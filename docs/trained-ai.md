@@ -1312,13 +1312,18 @@ menu and the executed answer against the record, makes `R` the policy target
 beside it what a trainer selects and weights by; every other decision frame
 keeps its place at weight 0, and the value targets are the outcomes. Each
 priority label names its subtype, the probe's decision kinds by the same rule
-(`PrioritySubtype4::of`): `pay` (a cost owed), `pass` (`R` passes),
+(`DistillSubtype4::of`): `pay` (a cost owed), `pass` (`R` passes),
 `instant_their_turn` (`R` casts or activates in the other side's turn), `spend`
 (`R` casts or activates in its own turn where `N` passes), else by `R`'s action
-`cast`, `activate`, `mana`, `land`, `other`. The dataset's JSON steps,
+`cast`, `activate`, `mana`, `land`, `other`. A single-choice target question
+(pending kind 8, `ChooseTargets`) is `target` where `side` or `aim` changed
+`R` (a counterspell or removal aimed at its own side or a lesser object;
+`DistillSubtype4::of_single`), and has no subtype otherwise; subsets, pairs and
+numbers have none. Round 0 distils `--distill-kinds 0,8 --distill-subtypes
+cast,pass,instant_their_turn,spend,target` to `R`. The dataset's JSON steps,
 `bundle-distill/game-NNNNNN.jsonl` (a header, one line per labelled frame, a
 `completed` footer), hold per frame `game_id`, `seat`, `step_cursor`,
-`label_kind`, `n_ne_r`, `net_answer` (`N`), `distill_subtype` (priority frames)
+`label_kind`, `n_ne_r`, `net_answer` (`N`), `distill_subtype` (where there is one)
 and `fired` (the groups that changed `R`). In the BST4, flags bit 7 is `N ≠ R`
 (clear of bits 0–2 and the RL branch's 3–6 and 8–15), and every decision frame
 of a recorded seat ends, after its free mask, in a 16-byte block: `BDX1`, the
@@ -1326,11 +1331,16 @@ subtype's code as a byte (255: none, at another kind of label and at a
 fallback, which keeps weight 0), three zero bytes, and a little-endian `u64`
 mask of the groups that fired. `meta.json`'s `bundle_distillation` (version 2)
 names the codes (`subtypes`: cast, pass, instant_their_turn, spend, pay, mana,
-activate, land, other) and the bits (`groups`, the layer's 20 groups in its
+activate, land, other, target) and the bits (`groups`, the layer's 20 groups in its
 table order), with the counts by kind, by subtype and at `N ≠ R` by group,
 and each JSON steps file's SHA-256 is beside it. A game that does not bind, a
-priority label without a subtype (recorded before them) or a group with no
-bit fails the conversion. The readers that check a frame's length
+label whose subtype is not the one its kind, question and groups give it (a
+priority label recorded before subtypes) or a group with no bit fails the
+conversion. `--train-manifest` (required) names the deck manifest: a run any of
+whose `run.json` decks (every deck its tables are taken from) the manifest
+puts outside the train split, or does not list, is refused with the deck and
+its split; `meta.json` keeps the manifest, its SHA-256 and the count of decks,
+all train. The readers that check a frame's length
 (`trajectory::packing`, behind `trajectory_cache4`) admit exactly one valid
 block and nothing else; the Python readers take the masks at the payload's end
 (`trajectory_store4.bst4_payload_end`, `bst4_distill_block`). `eval4
