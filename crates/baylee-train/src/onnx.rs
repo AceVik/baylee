@@ -1,11 +1,7 @@
 //! The one ONNX Runtime environment the process's sessions are built in.
 //!
-//! Since `ort` 2.0.0-rc.15 a session is built against an explicit
-//! [`Environment`]; earlier versions made one on first use. One per process
-//! keeps that behaviour: every net, batcher and league seat shares its
-//! thread pools and logger.
-
-use std::sync::OnceLock;
+//! Delegated to [`baylee_driver::ort_env::environment`] so training harnesses
+//! and client/NPU runtime drivers share a single process-wide ORT environment.
 
 use ort::environment::Environment;
 
@@ -15,10 +11,5 @@ use ort::environment::Environment;
 ///
 /// When ONNX Runtime cannot make one; the next call tries again.
 pub fn environment() -> Result<&'static Environment, ort::Error> {
-    static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
-    if let Some(environment) = ENVIRONMENT.get() {
-        return Ok(environment);
-    }
-    let made = ort::init().with_name("baylee-train").build()?;
-    Ok(ENVIRONMENT.get_or_init(|| made))
+    baylee_driver::ort_env::environment()
 }

@@ -27,14 +27,22 @@ pub struct SharedHand {
 /// hash. A replay has nobody to show a hand to.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum SeatSetting {
-    /// Show this seat's hand to exactly these teammates. The whole set, so
-    /// that showing, withdrawing and accepting a request are one message,
-    /// and sending the set already in force changes nothing.
+    /// Continuously show this seat's hand to exactly these teammates until the
+    /// end of the game (or until withdrawn). The whole set, so that showing,
+    /// withdrawing and accepting a request are one message, and sending the set
+    /// already in force changes nothing. Omitting a teammate from `ShareHand`
+    /// also clears any one-time snapshot previously shown to them.
     ShareHand(SeatSet),
+    /// Show a one-time snapshot of the cards currently in this seat's hand to
+    /// these teammates. Those exact cards remain visible while they stay in
+    /// this seat's hand, whereas cards drawn afterwards remain hidden unless
+    /// shared again. Sending an empty set clears all one-time snapshots from
+    /// this seat.
+    ShareHandOnce(SeatSet),
     /// Ask a teammate to show this seat their hand.
     RequestHand(PlayerId),
-    /// Turn down a teammate's request. They may ask again from the next
-    /// turn on.
+    /// Turn down a teammate's request (and clear any snapshot shown to them).
+    /// They may ask again from the next turn on.
     DeclineHand(PlayerId),
 }
 

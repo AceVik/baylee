@@ -38,7 +38,7 @@ pub enum GuardArm {
 const ARMS: usize = 5;
 
 /// Which heads answer as `PolicyMode4::Tactical` does.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[allow(
     clippy::struct_excessive_bools,
     reason = "One switch per head of the net, each measured alone"
@@ -57,7 +57,7 @@ pub struct TacticalParts {
 }
 
 /// The instrument's state on one net.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ChoiceGuard4 {
     /// Parts of the tactical layer, as `PolicyMode4::Tactical` plays them, while
     /// the run stays raw for comparison.
@@ -187,8 +187,11 @@ fn react_window(view: &PlayerView, legal: &LegalActions) -> Option<(usize, Vec<O
     if view.active == actor || view.owed.is_some() {
         return None;
     }
-    let theirs_on_stack =
-        !view.stack.is_empty() && view.stack.iter().all(|item| item.controller != actor);
+    let theirs_on_stack = !view.stack.is_empty()
+        && view
+            .stack
+            .iter()
+            .all(|item| super::is_opponent(actor, item.controller));
     let their_attack = view.step == Step::DeclareAttackers && view.combat.is_active();
     let quiet = view.stack.is_empty() && (their_attack || view.step == Step::End);
     if !theirs_on_stack && !quiet {

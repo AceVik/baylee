@@ -1,9 +1,10 @@
 use super::{MAX_DECLARATIONS, SeatKind, Session, seat_byte};
 use crate::record::{ChairChange, Mind};
 use baylee_ai::HeuristicAgent;
-use baylee_core::ids::{PlayerId, SeatSet};
-use baylee_core::preset::AIProfile;
+use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
+use baylee_core::preset::{AIProfile, AiHandSharePolicy, HandSharingRule};
 use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_engine::zone::ZoneLocation;
 use baylee_protocol::v1::Envelope;
 use baylee_view::{LogEvent, PlayerView, SeatSetting};
 
@@ -168,8 +169,91 @@ impl Session {
                 *asked = asked.iter().filter(|&s| s != seat).collect();
             }
         }
+        self.shown_once
+            .retain(|&(owner, viewer), _| owner == seat.get() || viewer != seat.get());
         let waiting = std::mem::take(&mut self.asking[at]);
-        self.showing[at] = self.showing[at].iter().chain(waiting.iter()).collect();
+        for asker in waiting.iter() {
+            self.ai_answer_hand_request(seat, asker);
+        }
+    }
+
+    /// Configures how AI chairs at this table share their hands with teammates.
+    pub fn set_ai_hand_share_policy(&mut self, policy: AiHandSharePolicy) {
+        self.ai_hand_share_policy = policy;
+    }
+
+    /// The active [`AiHandSharePolicy`] for this session.
+    #[must_use]
+    pub const fn ai_hand_share_policy(&self) -> AiHandSharePolicy {
+        self.ai_hand_share_policy
+    }
+
+    /// Proactively applies [`Self::ai_hand_share_policy`] for all seats at the
+    /// table (used by in-process training and evaluation harnesses such as
+    /// `eval4` after taking over AI chairs).
+    pub fn apply_team_hand_sharing(&mut self) {
+        if self.house_rules.hand_sharing == HandSharingRule::Disabled {
+            return;
+        }
+        match self.ai_hand_share_policy {
+            AiHandSharePolicy::AlwaysContinuous => {
+                for i in 0..self.seats.len() {
+                    let owner = PlayerId::new(seat_byte(i));
+                    let mates: SeatSet = self
+                        .teammates(owner)
+                        .iter()
+                        .filter(|&v| self.may_be_shown(v))
+                        .collect();
+                    if self.house_rules.hand_sharing == HandSharingRule::Allowed {
+                        self.showing[i] = mates;
+                    } else {
+                        for viewer in mates.iter() {
+                            self.record_hand_once(owner, viewer);
+                        }
+                    }
+                }
+            }
+            AiHandSharePolicy::OnRequestContinuous
+            | AiHandSharePolicy::OnRequestOnce
+            | AiHandSharePolicy::Never => {}
+        }
+    }
+
+    fn record_hand_once(&mut self, owner: PlayerId, viewer: PlayerId) {
+        let mut cards = self
+            .engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(owner))
+            .to_vec();
+        cards.sort_unstable();
+        self.shown_once.insert((owner.get(), viewer.get()), cards);
+    }
+
+    fn ai_answer_hand_request(&mut self, owner: PlayerId, asker: PlayerId) {
+        if self.house_rules.hand_sharing == HandSharingRule::Disabled {
+            return;
+        }
+        let o = owner.get() as usize;
+        match (self.house_rules.hand_sharing, self.ai_hand_share_policy) {
+            (
+                HandSharingRule::Allowed,
+                AiHandSharePolicy::AlwaysContinuous | AiHandSharePolicy::OnRequestContinuous,
+            ) => {
+                self.showing[o].insert(asker);
+                self.shown_once.remove(&(owner.get(), asker.get()));
+            }
+            (HandSharingRule::OnceOnly, AiHandSharePolicy::AlwaysContinuous)
+            | (HandSharingRule::OnceOnly, AiHandSharePolicy::OnRequestContinuous)
+            | (_, AiHandSharePolicy::OnRequestOnce) => {
+                self.record_hand_once(owner, asker);
+            }
+            (_, AiHandSharePolicy::Never) => {
+                self.declined
+                    .insert((owner.get(), asker.get()), self.engine.state().turn.number);
+            }
+            (HandSharingRule::Disabled, _) => {}
+        }
     }
 
     /// The house sits down at a player's chair, because nobody is answering
@@ -356,10 +440,24 @@ impl Session {
         let before: Vec<_> = self
             .human_seats()
             .into_iter()
-            .map(|s| self.hands_told(s))
+            .map(|s| self.hand_share_state(s))
             .collect();
         match setting {
             SeatSetting::ShareHand(shown) => {
+                if !shown.is_empty() {
+                    match self.house_rules.hand_sharing {
+                        HandSharingRule::Allowed => {}
+                        HandSharingRule::OnceOnly => {
+                            return Err(
+                                "continuous hand sharing is disabled in this game mode; use one-time sharing"
+                                    .into(),
+                            );
+                        }
+                        HandSharingRule::Disabled => {
+                            return Err("hand sharing is disabled in this game mode".into());
+                        }
+                    }
+                }
                 if let Some(other) = shown.iter().find(|&o| !mates.contains(o)) {
                     return Err(format!("seat {other} is not a teammate still in the game"));
                 }
@@ -369,13 +467,44 @@ impl Session {
                     ));
                 }
                 self.showing[at] = shown;
+                // Updating the continuous share set clears any one-time snapshot
+                // owned by `seat` (either superseded by continuous sharing or
+                // withdrawn by omitting the teammate).
+                self.shown_once.retain(|&(owner, _), _| owner != seat.get());
                 // Showing a teammate the hand answers their request.
                 self.asking[at] = self.asking[at]
                     .iter()
                     .filter(|&o| !shown.contains(o))
                     .collect();
             }
+            SeatSetting::ShareHandOnce(shown) => {
+                if shown.is_empty() {
+                    self.shown_once.retain(|&(owner, _), _| owner != seat.get());
+                } else {
+                    if self.house_rules.hand_sharing == HandSharingRule::Disabled {
+                        return Err("hand sharing is disabled in this game mode".into());
+                    }
+                    if let Some(other) = shown.iter().find(|&o| !mates.contains(o)) {
+                        return Err(format!("seat {other} is not a teammate still in the game"));
+                    }
+                    if let Some(house) = shown.iter().find(|&o| !self.may_be_shown(o)) {
+                        return Err(format!(
+                            "seat {house} is played by the house and is shown no hand"
+                        ));
+                    }
+                    for viewer in shown.iter() {
+                        self.record_hand_once(seat, viewer);
+                    }
+                    self.asking[at] = self.asking[at]
+                        .iter()
+                        .filter(|&o| !shown.contains(o))
+                        .collect();
+                }
+            }
             SeatSetting::RequestHand(owner) => {
+                if self.house_rules.hand_sharing == HandSharingRule::Disabled {
+                    return Err("hand sharing is disabled in this game mode".into());
+                }
                 if !mates.contains(owner) {
                     return Err(format!("seat {owner} is not a teammate still in the game"));
                 }
@@ -383,18 +512,19 @@ impl Session {
                 let turn = self.engine.state().turn.number;
                 let o = owner.get() as usize;
                 if self.showing[o].contains(seat) || self.asking[o].contains(seat) {
-                    // Already shown, or already asked: nothing to change.
+                    // Already shown continuously, or already asked: nothing to change.
                 } else if self.declined.get(&key) == Some(&turn) {
                     return Err(format!(
                         "seat {owner} turned this request down this turn; ask again next turn"
                     ));
                 } else if matches!(self.seats[o], SeatKind::Ai(_)) {
-                    self.showing[o].insert(seat);
+                    self.ai_answer_hand_request(owner, seat);
                 } else {
                     self.asking[o].insert(seat);
                 }
             }
             SeatSetting::DeclineHand(asker) => {
+                self.shown_once.remove(&(seat.get(), asker.get()));
                 if self.asking[at].contains(asker) {
                     self.asking[at] = self.asking[at].iter().filter(|&o| o != asker).collect();
                     self.declined
@@ -406,7 +536,7 @@ impl Session {
             .human_seats()
             .into_iter()
             .zip(before)
-            .filter(|(s, was)| self.hands_told(*s) != *was)
+            .filter(|(s, was)| self.hand_share_state(*s) != *was)
             .map(|(s, _)| s)
             .collect();
         if changed.is_empty() {
@@ -452,16 +582,30 @@ impl Session {
         !matches!(self.seat_kind(seat), Some(SeatKind::Ai(_)) | None)
     }
 
-    /// Whether `owner`'s hand is shown to `viewer` right now.
-    fn shows_hand(&self, owner: PlayerId, viewer: PlayerId) -> bool {
-        self.seated(owner)
+    /// Whether `owner`'s hand is shown continuously to `viewer` right now.
+    pub(super) fn shows_hand(&self, owner: PlayerId, viewer: PlayerId) -> bool {
+        self.house_rules.hand_sharing == HandSharingRule::Allowed
+            && self.seated(owner)
             && self.teammates(owner).contains(viewer)
             && self.may_be_shown(viewer)
             && self.showing[owner.get() as usize].contains(viewer)
     }
 
-    /// Whose hands `seat` is shown, and the three sets beside them: what a
-    /// setting is compared by to decide whose view it changed.
+    /// The one-time snapshot cards `owner` shared with `viewer`, if permitted.
+    fn shown_once_cards(&self, owner: PlayerId, viewer: PlayerId) -> Option<&[ObjectId]> {
+        if self.house_rules.hand_sharing == HandSharingRule::Disabled
+            || !self.seated(owner)
+            || !self.teammates(owner).contains(viewer)
+            || !self.may_be_shown(viewer)
+        {
+            return None;
+        }
+        self.shown_once
+            .get(&(owner.get(), viewer.get()))
+            .map(Vec::as_slice)
+    }
+
+    /// Whose hands `seat` is shown continuously, and the three sets beside them.
     pub(super) fn hands_told(&self, seat: PlayerId) -> [SeatSet; 4] {
         if !self.seated(seat) {
             return [SeatSet::new(); 4];
@@ -469,10 +613,14 @@ impl Session {
         let mates = self.teammates(seat);
         [
             mates.iter().filter(|&o| self.shows_hand(o, seat)).collect(),
-            self.showing[seat.get() as usize]
-                .iter()
-                .filter(|&o| mates.contains(o) && self.may_be_shown(o))
-                .collect(),
+            if self.house_rules.hand_sharing == HandSharingRule::Allowed {
+                self.showing[seat.get() as usize]
+                    .iter()
+                    .filter(|&o| mates.contains(o) && self.may_be_shown(o))
+                    .collect()
+            } else {
+                SeatSet::new()
+            },
             self.asking[seat.get() as usize]
                 .iter()
                 .filter(|&o| mates.contains(o))
@@ -482,6 +630,33 @@ impl Session {
                 .filter(|&o| self.asking[o.get() as usize].contains(seat))
                 .collect(),
         ]
+    }
+
+    /// Full comparison key for `seat`'s hand-sharing view state, including any
+    /// active one-time snapshots.
+    fn hand_share_state(&self, seat: PlayerId) -> ([SeatSet; 4], Vec<(PlayerId, Vec<ObjectId>)>) {
+        let told = self.hands_told(seat);
+        if self.shown_once.is_empty() || !self.seated(seat) {
+            return (told, Vec::new());
+        }
+        let state = self.engine.state();
+        let snapshots = self
+            .teammates(seat)
+            .iter()
+            .filter(|&owner| !told[0].contains(owner))
+            .filter_map(|owner| {
+                let ids = self.shown_once_cards(owner, seat)?;
+                let visible: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Hand(owner))
+                    .iter()
+                    .copied()
+                    .filter(|id| ids.binary_search(id).is_ok())
+                    .collect();
+                (!visible.is_empty()).then_some((owner, visible))
+            })
+            .collect();
+        (told, snapshots)
     }
 
     /// Puts into a view a socket is sent what its seat is shown of its
@@ -500,6 +675,15 @@ impl Session {
         let [shown, sharing, requests, requested] = self.hands_told(seat);
         for owner in shown.iter() {
             crate::view::show_whole_hand(self.engine.state(), view, owner);
+        }
+        if !self.shown_once.is_empty() {
+            for owner in self.teammates(seat).iter() {
+                if !shown.contains(owner)
+                    && let Some(ids) = self.shown_once_cards(owner, seat)
+                {
+                    crate::view::show_hand_snapshot(self.engine.state(), view, owner, ids);
+                }
+            }
         }
         view.shared_hands.sort_by_key(|hand| hand.player);
         view.hand_shared_with = sharing;

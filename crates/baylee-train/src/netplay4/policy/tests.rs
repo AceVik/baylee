@@ -38,6 +38,7 @@ fn select(
 ) -> (PlayerAction, f32, TeacherTarget4) {
     let mut rng = Rng::new(77);
     let (action, _, lp, target) = PolicySampler4 {
+        tactician: None,
         mode,
         temperature: 0.8,
         rng: &mut rng,
@@ -50,6 +51,7 @@ fn select(
         view,
         pending,
         PolicyOutputs4 {
+            embeddings: None,
             cand_logits: logits,
             pair_logits: logits,
             scalar_pred: scalar,
@@ -228,6 +230,7 @@ fn raw_sampler_refuses_unsupported_temperatures_and_nonfinite_outputs() {
     for (temperature, logits) in [(0.2, [0.0, 1.0]), (0.8, [f32::NAN, 0.0])] {
         let mut rng = Rng::new(1);
         let result = PolicySampler4 {
+            tactician: None,
             mode: PolicyMode4::Raw,
             temperature,
             rng: &mut rng,
@@ -240,6 +243,7 @@ fn raw_sampler_refuses_unsupported_temperatures_and_nonfinite_outputs() {
             &view,
             &pending,
             PolicyOutputs4 {
+                embeddings: None,
                 cand_logits: &logits,
                 pair_logits: &[],
                 scalar_pred: 0.5,

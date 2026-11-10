@@ -20,8 +20,57 @@ use crate::features4::{
     EncodedCandidates4, public_object_matches_basic_filter, untapped_mana_production,
 };
 
+use std::cell::Cell;
+
 use super::choices::mask_non_priority_single_choice;
 use super::sample_categorical;
+
+thread_local! {
+    static ACTIVE_TEAMS: Cell<[Option<u8>; 8]> = const { Cell::new([None; 8]) };
+}
+
+/// Runs `f` with `teams` installed in thread-local tactical context so all
+/// friend/foe checks (`is_ally`, `is_opponent`) are team-aware with zero heap
+/// allocations.
+pub(crate) fn with_team_context<R>(teams: &[Option<u8>], f: impl FnOnce() -> R) -> R {
+    let mut next = [None; 8];
+    for (i, &t) in teams.iter().take(8).enumerate() {
+        next[i] = t;
+    }
+    let prev = ACTIVE_TEAMS.with(|cell| cell.replace(next));
+    struct Guard([Option<u8>; 8]);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            ACTIVE_TEAMS.with(|cell| cell.set(self.0));
+        }
+    }
+    let _guard = Guard(prev);
+    f()
+}
+
+/// Returns `true` when `other` is `actor` or shares `actor`'s team in the active
+/// tactical decision context.
+#[inline]
+#[must_use]
+pub(crate) fn is_ally(actor: PlayerId, other: PlayerId) -> bool {
+    if actor == other {
+        return true;
+    }
+    let a = usize::from(actor.get());
+    let b = usize::from(other.get());
+    if a >= 8 || b >= 8 {
+        return false;
+    }
+    let teams = ACTIVE_TEAMS.with(Cell::get);
+    teams[a].is_some() && teams[a] == teams[b]
+}
+
+/// Returns `true` when `other` is on an opposing side from `actor`.
+#[inline]
+#[must_use]
+pub(crate) fn is_opponent(actor: PlayerId, other: PlayerId) -> bool {
+    !is_ally(actor, other)
+}
 
 /// Selects a single candidate index from `cands` (`HeadKind4::SingleChoice`),
 /// applying view-only mana-sink masking, main-phase land/proactive guards,
@@ -53,6 +102,7 @@ pub(super) fn select_single_choice(
         if let Pending::Priority { legal, .. } = pending {
             let has_sink = has_reachable_mana_sink(view, legal);
             let play_land_first = should_play_land_first(view, legal);
+            let crack_fetch_first = should_crack_fetchland_first(view, legal);
             let tap_self_src = if view.owed.is_some() {
                 active_source_requires_tap_self(view, active_source)
             } else {
@@ -72,7 +122,8 @@ pub(super) fn select_single_choice(
                         }
                         _ => false,
                     })
-                    || ((!has_sink || play_land_first) && is_mana_action(view, act))
+                    || ((!has_sink || play_land_first || crack_fetch_first)
+                        && is_mana_action(view, act))
                 {
                     trial[i] = f32::NEG_INFINITY;
                 } else if let PlayerAction::CastSpell { card } = act {
@@ -153,13 +204,13 @@ pub(super) fn select_single_choice(
                     let any_opp_player_target = cands
                         .candidates
                         .iter()
-                        .any(|cand| cand_pid(cand).is_some_and(|pid| pid != actor));
+                        .any(|cand| cand_pid(cand).is_some_and(|pid| is_opponent(actor, pid)));
                     let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
                         cands.candidates.iter().any(|cand| {
                             cand_obj(cand)
                                 .and_then(|oid| view.object(oid))
                                 .is_some_and(|o| {
-                                    o.controller != actor
+                                    is_opponent(actor, o.controller)
                                         && o.types.contains(TypeSet::CREATURE)
                                         && (o.keywords
                                             & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits())
@@ -181,7 +232,7 @@ pub(super) fn select_single_choice(
                                 cand_obj(cand)
                                     .and_then(|oid| view.object(oid))
                                     .is_some_and(|o| {
-                                        o.controller != actor
+                                        is_opponent(actor, o.controller)
                                             && o.types.contains(TypeSet::CREATURE)
                                             && o.damage > 0
                                             && (o.keywords
@@ -204,7 +255,7 @@ pub(super) fn select_single_choice(
                                 cand_obj(cand)
                                     .and_then(|oid| view.object(oid))
                                     .is_some_and(|o| {
-                                        o.controller != actor
+                                        is_opponent(actor, o.controller)
                                             && o.types.contains(TypeSet::CREATURE)
                                             && (o.keywords
                                                 & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
@@ -221,14 +272,15 @@ pub(super) fn select_single_choice(
                         cand_obj(cand)
                             .and_then(|oid| view.object(oid))
                             .is_some_and(|o| {
-                                o.controller != actor && super::choices::is_urgent_enchantment(o)
+                                is_opponent(actor, o.controller)
+                                    && super::choices::is_urgent_enchantment(o)
                             })
                     });
                     let max_ben_tier = cands
                         .candidates
                         .iter()
                         .filter_map(|cand| cand_obj(cand).and_then(|oid| view.object(oid)))
-                        .filter(|o| o.controller == actor && o.types.contains(TypeSet::CREATURE))
+                        .filter(|o| is_ally(actor, o.controller) && o.types.contains(TypeSet::CREATURE))
                         .map(|o| super::choices::beneficial_creature_target_tier(actor, o))
                         .max()
                         .unwrap_or(0);
@@ -245,7 +297,7 @@ pub(super) fn select_single_choice(
                                     let is_urgent = cand_obj(cand)
                                         .and_then(|oid| view.object(oid))
                                         .is_some_and(|o| {
-                                            o.controller != actor
+                                            is_opponent(actor, o.controller)
                                                 && super::choices::is_urgent_enchantment(o)
                                         });
                                     if !is_urgent {
@@ -256,7 +308,7 @@ pub(super) fn select_single_choice(
                                         let is_lethal_target = cand_obj(cand)
                                             .and_then(|oid| view.object(oid))
                                             .is_some_and(|o| {
-                                                o.controller != actor
+                                                is_opponent(actor, o.controller)
                                                     && o.types.contains(TypeSet::CREATURE)
                                                     && (o.keywords
                                                         & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
@@ -272,7 +324,7 @@ pub(super) fn select_single_choice(
                                                         <= dmg
                                             })
                                             || cand_pid(cand).is_some_and(|pid| {
-                                                pid != actor
+                                                is_opponent(actor, pid)
                                                     && view.seat(pid).map_or(20, |s| s.life) <= dmg
                                             });
                                         if !is_lethal_target {
@@ -282,7 +334,7 @@ pub(super) fn select_single_choice(
                                         let is_damaged_creature = cand_obj(cand)
                                             .and_then(|oid| view.object(oid))
                                             .is_some_and(|o| {
-                                                o.controller != actor
+                                                is_opponent(actor, o.controller)
                                                     && o.types.contains(TypeSet::CREATURE)
                                                     && o.damage > 0
                                                     && (o.keywords
@@ -297,7 +349,7 @@ pub(super) fn select_single_choice(
                                         let is_two_hit_creature = cand_obj(cand)
                                             .and_then(|oid| view.object(oid))
                                             .is_some_and(|o| {
-                                                o.controller != actor
+                                                is_opponent(actor, o.controller)
                                                     && o.types.contains(TypeSet::CREATURE)
                                                     && (o.keywords
                                                         & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
@@ -313,7 +365,7 @@ pub(super) fn select_single_choice(
                                         }
                                     } else if !can_follow_up_ping
                                         && any_opp_player_target
-                                        && cand_pid(cand).is_none_or(|pid| pid == actor)
+                                        && cand_pid(cand).is_none_or(|pid| is_ally(actor, pid))
                                     {
                                         trial[i] = f32::NEG_INFINITY;
                                     }
@@ -324,7 +376,7 @@ pub(super) fn select_single_choice(
                                     trial[i] = f32::NEG_INFINITY;
                                 } else if max_ben_tier > 0
                                     && let Some(o) = cand_obj(cand).and_then(|oid| view.object(oid))
-                                    && o.controller == actor
+                                    && is_ally(actor, o.controller)
                                     && o.types.contains(TypeSet::CREATURE)
                                     && super::choices::beneficial_creature_target_tier(actor, o) + 2
                                         < max_ben_tier
@@ -363,6 +415,7 @@ pub(super) fn select_single_choice(
             .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
         let has_sink = has_reachable_mana_sink(view, legal);
         let play_land_first = should_play_land_first(view, legal);
+        let crack_fetch_first = should_crack_fetchland_first(view, legal);
 
         if chosen_idx == 0 && matches!(cands.candidates[0].action, Some(PlayerAction::PassPriority))
         {
@@ -403,13 +456,16 @@ pub(super) fn select_single_choice(
             let main_phase_proactive = view.owed.is_none()
                 && view.stack.is_empty()
                 && (draw_ab_ready
+                    || (view.active == actor
+                        && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+                        && (play_land_first
+                            || crack_fetch_first
+                            || has_proactive_main_phase_play(view, legal)))
                     || (p_pass < 0.90
                         && ((view.active == actor
                             && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
-                            && (play_land_first
-                                || has_proactive_main_phase_play(view, legal)
-                                || ((view.phase == Phase::SecondMain || view.hand.is_empty())
-                                    && has_sink)))
+                            && (view.phase == Phase::SecondMain || view.hand.is_empty())
+                            && has_sink)
                             || (view.phase == Phase::Combat
                                 && ((view.active == actor
                                     && view.step == Step::DeclareAttackers)
@@ -433,6 +489,23 @@ pub(super) fn select_single_choice(
                                 .as_ref()
                                 .is_some_and(|a| !is_mana_action(view, a))
                     });
+                let prefer_land = play_land_first
+                    && (1..n).any(|i| {
+                        logits[i].is_finite()
+                            && matches!(
+                                cands.candidates[i].action,
+                                Some(PlayerAction::PlayLand { .. })
+                            )
+                    });
+                let prefer_fetch = !prefer_land
+                    && crack_fetch_first
+                    && (1..n).any(|i| {
+                        logits[i].is_finite()
+                            && cands.candidates[i]
+                                .action
+                                .as_ref()
+                                .is_some_and(|a| is_fetchland_ability_action(view, a))
+                    });
                 if let Some((best_act, _)) = (1..n)
                     .filter(|&i| logits[i].is_finite())
                     .filter(|&i| {
@@ -440,6 +513,20 @@ pub(super) fn select_single_choice(
                             cands.candidates[i].action,
                             Some(PlayerAction::PassPriority | PlayerAction::CancelCast)
                         )
+                    })
+                    .filter(|&i| {
+                        !prefer_land
+                            || matches!(
+                                cands.candidates[i].action,
+                                Some(PlayerAction::PlayLand { .. })
+                            )
+                    })
+                    .filter(|&i| {
+                        !prefer_fetch
+                            || cands.candidates[i]
+                                .action
+                                .as_ref()
+                                .is_some_and(|a| is_fetchland_ability_action(view, a))
                     })
                     .filter(|&i| {
                         !prefer_non_mana
@@ -627,6 +714,84 @@ fn should_play_land_first(view: &PlayerView, legal: &LegalActions) -> bool {
         return false;
     }
     legal.lands.iter().any(|&id| is_true_land_card(view, id)) || legal.payable.is_empty()
+}
+
+fn is_fetchland_ability_entry(view: &PlayerView, source: ObjectId, ability_index: u32) -> bool {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let my_life = view.seat(actor).map_or(20, |s| s.life);
+    let Some(obj) = view.object(source) else {
+        return false;
+    };
+    if !obj.types.contains(TypeSet::LAND)
+        || obj.status.contains(ObjectStatus::TAPPED)
+        || obj.status.contains(ObjectStatus::PHASED_OUT)
+    {
+        return false;
+    }
+    let Some(abilities) = abilities_of_battlefield_object(obj) else {
+        return false;
+    };
+    let Some(
+        AbilityDef::Activated { cost, effects, .. }
+        | AbilityDef::ActivatedConditional { cost, effects, .. },
+    ) = abilities.get(ability_index as usize)
+    else {
+        return false;
+    };
+    if cost.mana != ManaCost::ZERO || !cost.parts.contains(&CostPart::SacrificeSelf) {
+        return false;
+    }
+    let life_cost: i32 = cost
+        .parts
+        .iter()
+        .filter_map(|p| match p {
+            CostPart::PayLife(n) => i32::try_from(*n).ok(),
+            _ => None,
+        })
+        .sum();
+    if life_cost > 0 && my_life <= life_cost + 2 {
+        return false;
+    }
+    effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::SearchLibrary { .. }
+                | Effect::SearchLibraryBeforeShuffle { .. }
+                | Effect::SearchLibraryUpTo { .. }
+        )
+    })
+}
+
+fn is_fetchland_ability_action(view: &PlayerView, action: &PlayerAction) -> bool {
+    match action {
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } => is_fetchland_ability_entry(view, *source, *ability_index),
+        _ => false,
+    }
+}
+
+fn should_crack_fetchland_first(view: &PlayerView, legal: &LegalActions) -> bool {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    if view.owed.is_some()
+        || view.active != actor
+        || !view.stack.is_empty()
+        || !matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+        || should_play_land_first(view, legal)
+    {
+        return false;
+    }
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+    if pool_total > 0 {
+        return false;
+    }
+    legal.abilities.iter().any(|&(src, idx)| {
+        is_fetchland_ability_entry(view, src, idx)
+            && is_activated_ability_worth_activating_now(view, src, idx)
+    })
 }
 
 fn is_x_spell_ready_from_castable(view: &PlayerView, id: ObjectId, pool_total: u32) -> bool {
@@ -1094,7 +1259,7 @@ fn should_hold_spell_for_better_main_phase_creature(
         .battlefield
         .iter()
         .filter(|o| {
-            o.controller != actor
+            is_opponent(actor, o.controller)
                 && o.types.contains(TypeSet::CREATURE)
                 && !o.status.contains(ObjectStatus::PHASED_OUT)
         })
@@ -1454,6 +1619,19 @@ fn has_proactive_main_phase_play(view: &PlayerView, legal: &LegalActions) -> boo
             }
         }
     }
+    for &(src, ab_idx) in &legal.abilities {
+        if let Some(obj) = view.object(src)
+            && !obj.status.contains(ObjectStatus::PHASED_OUT)
+            && let Some(abilities) = abilities_of_battlefield_object(obj)
+            && matches!(
+                abilities.get(ab_idx as usize),
+                Some(AbilityDef::Loyalty { .. })
+            )
+            && is_activated_ability_worth_activating_now(view, src, ab_idx)
+        {
+            return true;
+        }
+    }
     false
 }
 
@@ -1509,9 +1687,6 @@ fn has_proactive_draw_ability_play(view: &PlayerView, legal: &LegalActions) -> b
                     | AbilityDef::ActivatedConditional { cost, effects, .. } => (cost, *effects),
                     _ => continue,
                 };
-                if cost.mana == ManaCost::ZERO {
-                    continue;
-                }
                 if cost.parts.contains(&CostPart::TapSelf)
                     && (obj.status.contains(ObjectStatus::TAPPED)
                         || (obj.types.contains(TypeSet::CREATURE) && obj.summoning_sick))
@@ -1840,7 +2015,7 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
             })
         {
             let opp_benefits_from_deaths = view.battlefield.iter().any(|o| {
-                o.controller != actor
+                is_opponent(actor, o.controller)
                     && !o.status.contains(ObjectStatus::PHASED_OUT)
                     && abilities_of_battlefield_object(o).is_some_and(|abs| {
                         abs.iter().any(|ab| {
@@ -1979,9 +2154,50 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
             {
                 continue;
             }
-            if is_counterspell_effects(effects) && view.stack.iter().all(|s| s.controller == actor)
+            if is_counterspell_effects(effects)
+                && (view.stack.iter().all(|s| is_ally(actor, s.controller))
+                    || view.top_of_stack().is_some_and(|top| is_ally(actor, top.controller)))
             {
                 continue;
+            }
+            if view.seats.len() > 2
+                && let Some(filter) = effects.iter().find_map(|e| match e {
+                    Effect::DestroyAll { filter, .. }
+                    | Effect::DestroyAllThenForEachDestroyed { filter, .. }
+                    | Effect::ExileAll { filter, .. }
+                    | Effect::SacrificeAll { filter } => Some(*filter),
+                    _ => None,
+                })
+                && !matches!(filter, Filter::HasType(ts) if *ts == TypeSet::LAND)
+            {
+                let mut ally_worth = 0_i32;
+                let mut opp_worth = 0_i32;
+                for o in &view.battlefield {
+                    if o.status.contains(ObjectStatus::PHASED_OUT)
+                        || !public_object_matches_basic_filter(actor, o, filter)
+                    {
+                        continue;
+                    }
+                    let w = if o.types.contains(TypeSet::CREATURE) {
+                        i32::from(o.power.unwrap_or(0)).max(0) * 2
+                            + i32::from(o.toughness.unwrap_or(0)).max(0)
+                            + 2
+                    } else {
+                        3
+                    };
+                    if is_ally(actor, o.controller) {
+                        ally_worth += w;
+                    } else {
+                        opp_worth += w;
+                    }
+                }
+                let ally_critical = view
+                    .seats
+                    .iter()
+                    .any(|s| is_ally(actor, s.player) && s.life > 0 && s.life <= 7);
+                if opp_worth == 0 || (ally_worth > opp_worth + 3 && !ally_critical) {
+                    continue;
+                }
             }
             let self_loss: i32 = effects
                 .iter()
@@ -2021,7 +2237,7 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                 let opp_lethal = view
                     .seats
                     .iter()
-                    .any(|s| s.player != actor && s.life > 0 && s.life <= chosen_loss);
+                    .any(|s| is_opponent(actor, s.player) && s.life > 0 && s.life <= chosen_loss);
                 if !opp_lethal
                     && (my_life <= chosen_loss + 3
                         || (my_life <= chosen_loss + 8 && view.hand.len() >= 5))
@@ -2035,7 +2251,9 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                 if let TargetSpec::Object(filter) = req.spec {
                     if is_pure_pump_effects(effects) {
                         if !view
-                            .battlefield_of(actor)
+                            .battlefield
+                            .iter()
+                            .filter(|o| is_ally(actor, o.controller))
                             .any(|o| public_object_matches_basic_filter(actor, o, filter))
                         {
                             continue;
@@ -2067,7 +2285,7 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                     }
                     if is_hostile_object_effects(effects)
                         && !view.battlefield.iter().any(|o| {
-                            o.controller != actor
+                            is_opponent(actor, o.controller)
                                 && (!o.types.contains(TypeSet::LAND)
                                     || filter_targets_lands(filter))
                                 && public_object_matches_basic_filter(actor, o, filter)
@@ -2088,9 +2306,9 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                     let opp_low_life = view
                         .seats
                         .iter()
-                        .any(|s| s.player != actor && s.life > 0 && s.life <= dmg * 2 + 1);
+                        .any(|s| is_opponent(actor, s.player) && s.life > 0 && s.life <= dmg * 2 + 1);
                     let opp_has_killable_target = view.battlefield.iter().any(|o| {
-                        o.controller != actor
+                        is_opponent(actor, o.controller)
                             && !o.status.contains(ObjectStatus::PHASED_OUT)
                             && ((o.types.contains(TypeSet::CREATURE)
                                 && (o.keywords
@@ -2182,7 +2400,9 @@ pub(super) fn is_modal_mode_worth_casting(
     actor: PlayerId,
     mode: &baylee_cards_dsl::SpellMode,
 ) -> bool {
-    if is_counterspell_effects(mode.effects) && view.stack.iter().all(|s| s.controller == actor) {
+    if is_counterspell_effects(mode.effects)
+        && view.stack.iter().all(|s| is_ally(actor, s.controller))
+    {
         return false;
     }
     if let Some(ref req) = mode.targets
@@ -2204,7 +2424,7 @@ pub(super) fn is_modal_mode_worth_casting(
                 )
             });
             if !view.battlefield.iter().any(|o| {
-                if o.controller == actor
+                if is_ally(actor, o.controller)
                     || (o.types.contains(TypeSet::LAND) && !filter_targets_lands(filter))
                     || !public_object_matches_basic_filter(actor, o, filter)
                 {
@@ -2811,6 +3031,48 @@ fn is_activated_ability_worth_activating_now(
     let Some(ab) = abilities.get(ability_index as usize) else {
         return true;
     };
+    if let AbilityDef::Loyalty {
+        cost,
+        effects,
+        targets,
+        ..
+    } = ab
+    {
+        if let Some(req) = targets
+            && let TargetSpec::Object(filter) = req.spec
+            && is_hostile_object_effects(effects)
+            && !view.battlefield.iter().any(|o| {
+                is_opponent(actor, o.controller)
+                    && (!o.types.contains(TypeSet::LAND) || filter_targets_lands(filter))
+                    && public_object_matches_basic_filter(actor, o, filter)
+            })
+        {
+            return false;
+        }
+        if *cost < 0 {
+            let cur_loyalty = i32::from(obj.loyalty.unwrap_or(0));
+            let is_ultimate = abilities
+                .iter()
+                .filter_map(|a| match a {
+                    AbilityDef::Loyalty { cost: c, .. } => Some(*c),
+                    _ => None,
+                })
+                .min()
+                == Some(*cost)
+                && *cost <= -5;
+            let has_plus = abilities
+                .iter()
+                .any(|a| matches!(a, AbilityDef::Loyalty { cost: c, .. } if *c >= 0));
+            if cur_loyalty + i32::from(*cost) <= 0
+                && has_plus
+                && !is_ultimate
+                && !is_hostile_object_effects(effects)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
     let (cost, effects, target_spec) = match ab {
         AbilityDef::Activated {
             cost,
@@ -3079,7 +3341,7 @@ fn is_activated_ability_worth_activating_now(
             return false;
         }
         let stack_threatens_source = view.top_of_stack().is_some_and(|top| {
-            top.controller != actor
+            is_opponent(actor, top.controller)
                 && abilities_of_battlefield_object(top).is_some_and(|abs| {
                     abs.iter().any(|ab| match ab {
                         AbilityDef::Spell { effects: se, .. }
@@ -3195,7 +3457,7 @@ fn is_activated_ability_worth_activating_now(
                     }
                     if (keywords.bits() & !menace_bit) == 0 {
                         let opp_has_untapped_creature = view.battlefield.iter().any(|o| {
-                            o.controller != actor
+                            is_opponent(actor, o.controller)
                                 && o.types.contains(TypeSet::CREATURE)
                                 && !o.status.contains(ObjectStatus::TAPPED)
                                 && !o.status.contains(ObjectStatus::PHASED_OUT)
@@ -3316,7 +3578,7 @@ fn is_activated_ability_worth_activating_now(
     if let Some(TargetSpec::Object(filter)) = target_spec
         && is_hostile_object_effects(effects)
         && !view.battlefield.iter().any(|o| {
-            o.controller != actor
+            is_opponent(actor, o.controller)
                 && (!o.types.contains(TypeSet::LAND) || filter_targets_lands(filter))
                 && public_object_matches_basic_filter(actor, o, filter)
         })
@@ -3529,7 +3791,7 @@ fn classify_effects_intent(view: &PlayerView, actor: PlayerId, effects: &[Effect
             let opp_lethal = view
                 .seats
                 .iter()
-                .any(|s| s.player != actor && s.life > 0 && s.life <= loss_i32);
+                .any(|s| is_opponent(actor, s.player) && s.life > 0 && s.life <= loss_i32);
             if opp_lethal {
                 return TargetIntent::Hostile;
             }
@@ -3548,14 +3810,14 @@ fn classify_effects_intent(view: &PlayerView, actor: PlayerId, effects: &[Effect
 
 fn is_friendly_target_action(view: &PlayerView, actor: PlayerId, action: &PlayerAction) -> bool {
     match action {
-        PlayerAction::ChoosePlayer(p) => *p == actor,
+        PlayerAction::ChoosePlayer(p) => is_ally(actor, *p),
         PlayerAction::ChooseTargets { objects, players } => {
-            if players.contains(&actor) {
+            if players.iter().any(|&p| is_ally(actor, p)) {
                 return true;
             }
             objects
                 .iter()
-                .any(|&oid| view.object(oid).is_some_and(|o| o.controller == actor))
+                .any(|&oid| view.object(oid).is_some_and(|o| is_ally(actor, o.controller)))
         }
         _ => false,
     }
@@ -3563,14 +3825,14 @@ fn is_friendly_target_action(view: &PlayerView, actor: PlayerId, action: &Player
 
 fn is_hostile_target_action(view: &PlayerView, actor: PlayerId, action: &PlayerAction) -> bool {
     match action {
-        PlayerAction::ChoosePlayer(p) => *p != actor,
+        PlayerAction::ChoosePlayer(p) => is_opponent(actor, *p),
         PlayerAction::ChooseTargets { objects, players } => {
-            if players.iter().any(|&p| p != actor) {
+            if players.iter().any(|&p| is_opponent(actor, p)) {
                 return true;
             }
             objects
                 .iter()
-                .any(|&oid| view.object(oid).is_some_and(|o| o.controller != actor))
+                .any(|&oid| view.object(oid).is_some_and(|o| is_opponent(actor, o.controller)))
         }
         _ => false,
     }
@@ -5150,5 +5412,42 @@ pub mod reading {
     #[must_use]
     pub fn spell_cost(view: &PlayerView, id: ObjectId) -> Option<u32> {
         lookup_spell_cost(view, id).map(|(cost, tax)| cost.with_x(0).cmc().saturating_add(tax))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn team_context_recognizes_allies_and_opponents_and_clears_after_scope() {
+        let p0 = PlayerId::new(0);
+        let p1 = PlayerId::new(1);
+        let p2 = PlayerId::new(2);
+        let p3 = PlayerId::new(3);
+        let mut teams = [None; 8];
+        teams[0] = Some(0);
+        teams[1] = Some(0);
+        teams[2] = Some(1);
+        teams[3] = Some(1);
+
+        assert!(is_ally(p0, p0));
+        assert!(!is_ally(p0, p1));
+        assert!(is_opponent(p0, p1));
+
+        with_team_context(&teams, || {
+            assert!(is_ally(p0, p0));
+            assert!(is_ally(p0, p1));
+            assert!(!is_opponent(p0, p1));
+            assert!(is_opponent(p0, p2));
+            assert!(is_opponent(p0, p3));
+            assert!(is_ally(p2, p3));
+            assert!(!is_opponent(p2, p3));
+        });
+
+        assert!(
+            !is_ally(p0, p1),
+            "team context must be restored when scope exits"
+        );
     }
 }

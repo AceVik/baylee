@@ -104,7 +104,7 @@ impl<S> Probe<'_, S> {
         if decision.ranking.is_none() {
             return Ok(Vec::new());
         }
-        let ranked = candidates(&decision, self.targets);
+        let ranked = candidates(&view, &decision, self.targets);
         let priors = probabilities(&decision, &ranked);
         Ok(ranked
             .into_iter()

@@ -99,12 +99,20 @@ const fn moment(view: &PlayerView) -> (u32, u8) {
 /// seat's first settled pass after the root's phase, and with what it did
 /// in between: a land drop with the spells it enables, a pass with the land
 /// played later, an attack with its damage.
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "Single rollout loop tracks cancelled root casts, terminal leaves, settled main-phase priority and horizon"
+)]
 fn rollout<P: SearchPlayer4>(
     player: &mut P,
     fork: &mut SimulationSession,
     root: &PlayerView,
     teams: &[Option<u8>],
     horizon: usize,
+    mut active_root_cast: Option<baylee_core::ids::ObjectId>,
+    mut root_snapshot_hash: Option<u64>,
+    root_journal_len: usize,
 ) -> anyhow::Result<Leaf> {
     let seat = root.seat;
     let context = player.view_context();
@@ -130,14 +138,69 @@ fn rollout<P: SearchPlayer4>(
                 .into_iter()
                 .map(PlayerId::get)
                 .collect();
+            let surviving: Vec<u8> = (0..seats)
+                .filter_map(|s| u8::try_from(s).ok())
+                .filter(|&s| !fork.state().has_left(PlayerId::new(s)))
+                .collect();
+            let score = if winners.is_empty() {
+                terminal_utility(seat.get(), teams, &winners, seats)
+            } else {
+                crate::features4::side_utility(seat.get(), teams, &surviving, &winners)
+            };
             return Ok(Leaf {
-                score: terminal_utility(seat.get(), teams, &winners, seats),
+                score,
                 steps,
                 decisions,
                 kind: LeafKind::Terminal,
             });
         }
-        player.observe(&context.observe(fork, seat))?;
+        if fork.state().has_left(seat) {
+            let base = player.observed_value(seat).unwrap_or(0.5);
+            return Ok(Leaf {
+                score: (base - crate::features4::TEAM_WIN_ELIMINATED_PENALTY).clamp(0.0, 1.0),
+                steps,
+                decisions,
+                kind: LeafKind::Stopped,
+            });
+        }
+        let observed = context.observe(fork, seat);
+        player.observe(&observed)?;
+        let cast_cancelled = active_root_cast.is_some_and(|card| {
+            let entries = fork.state().journal.entries();
+            let tail = entries.get(root_journal_len..).unwrap_or(entries);
+            tail.iter().any(|entry| {
+                matches!(
+                    entry.event,
+                    baylee_engine::event::GameEvent::CastCancelled {
+                        player,
+                        card: cancelled,
+                        ..
+                    } if player == seat && cancelled == card
+                )
+            })
+        });
+        let reversed_to_root = root_snapshot_hash.is_some_and(|h| {
+            observed.casting.is_none()
+                && observed.announced_cast.is_none()
+                && observed.owed.is_none()
+                && fork.snapshot_hash() == h
+        });
+        if cast_cancelled || reversed_to_root {
+            let base = player.observed_value(seat).unwrap_or(0.5);
+            return Ok(Leaf {
+                score: (base - 0.02).clamp(0.0, 1.0),
+                steps,
+                decisions,
+                kind: LeafKind::Stopped,
+            });
+        }
+        if observed.casting.is_none()
+            && observed.announced_cast.is_none()
+            && observed.owed.is_none()
+        {
+            active_root_cast = None;
+            root_snapshot_hash = None;
+        }
         if horizon == 0 {
             return value(player, steps, decisions, LeafKind::Immediate);
         }
@@ -159,30 +222,47 @@ fn rollout<P: SearchPlayer4>(
             steps += 1;
             continue;
         }
-        let Some((pending, view)) = context.view_for(fork, seat) else {
+        if let Some((pending, view)) = context.view_for(fork, seat) {
+            let answer = player.answer(&view, &pending, teams);
+            // Past the root's phase, the seat has done what it does in this main
+            // phase: score the position it would pass on, before the pass.
+            if moment(&view) > moment(root)
+                && settled(&view, &pending)
+                && answer.action == PlayerAction::PassPriority
+            {
+                return value(player, steps, decisions, LeafKind::Settled);
+            }
+            let counts = counts_toward_horizon(&answer, &view);
+            if fork.act_slice(seat, answer.action, 0).is_err() {
+                // As the evaluator does after a refused answer.
+                let accepted = fork
+                    .house_action(seat)
+                    .is_some_and(|house| fork.act_slice(seat, house, 0).is_ok());
+                if !accepted {
+                    return value(player, steps, decisions, LeafKind::Stopped);
+                }
+            }
+            steps += 1;
+            decisions += u64::from(counts);
+            continue;
+        }
+        let Some(other) = fork.pending().asked().filter(|&asked| asked != seat) else {
+            return value(player, steps, decisions, LeafKind::Stopped);
+        };
+        player.observe(&context.observe(fork, other))?;
+        let Some((pending, view)) = context.view_for(fork, other) else {
             return value(player, steps, decisions, LeafKind::Stopped);
         };
         let answer = player.answer(&view, &pending, teams);
-        // Past the root's phase, the seat has done what it does in this main
-        // phase: score the position it would pass on, before the pass.
-        if moment(&view) > moment(root)
-            && settled(&view, &pending)
-            && answer.action == PlayerAction::PassPriority
-        {
-            return value(player, steps, decisions, LeafKind::Settled);
-        }
-        let counts = counts_toward_horizon(&answer, &view);
-        if fork.act_slice(seat, answer.action, 0).is_err() {
-            // As the evaluator does after a refused answer.
+        if fork.act_slice(other, answer.action, 0).is_err() {
             let accepted = fork
-                .house_action(seat)
-                .is_some_and(|house| fork.act_slice(seat, house, 0).is_ok());
+                .house_action(other)
+                .is_some_and(|house| fork.act_slice(other, house, 0).is_ok());
             if !accepted {
                 return value(player, steps, decisions, LeafKind::Stopped);
             }
         }
         steps += 1;
-        decisions += u64::from(counts);
     }
 }
 
@@ -243,12 +323,32 @@ pub(super) fn world<T: ForkSource4>(
     seat: PlayerId,
     seed: u64,
 ) -> Result<SimulationSession, ForkRefusal> {
+    world_with_opponent(table, seat, seed, &[], false)
+}
+
+/// World `seed`, forked from `table` for `seat`, with teammates and (when
+/// `neural_opponent = true`) opponents kept for neural rollout answers, and
+/// non-teammate chairs handed to the house when `neural_opponent = false`.
+fn world_with_opponent<T: ForkSource4>(
+    table: &T,
+    seat: PlayerId,
+    seed: u64,
+    teams: &[Option<u8>],
+    neural_opponent: bool,
+) -> Result<SimulationSession, ForkRefusal> {
     let mut world = table.fork(seat, seed)?;
-    for other in 0..world.state().players.len() {
-        if let Ok(other) = u8::try_from(other).map(PlayerId::new)
+    let my_team = teams.get(usize::from(seat.get())).copied().flatten();
+    for other_idx in 0..world.state().players.len() {
+        if let Ok(other) = u8::try_from(other_idx).map(PlayerId::new)
             && other != seat
         {
-            world.release(other);
+            let same_team =
+                my_team.is_some() && teams.get(other_idx).copied().flatten() == my_team;
+            if neural_opponent || same_team {
+                world.take_over(other);
+            } else {
+                world.release(other);
+            }
         }
     }
     Ok(world)
@@ -289,6 +389,7 @@ struct Start<'a> {
     teams: &'a [Option<u8>],
     decision: &'a RootDecision4,
     horizon: usize,
+    neural_opponent: bool,
 }
 
 impl Start<'_> {
@@ -305,7 +406,17 @@ impl Start<'_> {
         seed: u64,
     ) -> Outcome {
         let seat = self.view.seat;
+        if self.neural_opponent {
+            player.reset_other_seats_for_rollout(seat);
+        }
         let action = &candidate.root.action;
+        let root_cast = match *action {
+            PlayerAction::CastSpell { card } => Some(card),
+            _ => None,
+        };
+        let root_snapshot_hash =
+            (!matches!(*action, PlayerAction::PassPriority)).then(|| world.snapshot_hash());
+        let journal_cursor = world.state().journal.len();
         player.conclude(self.view, self.decision, action);
         player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
         if world.act_slice(seat, action.clone(), 0).is_err() {
@@ -316,7 +427,17 @@ impl Start<'_> {
         {
             return Ok(None);
         }
-        rollout(player, &mut world, self.view, self.teams, self.horizon).map(Some)
+        rollout(
+            player,
+            &mut world,
+            self.view,
+            self.teams,
+            self.horizon,
+            root_cast,
+            root_snapshot_hash,
+            journal_cursor,
+        )
+        .map(Some)
     }
 }
 
@@ -440,6 +561,7 @@ impl<S> Rounds<'_, S> {
             teams: self.teams,
             decision: self.decision,
             horizon: config.horizon(),
+            neural_opponent: config.neural_opponent(),
         };
         if parallel {
             self.play_at_once(player, table, start, &jobs, threads, &mut tally)?;
@@ -449,14 +571,16 @@ impl<S> Rounds<'_, S> {
         Ok(tally.played())
     }
 
-    /// World `seed`, forked from `table` for the seat, every other chair
-    /// handed to the house.
+    /// World `seed`, forked from `table` for the seat, with other chairs
+    /// either kept for neural rollout answers (`neural_opponent = true`) or
+    /// handed to the house (`false`).
     fn world<T: ForkSource4>(
         &self,
         table: &T,
         seed: u64,
+        neural_opponent: bool,
     ) -> Result<SimulationSession, ForkRefusal> {
-        world(table, self.view.seat, seed)
+        world_with_opponent(table, self.view.seat, seed, self.teams, neural_opponent)
     }
 
     /// Runs `jobs` one by one on `player`, restored to the root before each.
@@ -473,7 +597,9 @@ impl<S> Rounds<'_, S> {
         T: ForkSource4,
     {
         for job in jobs {
-            let world = self.world(table, job.seed).map_err(Stop::Refused)?;
+            let world = self
+                .world(table, job.seed, start.neural_opponent)
+                .map_err(Stop::Refused)?;
             player.restore(self.root);
             let leaf = start
                 .roll_out(player, world, job.candidate, job.seed)
@@ -513,7 +639,7 @@ impl<S> Rounds<'_, S> {
             loop {
                 while cut.is_none() && running < threads && started < jobs.len() {
                     let job = jobs[started];
-                    let world = match self.world(table, job.seed) {
+                    let world = match self.world(table, job.seed, start.neural_opponent) {
                         Ok(world) => world,
                         Err(refusal) => {
                             cut = Some(Stop::Refused(refusal));

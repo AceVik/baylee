@@ -30,7 +30,7 @@ use anyhow::anyhow;
 use ort::session::Session;
 
 use super::inference::{StepRow, run_rows};
-use super::{StepOutputs, abi, identity, load_session};
+use super::{StepOutputs, abi, identity, load_session, load_session_with_hardware};
 
 /// Limits on one batched call.
 #[derive(Clone, Copy, Debug)]
@@ -84,6 +84,7 @@ struct Lane {
 pub struct BatchedNet4 {
     pub(super) model: super::ModelFiles,
     limits: BatchLimits4,
+    hardware: Option<(baylee_driver::HardwareConfig, usize)>,
     lanes: Mutex<BTreeMap<u8, Lane>>,
     /// Calls run and rows answered by every lane: their ratio is the mean
     /// batch size.
@@ -100,16 +101,47 @@ impl BatchedNet4 {
     pub fn load(
         path: &std::path::Path,
         limits: BatchLimits4,
-        catalog: super::CatalogPolicy4,
+        catalog: impl Into<super::CatalogRead4>,
     ) -> anyhow::Result<Arc<Self>> {
         anyhow::ensure!(
             limits.max_rows >= 1 && limits.token_budget >= 1,
             "a batch needs at least one row and one token"
         );
-        let (model, depth, session) = super::ModelFiles::open(path, catalog)?;
+        let (model, depth, session) = super::ModelFiles::open(path, catalog.into())?;
         let net = Self {
             model,
             limits,
+            hardware: None,
+            lanes: Mutex::new(BTreeMap::new()),
+            stats: Arc::new([AtomicU64::new(0), AtomicU64::new(0)]),
+        };
+        net.start_lane(&mut net.lanes(), depth, session)?;
+        Ok(Arc::new(net))
+    }
+
+    /// Opens a supported V4/V5 model directory configured for `hardware` and
+    /// `worker_slots`, resolving `fp16` vs `fp32` model directories and adaptive
+    /// intra-op thread topology automatically.
+    ///
+    /// # Errors
+    /// When the ONNX model or metadata cannot be loaded.
+    pub fn load_with_hardware(
+        path: &std::path::Path,
+        limits: BatchLimits4,
+        catalog: impl Into<super::CatalogRead4>,
+        hardware: &baylee_driver::HardwareConfig,
+        worker_slots: usize,
+    ) -> anyhow::Result<Arc<Self>> {
+        anyhow::ensure!(
+            limits.max_rows >= 1 && limits.token_budget >= 1,
+            "a batch needs at least one row and one token"
+        );
+        let (model, depth, session) =
+            super::ModelFiles::open_with_hardware(path, catalog.into(), hardware, worker_slots)?;
+        let net = Self {
+            model,
+            limits,
+            hardware: Some((hardware.clone(), worker_slots)),
             lanes: Mutex::new(BTreeMap::new()),
             stats: Arc::new([AtomicU64::new(0), AtomicU64::new(0)]),
         };
@@ -173,7 +205,10 @@ impl BatchedNet4 {
         }
         let path: PathBuf = self.model.model_dir.join(format!("model.k{depth}.onnx"));
         identity::verify_depth_graph(&path, depth, &self.model.identity)?;
-        let session = load_session(&path)?;
+        let session = match &self.hardware {
+            Some((hw, slots)) => load_session_with_hardware(&path, hw, *slots)?,
+            None => load_session(&path)?,
+        };
         abi::validate(&session, self.model.encoder_version)?;
         identity::verify_depth_graph(&path, depth, &self.model.identity)?;
         self.start_lane(&mut lanes, depth, session)?;

@@ -11,31 +11,34 @@ use baylee_view::{ObjectStatus, PlayerView, PublicObject};
 use super::super::abilities_of_battlefield_object;
 
 /// The seat deciding.
-pub(super) fn actor(view: &PlayerView) -> PlayerId {
+pub(in crate::netplay4) fn actor(view: &PlayerView) -> PlayerId {
     view.decision_player.unwrap_or(view.seat)
 }
 
 /// The players against `me` still in the game.
-pub(super) fn opponents(view: &PlayerView, me: PlayerId) -> impl Iterator<Item = PlayerId> + '_ {
+pub(in crate::netplay4) fn opponents(
+    view: &PlayerView,
+    me: PlayerId,
+) -> impl Iterator<Item = PlayerId> + '_ {
     view.seats
         .iter()
-        .filter(move |seat| seat.player != me && seat.life > 0)
+        .filter(move |seat| super::super::is_opponent(me, seat.player) && seat.life > 0)
         .map(|seat| seat.player)
 }
 
-pub(super) fn life(view: &PlayerView, player: PlayerId) -> i32 {
+pub(in crate::netplay4) fn life(view: &PlayerView, player: PlayerId) -> i32 {
     view.seat(player).map_or(20, |seat| seat.life)
 }
 
-pub(super) const fn has(object: &PublicObject, keyword: KeywordSet) -> bool {
+pub(in crate::netplay4) const fn has(object: &PublicObject, keyword: KeywordSet) -> bool {
     object.keywords & keyword.bits() != 0
 }
 
-pub(super) fn is_creature(object: &PublicObject) -> bool {
+pub(in crate::netplay4) fn is_creature(object: &PublicObject) -> bool {
     object.types.contains(TypeSet::CREATURE) && !object.status.contains(ObjectStatus::PHASED_OUT)
 }
 
-pub(super) fn is_tapped(object: &PublicObject) -> bool {
+pub(in crate::netplay4) fn is_tapped(object: &PublicObject) -> bool {
     object.status.contains(ObjectStatus::TAPPED)
 }
 
@@ -44,7 +47,7 @@ fn power(object: &PublicObject) -> i32 {
 }
 
 /// Toughness left this turn.
-pub(super) fn toughness_left(object: &PublicObject) -> i32 {
+pub(in crate::netplay4) fn toughness_left(object: &PublicObject) -> i32 {
     (i32::from(object.toughness.unwrap_or(1)) - i32::from(object.damage)).max(1)
 }
 
@@ -66,7 +69,7 @@ fn has_engine(object: &PublicObject) -> bool {
 /// A rough worth of a permanent to whoever controls it. It only has to order
 /// a token under a real creature, a body under an engine, and to add up
 /// across a board: mass effects compare sums of it.
-pub(super) fn worth(object: &PublicObject) -> i32 {
+pub(in crate::netplay4) fn worth(object: &PublicObject) -> i32 {
     let mana_value = i32::try_from(object.mana_value).unwrap_or(0);
     let token = object.token.is_some() || object.card.is_none();
     if object.types.contains(TypeSet::LAND) && !object.types.contains(TypeSet::CREATURE) {
@@ -96,14 +99,14 @@ pub(super) fn worth(object: &PublicObject) -> i32 {
 
 /// A creature as a swing reads it: its own object, with a bonus a rule supposes.
 #[derive(Clone, Copy)]
-pub(super) struct Hitter<'a> {
+pub(in crate::netplay4) struct Hitter<'a> {
     pub(super) object: &'a PublicObject,
     pub(super) power: i32,
     pub(super) keywords: u128,
 }
 
 impl<'a> Hitter<'a> {
-    pub(super) fn of(object: &'a PublicObject) -> Self {
+    pub(in crate::netplay4) fn of(object: &'a PublicObject) -> Self {
         Self {
             object,
             power: power(object),
@@ -125,7 +128,11 @@ const LAND_WALKS: [(KeywordSet, SubtypeId); 5] = [
 ];
 
 /// Whether `defender` holds a land that `hitter` walks through (CR 702.14c).
-pub(super) fn walks_past(view: &PlayerView, defender: PlayerId, hitter: &Hitter<'_>) -> bool {
+pub(in crate::netplay4) fn walks_past(
+    view: &PlayerView,
+    defender: PlayerId,
+    hitter: &Hitter<'_>,
+) -> bool {
     LAND_WALKS.iter().any(|(walk, land)| {
         hitter.has(*walk)
             && view
@@ -135,7 +142,7 @@ pub(super) fn walks_past(view: &PlayerView, defender: PlayerId, hitter: &Hitter<
 }
 
 /// Whether `blocker` may block `hitter` as far as evasion goes (CR 509.1b).
-pub(super) fn may_block(hitter: &Hitter<'_>, blocker: &PublicObject) -> bool {
+pub(in crate::netplay4) fn may_block(hitter: &Hitter<'_>, blocker: &PublicObject) -> bool {
     use baylee_core::color::Color;
     if has(blocker, KeywordSet::CANT_BLOCK) {
         return false;
@@ -173,7 +180,7 @@ pub(super) fn may_block(hitter: &Hitter<'_>, blocker: &PublicObject) -> bool {
 /// What gets through if `defender` blocks as well as it can with `blockers`:
 /// the biggest hitters first, each taking the blockers it needs, trample
 /// carrying over. The visible swing, with no trick on either side.
-pub(super) fn damage_through(
+pub(in crate::netplay4) fn damage_through(
     view: &PlayerView,
     defender: PlayerId,
     mut hitters: Vec<Hitter<'_>>,
@@ -214,7 +221,7 @@ pub(super) fn damage_through(
 }
 
 /// What `attacker`'s creatures can bring next turn: all of them untap.
-pub(super) fn hitters_of(view: &PlayerView, attacker: PlayerId) -> Vec<Hitter<'_>> {
+pub(in crate::netplay4) fn hitters_of(view: &PlayerView, attacker: PlayerId) -> Vec<Hitter<'_>> {
     view.battlefield_of(attacker)
         .filter(|object| {
             is_creature(object) && !has(object, KeywordSet::DEFENDER) && power(object) > 0
@@ -225,7 +232,7 @@ pub(super) fn hitters_of(view: &PlayerView, attacker: PlayerId) -> Vec<Hitter<'_
 
 /// The creatures `player` could block with on the other side's coming turn if
 /// those in `leaving` were tapped: nothing tapped now untaps before it.
-pub(super) fn blockers_of<'a>(
+pub(in crate::netplay4) fn blockers_of<'a>(
     view: &'a PlayerView,
     player: PlayerId,
     leaving: &[ObjectId],
@@ -237,7 +244,7 @@ pub(super) fn blockers_of<'a>(
 
 /// Whether `object` prints a trigger on hitting a player with damage: what a
 /// block on it stops and a damage count does not see.
-pub(super) fn hits_for_value(object: &PublicObject) -> bool {
+pub(in crate::netplay4) fn hits_for_value(object: &PublicObject) -> bool {
     abilities_of_battlefield_object(object).is_some_and(|abilities| {
         abilities.iter().any(|ability| {
             let AbilityDef::Triggered { trigger, .. } = ability else {

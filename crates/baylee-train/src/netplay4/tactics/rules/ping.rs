@@ -45,7 +45,7 @@ pub(super) fn shot(view: &PlayerView, source: ObjectId, index: u32) -> Option<i3
 /// stack, or in a combat it loses.
 fn doomed(view: &PlayerView, me: PlayerId, object: &PublicObject) -> bool {
     let named = view.stack.iter().any(|item| {
-        item.controller != me
+        super::super::is_opponent(me, item.controller)
             && item.targets.iter().any(
                 |target| matches!(target, TargetRef::Object(named) if named.object == object.id),
             )
@@ -65,7 +65,7 @@ fn doomed(view: &PlayerView, me: PlayerId, object: &PublicObject) -> bool {
 fn killable(view: &PlayerView, me: PlayerId, damage: i32) -> impl Iterator<Item = &PublicObject> {
     view.battlefield
         .iter()
-        .filter(move |object| object.controller != me && is_creature(object))
+        .filter(move |object| super::super::is_opponent(me, object.controller) && is_creature(object))
         .filter(move |object| {
             toughness_left(object) <= damage && !has(object, KeywordSet::INDESTRUCTIBLE)
         })

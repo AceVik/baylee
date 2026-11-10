@@ -53,6 +53,8 @@ pub mod netplay4;
 #[cfg(feature = "onnx")]
 pub use netplay4::{BAYLEE_KI_NAME, BayleeKI};
 #[cfg(feature = "onnx")]
+pub mod npu_mux4;
+#[cfg(feature = "onnx")]
 pub mod onnx;
 #[cfg(feature = "play")]
 pub mod policy;

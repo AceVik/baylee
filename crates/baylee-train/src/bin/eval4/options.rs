@@ -39,6 +39,42 @@ struct Args {
     /// drift report: appended cards, changed entries, the withdrawn cards.
     #[arg(long, conflicts_with = "legacy_v3")]
     catalog_drift: bool,
+    /// A measurement of what the model reads: leaves out every identity
+    /// reference (`i/<card>/<face>`, the card's index as bytes) of the seat
+    /// under test, as an unknown rule's. Its other references, its DSL
+    /// summary and its printed features stay. Evaluation only; recorded in
+    /// run.json and the summary (`catalog`).
+    #[arg(long, conflicts_with = "legacy_v3")]
+    leave_out_identity: bool,
+    /// Accept an export of the seat under test whose rule table was ablated
+    /// on purpose (`export_onnx4.py --blind-card-names`): a measurement, never
+    /// a model to play live or to collect with. Evaluation only; the export's
+    /// `rule_table_ablation` is recorded in run.json and the summary.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    ablated_rule_table: bool,
+    /// The tactician (`netplay4::tactician`) answers these questions of the
+    /// seat under test: `attack`, `block`, `target` (one target), or `all`.
+    /// With `--tactician-explore` it explores and keeps records for training a
+    /// head on outcomes; with `--tactician` a trained head plays. Needs
+    /// `--raw-policy` at temperature 0 (`--choice-guard tactical` keeps the
+    /// tactical layer everywhere else), two seats against the house, a graph
+    /// exported with `--embeddings`, and `--decks-manifest`: the look's prior is
+    /// the manifest's train split. Evaluation only.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    tactician_windows: Option<String>,
+    /// Explore at the windows: the net's answer with probability `1 − ε`.
+    #[arg(long, requires = "tactician_windows", conflicts_with = "tactician")]
+    tactician_explore: Option<f64>,
+    /// A trained head (`tactician.onnx`, `tactician.json`) plays the windows.
+    #[arg(long, requires = "tactician_windows")]
+    tactician: Option<PathBuf>,
+    /// How much better a head must score an answer to leave the net's;
+    /// default the head's own `margin`.
+    #[arg(long, requires = "tactician")]
+    tactician_margin: Option<f32>,
+    /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
+    #[arg(long, requires = "tactician_windows")]
+    tactician_out: Option<PathBuf>,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -223,6 +259,11 @@ struct Args {
     /// to the policy.
     #[arg(long, default_value_t = 0, requires = "search")]
     search_targets: usize,
+    /// In search rollouts, keep non-searching seats under the searching
+    /// player's neural policy from their simulated world views instead of
+    /// releasing them to the house AI.
+    #[arg(long, requires = "search")]
+    search_neural_opponent: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -258,7 +299,8 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
     let config = config
         .with_selection(selection)?
         .with_threads(args.search_threads)?
-        .with_targets(args.search_targets)?;
+        .with_targets(args.search_targets)?
+        .with_neural_opponent(args.search_neural_opponent);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {
@@ -289,6 +331,8 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    tactician:
+        std::collections::BTreeMap<String, baylee_train::netplay4::tactician::TacticianStats4>,
 }
 
 /// Why `--search` cannot run with `args`, if it cannot.
@@ -301,8 +345,11 @@ fn search_refusal(
     if args.legacy_v3 {
         return Some("--search needs a v4/v5 model");
     }
-    if collection.uses_seat_pool() {
-        return Some("--search is evaluation against the house only");
+    if collection.purpose != collector::Purpose::Evaluation {
+        return Some("--search requires evaluation collection purpose");
+    }
+    if collection.opponent_legacy_v3 {
+        return Some("--search does not support a legacy v3 opponent");
     }
     if args.shadow_teacher.is_some() {
         return Some("--search writes no shadow labels");
@@ -341,38 +388,58 @@ const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
     }
 }
 
-/// Why `--catalog-superset`/`--catalog-drift` cannot run with `args`, if
-/// they cannot: only an evaluation may bind another catalog. `convert4`
+/// How the seat under test reads its card catalog: the run's policy and
+/// the measurement's ablations. Any other model of the run reads with the
+/// policy alone.
+const fn catalog_read(args: &Args) -> CatalogRead4 {
+    CatalogRead4 {
+        policy: catalog_policy(args),
+        leave_out_identity: args.leave_out_identity,
+        ablated_table: args.ablated_rule_table,
+    }
+}
+
+/// Why `--catalog-superset`/`--catalog-drift`, `--leave-out-identity` or
+/// `--ablated-rule-table` cannot run with `args`, if they cannot: only an
+/// evaluation may bind another catalog or read it ablated. `convert4`
 /// re-encodes every record with this build's whole catalog, so a recorded
 /// probability would belong to another observation than the one converted.
 fn catalog_refusal(args: &Args) -> Option<&'static str> {
-    (catalog_policy(args) != CatalogPolicy4::Exact
-        && args.collection_purpose != collector::Purpose::Evaluation)
-        .then_some(
-            "--catalog-superset and --catalog-drift are for evaluation only: \
-             convert4 re-encodes with this build's catalog",
-        )
+    let read = catalog_read(args);
+    if read != CatalogRead4::default() && args.collection_purpose != collector::Purpose::Evaluation
+    {
+        return Some(
+            "--catalog-superset, --catalog-drift, --leave-out-identity and --ablated-rule-table \
+             are for evaluation only: convert4 re-encodes with this build's catalog",
+        );
+    }
+    // A self-play copy shares the seat under test's graphs and rule roots.
+    ((read.leave_out_identity || read.ablated_table) && args.opponent_model.is_some()).then_some(
+        "--leave-out-identity and --ablated-rule-table measure the seat under test against the \
+         house: no neural opponent",
+    )
 }
 
 /// What `run.json` and the summary say about the card catalog when a run
-/// accepts another than this build's: each model's binding.
+/// accepts another than this build's, or reads it ablated: each model's
+/// binding.
 fn catalog_metadata(
     args: &Args,
     collection: &collector::Contract,
 ) -> anyhow::Result<Option<Value>> {
-    let policy = catalog_policy(args);
-    if policy == CatalogPolicy4::Exact {
+    let read = catalog_read(args);
+    if read == CatalogRead4::default() {
         return Ok(None);
     }
     let opponent = collection
         .opponent_path
         .as_deref()
-        .map(|path| inspect_catalog(path, policy))
+        .map(|path| inspect_catalog(path, read.policy))
         .transpose()?
         .flatten();
     Ok(Some(json!({
-        "policy": policy,
-        "learner": inspect_catalog(&args.model, policy)?,
+        "policy": read.policy,
+        "learner": inspect_catalog(&args.model, read)?,
         "opponent": opponent,
     })))
 }
@@ -382,8 +449,8 @@ fn catalog_metadata(
 enum ModelFormat {
     /// An archived v3 net (`--legacy-v3`).
     LegacyV3,
-    /// A v4/v5 net, its card catalog bound under the policy.
-    Net(CatalogPolicy4),
+    /// A v4/v5 net, its card catalog read as given.
+    Net(CatalogRead4),
 }
 
 /// Reads `--choice-guard`.

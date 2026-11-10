@@ -54,6 +54,16 @@ trait EvaluationPlayer {
     fn set_payable_menu(&mut self, _bias: f32) -> bool {
         false
     }
+    /// Sets `--tactician-windows` on this player, which only a net can honour.
+    fn set_tactician(&mut self, _tactician: baylee_train::netplay4::tactician::Tactician4) -> bool {
+        false
+    }
+    /// The tactician's decisions since this was last asked.
+    fn take_tactician_records(
+        &mut self,
+    ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
+        Vec::new()
+    }
     /// What `--menu-payable` counted since this was last asked.
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
@@ -121,6 +131,15 @@ impl EvaluationPlayer for NetPlayer4 {
     fn set_payable_menu(&mut self, bias: f32) -> bool {
         Self::set_payable_menu(self, baylee_train::netplay4::PayableMenu4::new(bias));
         true
+    }
+    fn set_tactician(&mut self, tactician: baylee_train::netplay4::tactician::Tactician4) -> bool {
+        Self::set_tactician(self, tactician);
+        true
+    }
+    fn take_tactician_records(
+        &mut self,
+    ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
+        Self::take_tactician_records(self)
     }
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         Self::take_menu_stats(self)
@@ -273,7 +292,7 @@ impl SharedNets {
         rows: usize,
         model: &std::path::Path,
         opponent: Option<(&std::path::Path, Option<&ModelIdentity>)>,
-        catalog: CatalogPolicy4,
+        catalog: CatalogRead4,
     ) -> anyhow::Result<Self> {
         if rows == 0 {
             return Ok(Self::default());
@@ -285,7 +304,7 @@ impl SharedNets {
             Some((_, Some(identity))) if identity == learner.model_identity() => {
                 Some(learner.clone())
             }
-            Some((path, _)) => Some(BatchedNet4::load(path, limits, catalog)?),
+            Some((path, _)) => Some(BatchedNet4::load(path, limits, catalog.policy)?),
             None => None,
         };
         Ok(Self {

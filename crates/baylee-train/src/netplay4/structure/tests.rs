@@ -179,3 +179,85 @@ fn the_comparison_matches_trees_not_node_numbers() {
             .all(|key| compat::owner(key) == format!("card/{negate}"))
     );
 }
+
+/// `eval4 --leave-out-identity`: every `i/` root is left out as an unknown
+/// rule's, under every policy; a card's rules still read the model's node.
+#[test]
+fn leaving_out_identity_drops_every_identity_reference_and_nothing_else() {
+    let cards = [index("Mana Leak"), index("Negate")];
+    let model = exported(&cards);
+    let model_roots = model.roots.clone();
+    let read = CatalogRead4 {
+        policy: CatalogPolicy4::Exact,
+        leave_out_identity: true,
+        ablated_table: false,
+    };
+    let roots = read_as(
+        bound(model, &catalog(&cards).unwrap(), read.policy).unwrap(),
+        read,
+        None,
+    )
+    .unwrap();
+    assert!(roots.binding.identity_left_out);
+    let identity = model_roots.keys().filter(|k| k.starts_with("i/")).count();
+    assert_eq!(identity, 2, "one face each");
+    assert_eq!(roots.unknown.len(), identity);
+    assert!(roots.roots.keys().all(|k| !k.starts_with("i/")));
+    assert_eq!(roots.roots.len(), model_roots.len() - identity);
+
+    let [leak, _] = cards;
+    let card = crate::cardstructure::refs::card_refs(leak, 0, 0);
+    assert_eq!(card.len(), 2, "rules and identity");
+    let (width, values, left_out) = pack(&[card], 1, &roots).unwrap();
+    assert_eq!((width, left_out), (1, 1));
+    assert_eq!(
+        values,
+        vec![i64::from(model_roots[&format!("c/{leak}/0")]), 1],
+        "the card's rules read the model's own node"
+    );
+    let json = serde_json::to_value(&roots.binding).unwrap();
+    assert_eq!(json["identity_left_out"], true);
+
+    let plain = read_as(
+        bound(exported(&cards), &catalog(&cards).unwrap(), read.policy).unwrap(),
+        CatalogPolicy4::Exact.into(),
+        None,
+    )
+    .unwrap();
+    assert!(plain.unknown.is_empty());
+    let json = serde_json::to_value(&plain.binding).unwrap();
+    assert!(
+        json.get("identity_left_out").is_none() && json.get("rule_table_ablation").is_none(),
+        "a plain binding records what it always did"
+    );
+}
+
+/// An export whose rule table was ablated loads only for a measurement
+/// that asks for it, and the binding names the ablation.
+#[test]
+fn an_ablated_rule_table_loads_only_when_asked_for() {
+    let cards = [index("Mana Leak")];
+    let ablation = serde_json::json!({"card_names": "empty"});
+    let fresh = || {
+        bound(
+            exported(&cards),
+            &catalog(&cards).unwrap(),
+            CatalogPolicy4::Exact,
+        )
+    };
+    let refused = read_as(
+        fresh().unwrap(),
+        CatalogPolicy4::Exact.into(),
+        Some(ablation.clone()),
+    );
+    assert!(refused.is_err());
+    let read = CatalogRead4 {
+        ablated_table: true,
+        ..CatalogRead4::default()
+    };
+    let roots = read_as(fresh().unwrap(), read, Some(ablation.clone())).unwrap();
+    assert_eq!(roots.binding.rule_table_ablation, Some(ablation));
+    assert!(roots.unknown.is_empty() && !roots.binding.identity_left_out);
+    let plain = read_as(fresh().unwrap(), read, None).unwrap();
+    assert_eq!(plain.binding.rule_table_ablation, None);
+}

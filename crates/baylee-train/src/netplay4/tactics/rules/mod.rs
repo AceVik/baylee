@@ -9,11 +9,11 @@
 
 mod attack;
 mod audit;
-mod block;
+pub(in crate::netplay4) mod block;
 mod opening;
 mod options;
 mod ping;
-mod read;
+pub(in crate::netplay4) mod read;
 mod targets;
 #[cfg(test)]
 mod tests;
@@ -102,7 +102,7 @@ const GROUPS: [(RuleGroup, &str); 20] = [
 type Struck = (ObjectId, Option<u32>, RuleGroup);
 
 /// The groups a net plays by, and what they changed.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TacticRules4 {
     on: [bool; GROUPS.len()],
     fired: [u64; GROUPS.len()],
@@ -499,7 +499,7 @@ fn adjust_subset(
         let going = attack::going(cands, logits, pending);
         let free = attack::free_swings(view, pending, &going);
         if !free.is_empty() {
-            attack::send(cands, logits, &free);
+            attack::send(cands, logits, view, pending, &free);
             rules.count(RuleGroup::Press);
         }
     }

@@ -162,6 +162,13 @@ mod tests {
         // 2v2 team game draw with both sides alive: each surviving side gets 0.5
         let team_2v2 = [Some(1), Some(1), Some(2), Some(2)];
         assert!((side_utility(0, &team_2v2, &[0, 2], &[]) - 0.5).abs() < 1e-6);
+        // 2v2 team win where seat 0 survived and teammate seat 1 was eliminated:
+        // surviving winner gets 1.0, eliminated teammate on winning team gets 0.40,
+        // losing team gets 0.0.
+        assert!((side_utility(0, &team_2v2, &[0], &[0, 1]) - 1.0).abs() < 1e-6);
+        assert!((side_utility(1, &team_2v2, &[0], &[0, 1]) - 0.40).abs() < 1e-6);
+        assert!((side_utility(2, &team_2v2, &[0], &[0, 1]) - 0.0).abs() < 1e-6);
+        assert!((side_utility(3, &team_2v2, &[0], &[0, 1]) - 0.0).abs() < 1e-6);
     }
 
     #[test]
@@ -409,6 +416,58 @@ mod tests {
                     "scalar choice {v} in [{lo}, {hi}] failed round-trip"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn caverns_of_despair_bounds_choose_attackers_and_sampling_to_two() {
+        let d = HouseDeck::named("victory").unwrap();
+        let mut preset = table_for(99, &[&d, &d], &[AIProfile::STEADY; 2], &[]);
+        preset.seats[1]
+            .starting_battlefield
+            .push(baylee_core::preset::DeckEntry {
+                card: baylee_core::generated::index::CAVERNS_OF_DESPAIR,
+                print: baylee_core::ids::PrintRef::new(0),
+                rule_print: None,
+                choices: baylee_core::card_metadata::DeckChoices::default(),
+            });
+        let session = Session::new(&preset).unwrap();
+        let view = session.observe_view(PlayerId::new(0));
+        let attackers = vec![
+            ObjectId::new(10, 0),
+            ObjectId::new(11, 0),
+            ObjectId::new(12, 0),
+            ObjectId::new(13, 0),
+        ];
+        let defenders = vec![
+            Defender::Player(PlayerId::new(1)),
+            Defender::Player(PlayerId::new(2)),
+        ];
+        let pending = Pending::ChooseAttackers {
+            player: PlayerId::new(0),
+            attackers,
+            defenders,
+            required: Vec::new(),
+            alone: Vec::new(),
+            minimum_required: None,
+            limits: Vec::new(),
+        };
+        let state = encode_state4(&view, Some(&pending), None, &[]);
+        let cands = encode_candidates4(&state, &view, &pending);
+        assert_eq!(
+            cands.max_choices, 2,
+            "Caverns of Despair must cap ChooseAttackers max_choices at 2"
+        );
+        let logits = vec![2.5_f32; cands.candidates.len()];
+        let mut rng = crate::deckgen::Rng::new(7);
+        for tau in [0.05_f32, 1.0_f32] {
+            let (mask, _free_mask, _seq, _lp) =
+                sample_subset_constrained(&logits, &cands, &pending, tau, &mut rng);
+            let picked: usize = mask.iter().map(|&b| usize::from(b != 0)).sum();
+            assert!(
+                picked <= 2,
+                "sampled {picked} attackers under Caverns of Despair (tau={tau})"
+            );
         }
     }
 }

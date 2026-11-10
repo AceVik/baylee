@@ -266,6 +266,7 @@ fn terminal_targets_live(record: &[u8]) -> Result<Targets, String> {
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }
+    session.apply_team_hand_sharing();
     let mut rec_winners: Option<Vec<u8>> = None;
     let mut final_turn: u32 = 1;
     for line in lines {

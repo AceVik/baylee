@@ -9806,3 +9806,37 @@ DecksTotal = { $count ->
     }
 # Arguments: version
 HistoryBackToVersion = Back to version { $version }
+
+# Share this seat's hand continuously with a teammate for the rest of the game.
+# Arguments: player
+HandShareWithTeammate = Share hand with { $player } (whole game)
+
+# Show a one-time snapshot of this seat's current hand to a teammate.
+# Arguments: player
+HandShareOnceWithTeammate = Show current hand to { $player } (once)
+
+# Revoke continuous hand sharing with a teammate.
+# Arguments: player
+HandStopSharingWithTeammate = Stop sharing hand with { $player }
+
+# Ask a teammate to share or show their hand.
+# Arguments: player
+HandRequestFromTeammate = Ask to see { $player }’s hand
+
+# Decline a teammate's pending request to see this seat's hand.
+# Arguments: player
+HandDeclineRequestFromTeammate = Decline { $player }’s hand request
+
+# Notice shown when a teammate asks to see this seat's hand.
+# Arguments: player
+HandRequestedByTeammate = { $player } asks to see your hand
+
+# Status badge when this seat is continuously sharing its hand with a teammate.
+# Arguments: player
+HandSharingActiveWithTeammate = Sharing hand with { $player }
+
+# Share this seat's hand continuously with every living teammate.
+HandShareAllContinuous = Share hand with all teammates (whole game)
+
+# Show a one-time snapshot of this seat's current hand to every living teammate.
+HandShareAllOnce = Show current hand to all teammates (once)

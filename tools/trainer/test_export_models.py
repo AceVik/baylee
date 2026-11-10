@@ -267,3 +267,60 @@ class ExportModels(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EmbeddingExport(unittest.TestCase):
+    """`--embeddings`: the net's outputs are the plain graph's, and the
+    embeddings are the inputs of the heads' final linears."""
+
+    def test_embedding_outputs_leave_the_net_unchanged_and_read_its_heads(self):
+        import model5 as V5
+        from export_onnx4 import EMBEDDING_NAMES, EmbeddingGraph
+        torch.set_num_threads(1)
+        torch.manual_seed(712)
+        cfg = V5.Config5(relational_revision=2, d_model=16, structure_width=16, n_heads=2,
+                         n_layers=1, d_ff=32)
+        net = V5.PlayerNet5(cfg).eval()
+        net.attach_structure(FOREST)
+        with torch.no_grad():
+            for parameter in net.parameters():
+                parameter.add_(torch.randn_like(parameter) * .05)
+        net.rules = net.rules.freeze()
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = 1
+        names = list(M.OUTPUT_NAMES) + list(EMBEDDING_NAMES)
+        with tempfile.TemporaryDirectory() as root:
+            plain_path, emb_path = Path(root) / 'plain.onnx', Path(root) / 'emb.onnx'
+            export_v4_onnx(net, plain_path, thinking_steps=2, fixed_depth=True)
+            export_v4_onnx(net, emb_path, thinking_steps=2, fixed_depth=True, embeddings=True)
+            plain = ort.InferenceSession(str(plain_path), sess_options=options,
+                                         providers=['CPUExecutionProvider'])
+            emb = ort.InferenceSession(str(emb_path), sess_options=options,
+                                       providers=['CPUExecutionProvider'])
+            self.assertEqual([o.name for o in emb.get_outputs()], names)
+            inputs = make_dummy_inputs(16, B=2, E=5, M_edges=3, C=4, P=3, K=2)
+            feed = {name: tensor.numpy() for name, tensor in zip(M.INPUT_NAMES, inputs)}
+            base = plain.run(list(M.OUTPUT_NAMES), feed)
+            full = emb.run(names, feed)
+            for name, a, b in zip(M.OUTPUT_NAMES, base, full):
+                np.testing.assert_array_equal(a, b, err_msg=name)
+            state, cand, pair = full[len(M.OUTPUT_NAMES):]
+            self.assertEqual(state.shape, (2, 16))
+            self.assertEqual(cand.shape, (2, 4, 16))
+            self.assertEqual(pair.shape, (2, 3, 16))
+            with torch.inference_mode():
+                want = EmbeddingGraph(net)(*inputs)
+                # The candidate and pair logits are the final linears of the embeddings.
+                cand_logits = net.cand_scorer[3](torch.from_numpy(cand)).squeeze(-1)
+                pair_logits = net.pair_scorer[3](torch.from_numpy(pair)).squeeze(-1)
+                scalar = torch.sigmoid(net.scalar_head(torch.from_numpy(state))).squeeze(-1)
+            for got, expected in zip(full, want):
+                np.testing.assert_allclose(got, expected.numpy(), rtol=2e-4, atol=2e-5)
+            mask = inputs[M.INPUT_NAMES.index("cand_mask")].numpy()
+            np.testing.assert_allclose(full[1][mask], cand_logits.numpy()[mask], rtol=1e-4, atol=1e-5)
+            pmask = inputs[M.INPUT_NAMES.index("pair_mask")].numpy()
+            np.testing.assert_allclose(full[2][pmask], pair_logits.numpy()[pmask], rtol=1e-4, atol=1e-5)
+            np.testing.assert_allclose(full[3], scalar.numpy(), rtol=1e-4, atol=1e-5)
+        # The hooks are gone after a call: the net itself is unchanged.
+        self.assertFalse(net.scalar_head._forward_pre_hooks)
+        self.assertFalse(net.cand_scorer[3]._forward_pre_hooks)

@@ -288,6 +288,33 @@ pub struct KnownCardMemory4 {
     pub origin_zone: u8,
 }
 
+mod known_cards_serde {
+    use super::{BTreeMap, Deserialize, KnownCardMemory4, Serialize};
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S>(
+        map: &BTreeMap<(u8, u64), KnownCardMemory4>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let vec: Vec<((u8, u64), KnownCardMemory4)> =
+            map.iter().map(|(&k, &v)| (k, v)).collect();
+        vec.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<BTreeMap<(u8, u64), KnownCardMemory4>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let vec = Vec::<((u8, u64), KnownCardMemory4)>::deserialize(deserializer)?;
+        Ok(vec.into_iter().collect())
+    }
+}
+
 /// Per-seat persistent knowledge & observation stream state (`SeatKnowledge4`).
 ///
 /// Tracks only seat-authorized information:
@@ -295,7 +322,7 @@ pub struct KnownCardMemory4 {
 /// 2. Publicly or legally revealed opponent cards (`known_cards`),
 /// 3. Public per-seat history counters (`seat_history`),
 /// 4. Monotonic observation sequence cursor (`cursor`).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SeatKnowledge4 {
     /// Viewing seat.
     pub viewer: PlayerId,
@@ -320,6 +347,7 @@ pub struct SeatKnowledge4 {
     /// Turn when each currently-present battlefield permanent was first observed on the battlefield.
     bf_entered_turn: BTreeMap<u64, u32>,
     /// Revealed opponent cards in hidden zones (`(owner_seat, object_id) -> KnownCardMemory4`).
+    #[serde(with = "known_cards_serde")]
     pub known_cards: BTreeMap<(u8, u64), KnownCardMemory4>,
     /// Per-seat public history counters (indexed by absolute `PlayerId`).
     pub seat_history: [SeatHistoryStats4; MAX_SEATS],

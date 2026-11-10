@@ -121,16 +121,20 @@ fn batched_calls_answer_every_row_as_its_single_step() {
             let together = run_rows(session, &batch, net.d_model).unwrap();
             for (&i, out) in call.iter().zip(&together) {
                 let reference = &alone[i];
-                assert_eq!(out.1.len(), reference.1.len());
-                assert_eq!(out.2.len(), reference.2.len());
+                assert_eq!(out.cand_logits.len(), reference.cand_logits.len());
+                assert_eq!(out.pair_logits.len(), reference.pair_logits.len());
                 worst = worst
-                    .max(max_diff(&out.0, &reference.0))
-                    .max(max_diff(&out.1, &reference.1))
-                    .max(max_diff(&out.2, &reference.2))
-                    .max((out.3 - reference.3).abs())
-                    .max((out.4 - reference.4).abs());
-                if out.1.len() > 1 {
-                    assert_eq!(argmax(&out.1), argmax(&reference.1), "row {i}");
+                    .max(max_diff(&out.h_out, &reference.h_out))
+                    .max(max_diff(&out.cand_logits, &reference.cand_logits))
+                    .max(max_diff(&out.pair_logits, &reference.pair_logits))
+                    .max((out.scalar_pred - reference.scalar_pred).abs())
+                    .max((out.value - reference.value).abs());
+                if out.cand_logits.len() > 1 {
+                    assert_eq!(
+                        argmax(&out.cand_logits),
+                        argmax(&reference.cand_logits),
+                        "row {i}"
+                    );
                 }
             }
         }
@@ -160,12 +164,12 @@ fn float16_export_chooses_as_its_float32_source() {
     for row in &rows {
         let a = single(&mut full, row);
         let b = single(&mut half, row);
-        worst_memory = worst_memory.max(max_diff(&a.0, &b.0));
-        worst_value = worst_value.max((a.4 - b.4).abs());
-        if row.k_val > 0 && a.1.len() > 1 {
+        worst_memory = worst_memory.max(max_diff(&a.h_out, &b.h_out));
+        worst_value = worst_value.max((a.value - b.value).abs());
+        if row.k_val > 0 && a.cand_logits.len() > 1 {
             menus += 1;
-            agree += u32::from(argmax(&a.1) == argmax(&b.1));
-            worst_logit = worst_logit.max(max_diff(&a.1, &b.1));
+            agree += u32::from(argmax(&a.cand_logits) == argmax(&b.cand_logits));
+            worst_logit = worst_logit.max(max_diff(&a.cand_logits, &b.cand_logits));
         }
     }
     let agreement = f64::from(agree) / f64::from(menus.max(1));

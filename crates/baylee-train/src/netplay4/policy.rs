@@ -75,8 +75,14 @@ impl NetPlayer4 {
         h_in: &[f32],
     ) -> anyhow::Result<(Sampled4, Vec<f32>)> {
         let k_val = self.thinking_steps;
-        let (_, mut cand_logits, pair_logits, scalar_pred, value) =
-            self.run_onnx_step(state, cands, h_in, k_val)?;
+        let super::StepOutputs {
+            mut cand_logits,
+            pair_logits,
+            scalar_pred,
+            value,
+            embeddings,
+            ..
+        } = self.run_onnx_step(state, cands, h_in, k_val)?;
         if let Some(menu) = &mut self.payable_menu {
             menu.weigh(&mut cand_logits, cands);
         }
@@ -90,6 +96,7 @@ impl NetPlayer4 {
             active_source: self.last_announced_source.get(&view.seat.get()).copied(),
             guard: &mut self.choice_guard,
             rules: &mut self.tactic_rules,
+            tactician: self.tactician.as_mut(),
         }
         .select(
             cands,
@@ -100,6 +107,7 @@ impl NetPlayer4 {
                 pair_logits: &pair_logits,
                 scalar_pred,
                 value,
+                embeddings: embeddings.as_ref(),
             },
         )?;
         Ok((sampled, cand_logits))
@@ -138,6 +146,8 @@ struct PolicyOutputs4<'a> {
     pair_logits: &'a [f32],
     scalar_pred: f32,
     value: f32,
+    /// What a graph exported with `--embeddings` adds; the tactician reads it.
+    embeddings: Option<&'a super::StepEmbeddings4>,
 }
 
 struct PolicySampler4<'a> {
@@ -149,6 +159,8 @@ struct PolicySampler4<'a> {
     guard: &'a mut super::ChoiceGuard4,
     /// The rule groups over the tactical layer.
     rules: &'a mut super::TacticRules4,
+    /// `eval4 --tactician`: answers its windows before any other path.
+    tactician: Option<&'a mut super::tactician::Tactician4>,
 }
 
 impl PolicySampler4<'_> {
@@ -174,6 +186,7 @@ impl PolicySampler4<'_> {
             pair_logits,
             scalar_pred,
             value,
+            embeddings,
         } = outputs;
         if self.mode == PolicyMode4::Raw {
             let logits = match cands.head {
@@ -191,204 +204,270 @@ impl PolicySampler4<'_> {
             );
         }
         let mut target = TeacherTarget4::default();
+        let tactician = match self.tactician.as_deref_mut() {
+            Some(tactician) => {
+                anyhow::ensure!(
+                    self.temperature <= 0.0,
+                    "the tactician answers at temperature 0"
+                );
+                tactician.answer(&super::tactician::TacticianStep {
+                    cands,
+                    view,
+                    pending,
+                    cand_logits,
+                    pair_logits,
+                    value,
+                    embeddings,
+                    active_source: self.active_source,
+                    rng: self.rng,
+                })?
+            }
+            None => None,
+        };
 
         let raw = self.mode == PolicyMode4::Raw;
         let parts = self.guard.tactical;
         let at_priority = matches!(pending, Pending::Priority { .. });
-        let logprob: f32 = match cands.head {
-            HeadKind4::SingleChoice => {
-                let active_source = self.active_source;
-                let (chosen_idx, lp) = if raw
-                    && !(if at_priority {
-                        parts.priority
+        let logprob: f32 = if let Some(played) = tactician {
+            target = played;
+            0.0
+        } else {
+            match cands.head {
+                HeadKind4::SingleChoice => {
+                    let active_source = self.active_source;
+                    let (chosen_idx, lp) = if raw
+                        && !(if at_priority {
+                            parts.priority
+                        } else {
+                            parts.single
+                        }) {
+                        sample_categorical(
+                            &cand_logits[..cands.candidates.len()],
+                            self.temperature,
+                            self.rng,
+                        )
                     } else {
-                        parts.single
-                    }) {
-                    sample_categorical(
+                        tactics::rules::single_choice(
+                            self.rules,
+                            cands,
+                            cand_logits,
+                            view,
+                            pending,
+                            active_source,
+                            self.temperature,
+                            self.rng,
+                        )
+                    };
+                    let chosen_idx = tactics::guard::review(
+                        self.guard,
+                        cands,
                         &cand_logits[..cands.candidates.len()],
+                        view,
+                        pending,
+                        chosen_idx,
+                    );
+                    target.single_idx = chosen_idx as u16;
+                    lp
+                }
+                HeadKind4::SubsetPick => {
+                    let n = cands.candidates.len();
+                    let raw_logits = &cand_logits[..n];
+                    let active_source = self.active_source;
+                    let adj_logits = if raw && !parts.subset {
+                        raw_logits.to_vec()
+                    } else {
+                        let mut adjusted = choices::adjust_subset_logits(
+                            cands,
+                            raw_logits,
+                            view,
+                            pending,
+                            active_source,
+                        );
+                        tactics::rules::subset(
+                            self.rules,
+                            cands,
+                            &mut adjusted,
+                            view,
+                            pending,
+                            active_source,
+                        );
+                        adjusted
+                    };
+                    let (mask, free_mask, seq, _) = sample_subset_constrained(
+                        &adj_logits,
+                        cands,
+                        pending,
                         self.temperature,
                         self.rng,
-                    )
-                } else {
-                    tactics::rules::single_choice(
-                        self.rules,
-                        cands,
-                        cand_logits,
-                        view,
-                        pending,
-                        active_source,
-                        self.temperature,
-                        self.rng,
-                    )
-                };
-                let chosen_idx = tactics::guard::review(
-                    self.guard,
-                    cands,
-                    &cand_logits[..cands.candidates.len()],
-                    view,
-                    pending,
-                    chosen_idx,
-                );
-                target.single_idx = chosen_idx as u16;
-                lp
-            }
-            HeadKind4::SubsetPick => {
-                let n = cands.candidates.len();
-                let raw_logits = &cand_logits[..n];
-                let active_source = self.active_source;
-                let adj_logits = if raw && !parts.subset {
-                    raw_logits.to_vec()
-                } else {
-                    let mut adjusted = choices::adjust_subset_logits(
-                        cands,
-                        raw_logits,
-                        view,
-                        pending,
-                        active_source,
                     );
-                    tactics::rules::subset(
-                        self.rules,
-                        cands,
-                        &mut adjusted,
-                        view,
-                        pending,
-                        active_source,
-                    );
-                    adjusted
-                };
-                let (mask, free_mask, seq, _) = sample_subset_constrained(
-                    &adj_logits,
-                    cands,
-                    pending,
-                    self.temperature,
-                    self.rng,
-                );
-                let lp = if self.temperature <= 1e-4 {
-                    0.0
-                } else {
-                    let scale = 1.0 / self.temperature;
-                    let mut acc = 0.0_f32;
-                    for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
-                        if free_mask.get(i).copied().unwrap_or(0) == 1 {
-                            let z = raw_l * scale;
-                            let picked = mask.get(i).copied().unwrap_or(0) == 1;
-                            let step_lp = if picked {
-                                if z >= 0.0 {
-                                    -((-z).exp().ln_1p())
+                    let lp = if self.temperature <= 1e-4 {
+                        0.0
+                    } else {
+                        let scale = 1.0 / self.temperature;
+                        let mut acc = 0.0_f32;
+                        for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
+                            if free_mask.get(i).copied().unwrap_or(0) == 1 {
+                                let z = raw_l * scale;
+                                let picked = mask.get(i).copied().unwrap_or(0) == 1;
+                                let step_lp = if picked {
+                                    if z >= 0.0 {
+                                        -((-z).exp().ln_1p())
+                                    } else {
+                                        z - z.exp().ln_1p()
+                                    }
+                                } else if z >= 0.0 {
+                                    -z - (-z).exp().ln_1p()
                                 } else {
-                                    z - z.exp().ln_1p()
-                                }
-                            } else if z >= 0.0 {
-                                -z - (-z).exp().ln_1p()
-                            } else {
-                                -z.exp().ln_1p()
-                            };
-                            acc += step_lp;
+                                    -z.exp().ln_1p()
+                                };
+                                acc += step_lp;
+                            }
                         }
-                    }
-                    acc
-                };
-                target.multi_mask = mask;
-                target.free_mask = free_mask;
-                target.pick_sequence = seq;
-                lp
-            }
-            HeadKind4::PairPick => {
-                let n = cands.pairs.len();
-                let raw_logits = &pair_logits[..n];
-                let adj_logits = if raw && !parts.pair {
-                    raw_logits.to_vec()
-                } else {
-                    let mut adjusted =
-                        choices::adjust_pair_logits(cands, raw_logits, view, pending);
-                    tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
-                    adjusted
-                };
-                let (mask, free_mask, seq, _) =
-                    sample_pairs_constrained(&adj_logits, cands, self.temperature, self.rng);
-                let lp = if self.temperature <= 1e-4 {
-                    0.0
-                } else {
-                    let scale = 1.0 / self.temperature;
-                    let mut acc = 0.0_f32;
-                    for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
-                        if free_mask.get(i).copied().unwrap_or(0) == 1 {
-                            let z = raw_l * scale;
-                            let picked = mask.get(i).copied().unwrap_or(0) == 1;
-                            let step_lp = if picked {
-                                if z >= 0.0 {
-                                    -((-z).exp().ln_1p())
+                        acc
+                    };
+                    target.multi_mask = mask;
+                    target.free_mask = free_mask;
+                    target.pick_sequence = seq;
+                    lp
+                }
+                HeadKind4::PairPick => {
+                    let n = cands.pairs.len();
+                    let raw_logits = &pair_logits[..n];
+                    let adj_logits = if raw && !parts.pair {
+                        raw_logits.to_vec()
+                    } else {
+                        let mut adjusted =
+                            choices::adjust_pair_logits(cands, raw_logits, view, pending);
+                        tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
+                        adjusted
+                    };
+                    let (mask, free_mask, seq, _) =
+                        sample_pairs_constrained(&adj_logits, cands, self.temperature, self.rng);
+                    let lp = if self.temperature <= 1e-4 {
+                        0.0
+                    } else {
+                        let scale = 1.0 / self.temperature;
+                        let mut acc = 0.0_f32;
+                        for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
+                            if free_mask.get(i).copied().unwrap_or(0) == 1 {
+                                let z = raw_l * scale;
+                                let picked = mask.get(i).copied().unwrap_or(0) == 1;
+                                let step_lp = if picked {
+                                    if z >= 0.0 {
+                                        -((-z).exp().ln_1p())
+                                    } else {
+                                        z - z.exp().ln_1p()
+                                    }
+                                } else if z >= 0.0 {
+                                    -z - (-z).exp().ln_1p()
                                 } else {
-                                    z - z.exp().ln_1p()
-                                }
-                            } else if z >= 0.0 {
-                                -z - (-z).exp().ln_1p()
-                            } else {
-                                -z.exp().ln_1p()
-                            };
-                            acc += step_lp;
+                                    -z.exp().ln_1p()
+                                };
+                                acc += step_lp;
+                            }
                         }
-                    }
-                    acc
-                };
-                target.multi_mask = mask;
-                target.free_mask = free_mask;
-                target.pick_sequence = seq;
-                lp
-            }
-            HeadKind4::ScalarValue => {
-                let pred = if raw && !parts.scalar {
-                    scalar_pred.clamp(0.0, 1.0)
-                } else {
-                    match pending {
-                        Pending::ChooseNumber {
-                            reason:
-                                baylee_engine::choice::NumberPrompt::X
-                                | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
-                            ..
-                        } => 1.0,
-                        Pending::ChooseNumber {
-                            min,
-                            max,
-                            reason:
-                                baylee_engine::choice::NumberPrompt::CombatDamage {
-                                    recipient,
-                                    index,
-                                    of,
-                                    left,
-                                    lethal,
-                                    ..
-                                },
-                            ..
-                        } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
-                            // A trampler's question says what is lethal, and
-                            // its last blocker is asked too (CR 702.19b).
-                            let rem_t = lethal.unwrap_or_else(|| {
-                                view.object(*recipient).map_or(*max, |o| {
-                                    u32::try_from(
-                                        (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage))
-                                            .max(1),
-                                    )
-                                    .unwrap_or(1)
-                                })
-                            });
-                            let assign = if rem_t <= *left {
-                                rem_t.clamp(*min, *max)
-                            } else {
-                                *min
-                            };
-                            normalize_scalar_choice(assign, *min, *max)
+                        acc
+                    };
+                    target.multi_mask = mask;
+                    target.free_mask = free_mask;
+                    target.pick_sequence = seq;
+                    lp
+                }
+                HeadKind4::ScalarValue => {
+                    let pred = if raw && !parts.scalar {
+                        scalar_pred.clamp(0.0, 1.0)
+                    } else {
+                        match pending {
+                            Pending::ChooseNumber {
+                                reason:
+                                    baylee_engine::choice::NumberPrompt::X
+                                    | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
+                                ..
+                            } => 1.0,
+                            Pending::ChooseNumber {
+                                min,
+                                max,
+                                reason:
+                                    baylee_engine::choice::NumberPrompt::DivideDamage {
+                                        target,
+                                        left,
+                                        ..
+                                    },
+                                ..
+                            } if *max > *min => {
+                                let rem_t = match target {
+                                    baylee_engine::choice::TargetRef::Object(oid) => {
+                                        view.object(oid.object).map_or(*max, |o| {
+                                            u32::try_from(
+                                                (i32::from(o.toughness.unwrap_or(1))
+                                                    - i32::from(o.damage))
+                                                .max(1),
+                                            )
+                                            .unwrap_or(1)
+                                        })
+                                    }
+                                    baylee_engine::choice::TargetRef::Player(pid) => {
+                                        view.seat(*pid).map_or(*max, |s| {
+                                            u32::try_from(s.life.max(1)).unwrap_or(*max)
+                                        })
+                                    }
+                                };
+                                let assign = rem_t.min(*left).clamp(*min, *max);
+                                normalize_scalar_choice(assign, *min, *max)
+                            }
+                            Pending::ChooseNumber {
+                                min,
+                                max,
+                                reason:
+                                    baylee_engine::choice::NumberPrompt::CombatDamage {
+                                        source,
+                                        recipient,
+                                        index,
+                                        of,
+                                        left,
+                                        lethal,
+                                    },
+                                ..
+                            } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
+                                // A trampler's question says what is lethal, and
+                                // its last blocker is asked too (CR 702.19b).
+                                let src_dt = view.object(*source).is_some_and(|o| {
+                                    (o.keywords
+                                        & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits())
+                                        != 0
+                                });
+                                let rem_t = lethal.unwrap_or_else(|| {
+                                    if src_dt {
+                                        1
+                                    } else {
+                                        view.object(*recipient).map_or(*max, |o| {
+                                            u32::try_from(
+                                                (i32::from(o.toughness.unwrap_or(1))
+                                                    - i32::from(o.damage))
+                                                .max(1),
+                                            )
+                                            .unwrap_or(1)
+                                        })
+                                    }
+                                });
+                                let assign = if rem_t <= *left {
+                                    rem_t.clamp(*min, *max)
+                                } else {
+                                    *min
+                                };
+                                normalize_scalar_choice(assign, *min, *max)
+                            }
+                            _ => scalar_pred.clamp(0.0, 1.0),
                         }
-                        _ => scalar_pred.clamp(0.0, 1.0),
-                    }
-                };
-                let chosen_int =
-                    denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
-                let norm =
-                    normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
-                target.scalar_norm = norm;
-                // Deterministic regression head: supervised training only.
-                0.0
+                    };
+                    let chosen_int =
+                        denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
+                    let norm =
+                        normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
+                    target.scalar_norm = norm;
+                    // Deterministic regression head: supervised training only.
+                    0.0
+                }
             }
         };
 

@@ -261,3 +261,113 @@ fn public_hands_survive_private_sharing_and_are_also_available_to_agents() {
     );
     assert!(hands_shown(&seat_view(&session, PlayerId::new(3))).is_empty());
 }
+
+#[test]
+fn share_hand_once_shows_current_snapshot_and_hides_future_draws() {
+    let mut session = a_kept_table([Some(1), Some(1), Some(2), Some(2)], [false; 4]);
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let initial_hand = seat_view(&session, p0).hand;
+    assert!(!initial_hand.is_empty());
+
+    // Opponent cannot be shown a one-time snapshot.
+    assert!(
+        session
+            .seat_setting(p0, SeatSetting::ShareHandOnce(seats(&[2])))
+            .is_err()
+    );
+
+    // Teammate asks and is answered with a one-time snapshot.
+    ask(&mut session, 1, 0).expect("asks");
+    let routed = session
+        .seat_setting(p0, SeatSetting::ShareHandOnce(seats(&[1])))
+        .expect("shares once");
+    let view = routed_view(&routed, p1);
+    assert!(view.hand_requested.is_empty(), "request is answered");
+    assert_eq!(view.shared_hands.len(), 1);
+    assert_eq!(view.shared_hands[0].cards, initial_hand);
+    assert!(
+        seat_view(&session, p0).hand_shared_with.is_empty(),
+        "continuous stream remains off"
+    );
+
+    // Advance turns so p0 draws a new card; p1 still sees only the snapshot cards.
+    let turn = session.state().turn.number;
+    play_to_turn(&mut session, turn + 5);
+    let p0_now = seat_view(&session, p0).hand;
+    let initial_ids: std::collections::BTreeSet<_> = initial_hand.iter().map(|c| c.id).collect();
+    assert!(
+        p0_now.iter().any(|c| !initial_ids.contains(&c.id)),
+        "p0 drew at least one new card not in the initial snapshot"
+    );
+    let p1_seen = &seat_view(&session, p1).shared_hands[0].cards;
+    assert!(
+        p1_seen.iter().all(|c| initial_ids.contains(&c.id)),
+        "newly drawn cards remain hidden from a one-time snapshot"
+    );
+
+    // Clearing the one-time snapshot hides the hand immediately.
+    let cleared = session
+        .seat_setting(p0, SeatSetting::ShareHandOnce(SeatSet::new()))
+        .expect("clears snapshot");
+    assert!(hands_shown(&routed_view(&cleared, p1)).is_empty());
+}
+
+#[test]
+fn hand_sharing_rule_once_only_and_disabled_are_enforced() {
+    let mut once_preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    once_preset.house_rules.hand_sharing = baylee_core::preset::HandSharingRule::OnceOnly;
+    let mut session = a_kept_table_from(once_preset, [false, true, false, false]);
+    // Continuous sharing is refused in OnceOnly mode, but ShareHandOnce and RequestHand succeed.
+    assert!(show_to(&mut session, 0, &[2]).is_err());
+    assert!(
+        session
+            .seat_setting(PlayerId::new(0), SeatSetting::ShareHand(seats(&[1])))
+            .is_err()
+    );
+    let routed = ask(&mut session, 0, 1).expect("AI teammate answers with snapshot in OnceOnly");
+    let view = routed_view(&routed, PlayerId::new(0));
+    assert_eq!(hands_shown(&view), vec![PlayerId::new(1)]);
+
+    let mut disabled_preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    disabled_preset.house_rules.hand_sharing = baylee_core::preset::HandSharingRule::Disabled;
+    let mut disabled = a_kept_table_from(disabled_preset, [false; 4]);
+    assert!(show_to(&mut disabled, 0, &[1]).is_err());
+    assert!(
+        disabled
+            .seat_setting(PlayerId::new(0), SeatSetting::ShareHandOnce(seats(&[1])))
+            .is_err()
+    );
+    assert!(ask(&mut disabled, 0, 1).is_err());
+}
+
+#[test]
+fn driven_team_seats_observe_shared_hands_and_preserve_them_in_forks() {
+    let mut session = a_kept_table([Some(1), Some(1), Some(2), Some(2)], [true; 4]);
+    for s in 0..4 {
+        assert!(session.take_over(PlayerId::new(s)));
+    }
+    session.apply_team_hand_sharing();
+
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let p2 = PlayerId::new(2);
+    let obs0 = session.observe_view(p0);
+    assert_eq!(hands_shown(&obs0), vec![p1]);
+    assert_eq!(obs0.shared_hands[0].cards, session.observe_view(p1).hand);
+
+    let fork = session
+        .fork_for(p0, baylee_engine::engine::DeckKnowledge::Known, 42)
+        .expect("forks with shared teammate hand");
+    let fork_obs0 = fork.observe_view(p0);
+    assert_eq!(hands_shown(&fork_obs0), vec![p1]);
+    assert_eq!(
+        fork_obs0.shared_hands[0].cards,
+        obs0.shared_hands[0].cards,
+        "teammate's shared hand is preserved in the lookahead fork"
+    );
+    assert!(
+        !fork_obs0.shared_hands.iter().any(|h| h.player == p2),
+        "opponent's hand is never shown"
+    );
+}

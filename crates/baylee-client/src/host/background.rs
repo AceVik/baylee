@@ -14,8 +14,13 @@ struct Reply {
     done: bool,
 }
 
+enum WorkerInput {
+    Action(PlayerAction),
+    SeatSetting(baylee_view::SeatSetting),
+}
+
 pub(super) struct BackgroundHost {
-    actions: mpsc::Sender<PlayerAction>,
+    actions: mpsc::Sender<WorkerInput>,
     replies: Mutex<mpsc::Receiver<Reply>>,
     seat: PlayerId,
     deck: Vec<CardIndex>,
@@ -78,10 +83,13 @@ impl BackgroundHost {
                     if output.send(reply).is_err() {
                         break;
                     }
-                    let Ok(action) = input.recv() else {
+                    let Ok(msg) = input.recv() else {
                         break;
                     };
-                    host.submit(action);
+                    match msg {
+                        WorkerInput::Action(action) => host.submit(action),
+                        WorkerInput::SeatSetting(setting) => host.seat_setting(setting),
+                    }
                 }
                 // LocalHost's Drop flushes and compacts its record on this thread.
             })
@@ -131,7 +139,13 @@ impl DuelHost for BackgroundHost {
     }
 
     fn submit(&mut self, action: PlayerAction) {
-        if !self.failed && self.actions.send(action).is_ok() {
+        if !self.failed && self.actions.send(WorkerInput::Action(action)).is_ok() {
+            self.outstanding += 1;
+        }
+    }
+
+    fn seat_setting(&mut self, setting: baylee_view::SeatSetting) {
+        if !self.failed && self.actions.send(WorkerInput::SeatSetting(setting)).is_ok() {
             self.outstanding += 1;
         }
     }

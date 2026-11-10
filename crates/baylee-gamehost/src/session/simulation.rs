@@ -9,10 +9,11 @@
 //! no spectators. It is never a seat's path over the gateway, which has no
 //! engine to fork.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use baylee_ai::intelligence::DeckIntel;
-use baylee_core::ids::{PlayerId, SeatSet};
+use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::{DeckKnowledge, Engine, ForkRefusal};
 use baylee_view::{HouseAnswer, PlayerView};
@@ -37,6 +38,8 @@ pub struct SimulationSession {
     seq: u64,
     decisions: u64,
     house_answered: Vec<Option<HouseAnswer>>,
+    showing: Vec<SeatSet>,
+    shown_once: BTreeMap<(u8, u8), Vec<ObjectId>>,
     seat: PlayerId,
 }
 
@@ -82,7 +85,10 @@ impl Session {
         decks: DeckKnowledge,
         policy_seed: u64,
     ) -> Result<SimulationSession, ForkRefusal> {
-        let engine = self.engine.fork_for(seat, decks, policy_seed)?;
+        let shared = self.hands_told(seat)[0];
+        let engine = self
+            .engine
+            .fork_for_with_shared(seat, decks, policy_seed, shared)?;
         let seats = self
             .seats
             .iter()
@@ -106,6 +112,8 @@ impl Session {
             seq: self.seq,
             decisions: self.decisions,
             house_answered: self.house_answered.clone(),
+            showing: self.showing.clone(),
+            shown_once: self.shown_once.clone(),
             seat,
         })
     }
@@ -121,6 +129,8 @@ impl SimulationSession {
             fair_scouting: self.fair_scouting,
             seq: self.seq,
             house_answered: &self.house_answered,
+            showing: &self.showing,
+            shown_once: &self.shown_once,
         }
     }
 
@@ -228,6 +238,19 @@ impl SimulationSession {
     #[must_use]
     pub fn seat_kind(&self, seat: PlayerId) -> Option<&SeatKind> {
         self.seats.get(usize::from(seat.get()))
+    }
+
+    /// Takes a house chair over so the harness answers it, as
+    /// [`Session::take_over`] does. Returns whether it was a house chair.
+    pub fn take_over(&mut self, seat: PlayerId) -> bool {
+        let Some(kind) = self.seats.get_mut(usize::from(seat.get())) else {
+            return false;
+        };
+        let SeatKind::Ai(agent) = kind else {
+            return false;
+        };
+        *kind = SeatKind::Driven(agent.clone());
+        true
     }
 
     /// Hands a driven chair back to the agent it kept, as

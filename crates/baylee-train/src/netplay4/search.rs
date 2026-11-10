@@ -112,6 +112,7 @@ pub struct SearchConfig4 {
     selection: Selection4,
     threads: usize,
     targets: usize,
+    neural_opponent: bool,
 }
 
 impl SearchConfig4 {
@@ -158,7 +159,26 @@ impl SearchConfig4 {
             selection: Selection4::default(),
             threads: Self::DEFAULT_THREADS,
             targets: 0,
+            neural_opponent: false,
         })
+    }
+
+    /// The same search, with every other chair in a rollout answered by the
+    /// searching player's net from that chair's simulated view (with empty
+    /// prior deck knowledge) instead of releasing other chairs to the house.
+    #[must_use]
+    pub const fn with_neural_opponent(self, neural_opponent: bool) -> Self {
+        Self {
+            neural_opponent,
+            ..self
+        }
+    }
+
+    /// Whether other chairs in a rollout are answered by the net instead of
+    /// the house.
+    #[must_use]
+    pub const fn neural_opponent(&self) -> bool {
+        self.neural_opponent
     }
 
     /// The same search, trying a candidate that casts a spell or activates
@@ -268,7 +288,11 @@ impl SearchConfig4 {
             "candidate_order": "policy_answer_then_raw_logit_desc_then_menu_order",
             "decks": "known_to_the_harness",
             "worlds": "session_fork_redealt_from_purpose_tagged_policy_seeds",
-            "rollout": "net_for_the_searching_seat_house_for_every_other_chair",
+            "rollout": if self.neural_opponent {
+                "net_for_every_chair_other_seats_from_world_view_only"
+            } else {
+                "net_for_the_searching_seat_house_for_every_other_chair"
+            },
             "stop": "game_over_or_settled_priority_or_end_of_next_own_turn_or_horizon",
             "settled": "seat_would_pass_priority_in_a_main_phase_after_the_roots_phase_empty_stack_no_cast_no_payment_no_floating_mana",
             "leaf": "terminal_side_utility_else_k0_observation_value_of_the_seat",
@@ -386,6 +410,11 @@ pub trait SearchPlayer4 {
     fn reseed_sampling(&mut self, seed: u64);
     /// Counts a decision recorded under `from` as searched instead.
     fn attribute_to_search(&mut self, pending: &Pending, from: SourceKind4);
+    /// Clears any other seat's game state before a neural-opponent rollout so
+    /// another chair in a simulated world reads only what that world shows it.
+    fn reset_other_seats_for_rollout(&mut self, searching_seat: PlayerId) {
+        let _ = searching_seat;
+    }
     /// Whether [`Self::rollout_player`] lends players, so that a search can
     /// run its rollouts at once.
     fn lends_rollout_players(&self) -> bool {
@@ -451,6 +480,9 @@ impl SearchPlayer4 for NetPlayer4 {
         let row = &mut self.coverage.counts[PendingKind4::of(pending) as usize];
         row[from as usize] = row[from as usize].saturating_sub(1);
         row[SourceKind4::Search as usize] += 1;
+    }
+    fn reset_other_seats_for_rollout(&mut self, searching_seat: PlayerId) {
+        Self::reset_other_seats_for_rollout(self, searching_seat);
     }
     fn lends_rollout_players(&self) -> bool {
         self.is_on_shared_net()
@@ -669,19 +701,79 @@ fn world_seed(search_seed: u64, decision_seq: u64, particle: usize) -> u64 {
 }
 
 /// Why `pending` is not a root this version searches.
-fn root_skip(view: &PlayerView, pending: &Pending) -> Option<SearchSkip4> {
+fn root_skip(
+    view: &PlayerView,
+    pending: &Pending,
+    decision: &RootDecision4,
+    k: usize,
+) -> Option<SearchSkip4> {
     if !matches!(pending, Pending::Priority { .. }) {
         return Some(SearchSkip4::NotPriority);
     }
-    match view.phase {
-        Phase::FirstMain | Phase::Combat | Phase::SecondMain => None,
-        Phase::Beginning | Phase::Ending => Some(SearchSkip4::Phase),
+    if matches!(view.phase, Phase::Beginning | Phase::Ending) {
+        return Some(SearchSkip4::Phase);
+    }
+    let Some(ranking) = decision.ranking.as_deref() else {
+        return Some(SearchSkip4::NotPolicy);
+    };
+    let own = &decision.answer.action;
+    if k > 1
+        && (view.owed.is_some()
+            || is_mana_action(view, own)
+            || (matches!(own, PlayerAction::PassPriority)
+                && !ranking
+                    .iter()
+                    .any(|r| is_strategic_alternative(view, own, &r.action))))
+    {
+        return Some(SearchSkip4::NotPolicy);
+    }
+    None
+}
+
+/// Whether `action` is a mana ability: a basic land type's
+/// (`ActivateManaAbility`) or one a card prints (`ActivateAbility` on a
+/// mana ability, CR 605.1).
+pub(super) fn is_mana_action(view: &PlayerView, action: &PlayerAction) -> bool {
+    match action {
+        PlayerAction::ActivateManaAbility { .. } => true,
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } => crate::netplay4::tactics::is_mana_ability_entry(view, *source, *ability_index),
+        _ => false,
     }
 }
 
-/// The policy's own answer, then the next `k - 1` legal answers by its
-/// ranking.
-fn candidates(decision: &RootDecision4, k: usize) -> Vec<Ranked4> {
+/// Whether `candidate` is a strategic alternative to `own` at `view`:
+/// neither `own` itself, nor a mana ability, nor cancelling a cast, nor
+/// passing priority in place of a land drop or while mana is floating.
+fn is_strategic_alternative(
+    view: &PlayerView,
+    own: &PlayerAction,
+    candidate: &PlayerAction,
+) -> bool {
+    if candidate == own
+        || matches!(candidate, PlayerAction::CancelCast)
+        || is_mana_action(view, candidate)
+    {
+        return false;
+    }
+    if matches!(candidate, PlayerAction::PassPriority) {
+        let floating = view
+            .seat(view.seat)
+            .is_some_and(|s| s.mana_pool.total() > 0);
+        if matches!(own, PlayerAction::PlayLand { .. })
+            || (floating && !matches!(own, PlayerAction::CastSpell { .. }))
+        {
+            return false;
+        }
+    }
+    true
+}
+
+/// The policy's own answer, then the next `k - 1` strategic legal answers
+/// by its ranking.
+fn candidates(view: &PlayerView, decision: &RootDecision4, k: usize) -> Vec<Ranked4> {
     let own = &decision.answer.action;
     let ranking = decision.ranking.as_deref().unwrap_or_default();
     let first = ranking
@@ -697,10 +789,29 @@ fn candidates(decision: &RootDecision4, k: usize) -> Vec<Ranked4> {
     out.extend(
         ranking
             .iter()
-            .filter(|r| r.action != *own)
+            .filter(|r| is_strategic_alternative(view, own, &r.action))
             .take(k.saturating_sub(1))
             .cloned(),
     );
+    if k > 1
+        && matches!(
+            own,
+            PlayerAction::CastSpell { .. } | PlayerAction::ActivateAbility { .. }
+        )
+        && !out
+            .iter()
+            .any(|r| matches!(r.action, PlayerAction::PassPriority))
+        && let Some(pass) = ranking.iter().find(|r| {
+            matches!(r.action, PlayerAction::PassPriority)
+                && is_strategic_alternative(view, own, &r.action)
+        })
+    {
+        if out.len() < k {
+            out.push(pass.clone());
+        } else {
+            out[k - 1] = pass.clone();
+        }
+    }
     out
 }
 
@@ -765,9 +876,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     search_seed: u64,
 ) -> anyhow::Result<SearchedAnswer4> {
     let decision = player.decide(view, pending, teams);
-    let skip = root_skip(view, pending)
-        .or_else(|| decision.ranking.is_none().then_some(SearchSkip4::NotPolicy));
-    if let Some(reason) = skip {
+    if let Some(reason) = root_skip(view, pending, &decision, config.candidates) {
         return Ok(unsearched(
             player,
             view,
@@ -776,6 +885,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         ));
     }
     let root = player.snapshot();
+    let ranked = candidates(view, &decision, config.candidates);
     let expanded = targets::Probe {
         view,
         teams,
@@ -784,7 +894,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         targets: config.targets,
         seed: world_seed(search_seed, table.decision_seq(), 0),
     }
-    .expand(player, table, candidates(&decision, config.candidates));
+    .expand(player, table, ranked);
     let candidates = match expanded {
         Ok(candidates) => candidates,
         Err(Stop::Refused(refusal)) => {

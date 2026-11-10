@@ -57,9 +57,10 @@ mod ranked;
 pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
 pub mod search;
 mod snapshot;
-pub use snapshot::PlayerSnapshot4;
+pub use snapshot::{ColdMeta4, PlayerSnapshot4};
 mod structure;
-pub use structure::{CatalogBinding4, CatalogPolicy4, DriftedRule4};
+pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
+pub mod tactician;
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
@@ -70,8 +71,33 @@ pub use tactics::rules::{RuleGroup, TacticRules4};
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
 
-/// Memory, candidate logits, pair logits, scalar prediction and utility.
-type StepOutputs = (Vec<f32>, Vec<f32>, Vec<f32>, f32, f32);
+/// What a graph exported with `--embeddings` (`export_onnx4.py`) adds to a
+/// step: what a tactician head reads, contract `tactician_embeddings_v1`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StepEmbeddings4 {
+    /// The thought-through global slot, `[d]`.
+    pub state: Vec<f32>,
+    /// Each candidate's last hidden layer of the candidate head, `[C × d]`.
+    pub candidates: Vec<f32>,
+    /// Each pair's last hidden layer of the pair head, `[P × d]`.
+    pub pairs: Vec<f32>,
+}
+
+/// One step's outputs.
+pub(super) struct StepOutputs {
+    /// The recurrent memory after the step.
+    pub(super) h_out: Vec<f32>,
+    /// One logit per candidate.
+    pub(super) cand_logits: Vec<f32>,
+    /// One logit per blocker-attacker pair.
+    pub(super) pair_logits: Vec<f32>,
+    /// The scalar head's prediction.
+    pub(super) scalar_pred: f32,
+    /// The side's utility.
+    pub(super) value: f32,
+    /// Present when the graph outputs them.
+    pub(super) embeddings: Option<StepEmbeddings4>,
+}
 
 /// Output tensor names produced by the Playernet v4 ONNX graph.
 pub const OUTPUT_NAMES: &[&str] = &[
@@ -149,6 +175,13 @@ pub struct NetPlayer4 {
     tactic_rules: TacticRules4,
     /// A journal's copy of the last menu with its logits; `None` keeps none.
     pub(crate) last_menu: Option<serde_json::Value>,
+    /// Per-seat bitmask (`1 << seat`) tracking which seats' `h_states` were modified
+    /// since the last [`Self::swap_in_hot`], avoiding redundant `FP16` re-quantization
+    /// in [`Self::swap_out_hot`].
+    dirty_h_seats: u8,
+    /// `eval4 --tactician`: answers the attack, block and target questions
+    /// it names; `None` everywhere else, live play included.
+    tactician: Option<tactician::Tactician4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -185,6 +218,14 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
         .with_context(|| format!("loading {}", path.display()))
 }
 
+fn load_session_with_hardware(
+    path: &Path,
+    hw: &baylee_driver::HardwareConfig,
+    worker_slots: usize,
+) -> anyhow::Result<Session> {
+    baylee_driver::ort_env::build_session(path, hw, worker_slots)
+}
+
 /// The depth graph that runs `k` thinking steps: `0` for an observation,
 /// otherwise the next exported power of two.
 const fn depth_graph(k: u8) -> u8 {
@@ -212,14 +253,35 @@ impl ModelFiles {
     /// `model.onnx.json`) or a graph with companion metadata, with the
     /// session of its default graph and that graph's depth. Its card catalog
     /// is bound to this build's under `catalog`.
-    fn open(path: &Path, catalog: CatalogPolicy4) -> anyhow::Result<(Self, u8, Session)> {
+    fn open(path: &Path, catalog: CatalogRead4) -> anyhow::Result<(Self, u8, Session)> {
+        Self::open_internal(path, catalog, None)
+    }
+
+    fn open_with_hardware(
+        path: &Path,
+        catalog: CatalogRead4,
+        hw: &baylee_driver::HardwareConfig,
+        worker_slots: usize,
+    ) -> anyhow::Result<(Self, u8, Session)> {
+        let resolved = hw.resolve_model_dir(path);
+        Self::open_internal(&resolved, catalog, Some((hw, worker_slots)))
+    }
+
+    fn open_internal(
+        path: &Path,
+        catalog: CatalogRead4,
+        hw: Option<(&baylee_driver::HardwareConfig, usize)>,
+    ) -> anyhow::Result<(Self, u8, Session)> {
         let (onnx_path, meta, identity) = identity::read_model(path)?;
         let encoder_version = identity.encoder_version;
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
         let thinking_steps = meta["thinking_steps"]
             .as_u64()
             .context("missing thinking_steps")? as u8;
-        let session = load_session(&onnx_path)?;
+        let session = match hw {
+            Some((cfg, slots)) => load_session_with_hardware(&onnx_path, cfg, slots)?,
+            None => load_session(&onnx_path)?,
+        };
         abi::validate(&session, encoder_version)?;
         let rule_roots = rule_roots(&onnx_path, &meta, &identity, catalog)?.map(Arc::new);
 
@@ -244,7 +306,7 @@ fn rule_roots(
     onnx_path: &Path,
     meta: &serde_json::Value,
     identity: &ModelIdentity,
-    catalog: CatalogPolicy4,
+    catalog: CatalogRead4,
 ) -> anyhow::Result<Option<structure::RuleRoots>> {
     if !matches!(identity.model_version, 3 | 5) {
         return Ok(None);
@@ -255,6 +317,7 @@ fn rule_roots(
             .as_str()
             .context("missing structure hash")?,
         catalog,
+        meta.get("rule_table_ablation").cloned(),
     )
     .map(Some)
 }
@@ -267,10 +330,10 @@ fn rule_roots(
 /// When the model cannot be read or the catalogs do not bind.
 pub fn inspect_catalog(
     path: &Path,
-    catalog: CatalogPolicy4,
+    catalog: impl Into<CatalogRead4>,
 ) -> anyhow::Result<Option<CatalogBinding4>> {
     let (onnx_path, meta, identity) = identity::read_model(path)?;
-    Ok(rule_roots(&onnx_path, &meta, &identity, catalog)?.map(|roots| roots.binding))
+    Ok(rule_roots(&onnx_path, &meta, &identity, catalog.into())?.map(|roots| roots.binding))
 }
 
 impl NetPlayer4 {
@@ -284,13 +347,14 @@ impl NetPlayer4 {
         Self::load_with(path, CatalogPolicy4::Exact)
     }
 
-    /// [`Self::load`] with the card catalog bound under `catalog`.
+    /// [`Self::load`] with the card catalog read as `catalog` says: a
+    /// [`CatalogPolicy4`], or a [`CatalogRead4`] with a measurement's ablations.
     ///
     /// # Errors
     /// When the ONNX model or metadata cannot be loaded, or the catalogs do
     /// not relate as `catalog` requires.
-    pub fn load_with(path: &Path, catalog: CatalogPolicy4) -> anyhow::Result<Self> {
-        let (files, depth, session) = ModelFiles::open(path, catalog)?;
+    pub fn load_with(path: &Path, catalog: impl Into<CatalogRead4>) -> anyhow::Result<Self> {
+        let (files, depth, session) = ModelFiles::open(path, catalog.into())?;
         Ok(Self::with_backend(
             files,
             Backend::Owned(BTreeMap::from([(depth, session)])),
@@ -308,6 +372,20 @@ impl NetPlayer4 {
     #[must_use]
     pub const fn rule_refs_left_out(&self) -> u64 {
         self.rule_refs_left_out
+    }
+
+    /// Sets `eval4 --tactician-windows`: from the next game on, `tactician`
+    /// answers its windows. Evaluation and collection harnesses only.
+    pub fn set_tactician(&mut self, tactician: tactician::Tactician4) {
+        self.tactician = Some(tactician);
+    }
+
+    /// The tactician's decisions kept since this was last asked.
+    pub fn take_tactician_records(&mut self) -> Vec<tactician::TacticianRecord4> {
+        self.tactician
+            .as_mut()
+            .map(tactician::Tactician4::take_records)
+            .unwrap_or_default()
     }
 
     /// Sets `eval4 --choice-guard` (`tactics::guard`) for this net.
@@ -388,12 +466,14 @@ impl NetPlayer4 {
             payable_menu: None,
             tactic_rules: TacticRules4::default(),
             last_menu: None,
+            dirty_h_seats: 0,
+            tactician: None,
         }
     }
 
     /// A player with no graphs, for tests of what it does around inference.
     #[cfg(test)]
-    pub(super) fn without_graphs(encoder_version: u32, d_model: usize) -> Self {
+    pub(crate) fn without_graphs(encoder_version: u32, d_model: usize) -> Self {
         let identity = ModelIdentity {
             model_family: "v5",
             model_version: 5,
@@ -416,6 +496,12 @@ impl NetPlayer4 {
             thinking_steps: 2,
         };
         Self::with_backend(files, Backend::Owned(BTreeMap::new()))
+    }
+
+    /// Latent recurrent slot width `d_model` of the loaded model.
+    #[must_use]
+    pub const fn d_model(&self) -> usize {
+        self.d_model
     }
 
     /// Recovery reason for the most recent decision; cleared before every answer.
@@ -495,6 +581,7 @@ impl NetPlayer4 {
         self.last_announced_source.clear();
         self.observed_values.clear();
         self.last_fallback = None;
+        self.dirty_h_seats = 0xff;
         if let Some(menu) = &mut self.payable_menu {
             menu.reset();
         }
@@ -504,6 +591,9 @@ impl NetPlayer4 {
     /// shuffle seed, P0-6) and resets per-game recurrent state and loop guards.
     pub fn reseed(&mut self, policy_seed: u64) {
         self.rng = Rng::new(policy_seed ^ 0x9e37_79b9_7f4a_7c15);
+        if let Some(tactician) = &mut self.tactician {
+            tactician.reseed(policy_seed);
+        }
         self.reset_game();
     }
 
@@ -517,6 +607,7 @@ impl NetPlayer4 {
         self.last_announced_source.clear();
         self.observed_values.clear();
         self.last_fallback = None;
+        self.dirty_h_seats = 0xff;
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
             self.h_states
@@ -577,9 +668,10 @@ impl NetPlayer4 {
             pairs: Vec::new(),
             pair_objects: Vec::new(),
         };
-        let (h_next, _, _, _, value) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
-        self.h_states.insert(s, h_next);
-        self.observed_values.insert(s, value);
+        let out = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
+        self.h_states.insert(s, out.h_out);
+        self.dirty_h_seats |= 1_u8.wrapping_shl(u32::from(s));
+        self.observed_values.insert(s, out.value);
         Ok(())
     }
 

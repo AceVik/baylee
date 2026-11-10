@@ -69,8 +69,14 @@ impl Contract {
             .transpose()?;
         let mixed = opponent_path.is_some() || args.collection_purpose != Purpose::Evaluation;
         if mixed {
+            let multi_seat_eval_selfplay = args.collection_purpose == Purpose::Evaluation
+                && args.opponent_role == OpponentRole::SelfPlay
+                && (2..=8).contains(&args.seats)
+                && (args.teams.is_empty()
+                    || (args.teams.len() == args.seats && args.teams.iter().all(|&t| t != 0)));
             ensure!(
-                !args.legacy_v3 && args.seats == 2 && args.teams.is_empty(),
+                !args.legacy_v3
+                    && ((args.seats == 2 && args.teams.is_empty()) || multi_seat_eval_selfplay),
                 "initial per-seat collector requires 1v1 neural models without teams"
             );
             ensure!(

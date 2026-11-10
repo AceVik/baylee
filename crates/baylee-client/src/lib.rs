@@ -997,6 +997,9 @@ pub struct Duel {
     priority_legal: Option<(PlayerId, baylee_engine::choice::LegalActions)>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
+    /// Seat-level settings (`ShareHand`, `ShareHandOnce`, `RequestHand`,
+    /// `DeclineHand`) waiting to be sent over `SeatSettingMsg`.
+    seat_settings_outbox: Vec<baylee_view::SeatSetting>,
     /// The last thing that went wrong, shown in the prompt bar.
     ///
     /// A [`Refusal`] and not a `String`, because two different authorities
@@ -1578,6 +1581,11 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
     let Some(mut host) = host else {
         return;
     };
+    if !duel.seat_settings_outbox.is_empty() {
+        for setting in std::mem::take(&mut duel.seat_settings_outbox) {
+            host.0.seat_setting(setting);
+        }
+    }
     // Held, not dropped, until the table is open (#256): the engine drops
     // what a seat sends before then.
     if duel.outbox.is_empty() || !duel.curtain_up {

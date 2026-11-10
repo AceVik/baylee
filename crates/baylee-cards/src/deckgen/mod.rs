@@ -144,6 +144,12 @@ impl Rng {
         Self(seed)
     }
 
+    /// The current 64-bit internal state, so a snapshot can restore the stream.
+    #[must_use]
+    pub const fn state(&self) -> u64 {
+        self.0
+    }
+
     /// The next 64 bits.
     pub const fn next(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);

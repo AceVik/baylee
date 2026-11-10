@@ -28,7 +28,7 @@
 // Counts and coordinates are deliberately normalized into the f32 model ABI.
 #![allow(clippy::cast_precision_loss)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_core::color::Color;
 use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId};
@@ -126,8 +126,14 @@ pub fn abs_seat(viewer: PlayerId, rel: usize, seat_count: usize) -> PlayerId {
     PlayerId::new(((viewer.get() as usize + rel) % n) as u8)
 }
 
+/// Penalty subtracted from a winning team's utility (`1.0`) when `seat`
+/// itself was eliminated before the game ended (`0.40` instead of `1.0`).
+pub const TEAM_WIN_ELIMINATED_PENALTY: f32 = 0.60;
+
 /// Consistent multiplayer side utility:
-/// - `1.0` if `seat`'s side won,
+/// - `1.0` if `seat`'s side won and `seat` survived (or in 1v1/FFA),
+/// - `0.40` (`1.0 - TEAM_WIN_ELIMINATED_PENALTY`) if `seat`'s team won in a
+///   team game but `seat` itself was eliminated (`!surviving_seats.contains(&seat)`),
 /// - `0.0` if another side won,
 /// - `1.0 / surviving_sides` on a draw if `seat`'s side survived, else `0.0`.
 #[must_use]
@@ -143,11 +149,13 @@ pub fn side_utility(seat: u8, teams: &[Option<u8>], surviving_seats: &[u8], winn
         }
     };
     if !winners.is_empty() {
-        return if winners.iter().copied().any(on_my_side) {
-            1.0
-        } else {
-            0.0
-        };
+        if !winners.iter().copied().any(on_my_side) {
+            return 0.0;
+        }
+        if my_team.is_some() && !surviving_seats.is_empty() && !surviving_seats.contains(&seat) {
+            return 1.0 - TEAM_WIN_ELIMINATED_PENALTY;
+        }
+        return 1.0;
     }
     // Draw: split among surviving sides
     let my_side_survived = surviving_seats.iter().copied().any(on_my_side);

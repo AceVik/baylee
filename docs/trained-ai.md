@@ -949,7 +949,119 @@ window, what the evaluated seat answered and how often a fresh `sharp` agent on
 the same view would have answered the same: B-refresh passes 99.8 % of its
 priority decisions in the opponent's turn and 100 % in its own combat, where
 `sharp` acts in about a third, and never takes a mulligan; with tactics it
-takes them (17 %) but still does not act at instant speed.
+takes them (17 %) but still does not act at instant speed. A random seat wins
+69 of the same 512 against B-refresh raw and 26 against B-refresh with tactics.
+
+#### Does the net read a card or name it?
+
+Two of a card's references name it rather than describe it: `i/<card>/<face>`,
+a `CardIdentity` node whose bytes are the card's index, and the printed name, a
+string leaf under `FaceDef.name` inside the rules tree `c/<card>/<face>`. Two
+switches take each away, for a measurement only:
+
+- `eval4 --leave-out-identity` leaves every `i/` reference of the seat under
+  test out at bind time, as drift leaves out a withdrawn card's
+  (`CatalogRead4`; the binding records `identity_left_out`).
+- `export_onnx4.py --blind-card-names --out DIR` encodes the frozen rule table
+  from the catalog with every face-name string emptied (same node ids and
+  digest; `rule_table_ablation` in `model.onnx.json`). The table is a constant
+  of the graph, so this half is an export, not an `eval4` switch. `eval4` loads
+  such an export only with `--ablated-rule-table`; every other loader refuses it.
+
+Both are refused outside an evaluation against the house. Measured on 8
+November (B-refresh FP16 with drift, the 512 test deals, each arm paired with
+the unchanged export on the same build, 153 raw and 239 with tactics):
+
+| Left out | Raw | Tactics |
+| --- | --- | --- |
+| identity references | +2.7 pp [−0.8, +6.3] (35 better / 20 worse) | +0.2 pp [−3.3, +3.7] |
+| printed names | +0.0 pp [−1.6, +1.6] (no game changed) | +0.0 pp [−1.8, +1.8] (1/1) |
+| both | +2.7 pp [−0.8, +6.3] | −0.2 pp [−3.7, +3.1] |
+
+The net plays no worse without either. On B-refresh's encoder, emptying the
+names moves a card's rule row by a median 1.0 % of its length while two
+different cards' rows lie 125 % apart, and the `i/` rows of two different cards
+differ by only 4.7 %: the index, read through the shared byte table, nearly
+collapses to one vector. Cards are told apart by their compiled rules.
+
+### The tactician, stage 1 (`eval4 --tactician-windows`)
+
+A head that learns from game outcomes where the tactical layer earns most of its
++12.9 pp: declaring attackers, declaring blockers and choosing one target
+(`netplay4::tactician`, owner's decision of 7 November; plan and every number
+in `~/baylee-data/v6/train/v6r-refresh-notes.md`). It sits on the frozen trunk of
+refreshed B-refresh (`r1`). The rules may propose answers to explore; outcomes
+are its only target, and no tactical, house or teacher answer is a label.
+
+**Answers.** At such a question the seat holds the net's raw greedy answer `N`,
+the tactical layer's answer `R` on the same logits (as `--choice-guard tactical`
+plays it, read on copies) and the *neighbors* of `N`: the legal answers one
+change away (another target; one attacker in or out; one blocker unblocked or
+onto another attacker). Every answer is a mask over the question's units, its
+candidates or its blocker-attacker pairs.
+
+**Collection** (`--tactician-explore ε --tactician-out DIR`): `N` with `1 − ε`,
+`R` with `ε/3` when it differs, the rest spread over the neighbors; the played
+answer's probability under the whole mixture is exact. Each decision is kept
+(`tactician_records_v1`: `wNN.jsonl` with the deal's utility for the seat, and
+`wNN.f32` with the embeddings, window codes and looks). These runs are
+evaluations; their records train the tactician head and nothing else.
+
+**Inputs.** `export_onnx4.py --embeddings` adds `state_emb` (the thought-through
+global slot), `cand_emb` and `pair_emb` (each head's last hidden layer) to every
+depth graph; the old outputs are the same ops. Per unit the head reads
+`[state | unit | window code (16) | look (112)]`, and a null row with no unit.
+
+**The look** is a one-step read of the other side's answers per unit. The engine
+forks only at ordinary priority (a combat declaration is `NotPriority`, a target
+mid-cast a `Continuation`), so it is computed: the expected castable
+instant-speed cards in their hand by effect family, over a fixed prior of the
+train-split decks conditioned only on what the seat sees (colours shown, open
+mana, hand size), never on their real list; and view-only reads per unit (who
+may block an attacker and what survives, who kills whom in a block, a target's
+side, body, worth and protections, lives, open mana, visible lethal). It takes
+the view and the prior, nothing else; a test deals the hidden cards again and
+asserts the same belief.
+
+**Training** (`tactician4.py`): one MLP, 2d + 128 → 1,408 → 1,408 → 1 (3.97 M
+parameters at d = 640, four times the plain head); the played answer's advantage
+is the null score plus the played units' scores, its target the utility minus
+the net's value at the decision, weighted by min(1/μ, 10); every tenth table is
+held out, and train and held-out loss are reported per epoch beside the zero
+predictor's. **Play** (`--tactician DIR`): of `N`, `R` and the neighbors the head
+plays the best, and leaves `N` only past the margin in `tactician.json`, chosen
+on held-out decisions by a one-step importance estimate.
+
+**Gates.** Against B-refresh (raw 153, tactics 239 of the 512 test deals), three
+seeds pooled: the lower bound above zero in raw or tactics, no upper bound below
+zero. A rule group goes only when "tactician, group off" against "tactics, group
+on" has its lower bound above −1.5 pp and its point at or above −0.5 pp, pooled
+over three seeds, on the test deals and on fresh ones.
+
+Measured on 8 November (one frozen runtime, 5aed5359c's engine; references on
+it: B-refresh 153 raw, 238 with tactics). Collection: 8 × 1,024 train deals in
+29 minutes, half raw, half with tactics outside the windows, ε 0.25: 68,919
+window decisions, 17,280 played away from the net's answer. The tactician costs
+a median 0.12 ms per decision (at most 0.21), so no candidate cap is needed.
+Three heads: held-out loss tracks training loss in every seed (no overfitting),
+but the null row alone fits almost as well as the whole head (held-out MSE 0.164
+against 0.162; 0.211 for predicting nothing): what is learnt is mostly the state
+baseline, as the net's value is about 0.2 too optimistic. The heads leave the
+net's answer in 3–8 % of the questions.
+
+| Arm (three seeds pooled) | Test, 512 deals | Fresh, 1,536 deals |
+| --- | --- | --- |
+| tactician, raw elsewhere, against raw | +0.8 pp [−1.2, +2.9] | |
+| tactician, tactics elsewhere, against tactics | −1.6 pp [−4.9, +1.7] | |
+| at attacks only, against tactics | −1.8 pp [−4.8, +1.2] | |
+| at blocks only | −1.2 pp [−3.8, +1.4] | |
+| at single targets only | +1.2 pp [−1.0, +3.5] | +0.3 pp [−0.9, +1.5] |
+| the raw net's own target there, against tactics | +1.4 pp [−1.0, +3.7] | +0.3 pp [−0.9, +1.4] |
+
+The tactician does not pass its gate. At single targets the tactical layer's
+part passes the test for dropping it, but the raw net's own targeting passes it
+as well and the heads add nothing to it (+0.0 pp [−0.7, +0.7] on the fresh
+deals): the layer earns nothing there, the head is not why.
 
 ### Lookahead search (`eval4 --search K,P,H`)
 

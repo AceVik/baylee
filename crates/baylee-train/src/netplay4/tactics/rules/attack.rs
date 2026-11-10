@@ -26,17 +26,19 @@ const SEND: f32 = 3.0;
 
 /// The attackers the sampler would send on these logits: its greedy reading.
 fn sent(cands: &EncodedCandidates4, logits: &[f32], required: &[ObjectId]) -> Vec<ObjectId> {
-    let mut best: BTreeMap<ObjectId, (f32, f32)> = BTreeMap::new();
+    let mut best: BTreeMap<ObjectId, (f32, f32, usize)> = BTreeMap::new();
     for (cand, &logit) in cands.candidates.iter().zip(logits) {
         if let Some(id) = cand.object_id {
-            let entry = best.entry(id).or_insert((f32::NEG_INFINITY, 0.0));
+            let entry = best.entry(id).or_insert((f32::NEG_INFINITY, 0.0, 0));
             entry.0 = entry.0.max(logit);
             entry.1 += 1.0 / (1.0 + (-logit).exp());
+            entry.2 += 1;
         }
     }
     best.into_iter()
-        .filter(|(id, (top, chance))| {
-            required.contains(id) || *top > 0.0 || (*chance > 0.50 && *top > -0.65)
+        .filter(|(id, (top, chance, cnt))| {
+            let mean_chance = *chance / ((*cnt).max(1) as f32);
+            required.contains(id) || *top > 0.0 || (mean_chance > 0.50 && *top > -0.65)
         })
         .map(|(id, _)| id)
         .collect()
@@ -94,6 +96,18 @@ pub(super) fn stay_home(
     decide(view, pending, sent(cands, logits, required))
 }
 
+fn target_defender(view: &PlayerView, defenders: &[Defender]) -> Option<PlayerId> {
+    let me = actor(view);
+    let players: Vec<PlayerId> = defenders
+        .iter()
+        .filter_map(|defender| match defender {
+            Defender::Player(player) => Some(*player),
+            _ => None,
+        })
+        .collect();
+    crate::netplay4::choices::choose_attack_target_player(view, me, &players)
+}
+
 /// Which of `going` should stay home, as the race stands.
 pub(super) fn decide(
     view: &PlayerView,
@@ -109,10 +123,7 @@ pub(super) fn decide(
         return Vec::new();
     };
     let me = actor(view);
-    let Some(other) = defenders.iter().find_map(|defender| match defender {
-        Defender::Player(player) => Some(*player),
-        _ => None,
-    }) else {
+    let Some(other) = target_defender(view, defenders) else {
         return Vec::new();
     };
     if going.is_empty() {
@@ -182,10 +193,7 @@ pub(super) fn free_swings(
         return Vec::new();
     };
     let me = actor(view);
-    let Some(other) = defenders.iter().find_map(|defender| match defender {
-        Defender::Player(player) => Some(*player),
-        _ => None,
-    }) else {
+    let Some(other) = target_defender(view, defenders) else {
         return Vec::new();
     };
     let blockers: Vec<_> = view
@@ -230,11 +238,25 @@ pub(super) fn going(
     sent(cands, logits, required)
 }
 
-/// Sends `free` at the player.
-pub(super) fn send(cands: &EncodedCandidates4, logits: &mut [f32], free: &[ObjectId]) {
+/// Sends `free` at the target player.
+pub(super) fn send(
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+    free: &[ObjectId],
+) {
+    let target = match pending {
+        Pending::ChooseAttackers { defenders, .. } => target_defender(view, defenders),
+        _ => None,
+    };
     for (cand, logit) in cands.candidates.iter().zip(logits.iter_mut()) {
         if cand.object_id.is_some_and(|id| free.contains(&id))
-            && matches!(cand.defender, None | Some(Defender::Player(_)))
+            && match cand.defender {
+                None => true,
+                Some(Defender::Player(p)) => target.is_none_or(|t| t == p),
+                Some(_) => false,
+            }
         {
             *logit = logit.max(SEND);
         }
@@ -253,10 +275,7 @@ pub(super) fn at_walkers(
     let Pending::ChooseAttackers { defenders, .. } = pending else {
         return false;
     };
-    let Some(other) = defenders.iter().find_map(|defender| match defender {
-        Defender::Player(player) => Some(*player),
-        _ => None,
-    }) else {
+    let Some(other) = target_defender(view, defenders) else {
         return false;
     };
     let mut going = going(cands, logits, pending);

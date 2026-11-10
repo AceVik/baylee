@@ -85,6 +85,48 @@ pub enum LoopPolicy {
     CompRulesDraw,
 }
 
+/// How teammates at a table may voluntarily share their hands (#265).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HandSharingRule {
+    /// Teammates may share their hand either once (as a snapshot of the cards
+    /// currently held) or continuously until the end of the game.
+    #[default]
+    Allowed,
+    /// Teammates may only share a one-time snapshot of their current hand
+    /// (`SeatSetting::ShareHandOnce`); continuous streaming is disabled.
+    OnceOnly,
+    /// Voluntary teammate hand sharing is disabled for this game mode (e.g.
+    /// hidden-role, traitor, or restricted-communication modes).
+    Disabled,
+}
+
+impl HandSharingRule {
+    /// Whether this is the default rule (`Allowed`), used by serde to omit the
+    /// field from presets and records that do not restrict hand sharing.
+    #[must_use]
+    pub const fn is_default(&self) -> bool {
+        matches!(self, Self::Allowed)
+    }
+}
+
+/// How an AI seat shares its hand with teammates when [`HandSharingRule`]
+/// permits it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiHandSharePolicy {
+    /// Proactively share the hand continuously with all teammates (or answer
+    /// requests with a snapshot when the table rule is `OnceOnly`).
+    #[default]
+    AlwaysContinuous,
+    /// Share continuously only after a teammate sends `RequestHand`.
+    OnRequestContinuous,
+    /// Share a one-time snapshot only after a teammate sends `RequestHand`.
+    OnRequestOnce,
+    /// Never share the hand voluntarily and decline incoming requests.
+    Never,
+}
+
 /// Per-game house rules (versioned with the preset).
 ///
 /// House rules genuinely are a bag of independent toggles.
@@ -144,6 +186,13 @@ pub struct HouseRules {
     /// hashes what it did before the field existed.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub divide_trample: bool,
+    /// Whether and how teammates may voluntarily share their hands (#265).
+    ///
+    /// Defaults to [`HandSharingRule::Allowed`] and is omitted on the wire and
+    /// in records when at its default, so existing presets and hashes stay
+    /// byte-identical.
+    #[serde(default, skip_serializing_if = "HandSharingRule::is_default")]
+    pub hand_sharing: HandSharingRule,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -173,6 +222,7 @@ impl Default for HouseRules {
             time_extension_votes: true,
             order_triggers: false,
             divide_trample: false,
+            hand_sharing: HandSharingRule::default(),
         }
     }
 }

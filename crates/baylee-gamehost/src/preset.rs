@@ -80,6 +80,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
             auto_discard_empty_optional_triggers: true,
             order_triggers: true,
             divide_trample: true,
+            hand_sharing: baylee_core::preset::HandSharingRule::default(),
             decision_timeout_secs: h.decision_timeout_secs,
             reconnect_window_secs: h.reconnect_window_secs,
             timing_normalization: h.timing_normalization,

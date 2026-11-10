@@ -3392,3 +3392,12 @@ DecksTotal = { $count ->
        *[other] { $count } Decks
     }
 HistoryBackToVersion = Zurück auf Version { $version }
+HandShareWithTeammate = Hand dauerhaft mit { $player } teilen
+HandShareOnceWithTeammate = Aktuelle Hand { $player } einmalig zeigen
+HandStopSharingWithTeammate = Hand nicht mehr mit { $player } teilen
+HandRequestFromTeammate = { $player } um Handsicht bitten
+HandDeclineRequestFromTeammate = Anfrage von { $player } ablehnen
+HandRequestedByTeammate = { $player } möchte deine Hand sehen
+HandSharingActiveWithTeammate = Hand wird mit { $player } geteilt
+HandShareAllContinuous = Hand dauerhaft mit allen Teammitgliedern teilen
+HandShareAllOnce = Aktuelle Hand allen Teammitgliedern einmalig zeigen

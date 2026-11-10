@@ -127,6 +127,7 @@ fn play_one_table(
                 session.take_over(PlayerId::new(s as u8));
             }
         }
+        session.apply_team_hand_sharing();
     }
     if let Some(shadow) = shadow.as_deref_mut() {
         let seat = PlayerId::new(u8::try_from(focal_seat)?);

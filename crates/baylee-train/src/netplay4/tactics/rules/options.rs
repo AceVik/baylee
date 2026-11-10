@@ -11,8 +11,8 @@ use baylee_engine::target_side::effects_side;
 use baylee_view::{CardIdentity, PlayerView, PublicObject};
 
 use super::super::{
-    abilities_of_battlefield_object, is_hostile_object_effects, lookup_card_identity,
-    lookup_spell_cost,
+    abilities_of_battlefield_object, is_ally, is_hostile_object_effects, is_opponent,
+    lookup_card_identity, lookup_spell_cost,
 };
 use super::read::{
     Hitter, actor, blockers_of, damage_through, hitters_of, is_creature, is_tapped, life,
@@ -61,7 +61,7 @@ fn ability_parts(ability: &'static AbilityDef) -> Vec<Part> {
 /// Whether an opponent has anything `spec` can name that also matches `gate`.
 fn gate_can_open(view: &PlayerView, me: PlayerId, spec: Option<TargetSpec>, gate: &Filter) -> bool {
     let theirs = |object: &&PublicObject| {
-        object.controller != me && public_object_matches_basic_filter(me, object, gate)
+        is_opponent(me, object.controller) && public_object_matches_basic_filter(me, object, gate)
     };
     match spec {
         Some(TargetSpec::Spell(filter)) => view
@@ -133,7 +133,8 @@ fn hurts_only_me(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
     req.min >= 1
         && effects_side(part.0, 1) == Some(TargetSide::Harmful)
         && !view.battlefield.iter().any(|object| {
-            object.controller != me && public_object_matches_basic_filter(me, object, filter)
+            is_opponent(me, object.controller)
+                && public_object_matches_basic_filter(me, object, filter)
         })
 }
 
@@ -148,7 +149,7 @@ fn all_doomed(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
         return false;
     };
     !view.battlefield.iter().any(|object| {
-        object.controller != me
+        is_opponent(me, object.controller)
             && !doomed.contains(&object.id)
             && public_object_matches_basic_filter(me, object, filter)
     })
@@ -196,7 +197,7 @@ fn sweep_toll(view: &PlayerView, me: PlayerId, filter: &Filter, damage: Option<i
     for object in &view.battlefield {
         let survives = damage.is_some_and(|amount| toughness_left(object) > amount);
         if !survives && public_object_matches_basic_filter(me, object, filter) {
-            if object.controller == me {
+            if is_ally(me, object.controller) {
                 toll.0 += worth(object);
             } else {
                 toll.1 += worth(object);
@@ -206,13 +207,19 @@ fn sweep_toll(view: &PlayerView, me: PlayerId, filter: &Filter, damage: Option<i
     toll
 }
 
-/// Whether the swing the other side has now would kill `me`.
+/// Whether the swing the other side has now would kill `me` or an allied seat.
 fn facing_lethal(view: &PlayerView, me: PlayerId) -> bool {
-    let blockers = blockers_of(view, me, &[]);
-    opponents(view, me)
-        .map(|player| damage_through(view, me, hitters_of(view, player), &blockers))
-        .sum::<i32>()
-        >= life(view, me)
+    view.seats
+        .iter()
+        .filter(|s| is_ally(me, s.player) && s.life > 0)
+        .any(|ally_seat| {
+            let ally = ally_seat.player;
+            let blockers = blockers_of(view, ally, &[]);
+            opponents(view, me)
+                .map(|player| damage_through(view, ally, hitters_of(view, player), &blockers))
+                .sum::<i32>()
+                >= life(view, ally)
+        })
 }
 
 /// A sweep that costs me more than it costs them, or hits nothing of theirs,
@@ -249,7 +256,7 @@ fn burn_is_idle(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool {
         return false;
     };
     let reaches = view.battlefield.iter().any(|object| {
-        object.controller != me
+        is_opponent(me, object.controller)
             && ((is_creature(object) && toughness_left(object) <= damage)
                 || object.types.contains(TypeSet::PLANESWALKER))
     });
@@ -296,8 +303,9 @@ fn lifts_their_team(view: &PlayerView, me: PlayerId, abilities: &'static [Abilit
         is_creature(object) && public_object_matches_basic_filter(me, object, filter)
     };
     let mine = view
-        .battlefield_of(me)
-        .filter(|object| lifted(object))
+        .battlefield
+        .iter()
+        .filter(|object| is_ally(me, object.controller) && lifted(object))
         .count();
     let blockers = blockers_of(view, me, &[]);
     let (mut before, mut after, mut theirs) = (0, 0, 0);

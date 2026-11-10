@@ -2,7 +2,7 @@
 use crate::features4::PendingKind4;
 
 /// Why the native policy returned a non-neural recovery answer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FallbackReason4 {
     /// The menu contains a constraint the sampler does not implement.
@@ -16,7 +16,7 @@ pub enum FallbackReason4 {
 }
 
 /// Diagnostic for the most recent decision, never a policy likelihood or label.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FallbackDiagnostic4 {
     /// Structured recovery branch identifier.
     pub reason: FallbackReason4,
@@ -65,6 +65,7 @@ mod tests {
         let (pending, view) = session.view_for_with_context(player).unwrap();
         let hash = view_only_state_hash(&view, &pending);
         let mut net = NetPlayer4 {
+            tactician: None,
             backend: crate::netplay4::Backend::Owned(BTreeMap::new()),
             model_dir: std::path::PathBuf::new(),
             rule_roots: None,
@@ -100,6 +101,7 @@ mod tests {
             payable_menu: None,
             tactic_rules: crate::netplay4::TacticRules4::default(),
             last_menu: None,
+            dirty_h_seats: 0,
         };
         let answer = net.act_detailed(&view, &pending, &[]);
         assert_eq!(answer.provenance.source, SourceKind4::House);
