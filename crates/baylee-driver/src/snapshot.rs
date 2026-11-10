@@ -1,7 +1,7 @@
 //! Zero-clone session state and brain traits for the Baylee AI runtime driver.
 //!
 //! Decouples the tiered RAM/SSD session pool ([`crate::scheduler::TieredSessionPool4`]),
-//! binary swap store ([`crate::swap_store::EncryptedSwapStore4`]), worker pool
+//! binary swap store ([`crate::swap_store::KeyedSwapStore4`]), worker pool
 //! ([`crate::worker_pool::NpuWorkerPool4`]), and wave multiplexer
 //! ([`crate::mux::NpuMuxService4`]) from any training-specific crate.
 

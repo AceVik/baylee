@@ -6,9 +6,14 @@
 //! - Writes raw `FP16` (`u16`) `h_states` tensors (`23.1 KB` per 2-seat session) directly to
 //!   per-session `.swap` files without `Zlib` compression, `serde_json` formatting, or
 //!   `.swap.tmp` + `rename` directory-lock storms.
-//! - Uses a fast 64-bit `SplitMix64` keyed stream + 128-bit keyed integrity tag bound to
-//!   `(instance_nonce, session_id, generation, key_epoch)` for anti-rollback, tamper rejection,
-//!   and zero-downtime key rotation at `>15 GB/s`.
+//! - Masks each frame with a fast 64-bit `SplitMix64` keyed stream and checks a 128-bit
+//!   keyed tag bound to `(instance_nonce, session_id, generation, key_epoch)`, so a stale,
+//!   foreign or damaged page is refused and keys can rotate without downtime.
+//!
+//! This is **not encryption and not authentication** against an attacker: the stream and
+//! the tag are not cryptographic, and a page starts with known bytes. It guards a local
+//! trainer's own pages against mix-ups and corruption; anything that must stay secret from
+//! someone who can read the swap directory needs `baylee-seal` or another real AEAD.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -23,8 +28,13 @@ use zeroize::Zeroizing;
 
 use crate::snapshot::SnapshottableState;
 
-#[cfg(target_os = "linux")]
-const O_NOFOLLOW_FLAG: i32 = 0o400_000;
+/// `O_NOFOLLOW`. Its value differs between platforms and between
+/// architectures of one platform (x86-64 and arm64 Linux disagree), so it is
+/// read from rustix rather than written down.
+#[cfg(unix)]
+fn no_follow() -> i32 {
+    rustix::fs::OFlags::NOFOLLOW.bits().cast_signed()
+}
 const FAST_SWAP_MAGIC: &[u8; 4] = b"FSW4";
 const FAST_SWAP_HEADER_LEN: usize = 36;
 
@@ -38,7 +48,7 @@ thread_local! {
 pub struct SwapHandle4<M> {
     /// Key rotation epoch under which this swap file was sealed.
     pub key_epoch: u64,
-    /// Monotonic swap generation bound into the header MAC to defeat rollback attacks.
+    /// Monotonic swap generation bound into the header tag, so a stale page is refused.
     pub generation: u64,
     /// Per-session swap filename inside `swap_dir`.
     pub file_name: String,
@@ -49,7 +59,7 @@ pub struct SwapHandle4<M> {
 }
 
 /// Cold-tier SSD storage for evicted [`SnapshottableState`] instances.
-pub struct EncryptedSwapStore4 {
+pub struct KeyedSwapStore4 {
     swap_dir: PathBuf,
     instance_nonce: u64,
     current_epoch: u64,
@@ -61,7 +71,7 @@ pub struct EncryptedSwapStore4 {
     durable_swap_fsync: bool,
 }
 
-impl EncryptedSwapStore4 {
+impl KeyedSwapStore4 {
     /// Initializes an SSD swap directory (`0700` on Unix) with a fresh CSPRNG key
     /// and a 64-bit process-instance nonce.
     ///
@@ -363,9 +373,7 @@ fn open_fast_swap<'a>(
         false,
     );
     if (want_lo ^ got_lo) | (want_hi ^ got_hi) != 0 {
-        bail!(
-            "security rejection: AEAD authentication or anti-rollback check failed for session {session_id}"
-        );
+        bail!("security rejection: integrity or generation check failed for session {session_id}");
     }
     Ok(body)
 }
@@ -395,8 +403,8 @@ fn read_nofollow_bounded_into(
     );
     let mut opts = OpenOptions::new();
     opts.read(true);
-    #[cfg(target_os = "linux")]
-    opts.custom_flags(O_NOFOLLOW_FLAG);
+    #[cfg(unix)]
+    opts.custom_flags(no_follow());
     let file = opts
         .open(path)
         .with_context(|| format!("opening swap file {} (O_NOFOLLOW)", path.display()))?;
@@ -449,8 +457,8 @@ fn write_direct_0600(final_path: &Path, data: &[u8], durable_fsync: bool) -> any
     opts.write(true).create(true).truncate(true);
     #[cfg(unix)]
     opts.mode(0o600);
-    #[cfg(target_os = "linux")]
-    opts.custom_flags(O_NOFOLLOW_FLAG);
+    #[cfg(unix)]
+    opts.custom_flags(no_follow());
     let mut file = opts
         .open(final_path)
         .with_context(|| format!("opening swap {}", final_path.display()))?;

@@ -2,7 +2,7 @@
 //!
 //! Runs `N` concurrent Baylee matches multiplexed over `M` resident neural worker slots,
 //! dispatching parallel waves (`observe_wave` / `act_wave`) across all `M` worker slots
-//! simultaneously while pipelining encrypted SSD prefetching (`XChaCha20-Poly1305`)
+//! simultaneously while pipelining keyed (masked, not encrypted) SSD prefetching
 //! for the next wave and performing live zero-downtime key rotation.
 
 use std::path::PathBuf;
@@ -29,14 +29,14 @@ const ALLYTIFACT_DECK_TEXT: &str = include_str!("../../../../data/decks/allytifa
 #[derive(Parser, Debug)]
 #[command(
     name = "npu_mux4",
-    about = "Multiplex hundreds of concurrent Baylee sessions over fixed neural worker slots with encrypted SSD paging"
+    about = "Multiplex hundreds of concurrent Baylee sessions over fixed neural worker slots with keyed SSD paging"
 )]
 struct Cli {
     /// Path to the Playernet v4/v5 ONNX model directory.
     #[arg(long)]
     model: PathBuf,
 
-    /// Directory for encrypted cold-tier SSD `.swap` files (`0700`).
+    /// Directory for keyed (masked, not encrypted) cold-tier SSD `.swap` files (`0700`).
     #[arg(long, default_value = "/tmp/baylee-npu-mux4-swap")]
     swap_dir: PathBuf,
 

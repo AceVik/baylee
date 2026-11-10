@@ -9,7 +9,7 @@ use anyhow::{bail, ensure};
 use crate::config::{MuxConfig4, SessionUrgency4};
 use crate::metrics::MuxMetrics4;
 use crate::snapshot::SnapshottableState;
-use crate::swap_store::{EncryptedSwapStore4, SwapHandle4};
+use crate::swap_store::{KeyedSwapStore4, SwapHandle4};
 
 enum SessionResidency4<S: SnapshottableState> {
     Hot { snapshot: Box<S>, ram_bytes: usize },
@@ -29,7 +29,7 @@ struct SessionRecord4<S: SnapshottableState> {
 /// Manages hundreds or thousands of concurrent game sessions across Hot RAM and Cold SSD.
 pub struct TieredSessionPool4<S: SnapshottableState> {
     config: MuxConfig4,
-    swap_store: EncryptedSwapStore4,
+    swap_store: KeyedSwapStore4,
     sessions: BTreeMap<u64, SessionRecord4<S>>,
     hot_ids: BTreeSet<u64>,
     cold_count: usize,
@@ -42,10 +42,10 @@ impl<S: SnapshottableState> TieredSessionPool4<S> {
     /// Creates a new tiered session pool backed by `swap_store`.
     ///
     /// # Errors
-    /// If `config` fails validation or the encrypted swap store cannot be initialized.
+    /// If `config` fails validation or the swap store cannot be initialized.
     pub fn new(config: MuxConfig4) -> anyhow::Result<Self> {
         config.validate()?;
-        let swap_store = EncryptedSwapStore4::new(
+        let swap_store = KeyedSwapStore4::new(
             config.swap_dir.clone(),
             config.d_model,
             config.max_swap_file_bytes,

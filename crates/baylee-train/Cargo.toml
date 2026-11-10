@@ -24,12 +24,10 @@ play = [
     "dep:baylee-driver",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
-    "dep:baylee-seal",
     "dep:baylee-view",
     "dep:baylee-train-ops",
     "dep:clap",
     "dep:flate2",
-    "dep:getrandom",
     "dep:serde",
     "dep:serde_json",
     "dep:uuid",
@@ -84,7 +82,6 @@ baylee-deckio.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
 baylee-view = { workspace = true, optional = true }
-baylee-seal = { workspace = true, optional = true }
 baylee-seat = { workspace = true, optional = true }
 baylee-protocol = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
@@ -96,7 +93,6 @@ ureq = { workspace = true, optional = true }
 rustix = { workspace = true, features = ["process"], optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
-getrandom = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }

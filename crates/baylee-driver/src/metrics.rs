@@ -27,9 +27,9 @@ pub struct MuxMetrics4 {
     pub prefetch_already_hot: u64,
     /// Hot RAM sessions evicted and sealed to SSD (`FSW4` + keyed stream MAC).
     pub ssd_page_outs: u64,
-    /// Cumulative encrypted bytes written to SSD across all page-outs.
+    /// Cumulative swap bytes written to SSD across all page-outs.
     pub ssd_bytes_written: u64,
-    /// Cumulative encrypted bytes read from SSD across all page-ins.
+    /// Cumulative swap bytes read from SSD across all page-ins.
     pub ssd_bytes_read: u64,
     /// Cumulative tamper, rollback, symlink, or corrupt-snapshot rejections caught.
     pub security_rejections: u64,
@@ -159,9 +159,9 @@ pub struct MuxSummary4 {
     pub prefetch_already_hot: u64,
     /// Total Hot-to-Cold SSD evictions.
     pub ssd_page_outs: u64,
-    /// Total encrypted bytes written to SSD.
+    /// Total swap bytes written to SSD.
     pub ssd_bytes_written: u64,
-    /// Total encrypted bytes read from SSD.
+    /// Total swap bytes read from SSD.
     pub ssd_bytes_read: u64,
     /// Total cryptographic, rollback, or validation rejections.
     pub security_rejections: u64,

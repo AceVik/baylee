@@ -29,7 +29,7 @@ pub enum SessionUrgency4 {
 /// Resource limits, hardware parameters, and security settings for [`crate::mux::NpuMuxService4`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MuxConfig4 {
-    /// Directory where encrypted cold-tier `.swap` files are stored (`0700` permissions).
+    /// Directory where keyed (masked, not encrypted) cold-tier `.swap` files are stored (`0700` permissions).
     pub swap_dir: PathBuf,
     /// Number of resident neural worker slots kept warm in memory (`1..=256`).
     pub worker_slots: usize,
@@ -39,7 +39,7 @@ pub struct MuxConfig4 {
     pub max_hot_ram_bytes: usize,
     /// Hard ceiling on total concurrent sessions (Hot RAM + Cold SSD) to prevent `DoS` exhaustion.
     pub max_total_sessions: usize,
-    /// Maximum encrypted swap file size accepted from disk (bytes).
+    /// Maximum swap file size accepted from disk (bytes).
     pub max_swap_file_bytes: u64,
     /// Maximum uncompressed wire payload accepted when paging in from SSD (anti-zip-bomb guard).
     pub max_uncompressed_bytes: usize,

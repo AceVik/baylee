@@ -26,5 +26,5 @@ pub use metrics::{MuxMetrics4, MuxSummary4};
 pub use mux::{ActWaveItem4, NpuMuxService4, ObserveWaveItem4};
 pub use scheduler::TieredSessionPool4;
 pub use snapshot::{SnapshottableBrain, SnapshottableState};
-pub use swap_store::{EncryptedSwapStore4, SwapHandle4};
+pub use swap_store::{KeyedSwapStore4, SwapHandle4};
 pub use worker_pool::{NpuWorkerPool4, WaveSlotOutput4};

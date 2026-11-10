@@ -16,7 +16,7 @@ pub use baylee_driver::config::{MuxConfig4, SessionUrgency4};
 pub use baylee_driver::hardware::{AcceleratorKind, GraphPrecision, HardwareConfig};
 pub use baylee_driver::metrics::{MuxMetrics4, MuxSummary4};
 pub use baylee_driver::mux::{ActWaveItem4, ObserveWaveItem4};
-pub use baylee_driver::swap_store::EncryptedSwapStore4;
+pub use baylee_driver::swap_store::KeyedSwapStore4;
 pub use baylee_driver::worker_pool::WaveSlotOutput4;
 
 use crate::netplay4::{
@@ -151,7 +151,7 @@ impl NetWorkerPoolExt for NpuWorkerPool4 {
 /// Extension constructors for [`NpuMuxService4`] backed by [`NetPlayer4`].
 pub trait NetMuxServiceExt: Sized {
     /// Opens a model once and initializes `worker_slots` shared workers plus
-    /// an encrypted SSD swap directory at `swap_dir`.
+    /// a keyed (masked, not encrypted) SSD swap directory at `swap_dir`.
     ///
     /// # Errors
     /// If the model cannot be loaded or the swap directory / quotas are invalid.
@@ -169,7 +169,7 @@ pub trait NetMuxServiceExt: Sized {
     ) -> anyhow::Result<Self>;
 
     /// Opens a model configured with [`HardwareConfig`] and initializes `worker_slots`
-    /// shared workers plus an encrypted SSD swap directory at `swap_dir`.
+    /// shared workers plus a keyed (masked, not encrypted) SSD swap directory at `swap_dir`.
     ///
     /// # Errors
     /// If the model cannot be loaded or the swap directory / quotas are invalid.
