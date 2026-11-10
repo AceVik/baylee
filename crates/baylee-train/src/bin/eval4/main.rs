@@ -46,6 +46,7 @@ use baylee_train::netplay4::{
 };
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
+use baylee_train_ops::evaluation::games;
 use clap::Parser;
 use flate2::Compression;
 use flate2::write::GzEncoder;
@@ -67,6 +68,8 @@ mod seat_players;
 mod select;
 mod shadow;
 mod tactician;
+#[cfg(test)]
+mod team_games;
 
 include!("runtime.rs");
 include!("game.rs");
@@ -1175,6 +1178,8 @@ fn main() -> anyhow::Result<()> {
                 }
                 tactician::count(&mut st.tactician, &tactician_records);
                 st.deals_completed += 1;
+                // The game this row is one seat of (`evaluation::games`).
+                let game = games::game_key(table_idx as u64, &games::side(focal_seat, &teams_arc));
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "choice_guard_fired": guard_fired,
                     "tactic_rules_fired": rules_fired,
@@ -1182,7 +1187,7 @@ fn main() -> anyhow::Result<()> {
                     "search_student": student_stats,
                     "thinking": think_adaptive.map(|_| thinking_use.report()),
                     "grouped_decode": grouped_decode.then(|| grouped_use.report()),
-                    "seed": seed, "focal_seat": focal_seat,
+                    "seed": seed, "focal_seat": focal_seat, "game": game,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
                     "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
                     "base_utility": if no_base { None } else { Some(base_u) },
@@ -1352,6 +1357,23 @@ fn main() -> anyhow::Result<()> {
     summary["sampling_version"] = json!(2);
     summary["one_deal_per_game"] = json!(args.one_deal_per_game);
     summary["deal_details"] = json!(st.deal_details);
+    // A deal is a row, one per focal seat. A game is one table and the side
+    // the net controls: in 1v1 and free-for-all every row, in a team format
+    // the rows of every seat of the net's team, which replay one game at
+    // temperature 0 (`baylee_train_ops::evaluation::games`).
+    let game_counts = games::game_counts(&summary)?;
+    for (key, value) in game_counts.as_object().context("game counts")? {
+        summary[key] = value.clone();
+    }
+    summary["counted_as"] = json!({
+        "rows": ["deals", "net_wins", "net_draws", "net_losses", "net_answer_caps",
+            "net_win_rate", "net_utility_mean", "base_wins", "base_draws", "base_losses",
+            "base_answer_caps", "base_win_rate", "base_utility_mean"],
+        "games": ["games", "game_wins", "game_draws", "game_losses", "game_answer_caps",
+            "game_splits", "game_utility_mean"],
+        "game": "one table and the side the net controls, the `game` of each row: in 1v1 \
+            and free-for-all every row is a game; in a team format the rows of every seat \
+            of the net's team are one game, scored at their mean"});
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
     summary["generated_deck_count"] = json!(generated_deck_count);
@@ -1454,12 +1476,14 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     eprintln!(
-        "[eval4] seats={} teams={:?} K={} against={} deals={} | net_win={:.1}% (u={:.3}, caps={}) base_u={:?} delta={:?} | p50={:.1}ms p95={:.1}ms fb={} refused={} ({:.1}s)",
+        "[eval4] seats={} teams={:?} K={} against={} deals={} games={} won={} | net_win={:.1}% of rows (u={:.3}, caps={}) base_u={:?} delta={:?} | p50={:.1}ms p95={:.1}ms fb={} refused={} ({:.1}s)",
         args.seats,
         args.teams,
         args.thinking_steps,
         args.against,
         st.deals_completed,
+        game_counts["games"],
+        game_counts["game_wins"],
         net_win_rate * 100.0,
         net_u_mean,
         st.net_answer_caps,

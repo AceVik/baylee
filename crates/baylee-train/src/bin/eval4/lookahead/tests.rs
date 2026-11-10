@@ -26,7 +26,7 @@ use clap::Parser as _;
 
 /// What the stand-in changes while it plays.
 #[derive(Clone, Debug, Default, PartialEq)]
-struct Memory {
+pub(crate) struct Memory {
     observed: BTreeMap<u8, f32>,
     observations: u64,
     notes: Vec<PlayerAction>,
@@ -36,7 +36,7 @@ struct Memory {
 /// The steady house as a net: `passive` passes at every priority instead,
 /// and `critic` is its value. When it `lends`, its rollout players are
 /// copies of it.
-struct Fixture {
+pub(crate) struct Fixture {
     memory: Memory,
     coverage: CoverageMatrix4,
     passive: bool,
@@ -45,7 +45,7 @@ struct Fixture {
 }
 
 impl Fixture {
-    fn new(passive: bool, critic: fn(&PlayerView) -> f32) -> Self {
+    pub(crate) fn new(passive: bool, critic: fn(&PlayerView) -> f32) -> Self {
         Self {
             memory: Memory::default(),
             coverage: CoverageMatrix4::default(),
@@ -220,7 +220,7 @@ impl EvaluationPlayer for Fixture {
     }
 }
 
-fn flat(_: &PlayerView) -> f32 {
+pub(crate) fn flat(_: &PlayerView) -> f32 {
     0.5
 }
 
