@@ -68,7 +68,10 @@ pub(crate) fn cards(
     // the older cards are played in shared modules (`card_tests/creatures.rs`,
     // `*_tests.rs`), and a path-only check demoted 257 of them.
     let card_tests = root.join("crates/cards/testkit/card_tests");
-    let named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
+    // The engine's own tests and the card tests, which lie in the testkit
+    // since they left the engine's sources.
+    let mut named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
+    named_in_tests.extend(oracle_ids_in(&root.join("crates/cards/testkit"))?);
     let coverage_holds = crate::coverage_holds::load(root)?;
 
     // Refuse an orphan *before* the first rename, not after the last one. The
