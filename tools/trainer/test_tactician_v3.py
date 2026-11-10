@@ -17,7 +17,8 @@ import torch
 
 from tactician_v3.export import check_rows, export_dir, parity, random_rows
 from tactician_v3.model import Config, TacticianV3, decode, exact
-from tactician_v3.records import RECORD_CONTRACT, ROW_TAIL, read_records
+from tactician_v3.records import (FACT_COLUMNS, PRIOR_COLUMNS, RECORD_CONTRACT, ROW_TAIL,
+                                   WINDOW_WIDTH, decision_kind, read_records)
 from tactician_v3.train import CONTRACT, group_softmax_loss, loss_of, pass_losses, train
 
 D = 6
@@ -29,6 +30,8 @@ def key_of(window: str, group: int, unit: int) -> str:
         return f"ObjectId({group}#0)@{{\"Player\":{unit}}}"
     if window == "block":
         return f"ObjectId({group}#0)>ObjectId({90 + unit}#0)"
+    if window == "priority":
+        return json.dumps("PassPriority" if unit == 0 else {"CastSpell": {"card": unit}})
     return f"target{unit}"
 
 
@@ -41,18 +44,18 @@ def write_records(directory: Path, decisions: int = 60, contract: str = RECORD_C
     rng = np.random.default_rng(3)
     lines, blob, offset = [], [], 0
     for i in range(decisions):
-        window = ("attack", "block", "target")[i % 3]
+        window = ("attack", "block", "target", "priority")[i % 4]
         n = 2 + i % 4
         state = rng.normal(size=D).astype(np.float32)
         units = rng.normal(size=(n, D)).astype(np.float32)
         tails = rng.normal(size=(n + 1, ROW_TAIL)).astype(np.float32)
         tails[:, :16] = 0.0
-        tails[:, ("attack", "block", "target").index(window)] = 1.0
+        tails[:, {"attack": 0, "block": 1, "target": 2, "priority": 12}[window]] = 1.0
         tails[0, 3] = 1.0
         if rule_column:
             tails[1, 5] = 1.0
         score = units[:, 0]
-        if window == "target":
+        if window in ("target", "priority"):
             rules = [int(j == int(np.argmax(score))) for j in range(n)]
             groups = [0] * n
         else:
@@ -72,7 +75,7 @@ def write_records(directory: Path, decisions: int = 60, contract: str = RECORD_C
                     played=rules, probability=1.0, neighbors=0, offered=[], drawn="rules",
                     micros=1, groups=groups, label="rules", rows_read_rules=False,
                     fired=["trade"] if i % 4 == 1 else [],
-                    game=f"g{i // 2}", deal=i // 2, seed=i // 2, policy_seed=1, focal_seat=0,
+                    game=f"g{i // 4}", deal=i // 4, seed=i // 4, policy_seed=1, focal_seat=0,
                     utility=1.0, capped=False,
                     blob=dict(file="w00.f32", offset=offset, state=D, units=n * D,
                               rows=(n + 1) * ROW_TAIL))
@@ -256,6 +259,57 @@ class Export(unittest.TestCase):
                 self.assertLessEqual(worst, 1e-4)
                 saved = json.loads((root / f"T{passes}" / "tactician.json").read_text())
                 self.assertEqual(saved["contract"], "tactician_head_v2")
+
+class Priority(unittest.TestCase):
+    @staticmethod
+    def record(rules, net, my_turn, paying=False):
+        keys = [json.dumps("PassPriority"), json.dumps({"CastSpell": {"card": 7}}),
+                json.dumps({"ActivateManaAbility": {"source": 3}})]
+        tail = np.zeros((4, ROW_TAIL), np.float32)
+        tail[:, WINDOW_WIDTH + FACT_COLUMNS[0]] = float(my_turn)
+        tail[:, WINDOW_WIDTH + FACT_COLUMNS[0] + 10] = float(paying)
+        mask = lambda i: [int(j == i) for j in range(3)]  # noqa: E731
+        return dict(window="priority", keys=keys, rules=mask(rules), net=mask(net)), tail
+
+    def test_priority_decisions_are_named_by_what_the_layer_did(self):
+        cases = [((0, 1, True), "pass"), ((1, 0, True), "spend"), ((1, 2, True), "cast"),
+                 ((1, 0, False), "instant_their_turn"), ((2, 0, True), "mana")]
+        for (rules, net, my_turn), kind in cases:
+            self.assertEqual(decision_kind(*self.record(rules, net, my_turn)), kind)
+        self.assertEqual(decision_kind(*self.record(1, 0, True, paying=True)), "pay")
+        self.assertEqual(decision_kind(dict(window="block"), np.zeros((1, ROW_TAIL))), "block")
+
+    def test_the_prior_and_the_facts_are_ablated_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_records(Path(tmp) / "r")
+            store = read_records([Path(tmp) / "r"])
+        import dataclasses
+        full = store.batch([3]).rows
+        base = 2 * D + WINDOW_WIDTH
+        for part, (lo, hi) in (("prior", PRIOR_COLUMNS), ("facts", FACT_COLUMNS)):
+            rows = dataclasses.replace(store, zero_parts=(part,)).batch([3]).rows
+            self.assertTrue(torch.all(rows[..., base + lo:base + hi] == 0))
+            outside = torch.ones(full.shape[-1], dtype=torch.bool)
+            outside[base + lo:base + hi] = False
+            self.assertTrue(torch.equal(rows[..., outside], full[..., outside]))
+
+    def test_the_probe_fits_each_feature_set_and_reports_priority(self):
+        import probe_priority
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_records(root / "r", decisions=240)
+            summary = probe_priority.main([
+                "--records", str(root / "r"), "--out", str(root / "probe"),
+                "--sets", "logits_facts,look", "--width", "16", "--layers", "1",
+                "--heads", "2", "--epochs", "2", "--batch", "16", "--warmup", "2",
+                "--held-out-mod", "4", "--device", "cpu"])
+            self.assertEqual(set(summary["sets"]), {"logits_facts", "look"})
+            for reading in summary["sets"].values():
+                self.assertIn("by_kind_differ", reading)
+                self.assertGreater(reading["decisions"], 0)
+            self.assertTrue((root / "probe" / "summary.json").exists())
+            self.assertFalse((root / "probe" / "look" / "tactician.onnx").exists())
+
 
 
 class Training(unittest.TestCase):

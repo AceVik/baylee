@@ -25,8 +25,19 @@ RECORD_CONTRACT = "tactician_imitation_v1"
 STAGE1_CONTRACT = "tactician_records_v1"
 ROW_TAIL = 128
 WINDOW_WIDTH = 16
-WINDOWS = ("attack", "block", "target")
-ATTACK, BLOCK, TARGET = 0, 1, 2
+WINDOWS = ("attack", "block", "target", "priority")
+ATTACK, BLOCK, TARGET, PRIORITY = 0, 1, 2, 3
+# Windows answered by one unit (softmax over the units), and their window-code
+# columns.
+SINGLE_WINDOWS = (TARGET, PRIORITY)
+SINGLE_CODE_COLUMNS = (2, 12)
+# Look columns (after the window code), for ablations: the castable instants
+# under the train-deck prior (0-24), every look column but the facts (0-99),
+# and the trivial facts of stage S1 rows (100-111).
+PRIOR_COLUMNS = (0, 25)
+LOOK_COLUMNS = (0, 100)
+FACT_COLUMNS = (100, 112)
+ZERO_PARTS = ("state", "unit", "look", "prior", "facts")
 # Window-code columns that would read the layer's answer: never set here.
 RULE_COLUMNS = (5, 11)
 # Window-code column holding the net's own answer for the unit.
@@ -70,7 +81,10 @@ class Store:
     fired: list
     seat: np.ndarray
     sources: list
-    # Parts of every row read as zero (`state`, `unit`, `look`; the window code
+    # Per decision, what kind of decision it is (`decision_kind`: the window,
+    # or at priority what the layer did, e.g. pass, cast, spend).
+    kinds: list
+    # Parts of every row read as zero (ZERO_PARTS; the window code
     # always stays): an ablation of
     # the probe, which part carries what the label needs.
     zero_parts: tuple = ()
@@ -95,7 +109,7 @@ class Store:
                      move(self.labels, False), move(self.nets, False), move(self.groups, False),
                      move(self.n, False), move(self.unit_offset, False),
                      move(self.tail_offset, False), move(self.window, False),
-                     self.seed, self.game, self.fired, self.seat, self.sources,
+                     self.seed, self.game, self.fired, self.kinds, self.seat, self.sources,
                      self.zero_parts)
 
     def split(self, held_out_mod: int):
@@ -128,9 +142,12 @@ class Store:
             state = torch.zeros_like(state)
         if "unit" in self.zero_parts:
             units = torch.zeros_like(units)
-        if "look" in self.zero_parts:
-            tails = torch.cat([tails[..., :WINDOW_WIDTH], torch.zeros_like(tails[..., WINDOW_WIDTH:])],
-                              dim=-1)
+        for part, (lo, hi) in (("look", LOOK_COLUMNS), ("prior", PRIOR_COLUMNS),
+                               ("facts", FACT_COLUMNS)):
+            if part in self.zero_parts:
+                keep = torch.ones(ROW_TAIL, dtype=tails.dtype, device=tails.device)
+                keep[WINDOW_WIDTH + lo:WINDOW_WIDTH + hi] = 0.0
+                tails = tails * keep
         rows = torch.cat([state * valid[..., None], units, tails], dim=-1)
         labels = (self.labels[unit_at].float() * unit_valid)
         nets = (self.nets[unit_at].float() * unit_valid)
@@ -165,6 +182,46 @@ def _check_line(path: Path, record: dict) -> None:
         raise ValueError(f"{path}: unknown window {record['window']!r}")
 
 
+def action_kind(key: str) -> str:
+    """The action a priority unit's key names: its variant, e.g. CastSpell."""
+    try:
+        action = json.loads(key)
+    except (TypeError, ValueError):
+        return "other"
+    if isinstance(action, str):
+        return action
+    if isinstance(action, dict) and action:
+        return next(iter(action))
+    return "other"
+
+
+def decision_kind(record: dict, tail: np.ndarray) -> str:
+    """What kind of decision a record is: the window, or at priority what the
+    layer's answer R did, read with the net's N and the facts of the position:
+    `pay` (a cost is being paid), `pass` (R passes), `spend` (N passes, R
+    acts in the seat's own turn), `instant_their_turn` (R casts or
+    activates in the other side's turn), `cast`, `activate`, `mana`,
+    `land`, `other`."""
+    if record["window"] != "priority":
+        return record["window"]
+    facts = tail[0, WINDOW_WIDTH + FACT_COLUMNS[0]:WINDOW_WIDTH + FACT_COLUMNS[1]]
+    my_turn, paying = facts[0] > 0.5, facts[10] > 0.5
+    keys = record["keys"]
+    rules = next((action_kind(k) for k, bit in zip(keys, record["rules"]) if bit), "other")
+    net = next((action_kind(k) for k, bit in zip(keys, record["net"]) if bit), "other")
+    if paying:
+        return "pay"
+    if rules == "PassPriority":
+        return "pass"
+    acts = rules in ("CastSpell", "ActivateAbility")
+    if acts and not my_turn:
+        return "instant_their_turn"
+    if acts and net == "PassPriority":
+        return "spend"
+    return {"CastSpell": "cast", "ActivateAbility": "activate",
+            "ActivateManaAbility": "mana", "PlayLand": "land"}.get(rules, "other")
+
+
 def _check_stage1_line(path: Path, record: dict) -> None:
     if record.get("contract") != STAGE1_CONTRACT:
         raise ValueError(f"{path}: not a {STAGE1_CONTRACT} record")
@@ -176,7 +233,7 @@ def groups_from_keys(window: str, keys) -> list:
     """Each unit's group from a stage-1 line's keys: the attacker of
     `attacker@defender`, the blocker of `blocker>attacker`, one group at a
     target; numbered in order of first appearance."""
-    if window == "target":
+    if window in ("target", "priority"):
         return [0] * len(keys)
     sep = "@" if window == "attack" else ">"
     seen = {}
@@ -193,7 +250,7 @@ def read_records(dirs, stage1_probe: bool = False) -> Store:
     """
     states, units, tails = [], [], []
     labels, nets, groups = [], [], []
-    ns, windows, seeds, games, seats, sources, fired = [], [], [], [], [], [], []
+    ns, windows, seeds, games, seats, sources, fired, kinds = [], [], [], [], [], [], [], []
     d = None
     for directory in map(Path, dirs):
         if not stage1_probe:
@@ -241,6 +298,7 @@ def read_records(dirs, stage1_probe: bool = False) -> Store:
                 seeds.append(int(record["seed"]))
                 games.append(record["game"])
                 fired.append(tuple(record.get("fired", ())))
+                kinds.append(decision_kind(record, tail))
                 seats.append(int(record["seat"]))
                 sources.append(str(directory))
     if not ns:
@@ -262,6 +320,7 @@ def read_records(dirs, stage1_probe: bool = False) -> Store:
         seed=np.asarray(seeds, np.uint64),
         game=games,
         fired=fired,
+        kinds=kinds,
         seat=np.asarray(seats, np.int64),
         sources=sources,
     )

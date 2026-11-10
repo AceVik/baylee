@@ -98,8 +98,10 @@ class TacticianV3(nn.Module):
         self.confidence_head = nn.Sequential(nn.Linear(2 * w, w), nn.GELU(), nn.Linear(w, 1))
 
     def is_target(self, rows):
-        """[B] 1.0 where the question is a single target (window code col 2)."""
-        return rows[:, 0, 2 * self.cfg.d_model + 2]
+        """[B] 1.0 where the question is answered by one unit: a single target
+        (window code column 2) or priority (column 12)."""
+        base = 2 * self.cfg.d_model
+        return (rows[:, 0, base + 2] + rows[:, 0, base + 12]).clamp(max=1.0)
 
     def embed(self, rows):
         d = self.cfg.d_model
@@ -197,7 +199,7 @@ def decode(logits, unit_mask, groups, window):
     psum = psum.scatter_add(1, g, torch.sigmoid(logits) * unit_mask)
     best_l = gmax.gather(1, g)
     take = best & ((best_l > 0) | ((psum.gather(1, g) > 0.5) & (best_l > -0.65)))
-    target = (window == 2)[:, None]
+    target = ((window == 2) | (window == 3))[:, None]
     return torch.where(target, best_target, take.to(logits.dtype))
 
 

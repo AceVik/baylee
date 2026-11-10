@@ -227,15 +227,22 @@ fn targets(_: &PlayerView, p: &Pending) -> bool {
         if options.len() + player_options.len() >= 2)
 }
 
+fn priorities(view: &PlayerView, p: &Pending) -> bool {
+    view.turn >= 3
+        && matches!(p, Pending::Priority { legal, .. }
+            if !legal.castable.is_empty() || !legal.lands.is_empty() || !legal.payable.is_empty())
+}
+
 /// Whether a question opens the window it is paired with.
 pub(in crate::netplay4) type Opens = fn(&PlayerView, &Pending) -> bool;
 
 /// The windows with the questions that open them.
-pub(in crate::netplay4) fn windows() -> [(Window4, Opens); 3] {
+pub(in crate::netplay4) fn windows() -> [(Window4, Opens); 4] {
     [
         (Window4::Attack, attacks),
         (Window4::Block, blocks),
         (Window4::Target, targets),
+        (Window4::Priority, priorities),
     ]
 }
 
