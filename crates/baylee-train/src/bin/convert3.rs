@@ -25,6 +25,9 @@
 //! The dataset's root holds the card table once: `card_ids.i32` and
 //! `card_feats.f32` (cards × `cardwalk::WIDTH`).
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::fs::{self, File};
 use std::io::{BufRead as _, BufReader, BufWriter, Read as _, Seek as _, SeekFrom, Write};
 use std::path::{Path, PathBuf};

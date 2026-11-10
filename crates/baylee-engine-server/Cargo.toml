@@ -9,6 +9,8 @@ description = "Binary: one process per game, websocket transport"
 workspace = true
 
 [dependencies]
+# Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 baylee-ai.workspace = true
 baylee-build.workspace = true
 baylee-cards.workspace = true

@@ -31,7 +31,10 @@
 //! written out rather than quietly deleted: for as long as it stood, anyone
 //! reading this file was told the view could not express an outstanding
 //! payment, and was talked out of the field they had come looking for.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
+use baylee_cards_pool as _;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};

@@ -34,3 +34,7 @@ baylee-core = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 smallvec = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
+
+[dev-dependencies]
+# Its tests look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true

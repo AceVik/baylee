@@ -14,6 +14,8 @@ path = "../baylee-engine/src/engine/card_tests/shard_enchantments_2.rs"
 doctest = false
 
 [dev-dependencies]
+# Its tests look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 baylee-card-testkit = { path = "../baylee-card-testkit", features = ["enabled"] }
 baylee-engine = { workspace = true, features = ["test-support"] }
 baylee-cards = { workspace = true, features = ["mutate"] }

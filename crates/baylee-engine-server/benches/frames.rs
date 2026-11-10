@@ -6,6 +6,9 @@
 //! (numbers in `docs/perf-baseline.md`, server section).
 #![allow(missing_docs)] // bench target: criterion's generated fns are self-describing
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_core::preset::{GamePreset, SeatController};
 use baylee_engine::choice::PlayerAction;
 use baylee_engine_server::EngineRunner;

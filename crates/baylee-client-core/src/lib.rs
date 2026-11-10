@@ -35,6 +35,10 @@
 // loses a whole number, so the conversions are exact in practice.
 #![allow(clippy::cast_precision_loss)]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 pub mod abilitysheet;
 pub mod airborne;
 pub mod aisaid;

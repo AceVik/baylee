@@ -7,6 +7,9 @@
 //!
 //! No agent is attached: nothing here starts a game.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 mod common;
 
 use common::{http, json_field, json_number, login, spawn_gateway};

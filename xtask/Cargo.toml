@@ -10,6 +10,8 @@ publish = false
 workspace = true
 
 [dependencies]
+# Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-cards-codegen.workspace = true

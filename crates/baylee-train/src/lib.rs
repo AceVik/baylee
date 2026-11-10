@@ -10,6 +10,10 @@
 //! Nothing that ships links this crate; `xtask` does, so `deck-check` and the
 //! precon status (`decks-status`) ask the same question the trainer does.
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 #[cfg(feature = "onnx")]
 pub mod batchnet;
 pub use baylee_cards::carddsl;

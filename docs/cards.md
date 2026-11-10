@@ -88,6 +88,16 @@ and `docs/card-identity.md` (indices and who may write what).
 - Some tests exist only to fail on broken convention.
 - Every card added, fixed or refactored is played in `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`, the card's own path (or `combo_tests/`), on the shared `testkit`, via `card_index("<oracle id>")` (where it compiles: §"Where a card test compiles"); `baylee-tools hooks require-card-tests` checks recursively (restored stubs and `Coverage::Generated` cards exempt; a Generated card whose test exists asks for a codegen run). Never in the card file. A fix also needs a test beside the broken rule that fails on the old code. Diff `pool-dump` around no-rules-change refactors.
 
+## Where a card compiles
+
+Since 10.11.2026 the cards compile apart from the libraries that read them, so a changed card rebuilds the cards and relinks the programs, and no library in between:
+
+- `baylee-cards-pool` compiles the card files (`src/cards/`) and the tables that name them (`generated.rs`), and exports the tables under fixed symbol names (`baylee_cards_pool_all`, `_by_index`, `_hash`). Only programs depend on it: a binary, a test binary, a bench, an example. Each takes `use baylee_cards_pool as _;` at its root; a library's unit tests take it under `#[cfg(test)]` with the pool as a dev-dependency.
+- `baylee-cards-base` holds what a card file is written with (`tokens`, `generated_tokens`, `filters`) and `generated`, the door to the pool's tables: `unsafe extern "Rust"` statics of exactly the types the pool exports, which the pool holds to each other at compile time. A program that reads a card and does not link the pool fails to link, naming `baylee_cards_pool_all`; that is the whole fix.
+- `baylee-cards` is the registry as libraries read it (`by_index`, `by_oracle_id`, decks, formats, lines, Oracle text, …), and re-exports `base`'s modules under their old paths. It no longer holds a card.
+
+The files have not moved yet: the pool and the base reach them in `crates/baylee-cards/src/` through `#[path]`, and codegen writes where it always did. Splitting the pool by year of first printing is the next step.
+
 ## Where a card test compiles
 
 The files stay where `card_tests/` puts them, but since 07.11.2026 they compile outside the engine: a changed test builds one small crate instead of the engine's test binary of 14,000 tests (42 s became 3 s on the MacBook, a changed card 52 s became 15 s for its crate and 28 s for all of them).

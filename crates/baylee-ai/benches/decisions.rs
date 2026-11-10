@@ -1,6 +1,9 @@
 //! Decision latency, including construction of the public tactical position.
 #![allow(missing_docs)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_ai::{AIProfile, HeuristicAgent, search};
 use baylee_client_core::test_support::{ViewBuilder, token};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};

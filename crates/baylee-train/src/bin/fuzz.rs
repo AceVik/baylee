@@ -36,6 +36,9 @@
 //! `findings.jsonl`, and the record of every game with a finding under
 //! `records/`.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write as _};

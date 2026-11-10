@@ -3,6 +3,9 @@
 //! exported with (`docs/trained-ai.md` §"Card catalog compatibility"), or
 //! write what each face is, costs and does, the targets of the card stage
 //! (`cardstructure::labels`).
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 use baylee_train::cardstructure::{Forest, catalog, compat, digest, labels};
 use clap::Parser;
 use std::{fs, path::PathBuf};

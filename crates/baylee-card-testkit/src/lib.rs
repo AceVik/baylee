@@ -9,6 +9,10 @@
     clippy::return_self_not_must_use
 )]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 pub use baylee_cards_dsl::{AbilityDef, ActivationTiming, Cost, CostPart};
 pub use baylee_core::ids::{NameRef, ObjectId, PlayerId};
 pub use baylee_core::preset::{GamePreset, HouseRules};

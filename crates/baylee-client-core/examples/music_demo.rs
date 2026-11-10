@@ -6,6 +6,9 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )]
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 use baylee_client_core::music::{Movement, RATE, SampleSet, ScoreControl, Theme, Tune};
 use std::{
     io::{self, Write},

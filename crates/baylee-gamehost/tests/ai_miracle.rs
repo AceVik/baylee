@@ -1,5 +1,8 @@
 //! Miracle paid by the house through real engine offers and projected debt.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
+use baylee_cards_pool as _;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::DeckEntry;
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};

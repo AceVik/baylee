@@ -1,5 +1,8 @@
 //! Deferred X activations must be payable before the house announces them.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_ai::{AIProfile, HeuristicAgent};
+use baylee_cards_pool as _;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};

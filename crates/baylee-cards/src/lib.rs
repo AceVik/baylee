@@ -1,7 +1,9 @@
-//! baylee-cards — the compiled card registry.
+//! baylee-cards — the compiled card registry, as libraries read it.
 //!
-//! One file per card in [`cards`], dense lookup tables in [`generated`]
-//! (both produced by `cargo xtask codegen`).
+//! The card files and the tables that name them are compiled in
+//! `baylee-cards-pool`, which only programs link; this crate reads them
+//! through [`generated`] (`baylee-cards-base`), so a changed card rebuilds
+//! none of the libraries that look cards up (`docs/cards.md`).
 
 #![warn(missing_docs)]
 
@@ -10,8 +12,6 @@ use baylee_core::ids::CardIndex;
 
 /// Deterministic CardDsl AST encoder and semantic summary vectors.
 pub mod carddsl;
-/// Generated: one module per card.
-pub mod cards;
 /// Synergistic, curve-balanced, pip-accurate deck generator and coverage corpus builder.
 pub mod deckgen;
 /// Deck parsing and name resolution against the registry (acceptance
@@ -20,12 +20,8 @@ pub mod decks;
 /// What the lobby's deck list says about a deck: copies, colours,
 /// commanders (#254).
 pub mod digest;
-/// Filters shared by more than one card file.
-pub mod filters;
 /// Deck shapes: size, copy limits, leaders and colour identity.
 pub mod formats;
-/// Generated: registry tables.
-pub mod generated;
 /// Generated: which printed sentence each ability came from.
 pub mod generated_lines;
 /// Generated: the name table — which card a printed English name is.
@@ -34,8 +30,6 @@ pub mod generated_names;
 pub mod generated_oracle;
 /// Generated: which cards have a back, and which are double-faced.
 pub mod generated_sides;
-/// Generated: the token ledger — which id every token there is was assigned.
-pub mod generated_tokens;
 /// Which printed sentence an ability came from (the reader of
 /// [`generated_lines`]).
 pub mod lines;
@@ -58,10 +52,12 @@ pub mod print_rules;
 pub mod produces;
 /// Whether a card has a back to show, and whether it is double-faced.
 pub mod sides;
-/// Central named token definitions (referenced by card files).
-pub mod tokens;
-
+pub use baylee_cards_base::{filters, generated, generated_tokens, tokens};
 pub use baylee_cards_dsl as dsl;
+
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
 
 /// Looks up a card definition by Scryfall oracle id.
 #[must_use]

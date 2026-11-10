@@ -51,6 +51,9 @@
 //! pretending otherwise would put a number beside a row that the number
 //! says nothing about.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_cards::dsl::{
     AbilityDef, CardDef, CostPart, CounterKind, Effect, KeywordSet, Modifier, PartnerKind,
 };

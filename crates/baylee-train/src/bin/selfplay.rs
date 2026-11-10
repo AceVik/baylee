@@ -18,6 +18,9 @@
 //! which seed, decks and profiles depends only on its number, so a run is the
 //! same games however many threads play it.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write as _};

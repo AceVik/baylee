@@ -7,6 +7,9 @@
 
 #![allow(clippy::cast_possible_truncation)] // bytes cut from words on purpose
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
 

@@ -9,6 +9,10 @@
 
 #![warn(missing_docs)]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 mod activate;
 mod board;
 pub mod combat;

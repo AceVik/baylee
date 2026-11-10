@@ -15,7 +15,10 @@
 //! into their own face, their Gray Ogre and the land they drew stay in hand,
 //! and their Mountains are left tapped for this seat's next turn. This seat
 //! loses nothing, and no answer of either agent's breaks its question.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_ai::{AIProfile, HeuristicAgent};
+use baylee_cards_pool as _;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction};

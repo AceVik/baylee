@@ -16,6 +16,9 @@
 //! it. On `SIGTERM` it takes no new chair and waits for its bridges'
 //! games to end.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_seathost::launch::ProcessLauncher;
 use baylee_seathost::{Config, Host};
 use std::path::PathBuf;

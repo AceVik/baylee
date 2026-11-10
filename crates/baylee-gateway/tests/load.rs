@@ -27,6 +27,9 @@
 #![allow(clippy::missing_docs_in_private_items)]
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 mod common;
 
 use std::sync::OnceLock;

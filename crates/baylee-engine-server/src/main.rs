@@ -21,6 +21,9 @@
 //! answer for it, and hand the chair back to the house AI by hanging up.
 #![deny(unsafe_code)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 mod pump_config;
 
 use baylee_core::ids::PlayerId;

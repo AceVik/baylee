@@ -35,6 +35,8 @@ rand_chacha.workspace = true
 rand_core.workspace = true
 
 [dev-dependencies]
+# Its tests look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 # `mutate`: `BAYLEE_MUTATE` for this crate's test binary, and for nothing else
 # (`docs/verification-hooks.md`).
 baylee-cards = { workspace = true, features = ["mutate"] }

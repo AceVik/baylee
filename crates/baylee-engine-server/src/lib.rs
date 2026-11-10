@@ -21,6 +21,10 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 use std::io::Write as _;
 
 use baylee_core::ids::{PlayerId, SeatSet};

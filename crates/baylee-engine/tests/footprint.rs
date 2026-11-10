@@ -11,6 +11,9 @@
 //! thing to do deliberately; the test exists so it cannot happen by
 //! accident. Update the number *and* `docs/perf-baseline.md` together.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_engine::object::{CachedChar, Characteristics, GameObject};
 use baylee_engine::state::GameState;
 

@@ -9,6 +9,9 @@
 
 #![allow(clippy::missing_docs_in_private_items)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_client_core::images::{SCRYFALL_API, SCRYFALL_BACKS_CDN, SCRYFALL_CDN};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

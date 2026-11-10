@@ -17,6 +17,9 @@
 //! with it, measured the same way in alternating rounds, and read the spread.
 //! Standard library alone, so plain `rustc` builds it.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

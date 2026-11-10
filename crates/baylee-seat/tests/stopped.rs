@@ -13,6 +13,9 @@
 //! default. No model is ever asked: the game never sits down.
 #![cfg(unix)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_client_core::llmseat::ledger::Book;
 use std::io::{BufRead, BufReader, Read};
 use std::net::TcpListener;

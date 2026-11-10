@@ -20,6 +20,9 @@
 //! learner's decisions by that name. A game's decks, opponent, seat and
 //! every sampled answer follow from its number and `--name`.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write as _};

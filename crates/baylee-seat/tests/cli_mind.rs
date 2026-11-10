@@ -8,6 +8,9 @@
 //! was started with and every line it read, it writes to a log under the
 //! `HOME` the test gives it.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 mod common;
 
 #[path = "cli_mind/agy.rs"]

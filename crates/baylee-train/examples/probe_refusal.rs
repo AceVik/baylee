@@ -1,5 +1,8 @@
 //! Offline fault diagnosis only: replay an omniscient record and probe one
 //! proposed action. Never expose this engine or its output to a playing seat.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 use std::path::PathBuf;
 
 use baylee_core::ids::PlayerId;

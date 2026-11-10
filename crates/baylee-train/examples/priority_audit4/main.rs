@@ -1,4 +1,7 @@
 //! Offline diagnosis of completed games; never attach this to a live seat.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 mod diagnostics;
 mod replay;
 mod views;

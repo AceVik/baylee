@@ -4,6 +4,9 @@
 //! Load it in a dev-control client with `BAYLEE_DEV_SNAPSHOT=/path/to/snapshot.json`.
 #![allow(missing_docs)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::mana::ManaColor;
 use baylee_core::preset::{DeckEntry, FormatId, GamePreset, HouseRules, SeatController, SeatSpec};

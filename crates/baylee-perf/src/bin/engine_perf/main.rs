@@ -50,6 +50,9 @@
 //! `record <file>…` plays recorded games again and reads what each seat of
 //! them is sent. All three print bytes and frames per seat and message kind.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 mod fuzz;
 mod rebuild;
 mod wire;

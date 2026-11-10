@@ -32,6 +32,9 @@
 //! monthly caps the spend book holds across games: a game reserves what it
 //! may spend before it sits down, and settles when it is over.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use anyhow::{Context as _, bail};
 use baylee_ai::AIProfile;
 use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyEntry, KeyStore};

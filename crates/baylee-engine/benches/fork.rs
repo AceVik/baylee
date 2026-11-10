@@ -5,6 +5,9 @@
 //! No timing budget is asserted; compare by hand (`docs/perf-baseline.md`).
 #![allow(missing_docs)] // bench target: criterion's generated fns are self-describing
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,

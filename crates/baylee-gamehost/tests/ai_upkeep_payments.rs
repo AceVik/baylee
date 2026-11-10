@@ -6,7 +6,10 @@
 //! of a game proves that the view names it, that the agent holds its mana over
 //! it, answers the question it asks as it resolves, and pays in the window a
 //! yes opens.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
+use baylee_cards_pool as _;
 use baylee_core::ids::{CardIndex, PlayerId};
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};

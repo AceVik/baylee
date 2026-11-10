@@ -14,6 +14,9 @@
 //! A record is omniscient, so both hands are shown: this is for studying
 //! the net, never for a seat.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};

@@ -89,3 +89,7 @@ name = "android.permission.INTERNET"
 # the router hands out a different lease.
 [package.metadata.android.reverse_port_forward]
 "tcp:28766" = "tcp:28766"
+
+[dependencies]
+# Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true

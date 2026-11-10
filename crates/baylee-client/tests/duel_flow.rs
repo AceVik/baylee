@@ -10,6 +10,9 @@
 //! no library at all: the existing suites all asserted that *choices arrived*,
 //! and none of them ever looked at what the human could actually see.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, Openings, SeatPod};
 use baylee_client_core::browser::{Browser, Names};

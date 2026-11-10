@@ -1,5 +1,8 @@
 //! Exports the current tested working-card vocabulary for offline deck ingestion.
 //! Only public card identities and implementation evidence leave the process.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;

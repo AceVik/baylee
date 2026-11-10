@@ -17,6 +17,9 @@
 //!   any deck containing a held-out card is routed to `split = "test"`
 //!   (`holdout_tier = "unseen_cards"`), never `train` or `val`.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::fs;

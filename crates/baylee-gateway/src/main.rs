@@ -7,6 +7,9 @@
 //! must never be exposed on a plaintext listener in production.
 #![deny(unsafe_code)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_protocol::refusal::Refusal as WireRefusal;
 
 mod account;

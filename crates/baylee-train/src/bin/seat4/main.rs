@@ -1,4 +1,7 @@
 //! A local neural opponent in an ordinary gateway room.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 mod audit;
 mod journal;
 mod model_selection;

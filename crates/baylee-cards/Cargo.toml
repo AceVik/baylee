@@ -18,8 +18,14 @@ mutate = []
 [dependencies]
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true
+# Tokens, shared filters and the door to the registry's tables.
+baylee-cards-base.workspace = true
 # What a format says about a card, and the words a deck check answers in.
 # Serde and nothing else, so the engine never sees it through here.
 baylee-cardtext.workspace = true
 serde.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+# The tests look cards up, so they link the pool.
+baylee-cards-pool.workspace = true

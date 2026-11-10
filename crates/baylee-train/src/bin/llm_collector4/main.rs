@@ -1,4 +1,7 @@
 //! Multi-table LLM self-play replay collector and single-gateway/single-agent host supervisor.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 mod admin_cleanup;
 mod audit;
 mod compare;

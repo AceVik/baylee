@@ -1,6 +1,9 @@
 //! Paired acceptance-deck matches. Each seed plays both deck orders and both
 //! profile assignments, so neither the first seat nor a deck gets the credit.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_ai::{AIProfile, HeuristicAgent};
 use baylee_cards::decks::{load_acceptance, preset_for};
 use baylee_core::ids::PlayerId;

@@ -21,6 +21,9 @@
 //! run's build and working-card hash; `games.jsonl` maps the `game` column
 //! back to its run.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::fs::{self, File};
 use std::io::{BufRead as _, BufReader, BufWriter, Read as _, Seek as _, SeekFrom, Write};
 use std::path::{Path, PathBuf};

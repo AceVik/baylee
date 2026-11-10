@@ -15,6 +15,9 @@
 //! deck manifest (`manifest.json`) beside them, and prints how many of the
 //! cards were covered.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::fs;

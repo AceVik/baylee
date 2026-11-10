@@ -1,5 +1,8 @@
 //! Decisions tested across the real engine/view boundary.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::preset::{DeckEntry, GamePreset, SeatController};

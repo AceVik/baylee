@@ -69,6 +69,9 @@
 //! it. `auth status --json` answers `{"loggedIn": logged_in}` and reads
 //! nothing.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};

@@ -5,6 +5,9 @@
 //! simultaneously while pipelining keyed (masked, not encrypted) SSD prefetching
 //! for the next wave and performing live zero-downtime key rotation.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::path::PathBuf;
 use std::time::Instant;
 

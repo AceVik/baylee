@@ -1,6 +1,9 @@
 //! Reads what `seat4 --journal` kept of a ladder game: each decision with the
 //! board, the hand and the net's own ranking, which is what a reader of the
 //! language model's transcript cannot see. For numbers and reading only.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 mod print;
 
 use std::collections::{BTreeMap, BTreeSet};

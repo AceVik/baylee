@@ -1,0 +1,16 @@
+[package]
+name = "baylee-cards-base"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "What a card file is written with (tokens, shared filters, the token ledger) and the door to the registry that baylee-cards-pool links in"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-cards-dsl.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true

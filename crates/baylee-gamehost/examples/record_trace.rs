@@ -17,6 +17,9 @@
 //! The record is omniscient (every hand and library); its output is for the
 //! person debugging, never for a seat.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::VecDeque;
 use std::fmt::Write as _;
 

@@ -10,6 +10,8 @@ description = "Bevy 2.5D duel client: table renderer, HUD, input, and card image
 workspace = true
 
 [dependencies]
+# Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 uuid.workspace = true
 url = "2.5.8"
 # `local-offset`: the game log's clock column says the device's own time

@@ -11,6 +11,8 @@
 
 /// A `dev-control` build counts its allocations for `/perf`
 /// (`devctl::perf`); every other build keeps the system allocator untouched.
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 #[global_allocator]
 static ALLOCATOR: baylee_client::devctl::CountingAlloc = baylee_client::devctl::CountingAlloc;

@@ -7,6 +7,10 @@
 
 #![warn(missing_docs)]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 pub mod harness;
 mod log;
 pub mod preset;

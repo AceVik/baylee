@@ -9,6 +9,8 @@ description = "Binary: a seat bridge that sits at a table as an ordinary socket 
 workspace = true
 
 [dependencies]
+# Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 # What a seat is told and what it answers with, read as the client reads them.
 # The engine for its types (`Pending`, `PlayerAction`, `answer_fault`), as
 # client-core links it; the bridge never builds an `Engine`.

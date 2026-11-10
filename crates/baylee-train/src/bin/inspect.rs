@@ -9,6 +9,9 @@
 //! asking when the record ends. A record is omniscient, so this is for bug
 //! reports and never for a seat.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::fs::File;
 use std::io::{BufRead as _, BufReader, Read as _, Seek as _, SeekFrom};
 use std::path::PathBuf;

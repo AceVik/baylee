@@ -6,6 +6,9 @@
 //! `cargo bench -p baylee-client-core --features test-support --bench client`
 #![allow(missing_docs)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_client_core::feltveins::VeinTable;
 use baylee_client_core::music::{RATE, Scene, ScoreControl, ScoreRequest, Tune};
 use baylee_client_core::test_support::{ViewBuilder, token};

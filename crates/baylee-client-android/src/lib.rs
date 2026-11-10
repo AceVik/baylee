@@ -12,6 +12,9 @@
 //! desktop binary takes — which is the point of this package being nine lines
 //! and not a second copy of the client's startup.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 #[cfg(target_os = "android")]
 use bevy::prelude::bevy_main;
 

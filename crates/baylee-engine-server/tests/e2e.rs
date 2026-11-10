@@ -5,6 +5,9 @@
 
 #![allow(clippy::missing_docs_in_private_items)]
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::{self, Envelope};

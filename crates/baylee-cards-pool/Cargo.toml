@@ -1,0 +1,14 @@
+[package]
+name = "baylee-cards-pool"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The card files and the registry tables, exported to baylee-cards-base by name; linked only into programs"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-cards-base.workspace = true
+baylee-cards-dsl.workspace = true

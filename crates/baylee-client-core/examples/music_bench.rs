@@ -1,4 +1,7 @@
 //! Fixed work, no file I/O; prepare outside the measured real-time render.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 use baylee_client_core::music::{Movement, RATE, SampleSet, ScoreControl, Theme, Tune};
 use std::{hint::black_box, sync::Arc, time::Instant};
 fn main() {

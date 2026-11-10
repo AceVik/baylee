@@ -30,6 +30,10 @@
 //!
 //! [`bridge::play`] runs them all against a gateway.
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 pub mod bridge;
 pub mod canary;
 pub mod cli;

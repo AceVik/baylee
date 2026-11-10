@@ -1,4 +1,7 @@
 //! Census every archived decision before selecting payment regression traces.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 use std::path::PathBuf;
 
 use anyhow::Context as _;

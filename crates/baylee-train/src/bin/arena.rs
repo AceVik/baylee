@@ -27,6 +27,9 @@
 //! (`policy.onnx`) and a v3 one (`net.onnx`) both play; the export's JSON says
 //! which encoder it reads.
 
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
+
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::Write as _;

@@ -614,6 +614,9 @@ pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
 }
 
 #[cfg(test)]
+// Explicit: this file is compiled by `baylee-cards-base` through a `#[path]`,
+// which would otherwise look for its children beside it, in `src/tests/`.
+#[path = "tokens/tests.rs"]
 mod tests;
 
 // Verified primary Scryfall cards/tlci/3 payload saved in gnome-primary.json.

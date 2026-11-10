@@ -35,6 +35,10 @@
 // cases where it is right.
 #![allow(clippy::needless_pass_by_value)]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 pub mod abilities;
 pub mod ambience;
 #[cfg(target_os = "macos")]

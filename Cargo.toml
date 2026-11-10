@@ -42,6 +42,8 @@ baylee-client = { path = "crates/baylee-client" }
 baylee-engine = { path = "crates/baylee-engine" }
 baylee-cards-dsl = { path = "crates/baylee-cards-dsl" }
 baylee-cards = { path = "crates/baylee-cards" }
+baylee-cards-base = { path = "crates/baylee-cards-base" }
+baylee-cards-pool = { path = "crates/baylee-cards-pool" }
 baylee-cards-codegen = { path = "crates/baylee-cards-codegen" }
 baylee-cards-index = { path = "crates/baylee-cards-index" }
 baylee-ai = { path = "crates/baylee-ai" }

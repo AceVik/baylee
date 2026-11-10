@@ -850,6 +850,7 @@ version = "0.1.0-beta.9c"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-client-core",
  "baylee-core",
  "baylee-engine",
@@ -868,6 +869,7 @@ version = "0.1.0-beta.9c"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -882,6 +884,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -896,6 +899,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -910,6 +914,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -924,6 +929,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -938,6 +944,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -952,6 +959,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -966,6 +974,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -980,6 +989,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -994,6 +1004,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1008,6 +1019,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1022,6 +1034,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1036,6 +1049,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1050,6 +1064,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1064,6 +1079,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1078,6 +1094,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1092,6 +1109,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1106,6 +1124,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1120,6 +1139,7 @@ dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "serde_json",
@@ -1131,10 +1151,21 @@ dependencies = [
 name = "baylee-cards"
 version = "0.1.0-beta.9c"
 dependencies = [
+ "baylee-cards-base",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-cardtext",
  "baylee-core",
  "serde",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-cards-base"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-dsl",
+ "baylee-core",
  "uuid",
 ]
 
@@ -1165,6 +1196,15 @@ dependencies = [
 name = "baylee-cards-index"
 version = "0.1.0-beta.9c"
 dependencies = [
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-pool"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
  "baylee-core",
 ]
 
@@ -1204,6 +1244,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-cardtext",
  "baylee-client-core",
  "baylee-core",
@@ -1259,6 +1300,7 @@ dependencies = [
 name = "baylee-client-android"
 version = "0.1.0-beta.9c"
 dependencies = [
+ "baylee-cards-pool",
  "baylee-client",
  "bevy",
 ]
@@ -1270,6 +1312,7 @@ dependencies = [
  "argon2",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-cardtext",
  "baylee-core",
  "baylee-deckio",
@@ -1390,6 +1433,7 @@ version = "0.1.0-beta.9c"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "criterion",
  "rand_chacha 0.10.0",
@@ -1412,6 +1456,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "baylee-gamehost",
@@ -1465,6 +1510,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-pool",
  "baylee-client-core",
  "baylee-core",
  "baylee-engine",
@@ -1489,6 +1535,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-index",
+ "baylee-cards-pool",
  "baylee-cardtext",
  "baylee-catalog",
  "baylee-client-core",
@@ -1583,6 +1630,7 @@ version = "0.1.0-beta.9c"
 dependencies = [
  "anyhow",
  "baylee-cards",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-engine",
  "baylee-gamehost",
@@ -1650,6 +1698,7 @@ dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-cards-index",
+ "baylee-cards-pool",
  "baylee-client-core",
  "baylee-core",
  "baylee-deckio",
@@ -1679,6 +1728,7 @@ dependencies = [
 name = "baylee-seathost"
 version = "0.1.0-beta.9c"
 dependencies = [
+ "baylee-cards-pool",
  "baylee-client-core",
  "baylee-protocol",
  "futures-util",
@@ -1734,6 +1784,7 @@ dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-cards-index",
+ "baylee-cards-pool",
  "baylee-client-core",
  "baylee-core",
  "baylee-db",
@@ -11276,6 +11327,7 @@ dependencies = [
  "baylee-cards",
  "baylee-cards-codegen",
  "baylee-cards-index",
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-deckio",
  "baylee-train",

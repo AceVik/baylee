@@ -36,6 +36,8 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+# Its tests look cards up, so they hold the pool (`baylee-cards-pool`).
+baylee-cards-pool.workspace = true
 # `Session::fork_for` is tested here (`session/tests/simulation.rs`) as the
 # engine tests its own fork: a dev edge, which neither a `--bin` build nor
 # `cargo dev gate shipped-features`'s graph follows.

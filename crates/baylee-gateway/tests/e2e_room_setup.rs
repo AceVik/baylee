@@ -1,4 +1,7 @@
 //! Room configuration goes through real HTTP, authority checks, and engine setup.
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 mod common;
 use common::{attach_agent_watching, http, json_field, login, spawn_gateway};
 use serde_json::{Value, json};

@@ -4,6 +4,10 @@
 #![allow(clippy::wildcard_imports, unused_imports, dead_code)]
 #![allow(missing_docs, hidden_glob_reexports, clippy::too_many_lines)]
 
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
+
 pub use baylee_card_testkit::card_tests::*;
 pub use baylee_card_testkit::testkit;
 

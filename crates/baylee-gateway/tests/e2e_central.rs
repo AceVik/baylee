@@ -1,5 +1,8 @@
 //! Synthetic real gateway + Central + PostgreSQL migration, never production services.
 #![forbid(unsafe_code)]
+
+// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
+use baylee_cards_pool as _;
 #[path = "central/aliases.rs"]
 mod aliases;
 #[path = "e2e_central/chat.rs"]

@@ -19,6 +19,10 @@
 )]
 
 // The test kit names the engine `baylee_engine`, in the card test crates and here.
+
+// The tests look cards up, so their binary holds the pool.
+#[cfg(test)]
+use baylee_cards_pool as _;
 #[cfg(test)]
 extern crate self as baylee_engine;
 
