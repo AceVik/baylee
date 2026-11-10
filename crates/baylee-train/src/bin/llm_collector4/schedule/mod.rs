@@ -524,6 +524,9 @@ pub struct Scheduler {
     /// The operator's limit: attempts, counted over the whole root, whose
     /// seats send reports; `None`, every attempt's do.
     report_games: Option<usize>,
+    /// An evaluation (`collect --evaluation`): every request says
+    /// `numbers_only` and not `bc_only`, so no conversion trains on it.
+    numbers_only: bool,
     in_flight: BTreeMap<String, InFlight>,
     known_record_shas: BTreeSet<String>,
 }
@@ -670,6 +673,7 @@ impl Scheduler {
             starting_life: None,
             next_index: max_idx.map_or(0, |m| m + 1),
             report_games: None,
+            numbers_only: false,
             in_flight: BTreeMap::new(),
             known_record_shas,
         })
@@ -684,6 +688,43 @@ impl Scheduler {
     pub const fn with_report_games(mut self, games: Option<usize>) -> Self {
         self.report_games = games;
         self
+    }
+
+    /// An evaluation, numbers only (`collect --evaluation`): any deck may be
+    /// seated, and every request says `numbers_only: true` and `bc_only:
+    /// false`, which `convert4 --llm-bc` refuses.
+    #[must_use]
+    pub const fn numbers_only(mut self, yes: bool) -> Self {
+        self.numbers_only = yes;
+        self
+    }
+
+    /// The decks of the deck manifest `guard` keeps out of training, each
+    /// named with why: a teacher collection seats train decks only. A deck
+    /// is read by its key and its cards (main deck and commanders).
+    ///
+    /// # Errors
+    /// A deck whose list cannot be read.
+    pub fn train_deck_refusals(
+        &self,
+        guard: &baylee_train::decksplit::TrainOnly,
+    ) -> anyhow::Result<Vec<String>> {
+        let mut refused = Vec::new();
+        for deck in &self.decks {
+            let text = std::fs::read_to_string(&deck.path)
+                .with_context(|| format!("reading deck {} at {}", deck.key, deck.path))?;
+            let cards = baylee_train::housedeck::HouseDeck::parse_any(&deck.key, &text)
+                .map(|parsed| baylee_train::decksplit::cards_of(&parsed))
+                .with_context(|| format!("reading deck {}", deck.key))?;
+            let seat = baylee_train::decksplit::Seat {
+                key: Some(deck.key.clone()),
+                cards: Some(cards),
+            };
+            if let Some(why) = guard.refusal(std::slice::from_ref(&seat)) {
+                refused.push(format!("{} ({}): {why}", deck.key, deck.path));
+            }
+        }
+        Ok(refused)
     }
 
     /// Whether the attempt numbered `index` (over the whole root) sends its
@@ -980,7 +1021,8 @@ impl Scheduler {
             "models": chosen_models,
             "fallback_profiles": chains.clone().map(|c| c.fallback_profiles()),
             "requested_fallbacks": chains.map(|c| c.fallback_minds()),
-            "bc_only": true,
+            "bc_only": !self.numbers_only,
+            "numbers_only": self.numbers_only,
             "ppo_eligible": false,
             "semantic_quality_gate": false,
             "seed_contract": "Actual server RNG seed must be read from complete export; schedule index is not a game seed",
@@ -1711,6 +1753,60 @@ mod tests {
         assert!(text0.contains("Commander\n1 Atraxa, Praetors' Voice"));
         let text1 = std::fs::read_to_string(p1).unwrap();
         assert!(text1.contains("Sideboard\n15 Abrade"));
+    }
+
+    /// A teacher collection's decks are read against the train manifest by
+    /// key and by cards: a deck it holds out of train is named, under its
+    /// own key or another, and a train deck or a stranger passes. An
+    /// evaluation's requests are numbers only, which `convert4 --llm-bc`
+    /// refuses as BC.
+    #[test]
+    fn a_teacher_collection_seats_train_decks_only() {
+        let dir = TestDir::new("sched-train");
+        let repo = baylee_train::working::repo_root();
+        let mut deck_entries = Vec::new();
+        for (key, source) in [
+            ("house-002", "data/decks/eval/azorius-control.txt"),
+            ("pool/burn", "data/decks/eval/red-burn.txt"),
+            ("corpus/stranger", "data/decks/eval/blue-fliers.txt"),
+        ] {
+            let p = dir.path().join(format!("{}.txt", key.replace('/', "-")));
+            std::fs::copy(repo.join(source), &p).unwrap();
+            deck_entries.push(json!({"key": key, "name": key, "path": p,
+                "sha256": sha256_file(&p).unwrap(), "format": "Constructed"}));
+        }
+        let manifest = dir.path().join("deck-manifest.json");
+        write_atomic_json(&manifest, &json!({ "decks": deck_entries })).unwrap();
+        write_atomic_json(&dir.path().join("profiles.json"), &json!({"profiles": {
+            "argon-low": {"provider":"cli", "model":"agy:gemini-4-argon-low", "game_tokens":100_000},
+            "flash-low": {"provider":"cli", "model":"agy:gemini-3.8-flash-low", "game_tokens":100_000}
+        }})).unwrap();
+        let train = dir.path().join("train-manifest.json");
+        write_atomic_json(&train, &json!({"decks": [
+            {"id": "pool/azorius", "path": "data/decks/eval/azorius-control.txt", "split": "holdout2"},
+            {"id": "pool/burn", "path": "data/decks/eval/red-burn.txt", "split": "train"},
+        ]}))
+        .unwrap();
+        let sched = Scheduler::new(
+            dir.path().to_path_buf(),
+            "http://127.0.0.1:28768".to_owned(),
+            dir.path().join("profiles.json"),
+            None,
+            &manifest,
+            90,
+            3600,
+        )
+        .unwrap();
+        let guard = baylee_train::decksplit::TrainOnly::load(&train, &repo).unwrap();
+        let refused = sched.train_deck_refusals(&guard).unwrap();
+        assert_eq!(refused.len(), 1, "{refused:?}");
+        assert!(refused[0].starts_with("house-002") && refused[0].contains("pool/azorius"));
+        assert!(refused[0].contains("holdout2"));
+
+        let mut evaluation = sched.numbers_only(true);
+        let attempt = evaluation.next_assignment(0).unwrap();
+        assert_eq!(attempt.request["numbers_only"], true);
+        assert_eq!(attempt.request["bc_only"], false);
     }
 
     #[test]
