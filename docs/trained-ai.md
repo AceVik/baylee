@@ -1875,6 +1875,22 @@ in an optional BST4 trailing block `BDX1` (u8 subtype, three reserved bytes, u64
 group mask), indexing `meta.json`'s `bundle_distillation.subtypes` and `.groups`.
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.
+**With the deliberation block** (arms "A + block" and "B + block"): add
+`--thinking-revision 2 --thinking-warmstart --think-supervision
+--deliberation-steps 4 [--thinking-lr RATE]` to the stage's own flag. The block
+trains wherever the candidate head trains (`partial_training.deliberation =
+trains`); it sits after the heads, so in stage A the reference still shares
+boards and memory. Its per-step terms take this loss's targets
+(`distill.thinking_terms`): R in scope where N != R, r1 everywhere else, at
+single choices and subsets; no consequence term. The reference's own block is
+switched off, so it stays r1. A block the warm start has just attached is left
+out of `--anchor-l2` (it has no trained value to stay near) and keeps weight
+decay; `--thinking-lr` gives it its own rate. `--train-thinking-only` trains the
+block alone and combines with no stage flag. Validation adds
+`val_distill_think_top1_r_at_n_ne_r_by_step`: the share of in-scope N != R
+decisions each step answers as R (step 0 the heads' first proposal, the last
+step the selection metric), and the training log's `[think] right_by_step` is
+the same share on the training batches.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
 `net.pt` is now selected by validation policy loss by default. The previous

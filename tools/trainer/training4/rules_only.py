@@ -30,11 +30,14 @@ def freeze_all_but_rules(net):
 class ParameterAnchor:
     """The trainable weights as they started, and the distance from them."""
 
-    def __init__(self, net, weight):
+    def __init__(self, net, weight, fresh=()):
+        """`fresh` names parameter prefixes that start untrained (a module added
+        by a warm start): they have no learnt value to stay near and are left out."""
         if not weight > 0:
             raise ValueError("An anchor needs a positive weight")
         self.weight = weight
-        self.pairs = [(p, p.detach().clone()) for p in net.parameters() if p.requires_grad]
+        self.pairs = [(p, p.detach().clone()) for name, p in net.named_parameters()
+                      if p.requires_grad and not (fresh and name.startswith(tuple(fresh)))]
 
     def penalty(self):
         return self.weight * sum((p - start).square().sum() for p, start in self.pairs)

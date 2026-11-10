@@ -3,7 +3,7 @@ import math
 
 
 def build_optimizer_groups(net, main_lr, *, architecture='v4', freeze_trunk=False,
-                           relational_lr=0., output_lr=0., warmup_steps=0, decay=True):
+                           relational_lr=0., output_lr=0., warmup_steps=0, decay=True, thinking_lr=0.):
     if (any(not math.isfinite(x) or x < 0 for x in (relational_lr, output_lr))
             or warmup_steps < 0):
         raise ValueError('Relational learning rates/warmup must be finite and nonnegative')
@@ -15,11 +15,25 @@ def build_optimizer_groups(net, main_lr, *, architecture='v4', freeze_trunk=Fals
     parameters = [(name, p) for name, p in net.named_parameters() if p.requires_grad]
     critic = [(name, p) for name, p in parameters if 'seat_value_head' in name]
     other = [(name, p) for name, p in parameters if 'seat_value_head' not in name]
+    if not math.isfinite(thinking_lr) or thinking_lr < 0:
+        raise ValueError('The deliberation learning rate must be finite and nonnegative')
     if not enabled:
-        groups = [dict(params=[p for _, p in other], lr=main_lr, weight_decay=1e-2 if decay else 0.)]
+        # A deliberation block added by a warm start is a fresh module: with
+        # --thinking-lr it learns at its own rate and keeps its weight decay
+        # (an anchor holds only what was trained before).
+        fresh = [(name, p) for name, p in other if name.startswith('deliberation.')] if thinking_lr else []
+        if thinking_lr and not fresh:
+            raise ValueError('--thinking-lr needs a trainable deliberation block')
+        other = [(name, p) for name, p in other if not (thinking_lr and name.startswith('deliberation.'))]
+        groups = ([dict(params=[p for _, p in other], lr=main_lr, weight_decay=1e-2 if decay else 0.)]
+                  if other or not thinking_lr else [])
         if critic:
             groups.append(dict(params=[p for _, p in critic], lr=main_lr * .2, weight_decay=5e-2))
+        if fresh:
+            groups.append(dict(params=[p for _, p in fresh], lr=thinking_lr, weight_decay=1e-2))
         return groups, None
+    if thinking_lr:
+        raise ValueError('--thinking-lr and relational learning rates are separate experiments')
     # Modules added on top of a trained trunk (the relational block, the
     # candidate decoder) learn at the new-module rates; their zero-initialized
     # residual outputs carry no weight decay.
