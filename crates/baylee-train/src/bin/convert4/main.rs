@@ -241,6 +241,7 @@ fn main() -> anyhow::Result<()> {
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
+        admit_run(run_dir, &run_json)?;
         let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
         if on_policy.is_some() {
             anyhow::ensure!(
@@ -786,6 +787,35 @@ fn write_f32_bin(path: &Path, data: &[f32]) -> anyhow::Result<()> {
     }
     f.flush()?;
     Ok(())
+}
+
+/// Refuses a run convert4 may not read: one keeping the tactical layer's
+/// answers as the tactician's imitation labels (`tactician_imitation_v1`),
+/// which teach the tactician and nothing else.
+fn admit_run(run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
+    baylee_train_ops::tactician_labels::refuse_imitation(run_json)
+        .with_context(|| format!("convert4 refuses {}", run_dir.display()))
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use super::*;
+
+    #[test]
+    fn imitation_runs_are_refused_and_ordinary_runs_read() {
+        let dir = Path::new("runs/r");
+        let ordinary = serde_json::json!({"run": "eval4-rollout", "choice_guard": "off",
+            "tactician": {"record_contract": "tactician_records_v1"}});
+        admit_run(dir, &ordinary).unwrap();
+        let imitation = serde_json::json!({"run": "eval4-rollout", "labels": "tactician_imitation_v1",
+            "tactician": {"record_contract": "tactician_imitation_v1"}});
+        let error = format!("{:#}", admit_run(dir, &imitation).unwrap_err());
+        assert!(error.contains("convert4 refuses runs/r"), "{error}");
+        assert!(
+            error.contains("train the tactician and nothing else"),
+            "{error}"
+        );
+    }
 }
 
 #[cfg(test)]

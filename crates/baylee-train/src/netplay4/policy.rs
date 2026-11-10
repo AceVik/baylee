@@ -526,6 +526,27 @@ impl PolicySampler4<'_> {
             }
         };
 
+        // `eval4 --tactician-imitate`: the layer has answered; at a window the
+        // tactician keeps its answer as the label and may explore away from it.
+        if let Some(tactician) = self.tactician.as_deref_mut()
+            && tactician.imitates()
+            && let Some(played) = tactician.imitate(
+                &super::tactician::TacticianStep {
+                    cands,
+                    view,
+                    pending,
+                    cand_logits,
+                    pair_logits,
+                    value,
+                    embeddings,
+                    active_source: self.active_source,
+                    rng: self.rng,
+                },
+                &target,
+            )?
+        {
+            target = played;
+        }
         let mut action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;
         // The policy selects an equivalence group, not a particular copy.
@@ -640,3 +661,5 @@ mod tests;
 mod grouped_attack_tests;
 #[cfg(test)]
 mod grouped_decode_tests;
+#[cfg(test)]
+mod tactician_tests;

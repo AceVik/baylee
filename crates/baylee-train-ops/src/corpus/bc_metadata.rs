@@ -187,6 +187,7 @@ fn source_index(
     if run.exists() {
         let raw = std::fs::read(&run)?;
         let meta: Value = serde_json::from_slice(&raw)?;
+        crate::tactician_labels::refuse_imitation(&meta)?;
         if !meta["seats"].is_null() {
             run_seats = Some(
                 meta["seats"]

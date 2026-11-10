@@ -1,0 +1,51 @@
+{
+  "contract": "tactician_head_v2",
+  "d_model": 4,
+  "row_tail": 128,
+  "rows_read_rules": false,
+  "config": {
+    "d_model": 4,
+    "width": 16,
+    "layers": 1,
+    "heads": 2,
+    "passes": 2,
+    "ffn_mult": 2,
+    "dropout": 0.0,
+    "detach_passes": true
+  },
+  "thresholds_by_pass": [
+    0.5,
+    0.5
+  ],
+  "label": "untrained: a test fixture for netplay4::tactician::net",
+  "passes": 2,
+  "confidence_threshold": 0.5,
+  "threshold_from_pass": 2,
+  "io": {
+    "input": {
+      "name": "rows",
+      "shape": [
+        "U",
+        136
+      ],
+      "rows": "null row first, then one per unit"
+    },
+    "outputs": [
+      {
+        "name": "logits",
+        "shape": [
+          "U - 1"
+        ]
+      },
+      {
+        "name": "confidence",
+        "shape": [
+          1
+        ]
+      }
+    ]
+  },
+  "parity_max_abs_diff": 2.384185791015625e-07,
+  "parity_rows": 12,
+  "onnx_sha256": "b68c134037c240ea11388c4445663405002f83932cf54f4759d3fcd7eb17e446"
+}

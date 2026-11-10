@@ -443,12 +443,15 @@ fn target_columns(view: &PlayerView, action: Option<&PlayerAction>) -> [f32; 24]
     out
 }
 
-/// The window code of a row; `unit` is `None` for the null row.
+/// The window code of a row; `unit` is `None` for the null row. Without
+/// `rules` (the rows a `tactician_head_v2` reads, which plays where no layer
+/// runs) the columns that read the tactical layer's answer, 5 and 11, stay
+/// zero.
 fn window_code(
     window: Window4,
     unit: Option<usize>,
     net: &[u8],
-    rules: &[u8],
+    rules: Option<&[u8]>,
     logits: &[f32],
 ) -> [f32; WINDOW_WIDTH] {
     let mut out = [0.0; WINDOW_WIDTH];
@@ -460,13 +463,13 @@ fn window_code(
     let units = net.len().max(1);
     out[9] = (units as f32 / 16.0).min(1.0);
     out[10] = net.iter().filter(|&&b| b != 0).count() as f32 / units as f32;
-    out[11] = flag(net != rules);
+    out[11] = rules.map_or(0.0, |rules| flag(net != rules));
     let Some(i) = unit else {
         out[3] = 1.0;
         return out;
     };
     out[4] = flag(net[i] != 0);
-    out[5] = flag(rules[i] != 0);
+    out[5] = rules.map_or(0.0, |rules| flag(rules[i] != 0));
     let logit = logits[i];
     out[6] = logit.clamp(-8.0, 8.0) / 8.0;
     out[7] = match window {
@@ -482,12 +485,13 @@ fn window_code(
 }
 
 /// Every row's window code and look, the null row first:
-/// `[(units + 1) × ROW_TAIL]`.
+/// `[(units + 1) × ROW_TAIL]`. `rules` is `None` for the rows that must not
+/// carry the tactical layer's answer (imitation and `tactician_head_v2`).
 pub(super) fn rows(
     window: Window4,
     step: &TacticianStep<'_>,
     net: &[u8],
-    rules: &[u8],
+    rules: Option<&[u8]>,
     logits: &[f32],
     prior: &LookPrior4,
 ) -> Vec<f32> {

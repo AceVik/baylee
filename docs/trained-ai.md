@@ -1243,6 +1243,78 @@ summary's `grouped_decode` (and each deal's) counts the priority questions with
 both groups, the answers changed, and of those pass to act and act to pass; a
 journal's menu carries the two masses. Whether it helps play is unmeasured.
 
+### The tactician, stage S1 (`eval4 --tactician-imitate`, `tactician_head_v2`)
+
+The owner's decision of 10 November: a separately trained tactician that in the
+end plays alone, trunk and tactician, no rule. Its bootstrap, and only its
+bootstrap, imitates the tactical layer at the windows of games played with the
+layer on; the trunk and every other training are unchanged. At play it builds
+the answer itself and, when unsure, plays the trunk's own answer `N`, never a
+rule's (`netplay4::tactician::{imitate, build, net}`).
+
+**Collection** (`--tactician-imitate ε --tactician-out DIR`, with `--raw-policy
+--choice-guard tactical --tactics-rules …`, against `sharp` or a self-play copy
+of the seat, `--opponent-role self-play`, whose windows are kept too). The layer
+answers first; at an attack, block or single-target window its answer `R` is
+the label. The seat plays `R` with probability `1 − ε`, `N` with `ε/3` when it
+differs, the rest of `ε` spread over the neighbors of `R`; the played answer's
+probability under the mixture is exact. With ε = 0 the games are the layer's own,
+decision for decision. A record (`tactician_imitation_v1`) is a stage-1 line
+with `label: "rules"`, `rows_read_rules: false` and `groups` (each unit's
+attacker or blocker; one group at a target) beside the blob of the state, the
+units' embeddings and the rows' tails. The tails never carry `R`: window-code
+columns 5 and 11 stay zero, so what learns from them cannot lean on a rule. A
+later instant-speed window (react, spend) is one more `Window4` over the
+priority candidates with the same record.
+
+**Imitation labels train the tactician and nothing else.** The record directory
+has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
+`run.json` names it too (`labels`, `tactician.record_contract`).
+`baylee_train_ops::tactician_labels::refuse_imitation` refuses any run whose
+`run.json` names that contract anywhere; convert4 (every run, and its research
+reader), the self-imitation groups, the research cache and the corpus index call
+it, and the stage-1 trainer (`tactician4.py`) reads only `tactician_records_v1`.
+
+**The net** (`tools/trainer/tactician_v3`, `train_tactician_v3.py`): a set
+transformer over one question's rows `[state | unit | window code and look]`,
+the null row first standing for the question (width 512, 4 layers, 8 heads by
+default). It thinks in `T` passes with shared weights: pass `t` adds a pass
+embedding and the previous pass's proposal per unit (its probability, sigmoid at
+an attack or block and softmax share at a target; its logit; the confidence) and
+gives new per-unit logits and a confidence, the probability that its decoded
+answer is the label. Every pass is supervised: binary cross-entropy per unit at
+attacks and blocks, at blocks also a softmax per blocker over its attackers and
+"none" (logit 0, as the decoder reads a blocker), softmax cross-entropy at
+targets, and binary cross-entropy of the confidence against "this pass's
+decoded answer equals `R`". Whole tables are held out by seed (`seed % 10 ==
+0`); the report gives, per window and pass, exact-mask agreement with `R` and
+per-unit accuracy beside `N`'s, the confidence's calibration (bins, ECE, Brier),
+and per pass the agreement of "the built answer when the confidence reaches τ,
+else `N`" for each τ. The best τ is the threshold the seat plays with.
+
+**Export** (`tactician_head_v2`): `tactician.onnx` takes `rows` `[U, 2d + 128]`
+(the null row first) and gives `logits` `[U − 1]` (the last pass's) and
+`confidence` `[1]`; `T` is fixed per export (`passes`; `train_tactician_v3.py
+export --passes T` re-exports a trained net) and `tactician.json` carries
+`confidence_threshold`, the threshold of that pass. Each export is checked
+against PyTorch on random rows of every window and on held-out recorded rows
+(at most 1e-4).
+
+**Play** (`--tactician DIR` with a `tactician_head_v2`, `--tactician-windows`,
+`--tactician-confidence` to override the threshold). Its logits replace the
+net's for the window's head and go through the raw policy's own decoders at
+temperature 0 (`sample_subset_constrained`, `sample_pairs_constrained`, the
+greedy single choice), so every answer is legal; below the threshold, or if the
+built answer does not decode exactly, the seat plays `N`. The rule groups are
+chosen apart with `--tactics-rules`. The gate arm plays the layer elsewhere with
+the window groups off (`race`, `walker`, `trip`, `trade`, `wall`, `chump`,
+`aim`; `side` and `void` also strike at priority and stay) and the tactician at
+the windows; the raw arm, `--raw-policy` with the tactician at the windows and
+no layer, is the end state. The summary's `tactician.latency` gives the
+tactician's cost per decision and the net's forward alone, by window and in all
+(median, p90, p99, max); it runs on the CPU, one intra-op thread per session, a
+pool of eight sessions per process.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
