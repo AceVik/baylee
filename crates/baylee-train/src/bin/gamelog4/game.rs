@@ -23,6 +23,8 @@ pub(super) enum Event<'a> {
     Turn { views: &'a [PlayerView], turn: u32 },
     /// The evaluated seat answers a question.
     Decision(Decision<'a>),
+    /// Another seat answers one; one view per seat before its answer.
+    Other { views: &'a [PlayerView] },
     /// A line of the game's log, as the evaluated seat was told it.
     Log { turn: u32, text: &'a str },
     /// The game is over.
@@ -88,6 +90,27 @@ impl Game {
         })
     }
 
+    /// The seats on the evaluated seat's side: itself and its teammates.
+    pub(super) fn side(&self) -> Vec<PlayerId> {
+        let Some(Line::Header { preset, .. }) = self.lines.first() else {
+            return vec![self.seat];
+        };
+        let team = preset
+            .seats
+            .get(usize::from(self.seat.get()))
+            .and_then(|seat| seat.team);
+        (0..preset.seats.len())
+            .filter_map(|index| u8::try_from(index).ok())
+            .map(PlayerId::new)
+            .filter(|player| {
+                *player == self.seat
+                    || team.is_some_and(|team| {
+                        preset.seats[usize::from(player.get())].team == Some(team)
+                    })
+            })
+            .collect()
+    }
+
     /// Replays the game and shows `visit` what happens; with `log`, the
     /// game's log lines too (which costs time).
     pub(super) fn replay(
@@ -139,6 +162,8 @@ impl Game {
                             action,
                             source: sources.next().map_or("?", String::as_str),
                         }))?;
+                    } else {
+                        visit(Event::Other { views: &views })?;
                     }
                     let routed = session
                         .act(PlayerId::new(*actor), action.clone())
