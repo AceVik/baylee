@@ -263,3 +263,108 @@ pub fn sample_pairs_constrained(
     }
     (mask, free_mask, visit_seq, total_lp)
 }
+
+/// The free bits under which [`sample_subset_constrained`] draws exactly
+/// `mask` above sampler 2's boundary, or `None` when it never draws it (a
+/// bit its constraints force otherwise). With the canonical visit order
+/// `0..n` the sampler records, these are the conditional bits under which the
+/// probability of an answer the sampler did not draw is read, such as the
+/// tactical layer's answer an explorer plays in its place (`netplay4::explore`).
+#[must_use]
+pub fn subset_free_mask_of(
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+    mask: &[u8],
+) -> Option<Vec<u8>> {
+    let n = mask.len();
+    if n > cands.candidates.len() || mask.iter().any(|&bit| bit > 1) {
+        return None;
+    }
+    let mut free_mask = vec![0_u8; n];
+    if let Pending::ChooseAttackers {
+        required,
+        alone,
+        minimum_required,
+        ..
+    } = pending
+    {
+        let mut subset = AttackSubset::new(
+            cands.candidates[..n].iter().filter_map(|c| c.object_id),
+            required,
+            alone,
+            *minimum_required,
+        );
+        for (i, candidate) in cands.candidates[..n].iter().enumerate() {
+            let Some(id) = candidate.object_id else {
+                if mask[i] != 0 {
+                    return None;
+                }
+                continue;
+            };
+            let (can_take, can_skip) = subset.options(id);
+            let free = can_take && can_skip;
+            let take = if free {
+                mask[i] == 1
+            } else {
+                can_take && !can_skip
+            };
+            if u8::from(take) != mask[i] {
+                return None;
+            }
+            free_mask[i] = u8::from(free);
+            if take {
+                subset.take(id);
+            }
+        }
+        return Some(free_mask);
+    }
+    let min_k = (cands.min_choices as usize).min(n);
+    let max_k = (cands.max_choices as usize).min(n);
+    let mut picked = 0_usize;
+    for (i, &bit) in mask.iter().enumerate() {
+        let rem = n - i;
+        if picked >= max_k {
+            if bit != 0 {
+                return None;
+            }
+        } else if picked + rem <= min_k {
+            if bit != 1 {
+                return None;
+            }
+            picked += 1;
+        } else {
+            free_mask[i] = 1;
+            picked += usize::from(bit);
+        }
+    }
+    Some(free_mask)
+}
+
+/// As [`subset_free_mask_of`], for [`sample_pairs_constrained`]: a pair
+/// whose blocker is already assigned, or that names an unencoded object, is
+/// never free and never taken.
+#[must_use]
+pub fn pair_free_mask_of(cands: &EncodedCandidates4, mask: &[u8]) -> Option<Vec<u8>> {
+    let n = mask.len();
+    if n > cands.pair_objects.len() || n > cands.pairs.len() || mask.iter().any(|&bit| bit > 1)
+    {
+        return None;
+    }
+    let mut free_mask = vec![0_u8; n];
+    let mut used_blockers = Vec::new();
+    for (i, &bit) in mask.iter().enumerate() {
+        let [b_idx, a_idx] = cands.pairs[i];
+        let (blocker, _) = cands.pair_objects[i];
+        if b_idx < 0 || a_idx < 0 || used_blockers.contains(&blocker) {
+            if bit != 0 {
+                return None;
+            }
+            continue;
+        }
+        free_mask[i] = 1;
+        if bit == 1 {
+            used_blockers.push(blocker);
+        }
+    }
+    Some(free_mask)
+}

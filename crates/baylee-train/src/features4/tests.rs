@@ -318,8 +318,22 @@ mod tests {
                 compute_subset_free_mask(&cands, &pending_subset, &mask, &seq),
                 free_mask
             );
+            assert_eq!(
+                subset_free_mask_of(&cands, &pending_subset, &mask).as_ref(),
+                Some(&free_mask),
+                "the forced subset bits are the sampler's"
+            );
             unique_probs.insert(mask, f64::from(lp).exp());
         }
+        // A mask the constraints never draw has no free bits to read.
+        assert_eq!(
+            subset_free_mask_of(&cands, &pending_subset, &[1, 1, 1, 0]),
+            None
+        );
+        assert_eq!(
+            subset_free_mask_of(&cands, &pending_subset, &[1, 0, 0, 0]),
+            None
+        );
         // There are C(4,2) = 6 valid subsets of size 2
         assert_eq!(unique_probs.len(), 6);
         let total_prob: f64 = unique_probs.values().sum();
@@ -393,8 +407,18 @@ mod tests {
                 "decode_action4 must never repair sampled pair mask"
             );
             assert_eq!(compute_pair_free_mask(&pair_cands, &mask, &seq), free_mask);
+            assert_eq!(
+                pair_free_mask_of(&pair_cands, &mask).as_ref(),
+                Some(&free_mask),
+                "the forced pair bits are the sampler's"
+            );
             pair_probs.insert(mask, f64::from(lp).exp());
         }
+        assert_eq!(
+            pair_free_mask_of(&pair_cands, &[1, 1, 0, 0]),
+            None,
+            "one blocker on two attackers is never drawn"
+        );
         // Valid assignments: 3 choices for b0 (none, a0, a1) * 3 choices for b1 (none, a0, a1) = 9
         assert_eq!(pair_probs.len(), 9);
         let total_pair_prob: f64 = pair_probs.values().sum();

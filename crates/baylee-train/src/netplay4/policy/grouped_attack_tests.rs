@@ -82,6 +82,7 @@ fn sample(
     let mut rng = Rng::new(417);
     let (action, _, lp, target) = PolicySampler4 {
         tactician: None,
+        explorer: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,
@@ -282,4 +283,40 @@ fn recorded_grouped_attack_preserves_exact_neural_mask_and_lp_but_house_labels_s
     assert_eq!(labelled.target.multi_mask, canonical.multi_mask);
     assert_eq!(labelled.provenance.source, SourceKind4::House);
     assert!(!labelled.provenance.has_logprob);
+}
+
+/// An explorer reads the probability of an attack the sampler did not draw
+/// under the bits the sampler would have drawn it with.
+#[test]
+fn the_forced_attack_bits_are_the_samplers() {
+    let (_, pending, _, menu) = attack();
+    let logits: Vec<f32> = (0..menu.candidates.len())
+        .map(|i| [0.6, -0.4, 0.1][i % 3])
+        .collect();
+    let mut rng = Rng::new(5);
+    let mut masks = std::collections::BTreeSet::new();
+    for _ in 0..2_000 {
+        let (mask, free, _, lp) =
+            sample_subset_constrained(&logits, &menu, &pending, 0.8, &mut rng);
+        assert_eq!(
+            crate::features4::subset_free_mask_of(&menu, &pending, &mask).as_ref(),
+            Some(&free)
+        );
+        assert!((bernoulli_logprob(&logits, &mask, &free, 0.8) - lp).abs() < 1e-5);
+        masks.insert(mask);
+    }
+    assert!(masks.len() > 2, "several attacks drawn");
+    let mut both = vec![0_u8; menu.candidates.len()];
+    for (i, candidate) in menu.candidates.iter().enumerate() {
+        if candidate.object_id == menu.candidates[0].object_id {
+            both[i] = 1;
+        }
+    }
+    if both.iter().map(|&bit| usize::from(bit)).sum::<usize>() > 1 {
+        assert_eq!(
+            crate::features4::subset_free_mask_of(&menu, &pending, &both),
+            None,
+            "one creature attacks once"
+        );
+    }
 }

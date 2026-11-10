@@ -97,6 +97,7 @@ impl NetPlayer4 {
             guard: &mut self.choice_guard,
             rules: &mut self.tactic_rules,
             tactician: self.tactician.as_mut(),
+            explorer: self.explorer.as_mut(),
         }
         .select(
             cands,
@@ -161,6 +162,9 @@ struct PolicySampler4<'a> {
     rules: &'a mut super::TacticRules4,
     /// `eval4 --tactician`: answers its windows before any other path.
     tactician: Option<&'a mut super::tactician::Tactician4>,
+    /// `eval4 --explore-rules`: may play the layer's answer in place of the
+    /// raw sample, and records the behaviour mixture.
+    explorer: Option<&'a mut super::explore::RuleExplorer4>,
 }
 
 impl PolicySampler4<'_> {
@@ -204,6 +208,9 @@ impl PolicySampler4<'_> {
             );
         }
         let mut target = TeacherTarget4::default();
+        // The layer's answer an explorer reads is a function of the decision
+        // and the sampling stream as it stands before the net's draw.
+        let rng_at_decision = self.explorer.is_some().then(|| self.rng.clone());
         let tactician = match self.tactician.as_deref_mut() {
             Some(tactician) => {
                 anyhow::ensure!(
@@ -228,6 +235,7 @@ impl PolicySampler4<'_> {
         let raw = self.mode == PolicyMode4::Raw;
         let parts = self.guard.tactical;
         let at_priority = matches!(pending, Pending::Priority { .. });
+        let tactician_answered = tactician.is_some().then_some(());
         let logprob: f32 = if let Some(played) = tactician {
             target = played;
             0.0
@@ -276,22 +284,14 @@ impl PolicySampler4<'_> {
                     let adj_logits = if raw && !parts.subset {
                         raw_logits.to_vec()
                     } else {
-                        let mut adjusted = choices::adjust_subset_logits(
+                        tactical_subset_logits(
+                            self.rules,
                             cands,
                             raw_logits,
                             view,
                             pending,
                             active_source,
-                        );
-                        tactics::rules::subset(
-                            self.rules,
-                            cands,
-                            &mut adjusted,
-                            view,
-                            pending,
-                            active_source,
-                        );
-                        adjusted
+                        )
                     };
                     let (mask, free_mask, seq, _) = sample_subset_constrained(
                         &adj_logits,
@@ -300,31 +300,7 @@ impl PolicySampler4<'_> {
                         self.temperature,
                         self.rng,
                     );
-                    let lp = if self.temperature <= 1e-4 {
-                        0.0
-                    } else {
-                        let scale = 1.0 / self.temperature;
-                        let mut acc = 0.0_f32;
-                        for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
-                            if free_mask.get(i).copied().unwrap_or(0) == 1 {
-                                let z = raw_l * scale;
-                                let picked = mask.get(i).copied().unwrap_or(0) == 1;
-                                let step_lp = if picked {
-                                    if z >= 0.0 {
-                                        -((-z).exp().ln_1p())
-                                    } else {
-                                        z - z.exp().ln_1p()
-                                    }
-                                } else if z >= 0.0 {
-                                    -z - (-z).exp().ln_1p()
-                                } else {
-                                    -z.exp().ln_1p()
-                                };
-                                acc += step_lp;
-                            }
-                        }
-                        acc
-                    };
+                    let lp = bernoulli_logprob(raw_logits, &mask, &free_mask, self.temperature);
                     target.multi_mask = mask;
                     target.free_mask = free_mask;
                     target.pick_sequence = seq;
@@ -336,38 +312,11 @@ impl PolicySampler4<'_> {
                     let adj_logits = if raw && !parts.pair {
                         raw_logits.to_vec()
                     } else {
-                        let mut adjusted =
-                            choices::adjust_pair_logits(cands, raw_logits, view, pending);
-                        tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
-                        adjusted
+                        tactical_pair_logits(self.rules, cands, raw_logits, view, pending)
                     };
                     let (mask, free_mask, seq, _) =
                         sample_pairs_constrained(&adj_logits, cands, self.temperature, self.rng);
-                    let lp = if self.temperature <= 1e-4 {
-                        0.0
-                    } else {
-                        let scale = 1.0 / self.temperature;
-                        let mut acc = 0.0_f32;
-                        for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
-                            if free_mask.get(i).copied().unwrap_or(0) == 1 {
-                                let z = raw_l * scale;
-                                let picked = mask.get(i).copied().unwrap_or(0) == 1;
-                                let step_lp = if picked {
-                                    if z >= 0.0 {
-                                        -((-z).exp().ln_1p())
-                                    } else {
-                                        z - z.exp().ln_1p()
-                                    }
-                                } else if z >= 0.0 {
-                                    -z - (-z).exp().ln_1p()
-                                } else {
-                                    -z.exp().ln_1p()
-                                };
-                                acc += step_lp;
-                            }
-                        }
-                        acc
-                    };
+                    let lp = bernoulli_logprob(raw_logits, &mask, &free_mask, self.temperature);
                     target.multi_mask = mask;
                     target.free_mask = free_mask;
                     target.pick_sequence = seq;
@@ -377,87 +326,7 @@ impl PolicySampler4<'_> {
                     let pred = if raw && !parts.scalar {
                         scalar_pred.clamp(0.0, 1.0)
                     } else {
-                        match pending {
-                            Pending::ChooseNumber {
-                                reason:
-                                    baylee_engine::choice::NumberPrompt::X
-                                    | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
-                                ..
-                            } => 1.0,
-                            Pending::ChooseNumber {
-                                min,
-                                max,
-                                reason:
-                                    baylee_engine::choice::NumberPrompt::DivideDamage {
-                                        target,
-                                        left,
-                                        ..
-                                    },
-                                ..
-                            } if *max > *min => {
-                                let rem_t = match target {
-                                    baylee_engine::choice::TargetRef::Object(oid) => {
-                                        view.object(oid.object).map_or(*max, |o| {
-                                            u32::try_from(
-                                                (i32::from(o.toughness.unwrap_or(1))
-                                                    - i32::from(o.damage))
-                                                .max(1),
-                                            )
-                                            .unwrap_or(1)
-                                        })
-                                    }
-                                    baylee_engine::choice::TargetRef::Player(pid) => {
-                                        view.seat(*pid).map_or(*max, |s| {
-                                            u32::try_from(s.life.max(1)).unwrap_or(*max)
-                                        })
-                                    }
-                                };
-                                let assign = rem_t.min(*left).clamp(*min, *max);
-                                normalize_scalar_choice(assign, *min, *max)
-                            }
-                            Pending::ChooseNumber {
-                                min,
-                                max,
-                                reason:
-                                    baylee_engine::choice::NumberPrompt::CombatDamage {
-                                        source,
-                                        recipient,
-                                        index,
-                                        of,
-                                        left,
-                                        lethal,
-                                    },
-                                ..
-                            } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
-                                // A trampler's question says what is lethal, and
-                                // its last blocker is asked too (CR 702.19b).
-                                let src_dt = view.object(*source).is_some_and(|o| {
-                                    (o.keywords & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits())
-                                        != 0
-                                });
-                                let rem_t = lethal.unwrap_or_else(|| {
-                                    if src_dt {
-                                        1
-                                    } else {
-                                        view.object(*recipient).map_or(*max, |o| {
-                                            u32::try_from(
-                                                (i32::from(o.toughness.unwrap_or(1))
-                                                    - i32::from(o.damage))
-                                                .max(1),
-                                            )
-                                            .unwrap_or(1)
-                                        })
-                                    }
-                                });
-                                let assign = if rem_t <= *left {
-                                    rem_t.clamp(*min, *max)
-                                } else {
-                                    *min
-                                };
-                                normalize_scalar_choice(assign, *min, *max)
-                            }
-                            _ => scalar_pred.clamp(0.0, 1.0),
-                        }
+                        tactical_scalar(pending, view, scalar_pred)
                     };
                     let chosen_int =
                         denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
@@ -469,42 +338,223 @@ impl PolicySampler4<'_> {
                 }
             }
         };
+        // `eval4 --explore-rules`: the layer's answer may be played in place
+        // of the raw sample, read on the stream as it stood at the decision.
+        let logprob = match (self.explorer.as_deref_mut(), rng_at_decision) {
+            (Some(explorer), Some(rng)) if tactician_answered.is_none() => explorer.explore(
+                &super::explore::ExploreStep {
+                    cands,
+                    view,
+                    pending,
+                    cand_logits,
+                    pair_logits,
+                    scalar_pred,
+                    active_source: self.active_source,
+                    rng: &rng,
+                    temperature: self.temperature,
+                    raw,
+                },
+                &mut target,
+                logprob,
+            )?,
+            _ => logprob,
+        };
 
-        let mut action = decode_action4(cands, view, pending, &target)
-            .context("decode_action4 returned None")?;
-        // The policy selects an equivalence group, not a particular copy.
-        // A still-unpaid TapSelf activation reserves one member even though
-        // its mana actions remain grouped. Resolve that group deterministically
-        // using our own announced intent in BOTH modes; the index/LP is unchanged.
-        if view.owed.is_some()
-            && cands.head == HeadKind4::SingleChoice
-            && let Some(tap_src) =
-                tactics::active_source_requires_tap_self(view, self.active_source)
-            && let Some(cand) = cands.candidates.get(target.single_idx as usize)
-            && let Some(&alt_id) = cand.group_object_ids.iter().find(|&&oid| oid != tap_src)
-        {
-            match &mut action {
-                PlayerAction::ActivateManaAbility { source }
-                | PlayerAction::ActivateAbility { source, .. }
-                    if *source == tap_src =>
-                {
-                    *source = alt_id;
-                }
-                _ => {}
-            }
-        }
-        if self.mode == PolicyMode4::Raw {
-            anyhow::ensure!(
-                decoded_matches_sample(cands, pending, &action, &target),
-                "raw decoded action differs from sampled target (decoder repair)"
-            );
-        }
-        if !(matches!(action, PlayerAction::CancelCast) && view.casting.is_some())
-            && let Some(fault) = pending.answer_fault(&action)
-        {
-            anyhow::bail!("decoded action failed answer_fault: {fault:?}");
-        }
+        let action = decode_target(cands, view, pending, &target, self.active_source, raw)?;
         Ok((action, value.clamp(0.0, 1.0), logprob, target))
+    }
+}
+
+/// The action `target` names: decoded, an equivalence group resolved, and
+/// under the raw policy checked to re-encode to exactly `target`.
+///
+/// # Errors
+/// A target that does not decode, decodes to another answer, or answers
+/// what the question does not allow.
+pub(super) fn decode_target(
+    cands: &EncodedCandidates4,
+    view: &PlayerView,
+    pending: &Pending,
+    target: &TeacherTarget4,
+    active_source: Option<(ObjectId, Option<u32>)>,
+    raw: bool,
+) -> anyhow::Result<PlayerAction> {
+    let mut action =
+        decode_action4(cands, view, pending, target).context("decode_action4 returned None")?;
+    // The policy selects an equivalence group, not a particular copy.
+    // A still-unpaid TapSelf activation reserves one member even though
+    // its mana actions remain grouped. Resolve that group deterministically
+    // using our own announced intent in BOTH modes; the index/LP is unchanged.
+    if view.owed.is_some()
+        && cands.head == HeadKind4::SingleChoice
+        && let Some(tap_src) = tactics::active_source_requires_tap_self(view, active_source)
+        && let Some(cand) = cands.candidates.get(target.single_idx as usize)
+        && let Some(&alt_id) = cand.group_object_ids.iter().find(|&&oid| oid != tap_src)
+    {
+        match &mut action {
+            PlayerAction::ActivateManaAbility { source }
+            | PlayerAction::ActivateAbility { source, .. }
+                if *source == tap_src =>
+            {
+                *source = alt_id;
+            }
+            _ => {}
+        }
+    }
+    if raw {
+        anyhow::ensure!(
+            decoded_matches_sample(cands, pending, &action, target),
+            "raw decoded action differs from sampled target (decoder repair)"
+        );
+    }
+    if !(matches!(action, PlayerAction::CancelCast) && view.casting.is_some())
+        && let Some(fault) = pending.answer_fault(&action)
+    {
+        anyhow::bail!("decoded action failed answer_fault: {fault:?}");
+    }
+    Ok(action)
+}
+
+/// The subset logits the tactical layer samples from: its own adjustments,
+/// then the rule groups.
+pub(super) fn tactical_subset_logits(
+    rules: &mut super::TacticRules4,
+    cands: &EncodedCandidates4,
+    raw_logits: &[f32],
+    view: &PlayerView,
+    pending: &Pending,
+    active_source: Option<(ObjectId, Option<u32>)>,
+) -> Vec<f32> {
+    let mut adjusted =
+        choices::adjust_subset_logits(cands, raw_logits, view, pending, active_source);
+    tactics::rules::subset(rules, cands, &mut adjusted, view, pending, active_source);
+    adjusted
+}
+
+/// The pair logits the tactical layer samples from: its own adjustments,
+/// then the rule groups.
+pub(super) fn tactical_pair_logits(
+    rules: &mut super::TacticRules4,
+    cands: &EncodedCandidates4,
+    raw_logits: &[f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> Vec<f32> {
+    let mut adjusted = choices::adjust_pair_logits(cands, raw_logits, view, pending);
+    tactics::rules::pairs(rules, cands, &mut adjusted, view, pending);
+    adjusted
+}
+
+/// The log-probability of `mask` under the subset and pair heads: an
+/// independent Bernoulli choice at each free bit on the raw logits at
+/// `temperature`, in a numerically stable form. Zero at temperature zero.
+pub(super) fn bernoulli_logprob(
+    raw_logits: &[f32],
+    mask: &[u8],
+    free_mask: &[u8],
+    temperature: f32,
+) -> f32 {
+    if temperature <= 1e-4 {
+        return 0.0;
+    }
+    let scale = 1.0 / temperature;
+    let mut acc = 0.0_f32;
+    for (i, &raw_l) in raw_logits.iter().enumerate() {
+        if free_mask.get(i).copied().unwrap_or(0) == 1 {
+            let z = raw_l * scale;
+            let picked = mask.get(i).copied().unwrap_or(0) == 1;
+            let step_lp = if picked {
+                if z >= 0.0 {
+                    -((-z).exp().ln_1p())
+                } else {
+                    z - z.exp().ln_1p()
+                }
+            } else if z >= 0.0 {
+                -z - (-z).exp().ln_1p()
+            } else {
+                -z.exp().ln_1p()
+            };
+            acc += step_lp;
+        }
+    }
+    acc
+}
+
+/// The number the tactical layer answers: all of X or a payment, the
+/// lethal share of divided or combat damage, the net's own guess elsewhere.
+#[allow(
+    clippy::too_many_lines,
+    reason = "one match over the number prompts the layer answers"
+)]
+pub(super) fn tactical_scalar(pending: &Pending, view: &PlayerView, scalar_pred: f32) -> f32 {
+    match pending {
+        Pending::ChooseNumber {
+            reason:
+                baylee_engine::choice::NumberPrompt::X
+                | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
+            ..
+        } => 1.0,
+        Pending::ChooseNumber {
+            min,
+            max,
+            reason: baylee_engine::choice::NumberPrompt::DivideDamage { target, left, .. },
+            ..
+        } if *max > *min => {
+            let rem_t = match target {
+                baylee_engine::choice::TargetRef::Object(oid) => {
+                    view.object(oid.object).map_or(*max, |o| {
+                        u32::try_from(
+                            (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1),
+                        )
+                        .unwrap_or(1)
+                    })
+                }
+                baylee_engine::choice::TargetRef::Player(pid) => view
+                    .seat(*pid)
+                    .map_or(*max, |s| u32::try_from(s.life.max(1)).unwrap_or(*max)),
+            };
+            let assign = rem_t.min(*left).clamp(*min, *max);
+            normalize_scalar_choice(assign, *min, *max)
+        }
+        Pending::ChooseNumber {
+            min,
+            max,
+            reason:
+                baylee_engine::choice::NumberPrompt::CombatDamage {
+                    source,
+                    recipient,
+                    index,
+                    of,
+                    left,
+                    lethal,
+                },
+            ..
+        } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
+            // A trampler's question says what is lethal, and
+            // its last blocker is asked too (CR 702.19b).
+            let src_dt = view.object(*source).is_some_and(|o| {
+                (o.keywords & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits()) != 0
+            });
+            let rem_t = lethal.unwrap_or_else(|| {
+                if src_dt {
+                    1
+                } else {
+                    view.object(*recipient).map_or(*max, |o| {
+                        u32::try_from(
+                            (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1),
+                        )
+                        .unwrap_or(1)
+                    })
+                }
+            });
+            let assign = if rem_t <= *left {
+                rem_t.clamp(*min, *max)
+            } else {
+                *min
+            };
+            normalize_scalar_choice(assign, *min, *max)
+        }
+        _ => scalar_pred.clamp(0.0, 1.0),
     }
 }
 
@@ -525,6 +575,22 @@ fn decoded_matches_sample(
         HeadKind4::SubsetPick | HeadKind4::PairPick => encoded.multi_mask == target.multi_mask,
         HeadKind4::ScalarValue => encoded.scalar_norm.to_bits() == target.scalar_norm.to_bits(),
     }
+}
+
+/// The log-probability of `chosen` under [`sample_categorical`] at `tau`,
+/// by the same arithmetic: the probability of an answer the sampler did not
+/// draw, such as one an explorer played in its place.
+pub(super) fn categorical_logprob(logits: &[f32], chosen: usize, tau: f32) -> f32 {
+    if logits.is_empty() || tau <= 1e-4 {
+        return 0.0;
+    }
+    let scale = 1.0 / tau;
+    let max_l = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let mut sum = 0.0_f32;
+    for &l in logits {
+        sum += ((l - max_l) * scale).exp();
+    }
+    ((logits[chosen] - max_l) * scale) - sum.ln()
 }
 
 pub(super) fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (usize, f32) {
@@ -582,3 +648,6 @@ mod tests;
 
 #[cfg(test)]
 mod grouped_attack_tests;
+
+#[cfg(test)]
+mod explore_tests;

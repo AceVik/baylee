@@ -89,6 +89,10 @@ impl NetPlayer4 {
             notes_answer: false,
         };
         self.last_fallback = None;
+        // Only a decision the raw sampler answers carries an exploration record.
+        if let Some(explorer) = &mut self.explorer {
+            explorer.clear();
+        }
         let seat_u8 = view.seat.get();
         if matches!(pending, Pending::Priority { .. })
             && view.owed.is_none()
@@ -267,6 +271,9 @@ impl NetPlayer4 {
                 (answer, ranking)
             }
             Err(error) => {
+                if let Some(explorer) = &mut self.explorer {
+                    explorer.clear();
+                }
                 self.last_fallback = Some(FallbackDiagnostic4 {
                     reason: FallbackReason4::InferenceOrDecode,
                     pending_kind: p_kind,

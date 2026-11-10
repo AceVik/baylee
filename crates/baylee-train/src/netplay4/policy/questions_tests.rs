@@ -23,6 +23,7 @@ fn favoured(
     let mut rng = Rng::new(410);
     let (action, _, _, target) = PolicySampler4 {
         tactician: None,
+        explorer: None,
         mode,
         temperature: 0.0,
         rng: &mut rng,
