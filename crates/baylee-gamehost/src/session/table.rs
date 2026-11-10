@@ -11,7 +11,7 @@
 
 use super::{RegistryLookup, SeatKind, seat_byte};
 use baylee_ai::HeuristicAgent;
-use baylee_ai::intelligence::{DeckIntel, LibraryAccess};
+use baylee_ai::intelligence::DeckIntel;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -242,8 +242,10 @@ impl Table<'_> {
     /// `None` when the chair answers over a socket.
     ///
     /// The agent receives the filtered view; scouting checks the live chair
-    /// separately (`scouting::request`) and denies a human's stand-in, and a
-    /// fair table clamps every request to the agent's own deck.
+    /// separately (`scouting::request`): it denies a human's stand-in, tells
+    /// a fair level its own deck alone, and only a level that peeks more. A
+    /// table that says it is fair (`Session::set_fair_scouting`) holds even
+    /// that one to its own deck.
     pub(super) fn house_answer(&self, player: PlayerId, pending: &Pending) -> Option<PlayerAction> {
         let (SeatKind::Ai(agent) | SeatKind::StandIn(agent)) =
             self.seats.get(usize::from(player.get()))?
@@ -254,9 +256,7 @@ impl Table<'_> {
         let context = self.engine.decision_context();
         let scouting = agent.scouting_request(pending).and_then(|mut request| {
             if self.fair_scouting {
-                request.opponents = false;
-                request.hands = false;
-                request.library = LibraryAccess::None;
+                request = crate::scouting::own_deck_only(request);
             }
             crate::scouting::request(
                 self.seats,

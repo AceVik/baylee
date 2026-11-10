@@ -398,6 +398,7 @@ AiCasual = Locker
 AiSteady = Solide
 AiSharp = Scharf
 AiExpert = Experte
+AiSeer = Seher (unfair)
 PageBack = ‹ Zurück
 PageMore = Mehr ›
 PageOf = { $first }–{ $last } von { $total }

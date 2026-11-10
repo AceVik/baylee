@@ -1435,8 +1435,7 @@ async fn sit_down(
     unstarted: &Unstarted,
     fallen: &Fallen,
 ) -> anyhow::Result<Seated> {
-    let profile = AIProfile::named(&join.level)
-        .with_context(|| format!("no house level called «{}»", join.level))?;
+    let profile = baylee_seat::house::level(&join.level).map_err(anyhow::Error::msg)?;
     if let Some(why) = join.fallback_files_fault() {
         bail!(why);
     }
@@ -1785,8 +1784,7 @@ impl OrderReader {
             self.disclosure.prefix()
         );
         let join = self.ordered(&order, env)?;
-        let level = AIProfile::named(&join.level)
-            .with_context(|| format!("no house level called «{}»", join.level))?;
+        let level = baylee_seat::house::level(&join.level).map_err(anyhow::Error::msg)?;
         let chosen = choose(
             &join,
             &[line.to_string()],

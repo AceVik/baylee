@@ -1073,6 +1073,34 @@ part passes the test for dropping it, but the raw net's own targeting passes it
 as well and the heads add nothing to it (+0.0 pp [−0.7, +0.7] on the fresh
 deals): the layer earns nothing there, the head is not why.
 
+### Deliberation over the answers (thinking revision 2)
+
+Off by default; design, cost and the measurement plan are in
+`docs/proposals/baylee-ai-thinking.md`. The legacy thinking steps move no
+answer (K = 0, 1, 4, 8 against K = 2 change the top answer in 1-2 % of r1's
+decisions): they never see a candidate and were never supervised per step.
+`Config5.thinking_revision = 2` adds a block that runs after the heads' first
+scores, over the 16 best answers: each step reads its previous proposal,
+compares the answers, looks at the board again and corrects the logits, and
+states a confidence in its top answer. Its correction starts at zero, so a net
+with the block attached plays as its source until trained.
+
+- Train: `train5.py --thinking-revision 2 --thinking-warmstart --init SOURCE
+  --train-thinking-only --think-supervision --decision-chunk N` (N > 1; the
+  per-step terms read the trace of deferred readouts). `--thinking-steps` is
+  then the trunk's scratchpad depth and must be the source's; the block runs
+  `--deliberation-steps`. `[think] right_by_step` in the log is the share of
+  decisions each step answers as the target (step 0: the first proposal).
+- Export: `export_onnx4.py` as before; a depth graph `model.kK.onnx` runs K
+  deliberation steps and outputs `think_confidence` beside the five outputs.
+- Play: `--thinking-steps K` picks the depth as before. `seat4` and `eval4`
+  `--think-adaptive DEEP,THRESHOLD` think a decision through again at DEEP
+  steps when the first pass states a confidence below THRESHOLD; a step costs
+  under a millisecond on the CPU, so this is a measurement of the confidence,
+  not a saving.
+- Measure: `thinking_probe5.py` (what each step corrects and breaks,
+  confidence calibration), `bench_thinking5.py` (latency per depth graph).
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and

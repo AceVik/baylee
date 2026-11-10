@@ -89,8 +89,9 @@ enum Commands {
         #[arg(long)]
         profiles_config: PathBuf,
         /// JSON array of `[seat0_profile, seat1_profile]` pairs, frozen at startup.
-        /// An entry `house:<level>` (novice, casual, steady, sharp, expert)
-        /// seats the house at that level instead of a profile, to measure a
+        /// An entry `house:<level>` (a fair level or a frozen reference; the
+        /// `seer` peeks, which a seat cannot) seats the house at that level
+        /// instead of a profile, to measure a
         /// teacher against it; it reserves nothing and is never a teacher's
         /// answer. The house against the house is refused.
         #[arg(long)]

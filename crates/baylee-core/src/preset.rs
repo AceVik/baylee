@@ -493,6 +493,25 @@ pub enum HoldUp {
     ThreatAware,
 }
 
+/// What a house AI plays from: its seat's view, or also what is hidden.
+///
+/// A player at the table knows their own view and their own decklist, and
+/// every level a player is offered by default knows exactly that
+/// (owner, 10.11.2026). Peeking is a level of its own, `seer`, chosen on
+/// purpose and listed as unfair wherever levels are listed.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Sight {
+    /// The seat's own view and its own submitted decklist.
+    #[default]
+    Fair,
+    /// Also every opponent's decklist and hand, and the next cards of every
+    /// library, which the host discloses to it (`baylee-gamehost`'s
+    /// `scouting::request`). Only the in-process host can: a seat over a
+    /// socket is sent none of it, so a seat bridge refuses a peeking level.
+    Peeking,
+}
+
 /// Difficulty profile of an AI seat (one code path, parameterized).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
@@ -508,6 +527,10 @@ pub struct AIProfile {
     pub politics: Politics,
     /// Open-mana discipline.
     pub hold_up: HoldUp,
+    /// Whether it plays from its seat's view or also from what is hidden.
+    /// Absent on the wire and in a record from before it: fair.
+    #[serde(default)]
+    pub sight: Sight,
 }
 
 impl Default for AIProfile {
@@ -524,6 +547,7 @@ impl AIProfile {
         mulligan_skill: 0,
         politics: Politics::Random,
         hold_up: HoldUp::None,
+        sight: Sight::Fair,
     };
     /// Fixes land-starved hands, but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
@@ -538,6 +562,7 @@ impl AIProfile {
         mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
+        sight: Sight::Fair,
     };
     /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
@@ -552,6 +577,20 @@ impl AIProfile {
         temperature_milli: 12,
         ..Self::SHARP
     };
+    /// `expert` that peeks: it is told every opponent's decklist and hand
+    /// and the next three cards of every library. Unfair by design, listed
+    /// as unfair, and never a default.
+    pub const SEER: Self = Self {
+        sight: Sight::Peeking,
+        ..Self::EXPERT
+    };
+
+    /// Whether this level plays from hidden information
+    /// ([`Sight::Peeking`]).
+    #[must_use]
+    pub const fn peeks(self) -> bool {
+        matches!(self.sight, Sight::Peeking)
+    }
 
     /// Deterministic search work per decision. A clock cutoff would make the
     /// same view choose differently on different machines; benchmarks measure
@@ -565,22 +604,65 @@ impl AIProfile {
         }
     }
 
-    /// The profiles a player can choose between, weakest first.
-    pub const NAMED: [(&'static str, Self); 5] = [
+    /// `sharp` as it played on 10.11.2026, frozen as the benchmark that
+    /// training measures against (owner, 10.11.2026).
+    ///
+    /// Written out rather than `Self::SHARP`, so a change to `sharp` does
+    /// not move it. The constants are half of it; the other half is the
+    /// code they drive, which `baylee-gamehost`'s `reference_profile` test
+    /// pins: the answers this profile gives over a fixed set of games, at a
+    /// fair table, as the benchmark plays it. A change to the house that is
+    /// meant to make `sharp` play differently goes behind a field this
+    /// profile does not set, so this one keeps answering as it did.
+    pub const SHARP_2026_11: Self = Self {
+        lookahead: 1,
+        temperature_milli: 30,
+        mulligan_skill: 2,
+        politics: Politics::AttackLeader,
+        hold_up: HoldUp::ThreatAware,
+        sight: Sight::Fair,
+    };
+
+    /// The profiles a player can choose between, weakest first. The last,
+    /// `seer`, is the one that peeks ([`Self::peeks`]); a list that shows
+    /// these says so beside it.
+    pub const NAMED: [(&'static str, Self); 6] = [
         ("novice", Self::NOVICE),
         ("casual", Self::CASUAL),
         ("steady", Self::STEADY),
         ("sharp", Self::SHARP),
         ("expert", Self::EXPERT),
+        ("seer", Self::SEER),
     ];
 
-    /// Looks a profile up by the key a client sends.
+    /// Frozen profiles that measurements name, never offered to a player.
+    pub const REFERENCES: [(&'static str, Self); 1] = [("sharp-2026-11", Self::SHARP_2026_11)];
+
+    /// Looks a profile up by the key a client sends: one of [`Self::NAMED`].
     #[must_use]
     pub fn named(key: &str) -> Option<Self> {
         Self::NAMED
             .iter()
             .find(|(name, _)| *name == key)
             .map(|(_, profile)| *profile)
+    }
+
+    /// A level a player may choose ([`Self::NAMED`]) or a frozen reference
+    /// ([`Self::REFERENCES`]), with its name as the lists spell it: what a
+    /// tool that measures against the house takes on its command line.
+    #[must_use]
+    pub fn lookup(key: &str) -> Option<(&'static str, Self)> {
+        Self::NAMED
+            .iter()
+            .chain(&Self::REFERENCES)
+            .find(|(name, _)| *name == key)
+            .copied()
+    }
+
+    /// [`Self::lookup`] without the name.
+    #[must_use]
+    pub fn resolve(key: &str) -> Option<Self> {
+        Self::lookup(key).map(|(_, profile)| profile)
     }
 }
 
@@ -1303,6 +1385,71 @@ mod tests {
         assert_eq!(AIProfile::NOVICE.node_budget(), 0);
         assert_eq!(AIProfile::SHARP.node_budget(), 16_384);
         assert_eq!(AIProfile::EXPERT.node_budget(), 262_144);
+    }
+
+    /// A frozen reference is found by the tools that measure against it and
+    /// never by a client choosing a level: it is not one, and a lobby that
+    /// took its name would offer a benchmark as a difficulty.
+    #[test]
+    fn a_reference_is_found_by_the_tools_and_never_offered_to_a_player() {
+        for (key, profile) in AIProfile::REFERENCES {
+            assert_eq!(AIProfile::named(key), None, "{key} reached a lobby");
+            assert_eq!(AIProfile::lookup(key), Some((key, profile)));
+            assert_eq!(AIProfile::resolve(key), Some(profile));
+            assert!(
+                AIProfile::NAMED.iter().all(|(name, _)| *name != key),
+                "{key} is both a level and a reference"
+            );
+        }
+        for (key, profile) in AIProfile::NAMED {
+            assert_eq!(AIProfile::lookup(key), Some((key, profile)));
+        }
+        assert_eq!(AIProfile::resolve("sharp-2026-12"), None);
+        // The constants the reference was frozen with: the profile's half of
+        // the freeze. The code's half is `baylee-gamehost`'s pinned answers.
+        assert_eq!(
+            AIProfile::SHARP_2026_11,
+            AIProfile {
+                lookahead: 1,
+                temperature_milli: 30,
+                mulligan_skill: 2,
+                politics: Politics::AttackLeader,
+                hold_up: HoldUp::ThreatAware,
+                sight: Sight::Fair,
+            }
+        );
+    }
+
+    /// Exactly one level peeks, it is the last a list shows, it is no
+    /// default, and the reference is fair (owner, 10.11.2026). A profile
+    /// written before `sight` existed reads as fair: nothing on the wire or
+    /// in a record can make an old profile start peeking.
+    #[test]
+    fn only_the_seer_peeks_and_nothing_peeks_by_default() {
+        let peeking: Vec<&str> = AIProfile::NAMED
+            .iter()
+            .filter(|(_, profile)| profile.peeks())
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(peeking, ["seer"]);
+        assert_eq!(AIProfile::NAMED.last().map(|(name, _)| *name), Some("seer"));
+        assert!(!AIProfile::default().peeks());
+        assert_eq!(Sight::default(), Sight::Fair);
+        assert!(AIProfile::REFERENCES.iter().all(|(_, p)| !p.peeks()));
+        assert_eq!(
+            AIProfile::SEER,
+            AIProfile {
+                sight: Sight::Peeking,
+                ..AIProfile::EXPERT
+            },
+            "the seer is expert with its eyes open, nothing else"
+        );
+        let old = r#"{"lookahead":2,"temperature_milli":12,"mulligan_skill":2,
+            "politics":"AttackLeader","hold_up":"ThreatAware"}"#;
+        let read: AIProfile = serde_json::from_str(old).expect("an old profile reads");
+        assert_eq!(read, AIProfile::EXPERT);
+        let said = serde_json::to_value(AIProfile::SEER).expect("a profile writes");
+        assert_eq!(said["sight"], "peeking");
     }
 
     /// A room that chose no format says nothing about one on the wire, a

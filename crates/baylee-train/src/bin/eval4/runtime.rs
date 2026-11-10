@@ -34,6 +34,17 @@ trait EvaluationPlayer {
     fn rule_refs_left_out(&self) -> u64 {
         0
     }
+    /// Sets `--think-adaptive` on this player; `false` when it is no net.
+    fn set_adaptive_thinking(
+        &mut self,
+        _adaptive: baylee_train::netplay4::AdaptiveThinking4,
+    ) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+    /// Second passes since this was last asked.
+    fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
+        baylee_train::netplay4::ThinkingUse4::default()
+    }
     /// Sets `--choice-guard` on this player, which only a net can honour.
     fn set_choice_guard(&mut self, _guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         false
@@ -113,6 +124,16 @@ trait EvaluationPlayer {
 impl EvaluationPlayer for NetPlayer4 {
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         self.last_fallback()
+    }
+    fn set_adaptive_thinking(
+        &mut self,
+        adaptive: baylee_train::netplay4::AdaptiveThinking4,
+    ) -> anyhow::Result<bool> {
+        Self::set_adaptive_thinking(self, adaptive.deep, adaptive.threshold)?;
+        Ok(true)
+    }
+    fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
+        Self::take_thinking_use(self)
     }
     fn set_choice_guard(&mut self, guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         Self::set_choice_guard(self, *guard);

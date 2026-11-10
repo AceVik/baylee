@@ -1989,13 +1989,16 @@ one.
 
 `HeuristicAgent::act(&PlayerView, &Pending)` uses the same filtered view as a
 networked player. The host can additionally provide borrowed selected-effect
-context and a private scouting report to an active house AI. This is an
-intentional AI privilege: current hands, submitted decks, sideboards and
-requested library depth. None is added to `Pending`, `PlayerView`,
+context and a private scouting report to an active house AI. A fair level
+(every level but `seer`, `docs/house-ai.md` §"Fair by default, and the one
+level that peeks") is told its own submitted deck and nothing hidden; only
+`seer` is given the privilege of current hands, opponents' submitted decks
+and library depth, and every list of levels labels it unfair. None is added to `Pending`, `PlayerView`,
 `GameStatic`, or a protocol envelope, so this does not change the view version.
 
 The authorization lives in `gamehost::scouting::request`, which checks the
-current controller for every call. Only `SeatKind::Ai` qualifies. A `Driven`
+current controller and its level for every call. Only `SeatKind::Ai`
+qualifies, and only at a level that peeks for anything past its own deck. A `Driven`
 AI chair is being played by a human and is refused; `StandIn` belongs to a
 human and is also refused. No network request can invoke this private module.
 Reports have no serialization and are consumed for one decision without
@@ -4804,7 +4807,8 @@ writes it beside "playing" in whole minutes (`12 min`, `1 h 5 min`).
 Never an account id — a `player` is a handle (`Alice#af03`), and `you` / `yours` answer
 "is that me" without the listing having to carry anyone's account. `kind` is
 `"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
-(`novice`, `casual`, `steady`, `sharp`, `expert`); one that does not exist is a `400` rather than a
+(`novice`, `casual`, `steady`, `sharp`, `expert`, `seer`; the last reads the other chairs' hidden
+cards and a client labels it unfair); one that does not exist is a `400` rather than a
 quiet default, because a table that plays at another level than it advertises
 is worse than one that says no.
 

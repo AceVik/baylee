@@ -391,7 +391,12 @@ fn combat_blocks_lethal_player_damage_before_protecting_a_planeswalker() {
 
 #[test]
 fn every_adjacent_difficulty_changes_a_real_decision() {
-    assert_eq!(AIProfile::NAMED.len(), 5);
+    assert_eq!(
+        AIProfile::NAMED.len(),
+        6,
+        "five fair levels, held apart below, and the seer, which is expert that \
+         peeks (`only_the_seer_peeks_and_nothing_peeks_by_default`)"
+    );
     let mut v = view(0, &[20, 20], vec![]);
     v.hand = (0..7).map(|i| hand_card(i, "Brainstorm")).collect();
     let pending = Pending::Mulligan {

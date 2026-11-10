@@ -431,6 +431,17 @@ pub(super) fn run_rows(
         (None, None, None) => None,
         _ => anyhow::bail!("a graph outputs all three embeddings or none"),
     };
+    let confidence = match outputs.get("think_confidence") {
+        Some(stated) => {
+            let (_, stated) = stated.try_extract_tensor::<f32>().map_err(ort_error)?;
+            anyhow::ensure!(
+                stated.len() == b,
+                "the graph's confidence answered a call of {b} rows in another shape"
+            );
+            Some(stated)
+        }
+        None => None,
+    };
     Ok(rows
         .iter()
         .enumerate()
@@ -445,6 +456,7 @@ pub(super) fn run_rows(
                 candidates: cands[i * c * d_model..(i * c + r.candidates) * d_model].to_vec(),
                 pairs: pairs[i * p * d_model..(i * p + r.pairs) * d_model].to_vec(),
             }),
+            confidence: confidence.map(|stated| stated[i]),
         })
         .collect())
 }

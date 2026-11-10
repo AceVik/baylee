@@ -144,6 +144,16 @@ impl EvaluationPlayer for SeatPlayers {
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         self.learner.take_choice_guard_fired()
     }
+    fn set_adaptive_thinking(
+        &mut self,
+        adaptive: baylee_train::netplay4::AdaptiveThinking4,
+    ) -> anyhow::Result<bool> {
+        // Only the seat under test thinks again; its opponents play as given.
+        self.learner.set_adaptive_thinking(adaptive)
+    }
+    fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
+        self.learner.take_thinking_use()
+    }
     fn set_tactic_rules(&mut self, rules: baylee_train::netplay4::TacticRules4) -> bool {
         let ok = self.learner.set_tactic_rules(rules);
         if self.search_opponent

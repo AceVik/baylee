@@ -62,11 +62,15 @@ mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
 pub mod tactician;
 mod tactics;
+mod thinking;
+#[cfg(test)]
+mod thinking_tests;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 pub use tactics::guard::{ChoiceGuard4, GuardArm, TacticalParts};
 pub use tactics::reading;
 pub use tactics::rules::{RuleGroup, TacticRules4};
+pub use thinking::{AdaptiveThinking4, THINKING_CONTRACT, ThinkingUse4};
 
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
@@ -97,6 +101,9 @@ pub(super) struct StepOutputs {
     pub(super) value: f32,
     /// Present when the graph outputs them.
     pub(super) embeddings: Option<StepEmbeddings4>,
+    /// The net's probability that its top answer is right, when the graph
+    /// states one (`think_confidence`, the deliberation block).
+    pub(super) confidence: Option<f32>,
 }
 
 /// Output tensor names produced by the Playernet v4 ONNX graph.
@@ -182,6 +189,14 @@ pub struct NetPlayer4 {
     /// `eval4 --tactician`: answers the attack, block and target questions
     /// it names; `None` everywhere else, live play included.
     tactician: Option<tactician::Tactician4>,
+    /// Whether the model's graphs state a confidence in their answer.
+    states_confidence: bool,
+    /// A second, deeper pass for answers the net is unsure of; off unless asked.
+    adaptive: Option<AdaptiveThinking4>,
+    /// How often the second pass ran.
+    thinking_use: ThinkingUse4,
+    /// Deliberation steps behind the latest answer: the provenance's depth.
+    last_depth: u8,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -246,6 +261,8 @@ struct ModelFiles {
     identity: ModelIdentity,
     d_model: usize,
     thinking_steps: u8,
+    /// The graphs state a confidence ([`thinking::states_confidence`]).
+    states_confidence: bool,
 }
 
 impl ModelFiles {
@@ -296,6 +313,7 @@ impl ModelFiles {
             identity,
             d_model,
             thinking_steps,
+            states_confidence: thinking::states_confidence(&meta),
         };
         Ok((files, thinking_steps, session))
     }
@@ -437,6 +455,7 @@ impl NetPlayer4 {
             identity: m.identity.clone(),
             d_model: m.d_model,
             thinking_steps: m.thinking_steps,
+            states_confidence: m.states_confidence,
         };
         Self::with_backend(files, Backend::Shared(net.clone()))
     }
@@ -468,6 +487,10 @@ impl NetPlayer4 {
             last_menu: None,
             dirty_h_seats: 0,
             tactician: None,
+            states_confidence: files.states_confidence,
+            adaptive: None,
+            thinking_use: ThinkingUse4::default(),
+            last_depth: files.thinking_steps,
         }
     }
 
@@ -494,6 +517,7 @@ impl NetPlayer4 {
             identity,
             d_model,
             thinking_steps: 2,
+            states_confidence: false,
         };
         Self::with_backend(files, Backend::Owned(BTreeMap::new()))
     }
@@ -570,6 +594,53 @@ impl NetPlayer4 {
     /// Updates the number of latent thinking steps `K` (`1..=8`) in place.
     pub fn set_thinking_steps(&mut self, k: u8) {
         self.thinking_steps = k.clamp(1, 8);
+    }
+
+    /// Thinks a decision through again at `deep` steps when the first pass
+    /// (at [`Self::with_thinking_steps`]' depth, set before this) states a
+    /// confidence below `threshold`.
+    ///
+    /// # Errors
+    /// When the model states no confidence (it has no deliberation block),
+    /// or the depths and threshold are not ones [`AdaptiveThinking4::new`]
+    /// accepts.
+    pub fn with_adaptive_thinking(mut self, deep: u8, threshold: f32) -> anyhow::Result<Self> {
+        self.set_adaptive_thinking(deep, threshold)?;
+        Ok(self)
+    }
+
+    /// [`Self::with_adaptive_thinking`] in place.
+    ///
+    /// # Errors
+    /// As [`Self::with_adaptive_thinking`].
+    pub fn set_adaptive_thinking(&mut self, deep: u8, threshold: f32) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.states_confidence,
+            "adaptive thinking needs a model whose graphs state a confidence \
+             (thinking_outputs {THINKING_CONTRACT} in its metadata)"
+        );
+        let adaptive = AdaptiveThinking4::new(self.thinking_steps, deep, threshold)?;
+        let graph = self
+            .model_dir
+            .join(format!("model.k{}.onnx", depth_graph(adaptive.deep)));
+        anyhow::ensure!(
+            graph.is_file(),
+            "the deeper pass needs {}, which the export lacks",
+            graph.display()
+        );
+        self.adaptive = Some(adaptive);
+        Ok(())
+    }
+
+    /// The second pass this player may take, if any.
+    #[must_use]
+    pub const fn adaptive_thinking(&self) -> Option<AdaptiveThinking4> {
+        self.adaptive
+    }
+
+    /// How often this player thought deeper so far; the counts start again.
+    pub fn take_thinking_use(&mut self) -> ThinkingUse4 {
+        std::mem::take(&mut self.thinking_use)
     }
 
     /// Resets per-game recurrent state, seat knowledge, and loop guards.

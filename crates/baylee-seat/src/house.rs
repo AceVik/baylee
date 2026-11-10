@@ -39,13 +39,38 @@ impl HouseMind {
         Self { profile }
     }
 
-    /// The house at a level the lobby names (`steady`, `sharp`, …); `None`
-    /// for a name it does not know.
+    /// The house at a level the lobby names (`steady`, `sharp`, …) or a
+    /// frozen reference (`sharp-2026-11`); `None` for a name it does not
+    /// know or a level a seat cannot play ([`level`]).
     #[must_use]
-    pub fn named(level: &str) -> Option<Self> {
-        AIProfile::named(level).map(Self::new)
+    pub fn named(name: &str) -> Option<Self> {
+        level(name).ok().map(Self::new)
     }
+}
 
+/// The level `name` names, as a seat plays it.
+///
+/// A seat answers from what its socket is sent, which is its own view and
+/// nothing hidden, so a level that peeks (`seer`) is one it cannot play:
+/// it would sit down under that name and play as `expert`. It is refused in
+/// one sentence rather than played under a name that does not tell the
+/// truth.
+///
+/// # Errors
+/// The sentence, for a name no level has or for a level that peeks.
+pub fn level(name: &str) -> Result<AIProfile, String> {
+    let profile =
+        AIProfile::resolve(name).ok_or_else(|| format!("no house level called «{name}»"))?;
+    if profile.peeks() {
+        return Err(format!(
+            "«{name}» reads hidden cards, which only a table's own house can; a seat \
+             plays from its own view, so choose «expert»"
+        ));
+    }
+    Ok(profile)
+}
+
+impl HouseMind {
     /// The house's answer, synchronously.
     ///
     /// Seeded as the host seeds a house chair at a named table
@@ -109,6 +134,29 @@ mod tests {
     use super::*;
     use baylee_client_core::test_support::ViewBuilder;
     use baylee_core::ids::PlayerId;
+    /// A seat plays every fair level and every frozen reference, and refuses
+    /// the level that peeks: its socket is sent nothing hidden, so it would
+    /// play `expert` under the `seer`'s name.
+    #[test]
+    fn a_seat_plays_every_fair_level_and_refuses_the_one_that_peeks() {
+        for (name, profile) in AIProfile::NAMED.iter().chain(&AIProfile::REFERENCES) {
+            match level(name) {
+                Ok(played) => {
+                    assert!(!profile.peeks(), "{name} peeks and was taken");
+                    assert_eq!(played, *profile);
+                    assert!(HouseMind::named(name).is_some());
+                }
+                Err(why) => {
+                    assert!(profile.peeks(), "{name} was refused: {why}");
+                    assert!(why.contains("expert"), "{why}");
+                    assert!(HouseMind::named(name).is_none());
+                }
+            }
+        }
+        assert!(level("seer").is_err());
+        assert!(level("oracle").is_err(), "no such level");
+    }
+
     #[test]
     fn house_keeps_public_reveals_and_drops_voluntary_hand_sharing() {
         let mut view = ViewBuilder::new(3).build();

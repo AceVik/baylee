@@ -32382,13 +32382,16 @@ components:
           type:
           - string
           - "null"
-          description: The AI's difficulty, for an AI chair; `null` for a person's.
+          description: >-
+            The AI's difficulty, for an AI chair; `null` for a person's. `seer` alone reads
+            the other chairs' hidden cards.
           enum:
           - novice
           - casual
           - steady
           - sharp
           - expert
+          - seer
           - null
         deck:
           type: string
