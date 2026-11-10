@@ -8,7 +8,10 @@ use central_client::Session;
 use zeroize::Zeroizing;
 
 mod archive;
+mod pairing;
 mod social;
+
+pub use pairing::{PairedSession, PairingClaim};
 
 /// Restored native account. All network operations are blocking and belong on a worker.
 pub struct Account {
@@ -33,7 +36,9 @@ impl Account {
     /// account (discovery says `Legacy`) signs in once at this Central with
     /// its old password, which Central checks against the official gateway's
     /// hash; the account is then enrolled and signed in through OPAQUE, and
-    /// the password only ever unwraps the master key.
+    /// the password only ever unwraps the master key. Right after, the
+    /// account's key check is stored where Central has none, so the website
+    /// can pair a client with it later ([`Account::claim_pairing`]).
     ///
     /// While the account has not accepted Baylee Central's terms in force
     /// ([`Account::central_terms_open`]), the sign-in succeeds and the
@@ -71,8 +76,22 @@ impl Account {
                 enrollment.identity
             }
         };
-        let mut session = central_client::login(&http, identity, password.to_string())?;
+        let session = central_client::login(&http, identity, password.to_string())?;
         drop(password);
+        // The key check, which an account needs before the website can pair
+        // a client with it (`docs/central-login.md` §"Signing in from the
+        // website"): Central takes it only within two minutes of a password
+        // proof, so right here, and once. A Central that cannot store it now
+        // costs this sign-in nothing; the next one tries again.
+        let _ = session.ensure_key_check(&http);
+        Self::restore(http, session)
+    }
+
+    /// The signed-in account from a fresh session, a password's or a
+    /// pairing's: its document read and checked, the restore confirmed,
+    /// Central's terms asked about, and a move from a gateway account
+    /// resumed. The session ends on any failure.
+    fn restore(http: CentralHttp, mut session: Session) -> Result<Self, Error> {
         let data = match AccountData::read(session.document()) {
             Ok(data) => data,
             Err(error) => {

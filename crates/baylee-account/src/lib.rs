@@ -9,7 +9,7 @@ pub mod client_record;
 pub mod data;
 pub mod reports;
 #[cfg(feature = "client")]
-pub use account::Account;
+pub use account::{Account, PairedSession, PairingClaim};
 #[path = "gateway.rs"]
 mod admission;
 mod http;
