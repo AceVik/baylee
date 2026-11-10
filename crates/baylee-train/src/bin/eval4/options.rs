@@ -87,9 +87,17 @@ struct Args {
     #[arg(long, requires = "tactician")]
     tactician_margin: Option<f32>,
     /// Below this confidence a `tactician_head_v2` net plays the net's own
-    /// answer; default the net's `confidence_threshold`.
+    /// answer. Default none: the bare tactician plays (stage S1 measures it
+    /// so; the net's `confidence_threshold` is reported, not used).
     #[arg(long, requires = "tactician")]
     tactician_confidence: Option<f32>,
+    /// `DAgger`: a `tactician_head_v2` net plays its windows, and the tactical
+    /// layer's answer under these rule groups (comma list), read on copies at
+    /// the same view and logits, is kept as the label in `--tactician-out`
+    /// (`tactician_imitation_v1`); nothing of the layer is played at the
+    /// windows. Also against a self-play copy, whose windows are kept too.
+    #[arg(long, requires_all = ["tactician", "tactician_out"])]
+    tactician_relabel: Option<String>,
     /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
     #[arg(long, requires = "tactician_windows")]
     tactician_out: Option<PathBuf>,

@@ -163,6 +163,19 @@ impl TacticRules4 {
         self.fired[group as usize] += 1;
     }
 
+    /// The groups that changed something since `before` (a copy of these
+    /// rules taken then), by name: what a tactician record attributes its
+    /// label to.
+    #[must_use]
+    pub fn fired_since(&self, before: &Self) -> Vec<&'static str> {
+        GROUPS
+            .iter()
+            .zip(self.fired.iter().zip(before.fired))
+            .filter(|(_, (now, then))| **now > *then)
+            .map(|((_, name), _)| *name)
+            .collect()
+    }
+
     /// Answers each group changed since this was last asked, by group's name.
     pub fn take_fired(&mut self) -> Vec<(&'static str, u64)> {
         let fired = GROUPS

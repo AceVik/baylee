@@ -85,6 +85,7 @@ fn stage_one_record() -> TacticianRecord4 {
         built: None,
         confidence: None,
         net_micros: None,
+        fired: Vec::new(),
         state: vec![1.0; D],
         units: vec![2.0; 2 * D],
         rows: vec![3.0; 3 * ROW_TAIL],
@@ -268,7 +269,7 @@ fn without_exploration_imitation_plays_the_layer_s_own_answer() {
             let layer = target_of(window, &rules);
             // Before the layer, an imitating tactician answers nothing.
             assert!(tactician.answer(step).unwrap().is_none());
-            let played = tactician.imitate(step, &layer).unwrap().unwrap();
+            let played = tactician.imitate(step, &layer, &[]).unwrap().unwrap();
             assert_eq!(played, layer);
             let record = tactician.take_records().pop().unwrap();
             assert_eq!(record.rules, rules);
@@ -316,7 +317,7 @@ fn imitation_explores_into_legal_answers_with_exact_probabilities() {
             for k in 0..500 {
                 let draw = (f64::from(k) + 0.5) / 500.0;
                 let (target, record) =
-                    imitate::answer(step, &question, &layer, epsilon, draw, &prior).unwrap();
+                    imitate::answer(step, &question, &layer, epsilon, draw, &[], &prior).unwrap();
                 assert_eq!(record.rules, rules);
                 assert!(exact_action(window, step, &record.played).is_some());
                 if record.played == rules {
@@ -331,7 +332,7 @@ fn imitation_explores_into_legal_answers_with_exact_probabilities() {
             }
             assert!((total - 1.0).abs() < 1e-9, "{window:?}: {total}");
             let mut tactician = tactician(window, TacticianMode4::Imitate { epsilon }, seed);
-            tactician.imitate(step, &layer).unwrap().unwrap()
+            tactician.imitate(step, &layer, &[]).unwrap().unwrap()
         });
     }
 }
@@ -370,6 +371,7 @@ fn a_v2_net_builds_legal_answers_and_falls_back_to_the_trunk_when_unsure() {
             let sure = TacticianMode4::Build {
                 net: net.clone(),
                 threshold: 0.0,
+                label: None,
             };
             let mut builder = tactician(window, sure, seed);
             let target = builder.answer(step).unwrap().unwrap();
@@ -383,6 +385,7 @@ fn a_v2_net_builds_legal_answers_and_falls_back_to_the_trunk_when_unsure() {
             let unsure = TacticianMode4::Build {
                 net: net.clone(),
                 threshold: 1.0,
+                label: None,
             };
             let mut doubter = tactician(window, unsure, seed);
             let fallback = doubter.answer(step).unwrap().unwrap();
@@ -392,6 +395,40 @@ fn a_v2_net_builds_legal_answers_and_falls_back_to_the_trunk_when_unsure() {
                 assert_eq!(record.played, trunk);
                 assert_eq!(fallback, target_of(window, &trunk));
             }
+            target
+        });
+    }
+}
+
+#[test]
+fn dagger_plays_the_student_and_keeps_the_layer_s_answer_as_the_label() {
+    let net = Arc::new(TacticianNet4::load(&fixture(), 1).unwrap());
+    let bundle = TacticRules4::parse(baylee_train_ops::measured::RULE_GROUPS).unwrap();
+    for (window, want) in windows() {
+        on_tables(window, want, |step, seed| {
+            let units = window.units(step.cands);
+            let logits = &(if window == Window4::Block {
+                step.pair_logits
+            } else {
+                step.cand_logits
+            })[..units];
+            let relabel = TacticianMode4::Build {
+                net: net.clone(),
+                threshold: 0.0,
+                label: Some(bundle),
+            };
+            let mut student = tactician(window, relabel, seed);
+            let target = student.answer(step).unwrap().unwrap();
+            let record = student.take_records().pop().unwrap();
+            assert_eq!(record.drawn, Drawn4::Built);
+            assert_eq!(Some(&record.played), record.built.as_ref());
+            assert_eq!(
+                record.rules,
+                rules_answer_with(window, step, logits, bundle)
+            );
+            assert_eq!(record.label.as_deref(), Some("rules"));
+            assert_eq!(record.rows_read_rules, Some(false));
+            assert_rows_without_rules(&record.rows, units);
             target
         });
     }

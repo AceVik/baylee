@@ -184,8 +184,12 @@ pub enum TacticianMode4 {
     Build {
         /// The trained net.
         net: Arc<net::TacticianNet4>,
-        /// Below this confidence the seat plays `N`.
+        /// Below this confidence the seat plays `N`; 0 plays the bare net.
         threshold: f32,
+        /// `DAgger` relabelling: the tactical layer's answer under these rule
+        /// groups, read on copies at the same view and logits, is kept as the
+        /// label. Nothing of the layer is played.
+        label: Option<TacticRules4>,
     },
 }
 
@@ -260,6 +264,10 @@ pub struct TacticianRecord4 {
     /// Microseconds of the v2 net's forward alone (build only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net_micros: Option<u64>,
+    /// The rule groups that changed the layer's answer at this window, by
+    /// name (imitation and relabelling): what the label is attributed to.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fired: Vec<String>,
     /// The thought-through global slot, `[d]`.
     #[serde(skip)]
     pub state: Vec<f32>,
@@ -508,9 +516,15 @@ impl Tactician4 {
         let Some(question) = self.question(step)? else {
             return Ok(None);
         };
-        if let TacticianMode4::Build { net, threshold } = &self.mode {
-            let (net, threshold) = (net.clone(), *threshold);
-            let (target, record) = build::answer(step, &question, &net, threshold, &self.prior)?;
+        if let TacticianMode4::Build {
+            net,
+            threshold,
+            label,
+        } = &self.mode
+        {
+            let (net, threshold, label) = (net.clone(), *threshold, *label);
+            let (target, record) =
+                build::answer(step, &question, &net, threshold, label, &self.prior)?;
             self.records.push(record);
             return Ok(Some(target));
         }
@@ -573,6 +587,7 @@ impl Tactician4 {
             built: None,
             confidence: None,
             net_micros: None,
+            fired: Vec::new(),
             state: state.to_vec(),
             units: unit_embeddings.to_vec(),
             rows,
@@ -592,6 +607,7 @@ impl Tactician4 {
         &mut self,
         step: &TacticianStep<'_>,
         layer: &TeacherTarget4,
+        fired: &[&'static str],
     ) -> anyhow::Result<Option<TeacherTarget4>> {
         let TacticianMode4::Imitate { epsilon } = self.mode else {
             return Ok(None);
@@ -600,7 +616,8 @@ impl Tactician4 {
             return Ok(None);
         };
         let draw = self.rng.unit();
-        let (target, record) = imitate::answer(step, &question, layer, epsilon, draw, &self.prior)?;
+        let (target, record) =
+            imitate::answer(step, &question, layer, epsilon, draw, fired, &self.prior)?;
         self.records.push(record);
         Ok(Some(target))
     }
@@ -675,9 +692,33 @@ fn net_answer(window: Window4, step: &TacticianStep<'_>, logits: &[f32]) -> Vec<
 /// tactical` plays it with no rule group: read on copies, so nothing the net
 /// carries moves.
 fn rules_answer(window: Window4, step: &TacticianStep<'_>, logits: &[f32]) -> Vec<u8> {
+    rules_answer_with(window, step, logits, TacticRules4::default())
+}
+
+/// The tactical layer's answer under `rules`, read on copies.
+pub(in crate::netplay4) fn rules_answer_with(
+    window: Window4,
+    step: &TacticianStep<'_>,
+    logits: &[f32],
+    rules: TacticRules4,
+) -> Vec<u8> {
+    rules_answer_fired(window, step, logits, rules).0
+}
+
+/// The tactical layer's answer on the same logits under the rule groups
+/// `rules`, as `--choice-guard tactical --tactics-rules` plays it, read on
+/// copies (the groups' counts move on the copy only), with the groups that
+/// changed something on the way: what a record attributes its label to.
+pub(in crate::netplay4) fn rules_answer_fired(
+    window: Window4,
+    step: &TacticianStep<'_>,
+    logits: &[f32],
+    rules: TacticRules4,
+) -> (Vec<u8>, Vec<&'static str>) {
     let mut rng = step.rng.clone();
-    let mut rules = TacticRules4::default();
-    match window {
+    let before = rules;
+    let mut rules = rules;
+    let mask = match window {
         Window4::Target => {
             let (chosen, _) = tactics::rules::single_choice(
                 &mut rules,
@@ -737,7 +778,9 @@ fn rules_answer(window: Window4, step: &TacticianStep<'_>, logits: &[f32]) -> Ve
             );
             sample_pairs_constrained(&adjusted, step.cands, 0.0, &mut rng).0
         }
-    }
+    };
+    let fired = rules.fired_since(&before);
+    (mask, fired)
 }
 
 /// The answer `mask` names, as the policy's target.

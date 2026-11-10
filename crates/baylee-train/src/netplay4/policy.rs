@@ -281,6 +281,8 @@ impl PolicySampler4<'_> {
             None => None,
         };
 
+        // What the rule groups change at this question, for an imitation record.
+        let rules_before = *self.rules;
         let raw = self.mode == PolicyMode4::Raw;
         let parts = self.guard.tactical;
         let at_priority = matches!(pending, Pending::Priority { .. });
@@ -543,6 +545,7 @@ impl PolicySampler4<'_> {
                     rng: self.rng,
                 },
                 &target,
+                &self.rules.fired_since(&rules_before),
             )?
         {
             target = played;

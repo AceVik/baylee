@@ -23,6 +23,15 @@ from tactician_v3.train import CONTRACT, group_softmax_loss, loss_of, pass_losse
 D = 6
 
 
+def key_of(window: str, group: int, unit: int) -> str:
+    """A unit's key as the seat writes it: attacker@defender, blocker>attacker."""
+    if window == "attack":
+        return f"ObjectId({group}#0)@{{\"Player\":{unit}}}"
+    if window == "block":
+        return f"ObjectId({group}#0)>ObjectId({90 + unit}#0)"
+    return f"target{unit}"
+
+
 def write_records(directory: Path, decisions: int = 60, contract: str = RECORD_CONTRACT,
                   rule_column: bool = False, run: bool = True) -> None:
     """A fake imitating collection: windows in turn, labels a function of the rows."""
@@ -59,9 +68,10 @@ def write_records(directory: Path, decisions: int = 60, contract: str = RECORD_C
             tails[j + 1, 4] = net[j]
         floats = np.concatenate([state, units.ravel(), tails.ravel()])
         line = dict(contract=contract, seat=i % 2, seq=i, turn=1, window=window, value=0.5,
-                    keys=[f"k{j}" for j in range(n)], logits=[0.0] * n, net=net, rules=rules,
+                    keys=[key_of(window, groups[j], j) for j in range(n)], logits=[0.0] * n, net=net, rules=rules,
                     played=rules, probability=1.0, neighbors=0, offered=[], drawn="rules",
                     micros=1, groups=groups, label="rules", rows_read_rules=False,
+                    fired=["trade"] if i % 4 == 1 else [],
                     game=f"g{i // 2}", deal=i // 2, seed=i // 2, policy_seed=1, focal_seat=0,
                     utility=1.0, capped=False,
                     blob=dict(file="w00.f32", offset=offset, state=D, units=n * D,
@@ -98,6 +108,25 @@ class Records(unittest.TestCase):
             train_idx, held_idx = store.split(10)
             self.assertTrue(all(store.seed[i] % 10 == 0 for i in held_idx))
             self.assertEqual(len(train_idx) + len(held_idx), 60)
+
+    def test_the_probe_reads_stage_one_records_with_the_rule_columns_zeroed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_records(root / "stage1", contract="tactician_records_v1", rule_column=True,
+                          run=False)
+            store = read_records([root / "stage1"], stage1_probe=True)
+            self.assertEqual(len(store), 60)
+            self.assertTrue(torch.all(store.tails[:, [5, 11]] == 0))
+            imitation = read_records([self._imitation(root)])
+            self.assertTrue(torch.equal(store.groups, imitation.groups))
+            # The probe reads stage-1 records only.
+            with self.assertRaises(ValueError):
+                read_records([root / "imitation"], stage1_probe=True)
+
+    @staticmethod
+    def _imitation(root: Path) -> Path:
+        write_records(root / "imitation")
+        return root / "imitation"
 
     def test_other_records_and_rows_carrying_the_rule_are_refused(self):
         import tactician4
@@ -240,7 +269,8 @@ class Training(unittest.TestCase):
                 weight_decay=0.0, batch=16, eval_batch=32, epochs=3, patience=5, max_steps=0,
                 warmup=2, clip=1.0, confidence_weight=0.5, group_softmax="block",
                 held_out_mod=10, train_report=50, parity_rows=4, export_passes=[1, 3],
-                device="cpu", bf16=False, data_on_device=False, store_fp16=False)
+                device="cpu", bf16=False, data_on_device=False, store_fp16=False, threads=0,
+                stage1_probe=False)
             meta, report = train(args)
             out = root / "out"
             self.assertEqual(meta["contract"], CONTRACT)
@@ -252,6 +282,7 @@ class Training(unittest.TestCase):
             for reading in passes:
                 self.assertIn("exact", reading["by_window"]["all"])
                 self.assertIn("ece", reading["calibration"])
+                self.assertEqual(set(reading["by_group_differ"]), {"trade", "none"})
                 self.assertTrue(0.0 <= reading["threshold"] < 1.0)
             with self.assertRaises(FileExistsError):
                 train(args)

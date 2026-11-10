@@ -20,6 +20,9 @@ import numpy as np
 import torch
 
 RECORD_CONTRACT = "tactician_imitation_v1"
+# Stage-1 outcome records, read only by the offline probe (`read_records(...,
+# stage1_probe=True)`), their rule columns zeroed.
+STAGE1_CONTRACT = "tactician_records_v1"
 ROW_TAIL = 128
 WINDOW_WIDTH = 16
 WINDOWS = ("attack", "block", "target")
@@ -62,8 +65,15 @@ class Store:
     window: torch.Tensor
     seed: np.ndarray
     game: list
+    # Per decision, the rule groups that changed the layer's answer there
+    # (`fired`; empty for stage-1 records, whose layer ran no group).
+    fired: list
     seat: np.ndarray
     sources: list
+    # Parts of every row read as zero (`state`, `unit`, `look`; the window code
+    # always stays): an ablation of
+    # the probe, which part carries what the label needs.
+    zero_parts: tuple = ()
 
     @property
     def d_model(self) -> int:
@@ -85,7 +95,8 @@ class Store:
                      move(self.labels, False), move(self.nets, False), move(self.groups, False),
                      move(self.n, False), move(self.unit_offset, False),
                      move(self.tail_offset, False), move(self.window, False),
-                     self.seed, self.game, self.seat, self.sources)
+                     self.seed, self.game, self.fired, self.seat, self.sources,
+                     self.zero_parts)
 
     def split(self, held_out_mod: int):
         """Decision indices of the training and held-out games: a table is held
@@ -113,6 +124,13 @@ class Store:
         units = torch.zeros(b, width, d, dtype=torch.float32, device=n.device)
         units[:, 1:] = self.units[unit_at].float() * unit_valid[..., None]
         tails = self.tails[tail_at].float() * valid[..., None]
+        if "state" in self.zero_parts:
+            state = torch.zeros_like(state)
+        if "unit" in self.zero_parts:
+            units = torch.zeros_like(units)
+        if "look" in self.zero_parts:
+            tails = torch.cat([tails[..., :WINDOW_WIDTH], torch.zeros_like(tails[..., WINDOW_WIDTH:])],
+                              dim=-1)
         rows = torch.cat([state * valid[..., None], units, tails], dim=-1)
         labels = (self.labels[unit_at].float() * unit_valid)
         nets = (self.nets[unit_at].float() * unit_valid)
@@ -147,21 +165,50 @@ def _check_line(path: Path, record: dict) -> None:
         raise ValueError(f"{path}: unknown window {record['window']!r}")
 
 
-def read_records(dirs) -> Store:
-    """Every decision of the record directories, checked, in one [`Store`]."""
+def _check_stage1_line(path: Path, record: dict) -> None:
+    if record.get("contract") != STAGE1_CONTRACT:
+        raise ValueError(f"{path}: not a {STAGE1_CONTRACT} record")
+    if record["window"] not in WINDOWS:
+        raise ValueError(f"{path}: unknown window {record['window']!r}")
+
+
+def groups_from_keys(window: str, keys) -> list:
+    """Each unit's group from a stage-1 line's keys: the attacker of
+    `attacker@defender`, the blocker of `blocker>attacker`, one group at a
+    target; numbered in order of first appearance."""
+    if window == "target":
+        return [0] * len(keys)
+    sep = "@" if window == "attack" else ">"
+    seen = {}
+    return [seen.setdefault(key.split(sep, 1)[0], len(seen)) for key in keys]
+
+
+def read_records(dirs, stage1_probe: bool = False) -> Store:
+    """Every decision of the record directories, checked, in one [`Store`].
+
+    `stage1_probe` reads stage-1 outcome records (`tactician_records_v1`) for
+    the offline probe instead: their `rules` (the layer with no rule group) is
+    the label, the window-code columns that carry it are zeroed on reading, and
+    the groups come from the keys. A measurement; nothing it trains is played.
+    """
     states, units, tails = [], [], []
     labels, nets, groups = [], [], []
-    ns, windows, seeds, games, seats, sources = [], [], [], [], [], []
+    ns, windows, seeds, games, seats, sources, fired = [], [], [], [], [], [], []
     d = None
     for directory in map(Path, dirs):
-        read_run(directory)
+        if not stage1_probe:
+            read_run(directory)
         blobs = {}
         for lines in sorted(directory.glob("w*.jsonl")):
             for text in lines.read_text().splitlines():
                 if not text.strip():
                     continue
                 record = json.loads(text)
-                _check_line(lines, record)
+                if stage1_probe:
+                    _check_stage1_line(lines, record)
+                    record["groups"] = groups_from_keys(record["window"], record["keys"])
+                else:
+                    _check_line(lines, record)
                 blob = record["blob"]
                 if blob["file"] not in blobs:
                     blobs[blob["file"]] = np.memmap(directory / blob["file"], dtype="<f4", mode="r")
@@ -179,6 +226,8 @@ def read_records(dirs) -> Store:
                         or n == 0 or len(record["net"]) != n or len(record["groups"]) != n):
                     raise ValueError(f"{lines}: arrays do not match the decision's units")
                 tail = tail.reshape(n + 1, ROW_TAIL)
+                if stage1_probe:
+                    tail[:, list(RULE_COLUMNS)] = 0.0
                 if np.any(tail[:, list(RULE_COLUMNS)] != 0):
                     raise ValueError(f"{lines}: rows carry the layer's answer")
                 states.append(state)
@@ -191,6 +240,7 @@ def read_records(dirs) -> Store:
                 windows.append(WINDOWS.index(record["window"]))
                 seeds.append(int(record["seed"]))
                 games.append(record["game"])
+                fired.append(tuple(record.get("fired", ())))
                 seats.append(int(record["seat"]))
                 sources.append(str(directory))
     if not ns:
@@ -211,6 +261,7 @@ def read_records(dirs) -> Store:
         window=torch.tensor(windows, dtype=torch.long),
         seed=np.asarray(seeds, np.uint64),
         game=games,
+        fired=fired,
         seat=np.asarray(seats, np.int64),
         sources=sources,
     )
