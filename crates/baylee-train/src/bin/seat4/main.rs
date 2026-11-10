@@ -57,8 +57,13 @@ struct Args {
     /// Join a waiting room instead of hosting a two-player room.
     #[arg(long)]
     join: Option<String>,
-    /// Fixed inference depth; 1 is the benchmarked quick response setting.
-    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=8))]
+    /// Fixed inference depth; by default the depth the net is measured at
+    /// (`baylee_train_ops::measured`).
+    #[arg(
+        long,
+        default_value_t = baylee_train_ops::measured::THINKING_STEPS,
+        value_parser = clap::value_parser!(u8).range(1..=8)
+    )]
     thinking_steps: u8,
     /// Completed games before exiting; zero keeps hosting new rooms.
     #[arg(long, default_value_t = 1)]
@@ -75,8 +80,10 @@ struct Args {
     /// (`docs/trained-ai.md` §"Card catalog compatibility").
     #[arg(long)]
     catalog_drift: bool,
-    /// Rule groups over the tactical layer, comma separated; none by default.
-    #[arg(long, default_value = "")]
+    /// Rule groups over the tactical layer, comma separated; by default the
+    /// bundle the net is measured with (`baylee_train_ops::measured`), and
+    /// `--tactics-rules ''` plays the layer with no group.
+    #[arg(long, default_value = baylee_train_ops::measured::RULE_GROUPS)]
     tactics_rules: String,
     /// Host only: the life each seat starts with. Absent, a room holds the
     /// gateway's default of 40.
@@ -544,6 +551,23 @@ mod tests {
 #[cfg(test)]
 mod policy_cli_tests {
     use super::*;
+    /// A seat started with no policy flags plays what is measured: the depth
+    /// and the rule groups `eval4` and `ladder4` measure the net at.
+    #[test]
+    fn the_default_seat_is_the_measured_one() {
+        use baylee_train_ops::measured::{RULE_GROUPS, THINKING_STEPS};
+        let default = Args::try_parse_from(["seat4", "--model", "/model"]).unwrap();
+        assert_eq!(policy_mode_name(&default), "tactical");
+        assert_eq!(default.thinking_steps, THINKING_STEPS);
+        assert_eq!(default.tactics_rules, RULE_GROUPS);
+        let bundle = TacticRules4::parse(RULE_GROUPS).unwrap();
+        assert!(bundle.any());
+        assert_ne!(bundle, TacticRules4::parse("all").unwrap());
+        let plain =
+            Args::try_parse_from(["seat4", "--model", "/model", "--tactics-rules", ""]).unwrap();
+        assert!(!TacticRules4::parse(&plain.tactics_rules).unwrap().any());
+    }
+
     #[test]
     fn raw_is_explicit_and_default_remains_tactical() {
         let default = Args::try_parse_from(["seat4", "--model", "/model"]).unwrap();

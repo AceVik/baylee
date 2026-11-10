@@ -443,7 +443,10 @@ over missing game history. Local aggregate reports are retained on failure too.
 This adapter uses `baylee-seat`'s lobby, ticketed socket and `TableMemory`
 transport helpers, with its own `live4` core instead of the LLM `SeatCore` or
 `WakeFilter`. Every distinct authorized view advances recurrent state at K=0;
-the fixed decision budget defaults to K=1 with greedy selection. Only the
+the fixed decision budget defaults to K=2 with greedy selection and the
+tactical layer with the 18-group bundle (§"Rule groups over the tactical
+layer"): what BayleeAI is measured at, read from `baylee_train_ops::measured`,
+which `ladder4`'s `measured` mode passes too. Only the
 submitted own deck and public teams initialize knowledge. Repeated statics do
 not reset memory. An observation failure or an opened socket's interruption
 ends the session; reconnecting with a latest snapshot cannot reconstruct missed
@@ -2239,6 +2242,9 @@ won; raw plays 364 and 378). `mass` gives +3.5 pp [+2.7, +4.4] and `react` +2.4 
 lies above zero. A group with a negative estimate entered only if readers found its class deciding at least three ladder games: `keep` (-0.3 [-0.8, +0.2])
 and `burn` (-0.4 [-0.8, 0.0]) passed that and cost a little here; `gift` (-0.4 [-0.8, -0.1]) and `press` (-0.1 [-0.3, +0.1]) did not and stayed out.
 The bundle is the other 18: `race,trip,trade,wall,chump,keep,land,ping,curve,aim,void,side,mass,burn,trick,walker,spend,react`.
+It is what every number since is measured with, at K=2, and what `seat4` plays by default (`baylee_train_ops::measured`; `seat4
+--tactics-rules ''` plays the layer with no group). A change to that default is a change of the champion's play and comes with its
+paired measurement.
 It wins 571 and 579 of 1024, +7.2 pp [+5.4, +9.0], and on 1024 new deals 576 against 512, +6.2 pp [+3.9, +8.6]. Numbers are for that one runtime.
 
 ## The ladder against language models

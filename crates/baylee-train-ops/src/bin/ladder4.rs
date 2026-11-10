@@ -51,13 +51,15 @@ struct Args {
     /// decks); without it, from the working directory.
     #[arg(long)]
     deck_root: Option<PathBuf>,
-    /// `PROFILE:MODE:GAMES`, MODE being `raw`, `tactical` or `tactical=GROUPS`.
+    /// `PROFILE:MODE:GAMES`, MODE being `raw`, `tactical` (the layer with no
+    /// rule group), `tactical=GROUPS` or `measured` (the groups the net is
+    /// measured with, `seat4`'s default).
     #[arg(long, required = true)]
     arm: Vec<String>,
     /// Games at once, over all arms.
     #[arg(long, default_value_t = 6)]
     tables: usize,
-    #[arg(long, default_value_t = 2)]
+    #[arg(long, default_value_t = baylee_train_ops::measured::THINKING_STEPS)]
     thinking_steps: u8,
     #[arg(long, default_value_t = 120)]
     think_secs: u64,
@@ -160,10 +162,7 @@ fn schedule(args: &Args) -> Result<Vec<Game>> {
         let [count, mode, profile] = parts[..] else {
             bail!("an arm is PROFILE:MODE:GAMES, not {arm}");
         };
-        ensure!(
-            matches!(mode, "raw" | "tactical") || mode.starts_with("tactical="),
-            "unknown mode {mode}"
-        );
+        policy_args(mode)?;
         for game in 0..count.parse::<usize>().context("games")? {
             // Two games of a deal share the decks, with the seats swapped.
             let (first, second) = (
@@ -190,6 +189,20 @@ fn schedule(args: &Args) -> Result<Vec<Game>> {
         }
     }
     Ok(games)
+}
+
+/// What `seat4` is told to play for an arm's mode. Every mode says it in full,
+/// so an arm means the same whatever `seat4` plays by default.
+fn policy_args(mode: &str) -> Result<Vec<String>> {
+    let groups = match mode {
+        "raw" => return Ok(vec!["--raw-policy".to_owned()]),
+        "tactical" => "",
+        "measured" => baylee_train_ops::measured::RULE_GROUPS,
+        other => other
+            .strip_prefix("tactical=")
+            .with_context(|| format!("unknown mode {other}"))?,
+    };
+    Ok(vec!["--tactics-rules".to_owned(), groups.to_owned()])
 }
 
 /// Spawns `seat4` as the room's host and reads its room from its first line.
@@ -223,11 +236,7 @@ fn host(
     if args.catalog_drift {
         command.arg("--catalog-drift");
     }
-    if game.mode == "raw" {
-        command.arg("--raw-policy");
-    } else if let Some(groups) = game.mode.strip_prefix("tactical=") {
-        command.arg("--tactics-rules").arg(groups);
-    }
+    command.args(policy_args(&game.mode)?);
     command
         .env_clear()
         .env("BAYLEE_EP", "cpu")
@@ -638,6 +647,47 @@ mod tests {
         assert!(ladder_decks(&manifest, Some(&missing), None).is_err());
         let keyed = json!({"decks": [{"key": "k", "id": "i", "path": "/k.txt"}]});
         assert_eq!(ladder_decks(&keyed, None, None).unwrap()[0]["key"], "k");
+    }
+
+    /// `measured` passes what `seat4` plays by default, at the depth it plays
+    /// by default; every other mode says its groups in full.
+    #[test]
+    fn an_arm_tells_the_seat_what_to_play_in_full() {
+        use baylee_train_ops::measured::{RULE_GROUPS, THINKING_STEPS};
+        assert_eq!(
+            policy_args("measured").unwrap(),
+            ["--tactics-rules", RULE_GROUPS]
+        );
+        assert_eq!(policy_args("tactical").unwrap(), ["--tactics-rules", ""]);
+        assert_eq!(
+            policy_args("tactical=mass,react").unwrap(),
+            ["--tactics-rules", "mass,react"]
+        );
+        assert_eq!(policy_args("raw").unwrap(), ["--raw-policy"]);
+        assert!(policy_args("bundle").is_err());
+        let args = Args::try_parse_from([
+            "ladder4",
+            "--root",
+            "r",
+            "--gateway",
+            "g",
+            "--seat4",
+            "s4",
+            "--seat",
+            "s",
+            "--model",
+            "m",
+            "--profiles",
+            "p",
+            "--ledger",
+            "l",
+            "--decks",
+            "d",
+            "--arm",
+            "x:measured:2",
+        ])
+        .unwrap();
+        assert_eq!(args.thinking_steps, THINKING_STEPS);
     }
 
     #[test]

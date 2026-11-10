@@ -12,6 +12,7 @@ pub mod guard;
 pub mod legacy;
 pub mod legacy_columns;
 pub mod legacy_metrics;
+pub mod measured;
 #[cfg(target_os = "linux")]
 pub mod monitor;
 #[cfg(target_os = "linux")]
