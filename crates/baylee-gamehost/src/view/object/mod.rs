@@ -208,9 +208,6 @@ pub(super) fn target_objects(
 }
 
 fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
-    if obj.zone != Zone::Stack {
-        return Vec::new();
-    }
     let id = obj.id;
     let players = baylee_engine::eval::first_target_players(obj);
     // Nearly every object of a table points at nothing.
