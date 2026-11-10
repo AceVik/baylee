@@ -2282,6 +2282,29 @@ It is what every number since is measured with, at K=2, and what `seat4` plays b
 paired measurement.
 It wins 571 and 579 of 1024, +7.2 pp [+5.4, +9.0], and on 1024 new deals 576 against 512, +6.2 pp [+3.9, +8.6]. Numbers are for that one runtime.
 
+### Reactive play, deck by deck
+
+Which decks an `eval4` deal seats is `baylee_train::deals4`, for the evaluator, its research ledger and `--write-deals` alike: deal `d`
+is table `d / seats` with the net in seat `d mod seats`. The `fixed` schedule (every run before it had a name) seats deck
+`(table · seats + seat) mod n`, so at two seats and an even number of decks a deck only ever meets one opponent, whatever the seed.
+`--deck-schedule round-robin` (two seats) moves the opponent on by one every `n` tables: over `2n(n−1)` deals each deck pilots against
+every other once from each seat. `eval4 --write-deals FILE --pilot-decks KEYS` writes the deals of `--deals` whose net pilots one of
+those decks (keys, or `@FILE` with a JSON list), out of the decks the same flags select, and plays nothing; `--only-deals FILE` then
+plays just them. `matrix4` plans that as a block's `pilots`.
+
+`phase_a4 table --by-deck` breaks each pair down by the deck the net piloted and by each deck it met, the largest difference first and
+small decks marked; `--pilot-deck` and `--opponent-deck` keep the deals of one deck. `gamelog4 react` counts, per game of a recorded
+run, the seat's counter windows (their object on top of the stack, a counterspell it can pay for in hand), which objects it countered
+and which it let resolve, what its counters named (kind, mana value, whose; poor when its own side's, a mana source, or cheap), passes
+through their attack and end step with a usable instant, and instants cast at their end step against those discarded or still in hand.
+The `React` group's own window reads a spell's single effect list; the count's counter reading (`reactivity::face_counters`) also sees a
+counter behind a payment or a mode, and says how many windows the group itself would see. `deck_reactivity4` ranks a split's decks by
+counterspells, instant removal and flash read from the cards' rules, per 60 cards; only a train ranking writes the key list
+(`--keys-out`) that collection may oversample.
+
+`house/victory`, the owner's counter deck, is a test deck of the commander shape with two held-out cards (tier `unseen_cards`): the
+constructed test protocol never seats it. It plays with `--shape commander --deck-split test --held-out-cards`, among 26 decks.
+
 ## The ladder against language models
 
 `ladder4` plays `seat4` against `baylee-seat` on a private gateway (`llm_collector4 serve --guests`). A room left alone holds the gateway's default of
