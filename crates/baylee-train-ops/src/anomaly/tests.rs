@@ -42,6 +42,8 @@ fn job() -> Job {
             "16",
             "--out",
             "/r/x.json",
+            "--tactician-out",
+            "/r/tact",
             "--first-seed",
             "1000",
         ]
@@ -86,9 +88,10 @@ fn an_eval4_summary_lists_every_counted_anomaly_with_its_deal_and_seed() {
         reproduce.ends_with("--deals 1 --deal-offset 0 --threads 1 --out reproduce-deal-0.json")
     );
     assert!(
-        !reproduce.contains("512") && !reproduce.contains("/r/x.json"),
+        !reproduce.contains("512") && !reproduce.contains("/r/"),
         "{reproduce}"
     );
+    assert!(reproduce.contains("--tactician-out reproduce-deal-0-tactician"));
 
     // Fallbacks are 0.1% of the net's answers: plain ones are expected, a
     // failed inference never is.
@@ -315,11 +318,14 @@ fn the_harvest_adds_a_place_once_however_many_runs_met_it() {
         report
     };
     let mut first = report("eval-a");
-    first.entries.push(
-        Entry::new(Kind::EngineRefusal, Class::New, "refused a | b")
-            .at(Some(3), Some(42), Some(1))
-            .seat(Some(0)),
-    );
+    // The same refusal twice in one game is one run, met twice.
+    for _ in 0..2 {
+        first.entries.push(
+            Entry::new(Kind::EngineRefusal, Class::New, "refused a | b")
+                .at(Some(3), Some(42), Some(1))
+                .seat(Some(0)),
+        );
+    }
     first.entries.push(Entry::new(
         Kind::Panic,
         Class::New,
@@ -346,8 +352,8 @@ fn the_harvest_adds_a_place_once_however_many_runs_met_it() {
         "| 2026-11-10 | eval-a +2 more | answer cap | seed 189, deal 379, table 189, seat 1 | the net game hit the answer cap (in 3 runs) | open |"
     ), "{text}");
     assert!(text.contains(
-        "| 2026-11-10 | eval-a | engine refusal | seed 42, deal 3, table 1, seat 0 | refused a \\| b | open |"
-    ));
+        "| 2026-11-10 | eval-a | engine refusal | seed 42, deal 3, table 1, seat 0 | refused a \\| b (2 times) | open |"
+    ), "{text}");
     assert!(text.contains("| eval-a | panic | the run | thread 'w' panicked at x.rs:1:1 |"));
     assert!(text.contains("| sh1 | seat timeout | deal 9 | ran out of time |"));
     assert!(text.contains("| sh2 | seat timeout | deal 9 | ran out of time |"));
