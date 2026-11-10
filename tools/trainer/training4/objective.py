@@ -13,6 +13,11 @@ def selection_score(metrics, selection):
         return metrics["val_pol_loss"]
     if selection == "combined":
         return metrics["val_pol_loss"] + 2.0 * metrics["val_mse"]
+    if selection == "distill_n_ne_r":
+        # Top-1 agreement with R where N != R at the distilled kinds; higher is
+        # better. Not the loss: an earlier arm lowered NLL while this fell.
+        agreement = metrics["val_distill_selection"]
+        return float("inf") if agreement is None else -agreement
     raise ValueError(f"Unknown checkpoint selection: {selection}")
 
 

@@ -373,7 +373,7 @@ class TrajectoryDataset4(Dataset):
         if n_pair == 0:
             pair_mask[0] = True
 
-        return {
+        return self._with_distillation({
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
             "entity_rules": entity_rules,
@@ -408,7 +408,17 @@ class TrajectoryDataset4(Dataset):
             "source_kind": np.array(src_kind, dtype=np.int64),
             "temperature": np.array(temp_val, dtype=np.float32),
             "thinking_steps": np.array(thinking_steps, dtype=np.int64),
-        }
+        }, flags, _pending_kind, -1)
+
+    def _with_distillation(self, frame, flags, pending_kind, net_single):
+        """Opt-in (`distillation`, set by --distill-bundle): pending kind, N != R
+        (`bundle_distillation_v1`, header flag bit 7) and, from JSON steps only,
+        N's single-choice index (-1 when absent). Default frames are unchanged."""
+        if getattr(self, "distillation", False):
+            frame["pending_kind"] = np.array(int(pending_kind), dtype=np.int64)
+            frame["n_ne_r"] = np.array(bool(flags & 128), dtype=bool)
+            frame["n_single_idx"] = np.array(-1 if net_single is None else int(net_single), dtype=np.int64)
+        return frame
 
     def encode_single_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
         if not isinstance(step_or_row, dict):
@@ -570,7 +580,7 @@ class TrajectoryDataset4(Dataset):
         has_lp = bool(prov.get("has_logprob", False))
         temp_val = float(prov.get("temperature", 0.0))
 
-        return {
+        return self._with_distillation({
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
             "entity_rules": entity_rules,
@@ -609,7 +619,8 @@ class TrajectoryDataset4(Dataset):
             "thinking_steps": np.array(
                 int(prov.get("thinking_steps", 0)), dtype=np.int64
             ),
-        }
+        }, 128 if st.get("n_ne_r", False) else 0, st.get("pending_kind", 0),
+            (st.get("net_answer") or {}).get("single_idx"))
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
         if idx == -1:

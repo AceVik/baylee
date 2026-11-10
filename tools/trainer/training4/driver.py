@@ -88,6 +88,10 @@ def main(default_architecture="v4") -> None:
         raise ValueError("Nonempty separate training and validation trajectories are required")
     if train_ds.structure.digest != val_ds.structure.digest:
         raise ValueError("Training and validation use different public rule catalogs")
+    # bundle_distillation_v1 labels train only under --distill-bundle, which reads
+    # nothing else; set before any loader copies the datasets into workers.
+    from .distill import check_datasets
+    check_datasets((train_ds, val_ds), args.distill_bundle)
 
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
@@ -240,6 +244,22 @@ def main(default_architecture="v4") -> None:
     if args.train_rules_only:
         from .rules_only import freeze_all_but_rules
         freeze_all_but_rules(net)
+    reference_weights = None
+    if args.distill_bundle:
+        from .distill import Reference
+        reference_weights = Reference.snapshot(net)
+    from .partial import apply_partial_training, state_dict_for_save, upstream_frozen
+    partial = apply_partial_training(net, args)
+    if partial is not None:
+        identity["partial_training"] = {k: v for k, v in partial.items() if k != "trainable_parameters"}
+        print("[partial] " + json.dumps(partial), flush=True)
+    reference = None
+    if reference_weights is not None:
+        reference = Reference(reference_weights.to(device), net)
+        identity["bundle_distillation"] = dict(contract="bundle_distillation_v1", kinds=list(args.distill_kinds),
+                                               kl_weight=args.distill_kl_weight, version=1)
+        print(f"[distill] reference shared_trunk={reference.shared_trunk} kinds={list(args.distill_kinds)} "
+              f"kl_weight={args.distill_kl_weight}", flush=True)
     anchor = None
     if args.anchor_l2:
         from .rules_only import ParameterAnchor
@@ -333,7 +353,7 @@ def main(default_architecture="v4") -> None:
     checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
 
     def save_last(epoch, next_batch, hidden):
-        checkpoint_writer.save({**identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
+        checkpoint_writer.save({**identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": state_dict_for_save(net),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
@@ -364,15 +384,20 @@ def main(default_architecture="v4") -> None:
             return last_validation_metrics
         print(f"[validation4] starting full held-out validation at step={step_num}", flush=True)
         was_training = net.training
-        metrics = evaluate_depths(net, val_loader, device, depth_schedule,
-            lambda n, loader, dev, k: evaluate(n, loader, dev, k) if args.reference_execution
-            else evaluate_device(n, loader, dev, k, args.board_chunk, progress_every=500))
+        if reference is not None:
+            from .distill import evaluate_distill
+            metrics = evaluate_distill(net, reference, val_loader, device, args.distill_kinds, args.distill_kl_weight,
+                                       args.board_chunk, args.distill_scalar_tolerance, depth_schedule.selection_k)
+        else:
+            metrics = evaluate_depths(net, val_loader, device, depth_schedule,
+                lambda n, loader, dev, k: evaluate(n, loader, dev, k) if args.reference_execution
+                else evaluate_device(n, loader, dev, k, args.board_chunk, progress_every=500))
         net.train(was_training)
         score = selection_score(metrics, args.checkpoint_selection)
         if score < best_score:
             best_score, best_step = score, step_num
             best_optimizer_updates = optimizer_updates
-            best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
+            best_state = {k: v.detach().cpu().clone() for k, v in state_dict_for_save(net).items()}
             best_val_metrics = dict(metrics)
             atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
                          "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
@@ -398,6 +423,10 @@ def main(default_architecture="v4") -> None:
 
     def refresh_windows(reason):
         began = time.perf_counter()
+        if windows.states is not None and partial is not None and upstream_frozen(net):
+            # Boards and memory are frozen: the stored H is exact for the whole run.
+            print(f"[windows] states reason={reason} kept: everything before the heads is frozen", flush=True)
+            return
         # Only the untouched --init weights may reuse a cached pass.
         initial = optimizer_updates == 0 and args.init and args.window_state_cache
         if initial:
@@ -415,6 +444,7 @@ def main(default_architecture="v4") -> None:
 
     t0 = time.perf_counter()
     stop = False
+    distill_stats = None
     val_metrics = dict(best_val_metrics)
     if resume_epoch > args.epochs:
         print("[train4] Requested epochs already complete; checkpoint preserved", flush=True)
@@ -484,11 +514,20 @@ def main(default_architecture="v4") -> None:
                                                               args.decision_chunk, device, use_bf16,
                                                               grad_window=grad_window, resets=resets)
                     profile.mark("recurrence_readouts")
-                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                        aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
-                    traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans, loss_config)
-                    epoch_stats[:3] += st[:3] / U
-                    epoch_stats[3:] += st[3:]
+                    if reference is not None:
+                        from .distill import AUXILIARY_TARGETS, distill_loss
+                        ref_prepared = reference.outputs(host, batch, boards, h, plans, device, use_bf16,
+                                                         args.board_chunk, resets=resets)
+                        profile.mark("distill_reference")
+                        traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, args.distill_kinds,
+                                                         args.distill_kl_weight, AUXILIARY_TARGETS)
+                        distill_stats = dstats if distill_stats is None else distill_stats + dstats
+                    else:
+                        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                            aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
+                        traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans, loss_config)
+                        epoch_stats[:3] += st[:3] / U
+                        epoch_stats[3:] += st[3:]
                     h = final_hidden
                 else:
                     full_outputs, full_aux = [], []
@@ -557,6 +596,10 @@ def main(default_architecture="v4") -> None:
                           f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
                           f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
                           f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
+                    if distill_stats is not None:
+                        from .distill import term_means
+                        print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
+                        distill_stats = None
                 profile.end_step()
                 if (windows is not None and args.window_state_refresh and updated
                         and optimizer_updates % args.window_state_refresh == 0):
@@ -603,7 +646,7 @@ def main(default_architecture="v4") -> None:
                                 window_length=args.window_length, window_entity_buckets=args.window_entity_buckets,
                                 vectorized_rule_closure=args.vectorized_rule_closure),
                    window_plan=None if windows is None else windows.statistics)
-    final_state = best_state if best_state is not None else net.state_dict()
+    final_state = best_state if best_state is not None else state_dict_for_save(net)
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
         **identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts,
