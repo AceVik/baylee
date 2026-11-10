@@ -641,6 +641,10 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | `diagnose_recurrent_chunk4.py` | Source-only PyTorch localization of chunk4 numerical differences; successful diagnosis explicitly does not accept the rejected execution variant |
 | `export_onnx4.py` | PyTorch export and actual numerical parity for bounded-depth native graphs |
 | `paired_eval4`, `summarize_eval4`, `report_experiment4` | Native verified gameplay comparison and reports |
+| `phase_a4 table` | Pairs runs on the same deals: arms of one build and model, `--exports` (only the model differs, seeds pooled per deal), `--builds` (only the evaluator build differs, e.g. a view change) |
+| `matrix4 plan` | A pipeline plan of evaluation runs from a spec of models × arms × tables × seed sets (`MODEL-ARM-TABLE-SEEDS`); several specs make one plan; runs whose output exists are left out, so a stopped matrix resumes |
+| `generation4 plan` | A pipeline plan of one expert-iteration generation from a spec: teacher collections, `convert4`, student seeds, exports; stages whose outputs exist are left out |
+| `ladder4 --keep-decks`, `--deck-root` | The ladder seat on the decks an `eval4` summary accepted, read from a `manifest.v4.json`: the seat path checked against the evaluator on one deck pool. A gateway admits 30 new guests per address a day and a ladder game signs in two: run more than 15 games as chunks on fresh gateway processes |
 | `watch_run4`, `monitor_ops4` | Durable terminal-event observation and delivery; neither starts a controller |
 | `stop_job4` | Identity-bound stop of a native guard supervisor and verification that owned descendants exited |
 | `seat4`, `publish_live_model4`, `live_play_maintenance4` | Live preview, verified development-model selection and completed official-record import; separate from training |
