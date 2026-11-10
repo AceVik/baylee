@@ -54,6 +54,8 @@ Only casual over novice holds. No game is capped any more.
   them; an ally's board and spells count as its side's.
 - `EXACT_SPELL_X` = 2: an X that must equal a target's mana value is
   planned for a spell on the stack (Spell Blast).
+- `INSTANT_TIMING` = 3, `RACE` = 4, `ABILITY_MANA` = 5, `SEER_DRAWS` = 6:
+  the second round (§0a).
 - A strength change adds the next generation, sets `GENERATION` to it and
   asks `plays(...)`; `docs/house-ai.md` §"The frozen reference" lists them.
   The one change that reaches generation 0 on purpose is the stall guard
@@ -64,15 +66,18 @@ and mulligan against casual, then a hold-up that knows when to tap out),
 then the expert ablations and repairs (§2, §3), then a seer that uses what
 it sees (§3a). Each step measured on the ladder before the next starts.
 
-**Gates.** An order between two levels holds where the higher level's
-Wilson 95 % lower bound is above 50 %. The final ordering numbers and
-every step's acceptance use round-robin deck pairings
-(`--deck-schedule round-robin`, from `c42/v6t-victory`, once it lands);
-until then eval4 seats fixed pairings (§1). seer must clearly beat expert:
-lower bound above 55 % over 512 round-robin duel rows, above 50 % at a 2v2
-table. Per deck: no change may turn more seeds against than for on any deck
-with ten or more seeds. After every step the pin test (hash unchanged),
-`tests/fair_house.rs` and `tests/team_play.rs` stay green.
+**Gates** (coordinator, 11.11.2026; this replaces a Wilson lower bound
+over games, which treats the games of a duplicate pair as independent).
+An order between two levels holds where the two-sided sign test over the
+seeds the higher level turned (won from both seats against lost from both)
+gives p < 0.05 in its favour, on the test split with round-robin pairings
+(`eval4 --deck-schedule round-robin`, on main since b65ce6c80), 512 duel
+rows; `house_duplicate` prints it. Per deck: no deck with ten or more seeds
+turned against more often than for (`house_duplicate`'s per-deck rule
+line). seer must clearly beat expert by the same test, and not do worse at
+a 2v2 table. Train-split numbers are development numbers only. After every
+step the pin test (hash unchanged), `tests/fair_house.rs` and
+`tests/team_play.rs` stay green.
 
 **Tools.**
 
@@ -129,6 +134,150 @@ ladder about 2 minutes, a 2v2 run about 70 s.
   position needs an agent per question.
 - `sharp` and `sharp-2026-11` are identical in duels; team play shows only
   at team tables.
+
+## 0a. The second round (10.–11.11.2026)
+
+What the second agent built, measured and dropped, and where the ladder
+stands after it. §0 above is the state it started from.
+
+**The ladder now** (925feb88c, generation 6, duels, each game counted
+once by `house_duplicate`, round-robin deck pairings, 11.11.2026). Test
+split as the gate reads it, 512 rows; train split, 2048 rows, beside it as
+development numbers. The sign test is two-sided over the seeds the level
+turned (won from both seats against lost from both), which is the
+information a duplicate pairing carries; the Wilson interval treats the
+games as independent and is far wider.
+
+| Pair | Test 512: share, for / against, p | Train 2048: share, for / against, p |
+| --- | --- | --- |
+| casual – novice | 51.8 %, 29 / 20, 0.25 | 53.8 %, 161 / 83, < 0.0001 |
+| steady – casual | 52.9 %, 30 / 15, **0.036** | 51.9 %, 119 / 80, 0.007 |
+| sharp – steady | 50.8 %, 17 / 13, 0.58 | 52.9 %, 103 / 44, < 0.0001 |
+| expert – sharp | 51.4 %, 11 / 4, 0.12 | 51.3 %, 63 / 35, 0.006 |
+| seer – expert (`--seer-peeks`) | 51.2 %, 18 / 12, 0.36 | 51.5 %, 79 / 48, 0.0075 |
+| steady – `sharp-2026-11` | 52.9 %, 28 / 13, 0.028 | |
+| sharp – `sharp-2026-11` | 52.7 %, 25 / 11, 0.029 | 54.3 %, 136 / 48, < 0.0001 |
+| expert – `sharp-2026-11` | 55.3 %, 35 / 8, < 0.0001 | |
+
+seer against expert at a 2v2 table (test split, 512 rows, fixed pairings,
+since round-robin seats duels only): 48.8 %, 11 / 14, p = 0.69, not
+measurably worse. No deck reaches ten seeds at 512 test rows, so the
+per-deck rule has nothing to read there.
+
+By the gate (test split), steady over casual holds; the other rungs lean
+the right way and stay short of p < 0.05, casual over novice included, which
+held under the old fixed pairings. On the train split every rung holds. A
+rung that moves by one to three points turns 15 to 50 seeds at 512 test
+rows, too few for this test to tell; the test split holds 108 constructed
+decks, so a gate read on 2048 test rows (or the test and val splits
+together) would decide where 512 cannot. Every level now beats the frozen
+reference: the benchmark BayleeAI is measured against plays below today's
+`steady`.
+
+**Generations added** (`AIProfile`, `docs/house-ai.md` §"The frozen
+reference" lists them; every one stays off `sharp-2026-11`, whose 8,111
+pinned answers are unchanged):
+
+- 3 `INSTANT_TIMING` (steady and up, `HoldUp` other than `None`,
+  `crates/baylee-ai/src/timing.rs`): an instant is cast at its moment (a
+  trick once blocks are declared where it turns an exchange, on the
+  creature it turns; anything lasting in its own main phase or the
+  opponents' combat or end step), and mana is kept up for a counterspell
+  only, and for a trick before combat. steady against casual on train
+  (2048 rows): 48.2 % before, 52.1 % after; the old hold-up switched off,
+  50.5 %.
+- 4 `RACE` (expert, lookahead 2, `search::race_damage`): the attack search
+  prices damage by the life it leaves (90/160/300 a point above 14, above
+  7, below), and the swing-back at three quarters of the same price. expert
+  against itself without these prices and without generation 5: 51.6 % (59
+  for, 26 against; sign test p ≈ 0.0003). The same prices on sharp, whose search has no swing-back: 49.7 %.
+  The block search keeps the flat price (tests showed expert chumping at
+  ten life otherwise). Tuned on train over eight price sets; all the
+  race-aware ones landed between 51.2 % and 52.2 %.
+- 5 `ABILITY_MANA` (sharp and expert, `activate/floating.rs`): mana is
+  made for an ability worth its price that the engine offers only once the
+  mana floats (equip, paid pumps, paid draws). 22 of 1,024 seeds changed
+  (15 for, 7 against): the house decks print few such abilities that
+  `worth` prices above their cost.
+- 6 `SEER_DRAWS` (seer): the mulligan reads the next three cards of its
+  own library. seer against itself without it: 50.9 % (67 for, 50
+  against).
+
+**Tried and dropped** (measured, not carried):
+
+- Control piloting for expert (a `HoldUp::Control`: counter mana kept up
+  with no creature of its own, a small creature spell let through while
+  the opponent holds cards), the owner's tip after Victory. In
+  constructed duels 49.8 % against expert without it; in Victory's
+  commander duels (`--shape commander --held-out-cards`, Victory's deals
+  written by `--write-deals --pilot-decks house/victory` and played with
+  their paired deals, 228 games on round-robin pairings) 48.7 %, the deck
+  turned 5 seeds for and 8 against. Few decks hold a counterspell, and
+  holding one for a later threat did not pay where one does.
+- A turn plan (cast the first spell of the best set the mana pays for,
+  not the best spell alone): 49.5 % for steady and for sharp against
+  themselves without it.
+- seer's combat with the opponent's known trick expected on the worst
+  creature for it: 22 seeds changed, 11 each way. It also needed the
+  agent to ask for a scouting report at attacks and blocks, which it does
+  not today.
+- Race pricing for sharp (above), and race pricing in expert's block
+  search.
+
+**Ablations** (test split, 512 rows, before generation 3): steady without
+its hold-up 50.4 % against casual (48.4 % with it); with casual's mulligan
+47.1 %; with casual's noise 48.2 %; with sharp's search 51.6 %, and without
+its hold-up as well 54.1 %. sharp without its hold-up 55.9 % against
+steady (53.1 % with it). expert with lookahead 1, or with sharp's noise,
+50.2 % against sharp. The noise between ±12 and ±400 makes no measurable
+difference anywhere.
+
+**Tools added.**
+
+- eval4 levels take knobs after a colon for an ablation:
+  `--baseline steady:hold_up=none,mulligan=1`, `--against
+  sharp:generation=4` (`eval4/profile_spec.rs`; `lookahead`,
+  `temperature`, `mulligan`, `hold_up`, `politics`, `generation` up to
+  this build's; never sight). `X:generation=N` is the level without the
+  generations after N, which is how every row above measures one change.
+- `eval4 --record-baseline <dir>` records the house-against-house game of
+  every deal, laid out as a `selfplay` run; with `--only-deals` (a JSON
+  list) it replays chosen deals. `gamelog4 show --run <dir> --game <deal>
+  --seat <n>` prints one from a chair. The useful reading: a deal a level
+  lost from both seats, and the same seat with the same deck and seed under
+  the other level (deal `2t` and `2t+1`): the games are the same up to the
+  first answer where the levels differ.
+- `house_duplicate` prints the gate's numbers: the two-sided sign test
+  over the seeds the level turned, and the per-deck rule line.
+- `eval4 --write-deals <file> --pilot-decks <keys>` (upstream, deals4)
+  writes the deals a deck is piloted in; add each deal's pair (`d xor 1`
+  in a duel) before `--only-deals`, so each seed is played from both
+  seats and `house_duplicate` can count it.
+
+**Method notes.**
+
+- Develop on the train split (2048 rows, about 30 s a pair on 4 threads)
+  and read the gate on test; 512 test rows move by two or three points
+  between builds that differ in a handful of seeds. A pair's measurement
+  noise is about the square root of the seeds that differ.
+- Never edit sources while a test build runs (the build reads half a
+  change), and use `X:generation=N` rather than a second build to compare.
+
+**What the code does not tell you (second round).**
+
+- Every skill found here moves a rung by one to four points. The levels
+  sit close because deck matchups decide most deals: in a duel pair of
+  house levels, 78–90 % of seeds are won by the same deck from both seats.
+- expert is still about sharp: what sets it apart now (retaliation with
+  race prices) gains it a point or two against its own older self and
+  about nothing against sharp. Its next real lever is lookahead, which
+  waits on the owner's two decisions in §3 (4).
+- seer gains little from what it sees through the heuristic paths tried
+  (its own draws at the mulligan, known tricks); the uses of §3a that
+  remain are counters around a known hand and removal timing. A clear
+  margin looks out of reach without the engine fork with
+  `DeckKnowledge::Known`, which seer may use but which is not shipped to
+  the hosts (§3 (4), the owner's decision).
 
 ## 1. Measure the ladder first
 
