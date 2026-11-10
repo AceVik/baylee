@@ -573,20 +573,23 @@ def main(default_architecture="v4") -> None:
                 if stop:
                     break
 
-            val_metrics = validate_and_save()
+            # Opt-in for throughput probes only: no held-out pass after the last step.
+            skipped = args.skip_final_validation and stop
+            val_metrics = dict(last_validation_metrics) if skipped else validate_and_save()
             if not args.reference_execution:
                 ep_pol, ep_val, ep_aux, ep_corr, ep_tot = epoch_stats.cpu().tolist()
             elapsed = time.perf_counter() - t0
+            missing = float("nan")
             print(
                 f"[train4] epoch={epoch} step={step_num} "
                 f"train_pol={ep_pol / max(ep_batches, 1):.4f} "
                 f"train_val={ep_val / max(ep_batches, 1):.4f} "
                 f"train_aux={ep_aux / max(ep_batches, 1):.4f} "
                 f"train_acc={ep_corr / max(ep_tot, 1):.3f} | "
-                f"val_pol={val_metrics['val_pol_loss']:.4f} "
-                f"val_mse={val_metrics['val_mse']:.4f} "
-                f"val_aux={val_metrics['val_aux_mse']:.4f} "
-                f"val_acc={val_metrics['val_top1_acc']:.3f} ({elapsed:.1f}s)",
+                f"val_pol={val_metrics.get('val_pol_loss', missing):.4f} "
+                f"val_mse={val_metrics.get('val_mse', missing):.4f} "
+                f"val_aux={val_metrics.get('val_aux_mse', missing):.4f} "
+                f"val_acc={val_metrics.get('val_top1_acc', missing):.3f} ({elapsed:.1f}s)",
                 flush=True,
             )
             save_last(epoch if stop else epoch + 1, next_batch if stop else 0, h if stop else None)
