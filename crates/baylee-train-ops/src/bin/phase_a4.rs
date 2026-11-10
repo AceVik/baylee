@@ -528,7 +528,7 @@ fn row(report: &Value) -> Result<String> {
         "| {} | {} | {} | {:.1} | {:.1} | {:+.1} pp [{:+.1}, {:+.1}] | {}/{} | {} |",
         report["arm"].as_str().unwrap_or(""),
         report["reference"].as_str().unwrap_or(""),
-        report["deals"],
+        report["games"],
         report["arm_wins_mean"].as_f64().unwrap_or(0.0),
         report["reference_wins"].as_f64().unwrap_or(0.0),
         difference,
@@ -629,7 +629,7 @@ fn group_table(
         .iter()
         .map(|path| read_json(path))
         .collect::<Result<_>>()?;
-    println!("| arm | reference | deals | wins | ref | paired | better/worse | Tor A |");
+    println!("| arm | reference | games | wins | ref | paired | better/worse | Tor A |");
     println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
     let mut reports = Vec::new();
     for group in groups {
@@ -889,7 +889,7 @@ fn table(
             Ok(pooled)
         })
         .collect::<Result<_>>()?;
-    println!("| arm | reference | deals | wins | ref | paired | better/worse | Tor A |");
+    println!("| arm | reference | games | wins | ref | paired | better/worse | Tor A |");
     println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
     for report in &reports {
         println!("{}", row(report)?);

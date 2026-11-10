@@ -1,6 +1,7 @@
 //! The inputs of a rating, read as games between two named players: the deals
 //! of an `eval4` summary, the clean games of a `ladder4` root.
 use super::spec::MatchSpec;
+use crate::evaluation::games::game_rows;
 use crate::evaluation::ladder::{clean_score, ladder_table};
 use crate::evaluation::{case_key, flag, number, read_json};
 use crate::measured::RULE_GROUPS;
@@ -209,64 +210,39 @@ fn describe(summary: &Value) -> Value {
         "seats": summary["seats"], "teams": summary["teams"]})
 }
 
-/// Every game of an `eval4` summary: one per table and side the net held.
-/// In a team format each seat of the net's team is a focal seat of its own
-/// row, and those rows replay one game (they differ only where a seat's own
-/// random stream does), so they are one game scored as their mean. The games
-/// of one table share a deal.
+/// Every game of an `eval4` summary, as `evaluation::games` defines one: a
+/// table and the side the net held, the rows of a team game made one at
+/// their mean. The games of one table share a deal.
 fn eval(path: &Path) -> Result<Read> {
     let summary = read_json(path)?;
     let format = format_of(&summary)?;
-    let teams: Vec<u64> = summary["teams"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|team| team.as_u64().context("a seat without a team"))
-        .collect::<Result<_>>()?;
     let rows = summary["deal_details"]
         .as_array()
         .context("summary without deal_details")?;
     ensure!(!rows.is_empty(), "summary without deals");
-    let mut tables = BTreeMap::new();
-    let mut decks = Vec::new();
-    // (deal, side) -> (seed, table, summed score, rows)
-    let mut sides = BTreeMap::<(usize, u64), (u64, u64, f64, usize)>::new();
     let mut caps = 0;
     for row in rows {
-        let score = number(row, "net_utility")?;
+        caps += usize::from(flag(row, "net_capped")?);
+    }
+    let mut tables = BTreeMap::new();
+    let mut games = Vec::new();
+    for game in game_rows(&summary)? {
+        let score = number(&game, "net_utility")?;
         ensure!(
             (0.0..=1.0).contains(&score),
             "net_utility {score} outside [0, 1]"
         );
-        caps += usize::from(flag(row, "net_capped")?);
-        let key = case_key(row, true)?;
-        let focal = key.3;
-        let side = if teams.is_empty() {
-            focal
-        } else {
-            *teams
-                .get(usize::try_from(focal)?)
-                .context("focal seat outside the teams")?
-        };
-        let (table, seed) = (key.0, key.1);
+        let (table, seed, decks, _) = case_key(&game, false)?;
+        let name = game["game"].as_str().context("a game without its key")?;
         let next = tables.len();
-        let deal = *tables.entry((key.0, key.1, key.2.clone())).or_insert(next);
-        if deal == decks.len() {
-            decks.push(key.2);
-        }
-        let entry = sides.entry((deal, side)).or_insert((seed, table, 0.0, 0));
-        entry.2 += score;
-        entry.3 += 1;
-    }
-    let games = sides
-        .into_iter()
-        .map(|((deal, side), (seed, table, sum, count))| Game {
-            score: sum / count as f64,
+        let deal = *tables.entry((table, seed, decks.clone())).or_insert(next);
+        games.push(Game {
+            score,
             deal,
-            decks: decks[deal].clone(),
-            key: Some(format!("{seed}/{table}/{side}")),
-        })
-        .collect();
+            decks,
+            key: Some(format!("{seed}/{name}")),
+        });
+    }
     Ok(Read {
         format,
         games,
