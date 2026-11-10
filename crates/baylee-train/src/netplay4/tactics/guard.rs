@@ -11,9 +11,8 @@ use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
 use baylee_view::{Phase, PlayerView, Step};
 
 use super::{
-    AbilityDef, has_reachable_mana_sink, is_counterspell_effects, is_mana_action,
-    is_spell_worth_casting_now_inner, is_x_spell_ready_from_castable, lookup_card_identity,
-    reading, redirect_mana_source_for_colors,
+    has_reachable_mana_sink, is_mana_action, is_spell_worth_casting_now_inner,
+    is_x_spell_ready_from_castable, reading, redirect_mana_source_for_colors,
 };
 use crate::features4::EncodedCandidates4;
 
@@ -202,24 +201,10 @@ fn react_window(view: &PlayerView, legal: &LegalActions) -> Option<(usize, Vec<O
             .iter()
             .any(|card| card.id == id && card.types.contains(TypeSet::INSTANT))
     };
-    let counters = |id: ObjectId| {
-        lookup_card_identity(view, id)
-            .and_then(|identity| {
-                baylee_cards::by_index(identity.index).map(|def| {
-                    def.abilities_for_face(usize::from(identity.face))
-                        .iter()
-                        .any(|ability| {
-                            matches!(ability, AbilityDef::Spell { effects, .. }
-                                if is_counterspell_effects(effects))
-                        })
-                })
-            })
-            .unwrap_or(false)
-    };
     let spells: Vec<ObjectId> = reading::reachable_spells(view, legal)
         .into_iter()
         .filter(|id| instant(*id) && is_spell_worth_casting_now_inner(view, *id))
-        .filter(|id| counters(*id) == theirs_on_stack)
+        .filter(|id| reading::is_counterspell(view, *id) == theirs_on_stack)
         .collect();
     if spells.is_empty() {
         return None;

@@ -88,6 +88,16 @@ impl Game {
         })
     }
 
+    /// Each seat's team, as the record's table says (`None`: alone).
+    pub(super) fn teams(&self) -> Vec<Option<u8>> {
+        match self.lines.first() {
+            Some(Line::Header { preset, .. }) => {
+                preset.seats.iter().map(|seat| seat.team).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+
     /// Replays the game and shows `visit` what happens; with `log`, the
     /// game's log lines too (which costs time).
     pub(super) fn replay(

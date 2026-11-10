@@ -5350,10 +5350,31 @@ fn mark_single_mana_source_with_view(
 /// tactical layer says about a position, with no policy involved.
 pub mod reading {
     use super::{
-        LegalActions, ObjectId, PlayerAction, PlayerView, has_reachable_mana_sink, is_mana_action,
-        is_spell_worth_casting_now_inner, lookup_spell_cost, spell_colors_reachable_inner,
+        AbilityDef, LegalActions, ObjectId, PlayerAction, PlayerView, has_reachable_mana_sink,
+        is_counterspell_effects, is_mana_action, is_spell_worth_casting_now_inner,
+        lookup_card_identity, lookup_spell_cost, spell_colors_reachable_inner,
         untapped_mana_production,
     };
+
+    /// Whether the card `id` the seat sees is a counterspell: a spell whose
+    /// effects counter a target spell or ability, as the choice guard reads it.
+    #[must_use]
+    pub fn is_counterspell(view: &PlayerView, id: ObjectId) -> bool {
+        lookup_card_identity(view, id).is_some_and(is_counterspell_card)
+    }
+
+    /// Whether the card face `identity` names is a counterspell.
+    #[must_use]
+    pub fn is_counterspell_card(identity: baylee_view::CardIdentity) -> bool {
+        baylee_cards::by_index(identity.index).is_some_and(|def| {
+            def.abilities_for_face(usize::from(identity.face))
+                .iter()
+                .any(|ability| {
+                    matches!(ability, AbilityDef::Spell { effects, .. }
+                        if is_counterspell_effects(effects))
+                })
+        })
+    }
 
     /// The spells on offer that the seat's pool and untapped sources can pay
     /// for, colours included.

@@ -23,6 +23,7 @@ use clap::{Parser, Subcommand};
 
 mod audit;
 mod board;
+mod counters;
 mod game;
 mod losses;
 mod names;
@@ -105,6 +106,20 @@ enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// The evaluated seat's counterspells over every game of a record
+    /// directory: what each countered, and the share on poor targets
+    /// (`counters.rs`). JSON on stdout.
+    Counters {
+        /// The run's record directory.
+        #[arg(long)]
+        run: PathBuf,
+        /// Games replayed at once.
+        #[arg(long, default_value_t = 1)]
+        threads: usize,
+        /// Also write the JSON here.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Counts classes of choices a reader should look at, over deals of a
     /// summary, by how often they occur in won and in lost games.
     Survey {
@@ -158,6 +173,7 @@ fn main() -> anyhow::Result<()> {
             threads,
             cases,
         } => survey::count(&run, &summary, which, threads, cases.as_deref()),
+        Command::Counters { run, threads, out } => counters::count(&run, threads, out.as_deref()),
         Command::Audit {
             run,
             summary,
