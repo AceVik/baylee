@@ -32,8 +32,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, ensure};
 use baylee_train::convert4::distill_labels::{
-    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillStep4, PrioritySubtype4,
-    menu_signature,
+    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillStep4, DistillSubtype4, menu_signature,
 };
 use baylee_train::convert4::{NetAnswer4, Step4};
 use baylee_train::features4::{HeadKind4, SourceKind4, TeacherTarget4};
@@ -48,24 +47,116 @@ pub(super) fn steps_path(game_id: u32) -> String {
     format!("bundle-distill/game-{game_id:06}.jsonl")
 }
 
+/// The decks a distillation dataset may have been played with: a manifest's
+/// train split (`--train-manifest`).
+pub(super) struct TrainDecks {
+    path: PathBuf,
+    sha256: String,
+    splits: BTreeMap<String, String>,
+}
+
+impl TrainDecks {
+    /// The manifest at `path`.
+    ///
+    /// # Errors
+    /// An unreadable manifest, or one without a `decks` list of `id` and
+    /// `split`.
+    pub(super) fn load(path: &Path) -> anyhow::Result<Self> {
+        let bytes = fs::read(path)
+            .with_context(|| format!("reading --train-manifest {}", path.display()))?;
+        Self::parse(path.to_path_buf(), &bytes)
+    }
+
+    fn parse(path: PathBuf, bytes: &[u8]) -> anyhow::Result<Self> {
+        let manifest: Value = serde_json::from_slice(bytes)?;
+        let splits = manifest["decks"]
+            .as_array()
+            .with_context(|| format!("{}: no decks list", path.display()))?
+            .iter()
+            .map(|deck| {
+                Some((
+                    deck["id"].as_str()?.to_owned(),
+                    deck["split"].as_str()?.to_owned(),
+                ))
+            })
+            .collect::<Option<BTreeMap<_, _>>>()
+            .with_context(|| format!("{}: a deck without id or split", path.display()))?;
+        Ok(Self {
+            sha256: super::shadow::sha(bytes),
+            path,
+            splits,
+        })
+    }
+
+    /// Every deck a run can seat (its `run.json` decks, from which each
+    /// table's decks are taken), each checked to be in the train split.
+    ///
+    /// # Errors
+    /// A run that names no decks, or any deck the manifest puts in another
+    /// split or does not list, named with its split.
+    fn seated(&self, run_dir: &Path, run_json: &Value) -> anyhow::Result<Vec<String>> {
+        let decks = run_json["decks"]
+            .as_array()
+            .filter(|decks| !decks.is_empty())
+            .with_context(|| format!("{}: run.json names no decks", run_dir.display()))?;
+        decks
+            .iter()
+            .map(|deck| {
+                let key = deck["key"]
+                    .as_str()
+                    .with_context(|| format!("{}: a deck without a key", run_dir.display()))?;
+                match self.splits.get(key).map(String::as_str) {
+                    Some("train") => Ok(key.to_owned()),
+                    Some(split) => anyhow::bail!(
+                        "{}: seats deck {key}, which {} puts in the {split} split; bundle \
+                         distillation trains on train decks only",
+                        run_dir.display(),
+                        self.path.display()
+                    ),
+                    None => anyhow::bail!(
+                        "{}: seats deck {key}, which {} does not list (no split); bundle \
+                         distillation trains on train decks only",
+                        run_dir.display(),
+                        self.path.display()
+                    ),
+                }
+            })
+            .collect()
+    }
+}
+
 /// The runs a distillation dataset is made of.
-#[derive(Default)]
 pub(super) struct Runs {
+    decks: TrainDecks,
+    seated: std::collections::BTreeSet<String>,
     sources: Vec<Value>,
 }
 
 impl Runs {
-    /// Admits one run: it must declare the distillation contract.
+    /// No runs yet; their decks must be in `decks`.
+    pub(super) const fn new(decks: TrainDecks) -> Self {
+        Self {
+            decks,
+            seated: std::collections::BTreeSet::new(),
+            sources: Vec::new(),
+        }
+    }
+
+    /// Admits one run: it must declare the distillation contract, and every
+    /// deck it can seat must be a train deck of the manifest.
     ///
     /// # Errors
-    /// A run without `distill.contract == bundle_distillation_v1`.
+    /// A run without `distill.contract == bundle_distillation_v1`, or one
+    /// with a deck outside the train split.
     pub(super) fn admit(&mut self, run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
         baylee_train_ops::tactician_labels::admit_distillation(run_json)
             .with_context(|| format!("{}", run_dir.display()))?;
+        let seated = self.decks.seated(run_dir, run_json)?;
         self.sources.push(
             json!({"run": run_dir, "label_rules": run_json["distill"]["label_rules"],
-            "players": run_json["distill"]["players"]}),
+            "players": run_json["distill"]["players"], "decks": seated.len()}),
         );
+        self.seated.extend(seated);
         Ok(())
     }
 
@@ -75,7 +166,7 @@ impl Runs {
             "target": "the tactical layer's answer R at every labelled decision of the recorded seats",
             "loss_weight": "1 at labelled decisions of the recorded seats, 0 elsewhere",
             "value_targets": "game outcomes, as usual",
-            "subtypes": PrioritySubtype4::ALL.map(PrioritySubtype4::name),
+            "subtypes": DistillSubtype4::ALL.map(DistillSubtype4::name),
             "groups": TacticRules4::group_names(),
             "bst4_flags": {"bit_7": "N != R"},
             "bst4_block": {
@@ -88,8 +179,11 @@ impl Runs {
                 "path": "bundle-distill/game-NNNNNN.jsonl",
                 "lines": "a header, one label line per labelled frame, a completed footer",
                 "label_line": ["game_id", "seat", "step_cursor", "label_kind", "n_ne_r",
-                    "net_answer", "distill_subtype (priority frames only)", "fired"],
+                    "net_answer", "distill_subtype (priority frames, and target questions where side or aim fired)", "fired"],
             },
+            "decks": {"manifest": self.decks.path, "manifest_sha256": self.decks.sha256,
+                "count": self.seated.len(), "split": "train", "all_train": true,
+                "checked": "every deck of each run's run.json, against the manifest"},
             "sources": self.sources, "counts": counts})
     }
 }
@@ -135,9 +229,9 @@ pub(super) struct Counts {
     pub by_kind: BTreeMap<String, u64>,
     /// `N ≠ R` frames by kind.
     pub n_ne_r_by_kind: BTreeMap<String, u64>,
-    /// Labelled priority frames by subtype.
+    /// Labelled frames by subtype.
     pub by_subtype: BTreeMap<String, u64>,
-    /// `N ≠ R` priority frames by subtype.
+    /// `N ≠ R` frames by subtype.
     pub n_ne_r_by_subtype: BTreeMap<String, u64>,
     /// `N ≠ R` frames by each rule group that fired there.
     pub n_ne_r_by_group: BTreeMap<String, u64>,
@@ -273,16 +367,11 @@ impl<'a> Cursor<'a> {
                 "distillation step {index}: the executed answer differs from the record's"
             ));
         }
-        if (label.kind == "priority") != label.subtype.is_some() {
+        if !DistillSubtype4::fits(label) {
             return Err(format!(
-                "distillation step {index}: a {} label {} a priority subtype (recorded before \
+                "distillation step {index}: a {} label with subtype {:?} (recorded before \
                  subtypes? collect again)",
-                label.kind,
-                if label.subtype.is_some() {
-                    "with"
-                } else {
-                    "without"
-                }
+                label.kind, label.subtype
             ));
         }
         Ok(Some(label))
@@ -329,7 +418,7 @@ impl<'a> Cursor<'a> {
         };
         self.counts.count(&frame);
         step.distill = Some(DistillFrame4 {
-            subtype_code: label.subtype.map_or(NO_SUBTYPE, PrioritySubtype4::code),
+            subtype_code: label.subtype.map_or(NO_SUBTYPE, DistillSubtype4::code),
             fired_mask,
             label: Some(frame),
         });
@@ -491,7 +580,7 @@ mod tests {
             executed: single(executed),
             fired: vec!["spend".into()],
             n_ne_r: rules != net,
-            subtype: Some(PrioritySubtype4::Spend),
+            subtype: Some(DistillSubtype4::Spend),
         }
     }
 
@@ -531,7 +620,7 @@ mod tests {
         let line = distilled.label.as_ref().unwrap();
         assert!(line.n_ne_r);
         assert_eq!(line.net_answer.single_idx, Some(2));
-        assert_eq!(line.subtype, Some(PrioritySubtype4::Spend));
+        assert_eq!(line.subtype, Some(DistillSubtype4::Spend));
         assert_eq!(line.fired, ["spend"]);
         assert!(!step.provenance.has_logprob);
         assert_eq!(step.provenance.behavior_logprob, 0.0);
@@ -603,7 +692,10 @@ mod tests {
         let error = Cursor::new(&labels)
             .apply(&mut frame(0, Some(0), 2))
             .unwrap_err();
-        assert!(error.contains("without a priority subtype"), "{error}");
+        assert!(
+            error.contains("priority label with subtype None"),
+            "{error}"
+        );
         let mut single = label(1, 2, 2);
         single.kind = "single".into();
         let labels = game(vec![Some(single)]);
@@ -668,27 +760,114 @@ mod tests {
         assert_eq!(lines[2], json!({"kind": "completed", "labels": 1}));
         // What the line holds reads back as the frame.
         let frame: DistillFrameLabel4 = serde_json::from_value(lines[1].clone()).unwrap();
-        assert_eq!(frame.subtype, Some(PrioritySubtype4::Spend));
+        assert_eq!(frame.subtype, Some(DistillSubtype4::Spend));
+    }
+
+    #[test]
+    fn a_target_question_where_side_fired_is_target_with_n_and_r() {
+        // The layer moved a counterspell off the seat's own spell: `side`.
+        let mut target = label(1, 2, 2);
+        target.kind = "single".into();
+        target.pending_kind = PendingKind4::ChooseTargets as u8;
+        target.fired = vec!["side".into()];
+        target.subtype = Some(DistillSubtype4::Target);
+        let mut other = target.clone();
+        other.fired = vec!["void".into()];
+        other.subtype = None;
+        let labels = game(vec![Some(target), Some(other)]);
+        let mut cursor = Cursor::new(&labels);
+        let question = |input| {
+            let mut step = frame(0, Some(input), 2);
+            step.pending_kind = PendingKind4::ChooseTargets as u8;
+            step
+        };
+        let mut aimed = question(0);
+        cursor.apply(&mut aimed).unwrap();
+        let distilled = aimed.distill.unwrap();
+        assert_eq!(distilled.subtype_code, 9);
+        let line = distilled.label.unwrap();
+        assert_eq!(line.subtype, Some(DistillSubtype4::Target));
+        assert_eq!(line.net_answer.single_idx, Some(2));
+        assert!(line.n_ne_r);
+        assert_eq!(aimed.target.single_idx, 1);
+        // Another target question: labelled, R its target, no subtype.
+        let mut plain = question(1);
+        cursor.apply(&mut plain).unwrap();
+        assert_eq!(plain.distill.as_ref().unwrap().subtype_code, NO_SUBTYPE);
+        assert_eq!(plain.loss_weight, 1.0);
+        assert_eq!(cursor.counts.by_subtype["target"], 1);
+        assert_eq!(cursor.counts.by_kind["single"], 2);
+    }
+
+    /// A manifest of three decks, one in each split.
+    fn manifest() -> TrainDecks {
+        let manifest = json!({"decks": [
+            {"id": "adapted/A/train-deck", "split": "train", "format": "constructed"},
+            {"id": "adapted/B/val-deck", "split": "val", "format": "constructed"},
+            {"id": "adapted/C/test-deck", "split": "test", "format": "constructed"},
+        ]});
+        TrainDecks::parse(
+            PathBuf::from("decks/manifest.v4.json"),
+            &serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn run(decks: &[&str]) -> Value {
+        json!({"distill": {"contract": DISTILL_CONTRACT, "label_rules": "mass"},
+            "decks": decks.iter().map(|key| json!({"key": key, "cards": [1, 2]})).collect::<Vec<_>>()})
+    }
+
+    #[test]
+    fn a_run_that_can_seat_a_deck_outside_the_train_split_is_refused() {
+        let dir = std::path::Path::new("runs/r");
+        let mut runs = Runs::new(manifest());
+        for (decks, names) in [
+            (
+                &["adapted/A/train-deck", "adapted/B/val-deck"][..],
+                "adapted/B/val-deck, which decks/manifest.v4.json puts in the val split",
+            ),
+            (
+                &["adapted/C/test-deck"][..],
+                "adapted/C/test-deck, which decks/manifest.v4.json puts in the test split",
+            ),
+            (
+                &["eval-d000"][..],
+                "eval-d000, which decks/manifest.v4.json does not list",
+            ),
+            (&[][..], "run.json names no decks"),
+        ] {
+            let error = runs.admit(dir, &run(decks)).unwrap_err().to_string();
+            assert!(error.contains(names), "{error}");
+        }
+        let mut no_decks = run(&[]);
+        no_decks.as_object_mut().unwrap().remove("decks");
+        assert!(runs.admit(dir, &no_decks).is_err());
+        // Nothing refused was admitted; a train run is.
+        runs.admit(dir, &run(&["adapted/A/train-deck"])).unwrap();
+        let meta = runs.metadata(&Counts::default());
+        assert_eq!(meta["sources"].as_array().unwrap().len(), 1);
+        assert_eq!(meta["decks"]["count"], 1);
+        assert_eq!(meta["decks"]["all_train"], true);
+        assert_eq!(meta["decks"]["manifest"], "decks/manifest.v4.json");
+        assert_eq!(meta["decks"]["manifest_sha256"].as_str().unwrap().len(), 64);
     }
 
     #[test]
     fn only_a_declared_run_is_admitted_and_the_meta_names_the_contract() {
-        let mut runs = Runs::default();
+        let mut runs = Runs::new(manifest());
         let dir = std::path::Path::new("runs/r");
-        assert!(
-            runs.admit(dir, &json!({"labels": "tactician_imitation_v1"}))
-                .is_err()
-        );
-        runs.admit(
-            dir,
-            &json!({"distill": {"contract": DISTILL_CONTRACT, "label_rules": "mass"}}),
-        )
-        .unwrap();
+        let mut imitation = run(&["adapted/A/train-deck"]);
+        imitation.as_object_mut().unwrap().remove("distill");
+        imitation["labels"] = json!("tactician_imitation_v1");
+        assert!(runs.admit(dir, &imitation).is_err());
+        runs.admit(dir, &run(&["adapted/A/train-deck"])).unwrap();
         let meta = runs.metadata(&Counts::default());
         assert_eq!(meta["contract"], DISTILL_CONTRACT);
         assert_eq!(meta["sources"][0]["label_rules"], "mass");
         assert_eq!(meta["subtypes"][2], "instant_their_turn");
-        assert_eq!(meta["subtypes"].as_array().unwrap().len(), 9);
+        assert_eq!(meta["subtypes"].as_array().unwrap().len(), 10);
+        assert_eq!(meta["subtypes"][9], "target");
         assert_eq!(meta["groups"].as_array().unwrap().len(), 20);
         assert_eq!(meta["groups"][7], "spend");
     }

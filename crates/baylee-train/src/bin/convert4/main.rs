@@ -104,6 +104,11 @@ struct Args {
     /// every other conversion refuses.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights", "search_targets"])]
     bundle_distill: bool,
+    /// With `--bundle-distill` (required there): the deck manifest whose train
+    /// split every deck a run can seat (its `run.json` decks) must be in; a
+    /// run with any other deck is refused.
+    #[arg(long, requires = "bundle_distill")]
+    train_manifest: Option<PathBuf>,
     /// With `--search-targets`: the policy weight of the net's own
     /// unsearched decisions (0 leaves them out).
     #[arg(long, requires = "search_targets", default_value_t = 0.0)]
@@ -230,7 +235,17 @@ fn main() -> anyhow::Result<()> {
             )
         })
         .transpose()?;
-    let mut distill_runs = args.bundle_distill.then(bundle_distill::Runs::default);
+    let mut distill_runs = if args.bundle_distill {
+        let manifest = args
+            .train_manifest
+            .as_deref()
+            .context("--bundle-distill needs --train-manifest: the manifest whose train split every seated deck is in")?;
+        Some(bundle_distill::Runs::new(bundle_distill::TrainDecks::load(
+            manifest,
+        )?))
+    } else {
+        None
+    };
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
