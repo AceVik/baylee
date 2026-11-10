@@ -410,7 +410,8 @@ def main(default_architecture="v4") -> None:
                                  source=file_digest(init_pt) if initial else None)
         net.train()
         print(f"[windows] states reason={reason} origin={origin} pieces={len(windows.pieces)} "
-              f"seconds={time.perf_counter() - began:.1f} frames={windows.statistics['frames']}", flush=True)
+              f"seconds={time.perf_counter() - began:.1f} frames={windows.statistics['frames']} "
+              f"pass={json.dumps(windows.timing if origin == 'computed' else {})}", flush=True)
 
     t0 = time.perf_counter()
     stop = False
