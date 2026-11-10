@@ -45,6 +45,10 @@ pub(crate) struct Presence {
     /// different number is a player who came back in between, even if they
     /// have left again since and the later departure is the one to act.
     visits: Mutex<BTreeMap<String, u64>>,
+    /// Wakes `/lobby/ws` whenever an account's first socket opens or last
+    /// socket closes, so `players_online` is pushed immediately over the
+    /// lobby WebSocket instead of being polled.
+    changed: Option<tokio::sync::broadcast::Sender<()>>,
 }
 
 /// One open lobby socket; dropping it is the socket closing.
@@ -53,16 +57,35 @@ pub(crate) struct Present {
     open: Arc<Mutex<BTreeMap<String, usize>>>,
     /// Whose socket it is.
     account_id: String,
+    /// Wakes `/lobby/ws` when the account's last socket closes.
+    changed: Option<tokio::sync::broadcast::Sender<()>>,
 }
 
 impl Presence {
+    /// Builds a presence book that wakes `changed` when `players_online` moves.
+    pub(crate) fn with_notifier(changed: tokio::sync::broadcast::Sender<()>) -> Self {
+        Self {
+            changed: Some(changed),
+            ..Self::default()
+        }
+    }
+
     /// An account opened a lobby socket; it counts until the guard drops.
     pub(crate) fn enter(&self, account_id: &str) -> Present {
-        *self.open.lock().entry(account_id.to_owned()).or_default() += 1;
+        let first = {
+            let mut open = self.open.lock();
+            let count = open.entry(account_id.to_owned()).or_default();
+            *count += 1;
+            *count == 1
+        };
         *self.visits.lock().entry(account_id.to_owned()).or_default() += 1;
+        if first && let Some(changed) = &self.changed {
+            let _ = changed.send(());
+        }
         Present {
             open: Arc::clone(&self.open),
             account_id: account_id.to_owned(),
+            changed: self.changed.clone(),
         }
     }
 
@@ -84,12 +107,22 @@ impl Presence {
 
 impl Drop for Present {
     fn drop(&mut self) {
-        let mut open = self.open.lock();
-        if let Some(count) = open.get_mut(&self.account_id) {
-            *count = count.saturating_sub(1);
-            if *count == 0 {
-                open.remove(&self.account_id);
+        let last = {
+            let mut open = self.open.lock();
+            if let Some(count) = open.get_mut(&self.account_id) {
+                *count = count.saturating_sub(1);
+                if *count == 0 {
+                    open.remove(&self.account_id);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
             }
+        };
+        if last && let Some(changed) = &self.changed {
+            let _ = changed.send(());
         }
     }
 }
@@ -120,5 +153,22 @@ mod tests {
         let _back = presence.enter("a");
         assert!(presence.here("a"));
         assert_eq!(presence.visits("a"), 3);
+    }
+
+    #[test]
+    fn first_and_last_socket_notify_lobby_changed() {
+        let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+        let presence = Presence::with_notifier(tx);
+        let first = presence.enter("a");
+        assert!(rx.try_recv().is_ok(), "first socket notifies");
+        let second = presence.enter("a");
+        assert!(
+            rx.try_recv().is_err(),
+            "second socket for same account does not notify"
+        );
+        drop(first);
+        assert!(rx.try_recv().is_err(), "still has a socket open");
+        drop(second);
+        assert!(rx.try_recv().is_ok(), "last socket closing notifies");
     }
 }

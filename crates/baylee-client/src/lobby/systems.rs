@@ -181,12 +181,18 @@ pub(super) fn poll(
                 Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
                 Reply::VaultLogin(login) => state.vault_login = Some(login),
                 Reply::Event(event) => {
+                    if matches!(event, LobbyEvent::BearerRenewed { .. }) {
+                        let _ = state.bypass_change_detection().lobby.apply(event);
+                        continue;
+                    }
                     if let LobbyEvent::Games(listing) = &event
                         && !state.lobby.busy()
                         && state.lobby.awaiting().is_none()
                         && listing.games == state.lobby.games()
                         && listing.total == state.lobby.total()
                         && listing.offset == state.lobby.offset()
+                        && (listing.stats.is_none()
+                            || listing.stats == state.lobby.stats().copied())
                     {
                         continue;
                     }

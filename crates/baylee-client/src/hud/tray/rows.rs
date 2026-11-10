@@ -21,7 +21,13 @@ pub(super) fn spawn_rows(
 ) {
     match mode {
         ViewMode::Detailed | ViewMode::Large => {
+            let mut last_zone = None;
             for row in rows {
+                if grid.headed && last_zone != Some(row.zone) {
+                    let head = spawn_run_head(commands, lang, row.zone, &grid);
+                    commands.entity(list).add_child(head);
+                    last_zone = Some(row.zone);
+                }
                 let node = if mode == ViewMode::Large {
                     spawn_big_row(
                         commands,

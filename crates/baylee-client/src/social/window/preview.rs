@@ -81,7 +81,8 @@ pub(super) fn in_log(
         })
 }
 
-/// Resolves a chat link only through information already given to this seat.
+/// Resolves a chat link through information already given to this seat, or its
+/// compiled registry entry when the table has not shown a printing of it yet.
 fn identity(
     duel: &Duel,
     texts: Option<&crate::cardtext::CardTexts>,
@@ -94,7 +95,17 @@ fn identity(
         let wording = logpanel::wording(duel, lang, &lookup);
         in_log(&duel.log.lines(&wording), link)
     });
-    let identity = current.or(logged.flatten())?;
+    let fallback = || {
+        let index = baylee_core::ids::CardIndex::new(link.card);
+        baylee_cards::by_index(index)
+            .and_then(|def| def.faces.get(usize::from(link.face)))
+            .map(|_| CardIdentity {
+                index,
+                print: baylee_core::ids::PrintRef::new(u16::MAX),
+                face: link.face,
+            })
+    };
+    let identity = current.or(logged.flatten()).or_else(fallback)?;
     Some(with_requested_print(duel.statics.as_ref(), link, identity))
 }
 
@@ -129,7 +140,7 @@ pub(super) fn stopgap(
     identity: CardIdentity,
     prefer_text: bool,
 ) -> Option<ImageKey> {
-    if prefer_text {
+    if prefer_text || identity.print.get() == u16::MAX {
         return None;
     }
     let normal = ImageKey::of(identity, ArtSize::Normal);
@@ -298,7 +309,7 @@ pub(super) fn sync(
                 zpx(2.0),
                 zpx(24.0),
             ),
-            stacked(35),
+            stacked(55),
             Pickable::IGNORE,
         ))
         .id();
@@ -337,6 +348,115 @@ pub(super) fn sync(
             baylee_client_core::images::FinishTreatment::Plain,
             width,
         );
+    }
+}
+
+/// Builds the Scryfall URL for a [`rows::ChatCardLink`].
+fn scryfall_url(link: &rows::ChatCardLink) -> Option<String> {
+    if let Some(print) = link.print.as_ref()
+        && !print.scryfall_id.trim().is_empty()
+        && print
+            .scryfall_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-')
+    {
+        return Some(format!(
+            "https://api.scryfall.com/cards/{}?format=redirect",
+            print.scryfall_id.trim()
+        ));
+    }
+    let def = baylee_cards::by_index(baylee_core::ids::CardIndex::new(link.card))?;
+    let name = def
+        .faces
+        .get(usize::from(link.face))
+        .map_or(def.name(), |f| f.name);
+    let encoded: String = url::form_urlencoded::byte_serialize(name.as_bytes()).collect();
+    Some(format!(
+        "https://api.scryfall.com/cards/named?exact={encoded}&format=redirect"
+    ))
+}
+
+/// Underlines a `[Card]` text span with a subtle external-link cue while
+/// holding a modifier key (`Cmd` / `Ctrl` / `Alt`), and opens its Scryfall
+/// page in the browser on modifier-click.
+#[allow(clippy::type_complexity)]
+pub(super) fn scryfall_links(
+    mut overs: MessageReader<bevy::picking::events::PointerOver>,
+    mut outs: MessageReader<bevy::picking::events::PointerOut>,
+    mut clicks: MessageReader<bevy::picking::events::PointerClick>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    mut spans: Query<(Entity, &rows::ChatCardLink, &mut TextSpan, &mut TextColor)>,
+    mut hovered_span: Local<Option<Entity>>,
+    mut decorated: Local<Option<(Entity, String, Color)>>,
+) {
+    for over in overs.read() {
+        if spans.contains(over.entity) {
+            *hovered_span = Some(over.entity);
+        }
+    }
+    for out in outs.read() {
+        if *hovered_span == Some(out.entity) {
+            *hovered_span = None;
+        }
+    }
+    if hovered_span.is_some_and(|e| !spans.contains(e)) {
+        *hovered_span = None;
+    }
+    let modifier = keys.as_deref().is_some_and(|k| {
+        k.any_pressed([
+            KeyCode::SuperLeft,
+            KeyCode::SuperRight,
+            KeyCode::ControlLeft,
+            KeyCode::ControlRight,
+            KeyCode::AltLeft,
+            KeyCode::AltRight,
+        ])
+    });
+    let want = hovered_span.filter(|_| modifier);
+    if let Some((old_entity, orig_text, orig_col)) = decorated.take() {
+        if want == Some(old_entity) {
+            *decorated = Some((old_entity, orig_text, orig_col));
+        } else if let Ok((_, _, mut span, mut col)) = spans.get_mut(old_entity) {
+            span.0 = orig_text;
+            col.0 = orig_col;
+        }
+    }
+    if let Some(target) = want
+        && decorated.is_none()
+        && let Ok((_, _, mut span, mut col)) = spans.get_mut(target)
+    {
+        let orig_text = span.0.clone();
+        let orig_col = col.0;
+        let underlined: String = orig_text
+            .chars()
+            .flat_map(|ch| {
+                if ch == '[' || ch == ']' {
+                    vec![ch]
+                } else {
+                    vec![ch, '\u{0332}']
+                }
+            })
+            .collect();
+        span.0 = if let Some(inner) = underlined.strip_suffix(']') {
+            format!("{inner} \u{2197}]")
+        } else {
+            format!("{underlined} \u{2197}")
+        };
+        col.0 = Color::srgb(1.0, 0.92, 0.55);
+        *decorated = Some((target, orig_text, orig_col));
+    }
+    for click in clicks.read() {
+        if click.button != bevy::picking::pointer::PointerButton::Primary || !modifier {
+            continue;
+        }
+        if let Ok((_, link, _, _)) = spans.get(click.entity)
+            && let Some(url) = scryfall_url(link)
+        {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Err(err) = webbrowser::open(&url) {
+                warn!("could not open Scryfall {url}: {err}");
+            }
+        }
     }
 }
 

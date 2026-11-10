@@ -15,8 +15,8 @@ pub(in crate::hud) fn control_button(
         .spawn((
             UiButton,
             Node {
-                min_height: px(28),
-                padding: UiRect::axes(px(8), px(5)),
+                min_height: px(24),
+                padding: UiRect::axes(px(8), px(3)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border_radius: BorderRadius::all(px(4)),
@@ -95,6 +95,7 @@ pub(in crate::hud) fn spawn_controls(
     let marked = selected.and_then(|id| view.stack.iter().find(|item| item.id == id));
     let ability = marked
         .or_else(|| view.stack.last())
+        .filter(|item| item.controller == view.seat)
         .and_then(|item| match item.stack_item {
             Some(baylee_view::StackItem::Ability { ability, .. }) => ability,
             _ => None,
@@ -109,7 +110,7 @@ pub(in crate::hud) fn spawn_controls(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(5),
+                row_gap: px(3),
                 // Under the list on a phone, and the first to give way: the
                 // entry is what the panel is for (`fold_the_stack` keeps the
                 // list a top row tall).
@@ -157,6 +158,7 @@ pub(in crate::hud) fn spawn_controls(
             Phrase::StackRun
         };
         let button = control_button(commands, controls, label.text(lang), running, fonts);
+        commands.entity(button).insert(StackButton("StackRun"));
         commands
             .entity(button)
             .observe(|mut click: On<PointerClick>, mut duel: ResMut<Duel>| {
@@ -184,6 +186,7 @@ pub(in crate::hud) fn spawn_controls(
             order.pass,
             fonts,
         );
+        commands.entity(pass).insert(StackButton("StackAlwaysPass"));
         let mark = pass_check(commands, fonts, order.pass);
         commands.entity(pass).insert_children(0, &[mark]);
         commands.entity(pass).observe(
@@ -207,10 +210,18 @@ pub(in crate::hud) fn spawn_controls(
             ))
             .id();
         commands.entity(controls).add_child(choices);
-        for (label, answer) in [
-            (Phrase::StackAsk, None),
-            (Phrase::StackAlwaysYes, Some(StandingAnswer::Yes)),
-            (Phrase::StackAlwaysNo, Some(StandingAnswer::No)),
+        for (tag, label, answer) in [
+            ("StackAsk", Phrase::StackAsk, None),
+            (
+                "StackAlwaysYes",
+                Phrase::StackAlwaysYes,
+                Some(StandingAnswer::Yes),
+            ),
+            (
+                "StackAlwaysNo",
+                Phrase::StackAlwaysNo,
+                Some(StandingAnswer::No),
+            ),
         ] {
             let button = control_button(
                 commands,
@@ -219,6 +230,7 @@ pub(in crate::hud) fn spawn_controls(
                 order.answer == answer,
                 fonts,
             );
+            commands.entity(button).insert(StackButton(tag));
             commands.entity(button).observe(
                 move |mut click: On<PointerClick>, mut prefs: ResMut<crate::prefs::Prefs>| {
                     click.propagate(false);
@@ -248,6 +260,9 @@ pub(in crate::hud) fn spawn_controls(
             false,
             fonts,
         );
+        commands
+            .entity(reset)
+            .insert(StackButton("StackResetRules"));
         commands.entity(reset).observe(
             |mut click: On<PointerClick>, mut prefs: ResMut<crate::prefs::Prefs>| {
                 click.propagate(false);
@@ -264,21 +279,16 @@ pub(in crate::hud) fn spawn_controls(
 /// reached (the owner, 08.10.2026). The sentence is a bounded box now, so
 /// the content has a ceiling, and [`StackBody::full_height`] measures the
 /// row for the window.
-pub(in crate::hud) fn stack_entry_height(full: bool) -> Val {
-    if full {
-        Val::Auto
-    } else {
-        px(STACK_ROW_HEIGHT)
-    }
+pub(in crate::hud) fn stack_entry_height(_full: bool) -> Val {
+    Val::Auto
 }
 
 /// One row of the stack panel: the object, what it is, and what it points at.
 ///
 /// `full` is the top of the stack — the sentence the panel is about. Every
-/// other row is the queue behind it and is drawn at two thirds, with no
-/// subtitle and no arrow: a queued entry answers "what else is coming", and
-/// the seat and the kind are questions a player asks about the thing that is
-/// *next*.
+/// other row is the queue behind it and is drawn at two thirds, with its
+/// controller/source subtitle and any targets or cast/entering choices always
+/// visible under its heading.
 #[allow(clippy::too_many_arguments)] // the same slot arguments, one level down
 #[allow(clippy::too_many_lines)] // two shapes of one row, built flat
 pub(in crate::hud) fn spawn_stack_entry(
@@ -287,6 +297,7 @@ pub(in crate::hud) fn spawn_stack_entry(
     item: &baylee_client_core::board::StackItem,
     full: bool,
     marked: bool,
+    group_info: Option<(ObjectId, usize)>,
     view: &PlayerView,
     statics: &GameStatic,
     reader: Option<PlayerId>,
@@ -362,18 +373,6 @@ pub(in crate::hud) fn spawn_stack_entry(
             },
             BackgroundColor(fill),
             BorderColor::all(rail),
-            // The whole row answers for the spell on it, and that is the fix
-            // for a duel that could not be played: a `ChooseTargets` whose
-            // only option was a spell on the stack had no way to be answered
-            // at all, because the panel's one pickable node was the 66-pixel
-            // picture and every other node — the row included — carried
-            // `Pickable::IGNORE`. `Interaction::toggle` has always taken "a
-            // spell on the stack"; what was missing was a way to *say* it.
-            // A click anywhere on the row — the picture, the name, the
-            // printed sentence — now goes through `activate_card` like a
-            // click on a card in the hand, and lands on `toggle` for the
-            // same reason it does there: nothing earlier in that chain is
-            // true of an object on the stack.
             HandCardVisual { object: item.id },
             crate::hud::StackRowCard,
             Arriving::fill(key, fill.alpha()),
@@ -396,7 +395,7 @@ pub(in crate::hud) fn spawn_stack_entry(
         key,
         // The row speaks for the entry; see `spawn_stack_card`.
         None,
-        item.art,
+        item.copy_original.or(item.art),
         stack_face(item, view, faces, textures),
         width,
         height,
@@ -407,10 +406,6 @@ pub(in crate::hud) fn spawn_stack_entry(
         cards.as_deref_mut(),
         &faces.widths,
     );
-    // The light that says the pending question would take this spell as its
-    // answer, and the brighter one that says it already has. It replaces the
-    // slot's drop shadow rather than joining it, exactly as in the hand:
-    // `BoxShadow` is one component, and a card is lit or it is at rest.
     if let Some(light) = picks.light(item.id) {
         commands.entity(art).insert(light);
     }
@@ -420,7 +415,7 @@ pub(in crate::hud) fn spawn_stack_entry(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(3),
+                row_gap: px(if full { 3.0 } else { 2.0 }),
                 flex_grow: 1.0,
                 min_width: px(0),
                 overflow: Overflow::clip_x(),
@@ -431,13 +426,6 @@ pub(in crate::hud) fn spawn_stack_entry(
         .id();
     commands.entity(row).add_child(body);
 
-    // The body is the panel less its padding, the row's own padding, the rail
-    // and the card. The two rows spend it differently, and that is the whole
-    // of the ramp once more: the **full** row's name may wrap to
-    // [`STACK_NAME_LINES`], because it is the thing the row is about and nine
-    // faces in the pool are longer than one line of it; a **queued** name is
-    // cut to fit one line, because its height is what the panel is budgeted
-    // against and at 267 px every face in the pool fits on it anyway.
     let ink = if full { palette::CANDLE } else { palette::INK };
     let size = if full {
         STACK_NAME_PT
@@ -454,43 +442,58 @@ pub(in crate::hud) fn spawn_stack_entry(
         - 3.0
         - width
         - 8.0
+        - if group_info.is_some() { 54.0 } else { 0.0 }
         // On a phone's top row the targets share the name's line.
         - if compact {
             phone_targets_width(item.targets.len())
         } else {
             0.0
         };
-    // The name a player reads rather than the one the engine projects. It has
-    // to be looked up here and not taken from `item.name`, because
-    // `BoardModel` is built in a crate that links neither the catalog nor a
-    // socket to fetch it over.
     let title = view.object(item.id).map_or_else(
         || item.name.clone(),
-        |o| crate::face::name_of(o, view, faces.texts),
+        |o| {
+            if (item.copy_original.is_some() || item.face_down)
+                && let Some(card) = o.card
+            {
+                faces
+                    .texts
+                    .get(card.index, card.face)
+                    .map(|t| t.name)
+                    .or_else(|| {
+                        baylee_cards::by_index(card.index)
+                            .and_then(|d| d.faces.get(usize::from(card.face)))
+                            .map(|f| f.name.to_string())
+                    })
+                    .unwrap_or_else(|| crate::face::name_of(o, view, faces.texts))
+            } else {
+                crate::face::name_of(o, view, faces.texts)
+            }
+        },
     );
+    let title = if title.is_empty() || title == "Face-down" {
+        match lang {
+            Lang::De => "Verdeckt".to_string(),
+            Lang::En => "Face-down".to_string(),
+        }
+    } else {
+        title
+    };
     let title = heading(item, full, title, faces);
     let mut name = commands.spawn((
-        // A card's name is set in the card's face, not the interface's:
-        // Faustina carries every printed word this client draws, wherever
-        // the ground under it happens to be.
         super::tf_serif(fonts, size, 400),
         TextColor(ink),
         Arriving::ink(key, ink.alpha()),
-        // The row is what the pointer is on, and a label is a node: left
-        // pickable it would take the hover for itself and the row around
-        // it would never light.
         Pickable::IGNORE,
     ));
     if full && !compact {
         name.insert((
             Text::new(title.clone()),
             bevy::text::LineHeight::Px(STACK_NAME_LINE),
-            // A cap in pixels rather than a claim about the pool: a printing
-            // this client has never seen gets two lines and a clean edge
-            // instead of a third line that pushes the queue out of the panel.
             Node {
                 max_height: px(STACK_NAME_LINES * STACK_NAME_LINE),
                 overflow: Overflow::clip(),
+                flex_grow: 1.0,
+                min_width: px(0),
                 ..default()
             },
         ));
@@ -498,11 +501,17 @@ pub(in crate::hud) fn spawn_stack_entry(
         name.insert((
             Text::default(),
             TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+            Node {
+                flex_grow: 1.0,
+                min_width: px(0),
+                overflow: Overflow::clip_x(),
+                ..default()
+            },
         ));
     }
     let name = name.id();
     if !full || compact {
-        for piece in queued_heading_spans(&title, room, size) {
+        for piece in queued_heading_spans(&title, room.max(40.0), size) {
             let mark = piece.mark.then(|| piece.text.clone());
             let font = if piece.mark {
                 crate::manaui::mana_tf(fonts, size * STACK_MARK)
@@ -524,9 +533,8 @@ pub(in crate::hud) fn spawn_stack_entry(
             commands.entity(name).add_child(span);
         }
     }
+    let has_targets = super::cards::has_targets_or_choices(item, lang, full);
     if compact {
-        // The name and what it points at on one line: the name takes what
-        // the targets leave, cut to fit, and the targets never move off it.
         let line = commands
             .spawn((
                 Node {
@@ -546,26 +554,13 @@ pub(in crate::hud) fn spawn_stack_entry(
             ..default()
         });
         commands.entity(line).add_child(name);
-        if !item.targets.is_empty() {
-            let arrow = commands
-                .spawn((
-                    Text::new("→"),
-                    tf(fonts, 14.0),
-                    TextColor(palette::CANDLE),
-                    Arriving::ink(key, palette::CANDLE.alpha()),
-                    Node {
-                        flex_shrink: 0.0,
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
+        if has_targets {
             let targets = spawn_stack_targets(
                 commands,
                 lang,
                 item,
                 key,
-                false,
+                (false, true),
                 view,
                 statics,
                 textures,
@@ -581,19 +576,39 @@ pub(in crate::hud) fn spawn_stack_entry(
                 flex_shrink: 0.0,
                 ..default()
             });
-            commands.entity(line).add_children(&[arrow, targets]);
+            commands.entity(line).add_child(targets);
+        }
+        if let Some((group_id, count)) = group_info {
+            let badge = spawn_group_badge(commands, fonts, key, group_id, count);
+            commands.entity(line).add_child(badge);
         }
         commands.entity(body).add_child(line);
+    } else if let Some((group_id, count)) = group_info {
+        let head_row = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    column_gap: px(6),
+                    min_width: px(0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let badge = spawn_group_badge(commands, fonts, key, group_id, count);
+        commands.entity(head_row).add_children(&[name, badge]);
+        commands.entity(body).add_child(head_row);
     } else {
         commands.entity(body).add_child(name);
     }
 
-    // What kind of thing this is, and whose — on the top row only. An ability
-    // names its source even when the source has left: the picture above may
-    // be missing, the sentence must not be. A *spell* names nothing, because
-    // the picture already said it. Not on a phone: its head says whose
-    // answer the table waits for, and the row has two lines of room.
-    if full && !compact {
+    // What kind of thing this is, and whose — shown on every row (both top
+    // and queued entries). An ability names its source even when the source
+    // has left: the picture above may be missing, the sentence must not be.
+    if !compact {
+        let sub_size = if full { STACK_SENTENCE_PT } else { 11.0 };
         let kind = match item.kind {
             baylee_client_core::board::StackKind::Spell => None,
             baylee_client_core::board::StackKind::Ability { source, .. } => {
@@ -609,7 +624,7 @@ pub(in crate::hud) fn spawn_stack_entry(
         let subtitle = commands
             .spawn((
                 Text::default(),
-                super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
+                super::tf_serif(fonts, sub_size, 400),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
                 Pickable::IGNORE,
@@ -619,7 +634,7 @@ pub(in crate::hud) fn spawn_stack_entry(
             let span = commands
                 .spawn((
                     TextSpan::new(format!("{kind} — ")),
-                    super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
+                    super::tf_serif(fonts, sub_size, 400),
                     TextColor(palette::MUTED),
                     Arriving::ink(key, palette::MUTED.alpha()),
                     Pickable::IGNORE,
@@ -627,9 +642,6 @@ pub(in crate::hud) fn spawn_stack_entry(
                 .id();
             commands.entity(subtitle).add_child(span);
         }
-        // The seat in the slant, and only the seat: it is the one word of the
-        // subtitle that names a *person*, and italic Inter at this size over
-        // this ground is legible for a word and tiring for a sentence.
         let seat = commands
             .spawn((
                 TextSpan::new(if Some(item.controller) == reader {
@@ -637,7 +649,7 @@ pub(in crate::hud) fn spawn_stack_entry(
                 } else {
                     statics.seat_name(item.controller).to_string()
                 }),
-                super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400),
+                super::tf_serif_italic(fonts, sub_size, 400),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
                 Pickable::IGNORE,
@@ -647,25 +659,26 @@ pub(in crate::hud) fn spawn_stack_entry(
         commands.entity(body).add_child(subtitle);
     }
 
-    // What it points at, right under what it is: on the full row above the
-    // sentence, so a long sentence can never push its targets out of sight
-    // (the owner, 08.10.2026: *"you can't see the target"*). The sentence
-    // scrolls in its own box under them; the targets never scroll.
-    if !item.targets.is_empty() && !compact {
+    // What it points at or chose on cast/entry, right under what it is: on
+    // both the top row and every queued row.
+    if has_targets && !compact {
         let targets = spawn_stack_targets(
-            commands, lang, item, key, full, view, statics, textures, assets, fonts, faces, cards,
+            commands,
+            lang,
+            item,
+            key,
+            (full, false),
+            view,
+            statics,
+            textures,
+            assets,
+            fonts,
+            faces,
+            cards,
         );
         commands.entity(body).add_child(targets);
     }
 
-    // What the ability *does*, in the player's own printing and language.
-    // This is the whole reason the host says which sentence a stack entry
-    // is: "+1" tells a player nothing, and a stack of three triggers that
-    // all read `Ability · Ondu Cleric` tells them less.
-    //
-    // The full row only. A queued row answers "what else is coming", and six
-    // sentences stacked under one another would be a wall of text where the
-    // size ramp used to carry the order.
     if full && let Some(blocks) = stack_sentence(item, faces) {
         let (line, text_box) =
             spawn_stack_sentence(commands, fonts, key, item.id, blocks, text_lines);
@@ -674,6 +687,65 @@ pub(in crate::hud) fn spawn_stack_entry(
     }
 
     row
+}
+
+fn spawn_group_badge(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    key: StackKey,
+    group_id: ObjectId,
+    count: usize,
+) -> Entity {
+    commands
+        .spawn((
+            UiButton,
+            StackButton("ToggleStackGroup"),
+            StackGroupToggle,
+            Node {
+                padding: UiRect::axes(px(6.0), px(2.0)),
+                column_gap: px(3.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(8.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(palette::CANDLE_WASH_LIT),
+            BorderColor::all(palette::CANDLE),
+            Feel::tinting_to(palette::CANDLE_WASH_LIT, palette::PANEL_HOT),
+            Arriving::fill(key, palette::CANDLE_WASH_LIT.alpha()),
+            children![
+                (
+                    Text::new(format!("×{count}")),
+                    tf(fonts, 11.0),
+                    TextColor(palette::CANDLE),
+                    Arriving::ink(key, palette::CANDLE.alpha()),
+                    Pickable::IGNORE,
+                ),
+                (
+                    StackGroupToggleText { group_id },
+                    Text::new(glyph::CHEVRON_DOWN.to_string()),
+                    icon_tf(fonts, 9.0),
+                    TextColor(palette::CANDLE),
+                    Arriving::ink(key, palette::CANDLE.alpha()),
+                    Pickable::IGNORE,
+                ),
+            ],
+        ))
+        .observe(
+            move |mut click: On<PointerClick>,
+                  mut fold: ResMut<StackFold>,
+                  mut duel: Option<ResMut<Duel>>| {
+                click.propagate(false);
+                fold.toggle_group(group_id);
+                if let Some(duel) = duel.as_deref_mut() {
+                    duel.hovered = None;
+                    duel.hovered_at = None;
+                }
+            },
+        )
+        .id()
 }
 
 /// How much of a phone's top row `count` targets take on the name's line:

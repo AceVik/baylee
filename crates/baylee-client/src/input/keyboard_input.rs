@@ -213,18 +213,26 @@ fn arrangement_menu_keys(
     crate::arrangement::keys(fired, &digits, duel, settings, frame);
 }
 
-/// `Esc` between two questions, innermost first: a reveal another seat
-/// made, a menu or log, then a visit.
+/// `Esc` between two questions, innermost first: a card preview, a reveal
+/// another seat made, a menu or log, a dismissible zone browser, then a visit.
 fn between_questions(fired: Fired, duel: &mut Duel) {
-    if fired.has(Action::Cancel) && duel.reveals.current().is_some() {
+    if !fired.has(Action::Cancel) {
+        return;
+    }
+    if duel.hovered.is_some() {
+        duel.hovered = None;
+        duel.hovered_at = None;
+    } else if duel.reveals.current().is_some() {
         // A reveal stands between two questions as well, and is put away
         // first, as it is in front of one (`answer_the_question`).
         duel.reveals.dismiss();
-    } else if fired.has(Action::Cancel) && duel.game_menu {
+    } else if duel.game_menu {
         duel.game_menu = false;
-    } else if fired.has(Action::Cancel) && duel.log_open && !duel.chat_panel {
+    } else if duel.log_open && !duel.chat_panel {
         duel.log_open = false;
-    } else if fired.has(Action::Cancel) && duel.visiting.is_some() {
+    } else if duel.browser.is_open() && duel.browser.may_be_put_away() {
+        duel.browser.close();
+    } else if duel.visiting.is_some() {
         // Between two questions there is nothing to take back: `Esc` is
         // "back" to the home shot (DESIGN-v7 §2.4).
         navigate_home(duel);

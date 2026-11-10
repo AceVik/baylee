@@ -8,6 +8,10 @@ use baylee_client_core::Lang;
 use baylee_client_core::i18n::Phrase;
 use bevy::prelude::*;
 
+/// The outer row holding the top-of-table pill.
+#[derive(Component)]
+pub(crate) struct SpectatorBanner;
+
 /// The line at the top of the table.
 #[derive(Component)]
 pub(crate) struct SpectatorLine;
@@ -32,7 +36,8 @@ pub(crate) fn sync_spectator_line(
     duel: Res<Duel>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
-    mut line: Query<(Entity, &mut Text), With<SpectatorLine>>,
+    banner: Query<Entity, With<SpectatorBanner>>,
+    mut line: Query<&mut Text, With<SpectatorLine>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
 ) {
     let lang = Lang::of(&settings.lang);
@@ -47,30 +52,53 @@ pub(crate) fn sync_spectator_line(
         None => spectator_words(lang, duel.watching, duel.spectators),
     };
     match (words, line.single_mut()) {
-        (Some(words), Ok((_, mut text))) => {
+        (Some(words), Ok(mut text)) => {
             if text.0 != words {
                 text.0 = words;
             }
         }
         (Some(words), Err(_)) => {
+            for entity in &banner {
+                commands.entity(entity).despawn();
+            }
             commands.spawn((
-                SpectatorLine,
+                SpectatorBanner,
                 DetachedHud,
                 Node {
                     position_type: PositionType::Absolute,
                     top: px(6),
                     width: percent(100),
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
-                Text::new(words),
-                TextLayout::justify(Justify::Center),
-                tf(&fonts, 14.0),
-                TextColor(Color::srgba(0.92, 0.94, 0.98, 0.85)),
                 GlobalZIndex(5),
                 Pickable::IGNORE,
+                children![(
+                    Node {
+                        padding: UiRect::axes(px(10), px(3)),
+                        border: UiRect::all(px(1)),
+                        border_radius: BorderRadius::all(px(999)),
+                        ..default()
+                    },
+                    BackgroundColor(super::palette::DIALOG_LIT.with_alpha(0.88)),
+                    BorderColor::all(super::palette::DIALOG_LINE),
+                    Pickable::IGNORE,
+                    children![(
+                        SpectatorLine,
+                        Text::new(words),
+                        TextLayout::justify(Justify::Center),
+                        tf(&fonts, 12.5),
+                        TextColor(super::palette::DIALOG_INK),
+                        Pickable::IGNORE,
+                    )],
+                )],
             ));
         }
-        (None, Ok((entity, _))) => commands.entity(entity).despawn(),
+        (None, Ok(_)) => {
+            for entity in &banner {
+                commands.entity(entity).despawn();
+            }
+        }
         (None, Err(_)) => {}
     }
 }

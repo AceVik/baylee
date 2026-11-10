@@ -530,10 +530,27 @@ pub fn parse(text: &str, candidates: &Candidates, picked: &[CardRef]) -> Vec<Spa
 /// What the words inside one pair of brackets name.
 fn named(inner: &str, candidates: &Candidates, picked: &[CardRef]) -> Option<Target> {
     if let Some(name) = inner.strip_prefix('@') {
+        if name.is_empty() {
+            return None;
+        }
+        let lower = name.to_lowercase();
         return candidates
             .players
             .iter()
             .find(|p| p.name == name)
+            .or_else(|| {
+                candidates
+                    .players
+                    .iter()
+                    .find(|p| p.name.to_lowercase() == lower)
+            })
+            .or_else(|| {
+                candidates.players.iter().find(|p| {
+                    p.name
+                        .split_once('#')
+                        .is_some_and(|(short, _)| short.eq_ignore_ascii_case(name))
+                })
+            })
             .cloned()
             .map(Target::Player);
     }

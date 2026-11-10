@@ -157,3 +157,34 @@ fn a_terminal_send_failure_releases_only_its_own_retry_slot() {
         assert!(retries.contains_key("still uncertain"));
     }
 }
+
+#[test]
+fn live_central_websocket_suppresses_timer_polling_and_wakes_on_push() {
+    let mut host = host();
+    let bridge = host.central.as_mut().unwrap();
+    bridge.jobs.clear();
+    bridge.ready = true;
+    bridge.welcomed = true;
+    bridge.handle.set_ws_live_for_test(true);
+
+    complete(&mut host, poll(0), Ok(answer(0)), 100);
+    let bridge = host.central.as_ref().unwrap();
+    assert_eq!(bridge.next, u64::MAX);
+    assert_eq!(bridge.metadata_at, u64::MAX);
+
+    tick(&mut host, 10_000);
+    assert!(
+        host.central.as_ref().unwrap().jobs.is_empty(),
+        "no timer poll while Central WebSocket is live"
+    );
+
+    host.central.as_ref().unwrap().handle.push_social_for_test();
+    tick(&mut host, 10_100);
+    assert!(
+        matches!(
+            host.central.as_ref().unwrap().jobs.front(),
+            Some(Job::Poll { metadata: true, .. })
+        ),
+        "social WebSocket push immediately schedules metadata+inbox poll"
+    );
+}

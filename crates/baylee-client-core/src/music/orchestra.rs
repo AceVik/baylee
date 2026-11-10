@@ -133,6 +133,7 @@ fn panned(gain: f32, pan: f32) -> [f32; 2] {
     ]
 }
 impl Orchestra {
+    #[allow(dead_code)]
     pub(in crate::music) fn chamber_note(&mut self, note: chamber::Note) {
         self.chamber.note(note);
     }

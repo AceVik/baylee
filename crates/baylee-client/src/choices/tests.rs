@@ -24,6 +24,7 @@ fn a_seat_row_says_the_name_the_table_shows() {
     let statics = GameStatic {
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
         view_version: baylee_view::VIEW_VERSION,
         game_id: "g".into(),
         your_seat: PlayerId::new(0),
@@ -62,6 +63,7 @@ fn player_choices_use_the_same_localized_house_name_as_the_table() {
     let mut statics = GameStatic {
         decision_secs: None,
         reconnect_secs: None,
+        table_seed: 0,
         view_version: baylee_view::VIEW_VERSION,
         game_id: "g".into(),
         your_seat: PlayerId::new(0),

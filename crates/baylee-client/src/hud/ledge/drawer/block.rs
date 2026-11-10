@@ -70,7 +70,8 @@ pub(super) fn reading(
                     }
                     None => Phrase::BlockSend.fill(lang, &[&card(blocker), &card(aim)]),
                 },
-            ),
+            )
+            .assigned(i.blocking(blocker).is_some()),
         })
         .collect();
     // Grouped as the attack list is: the attackers, then the creatures that

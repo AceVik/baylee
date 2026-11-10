@@ -45,9 +45,12 @@ pub(super) fn advance(
     let has_scene = surfaces
         .iter()
         .any(|kind| *kind == crate::vista::Vista::Front);
+    let unauthenticated = matches!(state.lobby.screen(), Screen::SignIn { .. })
+        && !state.central_ready()
+        && !state.lobby.offline();
     entrance.advance(
-        matches!(state.lobby.screen(), Screen::SignIn { .. }),
-        state.lobby.token().is_some(),
+        unauthenticated,
+        state.central_ready() || state.lobby.token().is_some(),
         prefs.all().reduce_motion || !has_scene,
         time.delta_secs(),
     );

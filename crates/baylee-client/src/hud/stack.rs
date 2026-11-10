@@ -62,12 +62,42 @@ pub(super) use sentence::*;
 pub struct StackFold {
     collapsed: bool,
     open: f32,
+    groups: Vec<(ObjectId, bool, f32)>,
 }
 impl Default for StackFold {
     fn default() -> Self {
         Self {
             collapsed: false,
             open: 1.0,
+            groups: Vec::new(),
+        }
+    }
+}
+impl StackFold {
+    /// Whether the stack group anchored at `group_id` is expanded.
+    #[must_use]
+    pub fn is_group_expanded(&self, group_id: ObjectId) -> bool {
+        self.groups
+            .iter()
+            .find(|(id, _, _)| *id == group_id)
+            .is_some_and(|(_, expanded, _)| *expanded)
+    }
+
+    /// Current eased open fraction (`0.0..=1.0`) for `group_id`.
+    #[must_use]
+    pub fn group_open(&self, group_id: ObjectId) -> f32 {
+        self.groups
+            .iter()
+            .find(|(id, _, _)| *id == group_id)
+            .map_or(0.0, |(_, _, open)| *open)
+    }
+
+    /// Toggle expansion for the stack group anchored at `group_id`.
+    pub fn toggle_group(&mut self, group_id: ObjectId) {
+        if let Some((_, expanded, _)) = self.groups.iter_mut().find(|(id, _, _)| *id == group_id) {
+            *expanded = !*expanded;
+        } else {
+            self.groups.push((group_id, true, 0.0));
         }
     }
 }
@@ -96,6 +126,23 @@ pub struct StackViewport;
 pub struct StackPanel;
 #[derive(Component)]
 pub struct StackToggle;
+/// Expand/collapse button on a grouped stack entry.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackGroupToggle;
+/// Label on a [`StackGroupToggle`].
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackGroupToggleText {
+    pub group_id: ObjectId,
+}
+/// Collapsible container holding the remaining entries (`1..`) of a stack group.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackGroupBody {
+    pub group_id: ObjectId,
+    pub rows: usize,
+}
+/// A clickable button in the stack panel, named for `/state.buttons`.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackButton(pub &'static str);
 /// What a stack entry points at: the row of its targets' thumbnails.
 #[derive(Component)]
 pub struct StackTargets;
@@ -127,6 +174,14 @@ pub struct StackTextBox {
 pub struct StackTextBar {
     /// The box it scrolls.
     pub text_box: Entity,
+}
+
+/// The stack list's outer scrollbar: hidden while every entry fits in the
+/// viewport, shown only while queued entries run over ([`stack_text`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StackListBar {
+    /// The [`StackBody`] it scrolls.
+    pub body: Entity,
 }
 
 /// On a full row: the box a wheel over the row scrolls while its sentence
@@ -248,6 +303,8 @@ pub fn stack_text(
     added: Query<(Entity, &StackTextBox), Added<StackTextBox>>,
     mut boxes: Query<(&StackTextBox, &mut ScrollPosition, &ComputedNode)>,
     mut bars: Query<(&StackTextBar, &mut Visibility)>,
+    bodies: Query<&ComputedNode, With<StackBody>>,
+    mut list_bars: Query<(&StackListBar, &mut Visibility), Without<StackTextBar>>,
 ) {
     // A box spawned this frame: the same entry's stands where it was, and
     // another entry's starts at its top.
@@ -313,6 +370,23 @@ pub fn stack_text(
     if nudge.is_some() {
         scroll.nudge = None;
     }
+    for (bar, mut shown) in &mut list_bars {
+        let Ok(computed) = bodies.get(bar.body) else {
+            continue;
+        };
+        let scale = computed.inverse_scale_factor();
+        let view = computed.size().y * scale;
+        if view <= 0.0 {
+            continue;
+        }
+        let content = computed.content_size().y * scale;
+        let over = crate::face::thumb(view, content, 0.0).is_some();
+        shown.set_if_neq(if over {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
 }
 
 /// Whether two offsets differ: the compare before a write.
@@ -324,7 +398,11 @@ type StackViewportQuery<'w, 's> = Query<
     'w,
     's,
     (&'static mut Node, &'static mut Visibility),
-    (With<StackViewport>, Without<StackPanel>),
+    (
+        With<StackViewport>,
+        Without<StackPanel>,
+        Without<StackGroupBody>,
+    ),
 >;
 
 /// Where the stack panel stands and how tall it may grow.
@@ -397,9 +475,7 @@ pub(super) fn panel_room(window: Vec2, shown: f32, strip_right: f32) -> PanelRoo
             top: TOP_CLEAR,
             right: EDGE,
             width: STACK_PANEL_W,
-            max_height: (window.y - hand::HAND_ZONE_H - TOP_CLEAR - 36.0)
-                .min(window.y * 0.76)
-                .max(80.0),
+            max_height: (window.y - hand::HAND_ZONE_H - TOP_CLEAR - STACK_PHONE_AIR).max(80.0),
             phone: false,
         }
     }
@@ -477,8 +553,41 @@ type StackControlsQuery<'w, 's> = Query<
         With<StackControls>,
         Without<StackPanel>,
         Without<StackViewport>,
+        Without<StackGroupBody>,
     ),
 >;
+
+type StackGroupBodyQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static StackGroupBody,
+        &'static mut Node,
+        &'static mut Visibility,
+        &'static ComputedNode,
+        &'static mut UiTransform,
+    ),
+    (
+        With<StackGroupBody>,
+        Without<StackPanel>,
+        Without<StackViewport>,
+        Without<StackControls>,
+    ),
+>;
+
+type StackPanelQuery<'w, 's> = Query<
+    'w,
+    's,
+    &'static mut Node,
+    (
+        With<StackPanel>,
+        Without<StackViewport>,
+        Without<StackGroupBody>,
+    ),
+>;
+
+type StackGroupToggleQuery<'w, 's> =
+    Query<'w, 's, (&'static StackGroupToggleText, &'static mut Text), Without<StackToggle>>;
 
 /// Animate clipping instead of scaling text, so the stack remains readable;
 /// and keep the panel where [`panel_room`] puts it, which on a phone follows
@@ -492,18 +601,22 @@ pub fn fold_the_stack(
     ui: Option<Res<UiScale>>,
     duel: Option<Res<Duel>>,
     mut bodies: StackViewportQuery,
-    mut panels: Query<&mut Node, (With<StackPanel>, Without<StackViewport>)>,
+    mut panels: StackPanelQuery,
     mut controls: StackControlsQuery,
     strips: StripQuery,
-    mut toggles: Query<&mut Text, With<StackToggle>>,
+    mut toggles: Query<&mut Text, (With<StackToggle>, Without<StackGroupToggleText>)>,
+    mut group_bodies: StackGroupBodyQuery,
+    mut group_toggles: StackGroupToggleQuery,
 ) {
+    let reduce_motion = prefs.all().reduce_motion;
+    let step = if reduce_motion {
+        1.0
+    } else {
+        1.0 - (-16.0 * time.delta_secs()).exp()
+    };
     let target = if fold.collapsed { 0.0 } else { 1.0 };
     if (fold.open - target).abs() > f32::EPSILON {
-        let open = if prefs.all().reduce_motion {
-            target
-        } else {
-            fold.open + (target - fold.open) * (1.0 - (-16.0 * time.delta_secs()).exp())
-        };
+        let open = fold.open + (target - fold.open) * step;
         fold.open = if (open - target).abs() < 0.001 {
             target
         } else {
@@ -580,10 +693,73 @@ pub fn fold_the_stack(
             Visibility::Hidden
         });
     }
-    let mark = if fold.collapsed { "+" } else { "−" };
+    let mark = if fold.collapsed {
+        glyph::CHEVRON_DOWN
+    } else {
+        glyph::CHEVRON_UP
+    };
     for mut text in &mut toggles {
-        if text.0 != mark {
-            **text = mark.into();
+        if !text.0.starts_with(mark) {
+            **text = mark.to_string();
+        }
+    }
+    fold_stack_groups(&mut fold, step, &mut group_bodies, &mut group_toggles);
+}
+
+fn fold_stack_groups(
+    fold: &mut StackFold,
+    step: f32,
+    group_bodies: &mut StackGroupBodyQuery,
+    group_toggles: &mut StackGroupToggleQuery,
+) {
+    for (_, expanded, open) in &mut fold.groups {
+        let g_target = if *expanded { 1.0 } else { 0.0 };
+        if (*open - g_target).abs() > f32::EPSILON {
+            let next = *open + (g_target - *open) * step;
+            *open = if (next - g_target).abs() < 0.001 {
+                g_target
+            } else {
+                next
+            };
+        }
+    }
+    for (group, mut node, mut visibility, computed, mut transform) in group_bodies {
+        let open = fold.group_open(group.group_id);
+        let measured = computed.content_size().y * computed.inverse_scale_factor();
+        let full_h = if measured > 0.0 {
+            measured
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            let rows = group.rows as f32;
+            rows * (STACK_ROW_HEIGHT + 4.0)
+        };
+        let g_cap = full_h * open;
+        let node_ref = node.bypass_change_detection();
+        if set_px(&mut node_ref.max_height, g_cap) {
+            node.set_changed();
+        }
+        let lift = -6.0 * (1.0 - open);
+        let scale_y = 0.96 + 0.04 * open;
+        if !matches!(transform.translation.y, Val::Px(y) if (y - lift).abs() <= 0.01)
+            || (transform.scale.y - scale_y).abs() > 0.001
+        {
+            transform.translation.y = px(lift);
+            transform.scale = Vec2::splat(scale_y);
+        }
+        visibility.set_if_neq(if open <= 0.0 {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
+    }
+    for (toggle, mut text) in group_toggles {
+        let chevron = if fold.is_group_expanded(toggle.group_id) {
+            glyph::CHEVRON_UP
+        } else {
+            glyph::CHEVRON_DOWN
+        };
+        if !text.0.starts_with(chevron) {
+            **text = chevron.to_string();
         }
     }
 }
@@ -1084,7 +1260,7 @@ pub(super) fn spawn_stack_panel(
             BorderColor::all(palette::DIALOG_LINE),
             ZIndex(Z_STACK),
             upward_shadow(),
-            Pickable::IGNORE,
+            Pickable::default(),
             Arriving::fill(key, palette::DIALOG.alpha()),
             ArrivingRow {
                 lift: PANEL_LIFT,
@@ -1174,6 +1350,7 @@ pub(super) fn spawn_stack_panel(
     let toggle = commands
         .spawn((
             UiButton,
+            StackButton("ToggleStack"),
             Node {
                 width: px(28),
                 height: px(26),
@@ -1189,8 +1366,8 @@ pub(super) fn spawn_stack_panel(
             Feel::tinting_to(palette::DIALOG_LIT, palette::CANDLE_WASH_LIT),
             children![(
                 StackToggle,
-                Text::new("−"),
-                tf_bold(fonts, 19.0),
+                Text::new(glyph::CHEVRON_UP.to_string()),
+                icon_tf(fonts, 11.0),
                 TextColor(palette::CANDLE),
                 Pickable::IGNORE
             )],
@@ -1206,13 +1383,14 @@ pub(super) fn spawn_stack_panel(
     if !room.phone && !watching {
         spawn_controls(commands, panel, selected, orders, lang, view, fonts, false);
     }
-    let start = window_start(scroll.y, full_height).min(board.stack.len().saturating_sub(1));
-    let end = (start + STACK_COMPACT_ROWS).min(board.stack.len());
+    let groups = group_stack(&board.stack);
+    let start = window_start(scroll.y, full_height).min(groups.len().saturating_sub(1));
+    let end = (start + STACK_COMPACT_ROWS).min(groups.len());
     let body = commands
         .spawn((
             StackBody {
                 top: board.stack.first().map(|item| item.id),
-                rows: board.stack.len(),
+                rows: groups.len(),
                 floor: if room.phone {
                     STACK_PHONE_FULL_HEIGHT
                 } else {
@@ -1223,6 +1401,7 @@ pub(super) fn spawn_stack_panel(
             Node {
                 flex_direction: FlexDirection::Column,
                 overflow: Overflow::scroll_y(),
+                max_height: percent(100),
                 min_height: px(0),
                 min_width: px(0),
                 flex_grow: 1.0,
@@ -1232,6 +1411,9 @@ pub(super) fn spawn_stack_panel(
         ))
         .id();
     let track = super::ledge::log::scrollbar(commands, body, bar_colours(), fill_bar);
+    commands
+        .entity(track)
+        .insert((StackListBar { body }, Visibility::Hidden));
     let viewport = commands
         .spawn((
             StackViewport,
@@ -1252,13 +1434,19 @@ pub(super) fn spawn_stack_panel(
         let gap = spacer(commands, rows_height(0, start, full_height));
         commands.entity(body).add_child(gap);
     }
-    for item in &board.stack[start..end] {
+    for group in &groups[start..end] {
+        let item = &group[0];
+        let count = group.len();
+        let group_id = group.last().expect("non-empty stack group").id;
+        let group_info = (count > 1).then_some((group_id, count));
+        let group_selected = group.iter().any(|member| selected == Some(member.id));
         let entry = spawn_stack_entry(
             commands,
             lang,
             item,
             item.depth == 0,
-            selected == Some(item.id),
+            group_selected,
+            group_info,
             view,
             statics,
             reader,
@@ -1271,16 +1459,80 @@ pub(super) fn spawn_stack_panel(
             (text_lines, room),
         );
         commands.entity(body).add_child(entry);
+        if count > 1 {
+            let member_rows = (count - 1).min(STACK_COMPACT_ROWS);
+            let drawer = commands
+                .spawn((
+                    StackGroupBody {
+                        group_id,
+                        rows: member_rows,
+                    },
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(4.0),
+                        padding: UiRect::left(px(10.0)),
+                        border: UiRect::left(px(2.0)),
+                        overflow: Overflow::clip(),
+                        max_height: px(0.0),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    BorderColor::all(palette::CANDLE.with_alpha(0.45)),
+                    Visibility::Hidden,
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for member in group.iter().skip(1).take(STACK_COMPACT_ROWS) {
+                let child = spawn_stack_entry(
+                    commands,
+                    lang,
+                    member,
+                    false,
+                    selected == Some(member.id),
+                    None,
+                    view,
+                    statics,
+                    reader,
+                    picks,
+                    textures,
+                    assets,
+                    fonts,
+                    faces,
+                    cards.as_deref_mut(),
+                    (text_lines, room),
+                );
+                commands.entity(drawer).add_child(child);
+            }
+            commands.entity(body).add_child(drawer);
+        }
     }
 
-    if end < board.stack.len() {
-        let gap = spacer(commands, rows_height(end, board.stack.len(), full_height));
+    if end < groups.len() {
+        let gap = spacer(commands, rows_height(end, groups.len(), full_height));
         commands.entity(body).add_child(gap);
     }
     if room.phone && !watching {
         spawn_controls(commands, panel, selected, orders, lang, view, fonts, true);
     }
     panel
+}
+
+/// Groups consecutive stack items that represent the same effect (`same_effect`).
+pub(super) fn group_stack(
+    stack: &[baylee_client_core::board::StackItem],
+) -> Vec<&[baylee_client_core::board::StackItem]> {
+    let mut groups = Vec::new();
+    let mut start = 0;
+    while start < stack.len() {
+        let first = &stack[start];
+        let mut end = start + 1;
+        while end < stack.len() && first.same_effect(&stack[end]) {
+            end += 1;
+        }
+        groups.push(&stack[start..end]);
+        start = end;
+    }
+    groups
 }
 
 #[cfg(test)]

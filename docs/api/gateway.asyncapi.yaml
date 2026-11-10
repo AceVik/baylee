@@ -32491,6 +32491,12 @@ components:
           format: int64
           minimum: 0
           description: How many matching tables were skipped before this page.
+        stats:
+          $ref: "#/components/schemas/LobbyStats"
+          description: >-
+            Three exact numbers for the lobby's header (`players_online`, `tables_waiting`,
+            `games_running`), pushed with every page so a client watching `GET /lobby/ws`
+            never needs to poll `GET /lobby/stats`.
         total:
           type: integer
           format: int64
@@ -32499,10 +32505,37 @@ components:
       required:
       - limit
       - offset
+      - stats
       - total
       allOf:
       - $ref: "#/components/schemas/LobbyListing"
       description: "One page of the lobby, as the caller sees it: rooms still waiting first, then the newest, the id breaking a tie, so paging never hands a table out twice. `GET /lobby/ws` pushes the same object on every change."
+    LobbyStats:
+      type: object
+      properties:
+        games_running:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Games being played; a finished table is neither.
+        players_online:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            Distinct accounts with a socket open (the lobby feed, or their own chair's at a
+            running game), together with those whose seat bridge plays a chair of a running
+            game. A chair held for a player whose connection is gone does not count them.
+        tables_waiting:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Tables waiting for players.
+      required:
+      - games_running
+      - players_online
+      - tables_waiting
+      description: "`GET /lobby/stats`."
     LobbyTable:
       type: object
       properties:

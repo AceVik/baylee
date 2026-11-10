@@ -202,6 +202,7 @@ impl Plugin for LobbyPlugin {
                         ui,
                         shell::animate_screen_transition,
                         retrace_runs,
+                        front::keys::lobby_to_kit,
                         front::pose_front,
                         front::glide_the_stage,
                         // After the rebuild, so a tile just stood up glows
@@ -1123,6 +1124,17 @@ impl LobbyState {
         }
     }
 
+    pub(crate) fn central_terms_pending(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            central::terms_pending(self)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+
     pub(crate) fn central_admitting(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -1224,6 +1236,8 @@ fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbo
     if asks.0.is_empty() {
         return;
     }
+    state.hub = Hub::Play;
+    state.room_away = false;
     for (game, invite) in std::mem::take(&mut asks.0) {
         let request = match invite.as_deref() {
             Some(invite) => state.lobby.join_invited(&game, invite),

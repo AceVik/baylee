@@ -76,6 +76,11 @@ fn seats_are_told_how_many_watch() {
     assert!(frames(&out).iter().any(
         |(seat, m)| *seat == 0 && matches!(m, v1::envelope::Msg::Spectators(s) if s.count == 2)
     ));
+    assert!(
+        watched(&out)
+            .iter()
+            .any(|m| matches!(m, v1::envelope::Msg::Spectators(s) if s.count == 2))
+    );
     let later = attach(&mut runner, 1);
     assert!(frames(&later).iter().any(
         |(seat, m)| *seat == 1 && matches!(m, v1::envelope::Msg::Spectators(s) if s.count == 2)

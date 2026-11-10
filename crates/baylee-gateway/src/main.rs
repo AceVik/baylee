@@ -459,6 +459,7 @@ async fn main() {
     if agent_token.is_none() {
         tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
     }
+    let (lobby_changed, _) = tokio::sync::broadcast::channel(16);
     let state = Arc::new(AppState {
         central: central::Link::from_env()
             .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
@@ -484,7 +485,7 @@ async fn main() {
         // Small: a receiver that falls this far behind is one whose socket is
         // not draining, and the lag is handled by sending it the current
         // listing rather than by replaying what it missed.
-        lobby_changed: tokio::sync::broadcast::channel(16).0,
+        lobby_changed: lobby_changed.clone(),
         departed: tokio::sync::broadcast::channel(16).0,
         sessions: sessions::Book::default(),
         invalidate_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(60), 600),
@@ -519,7 +520,7 @@ async fn main() {
         chair_limiter: auth::RateLimiter::new(chair::LIMIT_WINDOW, chair::LIMIT_TRIES),
         chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
         names: namebook::NameBook::default(),
-        presence: presence::Presence::default(),
+        presence: presence::Presence::with_notifier(lobby_changed),
         reconnect_secs,
         room_grace,
         started_at: auth::now_secs(),

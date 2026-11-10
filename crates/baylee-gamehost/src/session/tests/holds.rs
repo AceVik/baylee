@@ -468,3 +468,90 @@ fn a_seat_in_a_payment_window_is_told_what_it_owes() {
         "the tax was paid, so Swords to Plowshares resolved"
     );
 }
+
+/// A priority hold that advances the game and expires inside the same
+/// `Engine::apply` leaves `SeatAutomation` back at `(Always, priority_paused:
+/// true)` — identical to where a previously expired hold left it. It still
+/// moved the game and must route the new views and choice request.
+#[test]
+fn a_hold_that_advances_and_expires_in_one_apply_still_routes_views() {
+    use baylee_engine::choice::PriorityHold;
+
+    let arena = baylee_cards::by_oracle_id("ee579a32-a048-4335-b966-231ba731cdea")
+        .expect("Phyrexian Arena is in the pool")
+        .index;
+    let mut preset = two_humans();
+    preset.seats[0].starting_battlefield = vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: arena,
+        print: PrintRef::new(0),
+    }];
+    let mut session = Session::new(&preset).expect("session builds");
+    let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
+    let _ = session.pump();
+
+    // Prime `one` with a hold for turn 0 so `expire_holds` on turn 1 leaves its
+    // `SeatAutomation` at `(hold: Always, priority_paused: true)`.
+    session
+        .act(
+            one,
+            PlayerAction::SetPriorityHold(PriorityHold::UntilEndOfTurn { turn: 0 }),
+        )
+        .unwrap();
+    session.act(zero, PlayerAction::MulliganKeep).unwrap();
+    session.act(one, PlayerAction::MulliganKeep).unwrap();
+    assert_eq!(
+        seat_view(&session, zero).stack.len(),
+        1,
+        "Phyrexian Arena triggered on upkeep"
+    );
+    assert_eq!(
+        session.awaiting_seat(),
+        Some(zero),
+        "active player holds priority first over the upkeep trigger"
+    );
+
+    // When `zero` sets its hold first, `zero` auto-passes priority to `one`
+    // without resolving the stack yet (`journal.last_seq()` is unchanged,
+    // `deciding` moves from `zero` to `one`). `one` must still receive its
+    // updated view and `ChoiceRequest`.
+    let routed = session
+        .act(
+            zero,
+            PlayerAction::SetPriorityHold(PriorityHold::UntilStackEmpty { depth: 1 }),
+        )
+        .unwrap();
+    assert_eq!(
+        routed_view(&routed, one).awaiting,
+        Some(one),
+        "the other seat is told priority passed to it"
+    );
+    assert_eq!(
+        asked(&routed).iter().map(|(to, _)| *to).collect::<Vec<_>>(),
+        vec![one.get()],
+        "the other seat receives its ChoiceRequest when a hold passes priority to it"
+    );
+
+    // When `one` now sets its hold too, `one` passes, the trigger resolves, the
+    // stack empties, and `expire_holds` returns `one` to `(Always,
+    // priority_paused: true)` inside the same `apply`.
+    let routed = session
+        .act(
+            one,
+            PlayerAction::SetPriorityHold(PriorityHold::UntilStackEmpty { depth: 1 }),
+        )
+        .unwrap();
+    assert!(
+        !routed.is_empty(),
+        "a hold that resolved the stack and expired must still route views and choices"
+    );
+    assert!(
+        routed_view(&routed, zero).stack.is_empty(),
+        "the routed view reflects the resolved stack"
+    );
+    assert!(
+        !asked(&routed).is_empty(),
+        "the awaiting seat must receive its post-resolution ChoiceRequest"
+    );
+}

@@ -523,9 +523,7 @@ fn a_seated_member_in_a_game_sees_every_tab_in_order() {
     assert_eq!(
         window::drawn_tabs(&social, true),
         [
-            ChatTab::All,
             ChatTab::Global,
-            ChatTab::Log,
             ChatTab::Table,
             ChatTab::Team,
             ChatTab::Private,
@@ -535,24 +533,22 @@ fn a_seated_member_in_a_game_sees_every_tab_in_order() {
 }
 
 #[test]
-fn the_log_tab_is_drawn_only_while_a_game_is_open() {
+fn neither_log_nor_all_is_drawn_as_a_chat_tab() {
     let social = machine(false);
-    assert!(window::drawn_tabs(&social, true).contains(&ChatTab::Log));
-    assert!(!window::drawn_tabs(&social, false).contains(&ChatTab::Log));
+    for game_open in [false, true] {
+        let tabs = window::drawn_tabs(&social, game_open);
+        assert!(!tabs.contains(&ChatTab::Log));
+        assert!(!tabs.contains(&ChatTab::All));
+    }
 }
 
 #[test]
-fn off_a_table_only_all_private_and_group_are_drawn() {
+fn off_a_table_only_lobby_private_and_group_are_drawn() {
     let mut social = machine(false);
     social.on_table(None);
     assert_eq!(
         window::drawn_tabs(&social, false),
-        [
-            ChatTab::All,
-            ChatTab::Global,
-            ChatTab::Private,
-            ChatTab::Group
-        ]
+        [ChatTab::Global, ChatTab::Private, ChatTab::Group]
     );
 }
 
@@ -562,7 +558,7 @@ fn a_guest_has_no_group_tab() {
     social.on_table(None);
     assert_eq!(
         window::drawn_tabs(&social, false),
-        [ChatTab::All, ChatTab::Global, ChatTab::Private]
+        [ChatTab::Global, ChatTab::Private]
     );
 }
 
@@ -2001,7 +1997,7 @@ mod pane {
         rig.open(ChatTab::Private);
         rig.frames(30);
         let before = rig.rows();
-        rig.ui().tab = ChatTab::All;
+        rig.ui().tab = ChatTab::Global;
         rig.frames(3);
         rig.ui().tab = ChatTab::Private;
         rig.frames(3);
@@ -2085,7 +2081,7 @@ mod pane {
         assert_eq!(rig.machine().unread_total(), 0, "the new line was read");
 
         // Another tab has nothing unread, so nothing to divide.
-        rig.ui().tab = ChatTab::All;
+        rig.ui().tab = ChatTab::Global;
         rig.frames(3);
         assert!(rig.ui().marker.is_none(), "the marker went with the tab");
         assert_eq!(rig.dividers().len(), 0);
@@ -2291,7 +2287,7 @@ mod pane {
             Display::Flex,
             "the line shows on a tab with a conversation"
         );
-        rig.ui().tab = ChatTab::All;
+        rig.ui().tab = ChatTab::Global;
         rig.frames(3);
         let note = rig.part(Part::Note);
         assert_eq!(

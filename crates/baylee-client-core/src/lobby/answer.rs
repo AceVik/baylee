@@ -256,6 +256,9 @@ impl Lobby {
             }
             LobbyEvent::Games(listing) => {
                 self.health.no_agents = !listing.agents_available;
+                if let Some(stats) = listing.stats {
+                    self.stats = Some(stats);
+                }
                 let kept_own = (!self.search.text().trim().is_empty())
                     .then(|| {
                         self.awaiting.as_ref().and_then(|h| {

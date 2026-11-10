@@ -309,7 +309,15 @@ impl Session {
         };
         let kept = self.record.is_some().then(|| action.clone());
         let setting_was = (!moves_the_game).then(|| self.engine.automation(player).clone());
-        let journal_was = self.engine.state().journal.last_seq();
+        let state_was = (
+            self.engine.state().journal.last_seq(),
+            self.engine.awaited(),
+            self.engine
+                .state()
+                .zones
+                .list(baylee_engine::zone::ZoneLocation::Stack)
+                .len(),
+        );
         self.last_attempt = Some((player, source, action.clone()));
         let applied = self.engine.apply(player, action);
         self.last_attempt = None;
@@ -318,8 +326,22 @@ impl Session {
         }
         // A setting that says what already stands is no news to anybody, and
         // a seat may say it hundreds of times a second: answered with nothing,
-        // as an unchanged seat setting is, and no line in the record.
-        if setting_was.as_ref() == Some(self.engine.automation(player)) {
+        // as an unchanged seat setting is, and no line in the record. A hold
+        // that ran the game on (or passed priority to the next seat) and
+        // expired in the same step is not unchanged.
+        let game_moved = (
+            self.engine.state().journal.last_seq(),
+            self.engine.awaited(),
+            self.engine
+                .state()
+                .zones
+                .list(baylee_engine::zone::ZoneLocation::Stack)
+                .len(),
+        ) != state_was;
+        if setting_was.as_ref() == Some(self.engine.automation(player))
+            && !game_moved
+            && !self.house_owes()
+        {
             return Ok(Vec::new());
         }
         if !moves_the_game && let Some(made) = self.settings_made.get_mut(seat) {
@@ -338,17 +360,16 @@ impl Session {
         }
         self.log_answer(player, &asked, deciding, clock);
         self.seq += 1;
-        if moves_the_game {
+        if moves_the_game || game_moved {
             self.moved(player, deciding);
+        }
+        if moves_the_game {
             self.house_answered[player.get() as usize] = by;
         }
         // A setting the game did not move for changes one seat's table, so
         // it costs nobody else a view. One that let the game run on is
         // everybody's, and so is a pump the house still owes a step of.
-        if !moves_the_game
-            && self.engine.state().journal.last_seq() == journal_was
-            && !self.house_owes()
-        {
+        if !moves_the_game && !game_moved && !self.house_owes() {
             return Ok(self.own_frames(player));
         }
         Ok(self.pump_slice(answers))

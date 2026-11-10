@@ -83,23 +83,33 @@ pub fn show_hint(
         }
         return;
     };
-    if state.shown == Some(control) {
+    let same_control = state.shown == Some(control);
+    if same_control
+        && !duel.as_ref().is_some_and(Res::is_changed)
+        && !settings.as_ref().is_some_and(Res::is_changed)
+    {
         return;
     }
-    state.shown = Some(control);
-    if let Some(mut text) = children.first().and_then(|c| texts.get_mut(*c).ok()) {
-        text.0.clone_from(&hint.0);
-        let view = duel.as_ref().and_then(|d| d.view.as_ref());
-        if let (Some(HintSeat(player)), Some(view)) = (seat, view) {
-            let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-            for kind in [TagKind::Turn, TagKind::Priority] {
-                if kind.shows(view, *player) {
-                    text.0.push_str(" · ");
-                    text.0.push_str(kind.words().text(lang));
-                }
+    let mut words = hint.0.clone();
+    let view = duel.as_ref().and_then(|d| d.view.as_ref());
+    if let (Some(HintSeat(player)), Some(view)) = (seat, view) {
+        let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
+        for kind in [TagKind::Turn, TagKind::Priority] {
+            if kind.shows(view, *player) {
+                words.push_str(" · ");
+                words.push_str(kind.words().text(lang));
             }
         }
     }
+    if let Some(mut text) = children.first().and_then(|c| texts.get_mut(*c).ok())
+        && text.0 != words
+    {
+        text.0 = words;
+    }
+    if same_control {
+        return;
+    }
+    state.shown = Some(control);
     let (window, pointer) = windows
         .single()
         .ok()

@@ -24,9 +24,10 @@ struct Flight {
     job: Job,
     receive: Mutex<mpsc::Receiver<Result<Reply, Error>>>,
 }
+#[allow(clippy::struct_excessive_bools)]
 pub(super) struct Bridge {
     handle: Handle,
-    session: Session,
+    pub(super) session: Session,
     device: String,
     jobs: VecDeque<Job>,
     flight: Option<Flight>,
@@ -37,6 +38,7 @@ pub(super) struct Bridge {
     game_requests: BTreeSet<u32>,
     game_registration: Option<serde_json::Value>,
     game_state: gateway::Registration,
+    game_welcomed: bool,
     ready: bool,
     wanted: bool,
     welcomed: bool,
@@ -45,6 +47,9 @@ pub(super) struct Bridge {
     next: u64,
     metadata_at: u64,
     backoff: u64,
+    seen_chat_seq: u64,
+    seen_social_seq: u64,
+    seen_presence_seq: u64,
 }
 impl Bridge {
     fn new(handle: Handle, session: Session, device: String) -> Self {
@@ -52,6 +57,9 @@ impl Bridge {
             own: session.tag.clone(),
             device: device.clone(),
         }]);
+        let seen_chat_seq = handle.chat_seq();
+        let seen_social_seq = handle.social_seq();
+        let seen_presence_seq = handle.presence_seq();
         Self {
             handle,
             session,
@@ -65,6 +73,7 @@ impl Bridge {
             game_requests: BTreeSet::new(),
             game_registration: None,
             game_state: gateway::Registration::Waiting(0),
+            game_welcomed: false,
             ready: false,
             wanted: true,
             welcomed: false,
@@ -73,6 +82,9 @@ impl Bridge {
             next: 0,
             metadata_at: 0,
             backoff: 2000,
+            seen_chat_seq,
+            seen_social_seq,
+            seen_presence_seq,
         }
     }
     pub(super) fn game_registered(&self) -> bool {
@@ -106,19 +118,32 @@ impl Bridge {
         snapshot.tables.clone_from(&self.game.tables);
         snapshot.invites.clone_from(&self.game.invites);
         snapshot.settings = self.game.settings;
+        let online_tags = self.handle.online_tags();
         for friend in &mut snapshot.friends {
             if let Some(peer) = self
                 .game
                 .friends
                 .iter()
                 .find(|peer| peer.person.tag == friend.person.tag)
+                && peer.presence.status != wire::Shown::Offline
             {
                 friend.presence.clone_from(&peer.presence);
+            } else if online_tags.contains(&friend.person.tag) {
+                friend.presence = wire::Presence {
+                    status: wire::Shown::Online,
+                    place: Some(wire::Place::Lobby),
+                };
+            } else {
+                friend.presence = wire::Presence::offline();
             }
         }
         snapshot
     }
-    fn members(&self, conv: &str) -> Option<Vec<String>> {
+    fn members(
+        &self,
+        conv: &str,
+        machine: Option<&baylee_client_core::social::Social>,
+    ) -> Option<Vec<String>> {
         match conv.parse::<wire::Conv>().ok()? {
             wire::Conv::Dm { a, b } if a == self.session.tag || b == self.session.tag => {
                 Some(vec![a, b])
@@ -134,6 +159,20 @@ impl Bridge {
                         .iter()
                         .map(|member| member.person.tag.clone())
                         .collect()
+                })
+                .or_else(|| {
+                    machine?
+                        .contacts()
+                        .groups
+                        .iter()
+                        .find(|group| group.id == id)
+                        .map(|group| {
+                            group
+                                .members
+                                .iter()
+                                .map(|member| member.person.tag.clone())
+                                .collect()
+                        })
                 }),
             wire::Conv::Table { .. } | wire::Conv::Team { .. } => self
                 .game
@@ -163,11 +202,18 @@ pub(super) fn attach(host: &mut SocialHost, handle: Option<Handle>) {
 }
 
 pub(super) fn rebind_session(host: &mut SocialHost, session: Session) {
-    if let Some(bridge) = host.central.as_mut() {
+    let snapshot = if let Some(bridge) = host.central.as_mut() {
         bridge.session = session;
         bridge.game = wire::Snapshot::default();
         bridge.game_requests.clear();
         bridge.game_state = gateway::Registration::Waiting(0);
+        bridge.game_welcomed = false;
+        (bridge.ready && bridge.welcomed).then(|| bridge.snapshot())
+    } else {
+        None
+    };
+    if let Some(snapshot) = snapshot {
+        apply(host, Down::Snapshot(snapshot));
     }
 }
 
@@ -213,7 +259,7 @@ pub(super) fn up(host: &mut SocialHost, up: &Up) -> bool {
             if let Some(machine) = host.machine.as_ref() {
                 retries::retain_pending(&bridge.retries, machine);
             }
-            let Some(tags) = bridge.members(conv) else {
+            let Some(tags) = bridge.members(conv, host.machine.as_ref()) else {
                 refused(host, *req, wire::Why::NotMember);
                 return true;
             };

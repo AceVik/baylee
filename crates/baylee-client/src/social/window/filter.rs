@@ -61,7 +61,7 @@ pub(super) fn filter_dialog(
                 border_radius: BorderRadius::all(zpx(8.0)),
                 ..default()
             },
-            BackgroundColor(inks.ground),
+            BackgroundColor(inks.ground.with_alpha(0.94)),
             BorderColor::all(inks.accent.with_alpha(0.6)),
             stacked(45),
         ))

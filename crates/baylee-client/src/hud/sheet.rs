@@ -789,7 +789,7 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
             texts: Some(faces),
         },
     )?;
-    if options.len() < 2 {
+    if options.is_empty() {
         return None;
     }
     let rows: Vec<SheetRow> = options

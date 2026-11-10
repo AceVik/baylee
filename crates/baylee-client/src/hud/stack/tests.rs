@@ -1115,3 +1115,172 @@ fn a_stack_entry_says_how_it_was_kicked_and_that_its_buyback_was_paid() {
         ])
     );
 }
+
+fn empty_test_fonts() -> UiFonts {
+    UiFonts {
+        text: Handle::default(),
+        medium: Handle::default(),
+        bold: Handle::default(),
+        italic: Handle::default(),
+        medium_italic: Handle::default(),
+        serif: Handle::default(),
+        serif_italic: Handle::default(),
+        icons: Handle::default(),
+        mana: Handle::default(),
+    }
+}
+
+#[test]
+fn queued_stack_entries_always_show_controller_targets_choices_and_group_badge() {
+    use baylee_core::generated::subtypes::creature;
+    let (mut board, view) = a_stack_of(&[Some(1), Some(1)]);
+    assert_eq!(group_stack(&board.stack).len(), 1);
+    assert_eq!(group_stack(&board.stack)[0].len(), 2);
+
+    board.stack[1].chosen_subtype = Some(creature::ELF);
+    board.stack[1].chosen_opponent = Some(PlayerId::new(1));
+    board.stack[1].chosen_x = Some(3);
+    board.stack[1].chosen_color = Some(baylee_core::mana::ManaColor::Blue);
+    board.stack[1].face_down = true;
+    board.stack[1].flashed_back = true;
+    board.stack[1].times_kicked = 1;
+    let texts = sheoldred_in_german();
+    let mode = crate::face::FaceMode::default();
+    let settings = crate::settings::ClientSettings::default();
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+        view: Some(&view),
+        widths: crate::face::Widths::of(None),
+    };
+    let mut statics = baylee_client_core::test_support::statics(2);
+    statics.seats[0].display_name = "Argon".into();
+    statics.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "QaTester".into(),
+        is_ai: false,
+        away: false,
+        team: None,
+        guest: false,
+    });
+    bevy::tasks::IoTaskPool::get_or_init(Default::default);
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default())
+        .init_asset::<Image>();
+    let mut textures = {
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        CardTextures::new(&mut images, 1 << 20)
+    };
+    let assets = app.world().resource::<AssetServer>().clone();
+    let fonts = empty_test_fonts();
+    let room = PanelRoom {
+        top: TOP_CLEAR,
+        right: EDGE,
+        width: STACK_PANEL_W,
+        max_height: 600.0,
+        phone: false,
+    };
+    spawn_stack_entry(
+        &mut app.world_mut().commands(),
+        Lang::De,
+        &board.stack[1],
+        false,
+        false,
+        Some((board.stack[1].id, 2)),
+        &view,
+        &statics,
+        Some(PlayerId::new(0)),
+        &Picks {
+            hovered: None,
+            selected: &[],
+            selectable: &[],
+        },
+        &mut textures,
+        &assets,
+        &fonts,
+        &faces,
+        None,
+        (STACK_SENTENCE_LINES, room),
+    );
+    app.world_mut().flush();
+    let world = app.world_mut();
+    let mut all_text: Vec<String> = world
+        .query::<&Text>()
+        .iter(world)
+        .map(|t| t.0.clone())
+        .collect();
+    all_text.extend(world.query::<&TextSpan>().iter(world).map(|s| s.0.clone()));
+    for expected in [
+        "Du",
+        "→",
+        "X = 3",
+        "Verdeckt",
+        "Rückblende",
+        "Blau",
+        "Elf",
+        "QaTester",
+    ] {
+        assert!(
+            all_text.iter().any(|t| t.contains(expected)),
+            "missing {expected:?} in {all_text:?}"
+        );
+    }
+    assert!(
+        all_text.iter().any(|t| t.starts_with("×2")),
+        "group badge shown: {all_text:?}"
+    );
+}
+
+#[test]
+fn hidden_stack_card_draws_card_back() {
+    let statics = baylee_client_core::test_support::statics(2);
+    let texts = sheoldred_in_german();
+    let mode = crate::face::FaceMode::default();
+    let settings = crate::settings::ClientSettings::default();
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+        view: None,
+        widths: crate::face::Widths::of(None),
+    };
+    bevy::tasks::IoTaskPool::get_or_init(Default::default);
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default())
+        .init_asset::<Image>();
+    let mut textures = {
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        CardTextures::new(&mut images, 1 << 20)
+    };
+    let assets = app.world().resource::<AssetServer>().clone();
+    let fonts = empty_test_fonts();
+    let card_back = textures.card_back();
+    spawn_stack_card(
+        &mut app.world_mut().commands(),
+        Lang::De,
+        StackKey::Panel,
+        None,
+        None,
+        None,
+        40.0,
+        56.0,
+        &statics,
+        &mut textures,
+        &assets,
+        &fonts,
+        None,
+        &faces.widths,
+    );
+    app.world_mut().flush();
+    let world = app.world_mut();
+    let images: Vec<Handle<Image>> = world
+        .query::<&ImageNode>()
+        .iter(world)
+        .map(|n| n.image.clone())
+        .collect();
+    assert!(
+        images.contains(&card_back),
+        "hidden stack card draws the card back: {images:?}"
+    );
+}

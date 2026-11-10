@@ -155,3 +155,27 @@ fn one_session_cannot_accumulate_unbounded_account_jobs() {
     }));
     assert_eq!(bridge.jobs.len(), 16);
 }
+
+#[test]
+fn central_friend_presence_updates_from_central_ws_without_any_gateway() {
+    let mut host = host();
+    let bridge = host.central.as_mut().unwrap();
+    bridge.personal.friends.push(wire::Friend {
+        person: wire::Person {
+            tag: "002a".into(),
+            handle: "Argon#002a".into(),
+            guest: false,
+        },
+        since: 1,
+        presence: wire::Presence::offline(),
+    });
+    assert_eq!(
+        bridge.snapshot().friends[0].presence.status,
+        wire::Shown::Offline
+    );
+    bridge.handle.set_online_tags_for_test(["002a".to_owned()]);
+    assert_eq!(
+        bridge.snapshot().friends[0].presence.status,
+        wire::Shown::Online
+    );
+}

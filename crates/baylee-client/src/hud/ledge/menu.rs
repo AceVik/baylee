@@ -102,10 +102,25 @@ const MENU_W: f32 = 322.0;
 const MENU_PAD_X: f32 = 16.0;
 
 /// And above the first row and below the last line.
-const MENU_PAD_Y: f32 = 10.0;
+const MENU_PAD_Y: f32 = 8.0;
 
 /// Between two rows.
-const MENU_ROW_GAP: f32 = 7.0;
+const MENU_ROW_GAP: f32 = 5.0;
+
+/// Metrics for the switches and music controls embedded inside the game menu,
+/// sized to the menu's own [`BUTTON_H`] and [`LABEL_PT`] rather than treating
+/// [`MENU_W`] as a 322-pixel phone window.
+pub(super) const fn menu_metrics() -> crate::lobby::Metrics {
+    crate::lobby::Metrics {
+        frame: crate::lobby::Frame::Compact,
+        text: LABEL_PT,
+        head: LABEL_PT,
+        small: VERSION_PT,
+        tap: BUTTON_H,
+        pad: BUTTON_PAD_X,
+        gap: MENU_ROW_GAP,
+    }
+}
 
 /// Between the last row and the rule, and between the rule and the version.
 ///
@@ -538,12 +553,7 @@ pub fn sync_menu(
     }
     commands.entity(panel).add_child(settings_row);
 
-    let music = crate::music::controls(
-        &mut commands,
-        &fonts,
-        crate::lobby::Metrics::of(MENU_W),
-        lang,
-    );
+    let music = crate::music::controls(&mut commands, &fonts, menu_metrics(), lang);
     commands.entity(panel).add_child(music);
     let priority = priority_switch(&mut commands, &fonts);
     commands.entity(panel).add_child(priority);

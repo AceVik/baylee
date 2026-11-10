@@ -226,6 +226,9 @@ pub struct Session {
     roster_dirty: Vec<bool>,
     /// What clients call this game (see [`Session::describe`]).
     game_id: String,
+    /// Shared cosmetic tabletop seed derived from a truncated one-way digest of
+    /// the preset and initial state, identical for every seat, spectator, and replay.
+    table_seed: u64,
     /// What clients call each seat (see [`Session::describe`]).
     names: Vec<String>,
     /// Which seats are guests' ([`Self::mark_guests`]).
@@ -305,6 +308,22 @@ fn seat_byte(index: usize) -> u8 {
     u8::try_from(index).unwrap_or(u8::MAX)
 }
 
+fn mix64(mut z: u64) -> u64 {
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
+}
+
+/// One-way 24-bit cosmetic tabletop seed derived from `preset` and the initial
+/// game state. Identical for every seat, spectator, and replay of the game,
+/// while folding 64+ bits down to 24 bits so `preset.seed` cannot be recovered.
+fn table_seed_of(preset: &GamePreset, state: &baylee_engine::state::GameState) -> u64 {
+    let mut acc = mix64(preset.seed ^ 0xba11_ee7a_b1e5_eed1);
+    acc = mix64(acc ^ crate::record::seen(state));
+    acc = mix64(acc ^ (preset.seats.len() as u64));
+    (acc & 0x00ff_ffff) | 0x0100_0000
+}
+
 impl Session {
     /// Starts a game from a preset; Open seats become humans, AI seats
     /// get a heuristic agent.
@@ -328,6 +347,7 @@ impl Session {
             })
             .collect::<Option<_>>()?;
         let engine = Engine::new(preset, RegistryLookup).ok()?;
+        let table_seed = table_seed_of(preset, engine.state());
         let log = GameLog::new(engine.state());
         let mut session = Self {
             engine,
@@ -354,6 +374,7 @@ impl Session {
             lost: Vec::new(),
             roster_dirty: vec![false; preset.seats.len()],
             game_id: String::new(),
+            table_seed,
             names: Vec::new(),
             guests: Vec::new(),
             log,

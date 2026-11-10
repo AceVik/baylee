@@ -159,3 +159,26 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::hook_mentions;
+
+    /// Every hook the shipped graph must not name is counted, the engine's
+    /// `test-support` included, and a feature of the same name elsewhere is not:
+    /// `baylee-client-core` has its own `test-support`, which ships nothing open.
+    #[test]
+    fn each_hook_is_counted_and_a_namesake_is_not() {
+        let graph = b"\
+baylee-cards feature \"mutate\"
+baylee-engine feature \"fuzz\"
+baylee-engine feature \"simulation\"
+baylee-engine feature \"test-support\"
+baylee-client-core feature \"test-support\"
+baylee-gamehost feature \"simulation\"
+baylee-engine feature \"default\"
+";
+        assert_eq!(hook_mentions(graph), 4);
+        assert_eq!(hook_mentions(b"baylee-engine feature \"default\"\n"), 0);
+    }
+}

@@ -263,7 +263,7 @@ fn melody(
             Theme::Tide if bar % 32 < 16 => (Lyre, pitch, 0.42),
             _ => (Violin, pitch, 0.31),
         },
-        Movement::Lobby => (if bar % 16 < 8 { Lyre } else { pluck }, pitch, 0.32),
+        Movement::Lobby => (if bar % 16 < 8 { Lyre } else { pluck }, pitch, 0.38),
         Movement::Standard => (if bar % 16 < 8 { pluck } else { Lyre }, pitch, 0.34),
         Movement::Combat => (ViolinShort, pitch, 0.30),
         Movement::Endgame => (Violin, pitch, 0.32),
@@ -295,10 +295,14 @@ fn melody(
             }
         }
         Movement::Victory => out.add(Trombone, pitch - 12, length, 0.16 * arc, Role::Melody),
-        Movement::Standard if bar % 4 == 2 => {
-            out.add(Harp, pitch - 12, length, 0.11 * arc, Role::Melody);
+        Movement::Standard => {
+            if bar % 4 == 2 {
+                out.add(Harp, pitch - 12, length, 0.11 * arc, Role::Melody);
+            }
         }
-        Movement::Lobby if bar % 8 == 6 => out.add(Violin, pitch, length, 0.10 * arc, Role::Melody),
+        Movement::Lobby if bar % 4 == 2 => {
+            out.add(Violin, pitch + 12, length, 0.14 * arc, Role::Melody);
+        }
         _ => {}
     }
 }
@@ -333,32 +337,30 @@ fn accompaniment(
     );
     if tick == 0 {
         let length = f32::from(ticks) - 0.25;
-        out.add(
-            Cello,
-            near(root, 49),
-            length,
-            if movement == Movement::Lobby && theme == Theme::Glass {
-                0.075
-            } else if quiet {
-                0.10
-            } else {
-                0.14
-            } * arc,
-            Role::Bass,
-        );
+        let cello_gain = if movement == Movement::Lobby {
+            0.15
+        } else if quiet {
+            0.10
+        } else {
+            0.14
+        };
+        out.add(Cello, near(root, 49), length, cello_gain * arc, Role::Bass);
         // No pizzicato bass anywhere, including combat.
         if !quiet {
             out.add(Bass, near(root, 36), length, 0.12 * arc, Role::Bass);
         }
-        if movement != Movement::Lobby || bar.is_multiple_of(2) {
-            out.add(
-                Viola,
-                near(root + third, 61),
-                length,
-                0.105 * arc,
-                Role::Harmony,
-            );
-        }
+        let viola_gain = if movement == Movement::Lobby {
+            0.13
+        } else {
+            0.105
+        };
+        out.add(
+            Viola,
+            near(root + third, 61),
+            length,
+            viola_gain * arc,
+            Role::Harmony,
+        );
         if matches!(
             movement,
             Movement::Title | Movement::Endgame | Movement::Victory | Movement::Draw
@@ -403,19 +405,19 @@ fn accompaniment(
         } else {
             Harp
         };
-        out.add(
-            family,
-            note,
-            2.2,
-            if quiet {
-                0.12
-            } else if theme == Theme::Tide {
-                0.11
-            } else {
-                0.15
-            } * arc,
-            Role::Rhythm,
-        );
+        let arp_gain = if movement == Movement::Lobby {
+            0.17
+        } else if quiet {
+            0.12
+        } else if theme == Theme::Tide {
+            0.11
+        } else {
+            0.15
+        };
+        out.add(family, note, 2.2, arp_gain * arc, Role::Rhythm);
+        if movement == Movement::Lobby && (tick == 2 || tick == 4) {
+            out.add(Lyre, near(root + fifth, 65), 1.6, 0.12 * arc, Role::Rhythm);
+        }
     }
     if matches!(movement, Movement::Title | Movement::Endgame) && tick + 2 == ticks {
         out.add(Lyre, near(root + third, 73), 1.5, 0.24 * arc, Role::Accent);

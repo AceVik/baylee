@@ -11,7 +11,9 @@ pub struct Bounds {
 }
 
 impl Bounds {
-    fn overlaps(self, other: Self) -> bool {
+    /// Whether two screen-space rectangles intersect.
+    #[must_use]
+    pub fn overlaps(self, other: Self) -> bool {
         self.min.x < other.max.x
             && self.max.x > other.min.x
             && self.min.y < other.max.y
@@ -61,6 +63,7 @@ pub fn anchor(card: Bounds, size: Vec2, window: Vec2, occupied: &[Bounds]) -> Op
             }
         }
     }
+    let max_gap = (card.max.y - card.min.y).max(size.y * 2.0) + 8.0;
     let ys = [card.max.y + 4.0, card.min.y - size.y - 4.0]
         .into_iter()
         .chain(
@@ -69,7 +72,9 @@ pub fn anchor(card: Bounds, size: Vec2, window: Vec2, occupied: &[Bounds]) -> Op
                 .flat_map(|r| [r.max.y + 4.0, r.min.y - size.y - 4.0]),
         );
     ys.flat_map(|y| xs.map(|x| Vec2::new(x, y)))
-        .filter(|at| clear(*at))
+        .filter(|at| {
+            clear(*at) && at.y - card.max.y <= max_gap && card.min.y - (at.y + size.y) <= max_gap
+        })
         .min_by(|a, b| {
             (*a + size * 0.5)
                 .distance_squared(center)
@@ -137,5 +142,20 @@ mod tests {
         let card = rect(0.0, 0.0, 100.0, 100.0);
         assert!(anchor(card, Vec2::splat(20.0), Vec2::splat(100.0), &[card]).is_none());
         assert!(anchor(card, Vec2::splat(200.0), Vec2::splat(100.0), &[]).is_none());
+    }
+
+    #[test]
+    fn modal_covering_card_does_not_teleport_label_across_table() {
+        let card = rect(430.0, 260.0, 46.0, 60.0);
+        let modal = rect(249.0, 155.0, 522.0, 293.0);
+        assert!(
+            anchor(
+                card,
+                Vec2::new(104.0, 20.0),
+                Vec2::new(1020.0, 610.0),
+                &[card, modal]
+            )
+            .is_none()
+        );
     }
 }

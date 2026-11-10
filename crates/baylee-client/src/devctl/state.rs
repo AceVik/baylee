@@ -46,13 +46,20 @@ pub(super) struct ChatBelief<'w, 's> {
         'w,
         's,
         (
+            Entity,
             &'static crate::social::rows::ChatCardLink,
             Has<crate::lobby::HoverCard>,
+            Option<&'static ChildOf>,
         ),
     >,
-    /// The lobby's hover previews standing.
-    previews: Query<'w, 's, (), With<crate::lobby::preview::CardPreview>>,
+    /// The lobby's or chat's hover previews standing.
+    previews: Query<'w, 's, (), ChatPreviewFilter>,
 }
+
+type ChatPreviewFilter = Or<(
+    With<crate::lobby::preview::CardPreview>,
+    With<crate::social::window::preview::ChatPreview>,
+)>;
 
 /// Every chat control.
 type ChatControlFilter = Or<(
@@ -465,6 +472,16 @@ pub(super) struct Believed<'w, 's> {
             &'static crate::hud::MenuButton,
             &'static bevy::ui::ComputedNode,
             &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
+    stack_buttons: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::StackButton,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+            &'static InheritedVisibility,
         ),
     >,
     /// The cards a reveal sheet holds up (`hud::revealed`), where a pointer
@@ -911,10 +928,51 @@ fn chat_json(believed: &Believed) -> String {
         .collect();
     value["controls"] = serde_json::Value::Array(rows);
     value["links"] = serde_json::json!({
-        "cards": links.iter().map(|(l, previewed)| serde_json::json!({
-            "card": l.card,
-            "previewed": previewed,
-        })).collect::<Vec<_>>(),
+        "cards": links.iter().map(|(entity, l, previewed, parent)| {
+            let at = parent.and_then(|parent| {
+                let (_, _, Some(node), Some(place), Some(children), _, _, Some(laid), ..) =
+                    believed.shell_nodes.get(parent.parent()).ok()?
+                else {
+                    return None;
+                };
+                let child_idx = u32::try_from(children.iter().position(|c| c == entity)?).ok()?;
+                let mut xs = Vec::new();
+                let mut ys = Vec::new();
+                for target in [child_idx + 1, child_idx] {
+                    xs.clear();
+                    ys.clear();
+                    for g in laid.glyphs.iter().filter(|g| g.section_index == target) {
+                        xs.push(g.position.x);
+                        ys.push(g.position.y);
+                    }
+                    if !xs.is_empty() {
+                        break;
+                    }
+                }
+                let scale = node.inverse_scale_factor * believed.ui();
+                let top_left = place.translation - node.size() / 2.0;
+                let mid = if xs.is_empty() {
+                    place.translation * scale
+                } else {
+                    let gx = f32::midpoint(
+                        xs.iter().copied().fold(f32::INFINITY, f32::min),
+                        xs.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+                    );
+                    let gy = f32::midpoint(
+                        ys.iter().copied().fold(f32::INFINITY, f32::min),
+                        ys.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+                    );
+                    (top_left + Vec2::new(gx, gy)) * scale
+                };
+                Some((mid.x, mid.y))
+            });
+            serde_json::json!({
+                "card": l.card,
+                "previewed": previewed,
+                "x": at.map(|(x, _)| x),
+                "y": at.map(|(_, y)| y),
+            })
+        }).collect::<Vec<_>>(),
         "previews": previews.iter().count(),
     });
     value.to_string()
@@ -1774,7 +1832,28 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
         if *seen == Visibility::Hidden {
             return None;
         }
-        let (mid, size) = crate::table::card_box(&lens, at)?;
+        let (mut mid, size) = crate::table::card_box(&lens, at)?;
+        // An attached card lies tucked under its host permanent, with only
+        // its peeking strip (`ATTACH_PEEK`) exposed past the host's edge.
+        // Report `at_x`/`at_y` on that visible strip so clicking its `/state`
+        // coordinates hits the attachment rather than the host covering its middle.
+        if let Some(host_id) = duel
+            .view
+            .as_ref()
+            .and_then(|v| v.object(visual.object))
+            .and_then(|o| o.attached_to)
+            && let Some((_, host_at, _)) = believed
+                .cards
+                .iter()
+                .find(|(v, _, s)| v.object == host_id && *s != Visibility::Hidden)
+            && let Some((host_mid, _)) = crate::table::card_box(&lens, host_at)
+        {
+            let delta = mid - host_mid;
+            if delta.length_squared() > 1.0 {
+                let dir = delta.normalize();
+                mid += Vec2::new(dir.x * size.x * 0.42, dir.y * size.y * 0.42);
+            }
+        }
         Some(card_row(
             duel,
             "table",
@@ -1874,6 +1953,7 @@ fn reveal_json(believed: &Believed, duel: &Duel) -> String {
     )
 }
 
+#[allow(clippy::too_many_lines)] // one buttons inventory across shelf, choosers, menu and exit
 fn buttons_json(believed: &Believed) -> String {
     let mut rows: Vec<String> = Vec::new();
     let mut push =
@@ -1927,6 +2007,17 @@ fn buttons_json(believed: &Believed) -> String {
             String::new(),
         );
     }
+    for (button, node, place, seen) in &believed.stack_buttons {
+        if seen.get() {
+            push(
+                "stack",
+                button.0.into(),
+                node,
+                place.translation,
+                String::new(),
+            );
+        }
+    }
     for (card, node, place) in &believed.tray_cards {
         push(
             "browser-card",
@@ -1962,6 +2053,23 @@ fn buttons_json(believed: &Believed) -> String {
             place.translation,
             String::new(),
         );
+    }
+    if believed
+        .phase
+        .as_ref()
+        .is_some_and(|phase| *phase.get() == crate::DuelPhase::Finished)
+    {
+        for (_, press, marked, node, place) in &believed.exits {
+            if marked.is_some() {
+                push(
+                    "exit",
+                    format!("{press:?}"),
+                    node,
+                    place.translation,
+                    String::new(),
+                );
+            }
+        }
     }
     rows.sort_unstable();
     format!("[{}]", rows.join(","))

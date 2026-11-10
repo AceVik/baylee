@@ -102,7 +102,10 @@ fn doors_by_key(
         return;
     };
     let ui = &mut *ui;
-    if !(duel.log_open && ui.tab.is_chat()) {
+    if ui.open && ui.tab.is_chat() {
+        duel.log_open = false;
+        duel.ai_log_open = false;
+    } else {
         window::open_on_chat(&mut host, ui, Some(&mut duel));
     }
     if let Some(machine) = host.machine.as_mut() {
@@ -236,8 +239,9 @@ fn typing(
                             .and_then(|i| tabs.get(i).copied())
                         {
                             window::select_tab(&mut host, ui, tab);
+                            ui.open = true;
                             if let Some(duel) = duel.as_deref_mut() {
-                                duel.log_open = true;
+                                duel.log_open = false;
                             }
                         }
                     }
@@ -519,7 +523,16 @@ fn feed_candidates(
     }
     *fed = Some(now);
     let cards = if at_table {
-        crate::report::references(duel.as_deref(), texts.as_deref(), lobby.as_deref()).cards
+        let mut list =
+            crate::report::references(duel.as_deref(), texts.as_deref(), lobby.as_deref()).cards;
+        let mut seen: std::collections::HashSet<(baylee_core::ids::CardIndex, u8)> =
+            list.iter().map(|c| (c.card, c.face)).collect();
+        for card in crate::report::pool_candidates(&[]) {
+            if seen.insert((card.card, card.face)) {
+                list.push(card);
+            }
+        }
+        list
     } else {
         crate::report::pool_candidates(&[])
     };

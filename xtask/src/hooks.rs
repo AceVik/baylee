@@ -649,6 +649,32 @@ pub fn mutate(
 mod tests {
     use super::*;
 
+    /// A mutant's tests go to the binary that holds each; a name no binary holds
+    /// is left out, so a mutant of only such names ran nothing.
+    #[test]
+    fn tests_are_split_by_the_binary_that_holds_them() {
+        let binaries = TestBinaries {
+            binaries: vec![
+                (PathBuf::from("a"), PathBuf::new()),
+                (PathBuf::from("b"), PathBuf::new()),
+            ],
+            holder: BTreeMap::from([
+                ("x::one".to_string(), 0),
+                ("y::two".to_string(), 1),
+                ("y::three".to_string(), 1),
+            ]),
+        };
+        let tests: BTreeSet<String> = ["x::one", "y::two", "y::three", "gone"]
+            .map(String::from)
+            .into();
+        let split = binaries.split(&tests);
+        assert_eq!(split.len(), 2);
+        assert_eq!(split[&0].len(), 1);
+        assert_eq!(split[&1].len(), 2);
+        let none: BTreeSet<String> = ["gone".to_string()].into();
+        assert!(binaries.split(&none).is_empty());
+    }
+
     fn entry(index: u32, position: u32, kind: Option<&str>, faces: &[u8]) -> Entry {
         Entry {
             index,

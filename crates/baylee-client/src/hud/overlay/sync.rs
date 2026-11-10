@@ -96,7 +96,7 @@ pub fn sync_overlay(
     // already speaks to the player, and above the rest of it because a table
     // that cannot hear you makes every other line on the bar moot.
     let link_note = duel.link_note.filter(|_| !over);
-    let hovered = duel.hovered;
+    let hovered = duel.hovered.filter(|_| !over);
     let selected: Vec<ObjectId> = duel
         .interaction
         .as_ref()

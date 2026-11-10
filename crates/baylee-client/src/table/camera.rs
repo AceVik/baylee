@@ -939,6 +939,19 @@ impl Canvas {
         }
     }
 
+    /// With a spectator's hand folded away: only the actions bar covers the
+    /// bottom, and the table takes the cards' height.
+    #[must_use]
+    pub fn with_spectator(self, spectator: bool) -> Self {
+        if !spectator {
+            return self;
+        }
+        Self {
+            bottom: crate::hud::LEDGE_H,
+            ..self
+        }
+    }
+
     /// With a replay's hand folded away, on any frame: only the replay bar
     /// covers the bottom, and the table takes the cards' height.
     #[must_use]
@@ -1010,6 +1023,7 @@ pub fn track_canvas(windows: Query<&Window>, ui: Option<Res<UiScale>>, mut duel:
     let space = crate::hud::scale::space(window, ui.as_deref());
     let aspect = Canvas::for_table(space, duel.arrangement)
         .with_drawer(duel.hand_drawn_open)
+        .with_spectator(duel.watching && duel.replay.is_none() && !duel.hand_drawn_open)
         .with_replay_hand(duel.replay.is_some(), duel.hand_drawn_open)
         .aspect();
     let frame = baylee_client_core::tableview::TableFrame::of(space.x, space.y);
@@ -1094,6 +1108,7 @@ pub fn frame_table(
         duel.arrangement,
     )
     .with_drawer(duel.hand_drawn_open)
+    .with_spectator(duel.watching && duel.replay.is_none() && !duel.hand_drawn_open)
     .with_replay_hand(duel.replay.is_some(), duel.hand_drawn_open);
     // The device's lean and visit camera, and the arrangement in effect at
     // this table — not the device's default, which this game's switch, the

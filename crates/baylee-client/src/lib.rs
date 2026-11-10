@@ -1070,6 +1070,36 @@ fn close_by_admin(duel: &mut Duel, reason: String) -> bool {
     true
 }
 
+fn receive_static(
+    duel: &mut Duel,
+    host: &dyn DuelHost,
+    textures: &mut textures::CardTextures,
+    statics: baylee_view::GameStatic,
+) {
+    let seed = statics.surface_seed();
+    if seed != 0 {
+        duel.table_pattern = feltmat::TablePattern::from_seed(seed);
+    }
+    duel.statics = Some(statics);
+    // The seat's own decklist, where this host knows it.
+    if duel.own_deck.is_empty() {
+        duel.own_deck = host.own_deck();
+    }
+    // Every attach opens with this payload. One before the
+    // curtain is up is a seat the engine may not have heard
+    // from, so it is told again once the view is built.
+    if !duel.curtain_up {
+        duel.ready_sent = false;
+    }
+    // A print table arriving is the one event that can turn an
+    // unresolvable printing into a resolvable one: this payload is
+    // re-sent, before the view that needs it, whenever the seat
+    // earns an entry it did not have. Without this the first ask
+    // decided the answer for the whole game, and a permanent whose
+    // entry arrived a frame late never drew its art again.
+    textures.forget_unresolved();
+}
+
 /// Drains the host and keeps the client's state current.
 #[allow(clippy::too_many_arguments)]
 fn poll_host(
@@ -1107,24 +1137,7 @@ fn poll_host(
                 if let Some(journey) = journey.as_mut() {
                     journey.changed_scene();
                 }
-                duel.statics = Some(*statics);
-                // The seat's own decklist, where this host knows it.
-                if duel.own_deck.is_empty() {
-                    duel.own_deck = host.own_deck();
-                }
-                // Every attach opens with this payload. One before the
-                // curtain is up is a seat the engine may not have heard
-                // from, so it is told again once the view is built.
-                if !duel.curtain_up {
-                    duel.ready_sent = false;
-                }
-                // A print table arriving is the one event that can turn an
-                // unresolvable printing into a resolvable one: this payload is
-                // re-sent, before the view that needs it, whenever the seat
-                // earns an entry it did not have. Without this the first ask
-                // decided the answer for the whole game, and a permanent whose
-                // entry arrived a frame late never drew its art again.
-                textures.forget_unresolved();
+                receive_static(&mut duel, &**host, &mut textures, *statics);
             }
             HostMessage::View(view, log) => {
                 // The lines first, and read against their own frame's view.
@@ -1288,7 +1301,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
     }
     // Each write below is asked for first: this runs every frame, and a
     // `&mut duel` through the `ResMut` marks the whole duel changed.
-    if duel.stack_stop_requested {
+    if duel.stack_stop_requested || duel.at_marked_stack_top() {
         if !duel.yes_batch.is_idle() {
             duel.yes_batch = yes_batch::YesBatch::default();
         }

@@ -208,6 +208,9 @@ pub(super) fn target_objects(
 }
 
 fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
+    if obj.zone != Zone::Stack {
+        return Vec::new();
+    }
     let id = obj.id;
     let players = baylee_engine::eval::first_target_players(obj);
     // Nearly every object of a table points at nothing.
@@ -303,6 +306,15 @@ fn announced_buyback(obj: &GameObject) -> bool {
     obj.kind == ObjectKind::Spell && obj.riders.contains(&baylee_engine::object::Rider::Buyback)
 }
 
+/// Value of X announced for a spell or ability on the stack (CR 601.2b).
+fn announced_x(obj: &GameObject, chars: &baylee_engine::object::Characteristics) -> Option<u32> {
+    if obj.zone != Zone::Stack {
+        return None;
+    }
+    (obj.x_value > 0 || (obj.kind == ObjectKind::Spell && chars.mana_cost.has_variable()))
+        .then_some(obj.x_value)
+}
+
 pub(super) fn public_object(
     board: &ViewBoard<'_>,
     id: ObjectId,
@@ -325,18 +337,7 @@ pub(super) fn public_object(
         id,
         card: visible_printing(state.merged_top(obj), known),
         rules: obj.printed_face().filter(|_| known).map(rules_face),
-        prepared_spell: obj
-            .riders
-            .contains(&baylee_engine::object::Rider::Prepared)
-            .then(|| state.prepared_copy(id))
-            .flatten()
-            .and_then(|copy| state.object(copy))
-            .and_then(|copy| {
-                copy.card.map(|card| baylee_view::RulesFace {
-                    card: card.index,
-                    face: copy.face_index,
-                })
-            }),
+        prepared_spell: prepared_spell_of(state, obj, id),
         name: public_name(state, obj, seat),
         controller: obj.controller,
         owner: obj.owner,
@@ -362,6 +363,8 @@ pub(super) fn public_object(
         subtypes: chars.subtypes,
         chosen_subtype: obj.chosen_subtype,
         chosen_opponent: obj.chosen_opponent(),
+        chosen_color: obj.chosen_color,
+        chosen_x: announced_x(obj, chars),
         chosen_name: obj.chosen_name.map(|named| baylee_view::NamedFace {
             card: named.card(),
             face: named.face(),
@@ -458,6 +461,23 @@ pub(super) fn public_object(
             .flatten(),
         flashback: graveyard_price(state, id, obj, seat, chars.mana_cost),
         grants,
+    })
+}
+
+fn prepared_spell_of(
+    state: &GameState,
+    obj: &GameObject,
+    id: ObjectId,
+) -> Option<baylee_view::RulesFace> {
+    let copy_id = obj
+        .riders
+        .contains(&baylee_engine::object::Rider::Prepared)
+        .then(|| state.prepared_copy(id))
+        .flatten()?;
+    let copy = state.object(copy_id)?;
+    copy.card.map(|card| baylee_view::RulesFace {
+        card: card.index,
+        face: copy.face_index,
     })
 }
 
@@ -769,6 +789,15 @@ fn status_of(
             }
             | if lost {
                 ObjectStatus::NO_ABILITIES.bits()
+            } else {
+                0
+            }
+            | if obj.kind == baylee_engine::object::ObjectKind::Spell
+                && obj
+                    .riders
+                    .contains(&baylee_engine::object::Rider::Flashback)
+            {
+                ObjectStatus::FLASHBACK.bits()
             } else {
                 0
             },

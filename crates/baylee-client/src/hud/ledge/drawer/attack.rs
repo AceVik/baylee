@@ -41,7 +41,6 @@ pub(super) fn reading(
         ink: palette::DOCK_INK,
     });
     if duel.attack_list_folded {
-        *rows = vec![fold_row(lang, true, options.len())];
         return;
     }
 
@@ -116,6 +115,31 @@ pub(super) fn reading(
         rows.extend(group);
     }
 
+    let creatures: Vec<(usize, baylee_core::ids::ObjectId)> = options
+        .iter()
+        .enumerate()
+        .filter_map(|(index, option)| match *option {
+            AttackOption::Toggle(id) => Some((index, id)),
+            _ => None,
+        })
+        .collect();
+    let sent = crate::choices::Page::of(creatures.len(), page, targeting::PAGE_SIZE);
+    let creature_heading = crate::choices::ChoiceHeading {
+        label: if sent.count > 1 {
+            format!(
+                "{} · {}–{}/{}",
+                Phrase::GroupCreatures.text(lang),
+                sent.start + 1,
+                sent.end,
+                creatures.len()
+            )
+        } else {
+            Phrase::GroupCreatures.text(lang).to_string()
+        },
+        icon: glyph::SEND,
+    };
+    let mut creature_headed = false;
+
     for (index, option) in options.iter().enumerate().filter(|(_, option)| {
         matches!(
             option,
@@ -127,62 +151,36 @@ pub(super) fn reading(
             AttackOption::WithdrawAll => Phrase::AttackWithdrawAll.text(lang).into(),
             AttackOption::Aim(_) | AttackOption::Toggle(_) => unreachable!(),
         };
-        rows.push(crate::choices::ChoiceOption::text(index, label));
+        let row = crate::choices::ChoiceOption::text(index, label);
+        rows.push(if creature_headed {
+            row
+        } else {
+            creature_headed = true;
+            row.headed(creature_heading.clone())
+        });
     }
 
-    let creatures: Vec<(usize, baylee_core::ids::ObjectId)> = options
-        .iter()
-        .enumerate()
-        .filter_map(|(index, option)| match *option {
-            AttackOption::Toggle(id) => Some((index, id)),
-            _ => None,
-        })
-        .collect();
-    let sent = crate::choices::Page::of(creatures.len(), page, targeting::PAGE_SIZE);
-    for (offset, &(index, id)) in creatures[sent.start..sent.end].iter().enumerate() {
+    for &(index, id) in &creatures[sent.start..sent.end] {
+        let assigned = i.assignment(id).is_some();
         let label = if let Some(CombatFocus::Defender(d)) = i.assignment(id) {
             Phrase::AttackWithdraw.fill(lang, &[&card(id), &defender(d)])
         } else {
             Phrase::AttackSend.fill(lang, &[&card(id), &aim_name])
         };
-        let row = crate::choices::ChoiceOption::text(index, label);
-        rows.push(if offset == 0 {
-            row.headed(crate::choices::ChoiceHeading {
-                label: if sent.count > 1 {
-                    format!(
-                        "{} · {}–{}/{}",
-                        Phrase::GroupCreatures.text(lang),
-                        sent.start + 1,
-                        sent.end,
-                        creatures.len()
-                    )
-                } else {
-                    Phrase::GroupCreatures.text(lang).to_string()
-                },
-                icon: glyph::SEND,
-            })
-        } else {
+        let row = crate::choices::ChoiceOption::text(index, label).assigned(assigned);
+        rows.push(if creature_headed {
             row
+        } else {
+            creature_headed = true;
+            row.headed(creature_heading.clone())
         });
     }
     crate::choices::page_arrows(rows, lang, page > 0, page + 1 < page_count);
-    rows.push(fold_row(lang, false, options.len()));
 }
 
-/// The row that folds the attack chooser's list away, or opens it again.
-/// Its index is in no engine's namespace, like the page arrows'.
+/// Legacy index retained so callers in `input::picking` route to the unified
+/// decision sheet fold.
 pub(crate) const FOLD: usize = usize::MAX - 64;
-
-fn fold_row(lang: Lang, folded: bool, count: usize) -> crate::choices::ChoiceOption {
-    crate::choices::ChoiceOption::text(
-        FOLD,
-        if folded {
-            Phrase::AttackListShow.fill(lang, &[&count.to_string()])
-        } else {
-            Phrase::AttackListHide.text(lang).into()
-        },
-    )
-}
 
 #[cfg(test)]
 mod tests {
@@ -372,30 +370,25 @@ mod tests {
         assert!(duel.outbox.is_empty());
     }
 
-    /// Report 25: the list folds away to one row and opens again. The last
-    /// row of an open list is the fold, "Hide the list"; picking it leaves
-    /// one row, "Show the list (N)" with N the options it hides; picking
-    /// that opens the list as it was. Folding is the client's own: nothing is
-    /// sent, and the assignments made stay. On the old code there was no
-    /// such row, so the first assertion fails.
+    /// Combat uses the unified decision sheet fold (`[▾ X]` / `Action::FoldDecision`):
+    /// folding collapses the sheet to its pill while keeping all declared
+    /// attackers intact and sending nothing, and unfolding restores the list.
     #[test]
     fn the_list_folds_to_one_row_and_opens_again_without_sending_or_forgetting() {
         let mut duel = duel();
         crate::input::pick_choice(&mut duel, 4); // first creature at the aimed defender
         let open = rows(&duel, Lang::En);
-        let last = open.last().expect("rows");
-        assert_eq!(last.index, FOLD, "the fold is the last row");
-        assert_eq!(last.label, "Hide the list \u{25be}");
-        let count = duel.interaction.as_ref().unwrap().attack_options().len();
-        assert_eq!(count, 54, "four controls and fifty creatures");
+        assert!(open[4].assigned, "assigned creature is marked assigned");
+        assert!(!open[5].assigned, "unassigned creature is not marked");
+        assert!(super::super::sheet_asked(&duel));
+        assert!(super::super::sheet_up(&duel));
 
         crate::input::pick_choice(&mut duel, FOLD);
-        assert!(duel.attack_list_folded);
-        let folded = rows(&duel, Lang::En);
-        assert_eq!(folded.len(), 1, "one row stands for the list");
-        assert_eq!(folded[0].index, FOLD);
-        assert_eq!(folded[0].label, "Show the list (54) \u{25b8}");
-        assert_eq!(rows(&duel, Lang::De)[0].label, "Liste zeigen (54) \u{25b8}");
+        assert!(!super::super::sheet_up(&duel), "folded to the sheet pill");
+        assert!(
+            super::super::sheet_asked(&duel),
+            "the question still stands"
+        );
         assert!(duel.outbox.is_empty(), "folding sends nothing");
         assert_eq!(
             duel.interaction.as_ref().unwrap().declared(),
@@ -404,7 +397,7 @@ mod tests {
         );
 
         crate::input::pick_choice(&mut duel, FOLD);
-        assert!(!duel.attack_list_folded);
+        assert!(super::super::sheet_up(&duel), "unfolded again");
         assert_eq!(rows(&duel, Lang::En), open, "opened again as it was");
         assert!(duel.outbox.is_empty());
         assert_eq!(duel.interaction.as_ref().unwrap().declared(), 1);

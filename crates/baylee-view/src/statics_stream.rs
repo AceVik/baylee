@@ -40,6 +40,7 @@ impl GameStatic {
             prints: _,
             decision_secs,
             reconnect_secs,
+            table_seed,
         } = self;
         let same = *view_version == new.view_version
             && *game_id == new.game_id
@@ -47,6 +48,7 @@ impl GameStatic {
             && *seats == new.seats
             && *decision_secs == new.decision_secs
             && *reconnect_secs == new.reconnect_secs
+            && *table_seed == new.table_seed
             && self.prints.len() == new.prints.len();
         if !same {
             return None;
@@ -259,6 +261,7 @@ mod tests {
             prints: vec![None; size],
             decision_secs: None,
             reconnect_secs: None,
+            table_seed: 0,
         }
     }
 

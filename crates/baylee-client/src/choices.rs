@@ -252,6 +252,10 @@ pub struct ChoiceOption {
     /// a picked row is (the candle's wash and edge), never as words in the
     /// label: `[x] ` read as code beside a card's name.
     pub chosen: bool,
+    /// Already committed in a combat draft: an attacker assigned to a
+    /// defender or a blocker assigned to an attacker. Highlighted with a
+    /// check mark and warm border so assigned creatures stand out at a glance.
+    pub assigned: bool,
     /// The card a row of the name chooser names, whose preview hovering the
     /// row opens, as a card named in the log does.
     pub card: Option<baylee_view::CardIdentity>,
@@ -267,6 +271,7 @@ impl ChoiceOption {
             cost: None,
             heading: None,
             chosen: false,
+            assigned: false,
             card: None,
         }
     }
@@ -275,6 +280,12 @@ impl ChoiceOption {
     #[must_use]
     pub(crate) fn chosen(self, chosen: bool) -> Self {
         Self { chosen, ..self }
+    }
+
+    /// The row, assigned in combat or not.
+    #[must_use]
+    pub(crate) fn assigned(self, assigned: bool) -> Self {
+        Self { assigned, ..self }
     }
 
     /// The row, with the caption of the group it opens.
@@ -1217,21 +1228,7 @@ fn cast_label(
             |name| format!("{}: {name}", Phrase::CastPermission.text(lang)),
         ),
         K::Counter(kind) => baylee_client_core::interaction::counter_label(kind, lang),
-        K::Colors(colors) => {
-            use baylee_core::color::Color;
-            [
-                (Color::White, Phrase::ColorWhite),
-                (Color::Blue, Phrase::ColorBlue),
-                (Color::Black, Phrase::ColorBlack),
-                (Color::Red, Phrase::ColorRed),
-                (Color::Green, Phrase::ColorGreen),
-            ]
-            .into_iter()
-            .filter(|(color, _)| colors.contains(*color))
-            .map(|(_, phrase)| phrase.text(lang))
-            .collect::<Vec<_>>()
-            .join(" + ")
-        }
+        K::Colors(colors) => colors_label(colors, lang),
         K::Dungeon(dungeon) => dungeon.name().to_string(),
         // The room is the host's to name, so one this dungeon lacks is no crash.
         K::DungeonRoom { dungeon, room } => dungeon.room_name(room).unwrap_or("?").to_string(),
@@ -1275,7 +1272,13 @@ fn cast_label(
         K::PlayLandFace(i) => names
             .of(object, i)
             .unwrap_or_else(|| Phrase::CastLandFace.text(lang).to_string()),
-        K::Disguise => Phrase::CastDisguise.text(lang).to_string(),
+        K::Disguise => if is_morph_card(names, object) {
+            Phrase::CastMorph
+        } else {
+            Phrase::CastDisguise
+        }
+        .text(lang)
+        .to_string(),
         K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
         K::Madness => Phrase::CastMadness.text(lang).to_string(),
@@ -1312,6 +1315,29 @@ fn cast_label(
             label
         }
     }
+}
+
+fn colors_label(colors: baylee_core::color::ColorSet, lang: Lang) -> String {
+    use baylee_core::color::Color;
+    [
+        (Color::White, Phrase::ColorWhite),
+        (Color::Blue, Phrase::ColorBlue),
+        (Color::Black, Phrase::ColorBlack),
+        (Color::Red, Phrase::ColorRed),
+        (Color::Green, Phrase::ColorGreen),
+    ]
+    .into_iter()
+    .filter(|(color, _)| colors.contains(*color))
+    .map(|(_, phrase)| phrase.text(lang))
+    .collect::<Vec<_>>()
+    .join(" + ")
+}
+
+fn is_morph_card(names: FaceNames<'_>, object: ObjectId) -> bool {
+    cast_card(names, object)
+        .and_then(baylee_cards::by_index)
+        .and_then(|def| def.faces.first())
+        .is_some_and(|face| face.morph.is_some() && face.disguise.is_none())
 }
 
 fn append_cast_detail(label: &mut String, detail: &str) {

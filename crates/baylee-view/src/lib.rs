@@ -272,6 +272,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 90 asks whether to cast a discarded card for its madness cost and
 /// labels that alternative-cost route: `YesNoPrompt::Madness` and
 /// `CastModeKind::Madness`, engine variants a reader of 89 cannot parse.
+/// Compatible additions beside them: [`PublicObject::chosen_color`] and
+/// [`PublicObject::chosen_x`], absent when `None`.
 pub const VIEW_VERSION: u32 = 90;
 
 // ------------------------------------------------------------------- targets

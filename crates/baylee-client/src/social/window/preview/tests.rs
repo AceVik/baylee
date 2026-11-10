@@ -34,3 +34,27 @@ fn a_removed_chat_link_dismisses_its_preview() {
         "a remounted/removed chat row left its preview behind"
     );
 }
+
+#[test]
+fn a_chat_link_for_a_compiled_card_not_yet_on_the_table_still_previews_its_text_face() {
+    let duel = Duel::default();
+    let known = rows::ChatCardLink {
+        card: 0,
+        face: 0,
+        print: None,
+    };
+    assert_eq!(
+        identity(&duel, None, Lang::En, &known),
+        Some(CardIdentity {
+            index: baylee_core::ids::CardIndex::new(0),
+            print: baylee_core::ids::PrintRef::new(u16::MAX),
+            face: 0,
+        })
+    );
+    let unknown = rows::ChatCardLink {
+        card: u32::MAX,
+        face: 0,
+        print: None,
+    };
+    assert_eq!(identity(&duel, None, Lang::En, &unknown), None);
+}

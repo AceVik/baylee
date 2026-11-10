@@ -1405,6 +1405,7 @@ impl Browser {
             self.tabs = self.locked.into_iter().collect();
             self.search.field.clear();
         } else if self.open == Opening::ForChoice {
+            self.search.field.clear();
             self.close();
         } else {
             self.locked = None;

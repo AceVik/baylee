@@ -67,6 +67,7 @@ pub(super) fn peek(
             .collect();
         let top = fresh.iter().map(|(s, _)| *s).max().unwrap_or(0);
         if let Some((_, before)) = *seen
+            && !ui.open
             && !duel.log_open
         {
             for (stamp, text) in fresh.iter().filter(|(s, _)| *s > before) {
@@ -80,7 +81,7 @@ pub(super) fn peek(
         let before = seen.map_or(0, |(_, b)| b);
         *seen = Some((machine.revision(), top.max(before)));
     }
-    if duel.log_open && !ui.peek.is_empty() {
+    if (ui.open || duel.log_open) && !ui.peek.is_empty() {
         ui.peek.clear();
     }
     if !ui.peek.is_empty() {

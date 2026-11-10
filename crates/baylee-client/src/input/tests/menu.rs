@@ -741,7 +741,8 @@ fn a_press_outside_the_panel_puts_it_away_and_three_presses_do_not() {
     }
 }
 
-/// A menu remains dismissible while the engine is waiting on another seat.
+/// A menu, log, hover preview and dismissible zone browser remain dismissible
+/// while the engine is waiting on another seat (or in spectator mode).
 #[test]
 fn escape_closes_menu_and_log_between_questions_without_sending_an_action() {
     use bevy::input::keyboard::KeyboardInput;
@@ -770,4 +771,28 @@ fn escape_closes_menu_and_log_between_questions_without_sending_an_action() {
             .resource_mut::<ButtonInput<KeyCode>>()
             .reset_all();
     }
+
+    // Hover preview first, then a dismissible zone browser whose filter box has
+    // already released the keyboard.
+    {
+        let mut duel = app.world_mut().resource_mut::<crate::Duel>();
+        duel.hovered = Some(obj(30));
+        duel.browser.open();
+        duel.browser.stop_typing();
+    }
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Escape);
+    app.update();
+    assert_eq!(app.world().resource::<crate::Duel>().hovered, None);
+    assert!(app.world().resource::<crate::Duel>().browser.is_open());
+
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .reset_all();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Escape);
+    app.update();
+    assert!(!app.world().resource::<crate::Duel>().browser.is_open());
 }

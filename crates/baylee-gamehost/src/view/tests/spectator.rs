@@ -368,3 +368,65 @@ fn a_spectator_cannot_act() {
         "a pump with a spectator watching tells it the table"
     );
 }
+
+/// A spectator resolves public stack targets (`target_objects`) so the stack
+/// renders the targeted card's face instead of `PreviousTarget`, while a
+/// face-down target stays blank.
+#[test]
+fn a_spectator_resolves_public_stack_targets_without_leaking_face_down_ones() {
+    use baylee_core::ids::DamageSourceRef;
+    use baylee_engine::object::{ObjectKind, Status};
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).expect("a game");
+    let first = state.zones.list(ZoneLocation::Battlefield)[0];
+    let second = state.zones.list(ZoneLocation::Battlefield)[1];
+    state
+        .object_mut(second)
+        .expect("on battlefield")
+        .status
+        .insert(Status::FACE_DOWN);
+    state.refresh_characteristics();
+    let first_ref = DamageSourceRef {
+        object: first,
+        version: state.object(first).expect("on battlefield").version,
+    };
+    let second_ref = DamageSourceRef {
+        object: second,
+        version: state.object(second).expect("on battlefield").version,
+    };
+    let name = state.names.intern("spectator target test");
+    let spell = state.create_bare(
+        PlayerId::new(0),
+        ObjectKind::Spell,
+        name,
+        ZoneLocation::Stack,
+    );
+    let obj = state.object_mut(spell).expect("on stack");
+    obj.targets.push(first);
+    obj.targets.push(second);
+    let trigger_capture = state.zones.list(ZoneLocation::Hand(PlayerId::new(0)))[0];
+    state
+        .move_object(
+            trigger_capture,
+            ZoneLocation::Graveyard(PlayerId::new(0)),
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Effect,
+        )
+        .expect("captures stack references");
+
+    let spec =
+        crate::view::spectator_view(&state, 1, None, SeatSet::new(), SeatSet::new(), &[], &[]);
+    let view = spec.into_player_view(PlayerId::new(0));
+    let known = view
+        .target_object(first_ref)
+        .expect("public stack target is carried for spectators");
+    assert!(known.is_current);
+    assert!(known.card.is_some());
+    let blank = view
+        .target_object(second_ref)
+        .expect("face-down stack target handle is carried");
+    assert!(
+        blank.card.is_none(),
+        "face-down target identity stayed hidden"
+    );
+    assert_eq!(blank.name, "Face-down");
+}

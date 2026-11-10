@@ -161,6 +161,7 @@ pub(super) fn spectator_of(view: &PlayerView) -> baylee_view::SpectatorView {
         revealed_hands: view.shared_hands.clone(),
         ballots: view.ballots.clone(),
         controls: view.controls.clone(),
+        target_objects: view.target_objects.clone(),
     }
 }
 

@@ -430,6 +430,10 @@ pub(crate) async fn try_start(
         tracing::error!(game_id = id, reason, "could not start a game");
         return Err(err(StatusCode::SERVICE_UNAVAILABLE, unavailable(reason)));
     }
+    let tell = state.social.invites.lock().close_started(id);
+    for (to, frame) in tell {
+        state.social.push(&to, &frame);
+    }
     Ok(true)
 }
 

@@ -160,6 +160,8 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         chosen_subtype: None,
         chosen_name: None,
         chosen_opponent: None,
+        chosen_color: None,
+        chosen_x: None,
         unlocked_doors: None,
         suspended: false,
         token: None,

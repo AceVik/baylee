@@ -220,6 +220,7 @@ fn clips() -> &'static [Option<Clip>] {
                 }
             }
         }
+        crate::music::score::memorial::mark_studio_pitches(&mut used, key);
         let instruments = [
             Instrument::Harp,
             Instrument::Zither,

@@ -245,12 +245,6 @@ pub(crate) fn text_field_with(
         commands.entity(boxed).add_child(run);
     }
     mark_runs(commands, boxed, metrics, look);
-    // After the runs, so the caret stands in front of it the way a caret
-    // stands in front of an empty `<input>`'s placeholder.
-    if let Some(words) = look.hint.filter(|_| look.buffer.text().is_empty()) {
-        let ghost = hint_ghost(commands, fonts, metrics, words);
-        commands.entity(boxed).add_child(ghost);
-    }
     if look.mask.is_some() || look.tail.is_some() {
         // Pushed to the far end of the row, so a button is in the same place
         // whatever is typed and the letters never run into it.
@@ -418,25 +412,31 @@ fn field_runs(
             out.push(spawn_run(commands, fonts, metrics, text, mask, selected));
         }
     }
+    // After the runs, so the caret stands in front of it the way a caret
+    // stands in front of an empty `<input>`'s placeholder.
+    if let Some(words) = look.hint.filter(|_| look.buffer.text().is_empty()) {
+        out.push(hint_ghost(commands, fonts, metrics, words));
+    }
     out
 }
 
 /// The box of the lobby field holding the caret, as [`text_field`] drew it.
 ///
-/// The caret moving is the one edit that changes nothing outside its own box,
-/// so the keyboard makes it without marking the lobby's state changed and
-/// [`retrace_runs`] redraws the box's runs here instead: one field's three or
-/// four nodes rather than the whole screen per arrow key (§10 #3 of the
-/// shell design).
+/// Editing or moving the caret in a plain text field changes nothing outside
+/// its own box, so the keyboard makes the edit without marking the lobby's
+/// state changed and [`retrace_runs`] redraws the box's runs here instead:
+/// one field's three or four nodes rather than the whole screen per keystroke
+/// (§10 #3 of the shell design).
 #[derive(Component)]
 pub(super) struct RunsOf {
     field: Field,
     mask: Option<Masked>,
     /// Whether a lead glyph stands before the runs, which they go after.
     lead: bool,
+    hint: Option<String>,
     metrics: Metrics,
-    /// The caret and the selection the runs were drawn for.
-    at: (usize, Option<std::ops::Range<usize>>),
+    /// The text, caret and selection the runs were drawn for.
+    at: (String, usize, Option<std::ops::Range<usize>>),
 }
 
 /// What an empty box says it is for, in muted ink, clipped rather than
@@ -444,6 +444,7 @@ pub(super) struct RunsOf {
 fn hint_ghost(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, words: &str) -> Entity {
     commands
         .spawn((
+            FieldRun,
             Text::new(words.to_string()),
             tf(fonts, metrics.text),
             TextLayout::no_wrap(),
@@ -460,7 +461,7 @@ fn hint_ghost(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, words:
 }
 
 /// Marks the box of the field with the caret, so its runs can be redrawn in
-/// place when only the caret moves ([`retrace_runs`]).
+/// place when only its text or caret moves ([`retrace_runs`]).
 fn mark_runs(commands: &mut Commands, boxed: Entity, metrics: Metrics, look: &FieldLook) {
     if look.focused
         && let Press::Shared(SharedPress::Focus(field)) = look.press
@@ -469,17 +470,22 @@ fn mark_runs(commands: &mut Commands, boxed: Entity, metrics: Metrics, look: &Fi
             field,
             mask: look.mask,
             lead: look.lead.is_some(),
+            hint: look.hint.map(str::to_string),
             metrics,
-            at: (look.buffer.cursor(), look.buffer.selection()),
+            at: (
+                look.buffer.text().to_string(),
+                look.buffer.cursor(),
+                look.buffer.selection(),
+            ),
         });
     }
 }
 
-/// One run of a field's text, or its caret: what [`retrace_runs`] replaces.
+/// One run of a field's text, its placeholder, or its caret: what [`retrace_runs`] replaces.
 #[derive(Component)]
 pub(super) struct FieldRun;
 
-/// Redraws the focused field's runs where only its caret or selection moved.
+/// Redraws the focused field's runs where only its text, caret or selection moved.
 ///
 /// After [`ui`]: a rebuild this frame has already drawn them from the state,
 /// and then this finds nothing to do.
@@ -503,7 +509,11 @@ pub(super) fn retrace_runs(
             continue;
         }
         let buffer = state.lobby.buffer(focus);
-        let at = (buffer.cursor(), buffer.selection());
+        let at = (
+            buffer.text().to_string(),
+            buffer.cursor(),
+            buffer.selection(),
+        );
         if drawn.at == at {
             continue;
         }
@@ -520,7 +530,7 @@ pub(super) fn retrace_runs(
             press: Press::Shared(SharedPress::Focus(focus)),
             tail: None,
             lead: None,
-            hint: None,
+            hint: drawn.hint.as_deref(),
         };
         let fresh = field_runs(&mut commands, &fonts, drawn.metrics, &look);
         commands

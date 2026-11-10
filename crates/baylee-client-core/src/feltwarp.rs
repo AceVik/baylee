@@ -62,6 +62,11 @@ pub fn domain(p: [f32; 2], pattern: [f32; 4]) -> [f32; 2] {
     let angle = pattern[2] * (std::f32::consts::TAU / 256.0);
     let (sin, cos) = angle.sin_cos();
     let scale = 0.85 + pattern[3] * (0.30 / 256.0);
+    domain_with_basis(p, pattern, sin, cos, scale)
+}
+
+#[inline]
+fn domain_with_basis(p: [f32; 2], pattern: [f32; 4], sin: f32, cos: f32, scale: f32) -> [f32; 2] {
     [
         (p[0] * cos + p[1] * sin) * scale + pattern[0],
         (-p[0] * sin + p[1] * cos) * scale + pattern[1],
@@ -74,6 +79,11 @@ pub fn domain(p: [f32; 2], pattern: [f32; 4]) -> [f32; 2] {
 #[must_use]
 pub fn fields(p: [f32; 2], pattern: [f32; 4]) -> [f32; 4] {
     let d = domain(p, pattern);
+    fields_at_domain(p, d)
+}
+
+#[inline]
+fn fields_at_domain(p: [f32; 2], d: [f32; 2]) -> [f32; 4] {
     let a = fbm(d[0] * 0.32, d[1] * 0.32);
     let b = fbm(d[0] * 0.32 + 19.4, d[1] * 0.32 + 19.4);
     let warp = [d[0] + a * WARP_REACH, d[1] + b * WARP_REACH];
@@ -122,13 +132,15 @@ impl WarpField {
         let side = |units: f32| ((units * density).ceil() as u32).clamp(2, MAX_TEXELS);
         let (width, height) = (side(size[0]), side(size[1]));
         let origin = [-size[0] * 0.5, size[1] * 0.5];
+        let angle = pattern[2] * (std::f32::consts::TAU / 256.0);
+        let (sin, cos) = angle.sin_cos();
+        let scale = 0.85 + pattern[3] * (0.30 / 256.0);
         let mut texels = Vec::with_capacity((width * height) as usize);
         for row in 0..height {
             for col in 0..width {
-                texels.push(fields(
-                    Self::centre(origin, size, width, height, col, row),
-                    pattern,
-                ));
+                let p = Self::centre(origin, size, width, height, col, row);
+                let d = domain_with_basis(p, pattern, sin, cos, scale);
+                texels.push(fields_at_domain(p, d));
             }
         }
         Self {

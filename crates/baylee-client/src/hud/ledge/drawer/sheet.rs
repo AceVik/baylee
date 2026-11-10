@@ -89,14 +89,16 @@ pub struct SheetSource {
 pub struct SheetPill;
 
 /// Whether `prompt` is a question the sheet stands for: everything the
-/// drawer draws that is a question of this seat's own, but combat (answered
-/// on the creatures) and the cast choosers (on the parchment beside the
-/// card).
+/// drawer draws that is a question of this seat's own (including combat when
+/// there are attackers or blockers to assign), except the cast choosers (on
+/// the parchment beside the card).
 #[must_use]
 pub(crate) const fn is_sheet(prompt: &Prompt) -> bool {
     matches!(
         prompt,
         Prompt::ChooseTargets { .. }
+            | Prompt::DeclareAttackers
+            | Prompt::DeclareBlockers { .. }
             | Prompt::ChooseSubtype { .. }
             | Prompt::ChooseCardType { .. }
             | Prompt::ChooseCardName { .. }
@@ -123,10 +125,11 @@ pub(crate) fn sheet_asked(duel: &Duel) -> bool {
         && duel.is_my_turn_to_act()
         && duel.cast_menu.is_none()
         && !duel.browser.answers_here(duel.interaction.as_ref())
-        && duel
-            .interaction
-            .as_ref()
-            .is_some_and(|i| is_sheet(&i.prompt()))
+        && duel.interaction.as_ref().is_some_and(|i| match i.prompt() {
+            Prompt::DeclareAttackers => duel.view.is_some() && !i.attack_options().is_empty(),
+            Prompt::DeclareBlockers { .. } => duel.view.is_some() && !i.block_rows().is_empty(),
+            prompt => is_sheet(&prompt),
+        })
 }
 
 /// Whether the sheet stands open over the shelf, which is what takes the

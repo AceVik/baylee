@@ -188,6 +188,41 @@ mod tests {
         assert_eq!(launcher_of(&install, Uuid::now_v7()), None);
     }
 
+    /// On a Mac the launcher lies inside the generation's bundle, beside its runtime.
+    #[test]
+    fn a_macs_launcher_is_found_inside_the_bundle() {
+        let mut install = at("mac");
+        install.os = Os::MacOs;
+        let generation = Uuid::now_v7();
+        let macos = install
+            .stage()
+            .join("versions")
+            .join(generation.to_string())
+            .join("Baylee.app/Contents/MacOS");
+        fs::create_dir_all(&macos).unwrap();
+        fs::write(macos.join(relaunch::MAC_LAUNCHER), "a launcher").unwrap();
+        let launcher = launcher_of(&install, generation).expect("the bundle's launcher");
+        assert!(
+            launcher.ends_with(Path::new("Baylee.app/Contents/MacOS").join(relaunch::MAC_LAUNCHER)),
+            "{}",
+            launcher.display()
+        );
+    }
+
+    /// A folder where the launcher should be is not a launcher.
+    #[test]
+    fn a_folder_in_the_launchers_place_starts_nothing() {
+        let install = at("folder");
+        let generation = Uuid::now_v7();
+        let place = install
+            .stage()
+            .join("versions")
+            .join(generation.to_string())
+            .join("baylee-client");
+        fs::create_dir_all(&place).unwrap();
+        assert_eq!(launcher_of(&install, generation), None);
+    }
+
     /// A pointer is a value out of a file: what is no UUID selects nothing here, and
     /// the package's own logic reports it.
     #[test]
@@ -200,6 +235,31 @@ mod tests {
             fs::write(install.stage().join("current.json"), pointer.to_string()).unwrap();
             let original = Version::new(1, 0, 0);
             assert_eq!(launch::newer_generation(&install, &original), None);
+        }
+    }
+
+    /// A version that does not parse, or one no newer than the package, hands
+    /// nothing on: the package's own logic decides, as it always did.
+    #[test]
+    fn only_a_newer_parsable_version_is_handed_on() {
+        let install = at("versions");
+        let generation = Uuid::now_v7();
+        let original = Version::new(1, 0, 0);
+        for (to, handed) in [
+            ("x.y", false),
+            ("1.0.0", false),
+            ("0.9.0", false),
+            ("1.0.1", true),
+        ] {
+            let pointer = serde_json::json!({
+                "generation": generation, "from": "1.0.0", "to": to, "announced": true,
+            });
+            fs::write(install.stage().join("current.json"), pointer.to_string()).unwrap();
+            assert_eq!(
+                launch::newer_generation(&install, &original).is_some(),
+                handed,
+                "{to}"
+            );
         }
     }
 
@@ -261,6 +321,18 @@ mod tests {
         let temporary = install.stage().join(ATTEMPTS).with_extension("json.tmp");
         fs::create_dir_all(temporary).unwrap();
         assert!(note_the_attempt(&install, Uuid::now_v7()).is_none());
+    }
+
+    /// A start that went well clears the count, and clearing a count that is not
+    /// there is no error.
+    #[test]
+    fn going_well_clears_the_count_and_a_missing_one_is_fine() {
+        let install = at("cleared");
+        went_well(&install);
+        assert!(note_the_attempt(&install, Uuid::now_v7()).is_some());
+        assert!(install.stage().join(ATTEMPTS).exists());
+        went_well(&install);
+        assert!(!install.stage().join(ATTEMPTS).exists());
     }
 
     #[test]

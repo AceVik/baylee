@@ -687,9 +687,33 @@ fn text_field_keys(
         if !state.lobby.typing_here() || (table && !field_drawn(state)) {
             continue;
         }
+        let in_place = matches!(
+            state.lobby.focus(),
+            Field::Username
+                | Field::DisplayName
+                | Field::Password
+                | Field::PasswordAgain
+                | Field::InviteKey
+                | Field::GuestName
+                | Field::Gateway
+                | Field::RoomName
+                | Field::RoomPassword
+        );
         match &key.logical_key {
-            Key::Backspace => state.lobby.backspace(),
-            Key::Delete => state.lobby.delete_forward(),
+            Key::Backspace => {
+                if in_place {
+                    state.bypass_change_detection().lobby.backspace();
+                } else {
+                    state.lobby.backspace();
+                }
+            }
+            Key::Delete => {
+                if in_place {
+                    state.bypass_change_detection().lobby.delete_forward();
+                } else {
+                    state.lobby.delete_forward();
+                }
+            }
             // A caret that moves changes only the field it stands in, and
             // `ui::retrace_runs` redraws that field's runs in place: marking
             // the whole state changed for it rebuilt every node on the
@@ -806,7 +830,11 @@ fn text_field_keys(
             }
             Key::Character(text) if command => {
                 if text.eq_ignore_ascii_case("a") {
-                    state.lobby.select_all();
+                    if in_place {
+                        state.bypass_change_detection().lobby.select_all();
+                    } else {
+                        state.lobby.select_all();
+                    }
                 } else if text.eq_ignore_ascii_case("v")
                     && let Some(cb) = clipboard.as_deref_mut()
                 {
@@ -828,11 +856,18 @@ fn text_field_keys(
                         }
                     }
                     // Typing is about the address, not the rows.
-                    if state.gateway_cursor.is_some() {
+                    if state.lobby.focus() == Field::Gateway && state.gateway_cursor.is_some() {
                         state.gateway_cursor = None;
                     }
-                    for ch in text.chars() {
-                        state.lobby.type_char(ch);
+                    if in_place {
+                        let lobby = &mut state.bypass_change_detection().lobby;
+                        for ch in text.chars() {
+                            lobby.type_char(ch);
+                        }
+                    } else {
+                        for ch in text.chars() {
+                            state.lobby.type_char(ch);
+                        }
                     }
                 }
             }

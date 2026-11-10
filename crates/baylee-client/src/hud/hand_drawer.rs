@@ -118,12 +118,14 @@ pub fn slide_the_hand(
     // entrance shows the whole screen as it will first be played.
     let playing =
         phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    let spectator = duel.watching && duel.replay.is_none();
     let replay = duel
         .replay
         .as_ref()
         .map(|status| bar.as_deref().is_none_or(|bar| bar.hand_open(status)));
     let open = match replay {
         Some(open) => !playing || open,
+        None if spectator => !playing,
         None => !phone || !playing || duel.hand_drawer_open(),
     };
     if duel.hand_drawn_open != open {
@@ -134,7 +136,7 @@ pub fn slide_the_hand(
     if (shown - duel.hand_shown).abs() > f32::EPSILON {
         duel.hand_shown = shown;
     }
-    let drop = if phone || replay.is_some() {
+    let drop = if phone || replay.is_some() || spectator {
         drop_at(shown)
     } else {
         0.0

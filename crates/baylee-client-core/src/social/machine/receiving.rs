@@ -78,6 +78,7 @@ impl Social {
         };
         self.append_history(&conv, &record, rng, out);
         if !mine {
+            self.refresh_candidates();
             let ctx = NotifyContext {
                 reading,
                 dnd: self.status == Status::Dnd,
@@ -357,6 +358,7 @@ impl Social {
         };
         self.append_history(&conv, &record, rng, out);
         if !mine {
+            self.refresh_candidates();
             let ctx = NotifyContext {
                 reading,
                 dnd: self.status == Status::Dnd,

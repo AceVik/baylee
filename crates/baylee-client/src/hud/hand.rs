@@ -932,17 +932,20 @@ fn beside(card: Rect, panel: Vec2, low: Vec2, high: Vec2, window: Vec2) -> Vec2 
     // card, try clearing it the other way: a card near the top or the bottom
     // of a tall window has room above or below it even when it has none
     // beside it, and a panel that clears the thing it describes is the whole
-    // point of this function.
-    let x = (f32::midpoint(from, to) - panel.x / 2.0).clamp(low.x, high.x);
-    let above = top - PREVIEW_GAP - panel.y;
-    // Never over the band's top, though: a pointer or card in the strip the
-    // report button's corner keeps (#309) is above it.
-    let below = (bottom + PREVIEW_GAP).max(bl.y);
-    if above >= bl.y {
-        return Vec2::new(x, above);
-    }
-    if below <= bh.y {
-        return Vec2::new(x, below);
+    // point of this function. A wide browser row cannot be cleared vertically
+    // without landing in the middle of the list.
+    if to - from <= panel.x {
+        let x = (f32::midpoint(from, to) - panel.x / 2.0).clamp(low.x, high.x);
+        let above = top - PREVIEW_GAP - panel.y;
+        // Never over the band's top, though: a pointer or card in the strip the
+        // report button's corner keeps (#309) is above it.
+        let below = (bottom + PREVIEW_GAP).max(bl.y);
+        if above >= bl.y {
+            return Vec2::new(x, above);
+        }
+        if below <= bh.y {
+            return Vec2::new(x, below);
+        }
     }
     // Nothing clears it. The panel goes on the side with the most room and
     // covers as little of the card as there is to cover — still, and above

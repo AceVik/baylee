@@ -843,6 +843,7 @@ impl<'a> Table<'a> {
             prints: Vec::new(),
             decision_secs: self.context.decision_secs,
             reconnect_secs: None,
+            table_seed: 0,
         }
     }
 

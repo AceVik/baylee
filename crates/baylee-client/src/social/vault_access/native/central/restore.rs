@@ -35,7 +35,7 @@ pub(super) fn start(
     let slot = social::SecretSlot::new(&session.tag, &session.gateway);
     let mut records = handle
         .chat_devices(session.gateway.clone(), session.tag.clone())
-        .map_err(|_| Error::Io)?;
+        .map_err(account_err)?;
     for record in &records {
         if baylee_seal::DeviceSecrets::from_bytes(record.key.bytes()).device_id() != record.device {
             return Err(Error::Format);
@@ -61,7 +61,7 @@ pub(super) fn start(
     if let Some(local) = &local {
         handle
             .archive_chat_device(local.clone())
-            .map_err(|_| Error::Io)?;
+            .map_err(account_err)?;
         if !records.iter().any(|record| record.device == local.device) {
             records.push(local.clone());
         }
@@ -86,7 +86,7 @@ pub(super) fn start(
         let archived_keys = baylee_seal::DeviceSecrets::from_bytes(record.key.bytes());
         if record.device != device.device && record.history.is_some() {
             let archive = MemoryDisk {
-                files: handle.chat_history(record.clone()).map_err(|_| Error::Io)?,
+                files: handle.chat_history(record.clone()).map_err(account_err)?,
             };
             merge(&mut machine, &archived_keys, &archive, &mut disk)?;
         }
@@ -115,10 +115,10 @@ pub(super) fn start(
     persist(&target, &disk)?;
     handle
         .remember_chat_installation(device.clone(), installation)
-        .map_err(|_| Error::Io)?;
+        .map_err(account_err)?;
     handle
         .upload_chat_history(device.clone(), disk.files)
-        .map_err(|_| Error::Io)?;
+        .map_err(account_err)?;
     ensure_running(cancelled)?;
     let sync = SyncState::new(context.clone(), target, device.clone(), handle.clone());
     Ok(Ready {
@@ -280,6 +280,14 @@ fn folder(context: &ContextGuard, device: &ChatDevice) -> std::path::PathBuf {
     context
         .directory()
         .join(format!("central-{}.chat", device.device))
+}
+
+const fn account_err(error: baylee_account::Error) -> Error {
+    match error {
+        baylee_account::Error::Busy | baylee_account::Error::TermsRequired => Error::Busy,
+        baylee_account::Error::Rejected => Error::Authentication,
+        _ => Error::Io,
+    }
 }
 
 fn ensure_running(cancelled: &AtomicBool) -> Result<(), Error> {

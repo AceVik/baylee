@@ -73,18 +73,40 @@ pub(crate) enum DrawerPress {
 #[derive(Component)]
 struct DrawerScrollbar(Entity);
 
+/// Target key on a friend (`tag`) or group (`grp:{id}`) row in the drawer:
+/// right-clicking the row or pressing its `...` button opens [`DrawerContextMenu`].
+#[derive(Component, Clone, Debug)]
+struct DrawerRowTarget(String);
+
+/// The floating context menu for a friend or group in the drawer.
+#[derive(Component)]
+pub(crate) struct DrawerContextMenu;
+
+/// Smooth pop-in animation progress (`0.0..=1.0`) for [`DrawerContextMenu`].
+#[derive(Component)]
+struct DrawerMenuAnim(f32);
+
+/// Where [`DrawerContextMenu`] was opened, in logical window pixels.
+#[derive(Resource, Default, Clone, Copy)]
+struct DrawerMenuAt(Vec2);
+
 /// Installs the drawer.
 pub(crate) fn install(app: &mut App) {
     crate::ui_button::install(app);
     app.init_resource::<DrawerSlide>()
+        .init_resource::<DrawerMenuAt>()
         .add_systems(
             Update,
             (
                 drawer_follows_the_room,
                 asks,
+                drawer_row_clicks
+                    .run_if(resource_exists::<Messages<bevy::picking::events::PointerClick>>),
                 presses,
                 sync_door,
                 sync_drawer,
+                sync_context_menu,
+                animate_context_menu,
             )
                 .chain()
                 .run_if(resource_exists::<UiFonts>),
@@ -481,7 +503,7 @@ fn asks(
                 ui.open = true;
                 ui.minimised = false;
                 if let Some(duel) = duel.as_deref_mut().filter(|_| at_table) {
-                    duel.log_open = true;
+                    duel.log_open = false;
                 }
                 super::window::select_tab(&mut host, &mut ui, tab);
             }
@@ -508,6 +530,50 @@ fn asks(
     }
 }
 
+/// Opens the contact/group context menu on right-click (`PointerButton::Secondary`)
+/// and dismisses it when clicking outside.
+#[allow(clippy::too_many_arguments)]
+fn drawer_row_clicks(
+    mut clicks: MessageReader<bevy::picking::events::PointerClick>,
+    targets: Query<&DrawerRowTarget>,
+    parents: Query<&ChildOf>,
+    mut ui: ResMut<ChatUi>,
+    mut at: ResMut<DrawerMenuAt>,
+    menus: Query<&RelativeCursorPosition, With<DrawerContextMenu>>,
+    mores: Query<(&DrawerPress, &bevy::picking::hover::Hovered)>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+) {
+    if ui.drawer_menu.is_some() && keys.is_some_and(|k| k.just_pressed(KeyCode::Escape)) {
+        ui.drawer_menu = None;
+    }
+    if ui.drawer_menu.is_some()
+        && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
+        && !menus.iter().any(RelativeCursorPosition::cursor_over)
+        && !mores.iter().any(|(press, hovered)| {
+            hovered.get() && matches!(press, DrawerPress::More(_) | DrawerPress::GroupMore(_))
+        })
+    {
+        ui.drawer_menu = None;
+    }
+    for click in clicks.read() {
+        if click.button != bevy::picking::pointer::PointerButton::Secondary {
+            continue;
+        }
+        let mut current = Some(click.entity);
+        for _ in 0..6 {
+            let Some(entity) = current else { break };
+            if let Ok(target) = targets.get(entity) {
+                ui.row_menu = None;
+                ui.drawer_menu = Some(target.0.clone());
+                at.0 = click.pointer.position;
+                break;
+            }
+            current = parents.get(entity).ok().map(ChildOf::parent);
+        }
+    }
+}
+
 /// The drawer's presses.
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
@@ -515,14 +581,22 @@ fn presses(
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut more: Local<Option<String>>,
+    mut menu_at: Option<ResMut<DrawerMenuAt>>,
+    windows: Query<&Window>,
 ) {
     let clicked: Vec<DrawerPress> = clicks.read();
     let ui = &mut *ui;
+    if *more != ui.drawer_menu {
+        more.clone_from(&ui.drawer_menu);
+    }
+    let pointer_pos = windows.iter().next().and_then(Window::cursor_position);
     for press in clicked {
         match press {
             DrawerPress::Toggle => ui.drawer = !ui.drawer,
             DrawerPress::Close => {
                 ui.drawer = false;
+                *more = None;
+                ui.drawer_menu = None;
                 if ui.field == Field::Find {
                     ui.typing = false;
                 }
@@ -543,9 +617,19 @@ fn presses(
                 host.act(Intent::Whisper { tag });
                 ui.typing = true;
                 ui.field = Field::Composer;
+                *more = None;
+                ui.drawer_menu = None;
             }
-            DrawerPress::Watch(tag) => host.act(Intent::Watch { tag }),
-            DrawerPress::InviteToTable(tag) => host.act(Intent::InviteToTable { tag }),
+            DrawerPress::Watch(tag) => {
+                host.act(Intent::Watch { tag });
+                *more = None;
+                ui.drawer_menu = None;
+            }
+            DrawerPress::InviteToTable(tag) => {
+                host.act(Intent::InviteToTable { tag });
+                *more = None;
+                ui.drawer_menu = None;
+            }
             DrawerPress::More(tag) => {
                 ui.row_menu = None;
                 *more = if more.as_deref() == Some(tag.as_str()) {
@@ -554,6 +638,9 @@ fn presses(
                     Some(tag)
                 };
                 ui.drawer_menu.clone_from(&more);
+                if let (Some(at), Some(pos)) = (menu_at.as_deref_mut(), pointer_pos) {
+                    at.0 = pos;
+                }
             }
             DrawerPress::Nickname(tag) => {
                 let current = host
@@ -590,6 +677,10 @@ fn presses(
             DrawerPress::DeclineGroup(id) => host.act(Intent::DeclineGroup { id }),
             DrawerPress::OpenGroup(id) => {
                 ui.shown_group = Some(id.clone());
+                ui.typing = true;
+                ui.field = Field::Composer;
+                *more = None;
+                ui.drawer_menu = None;
                 host.asks
                     .push(UiAsk::Open(baylee_protocol::social::Conv::Group { id }));
             }
@@ -601,6 +692,9 @@ fn presses(
                     Some(key)
                 };
                 ui.drawer_menu.clone_from(&more);
+                if let (Some(at), Some(pos)) = (menu_at.as_deref_mut(), pointer_pos) {
+                    at.0 = pos;
+                }
             }
             DrawerPress::RenameGroup(id) => {
                 ui.entry = Some((
@@ -898,7 +992,7 @@ fn small_button(
             },
             BackgroundColor(Color::NONE),
             BorderColor::all(tokens::BORDER),
-            Feel::new(Color::NONE),
+            Feel::tinting_to(Color::NONE, Color::srgba(1.0, 1.0, 1.0, 0.10)),
             children![(
                 Text::new(label.to_string()),
                 tf(fonts, z(11.0)),
@@ -929,7 +1023,7 @@ fn icon_button(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            Feel::new(Color::NONE),
+            Feel::tinting_to(Color::NONE, Color::srgba(1.0, 1.0, 1.0, 0.12)),
             children![(
                 Text::new(glyph.to_string()),
                 icon_tf(fonts, z(11.0)),
@@ -1118,12 +1212,33 @@ fn sync_drawer(
         .unwrap_or_default();
     let pitch = ROW_PITCH * zoom.0;
     let chunk = window_chunk(scrolls.iter().next().map_or(0.0, |s| s.y), pitch);
+    let group_unreads: Vec<u32> = machine
+        .contacts()
+        .groups
+        .iter()
+        .map(|g| {
+            let conv = baylee_protocol::social::Conv::Group { id: g.id.clone() };
+            machine.conversation(&conv).map_or(0, |c| c.unread)
+        })
+        .collect();
+    let drawer_revision = super::window::key_of(&(
+        format!("{:?}", machine.me()),
+        machine.status() as u8,
+        machine
+            .table()
+            .map(|t| (t.game.clone(), t.playing, t.watching)),
+        format!("{:?}", machine.contacts()),
+        format!("{:?}", machine.friends()),
+        format!("{:?}", machine.recent_players()),
+        group_unreads,
+        at_table,
+        lang as u8,
+    ));
     let key = (
-        machine.revision(),
+        drawer_revision,
         format!("{}{}", ui.find.text(), ui.find.cursor()),
         entry_text,
-        ui.typing,
-        ui.drawer_menu.clone(),
+        ui.typing && matches!(ui.field, Field::Find | Field::Entry),
         format!("{:?}", ui.field),
         chunk,
     );
@@ -1296,7 +1411,7 @@ fn sync_drawer(
             format!(
                 "{} · {}",
                 ChatPhrase::SectionRequests.text(lang),
-                view.incoming.len()
+                view.incoming.len() + view.outgoing.len()
             ),
         ));
         for person in view.incoming {
@@ -1407,10 +1522,6 @@ fn sync_drawer(
         commands.entity(line).add_children(&[text, yes, no]);
         kids.push(line);
     }
-    let my_table = machine
-        .table()
-        .filter(|t| !t.watching)
-        .map(|t| t.game.clone());
     // Friends: online, then offline. A long list draws only the rows near what
     // is in view, in one walk over both.
     let listed = view
@@ -1442,10 +1553,19 @@ fn sync_drawer(
             let tag = friend.person.tag.clone();
             let line = row(commands);
             let card_bg = Color::srgba(0.06, 0.11, 0.15, 0.85);
-            // The row lights under the pointer (its buttons are its own).
+            let card_hot = Color::srgba(0.11, 0.20, 0.28, 0.96);
+            // The row lights under the pointer; right-clicking anywhere on it
+            // or pressing its `...` button opens the context menu.
             commands.entity(line).insert((
-                UiButton,
-                Feel::new(card_bg),
+                Pickable::default(),
+                bevy::picking::hover::PickingInteraction::None,
+                DrawerRowTarget(tag.clone()),
+                Feel::tinting_to(card_bg, card_hot),
+                crate::ambience::FeelBorder {
+                    rest: tokens::BORDER.with_alpha(0.65),
+                    hot: tokens::ACCENT.with_alpha(0.75),
+                    press: tokens::ACCENT.with_alpha(0.90),
+                },
                 BackgroundColor(card_bg),
                 BorderColor::all(tokens::BORDER.with_alpha(0.65)),
                 Node {
@@ -1456,7 +1576,7 @@ fn sync_drawer(
                     margin: UiRect::vertical(zpx(2.0)),
                     border: UiRect::all(zpx(1.0)),
                     border_radius: BorderRadius::all(zpx(8.0)),
-                    flex_wrap: FlexWrap::Wrap,
+                    flex_wrap: FlexWrap::NoWrap,
                     ..default()
                 },
             ));
@@ -1468,6 +1588,25 @@ fn sync_drawer(
             };
             let presence = person_avatar(commands, &fonts, &shown_name, friend.presence.status);
             let words = commands
+                .spawn((
+                    UiButton,
+                    DrawerPress::Whisper(tag.clone()),
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: true,
+                    },
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: zpx(8.0),
+                        flex_grow: 1.0,
+                        min_width: zpx(0.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                ))
+                .id();
+            let text_col = commands
                 .spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
@@ -1499,63 +1638,20 @@ fn sync_drawer(
                     Pickable::IGNORE,
                 ))
                 .id();
-            commands.entity(words).add_children(&[top, place]);
-            commands.entity(line).add_children(&[presence, words]);
-            let online = friend.presence.status != Shown::Offline;
-            if online {
-                let whisper = icon_button(
-                    commands,
-                    &fonts,
-                    glyph::CHAT,
-                    DrawerPress::Whisper(tag.clone()),
-                );
-                commands.entity(line).add_child(whisper);
-            }
-            if let Some(Place::Playing { game: Some(_), .. }) = &friend.presence.place
-                && !at_table
-            {
-                let watch = small_button(
-                    commands,
-                    &fonts,
-                    ChatPhrase::WatchButton.text(lang),
-                    DrawerPress::Watch(tag.clone()),
-                );
-                commands.entity(line).add_child(watch);
-            }
-            if online && my_table.is_some() {
-                let invite = small_button(
-                    commands,
-                    &fonts,
-                    ChatPhrase::InviteToTable.text(lang),
-                    DrawerPress::InviteToTable(tag.clone()),
-                );
-                commands.entity(line).add_child(invite);
-            }
+            commands.entity(text_col).add_children(&[top, place]);
+            commands.entity(words).add_children(&[presence, text_col]);
             let more = icon_button(
                 commands,
                 &fonts,
                 glyph::MORE,
                 DrawerPress::More(tag.clone()),
             );
-            commands.entity(line).add_child(more);
+            commands.entity(more).insert(Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            });
+            commands.entity(line).add_children(&[words, more]);
             kids.push(line);
-            if ui.drawer_menu.as_deref() == Some(tag.as_str()) {
-                let menu = row(commands);
-                for (phrase, press) in [
-                    (ChatPhrase::WhisperButton, DrawerPress::Whisper(tag.clone())),
-                    (
-                        ChatPhrase::NicknameButton,
-                        DrawerPress::Nickname(tag.clone()),
-                    ),
-                    (ChatPhrase::SafetyButton, DrawerPress::Safety(tag.clone())),
-                    (ChatPhrase::RemoveFriend, DrawerPress::Unfriend(tag.clone())),
-                    (ChatPhrase::BlockButton, DrawerPress::Block(tag.clone())),
-                ] {
-                    let b = small_button(commands, &fonts, phrase.text(lang), press);
-                    commands.entity(menu).add_child(b);
-                }
-                kids.push(menu);
-            }
         }
         window.close(commands, kids);
     };
@@ -1596,25 +1692,101 @@ fn sync_drawer(
             };
             let unread = machine.conversation(&conv).map_or(0, |c| c.unread);
             let line = row(&mut commands);
-            let open = commands
+            let card_bg = Color::srgba(0.06, 0.11, 0.15, 0.85);
+            let card_hot = Color::srgba(0.11, 0.20, 0.28, 0.96);
+            commands.entity(line).insert((
+                Pickable::default(),
+                bevy::picking::hover::PickingInteraction::None,
+                DrawerRowTarget(format!("grp:{}", group.id)),
+                Feel::tinting_to(card_bg, card_hot),
+                crate::ambience::FeelBorder {
+                    rest: tokens::BORDER.with_alpha(0.65),
+                    hot: tokens::ACCENT.with_alpha(0.75),
+                    press: tokens::ACCENT.with_alpha(0.90),
+                },
+                BackgroundColor(card_bg),
+                BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: zpx(8.0),
+                    padding: UiRect::axes(zpx(8.0), zpx(6.0)),
+                    margin: UiRect::vertical(zpx(2.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(8.0)),
+                    flex_wrap: FlexWrap::NoWrap,
+                    ..default()
+                },
+            ));
+            let badge = commands
                 .spawn((
-                    UiButton,
-                    DrawerPress::OpenGroup(group.id.clone()),
                     Node {
-                        flex_grow: 1.0,
-                        padding: UiRect::vertical(zpx(2.0)),
+                        width: zpx(28.0),
+                        height: zpx(28.0),
+                        border: UiRect::all(zpx(1.5)),
+                        border_radius: BorderRadius::all(zpx(14.0)),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        flex_shrink: 0.0,
                         ..default()
                     },
-                    BackgroundColor(Color::NONE),
-                    Feel::new(Color::NONE),
+                    BackgroundColor(Color::srgba(0.11, 0.19, 0.25, 0.95)),
+                    BorderColor::all(super::rows::GROUP_INK.with_alpha(0.75)),
+                    Pickable::IGNORE,
                     children![(
-                        Text::new(format!("# {}  · {}", group.name, group.members.len())),
-                        tf(&fonts, z(12.0)),
+                        Text::new("#".to_string()),
+                        tf_bold(&fonts, z(12.5)),
                         TextColor(super::rows::GROUP_INK),
                         Pickable::IGNORE,
                     )],
                 ))
                 .id();
+            let open = commands
+                .spawn((
+                    UiButton,
+                    DrawerPress::OpenGroup(group.id.clone()),
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: true,
+                    },
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: zpx(8.0),
+                        flex_grow: 1.0,
+                        min_width: zpx(0.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                ))
+                .id();
+            let text_col = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        flex_grow: 1.0,
+                        min_width: zpx(0.0),
+                        row_gap: zpx(1.5),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                    children![
+                        (
+                            Text::new(group.name.clone()),
+                            tf_bold(&fonts, z(12.0)),
+                            TextColor(super::rows::GROUP_INK),
+                            Pickable::IGNORE,
+                        ),
+                        (
+                            Text::new(format!("{} members", group.members.len())),
+                            tf(&fonts, z(10.5)),
+                            TextColor(tokens::MUTED),
+                            Pickable::IGNORE,
+                        ),
+                    ],
+                ))
+                .id();
+            commands.entity(open).add_children(&[badge, text_col]);
             commands.entity(line).add_child(open);
             if unread > 0 {
                 let pill = super::window::count_pill(
@@ -1632,68 +1804,12 @@ fn sync_drawer(
                 glyph::MORE,
                 DrawerPress::GroupMore(group.id.clone()),
             );
+            commands.entity(more).insert(Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            });
             commands.entity(line).add_child(more);
             kids.push(line);
-            if ui.drawer_menu.as_deref() == Some(format!("grp:{}", group.id).as_str()) {
-                let owner = group
-                    .members
-                    .iter()
-                    .any(|m| m.owner && m.person.tag == me.tag);
-                let menu = row(&mut commands);
-                let mut items = vec![
-                    (
-                        ChatPhrase::InviteToGroup,
-                        DrawerPress::InviteToGroup(group.id.clone()),
-                    ),
-                    (
-                        ChatPhrase::LeaveGroup,
-                        DrawerPress::LeaveGroup(group.id.clone()),
-                    ),
-                ];
-                if owner {
-                    items.insert(
-                        0,
-                        (
-                            ChatPhrase::RenameGroup,
-                            DrawerPress::RenameGroup(group.id.clone()),
-                        ),
-                    );
-                    items.push((
-                        ChatPhrase::DeleteGroup,
-                        DrawerPress::DeleteGroup(group.id.clone()),
-                    ));
-                }
-                for (phrase, press) in items {
-                    let b = small_button(&mut commands, &fonts, phrase.text(lang), press);
-                    commands.entity(menu).add_child(b);
-                }
-                kids.push(menu);
-                // Its members.
-                let names: Vec<String> =
-                    group
-                        .members
-                        .iter()
-                        .map(|m| {
-                            let mut name = machine.shown_name(&m.person);
-                            if m.owner {
-                                name.push_str(" · ");
-                                name.push_str(ChatPhrase::OwnerMark.text(lang));
-                            }
-                            name
-                        })
-                        .chain(group.invited.iter().map(|p| {
-                            format!("{} {}", p.handle, ChatPhrase::InvitedMark.text(lang))
-                        }))
-                        .collect();
-                let members = label(
-                    &mut commands,
-                    &fonts,
-                    names.join(", "),
-                    tokens::MUTED,
-                    false,
-                );
-                kids.push(members);
-            }
         }
     }
     friend_rows(
@@ -1785,15 +1901,21 @@ fn sync_drawer(
     );
     commands
         .entity(track)
-        .insert((DrawerScrollbar(list), Visibility::Hidden));
+        .insert((DrawerScrollbar(list), Visibility::Hidden))
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.position_type = PositionType::Absolute;
+            n.right = zpx(3.0);
+            n.top = zpx(8.0);
+            n.bottom = zpx(8.0);
+            n.width = zpx(5.0);
+        });
     let middle = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 flex_grow: 1.0,
                 min_height: zpx(0.0),
-                column_gap: zpx(4.0),
-                padding: UiRect::right(zpx(4.0)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1814,7 +1936,7 @@ fn sync_drawer(
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: zpx(6.0),
-                padding: UiRect::axes(zpx(12.0), zpx(10.0)),
+                padding: UiRect::axes(zpx(14.0), zpx(10.0)),
                 border: UiRect::top(zpx(1.0)),
                 flex_shrink: 0.0,
                 ..default()
@@ -1889,9 +2011,410 @@ fn sync_drawer(
     commands.entity(root).add_children(&[head, middle, foot]);
 }
 
+/// Renders the floating context menu (`DrawerContextMenu`) when a contact or
+/// group in the drawer is right-clicked or its `...` button is pressed.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn sync_context_menu(
+    mut commands: Commands,
+    host: Res<SocialHost>,
+    ui: Res<ChatUi>,
+    at: Res<DrawerMenuAt>,
+    fonts: Res<UiFonts>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    (windows, scale): (Query<&Window>, Option<Res<UiScale>>),
+    roots: Query<Entity, With<DrawerContextMenu>>,
+    mut drawn: Local<Option<(String, u64)>>,
+    zoom: Res<super::zoom::Zoom>,
+) {
+    enum MenuEntry {
+        Action {
+            icon: char,
+            label: String,
+            press: DrawerPress,
+            danger: bool,
+        },
+        Divider,
+    }
+    let _zoom = super::zoom::Scope::new(zoom.0);
+    let Some(target) = ui.drawer_menu.as_ref().filter(|_| ui.drawer) else {
+        for root in &roots {
+            commands.entity(root).despawn();
+        }
+        *drawn = None;
+        return;
+    };
+    let Some(machine) = host.machine() else {
+        for root in &roots {
+            commands.entity(root).despawn();
+        }
+        *drawn = None;
+        return;
+    };
+    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let my_table = machine.table().is_some_and(|t| !t.watching);
+    let menu_key = (
+        target.clone(),
+        super::window::key_of(&(
+            at.0.x.to_bits(),
+            at.0.y.to_bits(),
+            at_table,
+            my_table,
+            lang as u8,
+            format!("{:?}", machine.contacts()),
+        )),
+    );
+    if drawn.as_ref() == Some(&menu_key) && !roots.is_empty() {
+        return;
+    }
+    *drawn = Some(menu_key);
+    for root in &roots {
+        commands.entity(root).despawn();
+    }
+    let header_title: String;
+    let header_sub: String;
+    let header_col: Color;
+    let mut entries: Vec<MenuEntry> = Vec::new();
+    if let Some(group_id) = target.strip_prefix("grp:") {
+        let Some(group) = machine.contacts().group(group_id) else {
+            return;
+        };
+        header_title = format!("# {}", group.name);
+        header_col = super::rows::GROUP_INK;
+        let names: Vec<String> = group
+            .members
+            .iter()
+            .map(|m| {
+                let mut name = machine.shown_name(&m.person);
+                if m.owner {
+                    name.push_str(" · ");
+                    name.push_str(ChatPhrase::OwnerMark.text(lang));
+                }
+                name
+            })
+            .chain(
+                group
+                    .invited
+                    .iter()
+                    .map(|p| format!("{} {}", p.handle, ChatPhrase::InvitedMark.text(lang))),
+            )
+            .collect();
+        header_sub = names.join(", ");
+        let owner = group
+            .members
+            .iter()
+            .any(|m| m.owner && m.person.tag == machine.me().tag);
+        entries.push(MenuEntry::Action {
+            icon: glyph::CHAT,
+            label: ChatPhrase::TabGroup.text(lang).to_string(),
+            press: DrawerPress::OpenGroup(group.id.clone()),
+            danger: false,
+        });
+        if owner {
+            entries.push(MenuEntry::Action {
+                icon: glyph::GEAR,
+                label: ChatPhrase::RenameGroup.text(lang).to_string(),
+                press: DrawerPress::RenameGroup(group.id.clone()),
+                danger: false,
+            });
+        }
+        entries.push(MenuEntry::Action {
+            icon: glyph::PLUS,
+            label: ChatPhrase::InviteToGroup.text(lang).to_string(),
+            press: DrawerPress::InviteToGroup(group.id.clone()),
+            danger: false,
+        });
+        entries.push(MenuEntry::Divider);
+        entries.push(MenuEntry::Action {
+            icon: glyph::MINUS,
+            label: ChatPhrase::LeaveGroup.text(lang).to_string(),
+            press: DrawerPress::LeaveGroup(group.id.clone()),
+            danger: true,
+        });
+        if owner {
+            entries.push(MenuEntry::Action {
+                icon: glyph::EXILE,
+                label: ChatPhrase::DeleteGroup.text(lang).to_string(),
+                press: DrawerPress::DeleteGroup(group.id.clone()),
+                danger: true,
+            });
+        }
+    } else {
+        let Some(friend) = machine.contacts().friend(target) else {
+            return;
+        };
+        let tag = friend.person.tag.clone();
+        header_title = machine.shown_name(&friend.person);
+        header_col = super::rows::sender_colour(&tag, false, None, &super::rows::LOBBY_INKS);
+        header_sub = place_words(friend.presence.status, friend.presence.place.as_ref(), lang);
+        entries.push(MenuEntry::Action {
+            icon: glyph::CHAT,
+            label: ChatPhrase::WhisperButton.text(lang).to_string(),
+            press: DrawerPress::Whisper(tag.clone()),
+            danger: false,
+        });
+        if let Some(Place::Playing { game: Some(_), .. }) = &friend.presence.place
+            && !at_table
+        {
+            entries.push(MenuEntry::Action {
+                icon: glyph::EYE,
+                label: ChatPhrase::WatchButton.text(lang).to_string(),
+                press: DrawerPress::Watch(tag.clone()),
+                danger: false,
+            });
+        }
+        if friend.presence.status != Shown::Offline && my_table {
+            entries.push(MenuEntry::Action {
+                icon: glyph::PLUS,
+                label: ChatPhrase::InviteToTable.text(lang).to_string(),
+                press: DrawerPress::InviteToTable(tag.clone()),
+                danger: false,
+            });
+        }
+        entries.push(MenuEntry::Action {
+            icon: glyph::GEAR,
+            label: ChatPhrase::NicknameButton.text(lang).to_string(),
+            press: DrawerPress::Nickname(tag.clone()),
+            danger: false,
+        });
+        entries.push(MenuEntry::Action {
+            icon: glyph::SHIELD,
+            label: ChatPhrase::SafetyButton.text(lang).to_string(),
+            press: DrawerPress::Safety(tag.clone()),
+            danger: false,
+        });
+        entries.push(MenuEntry::Divider);
+        entries.push(MenuEntry::Action {
+            icon: glyph::MINUS,
+            label: ChatPhrase::RemoveFriend.text(lang).to_string(),
+            press: DrawerPress::Unfriend(tag.clone()),
+            danger: true,
+        });
+        entries.push(MenuEntry::Action {
+            icon: glyph::EXILE,
+            label: ChatPhrase::BlockButton.text(lang).to_string(),
+            press: DrawerPress::Block(tag),
+            danger: true,
+        });
+    }
+    let ui_scale = scale.as_deref().map_or(1.0, |s| s.0);
+    let win_space = windows.iter().next().map_or(Vec2::new(1280.0, 720.0), |w| {
+        crate::hud::scale::desktop_space(w, scale.as_deref())
+    });
+    let menu_w = 220.0 * zoom.0;
+    let est_h = (64.0 + entries.len() as f32 * 32.0) * zoom.0;
+    let raw_pos = if at.0.length_squared() > 1.0 {
+        at.0 / ui_scale
+    } else {
+        Vec2::new((win_space.x - menu_w - 28.0).max(12.0), 180.0)
+    };
+    let left = raw_pos
+        .x
+        .min((win_space.x - menu_w - 10.0).max(8.0))
+        .max(8.0);
+    let top = raw_pos
+        .y
+        .min((win_space.y - est_h - 10.0).max(8.0))
+        .max(8.0);
+    let root = commands
+        .spawn((
+            DrawerContextMenu,
+            DrawerMenuAnim(0.0),
+            ChatSurface,
+            RelativeCursorPosition::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(left),
+                top: Val::Px(top),
+                width: zpx(220.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: zpx(2.0),
+                padding: UiRect::all(zpx(6.0)),
+                border: UiRect::all(zpx(1.0)),
+                border_radius: BorderRadius::all(zpx(10.0)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            UiTransform {
+                scale: Vec2::splat(0.90),
+                translation: Val2::px(0.0, -4.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.05, 0.10, 0.14, 0.98)),
+            BackgroundGradient::from(LinearGradient::new(
+                145.0_f32.to_radians(),
+                vec![
+                    ColorStop::auto(Color::srgba(0.10, 0.18, 0.25, 0.98)),
+                    ColorStop::auto(Color::srgba(0.035, 0.07, 0.10, 0.98)),
+                ],
+            )),
+            BorderColor::all(tokens::ACCENT.with_alpha(0.65)),
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.72),
+                    x_offset: zpx(0.0),
+                    y_offset: zpx(8.0),
+                    spread_radius: zpx(1.0),
+                    blur_radius: zpx(22.0),
+                },
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+                    x_offset: zpx(0.0),
+                    y_offset: zpx(2.0),
+                    spread_radius: zpx(0.0),
+                    blur_radius: zpx(6.0),
+                },
+            ]),
+            crate::shellkit::sheen::Sheen,
+            super::window::stacked(60),
+        ))
+        .id();
+    let header = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: zpx(2.0),
+                padding: UiRect::new(zpx(8.0), zpx(8.0), zpx(4.0), zpx(6.0)),
+                margin: UiRect::bottom(zpx(2.0)),
+                border: UiRect::bottom(zpx(1.0)),
+                ..default()
+            },
+            BorderColor::all(tokens::BORDER.with_alpha(0.55)),
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(header_title),
+                    tf_bold(&fonts, z(12.0)),
+                    TextColor(header_col),
+                    Pickable::IGNORE,
+                ),
+                (
+                    Text::new(header_sub),
+                    tf(&fonts, z(10.0)),
+                    TextColor(tokens::MUTED),
+                    TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+                    Pickable::IGNORE,
+                ),
+            ],
+        ))
+        .id();
+    commands.entity(root).add_child(header);
+    for entry in entries {
+        match entry {
+            MenuEntry::Divider => {
+                let div = commands
+                    .spawn((
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: zpx(1.0),
+                            margin: UiRect::vertical(zpx(3.0)),
+                            ..default()
+                        },
+                        BackgroundColor(tokens::BORDER.with_alpha(0.45)),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(root).add_child(div);
+            }
+            MenuEntry::Action {
+                icon,
+                label,
+                press,
+                danger,
+            } => {
+                let ink = if danger {
+                    palette::DANGER
+                } else {
+                    tokens::ACCENT
+                };
+                let text_col = if danger { palette::DANGER } else { tokens::INK };
+                let item = commands
+                    .spawn((
+                        UiButton,
+                        press,
+                        Node {
+                            width: Val::Percent(100.0),
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            column_gap: zpx(9.0),
+                            padding: UiRect::axes(zpx(8.0), zpx(5.0)),
+                            border_radius: BorderRadius::all(zpx(6.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::NONE),
+                        Feel::tinting_to(
+                            Color::NONE,
+                            if danger {
+                                palette::DANGER.with_alpha(0.14)
+                            } else {
+                                Color::srgba(1.0, 1.0, 1.0, 0.10)
+                            },
+                        ),
+                        children![
+                            (
+                                Node {
+                                    width: zpx(22.0),
+                                    height: zpx(22.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    border_radius: BorderRadius::all(zpx(5.0)),
+                                    flex_shrink: 0.0,
+                                    ..default()
+                                },
+                                BackgroundColor(ink.with_alpha(0.16)),
+                                Pickable::IGNORE,
+                                children![(
+                                    Text::new(icon.to_string()),
+                                    icon_tf(&fonts, z(10.5)),
+                                    TextColor(ink),
+                                    Pickable::IGNORE,
+                                )],
+                            ),
+                            (
+                                Text::new(label),
+                                tf_bold(&fonts, z(12.0)),
+                                TextColor(text_col),
+                                Pickable::IGNORE,
+                            ),
+                        ],
+                    ))
+                    .id();
+                commands.entity(root).add_child(item);
+            }
+        }
+    }
+}
+
+/// Smoothly animates the floating [`DrawerContextMenu`] on open.
+fn animate_context_menu(
+    time: Option<Res<Time>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut menus: Query<(&mut DrawerMenuAnim, &mut UiTransform), With<DrawerContextMenu>>,
+) {
+    let dt = time.map_or(0.016, |t| t.delta_secs()).clamp(0.0, 0.05);
+    let reduce = prefs.is_some_and(|p| p.all().reduce_motion);
+    for (mut anim, mut transform) in &mut menus {
+        if anim.0 >= 1.0 {
+            continue;
+        }
+        anim.0 = if reduce {
+            1.0
+        } else {
+            (anim.0 + dt * 11.0).min(1.0)
+        };
+        let eased = 1.0 - (1.0 - anim.0).powi(3);
+        let s = 0.90 + 0.10 * eased;
+        let y = -4.0 * (1.0 - eased);
+        transform.scale = Vec2::splat(s);
+        transform.translation = Val2::px(0.0, y);
+    }
+}
+
 /// What the drawer was last drawn from: the machine's revision, the search
-/// box, the entry box, the keys, the open menu, the field.
-type DrawerKey = (u64, String, String, bool, Option<String>, String, usize);
+/// box, the entry box, the keys, the field.
+type DrawerKey = (u64, String, String, bool, String, usize);
 
 /// The height of a friend's row with its margins, before the zoom. A row that
 /// wraps its buttons is taller; the spacers around the window are what the

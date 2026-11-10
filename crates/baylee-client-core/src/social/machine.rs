@@ -975,7 +975,7 @@ impl Social {
                         failure: None,
                     });
                 }
-                if matches!(self.composer.target(), Target::Sticky) {
+                if matches!(self.composer.target(), Target::Sticky | Target::Global) {
                     self.composer.set_target(Target::Table);
                 }
             }
@@ -1624,6 +1624,12 @@ impl Social {
         for f in &self.contacts.friends {
             add(f.person.clone());
         }
+        for req in &self.contacts.incoming {
+            add(req.clone());
+        }
+        for req in &self.contacts.outgoing {
+            add(req.clone());
+        }
         for p in &self.state.whisperers {
             add(p.clone());
         }
@@ -1642,6 +1648,14 @@ impl Social {
             for m in &conv.members {
                 if m.tag != self.me.tag {
                     add(m.clone());
+                }
+            }
+            for line in conv.lines.iter().rev() {
+                if let LineKind::Message { from, .. } = &line.kind
+                    && from.tag != self.me.tag
+                    && !from.tag.is_empty()
+                {
+                    add(from.clone());
                 }
             }
         }

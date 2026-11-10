@@ -182,7 +182,7 @@ pub fn waiting(age: f32) -> Stage {
 }
 
 /// The parameters of the scene, as the shader reads them.
-#[derive(Clone, Copy, ShaderType, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, ShaderType, Debug, Default)]
 pub struct VistaParams {
     /// The panel framed: centre xy, half extent zw, in the field's units.
     pub panel: Vec4,
@@ -282,7 +282,7 @@ pub struct VistaPlugin;
 /// Keep the front door's art resident, including while a restored session
 /// skips its form. The arrival curtain waits for these handles before it lifts.
 #[derive(Resource)]
-pub(crate) struct VistaArt([Handle<Image>; 3]);
+pub(crate) struct VistaArt([Handle<Image>; 4]);
 
 impl VistaArt {
     pub(crate) fn ready(&self, assets: &AssetServer) -> Result<bool, ()> {
@@ -304,19 +304,62 @@ impl Plugin for VistaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrontScene>()
             .init_resource::<Gaze>()
-            .add_systems(Update, (gaze, paint).chain());
+            .add_systems(Update, (gaze, paint, step_vista_videos).chain());
         // As for the ambient field: a headless test has no asset server and
         // no render world, and there is nothing to draw on there.
         if !app.world().contains_resource::<AssetServer>() {
             return;
         }
         let assets = app.world().resource::<AssetServer>();
+        let world_image = assets.load("scenes/baylees-world.png");
+        let tavern_image = assets.load("scenes/tavern-lobby.png");
+        #[cfg(not(target_arch = "wasm32"))]
+        let world_id = world_image.id();
+        #[cfg(not(target_arch = "wasm32"))]
+        let tavern_id = tavern_image.id();
         let art = VistaArt([
-            assets.load("scenes/baylees-world.png"),
+            world_image,
             assets.load("scenes/baylee-cloud.png"),
             assets.load("brand/baylee-logo.png"),
+            tavern_image,
         ]);
         app.insert_resource(art);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut streams = Vec::with_capacity(2);
+            if let Some(s) = VideoStream::spawn(
+                Vista::Front,
+                world_id,
+                "scenes/world-loop.mp4",
+                "world-video-stream",
+            ) {
+                streams.push(s);
+            }
+            if let Some(s) = VideoStream::spawn(
+                Vista::Interior,
+                tavern_id,
+                "scenes/tavern-loop.mp4",
+                "tavern-video-stream",
+            ) {
+                streams.push(s);
+            }
+            if !streams.is_empty() {
+                let videos = VistaVideos(std::sync::Arc::from(streams));
+                app.insert_resource(videos.clone());
+                if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
+                    render_app.insert_resource(videos).add_systems(
+                        bevy::render::Render,
+                        upload_vista_frames
+                            .in_set(bevy::render::RenderSystems::PrepareAssets)
+                            .after(
+                                bevy::render::render_asset::prepare_assets::<
+                                    bevy::render::texture::GpuImage,
+                                >,
+                            ),
+                    );
+                }
+            }
+        }
         embedded_asset!(app, "shaders/vista.wesl");
         embedded_asset!(app, "shaders/memorial.wesl");
         embedded_asset!(app, "shaders/memorial_paper.wesl");
@@ -341,9 +384,13 @@ pub fn surface(
     kind: Vista,
     assets: Option<&AssetServer>,
 ) -> Entity {
+    let scene_path = match kind {
+        Vista::Interior => "scenes/tavern-lobby.png",
+        Vista::Front | Vista::Wait => "scenes/baylees-world.png",
+    };
     let handle = materials.add(VistaMaterial {
         params: VistaParams::default(),
-        sanctuary: assets.map_or_else(Handle::default, |a| a.load("scenes/baylees-world.png")),
+        sanctuary: assets.map_or_else(Handle::default, |a| a.load(scene_path)),
     });
     commands
         .spawn((
@@ -542,11 +589,8 @@ pub(crate) fn paint(
         if !shown {
             continue;
         }
-        let Some(mut material) = materials.get_mut(&handle.0) else {
-            continue;
-        };
         let energy = if frozen { 0.0 } else { 1.0 };
-        material.params = VistaParams {
+        let next_params = VistaParams {
             panel,
             home: home_anchor(aspect),
             view: Vec4::new(gaze.0.x, gaze.0.y, aspect, energy),
@@ -576,6 +620,275 @@ pub(crate) fn paint(
                 1.0 / (1.0 - 0.35 * stage.dolly),
             ),
         };
+        if materials
+            .get(&handle.0)
+            .is_some_and(|m| m.params != next_params)
+            && let Some(mut material) = materials.get_mut(&handle.0)
+        {
+            material.params = next_params;
+        }
+    }
+}
+
+/// Streams the pre-built 4K 60fps seamless video loops (`scenes/world-loop.mp4` for
+/// [`Vista::Front`] and `scenes/tavern-loop.mp4` for [`Vista::Interior`]) via hardware
+/// decoding into double-buffered staging slots, uploading directly into the GPU textures
+/// in [`bevy::render::RenderApp`] via `RenderQueue::write_texture` without mutating
+/// `Assets<Image>` or reallocating `MTLTexture`s. Inactive streams automatically reap
+/// their `ffmpeg` child and park with zero CPU/GPU cost.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource, Clone)]
+struct VistaVideos(std::sync::Arc<[std::sync::Arc<VideoStream>]>);
+
+#[cfg(not(target_arch = "wasm32"))]
+struct VideoStream {
+    kind: Vista,
+    image_id: AssetId<Image>,
+    wanted_tick: std::sync::atomic::AtomicU64,
+    active: std::sync::atomic::AtomicBool,
+    stop: std::sync::atomic::AtomicBool,
+    ready: std::sync::Mutex<ReadyFrame>,
+    child: std::sync::Mutex<Option<std::process::Child>>,
+    reader: std::sync::OnceLock<std::thread::Thread>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+struct ReadyFrame {
+    seq: u64,
+    uploaded_seq: u64,
+    buf: Vec<u8>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Drop for VideoStream {
+    fn drop(&mut self) {
+        self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        if let Ok(mut guard) = self.child.lock()
+            && let Some(mut child) = guard.take()
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        if let Some(t) = self.reader.get() {
+            t.unpark();
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl VideoStream {
+    const WIDTH: u32 = 3840;
+    const HEIGHT: u32 = 2160;
+    const FRAME_BYTES: usize = (Self::WIDTH as usize) * (Self::HEIGHT as usize) * 4;
+    const FPS: f32 = 60.0;
+
+    fn spawn_ffmpeg(mp4_path: &std::path::Path) -> Option<std::process::Child> {
+        use std::process::{Command, Stdio};
+        Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-hwaccel",
+                "videotoolbox",
+                "-stream_loop",
+                "-1",
+                "-i",
+            ])
+            .arg(mp4_path)
+            .args(["-f", "rawvideo", "-pix_fmt", "rgba", "-"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()
+    }
+
+    fn spawn(
+        kind: Vista,
+        image_id: AssetId<Image>,
+        rel_path: &'static str,
+        thread_name: &'static str,
+    ) -> Option<std::sync::Arc<Self>> {
+        use std::io::Read;
+        use std::sync::{
+            Arc, Mutex, OnceLock,
+            atomic::{AtomicBool, AtomicU64, Ordering},
+        };
+
+        let candidates = [
+            std::path::PathBuf::from(format!("{}/assets/{rel_path}", env!("CARGO_MANIFEST_DIR"))),
+            std::path::PathBuf::from(format!("assets/{rel_path}")),
+            std::path::PathBuf::from(format!("crates/baylee-client/assets/{rel_path}")),
+        ];
+        let stream = Arc::new(Self {
+            kind,
+            image_id,
+            wanted_tick: AtomicU64::new(0),
+            active: AtomicBool::new(false),
+            stop: AtomicBool::new(false),
+            ready: Mutex::new(ReadyFrame {
+                seq: 0,
+                uploaded_seq: 0,
+                buf: vec![0u8; Self::FRAME_BYTES],
+            }),
+            child: Mutex::new(None),
+            reader: OnceLock::new(),
+        });
+        let stream_bg = Arc::clone(&stream);
+        let handle = std::thread::Builder::new()
+            .name(thread_name.to_string())
+            .spawn(move || {
+                let mut work_buf = vec![0u8; Self::FRAME_BYTES];
+                let mut last_tick = u64::MAX;
+                let mut stdout: Option<std::process::ChildStdout> = None;
+                let mut idle_polls: u32 = 0;
+
+                while !stream_bg.stop.load(Ordering::Relaxed) {
+                    if !stream_bg.active.load(Ordering::Relaxed) {
+                        idle_polls = idle_polls.saturating_add(1);
+                        if idle_polls > 20
+                            && stdout.take().is_some()
+                            && let Ok(mut guard) = stream_bg.child.lock()
+                            && let Some(mut child) = guard.take()
+                        {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                        }
+                        if stdout.is_none() {
+                            std::thread::park();
+                        } else {
+                            std::thread::park_timeout(std::time::Duration::from_millis(25));
+                        }
+                        continue;
+                    }
+                    idle_polls = 0;
+                    let tick = stream_bg.wanted_tick.load(Ordering::Relaxed);
+                    if tick == last_tick {
+                        std::thread::park_timeout(std::time::Duration::from_millis(8));
+                        continue;
+                    }
+                    if stdout.is_none() {
+                        let Some(mp4_path) = candidates.iter().find(|p| p.exists()) else {
+                            std::thread::park_timeout(std::time::Duration::from_millis(250));
+                            continue;
+                        };
+                        if let Some(mut proc) = Self::spawn_ffmpeg(mp4_path) {
+                            stdout = proc.stdout.take();
+                            if let Ok(mut guard) = stream_bg.child.lock()
+                                && let Some(mut old) = guard.replace(proc)
+                            {
+                                let _ = old.kill();
+                                let _ = old.wait();
+                            }
+                        } else {
+                            std::thread::park_timeout(std::time::Duration::from_millis(250));
+                            continue;
+                        }
+                    }
+                    if let Some(pipe) = stdout.as_mut() {
+                        if pipe.read_exact(&mut work_buf).is_ok() {
+                            last_tick = tick;
+                            if let Ok(mut guard) = stream_bg.ready.lock() {
+                                std::mem::swap(&mut work_buf, &mut guard.buf);
+                                guard.seq = guard.seq.wrapping_add(1);
+                            }
+                        } else {
+                            stdout = None;
+                        }
+                    }
+                }
+            })
+            .ok()?;
+        let _ = stream.reader.set(handle.thread().clone());
+        Some(stream)
+    }
+}
+
+#[allow(unused_variables)]
+fn step_vista_videos(
+    surfaces: Query<(&Vista, &MaterialNode<VistaMaterial>, &Visibility)>,
+    materials: Option<Res<Assets<VistaMaterial>>>,
+    #[cfg(not(target_arch = "wasm32"))] videos: Option<Res<VistaVideos>>,
+) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::sync::atomic::Ordering;
+        let (Some(materials), Some(videos)) = (materials, videos) else {
+            return;
+        };
+        for stream in videos.0.iter() {
+            let mut active = false;
+            for (kind, handle, vis) in &surfaces {
+                if *kind != stream.kind || *vis == Visibility::Hidden {
+                    continue;
+                }
+                let Some((t, energy)) = materials
+                    .get(&handle.0)
+                    .map(|m| (m.params.portal.z, m.params.view.w))
+                else {
+                    continue;
+                };
+                if energy <= 0.0 {
+                    continue;
+                }
+                active = true;
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let tick = (t * VideoStream::FPS) as u64;
+                let prev = stream.wanted_tick.swap(tick, Ordering::Relaxed);
+                if prev != tick
+                    && let Some(reader) = stream.reader.get()
+                {
+                    reader.unpark();
+                }
+                break;
+            }
+            let was_active = stream.active.swap(active, Ordering::Relaxed);
+            if active != was_active
+                && let Some(reader) = stream.reader.get()
+            {
+                reader.unpark();
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn upload_vista_frames(
+    videos: Option<Res<VistaVideos>>,
+    gpu_images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
+    render_queue: Res<bevy::render::renderer::RenderQueue>,
+) {
+    let Some(videos) = videos else {
+        return;
+    };
+    for stream in videos.0.iter() {
+        if !stream.active.load(std::sync::atomic::Ordering::Relaxed) {
+            continue;
+        }
+        let Some(gpu_image) = gpu_images.get(stream.image_id) else {
+            continue;
+        };
+        let size = gpu_image.texture_descriptor.size;
+        if size.width != VideoStream::WIDTH || size.height != VideoStream::HEIGHT {
+            continue;
+        }
+        let Ok(mut guard) = stream.ready.try_lock() else {
+            continue;
+        };
+        if guard.seq == guard.uploaded_seq {
+            continue;
+        }
+        render_queue.write_texture(
+            gpu_image.texture.as_image_copy(),
+            &guard.buf,
+            bevy::render::render_resource::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(VideoStream::WIDTH * 4),
+                rows_per_image: None,
+            },
+            size,
+        );
+        guard.uploaded_seq = guard.seq;
     }
 }
 

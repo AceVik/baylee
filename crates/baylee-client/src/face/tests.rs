@@ -1570,3 +1570,44 @@ fn an_unknown_identity_has_no_face() {
         "a one-faced card has no second face"
     );
 }
+
+/// Vanilla tokens have no card behind them and no rules text to wait for, so
+/// their face must not mark `text_pending` (which would draw "No rules text
+/// available" in the rules box), while tokens with verified token ability text
+/// include that text directly.
+#[test]
+fn vanilla_and_verified_tokens_do_not_show_pending_rules_text() {
+    use baylee_client_core::test_support::token;
+
+    let texts = crate::cardtext::CardTexts::default();
+    let mut squirrel = token(91, 0, "Squirrel", 1, 1);
+    squirrel.status = baylee_view::ObjectStatus::TOKEN;
+    squirrel.token = Some(baylee_cards::tokens::token_id(
+        &baylee_cards::generated_tokens::SQUIRREL_1_1_GREEN,
+    ));
+
+    let face = of_object(&squirrel, None, &texts);
+    assert!(face.body.is_empty());
+    assert!(
+        !face.text_pending,
+        "a vanilla token has no rules text in flight"
+    );
+
+    let mut food = token(92, 0, "Food", 0, 0);
+    food.types = TypeSet::ARTIFACT;
+    food.power = None;
+    food.toughness = None;
+    food.status = baylee_view::ObjectStatus::TOKEN;
+    food.token = Some(baylee_cards::tokens::token_id(&baylee_cards::tokens::FOOD));
+
+    let food_face = of_object(&food, None, &texts);
+    assert!(!food_face.text_pending);
+    assert!(
+        food_face
+            .body
+            .iter()
+            .any(|b| b.text().contains("You gain 3 life.")),
+        "verified token ability text should appear on the face: {:?}",
+        food_face.body
+    );
+}

@@ -7,14 +7,14 @@
 //! answered, the two numbers the table listing knows, and the handle is
 //! `GET /me`'s — never the username, which is private.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{GameSummary, Lobby, Screen};
 use crate::i18n::{Lang, Phrase};
 
 /// `GET /lobby/stats` (WG-0): three numbers, read from the gateway's memory
 /// at the moment of asking.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct LobbyStats {
     /// Distinct accounts with a lobby socket open or a chair in a running
     /// game.

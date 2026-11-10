@@ -65,6 +65,7 @@ pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: 
             node.flex_grow = 1.0;
             node.flex_basis = px(0);
             node.min_width = px(0);
+            node.max_height = percent(100);
         });
     let host = commands
         .spawn((
@@ -72,6 +73,7 @@ pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: 
                 flex_direction: FlexDirection::Row,
                 flex_shrink: 1.0,
                 min_height: px(0),
+                overflow: Overflow::clip_y(),
                 column_gap: px(6),
                 padding: UiRect::right(px(6)),
                 ..default()

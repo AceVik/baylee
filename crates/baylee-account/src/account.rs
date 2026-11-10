@@ -123,6 +123,18 @@ impl Account {
         &self.data
     }
 
+    /// Trusted Central origin (`http://127.0.0.1:...` or `https://central.baylee.app`).
+    #[must_use]
+    pub fn endpoint_origin(&self) -> &str {
+        self.http.endpoint().origin()
+    }
+
+    /// Active `Authorization: Bearer ...` header for opening the Central `/v1/ws` push stream.
+    #[must_use]
+    pub fn bearer_header(&self) -> Option<Zeroizing<String>> {
+        self.http.last_bearer()
+    }
+
     /// Public `Name#Tag` handle (or username) for the native lobby header,
     /// read after sign-in without requiring accepted terms.
     #[must_use]
@@ -132,10 +144,7 @@ impl Account {
             .display_name
             .filter(|name| !name.trim().is_empty())
             .unwrap_or(export.username);
-        Some(match export.tag {
-            Some(tag) => format!("{name}#{tag:04}"),
-            None => name,
-        })
+        Some(format_profile_handle(name, export.tag))
     }
 
     fn resume_migration(&mut self) -> Result<(), Error> {
@@ -486,6 +495,13 @@ fn from_source(
         }),
         chat: crate::chat::ChatArchive::default(),
     })
+}
+
+fn format_profile_handle(name: String, tag: Option<u32>) -> String {
+    match tag {
+        Some(tag) => format!("{name}#{tag:04x}"),
+        None => name,
+    }
 }
 
 #[cfg(test)]

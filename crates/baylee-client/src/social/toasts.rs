@@ -63,7 +63,12 @@ pub(crate) fn install(app: &mut App) {
 }
 
 /// Takes the machine's toasts, and ages the standing ones.
-fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts>) {
+fn take(
+    time: Res<Time>,
+    mut host: ResMut<SocialHost>,
+    mut toasts: ResMut<Toasts>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+) {
     if !host.active() {
         if !toasts.standing.is_empty() {
             toasts.standing.clear();
@@ -73,13 +78,20 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
         }
         return;
     }
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     while let Some(toast) = host.toasts.pop_front() {
+        if at_table && matches!(toast.about, Some(ToastAbout::TableInvite(_))) {
+            continue;
+        }
         let toasts = &mut *toasts;
         toasts.next += 1;
         toasts.standing.push((toasts.next, toast, 0.0));
         while toasts.standing.len() > 6 {
             toasts.standing.remove(0);
         }
+    }
+    if at_table && withdraw_table_invites(&mut toasts.bypass_change_detection().standing) {
+        toasts.set_changed();
     }
     // Drained whether or not anything stands, so the list never grows.
     if !host.withdrawn.is_empty() {
@@ -117,11 +129,31 @@ fn withdraw_answered(standing: &mut Vec<(u64, ChatToast, f32)>, gone: &[ToastAbo
     standing.len() != before
 }
 
+/// Takes away every table-invite toast when the player sits at a duel table,
+/// where joining or watching another table is ignored and the top-left toast
+/// column would cover the opponent's library/graveyard/exile piles.
+fn withdraw_table_invites(standing: &mut Vec<(u64, ChatToast, f32)>) -> bool {
+    let before = standing.len();
+    standing.retain(|(_, toast, _)| !matches!(toast.about, Some(ToastAbout::TableInvite(_))));
+    standing.len() != before
+}
+
 fn presses(
     mut clicks: Clicks<ToastPress>,
     mut host: ResMut<SocialHost>,
     mut toasts: ResMut<Toasts>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
 ) {
+    let modifier = keys.as_deref().is_some_and(|k| {
+        k.any_pressed([
+            KeyCode::SuperLeft,
+            KeyCode::SuperRight,
+            KeyCode::ControlLeft,
+            KeyCode::ControlRight,
+            KeyCode::AltLeft,
+            KeyCode::AltRight,
+        ])
+    });
     for press in clicks.read() {
         match press {
             ToastPress::Button(id, index) => {
@@ -136,6 +168,9 @@ fn presses(
                 }
             }
             ToastPress::Open(id) => {
+                if modifier {
+                    continue;
+                }
                 let conv = toasts
                     .standing
                     .iter()
@@ -149,6 +184,58 @@ fn presses(
             ToastPress::Close(id) => toasts.standing.retain(|(n, _, _)| *n != id),
         }
     }
+}
+
+/// Resolves the sender person and message body (with card links and mentions)
+/// associated with a standing toast, when available in the social state machine.
+fn toast_context(
+    machine: Option<&baylee_client_core::social::Social>,
+    toast: &ChatToast,
+) -> (
+    Option<baylee_protocol::social::Person>,
+    Option<baylee_client_core::social::Body>,
+) {
+    let Some(machine) = machine else {
+        return (None, None);
+    };
+    if let Some(ref conv) = toast.conv
+        && let Some(c) = machine.conversation(conv)
+        && let Some((from, body)) = c.lines.iter().rev().find_map(|line| match &line.kind {
+            baylee_client_core::social::LineKind::Message { from, body, mine } if !*mine => {
+                Some((from.clone(), body.clone()))
+            }
+            _ => None,
+        })
+    {
+        return (Some(from), Some(body));
+    }
+    if let Some(ToastAbout::FriendRequest(ref tag)) = toast.about {
+        return (Some(machine.person(tag)), None);
+    }
+    if let Some(name) = toast.args.first() {
+        let contacts = machine.contacts();
+        let person = contacts
+            .friends
+            .iter()
+            .map(|f| &f.person)
+            .chain(contacts.incoming.iter())
+            .chain(contacts.invites.iter().map(|i| &i.invite.from))
+            .find(|p| machine.shown_name(p) == *name || p.handle == *name)
+            .cloned()
+            .or_else(|| {
+                machine
+                    .recent_players()
+                    .iter()
+                    .find(|r| r.handle == *name)
+                    .map(|r| baylee_protocol::social::Person {
+                        tag: r.tag.clone(),
+                        handle: r.handle.clone(),
+                        guest: r.guest,
+                    })
+            });
+        return (person, None);
+    }
+    (None, None)
 }
 
 fn button_words(button: ToastButton, lang: Lang) -> &'static str {
@@ -167,6 +254,7 @@ fn button_words(button: ToastButton, lang: Lang) -> &'static str {
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a toast is drawn top to bottom
 fn sync(
     mut commands: Commands,
+    host: Res<SocialHost>,
     mut toasts: ResMut<Toasts>,
     fonts: Res<UiFonts>,
     settings: Option<Res<crate::settings::ClientSettings>>,
@@ -230,6 +318,7 @@ fn sync(
     }
     toasts.drawn.clone_from(&shown);
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
+    let machine = host.machine();
     commands.entity(column).despawn_children();
     for id in shown {
         let Some((_, toast, _)) = toasts.standing.iter().find(|(n, _, _)| *n == id) else {
@@ -237,6 +326,23 @@ fn sync(
         };
         let args: Vec<&str> = toast.args.iter().map(String::as_str).collect();
         let words = toast.phrase.fill(lang, &args);
+        let (sender_person, body) = toast_context(machine, toast);
+        let has_sender = !toast.args.is_empty()
+            && !matches!(
+                toast.phrase,
+                baylee_client_core::social::ChatPhrase::ToastGroupInvited
+                    | baylee_client_core::social::ChatPhrase::ToastNoSuchPlayer
+            );
+        let sender_col =
+            if toast.phrase == baylee_client_core::social::ChatPhrase::ToastGroupInvited {
+                super::rows::GROUP_INK
+            } else if let Some(ref person) = sender_person {
+                super::rows::sender_colour(&person.tag, false, None, &super::rows::LOBBY_INKS)
+            } else if has_sender {
+                super::rows::sender_colour(&toast.args[0], false, None, &super::rows::LOBBY_INKS)
+            } else {
+                super::rows::WHISPER_INK
+            };
         let card = commands
             .spawn((
                 Node {
@@ -258,7 +364,7 @@ fn sync(
                         ColorStop::auto(Color::srgba(0.035, 0.07, 0.10, 0.88)),
                     ],
                 )),
-                BorderColor::all(super::rows::WHISPER_INK.with_alpha(0.65)),
+                BorderColor::all(sender_col.with_alpha(0.65)),
                 BoxShadow::default(),
                 crate::shellkit::sheen::Sheen,
             ))
@@ -283,12 +389,12 @@ fn sync(
                     flex_shrink: 0.0,
                     ..default()
                 },
-                BackgroundColor(super::rows::WHISPER_INK.with_alpha(0.18)),
+                BackgroundColor(sender_col.with_alpha(0.18)),
                 Pickable::IGNORE,
                 children![(
                     Text::new(glyph::CHAT.to_string()),
                     icon_tf(&fonts, z(11.0)),
-                    TextColor(super::rows::WHISPER_INK),
+                    TextColor(sender_col),
                     Pickable::IGNORE,
                 )],
             ))
@@ -344,15 +450,159 @@ fn sync(
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
-                children![(
+            ))
+            .id();
+        if has_sender
+            && let Some((before_player, after_player)) = words.split_once(toast.args[0].as_str())
+        {
+            let pieces = body.as_ref().map(super::rows::pieces);
+            let has_links = sender_person.is_some()
+                || pieces.as_ref().is_some_and(|p| {
+                    p.iter()
+                        .any(|(_, piece)| !matches!(piece, super::rows::Piece::Words))
+                });
+            let sentence = commands
+                .spawn((
+                    Text::default(),
+                    tf(&fonts, z(12.0)),
+                    TextColor(tokens::INK),
+                    TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+                    if has_links {
+                        Pickable {
+                            should_block_lower: false,
+                            is_hoverable: true,
+                        }
+                    } else {
+                        Pickable::IGNORE
+                    },
+                ))
+                .id();
+            commands.entity(text).add_child(sentence);
+            let add_span =
+                |commands: &mut Commands, s: String, font: TextFont, col: Color| -> Entity {
+                    let span = commands
+                        .spawn((TextSpan::new(s), font, TextColor(col)))
+                        .id();
+                    commands.entity(sentence).add_child(span);
+                    span
+                };
+            if !before_player.is_empty() {
+                add_span(
+                    &mut commands,
+                    before_player.to_string(),
+                    tf(&fonts, z(12.0)),
+                    tokens::INK,
+                );
+            }
+            let name_span = add_span(
+                &mut commands,
+                toast.args[0].clone(),
+                tf_bold(&fonts, z(12.0)),
+                sender_col,
+            );
+            if let Some(person) = sender_person {
+                commands.entity(name_span).insert(super::rows::ChatName {
+                    handle: person.handle,
+                    tag: person.tag,
+                    guest: person.guest,
+                });
+            }
+            let append_body_pieces =
+                |commands: &mut Commands, pieces: Vec<(String, super::rows::Piece)>| {
+                    for (part, piece) in pieces {
+                        match piece {
+                            super::rows::Piece::Words => {
+                                add_span(commands, part, tf(&fonts, z(12.0)), tokens::INK);
+                            }
+                            super::rows::Piece::Mention => {
+                                let shown = part
+                                    .strip_prefix("[@")
+                                    .and_then(|s| s.strip_suffix(']'))
+                                    .map_or_else(|| part.clone(), |s| format!("@{s}"));
+                                let m_span = add_span(
+                                    commands,
+                                    shown,
+                                    tf_bold(&fonts, z(12.0)),
+                                    crate::hud::palette::CANDLE,
+                                );
+                                if let Some(handle) =
+                                    part.strip_prefix("[@").and_then(|s| s.strip_suffix(']'))
+                                    && let Some((_, tag)) = handle.rsplit_once('#')
+                                {
+                                    commands.entity(m_span).insert(super::rows::ChatName {
+                                        handle: handle.to_string(),
+                                        tag: tag.to_string(),
+                                        guest: false,
+                                    });
+                                }
+                            }
+                            super::rows::Piece::Link(link) => {
+                                let font = TextFont {
+                                    font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+                                    ..tf(&fonts, z(12.0))
+                                };
+                                let l_span =
+                                    add_span(commands, part, font, super::rows::LOBBY_INKS.link);
+                                commands.entity(l_span).insert(link);
+                            }
+                        }
+                    }
+                };
+            if toast.phrase == baylee_client_core::social::ChatPhrase::ToastWhisper
+                && let Some(msg_arg) = toast.args.get(1)
+            {
+                let mid = after_player
+                    .strip_suffix(msg_arg.as_str())
+                    .unwrap_or(after_player);
+                if !mid.is_empty() {
+                    add_span(
+                        &mut commands,
+                        mid.to_string(),
+                        tf(&fonts, z(11.5)),
+                        tokens::MUTED,
+                    );
+                }
+                if let Some(pieces) = pieces {
+                    append_body_pieces(&mut commands, pieces);
+                } else {
+                    add_span(
+                        &mut commands,
+                        msg_arg.clone(),
+                        tf(&fonts, z(12.0)),
+                        tokens::INK,
+                    );
+                }
+            } else if toast.phrase == baylee_client_core::social::ChatPhrase::ToastMention
+                && let Some(pieces) =
+                    pieces.filter(|_| machine.is_none_or(|m| m.prefs().toast_text))
+            {
+                add_span(
+                    &mut commands,
+                    format!("{after_player}: "),
+                    tf(&fonts, z(11.5)),
+                    tokens::MUTED,
+                );
+                append_body_pieces(&mut commands, pieces);
+            } else if !after_player.is_empty() {
+                add_span(
+                    &mut commands,
+                    after_player.to_string(),
+                    tf(&fonts, z(12.0)),
+                    tokens::INK,
+                );
+            }
+        } else {
+            let sentence = commands
+                .spawn((
                     Text::new(words),
                     tf(&fonts, z(12.0)),
                     TextColor(tokens::INK),
                     TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
                     Pickable::IGNORE,
-                )],
-            ))
-            .id();
+                ))
+                .id();
+            commands.entity(text).add_child(sentence);
+        }
         commands.entity(card).add_children(&[top, text]);
         if !toast.actions.is_empty() {
             let buttons = commands

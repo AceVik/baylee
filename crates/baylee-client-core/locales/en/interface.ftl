@@ -3899,6 +3899,9 @@ CastKicked = With kicker
 # Cast face down using disguise.
 CastDisguise = Disguise — 2/2, ward {"{"}2{"}"}
 
+# Cast face down using morph.
+CastMorph = Morph — 2/2 face down
+
 # Face-up special action.
 TurnFaceUp = Turn face up
 

@@ -114,6 +114,9 @@ pub(crate) fn dress(
         commands
             .entity(face)
             .queue_silenced(move |mut face: EntityWorldMut| {
+                if face.contains::<SheenSurface>() {
+                    return;
+                }
                 let surface = face.world_scope(|world| {
                     world
                         .spawn((

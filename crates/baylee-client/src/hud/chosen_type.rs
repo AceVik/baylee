@@ -127,11 +127,35 @@ fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String
             .get(usize::from(named.face))?;
         return Some(Phrase::ChosenName.fill(lang, &[face.name]));
     }
+    if let Some(color) = object.chosen_color {
+        use baylee_core::mana::ManaColor;
+        let word = match color {
+            ManaColor::White => Phrase::ColorWhite,
+            ManaColor::Blue => Phrase::ColorBlue,
+            ManaColor::Black => Phrase::ColorBlack,
+            ManaColor::Red => Phrase::ColorRed,
+            ManaColor::Green => Phrase::ColorGreen,
+            ManaColor::Colorless => Phrase::ColorColourless,
+        }
+        .text(lang);
+        return Some(word.to_string());
+    }
     let subtype = object.chosen_subtype?;
     let english = subtypes::name(subtype)?;
     let name = type_names::name(english, lang);
     Some(name.to_string())
 }
+
+type BlockingPanel = Or<(
+    With<super::overlay::PreviewBounds>,
+    With<super::ledge::drawer::DrawerZoom>,
+    With<super::StackPanel>,
+    With<super::AbilitySheetRoot>,
+    With<super::TrayZones>,
+    With<super::MenuPanel>,
+    With<super::LogPanel>,
+    With<super::revealed::RevealSheet>,
+)>;
 
 type Geometry<'w, 's> = (
     Query<'w, 's, &'static Window>,
@@ -140,8 +164,12 @@ type Geometry<'w, 's> = (
     Query<
         'w,
         's,
-        (&'static ComputedNode, &'static UiGlobalTransform),
-        With<super::overlay::PreviewBounds>,
+        (
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+            Option<&'static InheritedVisibility>,
+        ),
+        BlockingPanel,
     >,
 );
 
@@ -191,14 +219,21 @@ pub(crate) fn sync(
             })
         })
         .collect();
+    let blocking: Vec<_> = previews
+        .iter()
+        .filter(|(node, _, vis)| {
+            node.size().x > 0.0 && node.size().y > 0.0 && vis.is_none_or(|v| v.get())
+        })
+        .map(|(node, pose, _)| {
+            let scale = node.inverse_scale_factor;
+            bounds(Rect::from_center_size(
+                pose.translation * scale,
+                node.size() * scale,
+            ))
+        })
+        .collect();
     let mut occupied: Vec<_> = boxes.iter().map(|(_, r)| bounds(*r)).collect();
-    occupied.extend(previews.iter().map(|(node, pose)| {
-        let scale = node.inverse_scale_factor;
-        bounds(Rect::from_center_size(
-            pose.translation * scale,
-            node.size() * scale,
-        ))
-    }));
+    occupied.extend(blocking.iter().copied());
     let window = windows
         .single()
         .ok()
@@ -236,8 +271,11 @@ pub(crate) fn sync(
             .iter()
             .find(|(object, _)| *object == id)
             .and_then(|(_, rect)| {
-                window
-                    .and_then(|window| annotations::anchor(bounds(*rect), size, window, &occupied))
+                let card_bounds = bounds(*rect);
+                (!blocking.iter().any(|panel| panel.overlaps(card_bounds)))
+                    .then_some(window)
+                    .flatten()
+                    .and_then(|window| annotations::anchor(card_bounds, size, window, &occupied))
             });
         if let Some(at) = at {
             occupied.push(Bounds {
@@ -579,6 +617,11 @@ mod tests {
             Some("Verbündeter")
         );
         assert_eq!(words(&object, Lang::En, false).as_deref(), Some("Ally"));
+
+        object.chosen_subtype = None;
+        object.chosen_color = Some(baylee_core::mana::ManaColor::Blue);
+        assert_eq!(words(&object, Lang::De, false).as_deref(), Some("Blau"));
+        assert_eq!(words(&object, Lang::En, false).as_deref(), Some("Blue"));
     }
 
     #[test]

@@ -631,6 +631,10 @@ pub struct GameListing {
     /// `POST /lobby/games` itself.
     #[serde(default = "yes")]
     pub agents_available: bool,
+    /// Three exact numbers for the lobby's header (`players_online`,
+    /// `tables_waiting`, `games_running`), pushed with every `/lobby/ws` page.
+    #[serde(default)]
+    pub stats: Option<strips::LobbyStats>,
 }
 
 /// What the lobby last heard about the gateway itself, as opposed to its
@@ -658,6 +662,7 @@ impl Default for GameListing {
             offset: 0,
             limit: 0,
             agents_available: true,
+            stats: None,
         }
     }
 }
@@ -674,6 +679,7 @@ impl GameListing {
             offset: 0,
             limit: PAGE,
             agents_available: true,
+            stats: None,
         }
     }
 }

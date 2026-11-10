@@ -255,23 +255,18 @@ pub fn sync_tray_strip(
         // that has one builds on it.
         return;
     };
-    let chat_tab = chat_ui.as_ref().map(|ui| ui.tab);
     let chat = social.as_ref().and_then(|s| s.machine()).map(|machine| {
         let all = baylee_client_core::social::TabFilter::standard(
             baylee_client_core::social::ChatTab::All,
         );
         let (count, urgent) = machine.unread_where(&all);
-        let lit =
-            duel.log_open && chat_tab.is_some_and(baylee_client_core::social::ChatTab::is_chat);
+        let lit = chat_ui.as_ref().is_some_and(|ui| ui.open && !ui.minimised);
         (lit, count, urgent)
     });
     let next = StripRevision {
         open: duel.browser.is_open(),
         free: duel.browser.may_be_put_away(),
-        // With a social session the scroll is lit only while the panel shows
-        // the Log tab: the bubble is lit on the others.
-        log: duel.log_open
-            && (chat.is_none() || chat_tab == Some(baylee_client_core::social::ChatTab::Log)),
+        log: duel.log_open,
         ai_heard: duel.ai_log_heard,
         ai_log: duel.ai_log_open,
         chat,
