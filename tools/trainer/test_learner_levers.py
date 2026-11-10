@@ -15,7 +15,7 @@ import torch
 import dataset4 as D4
 import model4 as M
 from test_training_execution4 import batch_fixture
-from training4.burn_in import GradWindow, encode_boards_windowed, window_mask
+from training4.burn_in import GradWindow, encode_boards_windowed, encode_trimmed, trimmed_groups, window_mask
 from training4.deferred import deferred_readouts
 from training4.device_loss import compute_unroll_device_loss
 from training4.execution import encode_boards, plan_batch
@@ -130,6 +130,58 @@ class BurnInWindow(unittest.TestCase):
                     self.assertEqual(grad is None, grads_b[name] is None, name)
                     if grad is not None:
                         torch.testing.assert_close(grads_b[name], grad, rtol=1e-4, atol=1e-6, msg=name)
+
+    def test_trimmed_groups_cover_rows_once_within_budget(self):
+        counts = np.array([5, 1, 3, 3, 0, 2, 5, 4])
+        rows = torch.tensor([0, 2, 3, 4, 5, 6, 7])
+        groups = trimmed_groups(rows, counts, 3 * (9 + 3))
+        self.assertEqual(sorted(int(r) for g, _ in groups for r in g), rows.tolist())
+        for group, width in groups:
+            self.assertEqual(width, max(int(counts[group].max()), 1))
+            self.assertTrue(len(group) == 1 or len(group) * (9 + width) <= 3 * (9 + 3))
+
+    def test_trimmed_encoding_keeps_every_visible_token(self):
+        from training4.burn_in import _gather_rows
+        batch = window_batch()
+        torch.manual_seed(2)
+        counts = torch.randint(1, 6, (4, 8))
+        batch["entity_mask"] = torch.arange(5)[None, None, :] < counts[..., None]
+        batch["entity_feat"] = torch.randn_like(batch["entity_feat"]) * batch["entity_mask"][..., None]
+        net = tiny_net().eval()
+        rows = torch.arange(32)
+        with torch.no_grad():
+            full, full_pad = net.encode_board(*_gather_rows(batch, rows, CPU))
+            for group, width in trimmed_groups(rows, counts.reshape(-1).numpy(), 4 * 14):
+                board, pad = encode_trimmed(net, batch, group, width, CPU)
+                self.assertEqual(board.shape[1:], full.shape[1:])
+                self.assertTrue(torch.equal(pad, full_pad[group]))
+                for i, row in enumerate(group.tolist()):
+                    visible = 9 + int(counts.reshape(-1)[row])
+                    torch.testing.assert_close(board[i, :visible], full[row, :visible], rtol=1e-5, atol=1e-6)
+                    self.assertTrue((board[i, 9 + width:] == 0).all())
+
+    def test_trimmed_no_grad_rows_match_detached_reference(self):
+        batch = window_batch()
+        counts = torch.randint(1, 6, (4, 8), generator=torch.Generator().manual_seed(4))
+        batch["entity_mask"] = torch.arange(5)[None, None, :] < counts[..., None]
+        net = tiny_net()
+        mask = window_mask(batch, 1)
+        loss_a, hidden_a, grads_a = step(copy.deepcopy(net), batch, detach_reference=mask)
+        net_b = copy.deepcopy(net)
+        net_b.zero_grad(set_to_none=True)
+        plans = plan_batch(batch, 0, thinking_steps=2)
+        window = GradWindow(mask, CPU, entity_counts=counts.reshape(-1).numpy())
+        boards = encode_boards_windowed(net_b, batch, 3, CPU, window)
+        out, hidden_b = deferred_readouts(net_b, batch, boards, torch.zeros(4, 9, 32), plans, 3, CPU, grad_window=window)
+        aux = net_b.aux_head(torch.stack([o[0][:, 0] for o in out], 1))
+        loss_b, _ = compute_unroll_device_loss(out, aux.float(), batch, plans,
+                                               SupervisedLossConfig(version=5, normalization="unroll_per_head"))
+        loss_b.backward()
+        torch.testing.assert_close(loss_b.detach(), loss_a, rtol=1e-5, atol=1e-6)
+        torch.testing.assert_close(hidden_b.detach(), hidden_a, rtol=1e-5, atol=1e-6)
+        for name, parameter in net_b.named_parameters():
+            if grads_a[name] is not None:
+                torch.testing.assert_close(parameter.grad, grads_a[name], rtol=1e-4, atol=1e-6, msg=name)
 
     def test_window_zero_cuts_recurrent_cell_and_passive_trunk_gradient(self):
         batch = window_batch()

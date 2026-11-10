@@ -121,7 +121,7 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
     from torch.utils.data import DataLoader
     from sampler4 import StatefulBatchSampler4
     import dataset4 as D4
-    from .burn_in import _gather_rows
+    from .burn_in import encode_trimmed, trimmed_groups
 
     unroll = dataset.unroll_len
     d = net.cfg.d_model
@@ -173,12 +173,12 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
                     record[t][1].append(pid)
             tokens = M.RECURRENT_SLOTS + host["entity_feat"].shape[2]
             rows = torch.arange(b * unroll)[passive.reshape(-1)]
-            per_call = max(1, (token_budget * nograd_scale) // tokens) if token_budget else max(1, rows.numel())
+            limit = token_budget * nograd_scale if token_budget else max(1, rows.numel()) * tokens
             slots = torch.zeros(b * unroll, M.RECURRENT_SLOTS, d, device=device)
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
-                for start in range(0, rows.numel(), per_call):
-                    chosen = rows[start:start + per_call]
-                    board, _ = net.encode_board(*_gather_rows(batch, chosen, device))
+                # Grouped by board size and trimmed: no compute on entity padding.
+                for chosen, width in trimmed_groups(rows, counts.reshape(-1), limit):
+                    board, _ = encode_trimmed(net, batch, chosen, width, device)
                     slots.index_copy_(0, chosen.to(device), board[:, :M.RECURRENT_SLOTS].float())
             slots = slots.reshape(b, unroll, M.RECURRENT_SLOTS, d)
             decision = batch["is_decision"].long() * thinking_steps

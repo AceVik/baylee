@@ -14,6 +14,7 @@ the same chunks, rows and order.
 """
 from __future__ import annotations
 
+import numpy as np
 import torch
 
 import model4 as M
@@ -36,11 +37,14 @@ def window_mask(batch, window):
 class GradWindow:
     """Host plan plus device copy of one batch's differentiable frames."""
 
-    def __init__(self, mask, device):
+    def __init__(self, mask, device, entity_counts=None):
         self.host = mask
         self.device_mask = mask.to(device, non_blocking=True)
         self.any_t = mask.any(0).tolist()
         self.all_t = mask.all(0).tolist()
+        # Host entity count per flat row (lane * U + t); when given, no-grad rows
+        # are encoded in groups trimmed to their own largest board.
+        self.entity_counts = entity_counts
 
     @property
     def share(self):
@@ -67,12 +71,49 @@ def _gather_rows(batch, rows, device):
     return inputs
 
 
+def trimmed_groups(rows, counts, budget):
+    """`rows` sorted by entity count, cut into calls of at most `budget` padded tokens.
+
+    Each group is (rows, width): its rows' boards need only `width` entity slots.
+    """
+    if not rows.numel():
+        return []
+    ordered = rows[torch.from_numpy(np.argsort(counts[rows.numpy()], kind="stable"))]
+    sizes = np.maximum(counts[ordered.numpy()], 1)
+    groups, begin = [], 0
+    for i in range(1, len(ordered)):
+        if (i - begin + 1) * (M.RECURRENT_SLOTS + int(sizes[i])) > budget:
+            groups.append((ordered[begin:i], int(sizes[i - 1])))
+            begin = i
+    groups.append((ordered[begin:], int(sizes[-1])))
+    return groups
+
+
+def encode_trimmed(net, batch, rows, width, device):
+    """Encode `rows` with only `width` entity slots, then pad back to the batch width.
+
+    Entities are a prefix of each frame and edges only reference its own tokens,
+    so dropping trailing padding changes no visible token; the restored padding
+    is zero and masked, and no readout reads a padded entity.
+    """
+    inputs = _gather_rows(batch, rows, device)
+    for i in (0, 1, 2, 8):  # entity_feat, entity_dsl, entity_mask, entity_rules
+        inputs[i] = inputs[i][:, :width]
+    board, pad = net.encode_board(*inputs)
+    extra = M.RECURRENT_SLOTS + batch["entity_feat"].shape[2] - board.shape[1]
+    if extra:
+        board = torch.cat((board, board.new_zeros(board.shape[0], extra, board.shape[2])), 1)
+        pad = torch.cat((pad, pad.new_ones(pad.shape[0], extra)), 1)
+    return board, pad
+
+
 def encode_boards_windowed(net, batch, chunk, device, window, nograd_scale=4):
     """Like `encode_boards`, but only `window` rows carry autograd history.
 
     Differentiable rows are encoded per time chunk exactly as `encode_boards`
     groups them (lane-major within the chunk). The others are encoded under
-    no_grad in larger calls, since they keep no activations.
+    no_grad in larger calls, since they keep no activations; with the window's
+    entity counts those calls are grouped by board size and trimmed.
     """
     chunk = max(1, chunk)
     b, unroll = batch["step_valid"].shape
@@ -85,11 +126,16 @@ def encode_boards_windowed(net, batch, chunk, device, window, nograd_scale=4):
     pieces = []
     free = order[~mask]
     if free.numel():
-        rows_per_call = max(1, (budget * nograd_scale) // tokens) if budget else free.numel()
         with torch.no_grad():
-            for start in range(0, free.numel(), rows_per_call):
-                rows = free[start:start + rows_per_call]
-                pieces.append((rows, *net.encode_board(*_gather_rows(batch, rows, device))))
+            if window.entity_counts is not None:
+                limit = budget * nograd_scale if budget else free.numel() * tokens
+                for rows, width in trimmed_groups(free, window.entity_counts, limit):
+                    pieces.append((rows, *encode_trimmed(net, batch, rows, width, device)))
+            else:
+                rows_per_call = max(1, (budget * nograd_scale) // tokens) if budget else free.numel()
+                for start in range(0, free.numel(), rows_per_call):
+                    rows = free[start:start + rows_per_call]
+                    pieces.append((rows, *net.encode_board(*_gather_rows(batch, rows, device))))
     for start in range(0, unroll, chunk):
         end = min(start + chunk, unroll)
         rows = order[:, start:end][mask[:, start:end]]
