@@ -712,6 +712,10 @@ impl VideoStream {
             .ok()
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "the reader thread's loop is one state machine: decoder, backoff, park"
+    )]
     fn spawn(
         kind: Vista,
         image_id: AssetId<Image>,
