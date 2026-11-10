@@ -1,7 +1,4 @@
 //! The human's one-shot auto distribution through the real rules engine.
-
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
 use baylee_client_core::combat_auto::CombatAuto;
 use baylee_core::{
     ids::{Defender, PlayerId, PrintRef},

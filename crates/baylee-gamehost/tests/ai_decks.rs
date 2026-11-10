@@ -1,9 +1,6 @@
 //! Small complete freeform lists probe policies beyond the two acceptance
 //! decks. They do not stand in for legality or coverage of future MTG cards.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use baylee_ai::{AIProfile, HeuristicAgent};
 use baylee_core::ids::PrintRef;
 use baylee_core::preset::DeckEntry;

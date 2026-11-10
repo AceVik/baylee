@@ -8,9 +8,6 @@
 //! owner's seat "keeps losing its connection". It now leaves only once the
 //! refusal has lasted its patience.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use axum::extract::State;
 use axum::extract::ws::{WebSocket, WebSocketUpgrade};
 use axum::http::StatusCode;

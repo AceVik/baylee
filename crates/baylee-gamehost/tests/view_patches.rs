@@ -5,9 +5,6 @@
 //! views a game made, and on what a patch may carry: nothing that is not in the
 //! seat's own view.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use std::collections::BTreeSet;
 use std::ops::ControlFlow;
 

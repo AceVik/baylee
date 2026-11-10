@@ -11504,7 +11504,7 @@ nothing, which `quality::minimised` reads (`docs/perf-client.md` §"Windows").
 
 ## Verification
 
-- `cargo test -p baylee-client --test duel_flow` plays real games headlessly
+- `cargo test -p baylee-client --test integration duel_flow::` plays real games headlessly
   through the client's own path (host → view → board model → interaction).
 - The wasm CI job type-checks all five crates that must keep compiling for
   `wasm32-unknown-unknown` — `baylee-core`, `-protocol`, `-view`,

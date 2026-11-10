@@ -4,9 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Shared game hosting: sessions (engine + AI seats), hidden-info views, preset conversion"
+# The integration tests are one program (`tests/integration.rs`), not one
+# per file: each linked the engine and every card again.
+autotests = false
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
 
 [features]
 # The engine's `Engine::fork_for`, for lookahead that a training or evaluation

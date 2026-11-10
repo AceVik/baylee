@@ -5,9 +5,16 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Bevy 2.5D duel client: table renderer, HUD, input, and card image cache."
+# The integration tests are one program (`tests/integration.rs`), not one
+# per file: each linked the engine and every card again.
+autotests = false
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
 
 [dependencies]
 # Its programs look cards up, so they hold the pool (`baylee-cards-pool`).

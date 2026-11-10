@@ -6,9 +6,6 @@
 //! The real binary against a stand-in gateway that seats it in the chair it
 //! asked for and never starts the game. The house plays: no model is asked.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};

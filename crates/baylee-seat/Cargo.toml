@@ -4,9 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Binary: a seat bridge that sits at a table as an ordinary socket player and hands its questions to a mind"
+# The integration tests are one program (`tests/integration.rs`), not one
+# per file: each linked the engine and every card again.
+autotests = false
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
 
 [dependencies]
 # Its programs look cards up, so they hold the pool (`baylee-cards-pool`).

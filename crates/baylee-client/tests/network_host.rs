@@ -8,9 +8,6 @@
 
 #![allow(clippy::missing_docs_in_private_items)]
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use baylee_client::host::{DuelHost, HostMessage, LinkState};
 use baylee_client::{NetworkHost, SeatTicket};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};

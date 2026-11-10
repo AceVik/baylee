@@ -17,9 +17,6 @@
 //! word — the 25 tests below would simply stop running and the suite would
 //! stay green.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 mod arming;
 mod cast_modes;
 mod chooser;

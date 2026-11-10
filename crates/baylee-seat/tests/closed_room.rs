@@ -14,9 +14,6 @@
 //! cannot stage the second on demand, so these tables are a stand-in: a
 //! ticket, a lobby row and a seat socket that does what the test says.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::Response;

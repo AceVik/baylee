@@ -1,9 +1,6 @@
 //! The table's reconnect window and the resume that preserves a decision.
 //! A stand-in supplies the transport, never a production gateway or account.
 
-// Looks cards up, so this program holds the pool (`baylee-cards-pool`).
-use baylee_cards_pool as _;
-
 use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::StatusCode;
