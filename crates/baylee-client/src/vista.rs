@@ -682,14 +682,30 @@ impl VideoStream {
     const FRAME_BYTES: usize = (Self::WIDTH as usize) * (Self::HEIGHT as usize) * 4;
     const FPS: f32 = 60.0;
 
+    /// A decoder that failed this many times in a row is given up for the
+    /// session: the still picture stays, and nothing respawns at frame rate.
+    const MOST_FAILURES: u32 = 5;
+
+    /// The pause after the `n`th failure in a row: 0.25 s, doubling, at most 8 s.
+    fn backoff(failures: u32) -> std::time::Duration {
+        std::time::Duration::from_millis(250 << failures.min(5))
+    }
+
     fn spawn_ffmpeg(mp4_path: &std::path::Path) -> Option<std::process::Child> {
         use std::process::{Command, Stdio};
+        // VideoToolbox is the Mac's decoder; elsewhere ffmpeg picks what the
+        // machine has, or decodes in software.
+        let hwaccel = if cfg!(target_os = "macos") {
+            "videotoolbox"
+        } else {
+            "auto"
+        };
         Command::new("ffmpeg")
             .args([
                 "-v",
                 "error",
                 "-hwaccel",
-                "videotoolbox",
+                hwaccel,
                 "-stream_loop",
                 "-1",
                 "-i",
@@ -715,11 +731,12 @@ impl VideoStream {
             atomic::{AtomicBool, AtomicU64, Ordering},
         };
 
-        let candidates = [
-            std::path::PathBuf::from(format!("{}/assets/{rel_path}", env!("CARGO_MANIFEST_DIR"))),
-            std::path::PathBuf::from(format!("assets/{rel_path}")),
-            std::path::PathBuf::from(format!("crates/baylee-client/assets/{rel_path}")),
-        ];
+        // Where the asset server reads `assets/` from: `BEVY_ASSET_ROOT`, the
+        // crate under `cargo run`, else beside the executable (a package). Not
+        // a path baked in at build time: that names the build machine's tree.
+        let mp4_path = bevy::asset::io::file::FileAssetReader::get_base_path()
+            .join("assets")
+            .join(rel_path);
         let stream = Arc::new(Self {
             kind,
             image_id,
@@ -729,7 +746,9 @@ impl VideoStream {
             ready: Mutex::new(ReadyFrame {
                 seq: 0,
                 uploaded_seq: 0,
-                buf: vec![0u8; Self::FRAME_BYTES],
+                // Filled on the first frame: a client whose video never
+                // plays (no ffmpeg, no file) holds no 33 MB frames.
+                buf: Vec::new(),
             }),
             child: Mutex::new(None),
             reader: OnceLock::new(),
@@ -738,7 +757,8 @@ impl VideoStream {
         let handle = std::thread::Builder::new()
             .name(thread_name.to_string())
             .spawn(move || {
-                let mut work_buf = vec![0u8; Self::FRAME_BYTES];
+                let mut work_buf = Vec::new();
+                let mut failures: u32 = 0;
                 let mut last_tick = u64::MAX;
                 let mut stdout: Option<std::process::ChildStdout> = None;
                 let mut idle_polls: u32 = 0;
@@ -768,11 +788,13 @@ impl VideoStream {
                         continue;
                     }
                     if stdout.is_none() {
-                        let Some(mp4_path) = candidates.iter().find(|p| p.exists()) else {
-                            std::thread::park_timeout(std::time::Duration::from_millis(250));
+                        if failures >= Self::MOST_FAILURES || !mp4_path.is_file() {
+                            // Given up, or nothing to play: wait for `stop`.
+                            std::thread::park();
                             continue;
-                        };
-                        if let Some(mut proc) = Self::spawn_ffmpeg(mp4_path) {
+                        }
+                        if let Some(mut proc) = Self::spawn_ffmpeg(&mp4_path) {
+                            work_buf.resize(Self::FRAME_BYTES, 0);
                             stdout = proc.stdout.take();
                             if let Ok(mut guard) = stream_bg.child.lock()
                                 && let Some(mut old) = guard.replace(proc)
@@ -781,19 +803,32 @@ impl VideoStream {
                                 let _ = old.wait();
                             }
                         } else {
-                            std::thread::park_timeout(std::time::Duration::from_millis(250));
+                            // No ffmpeg on this machine.
+                            failures = Self::MOST_FAILURES;
                             continue;
                         }
                     }
                     if let Some(pipe) = stdout.as_mut() {
                         if pipe.read_exact(&mut work_buf).is_ok() {
+                            failures = 0;
                             last_tick = tick;
                             if let Ok(mut guard) = stream_bg.ready.lock() {
                                 std::mem::swap(&mut work_buf, &mut guard.buf);
                                 guard.seq = guard.seq.wrapping_add(1);
                             }
                         } else {
+                            // The decoder ended or could not decode: reap it and
+                            // wait before the next try, so a failing ffmpeg is not
+                            // respawned at frame rate.
                             stdout = None;
+                            if let Ok(mut guard) = stream_bg.child.lock()
+                                && let Some(mut child) = guard.take()
+                            {
+                                let _ = child.kill();
+                                let _ = child.wait();
+                            }
+                            failures += 1;
+                            std::thread::park_timeout(Self::backoff(failures));
                         }
                     }
                 }
@@ -868,14 +903,23 @@ fn upload_vista_frames(
         let Some(gpu_image) = gpu_images.get(stream.image_id) else {
             continue;
         };
+        // The frames are 8-bit RGBA at 3840 × 2160: a still picture of
+        // another size or depth would make the copy invalid.
         let size = gpu_image.texture_descriptor.size;
-        if size.width != VideoStream::WIDTH || size.height != VideoStream::HEIGHT {
+        if size.width != VideoStream::WIDTH
+            || size.height != VideoStream::HEIGHT
+            || !matches!(
+                gpu_image.texture_descriptor.format,
+                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb
+                    | bevy::render::render_resource::TextureFormat::Rgba8Unorm
+            )
+        {
             continue;
         }
         let Ok(mut guard) = stream.ready.try_lock() else {
             continue;
         };
-        if guard.seq == guard.uploaded_seq {
+        if guard.seq == guard.uploaded_seq || guard.buf.len() != VideoStream::FRAME_BYTES {
             continue;
         }
         render_queue.write_texture(
