@@ -182,7 +182,10 @@ pub(super) fn spend(
 
 /// The other seat's window this decision stands in (0 their spell on the
 /// stack, 1 their attack, 2 their end step) and the instants that fit it.
-fn react_window(view: &PlayerView, legal: &LegalActions) -> Option<(usize, Vec<ObjectId>)> {
+pub(super) fn react_window(
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Option<(usize, Vec<ObjectId>)> {
     let actor = view.decision_player.unwrap_or(view.seat);
     if view.active == actor || view.owed.is_some() {
         return None;
