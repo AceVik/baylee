@@ -141,6 +141,16 @@ impl NetPlayer4 {
 
         // The host calls observe() for every neural seat before each table action.
         // Decision inference is read-only with respect to persistent memory.
+        // `--memory-reset turn` forgets H a decision of a turn no observation
+        // reset yet would read.
+        if self
+            .memory_reset
+            .decision_starts_fresh(&mut self.memory_turns, seat_u8, view.turn)
+        {
+            self.h_states
+                .insert(seat_u8, vec![0.0; RECURRENT_SLOTS * self.d_model]);
+            self.dirty_h_seats |= 1_u8.wrapping_shl(u32::from(seat_u8));
+        }
         let h_in = self
             .h_states
             .entry(seat_u8)

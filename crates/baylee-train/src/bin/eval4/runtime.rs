@@ -123,6 +123,18 @@ trait EvaluationPlayer {
     fn distill_net_action(&self, _seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
         None
     }
+    /// Sets `--memory-reset` on the seat under test, which only a net can honour.
+    fn set_memory_reset(&mut self, _reset: baylee_train::netplay4::MemoryReset4) -> bool {
+        false
+    }
+    /// Keeps each decision's menu with its logits (`--decision-trace`).
+    fn keep_menus(&mut self) -> bool {
+        false
+    }
+    /// The latest answer's menu with its logits, taken.
+    fn take_menu(&mut self) -> Option<Value> {
+        None
+    }
     /// What `--menu-payable` counted since this was last asked.
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
@@ -284,6 +296,17 @@ impl EvaluationPlayer for NetPlayer4 {
     fn distill_net_action(&self, _seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
         self.distill_label()
             .and_then(|label| label.net_action.clone())
+    }
+    fn set_memory_reset(&mut self, reset: baylee_train::netplay4::MemoryReset4) -> bool {
+        Self::set_memory_reset(self, reset);
+        true
+    }
+    fn keep_menus(&mut self) -> bool {
+        Self::keep_menus(self);
+        true
+    }
+    fn take_menu(&mut self) -> Option<Value> {
+        Self::take_menu(self)
     }
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         Self::take_menu_stats(self)

@@ -146,7 +146,7 @@ fn shadow_preserves_executed_record_and_binds_only_bc_labels() {
             labels,
             None,
             None,
-            None,
+            crate::DecisionLogs::default(),
             None,
         )
         .unwrap()
@@ -608,7 +608,7 @@ fn a_watching_model_labels_from_its_own_answers_and_changes_nothing() {
             labels,
             None,
             None,
-            None,
+            crate::DecisionLogs::default(),
             None,
         )
         .unwrap()

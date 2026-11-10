@@ -257,7 +257,7 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
         None,
         None,
         search,
-        None,
+        crate::DecisionLogs::default(),
         None,
     )
     .unwrap();
@@ -290,7 +290,7 @@ fn a_seated_house_plays_a_deal_to_its_end() {
         None,
         None,
         None,
-        None,
+        crate::DecisionLogs::default(),
         None,
     )
     .unwrap();

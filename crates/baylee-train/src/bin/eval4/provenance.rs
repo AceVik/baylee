@@ -141,3 +141,66 @@ mod producer_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod memory_reset_tests {
+    use super::*;
+    use baylee_train::netplay4::MemoryReset4;
+
+    fn parse(extra: &[&str]) -> Result<Args, clap::Error> {
+        let mut argv = vec!["eval4", "--model", "m", "--out", "o"];
+        argv.extend_from_slice(extra);
+        Args::try_parse_from(argv)
+    }
+
+    fn refusal(args: &Args) -> Option<&'static str> {
+        memory_reset_refusal(args, &collector::Contract::new(args, None).unwrap())
+    }
+
+    #[test]
+    fn without_the_flag_the_net_keeps_its_memory() {
+        let args = parse(&[]).unwrap();
+        assert_eq!(memory_reset(&args), MemoryReset4::Off);
+        assert_eq!(refusal(&args), None);
+        assert!(!args.decision_trace);
+    }
+
+    #[test]
+    fn a_reset_names_its_point_and_measures_an_evaluation_only() {
+        let args = parse(&["--memory-reset", "decision"]).unwrap();
+        assert_eq!(memory_reset(&args), MemoryReset4::Decision);
+        assert_eq!(refusal(&args), None);
+        let args = parse(&["--memory-reset", "turn", "--raw-policy"]).unwrap();
+        assert_eq!(memory_reset(&args), MemoryReset4::Turn);
+        assert!(parse(&["--memory-reset", "game"]).is_err());
+        for extra in [
+            &["--search", "2,2,4"][..],
+            &["--random-policy"],
+            &["--shadow-teacher", "sharp"],
+        ] {
+            let mut argv = vec!["--memory-reset", "decision"];
+            argv.extend_from_slice(extra);
+            assert!(refusal(&parse(&argv).unwrap()).is_some(), "{extra:?}");
+        }
+        let mut args = parse(&["--memory-reset", "decision"]).unwrap();
+        args.collection_purpose = collector::Purpose::OnPolicyTraining;
+        let contract = collector::Contract {
+            purpose: collector::Purpose::OnPolicyTraining,
+            ..collector::Contract::new(&parse(&[]).unwrap(), None).unwrap()
+        };
+        assert!(
+            memory_reset_refusal(&args, &contract).is_some(),
+            "no collection"
+        );
+    }
+
+    #[test]
+    fn a_trace_needs_records_and_a_net_of_its_own() {
+        assert!(parse(&["--decision-trace"]).is_err(), "needs --record-out");
+        let args = parse(&["--decision-trace", "--record-out", "r"]).unwrap();
+        assert!(args.decision_trace);
+        assert_eq!(refusal(&args), None);
+        let args = parse(&["--decision-trace", "--record-out", "r", "--search", "2,2,4"]).unwrap();
+        assert!(refusal(&args).is_some());
+    }
+}
