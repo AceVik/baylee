@@ -106,7 +106,10 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--think-improve-margin", type=float, default=0.0)
     ap.add_argument("--think-confidence-weight", type=float, default=0.25)
     ap.add_argument("--think-consequence-weight", type=float, default=0.1)
+    from .learner_options import add_learner_options, check_learner_options
+    add_learner_options(ap)
     args = ap.parse_args()
+    check_learner_options(args, ap)
     if args.depth_schedule == "fixed" and args.thinking_curriculum:
         ap.error("--depth-schedule fixed conflicts with --thinking-curriculum")
     args.depth_schedule = args.depth_schedule or ("legacy_frame_cycle" if args.thinking_curriculum else "fixed")
