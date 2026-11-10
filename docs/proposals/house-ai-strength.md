@@ -103,8 +103,23 @@ spell on the stack had (fixed behind `AIProfile::EXACT_SPELL_X`), and a
 seat answered without the question's note announced Kaervek's Purge at X 0
 (fixed by the note). A stall guard at every level now passes instead of
 giving an action again from the position it was taken back to
-(`docs/house-ai.md` §"The frozen reference"). The ladder is re-run on a
-build with all three before its numbers are compared with these.
+(`docs/house-ai.md` §"The frozen reference").
+
+The ladder again on that build (5056ce4f5), the same 512 rows per pair;
+open games are the ones eval4 capped at 5,000 answers:
+
+| Pair | Share | Interval | Seeds for / against | Open before → after |
+| --- | ---: | --- | ---: | ---: |
+| casual – novice | 55.9 % | 51.5–60.1 | 43 / 13 | 5 → 0 |
+| steady – casual | 48.4 % | 44.1–52.8 | 20 / 28 | 6 → 0 |
+| sharp – steady | 53.1 % | 48.8–57.4 | 23 / 7 | 5 → 0 |
+| expert – sharp | 50.8 % | 46.5–55.1 | 7 / 3 | 5 → 0 |
+| sharp – `sharp-2026-11` (control) | 50.0 % | 45.7–54.3 | 0 / 0 | 4 → 0 |
+| expert – `sharp-2026-11` | 50.8 % | 46.5–55.1 | 7 / 3 | 5 → 0 |
+| seer – expert (`--seer-peeks`) | 49.2 % | 44.9–53.5 | 2 / 6 | 6 → 0 |
+
+No game is capped any more, and the formerly open games split as before:
+the order still holds only for casual over novice.
 
 ## 2. Why `expert` does not beat `sharp` (to check before building)
 
