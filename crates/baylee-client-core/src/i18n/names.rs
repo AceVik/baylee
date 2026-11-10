@@ -46,6 +46,7 @@ pub fn ai_name(lang: Lang, wire: &str) -> Option<&'static str> {
         "steady" => Phrase::AiSteady,
         "sharp" => Phrase::AiSharp,
         "expert" => Phrase::AiExpert,
+        "seer" => Phrase::AiSeer,
         _ => return None,
     };
     Some(phrase.text(lang))

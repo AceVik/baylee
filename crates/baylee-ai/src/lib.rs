@@ -27,6 +27,7 @@ mod granted;
 mod held;
 pub mod intelligence;
 mod land;
+pub mod noted;
 mod optional;
 mod policy;
 mod proliferate;
@@ -74,6 +75,12 @@ impl HeuristicAgent {
             strategy: intelligence::Strategy::default(),
             fallbacks: std::sync::Arc::default(),
         }
+    }
+
+    /// The level this agent plays at.
+    #[must_use]
+    pub const fn profile(&self) -> AIProfile {
+        self.profile
     }
 
     /// How many answers this agent and its clones built that broke the

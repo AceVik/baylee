@@ -21,7 +21,7 @@ pub(crate) fn load_completing_stubs(
     let text =
         std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     let holds = CoverageHolds::parse(&text)?;
-    let cards = root.join("crates/cards/src/cards");
+    let cards = root.join(crate::layout::SETS_DIR);
     let mut eligible = completing.clone();
     for path in crate::card_files(&cards)?.values() {
         let source = std::fs::read_to_string(path)?;

@@ -2,13 +2,15 @@
 import torch
 
 
-def score_candidate_hidden(net, hidden, mask):
+def score_candidate_hidden(net, hidden, mask, thinking=None, depth=None, limit=None):
     """Pool only this row's valid menu, after any candidate chunks are joined.
 
     Keep the legacy additive context for independent subset probabilities.
     Revision 2 adds a candidate-dependent gate; zero initialization preserves
     the legacy logits and gives categorical objectives a trainable menu context.
     Revision 3 keeps that gate on candidates that have attended to the board.
+    `thinking` (the keys of `net.thinking_keys`) hands the scored menu to the
+    deliberation block; `None` leaves every archived readout as it was.
     """
     valid = mask.unsqueeze(-1).to(hidden.dtype)
     count = valid.sum(dim=1, keepdim=True).clamp(min=1.0)
@@ -19,4 +21,10 @@ def score_candidate_hidden(net, hidden, mask):
     contextual = hidden + net.cand_ctx_proj(pooled)
     if getattr(net.cfg, "candidate_context_revision", 1) >= 2:
         contextual = contextual + hidden * torch.tanh(net.cand_context_gate(pooled))
-    return net.cand_scorer[3](contextual).squeeze(-1).masked_fill(~mask, -1e9)
+    logits = net.cand_scorer[3](contextual).squeeze(-1).masked_fill(~mask, -1e9)
+    if thinking is None:
+        return logits
+    # Thinking revision 2: the answers are reconsidered together, each step
+    # reading the proposal before it (`model5.deliberation`).
+    tokens, pad = thinking
+    return net.deliberation(contextual, logits, mask, tokens, pad, depth, limit)

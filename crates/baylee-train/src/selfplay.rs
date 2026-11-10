@@ -163,9 +163,9 @@ pub fn play(preset: &GamePreset, game_id: &str, caps: Caps) -> Played {
     play_with_options(preset, game_id, caps, false)
 }
 
-/// [`play`], optionally clamping AI scouting requests so `sharp` and `expert`
-/// teachers only receive their own decklist intelligence and never peek at
-/// opponent decks, opponent hands, or upcoming library order.
+/// [`play`], optionally holding even the level that peeks (`seer`) to its own
+/// decklist (`Session::set_fair_scouting`). Every other level never sees an
+/// opponent's deck, hand or library order at any table.
 #[must_use]
 pub fn play_with_options(
     preset: &GamePreset,

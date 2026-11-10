@@ -34,7 +34,7 @@ def _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_re
 
 
 def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c,
-                     keys=None, use_ckpt=False):
+                     keys=None, use_ckpt=False, thinking=None):
     # Candidates never attend to one another, so slicing a huge menu is exact.
     c_len = c_feat.shape[1]
     if c_len > 512:
@@ -58,7 +58,7 @@ def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c
         h_c = torch.cat(slices, dim=1)
     else:
         h_c = _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys)
-    return score_candidate_hidden(net, h_c, c_msk)
+    return score_candidate_hidden(net, h_c, c_msk, thinking)
 
 
 def _cand_groups(plans, cand_times, chunk, token_limit=None):
@@ -125,6 +125,10 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
         pair_mask_all = batch["pair_mask"].to(device, non_blocking=True)
 
         cand_outs = [None] * unroll
+        # Thinking revision 2: each frame's per-step trace for the deep
+        # supervision terms (`think_loss`), where the block was asked to keep it.
+        block = getattr(net, "deliberation", None)
+        think_frames = [None] * unroll
         pair_outs = [None] * unroll
         scal_outs = [torch.zeros(b, device=device, dtype=g_ref_all.dtype) for _ in range(unroll)]
 
@@ -171,7 +175,23 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
                         if getattr(net, "cand_decoder", None) is not None else None)
 
                 args = (c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c, keys)
-                if use_ckpt and c_max > 64:
+                if block is not None:
+                    # The block compares at most its M best answers, so it runs
+                    # outside the menu checkpoint and its trace keeps its graph.
+                    thinking = net.thinking_keys(torch.cat([z_out_all[t] for t in times], dim=0),
+                                                 torch.cat([boards[t][0] for t in times], dim=0),
+                                                 torch.cat([boards[t][1] for t in times], dim=0))
+                    c_logits = _score_cand_rows(net, *args, use_ckpt=use_ckpt and c_max > 512, thinking=thinking)
+                    if block.collect:
+                        for i, t in enumerate(times):
+                            rows = slice(i * b, (i + 1) * b)
+                            think_frames[t] = {
+                                "logits": block.trace["logits"][:, rows, :plans[t].candidates],
+                                "confidence": block.trace["confidence"][:, rows],
+                                "consequence": block.trace["consequence"][:, rows],
+                                "index": block.trace["index"][rows], "chosen": block.trace["chosen"][rows]}
+                        block.trace = None
+                elif use_ckpt and c_max > 64:
                     c_logits = torch.utils.checkpoint.checkpoint(
                         lambda *a: _score_cand_rows(net, *a, use_ckpt=True), *args, use_reentrant=False
                     )
@@ -184,6 +204,8 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
                 c_len = plans[t].candidates
                 cand_outs[t] = torch.zeros((b, c_len), device=device, dtype=boards[t][0].dtype).masked_fill(~cand_mask_all[:, t, :c_len], -1e9)
 
+    if block is not None:
+        net.thinking_frames = think_frames if block.collect else None
     outputs = [
         (memories[t], cand_outs[t], pair_outs[t], scal_outs[t], value_all[t])
         for t in range(unroll)

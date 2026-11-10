@@ -11,6 +11,17 @@ use baylee_engine::zone::ZoneLocation;
 
 use crate::SeatKind;
 
+/// `request` with nothing hidden left in it: the seat's own deck, and its
+/// own sideboard where it asked for one, which a wish reaches.
+pub(crate) const fn own_deck_only(request: ScoutingRequest) -> ScoutingRequest {
+    ScoutingRequest {
+        opponents: false,
+        hands: false,
+        library: LibraryAccess::None,
+        sideboards: request.sideboards,
+    }
+}
+
 pub(crate) fn decks(preset: &GamePreset) -> Vec<DeckIntel> {
     preset
         .seats
@@ -26,15 +37,24 @@ pub(crate) fn decks(preset: &GamePreset) -> Vec<DeckIntel> {
 
 /// Check the *current* controller on every request. An AI-chair label is not
 /// authority: `Driven` is human-operated, and `StandIn` still belongs to a human.
+///
+/// And check its level: a chair whose level is fair is answered with its own
+/// deck alone, whatever it asked for — no opponent, no hand, no library order
+/// (owner, 10.11.2026). Only a level that peeks (`seer`) is told more. The
+/// agent asks for no more than its level allows (`scouting_request`); this
+/// is the host saying so again, so a fault there cannot reach hidden cards.
 pub(crate) fn request<'a>(
     seats: &[SeatKind],
     decks: &'a [DeckIntel],
     state: &GameState,
     player: PlayerId,
-    request: ScoutingRequest,
+    mut request: ScoutingRequest,
 ) -> Option<ScoutingReport<'a>> {
-    if !matches!(seats.get(usize::from(player.get())), Some(SeatKind::Ai(_))) {
+    let Some(SeatKind::Ai(agent)) = seats.get(usize::from(player.get())) else {
         return None;
+    };
+    if !agent.profile().peeks() {
+        request = own_deck_only(request);
     }
     let cards = |zone: ZoneLocation, limit: usize| -> Vec<CardIndex> {
         state
@@ -95,8 +115,9 @@ mod tests {
         }
     }
 
+    /// A chair that peeks, so every disclosure below is one it may be given.
     fn agent() -> HeuristicAgent {
-        HeuristicAgent::new(AIProfile::default())
+        HeuristicAgent::new(AIProfile::SEER)
     }
 
     fn island() -> CardIndex {
@@ -224,8 +245,8 @@ mod tests {
         );
     }
 
-    /// Scouting an opponent is what the stronger levels are given; the
-    /// ordinary one asks only about the deck it submitted itself.
+    /// Scouting an opponent is what the level that peeks is given; a fair
+    /// one asks only about the deck it submitted itself.
     #[test]
     fn a_report_reaches_past_its_own_seat_only_when_it_was_asked_to() {
         let (decks, state) = fixture();
@@ -320,38 +341,69 @@ mod tests {
         assert_eq!(hand.len(), state.zones.list(ZoneLocation::Hand(p0)).len());
     }
 
-    /// The lower levels never ask to read a hand, a library or an opponent,
-    /// and the report built for them says so: no hand, no library order, one
-    /// seat. This is the profile-to-report path the harness takes.
+    /// Every level a player is offered but one, and every frozen reference,
+    /// is fair: the report its own question earns it is its own deck, with
+    /// no hand, no library order and no opponent. The one that peeks is told
+    /// all three. This is the profile-to-report path a hosted table takes.
     #[test]
-    fn a_profile_without_lookahead_is_never_handed_hidden_zones() {
+    fn a_fair_level_is_never_handed_hidden_zones() {
         use baylee_engine::engine::Engine;
         let (decks, state) = fixture();
-        let seats = [SeatKind::Ai(agent()), SeatKind::Ai(agent())];
         let engine = Engine::new(&preset(), RegistryLookup).expect("game starts");
         let pending = engine.pending().clone();
         let mut asked = 0;
-        for (key, profile) in AIProfile::NAMED {
-            let a = HeuristicAgent::new(profile);
+        for (key, profile) in AIProfile::NAMED.iter().chain(&AIProfile::REFERENCES) {
+            let a = HeuristicAgent::new(*profile);
+            let seats = [SeatKind::Ai(a.clone()), SeatKind::Ai(agent())];
             let Some(ask) = a.scouting_request(&pending) else {
                 continue;
             };
             asked += 1;
             let report = request(&seats, &decks, &state, PlayerId::new(0), ask).expect("AI seat");
-            if profile.lookahead == 0 {
+            if profile.peeks() {
+                assert_eq!(report.seats.len(), 2, "{key} peeks at its opponent");
+                assert!(report.seats.iter().all(|s| s.hand.is_some()));
+                assert!(report.seats.iter().all(|s| s.library.is_some()));
+            } else {
                 assert_eq!(report.seats.len(), 1, "{key} reached an opponent");
                 assert!(report.seats[0].hand.is_none(), "{key} read a hand");
-            }
-            if profile.lookahead <= 1 {
-                for s in &report.seats {
-                    assert!(s.library.is_none(), "{key} read library order");
-                }
+                assert!(report.seats[0].library.is_none(), "{key} read its library");
             }
             for s in &report.seats {
                 assert!(s.sideboard.is_none(), "{key} read a sideboard unasked");
             }
         }
         assert!(asked > 0, "the opening question asked nobody anything");
+    }
+
+    /// The host does not take a fair chair's word for what it may read: a
+    /// fair chair that asks for everything is told its own deck, and its own
+    /// sideboard where it asked for one, and nothing hidden. A weakened
+    /// agent-side request cannot reach a hand through here.
+    #[test]
+    fn a_fair_chair_asking_for_everything_is_told_its_own_deck() {
+        let (decks, state) = fixture();
+        let p0 = PlayerId::new(0);
+        for (key, profile) in AIProfile::NAMED.iter().chain(&AIProfile::REFERENCES) {
+            if profile.peeks() {
+                continue;
+            }
+            let seats = [
+                SeatKind::Ai(HeuristicAgent::new(*profile)),
+                SeatKind::Ai(agent()),
+            ];
+            let report = request(&seats, &decks, &state, p0, everything()).expect("an AI seat");
+            assert_eq!(report.seats.len(), 1, "{key} was shown an opponent");
+            let own = &report.seats[0];
+            assert_eq!(own.player, p0);
+            assert!(own.hand.is_none(), "{key} was shown a hand");
+            assert!(own.library.is_none(), "{key} was shown library order");
+            assert_eq!(
+                own.sideboard.as_ref().map(Vec::len),
+                Some(2),
+                "{key}: its own sideboard is its own"
+            );
+        }
     }
 
     /// `Top(0)` is an empty window and `Top(n)` past the end is the whole

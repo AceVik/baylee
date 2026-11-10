@@ -313,6 +313,7 @@ pub(crate) fn request(view: PlayerView, pending: Pending, log: LogTail) -> Reque
         retry: None,
         continuing: false,
         held: None,
+        note: None,
     }
 }
 

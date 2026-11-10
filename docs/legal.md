@@ -904,7 +904,7 @@ was found in AGENTS.md, CLAUDE.md, NOTICE or this document. This records a confl
 with the project's claimed policy basis, not a conclusion about copyright law.
 
 A concrete existing example is the triggered land-tap/damage implementation in
-`crates/cards/src/cards/enchantments/mv_4/manabarbs.rs:25`; completing
+`crates/cards/sets/1993/src/lea/manabarbs.rs:25`; completing
 Power Surge would add another rules implementation. The legal guardrail (§"Guardrails for every change")
 requires stopping and telling the owner when a requested change conflicts with
 an explicit prohibition. Further card implementation is therefore held pending

@@ -107,6 +107,13 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                         2 => HoldUp::ThreatAware,
                         _ => HoldUp::None,
                     },
+                    // The message has no field for it, and none is added: a
+                    // profile that peeks is chosen by its name, never built
+                    // from numbers a peer sends.
+                    sight: baylee_core::preset::Sight::Fair,
+                    // The newest house code; a frozen reference is chosen by
+                    // its name, as a peeking level is.
+                    generation: AIProfile::GENERATION,
                 }),
                 Some(
                     v1::seat_controller::Kind::HumanUserId(_) | v1::seat_controller::Kind::Open(_),

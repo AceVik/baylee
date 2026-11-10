@@ -943,6 +943,43 @@ start into the window its wizard opens for the rest
 (`CastWizard::window_start`), so both are given back together
 (`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
 
+### "Can this seat make mana?" is asked of the window's list
+
+Whether a payment window would have anything in it is
+`LegalActions::has_mana_source` of the finished offer narrowed as a window
+narrows it (`narrow_to_mana`): there `abilities` holds mana abilities
+alone. Of any other list it answers a different question, because an
+entry in `abilities` is any activation at all. Four offers asked it of
+another list until 10 November 2026:
+
+- **A granted action with a mana cost** the pool cannot pay (Nafs Asp's
+  and Guardian Angel's "pay {1}") was offered while `compute_legal` was
+  still building the offer, when `abilities` held every activation, also
+  one no mana paid. A seat with no land untapped was offered the action,
+  and `start_granted_action`'s window found nothing to pay with and refused
+  it (deal 359 of the v6 priority probe). `settle_granted_offers` now
+  decides at the end of `compute_legal`, on the finished offer narrowed and
+  without the unpaid grants themselves, so a grant cannot vouch for itself.
+- **The free-cast offers** (a linked or immediate free play, a transformed
+  back face, a cast an effect commands) asked it of the finished,
+  un-narrowed offer, where a Prodigal Sorcerer's tap reads as mana to come.
+  They ask `free_cast_makes_mana`, which is `can_make_mana_for_cast`.
+
+Neither the legal list nor this question is in `Engine::snapshot_hash`, so
+no hash moves. A granted action that left the offer was one `apply`
+refused, so no record replays differently for it; what a seat is offered
+moves at exactly those positions, and a policy that reads the list (the
+net's candidates) sees one answer fewer there.
+`engine/granted_offer_tests.rs` plays the change in lockstep against the
+engine as it was (`ASK_MANA_AS_BEFORE`): over a debt deck built to reach
+it and the house decks, the hashes and answers are equal throughout, and
+the questions differ only by granted actions the engine as it was offered
+and then refused. Those games never reach a free cast with mana left to
+pay and no land to make it; `granted_tests::a_free_cast_counts_on_mana_
+only_a_window_could_make` holds the question there. A free-cast option
+that left the offer was one whose payment found no mana, and a record
+that chose one would no longer replay at that answer.
+
 ### Madness is a discard replacement, a trigger and an ordinary cast (CR 702.35)
 
 `FaceDef::madness` holds the complete alternative `Cost`, not merely its mana.

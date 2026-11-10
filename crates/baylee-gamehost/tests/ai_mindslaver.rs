@@ -144,12 +144,27 @@ fn named<'a>(objects: impl Iterator<Item = &'a baylee_view::PublicObject>, name:
     objects.filter(|o| o.name == name).count()
 }
 
+/// What the controlled turn told whom about its questions
+/// (`view::decision_note`).
+#[derive(Default)]
+struct Notes {
+    /// Questions of their turn whose note went to the house.
+    of_their_turn: u32,
+    /// Of those, the ones that named their Volcanic Hammer.
+    their_hammer: u32,
+}
+
 /// Plays the table from the start until the controlled turn is over, every
 /// question answered by its actor's agent, and returns the house's and their
 /// life as that turn began.
+///
+/// At every question the note of it is built for both seats: only the seat
+/// that answers is told, and during the controlled turn that is the house,
+/// told about their spells, which their hand lends it (CR 724.4).
 fn play_through_the_controlled_turn(
     engine: &mut Engine<RegistryLookup>,
     agents: &[HeuristicAgent; 2],
+    notes: &mut Notes,
 ) -> (i32, i32) {
     let mut activated = false;
     let mut before: Option<(i32, i32)> = None;
@@ -183,6 +198,18 @@ fn play_through_the_controlled_turn(
                 "their question is the controller's (CR 723.5)"
             );
         }
+        for seat in [HOUSE, THEM] {
+            let note = view::decision_note(engine, seat);
+            assert!(
+                note.is_none() || seat == actor,
+                "{seat:?} was told about a question {actor:?} answers: {note:?}"
+            );
+            if let Some(note) = note.filter(|_| under_control && pending.asked() == Some(THEM)) {
+                notes.of_their_turn += 1;
+                let hammer = baylee_cards::decks::by_name("Volcanic Hammer");
+                notes.their_hammer += u32::from(note.printed.map(|(card, _)| card) == hammer);
+            }
+        }
         let view = agent_view(engine, actor, seq);
         let action = slave(&view, &pending, &mut activated).unwrap_or_else(|| {
             agents[usize::from(actor.get())].act_with_context(
@@ -215,7 +242,15 @@ fn the_house_plays_a_mindslaver_turn_against_its_player() {
         HeuristicAgent::new(AIProfile::EXPERT),
         HeuristicAgent::new(AIProfile::EXPERT),
     ];
-    let (house_life, their_life) = play_through_the_controlled_turn(&mut engine, &agents);
+    let mut notes = Notes::default();
+    let (house_life, their_life) =
+        play_through_the_controlled_turn(&mut engine, &agents, &mut notes);
+    assert!(
+        notes.their_hammer > 0 && notes.of_their_turn >= notes.their_hammer,
+        "the house was not told about the Hammer it cast for them: {} notes, {} of the Hammer",
+        notes.of_their_turn,
+        notes.their_hammer
+    );
     for (seat, agent) in agents.iter().enumerate() {
         assert_eq!(agent.fallbacks(), 0, "seat {seat} broke a question");
     }

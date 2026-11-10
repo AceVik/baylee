@@ -319,6 +319,18 @@ pub fn play_report<L: CardLookup>(
             },
             &[],
         );
+        // A table builds the note of every question it sends a seat
+        // (`view::decision_note`), human seats' included, so every question
+        // of a sweep builds it for every seat as well: a question whose note
+        // breaks is found here before a table meets it. Only the seat that
+        // answers may be told.
+        for seat in engine.state().players.iter().map(|p| p.id) {
+            let note = crate::view::decision_note(&engine, seat);
+            debug_assert!(
+                note.is_none() || engine.decision_actor() == Some(seat),
+                "{seat:?} was told about a question it does not answer"
+            );
+        }
         let crate::SeatKind::Ai(agent) = &seats[usize::from(player.get())] else {
             unreachable!()
         };

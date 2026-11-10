@@ -1989,13 +1989,19 @@ one.
 
 `HeuristicAgent::act(&PlayerView, &Pending)` uses the same filtered view as a
 networked player. The host can additionally provide borrowed selected-effect
-context and a private scouting report to an active house AI. This is an
-intentional AI privilege: current hands, submitted decks, sideboards and
-requested library depth. None is added to `Pending`, `PlayerView`,
-`GameStatic`, or a protocol envelope, so this does not change the view version.
+context and a private scouting report to an active house AI. A fair level
+(every level but `seer`, `docs/house-ai.md` §"Fair by default, and the one
+level that peeks") is told its own submitted deck and nothing hidden; only
+`seer` is given the privilege of current hands, opponents' submitted decks
+and library depth, and every list of levels labels it unfair. No scouting
+report is added to `Pending`, `PlayerView`, `GameStatic`, or a protocol
+envelope, so this does not change the view version. The decision context's
+public part does ride beside a seat's question, for the seat it asks
+(§"What a question is about").
 
 The authorization lives in `gamehost::scouting::request`, which checks the
-current controller for every call. Only `SeatKind::Ai` qualifies. A `Driven`
+current controller and its level for every call. Only `SeatKind::Ai`
+qualifies, and only at a level that peeks for anything past its own deck. A `Driven`
 AI chair is being played by a human and is refused; `StandIn` belongs to a
 human and is also refused. No network request can invoke this private module.
 Reports have no serialization and are consumed for one decision without
@@ -4804,7 +4810,8 @@ writes it beside "playing" in whole minutes (`12 min`, `1 h 5 min`).
 Never an account id — a `player` is a handle (`Alice#af03`), and `you` / `yours` answer
 "is that me" without the listing having to carry anyone's account. `kind` is
 `"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
-(`novice`, `casual`, `steady`, `sharp`, `expert`); one that does not exist is a `400` rather than a
+(`novice`, `casual`, `steady`, `sharp`, `expert`, `seer`; the last reads the other chairs' hidden
+cards and a client labels it unfair); one that does not exist is a `400` rather than a
 quiet default, because a table that plays at another level than it advertises
 is worse than one that says no.
 
@@ -5623,6 +5630,55 @@ still charges the right price. No protocol or view version moves.
 Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
 linked counters will be removed. The German/English client and seat narrator
 explain the consequence before confirmation. No view schema change is needed.
+
+### What a question is about
+
+`ChoiceRequest.context` (field 4, additive: absent or empty reads as no
+note, and an old client ignores it) is a `baylee_core::wire`-encoded
+`baylee_engine::engine::DecisionNote`: the public part of the engine's
+`DecisionContext` for the question it rides with, owned. Which printed
+ability or mode asks (`printed` as card and face, or a registry `token`,
+`ability` as its place in that printed list, `mode`), how far a resolving
+ability has run (`done`), the cast route (`cast_mode`, `alternative_cost`,
+`cost`), the X (`x`, `life_x`, `x_targets`), the second instance of
+"target" and what the first chose (`second_instance`, `first_targets`),
+and whether the question is what a clone enters as a copy of (`copying`,
+`copy_mods`). A seat that answers as the house does rebuilds the context
+from the card registry (`baylee_ai::noted`), so `baylee-seat --mind house`
+and its house fallback answer from the context the table's own house reads
+(`docs/house-ai.md` §"The seated house").
+
+It tells the seat nothing its view does not:
+
+- **Who is told.** Only the seat that answers the question
+  (`decision_actor`), never a spectator or a replay, and only about its
+  own announcement: the context names the player whose cast, activation,
+  trigger or entering permanent it explains (`DecisionContext::actor`), and
+  the note goes to the seat that answers for that player (itself, or its
+  controller under CR 724) or to none (`Engine::decision_note_for`). A
+  question another seat answers in the middle of someone's announcement (an
+  opponent naming the targets) carries no note. A resolving spell or
+  ability is on the stack for everyone, so its note goes to whichever seat
+  it asks.
+- **Which card it names.** The asking card only where the seat may name the
+  source: in a zone its view shows, read as the player entitled to look
+  (its own hand, a controlled player's hand, the public zones), and not
+  face down to it (`view::may_name`). And only where the seat is shown every
+  card the note points into (`view::card_shown`): a granted ability's text
+  is printed on its grantor, a copy's modifications on the copy's card, so
+  a grantor in an opponent's hand is never named through the ability it
+  granted. Otherwise the note keeps the route, the X and the targets the
+  seat named itself and drops which card asks
+  (`DecisionNote::without_identity`). The targeting context of the view
+  (`targeting`) follows the same two rules.
+- **What a reader accepts.** A note that does not read is no note; the
+  question stands as before. `first_targets` reads at most
+  `DecisionNote::MAX_FIRST_TARGETS` (64) and a frame that names more does
+  not read; the house reads an X or a target count past `u16::MAX` as that,
+  and an index past its list, a card or token the registry does not hold or
+  a card with no face as nothing (`baylee_ai::noted::Noted`).
+
+The gateway forwards it as every seat frame, without decoding it.
 
 ## Mutate and dungeon resolution choices (protocol 35, view 82)
 

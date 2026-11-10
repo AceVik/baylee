@@ -80,6 +80,18 @@ pub(crate) enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Write the release day of every set the `CardIndex` ledger names
+    /// (`crates/baylee-cards-index/src/sets.rs`) from Scryfall's `/sets`.
+    /// Append-only: a day already in the table is kept, because it decides
+    /// which group of `crates/cards/sets` a card lies in.
+    Sets {
+        /// Report what would change instead of writing it.
+        #[arg(long)]
+        check: bool,
+        /// Directory for cached Scryfall responses.
+        #[arg(long, default_value = "data/scryfall-cache")]
+        cache: PathBuf,
+    },
     /// Assign a `CardIndex` to every card in the corpus that has none.
     ///
     /// The only thing that writes the ledger, and the reason `codegen` never

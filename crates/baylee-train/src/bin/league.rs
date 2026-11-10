@@ -66,7 +66,7 @@ struct Args {
     #[arg(long, value_delimiter = ',')]
     league: Vec<String>,
     /// House decks (`data/decks/<key>.txt`).
-    #[arg(long, value_delimiter = ',', default_value = "allytifact,victory")]
+    #[arg(long, value_delimiter = ',', default_value = "breya,kenrith")]
     decks: Vec<String>,
     /// Decks to generate from the working pool besides the house decks,
     /// spread over `--shapes` and the four archetypes. A game pairs two decks
@@ -497,7 +497,11 @@ fn main() -> anyhow::Result<()> {
     }
     let working = Working::scan(&repo_root())?;
     let mut decks: Vec<HouseDeck> = Vec::new();
+    // A league's games are training data: no house deck held out of train.
+    let held_out = baylee_train::decksplit::house_files_outside_train()?;
     for key in &args.decks {
+        let path = baylee_train::housedeck::dir().join(format!("{key}.txt"));
+        baylee_train::decksplit::ensure_train_house_deck(key, &path, &held_out)?;
         decks.push(HouseDeck::named(key)?.working_only(&working)?.0);
     }
     if args.generated > 0 {

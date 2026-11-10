@@ -328,3 +328,21 @@ fn every_language_says_every_phrase_with_the_same_arguments() {
         }
     }
 }
+
+/// Every level a player is offered has its own label in every language, and
+/// the one that peeks says it is unfair wherever it is listed: every list of
+/// levels draws it through `ai_name` (owner, 10.11.2026).
+#[test]
+fn every_level_is_named_and_the_one_that_peeks_says_it_is_unfair() {
+    for (wire, profile) in baylee_core::preset::AIProfile::NAMED {
+        for lang in Lang::ALL {
+            let label = ai_name(lang, wire).unwrap_or_else(|| panic!("{wire} has no label"));
+            assert_eq!(
+                label.contains("unfair"),
+                profile.peeks(),
+                "{wire} in {lang:?}: {label}"
+            );
+        }
+    }
+    assert_eq!(ai_name(Lang::De, "seer"), Some("Seher (unfair)"));
+}

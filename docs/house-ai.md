@@ -1,7 +1,9 @@
 # House AI
 
-The five names in `AIProfile::NAMED` drive both the offline picker and the
+The six names in `AIProfile::NAMED` drive both the offline picker and the
 network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
+Every level but `seer` is fair: it plays from its seat's view and its own
+decklist, at any table (§"Fair by default, and the one level that peeks").
 Measurements name `sharp-2026-11`, a frozen copy of `sharp` that no player
 is offered (§"The frozen reference").
 
@@ -11,7 +13,8 @@ is offered (§"The frozen reference").
 | casual | Rejects fewer than two or more than five lands | ±400 noise; taps out | Individual trades |
 | steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; reserves cheap interaction after establishing a creature | Individual trades |
 | sharp | Same opening policy as steady | ±30 seeded score noise; releases the reserve when opponents have no visible threat or cards | Searches whole attack sets and blocking assignments, including gang blocks |
-| expert | Same opening policy as sharp | ±12 seeded noise; sees the next three library cards | Also simulates retaliation by surviving opponents |
+| expert | Same opening policy as sharp | ±12 seeded noise | Also simulates retaliation by surviving opponents |
+| seer (unfair) | As expert | As expert, and is told every opponent's decklist and hand and the next three cards of every library | As expert |
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
@@ -301,14 +304,79 @@ holds for an absent player
 (`session::tests::a_seat_the_house_answers_is_never_told_the_log`). What an
 agent knows of the past is what its view shows now.
 
-An agent is never handed a teammate's hand either (#265). Every view an
-agent answers from is built by `Session::agent_view`, which leaves
-`shared_hands` and the three sets beside it empty; only a view on its way to
-a socket carries them. A chair the house AI plays is never shown a hand, and
-shows its own at once to a teammate who asks: showing it changes nothing its
-agent sees. A chair the house holds for an absent player keeps the shares
-its player was given, is played without them, and leaves requests to the
-player (`view::tests::no_agent_is_handed_a_teammates_hand`).
+**The house plays as a team, and teammates show each other their hands**
+(owner, 10.11.2026). This replaced #265's rule that no agent is handed a
+teammate's hand. What a house chair is shown is still only what a player in
+its chair could be shown, by a share the table's `HandSharingRule` permits,
+and `Table::show_shared_hands` reads the rule, the sides and `has_left`
+again for every view it builds (`Table::house_view`, which `house_answer`
+answers from):
+
+- *House with house.* Two house chairs on one side show each other their
+  hands without asking, where the rule is `Allowed` and
+  `AiHandSharePolicy` shares continuously (`Table::house_shows_house`).
+  Under `OnceOnly`, `Never` or `OnRequestOnce` they show none.
+- *House with a person.* The person decides. The house asks each person on
+  its side once, when the table is made (`Session::house_asks_its_teammates`,
+  their `hand_requests`), and reads their hand only if they show it; it
+  shows its own to a person who asks, as before.
+- *A chair the house holds for an absent player* plays with the hands its
+  player was shown, since the shares are its player's; it neither asks nor
+  answers a request, which wait for the player
+  (`view::tests::a_stand_in_plays_with_the_hands_its_player_was_shown`).
+- Never an opponent's hand, nothing under `Disabled`, and a share ends when
+  its owner leaves the game or loses (`session::tests::shared_hand`:
+  `house_teammates_show_each_other_their_hands_and_never_an_opponents`,
+  `the_tables_rule_holds_for_the_house_too`,
+  `a_teammate_who_has_left_shows_no_hand`,
+  `the_house_asks_a_person_on_its_side_and_reads_only_what_it_is_shown`).
+- The frozen reference `sharp-2026-11` is shown no hand, shows none to a
+  house teammate and asks nobody, so BayleeAI's benchmark tables play as
+  they did (`the_frozen_reference_shares_no_hand_with_the_house`); `seer`
+  peeks anyway.
+
+What the house does with it, and with its side, at `AIProfile::TEAM_PLAY`
+(`src/tests/team_tests.rs`, each test asking the frozen reference too):
+
+- An ally's removal or counter on the stack is the side's: nothing is aimed
+  at what it is already taking (`worth::answered`).
+- An ally's board is the side's: a sweeper that takes an ally's creatures is
+  priced with them as losses (`sweeper_net_worth`).
+- An ally in a lower seat who holds a cheap instant and the untapped lands
+  for it holds the answer up for the side, and this seat develops instead of
+  keeping its own mana up (`an_ally_holds_the_answer`); the lower seat keeps
+  its own, so two allies who see each other never both tap out.
+
+The audit found the rest already playing as a team: targets are chosen as
+friendly or hostile by side (`HeuristicAgent::hostile`, and a counter weighs
+what a spell is aimed at of the whole side), and the engine offers an attack
+at opponents and their planeswalkers alone (`combat::defender_options`),
+which `tests/team_play.rs` holds every level to on a two-against-two table.
+The engine asks each defending player for the blocks of what attacks it
+(`Engine::ask_blockers`), so in the formats it plays no block protects an
+ally; a shared-life format would change that.
+
+Measured on 10.11.2026 (commit a83eca936's selfplay build, CPU):
+
+- *Exercised.* Over 40 two-against-two tables on the five house decks,
+  every chair `sharp` (`session::tests::team_exercise`, run by hand), a
+  teammate's hand was in view at 122,379 of 125,453 house decisions
+  (97.5 %), and the answer differed from the frozen reference's in the same
+  chair at 39 of them (0.03 %), every one with a hand in view. Per deck the
+  share in view was 95.8–99.2 % (Victory 95.8 %), and the answers changed
+  2 (Victory, maik) to 23 (schwarzrand) times.
+- *Worth.* eval4 `--random-policy`, house against house on the campaign's
+  test decks (`decks-20261107c`, constructed), 512 deals per format and run,
+  `sharp` against `sharp-2026-11` and swapped, read by `house_duplicate`,
+  which counts each game once: eval4 rotates the focal seat over a deal's
+  seats with one seed, so a run repeats each game once per seat of a side.
+  Two against two: 133 of 252 decided games (52.8 %, Wilson 95 % 46.6–58.9);
+  team play turned 7 seeds (won from both sides) and lost none. Three against
+  three: 85 of 168 (50.6 %, 43.1–58.1); 3 seeds turned for it, 2 against.
+  Small, as the 0.03 % says it must be, and in its favour where it shows. No
+  deck stands out; the constructed test decks hold no Victory (a Commander
+  deck), so Victory's team play is measured above only by how often it is
+  exercised.
 
 **A mode is chosen by what it reaches, not by where it is printed.** A modal
 spell whose every effect sits under a mode is offered no normal cast
@@ -877,31 +945,70 @@ run a controlled turn yet. `crates/baylee-ai/src/tests/controlled_tests.rs`
 pins each behaviour, and `crates/baylee-gamehost/tests/ai_mindslaver.rs`
 plays a Mindslaver turn through the real engine with no house fallbacks.
 
-### Authorized AI scouting
+### Fair by default, and the one level that peeks
 
-House AIs now have an intentional advantage. The host's private
-`scouting::request` can supply main-deck lists, every commander, current hands,
-current sideboards and either bounded or complete library order, top first.
-The current built-in policies request their own deck at every level, opposing
-decks and hands at sharp, and three upcoming library cards at expert. Sideboards
-are requested during wishes. Full-library access is supported and tested but is
-not the default: the tactical policy does not benefit from copying it every move.
+Every level a player is offered plays from what its seat may see: its own
+view, and its own submitted decklist, which a player knows too (owner,
+10.11.2026). The one exception is `seer`, `expert` with its eyes open
+(`AIProfile::SEER`, `Sight::Peeking`): the host tells it every opponent's
+decklist and hand and the next three cards of every library. It is unfair
+on purpose, it is listed last, every list of levels labels it so ("Seer
+(unfair)", "Seher (unfair)": `i18n::ai_name`, which the lobby, the room
+sheet, the offline picker and the seat roster all draw through), and no
+table defaults to it. Before this, a hosted `sharp` read the opponents'
+decklists and hands and a hosted `expert` the next three library cards as
+well; a game the gateway or the engine server hosts no longer does, and
+neither does an offline one.
 
-Every request checks the **current** `SeatKind::Ai`. Human seats, human-driven
-AI chairs, disconnected humans' stand-ins and invalid seats are denied. There
-is no public Session getter or network message, the reports have no serialization,
-and neither human views nor print disclosure changes. Scouting is consumed for
-one decision and never retained in the agent kept during a human takeover.
-The ordinary view-only tests still prove independence from hidden cards; the
-privileged path deliberately behaves differently. A weakened access guard was
-injected and the security test failed before the guard was restored.
+Two places decide, one behind the other. The agent asks
+(`HeuristicAgent::scouting_request`): every level its own deck, and its own
+sideboard while it makes a wish; only a level that peeks asks for the rest.
+The host answers (`scouting::request`): it checks the **current**
+`SeatKind::Ai` and that chair's level, and a fair chair is told its own deck
+alone whatever it asked (`own_deck_only`). `Session::set_fair_scouting`
+holds even `seer` to its own deck, which is what evaluation and self-play
+set, so a measurement never depends on hidden cards whatever it seats; a
+hosted table never calls it, because its fair levels are fair without it.
+To measure `seer` itself, eval4 takes `--seer-peeks`, which lets the level
+that peeks be told what it peeks at and holds every other chair fair as
+before; its summary says so (`seer_peeks`). A
+profile built from the protobuf `AiProfile` message is fair, since the
+message has no field for sight; a peeking profile is chosen by its name.
+`Sight` reads as `Fair` from a preset or record written before it.
+
+Human seats, human-driven AI chairs, disconnected humans' stand-ins and
+invalid seats are denied outright. There is no public Session getter or
+network message, the reports have no serialization, and neither human views
+nor print disclosure change. Scouting is consumed for one decision and never
+retained in the agent kept during a human takeover.
+
+What proves it: `scouting::tests::a_fair_chair_asking_for_everything_is_told_its_own_deck`
+(the host's check alone), `a_fair_level_is_never_handed_hidden_zones` (every
+level's own request through the host), and
+`tests/fair_house.rs`, where a hosted table deals the house two games that
+differ only in what it may not see: the opponent's decklist, hand and
+library (all Plains against half Llanowar Elves), with the opponent keeping
+an empty hand and passing, so the public table is the same for ten turns.
+Every fair level, and the frozen reference, answers both deals answer for
+answer the same. `seer` does not (the control), and with the old rule
+injected back (hands and decklists from `sharp` up, the host's check off)
+the test fails at `sharp`'s 43rd answer, which is what the old hosted
+`sharp` did.
+
+A seat bridge plays from its socket's view, which carries nothing hidden, so
+it cannot play `seer`: `baylee-seat --level seer`, a collector's
+`house:seer` and the LLM seat's house fallback at that level are refused in
+one sentence that names `expert` (`baylee_seat::house::level`). The LLM
+seat's house fallback never peeked and plays as before.
 
 Deck lists are analysed once at setup, by printed properties and DSL effects.
-Cheap creature density, interaction, draw and artifacts influence deployment
-and resource priorities; a known opposing sweeper discourages committing a third
-creature, and known empty threats release reserved mana. These are heuristic
-adjustments, not a learned classifier or a complete combo planner. Reports carry
-card identities without actionable hidden object handles.
+A level's own list sets its creature, draw and artifact priorities and its
+tribe. `seer` alone also reads its opponents' lists, hands and library tops:
+cheap creature density and interaction set its interaction priority, a known
+opposing sweeper discourages committing a third creature, and known empty
+threats release reserved mana. These are heuristic adjustments, not a
+learned classifier or a complete combo planner. Reports carry card
+identities without actionable hidden object handles.
 
 Randomness is keyed by a **policy seed**, seat, choice sequence and object.
 The same complete input replays identically. Sharp and expert use narrow
@@ -994,6 +1101,62 @@ always produce the same action. Latency is measured externally with
 `cargo bench -p baylee-ai --bench decisions -- --quick`; time is never a
 policy input. Custom profile horizons above two are capped.
 
+## The seated house
+
+`baylee-seat --mind house` (the ladder's and the collector's `house:<level>`)
+and the LLM seat's house fallback answer as the table's own house chair
+does (owner, 10.11.2026). An in-process chair answers from the engine's
+`DecisionContext` and the report of its own deck; a seat used to answer
+from its socket's view alone, which measured about 8 points weaker than the
+benchmark's in-process `sharp` (v6t campaign, L1s).
+
+Now the seat is given both, from what a player at the table is given:
+
+- **The decision context.** The table sends the asked seat a
+  `DecisionNote` beside its question (`ChoiceRequest.context`,
+  `docs/protocol.md` §"What a question is about"): which printed ability or
+  mode asks, how far a resolving ability has run, the cast route, the X,
+  the second instance of "target" and what the first chose, a clone's
+  copy question. `baylee_ai::noted::Noted` rebuilds the context from the
+  card registry. What the registry cannot give back (an ability a
+  continuous effect grants, a reflexive trigger's body, a resolution's
+  spliced operations) stays empty, as the in-process house leaves an
+  ability it cannot read.
+- **Its own deck.** The seat knows the deck it brought
+  (`GameContext::deck`); `HouseMind` analyses it as the host analyses a
+  submitted list and answers through `HeuristicAgent::act_with_own_deck`,
+  the report a fair chair is handed in-process, built from the seat's own
+  list. A seat that knows no deck answers without it.
+
+Both `HouseMind` and eval4 `--house-as-seat` answer through one function,
+`baylee_ai::noted::answer_as_seated`, which also strips the socket view as
+`Session::agent_view` builds a house chair's (`seated_view`).
+
+`baylee-seat/tests/seated_house.rs` holds the two to each other: at every
+question of four hosted duels on the house decks, the seated house's answer
+(from `view_for_with_context`, the question's note and the deck list) is set
+beside the answer the table's own chair gave.
+On 10.11.2026, over four duels (allytifact–victory, victory–maik,
+schwarzrand–weltenbaum, maik–schwarzrand), the seated house gave the
+table's answer at all 3,070 of its questions; with the view alone it had
+given it at 3,028. The difference was all in questions a context explains:
+target choices (68 of 68, from 30), numbers (2 of 2, from 0) and players
+(2 of 2, from 0). Its own deck changed no answer the view alone missed in
+these games. The test asserts at least 99 %, and more than before. At the
+same questions it also answers a hostile note in place of the table's (a
+card or token the registry does not hold, every index past its list, the
+largest X, first targets that name nothing) without panicking: a note is
+read within bounds (`Noted`, `docs/protocol.md` §"What a question is
+about").
+`tests/question_note.rs` holds the note to its rule over two duels and a
+game of two teams: told to the asked seat alone, read back off the wire as
+built, and naming no card outside the zones the seat sees. The view's own
+tests (`view/tests/notes.rs`) cover a face-down source, a grantor and a
+copy's card the seat is not shown, a token, a cast and a granted ability;
+`tests/ai_mindslaver.rs` covers a controlled turn, whose notes go to the
+controller; and the card sweep (`harness::play_report`) builds every
+seat's note at every question.
+
 ## The frozen reference: `sharp-2026-11`
 
 Training measures BayleeAI against `sharp`, and the house is meant to get
@@ -1021,7 +1184,12 @@ one of two things: the reference answered differently with the same table
 before it, or the same answer led to a different table (the engine moved).
 
 So a change that means to make the house play better goes behind a profile
-field the reference does not set, and the test stays green. Only a change
+field the reference does not set, and the test stays green. That field is
+`AIProfile::generation`: every level plays `AIProfile::GENERATION`, the
+reference `FROZEN_2026_11` (0, which is also what a profile written before
+the field reads as), and a change says the generation it arrived in and
+asks `profile.plays(...)`. The first is `TEAM_PLAY` ("The house plays as a team, and
+teammates show each other their hands", above). Only a change
 that has to move the reference, such as an engine or card fix that changes
 these games, re-records it, in a commit of its own that says why:
 `BAYLEE_REFERENCE_RERECORD=1 cargo nextest run -p baylee-gamehost --test

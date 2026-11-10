@@ -37,6 +37,9 @@ pub enum Heard {
         pending: Box<Pending>,
         /// The question as the table encoded it.
         raw: Vec<u8>,
+        /// What it is about, where the table said (`ChoiceRequest::context`);
+        /// a note that does not read is no note, and the question stands.
+        note: Option<Box<baylee_engine::engine::DecisionNote>>,
     },
     /// The table opened: questions may follow.
     Curtain,
@@ -132,6 +135,10 @@ impl TableMemory {
                         seq: request.seq,
                         pending: Box::new(pending),
                         raw: request.pending,
+                        note: (!request.context.is_empty())
+                            .then(|| baylee_core::wire::decode(&request.context).ok())
+                            .flatten()
+                            .map(Box::new),
                     },
                     Err(e) => Heard::Unreadable(format!("unreadable question: {e}")),
                 }

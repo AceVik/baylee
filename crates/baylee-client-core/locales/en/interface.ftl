@@ -1226,6 +1226,11 @@ AiSharp = Sharp
 # The deepest house AI combat search.
 AiExpert = Expert
 
+# The one house AI that is unfair on purpose: it sees hidden cards (opponents'
+# hands and decklists, the next cards of every library). The label says so
+# wherever levels are listed.
+AiSeer = Seer (unfair)
+
 # One page back through the table list.
 PageBack = ‹ Back
 

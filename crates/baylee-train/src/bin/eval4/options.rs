@@ -153,6 +153,12 @@ struct Args {
     /// The net never saw such a candidate. Never for training.
     #[arg(long)]
     menu_payable: bool,
+    /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
+    /// states a confidence below THRESHOLD is thought through again at DEEP
+    /// deliberation steps. Needs a model with the deliberation block
+    /// (`docs/proposals/baylee-ai-thinking.md`). Evaluation only.
+    #[arg(long)]
+    think_adaptive: Option<String>,
     /// `--menu-payable`: added to each added option's logit.
     #[arg(long, default_value_t = 0.0, requires = "menu_payable")]
     menu_payable_bias: f32,
@@ -224,16 +230,22 @@ struct Args {
     /// Build/filter decks including the held-out cards excluded from training.
     #[arg(long)]
     held_out_cards: bool,
-    /// Clamp AI scouting so House opponents have no omniscient hand/deck peek.
+    /// Hold every house chair to its own decklist, the level that peeks
+    /// (`seer`) too; every other level is fair at any table.
     #[arg(long, default_value_t = true)]
     fair_scouting: bool,
+    /// Let a level that peeks (`seer`) be told what it peeks at, despite
+    /// `--fair-scouting`: for measuring `seer` against the fair levels, never
+    /// for a benchmark of the net. Every other level stays fair either way.
+    #[arg(long)]
+    seer_peeks: bool,
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).
     #[arg(long)]
     no_baseline: bool,
     /// The house chairs answer as a seat's `--mind house` does over the
     /// gateway (`baylee_seat::HouseMind`, the ladder's `house:<level>`): from
-    /// the socket's view, with no decision context and no scouting report,
-    /// not as an in-process house chair. Compares the seat path's opponent
+    /// the socket's view, the note beside its question and its own deck list
+    /// (`baylee_ai::noted::answer_as_seated`), not as an in-process chair. Compares the seat path's opponent
     /// with the benchmark's; the summary's `against` reads `seat:<level>`.
     #[arg(long)]
     house_as_seat: bool,
@@ -394,6 +406,8 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    /// `--think-adaptive`: second passes over the run.
+    thinking: baylee_train::netplay4::ThinkingUse4,
     tactician:
         std::collections::BTreeMap<String, baylee_train::netplay4::tactician::TacticianStats4>,
 }

@@ -153,12 +153,14 @@ A collector pairing (`llm_collector4 collect --pairings-file`) may name
 `house:<level>` for a seat instead of a profile: the house plays it at that
 level (`baylee-seat join --mind house`), so each teacher can be measured
 against the opponent the trained net is benchmarked against (`house:sharp`).
-A seated house is not quite the evaluator's: it answers from its socket's
-view with `HeuristicAgent::act`, without the decision context and the
-scouting report of its own deck that an in-process chair answers with
-(`Session::house_answer`). `eval4 --house-as-seat` plays the net against
-the seated kind, so a ladder's house rung and the evaluator can be compared
-on the same opponent.
+A seated house answers as the evaluator's in-process chair does since
+10.11.2026: from its socket's view, the note the table sends beside each
+question (the decision context's public part) and the deck it brought
+(`baylee_ai::noted::answer_as_seated`, `docs/house-ai.md` §"The seated
+house"). Before that it answered from the view alone and was about eight
+points weaker. `eval4 --house-as-seat` plays the net against the seated
+kind, so a ladder's house rung and the evaluator can be compared on the
+same opponent.
 It sits in the chair of the slot's second account, `HOUSE-bench-<slot>`
 (hosting where it plays seat 0, joining chair 1 otherwise): a chair ticket
 seats only a language model, and a chair must be called what plays it.
@@ -223,7 +225,7 @@ initial weights, seeds, update budgets and unchanged validation definitions.
 `eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
 can collect separate, view-only teacher labels on states visited by the neural
 actor. The original executed-action record and rollout probabilities remain
-separate from the teacher labels. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+separate from the teacher labels. `convert4 --runs DIR --train-manifest MANIFEST --out NEW_DIR --include-passive-obs --shadow-bc`
 replays complete records, verifies source/view/menu identities and reconstructs
 each teacher target. Unlabelled decisions retain their chronological position
 with zero policy weight; actual outcomes remain available for value/auxiliary
@@ -1073,6 +1075,34 @@ part passes the test for dropping it, but the raw net's own targeting passes it
 as well and the heads add nothing to it (+0.0 pp [−0.7, +0.7] on the fresh
 deals): the layer earns nothing there, the head is not why.
 
+### Deliberation over the answers (thinking revision 2)
+
+Off by default; design, cost and the measurement plan are in
+`docs/proposals/baylee-ai-thinking.md`. The legacy thinking steps move no
+answer (K = 0, 1, 4, 8 against K = 2 change the top answer in 1-2 % of r1's
+decisions): they never see a candidate and were never supervised per step.
+`Config5.thinking_revision = 2` adds a block that runs after the heads' first
+scores, over the 16 best answers: each step reads its previous proposal,
+compares the answers, looks at the board again and corrects the logits, and
+states a confidence in its top answer. Its correction starts at zero, so a net
+with the block attached plays as its source until trained.
+
+- Train: `train5.py --thinking-revision 2 --thinking-warmstart --init SOURCE
+  --train-thinking-only --think-supervision --decision-chunk N` (N > 1; the
+  per-step terms read the trace of deferred readouts). `--thinking-steps` is
+  then the trunk's scratchpad depth and must be the source's; the block runs
+  `--deliberation-steps`. `[think] right_by_step` in the log is the share of
+  decisions each step answers as the target (step 0: the first proposal).
+- Export: `export_onnx4.py` as before; a depth graph `model.kK.onnx` runs K
+  deliberation steps and outputs `think_confidence` beside the five outputs.
+- Play: `--thinking-steps K` picks the depth as before. `seat4` and `eval4`
+  `--think-adaptive DEEP,THRESHOLD` think a decision through again at DEEP
+  steps when the first pass states a confidence below THRESHOLD; a step costs
+  under a millisecond on the CPU, so this is a measurement of the confidence,
+  not a saving.
+- Measure: `thinking_probe5.py` (what each step corrects and breaks,
+  confidence calibration), `bench_thinking5.py` (latency per depth graph).
+
 ### The tactician, stage S1 (`eval4 --tactician-imitate`, `tactician_head_v2`)
 
 The owner's decision of 10 November: a separately trained tactician that in the
@@ -1166,11 +1196,12 @@ table order), with the counts by kind, by subtype and at `N ≠ R` by group,
 and each JSON steps file's SHA-256 is beside it. A game that does not bind, a
 label whose subtype is not the one its kind, question and groups give it (a
 priority label recorded before subtypes) or a group with no bit fails the
-conversion. `--train-manifest` (required) names the deck manifest: a run any of
-whose `run.json` decks (every deck its tables are taken from) the manifest
-puts outside the train split, or does not list, is refused with the deck and
-its split; `meta.json` keeps the manifest, its SHA-256 and the count of decks,
-all train. The readers that check a frame's length
+conversion. Beside convert4's check of every game's seated decks against
+`--train-manifest` (every training conversion), bundle distillation refuses a
+run any of whose `run.json` decks (every deck its tables are taken from) that
+manifest puts outside the train split, or does not list, with the deck and its
+split; `bundle_distillation.decks` keeps the manifest, its SHA-256 and the
+count of decks, all train. The readers that check a frame's length
 (`trajectory::packing`, behind `trajectory_cache4`) admit exactly one valid
 block and nothing else; the Python readers take the masks at the payload's end
 (`trajectory_store4.bst4_payload_end`, `bst4_distill_block`). `eval4

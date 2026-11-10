@@ -8,6 +8,7 @@ use crate::{
     render_oracle, render_sides_table, render_token_ledger, scriptgen, scripts, scripts_root,
     scryfall, stubgen, token_ledger, tokengen, write_or_check, write_verbatim,
 };
+use anyhow::Context;
 
 /// What this pool is and how a card in it is read: the names, the subtype
 /// catalogs every printing is decoded against, and the reference scripts when
@@ -50,25 +51,26 @@ pub(crate) fn cards(
     // before it runs, and a card assigned since would fail the `no row` check
     // below rather than be given an index here.
     let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS)?;
-    // The taxonomy `cards/` is arranged by is computed per card
-    // (`layout::path_for`), so a card's file can be somewhere else than where
-    // it belongs — after a type-line correction, or on the run that
-    // introduced the layout. Placement is therefore a reconciliation, not a
-    // write: find every card file first, move the misplaced ones, and only
-    // then decide what to write.
-    let cards_dir = root.join("crates/cards/src/cards");
-    let cycles = layout::LandCycles::parse(
-        &fs::read_to_string(root.join("data/land-cycles.tsv")).unwrap_or_default(),
-    );
+    // Where a card's file lies is computed per card (`layout::path_for`: the
+    // group and set of its first printing), so a file can be somewhere else
+    // than where it belongs — when a file was put down by hand, or on the
+    // run that introduced the layout. Placement is therefore a
+    // reconciliation, not a write: find every card file first, move the
+    // misplaced ones, and only then decide what to write.
+    let cards_dir = root.join(layout::SETS_DIR);
     let mut found = card_files(&cards_dir)?;
     // A card read in full is `Implemented` once accepted tests play it, else
     // `Generated` (`stubgen::read_coverage`). Explicit coverage holds keep
-    // useful tests from accepting a documented rules gap. A test is its own file at the
-    // same path under `card_tests/`, or any engine test naming its oracle id:
-    // the older cards are played in shared modules (`card_tests/creatures.rs`,
-    // `*_tests.rs`), and a path-only check demoted 257 of them.
-    let card_tests = root.join("crates/cards/testkit/card_tests");
-    let named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
+    // useful tests from accepting a documented rules gap. A test is a file
+    // named after the card anywhere under `card_tests/`, or any engine test
+    // naming its oracle id: the older cards are played in shared modules
+    // (`card_tests/creatures.rs`, `*_tests.rs`), and a path-only check
+    // demoted 257 of them.
+    let tested_slugs = crate::layout::tested_slugs(&root.join(crate::layout::CARD_TESTS_DIR))?;
+    // The engine's own tests and the card tests, which lie in the testkit
+    // since they left the engine's sources.
+    let mut named_in_tests = oracle_ids_in(&root.join("crates/baylee-engine/src/engine"))?;
+    named_in_tests.extend(oracle_ids_in(&root.join("crates/cards/testkit"))?);
     let coverage_holds = crate::coverage_holds::load(root)?;
 
     // Refuse an orphan *before* the first rename, not after the last one. The
@@ -84,7 +86,6 @@ pub(crate) fn cards(
             .map(|(_, path)| path),
         &cards_dir,
     )?;
-    refuse_stale_cycles(&cycles, &claimed)?;
 
     // Fill a cold cache in one download before asking for anything card by
     // card. `fetch_named` below reads a cached file with no request at all, so
@@ -130,11 +131,10 @@ pub(crate) fn cards(
             cats,
             scripts,
             tokens,
-            &cycles,
-            &|rel| {
+            &|slug| {
                 coverage_holds.accepts_tests(
                     &oracle_id,
-                    card_tests.join(rel).is_file() || named_in_tests.contains(&oracle_id),
+                    tested_slugs.contains(slug) || named_in_tests.contains(&oracle_id),
                 )
             },
         )?;
@@ -181,23 +181,83 @@ pub(crate) fn cards(
     // early check above is what keeps a re-filing atomic; this one is what
     // makes the guarantee true.
     refuse_orphans(found.values(), &cards_dir)?;
-    write_or_check(
-        check,
-        &root.join("crates/cards/src/cards/mod.rs"),
-        &stubgen::render_cards_mod(&stubs),
-        changed,
-    )?;
+    write_groups(root, check, &stubs, changed)?;
     // The ledger is an input here, not an output: it is written by
     // `cargo xtask ledger` alone. Rendering it back would be a no-op on a
     // good tree and a silent repair on a hand-edited one.
     let slots = ledger.slots();
     write_or_check(
         check,
-        &root.join("crates/cards/src/generated.rs"),
+        &root.join("crates/cards/pool/src/generated.rs"),
         &stubgen::render_registry(&stubs, slots),
         changed,
     )?;
     write_index_tree(root, check, &ledger, changed)?;
+    Ok(())
+}
+
+/// Writes every group's `src/lib.rs` and `Cargo.toml` under
+/// `crates/cards/sets` and the pool's manifest, which depends on each group,
+/// and removes a group no card lies in any more.
+///
+/// The removal takes only what this function wrote. Any card file still in
+/// such a group was refused as an orphan before this runs, and `remove_dir`
+/// refuses a folder that is not empty, so a file somebody put there by hand
+/// stops the run instead of going with the group.
+fn write_groups(
+    root: &Path,
+    check: bool,
+    stubs: &[stubgen::StubInfo],
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let sets = root.join(layout::SETS_DIR);
+    let libs = stubgen::render_group_libs(stubs);
+    for (group, lib) in &libs {
+        let dir = sets.join(group);
+        write_or_check(check, &dir.join("src/lib.rs"), lib, changed)?;
+        write_verbatim(
+            check,
+            &dir.join("Cargo.toml"),
+            &stubgen::render_group_manifest(group),
+            changed,
+        )?;
+    }
+    write_verbatim(
+        check,
+        &root.join("crates/cards/pool/Cargo.toml"),
+        &stubgen::render_pool_manifest(libs.keys().map(String::as_str)),
+        changed,
+    )?;
+    for entry in fs::read_dir(&sets)? {
+        let dir = entry?.path();
+        let Some(group) = dir.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if !dir.is_dir() || libs.contains_key(group) {
+            continue;
+        }
+        if check {
+            changed.push(dir);
+            continue;
+        }
+        for generated in ["Cargo.toml", "src/lib.rs"] {
+            let path = dir.join(generated);
+            if path.exists() {
+                fs::remove_file(path)?;
+            }
+        }
+        let left = || {
+            format!(
+                "{} holds files codegen did not write; no card lies in it any more",
+                dir.display()
+            )
+        };
+        if dir.join("src").is_dir() {
+            fs::remove_dir(dir.join("src")).with_context(left)?;
+        }
+        fs::remove_dir(&dir).with_context(left)?;
+        println!("removed group {group}");
+    }
     Ok(())
 }
 
@@ -512,7 +572,7 @@ pub(crate) fn codegen(
 /// them: "Zof Consumption // Zof Bloodbog" is one file called
 /// `zof_consumption`. Slugging the whole printed name instead produces a path
 /// that does not exist, so the card is read as implemented and skipped.
-/// Refuses every card file under `cards/` that no card in the pool claims.
+/// Refuses every card file under `crates/cards/sets` that no card in the pool claims.
 ///
 /// Such a file compiles, `cargo test` is green and nothing reads it, which is
 /// exactly how an empty `lightning_bolt.rs` sat in the tree unnoticed. It is
@@ -542,7 +602,7 @@ pub(crate) fn refuse_orphans<'a>(
 /// Both slug to one file, so both produce `pub mod hengegate_pathway;` and the
 /// crate does not compile — and because `xtask` links `baylee-cards`, `codegen`
 /// cannot then be run to repair what it just wrote. The two lines have to come
-/// out of `cards/mod.rs` by hand first. So it is asked before stage 1 — ahead
+/// out of the group's `lib.rs` by hand first. So it is asked before stage 1 — ahead
 /// of even the token ledger, which is written before the cards — for the same
 /// reason the orphan check is asked before the first rename.
 ///
@@ -571,30 +631,6 @@ pub(crate) fn refuse_twin_names(names: &[String]) -> anyhow::Result<()> {
          data/card-pool.txt: {}",
         twins.len(),
         twins.join(", ")
-    )
-}
-
-/// Refuses a cycle-map entry naming a card the pool does not have.
-///
-/// The failure it catches is silent by construction: the map is additive, so
-/// a name that matches nothing simply leaves its land filed one level
-/// shallower. Ten pathways sat unfiled for a whole commit that way, the map
-/// holding front-face names while Scryfall hands over `A // B`.
-pub(crate) fn refuse_stale_cycles(
-    cycles: &layout::LandCycles,
-    claimed: &BTreeSet<String>,
-) -> anyhow::Result<()> {
-    let stale: Vec<&str> = cycles
-        .names()
-        .filter(|n| !claimed.contains(&front_face_slug(n)))
-        .collect();
-    if stale.is_empty() {
-        return Ok(());
-    }
-    anyhow::bail!(
-        "data/land-cycles.tsv names {} card(s) the pool does not have: {}",
-        stale.len(),
-        stale.join(", ")
     )
 }
 

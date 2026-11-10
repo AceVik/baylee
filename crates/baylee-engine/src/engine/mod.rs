@@ -2065,12 +2065,14 @@ mod camouflage;
 pub mod decision;
 #[cfg(not(feature = "test-support"))]
 mod decision;
+mod decision_note;
 pub(crate) mod disguise;
 mod division;
 mod room;
 mod storied;
 mod targeting;
-pub use decision::DecisionContext;
+pub use decision::{DecisionContext, ability_effects};
+pub use decision_note::DecisionNote;
 pub use progress::QueuedTrigger;
 mod actions;
 mod announcement_context;
@@ -2256,6 +2258,8 @@ mod extra_turn_tests;
 mod foretell_tests;
 #[cfg(test)]
 mod game_end_tests;
+#[cfg(test)]
+mod granted_offer_tests;
 #[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]

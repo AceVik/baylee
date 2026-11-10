@@ -10,7 +10,7 @@ ok-game / issues).
 
 ## Format
 
-- **Card Name** (`crates/cards/src/cards/…`) — what is wrong, and what
+- **Card Name** (`crates/cards/sets/…`) — what is wrong, and what
   the ruletext says instead. CR citations where they settle it.
 
 ## Checks completed

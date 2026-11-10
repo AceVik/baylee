@@ -75,6 +75,23 @@ impl NetPlayer4 {
         h_in: &[f32],
     ) -> anyhow::Result<(Sampled4, Vec<f32>)> {
         let k_val = self.thinking_steps;
+        let mut outputs = self.run_onnx_step(state, cands, h_in, k_val)?;
+        self.last_depth = k_val;
+        // A decision does not change the memory, so a second pass reads the
+        // same state; only a real choice is worth one.
+        if let Some(adaptive) = self.adaptive
+            && cands.candidates.len() >= 2
+        {
+            let confidence = outputs
+                .confidence
+                .context("the graph stated no confidence in its answer")?;
+            let again = adaptive.escalates(confidence);
+            self.thinking_use.record(confidence, again);
+            if again {
+                outputs = self.run_onnx_step(state, cands, h_in, adaptive.deep)?;
+                self.last_depth = adaptive.deep;
+            }
+        }
         let super::StepOutputs {
             mut cand_logits,
             pair_logits,
@@ -82,7 +99,7 @@ impl NetPlayer4 {
             value,
             embeddings,
             ..
-        } = self.run_onnx_step(state, cands, h_in, k_val)?;
+        } = outputs;
         if let Some(menu) = &mut self.payable_menu {
             menu.weigh(&mut cand_logits, cands);
         }

@@ -93,14 +93,14 @@ fn format_share(dir: &Path, n: usize, sources: &[String]) -> anyhow::Result<Vec<
         .collect()
 }
 
-/// Every card file under `cards/`, wherever the taxonomy has put it, keyed by
-/// slug.
+/// Every card file under `crates/cards/sets`, in whichever group and set
+/// folder it lies, keyed by slug.
 ///
 /// The slug is the file stem and the module name both, so two files claiming
-/// one slug is not a layout question but a broken tree — `cards/mod.rs` could
+/// one slug is not a layout question but a broken tree — a group's `lib.rs` could
 /// only declare one of them, and which one would depend on directory order.
-/// `mod.rs` itself is the tree's own bookkeeping and is skipped at every
-/// level.
+/// A group's own `src/lib.rs` (and any `mod.rs`) is the tree's bookkeeping
+/// and is skipped.
 pub(crate) fn card_files(dir: &Path) -> anyhow::Result<BTreeMap<String, PathBuf>> {
     let mut out = BTreeMap::new();
     let mut stack = vec![dir.to_path_buf()];
@@ -114,15 +114,12 @@ pub(crate) fn card_files(dir: &Path) -> anyhow::Result<BTreeMap<String, PathBuf>
                 stack.push(path);
                 continue;
             }
-            if path.extension().is_none_or(|e| e != "rs") {
+            if !crate::layout::is_card_file(&path) {
                 continue;
             }
             let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
                 continue;
             };
-            if stem == "mod" {
-                continue;
-            }
             if let Some(first) = out.insert(stem.to_string(), path.clone()) {
                 anyhow::bail!(
                     "two files claim the slug {stem}: {} and {}",
@@ -182,7 +179,7 @@ pub(crate) fn write_verbatim(
     Ok(())
 }
 
-/// A card file's path as it reads in a message: relative to `cards/`.
+/// A card file's path as it reads in a message: relative to `crates/cards/sets`.
 pub(crate) fn relative(path: &Path, cards_dir: &Path) -> String {
     path.strip_prefix(cards_dir)
         .unwrap_or(path)

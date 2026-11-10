@@ -68,37 +68,17 @@ fn only_a_planeswalker_has_loyalty() {
 /// and this says nothing about them.
 #[test]
 fn no_card_writes_an_enter_trigger_out_by_hand() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cards");
+    // `every_card_file` refuses a walk that found fewer than a thousand.
     let mut offenders = Vec::new();
-    let mut stack = vec![root.clone()];
-    let mut files = 0usize;
-    while let Some(dir) = stack.pop() {
-        for entry in std::fs::read_dir(&dir).expect("the card tree is readable") {
-            let path = entry.expect("a readable directory entry").path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().is_some_and(|e| e == "rs") {
-                files += 1;
-                let text = std::fs::read_to_string(&path).expect("a readable card file");
-                let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
-                if flat.contains("Trigger::EntersBattlefield( &Filter::This")
-                    || flat.contains("Trigger::EntersBattlefield(&Filter::This")
-                {
-                    offenders.push(
-                        path.strip_prefix(&root)
-                            .unwrap_or(&path)
-                            .display()
-                            .to_string(),
-                    );
-                }
-            }
+    for (name, text) in crate::tests::every_card_file() {
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if flat.contains("Trigger::EntersBattlefield( &Filter::This")
+            || flat.contains("Trigger::EntersBattlefield(&Filter::This")
+        {
+            offenders.push(name);
         }
     }
 
-    assert!(
-        files > 1000,
-        "walked {files} card files — the walk is broken, not the pool"
-    );
     assert!(
         offenders.is_empty(),
         "{} card(s) spell an enter-trigger out where `Trigger::ETB` is \

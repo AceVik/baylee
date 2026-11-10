@@ -14,7 +14,15 @@ ARCHITECTURES = {1: ARCHITECTURE, 2: "baylee_ai_v5_relational_v2"}
 CANDIDATE_ARCHITECTURES = {2: CANDIDATE_ARCHITECTURE, 3: DECODER_ARCHITECTURE}
 
 
+THINKING_FIELDS = ("thinking_revision", "scratchpad_steps", "deliberation_steps", "deliberation_width",
+                   "deliberation_heads", "deliberation_candidates", "deliberation_feedback")
+
+
 def architecture_for_config(cfg):
+    # The label names the relational and candidate revisions the loaders bind
+    # to. Thinking revision 2 lives inside the graph behind the same tensors,
+    # so it is declared in the configuration, not in the label.
+
     if cfg.candidate_context_revision in CANDIDATE_ARCHITECTURES:
         return CANDIDATE_ARCHITECTURES[cfg.candidate_context_revision]
     return ARCHITECTURES[cfg.relational_revision]
@@ -28,6 +36,16 @@ class Config5(V4.Config4):
     relational_width: int = 160
     # Revision 3 only: attention layers from each candidate into the board.
     candidate_decoder_layers: int = 2
+    # Thinking revision 2: deliberation over the answers (`model5.deliberation`).
+    # The runtime depth K then counts deliberation steps; the scratchpad keeps
+    # the depth its trunk was trained with.
+    thinking_revision: int = 1
+    scratchpad_steps: int = 2
+    deliberation_steps: int = 4
+    deliberation_width: int = 256
+    deliberation_heads: int = 8
+    deliberation_candidates: int = 16
+    deliberation_feedback: bool = True
 
     def __post_init__(self):
         super().__post_init__()
@@ -47,11 +65,30 @@ class Config5(V4.Config4):
             raise ValueError("relational_steps must be between zero and four")
         if self.relational_width < 1:
             raise ValueError("relational_width must be positive")
+        if type(self.thinking_revision) is not int or self.thinking_revision not in (1, 2):
+            raise ValueError("Unsupported thinking revision")
+        if self.thinking_revision == 2:
+            if self.relational_revision != 2:
+                raise ValueError("Thinking revision2 requires relational revision2")
+            if not 0 <= self.scratchpad_steps <= self.max_thinking_steps:
+                raise ValueError("scratchpad_steps must lie within the thinking steps")
+            if not 1 <= self.deliberation_steps <= self.max_thinking_steps:
+                raise ValueError("deliberation_steps must lie within the thinking steps")
+
+    def to_dict(self) -> dict:
+        """Archived configurations stay as they were written: the thinking
+        fields appear only where revision 2 is declared."""
+        values = super().to_dict()
+        if self.thinking_revision == 1:
+            for key in THINKING_FIELDS:
+                del values[key]
+        return values
 
 
 from .relational_v1 import RelationalProcessor
 from .relational_v2 import RelationalProcessorV2
 from .candidate_decoder import CandidateDecoderLayer
+from .deliberation import Deliberation, warmstart_thinking
 
 
 class PlayerNet5(V4.PlayerNet4):
@@ -69,6 +106,26 @@ class PlayerNet5(V4.PlayerNet4):
                 self.cand_decoder = nn.ModuleList(
                     CandidateDecoderLayer(cfg.d_model, cfg.n_heads, 2 * cfg.d_model)
                     for _ in range(cfg.candidate_decoder_layers))
+            if cfg.thinking_revision == 2:
+                self.deliberation = Deliberation(
+                    cfg.d_model, cfg.deliberation_width, cfg.deliberation_heads, cfg.deliberation_steps,
+                    cfg.deliberation_candidates, cfg.deliberation_feedback)
+
+    def scratchpad_limit(self, steps):
+        if self.cfg.thinking_revision == 1:
+            return steps
+        return self.cfg.scratchpad_steps if steps > 0 else 0
+
+    def scratchpad_depth(self, thinking_steps):
+        if self.cfg.thinking_revision == 1:
+            return thinking_steps
+        return thinking_steps.clamp(max=1) * self.cfg.scratchpad_steps
+
+    def thinking_keys(self, z_out, board, pad_mask):
+        """Thinking revision 2: the thought-through summary slots, then every entity."""
+        if self.cfg.thinking_revision != 2:
+            return None
+        return torch.cat([z_out.to(board.dtype), board[..., RECURRENT_SLOTS:, :]], dim=-2), pad_mask
 
     def candidate_decoder_keys(self, z_out, board, pad_mask):
         """Revision 3: the thought-through summary slots, then every entity."""

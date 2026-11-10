@@ -293,19 +293,20 @@ class PlayerNet4(nn.Module):
         # Current seat-specific summaries also seed the scratchpad: on a fresh
         # game H is all zero, but seat queries must already be distinguishable.
         z = h_out + board[:, :RECURRENT_SLOTS]
-        max_k = (
+        max_k = self.scratchpad_limit(
             getattr(self, "export_thinking_steps", self.cfg.max_thinking_steps)
             if torch.jit.is_tracing()
             else max(0, min(execution_hint[2], self.cfg.max_thinking_steps)) if execution_hint is not None
             else max(0, min(int(thinking_steps.max().item()), self.cfg.max_thinking_steps))
         )
+        scratchpad_steps = self.scratchpad_depth(thinking_steps)
         projected_kv = None
         if not torch.jit.is_tracing() and getattr(self, "cache_thinking_kv", False) and max_k > 1:
             projected_kv = self.thinking_block.prepare_board(board)
         for k in range(max_k):
             step_t = torch.full((B,), k, dtype=torch.long, device=device)
             z_next_k = self.thinking_block(z, board, pad_mask, step_t, projected_kv)
-            active_k = (thinking_steps > k).view(B, 1, 1).to(z.dtype)
+            active_k = (scratchpad_steps > k).view(B, 1, 1).to(z.dtype)
             z = z + active_k * (z_next_k - z)
 
         z_out = self.h_norm(z)
@@ -319,7 +320,10 @@ class PlayerNet4(nn.Module):
             h_c = self.candidate_hidden(cand_feat, cand_dsl, cand_rules, cand_entity_idx,
                                         cand_seat_idx, e_ref, s_ref, g_ref,
                                         self.candidate_decoder_keys(z_out, board, pad_mask))
-            cand_logits = score_candidate_hidden(self, h_c, cand_mask)
+            cand_logits = score_candidate_hidden(
+                self, h_c, cand_mask, self.thinking_keys(z_out, board, pad_mask), thinking_steps,
+                getattr(self, "export_thinking_steps", self.cfg.max_thinking_steps)
+                if torch.jit.is_tracing() else None)
         else:
             cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
 
@@ -338,6 +342,18 @@ class PlayerNet4(nn.Module):
 
     # The readouts below are the single definition shared by inference,
     # export and every training execution path; leading dimensions are free.
+
+    def scratchpad_limit(self, steps: int) -> int:
+        """How many scratchpad steps a depth of `steps` runs; archived nets: all."""
+        return steps
+
+    def scratchpad_depth(self, thinking_steps):
+        """Per row, the scratchpad steps of its depth; archived nets: the depth."""
+        return thinking_steps
+
+    def thinking_keys(self, z_out, board, pad_mask):
+        """What the deliberation block attends to; `None` without one (v4, v5 revision 1)."""
+        return None
 
     def candidate_decoder_keys(self, z_out, board, pad_mask):
         """What candidates may attend to; `None` keeps v4/v5 candidates independent."""

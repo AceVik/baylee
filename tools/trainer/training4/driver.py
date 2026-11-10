@@ -140,6 +140,14 @@ def main(default_architecture="v4") -> None:
         cfg.relational_steps = args.relational_steps
         cfg.relational_revision = args.relational_revision
         cfg.candidate_context_revision = args.candidate_context_revision
+        if args.thinking_revision == 2:
+            cfg.thinking_revision = 2
+            cfg.scratchpad_steps = args.thinking_steps
+            cfg.deliberation_steps = args.deliberation_steps
+            cfg.deliberation_width = args.deliberation_width
+            cfg.deliberation_candidates = args.deliberation_candidates
+            cfg.deliberation_feedback = not args.deliberation_no_feedback
+            cfg.__post_init__()
         identity["architecture"] = M.architecture_for_config(cfg)
     # Extra architecture initialization must not perturb training RNG in paired runs.
     net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
@@ -154,6 +162,10 @@ def main(default_architecture="v4") -> None:
     net.board_token_budget = args.board_token_budget
     net.gpu_prefetch = args.gpu_prefetch
     net.prune_unused_policy_heads = args.prune_unused_policy_heads
+    if args.thinking_revision == 2:
+        # Training and validation always run the configured steps on every row.
+        net.deliberation.steps_override = cfg.deliberation_steps
+        net.deliberation.collect = args.think_loss is not None
     if args.init:
         init_p = Path(args.init).expanduser()
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p
@@ -180,6 +192,20 @@ def main(default_architecture="v4") -> None:
             if source_config != cfg.to_dict():
                 raise ValueError('Encoder9 transfer must preserve all other model configuration')
             upgraded = M.warmstart_encoder9(ckpt_init['state_dict'], net)
+        elif args.thinking_warmstart:
+            source_cfg = M.Config5(**ckpt_init["config"])
+            if (ckpt_init.get("model_version") != 5 or source_cfg.thinking_revision != 1
+                    or source_cfg.default_thinking_steps != args.thinking_steps
+                    or source_cfg.to_dict() != {key: value for key, value in cfg.to_dict().items()
+                                                 if key not in M.THINKING_FIELDS}
+                    or ckpt_init.get("architecture") != M.architecture_for_config(source_cfg)
+                    or ckpt_init.get("encoder_version") != args.encoder_version):
+                raise ValueError("Thinking transfer source architecture/config differs")
+            upgraded = M.warmstart_thinking(ckpt_init["state_dict"], net)
+            from torch_io4 import file_digest
+            identity["thinking_warmstart"] = {
+                "kind": "weights_only", "source_checkpoint_sha256": file_digest(init_pt),
+                "source_config": source_cfg.to_dict(), "target_config": cfg.to_dict()}
         elif args.candidate_context_warmstart:
             source_cfg = M.Config5(**ckpt_init["config"])
             expected = cfg.to_dict()
@@ -226,6 +252,9 @@ def main(default_architecture="v4") -> None:
     if args.train_rules_only:
         from .rules_only import freeze_all_but_rules
         freeze_all_but_rules(net)
+    if args.train_thinking_only:
+        for name, parameter in net.named_parameters():
+            parameter.requires_grad_(name.startswith("deliberation."))
     anchor = None
     if args.anchor_l2:
         from .rules_only import ParameterAnchor
@@ -288,7 +317,7 @@ def main(default_architecture="v4") -> None:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
             raise ValueError("Resume validation batch lanes must match the saved scoring protocol")
-        for receipt in ("encoder_warmstart", "candidate_context_warmstart"):
+        for receipt in ("encoder_warmstart", "candidate_context_warmstart", "thinking_warmstart"):
             if receipt in saved:
                 identity[receipt] = saved[receipt]
         net.load_state_dict(saved["state_dict"], strict=True)
@@ -388,6 +417,7 @@ def main(default_architecture="v4") -> None:
             ep_corr = 0
             ep_tot = 0
             epoch_stats = torch.zeros(5, device=device)
+            think_stats = None
             ep_batches = 0
             h = resume_h if epoch == resume_epoch else None
             train_sampler.epoch = epoch - 1
@@ -429,6 +459,13 @@ def main(default_architecture="v4") -> None:
                     traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans, loss_config)
                     epoch_stats[:3] += st[:3] / U
                     epoch_stats[3:] += st[3:]
+                    if args.think_loss is not None and any(f is not None for f in net.thinking_frames):
+                        from .think_loss import thinking_loss
+                        think_value, think_st = thinking_loss(net.thinking_frames, batch, plans, args.think_loss,
+                                                              loss_config.outcome_weighting)
+                        traj_loss = traj_loss + think_value
+                        if think_st.numel() > 2:
+                            think_stats = think_st if think_stats is None else think_stats + think_st
                     h = final_hidden
                 else:
                     full_outputs, full_aux = [], []
@@ -495,6 +532,10 @@ def main(default_architecture="v4") -> None:
                           f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
                           f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
                           f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
+                    if think_stats is not None:
+                        # Share of this epoch's decisions each step answers as the target; step 0 is the first proposal.
+                        per_step = (think_stats[:-1] / think_stats[-1].clamp(min=1)).tolist()
+                        print("[think] step=%d right_by_step=%s" % (step_num, json.dumps([round(x, 4) for x in per_step])), flush=True)
                 stop = ((args.max_steps > 0 and step_num >= args.max_steps)
                         or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds))
                 if step_num % args.checkpoint_every == 0 or stop:
@@ -535,7 +576,7 @@ def main(default_architecture="v4") -> None:
         **identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts,
         "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
-        "config": cfg.__dict__,
+        "config": cfg.to_dict(),
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version,
         "sampling_version": M.SAMPLING_VERSION,
         "dataset_fingerprint": train_ds.fingerprint,

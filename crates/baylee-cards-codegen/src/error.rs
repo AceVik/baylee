@@ -31,6 +31,15 @@ pub enum CodegenError {
         /// What went wrong.
         message: String,
     },
+    /// A card's ledger set has no release date in `baylee-cards-index`'s
+    /// set table, so no group of `crates/cards/sets` can be named for it.
+    #[error("{card}: set {set:?} has no release date; run `cargo xtask sets`")]
+    UnknownSet {
+        /// Card name.
+        card: String,
+        /// The ledger's set code.
+        set: String,
+    },
     /// JSON (de)serialization failure.
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),

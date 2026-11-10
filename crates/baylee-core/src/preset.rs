@@ -493,6 +493,25 @@ pub enum HoldUp {
     ThreatAware,
 }
 
+/// What a house AI plays from: its seat's view, or also what is hidden.
+///
+/// A player at the table knows their own view and their own decklist, and
+/// every level a player is offered by default knows exactly that
+/// (owner, 10.11.2026). Peeking is a level of its own, `seer`, chosen on
+/// purpose and listed as unfair wherever levels are listed.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Sight {
+    /// The seat's own view and its own submitted decklist.
+    #[default]
+    Fair,
+    /// Also every opponent's decklist and hand, and the next cards of every
+    /// library, which the host discloses to it (`baylee-gamehost`'s
+    /// `scouting::request`). Only the in-process host can: a seat over a
+    /// socket is sent none of it, so a seat bridge refuses a peeking level.
+    Peeking,
+}
+
 /// Difficulty profile of an AI seat (one code path, parameterized).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
@@ -508,6 +527,16 @@ pub struct AIProfile {
     pub politics: Politics,
     /// Open-mana discipline.
     pub hold_up: HoldUp,
+    /// Whether it plays from its seat's view or also from what is hidden.
+    /// Absent on the wire and in a record from before it: fair.
+    #[serde(default)]
+    pub sight: Sight,
+    /// Which house code it plays ([`Self::GENERATION`]): a change that makes
+    /// the house play differently says the generation it arrived in, and a
+    /// profile frozen before it never meets it. Absent on the wire and in a
+    /// record from before it: 0, the house as it was frozen on 10.11.2026.
+    #[serde(default)]
+    pub generation: u16,
 }
 
 impl Default for AIProfile {
@@ -524,6 +553,8 @@ impl AIProfile {
         mulligan_skill: 0,
         politics: Politics::Random,
         hold_up: HoldUp::None,
+        sight: Sight::Fair,
+        generation: Self::GENERATION,
     };
     /// Fixes land-starved hands, but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
@@ -538,6 +569,8 @@ impl AIProfile {
         mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
+        sight: Sight::Fair,
+        generation: Self::GENERATION,
     };
     /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
@@ -552,6 +585,36 @@ impl AIProfile {
         temperature_milli: 12,
         ..Self::SHARP
     };
+    /// `expert` that peeks: it is told every opponent's decklist and hand
+    /// and the next three cards of every library. Unfair by design, listed
+    /// as unfair, and never a default.
+    pub const SEER: Self = Self {
+        sight: Sight::Peeking,
+        ..Self::EXPERT
+    };
+
+    /// Whether this level plays from hidden information
+    /// ([`Sight::Peeking`]).
+    #[must_use]
+    pub const fn peeks(self) -> bool {
+        matches!(self.sight, Sight::Peeking)
+    }
+
+    /// The house as it was frozen on 10.11.2026 ([`Self::SHARP_2026_11`]).
+    pub const FROZEN_2026_11: u16 = 0;
+    /// The house plays as a team: house teammates show each other their
+    /// hands and read what they are shown, and an ally's board and spells
+    /// count as its side's (owner, 10.11.2026).
+    pub const TEAM_PLAY: u16 = 1;
+    /// What every level a player is offered plays: the newest generation.
+    pub const GENERATION: u16 = Self::TEAM_PLAY;
+
+    /// Whether this profile plays the house code of `generation` and later,
+    /// as every level does and a frozen reference before it does not.
+    #[must_use]
+    pub const fn plays(self, generation: u16) -> bool {
+        self.generation >= generation
+    }
 
     /// Deterministic search work per decision. A clock cutoff would make the
     /// same view choose differently on different machines; benchmarks measure
@@ -581,15 +644,20 @@ impl AIProfile {
         mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::ThreatAware,
+        sight: Sight::Fair,
+        generation: Self::FROZEN_2026_11,
     };
 
-    /// The profiles a player can choose between, weakest first.
-    pub const NAMED: [(&'static str, Self); 5] = [
+    /// The profiles a player can choose between, weakest first. The last,
+    /// `seer`, is the one that peeks ([`Self::peeks`]); a list that shows
+    /// these says so beside it.
+    pub const NAMED: [(&'static str, Self); 6] = [
         ("novice", Self::NOVICE),
         ("casual", Self::CASUAL),
         ("steady", Self::STEADY),
         ("sharp", Self::SHARP),
         ("expert", Self::EXPERT),
+        ("seer", Self::SEER),
     ];
 
     /// Frozen profiles that measurements name, never offered to a player.
@@ -1372,8 +1440,66 @@ mod tests {
                 mulligan_skill: 2,
                 politics: Politics::AttackLeader,
                 hold_up: HoldUp::ThreatAware,
+                sight: Sight::Fair,
+                generation: 0,
             }
         );
+    }
+
+    /// Exactly one level peeks, it is the last a list shows, it is no
+    /// default, and the reference is fair (owner, 10.11.2026). A profile
+    /// written before `sight` existed reads as fair: nothing on the wire or
+    /// in a record can make an old profile start peeking.
+    #[test]
+    fn only_the_seer_peeks_and_nothing_peeks_by_default() {
+        let peeking: Vec<&str> = AIProfile::NAMED
+            .iter()
+            .filter(|(_, profile)| profile.peeks())
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(peeking, ["seer"]);
+        assert_eq!(AIProfile::NAMED.last().map(|(name, _)| *name), Some("seer"));
+        assert!(!AIProfile::default().peeks());
+        assert_eq!(Sight::default(), Sight::Fair);
+        assert!(AIProfile::REFERENCES.iter().all(|(_, p)| !p.peeks()));
+        assert_eq!(
+            AIProfile::SEER,
+            AIProfile {
+                sight: Sight::Peeking,
+                ..AIProfile::EXPERT
+            },
+            "the seer is expert with its eyes open, nothing else"
+        );
+        let old = r#"{"lookahead":2,"temperature_milli":12,"mulligan_skill":2,
+            "politics":"AttackLeader","hold_up":"ThreatAware"}"#;
+        let read: AIProfile = serde_json::from_str(old).expect("an old profile reads");
+        assert_eq!(
+            read,
+            AIProfile {
+                generation: AIProfile::FROZEN_2026_11,
+                ..AIProfile::EXPERT
+            }
+        );
+        let said = serde_json::to_value(AIProfile::SEER).expect("a profile writes");
+        assert_eq!(said["sight"], "peeking");
+    }
+
+    /// Every level a player is offered plays the newest house code, and the
+    /// frozen reference the code of the day it was frozen, so a change behind
+    /// a generation reaches the levels and never the benchmark.
+    #[test]
+    fn every_level_plays_the_newest_generation_and_the_reference_its_own() {
+        for (name, profile) in AIProfile::NAMED {
+            assert_eq!(profile.generation, AIProfile::GENERATION, "{name}");
+            assert!(profile.plays(AIProfile::TEAM_PLAY), "{name}");
+        }
+        assert_eq!(
+            AIProfile::SHARP_2026_11.generation,
+            AIProfile::FROZEN_2026_11
+        );
+        assert!(!AIProfile::SHARP_2026_11.plays(AIProfile::TEAM_PLAY));
+        assert!(AIProfile::SHARP_2026_11.plays(AIProfile::FROZEN_2026_11));
+        assert!(AIProfile::default().plays(AIProfile::GENERATION));
     }
 
     /// A room that chose no format says nothing about one on the wire, a
