@@ -330,16 +330,62 @@ fn score_noise_changes_choices_without_changing_replays() {
             ..Default::default()
         }),
     };
-    let agent = HeuristicAgent::new(AIProfile::NOVICE);
-    let first = agent.act(&v, &pending);
+    let first = HeuristicAgent::new(AIProfile::NOVICE).act(&v, &pending);
     let mut different = false;
     for seq in 0..64 {
         v.seq = seq;
+        // An agent of its own for each question: one agent asked new
+        // questions from an unchanged position reads them as its action
+        // taken back (`stall`) and passes.
+        let agent = HeuristicAgent::new(AIProfile::NOVICE);
         let action = agent.act(&v, &pending);
         assert_eq!(action, agent.act(&v, &pending));
         different |= action != first;
     }
     assert!(different);
+}
+
+/// An agent asked a new question from the position it cast from is asked
+/// because the cast was taken back, and passes; asked the same question
+/// again it gives the same answer.
+#[test]
+fn a_cast_asked_again_from_its_position_is_not_given_again() {
+    let mut v = view(0, &[20, 20], vec![]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.seats[0].mana_pool.blue = 2;
+    v.hand = vec![hand_card(1, "Brainstorm")];
+    let pending = Pending::Priority {
+        player: v.seat,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            castable: vec![obj(1)],
+            ..Default::default()
+        }),
+    };
+    let agent = HeuristicAgent::new(AIProfile::SHARP);
+    v.seq = 1;
+    let cast = agent.act(&v, &pending);
+    assert!(matches!(cast, PlayerAction::CastSpell { .. }));
+    assert_eq!(
+        agent.act(&v, &pending),
+        cast,
+        "the same question, the same answer"
+    );
+    v.seq = 2;
+    assert_eq!(
+        agent.clone().act(&v, &pending),
+        PlayerAction::PassPriority,
+        "a new question from the same position: the cast was taken back"
+    );
+    v.seq = 3;
+    assert_eq!(agent.act(&v, &pending), cast, "the guard passes once");
+    v.seats[0].life = 19;
+    v.seq = 4;
+    assert_eq!(
+        agent.act(&v, &pending),
+        cast,
+        "another position is not a stall"
+    );
 }
 
 #[test]

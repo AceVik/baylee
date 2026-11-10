@@ -606,8 +606,12 @@ impl AIProfile {
     /// hands and read what they are shown, and an ally's board and spells
     /// count as its side's (owner, 10.11.2026).
     pub const TEAM_PLAY: u16 = 1;
+    /// An X that must equal a target's mana value is planned for a spell on
+    /// the stack as for a permanent (Spell Blast): the house announces an X
+    /// some spell has, or does not cast it.
+    pub const EXACT_SPELL_X: u16 = 2;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::TEAM_PLAY;
+    pub const GENERATION: u16 = Self::EXACT_SPELL_X;
 
     /// Whether this profile plays the house code of `generation` and later,
     /// as every level does and a frozen reference before it does not.

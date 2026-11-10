@@ -1189,13 +1189,35 @@ field the reference does not set, and the test stays green. That field is
 reference `FROZEN_2026_11` (0, which is also what a profile written before
 the field reads as), and a change says the generation it arrived in and
 asks `profile.plays(...)`. The first is `TEAM_PLAY` ("The house plays as a team, and
-teammates show each other their hands", above). Only a change
+teammates show each other their hands", above), the second
+`EXACT_SPELL_X`: an X that must equal a target's mana value is planned
+for a spell on the stack as for a permanent (Spell Blast announces an X
+some spell has, or is not cast). Only a change
 that has to move the reference, such as an engine or card fix that changes
 these games, re-records it, in a commit of its own that says why:
 `BAYLEE_REFERENCE_RERECORD=1 cargo nextest run -p baylee-gamehost --test
 integration reference_profile`. A frozen runtime (`--builds`) stays the way
 to compare numbers across builds; the fixture is what keeps the reference
 from drifting by accident between them.
+
+One change reaches the reference on purpose: **the stall guard**
+(`baylee_ai`'s `stall`, owner 10.11.2026). A cast or activation the engine
+cannot finish (an X that leaves no legal target, a cost that cannot be
+paid) is taken back, and the game is where it was. A deterministic house
+asked again from there gave the same answer, and the game went round until
+eval4's 5,000-answer cap ended it: the campaign's capped pairings were
+these loops (Spell Blast at an X no spell had, a seat's Kaervek's Purge at
+X 0). Each agent now remembers its last priority action and the position
+it gave it from (`StallMemory`, shared by its clones and kept by
+`HouseMind` across the agents it builds). Asked again from the same
+position, it would give the same action only because the engine took it
+back, and it passes instead. A position the house acted from does not
+come back once the action stands, so the guard changes no game that ends,
+and it is a loop guard at every level rather than a strength change. The
+pinned answers are unchanged. `tests/stall_guard.rs` replays the start of
+one capped game (`stall/purge-x0.jsonl`) and asks the house as the seat
+was asked then; without the guard it casts and is taken back until the
+test's cap.
 
 ## Evidence
 

@@ -21,35 +21,51 @@ impl HeuristicAgent {
         face: u8,
     ) -> Option<Vec<u32>> {
         let def = baylee_cards::by_index(card)?;
-        let filter = def
-            .abilities_for_face(usize::from(face))
-            .iter()
-            .find_map(|ability| {
-                let AbilityDef::Spell {
-                    targets: Some(req), ..
-                } = ability
-                else {
-                    return None;
-                };
-                let TargetSpec::Object(filter) = req.spec else {
-                    return None;
-                };
-                (req.min == 1 && !req.count_is_x && !req.distinct_mana_values && exact(filter))
-                    .then_some(filter)
-            })?;
-        let mut values = view
-            .battlefield
-            .iter()
-            .filter(|object| {
-                use baylee_cards_dsl::KeywordSet;
-                !object
-                    .status
-                    .contains(baylee_view::ObjectStatus::PHASED_OUT)
-                    && object.keywords & KeywordSet::SHROUD.bits() == 0
-                    && !(self.hostile(object.controller, view.seat)
-                        && object.keywords & KeywordSet::HEXPROOF.bits() != 0)
-            })
-            .filter(|object| self.exact_x_matches(filter, view, object, source))
+        let spells = self.profile.plays(crate::AIProfile::EXACT_SPELL_X);
+        let (filter, zone) =
+            def.abilities_for_face(usize::from(face))
+                .iter()
+                .find_map(|ability| {
+                    let AbilityDef::Spell {
+                        targets: Some(req), ..
+                    } = ability
+                    else {
+                        return None;
+                    };
+                    let (filter, zone) = match req.spec {
+                        TargetSpec::Object(filter) => (filter, ZoneRef::Battlefield),
+                        // "Counter target spell with mana value X" (Spell Blast).
+                        TargetSpec::Spell(filter) if spells => (filter, ZoneRef::Stack),
+                        _ => return None,
+                    };
+                    (req.min == 1 && !req.count_is_x && !req.distinct_mana_values && exact(filter))
+                        .then_some((filter, zone))
+                })?;
+        let candidates: Vec<&baylee_view::PublicObject> = if zone == ZoneRef::Stack {
+            view.stack
+                .iter()
+                .filter(|object| {
+                    object.id != source
+                        && matches!(object.stack_item, Some(baylee_view::StackItem::Spell))
+                })
+                .collect()
+        } else {
+            view.battlefield
+                .iter()
+                .filter(|object| {
+                    use baylee_cards_dsl::KeywordSet;
+                    !object
+                        .status
+                        .contains(baylee_view::ObjectStatus::PHASED_OUT)
+                        && object.keywords & KeywordSet::SHROUD.bits() == 0
+                        && !(self.hostile(object.controller, view.seat)
+                            && object.keywords & KeywordSet::HEXPROOF.bits() != 0)
+                })
+                .collect()
+        };
+        let mut values = candidates
+            .into_iter()
+            .filter(|object| self.exact_x_matches(filter, view, object, source, zone))
             .map(|object| object.mana_value)
             .collect::<Vec<_>>();
         values.sort_unstable();
@@ -63,16 +79,14 @@ impl HeuristicAgent {
         view: &PlayerView,
         object: &baylee_view::PublicObject,
         source: ObjectId,
+        zone: ZoneRef,
     ) -> bool {
         match filter {
             Filter::CmcExactlyX => true, // X is this object's public mana value.
             Filter::And(parts) => parts
                 .iter()
-                .all(|part| self.exact_x_matches(part, view, object, source)),
-            _ => {
-                self.filter_matches(filter, view, object, ZoneRef::Battlefield, Some(source))
-                    != Some(false)
-            }
+                .all(|part| self.exact_x_matches(part, view, object, source, zone)),
+            _ => self.filter_matches(filter, view, object, zone, Some(source)) != Some(false),
         }
     }
 

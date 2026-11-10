@@ -34,9 +34,11 @@ mod proliferate;
 mod redirect;
 mod restricted;
 pub mod search;
+mod stall;
 mod tactics;
 mod worth;
 pub use restricted::only_for as mana_restriction;
+pub use stall::StallMemory;
 pub use worth::mana_poured;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -62,6 +64,9 @@ pub struct HeuristicAgent {
     /// so the agent a host seats and the copies it answers through count
     /// into the one number the host reads. It changes no answer.
     fallbacks: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// The last priority action given and where from ([`stall`]), shared
+    /// by every clone.
+    stall: StallMemory,
 }
 
 impl HeuristicAgent {
@@ -74,6 +79,7 @@ impl HeuristicAgent {
             seed: 0,
             strategy: intelligence::Strategy::default(),
             fallbacks: std::sync::Arc::default(),
+            stall: StallMemory::default(),
         }
     }
 
@@ -227,7 +233,8 @@ impl HeuristicAgent {
         if let Some(subject) = controlled::subject(view, pending)
             && let Some(action) = self.decide_against(view, pending, context, subject)
         {
-            return self.held_to(view, pending, action);
+            let action = self.held_to(view, pending, action);
+            return self.unstalled(view, pending, action);
         }
         // Most questions are priority. Borrow its potentially large offer
         // instead of allocating a duplicate box and every legal-action list.
@@ -236,7 +243,10 @@ impl HeuristicAgent {
         } else {
             self.choice(view, pending.clone(), context)
         };
-        self.held_to(view, pending, proposal)
+        let action = self.held_to(view, pending, proposal);
+        // An action the engine took back is not given again from the same
+        // position (`stall`).
+        self.unstalled(view, pending, action)
     }
 
     /// The attack this seat would like to make, before the rules have their

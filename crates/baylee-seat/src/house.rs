@@ -20,7 +20,7 @@
 use crate::mind::{Answer, DeckList, Disclosure, GameContext, Mind, Request, Thinking};
 use baylee_ai::intelligence::DeckIntel;
 
-use baylee_ai::{AIProfile, HeuristicAgent, policy_seed};
+use baylee_ai::{AIProfile, HeuristicAgent, StallMemory, policy_seed};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::DecisionNote;
 use baylee_view::PlayerView;
@@ -30,6 +30,11 @@ use std::time::Instant;
 #[derive(Clone, Debug)]
 pub struct HouseMind {
     profile: AIProfile,
+    /// The last priority action the house gave and where from, kept across
+    /// the agents built for each answer, so that an action the table took
+    /// back is not given again from the same position
+    /// (`baylee_ai::StallMemory`).
+    stall: StallMemory,
 }
 
 impl Default for HouseMind {
@@ -41,8 +46,11 @@ impl Default for HouseMind {
 impl HouseMind {
     /// The house at this profile: its level.
     #[must_use]
-    pub const fn new(profile: AIProfile) -> Self {
-        Self { profile }
+    pub fn new(profile: AIProfile) -> Self {
+        Self {
+            profile,
+            stall: StallMemory::default(),
+        }
     }
 
     /// The house at a level the lobby names (`steady`, `sharp`, …) or a
@@ -107,7 +115,8 @@ impl HouseMind {
     ) -> PlayerAction {
         let agent = HeuristicAgent::new(self.profile)
             .with_teams(context.teams.clone())
-            .with_seed(policy_seed(&context.game_id, context.seat.get()));
+            .with_seed(policy_seed(&context.game_id, context.seat.get()))
+            .with_stall_memory(self.stall.clone());
         let deck = own_deck(&context.deck);
         baylee_ai::noted::answer_as_seated(&agent, view.clone(), pending, note, deck.as_ref())
     }
