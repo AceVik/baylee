@@ -33,17 +33,18 @@ thread_local! {
 /// friend/foe checks (`is_ally`, `is_opponent`) are team-aware with zero heap
 /// allocations.
 pub(crate) fn with_team_context<R>(teams: &[Option<u8>], f: impl FnOnce() -> R) -> R {
-    let mut next = [None; 8];
-    for (i, &t) in teams.iter().take(8).enumerate() {
-        next[i] = t;
-    }
-    let prev = ACTIVE_TEAMS.with(|cell| cell.replace(next));
+    /// Puts the teams that were in force back, however `f` ends.
     struct Guard([Option<u8>; 8]);
     impl Drop for Guard {
         fn drop(&mut self) {
             ACTIVE_TEAMS.with(|cell| cell.set(self.0));
         }
     }
+    let mut next = [None; 8];
+    for (i, &t) in teams.iter().take(8).enumerate() {
+        next[i] = t;
+    }
+    let prev = ACTIVE_TEAMS.with(|cell| cell.replace(next));
     let _guard = Guard(prev);
     f()
 }
@@ -747,7 +748,7 @@ fn is_fetchland_ability_entry(view: &PlayerView, source: ObjectId, ability_index
         .parts
         .iter()
         .filter_map(|p| match p {
-            CostPart::PayLife(n) => i32::try_from(*n).ok(),
+            CostPart::PayLife(n) => Some(i32::from(*n)),
             _ => None,
         })
         .sum();

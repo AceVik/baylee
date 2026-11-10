@@ -280,19 +280,16 @@ pub(super) fn chump_for_life(
     } else {
         usize::MAX
     };
-    let mut busy_count = declared.iter().map(|p| p.0).collect::<BTreeSet<_>>().len();
+    let busy = declared.iter().map(|p| p.0).collect::<BTreeSet<_>>().len();
     let added = chumps(view, pending, &declared);
     let mut any_added = false;
-    for (blocker, attacker) in &added {
-        if busy_count >= max_blks {
-            break;
-        }
+    // Each chump added makes one more blocker busy, up to the most allowed.
+    for (blocker, attacker) in added.iter().take(max_blks.saturating_sub(busy)) {
         for (pair, logit) in cands.pair_objects.iter().zip(logits.iter_mut()) {
             if pair.0 == *blocker {
                 *logit = if pair.1 == *attacker { SURE } else { NEVER };
             }
         }
-        busy_count += 1;
         any_added = true;
     }
     any_added
