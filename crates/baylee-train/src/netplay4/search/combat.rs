@@ -131,6 +131,13 @@ fn attacks(
             })
             .or_else(|| defenders.first().copied())
     };
+    // Whether `creature` may attack `defender` (CR 508.1b).
+    let may_attack = |creature: ObjectId, defender: Defender| {
+        limits
+            .iter()
+            .find(|limit| limit.creature == creature)
+            .is_none_or(|limit| limit.defenders.contains(&defender))
+    };
     let mut out: Vec<Vec<(ObjectId, Defender)>> = vec![canonical(own)];
     push_new(&mut out, &[]);
     let all: Vec<(ObjectId, Defender)> = offered
@@ -139,6 +146,18 @@ fn attacks(
         .filter_map(|&creature| defender_of(creature).map(|defender| (creature, defender)))
         .collect();
     push_new(&mut out, &all);
+    // With more than one defender (a team game, a planeswalker): the policy's
+    // attackers all at each other defender, so that focusing one is tried.
+    for &defender in defenders {
+        let focused: Vec<(ObjectId, Defender)> = own
+            .iter()
+            .map(|&(creature, _)| (creature, defender))
+            .filter(|&(creature, defender)| may_attack(creature, defender))
+            .collect();
+        if focused.len() == own.len() {
+            push_new(&mut out, &focused);
+        }
+    }
     for &creature in offered {
         let mut toggled: Vec<(ObjectId, Defender)> = own
             .iter()
@@ -236,6 +255,33 @@ mod tests {
         );
         // The policy's own toggled away is "none", already there.
         assert_eq!(candidates(&pending, &attack(&[2]), 3).len(), 3);
+    }
+
+    /// At a table of two opponents the policy's attack is also tried with
+    /// every attacker at the other one; a creature that may not attack
+    /// there keeps that focus from being tried.
+    #[test]
+    fn a_team_attack_is_tried_focused_on_each_defender() {
+        let other = PlayerId::new(3);
+        let mut pending = ask_attackers(&[1, 2], &[]);
+        if let Pending::ChooseAttackers { defenders, .. } = &mut pending {
+            defenders.push(Defender::Player(other));
+        }
+        let own = attack(&[1, 2]);
+        let focused = PlayerAction::DeclareAttackers {
+            attackers: vec![
+                (id(1), Defender::Player(other)),
+                (id(2), Defender::Player(other)),
+            ],
+        };
+        assert!(candidates(&pending, &own, 16).contains(&focused));
+        if let Pending::ChooseAttackers { limits, .. } = &mut pending {
+            limits.push(baylee_engine::choice::AttackLimit {
+                creature: id(2),
+                defenders: vec![Defender::Player(THEM)],
+            });
+        }
+        assert!(!candidates(&pending, &own, 16).contains(&focused));
     }
 
     #[test]

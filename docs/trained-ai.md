@@ -1135,7 +1135,8 @@ at a declaration of attackers or blockers as at priority (the offer is
 public; `docs/engine-internals.md` §"Forking a simulation"). With N > 0 such
 a declaration is a root when the policy's declaration is its own: it is
 compared with up to N − 1 others built from it — no attack or no block, all
-in, and each creature's part changed alone (an attacker added or taken out
+in, the policy's attackers all at each defender (focus in a team game or on a
+planeswalker), and each creature's part changed alone (an attacker added or taken out
 at its defender; a blocker dropped or moved to another attacker it may
 block) — those world 0 refuses dropped before the rounds. The subset and
 pair heads give no ranking over declarations, so the policy's declaration
