@@ -258,6 +258,21 @@ impl EvaluationPlayer for SeatPlayers {
             None
         }
     }
+    /// Only the learner explores; its opponent, a self-play copy too, plays
+    /// its own policy.
+    fn set_explorer(&mut self, explorer: baylee_train::netplay4::RuleExplorer4) -> bool {
+        self.learner.set_explorer(explorer)
+    }
+    fn take_exploration(&mut self) -> Option<baylee_train_ops::exploration::StepExploration> {
+        if self.last_was_learner {
+            self.learner.take_exploration()
+        } else {
+            None
+        }
+    }
+    fn exploration_game(&self) -> Option<baylee_train_ops::exploration::GameExploration> {
+        self.learner.exploration_game()
+    }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.player(usize::from(seat.get()))?.observed_value(seat)
     }
