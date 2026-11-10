@@ -1,7 +1,9 @@
 # House AI
 
-The five names in `AIProfile::NAMED` drive both the offline picker and the
+The six names in `AIProfile::NAMED` drive both the offline picker and the
 network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
+Every level but `seer` is fair: it plays from its seat's view and its own
+decklist, at any table (§"Fair by default, and the one level that peeks").
 Measurements name `sharp-2026-11`, a frozen copy of `sharp` that no player
 is offered (§"The frozen reference").
 
@@ -11,7 +13,8 @@ is offered (§"The frozen reference").
 | casual | Rejects fewer than two or more than five lands | ±400 noise; taps out | Individual trades |
 | steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; reserves cheap interaction after establishing a creature | Individual trades |
 | sharp | Same opening policy as steady | ±30 seeded score noise; releases the reserve when opponents have no visible threat or cards | Searches whole attack sets and blocking assignments, including gang blocks |
-| expert | Same opening policy as sharp | ±12 seeded noise; sees the next three library cards | Also simulates retaliation by surviving opponents |
+| expert | Same opening policy as sharp | ±12 seeded noise | Also simulates retaliation by surviving opponents |
+| seer (unfair) | As expert | As expert, and is told every opponent's decklist and hand and the next three cards of every library | As expert |
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
@@ -877,31 +880,67 @@ run a controlled turn yet. `crates/baylee-ai/src/tests/controlled_tests.rs`
 pins each behaviour, and `crates/baylee-gamehost/tests/ai_mindslaver.rs`
 plays a Mindslaver turn through the real engine with no house fallbacks.
 
-### Authorized AI scouting
+### Fair by default, and the one level that peeks
 
-House AIs now have an intentional advantage. The host's private
-`scouting::request` can supply main-deck lists, every commander, current hands,
-current sideboards and either bounded or complete library order, top first.
-The current built-in policies request their own deck at every level, opposing
-decks and hands at sharp, and three upcoming library cards at expert. Sideboards
-are requested during wishes. Full-library access is supported and tested but is
-not the default: the tactical policy does not benefit from copying it every move.
+Every level a player is offered plays from what its seat may see: its own
+view, and its own submitted decklist, which a player knows too (owner,
+10.11.2026). The one exception is `seer`, `expert` with its eyes open
+(`AIProfile::SEER`, `Sight::Peeking`): the host tells it every opponent's
+decklist and hand and the next three cards of every library. It is unfair
+on purpose, it is listed last, every list of levels labels it so ("Seer
+(unfair)", "Seher (unfair)": `i18n::ai_name`, which the lobby, the room
+sheet, the offline picker and the seat roster all draw through), and no
+table defaults to it. Before this, a hosted `sharp` read the opponents'
+decklists and hands and a hosted `expert` the next three library cards as
+well; a game the gateway or the engine server hosts no longer does, and
+neither does an offline one.
 
-Every request checks the **current** `SeatKind::Ai`. Human seats, human-driven
-AI chairs, disconnected humans' stand-ins and invalid seats are denied. There
-is no public Session getter or network message, the reports have no serialization,
-and neither human views nor print disclosure changes. Scouting is consumed for
-one decision and never retained in the agent kept during a human takeover.
-The ordinary view-only tests still prove independence from hidden cards; the
-privileged path deliberately behaves differently. A weakened access guard was
-injected and the security test failed before the guard was restored.
+Two places decide, one behind the other. The agent asks
+(`HeuristicAgent::scouting_request`): every level its own deck, and its own
+sideboard while it makes a wish; only a level that peeks asks for the rest.
+The host answers (`scouting::request`): it checks the **current**
+`SeatKind::Ai` and that chair's level, and a fair chair is told its own deck
+alone whatever it asked (`own_deck_only`). `Session::set_fair_scouting`
+holds even `seer` to its own deck, which is what evaluation and self-play
+set, so a measurement never depends on hidden cards whatever it seats; a
+hosted table never calls it, because its fair levels are fair without it. A
+profile built from the protobuf `AiProfile` message is fair, since the
+message has no field for sight; a peeking profile is chosen by its name.
+`Sight` reads as `Fair` from a preset or record written before it.
+
+Human seats, human-driven AI chairs, disconnected humans' stand-ins and
+invalid seats are denied outright. There is no public Session getter or
+network message, the reports have no serialization, and neither human views
+nor print disclosure change. Scouting is consumed for one decision and never
+retained in the agent kept during a human takeover.
+
+What proves it: `scouting::tests::a_fair_chair_asking_for_everything_is_told_its_own_deck`
+(the host's check alone), `a_fair_level_is_never_handed_hidden_zones` (every
+level's own request through the host), and
+`tests/fair_house.rs`, where a hosted table deals the house two games that
+differ only in what it may not see: the opponent's decklist, hand and
+library (all Plains against half Llanowar Elves), with the opponent keeping
+an empty hand and passing, so the public table is the same for ten turns.
+Every fair level, and the frozen reference, answers both deals answer for
+answer the same. `seer` does not (the control), and with the old rule
+injected back (hands and decklists from `sharp` up, the host's check off)
+the test fails at `sharp`'s 43rd answer, which is what the old hosted
+`sharp` did.
+
+A seat bridge plays from its socket's view, which carries nothing hidden, so
+it cannot play `seer`: `baylee-seat --level seer`, a collector's
+`house:seer` and the LLM seat's house fallback at that level are refused in
+one sentence that names `expert` (`baylee_seat::house::level`). The LLM
+seat's house fallback never peeked and plays as before.
 
 Deck lists are analysed once at setup, by printed properties and DSL effects.
-Cheap creature density, interaction, draw and artifacts influence deployment
-and resource priorities; a known opposing sweeper discourages committing a third
-creature, and known empty threats release reserved mana. These are heuristic
-adjustments, not a learned classifier or a complete combo planner. Reports carry
-card identities without actionable hidden object handles.
+A level's own list sets its creature, draw and artifact priorities and its
+tribe. `seer` alone also reads its opponents' lists, hands and library tops:
+cheap creature density and interaction set its interaction priority, a known
+opposing sweeper discourages committing a third creature, and known empty
+threats release reserved mana. These are heuristic adjustments, not a
+learned classifier or a complete combo planner. Reports carry card
+identities without actionable hidden object handles.
 
 Randomness is keyed by a **policy seed**, seat, choice sequence and object.
 The same complete input replays identically. Sharp and expert use narrow

@@ -1416,7 +1416,10 @@ its seat, so the record says which model made which action
 (`docs/protocol.md` §"Who answers a seat, as it says"). It is the mind as
 chosen above, flags over profile over build (`baylee_seat::declare`):
 
-- `--mind house` (or nothing named): `house` and its `--level`;
+- `--mind house` (or nothing named): `house` and its `--level`, a fair
+  level or a frozen reference (`sharp-2026-11`); `seer` reads hidden cards,
+  which a seat is never sent, and is refused in a sentence naming `expert`
+  (`baylee_seat::house::level`, `docs/house-ai.md`);
 - `--mind scripted`: `scripted`;
 - a model behind an API: `llm_api`, the provider (`anthropic`, `openai`),
   the exact model id and the effort, as sent to the provider;

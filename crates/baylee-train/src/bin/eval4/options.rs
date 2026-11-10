@@ -182,7 +182,8 @@ struct Args {
     /// Build/filter decks including the held-out cards excluded from training.
     #[arg(long)]
     held_out_cards: bool,
-    /// Clamp AI scouting so House opponents have no omniscient hand/deck peek.
+    /// Hold every house chair to its own decklist, the level that peeks
+    /// (`seer`) too; every other level is fair at any table.
     #[arg(long, default_value_t = true)]
     fair_scouting: bool,
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).

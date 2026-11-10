@@ -1349,8 +1349,8 @@ impl TableRules {
 pub struct LobbyChair {
     // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
     /// @description The AI's difficulty, for an AI chair; `null` for a
-    /// person's.
-    /// @openapi enum: [novice, casual, steady, sharp, expert, null]
+    /// person's. `seer` alone reads the other chairs' hidden cards.
+    /// @openapi enum: [novice, casual, steady, sharp, expert, seer, null]
     ai: Option<String>,
     /// @description The name of the deck the chair plays; empty while it
     /// has none.
