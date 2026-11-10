@@ -578,6 +578,23 @@ fn the_same_deals_count_once() {
         format!("{:#}", twice.unwrap_err()).contains("both hold game"),
         "a rerun of the same deals is one measurement"
     );
+    // Another deck pool from the same first seed shares seeds and tables but
+    // deals other decks: other games of the same player, not a rerun.
+    let mut pool = summary.clone();
+    for row in pool["deal_details"].as_array_mut().unwrap() {
+        row["decks"] = json!(["holdout2/a", "holdout2/b"]);
+    }
+    write(&base.join("pool.json"), &pool);
+    let pools = run(
+        "pools.json",
+        json!([{"file": "main.json", "player": "net", "opponent": "sharp"},
+            {"file": "pool.json", "player": "net", "opponent": "sharp"}]),
+    )
+    .unwrap();
+    assert_eq!(
+        pools["formats"]["1v1"]["inputs"].as_array().unwrap().len(),
+        2
+    );
     // Another player on the same deals is another match.
     run(
         "arms.json",
