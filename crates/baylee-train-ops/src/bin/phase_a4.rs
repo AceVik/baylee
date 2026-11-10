@@ -7,7 +7,7 @@
 // Counts of games and resamples, well below f64's exact 2^53 range.
 #![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
-use baylee_train_ops::evaluation::arms::{compare_arm, compare_exports, pool_arms};
+use baylee_train_ops::evaluation::arms::{compare_arm, compare_builds, compare_exports, pool_arms};
 use baylee_train_ops::evaluation::value_report::{read_positions, report, value_gap};
 use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
@@ -71,8 +71,12 @@ enum Command {
         resamples: usize,
         /// The arms are exports of one net (precision, a head): only the model
         /// may differ.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "builds")]
         exports: bool,
+        /// The arms are two builds of the evaluator (a view the net reads, a
+        /// rule): only the build may differ.
+        #[arg(long)]
+        builds: bool,
         #[arg(long)]
         out: PathBuf,
         pairs: Vec<String>,
@@ -418,17 +422,28 @@ fn eval_path(root: &Path, word: &str) -> PathBuf {
     root.join(format!("eval-{}.json", file_name(word)))
 }
 
-fn pair(root: &Path, spec: &str, resamples: usize, exports: bool) -> Result<Value> {
+/// What may differ between the runs `phase_a4 table` pairs.
+#[derive(Clone, Copy)]
+enum Pairing {
+    /// The flags of one build and one model (`compare_arm`).
+    Arm,
+    /// The model (`--exports`).
+    Exports,
+    /// The build (`--builds`).
+    Builds,
+}
+
+fn pair(root: &Path, spec: &str, resamples: usize, pairing: Pairing) -> Result<Value> {
     let (candidates, reference) = spec.split_once('~').context("CANDIDATES~REFERENCE")?;
     let runs: Vec<Value> = candidates
         .split(',')
         .map(|word| read_json(&eval_path(root, word)))
         .collect::<Result<_>>()?;
     let baseline = read_json(&eval_path(root, reference))?;
-    let compared = if exports {
-        compare_exports
-    } else {
-        compare_arm
+    let compared = match pairing {
+        Pairing::Arm => compare_arm,
+        Pairing::Exports => compare_exports,
+        Pairing::Builds => compare_builds,
     };
     let mut report = compared(&runs, &baseline, resamples)?;
     report["arm"] = json!(candidates);
@@ -850,17 +865,23 @@ fn survey_row(word: &str, text: &str) -> Value {
 }
 
 /// The table of `pairs`, printed and written to `out`.
-fn table(root: &Path, resamples: usize, exports: bool, out: &Path, pairs: &[String]) -> Result<()> {
+fn table(
+    root: &Path,
+    resamples: usize,
+    pairing: Pairing,
+    out: &Path,
+    pairs: &[String],
+) -> Result<()> {
     // `A~B/C~D` is one arm on two sets of deals, pooled.
     let reports: Vec<Value> = pairs
         .iter()
         .map(|spec| {
             if !spec.contains('/') {
-                return pair(root, spec, resamples, exports);
+                return pair(root, spec, resamples, pairing);
             }
             let parts: Vec<Value> = spec
                 .split('/')
-                .map(|part| pair(root, part, resamples, exports))
+                .map(|part| pair(root, part, resamples, pairing))
                 .collect::<Result<_>>()?;
             let mut pooled = pool_arms(&parts, resamples)?;
             pooled["arm"] = json!(format!("{spec} (pooled)"));
@@ -916,9 +937,19 @@ fn main() -> Result<()> {
             root,
             resamples,
             exports,
+            builds,
             out,
             pairs,
-        } => table(&root, resamples, exports, &out, &pairs)?,
+        } => {
+            let pairing = if exports {
+                Pairing::Exports
+            } else if builds {
+                Pairing::Builds
+            } else {
+                Pairing::Arm
+            };
+            table(&root, resamples, pairing, &out, &pairs)?;
+        }
         Command::Surveys {
             root,
             gamelog,

@@ -68,6 +68,31 @@ pub fn compare_exports(candidates: &[Value], reference: &Value, resamples: usize
     compare(candidates, reference, resamples, &protocol)
 }
 
+/// `compare_arm` between two builds of the evaluator, the change between
+/// them under test (a view the net reads, a rule): the same protocol and
+/// model, only `evaluator_revision` may differ. Both builds must still be
+/// clean commits.
+///
+/// # Errors
+/// As `compare_arm`, and when the builds do not differ.
+pub fn compare_builds(candidates: &[Value], reference: &Value, resamples: usize) -> Result<Value> {
+    for run in candidates {
+        ensure!(
+            run["precision"] == reference["precision"],
+            "Protocol differs: precision"
+        );
+        ensure!(
+            run["evaluator_revision"] != reference["evaluator_revision"],
+            "One build on both sides: pair it as an arm"
+        );
+    }
+    let protocol: Vec<&str> = SAME
+        .into_iter()
+        .filter(|key| *key != "evaluator_revision")
+        .collect();
+    compare(candidates, reference, resamples, &protocol)
+}
+
 fn compare(
     candidates: &[Value],
     reference: &Value,
@@ -230,6 +255,21 @@ mod tests {
         let mut arm = run(2, &[1.0, 1.0]);
         arm["evaluator_revision"] = json!("other");
         assert!(compare_arm(&[arm], &reference, 10).is_err());
+    }
+
+    #[test]
+    fn two_builds_pair_only_as_builds() {
+        let reference = run(1, &[0.0, 1.0]);
+        let mut arm = run(1, &[1.0, 1.0]);
+        arm["evaluator_revision"] = json!("other");
+        let report = compare_builds(&[arm.clone()], &reference, 10).unwrap();
+        assert_eq!(report["better"], 1);
+        assert!(compare_builds(std::slice::from_ref(&reference), &reference, 10).is_err());
+        arm["model"] = json!("another net");
+        assert!(compare_builds(&[arm.clone()], &reference, 10).is_err());
+        arm["model"] = json!("m");
+        arm["evaluator_dirty"] = json!(true);
+        assert!(compare_builds(&[arm], &reference, 10).is_err());
     }
 
     #[test]
