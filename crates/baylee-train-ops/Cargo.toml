@@ -107,3 +107,7 @@ path = "src/bin/import_17lands4.rs"
 [[bin]]
 name = "llm_report_status"
 path = "src/bin/llm_report_status.rs"
+
+[[bin]]
+name = "rating4"
+path = "src/bin/rating4.rs"

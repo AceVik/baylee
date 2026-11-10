@@ -5,6 +5,7 @@ pub mod decks;
 pub mod diagnostics;
 pub mod ladder;
 mod paired;
+pub mod rating;
 pub mod search_parity;
 mod summary;
 pub mod value_report;
