@@ -25,10 +25,7 @@ pub(crate) fn agent(
 
 #[cfg(test)]
 mod tests {
-    use super::agent;
     use crate::{Args, collector, house_as_seat_refusal};
-    use baylee_core::ids::PlayerId;
-    use baylee_core::preset::AIProfile;
     use clap::Parser as _;
 
     #[test]
@@ -58,7 +55,9 @@ mod tests {
     #[cfg(feature = "llm")]
     #[test]
     fn a_seated_house_answers_as_the_seat_bridges_house_mind() {
-        use baylee_core::preset::FormatId;
+        use super::agent;
+        use baylee_core::ids::PlayerId;
+        use baylee_core::preset::{AIProfile, FormatId};
         use baylee_gamehost::Session;
         use baylee_seat::{DeckList, GameContext, HouseMind};
 
