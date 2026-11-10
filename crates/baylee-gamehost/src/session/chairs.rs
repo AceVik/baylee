@@ -225,7 +225,7 @@ impl Session {
             .state()
             .zones
             .list(ZoneLocation::Hand(owner))
-            .to_vec();
+            .clone();
         cards.sort_unstable();
         self.shown_once.insert((owner.get(), viewer.get()), cards);
     }
@@ -243,8 +243,10 @@ impl Session {
                 self.showing[o].insert(asker);
                 self.shown_once.remove(&(owner.get(), asker.get()));
             }
-            (HandSharingRule::OnceOnly, AiHandSharePolicy::AlwaysContinuous)
-            | (HandSharingRule::OnceOnly, AiHandSharePolicy::OnRequestContinuous)
+            (
+                HandSharingRule::OnceOnly,
+                AiHandSharePolicy::AlwaysContinuous | AiHandSharePolicy::OnRequestContinuous,
+            )
             | (_, AiHandSharePolicy::OnRequestOnce) => {
                 self.record_hand_once(owner, asker);
             }
@@ -421,6 +423,10 @@ impl Session {
     /// the game is over; when a seat it names is not a teammate still in the
     /// game, or is a chair the house AI plays and so is shown no hand; and
     /// when it asks again in the turn it was turned down.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one arm per setting, each holding its own refusals"
+    )]
     pub fn seat_setting(
         &mut self,
         seat: PlayerId,
@@ -449,12 +455,12 @@ impl Session {
                         HandSharingRule::Allowed => {}
                         HandSharingRule::OnceOnly => {
                             return Err(
-                                "continuous hand sharing is disabled in this game mode; use one-time sharing"
+                                "continuous hand sharing is disabled in this mode; use one-time sharing"
                                     .into(),
                             );
                         }
                         HandSharingRule::Disabled => {
-                            return Err("hand sharing is disabled in this game mode".into());
+                            return Err("hand sharing is disabled in this mode".into());
                         }
                     }
                 }
@@ -482,7 +488,7 @@ impl Session {
                     self.shown_once.retain(|&(owner, _), _| owner != seat.get());
                 } else {
                     if self.house_rules.hand_sharing == HandSharingRule::Disabled {
-                        return Err("hand sharing is disabled in this game mode".into());
+                        return Err("hand sharing is disabled in this mode".into());
                     }
                     if let Some(other) = shown.iter().find(|&o| !mates.contains(o)) {
                         return Err(format!("seat {other} is not a teammate still in the game"));
@@ -503,7 +509,7 @@ impl Session {
             }
             SeatSetting::RequestHand(owner) => {
                 if self.house_rules.hand_sharing == HandSharingRule::Disabled {
-                    return Err("hand sharing is disabled in this game mode".into());
+                    return Err("hand sharing is disabled in this mode".into());
                 }
                 if !mates.contains(owner) {
                     return Err(format!("seat {owner} is not a teammate still in the game"));
