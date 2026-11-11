@@ -482,7 +482,7 @@ def main(default_architecture="v4") -> None:
                                  cache=args.window_state_cache if initial else None,
                                  source=file_digest(init_pt) if initial else None,
                                  seats=args.window_state_seats, store_bf16=args.window_state_bf16,
-                                 run_dir=out_dir)
+                                 run_dir=out_dir, prefetch=args.window_state_prefetch)
         net.train()
         print(f"[windows] states reason={reason} origin={origin} pieces={len(windows.pieces)} "
               f"seconds={time.perf_counter() - began:.1f} frames={windows.statistics['frames']} "
@@ -493,11 +493,22 @@ def main(default_architecture="v4") -> None:
 
     if windows is not None:
         # Before any state pass: refuse a run whose host memory would not fit.
-        from .memory_budget import check, memory_limit, window_estimate
+        from .memory_budget import check, check_shm, memory_limit, shm_estimate, shm_limit, window_estimate
         store_bytes = windows.store_bytes(cfg.d_model, args.window_state_seats, args.window_state_bf16)
         estimate = window_estimate(windows.statistics["frames"], len(windows.pieces), store_bytes, False,
                                    args.window_state_workers, args.window_state_lanes, args.unroll,
-                                   args.num_workers, args.batch_size, args.window_length)
+                                   args.num_workers, args.batch_size, args.window_length,
+                                   state_prefetch=args.window_state_prefetch)
+        # Loader workers hand batches over through /dev/shm, a per-user quota.
+        shm = shm_estimate(args.window_state_workers, args.window_state_prefetch, args.window_state_lanes,
+                           args.unroll, args.num_workers, args.batch_size, args.window_length)
+        shm_bytes, shm_source = shm_limit(args.shm_limit_gib)
+        shm_peak = check_shm(shm, shm_bytes, args.shm_budget_fraction)
+        print("[memory] shm " + json.dumps(dict(estimate_gib=round(shm_peak / 2**30, 2),
+                                                 limit_gib=round(shm_bytes / 2**30, 2), limit_source=shm_source,
+                                                 fraction=args.shm_budget_fraction,
+                                                 loaders_gib={k: round(v / 2**30, 2) for k, v in shm.items()})),
+              flush=True)
         limit, source = memory_limit(args.memory_limit_gib)
         # Store files on disk: a new initial cache, and the run's own store once
         # the weights below the heads change (a later epoch or a refresh).
