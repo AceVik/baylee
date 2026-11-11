@@ -2144,8 +2144,10 @@ coarse confusion (R's class against the student's top-1 class) over every
 labelled priority decision and at `N ≠ R` (`val_distill_coarse_confusion`,
 `_n_ne_r`, `val_distill_coarse_top1_r`), and act/pass agreement per direction.
 It also follows R's acting chains (`ChainCounter`): a chain is a run of
-labelled priority decisions of one trajectory where R acts; its start follows
-a pass of R's. At the start, mid-chain (teacher forced) and where R passes,
+labelled priority decisions of one trajectory where R taps, casts or activates;
+its start follows a pass of R's, and R's land drops (which the student keeps
+making) neither start, continue nor end one. At the start, mid-chain (teacher
+forced), where R passes and at R's land drops,
 overall and by subtype and class (`val_distill_chain_by`), it reports the
 student's top-1 against R and N and how often the student and r1 act, plus
 the share of chains the student, and r1, act through
