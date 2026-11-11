@@ -2416,13 +2416,15 @@ disagrees with the recorded `N ≠ R` flag (`_n_flag_mismatch`).
 `python -m training4.distill_audit` computes the same for a checkpoint on the
 CPU, over every k-th validation trajectory, with the actions (by the candidate's
 priority column) the student moved to where it answers neither.
-`--distill-coarse` teaches the priority decisions where `N ≠ R` by their coarse
-class (pass, tap, cast, activate, land, other; rule `coarse_class_v1`): where
-R's class differs from N's, cross-entropy to R's class on the student's summed
-probability of that class (`ce_coarse_r`), so both directions are taught (R
-taps where N passes, R passes where N taps); where only the candidate differs
-(another mana source), cross-entropy to N's recorded candidate (`ce_fine_n`).
-The KL keeps `N = R`, and target questions keep their cross-entropy to R. The
+`--distill-coarse {act,class}` teaches the priority decisions where `N ≠ R`
+by a group of answers: `act` splits pass (PassPriority, CancelCast) from acting
+(tap, cast, activate, land, other), `class` takes the six coarse classes
+(rule `coarse_class_v1`). Where R's group differs from N's, cross-entropy to
+R's group on the student's summed probability of it (`ce_coarse_r`), so both
+directions are taught (R acts where N passes, R passes where N acts). Inside
+one group a `cast` decision keeps its cross-entropy to R (which spell); any
+other gets cross-entropy to N's recorded candidate (`ce_fine_n`: a tap's source
+or order). The KL keeps `N = R`, and target questions keep their cross-entropy to R. The
 classes come from the dataset's sidecar `bundle-distill/coarse-classes.*`
 (written by the data side, outside the shards, so the store's fingerprint and
 a window-state cache stay valid): one class per candidate of every labelled
@@ -2431,7 +2433,25 @@ cannot tell a mana ability taken through `ActivateAbility`. A labelled priority
 frame the sidecar misses or contradicts fails the run. Validation reports the
 coarse confusion (R's class against the student's top-1 class) over every
 labelled priority decision and at `N ≠ R` (`val_distill_coarse_confusion`,
-`_n_ne_r`, `val_distill_coarse_top1_r`).
+`_n_ne_r`, `val_distill_coarse_top1_r`), and act/pass agreement per direction.
+It also follows R's acting chains (`ChainCounter`): a chain is a run of
+labelled priority decisions of one trajectory where R acts; its start follows
+a pass of R's. At the start, mid-chain (teacher forced) and where R passes,
+overall and by subtype and class (`val_distill_chain_by`), it reports the
+student's top-1 against R and N and how often the student and r1 act, plus
+the share of chains the student, and r1, act through
+(`val_distill_chain_completion`, `_r1`). Round 0's head-only arm A started 3.6 %
+of R's mana chains against r1's 62.6 % and acted through 3.2 % against 59.4 %;
+in play its casts fell to 5.4 % of r1's.
+The offline pre-gate (`distill.pregate`) fails a run whose student starts
+chains less than `MIN_RATIO` times as often as r1 on the same rows
+(`val_distill_pregate_start_act_ratio`), or passes where R passes less than
+`MIN_RATIO` times as often as r1 (`val_distill_pregate_pass_ratio`). It runs
+three ways, each exiting 3 on failure:
+- `--pregate-chain-start MIN_RATIO` on train5, after the checkpoint is saved;
+- `python -m training4.pregate --model DIR`, which reads `meta.json` in a
+  second, as a stage after the export and before any play gate;
+- `python -m training4.distill_audit` on a checkpoint from an older run.
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.
 **With the deliberation block** (arms "A + block" and "B + block"): add

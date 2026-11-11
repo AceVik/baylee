@@ -93,11 +93,19 @@ def main(default_architecture="v4") -> None:
     # nothing else; set before any loader copies the datasets into workers.
     from .distill import check_datasets
     check_datasets((train_ds, val_ds), args.distill_bundle)
-    if args.distill_coarse:
-        # Coarse answer classes beside the shards, outside the store's fingerprint.
+    if args.distill_bundle:
+        # Coarse answer classes beside the shards, outside the store's fingerprint:
+        # training reads them for --distill-coarse; validation wherever the dataset has
+        # them, so every run's chain counts use the same classes.
         from .coarse import CoarseClasses
         for dataset in (train_ds, val_ds):
-            dataset.coarse = CoarseClasses.load(Path(dataset.data_dir) / "bundle-distill")
+            directory = getattr(dataset, "data_dir", None)
+            sidecar = None if directory is None else Path(directory) / "bundle-distill"
+            present = sidecar is not None and (sidecar / "coarse-classes.json").is_file()
+            if args.distill_coarse and not present:
+                raise ValueError("--distill-coarse needs the dataset's bundle-distill/coarse-classes sidecar")
+            if args.distill_coarse or (dataset is val_ds and present):
+                dataset.coarse = CoarseClasses.load(sidecar)
 
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
@@ -834,6 +842,13 @@ def main(default_architecture="v4") -> None:
     }
     atomic_json(out_dir / "meta.json", meta_out)
     print(f"[train4] saved checkpoint to {out_dir}")
+    if args.pregate_chain_start > 0:
+        # After everything is saved: a failed pre-gate fails the stage, not the checkpoint.
+        from .distill import pregate
+        passed, verdict = pregate(final_metrics, args.pregate_chain_start)
+        print("[pregate] " + json.dumps(verdict), flush=True)
+        if not passed:
+            raise SystemExit(3)
 
 
 if __name__ == "__main__":
