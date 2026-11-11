@@ -12,6 +12,8 @@ workspace = true
 
 [dependencies]
 anyhow.workspace = true
+# The house's levels and a room's rules, as the gateway reads them (`ladder4`).
+baylee-core.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["float_roundtrip"] }

@@ -2574,6 +2574,7 @@ name = "baylee-train-ops"
 version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
+ "baylee-core",
  "clap",
  "csv",
  "ctrlc",
