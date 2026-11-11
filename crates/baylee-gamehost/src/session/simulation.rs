@@ -95,21 +95,22 @@ pub(super) struct ForkTiming {
 /// in the fork: reading the table and moving the game both grow with what is
 /// on it.
 ///
-/// Provisional (11.11.2026): set from one 256-game profile at expert's tier,
-/// where an answer with its step took about 85 µs of its thread's CPU time
-/// at the mean and about 145 µs on a board of forty permanents, and a node
-/// about 0.08 µs. To be fitted to `eval4`'s `foresight.by_board` before a
-/// bound is relied on (`docs/proposals/house-ai-strength.md` §7).
+/// Fitted (11.11.2026) to `eval4`'s `foresight.by_board` over 9,776 searched
+/// answers at expert's tier, timed by their thread's CPU time: a combat-search
+/// node on a full table takes about 0.08 µs, and an answer that is no attack
+/// or block, its step included, 41, 57, 77, 109 and 154 µs at the mean on
+/// boards from 0, 8, 16, 24 and 32 permanents and stack objects. A line
+/// through the two ends, which prices the middle boards a little high:
+/// 30 µs and 3.2 µs a permanent at 0.08 µs a unit
+/// (`docs/proposals/house-ai-strength.md` §7).
 pub(super) const fn answer_work(board: u64) -> u64 {
-    750 + 25 * board
+    375 + 40 * board
 }
 
-/// What making one fork costs on a search's meter, in the same unit, with
-/// `objects` live objects in the game: a fork copies them all. Provisional as
-/// [`answer_work`] is: a fork took about 210 µs at the mean.
-pub(super) const fn fork_work(objects: u64) -> u64 {
-    1500 + 8 * objects
-}
+/// What making one fork costs on a search's meter, in the same unit: 196 to
+/// 206 µs at the mean on every size of board in the same profile, so one
+/// price for all, which also reads nothing of the game.
+pub(super) const FORK_WORK: u64 = 2_500;
 
 /// The `SplitMix64` stream constant, the step between seeds of one purpose.
 const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
@@ -603,11 +604,5 @@ impl SimulationSession {
         use baylee_engine::zone::ZoneLocation;
         let zones = &self.engine.state().zones;
         (zones.list(ZoneLocation::Battlefield).len() + zones.list(ZoneLocation::Stack).len()) as u64
-    }
-
-    /// The live objects in this fork: what making it is priced by
-    /// ([`fork_work`]).
-    pub(super) fn objects(&self) -> u64 {
-        self.engine.state().arena.len() as u64
     }
 }

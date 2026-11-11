@@ -14,6 +14,11 @@
 //! the same work on any machine, so a bound on it changes no answer from one
 //! machine to the next. An agent a host has not given a meter has one of its
 //! own without a bound, which changes nothing.
+//!
+//! That holds while one meter's holders spend in a fixed order: a search
+//! plays its forks one after another on one thread. Forks played at the same
+//! time would spend in the order the threads happen to run, and where a bound
+//! falls would then depend on the machine.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 

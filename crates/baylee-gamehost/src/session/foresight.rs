@@ -285,7 +285,8 @@ impl Session {
     /// house answer in a fork at a price in the same unit that grows with
     /// what is on the table, and stops where it stands once it has spent
     /// `work` units. It then chooses among the answers it tried in the same
-    /// worlds, the level's own where not one round of worlds was finished.
+    /// worlds, the level's own where fewer than half its worlds were
+    /// finished.
     /// One combat search in a fork may visit a [`SEARCH_SHARE`]th of the
     /// bound and no more ([`Session::set_foresight_nodes`] sets another
     /// share). `None`, the default, leaves a search its level's whole
@@ -500,8 +501,8 @@ impl Session {
     /// A search that runs out of work ([`Session::set_foresight_work`])
     /// stops where it stands. The world it was in is dropped, and with it
     /// the round that world belongs to: the answer is chosen among the plans
-    /// that were all tried in the same worlds, which is the level's own
-    /// where not one round was finished.
+    /// that were all tried in the same worlds, and it is the level's own
+    /// where fewer than half the worlds were finished.
     fn searched(
         &mut self,
         search: &Search<'_>,
@@ -583,7 +584,13 @@ impl Session {
             }
         }
         self.foresight_cost.cut = cut;
-        let chosen = choose(&outcomes, MARGIN);
+        // A search cut before half its worlds were played compares its
+        // answers over too few deals to replace the level's own on them.
+        let chosen = if cut && worlds * 2 < search.seeds.len() {
+            0
+        } else {
+            choose(&outcomes, MARGIN)
+        };
         Ok(Tried {
             plans,
             outcomes,
@@ -692,14 +699,17 @@ impl Session {
 
     /// The single targets `answer` (a spell or an ability) may take, as the
     /// answers that name each: read off the question the engine asks next in
-    /// a fork. Empty where it asks something else, or for more or fewer
-    /// than one target.
+    /// a fork. Empty where it asks something else, for more or fewer than
+    /// one target, or where the search has no work left to make the fork.
     fn targets_of(
         &mut self,
         search: &Search<'_>,
         answer: &PlayerAction,
     ) -> Result<Vec<PlayerAction>, ForkRefusal> {
         let player = search.player;
+        if search.work.exhausted() {
+            return Ok(Vec::new());
+        }
         let mut fork = self.fork_modelled(search, search.seeds[0])?;
         if fork.act_slice(player, answer.clone(), 0).is_err() {
             return Ok(Vec::new());
@@ -756,10 +766,9 @@ impl Session {
         let forking = clock.now();
         let forked = self.forked(search.player, decks, seed, told);
         self.foresight_cost.forks += 1;
-        if let Ok(fork) = &forked {
-            let price = super::simulation::fork_work(fork.objects());
-            search.work.spend(price);
-            self.foresight_priced += price;
+        if forked.is_ok() {
+            search.work.spend(super::simulation::FORK_WORK);
+            self.foresight_priced += super::simulation::FORK_WORK;
         }
         self.foresight_cost.fork_micros += micros(clock.now().saturating_sub(forking));
         match forked {

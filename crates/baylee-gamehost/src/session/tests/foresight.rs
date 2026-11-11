@@ -47,23 +47,46 @@ fn deal(seed: u64, house: &LoadedDeck, theirs: &LoadedDeck, profile: AIProfile) 
     preset
 }
 
+/// How a test's table is set: foresight on or off, a share of its searches
+/// probed, a bound on a search's work.
+#[derive(Clone, Copy)]
+struct Setting {
+    foresight: bool,
+    probe: Option<u64>,
+    work: Option<u64>,
+}
+
+impl Setting {
+    /// Foresight on, nothing probed, no bound.
+    const ON: Self = Self {
+        foresight: true,
+        probe: None,
+        work: None,
+    };
+}
+
+/// What a table played: every answer the house gave, with the public table
+/// after it; what its searches did; the leaves its probe kept.
+struct Played {
+    answers: Vec<(PlayerAction, String)>,
+    stats: crate::ForesightStats,
+    leaves: Vec<crate::ProbedLeaf>,
+}
+
 /// Every answer the house gave with foresight on, with the public table
 /// after it, and how many answers it searched.
 fn house_answers(preset: &GamePreset) -> (Vec<(PlayerAction, String)>, u64) {
-    let (answers, searched, _) = played(preset, None);
-    (answers, searched)
+    let table = played(preset, Setting::ON);
+    (table.answers, table.stats.searched)
 }
 
-/// [`house_answers`] at a table that probes one searched question in
-/// `probe`, with the leaves it kept.
-fn played(
-    preset: &GamePreset,
-    probe: Option<u64>,
-) -> (Vec<(PlayerAction, String)>, u64, Vec<crate::ProbedLeaf>) {
+/// `preset` played to [`LAST_TURN`] at a table set as `setting` says.
+fn played(preset: &GamePreset, setting: Setting) -> Played {
     let mut session = Session::new_recorded(preset, "foresight").expect("the table starts");
     session.describe("foresight".into(), vec!["house".into(), "person".into()]);
-    session.set_foresight(true);
-    session.set_foresight_probe(probe);
+    session.set_foresight(setting.foresight);
+    session.set_foresight_probe(setting.probe);
+    session.set_foresight_work(setting.work);
     let person = PlayerId::new(1);
     for _ in 0..10_000 {
         let _ = session.pump();
@@ -80,8 +103,8 @@ fn played(
             .act(person, nothing)
             .expect("doing nothing is an answer");
     }
-    let searched = session.foresight_stats().searched;
-    let probed = session.take_foresight_probe();
+    let stats = session.foresight_stats().clone();
+    let leaves = session.take_foresight_probe();
     let record = String::from_utf8(session.take_record()).expect("a record is text");
     let answers = record
         .lines()
@@ -95,7 +118,11 @@ fn played(
             _ => None,
         })
         .collect();
-    (answers, searched, probed)
+    Played {
+        answers,
+        stats,
+        leaves,
+    }
 }
 
 #[test]
@@ -216,6 +243,148 @@ fn a_search_tries_the_spells_its_lands_pay_for() {
     );
 }
 
+/// A bound under the cost of many of these deals' searches and over that of
+/// others, so that some stop where they stand and some finish.
+const TIGHT: u64 = 1_000_000;
+
+/// The same deal, policy seeds and bound give the same answers and spend the
+/// same work search by search, and the bound stops searches: the work is a
+/// count, so a bounded search answers alike on every machine.
+#[test]
+fn a_bounded_search_is_deterministic() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let bounded = Setting {
+        work: Some(TIGHT),
+        ..Setting::ON
+    };
+    let first = played(&preset, bounded);
+    let again = played(&preset, bounded);
+    assert_eq!(
+        first.answers, again.answers,
+        "a bounded search answered otherwise"
+    );
+    assert_eq!(
+        counts(&first),
+        counts(&again),
+        "the same searches spent otherwise"
+    );
+    let cut = first.stats.costs.iter().filter(|cost| cost.cut).count();
+    assert!(cut > 0, "no search reached the bound of {TIGHT}");
+    assert!(
+        cut < first.stats.costs.len(),
+        "every search stopped at the bound"
+    );
+    // A bound is hard but for the price of the step a search was in: one
+    // fork, or one house answer on a board of fewer than a hundred objects
+    // (a combat search is held to what is left).
+    let step = super::super::simulation::FORK_WORK + super::super::simulation::answer_work(100);
+    for cost in &first.stats.costs {
+        assert!(cost.work <= TIGHT + step, "{cost:?} ran past the bound");
+    }
+}
+
+/// What one search did, in counts: its kind, forks, combat and other
+/// answers, the board those were given over, nodes, work, and whether the
+/// bound stopped it.
+type Counts = (u8, u32, u32, u32, u64, u64, u64, bool);
+
+/// What a table's searches did, in counts and without their times, which no
+/// answer reads and which differ from one run to the next.
+fn counts(table: &Played) -> Vec<Counts> {
+    table
+        .stats
+        .costs
+        .iter()
+        .map(|cost| {
+            (
+                cost.kind,
+                cost.forks,
+                cost.combat_answers,
+                cost.other_answers,
+                cost.board,
+                cost.nodes,
+                cost.work,
+                cost.cut,
+            )
+        })
+        .collect()
+}
+
+/// A bound of nothing leaves every searched question the level's own
+/// answer: the table plays as one without foresight, answer for answer, and
+/// its searches make no fork.
+#[test]
+fn a_bound_of_nothing_gives_the_levels_own_answers() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let none = played(
+        &preset,
+        Setting {
+            work: Some(0),
+            ..Setting::ON
+        },
+    );
+    let off = played(
+        &preset,
+        Setting {
+            foresight: false,
+            ..Setting::ON
+        },
+    );
+    assert_eq!(
+        none.answers, off.answers,
+        "a search with no work changed an answer"
+    );
+    assert!(none.stats.searched > 10, "too few questions were searched");
+    assert_eq!(none.stats.replaced, 0);
+    assert_eq!(none.stats.rollouts, 0);
+    for cost in &none.stats.costs {
+        assert_eq!((cost.forks, cost.work), (0, 0), "{cost:?}");
+    }
+}
+
+/// A bounded search stays fair: `tests/fair_house.rs`'s two deals, told
+/// apart only by the opponent's list, hand and library, are searched alike
+/// under a bound that stops searches, answer for answer and unit for unit.
+#[test]
+fn a_bounded_search_answers_the_same_whatever_is_hidden() {
+    let decks = [merfolk_and_counters(), goblins_and_bolts()];
+    let bounded = Setting {
+        work: Some(TIGHT),
+        ..Setting::ON
+    };
+    let mut cut = 0;
+    for (name, profile) in [("expert", AIProfile::EXPERT), ("novice", AIProfile::NOVICE)] {
+        for (seed, deck) in [(11, &decks[0]), (12, &decks[1]), (13, &decks[1])] {
+            let plains = played(&deal(seed, deck, &opponent("Plains", 60), profile), bounded);
+            let elves = played(
+                &deal(seed, deck, &opponent("Llanowar Elves", 30), profile),
+                bounded,
+            );
+            assert_eq!(
+                plains.answers, elves.answers,
+                "{name} under a bound answered differently when only hidden cards differed"
+            );
+            assert_eq!(
+                counts(&plains),
+                counts(&elves),
+                "{name}: the searches spent otherwise"
+            );
+            cut += plains.stats.costs.iter().filter(|cost| cost.cut).count();
+        }
+    }
+    assert!(cut > 0, "no search reached the bound");
+}
+
 /// A table that judges its searches answers as one that does not: the
 /// worlds of the probed questions are played on to the end and kept, each
 /// with the level's own answer among those tried, and no answer changes.
@@ -228,11 +397,21 @@ fn probing_a_search_changes_no_answer() {
         &opponent("Llanowar Elves", 30),
         AIProfile::EXPERT,
     );
-    let (plain, searched, nothing) = played(&preset, None);
-    let (probed, as_many, leaves) = played(&preset, Some(3));
-    assert_eq!(plain, probed, "the probe changed an answer or a table");
-    assert_eq!(searched, as_many);
-    assert!(nothing.is_empty());
+    let plain = played(&preset, Setting::ON);
+    let probed = played(
+        &preset,
+        Setting {
+            probe: Some(3),
+            ..Setting::ON
+        },
+    );
+    let (searched, leaves) = (plain.stats.searched, probed.leaves);
+    assert_eq!(
+        plain.answers, probed.answers,
+        "the probe changed an answer or a table"
+    );
+    assert_eq!(searched, probed.stats.searched);
+    assert!(plain.leaves.is_empty());
     assert!(!leaves.is_empty(), "no searched question was probed");
     let mut roots = std::collections::BTreeSet::new();
     let mut with_own = std::collections::BTreeSet::new();
