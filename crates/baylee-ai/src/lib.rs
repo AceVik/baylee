@@ -23,6 +23,7 @@ mod damage;
 mod endings;
 mod fight;
 mod filter;
+pub mod foresight;
 mod granted;
 mod held;
 pub mod intelligence;

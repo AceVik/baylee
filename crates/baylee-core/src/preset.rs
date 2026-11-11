@@ -512,6 +512,22 @@ pub enum Sight {
     Peeking,
 }
 
+/// What a level may spend on one answer it tries in copies of the game
+/// ([`AIProfile::foresight`]): counts, never time.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Foresight {
+    /// Answers compared, the level's own first.
+    pub candidates: u8,
+    /// Worlds each answer is tried in: deals of the hidden cards.
+    pub worlds: u8,
+    /// Turns a world is played on: it stops where the turn counter has
+    /// advanced this far.
+    pub turns: u8,
+    /// The most answers the house gives in one world before it is scored
+    /// where it stands.
+    pub answers: u16,
+}
+
 /// Difficulty profile of an AI seat (one code path, parameterized).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
@@ -537,6 +553,13 @@ pub struct AIProfile {
     /// record from before it: 0, the house as it was frozen on 10.11.2026.
     #[serde(default)]
     pub generation: u16,
+    /// How much it tries its options in copies of the game before it
+    /// answers ([`Self::foresight`]): a tier, 0 for none. It takes a host
+    /// that can fork the game and a generation that plays
+    /// [`Self::FORESIGHT`]. Absent on the wire and in a record from before
+    /// it: 0.
+    #[serde(default)]
+    pub foresight: u8,
 }
 
 impl Default for AIProfile {
@@ -555,11 +578,13 @@ impl AIProfile {
         hold_up: HoldUp::None,
         sight: Sight::Fair,
         generation: Self::GENERATION,
+        foresight: 1,
     };
     /// Fixes land-starved hands, but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
         temperature_milli: 400,
         mulligan_skill: 1,
+        foresight: 2,
         ..Self::NOVICE
     };
     /// Plans coloured payments and keeps basic interaction available.
@@ -571,18 +596,21 @@ impl AIProfile {
         hold_up: HoldUp::Basic,
         sight: Sight::Fair,
         generation: Self::GENERATION,
+        foresight: 3,
     };
     /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
         lookahead: 1,
         temperature_milli: 30,
         hold_up: HoldUp::ThreatAware,
+        foresight: 4,
         ..Self::STEADY
     };
     /// Also prices the opponent's retaliation when committing attackers.
     pub const EXPERT: Self = Self {
         lookahead: 2,
         temperature_milli: 12,
+        foresight: 5,
         ..Self::SHARP
     };
     /// `expert` that peeks: it is told every opponent's decklist and hand
@@ -629,8 +657,14 @@ impl AIProfile {
     /// The level that peeks (`seer`) keeps or throws back an opening hand by
     /// the next three cards of its own library, which it is told.
     pub const SEER_DRAWS: u16 = 6;
+    /// A level with a [`foresight`](Self::foresight) tier tries its options
+    /// in copies of the game before it answers, where its host can fork one
+    /// (`baylee-gamehost`'s `simulation` feature): its own answer, the
+    /// offer's other sensible answers, each played on by the house in the
+    /// same dealt worlds and scored where the game then stands.
+    pub const FORESIGHT: u16 = 7;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::SEER_DRAWS;
+    pub const GENERATION: u16 = Self::FORESIGHT;
 
     /// Whether this profile plays the house code of `generation` and later,
     /// as every level does and a frozen reference before it does not.
@@ -645,7 +679,40 @@ impl AIProfile {
     /// pinned answers (`baylee-gamehost`'s `generation_pins`) are played by.
     #[must_use]
     pub const fn at_generation(self, generation: u16) -> Self {
-        Self { generation, ..self }
+        Self {
+            generation,
+            foresight: if generation >= Self::FORESIGHT {
+                self.foresight
+            } else {
+                0
+            },
+            ..self
+        }
+    }
+
+    /// What this level may spend trying its options in copies of the game
+    /// ([`Self::FORESIGHT`]), or `None` where it does not: a tier of 0, or a
+    /// generation from before it. Counts, never time, so the same view,
+    /// policy seed and budget give the same answer on any machine.
+    #[must_use]
+    pub const fn foresight(self) -> Option<Foresight> {
+        if !self.plays(Self::FORESIGHT) {
+            return None;
+        }
+        let (candidates, worlds) = match self.foresight {
+            0 => return None,
+            1 => (4, 2),
+            2 => (5, 3),
+            3 => (6, 4),
+            4 => (8, 5),
+            _ => (8, 6),
+        };
+        Some(Foresight {
+            candidates,
+            worlds,
+            turns: 4,
+            answers: 400,
+        })
     }
 
     /// Deterministic search work per decision. A clock cutoff would make the
@@ -678,6 +745,7 @@ impl AIProfile {
         hold_up: HoldUp::ThreatAware,
         sight: Sight::Fair,
         generation: Self::FROZEN_2026_11,
+        foresight: 0,
     };
 
     /// The profiles a player can choose between, weakest first. The last,
@@ -1474,6 +1542,7 @@ mod tests {
                 hold_up: HoldUp::ThreatAware,
                 sight: Sight::Fair,
                 generation: 0,
+                foresight: 0,
             }
         );
     }
@@ -1507,10 +1576,8 @@ mod tests {
         let read: AIProfile = serde_json::from_str(old).expect("an old profile reads");
         assert_eq!(
             read,
-            AIProfile {
-                generation: AIProfile::FROZEN_2026_11,
-                ..AIProfile::EXPERT
-            }
+            AIProfile::EXPERT.at_generation(AIProfile::FROZEN_2026_11),
+            "a profile from before foresight has no tier"
         );
         let said = serde_json::to_value(AIProfile::SEER).expect("a profile writes");
         assert_eq!(said["sight"], "peeking");

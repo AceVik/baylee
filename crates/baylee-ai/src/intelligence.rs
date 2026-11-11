@@ -35,6 +35,7 @@ pub struct ScoutingRequest {
 }
 
 /// Immutable submitted deck, analysed once at game setup.
+#[derive(Clone)]
 pub struct DeckIntel {
     /// Main deck, preserving duplicate card counts but not shuffled order.
     pub cards: Vec<CardIndex>,

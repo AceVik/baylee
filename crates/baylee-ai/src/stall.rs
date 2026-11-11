@@ -125,3 +125,10 @@ impl HeuristicAgent {
         self
     }
 }
+
+impl StallMemory {
+    /// Forgets the action last given.
+    pub(crate) fn clear(&self) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    }
+}

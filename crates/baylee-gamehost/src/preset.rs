@@ -114,6 +114,10 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                     // The newest house code; a frozen reference is chosen by
                     // its name, as a peeking level is.
                     generation: AIProfile::GENERATION,
+                    // No field for it either: what a level may spend trying its
+                    // options is the host's to grant, never a number a peer
+                    // sends.
+                    foresight: 0,
                 }),
                 Some(
                     v1::seat_controller::Kind::HumanUserId(_) | v1::seat_controller::Kind::Open(_),
