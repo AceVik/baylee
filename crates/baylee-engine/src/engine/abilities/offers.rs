@@ -855,16 +855,34 @@ impl<L: CardLookup> Engine<L> {
 
     /// `LegalActions::cast_ways`: the wizard's own list with the mana left
     /// out, so the hint and the question cannot disagree about what is legal.
-    /// Asked of a card that prints such a way and of no other, which is most
-    /// cards at most priorities: this runs on every offer.
+    /// Asked of a card that prints such a way, and of every card cast from
+    /// anywhere but the hand or the command zone, and of no other: this runs
+    /// on every offer.
+    ///
+    /// A card cast from a graveyard or from exile is as often as not cast at
+    /// a price that is not its mana cost — its flashback (CR 702.34a), its
+    /// escape (CR 702.138a), its disturb face's (CR 702.146a), its foretell
+    /// cost (CR 702.143a) — and which of them reaches it is a fact of the
+    /// game: the grant, the permission, the turn it was foretold on. So the
+    /// engine names each way at its whole price, and a planner taps for that
+    /// rather than for a cost it read off the card. A foretold Doomskar was
+    /// priced at its printed {3}{W}{W} and stayed dark beside the three
+    /// Plains that pay {1}{W}{W}; a Benevolent Geist was lit at its front's
+    /// {1}{U} beside two Islands that do not pay {2}{U}.
     fn offer_cast_ways(&self, player: PlayerId, legal: &mut LegalActions) {
         for &card in legal.castable.iter().chain(&legal.payable) {
-            let priced = self
-                .state
-                .object(card)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .is_some_and(casting::has_priced_ways);
+            let Some(object) = self.state.object(card) else {
+                continue;
+            };
+            let elsewhere = !matches!(
+                object.zone,
+                crate::zone::Zone::Hand | crate::zone::Zone::Command
+            );
+            let priced = elsewhere
+                || object
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .is_some_and(casting::has_priced_ways);
             if !priced || self.commanded_card(card) {
                 continue;
             }

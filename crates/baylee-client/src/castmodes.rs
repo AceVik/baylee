@@ -50,11 +50,14 @@
 //! From hand this reads normal, alternative, prototype and disguise costs,
 //! legal land faces, and the modes of a "choose one" spell one of whose
 //! modes has a cost of its own (overload: Cyclonic Rift's `{1}{U}` against
-//! its overloaded `{6}{U}`), each mode a way at its own price. Other modal
-//! spells and nonland back faces stay with the engine's own chooser because
-//! their legality needs the game state. Miracle is not a choice a hand click
-//! makes: the engine asks it as the card is drawn, and its cost is paid in a
-//! payment window (`Duel::confirm_payment`).
+//! its overloaded `{6}{U}`), each mode a way at its own price. A nonland
+//! face other than the front (an Adventure, the other side of a modal
+//! double-faced card) needs the game state to be legal, and the engine
+//! states it: such a way is read off `LegalActions::cast_ways`, at the whole
+//! price named there. Other modal spells stay with the engine's own chooser
+//! because their legality needs the game state. Miracle is not a choice a
+//! hand click makes: the engine asks it as the card is drawn, and its cost is
+//! paid in a payment window (`Duel::confirm_payment`).
 //!
 //! Nothing here reads convoke, delve or a printed cost reduction either —
 //! the same three [`crate::mana_for`] and [`crate::reachable`] already do not
@@ -210,8 +213,60 @@ pub fn reachable_modes(
             offer(CastModeKind::Alternative(i), alt.cost.mana);
         }
     }
+    out.extend(face_modes(view, legal, card, &pool, life));
     out.extend(foretell_mode(view, legal, face, &pool));
     out
+}
+
+/// A face other than the front, cast from the hand: an Adventure (CR
+/// 716.3), the other side of a modal double-faced card (CR 712.8b).
+///
+/// Whether that face may be cast now is a question about it alone (CR
+/// 601.3e: its timing, its targets, a lock that names it), so the engine
+/// answers it and names the whole price (`LegalActions::cast_ways`), and the
+/// way is offered as named. Brazen Borrower beside two Islands was dark: its
+/// own `{1}{U}{U}` is out of reach, and Petty Theft's `{1}{U}` was never
+/// asked about.
+///
+/// Planned with unrestricted mana only. What restricted mana may pay for is
+/// asked of the spell the way makes (CR 601.3e), and the restricted reader
+/// asks it of the card's front: an Ancient Ziggurat's creature-only mana
+/// would pay for Petty Theft, an instant.
+fn face_modes(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+    pool: &baylee_view::ManaPoolView,
+    life: i32,
+) -> Vec<ReachableMode> {
+    let mut faces = legal
+        .cast_ways
+        .iter()
+        .filter(|(id, way)| {
+            *id == card
+                && matches!(way.kind, CastModeKind::Face(_))
+                && way.cost.symbols().next().is_some()
+        })
+        .peekable();
+    if faces.peek().is_none() {
+        return Vec::new();
+    }
+    let plain = crate::manasources::sources(view, legal);
+    faces
+        .filter_map(|(_, way)| {
+            baylee_client_core::manaplan::plan_with_life(
+                &crate::reach::least_x(way.cost),
+                pool,
+                &plain,
+                life,
+            )
+            .map(|plan| ReachableMode {
+                kind: way.kind,
+                cost: way.cost,
+                plan,
+            })
+        })
+        .collect()
 }
 
 /// Foretell's special action (CR 702.143a), offered beside the ordinary ways

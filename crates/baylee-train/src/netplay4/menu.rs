@@ -103,6 +103,27 @@ pub(super) fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectI
             if !baylee_ai::spell_can_be_cast_now(view, legal, id, card) {
                 return None;
             }
+            // Out of a graveyard or exile a card is cast at the price the
+            // engine names for each way it may be cast there (a flashback,
+            // a disturb face, a foretell cost), whole: the cheapest the
+            // planner pays.
+            if !baylee_client_core::decision::hand(view)
+                .iter()
+                .any(|c| c.id == id)
+                && legal.cast_ways.iter().any(|(way, _)| *way == id)
+            {
+                return legal
+                    .cast_ways
+                    .iter()
+                    .filter(|(way, desc)| *way == id && desc.cost.symbols().next().is_some())
+                    .filter_map(|(_, desc)| {
+                        let price = desc.cost.with_x(u32::from(desc.cost.has_variable()));
+                        baylee_ai::plan_for_spell(&price, &pool, view, legal, id)
+                    })
+                    .filter(|plan| !plan.steps.is_empty())
+                    .min_by_key(Plan::taps)
+                    .map(|plan| (id, plan));
+            }
             let (printed, _) = lookup_spell_cost(view, id)?;
             // An `{X}` spell at its least useful, the tactical layer's reading.
             let printed = printed.with_x(u32::from(printed.has_variable()));

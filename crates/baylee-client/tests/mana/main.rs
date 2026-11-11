@@ -24,6 +24,7 @@ mod offer;
 mod pain;
 mod pips;
 mod planning;
+mod routes;
 mod sheet;
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};

@@ -1004,11 +1004,23 @@ engine moves it to the stack as the cost is paid, not first (CR 601.2a).
 `cast_ways` lists, for a card of either list that prints a price of its own
 (entwine, overload and any other mode with its own cost, a kicker with its own
 targets, an alternative cost with mana in it, dash, mutate, a prototype, a back
-face), every way it may be cast with every rule asked but the mana, each at its
-whole price. It is a planning hint, as `unpaid_abilities` is: the mode question
-lists what the *pool* pays, so a planner that taps first and wants a dearer way
-has to tap for it before it casts. The field is additive and defaulted when
-absent, and empty for every other card.
+face), and for every card of either list that lies anywhere but the hand or
+the command zone (a graveyard, exile, the top of a library), every way it may
+be cast with every rule asked but the mana, each at its whole price. A card
+cast from a graveyard or from exile is as often as not cast at a price that
+is not its mana cost, and which price is a fact of the game: its flashback
+(CR 702.34a), escape (CR 702.138a), a disturb face's cost (CR 702.146a,
+`Face(i)`), a foretell cost after the turn it was foretold (CR 702.143a), a
+permission's. A planner prices such a card from this list, never from the
+card: a foretold Doomskar is `{1}{W}{W}`, not its printed `{3}{W}{W}`. The
+whole price holds every increase and reduction the engine applies, the
+commander tax included, and leaves out what delve and convoke pay, as
+`spell_price` does. It is a planning hint, as `unpaid_abilities` is: the mode
+question lists what the *pool* pays, so a planner that taps first and wants a
+dearer way has to tap for it before it casts. The field is additive and
+defaulted when absent, and empty for every other card; a client facing an
+engine that names no way for a graveyard card falls back to
+`PublicObject::flashback`.
 
 A card in `castable` may cost more than what floats once its X is announced
 (CR 601.2b). While the seat still has a mana source to tap, its X question

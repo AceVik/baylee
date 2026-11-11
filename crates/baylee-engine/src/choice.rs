@@ -693,8 +693,10 @@ pub struct LegalActions {
     pub payable: Vec<ObjectId>,
     /// Every way of casting a card of [`Self::castable`] or [`Self::payable`]
     /// that prints a price of its own (entwine, overload, a kicker with its
-    /// own targets, an alternative cost with mana in it, a back face), each
-    /// at its whole price, listed only for such a card.
+    /// own targets, an alternative cost with mana in it, a back face) or is
+    /// cast from anywhere but the hand or the command zone (flashback,
+    /// escape, a disturb face, a foretold or exiled card), each at its whole
+    /// price, listed only for such a card.
     ///
     /// A planning hint, as [`Self::unpaid_abilities`] is. The mode question
     /// (`Pending::ChooseCastMode`) lists the ways the *pool* pays, so a seat

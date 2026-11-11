@@ -5782,14 +5782,25 @@ second. The third is the seat's **own graveyard**, for a card it may flash
 back: the engine offers such a card in `castable` only once its cost is
 floating, exactly as it does a hand card, so Snapcaster Mage's Opt ended the
 turn in the graveyard beside the untapped Island that could have paid for it.
-The view says which cards and at what price, `PublicObject::flashback`, and
-the price is that and never the card's own — the two agree for a grant
-(Snapcaster, Past in Flames) and differ for a card that prints flashback
-(Think Twice: `{1}{U}` from the hand, `{2}{U}` from the graveyard).
-`mana_for` reads the same three places, since a card in one and not the other
-lights up and then does nothing when it is clicked. Timing and targets are
-asked exactly as for a hand card; `targeting::provably_targetless` takes the
-card's identity rather than a hand object for that reason.
+The fourth is **exile**, for a card the engine offers to cast from there (an
+Adventure's creature, a foretold card, a permission's card).
+
+The price of a pile card is the engine's, never the card's own: for each way
+it may be cast from where it lies, `LegalActions::cast_ways` names the way and
+its whole price (11.11.2026), and the client taps for the cheapest its lands
+pay (`mana_run::named_ways`). The two differ more often than not: Think Twice
+is `{1}{U}` from the hand and `{2}{U}` from the graveyard, Malevolent Hermit
+is `{1}{U}` in hand and `{2}{U}` disturbed from the graveyard as Benevolent
+Geist, and a foretold Doomskar is `{1}{W}{W}` against its printed `{3}{W}{W}`.
+Read off the card, the Geist was lit beside two Islands that do not pay it,
+and the Doomskar was dark beside three Plains that do. Against an engine that
+names no way, a graveyard card falls back to `PublicObject::flashback` (the
+view's price for a flashback, an escape and a graveyard permission) and an
+exiled one to its printed cost. `reachable` asks `mana_for` itself whether a
+pile card is in reach, so a card lit is a card the click taps for. Timing and
+targets are asked exactly as for a hand card;
+`targeting::provably_targetless` takes the card's identity rather than a hand
+object for that reason.
 
 A pile card is lit wherever it is drawn, by one predicate,
 `Duel::reach_of`: `Reach::Offered` when the engine will play, cast or activate
@@ -5879,6 +5890,17 @@ finds one. That is a hole in *this* list and not in the chooser: a modal spell
 the engine asks about — Sheoldred's Edict, which is affordable at three
 different modes — opens `Pending::ChooseCastMode` and is answered through the
 same rows.
+
+A face other than the front, cast from the hand (an Adventure, CR 716.3; the
+other side of a modal double-faced card, CR 712.8b), is the one way the list
+reads off the engine rather than the card: whether that face may be cast now
+is a question about it alone (CR 601.3e), and `LegalActions::cast_ways` asks
+it and names its whole price. Planned with unrestricted mana only, since
+what restricted mana pays for is asked of the face cast and the restricted
+reader asks it of the front. Brazen Borrower beside two Islands was dark
+until it was listed (11.11.2026): the creature's `{1}{U}{U}` is out of
+reach, Petty Theft's `{1}{U}` is not. Alone in reach it is a chooser of one
+row, as a kicker is, so the row says which spell the click casts.
 
 One way is not a question, and the click then does exactly what it always did.
 `fire_armed` had to learn one thing for this: a chosen way with taps left to

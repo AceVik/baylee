@@ -3807,3 +3807,42 @@ for is not reached. `apply_triggered_mana_bonus` reads the Lens's
 (`linked_exile_cards`) no `PlayerView` carries, so the filter answers `None`.
 Under-counting is the safe side, and the land still makes its bonus when
 tapped. Closing it needs the view to name a permanent's linked exile.
+
+## Reported by the owner, 2026-11-11: what the game offers to pay for
+
+"Bei dem Anbieten was aktuell mit Mana bezahlt werden muss kann auch
+nachgebessert werden … Mana das z.B. nur für bestimmte Kreaturtypen genutzt
+werden kann, sowie Flashback etc. wird gerne Mal nicht angeboten."
+
+The second half is fixed: a card cast from a graveyard or from exile is priced
+at the way the engine names for it (`LegalActions::cast_ways`), and an
+Adventure in hand is offered at its own price (`docs/client.md` §"A card in a
+pile is reached for too"). The first half is entry 69.
+
+### 69. Restricted mana is planned one tap at a time, never once it floats, and never in a payment window — CONFIRMED
+
+The engine offers the spells: `payable` asks no mana, and `castable` merges
+the restricted mana a spell may spend once it floats
+(`casting::spendable_pool`, CR 106.6). The planners do not reach them:
+
+- The client's `reachable` plans at most one restricted tap
+  (`manasources::with_one_restricted`) and counts no restricted mana that
+  floats. Two Ancient Ziggurats never light Grizzly Bears, two Pillars of the
+  Paruns never Watchwolf, two Eldrazi Temples and four Wastes never Eldrazi
+  Devastator; a Ziggurat's mana floating beside a Forest, or Cavern of Souls'
+  green floating beside a Forest and a Mountain, light nothing.
+- The client's payment window (`Duel::payment_inputs`) plans with
+  unrestricted sources only. Cavern of Souls naming Elf lights Elvish
+  Archdruid beside a Forest and a Mountain, the click casts it, and its
+  window cannot be planned (`CardCostsUnavailable`).
+- The seat's `baylee_ai::plan_for_spell` taps as many restricted sources as
+  it takes but counts none floating; the house (`spend_on`, frozen in
+  `sharp-2026-11`) one per plan, none floating.
+
+The view says how much restricted mana floats, by colour, and never what it
+may pay for, and what a source's mana may pay for is read off the view
+(`HeuristicAgent::admits`), which judges an Adventure as its creature. The
+negative half holds (`crates/baylee-client/tests/mana/routes.rs`: no such mana
+is offered for a spell it may not pay for); closing the positive half needs
+the engine to state, per offered cast and activation, which restricted mana
+abilities and how much floating restricted mana it may spend.

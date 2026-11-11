@@ -14,6 +14,7 @@ mod controlled;
 mod foretell;
 mod phasing;
 pub(crate) mod played;
+mod routes;
 mod upkeep;
 
 const ME: PlayerId = PlayerId::new(0);

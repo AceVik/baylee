@@ -256,20 +256,20 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 })
                 .map(|c| c.object),
         )
-        // And the seat's own graveyard, for a card it may flash back
-        // (CR 702.34a; #242). The engine offers such a card in `castable`
-        // only once its cost is floating, exactly as it does a hand card, so
-        // until this read the graveyard, Snapcaster Mage's Opt was a card
-        // nothing could click on: it ended the turn in the graveyard beside
-        // the untapped Island that paid for it.
+        // And the seat's own graveyard, for a card it may cast from there
+        // (flashback, CR 702.34a, #242; escape, disturb, a graveyard
+        // permission). The engine offers such a card in `castable` only once
+        // its cost is floating, exactly as it does a hand card, so until this
+        // read the graveyard, Snapcaster Mage's Opt was a card nothing could
+        // click on: it ended the turn in the graveyard beside the untapped
+        // Island that paid for it.
         //
-        // Priced at the flashback cost the view names and never at the card's
-        // own. The two agree for the grants this pool has (Snapcaster, Past
-        // in Flames), and they are different numbers for a card that prints
-        // flashback (Think Twice: `{1}{U}` in hand, `{2}{U}` from the
-        // graveyard). `PublicObject::flashback` is `None` in every zone and
-        // for every card the seat may not cast that way, so the zone and the
-        // owner are asked here only because no other graveyard can answer.
+        // Priced at what the engine names for each way it may be cast from
+        // there (`LegalActions::cast_ways`), and never at the card's own
+        // cost: Think Twice is `{1}{U}` in hand and `{2}{U}` from the
+        // graveyard, and Malevolent Hermit `{1}{U}` in hand and, disturbed
+        // as Benevolent Geist, `{2}{U}` from it. The price and the taps are
+        // [`crate::mana_for`]'s, so a card lit here is one a click taps for.
         .chain(
             view.graveyards
                 .get(caster.get() as usize)
@@ -281,18 +281,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                         baylee_client_core::timing::allows(view, o.types, has_flash(card))
                     })
                 })
-                .filter(|o| {
-                    let cost = o.flashback.or_else(|| {
-                        legal
-                            .payable
-                            .contains(&o.id)
-                            .then(|| o.card.and_then(printed_face).map(|f| f.mana_cost))
-                            .flatten()
-                    });
-                    cost.is_some_and(|cost| {
-                        cost.symbols().next().is_some() && affordable(o.id, o.card, cost)
-                    })
-                })
+                .filter(|o| pile_in_reach(duel, view, legal, o.id))
                 .filter(|o| {
                     o.card
                         .is_some_and(|card| !targeting::provably_targetless(view, card))
@@ -301,9 +290,12 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         )
         // And any exile zone, for a card the engine offers to cast from exile
         // once its mana is made (`legal.payable`: an adventure's creature half,
-        // CR 716.3d, or an exile cast permission). Permission is a game-state
-        // fact `PublicObject` does not carry, so `legal.payable` is the gate:
-        // the engine has already checked the permission and target legality.
+        // CR 716.3d; a foretold card for its foretell cost, CR 702.143a; an
+        // exile cast permission). Permission is a game-state fact
+        // `PublicObject` does not carry, so `legal.payable` is the gate: the
+        // engine has already checked the permission and target legality, and
+        // it names the price (a foretold Doomskar is `{1}{W}{W}`, not its
+        // printed `{3}{W}{W}`).
         .chain(
             view.exile
                 .iter()
@@ -314,12 +306,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                         baylee_client_core::timing::allows(view, o.types, has_flash(card))
                     })
                 })
-                .filter(|o| {
-                    o.card.and_then(printed_face).is_some_and(|face| {
-                        face.mana_cost.symbols().next().is_some()
-                            && affordable(o.id, o.card, face.mana_cost)
-                    })
-                })
+                .filter(|o| pile_in_reach(duel, view, legal, o.id))
                 .filter(|o| {
                     o.card.is_some_and(|card| {
                         !targeting::provably_targetless(view, card)
@@ -329,6 +316,19 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .map(|o| o.id),
         )
         .collect()
+}
+
+/// Whether a card in a graveyard or in exile has a price with mana in it
+/// (CR 202.1b) that the seat's mana pays: the price [`spell_cost`] reads and
+/// the taps [`crate::mana_for`] plans, so lighting and clicking agree.
+fn pile_in_reach(
+    duel: &Duel,
+    view: &baylee_view::PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    card: ObjectId,
+) -> bool {
+    spell_cost(view, legal, card).is_some_and(|cost| cost.symbols().next().is_some())
+        && crate::mana_for(duel, card).is_some()
 }
 
 /// Which cards a tap or two would make suspendable. Unlike casting an instant
