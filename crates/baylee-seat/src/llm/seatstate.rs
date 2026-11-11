@@ -559,11 +559,11 @@ impl Seat {
             Act::Now(action) => {
                 // The answer to a cost an option's tap asked: the taps go on
                 // after it (`follow_plan`).
-                if !self
+                let resumed = self
                     .plan
                     .as_mut()
-                    .is_some_and(|plan| plan.paused.take().is_some())
-                {
+                    .is_some_and(|plan| plan.paused.take().is_some());
+                if !resumed {
                     self.plan = None;
                 }
                 action

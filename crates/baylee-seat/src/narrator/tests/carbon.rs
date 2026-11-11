@@ -231,13 +231,14 @@ fn a_granted_ability_is_labelled_with_its_own_words() {
             o.text
                 .starts_with(&format!("Activate Wandering Fumarole {}", tag(fumarole)))
         })
-        .map(|o| o.text.clone())
         .unwrap_or_else(|| {
             panic!(
                 "the granted ability's option ({granted}): {:?}",
                 menu.offered()
             )
-        });
+        })
+        .text
+        .clone();
     assert!(
         label.contains("{0}: Switch this creature's power and toughness until end of turn."),
         "{label}"
