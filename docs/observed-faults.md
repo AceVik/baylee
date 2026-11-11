@@ -3852,3 +3852,27 @@ negative half holds (`crates/baylee-client/tests/mana/routes.rs`: no such mana
 is offered for a spell it may not pay for); closing the positive half needs
 the engine to state, per offered cast and activation, which restricted mana
 abilities and how much floating restricted mana it may spend.
+
+### 70. The house never taps for a card it may cast from exile, or for a disturb face — KNOWN coverage gap
+
+Found with fault 69, 11.11.2026. The house plans its casts over its hand, its
+commanders and the graveyard cards the view prices (`own_casts`:
+`PublicObject::flashback`, which is a flashback, an escape or a graveyard
+permission). A card the engine offers from exile once its mana is made (an
+Adventure's creature, CR 716.3d; a foretold card, CR 702.143a; a play
+permission's card) and a disturb face in the graveyard (CR 702.146a) are cast
+only when their mana already floats (`LegalActions::castable`), never tapped
+for. The engine names each such way and its price (`LegalActions::cast_ways`),
+so the reading is there; the house is frozen as `sharp-2026-11`, so the change
+goes behind a profile field the reference does not set.
+
+### 71. A back face cast from a graveyard is timed by its front's types in the client — KNOWN coverage gap
+
+Found with fault 69, 11.11.2026. The client's reach asks
+`timing::allows(view, o.types, …)` of a graveyard or exiled card, and those are
+the types of the face the view shows, the front. A face cast in its place has
+its own timing (CR 601.3e; `casting::face_timing_allows` on the engine's side):
+a disturb face that is an instant behind a creature front would be withheld
+outside a main phase. No disturb card in the pool has one, and the engine's
+`payable` has already asked the right face, so it under-offers and never
+over-offers.
