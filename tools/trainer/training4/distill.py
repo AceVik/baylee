@@ -14,6 +14,9 @@ to subtypes such as cast/pass/instant_their_turn/spend):
   same kinds' out-of-scope subtypes, other single choices, subsets and pairs
   (Bernoulli per free entry), and the squared distance to r1's scalar. Each term
   is reported apart.
+With `out_of_scope` "ce-n" (`--distill-out-of-scope ce-n`) the same kinds'
+out-of-scope single choices instead get cross-entropy to N, r1's own top-1,
+times its weight (`ce_n_out_of_scope`); their KL is still reported.
 Outcome weighting does not apply: the label is R whatever the game's result.
 Value and auxiliary targets are not part of this loss.
 
@@ -49,7 +52,10 @@ from .execution import encode_boards, plan_batch, transfer_batch
 
 CONTRACT = "bundle_distillation_v1"
 N_NE_R_FLAG = 128  # BST4 header flags bit 7
-TERMS = ("ce_r", "kl_distilled_n_eq_r", "kl_kind_out_of_scope", "kl_single", "kl_subset", "kl_pair", "sq_scalar")
+TERMS = ("ce_r", "kl_distilled_n_eq_r", "kl_kind_out_of_scope", "kl_single", "kl_subset", "kl_pair", "sq_scalar",
+         "ce_n_out_of_scope")
+KL_TERMS = slice(1, 7)
+OUT_OF_SCOPE_MODES = ("kl", "ce-n")
 AUXILIARY_TARGETS = {}
 
 
@@ -78,15 +84,22 @@ def check_datasets(datasets, enabled):
 
 @dataclass(frozen=True)
 class Scope:
-    """What is distilled to R; everything else stays at r1 through the KL."""
+    """What is distilled to R; everything else stays at r1 through the KL.
+
+    `out_of_scope` "ce-n" holds the distilled kinds' out-of-scope single choices
+    at r1's own top-1 (N) by cross-entropy, weight `out_of_scope_weight`, its own
+    term beside `ce_r`; their KL is then reported but not trained."""
     kinds: tuple = (0,)
     subtypes: tuple | None = None
     subtype_names: tuple = ()
     group_weights: tuple | None = None
     kl_weight: float = 1.0
+    out_of_scope: str = "kl"
+    out_of_scope_weight: float = 1.0
 
     @classmethod
-    def from_options(cls, kinds, kl_weight, subtypes, group_weights, datasets):
+    def from_options(cls, kinds, kl_weight, subtypes, group_weights, datasets, out_of_scope="kl",
+                     out_of_scope_weight=1.0):
         """Names resolved against vocabularies every dataset shares; unknown names fail."""
         vocabularies = {(tuple(d.distill_subtypes), tuple(d.distill_groups)) for d in datasets}
         if len(vocabularies) != 1:
@@ -104,7 +117,9 @@ class Scope:
             if missing:
                 raise ValueError(f"Dataset declares no rule group {missing}")
             weights = tuple(float(group_weights.get(name, 1.0)) for name in group_names)
-        return cls(tuple(kinds), codes, subtype_names, weights, kl_weight)
+        if out_of_scope not in OUT_OF_SCOPE_MODES:
+            raise ValueError(f"Unknown out-of-scope distillation {out_of_scope!r}")
+        return cls(tuple(kinds), codes, subtype_names, weights, kl_weight, out_of_scope, float(out_of_scope_weight))
 
     def masks(self, batch, device):
         """[B, U] masks: in the kinds, and in scope (kind and subtype)."""
@@ -251,10 +266,14 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                 log_r = torch.log_softmax(torch.where(mask, ref, -1e9), -1)
                 ce = -log_s.gather(1, target[:, None])[:, 0]
                 kl = torch.where(mask, log_r.exp() * (log_r - log_s), 0.).sum(-1)
-                for index, rows, values in ((0, distilled & differs[:, t], ce),
-                                            (1, distilled & ~differs[:, t], kl),
-                                            (2, genuine & in_kind[:, t] & ~in_scope[:, t], kl),
-                                            (3, genuine & ~in_kind[:, t], kl)):
+                outside = genuine & in_kind[:, t] & ~in_scope[:, t]
+                routes = [(0, distilled & differs[:, t], ce), (1, distilled & ~differs[:, t], kl),
+                          (2, outside, kl), (3, genuine & ~in_kind[:, t], kl)]
+                if scope.out_of_scope == "ce-n":
+                    # N: r1's own top-1, the answer the out-of-scope rows should keep.
+                    n_top1 = torch.where(mask, ref, -1e9).argmax(-1)
+                    routes.append((7, outside, -log_s.gather(1, n_top1[:, None])[:, 0]))
+                for index, rows, values in routes:
                     rw = weight[:, t] * rows
                     if index == 0 and multiplier is not None:
                         rw = rw * multiplier[:, t]
@@ -279,7 +298,12 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                 sums[6] = sums[6] + (error.square() * w).sum()
                 dens[6] = dens[6] + w.sum()
     means = sums / dens.clamp(min=1e-6)
-    total = means[0] + scope.kl_weight * means[1:].sum()
+    if scope.out_of_scope == "ce-n":
+        # The out-of-scope KL stays a reported guard; the anchor to N trains there.
+        trained_kl = means[1] + means[3:7].sum()
+        total = means[0] + scope.kl_weight * trained_kl + scope.out_of_scope_weight * means[7]
+    else:
+        total = means[0] + scope.kl_weight * means[KL_TERMS].sum()
     for name, function in (extra or {}).items():
         total = total + function(prepared, batch, plans)
     return total, torch.cat((sums.detach(), dens.detach()))
@@ -379,7 +403,8 @@ def term_means(stats):
 
 # What a distillation epoch line reports of validation (the full set is in meta.json).
 EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "val_distill_distilled_top1_r",
-                    "val_distill_out_of_scope_top1_r", *(f"val_distill_{name}" for name in TERMS),
+                    "val_distill_out_of_scope_top1_r", "val_distill_out_of_scope_top1_n",
+                    "val_distill_out_of_scope_top1_neither", *(f"val_distill_{name}" for name in TERMS),
                     "val_value_mse_to_r1")
 
 
@@ -394,6 +419,74 @@ def epoch_line(epoch, step, stats, val_metrics):
 
 
 GROUPS = ("distilled", "out_of_scope", "single", "subset", "pair", "scalar")
+# A priority candidate's action: its one-hot column in the candidate features
+# (features4::encode_candidates4); anything else is "none".
+PRIORITY_ACTIONS = (("pass", 0), ("cancel", 1), ("land", 2), ("cast", 3), ("activate", 4), ("mana", 5),
+                    ("granted", 8))
+ACTION_NAMES = tuple(name for name, _ in PRIORITY_ACTIONS) + ("none",)
+ANSWER_COLUMNS = ("decisions", "top1_n", "top1_r", "top1_neither", "r1_top1_r", "n_flag_mismatch")
+
+
+def action_classes(cand_feat):
+    """[..., C] index into ACTION_NAMES of each priority candidate's action."""
+    columns = torch.tensor([column for _, column in PRIORITY_ACTIONS], device=cand_feat.device)
+    marked = cand_feat[..., columns] > .5
+    return torch.where(marked.any(-1), marked.int().argmax(-1), len(PRIORITY_ACTIONS))
+
+
+def answers(prepared, reference, batch, plans, scope, actions=None):
+    """Single choices of the distilled kinds, against N (r1's own top-1) and R.
+
+    Returns name -> [decisions, student = N, student = R, neither, r1 = R,
+    (r1 != R) != the recorded N != R flag] for `distilled`, `out_of_scope` and
+    `subtype:<name>`. With `actions` (a dict), counts by (subtype, R's action,
+    N's action, the student's action) every decision where the student answers
+    neither N nor R, the way the student left both.
+    """
+    device = prepared[0][4].device
+    get = lambda key: batch[key].to(device, non_blocking=True)
+    valid = get("step_valid")
+    decision = get("is_decision") & valid & (get("loss_weight") > 0)
+    heads = get("head")
+    in_kind, in_scope = scope.masks(batch, device)
+    differs = get("n_ne_r")
+    subtype = get("distill_subtype") if "distill_subtype" in batch else None
+    names = [(-1, "unknown"), *enumerate(scope.subtype_names)]
+    table = {}
+
+    def add(name, chosen, student_n, student_r, r1_r, t):
+        neither = ~student_n & ~student_r
+        row = torch.stack((chosen.sum(), (chosen & student_n).sum(), (chosen & student_r).sum(),
+                           (chosen & neither).sum(), (chosen & r1_r).sum(),
+                           (chosen & (~r1_r != differs[:, t])).sum())).double()
+        table[name] = table[name] + row if name in table else row
+
+    for t, plan in enumerate(plans):
+        if not plan.heads[0]:
+            continue
+        logits = prepared[t][1].float()
+        mask = get("cand_mask")[:, t, :logits.shape[1]]
+        genuine = decision[:, t] & (heads[:, t] == 0) & (mask.sum(-1) > 1) & in_kind[:, t]
+        top1 = torch.where(mask, logits, -1e9).argmax(-1)
+        n_top1 = torch.where(mask, reference[t][1].float(), -1e9).argmax(-1)
+        r = get("single_idx")[:, t]
+        student_n, student_r, r1_r = top1 == n_top1, top1 == r, n_top1 == r
+        add("distilled", genuine & in_scope[:, t], student_n, student_r, r1_r, t)
+        add("out_of_scope", genuine & ~in_scope[:, t], student_n, student_r, r1_r, t)
+        if subtype is None:
+            continue
+        for code, name in names:
+            add(f"subtype:{name}", genuine & (subtype[:, t] == code), student_n, student_r, r1_r, t)
+        if actions is not None:
+            classes = action_classes(get("cand_feat")[:, t, :logits.shape[1]])
+            of = lambda index: classes.gather(1, index.clamp(min=0)[:, None])[:, 0].tolist()
+            by_r, by_n, by_student = of(r), of(n_top1), of(top1)
+            codes = dict(names)
+            for row in (genuine & ~student_n & ~student_r).nonzero()[:, 0].tolist():
+                key = (codes.get(int(subtype[row, t]), "unknown"), ACTION_NAMES[by_r[row]],
+                       ACTION_NAMES[by_n[row]], ACTION_NAMES[by_student[row]])
+                actions[key] = actions.get(key, 0) + 1
+    return table
 
 
 def agreement(prepared, batch, plans, scope, scalar_tolerance):
@@ -453,19 +546,24 @@ def agreement(prepared, batch, plans, scope, scalar_tolerance):
 
 @torch.no_grad()
 def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_tolerance,
-                     thinking_steps=2, bf16=None, think=None):
+                     thinking_steps=2, bf16=None, think=None, actions=None, progress=None):
     """Held-out agreement with R by group and subtype and every KL guard, over whole trajectories.
 
     With the thinking terms' configuration `think`, also the share of in-scope
     N != R decisions each deliberation step answers as R
     (`val_distill_think_top1_r_at_n_ne_r_by_step`; step 0 is the heads' first
-    proposal, the last step is the net's answer).
+    proposal, the last step is the net's answer). For the distilled kinds'
+    single choices, by group and subtype, also the student's agreement with N
+    (r1's own top-1, the out-of-scope target), the share it answers neither N
+    nor R, r1's agreement with R and where r1's top-1 disagrees with the
+    recorded N != R flag (`answers`; `actions` collects how it left both).
     """
     think_steps = None
     from .prefetch import prefetch_batches
     net.eval()
     bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported() if bf16 is None else bf16
     table = {}
+    answer_table = {}
     stats = torch.zeros(2 * len(TERMS), device=device)
     value = torch.zeros(3, dtype=torch.float64, device=device)
     hidden = None
@@ -493,6 +591,10 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
                 think_steps = by_step if think_steps is None else think_steps + by_step
         for name, row in agreement(prepared, batch, plans, scope, scalar_tolerance).items():
             table[name] = table[name] + row if name in table else row
+        for name, row in answers(prepared, ref, batch, plans, scope, actions).items():
+            answer_table[name] = answer_table[name] + row if name in answer_table else row
+        if progress is not None:
+            progress(answer_table)
         valid = batch["step_valid"].to(device)
         mine = torch.stack([p[4].float() for p in prepared], 1)
         theirs = torch.stack([p[4].float() for p in ref], 1)
@@ -510,6 +612,12 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
         metrics[f"val_distill_{group}_top1_r"] = agree / count if count else None
         metrics[f"val_distill_{group}_top1_r_at_n_ne_r"] = agree_differ / differ if differ else None
         metrics[f"val_distill_{group}_n_top1_r"] = (count - differ) / count if count else None
+    for group, row in sorted(answer_table.items()):
+        count, *rest = row.cpu().tolist()
+        for name, hits in zip(ANSWER_COLUMNS[2:], rest[1:]):
+            if name != "top1_r":   # the agreement table reports it
+                metrics[f"val_distill_{group}_{name}"] = hits / count if count else None
+        metrics[f"val_distill_{group}_top1_n"] = rest[0] / count if count else None
     if think_steps is not None:
         metrics["val_distill_think_n_ne_r"] = int(think_steps[-1])
         metrics["val_distill_think_top1_r_at_n_ne_r_by_step"] = (

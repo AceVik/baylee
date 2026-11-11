@@ -66,6 +66,11 @@ def add_learner_options(parser):
     parser.add_argument("--distill-group-weights", default="",
                         help="Comma-separated group=weight over the step's fired rule groups; a CE row's weight "
                              "is the product of its fired groups' weights (others 1). Empty = off")
+    parser.add_argument("--distill-out-of-scope", choices=("kl", "ce-n"), default="kl",
+                        help="The distilled kinds' out-of-scope single choices: kl = KL to r1 (default); ce-n = "
+                             "cross-entropy to r1's top-1 (N), its own term ce_n_out_of_scope, the KL there reported only")
+    parser.add_argument("--distill-out-of-scope-weight", type=float, default=1.0,
+                        help="Weight of the ce-n term")
     parser.add_argument("--skip-final-validation", action="store_true",
                         help="Throughput probes only: no held-out pass after a --max-steps/time-budget stop")
     parser.add_argument("--vectorized-rule-closure", action="store_true",
@@ -133,6 +138,12 @@ def check_learner_options(args, parser):
     args.distill_group_weights = weights
     if (args.distill_subtypes or weights) and not args.distill_bundle:
         parser.error("--distill-subtypes and --distill-group-weights require --distill-bundle")
+    if args.distill_out_of_scope != "kl" and not args.distill_bundle:
+        parser.error("--distill-out-of-scope requires --distill-bundle")
+    if args.distill_out_of_scope_weight != 1.0 and args.distill_out_of_scope != "ce-n":
+        parser.error("--distill-out-of-scope-weight weights the ce-n term only")
+    if not args.distill_out_of_scope_weight >= 0:
+        parser.error("--distill-out-of-scope-weight must be nonnegative")
     if args.distill_bundle:
         if not args.distill_kinds or args.distill_kl_weight < 0 or args.distill_scalar_tolerance < 0:
             parser.error("--distill-bundle needs kinds and a nonnegative KL weight and scalar tolerance")
