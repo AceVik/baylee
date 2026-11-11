@@ -24,6 +24,13 @@
 //! per-deck rule (no deck of ten seeds or more turned against more often
 //! than for), and per deck its side's results with each level playing it
 //! and the seeds where the level alone made the difference.
+//!
+//! `--before <summary>` (the same deals played by another build of the
+//! level, against the same opponent) adds the comparison that reads a small
+//! change: the games are the same but for the level's answers, so only the
+//! games that went another way count, and the sign test is over those. A
+//! build that changes a hundred of a thousand games shows at a net of twenty,
+//! two points of share, where each run's own interval is six points wide.
 
 use anyhow::{Context as _, bail, ensure};
 use clap::Parser;
@@ -38,6 +45,11 @@ struct Args {
     /// too, or a table whose focal seat visits both sides.
     #[arg(long = "run", required = true)]
     runs: Vec<PathBuf>,
+    /// The same games as another build of the level played them (its eval4
+    /// summaries, same deals): also reports, game by game, how many the
+    /// level now wins that it lost then and the other way round.
+    #[arg(long = "before")]
+    before: Vec<PathBuf>,
     /// The level measured; the first run's `--baseline` when not given.
     #[arg(long)]
     level: Option<String>,
@@ -313,6 +325,32 @@ fn tally(
     (sides, per_deck, turned)
 }
 
+/// The games both `now` and `then` played to a decision: how many the level
+/// wins now that it lost then, how many it loses now that it won then, and
+/// how many there are.
+///
+/// The games are the same deals with the same opponent, and the house is
+/// deterministic, so a game goes another way only where the level answers
+/// differently: under two equal builds a changed game is a fair coin, and
+/// the sign test over the changed games reads a difference that the two
+/// shares' intervals, which treat the runs as independent, cannot.
+fn changed(now: &BTreeMap<Key, Game>, then: &BTreeMap<Key, Game>) -> (u64, u64, u64) {
+    let (mut gained, mut lost, mut both) = (0, 0, 0);
+    for (key, game) in now {
+        let Some(before) = then.get(key) else {
+            continue;
+        };
+        match (game.result, before.result) {
+            (Result::Open, _) | (_, Result::Open) => continue,
+            (Result::Won, Result::Lost) => gained += 1,
+            (Result::Lost, Result::Won) => lost += 1,
+            _ => {}
+        }
+        both += 1;
+    }
+    (gained, lost, both)
+}
+
 /// The per-deck rule: how many decks the level sat at in ten seeds or more,
 /// and those of them it turned against more often than for.
 fn deck_rule(per_deck: &BTreeMap<String, Deck>) -> (usize, Vec<&String>) {
@@ -409,6 +447,22 @@ fn main() -> anyhow::Result<()> {
         "sign test over the seeds the level turned: {turned_for} for, {turned_against} against, two-sided p = {p:.4}"
     );
     print_decks(&level, &per_deck, decks_of_ten, &broken);
+    let changed = if args.before.is_empty() {
+        None
+    } else {
+        let before: Vec<Value> = args
+            .before
+            .iter()
+            .map(read)
+            .collect::<anyhow::Result<_>>()?;
+        let (_, then, _) = collect(&before, &level, seats, &teams)?;
+        let (gained, lost, both) = changed(&games, &then);
+        println!(
+            "against the build before, over {both} games both played: {gained} won that were lost, {lost} lost that were won, two-sided p = {:.4}",
+            sign_test(gained, lost)
+        );
+        Some(json!({"games": both, "gained": gained, "lost": lost, "p": sign_test(gained, lost)}))
+    };
     if let Some(out) = &args.out {
         let report = json!({
             "level": level,
@@ -417,6 +471,7 @@ fn main() -> anyhow::Result<()> {
             "games": all.json(),
             "seeds_by_sides_won": sides,
             "sign_test": {"for": turned_for, "against": turned_against, "p": p},
+            "against_before": changed,
             "per_deck_rule": {"decks_with_ten_seeds": decks_of_ten, "turned_against": broken},
             "per_deck": per_deck.iter().map(|(deck, d)| (deck.clone(), json!({
                 "with_level": d.with_level.json(),
@@ -474,5 +529,41 @@ mod tests {
         assert!(big > 0.0 && big < 1e-9, "{big}");
         assert!((sign_test(500, 500) - 1.0).abs() < 1e-9);
         assert!(sign_test(133, 90) < 0.01 && sign_test(133, 90) > 0.001);
+    }
+
+    /// Against an earlier build the games are compared one by one: a game
+    /// counts where both builds played it to a decision, and only those
+    /// that went another way say which build is better.
+    #[test]
+    fn games_are_compared_with_an_earlier_build_one_by_one() {
+        let games = |results: &[(u64, Result)]| -> BTreeMap<Key, Game> {
+            results
+                .iter()
+                .map(|&(seed, result)| {
+                    let game = Game {
+                        decks: Vec::new(),
+                        result,
+                    };
+                    ((seed, vec![0]), game)
+                })
+                .collect()
+        };
+        let then = games(&[
+            (1, Result::Lost),
+            (2, Result::Won),
+            (3, Result::Won),
+            (4, Result::Open),
+            (5, Result::Lost),
+        ]);
+        let now = games(&[
+            (1, Result::Won),
+            (2, Result::Won),
+            (3, Result::Lost),
+            (4, Result::Won),
+            (5, Result::Won),
+            (6, Result::Won),
+        ]);
+        assert_eq!(changed(&now, &then), (2, 1, 4));
+        assert_eq!(changed(&then, &now), (1, 2, 4));
     }
 }
