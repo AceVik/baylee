@@ -169,6 +169,12 @@ booked. Lifecycle and inactivity heartbeats are specified in `docs/llm-seat.md`
   `pile 1: the top of P2's library`, a Bribery `QUESTION: Search P2's
   library`, and Jace's +2 is `This is the top card of P2's library`, never a
   scry. A seat was told "your library" there before 11 Nov 2026.
+- A card the seat is shown out of a hidden zone says where it is, as far as
+  the question knows: a search's candidates `(in your library)` or `(in P2's
+  library)`, a hand looked at `(in P2's hand)`, a wish's `(outside the
+  game)`, any other `(shown to you)`; a library's public top card `(on top of
+  P2's library)`. Before 11 Nov 2026 every one read `(somewhere you cannot
+  see)`.
 - An empty mana pool is not said.
 - Log lines that read the same once written are folded into one with a
   count (`(4 times)`).

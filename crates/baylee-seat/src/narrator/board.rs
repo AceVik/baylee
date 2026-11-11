@@ -60,7 +60,7 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
                 "commander {} {} ({}, cast {} from the command zone",
                 commander.name,
                 tag(commander.object),
-                zone(table, commander.object),
+                zone(table, commander.object, None),
                 words::count(commander.casts as usize, "time"),
             );
             if tax > 0 {
@@ -114,7 +114,13 @@ fn pool(pool: &ManaPoolView) -> String {
 }
 
 /// Which zone an object is in, in words.
-pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> String {
+///
+/// A card the seat is being shown out of a hidden zone (`looking_at`) is
+/// where `shown` says, which is what the question knows of it (a library it
+/// searches, a hand it looks at); without that it is one "shown to you",
+/// never "somewhere you cannot see", since the seat is looking at it. A
+/// library's public top card is on top of its owner's library.
+pub(super) fn zone(table: &Table<'_>, id: ObjectId, shown: Option<String>) -> String {
     let view = table.view;
     if view.battlefield.iter().any(|o| o.id == id) {
         "on the battlefield".into()
@@ -128,6 +134,10 @@ pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> String {
         "in exile".into()
     } else if let Some(owner) = hand_owner(table, id) {
         format!("in {} hand", table.whose(owner))
+    } else if view.looking_at.iter().any(|o| o.id == id) {
+        shown.unwrap_or_else(|| "shown to you".into())
+    } else if let Some(top) = view.library_tops.iter().find(|o| o.id == id) {
+        format!("on top of {} library", table.whose(top.owner))
     } else {
         "somewhere you cannot see".into()
     }

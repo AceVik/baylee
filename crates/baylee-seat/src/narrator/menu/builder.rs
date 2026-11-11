@@ -1121,8 +1121,35 @@ impl Builder<'_, '_> {
             );
         }
         match view.object(id) {
-            Some(object) => format!("{} {} ({})", tag(id), plain(object), board::zone(table, id)),
+            Some(object) => format!(
+                "{} {} ({})",
+                tag(id),
+                plain(object),
+                board::zone(table, id, self.shown_from(object.owner))
+            ),
             None => format!("{} a card you cannot see", tag(id)),
+        }
+    }
+
+    /// Where a card this question shows the seat out of a hidden zone is,
+    /// when the question says: the library a search or a look goes through
+    /// (CR 701.23a), the hand it looks at, each the card's owner's
+    /// (CR 400.3), or outside the game for a wish. A search's candidates
+    /// read "(somewhere you cannot see)" before (hc-expert-a, game-0023,
+    /// question 90).
+    fn shown_from(&self, owner: PlayerId) -> Option<String> {
+        let Pending::ChooseCards { prompt, .. } = &self.request.pending else {
+            return None;
+        };
+        let whose = || self.table.whose(owner);
+        match prompt {
+            baylee_engine::choice::ChoicePrompt::SearchLibrary
+            | baylee_engine::choice::ChoicePrompt::LookAtLibrary => {
+                Some(format!("in {} library", whose()))
+            }
+            baylee_engine::choice::ChoicePrompt::LookAtHand => Some(format!("in {} hand", whose())),
+            baylee_engine::choice::ChoicePrompt::Wish => Some("outside the game".into()),
+            _ => None,
         }
     }
 

@@ -1175,6 +1175,70 @@ fn a_search_of_another_players_library_names_that_player() {
     );
 }
 
+/// A search's candidates are in the library it goes through, which the
+/// seat is shown (CR 701.23a), not "somewhere you cannot see" (hc-expert-a,
+/// game-0023, question 90: Explosive Vegetation). The hand a seat looks at
+/// is that player's hand, and a card shown with no zone the question names
+/// (a look at the top of a library that puts one into the hand) is one
+/// shown to the seat.
+#[test]
+fn a_card_the_seat_is_shown_says_where_it_is() {
+    use baylee_engine::choice::ChoicePrompt;
+    let choose = |prompt| Pending::ChooseCards {
+        player: ME,
+        options: vec![id(120), id(121)],
+        min: 0,
+        max: 1,
+        prompt,
+        total: None,
+    };
+    let candidates = |question: &str| -> Vec<String> {
+        question
+            .lines()
+            .filter(|l| l.contains("#120") || l.contains("#121"))
+            .map(str::to_string)
+            .collect()
+    };
+
+    let (mut view, _) = board();
+    view.looking_at = vec![card(120, "Forest"), card(121, "Mountain")];
+    let question = question_of(view.clone(), choose(ChoicePrompt::SearchLibrary));
+    let lines = candidates(&question);
+    assert_eq!(lines.len(), 2, "{question}");
+    assert!(
+        lines.iter().all(|l| l.ends_with("(in your library)")),
+        "{question}"
+    );
+
+    let dig = question_of(view, choose(ChoicePrompt::PutIntoHand));
+    assert!(
+        candidates(&dig)
+            .iter()
+            .all(|l| l.ends_with("(shown to you)")),
+        "{dig}"
+    );
+
+    let (mut view, _) = board();
+    view.looking_at = vec![theirs(120, "Forest"), theirs(121, "Mountain")];
+    let bribery = question_of(view.clone(), choose(ChoicePrompt::SearchLibrary));
+    assert!(
+        candidates(&bribery)
+            .iter()
+            .all(|l| l.ends_with("(in P2's library)")),
+        "{bribery}"
+    );
+    let hand = question_of(view, choose(ChoicePrompt::LookAtHand));
+    assert!(
+        candidates(&hand)
+            .iter()
+            .all(|l| l.ends_with("(in P2's hand)")),
+        "{hand}"
+    );
+    for question in [question, dig, bribery, hand] {
+        assert!(!question.contains("somewhere you cannot see"), "{question}");
+    }
+}
+
 /// A multikicker's number says what each one costs and that fewer is an
 /// answer, and a spell on the stack says what it was cast with.
 #[test]
