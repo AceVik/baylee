@@ -1,6 +1,11 @@
 //! `--grouped-decode` on a real priority menu: off it touches nothing, on it
 //! moves a top pass to the best act when the acts together outweigh it, and
 //! only at priority.
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::naive_bytecount,
+    reason = "a test menu holds a handful of candidates"
+)]
 use super::*;
 use crate::coarse_class::{PASS_CLASS, coarse_classes_of};
 use baylee_core::preset::AIProfile;
