@@ -76,6 +76,38 @@ pub const RECORD_CHUNK_BYTES: usize = 32 * 1024;
 /// there and then ([`v1::FlushRecord`]).
 pub const RECORD_FLUSH_MS: u64 = 30_000;
 
+/// `house-foresight`: one JSON line on stderr when a game ends, what the
+/// house's searches at it cost and did, for the measurement that built this
+/// engine (the agent keeps its engines' stderr in its own log). Counts, the
+/// searched answers' wall time in seconds and the slowest in milliseconds;
+/// nothing a player said and no hidden card.
+#[cfg(feature = "house-foresight")]
+fn foresight_said(game_id: &str, stats: &baylee_gamehost::ForesightStats) {
+    let seconds: f64 = stats.micros.iter().map(|m| f64::from(*m) / 1e6).sum();
+    let slowest = stats
+        .micros
+        .iter()
+        .max()
+        .map_or(0.0, |m| f64::from(*m) / 1e3);
+    eprintln!(
+        "{}",
+        serde_json::json!({
+            "house_foresight": {
+                "game": game_id,
+                "asked": stats.asked,
+                "searched": stats.searched,
+                "replaced": stats.replaced,
+                "priority_attack_block": stats.by_kind,
+                "refused": stats.refused,
+                "rollouts": stats.rollouts,
+                "rollout_answers": stats.answers,
+                "search_seconds": seconds,
+                "ms_max": slowest,
+            }
+        })
+    );
+}
+
 /// Whether `pending` bytes of the record, uncompressed, are a piece to send
 /// while the game goes on: [`RECORD_CHUNK_BYTES`] or more.
 const fn record_due(pending: usize) -> bool {
@@ -643,6 +675,9 @@ impl EngineRunner {
         // These read one frame at a time; see `Session::tell_views_whole`.
         #[cfg(test)]
         session.tell_views_whole();
+        // A measurement build: the house's chairs search (`house-foresight`).
+        #[cfg(feature = "house-foresight")]
+        session.set_foresight(true);
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
         session.mark_guests(setup.seat_guests.clone());
         session.tell_time(self.now);
@@ -1268,6 +1303,8 @@ impl EngineRunner {
         let result = *result;
         let data = session.take_record();
         self.ended = true;
+        #[cfg(feature = "house-foresight")]
+        foresight_said(&self.game_id, session.foresight_stats());
         // A draw has no winner, which is a shorter list rather than a
         // different message — and a team win is a longer one, which is why
         // the field was a list from the start.

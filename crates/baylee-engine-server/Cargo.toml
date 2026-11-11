@@ -32,6 +32,17 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 
+[features]
+# A local measurement, never a hosted game: every game this engine builds has
+# the house's chairs try their options in forks of the game before they answer
+# (`Session::set_foresight`, `docs/house-ai.md` §"Foresight"), and prints what
+# that cost when it ends. It turns on `baylee-gamehost/simulation`, which no
+# hosting build may (`cargo dev gate shipped-features`), so it is off by default
+# and outside `cargo build-servers`; an engine built with it plays only a game a
+# gateway on this machine ordered (loopback or a unix socket) and runs no dev
+# harness.
+house-foresight = ["baylee-gamehost/simulation"]
+
 [dev-dependencies]
 # The other end of the command line this binary is started with. The agent
 # writes the three flags and this reads them, and nothing in the build links

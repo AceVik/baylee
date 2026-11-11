@@ -63,6 +63,11 @@ async fn main() {
         tracing::error!(%partial, "refusing to start");
         std::process::exit(2);
     });
+    #[cfg(feature = "house-foresight")]
+    if let Err(why) = local_measurement(attach.as_ref()) {
+        tracing::error!(%why, "refusing to start");
+        std::process::exit(2);
+    }
     if let Some(attach) = attach {
         let game_id = attach.game_id.clone();
         match Box::pin(attached::run(attach)).await {
@@ -179,6 +184,55 @@ impl Attach {
         .collect();
         Err(PartialAttach { missing })
     }
+}
+
+/// Whether a `house-foresight` engine may play: it is a local measurement,
+/// so it plays only a game a gateway on this machine ordered (`attach` dials
+/// a loopback address or a unix socket) and never runs the dev harness.
+///
+/// # Errors
+/// Why not, naming the address it was told to dial.
+#[cfg(any(test, feature = "house-foresight"))]
+fn local_measurement(attach: Option<&Attach>) -> Result<(), String> {
+    let Some(attach) = attach else {
+        return Err("a house-foresight engine runs no dev harness: it only attaches".to_string());
+    };
+    if dials_this_machine(&attach.url) {
+        Ok(())
+    } else {
+        Err(format!(
+            "a house-foresight engine attaches only to a gateway on this machine, not {}",
+            attach.url
+        ))
+    }
+}
+
+/// Whether `url`, an engine socket's address, is on this machine: a unix
+/// socket, or `ws://`/`wss://` at `localhost` or a loopback address, with no
+/// credentials in it.
+#[cfg(any(test, feature = "house-foresight"))]
+fn dials_this_machine(url: &str) -> bool {
+    if url.starts_with("unix:") {
+        return true;
+    }
+    let Some(rest) = url
+        .strip_prefix("ws://")
+        .or_else(|| url.strip_prefix("wss://"))
+    else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.contains('@') {
+        return false;
+    }
+    let host = match authority.strip_prefix('[') {
+        Some(v6) => v6.split(']').next().unwrap_or(""),
+        None => authority.split(':').next().unwrap_or(""),
+    };
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
 }
 
 /// The dev harness: listen on loopback and serve whoever connects.
@@ -1201,6 +1255,41 @@ mod tests {
             }),
             "an exported-but-empty token is a launch with no token"
         );
+    }
+
+    /// A `house-foresight` engine forks live games, so it plays only what a
+    /// gateway on this machine orders: a unix socket or a loopback address,
+    /// never another host, never an address that smuggles one in, and never
+    /// the unauthenticated dev harness.
+    #[test]
+    fn a_foresight_engine_attaches_only_on_this_machine() {
+        let at = |url: &str| Attach {
+            url: url.to_string(),
+            game_id: "g".to_string(),
+            token: "t".to_string(),
+        };
+        for local in [
+            "ws://127.0.0.1:28840/engine/ws",
+            "ws://127.9.9.9/engine/ws",
+            "ws://localhost:1/engine/ws",
+            "wss://[::1]:443/engine/ws",
+            "unix:/run/baylee/gateway.sock",
+        ] {
+            assert_eq!(local_measurement(Some(&at(local))), Ok(()), "{local}");
+        }
+        for remote in [
+            "ws://10.0.0.5:28840/engine/ws",
+            "ws://0.0.0.0:28840/engine/ws",
+            "wss://play.example.org/engine/ws",
+            "ws://127.0.0.1@evil.example/engine/ws",
+            "ws://localhost.example.org/engine/ws",
+            "ws://[::ffff:10.0.0.5]/engine/ws",
+            "http://127.0.0.1:28840/engine/ws",
+            "",
+        ] {
+            assert!(local_measurement(Some(&at(remote))).is_err(), "{remote}");
+        }
+        assert!(local_measurement(None).is_err(), "no dev harness");
     }
 
     /// **The dev harness binds loopback**, and that is a decision rather than

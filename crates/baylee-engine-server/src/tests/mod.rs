@@ -2,6 +2,8 @@ use super::*;
 
 mod clocks;
 mod curtain;
+#[cfg(feature = "house-foresight")]
+mod foresight;
 mod hostile;
 mod moderation;
 mod participation;

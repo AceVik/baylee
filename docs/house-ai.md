@@ -1194,6 +1194,15 @@ crates enable, and a table has to switch it on (`Session::set_foresight`,
 level answers as its heuristics do. Whether the hosts get the fork is the
 owner's decision (`docs/proposals/house-ai-strength.md` §5).
 
+One measurement plays the searching house over the gateway: an engine
+server built with its `house-foresight` feature (off by default, outside
+`cargo build-servers`, refused a hosting build by `cargo dev gate
+shipped-features`) switches foresight on at every game it builds and writes
+what the search cost to its stderr when the game ends. It attaches only to a
+gateway on the same machine and runs no dev harness. `ladder4`'s house arm
+(`house=<level>`, `docs/trained-ai.md` §"The ladder against language models")
+plays a language model against such a room's AI chair.
+
 **What is searched.** Three questions, the ones the engine can fork
 (`docs/engine-internals.md` §"Forking a simulation"): priority with nothing
 begun (in the seat's own main phase with an empty stack; elsewhere only
