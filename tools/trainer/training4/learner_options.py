@@ -71,12 +71,14 @@ def add_learner_options(parser):
                              "cross-entropy to r1's top-1 (N), its own term ce_n_out_of_scope, the KL there reported only")
     parser.add_argument("--distill-out-of-scope-weight", type=float, default=1.0,
                         help="Weight of the ce-n term")
-    parser.add_argument("--distill-coarse", choices=("act", "class"), default=None,
+    parser.add_argument("--distill-coarse", choices=("act", "class", "act-exact"), default=None,
                         help="Labelled priority decisions where N != R learn by a group of answers (the dataset's "
                              "bundle-distill/coarse-classes sidecar): act = pass (PassPriority, CancelCast) against "
                              "act, class = the six coarse classes. Groups differ: CE to R's group on its summed "
                              "probability (ce_coarse_r). Same group: a cast decision keeps CE to R, any other CE to "
-                             "N's candidate (ce_fine_n). The KL keeps N = R; target questions unchanged. Off by default")
+                             "N's candidate (ce_fine_n). The KL keeps N = R; target questions unchanged. act-exact "
+                             "groups as act, but where R acts and N passes ce_coarse_r is CE to R's own candidate. "
+                             "Off by default")
     parser.add_argument("--pregate-chain-start", type=float, default=0., metavar="MIN_RATIO",
                         help="After saving, exit 3 when the selected checkpoint's validation shows the student "
                              "starting R's acting chains less than MIN_RATIO x r1's rate on the same rows, or passing "

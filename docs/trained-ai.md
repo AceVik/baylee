@@ -2125,7 +2125,7 @@ disagrees with the recorded `N ≠ R` flag (`_n_flag_mismatch`).
 `python -m training4.distill_audit` computes the same for a checkpoint on the
 CPU, over every k-th validation trajectory, with the actions (by the candidate's
 priority column) the student moved to where it answers neither.
-`--distill-coarse {act,class}` teaches the priority decisions where `N ≠ R`
+`--distill-coarse {act,class,act-exact}` teaches the priority decisions where `N ≠ R`
 by a group of answers: `act` splits pass (PassPriority, CancelCast) from acting
 (tap, cast, activate, land, other), `class` takes the six coarse classes
 (rule `coarse_class_v1`). Where R's group differs from N's, cross-entropy to
@@ -2133,7 +2133,16 @@ R's group on the student's summed probability of it (`ce_coarse_r`), so both
 directions are taught (R acts where N passes, R passes where N acts). Inside
 one group a `cast` decision keeps its cross-entropy to R (which spell); any
 other gets cross-entropy to N's recorded candidate (`ce_fine_n`: a tap's source
-or order). The KL keeps `N = R`, and target questions keep their cross-entropy to R. The
+or order). The KL keeps `N = R`, and target questions keep their cross-entropy to R.
+`act-exact` groups as `act`, but where R acts and N passes `ce_coarse_r` is the
+cross-entropy to R's own candidate: the summed act mass can rise while it stays
+spread over equivalent taps and the single pass keeps the top-1 the net plays
+(A″ acted at 1.4 % of those validation rows). `python -m
+training4.direction_probe` checks both directions on the CPU: `capture` keeps
+what the candidate head reads at those rows (under `--train-policy-head-only`
+the same for r1 and every student from it) and counts where a grouped decode
+(act or pass by group mass) would change r1's top-1; `evaluate`, `show` and
+`fit` (the overfit test, with or without the L2 anchor) use the head alone. The
 classes come from the dataset's sidecar `bundle-distill/coarse-classes.*`
 (written by the data side, outside the shards, so the store's fingerprint and
 a window-state cache stay valid): one class per candidate of every labelled
