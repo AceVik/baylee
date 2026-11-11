@@ -57,6 +57,8 @@ use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
 mod ranked;
 pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
+mod script;
+pub use script::{Script4, ScriptAnswer4};
 pub mod search;
 mod snapshot;
 pub use snapshot::{ColdMeta4, PlayerSnapshot4};

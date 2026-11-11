@@ -6,8 +6,10 @@ use std::time::Instant;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
-use baylee_train::netplay4::Answer4;
-use baylee_train::netplay4::search::{LeafCounts4, SearchConfig4, SearchOutcome4, search_seed};
+use baylee_train::netplay4::search::{
+    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, search_seed,
+};
+use baylee_train::netplay4::{Answer4, Script4};
 use baylee_view::PlayerView;
 use serde_json::{Value, json};
 
@@ -70,6 +72,12 @@ pub(super) struct SearchTally {
     /// Chosen targets whose cast was followed by another question, or by
     /// one of another seat's: dropped unplayed.
     pub follow_lost: u64,
+    /// Planned casts and activations chosen (`--search-macros`).
+    pub scripts: u64,
+    /// Of those, the ones whose taps were all made and whose action was sent.
+    pub scripts_done: u64,
+    /// Of those, the ones that broke at the table or were cut off.
+    pub scripts_broken: u64,
     /// Wall time of every searched decision, for the report only: no
     /// decision reads it.
     pub ms: Vec<f64>,
@@ -94,6 +102,9 @@ impl SearchTally {
         self.followed += other.followed;
         self.follow_declined += other.follow_declined;
         self.follow_lost += other.follow_lost;
+        self.scripts += other.scripts;
+        self.scripts_done += other.scripts_done;
+        self.scripts_broken += other.scripts_broken;
         self.ms.extend_from_slice(&other.ms);
     }
 
@@ -130,6 +141,9 @@ impl SearchTally {
             "followed": self.followed,
             "follow_declined": self.follow_declined,
             "follow_lost": self.follow_lost,
+            "scripts": self.scripts,
+            "scripts_done": self.scripts_done,
+            "scripts_broken": self.scripts_broken,
             "searched_ms": {
                 "total": total,
                 "mean": if ms.is_empty() { 0.0 } else { total / ms.len() as f64 },
@@ -151,8 +165,11 @@ pub(super) struct GameSearch {
     /// The target the last searched cast was chosen with, and its seat,
     /// until the target question that follows it answers it.
     follow: Option<(PlayerId, PlayerAction)>,
-    /// Whether the last answer given was a chosen target, not a searched
-    /// decision of its own.
+    /// The rest of the planned cast or activation the last search chose, and
+    /// its seat, until its action is sent or it breaks.
+    script: Option<(PlayerId, Script4)>,
+    /// Whether the last answer given was a chosen target or a scripted
+    /// step, not a searched decision of its own.
     answered_follow: bool,
     pub tally: SearchTally,
     /// Per searched decision: where its answer is in the record, the
@@ -170,6 +187,7 @@ impl GameSearch {
             max_searched,
             seed: 0,
             follow: None,
+            script: None,
             answered_follow: false,
             tally: SearchTally::default(),
             events: Vec::new(),
@@ -182,6 +200,7 @@ impl GameSearch {
     pub fn begin(&mut self, policy_seed: u64) {
         self.seed = search_seed(policy_seed);
         self.follow = None;
+        self.script = None;
         self.answered_follow = false;
         self.tally = SearchTally::default();
         self.events.clear();
@@ -191,6 +210,9 @@ impl GameSearch {
     /// recorded input, and a target chosen with it has no question to
     /// answer. A refused chosen target leaves its cast's event alone.
     pub fn refused(&mut self) {
+        if self.script.take().is_some() {
+            self.tally.scripts_broken += 1;
+        }
         if std::mem::take(&mut self.answered_follow) {
             return;
         }
@@ -231,6 +253,47 @@ impl GameSearch {
         Ok(Some(answer))
     }
 
+    /// The seat's question answered from the planned cast or activation its
+    /// last search chose, while one stands and the question is its own;
+    /// `None` otherwise. A script that breaks, or another seat's question
+    /// while it stands, ends it.
+    fn script(
+        &mut self,
+        net: &mut dyn EvaluationPlayer,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+    ) -> anyhow::Result<Option<Answer4>> {
+        let Some((seat, mut script)) = self.script.take() else {
+            return Ok(None);
+        };
+        if seat != view.seat {
+            self.tally.scripts_broken += 1;
+            return Ok(None);
+        }
+        let followed = net
+            .follow_script(view, pending, teams, &mut script)
+            .ok_or_else(|| anyhow::anyhow!("this player cannot search"))?;
+        match followed {
+            ScriptFollow4::Answered { answer, ends } => {
+                if ends {
+                    self.tally.scripts_done += 1;
+                } else {
+                    self.script = Some((seat, script));
+                }
+                Ok(Some(answer))
+            }
+            ScriptFollow4::Over => {
+                self.tally.scripts_broken += 1;
+                Ok(None)
+            }
+            ScriptFollow4::Other => {
+                self.script = Some((seat, script));
+                Ok(None)
+            }
+        }
+    }
+
     /// The net's answer to `view`/`pending` at `table`, searched where the
     /// search applies; `None` once the game's searched decisions are spent,
     /// and the net answers as it would without a search.
@@ -245,6 +308,17 @@ impl GameSearch {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<Answer4>> {
+        let scripted = self.script(net, view, pending, teams)?;
+        if scripted.is_some() {
+            self.answered_follow = true;
+            return Ok(scripted);
+        }
+        // A question that is not the script's while one stands (a colour it
+        // does not name, a trigger) is the policy's, unsearched.
+        if self.script.is_some() {
+            self.answered_follow = false;
+            return Ok(None);
+        }
         let followed = self.follow(net, view, pending, teams)?;
         self.answered_follow = followed.is_some();
         if followed.is_some() {
@@ -274,6 +348,7 @@ impl GameSearch {
                     "root_value": searched.answer.value,
                     "candidates": report.actions,
                     "targets": report.targets,
+                    "scripts": report.scripts,
                     "means": report.means,
                     "diffs": report.diffs,
                     "ses": report.ses,
@@ -288,12 +363,17 @@ impl GameSearch {
                     // The policy's own answer at another target.
                     let played = if report.actions.first() == Some(&searched.answer.action) {
                         String::from("retarget")
+                    } else if let Some(script) = &searched.script {
+                        // A planned cast is named by what its taps pay for.
+                        format!("Planned{}", action_kind(script.then()))
                     } else {
                         action_kind(&searched.answer.action)
                     };
                     bump(&mut self.tally.changes, format!("{own}->{played}"));
                 }
                 self.follow = searched.follow.clone().map(|target| (view.seat, target));
+                self.script = searched.script.clone().map(|script| (view.seat, script));
+                self.tally.scripts += u64::from(self.script.is_some());
                 bump(&mut self.tally.searched_by_kind, own);
                 self.tally.searched += 1;
                 self.tally.changed += u64::from(report.changed);

@@ -9,12 +9,12 @@ use baylee_ai::HeuristicAgent;
 use baylee_core::preset::AIProfile;
 use baylee_core::types::TypeSet;
 
-const ME: PlayerId = PlayerId::new(0);
-const SEED: u64 = 0x0b5e_55ed_5eed_0001;
+pub(super) const ME: PlayerId = PlayerId::new(0);
+pub(super) const SEED: u64 = 0x0b5e_55ed_5eed_0001;
 
 /// What the stand-in changes while it plays, all of it.
 #[derive(Clone, Debug, Default, PartialEq)]
-struct MockState {
+pub(super) struct MockState {
     observed: BTreeMap<u8, f32>,
     observations: u64,
     answers: u64,
@@ -27,8 +27,8 @@ struct MockState {
 /// `value`, its rollout answers are the steady house's, and its ranking is
 /// the real encoder's menu, in menu order, its own answer's logit raised by
 /// `confidence`. When it `lends`, its rollout players are copies of it.
-struct Mock {
-    state: MockState,
+pub(super) struct Mock {
+    pub(super) state: MockState,
     own: fn(&PlayerView, &Pending) -> Option<PlayerAction>,
     value: fn(&PlayerView) -> f32,
     confidence: f32,
@@ -36,7 +36,7 @@ struct Mock {
 }
 
 impl Mock {
-    fn new(
+    pub(super) fn new(
         own: fn(&PlayerView, &Pending) -> Option<PlayerAction>,
         value: fn(&PlayerView) -> f32,
     ) -> Self {
@@ -180,7 +180,7 @@ impl SearchPlayer4 for Mock {
 }
 
 /// Passes whenever it may.
-fn passes(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
+pub(super) fn passes(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
     matches!(pending, Pending::Priority { .. }).then_some(PlayerAction::PassPriority)
 }
 
@@ -189,7 +189,7 @@ fn passes(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
     clippy::unnecessary_wraps,
     reason = "One signature for every stand-in policy"
 )]
-fn steady(view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
+pub(super) fn steady(view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
     Some(HeuristicAgent::new(AIProfile::STEADY).act(view, pending))
 }
 
@@ -209,7 +209,7 @@ fn counting(view: &PlayerView, types: TypeSet) -> f32 {
 }
 
 /// A critic that likes the seat's creatures.
-fn creatures(view: &PlayerView) -> f32 {
+pub(super) fn creatures(view: &PlayerView) -> f32 {
     counting(view, TypeSet::CREATURE)
 }
 
@@ -272,7 +272,7 @@ fn any_root(view: &PlayerView, _: &Pending) -> bool {
     view.turn >= 3
 }
 
-fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {
+pub(super) fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {
     SearchConfig4::new(k, p, h).unwrap()
 }
 
@@ -851,6 +851,9 @@ fn a_searched_game_answers_legally_and_names_every_root_it_skips() {
                     }
                     SearchSkip4::NotPolicy | SearchSkip4::CandidateRefused => {}
                     SearchSkip4::Roots => panic!("no search here takes combat alone"),
+                    SearchSkip4::MidChain | SearchSkip4::NoAlternative => {
+                        panic!("no search here compares macro candidates")
+                    }
                 }
                 reason.key().to_owned()
             }

@@ -28,12 +28,12 @@ use std::str::FromStr;
 use anyhow::Context as _;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_engine::engine::{DeckKnowledge, ForkRefusal};
+use baylee_engine::engine::{DeckKnowledge, ForkRefusal, PublicPrior};
 use baylee_gamehost::{Session, SimulationSession};
 use baylee_view::{Phase, PlayerView};
 use serde_json::{Value, json};
 
-use super::{Answer4, NetPlayer4, PlayerSnapshot4, Ranked4, RootDecision4};
+use super::{Answer4, NetPlayer4, PlayerSnapshot4, Ranked4, RootDecision4, Script4};
 use crate::deckgen::Rng;
 use crate::features4::{PendingKind4, SourceKind4, StepProvenance4, TeacherTarget4, side_utility};
 
@@ -45,6 +45,10 @@ pub const SEARCH_CONTRACT_TARGETS: &str = "belief_lookahead_v3";
 /// The contract of a search that also takes combat declarations as roots
 /// ([`SearchConfig4::with_combat`]), with or without targets.
 pub const SEARCH_CONTRACT_COMBAT: &str = "belief_lookahead_v4";
+/// The contract of a search with fair worlds, turn horizons or macro
+/// candidates ([`SearchConfig4::with_fair`], [`SearchConfig4::with_turns`],
+/// [`SearchConfig4::with_macros`]), whatever else it has.
+pub const SEARCH_CONTRACT_FORESIGHT: &str = "belief_lookahead_v5";
 
 /// How a search chooses among its candidates once their worlds are played.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
@@ -118,6 +122,19 @@ pub struct SearchConfig4 {
     neural_opponent: bool,
     combat: usize,
     combat_only: bool,
+    decks: Decks4,
+    turns: usize,
+    macros: bool,
+}
+
+/// What a search's worlds deal the hidden cards from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Decks4 {
+    /// The real lists, which the harness asserts known ([`KnownDecks`]).
+    Known,
+    /// The seat's public prior ([`PriorDecks`]).
+    Prior,
 }
 
 impl SearchConfig4 {
@@ -135,6 +152,8 @@ impl SearchConfig4 {
     pub const MAX_TARGETS: usize = 8;
     /// The most declarations one combat root compares.
     pub const MAX_COMBAT: usize = 16;
+    /// The most turn boundaries one rollout plays to.
+    pub const MAX_TURNS: usize = 16;
 
     /// `candidates` answers (K, the policy's own first), each tried in
     /// `particles` worlds (P), each rolled out at most `horizon` decisions
@@ -169,7 +188,64 @@ impl SearchConfig4 {
             neural_opponent: false,
             combat: 0,
             combat_only: false,
+            decks: Decks4::Known,
+            turns: 0,
+            macros: false,
         })
+    }
+
+    /// The same search in fair worlds: every card the seat cannot see is
+    /// dealt from what its own view lets it suppose ([`PriorDecks`]), never
+    /// from the real lists. The caller forks from a [`PriorDecks`] then; this
+    /// says so in the run's metadata.
+    #[must_use]
+    pub const fn with_fair(self, fair: bool) -> Self {
+        let decks = if fair { Decks4::Prior } else { Decks4::Known };
+        Self { decks, ..self }
+    }
+
+    /// Whether the worlds are dealt from a public prior.
+    #[must_use]
+    pub const fn fair(&self) -> bool {
+        matches!(self.decks, Decks4::Prior)
+    }
+
+    /// The same search, its rollouts played to the `turns`-th turn boundary
+    /// past the root (2: through the next player's turn in a duel) instead
+    /// of to the seat's first settled pass or the end of its next own turn.
+    /// The horizon H still caps the seat's decisions. `0` (the default)
+    /// keeps v2's stops.
+    ///
+    /// # Errors
+    /// When `turns` is past [`Self::MAX_TURNS`].
+    pub fn with_turns(self, turns: usize) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            turns <= Self::MAX_TURNS,
+            "search turns must be at most {}",
+            Self::MAX_TURNS
+        );
+        Ok(Self { turns, ..self })
+    }
+
+    /// Turn boundaries a rollout plays to; `0` for v2's stops.
+    #[must_use]
+    pub const fn turns(&self) -> usize {
+        self.turns
+    }
+
+    /// The same search with macro candidates at priority (`search/macros.rs`):
+    /// the policy's answer, then a pass, each spell the planner can pay for
+    /// (its taps and the cast as one candidate), each ability and each
+    /// land, read off the engine's offer instead of the policy's ranking.
+    #[must_use]
+    pub const fn with_macros(self, macros: bool) -> Self {
+        Self { macros, ..self }
+    }
+
+    /// Whether priority roots compare macro candidates.
+    #[must_use]
+    pub const fn macros(&self) -> bool {
+        self.macros
     }
 
     /// The same search, with every other chair in a rollout answered by the
@@ -259,7 +335,9 @@ impl SearchConfig4 {
     /// The contract this search keeps.
     #[must_use]
     pub const fn contract(&self) -> &'static str {
-        if self.combat > 0 {
+        if self.fair() || self.turns > 0 || self.macros {
+            SEARCH_CONTRACT_FORESIGHT
+        } else if self.combat > 0 {
             SEARCH_CONTRACT_COMBAT
         } else if self.targets > 0 {
             SEARCH_CONTRACT_TARGETS
@@ -377,6 +455,25 @@ impl SearchConfig4 {
             if self.combat_only {
                 metadata["roots"] = json!("declarations_of_attackers_and_blockers_only");
             }
+        }
+        if self.fair() {
+            metadata["decks"] =
+                json!("public_prior_from_the_seats_view_and_own_list_never_another_players_list");
+        }
+        if self.turns > 0 {
+            metadata["turns"] = json!(self.turns);
+            metadata["stop"] = json!("game_over_or_the_turn_boundary_after_turns_turns_or_horizon");
+        }
+        if self.macros {
+            metadata["roots"] = json!(
+                "priority_at_the_start_of_a_chain_where_the_policy_acts_or_in_the_seats_main_phase_\
+                 or_with_another_players_object_on_top_of_the_stack"
+            );
+            metadata["candidate_order"] = json!(
+                "policy_answer_then_pass_then_each_spell_the_planner_pays_for_then_castable_spells_\
+                 then_lands_then_abilities_one_per_card"
+            );
+            metadata["prior"] = json!("one_for_the_policys_answer_zero_for_the_others");
         }
         metadata
     }
@@ -582,6 +679,38 @@ impl ForkSource4 for KnownDecks<'_> {
     }
 }
 
+/// A session forked into fair worlds ([`DeckKnowledge::Prior`]): every card
+/// the searching seat cannot see is dealt from the public prior its own view
+/// and its own deck list give ([`Session::public_prior`], the builder the
+/// house's foresight uses), never from another player's list. Two tables that
+/// differ only in what the seat cannot see fork into the same worlds.
+pub struct PriorDecks<'a> {
+    table: &'a Session,
+    prior: PublicPrior,
+}
+
+impl<'a> PriorDecks<'a> {
+    /// `table` forked for the seat of `view`, which must be that seat's own
+    /// view of `table`.
+    #[must_use]
+    pub fn new(table: &'a Session, view: &PlayerView) -> Self {
+        Self {
+            table,
+            prior: table.public_prior(view),
+        }
+    }
+}
+
+impl ForkSource4 for PriorDecks<'_> {
+    fn fork(&self, seat: PlayerId, policy_seed: u64) -> Result<SimulationSession, ForkRefusal> {
+        self.table
+            .fork_for(seat, DeckKnowledge::Prior(&self.prior), policy_seed)
+    }
+    fn decision_seq(&self) -> u64 {
+        self.table.decision_seq()
+    }
+}
+
 /// Why a decision was answered without a search.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -598,6 +727,11 @@ pub enum SearchSkip4 {
     /// A priority decision in a search that takes combat declarations
     /// alone as roots ([`SearchConfig4::combat_only`]).
     Roots,
+    /// Priority in the middle of a chain (mana floating, a spell being cast,
+    /// a payment owed), in a search with macro candidates.
+    MidChain,
+    /// Nothing to compare the policy's answer with.
+    NoAlternative,
 }
 
 impl SearchSkip4 {
@@ -610,6 +744,8 @@ impl SearchSkip4 {
             Self::NotPolicy => "not_policy",
             Self::CandidateRefused => "candidate_refused",
             Self::Roots => "roots",
+            Self::MidChain => "mid_chain",
+            Self::NoAlternative => "no_alternative",
         }
     }
 }
@@ -625,6 +761,9 @@ pub struct SearchReport4 {
     /// search tries its targets ([`SearchConfig4::with_targets`]); `None`
     /// where the policy answers it.
     pub targets: Vec<Option<PlayerAction>>,
+    /// What each candidate's taps pay for, when it is a planned cast or
+    /// activation ([`SearchConfig4::with_macros`]); `None` for a single answer.
+    pub scripts: Vec<Option<PlayerAction>>,
     /// Complete rounds: worlds in which every candidate was rolled out.
     pub rounds: usize,
     /// The chosen candidate's place in candidate order (`0`: the policy's).
@@ -670,6 +809,8 @@ pub struct LeafCounts4 {
     pub horizon: u64,
     /// The searching seat's next own turn ended.
     pub turn_end: u64,
+    /// The turn boundary of [`SearchConfig4::with_turns`] was reached.
+    pub boundary: u64,
     /// Nobody could answer, an answer was refused, or the action cap was
     /// reached.
     pub stopped: u64,
@@ -683,13 +824,14 @@ impl LeafCounts4 {
         self.settled += other.settled;
         self.horizon += other.horizon;
         self.turn_end += other.turn_end;
+        self.boundary += other.boundary;
         self.stopped += other.stopped;
     }
 
     /// Rollouts scored by the value head.
     #[must_use]
     pub const fn value(&self) -> u64 {
-        self.immediate + self.settled + self.horizon + self.turn_end + self.stopped
+        self.immediate + self.settled + self.horizon + self.turn_end + self.boundary + self.stopped
     }
 }
 
@@ -716,6 +858,10 @@ pub struct SearchedAnswer4 {
     /// question at the table to be answered with ([`follow_decision`]);
     /// `None` when the policy answers it.
     pub follow: Option<PlayerAction>,
+    /// The rest of the chosen candidate's planned cast or activation, whose
+    /// first tap is the answer: the seat's next questions at the table are
+    /// answered from it ([`follow_script`]). `None` for a single answer.
+    pub script: Option<Script4>,
 }
 
 /// A candidate: an answer at the root and, when the search tries it at a
@@ -726,6 +872,9 @@ pub(super) struct Candidate4 {
     pub(super) root: Ranked4,
     /// The target it is tried at; `None` for the policy to choose.
     pub(super) target: Option<TargetFollow4>,
+    /// The planned cast or activation `root` is the first tap of; `None`
+    /// for a single answer.
+    pub(super) script: Option<Script4>,
 }
 
 /// A target a candidate is tried at.
@@ -740,7 +889,11 @@ pub(super) struct TargetFollow4 {
 impl Candidate4 {
     /// The candidate the policy finishes itself.
     const fn plain(root: Ranked4) -> Self {
-        Self { root, target: None }
+        Self {
+            root,
+            target: None,
+            script: None,
+        }
     }
 }
 
@@ -909,6 +1062,26 @@ fn unsearched<P: SearchPlayer4>(
         answer: decision.answer,
         outcome,
         follow: None,
+        script: None,
+    }
+}
+
+/// Why `pending` is not a root of `config`'s search, by the kind of root it
+/// would be: a declaration, or priority with ranked or macro candidates.
+fn skip_reason(
+    view: &PlayerView,
+    pending: &Pending,
+    decision: &RootDecision4,
+    config: SearchConfig4,
+) -> Option<SearchSkip4> {
+    if config.combat > 0 && combat::is_declaration(pending) {
+        (decision.answer.provenance.source != SourceKind4::Net).then_some(SearchSkip4::NotPolicy)
+    } else if config.combat_only {
+        Some(SearchSkip4::Roots)
+    } else if config.macros {
+        macros::root_skip(view, pending, decision)
+    } else {
+        root_skip(view, pending, decision, config.candidates)
     }
 }
 
@@ -948,14 +1121,7 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     // A declaration of attackers or blockers (v4): searched when the
     // declaration is the policy's own, its others built from it.
     let declaration = config.combat > 0 && combat::is_declaration(pending);
-    let skip = if declaration {
-        (decision.answer.provenance.source != SourceKind4::Net).then_some(SearchSkip4::NotPolicy)
-    } else if config.combat_only {
-        Some(SearchSkip4::Roots)
-    } else {
-        root_skip(view, pending, &decision, config.candidates)
-    };
-    if let Some(reason) = skip {
+    if let Some(reason) = skip_reason(view, pending, &decision, config) {
         return Ok(unsearched(
             player,
             view,
@@ -975,6 +1141,17 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
             first_world,
         )
         .map_err(Stop::Refused)
+    } else if config.macros {
+        macros::playable(
+            table,
+            player.view_context(),
+            view,
+            pending,
+            &decision,
+            config.candidates,
+            first_world,
+        )
+        .map_err(Stop::Refused)
     } else {
         let ranked = candidates(view, &decision, config.candidates);
         targets::Probe {
@@ -988,9 +1165,14 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         .expand(player, table, ranked)
     };
     let candidates = match expanded {
-        // A declaration the policy alone may make (or the table refuses).
-        Ok(candidates) if declaration && candidates.len() < 2 => {
-            let skip = SearchOutcome4::Skipped(SearchSkip4::CandidateRefused);
+        // A declaration the policy alone may make (or the table refuses), or
+        // nothing the table takes beside the policy's answer at priority.
+        Ok(candidates) if (declaration || config.macros) && candidates.len() < 2 => {
+            let skip = SearchOutcome4::Skipped(if declaration {
+                SearchSkip4::CandidateRefused
+            } else {
+                SearchSkip4::NoAlternative
+            });
             return Ok(unsearched(player, view, decision, skip));
         }
         Ok(candidates) => candidates,
@@ -1014,23 +1196,15 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     }
     .play(player, table, config, search_seed);
     player.restore(&root);
-    let Played { report, worlds } = match rounds {
+    let played = match rounds {
         Ok(Some(played)) => played,
         Ok(None) => {
-            return Ok(unsearched(
-                player,
-                view,
-                decision,
-                SearchOutcome4::Skipped(SearchSkip4::CandidateRefused),
-            ));
+            let skip = SearchOutcome4::Skipped(SearchSkip4::CandidateRefused);
+            return Ok(unsearched(player, view, decision, skip));
         }
         Err(Stop::Refused(refusal)) => {
-            return Ok(unsearched(
-                player,
-                view,
-                decision,
-                SearchOutcome4::Refused(refusal),
-            ));
+            let refused = SearchOutcome4::Refused(refusal);
+            return Ok(unsearched(player, view, decision, refused));
         }
         Err(Stop::Failed(error)) => return Err(error),
     };
@@ -1040,9 +1214,9 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
         pending,
         decision,
         &candidates,
-        Played { report, worlds },
+        played,
         config.selection,
-        declaration,
+        declaration || config.macros,
     ))
 }
 
@@ -1060,11 +1234,13 @@ fn choose_and_answer<P: SearchPlayer4>(
     candidates: &[Candidate4],
     played: Played,
     selection: Selection4,
-    declaration: bool,
+    own_prior: bool,
 ) -> SearchedAnswer4 {
     let Played { mut report, worlds } = played;
-    report.priors = if declaration {
-        // No ranking over declarations: the policy's own is its whole prior.
+    let declaration = combat::is_declaration(pending);
+    report.priors = if own_prior {
+        // No ranking over declarations or macro candidates: the policy's own
+        // answer is its whole prior.
         (0..candidates.len())
             .map(|at| if at == 0 { 1.0 } else { 0.0 })
             .collect()
@@ -1110,6 +1286,7 @@ fn choose_and_answer<P: SearchPlayer4>(
         },
         outcome: SearchOutcome4::Searched(Box::new(report)),
         follow: chosen.target.as_ref().map(|target| target.action.clone()),
+        script: chosen.script.clone(),
     }
 }
 
@@ -1168,11 +1345,90 @@ pub fn follow_decision<P: SearchPlayer4>(
     (answer, true)
 }
 
+/// How a seat's question was answered while a chosen planned cast or
+/// activation stood ([`SearchedAnswer4::script`]).
+#[derive(Clone, Debug)]
+pub enum ScriptFollow4 {
+    /// From the script: its next tap, a colour a tap asks for, or the
+    /// action the taps pay for, after which (`ends`) the script is over.
+    Answered {
+        /// The answer to play, recorded as the search's.
+        answer: Answer4,
+        /// Whether it was the script's last.
+        ends: bool,
+    },
+    /// The script broke (a tap the table would not take, the moment passed,
+    /// the action not offered once paid): it is over and the question is
+    /// the player's.
+    Over,
+    /// Not a question of the script's: the player answers and it stands.
+    Other,
+}
+
+/// Answers `seat`'s question `pending` (`view` is its view of it) from
+/// `script`, the rest of the planned cast or activation a search chose
+/// ([`SearchedAnswer4::script`]), where the question is the script's.
+///
+/// `player` must have observed `view`'s table. A scripted answer is recorded
+/// with `SourceKind4::Search` and the policy's menu index of it where the
+/// policy ranks it; the player ends as if it had chosen the answer itself
+/// (only its coverage counts the question as searched).
+pub fn follow_script<P: SearchPlayer4>(
+    player: &mut P,
+    view: &PlayerView,
+    pending: &Pending,
+    teams: &[Option<u8>],
+    script: &mut Script4,
+) -> ScriptFollow4 {
+    let step = script.next(view, pending);
+    let Some(action) = step.action().cloned() else {
+        return if step.ends() {
+            ScriptFollow4::Over
+        } else {
+            ScriptFollow4::Other
+        };
+    };
+    let decision = player.decide(view, pending, teams);
+    player.conclude(view, &decision, &action);
+    player.attribute_to_search(pending, decision.answer.provenance.source);
+    let index = decision
+        .ranking
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .find(|ranked| ranked.action == action)
+        .map_or(u16::MAX, |ranked| {
+            u16::try_from(ranked.index).unwrap_or(u16::MAX)
+        });
+    let own = decision.answer;
+    ScriptFollow4::Answered {
+        answer: Answer4 {
+            action,
+            value: own.value,
+            provenance: StepProvenance4 {
+                source: SourceKind4::Search,
+                temperature: own.provenance.temperature,
+                thinking_steps: own.provenance.thinking_steps,
+                behavior_logprob: 0.0,
+                has_logprob: false,
+            },
+            target: TeacherTarget4 {
+                single_idx: index,
+                ..TeacherTarget4::default()
+            },
+        },
+        ends: step.ends(),
+    }
+}
+
 mod rollout;
 use rollout::{Played, Rounds, Stop};
 mod combat;
+mod macros;
 mod select;
 mod targets;
 
+#[cfg(test)]
+mod foresight_tests;
 #[cfg(test)]
 mod tests;

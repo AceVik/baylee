@@ -68,6 +68,7 @@ impl<S> Probe<'_, S> {
                 expanded.extend(targets.into_iter().map(|target| Candidate4 {
                     root: root.clone(),
                     target: Some(target),
+                    script: None,
                 }));
             }
         }

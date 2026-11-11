@@ -36,8 +36,8 @@ use baylee_train::features4::{
 };
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchConfig4, SearchedAnswer4, Selection4, follow_decision, search_decision,
-    terminal_utility,
+    KnownDecks, PriorDecks, ScriptFollow4, SearchConfig4, SearchedAnswer4, Selection4,
+    follow_decision, follow_script, search_decision, terminal_utility,
 };
 use baylee_train::netplay4::{
     BatchLimits4, BatchedNet4, CatalogPolicy4, CatalogRead4, ChoiceGuard4, CriticSemantics4,
@@ -187,13 +187,14 @@ fn main() -> anyhow::Result<()> {
         && (!args.raw_policy
             || (args.temperature != 0.0 && !args.dev_free_temperature)
             || args.legacy_v3
-            || args.search.is_some()
+            || (args.search.is_some() && !args.search_fair)
             || args.shadow_teacher.is_some()
             || collection.purpose != collector::Purpose::Evaluation)
     {
         bail!(
             "--choice-guard is a measurement: it needs --raw-policy at temperature 0 \
-             and no search, shadow or collection, and its records are no training data"
+             and no search (but a fair one, --search-fair), shadow or collection, and its \
+             records are no training data"
         );
     }
     let tactic_rules = if args.tactics_shadow {

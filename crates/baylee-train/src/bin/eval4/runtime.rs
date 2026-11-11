@@ -116,6 +116,17 @@ trait EvaluationPlayer {
     ) -> Option<(baylee_train::netplay4::Answer4, bool)> {
         None
     }
+    /// Answers a question from the planned cast or activation a search
+    /// chose (`follow_script`); `None` when this player cannot search.
+    fn follow_script(
+        &mut self,
+        _view: &baylee_view::PlayerView,
+        _pending: &Pending,
+        _teams: &[Option<u8>],
+        _script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<ScriptFollow4> {
+        None
+    }
     fn policy_encoding(
         &self,
         _view: &baylee_view::PlayerView,
@@ -235,6 +246,18 @@ impl EvaluationPlayer for NetPlayer4 {
         config: SearchConfig4,
         seed: u64,
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
+        if config.fair() {
+            // What the seat's own view lets it suppose, never another list.
+            return Some(search_decision(
+                self,
+                &PriorDecks::new(table, view),
+                view,
+                pending,
+                teams,
+                config,
+                seed,
+            ));
+        }
         // The evaluator chose every deck at the table, so they are the
         // harness's to assert known (`docs/trained-ai.md` §"Lookahead search").
         Some(search_decision(
@@ -246,6 +269,15 @@ impl EvaluationPlayer for NetPlayer4 {
             config,
             seed,
         ))
+    }
+    fn follow_script(
+        &mut self,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<ScriptFollow4> {
+        Some(follow_script(self, view, pending, teams, script))
     }
     fn follow(
         &mut self,

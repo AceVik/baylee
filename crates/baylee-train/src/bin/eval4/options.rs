@@ -364,6 +364,24 @@ struct Args {
     /// priority decisions are answered by the policy (skipped as `roots`).
     #[arg(long, requires = "search_combat")]
     search_combat_only: bool,
+    /// Fair worlds: every card the searching seat cannot see is dealt from the
+    /// public prior its own view and deck list give (the house foresight's
+    /// builder), never from another player's list (contract
+    /// `belief_lookahead_v5`). A measurement of what a seat could do: it may
+    /// run with `--choice-guard` and `--tactics-rules`.
+    #[arg(long, requires = "search")]
+    search_fair: bool,
+    /// Rollouts are played to this many turn boundaries past the root (2:
+    /// through the next player's turn in a duel) instead of to the seat's
+    /// first settled pass; H still caps the seat's decisions. `0` (the
+    /// default) keeps the settled stop.
+    #[arg(long, default_value_t = 0, requires = "search")]
+    search_turns: usize,
+    /// Macro candidates at priority: the policy's answer, a pass, each spell
+    /// the planner can pay for (its taps and the cast as one candidate),
+    /// each ability and each land, read off the engine's offer, K in all.
+    #[arg(long, requires = "search")]
+    search_macros: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -402,7 +420,10 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_targets(args.search_targets)?
         .with_combat(args.search_combat)?
         .with_combat_only(args.search_combat_only)
-        .with_neural_opponent(args.search_neural_opponent);
+        .with_neural_opponent(args.search_neural_opponent)
+        .with_fair(args.search_fair)
+        .with_turns(args.search_turns)?
+        .with_macros(args.search_macros);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {

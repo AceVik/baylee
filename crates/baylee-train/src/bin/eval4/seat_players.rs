@@ -220,6 +220,28 @@ impl EvaluationPlayer for SeatPlayers {
             .record(PendingKind4::of(pending), answer.provenance.source);
         Some((answer, followed))
     }
+    fn follow_script(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<baylee_train::netplay4::search::ScriptFollow4> {
+        let seat = usize::from(view.seat.get());
+        let is_learner = self.is_learner_seat(seat);
+        if !is_learner && !self.search_opponent {
+            return None;
+        }
+        self.last_was_learner = is_learner;
+        let followed = self
+            .player_mut(seat)?
+            .follow_script(view, pending, teams, script)?;
+        if let baylee_train::netplay4::search::ScriptFollow4::Answered { answer, .. } = &followed {
+            self.coverage
+                .record(PendingKind4::of(pending), answer.provenance.source);
+        }
+        Some(followed)
+    }
     fn uses_payment_context(&self) -> bool {
         self.learner.uses_payment_context()
     }

@@ -1209,6 +1209,64 @@ decks like every search's, so it is an offline teacher only (owner, 6
 November: hidden cards as an offline target, never an input or in the
 shipped path).
 
+**Fair worlds, turn horizons, macro candidates (v5, `--search-fair`,
+`--search-turns N`, `--search-macros`).** Three switches, each off by
+default, any of which names the contract `belief_lookahead_v5`. Together
+they are the search a seat could run from what it sees, measured here in
+the evaluator; nothing of it ships.
+
+- *Fair worlds.* With `--search-fair` a world is forked with
+  `DeckKnowledge::Prior` (`search::PriorDecks`): every card the seat cannot
+  see is dealt from the public prior its own view and its own list give
+  (`Session::public_prior`, the one builder the house's foresight uses,
+  `baylee_ai::foresight::prior`), never from another player's list. Two
+  deals that differ only in what the seat cannot see are searched alike,
+  answer for answer and report for report
+  (`a_fair_search_answers_the_same_whatever_is_hidden`; the same deals
+  under known decks fork into other worlds,
+  `known_decks_tell_the_twin_deals_apart`). A fair search is a measurement
+  of the seat, so it is the one search `--choice-guard` and
+  `--tactics-rules` run with: the net with its tactical bundle then plays
+  the seat at the root and in every world, and with
+  `--search-neural-opponent` every other chair of a world too, from that
+  chair's view of the world, so no house plays in a world.
+- *Turn horizons.* With `--search-turns N` a rollout is not stopped at the
+  seat's first settled pass or at the end of its next turn. It is played to
+  the N-th turn boundary past the root and scored at the first position of
+  the turn that starts there (`leaves.boundary`): with 2 in a duel, a
+  question of the seat's own turn is scored after the other player's whole
+  turn. H still caps the seat's decisions, so give it room (`K,P,64`). The
+  settled stop scored 77 % of the leaves of the s1 probe inside the seat's
+  own turn, 2.6 of its decisions past the root, before any reply.
+- *Macro candidates.* At priority a spell is on the engine's offer only
+  with its mana floating, so a cast starts at one of several equivalent
+  taps, and the next K − 1 answers by raw logit are mostly those taps. With
+  `--search-macros` the candidates are read off the offer
+  (`search/macros.rs`): the policy's answer, a pass, each spell the planner
+  can pay for (`baylee_ai::plan_for_spell`; its taps and the cast are one
+  candidate, a `netplay4::Script4`, the same chain `--menu-payable`
+  follows), each spell castable as things stand, each land and each ability
+  that is not a mana ability, one per card, K in all. A planned cast the
+  first world refuses is dropped before the rounds. The policy's answer has
+  the whole prior, as a declaration has. A root is the seat's priority at
+  the start of a chain (nothing floating, no spell being cast, no payment
+  owed) where the policy acts, or in the seat's own main phase with an
+  empty stack, or with another player's object on top of the stack; other
+  priority is skipped as `mid_chain` or `phase`, and a root with nothing to
+  compare as `no_alternative`. When a planned cast is chosen, the answer at
+  the root is its first tap and `SearchedAnswer4::script` carries the rest:
+  the harness answers the seat's next questions from it
+  (`search::follow_script`, recorded as `Search`) until the spell is sent or
+  the plan breaks; the summary counts `scripts`, `scripts_done` and
+  `scripts_broken`, and a change to a planned cast as `Planned<kind>`.
+
+The leaf is unchanged: the value head of the model that plays. The house's
+leaf round found that a search wins by the few answers that are plainly
+wrong and finds them with any sensible leaf (`house-ai-strength.md` §6a),
+and candidates are compared in the same worlds, where a head's constant
+optimism cancels; a counts leaf fitted on BayleeAI's own self-play
+(`fit_leaf`) is the fallback if a probe shows the leaf to be the limit.
+
 **Worlds.** For each world p of P, the table is forked for the deciding seat
 with the policy seed `derive(search_seed, "world", decision_seq, p)`, where
 `search_seed = derive(deal policy seed, "search")` (SplitMix64, each purpose

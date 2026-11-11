@@ -267,15 +267,7 @@ impl Session {
         // A level that peeks, at a table that lets it, deals the real lists
         // again; every other search deals what its own view lets it suppose.
         let fair = self.fair_scouting || !agent.profile().peeks();
-        let prior = fair.then(|| {
-            let deck = self.scouting_decks.get(at);
-            let own = deck.map_or(&[][..], |deck| &deck.cards[..]);
-            baylee_ai::foresight::prior::public_prior(&view, own)
-                .into_iter()
-                .fold(PublicPrior::new(), |prior, (seat, cards)| {
-                    prior.with_player(seat, cards)
-                })
-        });
+        let prior = fair.then(|| self.public_prior(&view));
         let search = Search {
             player,
             prior,

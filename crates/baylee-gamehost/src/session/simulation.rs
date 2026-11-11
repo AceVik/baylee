@@ -15,7 +15,7 @@ use std::sync::Arc;
 use baylee_ai::intelligence::DeckIntel;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_engine::engine::{DeckKnowledge, Engine, ForkRefusal};
+use baylee_engine::engine::{DeckKnowledge, Engine, ForkRefusal, PublicPrior};
 use baylee_view::{HouseAnswer, PlayerView};
 
 use super::table::Table;
@@ -113,6 +113,26 @@ impl Session {
             DeckKnowledge::Known | DeckKnowledge::Unknown => Arc::clone(&self.scouting_decks),
         };
         self.forked(seat, decks, policy_seed, scouting_decks)
+    }
+
+    /// What the seat of `view` may suppose every other player hides, for a
+    /// fair fork ([`DeckKnowledge::Prior`]): `baylee_ai`'s public prior,
+    /// built from `view` and that seat's own deck list and from nothing
+    /// else. The one builder a house search and a harness's search share.
+    ///
+    /// `view` must be the seat's own view of this table: the prior is fair
+    /// because a view holds no card its seat may not see.
+    #[must_use]
+    pub fn public_prior(&self, view: &PlayerView) -> PublicPrior {
+        let own = self
+            .scouting_decks
+            .get(usize::from(view.seat.get()))
+            .map_or(&[][..], |deck| &deck.cards[..]);
+        baylee_ai::foresight::prior::public_prior(view, own)
+            .into_iter()
+            .fold(PublicPrior::new(), |prior, (seat, cards)| {
+                prior.with_player(seat, cards)
+            })
     }
 
     /// [`Self::fork_for`] with the deck analyses its chairs are told given

@@ -12,14 +12,12 @@
 //! A measurement and nothing else: `eval4` refuses it with collection, search
 //! and shadow labels, and no such run may become training data.
 
-use std::collections::VecDeque;
-
-use baylee_client_core::manaplan::{Plan, Step, Tap};
+use baylee_client_core::manaplan::Plan;
 use baylee_core::ids::ObjectId;
-use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{CastModeKind, LegalActions, Pending, PlayerAction};
-use baylee_view::{Phase, PlayerView, Step as TurnStep};
+use baylee_view::{Phase, PlayerView};
 
+use super::script::{Script4, ScriptAnswer4};
 use super::tactics::{lookup_card_identity, lookup_spell_cost};
 use crate::features4::{EncodedCandidates4, MAX_CANDIDATES};
 
@@ -72,17 +70,6 @@ impl MenuStats4 {
     }
 }
 
-/// A chosen spell on its way to the stack: the taps still to make.
-#[derive(Clone, Debug)]
-struct PlannedCast {
-    steps: VecDeque<Step>,
-    then: PlayerAction,
-    card: ObjectId,
-    color: Option<ManaColor>,
-    second: Option<ManaColor>,
-    at: (u32, Phase, TurnStep),
-}
-
 /// The arm's state on one net.
 #[derive(Clone, Debug, Default)]
 pub struct PayableMenu4 {
@@ -91,27 +78,14 @@ pub struct PayableMenu4 {
     bias: f32,
     offered: Vec<(ObjectId, Plan)>,
     first_added: usize,
-    plan: Option<PlannedCast>,
+    plan: Option<Script4>,
     stats: MenuStats4,
-}
-
-/// The action that makes one tap of a plan.
-const fn tap(step: &Step) -> PlayerAction {
-    match step.tap {
-        Tap::Intrinsic => PlayerAction::ActivateManaAbility {
-            source: step.source,
-        },
-        Tap::Ability(ability_index) => PlayerAction::ActivateAbility {
-            source: step.source,
-            ability_index,
-        },
-    }
 }
 
 /// The spells of `legal.payable` the planner has taps for, each with its plan.
 /// A plan with nothing to tap is no reach: the mana is floating, so what keeps
 /// the spell out of `castable` is not mana.
-fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Plan)> {
+pub(super) fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Plan)> {
     if view.owed.is_some() {
         return Vec::new();
     }
@@ -238,8 +212,7 @@ impl PayableMenu4 {
             return None;
         };
         let (_, plan) = self.offered.iter().find(|(id, _)| id == card)?;
-        let mut steps: VecDeque<Step> = plan.steps.iter().copied().collect();
-        let first = steps.pop_front()?;
+        let (first, script) = Script4::begin(view, plan, action.clone())?;
         let actor = view.decision_player.unwrap_or(view.seat);
         self.stats.chosen += 1;
         if view.active != actor {
@@ -248,58 +221,36 @@ impl PayableMenu4 {
             self.stats.chosen_own_main += 1;
         }
         self.stats.taps += 1;
-        self.plan = Some(PlannedCast {
-            steps,
-            then: action.clone(),
-            card: *card,
-            color: first.color,
-            second: first.second,
-            at: (view.turn, view.phase, view.step),
-        });
-        Some(tap(&first))
+        self.plan = Some(script);
+        Some(first)
     }
 
     /// The plan's next answer, when one stands and this question is its own.
     /// Any other question stays the net's.
     pub(super) fn next(&mut self, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
-        let plan = self.plan.as_mut()?;
-        let same = (view.turn, view.phase, view.step) == plan.at;
-        match pending {
-            Pending::ChooseColor { options, .. } if same => {
-                let color = plan.color.take().filter(|color| options.contains(color))?;
-                plan.color = plan.second.take();
-                Some(PlayerAction::ChooseColor(color))
+        let answer = self.plan.as_mut()?.next(view, pending);
+        if answer.ends() {
+            self.plan = None;
+        }
+        match answer {
+            ScriptAnswer4::Tap(action) => {
+                self.stats.taps += 1;
+                Some(action)
             }
-            Pending::Priority { legal, .. } if same && view.owed.is_none() => {
-                if let Some(step) = plan.steps.front().copied() {
-                    let action = tap(&step);
-                    if pending.answer_fault(&action).is_none() {
-                        plan.steps.pop_front();
-                        plan.color = step.color;
-                        plan.second = step.second;
-                        self.stats.taps += 1;
-                        return Some(action);
-                    }
-                    self.plan = None;
-                    self.stats.broken += 1;
-                    return None;
-                }
-                let (card, then) = (plan.card, plan.then.clone());
-                self.plan = None;
-                if legal.castable.contains(&card) {
-                    self.stats.cast += 1;
-                    Some(then)
-                } else {
-                    self.stats.not_castable += 1;
-                    None
-                }
+            ScriptAnswer4::Color(action) => Some(action),
+            ScriptAnswer4::Then(action) => {
+                self.stats.cast += 1;
+                Some(action)
             }
-            Pending::Priority { .. } => {
-                self.plan = None;
+            ScriptAnswer4::Broken => {
                 self.stats.broken += 1;
                 None
             }
-            _ => None,
+            ScriptAnswer4::NotOffered => {
+                self.stats.not_castable += 1;
+                None
+            }
+            ScriptAnswer4::Other => None,
         }
     }
 }

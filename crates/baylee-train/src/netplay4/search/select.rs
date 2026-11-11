@@ -232,6 +232,7 @@ mod tests {
                 action: PlayerAction::PassPriority,
                 prior,
             }),
+            script: None,
         };
         let p = priors(
             &decision,
