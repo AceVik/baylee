@@ -34,6 +34,7 @@ import random
 import time
 from types import SimpleNamespace
 
+import numpy as np
 import torch
 
 import model4 as M
@@ -220,6 +221,16 @@ def capture(args):
     rows, flags, kept, decode = [], {}, {"act": 0, "pass": 0}, {}
     hidden, began, batches = None, time.perf_counter(), 0
     recorder = Recorder(net)
+
+    def save(complete):
+        meta = dict(model=str(args.model), data=str(data), split=args.split, every=args.every, offset=args.offset,
+                    trajectories=len(dataset.trajectories), of_trajectories=total, batches=batches, complete=complete,
+                    seconds=round(time.perf_counter() - began), rows=dict(kept), flags=flags,
+                    grouped_decode={name: dict(zip(DECODE_COLUMNS, row)) for name, row in decode.items()},
+                    scope=dict(kinds=scope.kinds, subtypes=scope.subtypes, subtype_names=scope.subtype_names))
+        write_cache(args.out, meta, rows)
+        return meta
+
     with torch.no_grad():
         for host in loader:
             plans = plan_batch(host, 0, args.thinking_steps)
@@ -259,15 +270,159 @@ def capture(args):
             batches += 1
             if batches % 25 == 0:
                 print(f"[capture] batches={batches} rows={kept} seconds={time.perf_counter() - began:.0f}", flush=True)
+            if args.save_every and batches % args.save_every == 0:
+                save(False)   # a partial cache, readable while the capture goes on
             if min(kept.values()) >= args.rows:
                 break
-    meta = dict(model=str(args.model), data=str(data), split=args.split, every=args.every, offset=args.offset,
-                trajectories=len(dataset.trajectories), of_trajectories=total, batches=batches,
-                seconds=round(time.perf_counter() - began), rows=kept, flags=flags,
-                grouped_decode={name: dict(zip(DECODE_COLUMNS, row)) for name, row in decode.items()},
-                scope=dict(kinds=scope.kinds, subtypes=scope.subtypes, subtype_names=scope.subtype_names))
-    torch.save(dict(meta=meta, rows=rows), args.out)
-    print("[capture] " + json.dumps(meta), flush=True)
+    print("[capture] " + json.dumps(save(True)), flush=True)
+
+
+TARGETS = ("split_act", "split_pass", "chain_start", "r_act", "r_pass", "all")
+
+
+def frame_table(plan, dataset, sidecar):
+    """Every frame of the window plan's pieces, flattened: its piece and position, and
+    from the sidecar (by game, seat, cursor) the masks the targets sample from."""
+    from .coarse import key as coarse_key
+    lengths = plan.pieces["length"].astype(np.int64)
+    base = np.cumsum(lengths) - lengths
+    pid = np.repeat(np.arange(len(lengths)), lengths)
+    pos = np.arange(int(lengths.sum())) - base[pid]
+    offsets = np.cumsum([0] + [len(rows) for rows in plan.rows])[:-1]
+    rows = np.concatenate(plan.rows)[offsets[plan.pieces["trajectory"][pid]] + plan.pieces["start"][pid] + pos]
+    index = dataset.store.index
+    keys = coarse_key(index["game"][rows], index["seat"][rows], index["cursor"][rows])
+    at = np.minimum(np.searchsorted(sidecar.keys, keys), len(sidecar.keys) - 1)
+    side = sidecar.index[at]
+    joined = (sidecar.keys[at] == keys) & (side["n_cand"] > 1)
+    r_act, n_act = side["r_class"] != PASS, side["n_class"] != PASS
+    split = joined & (side["r_idx"] != side["n_idx"]) & (r_act != n_act)
+    masks = dict(split_act=split & r_act, split_pass=split & ~r_act, chain_start=joined & sidecar.chain_start[at],
+                 r_act=joined & r_act, r_pass=joined & ~r_act, all=joined)
+    return pid, pos, base, masks
+
+
+def capture_windows(args):
+    """`capture` on the training split from the run's window-state cache: a decision's
+    piece starts from its stored H, so only the sampled decisions are encoded."""
+    import hashlib
+    import dataset4 as D4
+    from value_calibration4.checkpoint import load_source
+    from torch_io4 import file_digest
+    from .coarse import CoarseClasses
+    from .deferred import deferred_readouts
+    from .execution import encode_boards, plan_batch, transfer_batch
+    from .windows import StateStore, WindowLanes, WindowTraining, pack_lanes, read_cache_key
+
+    torch.set_num_threads(args.threads)
+    path, _, net = load_source(args.model)
+    configure(net, args)
+    data = Path(args.data).expanduser()
+    dataset = D4.TrajectoryDataset4(data, encoder_version=args.encoder_version, split="train", unroll_len=args.unroll)
+    D.check_datasets([dataset], True)
+    dataset.coarse = sidecar = CoarseClasses.load(data / "bundle-distill")
+    plan = WindowTraining(dataset, 0, args.window_length, 8, 0, 0)
+    cache = Path(args.state_cache).expanduser()
+    stored = read_cache_key(cache)
+    expected = dict(burn_in=0, fingerprint=dataset.fingerprint, count=len(plan.pieces), width=net.cfg.d_model,
+                    pieces=hashlib.sha256(plan.pieces.tobytes()).hexdigest(), source=file_digest(path))
+    wrong = {name: (stored.get(name), value) for name, value in expected.items() if stored.get(name) != value}
+    if wrong:
+        raise ValueError(f"The window-state cache belongs to another plan or net: {wrong}")
+    plan.states = StateStore(len(plan.pieces), stored["seats"], stored["width"], stored["dtype"] == "bfloat16",
+                             Path(str(cache) + ".states"), mode="r")
+    scope = D.Scope.from_options(tuple(int(k) for k in args.kinds.split(",")), 1.0,
+                                 tuple(s for s in args.subtypes.split(",") if s), {}, [dataset], coarse="act")
+    pid, pos, base, masks = frame_table(plan, dataset, sidecar)
+    rng = np.random.default_rng(args.seed)
+    budget = dict(split_act=args.rows, split_pass=args.rows, chain_start=args.sample, r_act=args.sample,
+                  r_pass=args.sample, all=args.sample)
+    chosen = {name: rng.choice(np.flatnonzero(masks[name]), min(budget[name], int(masks[name].sum())), replace=False)
+              for name in TARGETS}
+    members = {name: np.zeros(len(pid), dtype=bool) for name in TARGETS}
+    for name, frames in chosen.items():
+        members[name][frames] = True
+    targets = np.flatnonzero(np.any([members[name] for name in TARGETS], 0))
+    pieces = plan.pieces.copy()
+    needed = np.unique(pid[targets])
+    reach = np.zeros(len(pieces), dtype=np.int64)
+    np.maximum.at(reach, pid[targets], pos[targets] + 1)   # each piece up to its last sampled frame
+    pieces["length"][needed] = reach[needed]
+    lanes = pack_lanes(rng.permutation(needed).tolist(), pieces["length"], args.window_length)
+    items = WindowLanes(dataset, plan.rows, pieces, args.window_length)
+    print(f"[capture] pieces={len(needed)} frames={int(reach.sum())} lanes={len(lanes)} "
+          f"population={ {name: int(mask.sum()) for name, mask in masks.items()} }", flush=True)
+    device = torch.device("cpu")
+    rows, flags, kept, decode = [], {}, {"act": 0, "pass": 0}, {}
+    began, batches = time.perf_counter(), 0
+    recorder = Recorder(net)
+
+    def save(complete):
+        meta = dict(model=str(args.model), data=str(data), split="train", state_cache=str(cache), seed=args.seed,
+                    batches=batches, of_batches=math.ceil(len(lanes) / 8), complete=complete,
+                    seconds=round(time.perf_counter() - began), rows=dict(kept), flags=flags,
+                    sampled={name: len(frames) for name, frames in chosen.items()},
+                    population={name: int(mask.sum()) for name, mask in masks.items()},
+                    grouped_decode={name: dict(zip(DECODE_COLUMNS, row)) for name, row in decode.items()},
+                    scope=dict(kinds=scope.kinds, subtypes=scope.subtypes, subtype_names=scope.subtype_names))
+        write_cache(args.out, meta, rows)
+        return meta
+
+    with torch.no_grad():
+        for first in range(0, len(lanes), 8):
+            host = D4.collate_trajectories([items[lane] for lane in lanes[first:first + 8]])
+            plans = plan_batch(host, 0, args.thinking_steps)
+            batch = transfer_batch(host, device)
+            b, unroll = batch["step_valid"].shape
+            # Each frame's place in the flattened table: its piece (carried from the piece's start) and position.
+            starts = host["piece_start"]
+            piece = torch.cummax(torch.where(starts >= 0, torch.arange(unroll).expand(b, unroll), -1), 1).values
+            frame_pid = starts.gather(1, piece.clamp(min=0))
+            frame = np.where((piece >= 0).numpy() & batch["step_valid"].numpy(),
+                             base[frame_pid.clamp(min=0).numpy()] + (torch.arange(unroll) - piece).numpy(), -1)
+            net.clear_structure()
+            net.prepare_structure((host["entity_rules"], host["cand_rules"]))
+            boards = encode_boards(net, batch, args.board_chunk, device)
+            with recorder:
+                prepared, _ = deferred_readouts(net, batch, boards, torch.zeros(b, M.RECURRENT_SLOTS, net.cfg.d_model),
+                                                plans, net.decision_chunk, device, False,
+                                                resets=plan.resets(host, device))
+            wanted = {}
+            for t, step in enumerate(plans):
+                if not step.heads[0]:
+                    continue
+                joined, split, r_act, n_act, idx_differ = directions(batch, t, step.candidates)
+                at = frame[:, t]
+                sampled = {name: torch.from_numpy(np.where(at >= 0, members[name][np.maximum(at, 0)], False))
+                           for name in TARGETS}
+                for lane in joined.nonzero()[:, 0].tolist():
+                    key = ("R act" if r_act[lane] else "R pass") + (" / N act" if n_act[lane] else " / N pass")
+                    cell = flags.setdefault(key, {})
+                    flag = f"flag={'N!=R' if batch['n_ne_r'][lane, t] else 'N=R'} idx={'differ' if idx_differ[lane] else 'same'}"
+                    cell[flag] = cell.get(flag, 0) + 1
+                for lane in (split & (sampled["split_act"] | sampled["split_pass"])).nonzero()[:, 0].tolist():
+                    direction = "act" if r_act[lane] else "pass"
+                    kept[direction] += 1
+                    wanted.setdefault(t, []).append((lane, direction))
+                tally_decode(decode, prepared[t][1].float(), batch["cand_mask"][:, t, :step.candidates],
+                             batch["coarse_class"][:, t, :step.candidates],
+                             {name: joined & sampled[name] for name in TARGETS})
+            rows.extend(cached_rows(recorder.groups(plans, b, unroll, net.decision_chunk), batch, plans, prepared, wanted))
+            net.clear_structure()
+            batches += 1
+            if batches % 5 == 0:
+                print(f"[capture] batches={batches} rows={kept} seconds={time.perf_counter() - began:.0f}", flush=True)
+            if args.save_every and batches % args.save_every == 0:
+                save(False)
+    print("[capture] " + json.dumps(save(True)), flush=True)
+
+
+def write_cache(path, meta, rows):
+    """Writes beside and renames, so a reader never sees half a cache."""
+    path = Path(path)
+    partial = path.with_name(path.name + ".partial")
+    torch.save(dict(meta=meta, rows=rows), partial)
+    partial.replace(path)
 
 
 def load_rows(paths):
@@ -495,6 +650,22 @@ def main(argv=None):
     one.add_argument("--board-token-budget", type=int, default=32768)
     one.add_argument("--workers", type=int, default=2)
     one.add_argument("--out", required=True)
+    one.add_argument("--save-every", type=int, default=0, help="Also save the cache every N batches (0: only at the end)")
+    windows = commands.add_parser("capture-windows")
+    windows.add_argument("--model", required=True, help="The net the window-state cache was computed with (r1)")
+    windows.add_argument("--data", required=True)
+    windows.add_argument("--state-cache", required=True, help="The run's --window-state-cache (burn-in 0)")
+    windows.add_argument("--rows", type=int, default=1000, help="Sampled split decisions per direction")
+    windows.add_argument("--sample", type=int, default=2000,
+                         help="Sampled chain starts, R-act, R-pass and any decisions for the grouped-decode counts")
+    windows.add_argument("--seed", type=int, default=73501)
+    windows.add_argument("--window-length", type=int, default=32)
+    for name, value in (("kinds", "0,8"), ("subtypes", "cast,pass,instant_their_turn,spend,target")):
+        windows.add_argument(f"--{name}", default=value)
+    for name, value in (("encoder-version", 10), ("unroll", 32), ("thinking-steps", 2), ("board-chunk", 32),
+                        ("decision-chunk", 4), ("board-token-budget", 32768), ("save-every", 0)):
+        windows.add_argument(f"--{name}", type=int, default=value)
+    windows.add_argument("--out", required=True)
     for name in ("evaluate", "show", "fit"):
         command = commands.add_parser(name)
         command.add_argument("--cache", action="append", required=True)
@@ -513,11 +684,12 @@ def main(argv=None):
     fitting.add_argument("--batch-rows", type=int, default=32)
     fitting.add_argument("--report-every", type=int, default=5)
     fitting.add_argument("--seed", type=int, default=73501)
-    fitting.add_argument("--coarse", default="act", choices=("act", "act-exact"), help="The coarse loss the fit trains")
+    fitting.add_argument("--coarse", default="act", choices=("act", "act-exact", "act-best"), help="The coarse loss the fit trains")
     for command in commands.choices.values():
         command.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
-    {"capture": capture, "evaluate": evaluate, "show": show, "fit": fit}[args.command](args)
+    {"capture": capture, "capture-windows": capture_windows, "evaluate": evaluate, "show": show,
+     "fit": fit}[args.command](args)
 
 
 if __name__ == "__main__":

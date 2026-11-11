@@ -13,7 +13,7 @@ cursor), which also gives R's and N's candidates (`N != R`). Each frame is route
 as the loss under `--mode` routes it:
 - `kl` (arm A): in-scope `N != R` get CE to R; the rest the KL;
 - `ce-n` (A'): also every out-of-scope frame, CE to N;
-- `act`, `act-exact`, `class` (A''): `N != R` frames by group (act/pass or class): groups
+- `act`, `act-exact`, `act-best`, `class` (A''): `N != R` frames by group (act/pass or class): groups
   differ, CE to R's group; one group, a cast keeps CE to R, others CE to N.
 It counts the CE frames per subtype by their target's class (and act/pass) and
 the frames each term saw. No frame is decoded and no network runs.
@@ -70,8 +70,8 @@ def main(argv=None):
     parser.add_argument("--encoder-version", type=int, default=10)
     parser.add_argument("--out", default="")
     args = parser.parse_args(argv)
-    if not set(args.mode.split(",")) <= {"kl", "ce-n", "act", "class", "act-exact"}:
-        parser.error("--mode takes kl, ce-n, act, act-exact and class")
+    if not set(args.mode.split(",")) <= {"kl", "ce-n", "act", "class", "act-exact", "act-best"}:
+        parser.error("--mode takes kl, ce-n, act, act-exact, act-best and class")
     data = Path(args.data).expanduser()
     dataset = D4.TrajectoryDataset4(data, split="train", unroll_len=args.unroll, encoder_version=args.encoder_version)
     names = list(json.loads((data / "meta.json").read_text())["bundle_distillation"]["subtypes"])

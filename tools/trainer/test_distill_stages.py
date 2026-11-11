@@ -331,6 +331,27 @@ class CoarseDistill(unittest.TestCase):
         torch.testing.assert_close(stats[len(D.TERMS):], group_stats[len(D.TERMS):])
         self.assertAlmostEqual(D.term_means(stats)["ce_coarse_r"], math.log(4.), places=5)
 
+    def test_act_best_raises_the_leading_act_against_pass_only(self):
+        u = 5
+        logits = torch.zeros(1, u, 7)
+        logits[0, 0, :4] = torch.tensor([0., .5, .2, -1.])   # t0 R taps 1, N passes: tap 1 leads the acts
+        grads = {}
+        for mode in ("act", "act-best"):
+            free = logits.clone().requires_grad_()
+            student = outputs_from(free, torch.zeros(1, u, 4), torch.zeros(1, u))
+            reference = outputs_from(torch.zeros(1, u, 7), torch.zeros(1, u, 4), torch.zeros(1, u))
+            loss, stats = D.distill_loss(student, reference, coarse_batch(), plan_batch(coarse_batch(), 0),
+                                         coarse_scope(mode))
+            loss.backward()
+            grads[mode] = free.grad
+        lead = math.exp(.5) / (math.exp(.5) + 1.)   # the best act's share of {best act, pass}
+        # Half weight: ce_coarse_r has two rows. The other tap and the cast are left alone.
+        torch.testing.assert_close(grads["act-best"][0, 0, :4],
+                                   torch.tensor([.5 * (1 - lead), .5 * (lead - 1), 0., 0.]))
+        torch.testing.assert_close(grads["act-best"][0, 1:], grads["act"][0, 1:])
+        self.assertAlmostEqual(D.term_means(stats)["ce_coarse_r"],
+                               (math.log(1 + math.exp(-.5)) + math.log(4.)) / 2, places=5)
+
     def test_class_splits_the_six_classes(self):
         _, after, stats, _ = self.step(coarse_batch(), coarse_scope("class"))
         # t3 R cast / N tap now differ in class: CE to the cast class, no CE to R left.
@@ -402,7 +423,7 @@ class CoarseDistill(unittest.TestCase):
     def test_options(self):
         parse = DistillOptions().parse
         self.assertIsNone(parse(DistillOptions.STAGE_A).distill_coarse)
-        for mode in ("act", "class", "act-exact"):
+        for mode in ("act", "class", "act-exact", "act-best"):
             args = parse([*DistillOptions.STAGE_A, "--distill-kinds", "0,8", "--distill-coarse", mode])
             self.assertEqual(args.distill_coarse, mode)
         for bad in (["--distill-coarse", "act", "--distill-out-of-scope", "ce-n"],
