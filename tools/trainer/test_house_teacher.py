@@ -268,6 +268,21 @@ class HouseGate(unittest.TestCase):
         passed, verdict = H.house_gate({**good, "val_house_chain_start_act": .8})
         self.assertTrue(passed and verdict["more_active_than_teacher"])
 
+    def test_pregate_stage_judges_a_house_run_and_can_report_only(self):
+        from training4 import pregate as P
+        good = dict(val_house_gate_top1_n_ne_h=.72, val_house_chain_start_act=.55, val_house_chain_start_act_h=.6)
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()) as out:
+            meta, verdict = Path(temporary) / "meta.json", Path(temporary) / "verdict.json"
+            run = dict(bundle_distillation={"contract": D.HOUSE_CONTRACT, "house": {}})
+            meta.write_text(json.dumps(dict(run, val_metrics=good)))
+            self.assertEqual(P.main(["--model", temporary, "--out", str(verdict)]), 0)   # no r1 chain counts needed
+            self.assertTrue(json.loads(verdict.read_text())["house_gate"]["passed"])
+            meta.write_text(json.dumps(dict(run, val_metrics={**good, "val_house_gate_top1_n_ne_h": .5})))
+            self.assertEqual(P.main(["--model", temporary]), 3)
+            self.assertEqual(P.main(["--model", temporary, "--report-only", "--out", str(verdict)]), 0)
+            self.assertFalse(json.loads(verdict.read_text())["passed"])
+        self.assertIn("[house-gate]", out.getvalue())
+
     def test_chain_starts_where_h_could_start_one_and_pass_shares(self):
         """H answers pass, tap, cast, pass, pass, cast: chances to start a chain at t0, t1, t4, t5
         (t2 continues, t3 ends one); H starts two. The student acts at t0, t1, t5; N always passes."""
