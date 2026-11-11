@@ -92,7 +92,7 @@ def main(default_architecture="v4") -> None:
     # bundle_distillation_v1 labels train only under --distill-bundle, which reads
     # nothing else; set before any loader copies the datasets into workers.
     from .distill import check_datasets
-    check_datasets((train_ds, val_ds), args.distill_bundle)
+    check_datasets((train_ds, val_ds), args.distill_bundle, args.distill_teacher)
     if args.distill_bundle:
         # Coarse answer classes beside the shards, outside the store's fingerprint, read
         # wherever the dataset has them: --distill-coarse trains on them, validation counts
@@ -300,16 +300,24 @@ def main(default_architecture="v4") -> None:
     reference = None
     scope = None
     if reference_weights is not None:
-        from .distill import Scope
+        from .distill import CONTRACTS, KIND_SLOTS, Scope
         reference = Reference(reference_weights.to(device), net, args.trainable_trunk_from_layer)
-        scope = Scope.from_options(args.distill_kinds, args.distill_kl_weight, args.distill_subtypes,
+        house = args.distill_teacher == "house"
+        # The house teacher teaches every labelled kind.
+        kinds = tuple(range(KIND_SLOTS)) if house else args.distill_kinds
+        scope = Scope.from_options(kinds, args.distill_kl_weight, args.distill_subtypes,
                                    args.distill_group_weights, (train_ds, val_ds),
                                    args.distill_out_of_scope, args.distill_out_of_scope_weight,
-                                   args.distill_coarse)
-        identity["bundle_distillation"] = dict(contract="bundle_distillation_v1", kinds=list(args.distill_kinds),
+                                   args.distill_coarse, args.distill_teacher, args.distill_value_weight)
+        identity["bundle_distillation"] = dict(contract=CONTRACTS[args.distill_teacher], kinds=list(kinds),
                                                subtypes=list(args.distill_subtypes) or None,
                                                group_weights=args.distill_group_weights or None,
                                                kl_weight=args.distill_kl_weight, version=2)
+        if house:
+            # Named only for the house teacher, so every bundle run's identity stays as it was.
+            identity["bundle_distillation"]["house"] = dict(loss="house_distillation_loss_v1",
+                                                            value_weight=args.distill_value_weight,
+                                                            teacher=train_ds.meta["bundle_distillation"].get("teacher"))
         if args.distill_out_of_scope != "kl":
             # Named only when set, so every earlier run's identity stays as it was.
             identity["bundle_distillation"]["out_of_scope"] = dict(mode=args.distill_out_of_scope,
@@ -742,8 +750,8 @@ def main(default_architecture="v4") -> None:
                 if step_num % 25 == 0:
                     print(step_line(epoch, traj_loss), flush=True)
                     if distill_stats is not None:
-                        from .distill import term_means
-                        print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
+                        from .distill import train_line
+                        print("[distill] train " + json.dumps(train_line(distill_stats)), flush=True)
                         distill_stats = None
                     if distill_drift is not None:
                         from .distill import drift_means
@@ -775,8 +783,8 @@ def main(default_architecture="v4") -> None:
                 # The steps since the last 25-step line, so a short run prints them too.
                 print(step_line(epoch, traj_loss), flush=True)
             if distill_stats is not None:
-                from .distill import term_means
-                print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
+                from .distill import train_line
+                print("[distill] train " + json.dumps(train_line(distill_stats)), flush=True)
                 distill_stats = None
             if distill_drift is not None:
                 from .distill import drift_means

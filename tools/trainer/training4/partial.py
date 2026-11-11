@@ -4,7 +4,9 @@ Stage A (`--train-policy-head-only`): the trunk and everything before the
 candidate head stay frozen; the candidate head learns (`cand_proj`,
 `cand_scorer`, `cand_ctx_proj`, and `cand_context_gate`/`cand_decoder` where the
 architecture has them). `dsl_proj` and the rule encoder also feed board tokens,
-so they stay frozen.
+so they stay frozen. With `--train-pair-scalar-heads` the blocker-pair and
+scalar heads learn too (mode `policy_heads`), so a teacher of every kind of
+decision reaches a trainable head; the trunk stays shared with the reference.
 
 Stage A with an adapter (`--adapter-on-candidate-head R`): every parameter is
 frozen and a rank-R update `B A` (B starts at zero) is added to the candidate
@@ -78,9 +80,11 @@ def apply_partial_training(net, args):
     freeze_value = getattr(args, "freeze_value_head", False)
     if not (head_only or rank or from_layer >= 0 or freeze_value):
         return None
+    other_heads = head_only and getattr(args, "train_pair_scalar_heads", False)
     if head_only:
-        mode = "policy_head"
-        _set_trainable(net, lambda n: n.startswith(HEAD_PREFIXES))
+        # With the pair and scalar heads every kind of decision has a trainable head.
+        mode = "policy_heads" if other_heads else "policy_head"
+        _set_trainable(net, lambda n: n.startswith(HEAD_PREFIXES + (OTHER_HEADS if other_heads else ())))
     elif rank:
         mode = "candidate_adapter"
         _set_trainable(net, lambda n: False)

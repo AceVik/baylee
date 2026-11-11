@@ -532,7 +532,7 @@ class OutOfScopeAnchor(unittest.TestCase):
 
     def test_default_is_the_kl_loss_term_for_term(self):
         loss, stats, grads, _ = self.run_loss(scoped())
-        means = stats[:len(D.TERMS)] / stats[len(D.TERMS):].clamp(min=1e-6)
+        means = stats[:len(D.TERMS)] / stats[len(D.TERMS):2 * len(D.TERMS)].clamp(min=1e-6)
         self.assertTrue(torch.equal(loss.detach(), means[0] + 1. * means[1:7].sum()))
         self.assertEqual(stats[len(D.TERMS) + 7].item(), 0.)                  # no ce_n weight
         self.assertIsNone(D.term_means(stats)["ce_n_out_of_scope"])

@@ -514,7 +514,7 @@ def scope_of(meta, coarse="act"):
 def report(net, rows, scope, chunk=256):
     """Per direction: rows, ce_coarse_r, top-1 in R's group, mean P(R's group), P(R's group) > .5,
     mean P(pass) and best act probability; and `distill_loss`'s own ce_coarse_r over all rows."""
-    sums, stats = {}, torch.zeros(2 * len(D.TERMS))
+    sums, stats = {}, torch.zeros(D.STATS_WIDTH)
     with torch.no_grad():
         for start in range(0, len(rows), chunk):
             part = rows[start:start + chunk]
