@@ -329,6 +329,7 @@ fn replay_feature_frames(
                                     llm_label: None,
                                     seat_input: None,
                                     distill: None,
+                                    cand_classes: None,
                                 },
                                 cur_life,
                             )?;
@@ -497,6 +498,9 @@ fn replay_feature_frames(
                     let sc = seat_cursors[s_idx];
                     seat_cursors[s_idx] += 1;
                     let cur_life = view.seats.get(s_idx).map_or(20, |s| s.life);
+                    // Each candidate's coarse class at priority, beside the frame.
+                    let cand_classes = matches!(pending, Pending::Priority { .. })
+                        .then(|| super::distill_labels::coarse_classes_of(&cands, &view));
                     emit(
                         Step4 {
                             game_id,
@@ -546,6 +550,7 @@ fn replay_feature_frames(
                             seat_input: matches!(by, Source::Seat)
                                 .then(|| u32::try_from(input_idx - 1).unwrap_or(u32::MAX)),
                             distill: None,
+                            cand_classes,
                         },
                         cur_life,
                     )?;
