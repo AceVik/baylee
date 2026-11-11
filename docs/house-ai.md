@@ -1183,6 +1183,106 @@ always produce the same action. Latency is measured externally with
 `cargo bench -p baylee-ai --bench decisions -- --quick`; time is never a
 policy input. Custom profile horizons above two are capped.
 
+## Foresight
+
+From `AIProfile::FORESIGHT` (generation 7) a level has a foresight tier
+(`AIProfile::foresight`), and where its host can fork the game it tries its
+options in copies before it answers. The host is `baylee-gamehost` under
+its `simulation` feature (`session/foresight.rs`), which only the training
+crates enable, and a table has to switch it on (`Session::set_foresight`,
+`eval4 --house-foresight`). Everywhere else, in every hosted game today, a
+level answers as its heuristics do. Whether the hosts get the fork is the
+owner's decision (`docs/proposals/house-ai-strength.md` §5).
+
+**What is searched.** Three questions, the ones the engine can fork
+(`docs/engine-internals.md` §"Forking a simulation"): priority with nothing
+begun (in the seat's own main phase with an empty stack; elsewhere only
+where the level means to act, or an opponent's spell or ability is on top
+of the stack), an attack, and a block. The candidates come from the
+question's own offer (`HeuristicAgent::foresight_candidates`): the level's
+own answer first, then passing, each spell (the dearest first), each land
+and each ability, one per card; for an attack the level's declaration
+beside all, none, and itself with one creature more or fewer, and for a
+block the same around the level's blocks. A spell or ability that asks for
+exactly one target is also tried at each of its first four targets, and the
+target chosen with it is given when the engine asks. A declaration that
+beats the level's own is tried against its own neighbours for two more
+rounds. Every candidate is an answer the question takes
+(`Pending::answer_fault`).
+
+**A world.** Each candidate is given in a fork of the game and the house
+plays every chair on until the turn counter has advanced four turns, the
+game ends, or 400 answers are spent. All candidates are tried in the same
+worlds: the same deal of the hidden cards and the same future randomness,
+from seeds derived from the chair's policy seed, a hash of what its view
+shows, and the world's number. The level's own answer stands unless
+another's mean value over the same worlds is more than 0.02 higher; then
+the best is given.
+
+**Who plays in a fork.** One model in every chair
+(`HeuristicAgent::simulated`): `expert`'s heuristics, with the searching
+chair's sides and sight, seeded from the world. Not the real opponent: its
+level, its agent, its seed and the analysis of its deck are not in a fork,
+so a search asks what a good house player would do in each seat and cannot
+be fitted to the player who sits there. Not the searching level either: a
+level's own heuristics give its own answer and every answer no search
+takes (mulligans, payments, most choices); its tier says how hard the
+search looks.
+
+**What is hidden in a fork.** A fair level forks with
+`DeckKnowledge::Prior`: the engine deals every other player's hand, library
+and sideboard from a weighted list built from the seat's own view
+(`baylee_ai::foresight::prior::public_prior`) and never reads the real
+ones. The list supposes that a deck goes on as it began: the cards the
+player has shown weigh most (twelve to the six that all the pool's other
+castable cards share), two cards in five are lands (the lands shown, and
+basic lands for the colours of the spells shown), and a player who has
+shown nothing is supposed to play a deck like the seat's own. The seat's
+own library is dealt from its own cards, which it knows. No chair but the
+seat's is told a deck. `seer`, at a table that lets it peek, forks with
+`Known` and keeps the table's deck analyses.
+
+**The leaf.** The game's result where the fork ended; otherwise the
+logistic of fourteen weighted counts read from the seat's view of the fork
+(`foresight_features`, `LEAF`): each side's life in three bands, cards in
+hand, creatures with their power, toughness and keywords, the mana value of
+what is on the table, whose turn it is, and the race (how much of the other
+side's life each side's creatures take in one attack). The weights are
+fitted by `fit_leaf` (`baylee-train`) on positions the house played against
+itself on the train split (`eval4 --leaf-log`), a logistic regression
+without an intercept and with no weight below zero, so that a correlation
+(a flooded hand has many lands) is never a reason to hold something back.
+The value says who is ahead between two house players; nothing in it knows
+an opponent.
+
+**Budgets** are counts, so the same view, policy seed and budget give the
+same answer on any machine:
+
+| Tier | Level | Candidates | Worlds |
+| ---: | --- | ---: | ---: |
+| 1 | novice | 4 | 2 |
+| 2 | casual | 5 | 3 |
+| 3 | steady | 6 | 4 |
+| 4 | sharp | 8 | 5 |
+| 5 | expert, seer | 8 | 6 |
+
+A host may also cap the work of one searched answer
+(`Session::set_foresight_work`, `eval4 --foresight-work`): once the forks of
+one search have taken that many house answers, no further world is started
+and the answer is chosen from the worlds every candidate was tried in.
+
+**Fairness.** `session/tests/foresight.rs` deals the house the two games of
+`tests/fair_house.rs`, which differ only in the opponent's decklist, hand
+and library, with foresight on: every fair level answers both the same,
+answer for answer, and searches the same positions. The engine's own twin
+games hold the fork (`engine/simulation_tests/prior.rs`).
+
+**Guards.** A position a search replaced the level's answer at and that
+comes back unchanged means the engine took the answer back; the level's own
+answer is given there, under its own stall guard. A fork the engine refuses
+(a suspended operation, something public naming a hidden card) leaves the
+level's own answer.
+
 ## The seated house
 
 `baylee-seat --mind house` (the ladder's and the collector's `house:<level>`)
@@ -1286,6 +1386,13 @@ asks `profile.plays(...)`. The generations so far:
    price (§"Mana for an ability", above).
 6. `SEER_DRAWS`: `seer` mulligans by the draws it is told (§"Fair by
    default, and the one level that peeks").
+7. `FORESIGHT`: a level tries its options in forks of the game before it
+   answers, where its host can fork and the table switches it on
+   (§"Foresight"). A level at an earlier generation has no tier
+   (`AIProfile::at_generation`), and every level's answers at generation 6
+   are pinned beside the reference (`tests/generation_pins.rs`,
+   `tests/reference/generation-6.json`), so a measurement against
+   `<level>:generation=6` plays the level as it was.
 
 Only a change
 that has to move the reference, such as an engine or card fix that changes
