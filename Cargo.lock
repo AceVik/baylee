@@ -1957,6 +1957,7 @@ dependencies = [
  "baylee-cards-pool",
  "baylee-core",
  "criterion",
+ "flate2",
  "rand_chacha 0.10.0",
  "rand_core 0.10.1",
  "rustc-hash 2.1.3",

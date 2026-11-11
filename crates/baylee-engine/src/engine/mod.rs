@@ -2348,6 +2348,8 @@ mod protection_flow_tests;
 #[cfg(test)]
 mod pump_flow_tests;
 #[cfg(test)]
+mod recorded_lockstep_tests;
+#[cfg(test)]
 mod redirection_tests;
 #[cfg(test)]
 mod reflexive_tests;

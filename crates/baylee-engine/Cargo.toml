@@ -43,6 +43,8 @@ baylee-cards = { workspace = true, features = ["mutate"] }
 uuid.workspace = true
 criterion.workspace = true
 serde_json.workspace = true
+# `recorded_lockstep_tests` (ignored) reads the gzip members of recorded runs.
+flate2.workspace = true
 
 [[bench]]
 name = "basics"
