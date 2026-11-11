@@ -35,12 +35,12 @@ const PINNED: [u16; 1] = [AIProfile::SEER_DRAWS];
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 struct Pins {
     generation: u16,
-    levels: Vec<Level>,
+    levels: Vec<Pin>,
 }
 
 /// One level at one generation.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-struct Level {
+struct Pin {
     level: String,
     /// The constants it was recorded with, generation included.
     constants: AIProfile,
@@ -57,10 +57,10 @@ fn path(generation: u16) -> String {
     )
 }
 
-fn played(name: &str, profile: AIProfile, generation: u16) -> Level {
+fn played(name: &str, profile: AIProfile, generation: u16) -> Pin {
     let constants = profile.at_generation(generation);
     let games = games_of(&format!("{name}:generation={generation}"), constants);
-    Level {
+    Pin {
         level: name.to_owned(),
         constants,
         answers: hash_of(&games),
@@ -72,7 +72,7 @@ fn played(name: &str, profile: AIProfile, generation: u16) -> Level {
 }
 
 fn written(pins: &Pins) -> String {
-    let json = |level: &Level| serde_json::to_string(level).expect("a pin serializes");
+    let json = |level: &Pin| serde_json::to_string(level).expect("a pin serializes");
     let levels: Vec<String> = pins.levels.iter().map(json).collect();
     format!(
         "{{\"generation\":{},\"levels\":[\n{}\n]}}\n",

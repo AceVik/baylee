@@ -4,6 +4,7 @@ use baylee_view::{GameStatic, LogEvent, PolicyAnswer, SeatSetting};
 
 mod chairs;
 mod clocks;
+mod foresight;
 mod frames;
 mod holds;
 mod log;

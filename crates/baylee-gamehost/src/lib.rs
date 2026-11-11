@@ -20,6 +20,9 @@ pub mod session;
 pub mod view;
 
 pub use baylee_view::{GameStatic, PlayerView, SeatIdentity};
+/// What a table's house searches have cost (`Session::foresight_stats`).
+#[cfg(any(test, feature = "simulation"))]
+pub use session::ForesightStats;
 /// A session's game forked for one seat's lookahead (`Session::fork_for`): only
 /// under the `simulation` feature, which no hosting build enables.
 #[cfg(any(test, feature = "simulation"))]

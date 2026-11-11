@@ -26,6 +26,8 @@ mod answers;
 mod chairs;
 mod choice_context;
 mod clocks;
+#[cfg(any(test, feature = "simulation"))]
+mod foresight;
 mod frames;
 pub mod project;
 mod pump;
@@ -35,6 +37,8 @@ mod simulation;
 mod spectators;
 mod table;
 
+#[cfg(any(test, feature = "simulation"))]
+pub use foresight::ForesightStats;
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
 
@@ -298,6 +302,24 @@ pub struct Session {
     /// The action currently being applied by the engine, kept across the
     /// `engine.apply` call so a panic handler can record the exact triggering
     /// `(seat, source, action)` in a fault bundle.
+    /// Whether the house's chairs try their options in forks before they
+    /// answer ([`Session::set_foresight`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight: bool,
+    /// The most answers the forks of one search may take before no further
+    /// world is started ([`Session::set_foresight_work`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_work: Option<u64>,
+    /// What those searches have cost ([`Session::foresight_stats`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_stats: foresight::ForesightStats,
+    /// Per seat, the position a search last replaced the level's own answer
+    /// at: the same position coming back means the engine took it back.
+    #[cfg(any(test, feature = "simulation"))]
+    foreseen_at: Vec<Option<u64>>,
+    /// Per seat, the target a search chose with the spell it gave.
+    #[cfg(any(test, feature = "simulation"))]
+    foreseen_then: Vec<Option<PlayerAction>>,
     last_attempt: Option<(PlayerId, Source, PlayerAction)>,
     /// Whether anybody reads this session's frames ([`Session::discard_frames`]).
     frames_read: bool,
@@ -410,6 +432,16 @@ impl Session {
                 ..spectators::Gallery::default()
             },
             fair_scouting: false,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight: false,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_work: None,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_stats: foresight::ForesightStats::default(),
+            #[cfg(any(test, feature = "simulation"))]
+            foreseen_at: vec![None; preset.seats.len()],
+            #[cfg(any(test, feature = "simulation"))]
+            foreseen_then: vec![None; preset.seats.len()],
             last_attempt: None,
             frames_read: true,
         };

@@ -406,3 +406,49 @@ impl SimulationSession {
         self.engine.apply(player, fallback).is_ok()
     }
 }
+
+impl SimulationSession {
+    /// Seats a copy of `model` in every chair, each seeded from `seed` and
+    /// the chair, and holds `player`'s for an answer from outside
+    /// ([`Self::act_slice`]; [`Self::release`] hands it to its copy): the
+    /// fork a house search plays (`session/foresight.rs`).
+    ///
+    /// Nothing of the table's own chairs is left: not their kinds, levels,
+    /// agents or seeds. Unless `keep_decks` (a level that peeks, at a table
+    /// that lets it), no chair but `player`'s is told a deck either, and the
+    /// fork is held fair, so that nothing in it was read from another
+    /// player's list.
+    pub(super) fn seat_model(
+        &mut self,
+        player: PlayerId,
+        model: &baylee_ai::HeuristicAgent,
+        seed: u64,
+        keep_decks: bool,
+    ) {
+        self.seats = (0..self.seats.len())
+            .map(|at| {
+                let agent = model.simulated(house_seed(seed, at));
+                if at == usize::from(player.get()) {
+                    SeatKind::Driven(agent)
+                } else {
+                    SeatKind::Ai(agent)
+                }
+            })
+            .collect();
+        if !keep_decks {
+            self.scouting_decks = self
+                .scouting_decks
+                .iter()
+                .enumerate()
+                .map(|(at, deck)| {
+                    if at == usize::from(player.get()) {
+                        deck.clone()
+                    } else {
+                        DeckIntel::new(Vec::new(), Vec::new())
+                    }
+                })
+                .collect();
+            self.fair_scouting = true;
+        }
+    }
+}

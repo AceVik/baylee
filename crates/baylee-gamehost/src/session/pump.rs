@@ -123,7 +123,12 @@ impl Session {
             };
             // `house_seat` is a chair the house plays: one answered over a
             // socket returned above.
-            let Some(action) = self.table().house_answer(player, &pending) else {
+            #[cfg(any(test, feature = "simulation"))]
+            let foreseen = self.foreseen(player, &pending);
+            #[cfg(not(any(test, feature = "simulation")))]
+            let foreseen = None;
+            let Some(action) = foreseen.or_else(|| self.table().house_answer(player, &pending))
+            else {
                 return out;
             };
             let by = self.seats[player.get() as usize]
