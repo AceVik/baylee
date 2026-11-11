@@ -663,13 +663,70 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
 /// this many every one is read as one mana, which under-counts and is safe.
 const MAX_POURS: usize = 3;
 
+/// How many `{2/C}` symbols of one cost are read every way they can be: past
+/// this many, only the all-coloured and the all-generic readings are tried,
+/// which under-counts and is safe. No card prints more than three.
+const MAX_TWOBRIDS: u32 = 6;
+
+/// One reading of a cost's `{2/C}` symbols (CR 107.4e): bit `i` reads the
+/// `i`-th of them, in printed order, as two generic mana, and a clear bit as
+/// one mana of its colour.
+///
+/// Each symbol is paid on its own, so a reading is per symbol and never one
+/// answer for the whole cost: Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an
+/// Island and four Plains is `{U}` from the Island and two `{2}`s from the
+/// Plains, which neither "all coloured" nor "all generic" pays, and the card
+/// was never offered (LLM-seat report, 11.11.2026).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Twobrid(u32);
+
+impl Twobrid {
+    /// Every `{2/C}` as one mana of its colour.
+    const COLOURED: Self = Self(0);
+
+    /// Whether the `i`-th `{2/C}` is read as two generic mana.
+    const fn generic(self, i: u32) -> bool {
+        i < u32::BITS && self.0 & (1 << i) != 0
+    }
+
+    /// How many of them are read as two generic mana.
+    const fn generics(self) -> u32 {
+        self.0.count_ones()
+    }
+}
+
+/// The readings of `cost`'s `{2/C}` symbols to try, the coloured halves
+/// first: fewer generic readings is fewer mana (one, not two), so the first
+/// reading that pays taps the least. A cost without one has one reading.
+fn twobrid_readings(cost: &ManaCost) -> Vec<Twobrid> {
+    let count = u32::try_from(
+        cost.symbols()
+            .filter(|s| matches!(s, ManaSymbol::TwoOrColor(_)))
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+    if count == 0 {
+        return vec![Twobrid::COLOURED];
+    }
+    if count > MAX_TWOBRIDS {
+        return vec![
+            Twobrid::COLOURED,
+            Twobrid(u32::MAX >> (u32::BITS - count.min(u32::BITS))),
+        ];
+    }
+    let mut readings: Vec<Twobrid> = (0..1u32 << count).map(Twobrid).collect();
+    readings.sort_by_key(|reading| (reading.generics(), reading.0));
+    readings
+}
+
 /// [`plan`] for one reading of every source.
 fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
     // `{2/C}` reads two ways and only the player knows which they meant, so
-    // both are tried: the coloured half first (it is one mana, not two), then
-    // the generic one. Everything else has a single reading.
-    for generic_twobrid in [false, true] {
-        let needs = needs(cost, generic_twobrid)?
+    // each symbol is tried both ways, the coloured halves first (one mana,
+    // not two). Everything else has a single reading.
+    let readings = twobrid_readings(cost);
+    for &reading in &readings {
+        let needs = needs(cost, reading)?
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
@@ -686,8 +743,8 @@ fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option
     if !sources.iter().any(|s| s.widened().is_some()) {
         return None;
     }
-    for generic_twobrid in [false, true] {
-        let needs = needs(cost, generic_twobrid)?
+    for &reading in &readings {
+        let needs = needs(cost, reading)?
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
@@ -778,11 +835,17 @@ fn mask_of_set(set: ColorSet) -> ColorMask {
 ///
 /// `None` for a cost this side of the wire must not guess at: `{X}` is a
 /// number the player chooses, `{S}` is a property of the *source* rather than
-/// of the mana, and the silver-bordered symbols are not mana at all.
-fn needs(cost: &ManaCost, generic_twobrid: bool) -> Option<Vec<ColorMask>> {
+/// of the mana, and the silver-bordered symbols are not mana at all. Each
+/// `{2/C}` is read as `reading` says.
+fn needs(cost: &ManaCost, reading: Twobrid) -> Option<Vec<ColorMask>> {
     let mut out = Vec::new();
+    let mut twobrids = 0;
     for symbol in cost.symbols() {
-        if !push_needs(symbol, generic_twobrid, &mut out) {
+        let generic = matches!(symbol, ManaSymbol::TwoOrColor(_)) && {
+            twobrids += 1;
+            reading.generic(twobrids - 1)
+        };
+        if !push_needs(symbol, generic, &mut out) {
             return None;
         }
     }
@@ -792,7 +855,8 @@ fn needs(cost: &ManaCost, generic_twobrid: bool) -> Option<Vec<ColorMask>> {
 /// Pushes one entry per mana `symbol` demands, and `false` (pushing nothing)
 /// for a symbol this side of the wire must not guess at — [`needs`]'s
 /// reasons, one symbol at a time, so [`remainder`] can tell which symbol
-/// each entry was printed as.
+/// each entry was printed as. `generic_twobrid` reads a `{2/C}` as two
+/// generic mana, and anything else as it is.
 fn push_needs(symbol: ManaSymbol, generic_twobrid: bool, out: &mut Vec<ColorMask>) -> bool {
     match symbol {
         ManaSymbol::Generic(n) => {
@@ -1617,6 +1681,56 @@ mod tests {
         assert_eq!(found.taps(), 2);
 
         assert!(plan(&cost("{2/W}"), &empty(), &islands[..1]).is_none());
+    }
+
+    /// Each `{2/C}` is paid on its own (CR 107.4e), so a cost of several is
+    /// paid by a mix: Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an Island
+    /// and four Plains is the Island's blue and two Plains for each of the
+    /// other two. Read all coloured or all generic, it was paid by neither
+    /// and never offered (LLM-seat report, 11.11.2026).
+    #[test]
+    fn several_twobrids_are_each_read_their_own_way() {
+        let board = [
+            land(1, ManaColor::Blue),
+            land(2, ManaColor::White),
+            land(3, ManaColor::White),
+            land(4, ManaColor::White),
+            land(5, ManaColor::White),
+        ];
+        let found = plan(&cost("{2/G}{2/U}{2/R}"), &empty(), &board)
+            .expect("the Island's blue and two Plains each for green and red");
+        assert_eq!(found.taps(), 5);
+        assert!(tapped(&found).contains(&1), "the Island pays {{2/U}}");
+        assert!(
+            plan(&cost("{2/G}{2/U}{2/R}"), &empty(), &board[..4]).is_none(),
+            "an Island and three Plains pay one blue and three, not four"
+        );
+
+        // The coloured halves first: a Forest, an Island and a Mountain pay
+        // it with three taps, never with six.
+        let rainbow = [
+            land(1, ManaColor::Green),
+            land(2, ManaColor::Blue),
+            land(3, ManaColor::Red),
+            land(4, ManaColor::White),
+            land(5, ManaColor::White),
+            land(6, ManaColor::White),
+        ];
+        let found = plan(&cost("{2/G}{2/U}{2/R}"), &empty(), &rainbow).expect("three colours");
+        assert_eq!(tapped(&found), vec![1, 2, 3]);
+    }
+
+    /// The other two-way symbols are one mana each and need no reading: a
+    /// hybrid is either colour symbol by symbol (`{W/U}{W/U}` from a Plains
+    /// and an Island), and Phyrexian mana is its colour, symbol by symbol.
+    #[test]
+    fn hybrids_are_matched_symbol_by_symbol() {
+        let board = [land(1, ManaColor::White), land(2, ManaColor::Blue)];
+        assert!(plan(&cost("{W/U}{W/U}"), &empty(), &board).is_some());
+        assert!(plan(&cost("{W/U}{U/B}"), &empty(), &board).is_some());
+        let board = [land(1, ManaColor::Green), land(2, ManaColor::Red)];
+        assert!(plan(&cost("{G/P}{R/P}"), &empty(), &board).is_some());
+        assert!(plan(&cost("{G/W/P}{R/W/P}"), &empty(), &board).is_some());
     }
 
     /// Phyrexian mana is read as its colour and never as two life. Life is a

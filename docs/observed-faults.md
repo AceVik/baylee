@@ -3819,6 +3819,12 @@ at the way the engine names for it (`LegalActions::cast_ways`), and an
 Adventure in hand is offered at its own price (`docs/client.md` §"A card in a
 pile is reached for too"). The first half is entry 69.
 
+And from a language-model seat's report the same day: the planner read every
+`{2/C}` of a cost one way, all one coloured mana or all two generic, never a
+mix, so Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an Island, Obelisk of Bant
+and three Plains was never offered. Each is read on its own now (CR 107.4e,
+`manaplan::twobrid_readings`).
+
 ### 69. Restricted mana is planned one tap at a time, never once it floats, and never in a payment window — CONFIRMED
 
 The engine offers the spells: `payable` asks no mana, and `castable` merges

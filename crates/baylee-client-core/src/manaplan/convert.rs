@@ -43,7 +43,10 @@ use std::collections::BTreeSet;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_view::ManaPoolView;
 
-use super::{ColorMask, Plan, Source, Step, Unit, augment, mask_of, needs, permitted, slot};
+use super::{
+    ColorMask, Plan, Source, Step, Twobrid, Unit, augment, mask_of, needs, permitted, slot,
+    twobrid_readings,
+};
 
 /// How many permanents' conversions one plan reads.
 const MAX_CONVERTERS: usize = 3;
@@ -88,7 +91,8 @@ impl Converter {
     /// What one activation leaves the pool with beyond what it spent, at its
     /// best: no more can be asked of this permanent.
     fn gain(&self) -> usize {
-        needs(&self.cost, false).map_or(0, |cost| self.mana().saturating_sub(cost.len()))
+        needs(&self.cost, Twobrid::COLOURED)
+            .map_or(0, |cost| self.mana().saturating_sub(cost.len()))
     }
 }
 
@@ -106,10 +110,11 @@ pub(super) fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> 
     }
     converters.sort_by_key(|&index| (sources[index].priced, sources[index].preserve, index));
     converters.truncate(MAX_CONVERTERS);
+    let readings = twobrid_readings(cost);
     for size in 1..=converters.len() {
         for chain in chains(&converters, size) {
-            for generic_twobrid in [false, true] {
-                let found = attempt(cost, pool, sources, &chain, generic_twobrid);
+            for &reading in &readings {
+                let found = attempt(cost, pool, sources, &chain, reading);
                 if found.is_some() {
                     return found;
                 }
@@ -123,7 +128,7 @@ pub(super) fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> 
 /// all: what floats, and each permanent at its best. Most costs a chain is
 /// asked about are simply too dear, and this answers those without a matching.
 fn enough(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> bool {
-    let Some(asked) = needs(cost, false) else {
+    let Some(asked) = needs(cost, Twobrid::COLOURED) else {
         return false;
     };
     let made: usize = sources
@@ -167,17 +172,17 @@ fn attempt(
     pool: &ManaPoolView,
     sources: &[Source],
     chain: &[usize],
-    generic_twobrid: bool,
+    reading: Twobrid,
 ) -> Option<Plan> {
     // The spell's demands and then each converter's; `owner` is the place in
     // the chain a demand pays for, past every place for the spell's own.
-    let mut demands: Vec<ColorMask> = needs(cost, generic_twobrid)?
+    let mut demands: Vec<ColorMask> = needs(cost, reading)?
         .into_iter()
         .map(|need| permitted(need, pool))
         .collect();
     let mut owner = vec![usize::MAX; demands.len()];
     for (at, &index) in chain.iter().enumerate() {
-        for need in needs(&sources[index].converter.as_ref()?.cost, false)? {
+        for need in needs(&sources[index].converter.as_ref()?.cost, Twobrid::COLOURED)? {
             demands.push(permitted(need, pool));
             owner.push(at);
         }
@@ -368,7 +373,7 @@ pub fn after_step(pool: &ManaPoolView, step: &Step, sources: &[Source]) -> Optio
 /// is wrong there stops the taps, it spends nothing that was not asked for.
 fn spent(pool: &ManaPoolView, cost: &ManaCost) -> Option<ManaPoolView> {
     let mut out = *pool;
-    let mut demands: Vec<ColorMask> = needs(cost, false)?
+    let mut demands: Vec<ColorMask> = needs(cost, Twobrid::COLOURED)?
         .into_iter()
         .map(|need| permitted(need, pool))
         .collect();

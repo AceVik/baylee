@@ -536,3 +536,22 @@ fn a_graveyard_activation_is_reached_for() {
     );
 }
 
+// ------------------------------------------------------------ hybrid costs
+
+/// Temur Tawnyback, `{2/G}{2/U}{2/R}`, beside an Island, Obelisk of Bant and
+/// three Plains (the board of the LLM-seat report of 11.11.2026): the
+/// Island's blue, the Obelisk's green, and two Plains for `{2/R}` pay it
+/// (CR 107.4e, each symbol on its own). Read all coloured or all generic it
+/// was paid by neither, and never lit.
+#[test]
+fn a_cost_of_twobrids_is_paid_by_a_mix() {
+    let mut table = Table::open(
+        "Plains",
+        &["Temur Tawnyback"],
+        &["Island", "Obelisk of Bant", "Plains", "Plains", "Plains"],
+        &[],
+    );
+    let beast = table.card("Temur Tawnyback");
+    assert!(table.lit(beast), "five sources pay {{2/G}}{{2/U}}{{2/R}}");
+    table.click_and_cast(beast, &mut nothing);
+}
