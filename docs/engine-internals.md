@@ -1781,6 +1781,19 @@ player-driven removal now records (effects: the resolving controller; costs:
 the payer; a counter move: the mover). Rules removals (stun, damage to a
 planeswalker, SBAs) record nobody.
 
+**A decided game asks nothing.** The machine's own game-over check comes
+after the questions a pass may raise first (a counter order, a graveyard
+order, an entry's choice), so a state-based check that decided the game
+went on to ask, for one, the owner of the cards that died beside the loss to
+put them in order (CR 404.3). `Engine::end_a_decided_game` runs after the
+machine stops on a question, and after a resolution leaves one standing: once
+`game_result` has an answer, the game is over instead, on the board the
+question would have been asked on, so that board hashes as it did. A
+concession already ended the game whatever was being asked; this is the same
+rule for every other ending (CR 104.1). A record from before 11 November 2026
+may end with an answer to such a question, which a build after it refuses
+because the game is over.
+
 ### The defending player of an attacking source (CR 508.5)
 
 `PlayerRel::DefendingPlayer` is `eval::defending_player_of(source)`: the player

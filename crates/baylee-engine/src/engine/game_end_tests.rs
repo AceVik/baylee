@@ -148,3 +148,67 @@ fn at_a_table_of_three_the_last_one_standing_wins() {
     };
     assert_eq!(result.winner, Some(Victor::Player(PlayerId::new(2))));
 }
+
+fn plague_spitter() -> baylee_core::ids::CardIndex {
+    super::testkit::card_index("5feedfb0-30e6-400d-9e28-d541ea1aa14e")
+}
+
+fn nether_shadow() -> baylee_core::ids::CardIndex {
+    super::testkit::card_index("c358b9e2-524c-434b-b3fa-74d2aa6d1df7")
+}
+
+/// Seat 0's Plague Spitter at its first upkeep, seat 1 at 1 life: its
+/// damage kills seat 0's two Elves and seat 1 in one state-based check
+/// (CR 704.3), in a game where Nether Shadow reads the order of a graveyard,
+/// so simultaneous arrivals are put in order by their owner (CR 404.3).
+/// Played until the game is over or a graveyard order is asked.
+fn spitter_finishes_it() -> Game {
+    let elf = super::testkit::quiet_creature();
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[plague_spitter(), elf, elf])
+        .hand(0, &[nether_shadow()])
+        .life(1, 1)
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        over(e) || matches!(e.pending(), Pending::Arrange { .. })
+    });
+    engine
+}
+
+/// A game ends immediately when a player wins (CR 104.1), and in a duel
+/// the last opponent losing is the win (CR 104.2a), so nothing is asked
+/// once the check that decided it is done: where the owner of the cards
+/// that died beside the loss would order them, the game is over instead.
+///
+/// The record: Carbon's ladder game hc-expert-b/game-0023, turn 36. Seat 1
+/// was at -5 and had lost; seat 0 was still asked to put the five creatures
+/// that died in the same combat damage step in order.
+///
+/// The question was the whole difference: the engine as it was hashed the
+/// board it asked on as the board this one ends on.
+#[test]
+fn a_decided_game_asks_no_graveyard_order() {
+    let engine = spitter_finishes_it();
+    let Pending::GameOver(result) = engine.pending().clone() else {
+        panic!("asked {:?} after seat 1 lost", engine.pending())
+    };
+    assert_eq!(result.winner, Some(Victor::Player(P0)));
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(P0)).len(),
+        2,
+        "both Elves died with seat 1's loss"
+    );
+    let then = super::progress::ASK_IN_A_DECIDED_GAME.with(|ask| {
+        ask.set(true);
+        let then = spitter_finishes_it();
+        ask.set(false);
+        then
+    });
+    assert!(
+        matches!(then.pending(), Pending::Arrange { player: P0, .. }),
+        "the control: the engine as it was asked the order, got {:?}",
+        then.pending()
+    );
+    assert_eq!(then.snapshot_hash(), engine.snapshot_hash());
+}
