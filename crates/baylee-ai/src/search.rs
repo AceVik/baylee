@@ -822,6 +822,28 @@ fn defended(board: &Board, ids: &[ObjectId]) -> Defended {
     (walkers, aimed, base, unblockable)
 }
 
+/// The mana value a creature whose own death does something for its
+/// controller is priced below its printed one in a block
+/// ([`AIProfile::BLOCK_READS`]).
+const DIES_DISCOUNT: u32 = 2;
+
+/// `f` (the creature `id`) as a block reads it from [`AIProfile::BLOCK_READS`]
+/// on (`reads`): a `hostile` creature that can regenerate itself now does not
+/// die of the damage, and a creature whose own death does something for its
+/// controller costs less to lose ([`crate::combat_reads`]).
+fn read(board: &Board, id: ObjectId, mut f: Fighter, reads: bool, hostile: bool) -> Fighter {
+    let Some(o) = board.object(id).filter(|_| reads) else {
+        return f;
+    };
+    if hostile && crate::combat_reads::regenerates(board.view, o) {
+        f.keywords |= KeywordSet::INDESTRUCTIBLE.bits();
+    }
+    if crate::combat_reads::dies_for_value(o) {
+        f.worth = f.worth.saturating_sub(DIES_DISCOUNT);
+    }
+    f
+}
+
 /// Search legal blocking assignments, including gang blocks and menace.
 #[must_use]
 pub fn blockers(
@@ -856,10 +878,18 @@ pub(crate) fn blockers_within(
     if ids.len() > MAX {
         return (crate::combat::choose_blocks(&board, options, life), 0);
     }
-    let attackers: Vec<_> = ids.iter().filter_map(|&id| board.fighter(id)).collect();
+    let reads = profile.plays(AIProfile::BLOCK_READS);
+    let attackers: Vec<_> = ids
+        .iter()
+        .filter_map(|&id| board.fighter(id).map(|f| read(&board, id, f, reads, true)))
+        .collect();
     let mut ordered_options: Vec<_> = options
         .iter()
-        .filter_map(|o| board.fighter(o.blocker).map(|f| (o, f)))
+        .filter_map(|o| {
+            board
+                .fighter(o.blocker)
+                .map(|f| (o, read(&board, o.blocker, f, reads, false)))
+        })
         .collect();
     // The search needs a body for every attacker and needs to know what each
     // one is aiming at; `position` below reads both. When the view supplies

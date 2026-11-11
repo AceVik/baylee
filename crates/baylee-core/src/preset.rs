@@ -687,8 +687,14 @@ impl AIProfile {
     /// each tier is cut about as rarely; the forks' model thinks about one
     /// attack or block within [`Self::FORK_NODES`], whatever the bound.
     pub const BOUNDED_SEARCH: u16 = 9;
+    /// A level that searches its blocks (lookahead 1 and more) reads two
+    /// printed abilities there: an attacker that can regenerate itself with
+    /// the mana its controller has open does not die of the damage, and a
+    /// creature whose own death triggers something of its card is cheaper to
+    /// lose.
+    pub const BLOCK_READS: u16 = 10;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::BOUNDED_SEARCH;
+    pub const GENERATION: u16 = Self::BLOCK_READS;
 
     /// The work a bounded search ([`Self::BOUNDED_SEARCH`]) may spend at
     /// expert's tier, in the units of the search's meter; a lower tier may
