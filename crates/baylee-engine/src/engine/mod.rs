@@ -2115,7 +2115,7 @@ mod progress;
 #[cfg(any(test, feature = "simulation"))]
 mod simulation;
 #[cfg(any(test, feature = "simulation"))]
-pub use simulation::{DeckKnowledge, ForkRefusal};
+pub use simulation::{DeckKnowledge, ForkRefusal, PriorFault, PublicPrior};
 mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]

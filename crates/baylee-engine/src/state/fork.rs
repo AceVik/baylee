@@ -24,7 +24,12 @@ use std::sync::Arc;
 
 impl GameState {
     /// Whether a fork may deal this game again, `hidden` saying which
-    /// objects the deal removes.
+    /// objects the deal removes and `read` which of those it may look at:
+    /// all of them where every deck list is public to the seat, only the
+    /// seat's own where the others are dealt from a public prior
+    /// (`DeckKnowledge::Prior`). A hidden object that is not `read` is
+    /// known here by its id alone; nothing below asks what it is, how often
+    /// it has moved or what it carries, so no refusal can depend on it.
     ///
     /// # Errors
     /// [`ForkRefusal::Continuation`] for a continuation that is not idle,
@@ -33,7 +38,11 @@ impl GameState {
     /// [`ForkRefusal::MarkedHiddenCard`] for a hidden card whose statics
     /// work where it hides.
     #[allow(clippy::too_many_lines)] // one line per state field: the list is the guard
-    pub(crate) fn audit_fork(&self, hidden: &dyn Fn(ObjectId) -> bool) -> Result<(), ForkRefusal> {
+    pub(crate) fn audit_fork(
+        &self,
+        hidden: &dyn Fn(ObjectId) -> bool,
+        read: &dyn Fn(ObjectId) -> bool,
+    ) -> Result<(), ForkRefusal> {
         let Self {
             format: _,
             // Rewritten by the deal; its objects are checked one by one
@@ -110,7 +119,11 @@ impl GameState {
             // Rewritten: `engine::simulation::transcript`.
             journal: _,
             // Functions of the submitted deck lists and of public play,
-            // which `DeckKnowledge::Known` grants the seat.
+            // which `DeckKnowledge::Known` grants the seat. Under a public
+            // prior they still hold the names and faces of the other
+            // decks' cards: caches no rule iterates or orders by, read only
+            // through a card or a name the fork itself holds
+            // (`docs/engine-internals.md` §"Forking a simulation").
             names: _,
             bases: _,
             timestamp: _,
@@ -247,10 +260,13 @@ impl GameState {
         named("a delayed trigger", delayed_objects)?;
         // An effect about one exact incarnation that is now a hidden card.
         // One about an earlier incarnation already applies to nothing
-        // (CR 400.7), in the fork as in the game.
+        // (CR 400.7), in the fork as in the game. Which incarnation a
+        // hidden card is in counts its hidden moves, so for a card that may
+        // not be read the effect is refused whichever it names: that a
+        // public effect names a card now hidden is what the seat saw.
         if effects.iter().any(|effect| match effect.filter {
             EffectFilter::ObjectIs(id, version) | EffectFilter::DslAbout(_, id, version) => {
-                hidden(id) && self.object(id).is_some_and(|o| o.version == version)
+                hidden(id) && (!read(id) || self.object(id).is_some_and(|o| o.version == version))
             }
             EffectFilter::Dsl(_) | EffectFilter::DslControlledBy(..) => false,
         }) {
@@ -265,10 +281,13 @@ impl GameState {
         // leaves a text override naming the card's id and incarnation: all
         // of it a record of where the card has been, which a deal cannot
         // rewrite. Graveyard and exile statics register only in public
-        // zones.
+        // zones. Asked only of the cards the deal may read: whether another
+        // player's hidden card is such a card is that player's secret, and
+        // under a public prior the fork is made either way — the card and
+        // its effects are removed and its overrides dropped by the settle.
         if offboard_static_candidates
             .iter()
-            .any(|&id| hidden(id) && self.works_while_hidden(id))
+            .any(|&id| hidden(id) && read(id) && self.works_while_hidden(id))
         {
             return Err(ForkRefusal::MarkedHiddenCard(
                 "a static that works in a hidden zone",
@@ -298,6 +317,30 @@ impl GameState {
                 )
             })
         })
+    }
+
+    /// Whether graveyard order matters in a fork dealt from a public prior
+    /// (CR 404.3), decided again from the cards the fork holds.
+    ///
+    /// Setup turns the question on when any deck holds a card that reads
+    /// the order of a graveyard (`graveyard_order::card_reads_order`), the
+    /// hidden ones included, and from then on owners are asked to order
+    /// simultaneous arrivals: a fact about every deck list. A fork that
+    /// kept it would ask, or not ask, by a card its seat has never seen. So
+    /// it is asked of the fork's own cards, after the deal: those the seat
+    /// can see, its own, and the ones dealt from the prior. The cursor is
+    /// the journal's end where it is on and zero where it is off; a fork is
+    /// made with no batch waiting and no instruction in flight, so nothing
+    /// before the cursor is still to be captured.
+    pub(crate) fn decide_graveyard_order_from_cards(&mut self, lookup: &impl super::CardLookup) {
+        let enabled = self.arena.iter().any(|(_, object)| {
+            object
+                .card
+                .and_then(|card| lookup.card(card.index))
+                .is_some_and(crate::graveyard_order::card_reads_order)
+        });
+        self.graveyard_order.enabled = enabled;
+        self.graveyard_order.captured_through = if enabled { self.journal.last_seq() } else { 0 };
     }
 
     /// The shared printed front face of a card in this game, as setup

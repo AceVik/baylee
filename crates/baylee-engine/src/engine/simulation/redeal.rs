@@ -6,42 +6,72 @@
 //! a card off its id. So a deal changes both: the identities of one pool are
 //! sorted, shuffled on the belief stream and put into new objects, allocated
 //! in zone order, and the old objects are removed from the fork.
+//!
+//! Where the seat does not know the other decks, a pool of another owner
+//! is not dealt from its own cards at all: every slot is drawn, with
+//! replacement and by weight, from that owner's list in the seat's
+//! [`PublicPrior`]. Such a pool is [`Source::Prior`], and nothing in this
+//! module reads an object of it: its zones' sizes and its ids, which name
+//! what the fork removes, are all that is taken from the game.
 
-use super::ForkRefusal;
+use super::{ForkRefusal, PriorFault, PublicPrior};
 use crate::object::{CardRef, Characteristics, GameObject, ObjectKind, Rider, Status};
 use crate::rng::GameRng;
-use crate::state::GameState;
+use crate::state::{CardLookup, GameState, SetupError};
 use crate::zone::{Zone, ZoneLocation};
 use baylee_core::card_metadata::{DeckChoices, RulePrint};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef};
 use smallvec::SmallVec;
 use std::sync::Arc;
 
+/// Where a pool's dealt identities come from.
+#[derive(Clone, Copy)]
+enum Source<'a> {
+    /// The cards really hidden in it, shuffled: the seat knows the list
+    /// they are from (its own library, or every deck under
+    /// `DeckKnowledge::Known`).
+    Hidden,
+    /// The owner's weighted list in the seat's public prior. The pool's
+    /// real cards are never read.
+    Prior(&'a [(CardIndex, u32)]),
+}
+
 /// The hidden cards of one owner that are dealt together: zones the seat
 /// knows only the sizes of, any of whose cards could be in any of them.
-struct Pool {
+struct Pool<'a> {
     owner: PlayerId,
     /// In the order their slots are dealt, each with how many cards on its
     /// top are public and stay where they are (a library top a static
     /// reveals).
     zones: SmallVec<[(ZoneLocation, usize); 2]>,
+    from: Source<'a>,
 }
 
-impl Pool {
+impl Pool<'_> {
     /// The hidden part of a zone, bottom first: all but its public top.
     fn hidden_part(state: &GameState, loc: ZoneLocation, kept: usize) -> &[ObjectId] {
         let list = state.zones.list(loc);
         &list[..list.len().saturating_sub(kept)]
     }
+
+    /// The ids of the pool's hidden cards, in the order its slots are dealt.
+    fn ids<'s>(&'s self, state: &'s GameState) -> impl Iterator<Item = ObjectId> + 's {
+        self.zones
+            .iter()
+            .flat_map(move |&(loc, kept)| Self::hidden_part(state, loc, kept).iter().copied())
+    }
 }
 
 /// What a fork deals, planned on the real game before it is copied.
-pub(super) struct Deal {
+pub(super) struct Deal<'a> {
     /// The seat the fork is for.
     seat: PlayerId,
-    pools: Vec<Pool>,
+    pools: Vec<Pool<'a>>,
     /// Every hidden card's id, sorted: the objects the fork removes.
     retired: Vec<ObjectId>,
+    /// Those of them in a pool dealt from the prior, sorted: objects that
+    /// are removed unread.
+    unread: Vec<ObjectId>,
 }
 
 /// What a card is, as opposed to where it is or what happened to it: all
@@ -74,7 +104,7 @@ impl Identity {
     }
 }
 
-impl Deal {
+impl<'a> Deal<'a> {
     /// The pools `seat` cannot see into, checked object by object for what
     /// a deal could not carry over; the rest of the state is
     /// `GameState::audit_fork`'s.
@@ -91,15 +121,32 @@ impl Deal {
     /// library a static reveals (Courser of Kruphix). Dealing those would
     /// put a card there the seat knows is not.
     ///
+    /// With a `prior`, every pool of another owner is dealt from that
+    /// owner's list in it and its objects are not checked, because they are
+    /// not read: whatever such a card carries goes with it. The seat's own
+    /// library is dealt from its own cards and checked as ever.
+    ///
     /// # Errors
     /// [`ForkRefusal::FaceDown`], [`ForkRefusal::HiddenExile`],
-    /// [`ForkRefusal::MarkedHiddenCard`] or
-    /// [`ForkRefusal::ReferencedHiddenCard`].
+    /// [`ForkRefusal::MarkedHiddenCard`],
+    /// [`ForkRefusal::ReferencedHiddenCard`], or
+    /// [`ForkRefusal::UnusablePrior`] for a prior that names a seat not at
+    /// the table, a card with no weight or a card the lookup lacks, or that
+    /// has no cards for an owner with hidden cards to deal.
     pub(super) fn plan(
         state: &GameState,
         seat: PlayerId,
         sees_hand: &dyn Fn(PlayerId) -> bool,
+        prior: Option<&'a PublicPrior>,
+        lookup: &impl CardLookup,
     ) -> Result<Self, ForkRefusal> {
+        if let Some(prior) = prior {
+            prior.check(state.players.len(), lookup)?;
+        }
+        let from = |owner: PlayerId| match prior {
+            Some(prior) if owner != seat => Source::Prior(prior.cards(owner)),
+            _ => Source::Hidden,
+        };
         let mut pools = Vec::new();
         for player in &state.players {
             let owner = player.id;
@@ -109,24 +156,38 @@ impl Deal {
                 zones.push((ZoneLocation::Hand(owner), 0));
             }
             zones.push((ZoneLocation::Library(owner), top));
-            pools.push(Pool { owner, zones });
+            pools.push(Pool {
+                owner,
+                zones,
+                from: from(owner),
+            });
             if owner != seat {
                 pools.push(Pool {
                     owner,
                     zones: smallvec::smallvec![(ZoneLocation::OutsideGame(owner), 0)],
+                    from: from(owner),
                 });
             }
         }
-        let mut retired: Vec<ObjectId> = pools
-            .iter()
-            .flat_map(|pool| pool.zones.iter())
-            .flat_map(|&(loc, kept)| Pool::hidden_part(state, loc, kept).iter().copied())
-            .collect();
+        let mut retired = Vec::new();
+        let mut unread = Vec::new();
+        for pool in &pools {
+            let before = retired.len();
+            retired.extend(pool.ids(state));
+            if let Source::Prior(cards) = pool.from {
+                if cards.is_empty() && retired.len() > before {
+                    return Err(ForkRefusal::UnusablePrior(PriorFault::NoCards(pool.owner)));
+                }
+                unread.extend_from_slice(&retired[before..]);
+            }
+        }
         retired.sort_unstable();
+        unread.sort_unstable();
         let deal = Self {
             seat,
             pools,
             retired,
+            unread,
         };
         deal.check(state)?;
         Ok(deal)
@@ -142,14 +203,31 @@ impl Deal {
         self.retired.binary_search(&id).is_ok()
     }
 
+    /// Whether `id` is a hidden card the deal may look at: one of a pool
+    /// dealt from its own cards. A card of a pool dealt from the prior is
+    /// removed without being read.
+    pub(super) fn is_read(&self, id: ObjectId) -> bool {
+        self.is_retired(id) && !self.is_unread(id)
+    }
+
+    fn is_unread(&self, id: ObjectId) -> bool {
+        self.unread.binary_search(&id).is_ok()
+    }
+
     fn check(&self, state: &GameState) -> Result<(), ForkRefusal> {
         for &id in &self.retired {
+            if self.is_unread(id) {
+                continue;
+            }
             let object = state
                 .object(id)
                 .ok_or(ForkRefusal::MarkedHiddenCard("an id with no object"))?;
             plain(object).map_err(ForkRefusal::MarkedHiddenCard)?;
         }
         for (id, object) in state.arena.iter() {
+            if self.is_unread(id) {
+                continue;
+            }
             if object.status.contains(Status::FACE_DOWN) {
                 return Err(if object.zone == Zone::Exile {
                     ForkRefusal::HiddenExile
@@ -166,16 +244,30 @@ impl Deal {
 
     /// Deals every pool into `state`, a copy of the game the deal was
     /// planned on, and removes the cards it dealt from.
-    pub(super) fn apply(&self, state: &mut GameState, belief: &mut GameRng) {
+    ///
+    /// # Errors
+    /// [`ForkRefusal::UnusablePrior`] when a card drawn from the prior links
+    /// to one the lookup lacks. The copy is then half dealt and is dropped.
+    pub(super) fn apply(
+        &self,
+        state: &mut GameState,
+        belief: &mut GameRng,
+        lookup: &impl CardLookup,
+    ) -> Result<(), ForkRefusal> {
         for pool in &self.pools {
-            let mut identities: Vec<Identity> = pool
-                .zones
-                .iter()
-                .flat_map(|&(loc, kept)| Pool::hidden_part(state, loc, kept).iter())
-                .map(|&id| identity(state, id))
-                .collect();
-            identities.sort_by_cached_key(Identity::key);
-            belief.shuffle(&mut identities);
+            let identities = match pool.from {
+                Source::Hidden => {
+                    let mut identities: Vec<Identity> =
+                        pool.ids(state).map(|id| identity(state, id)).collect();
+                    identities.sort_by_cached_key(Identity::key);
+                    belief.shuffle(&mut identities);
+                    identities
+                }
+                Source::Prior(cards) => {
+                    let slots = pool.ids(state).count();
+                    drawn_from_prior(state, lookup, cards, slots, belief)?
+                }
+            };
             let mut dealt = identities.into_iter();
             for &(loc, kept) in &pool.zones {
                 let size = Pool::hidden_part(state, loc, kept).len();
@@ -195,6 +287,7 @@ impl Deal {
         }
         self.forget_retired(state);
         self.forget_hidden_incarnations(state);
+        Ok(())
     }
 
     /// Forgets what the game noted about the removed objects: derived lists
@@ -248,6 +341,61 @@ impl Deal {
         }
         cache.damage_source_len = state.damage_sources.len();
     }
+}
+
+/// One identity per slot of a pool dealt from the prior: each drawn by
+/// weight from `cards`, with replacement, on the belief stream.
+///
+/// A drawn card is a card as a deck entry with no printing of its own
+/// would make it — [`PrintRef::UNKNOWN`], no physical rules print, the
+/// default deck choices — admitted to the game through the door setup
+/// admits a deck entry by, since no deck at the table need hold it.
+/// `cards` is not empty and has no zero weight (`PublicPrior::check`).
+fn drawn_from_prior(
+    state: &mut GameState,
+    lookup: &impl CardLookup,
+    cards: &[(CardIndex, u32)],
+    slots: usize,
+    belief: &mut GameRng,
+) -> Result<Vec<Identity>, ForkRefusal> {
+    let total: u64 = cards.iter().map(|&(_, weight)| u64::from(weight)).sum();
+    let mut identities = Vec::with_capacity(slots);
+    for _ in 0..slots {
+        let mut roll = belief.below(total);
+        let index = cards
+            .iter()
+            .find_map(|&(card, weight)| {
+                let weight = u64::from(weight);
+                if roll < weight {
+                    Some(card)
+                } else {
+                    roll -= weight;
+                    None
+                }
+            })
+            .expect("a roll below the total weight falls on a card");
+        let printed = state
+            .admit_printed_card(index, lookup)
+            .map_err(|error| match error {
+                SetupError::UnknownCard(card) => PriorFault::UnknownCard(card),
+                SetupError::Preset(_) | SetupError::UnknownCounter(_) => {
+                    PriorFault::UnknownCard(index)
+                }
+            })
+            .map_err(ForkRefusal::UnusablePrior)?;
+        identities.push(Identity {
+            card: CardRef {
+                index,
+                print: PrintRef::UNKNOWN,
+            },
+            physical_rules: None,
+            deck_choices: DeckChoices::default(),
+            base: printed.base,
+            cda: printed.cda,
+            offboard: printed.offboard,
+        });
+    }
+    Ok(identities)
 }
 
 /// The identity the real card behind `id` holds.
