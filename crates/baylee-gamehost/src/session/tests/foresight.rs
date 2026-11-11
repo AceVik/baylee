@@ -50,9 +50,20 @@ fn deal(seed: u64, house: &LoadedDeck, theirs: &LoadedDeck, profile: AIProfile) 
 /// Every answer the house gave with foresight on, with the public table
 /// after it, and how many answers it searched.
 fn house_answers(preset: &GamePreset) -> (Vec<(PlayerAction, String)>, u64) {
+    let (answers, searched, _) = played(preset, None);
+    (answers, searched)
+}
+
+/// [`house_answers`] at a table that probes one searched question in
+/// `probe`, with the leaves it kept.
+fn played(
+    preset: &GamePreset,
+    probe: Option<u64>,
+) -> (Vec<(PlayerAction, String)>, u64, Vec<crate::ProbedLeaf>) {
     let mut session = Session::new_recorded(preset, "foresight").expect("the table starts");
     session.describe("foresight".into(), vec!["house".into(), "person".into()]);
     session.set_foresight(true);
+    session.set_foresight_probe(probe);
     let person = PlayerId::new(1);
     for _ in 0..10_000 {
         let _ = session.pump();
@@ -70,6 +81,7 @@ fn house_answers(preset: &GamePreset) -> (Vec<(PlayerAction, String)>, u64) {
             .expect("doing nothing is an answer");
     }
     let searched = session.foresight_stats().searched;
+    let probed = session.take_foresight_probe();
     let record = String::from_utf8(session.take_record()).expect("a record is text");
     let answers = record
         .lines()
@@ -83,7 +95,7 @@ fn house_answers(preset: &GamePreset) -> (Vec<(PlayerAction, String)>, u64) {
             _ => None,
         })
         .collect();
-    (answers, searched)
+    (answers, searched, probed)
 }
 
 #[test]
@@ -134,4 +146,44 @@ fn foresight_is_off_until_a_table_switches_it_on() {
     session.set_foresight(true);
     let _ = session.pump();
     assert_eq!(session.foresight_stats().asked, 0);
+}
+
+/// A table that judges its searches answers as one that does not: the
+/// worlds of the probed questions are played on to the end and kept, each
+/// with the level's own answer among those tried, and no answer changes.
+#[test]
+fn probing_a_search_changes_no_answer() {
+    let deck = goblins_and_bolts();
+    let preset = deal(
+        12,
+        &deck,
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let (plain, searched, nothing) = played(&preset, None);
+    let (probed, as_many, leaves) = played(&preset, Some(3));
+    assert_eq!(plain, probed, "the probe changed an answer or a table");
+    assert_eq!(searched, as_many);
+    assert!(nothing.is_empty());
+    assert!(!leaves.is_empty(), "no searched question was probed");
+    let mut roots = std::collections::BTreeSet::new();
+    let mut with_own = std::collections::BTreeSet::new();
+    for leaf in &leaves {
+        assert!((0.0..=1.0).contains(&leaf.value), "{leaf:?}");
+        assert!(
+            [0.0, 0.5, 1.0]
+                .iter()
+                .any(|result| (leaf.played - result).abs() < f64::EPSILON),
+            "{leaf:?}"
+        );
+        if leaf.ended {
+            assert!((leaf.value - leaf.played).abs() < f64::EPSILON, "{leaf:?}");
+        }
+        roots.insert(leaf.root);
+        if leaf.candidate == 0 {
+            with_own.insert(leaf.root);
+        }
+    }
+    assert_eq!(roots, with_own);
+    assert!(u64::try_from(roots.len()).is_ok_and(|n| n <= searched));
 }

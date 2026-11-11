@@ -38,7 +38,7 @@ mod spectators;
 mod table;
 
 #[cfg(any(test, feature = "simulation"))]
-pub use foresight::ForesightStats;
+pub use foresight::{ForesightStats, ProbedLeaf};
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
 
@@ -313,6 +313,13 @@ pub struct Session {
     /// What those searches have cost ([`Session::foresight_stats`]).
     #[cfg(any(test, feature = "simulation"))]
     foresight_stats: foresight::ForesightStats,
+    /// One searched question in so many is probed
+    /// ([`Session::set_foresight_probe`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_probe: Option<u64>,
+    /// The probed leaves not yet taken ([`Session::take_foresight_probe`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_probed: Vec<foresight::ProbedLeaf>,
     /// Per seat, the position a search last replaced the level's own answer
     /// at: the same position coming back means the engine took it back.
     #[cfg(any(test, feature = "simulation"))]
@@ -438,6 +445,10 @@ impl Session {
             foresight_work: None,
             #[cfg(any(test, feature = "simulation"))]
             foresight_stats: foresight::ForesightStats::default(),
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_probe: None,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_probed: Vec::new(),
             #[cfg(any(test, feature = "simulation"))]
             foreseen_at: vec![None; preset.seats.len()],
             #[cfg(any(test, feature = "simulation"))]

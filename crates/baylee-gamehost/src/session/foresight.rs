@@ -27,10 +27,17 @@
 //! [`Session::set_foresight_work`]), never time; the time a searched answer
 //! took is kept for measurement only ([`ForesightStats`]) and is no input to
 //! any answer.
+//!
+//! A table can also be asked to judge its searches
+//! ([`Session::set_foresight_probe`]): the worlds of a share of its searched
+//! questions are played on past their leaf to the end of the game, and what
+//! each leaf showed is kept beside how its game came out. That costs time
+//! and changes no answer: a world is a copy, and what is played in it past
+//! the leaf is read by nothing.
 
 use super::{SeatKind, Session, SimulationSession};
 use baylee_ai::HeuristicAgent;
-use baylee_ai::foresight::{Outcome, choose};
+use baylee_ai::foresight::{FEATURES, Outcome, choose};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Foresight;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -52,6 +59,42 @@ const ROUNDS: u32 = 2;
 const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
 /// Purpose tag of a search's world seeds.
 const WORLD: u64 = u64::from_be_bytes(*b"foresee\0");
+
+/// The most answers a probed world is played on for past its leaf; one that
+/// has not ended by then is not kept.
+const PLAYED_ON: u32 = 6000;
+
+/// One world of a probed search ([`Session::set_foresight_probe`]): what the
+/// searching seat's view showed where the world stopped, what the leaf value
+/// made of it, and how the game came out when the house played it on.
+///
+/// The worlds of one question share its `root`, and the candidates tried in
+/// one deal share its `world`: two rows of one root and world are two
+/// answers to the same question in the same deal, each with the result it
+/// led to.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbedLeaf {
+    /// The question searched: the same for every world of one search.
+    pub root: u64,
+    /// The world's seed.
+    pub world: u64,
+    /// Which answer was tried, 0 for the level's own.
+    pub candidate: u32,
+    /// The question: 0 priority, 1 attack, 2 block.
+    pub kind: u8,
+    /// The game ended before the horizon: there was no leaf to value, and
+    /// `value` is the result.
+    pub ended: bool,
+    /// The turn the world stopped in.
+    pub turn: u32,
+    /// What the seat's view showed there (`foresight_features`).
+    pub features: [f64; FEATURES],
+    /// What the search took the world to be worth.
+    pub value: f64,
+    /// How the game came out for the seat's side, played on: 1 won, 0 lost,
+    /// 0.5 drawn.
+    pub played: f64,
+}
 
 /// What a table's searches have cost and done so far, for measurement.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -105,6 +148,9 @@ struct Search<'a> {
     budget: Foresight,
     /// One seed per world, the same for every plan.
     seeds: Vec<u64>,
+    /// The question's number where its worlds are played on to the end
+    /// ([`Session::set_foresight_probe`]).
+    probe: Option<u64>,
     /// The question, for the neighbours of a declaration.
     pending: &'a Pending,
 }
@@ -151,6 +197,22 @@ impl Session {
     /// depend on its clock.
     pub const fn set_foresight_work(&mut self, answers: Option<u64>) {
         self.foresight_work = answers;
+    }
+
+    /// Has this table judge its searches: of the questions it searches, one
+    /// in `every` (by the hash of the position, so the same ones whenever
+    /// the game is played again) has each of its worlds played on past the
+    /// leaf until the game ends, and what the leaf showed is kept with how
+    /// the game came out ([`Session::take_foresight_probe`]). `None`, the
+    /// default, probes nothing. No answer depends on it: a world is a copy
+    /// of the game, and nothing reads what is played in it past its leaf.
+    pub const fn set_foresight_probe(&mut self, every: Option<u64>) {
+        self.foresight_probe = every;
+    }
+
+    /// The probed leaves kept so far, which the table then forgets.
+    pub fn take_foresight_probe(&mut self) -> Vec<ProbedLeaf> {
+        std::mem::take(&mut self.foresight_probed)
     }
 
     /// The answer `player`'s chair gives `pending` after trying its options,
@@ -224,6 +286,10 @@ impl Session {
                 .map(|world| world_seed(agent.seed(), position, world))
                 .collect(),
             pending,
+            probe: self
+                .foresight_probe
+                .filter(|every| *every > 0 && position.is_multiple_of(*every))
+                .map(|_| position ^ agent.seed().rotate_left(17)),
         };
         let plans = candidates.into_iter().map(Plan::of).collect();
         let Ok((mut plans, chosen)) = self.searched(&search, &agent, &view, plans) else {
@@ -290,8 +356,8 @@ impl Session {
             if worlds > 0 && self.foresight_stats.answers - spent_before >= work {
                 break;
             }
-            for (plan, tried) in plans.iter().zip(&mut outcomes) {
-                tried.push(self.world(search, plan, seed)?);
+            for (at, (plan, tried)) in plans.iter().zip(&mut outcomes).enumerate() {
+                tried.push(self.world(search, at, plan, seed)?);
             }
             worlds += 1;
         }
@@ -318,10 +384,10 @@ impl Session {
             if plans.len() == before {
                 break;
             }
-            for plan in &plans[before..] {
+            for (at, plan) in plans.iter().enumerate().skip(before) {
                 let mut tried = Vec::with_capacity(worlds);
                 for &seed in &search.seeds[..worlds] {
-                    tried.push(self.world(search, plan, seed)?);
+                    tried.push(self.world(search, at, plan, seed)?);
                 }
                 outcomes.push(tried);
             }
@@ -331,13 +397,14 @@ impl Session {
     }
 
     /// One world: this game forked for the searching seat on `seed`, the
-    /// plan given, the house playing every chair on until the turn counter
-    /// has advanced by the budget's turns, the answers are spent or the game
-    /// is over, and the value of where it stands; `None` where the engine
-    /// refuses the plan.
+    /// plan (the search's `candidate`-th) given, the house playing every
+    /// chair on until the turn counter has advanced by the budget's turns,
+    /// the answers are spent or the game is over, and the value of where it
+    /// stands; `None` where the engine refuses the plan.
     fn world(
         &mut self,
         search: &Search<'_>,
+        candidate: usize,
         plan: &Plan,
         seed: u64,
     ) -> Result<Outcome, ForkRefusal> {
@@ -358,25 +425,48 @@ impl Session {
         fork.release(player);
         let stop = fork.state().turn.number + u32::from(search.budget.turns);
         let mut answers = 0;
-        let value = loop {
-            if let Pending::GameOver(result) = *fork.pending() {
-                let winners = fork.winning_seats(result);
-                break if winners.contains(&player) {
-                    1.0
-                } else if winners.is_empty() {
-                    0.5
-                } else {
-                    0.0
-                };
+        let (value, ended) = loop {
+            if let Some(result) = result_for(&fork, player) {
+                break (result, true);
             }
             if fork.state().turn.number >= stop
                 || answers >= search.budget.answers
                 || fork.pump_at_most(1) == 0
             {
-                break search.model.foresight_value(&fork.observe_view(player));
+                break (
+                    search.model.foresight_value(&fork.observe_view(player)),
+                    false,
+                );
             }
             answers += 1;
         };
+        if let Some(root) = search.probe {
+            let view = fork.observe_view(player);
+            let mut more = 0;
+            let played = loop {
+                if let Some(result) = result_for(&fork, player) {
+                    break Some(result);
+                }
+                if more >= PLAYED_ON || fork.pump_at_most(1) == 0 {
+                    break None;
+                }
+                more += 1;
+            };
+            if let Some(played) = played {
+                #[allow(clippy::cast_possible_truncation)] // a handful of plans, three kinds
+                self.foresight_probed.push(ProbedLeaf {
+                    root,
+                    world: seed,
+                    candidate: candidate as u32,
+                    kind: kind(search.pending) as u8,
+                    ended,
+                    turn: view.turn,
+                    features: search.model.foresight_features(&view),
+                    value,
+                    played,
+                });
+            }
+        }
         self.foresight_stats.answers += u64::from(answers);
         Ok(Some(value))
     }
@@ -486,4 +576,20 @@ impl Session {
             })
             .collect()
     }
+}
+
+/// How the game in `fork` came out for `player`'s side where it is over:
+/// 1 won, 0 lost, 0.5 drawn.
+fn result_for(fork: &SimulationSession, player: PlayerId) -> Option<f64> {
+    let Pending::GameOver(result) = *fork.pending() else {
+        return None;
+    };
+    let winners = fork.winning_seats(result);
+    Some(if winners.contains(&player) {
+        1.0
+    } else if winners.is_empty() {
+        0.5
+    } else {
+        0.0
+    })
 }
