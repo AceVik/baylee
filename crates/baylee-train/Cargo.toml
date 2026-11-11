@@ -236,3 +236,8 @@ required-features = ["play"]
 name = "seated_decks4"
 path = "src/bin/seated_decks4.rs"
 required-features = ["play"]
+
+[[bin]]
+name = "scope_audit4"
+path = "src/bin/scope_audit4.rs"
+required-features = ["play"]
