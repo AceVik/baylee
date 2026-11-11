@@ -1645,3 +1645,6 @@ fn assert_names_none(engine: &Engine<RegistryLookup>, ids: &[ObjectId]) {
         assert!(!journal.contains(&name), "the journal still names {name}");
     }
 }
+
+// Forks dealt from a public prior (`DeckKnowledge::Prior`).
+mod prior;
