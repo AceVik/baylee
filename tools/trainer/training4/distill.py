@@ -47,15 +47,19 @@ import torch
 import torch.nn.functional as F
 
 import model4 as M
+from .coarse import CLASSES
 from .deferred import deferred_readouts
 from .execution import encode_boards, plan_batch, transfer_batch
 
 CONTRACT = "bundle_distillation_v1"
 N_NE_R_FLAG = 128  # BST4 header flags bit 7
 TERMS = ("ce_r", "kl_distilled_n_eq_r", "kl_kind_out_of_scope", "kl_single", "kl_subset", "kl_pair", "sq_scalar",
-         "ce_n_out_of_scope")
+         "ce_n_out_of_scope", "ce_coarse_r", "ce_fine_n")
 KL_TERMS = slice(1, 7)
 OUT_OF_SCOPE_MODES = ("kl", "ce-n")
+PRIORITY = 0   # pending kind of a priority decision
+COARSE = CLASSES   # coarse classes of a priority answer (coarse_class_v1)
+COARSE_MODES = (None, "act", "class")
 AUXILIARY_TARGETS = {}
 
 
@@ -88,7 +92,18 @@ class Scope:
 
     `out_of_scope` "ce-n" holds the distilled kinds' out-of-scope single choices
     at r1's own top-1 (N) by cross-entropy, weight `out_of_scope_weight`, its own
-    term beside `ce_r`; their KL is then reported but not trained."""
+    term beside `ce_r`; their KL is then reported but not trained.
+
+    `coarse` ("act" or "class") teaches the labelled priority decisions where
+    N != R by a group of answers, from the dataset's sidecar (`training4.coarse`):
+    "act" splits pass (PassPriority, CancelCast) from act (tap, cast, activate,
+    land, other), "class" takes the six classes of `COARSE`. Where R's group
+    differs from N's, cross-entropy to R's group on the student's summed
+    probability of it (`ce_coarse_r`), which teaches both directions. Where both
+    share a group, a `cast` decision keeps its cross-entropy to R (`ce_r`: which
+    spell); any other, cross-entropy to N's recorded candidate (`ce_fine_n`: a
+    tap's source or order). Every other decision keeps its term (the KL at
+    N = R; `ce_r` at target questions)."""
     kinds: tuple = (0,)
     subtypes: tuple | None = None
     subtype_names: tuple = ()
@@ -96,10 +111,11 @@ class Scope:
     kl_weight: float = 1.0
     out_of_scope: str = "kl"
     out_of_scope_weight: float = 1.0
+    coarse: str | None = None
 
     @classmethod
     def from_options(cls, kinds, kl_weight, subtypes, group_weights, datasets, out_of_scope="kl",
-                     out_of_scope_weight=1.0):
+                     out_of_scope_weight=1.0, coarse=None):
         """Names resolved against vocabularies every dataset shares; unknown names fail."""
         vocabularies = {(tuple(d.distill_subtypes), tuple(d.distill_groups)) for d in datasets}
         if len(vocabularies) != 1:
@@ -119,7 +135,16 @@ class Scope:
             weights = tuple(float(group_weights.get(name, 1.0)) for name in group_names)
         if out_of_scope not in OUT_OF_SCOPE_MODES:
             raise ValueError(f"Unknown out-of-scope distillation {out_of_scope!r}")
-        return cls(tuple(kinds), codes, subtype_names, weights, kl_weight, out_of_scope, float(out_of_scope_weight))
+        if coarse not in COARSE_MODES:
+            raise ValueError(f"Unknown coarse distillation {coarse!r}")
+        if coarse and (PRIORITY not in kinds or out_of_scope != "kl"):
+            raise ValueError("Coarse distillation needs priority among the kinds and the out-of-scope KL")
+        return cls(tuple(kinds), codes, subtype_names, weights, kl_weight, out_of_scope, float(out_of_scope_weight),
+                   coarse)
+
+    def groups(self, classes):
+        """`classes` (COARSE indices) as this scope's coarse groups: act/pass or the class itself."""
+        return classes if self.coarse == "class" else (classes != COARSE.index("pass")).long()
 
     def masks(self, batch, device):
         """[B, U] masks: in the kinds, and in scope (kind and subtype)."""
@@ -267,8 +292,29 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                 ce = -log_s.gather(1, target[:, None])[:, 0]
                 kl = torch.where(mask, log_r.exp() * (log_r - log_s), 0.).sum(-1)
                 outside = genuine & in_kind[:, t] & ~in_scope[:, t]
-                routes = [(0, distilled & differs[:, t], ce), (1, distilled & ~differs[:, t], kl),
-                          (2, outside, kl), (3, genuine & ~in_kind[:, t], kl)]
+                to_r = distilled & differs[:, t]
+                coarse_routes = []
+                if scope.coarse:
+                    # Priority decisions where N != R learn by group (the dataset's sidecar:
+                    # classes per candidate, N's recorded answer); the KL keeps N = R.
+                    n_idx = get("coarse_n_idx")[:, t]
+                    r_idx = get("single_idx")[:, t].clamp(min=0)
+                    taught = (genuine & (get("pending_kind")[:, t] == PRIORITY) & differs[:, t]
+                              & (n_idx >= 0))
+                    groups = scope.groups(batch["coarse_class"][:, t, :student.shape[1]].to(device, non_blocking=True))
+                    r_group = groups.gather(1, r_idx[:, None])
+                    split = taught & (r_group != groups.gather(1, n_idx.clamp(min=0)[:, None]))[:, 0]
+                    # Inside one group a cast decision learns which spell from R.
+                    cast = (get("distill_subtype")[:, t] == scope.subtype_names.index("cast")
+                            if "cast" in scope.subtype_names else torch.zeros_like(taught))
+                    kept = taught & ~split & cast
+                    to_r, outside = (to_r & ~taught) | kept, outside & ~taught
+                    ce = -log_s.gather(1, torch.where(to_r, r_idx, 0)[:, None])[:, 0]
+                    coarse_routes = [
+                        (8, split, -torch.logsumexp(torch.where(mask & (groups == r_group), log_s, -1e9), -1)),
+                        (9, taught & ~split & ~kept, -log_s.gather(1, n_idx.clamp(min=0)[:, None])[:, 0])]
+                routes = [(0, to_r, ce), (1, distilled & ~differs[:, t], kl),
+                          (2, outside, kl), (3, genuine & ~in_kind[:, t], kl)] + coarse_routes
                 if scope.out_of_scope == "ce-n":
                     # N: r1's own top-1, the answer the out-of-scope rows should keep.
                     n_top1 = torch.where(mask, ref, -1e9).argmax(-1)
@@ -304,6 +350,8 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
         total = means[0] + scope.kl_weight * trained_kl + scope.out_of_scope_weight * means[7]
     else:
         total = means[0] + scope.kl_weight * means[KL_TERMS].sum()
+    if scope.coarse:
+        total = total + means[8] + means[9]
     for name, function in (extra or {}).items():
         total = total + function(prepared, batch, plans)
     return total, torch.cat((sums.detach(), dens.detach()))
@@ -404,7 +452,9 @@ def term_means(stats):
 # What a distillation epoch line reports of validation (the full set is in meta.json).
 EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "val_distill_distilled_top1_r",
                     "val_distill_out_of_scope_top1_r", "val_distill_out_of_scope_top1_n",
-                    "val_distill_out_of_scope_top1_neither", *(f"val_distill_{name}" for name in TERMS),
+                    "val_distill_out_of_scope_top1_neither", "val_distill_coarse_top1_r",
+                    "val_distill_coarse_top1_r_n_ne_r", "val_distill_act_r_act_n_pass_student_act",
+                    "val_distill_act_r_pass_n_act_student_pass", *(f"val_distill_{name}" for name in TERMS),
                     "val_value_mse_to_r1")
 
 
@@ -432,6 +482,78 @@ def action_classes(cand_feat):
     columns = torch.tensor([column for _, column in PRIORITY_ACTIONS], device=cand_feat.device)
     marked = cand_feat[..., columns] > .5
     return torch.where(marked.any(-1), marked.int().argmax(-1), len(PRIORITY_ACTIONS))
+
+
+# ACTION_NAMES -> COARSE: a mana ability is a tap; a cancel, a granted action or none is other.
+ACTION_COARSE = tuple(COARSE.index({"mana": "tap", "cancel": "other", "granted": "other", "none": "other"}.get(name, name))
+                      for name in ACTION_NAMES)
+
+
+def coarse_classes(batch, t, width):
+    """[B, width] COARSE index of each candidate of step t (on the batch's device): the
+    dataset's sidecar where a frame has one (`training4.coarse`), else the action column."""
+    actions = action_classes(batch["cand_feat"][:, t, :width])
+    classes = torch.tensor(ACTION_COARSE, device=actions.device)[actions]
+    if "coarse_class" in batch:
+        sidecar = batch["coarse_class"][:, t, :width].to(classes.device)
+        classes = torch.where(sidecar >= 0, sidecar, classes)
+    return classes
+
+
+def act_directions(prepared, reference, batch, plans):
+    """[R act / N pass decisions, of them the student acts, R pass / N act decisions,
+    of them the student passes] at labelled priority decisions. N is the sidecar's
+    recorded answer where the frame has one, else r1's top-1."""
+    device = prepared[0][4].device
+    get = lambda key: batch[key].to(device, non_blocking=True)
+    valid = get("step_valid")
+    decision = (get("is_decision") & valid & (get("loss_weight") > 0) & (get("head") == 0)
+                & (get("pending_kind") == PRIORITY))
+    passes = COARSE.index("pass")
+    counts = torch.zeros(4, dtype=torch.float64, device=device)
+    for t, plan in enumerate(plans):
+        if not plan.heads[0]:
+            continue
+        logits = prepared[t][1].float()
+        mask = get("cand_mask")[:, t, :logits.shape[1]]
+        rows = decision[:, t] & (mask.sum(-1) > 1)
+        acts = coarse_classes(batch, t, logits.shape[1]).to(device, non_blocking=True) != passes
+        n_idx = torch.where(mask, reference[t][1].float(), -1e9).argmax(-1)
+        if "coarse_n_idx" in batch:
+            recorded = get("coarse_n_idx")[:, t]
+            n_idx = torch.where(recorded >= 0, recorded, n_idx)
+        side = lambda index: acts.gather(1, index[:, None])[:, 0]
+        r_act, n_act = side(get("single_idx")[:, t].clamp(min=0)), side(n_idx)
+        s_act = side(torch.where(mask, logits, -1e9).argmax(-1))
+        up, down = rows & r_act & ~n_act, rows & ~r_act & n_act
+        counts += torch.stack((up.sum(), (up & s_act).sum(), down.sum(), (down & ~s_act).sum())).double()
+    return counts
+
+
+def coarse_confusion(prepared, batch, plans, scope):
+    """[2, len(COARSE), len(COARSE)] counts of R's class x the student's top-1 class at
+    labelled priority decisions: every one, then those where N != R."""
+    device = prepared[0][4].device
+    get = lambda key: batch[key].to(device, non_blocking=True)
+    valid = get("step_valid")
+    decision = get("is_decision") & valid & (get("loss_weight") > 0) & (get("head") == 0)
+    priority = get("pending_kind") == PRIORITY
+    differs = get("n_ne_r")
+    n = len(COARSE)
+    table = torch.zeros(2, n * n, dtype=torch.float64, device=device)
+    for t, plan in enumerate(plans):
+        if not plan.heads[0]:
+            continue
+        logits = prepared[t][1].float()
+        mask = get("cand_mask")[:, t, :logits.shape[1]]
+        rows = decision[:, t] & priority[:, t] & (mask.sum(-1) > 1)
+        classes = coarse_classes(batch, t, logits.shape[1]).to(device, non_blocking=True)
+        r_class = classes.gather(1, get("single_idx")[:, t].clamp(min=0)[:, None])[:, 0]
+        s_class = classes.gather(1, torch.where(mask, logits, -1e9).argmax(-1)[:, None])[:, 0]
+        cell = r_class * n + s_class
+        for layer, chosen in enumerate((rows, rows & differs[:, t])):
+            table[layer] += torch.bincount(cell[chosen], minlength=n * n).double()
+    return table.view(2, n, n)
 
 
 def answers(prepared, reference, batch, plans, scope, actions=None):
@@ -546,7 +668,7 @@ def agreement(prepared, batch, plans, scope, scalar_tolerance):
 
 @torch.no_grad()
 def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_tolerance,
-                     thinking_steps=2, bf16=None, think=None, actions=None, progress=None):
+                     thinking_steps=2, bf16=None, think=None, actions=None, progress=None, observe=None):
     """Held-out agreement with R by group and subtype and every KL guard, over whole trajectories.
 
     With the thinking terms' configuration `think`, also the share of in-scope
@@ -564,6 +686,8 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported() if bf16 is None else bf16
     table = {}
     answer_table = {}
+    confusion = torch.zeros(2, len(COARSE), len(COARSE), dtype=torch.float64, device=device)
+    directions = torch.zeros(4, dtype=torch.float64, device=device)
     stats = torch.zeros(2 * len(TERMS), device=device)
     value = torch.zeros(3, dtype=torch.float64, device=device)
     hidden = None
@@ -593,6 +717,11 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
             table[name] = table[name] + row if name in table else row
         for name, row in answers(prepared, ref, batch, plans, scope, actions).items():
             answer_table[name] = answer_table[name] + row if name in answer_table else row
+        if PRIORITY in scope.kinds:
+            confusion = confusion + coarse_confusion(prepared, batch, plans, scope)
+            directions = directions + act_directions(prepared, ref, batch, plans)
+        if observe is not None:   # a caller's own reading of the batch, in trajectory order per lane
+            observe(prepared, ref, batch, plans)
         if progress is not None:
             progress(answer_table)
         valid = batch["step_valid"].to(device)
@@ -618,6 +747,20 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
             if name != "top1_r":   # the agreement table reports it
                 metrics[f"val_distill_{group}_{name}"] = hits / count if count else None
         metrics[f"val_distill_{group}_top1_n"] = rest[0] / count if count else None
+    if PRIORITY in scope.kinds:
+        # Rows: R's coarse class; columns: the student's top-1 class (`val_distill_coarse_classes`).
+        counts = confusion.cpu()
+        metrics["val_distill_coarse_classes"] = list(COARSE)
+        for layer, suffix in enumerate(("", "_n_ne_r")):
+            total = float(counts[layer].sum())
+            metrics[f"val_distill_coarse_confusion{suffix}"] = counts[layer].long().tolist()
+            metrics[f"val_distill_coarse_top1_r{suffix}"] = (float(counts[layer].diagonal().sum()) / total
+                                                             if total else None)
+        up, up_act, down, down_pass = directions.cpu().tolist()
+        metrics.update(val_distill_act_r_act_n_pass_decisions=int(up),
+                       val_distill_act_r_act_n_pass_student_act=up_act / up if up else None,
+                       val_distill_act_r_pass_n_act_decisions=int(down),
+                       val_distill_act_r_pass_n_act_student_pass=down_pass / down if down else None)
     if think_steps is not None:
         metrics["val_distill_think_n_ne_r"] = int(think_steps[-1])
         metrics["val_distill_think_top1_r_at_n_ne_r_by_step"] = (

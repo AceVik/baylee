@@ -3,6 +3,7 @@ import contextlib
 import copy
 import io
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -246,6 +247,164 @@ class DistillLoss(unittest.TestCase):
         self.assertTrue(torch.equal(logits[0].grad[0, 4:], torch.zeros(3)))  # masked candidates
 
 
+COARSE_SUBTYPES = ("cast", "pass", "mana")
+
+
+def coarse_batch():
+    """One lane of priority decisions. Candidates: 0 pass, 1 tap, 2 tap (another
+    source), 3 cast. Frames, N != R unless said: t0 R tap / N pass (mana), t1 R pass /
+    N tap (pass), t2 R tap 1 / N tap 2 (mana), t3 R cast / N tap (cast), t4 N = R cast (cast)."""
+    b, u = 1, 5
+    batch = batch_fixture(b=b, u=u)
+    batch["step_valid"][:] = True
+    batch["is_decision"][:] = True
+    batch["is_new_traj"] = torch.ones(b, dtype=torch.bool)
+    batch["loss_weight"] = torch.ones(b, u)
+    batch["head"] = torch.zeros(b, u, dtype=torch.long)
+    batch["pending_kind"] = torch.zeros(b, u, dtype=torch.long)
+    batch["distill_subtype"] = torch.tensor([[2, 1, 2, 0, 0]])
+    batch["fired_mask"] = torch.zeros(b, u, dtype=torch.long)
+    batch["cand_mask"][:] = False
+    batch["cand_mask"][..., :4] = True
+    batch["single_idx"] = torch.tensor([[1, 0, 1, 3, 3]])
+    batch["coarse_n_idx"] = torch.tensor([[0, 1, 2, 1, 3]])
+    batch["n_ne_r"] = torch.tensor([[True, True, True, True, False]])
+    batch["coarse_class"] = torch.full((b, u, 7), -1)
+    batch["coarse_class"][..., :4] = torch.tensor([0, 1, 1, 2])   # pass, tap, tap, cast
+    return batch
+
+
+def coarse_scope(mode):
+    """Cast and pass in scope, mana out of scope; `mode` act, class or None."""
+    return D.Scope(kinds=(0,), subtypes=(0, 1), subtype_names=COARSE_SUBTYPES, coarse=mode)
+
+
+class CoarseDistill(unittest.TestCase):
+    def step(self, batch, scope):
+        """One SGD step of the loss on free student logits; returns probabilities before, after, stats, grad."""
+        u = batch["single_idx"].shape[1]
+        logits = torch.zeros(1, u, 7, requires_grad=True)
+        student = outputs_from(logits, torch.zeros(1, u, 4), torch.zeros(1, u))
+        reference = outputs_from(torch.zeros(1, u, 7), torch.zeros(1, u, 4), torch.zeros(1, u))
+        loss, stats = D.distill_loss(student, reference, batch, plan_batch(batch, 0), scope)
+        loss.backward()
+        before = torch.softmax(logits.detach()[..., :4], -1)
+        after = torch.softmax((logits.detach() - 1. * logits.grad)[..., :4], -1)
+        return before, after, stats, logits.grad
+
+    @staticmethod
+    def rows(stats, name):
+        return stats[len(D.TERMS) + D.TERMS.index(name)].item()
+
+    def test_act_teaches_act_and_pass_both_ways(self):
+        before, after, stats, _ = self.step(coarse_batch(), coarse_scope("act"))
+        act = lambda p, t: float(p[0, t, 1:4].sum())
+        self.assertGreater(act(after, 0), act(before, 0))                   # R taps, N passes: acting rises
+        self.assertGreater(float(after[0, 1, 0]), float(before[0, 1, 0]))   # R passes, N taps: passing rises
+        self.assertEqual((self.rows(stats, "ce_coarse_r"), self.rows(stats, "ce_fine_n"), self.rows(stats, "ce_r")),
+                         (2., 1., 1.))
+        # On the summed probability of R's side: uniform logits give -log(3/4) for act, -log(1/4) for pass.
+        self.assertAlmostEqual(D.term_means(stats)["ce_coarse_r"], (math.log(4 / 3) + math.log(4.)) / 2, places=5)
+        # The N = R cast keeps its KL; the out-of-scope mana rows are taught, not under the KL.
+        self.assertEqual(self.rows(stats, "kl_distilled_n_eq_r"), 1.)
+        self.assertEqual(self.rows(stats, "kl_kind_out_of_scope"), 0.)
+
+    def test_a_cast_decision_keeps_ce_to_r_and_the_rest_targets_n(self):
+        before, after, _, grad = self.step(coarse_batch(), coarse_scope("act"))
+        # t3: R casts, N taps, both act, subtype cast: CE to R's spell, not to N's tap.
+        torch.testing.assert_close(grad[0, 3, :4], torch.tensor([.25, .25, .25, -.75]))
+        self.assertGreater(float(after[0, 3, 3]), float(before[0, 3, 3]))
+        # t2: R taps source 1, N taps source 2: only N's candidate gains.
+        torch.testing.assert_close(grad[0, 2, :4], torch.tensor([.25, .25, -.75, .25]))
+
+    def test_class_splits_the_six_classes(self):
+        _, after, stats, _ = self.step(coarse_batch(), coarse_scope("class"))
+        # t3 R cast / N tap now differ in class: CE to the cast class, no CE to R left.
+        self.assertEqual((self.rows(stats, "ce_coarse_r"), self.rows(stats, "ce_fine_n"), self.rows(stats, "ce_r")),
+                         (3., 1., 0.))
+        self.assertAlmostEqual(D.term_means(stats)["ce_coarse_r"],
+                               (math.log(2.) + math.log(4.) + math.log(4.)) / 3, places=5)
+
+    def test_coarse_off_keeps_the_old_routing(self):
+        _, _, stats, _ = self.step(coarse_batch(), coarse_scope(None))
+        # In scope at N != R: t1 pass, t3 cast get CE to R; mana t0, t2 stay under the KL.
+        self.assertEqual((self.rows(stats, "ce_r"), self.rows(stats, "kl_kind_out_of_scope")), (2., 2.))
+        self.assertEqual((self.rows(stats, "ce_coarse_r"), self.rows(stats, "ce_fine_n")), (0., 0.))
+
+    def test_validation_counts_classes_and_act_directions(self):
+        batch = coarse_batch()
+        logits = torch.full((1, 5, 7), -3.)
+        for t, pick in enumerate((0, 0, 2, 3, 3)):     # pass, pass, tap, cast, cast
+            logits[0, t, pick] = 3.
+        student = outputs_from(logits, torch.zeros(1, 5, 4), torch.zeros(1, 5))
+        reference = outputs_from(torch.zeros(1, 5, 7), torch.zeros(1, 5, 4), torch.zeros(1, 5))
+        plans = plan_batch(batch, 0)
+        table = D.coarse_confusion(student, batch, plans, coarse_scope("act"))
+        tap, pass_, cast = D.COARSE.index("tap"), D.COARSE.index("pass"), D.COARSE.index("cast")
+        self.assertEqual(int(table[0].sum()), 5)
+        self.assertEqual(int(table[0, tap, pass_]), 1)    # R tap, student passes
+        self.assertEqual(int(table[0, pass_, pass_]), 1)
+        self.assertEqual(int(table[0, tap, tap]), 1)
+        self.assertEqual(int(table[0, cast, cast]), 2)
+        self.assertEqual(int(table[1].sum()), 4)          # N != R only
+        # R act / N pass (t0): the student passes; R pass / N act (t1): the student passes.
+        self.assertEqual(D.act_directions(student, reference, batch, plans).tolist(), [1., 0., 1., 1.])
+
+    def test_sidecar_joins_by_game_seat_cursor_and_fails_closed(self):
+        from training4.coarse import INDEX, CoarseClasses
+        index = np.zeros(2, dtype=INDEX)
+        index["game"], index["seat"], index["cursor"] = (7, 7), (0, 1), (3, 3)
+        index["r_idx"], index["n_idx"], index["n_cand"], index["offset"] = (1, 2), (0, 0), (3, 3), (0, 3)
+        index["r_class"], index["n_class"] = (1, 2), (0, 0)
+        blob = np.array([0, 1, 1, 0, 1, 2], dtype=np.uint8)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            index.tofile(root / "coarse-classes.index.bin")
+            blob.tofile(root / "coarse-classes.classes.bin")
+            (root / "coarse-classes.json").write_text(json.dumps(dict(rule="coarse_class_v1", rows=2,
+                                                                     classes=list(D.COARSE))))
+            sidecar = CoarseClasses.load(root)
+
+            def frame(single, labelled=True, width=3):
+                return dict(cand_mask=np.ones(width, bool), is_decision=np.array(labelled),
+                            loss_weight=np.array(float(labelled), np.float32), pending_kind=np.array(0),
+                            head=np.array(0), single_idx=np.array(single))
+
+            joined = sidecar.annotate(frame(2), 7, 1, 3)
+            self.assertEqual(joined["coarse_class"].tolist(), [0, 1, 2])
+            self.assertEqual(int(joined["coarse_n_idx"]), 0)
+            passive = sidecar.annotate(frame(0, labelled=False), 9, 0, 0)   # not labelled: nothing to join
+            self.assertEqual(passive["coarse_class"].tolist(), [-1, -1, -1])
+            for bad in ((frame(2), 7, 0, 4), (frame(1, width=4), 7, 0, 3), (frame(0), 7, 0, 3)):
+                with self.subTest(bad=bad[1:]), self.assertRaises(ValueError):
+                    sidecar.annotate(*bad)
+            sidecar.index["n_idx"][1] = 2 ** 32 - 1   # a label without N
+            with self.assertRaisesRegex(ValueError, "do not match"):
+                sidecar.annotate(frame(2), 7, 1, 3)
+            (root / "coarse-classes.json").write_text(json.dumps(dict(rule="coarse_class_v0", rows=2)))
+            with self.assertRaisesRegex(ValueError, "coarse_class_v0"):
+                CoarseClasses.load(root)
+
+    def test_options(self):
+        parse = DistillOptions().parse
+        self.assertIsNone(parse(DistillOptions.STAGE_A).distill_coarse)
+        for mode in ("act", "class"):
+            args = parse([*DistillOptions.STAGE_A, "--distill-kinds", "0,8", "--distill-coarse", mode])
+            self.assertEqual(args.distill_coarse, mode)
+        for bad in (["--distill-coarse", "act", "--distill-out-of-scope", "ce-n"],
+                    ["--distill-coarse", "act", "--distill-kinds", "8"], ["--distill-coarse"],
+                    ["--distill-coarse", "six"]):
+            with self.subTest(bad=bad), self.assertRaises(SystemExit):
+                parse([*DistillOptions.STAGE_A, *bad])
+        with self.assertRaises(SystemExit):
+            parse(["train5", "--data", "d", "--out", "o", "--distill-coarse", "act"])
+        data = [SimpleNamespace(distill_subtypes=[], distill_groups=[])]
+        with self.assertRaisesRegex(ValueError, "Coarse distillation"):
+            D.Scope.from_options((8,), 1., (), {}, data, coarse="act")
+        with self.assertRaisesRegex(ValueError, "Unknown coarse"):
+            D.Scope.from_options((0,), 1., (), {}, data, coarse="six")
+
+
 def drifted():
     """with_subtypes' frames; the student moved away from r1 everywhere, with gradients."""
     torch.manual_seed(11)
@@ -331,6 +490,45 @@ class OutOfScopeAnchor(unittest.TestCase):
         self.assertEqual(table["out_of_scope"], [2, 1, 0, 1, 1, 2])
         self.assertEqual(actions, {("land", "cast", "cast", "mana"): 1})
         self.assertEqual(D.ACTION_NAMES[int(D.action_classes(batch["cand_feat"][0, 0, :4])[3])], "cast")
+
+    def test_audit_chains_count_taps_at_the_first_and_later_steps(self):
+        from training4.distill_audit import Chains
+        b, u = 1, 6
+        batch = batch_fixture(b=b, u=u)
+        batch["step_valid"][:] = True
+        batch["is_decision"][:] = True
+        batch["is_new_traj"] = torch.ones(b, dtype=torch.bool)
+        batch["loss_weight"] = torch.ones(b, u)
+        batch["head"] = torch.zeros(b, u, dtype=torch.long)
+        batch["pending_kind"] = torch.zeros(b, u, dtype=torch.long)
+        batch["cand_mask"][:] = False
+        batch["cand_mask"][..., :3] = True
+        batch["cand_feat"][:] = 0
+        for column, action in ((0, 0), (1, 5), (2, 3)):   # pass, mana, cast
+            batch["cand_feat"][:, :, column, action] = 1.
+        # R: mana, mana, cast, mana, pass, mana; r1 taps wherever R does; the student
+        # taps, then passes, casts, taps, passes, casts.
+        batch["single_idx"] = torch.tensor([[1, 1, 2, 1, 0, 1]])
+        student = torch.full((b, u, 7), -3.)
+        reference = torch.full((b, u, 7), -3.)
+        for t, (mine, theirs) in enumerate(((1, 1), (0, 1), (2, 2), (1, 1), (0, 0), (2, 1))):
+            student[0, t, mine] = 3.
+            reference[0, t, theirs] = 3.
+        plans = plan_batch(batch, 0)
+        chains = Chains(D.Scope(kinds=(0,)))
+        chains(outputs_from(student, torch.zeros(b, u, 4), torch.zeros(b, u)),
+               outputs_from(reference, torch.zeros(b, u, 4), torch.zeros(b, u)), batch, plans)
+        report = chains.report()
+        # Chains: [t0, t1] (student misses t1), [t3] (taps), [t5] (casts instead).
+        self.assertEqual(report["chains"], 3)
+        self.assertEqual(report["steps"]["first"]["decisions"], 3)
+        self.assertAlmostEqual(report["steps"]["first"]["student_mana"], 2 / 3)
+        self.assertAlmostEqual(report["steps"]["first"]["student_cast"], 1 / 3)
+        self.assertEqual(report["steps"]["later"]["decisions"], 1)
+        self.assertEqual(report["steps"]["later"]["student_pass"], 1.)
+        self.assertAlmostEqual(report["student_taps_through"], 1 / 3)
+        self.assertEqual(report["r1_taps_through"], 1.)
+        self.assertAlmostEqual(report["mean_length"], 4 / 3)
 
     def test_audit_shares_boards_only_with_an_equal_trunk(self):
         from training4.distill_audit import same_upstream

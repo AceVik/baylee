@@ -1,0 +1,118 @@
+"""Coarse classes of priority answers (`coarse_class_v1`), from the dataset's sidecar.
+
+The data side writes, beside the shards in `bundle-distill/` (outside the store
+and its fingerprint, so a window-state cache stays valid):
+- `coarse-classes.index.bin`: one row per labelled priority frame of a recorded
+  seat, sorted by (game, seat, cursor), dtype `INDEX`;
+- `coarse-classes.classes.bin`: per candidate, in menu order, one u8 class
+  (`CLASSES`), row i's at `[offset, offset + n_cand)`;
+- `coarse-classes.json`: the header (`rule`, `rows`, counts).
+
+A mana ability taken through ActivateAbility is `tap` and a CancelCast is
+`pass` there, which the candidate features alone cannot tell. `annotate` gives
+every decoded frame `coarse_class` (one per candidate, -1 where the frame has
+none) and `coarse_n_idx` (N's candidate, -1 likewise), and fails closed on a
+labelled priority frame the sidecar does not cover or does not match.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+
+RULE = "coarse_class_v1"
+CLASSES = ("pass", "tap", "cast", "activate", "land", "other")
+INDEX = np.dtype([("game", "<u4"), ("cursor", "<u4"), ("seat", "u1"), ("r_class", "u1"), ("n_class", "u1"),
+                  ("subtype", "u1"), ("r_idx", "<u4"), ("n_idx", "<u4"), ("n_cand", "<u4"), ("offset", "<u8")])
+PRIORITY = 0
+
+
+def key(game, seat, cursor):
+    """One sortable u64 per (game, seat, cursor): the sidecar's own order."""
+    return (np.asarray(game, np.uint64) << np.uint64(32)) | (np.asarray(seat, np.uint64) << np.uint64(28)) \
+        | np.asarray(cursor, np.uint64)
+
+
+class CoarseClasses:
+    def __init__(self, index, classes, header=None):
+        if len(index) and (int(index["cursor"].max()) >= 1 << 28 or int(index["seat"].max()) >= 16):
+            raise ValueError("Coarse class keys exceed (seat < 16, cursor < 2^28)")
+        self.index, self.classes, self.header = index, classes, header or {}
+        self.keys = key(index["game"], index["seat"], index["cursor"])
+        if len(self.keys) > 1 and not (self.keys[1:] > self.keys[:-1]).all():
+            raise ValueError("Coarse class rows are not sorted by (game, seat, cursor) or repeat a key")
+
+    @classmethod
+    def load(cls, directory):
+        directory = Path(directory)
+        header = json.loads((directory / "coarse-classes.json").read_text())
+        if header.get("rule") != RULE:
+            raise ValueError(f"Coarse classes follow {header.get('rule')!r}, not {RULE}")
+        if list(header.get("classes", CLASSES)) != list(CLASSES):
+            raise ValueError("Coarse class names or order differ")
+        index = np.fromfile(directory / "coarse-classes.index.bin", dtype=INDEX)
+        if header.get("rows", len(index)) != len(index):
+            raise ValueError("Coarse class header and index disagree on the row count")
+        classes = np.memmap(directory / "coarse-classes.classes.bin", dtype=np.uint8, mode="r")
+        return cls(index, classes, header)
+
+    def annotate(self, frame, game, seat, cursor):
+        width = len(frame["cand_mask"])
+        frame["coarse_class"] = np.full(width, -1, dtype=np.int64)
+        frame["coarse_n_idx"] = np.array(-1, dtype=np.int64)
+        labelled = (bool(frame["is_decision"]) and float(frame["loss_weight"]) > 0
+                    and int(frame["pending_kind"]) == PRIORITY and int(frame["head"]) == 0)
+        if not labelled:
+            return frame
+        wanted = key(game, seat, cursor)
+        at = int(np.searchsorted(self.keys, wanted))
+        if at >= len(self.keys) or self.keys[at] != wanted:
+            raise ValueError(f"No coarse classes for labelled priority frame (game {game}, seat {seat}, cursor {cursor})")
+        row = self.index[at]
+        n = int(row["n_cand"])
+        if n != width or int(row["r_idx"]) != int(frame["single_idx"]) or int(row["n_idx"]) >= n:
+            raise ValueError(f"Coarse classes do not match frame (game {game}, seat {seat}, cursor {cursor})")
+        classes = np.asarray(self.classes[int(row["offset"]):int(row["offset"]) + n], dtype=np.int64)
+        if classes[int(row["r_idx"])] != row["r_class"] or classes[int(row["n_idx"])] != row["n_class"]:
+            raise ValueError(f"Coarse class rows disagree with their classes (game {game}, cursor {cursor})")
+        frame["coarse_class"] = classes
+        frame["coarse_n_idx"] = np.array(int(row["n_idx"]), dtype=np.int64)
+        return frame
+
+
+def main(argv=None):
+    """Join a dataset's frames with its sidecar and count what joined (fails on a mismatch)."""
+    import argparse
+    import dataset4 as D4
+    from .distill import check_datasets
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("--data", required=True)
+    parser.add_argument("--split", default="val")
+    parser.add_argument("--every", type=int, default=50, help="Every k-th trajectory")
+    parser.add_argument("--encoder-version", type=int, default=10)
+    args = parser.parse_args(argv)
+    dataset = D4.TrajectoryDataset4(Path(args.data).expanduser(), split=args.split, unroll_len=32,
+                                    encoder_version=args.encoder_version)
+    check_datasets([dataset], True)
+    dataset.coarse = CoarseClasses.load(Path(args.data).expanduser() / "bundle-distill")
+    joined, frames, r_classes, n_classes, differ = 0, 0, np.zeros(len(CLASSES), int), np.zeros(len(CLASSES), int), 0
+    for trajectory in dataset.trajectories[::args.every]:
+        for segment in trajectory:
+            for row in dataset.segments[segment]:
+                frame = dataset.encode_single_step(int(row))
+                frames += 1
+                n_idx = int(frame["coarse_n_idx"])
+                if n_idx >= 0:
+                    joined += 1
+                    r_class = int(frame["coarse_class"][int(frame["single_idx"])])
+                    r_classes[r_class] += 1
+                    n_classes[int(frame["coarse_class"][n_idx])] += 1
+                    differ += r_class != int(frame["coarse_class"][n_idx])
+    print(json.dumps(dict(split=args.split, trajectories=len(dataset.trajectories[::args.every]), frames=frames,
+                          joined=joined, class_differs=differ, r=dict(zip(CLASSES, r_classes.tolist())),
+                          n=dict(zip(CLASSES, n_classes.tolist())))), flush=True)
+
+
+if __name__ == "__main__":
+    main()
