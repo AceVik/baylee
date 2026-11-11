@@ -13,6 +13,11 @@ A mana ability taken through ActivateAbility is `tap` and a CancelCast is
 every decoded frame `coarse_class` (one per candidate, -1 where the frame has
 none) and `coarse_n_idx` (N's candidate, -1 likewise), and fails closed on a
 labelled priority frame the sidecar does not cover or does not match.
+
+Version 2 (house teacher) adds `coarse-classes.played.bin`, one `PLAYED` row per
+index row: what the seat played there, its class, and whether the priority was
+free (no cost owed). Then `annotate` also gives `coarse_p_class` (-1 for none)
+and `coarse_free`, so the probe can set the behaviour beside H at the same states.
 """
 from __future__ import annotations
 
@@ -54,11 +59,19 @@ def key(game, seat, cursor):
         | np.asarray(cursor, np.uint64)
 
 
+# Version 2 (house teacher): per index row, what the seat played (the record's own
+# answer before H replaced the label; u32::MAX for none), its coarse class (255 for
+# none) and whether the priority was free (no cost owed, eval4's `free`).
+PLAYED = np.dtype([("p_idx", "<u4"), ("p_class", "u1"), ("free", "u1"), ("pad", "V2")])
+
+
 class CoarseClasses:
-    def __init__(self, index, classes, header=None):
+    def __init__(self, index, classes, header=None, played=None):
         if len(index) and (int(index["cursor"].max()) >= 1 << 28 or int(index["seat"].max()) >= 16):
             raise ValueError("Coarse class keys exceed (seat < 16, cursor < 2^28)")
-        self.index, self.classes, self.header = index, classes, header or {}
+        if played is not None and len(played) != len(index):
+            raise ValueError("Coarse class played rows and index rows differ")
+        self.index, self.classes, self.header, self.played = index, classes, header or {}, played
         self.keys = key(index["game"], index["seat"], index["cursor"])
         if len(self.keys) > 1 and not (self.keys[1:] > self.keys[:-1]).all():
             raise ValueError("Coarse class rows are not sorted by (game, seat, cursor) or repeat a key")
@@ -76,13 +89,20 @@ class CoarseClasses:
         if header.get("rows", len(index)) != len(index):
             raise ValueError("Coarse class header and index disagree on the row count")
         classes = np.memmap(directory / "coarse-classes.classes.bin", dtype=np.uint8, mode="r")
-        return cls(index, classes, header)
+        played = None
+        if int(header.get("version", 1)) >= 2 and header.get("played_file"):
+            played = np.fromfile(directory / header["played_file"].get("file", "coarse-classes.played.bin"),
+                                 dtype=PLAYED)
+        return cls(index, classes, header, played)
 
     def annotate(self, frame, game, seat, cursor):
         width = len(frame["cand_mask"])
         frame["coarse_class"] = np.full(width, -1, dtype=np.int64)
         frame["coarse_n_idx"] = np.array(-1, dtype=np.int64)
         frame["coarse_chain_start"] = np.array(False)
+        if self.played is not None:
+            frame["coarse_p_class"] = np.array(-1, dtype=np.int64)
+            frame["coarse_free"] = np.array(False)
         labelled = (bool(frame["is_decision"]) and float(frame["loss_weight"]) > 0
                     and int(frame["pending_kind"]) == PRIORITY and int(frame["head"]) == 0)
         if not labelled:
@@ -101,6 +121,11 @@ class CoarseClasses:
         frame["coarse_class"] = classes
         frame["coarse_n_idx"] = np.array(int(row["n_idx"]), dtype=np.int64)
         frame["coarse_chain_start"] = np.array(bool(self.chain_start[at]))
+        if self.played is not None:
+            played = self.played[at]
+            frame["coarse_p_class"] = np.array(-1 if int(played["p_class"]) == 255 else int(played["p_class"]),
+                                               dtype=np.int64)
+            frame["coarse_free"] = np.array(bool(played["free"]))
         return frame
 
 

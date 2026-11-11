@@ -85,6 +85,7 @@ def main(argv=None):
     parser.add_argument("--kinds", default="0,8")
     parser.add_argument("--subtypes", default="cast,pass,instant_their_turn,spend,target")
     parser.add_argument("--every", type=int, default=1, help="Every k-th validation trajectory (deterministic)")
+    parser.add_argument("--split", default="val", help="The split to read (held-out games are val)")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--board-chunk", type=int, default=32)
     parser.add_argument("--decision-chunk", type=int, default=4)
@@ -107,7 +108,7 @@ def main(argv=None):
     configure(student, args)
     configure(r1, args)
     data = Path(args.data).expanduser()
-    dataset = D4.TrajectoryDataset4(data, encoder_version=args.encoder_version, split="val", unroll_len=args.unroll)
+    dataset = D4.TrajectoryDataset4(data, encoder_version=args.encoder_version, split=args.split, unroll_len=args.unroll)
     house = D.dataset_contract(getattr(dataset, "meta", None) or {}) == D.HOUSE_CONTRACT
     D.check_datasets([dataset], True, "house" if house else "bundle")
     if (data / "bundle-distill" / "coarse-classes.json").is_file():
@@ -142,7 +143,7 @@ def main(argv=None):
     moves = sorted(({"subtype": s, "r_action": r, "n_action": n, "student_action": a, "count": c}
                     for (s, r, n, a), c in actions.items()), key=lambda m: -m["count"])
     passed, verdict = D.pregate(metrics, args.min_ratio)
-    report = dict(student=str(args.student), reference=str(args.reference), data=str(args.data),
+    report = dict(student=str(args.student), reference=str(args.reference), data=str(args.data), split=args.split,
                   trajectories=len(dataset.trajectories), of_trajectories=total_trajectories, every=args.every,
                   frames=metrics["val_frames"], shared_trunk=shared, coarse_sidecar=hasattr(dataset, "coarse"),
                   seconds=round(time.perf_counter() - began),

@@ -184,6 +184,7 @@ class HouseGate(unittest.TestCase):
     def test_agreement_per_kind_for_the_student_and_r1(self):
         batch = house_batch()
         cand, pair, scalar = student_logits()
+        cand[0, 2, :4] = torch.tensor([0., 0., 1., 0.])   # t2: the student taps the other source
         student = outputs(cand, pair, scalar)
         reference = outputs(torch.zeros(4, 3, 7), torch.zeros(4, 3, 4), torch.full((4, 3), .75))
         counter = H.HouseCounter(.05)
@@ -202,17 +203,66 @@ class HouseGate(unittest.TestCase):
         self.assertEqual(metrics["val_house_top1_n_eq_h_by_kind"], dict(targets=0., attackers=1., blockers=1.))
         epoch = json.loads(D.epoch_line(1, 5, None, metrics).split(" ", 2)[2])
         self.assertEqual(epoch["validation"]["val_house_top1_n_eq_h_by_kind"]["attackers"], 1.)
+        # Priority at N != H by H's and N's class: exact, same class (another source), same group,
+        # and the best candidate inside H's group.
+        pairs = metrics["val_house_priority_n_ne_h_by_pair"]
+        row = lambda exact, same, group, within: dict(rows=1, exact=exact, **{"class": same}, group=group,
+                                                      within=within)
+        self.assertEqual(pairs["H tap / N pass"], row(1., 1., 1., 1.))
+        self.assertEqual(pairs["H pass / N tap"], row(0., 0., 0., 1.))
+        self.assertEqual(pairs["H tap / N tap"], row(0., 1., 1., 0.))
+        self.assertEqual(metrics["val_house_priority_n_ne_h"],
+                         dict(rows=3, exact=1 / 3, **{"class": 2 / 3}, group=2 / 3, within=2 / 3))
+        # The gate reads priority by group (2 of 3) and the six other rows exactly (2 of 6).
+        self.assertAlmostEqual(metrics["val_house_other_top1_n_ne_h"], 2 / 6)
+        self.assertAlmostEqual(metrics["val_house_gate_top1_n_ne_h"], 4 / 9)
+        self.assertAlmostEqual(metrics["val_house_gate"]["gate_top1_n_ne_h"], 4 / 9)
+        # Without the sidecar's free flag every labelled priority counts: the student taps thrice,
+        # H and N pass once each.
+        free = metrics["val_house_free_priority"]
+        self.assertFalse(free["flagged"])
+        self.assertEqual(free["student"], dict(rows=3, pass_share=0., chain_start_share=1.))
+        self.assertEqual((free["H"]["pass_share"], free["N"]["pass_share"]), (1 / 3, 1 / 3))
+        self.assertNotIn("played", free)
+
+    def test_sidecar_v2_carries_what_was_played_and_the_free_flag(self):
+        import numpy as np
+        from training4 import coarse as C
+        index = np.zeros(2, dtype=C.INDEX)
+        index["game"], index["cursor"], index["n_cand"], index["offset"] = 1, [4, 9], 3, [0, 3]
+        index["r_idx"], index["n_idx"] = [1, 0], [0, 2]
+        index["r_class"], index["n_class"] = [1, 0], [0, 2]
+        classes = np.array([0, 1, 2, 0, 1, 2], dtype=np.uint8)
+        played = np.zeros(2, dtype=C.PLAYED)
+        played["p_idx"], played["p_class"], played["free"] = [2, 0xFFFFFFFF], [2, 255], [1, 0]
+        sidecar = C.CoarseClasses(index, classes, {"version": 2}, played)
+
+        def frame(single):
+            return dict(cand_mask=np.ones(3, dtype=bool), is_decision=np.array(True), loss_weight=np.array(1.),
+                        pending_kind=np.array(0), head=np.array(0), single_idx=np.array(single))
+
+        first, second = sidecar.annotate(frame(1), 1, 0, 4), sidecar.annotate(frame(0), 1, 0, 9)
+        self.assertEqual((int(first["coarse_p_class"]), bool(first["coarse_free"])), (2, True))
+        self.assertEqual((int(second["coarse_p_class"]), bool(second["coarse_free"])), (-1, False))
+        unlabelled = sidecar.annotate({**frame(0), "loss_weight": np.array(0.)}, 1, 0, 5)
+        self.assertEqual(int(unlabelled["coarse_p_class"]), -1)
+        with self.assertRaises(ValueError):
+            C.CoarseClasses(index, classes, {"version": 2}, played[:1])
+        self.assertNotIn("coarse_free", C.CoarseClasses(index, classes).annotate(frame(1), 1, 0, 4))
 
     def test_gate_reads_top1_and_the_chain_start_rate_against_h(self):
-        good = dict(val_house_top1_n_ne_h=.72, val_house_chain_start_act=.55, val_house_chain_start_act_h=.6)
+        good = dict(val_house_gate_top1_n_ne_h=.72, val_house_chain_start_act=.55, val_house_chain_start_act_h=.6,
+                    val_house_chain_start_act_r1=.5, val_house_top1_n_ne_h=.4)
         self.assertTrue(H.house_gate(good)[0])
-        for name, value in (("val_house_top1_n_ne_h", .69), ("val_house_chain_start_act", .53),
+        for name, value in (("val_house_gate_top1_n_ne_h", .69), ("val_house_chain_start_act", .53),
                             ("val_house_chain_start_act_h", None)):
             with self.subTest(name=name):
                 self.assertFalse(H.house_gate({**good, name: value})[0])
         verdict = H.house_gate(good)[1]
         self.assertAlmostEqual(verdict["chain_start_act_ratio"], .55 / .6)
-        self.assertEqual((verdict["chain_start_act"], verdict["chain_start_act_h"]), (.55, .6))
+        self.assertEqual(verdict["chain_start_act"], dict(student=.55, H=.6, N=.5))
+        self.assertAlmostEqual(verdict["pass_share_at_chances"]["H"], .4)
+        self.assertEqual(verdict["exact_top1_n_ne_h"], .4)   # the raw exact top-1, shown beside
         self.assertFalse(verdict["more_active_than_teacher"])
         # One-sided: a student far more active than H passes, flagged for the play check.
         passed, verdict = H.house_gate({**good, "val_house_chain_start_act": .8})
