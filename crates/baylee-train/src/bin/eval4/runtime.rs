@@ -118,6 +118,11 @@ trait EvaluationPlayer {
     fn distill_unencodable(&self) -> u64 {
         0
     }
+    /// `N`, the net's raw greedy answer, of `seat`'s last labelled decision,
+    /// before the step takes the label (`--distill-teacher` counts it).
+    fn distill_net_action(&self, _seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
+        None
+    }
     /// What `--menu-payable` counted since this was last asked.
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
@@ -234,6 +239,10 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn distill_unencodable(&self) -> u64 {
         Self::distill_unencodable(self)
+    }
+    fn distill_net_action(&self, _seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
+        self.distill_label()
+            .and_then(|label| label.net_action.clone())
     }
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         Self::take_menu_stats(self)

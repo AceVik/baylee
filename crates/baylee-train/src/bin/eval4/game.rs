@@ -547,6 +547,15 @@ fn play_one_table(
                 }
                 if result.is_ok() {
                     if let Some(teacher) = teacher.as_deref_mut() {
+                        // What was played and `N` beside `H`, before the
+                        // step takes the label.
+                        teacher.observed(
+                            pid,
+                            &view,
+                            &attempted_action,
+                            n.distill_net_action(pid.get()).as_ref(),
+                            ans.provenance.source == SourceKind4::Forced,
+                        );
                         teacher.played(pid, &attempted_action);
                     }
                     if let Some(mut binding) = research_binding {
@@ -592,6 +601,7 @@ fn play_one_table(
                     let routed = session.act_slice(pid, fb.clone(), 0);
                     let accepted = routed.is_ok();
                     if let (Some(teacher), true) = (teacher.as_deref_mut(), accepted) {
+                        teacher.observed(pid, &view, &fb, None, false);
                         teacher.played(pid, &fb);
                     }
                     if let (Some(shadow), Ok(routed)) = (shadow.as_deref_mut(), routed) {

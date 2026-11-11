@@ -449,6 +449,8 @@ impl<'a> Cursor<'a> {
         };
         let head = head_of(step.head).ok_or_else(|| format!("unknown head {}", step.head))?;
         let fired_mask = fired_mask(&label.fired)?;
+        // The record's own answer, before `R` takes its place.
+        let played = (head == HeadKind4::SingleChoice).then_some(step.target.single_idx);
         step.target = label.rules.clone();
         step.loss_weight = 1.0;
         step.provenance.source = SourceKind4::House;
@@ -461,6 +463,7 @@ impl<'a> Cursor<'a> {
             net_answer: net_answer(head, &label.net),
             subtype: label.subtype,
             fired: label.fired.clone(),
+            played,
         };
         self.counts.count(&frame);
         step.distill = Some(DistillFrame4 {
