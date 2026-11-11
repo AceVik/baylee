@@ -2512,7 +2512,8 @@ on the engine and fails on exactly that; it was checked red with
 `simulation` in `play`.
 
 A harness that plays through a session forks the session instead:
-`Session::fork_for(seat, decks, policy_seed)` (`baylee-gamehost`,
+`Session::fork_for(seat, decks, policy_seed)` (`decks` passed through;
+`baylee-gamehost`,
 `session/simulation.rs`, under gamehost's `simulation` feature and in its own
 tests through a dev edge) wraps the engine's fork in a `SimulationSession`.
 Every chair keeps its kind — a driven chair stays driven, and `release`
@@ -2585,12 +2586,14 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   registers the dealt cards' off-battlefield statics), the projection is
   invalidated and refreshed, and the priority offer is computed again.
 
-`DeckKnowledge::Known` is required. The multiset dealt is read off the real
-game, which is the opponent's submitted deck less what has been seen; that
-is the seat's to read only when every deck list is public to it (a
-published precon, a deck the harness chose). `Unknown` is refused until a
-public prior over decks exists. The interned names and the base cache are
-functions of the submitted lists and public play, so a fork keeps them.
+`DeckKnowledge` says where the hidden cards are dealt from. Under `Known`
+the multiset dealt is read off the real game, which is the opponent's
+submitted deck less what has been seen; that is the seat's to read only
+when every deck list is public to it (a published precon, a deck the harness
+chose). The interned names and the base cache are functions of the submitted
+lists and public play, so such a fork keeps them. `Unknown` is refused.
+`Prior(&PublicPrior)` is for a seat that knows its own list and no other,
+which is every fair level of the house; it is described below.
 
 Every field of `GameState` is classified in one place,
 `GameState::audit_fork` (`state/fork.rs`), which destructures the state
@@ -2611,6 +2614,94 @@ state, hash and RNG unchanged. `engine/simulation_tests.rs` pins both
 halves against twin games, together with continuation (the same actions
 take source and fork to the same board; a pass already made is kept) and
 every refusal below.
+
+**Dealing from a public prior.** A `PublicPrior` holds, for each other
+player, a weighted list of cards (`PublicPrior::new().with_player(player,
+cards)`; a card listed twice is one entry with the weights added, and the
+order of the list does not matter). The caller builds it from what the seat
+can see — its own view and its own deck list — and asserts that nothing
+else went into it; the engine cannot check that, and a prior computed from
+an opponent's list is that list dealt back into the fork. Under
+`DeckKnowledge::Prior` the seat's own library is dealt as under `Known`,
+from its own hidden cards. Every pool of another owner — a hand the seat
+does not see, a library below a revealed top, the cards outside the game —
+keeps its zones' sizes, which are public, and has each slot drawn from that
+owner's list, with replacement and with probability proportional to weight,
+on the policy seed's `belief` stream. A drawn card is a card as a deck entry
+with no printing of its own would make it: `PrintRef::UNKNOWN`, no physical
+rules print, the default deck choices, and its rules and printed face
+admitted through the door setup admits a deck entry by
+(`GameState::admit_printed_card`: linked rules, the interned face, its own
+power and toughness, its off-battlefield statics), since no deck at the
+table need hold it. So the fork takes the engine's `CardLookup`.
+
+The real cards of such a pool are removed unread. `redeal` marks the pool
+`Source::Prior`, takes from the game its zones' sizes and its ids — the ids
+name what the fork removes and what the journal rewrite forgets — and never
+asks an object of it what it is, what it carries or how often it has moved.
+Whatever a card there carried (a rider from a reveal, counters, a stale
+status) goes with it, where under `Known` it refuses the fork: the mark
+belonged to a card the fork does not hold. `SimulationSession` follows:
+under a prior the house in every chair but the seat's is told the prior's
+cards as its deck, not the real list.
+
+One fact about every deck list is decided again: setup turns graveyard
+ordering on (CR 404.3) when any list holds a card that reads the order of a
+graveyard, and from then on owners are asked to order simultaneous
+arrivals. A fork on a prior asks that of its own cards after the deal
+(`GameState::decide_graveyard_order_from_cards`), so a card in a list the
+seat has never seen turns nothing on and one the prior deals does.
+
+**The invariant under a prior:** for fixed seat-visible facts, prior and
+policy seed, the fork is the same whatever the real hidden cards, **deck
+lists** and RNG: the same card under the same id in every slot of every
+zone, the same offer, the same journal, the same stream, and the same game
+as both are played on with the same answers.
+`engine/simulation_tests/prior.rs` pins it against twins whose lists share
+no card, with the missing, empty, weightless and unknown-card priors
+(`ForkRefusal::UnusablePrior`, each a fact about the prior and the zone
+sizes), the seat's own library, determinism and the untouched source.
+
+What remains of the real lists in such a fork is in three places, none of
+which a rule can read, each of which a reader of the raw engine can, and
+each of which is in the snapshot hash and the fingerprint — so a fork's hash
+must not steer a fair seat's play. The **name table** keeps every name the
+game interned and the **base cache** every card's rules and printed face,
+the other decks' included. Rules reach them only through a card or a name
+the fork itself holds: a name's number is compared for equality and never
+ordered or iterated by (the legend rule groups by it, "N different names"
+sorts and counts), `Names::find` and the cache's lookup are asked about a
+card in the fork or a face of one, and a name the real list interned
+compares equal to no object once its cards are gone. But the numbers the
+dealt cards' names take count the names interned before them, so two forks
+of twins print the same game under different numbers unless the lists
+interned as many names and the prior lists cards of neither.
+The **effect table** keeps its count of registrations, which is the id the
+next effect takes, and its generation, which keys the projection: a hidden
+card with a static that works in a hand or a library (Grist, the Hunger
+Tide) has moved both. Its effect and its text overrides are dropped by the
+settle; the two counters stay, and no rule reads them but to tell two
+effects apart or to know a cache is stale. The table's monotone hints are
+the same kind of record.
+
+**Refusals under a prior** are the refusals below, sorted by what they are
+a function of. Kept as they are, because the seat saw the thing happen: no
+such seat, the game being over, the opening hands, every suspended
+operation and idle continuation, the loop watch, anything but priority or a
+declaration (what the engine is in the middle of, and whom it is asking
+what, is taken as visible to every seat); a face-down object or card in a
+public zone; a commander in a hidden zone, and everything public that
+points at a hidden card, each judged by the id alone. A continuous effect
+about a hidden card of another owner is refused whichever incarnation it
+names, where under `Known` only the current one is: which incarnation the
+card is in counts its hidden moves. Not asked at all of another owner's
+hidden cards, because the answer is that owner's secret: rules state of
+their own (`MarkedHiddenCard`, every mark `plain` lists) and a static that
+works where the card hides. The seat's own library is asked both, as under
+`Known`. Neither kind: `PrivatePolicy`, another seat's standing answer in
+the journal, is a function of that seat's private setting and not of a
+card; it is refused under a prior as under `Known`, and tells the seat that
+such an answer has been given once.
 
 The invariant is about the hidden **arrangement**, not about **history**.
 A public object carries how it got where it is: a card's `version` counts
