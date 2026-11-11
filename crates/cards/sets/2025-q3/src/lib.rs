@@ -59,6 +59,8 @@ pub mod gravblade_heavy;
 pub mod gravkill;
 #[path = "spe/grendel_spawn_of_knull.rs"]
 pub mod grendel_spawn_of_knull;
+#[path = "om1/gwenom_remorseless.rs"]
+pub mod gwenom_remorseless;
 #[path = "eoe/honor.rs"]
 pub mod honor;
 #[path = "eoe/honored_knight_captain.rs"]

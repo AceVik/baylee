@@ -180,6 +180,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
                 | CostPart::ExileTopOfLibrary(_)
+                | CostPart::SacrificeGrantor
                 | CostPart::PayLifeX => {}
             }
         }
@@ -298,6 +299,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
                 | CostPart::ExileTopOfLibrary(_)
+                | CostPart::SacrificeGrantor
                 | CostPart::ExileFromHand(_) => {}
             }
         }

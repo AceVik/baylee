@@ -47,6 +47,7 @@ mod silverskin_armor;
 mod specter_s_shroud;
 mod swiftfoot_boots;
 mod sword_of_the_meek;
+mod thornbite_staff;
 mod torch_gauntlet;
 mod true_faith_censer;
 mod vanguard_s_shield;

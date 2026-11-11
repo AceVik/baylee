@@ -377,7 +377,7 @@ impl<L: CardLookup> Engine<L> {
             }
         } else {
             let ability = if let Some(granted) = granted {
-                self.push_granted_ability(player, source, targets, &granted)
+                self.push_granted_ability(player, source, targets, &granted, cost.grantor)
             } else {
                 self.push_ability_to_stack(player, source, ability_index, targets)
             };

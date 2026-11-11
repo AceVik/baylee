@@ -15,10 +15,12 @@ use crate::types::{SubtypeKind, SubtypeSet};
 pub mod creature {
     use super::SubtypeId;
     pub const ADVISOR: SubtypeId = SubtypeId::new(0);
+    pub const AENAR: SubtypeId = SubtypeId::new(511);
     pub const AETHERBORN: SubtypeId = SubtypeId::new(1);
     pub const ALIEN: SubtypeId = SubtypeId::new(2);
     pub const ALLY: SubtypeId = SubtypeId::new(3);
     pub const ANDORIAN: SubtypeId = SubtypeId::new(4);
+    pub const ANDROID: SubtypeId = SubtypeId::new(512);
     pub const ANGEL: SubtypeId = SubtypeId::new(5);
     pub const ANTELOPE: SubtypeId = SubtypeId::new(6);
     pub const APE: SubtypeId = SubtypeId::new(7);
@@ -36,6 +38,7 @@ pub mod creature {
     pub const AVATAR: SubtypeId = SubtypeId::new(19);
     pub const AZRA: SubtypeId = SubtypeId::new(20);
     pub const BADGER: SubtypeId = SubtypeId::new(21);
+    pub const BAJORAN: SubtypeId = SubtypeId::new(513);
     pub const BALLOON: SubtypeId = SubtypeId::new(22);
     pub const BARBARIAN: SubtypeId = SubtypeId::new(23);
     pub const BARD: SubtypeId = SubtypeId::new(24);
@@ -47,12 +50,15 @@ pub mod creature {
     pub const BEEBLE: SubtypeId = SubtypeId::new(30);
     pub const BEHOLDER: SubtypeId = SubtypeId::new(31);
     pub const BERSERKER: SubtypeId = SubtypeId::new(32);
+    pub const BETAZOID: SubtypeId = SubtypeId::new(514);
     pub const BIRD: SubtypeId = SubtypeId::new(33);
     pub const BISON: SubtypeId = SubtypeId::new(34);
     pub const BLINKMOTH: SubtypeId = SubtypeId::new(35);
     pub const BOAR: SubtypeId = SubtypeId::new(36);
+    pub const BOLIAN: SubtypeId = SubtypeId::new(515);
     pub const BORG: SubtypeId = SubtypeId::new(37);
     pub const BRAINIAC: SubtypeId = SubtypeId::new(38);
+    pub const BRIKAR: SubtypeId = SubtypeId::new(516);
     pub const BRINGER: SubtypeId = SubtypeId::new(39);
     pub const BRUSHWAGG: SubtypeId = SubtypeId::new(40);
     pub const C_TAN: SubtypeId = SubtypeId::new(41);
@@ -60,6 +66,7 @@ pub mod creature {
     pub const CAMARID: SubtypeId = SubtypeId::new(43);
     pub const CAMEL: SubtypeId = SubtypeId::new(44);
     pub const CAPYBARA: SubtypeId = SubtypeId::new(45);
+    pub const CARDASSIAN: SubtypeId = SubtypeId::new(517);
     pub const CARIBOU: SubtypeId = SubtypeId::new(46);
     pub const CARRIER: SubtypeId = SubtypeId::new(47);
     pub const CAT: SubtypeId = SubtypeId::new(48);
@@ -83,6 +90,7 @@ pub mod creature {
     pub const DAUTHI: SubtypeId = SubtypeId::new(66);
     pub const DEMIGOD: SubtypeId = SubtypeId::new(67);
     pub const DEMON: SubtypeId = SubtypeId::new(68);
+    pub const DENOBULAN: SubtypeId = SubtypeId::new(518);
     pub const DESERTER: SubtypeId = SubtypeId::new(69);
     pub const DETECTIVE: SubtypeId = SubtypeId::new(70);
     pub const DEVIL: SubtypeId = SubtypeId::new(71);
@@ -99,8 +107,10 @@ pub mod creature {
     pub const DRYAD: SubtypeId = SubtypeId::new(82);
     pub const DWARF: SubtypeId = SubtypeId::new(83);
     pub const ECHIDNA: SubtypeId = SubtypeId::new(84);
+    pub const EDOSIAN: SubtypeId = SubtypeId::new(519);
     pub const EFREET: SubtypeId = SubtypeId::new(85);
     pub const EGG: SubtypeId = SubtypeId::new(86);
+    pub const EL_AURIAN: SubtypeId = SubtypeId::new(520);
     pub const ELDER: SubtypeId = SubtypeId::new(87);
     pub const ELDRAZI: SubtypeId = SubtypeId::new(88);
     pub const ELEMENTAL: SubtypeId = SubtypeId::new(89);
@@ -109,8 +119,10 @@ pub mod creature {
     pub const ELK: SubtypeId = SubtypeId::new(92);
     pub const EMPLOYEE: SubtypeId = SubtypeId::new(93);
     pub const ETERNAL: SubtypeId = SubtypeId::new(94);
+    pub const EXCALBIAN: SubtypeId = SubtypeId::new(521);
     pub const EYE: SubtypeId = SubtypeId::new(95);
     pub const FAERIE: SubtypeId = SubtypeId::new(96);
+    pub const FERENGI: SubtypeId = SubtypeId::new(522);
     pub const FERRET: SubtypeId = SubtypeId::new(97);
     pub const FISH: SubtypeId = SubtypeId::new(98);
     pub const FLAGBEARER: SubtypeId = SubtypeId::new(99);
@@ -148,6 +160,7 @@ pub mod creature {
     pub const HERO: SubtypeId = SubtypeId::new(131);
     pub const HIPPO: SubtypeId = SubtypeId::new(132);
     pub const HIPPOGRIFF: SubtypeId = SubtypeId::new(133);
+    pub const HIROGEN: SubtypeId = SubtypeId::new(523);
     pub const HOMARID: SubtypeId = SubtypeId::new(134);
     pub const HOMUNCULUS: SubtypeId = SubtypeId::new(135);
     pub const HORROR: SubtypeId = SubtypeId::new(136);
@@ -156,6 +169,7 @@ pub mod creature {
     pub const HYDRA: SubtypeId = SubtypeId::new(139);
     pub const HYENA: SubtypeId = SubtypeId::new(140);
     pub const ILLUSION: SubtypeId = SubtypeId::new(141);
+    pub const ILLYRIAN: SubtypeId = SubtypeId::new(524);
     pub const IMP: SubtypeId = SubtypeId::new(142);
     pub const INCARNATION: SubtypeId = SubtypeId::new(143);
     pub const INHUMAN: SubtypeId = SubtypeId::new(144);
@@ -164,6 +178,7 @@ pub mod creature {
     pub const INSECT: SubtypeId = SubtypeId::new(147);
     pub const JACKAL: SubtypeId = SubtypeId::new(148);
     pub const JELLYFISH: SubtypeId = SubtypeId::new(149);
+    pub const JEM_HADAR: SubtypeId = SubtypeId::new(525);
     pub const JUGGERNAUT: SubtypeId = SubtypeId::new(150);
     pub const KANGAROO: SubtypeId = SubtypeId::new(151);
     pub const KAVU: SubtypeId = SubtypeId::new(152);
@@ -176,6 +191,7 @@ pub mod creature {
     pub const KOR: SubtypeId = SubtypeId::new(159);
     pub const KRAKEN: SubtypeId = SubtypeId::new(160);
     pub const KREE: SubtypeId = SubtypeId::new(161);
+    pub const KWEJIAN: SubtypeId = SubtypeId::new(526);
     pub const LAMIA: SubtypeId = SubtypeId::new(162);
     pub const LAMMASU: SubtypeId = SubtypeId::new(163);
     pub const LANTHANITE: SubtypeId = SubtypeId::new(164);
@@ -189,9 +205,12 @@ pub mod creature {
     pub const LOBSTER: SubtypeId = SubtypeId::new(172);
     pub const MANTICORE: SubtypeId = SubtypeId::new(173);
     pub const MASTICORE: SubtypeId = SubtypeId::new(174);
+    pub const MEDUSAN: SubtypeId = SubtypeId::new(527);
+    pub const MELKOTIAN: SubtypeId = SubtypeId::new(528);
     pub const MERCENARY: SubtypeId = SubtypeId::new(175);
     pub const MERFOLK: SubtypeId = SubtypeId::new(176);
     pub const METATHRAN: SubtypeId = SubtypeId::new(177);
+    pub const MINDLESS_ONE: SubtypeId = SubtypeId::new(529);
     pub const MINION: SubtypeId = SubtypeId::new(178);
     pub const MINOTAUR: SubtypeId = SubtypeId::new(179);
     pub const MITE: SubtypeId = SubtypeId::new(180);
@@ -207,6 +226,7 @@ pub mod creature {
     pub const MUTANT: SubtypeId = SubtypeId::new(190);
     pub const MYR: SubtypeId = SubtypeId::new(191);
     pub const MYSTIC: SubtypeId = SubtypeId::new(192);
+    pub const NA_KUHL: SubtypeId = SubtypeId::new(530);
     pub const NAGA: SubtypeId = SubtypeId::new(193);
     pub const NAUTILUS: SubtypeId = SubtypeId::new(194);
     pub const NECRON: SubtypeId = SubtypeId::new(195);
@@ -218,6 +238,7 @@ pub mod creature {
     pub const NOGGLE: SubtypeId = SubtypeId::new(201);
     pub const NOMAD: SubtypeId = SubtypeId::new(202);
     pub const NYMPH: SubtypeId = SubtypeId::new(203);
+    pub const OCAMPA: SubtypeId = SubtypeId::new(531);
     pub const OCTOPUS: SubtypeId = SubtypeId::new(204);
     pub const OFFICER: SubtypeId = SubtypeId::new(205);
     pub const OGRE: SubtypeId = SubtypeId::new(206);
@@ -263,6 +284,7 @@ pub mod creature {
     pub const RIGGER: SubtypeId = SubtypeId::new(246);
     pub const ROBOT: SubtypeId = SubtypeId::new(247);
     pub const ROGUE: SubtypeId = SubtypeId::new(248);
+    pub const ROMULAN: SubtypeId = SubtypeId::new(532);
     pub const RUKH: SubtypeId = SubtypeId::new(249);
     pub const SABLE: SubtypeId = SubtypeId::new(250);
     pub const SALAMANDER: SubtypeId = SubtypeId::new(251);
@@ -316,7 +338,9 @@ pub mod creature {
     pub const SURVIVOR: SubtypeId = SubtypeId::new(299);
     pub const SYMBIOTE: SubtypeId = SubtypeId::new(300);
     pub const SYNTH: SubtypeId = SubtypeId::new(301);
+    pub const TALAXIAN: SubtypeId = SubtypeId::new(533);
     pub const TALOSIAN: SubtypeId = SubtypeId::new(302);
+    pub const TAMARIAN: SubtypeId = SubtypeId::new(534);
     pub const TEDDY: SubtypeId = SubtypeId::new(303);
     pub const TELLARITE: SubtypeId = SubtypeId::new(304);
     pub const TENTACLE: SubtypeId = SubtypeId::new(305);
@@ -330,6 +354,8 @@ pub mod creature {
     pub const TOSK: SubtypeId = SubtypeId::new(313);
     pub const TOY: SubtypeId = SubtypeId::new(314);
     pub const TREEFOLK: SubtypeId = SubtypeId::new(315);
+    pub const TRIBBLE: SubtypeId = SubtypeId::new(535);
+    pub const TRILL: SubtypeId = SubtypeId::new(536);
     pub const TRILOBITE: SubtypeId = SubtypeId::new(316);
     pub const TRISKELAVITE: SubtypeId = SubtypeId::new(317);
     pub const TROLL: SubtypeId = SubtypeId::new(318);
@@ -340,6 +366,7 @@ pub mod creature {
     pub const UTROM: SubtypeId = SubtypeId::new(323);
     pub const VAMPIRE: SubtypeId = SubtypeId::new(324);
     pub const VARMINT: SubtypeId = SubtypeId::new(325);
+    pub const VAU_N_AKAT: SubtypeId = SubtypeId::new(537);
     pub const VEDALKEN: SubtypeId = SubtypeId::new(326);
     pub const VILLAIN: SubtypeId = SubtypeId::new(327);
     pub const VOLVER: SubtypeId = SubtypeId::new(328);
@@ -372,6 +399,7 @@ pub mod artifact {
     pub const BOBBLEHEAD: SubtypeId = SubtypeId::new(352);
     pub const BOOK: SubtypeId = SubtypeId::new(353);
     pub const CLUE: SubtypeId = SubtypeId::new(354);
+    pub const COMMUNICATOR: SubtypeId = SubtypeId::new(538);
     pub const CONTRAPTION: SubtypeId = SubtypeId::new(355);
     pub const EQUIPMENT: SubtypeId = SubtypeId::new(356);
     pub const FOOD: SubtypeId = SubtypeId::new(357);
@@ -545,7 +573,7 @@ pub mod battle {
     pub const SIEGE: SubtypeId = SubtypeId::new(506);
 }
 
-pub const COUNT: u16 = 511;
+pub const COUNT: u16 = 539;
 
 // The bitmap has to have room for every id assigned above. A `SubtypeSet`
 // is a fixed number of words, so this is the whole bound: outgrowing it is
@@ -558,10 +586,12 @@ const _: () = assert!(COUNT <= SubtypeSet::CAPACITY);
 // bitmap rather than a scan with a `kind()` call per id.
 pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::ADVISOR,
+    creature::AENAR,
     creature::AETHERBORN,
     creature::ALIEN,
     creature::ALLY,
     creature::ANDORIAN,
+    creature::ANDROID,
     creature::ANGEL,
     creature::ANTELOPE,
     creature::APE,
@@ -579,6 +609,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::AVATAR,
     creature::AZRA,
     creature::BADGER,
+    creature::BAJORAN,
     creature::BALLOON,
     creature::BARBARIAN,
     creature::BARD,
@@ -590,12 +621,15 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::BEEBLE,
     creature::BEHOLDER,
     creature::BERSERKER,
+    creature::BETAZOID,
     creature::BIRD,
     creature::BISON,
     creature::BLINKMOTH,
     creature::BOAR,
+    creature::BOLIAN,
     creature::BORG,
     creature::BRAINIAC,
+    creature::BRIKAR,
     creature::BRINGER,
     creature::BRUSHWAGG,
     creature::C_TAN,
@@ -603,6 +637,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::CAMARID,
     creature::CAMEL,
     creature::CAPYBARA,
+    creature::CARDASSIAN,
     creature::CARIBOU,
     creature::CARRIER,
     creature::CAT,
@@ -626,6 +661,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::DAUTHI,
     creature::DEMIGOD,
     creature::DEMON,
+    creature::DENOBULAN,
     creature::DESERTER,
     creature::DETECTIVE,
     creature::DEVIL,
@@ -642,8 +678,10 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::DRYAD,
     creature::DWARF,
     creature::ECHIDNA,
+    creature::EDOSIAN,
     creature::EFREET,
     creature::EGG,
+    creature::EL_AURIAN,
     creature::ELDER,
     creature::ELDRAZI,
     creature::ELEMENTAL,
@@ -652,8 +690,10 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::ELK,
     creature::EMPLOYEE,
     creature::ETERNAL,
+    creature::EXCALBIAN,
     creature::EYE,
     creature::FAERIE,
+    creature::FERENGI,
     creature::FERRET,
     creature::FISH,
     creature::FLAGBEARER,
@@ -691,6 +731,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::HERO,
     creature::HIPPO,
     creature::HIPPOGRIFF,
+    creature::HIROGEN,
     creature::HOMARID,
     creature::HOMUNCULUS,
     creature::HORROR,
@@ -699,6 +740,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::HYDRA,
     creature::HYENA,
     creature::ILLUSION,
+    creature::ILLYRIAN,
     creature::IMP,
     creature::INCARNATION,
     creature::INHUMAN,
@@ -707,6 +749,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::INSECT,
     creature::JACKAL,
     creature::JELLYFISH,
+    creature::JEM_HADAR,
     creature::JUGGERNAUT,
     creature::KANGAROO,
     creature::KAVU,
@@ -719,6 +762,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::KOR,
     creature::KRAKEN,
     creature::KREE,
+    creature::KWEJIAN,
     creature::LAMIA,
     creature::LAMMASU,
     creature::LANTHANITE,
@@ -732,9 +776,12 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::LOBSTER,
     creature::MANTICORE,
     creature::MASTICORE,
+    creature::MEDUSAN,
+    creature::MELKOTIAN,
     creature::MERCENARY,
     creature::MERFOLK,
     creature::METATHRAN,
+    creature::MINDLESS_ONE,
     creature::MINION,
     creature::MINOTAUR,
     creature::MITE,
@@ -750,6 +797,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::MUTANT,
     creature::MYR,
     creature::MYSTIC,
+    creature::NA_KUHL,
     creature::NAGA,
     creature::NAUTILUS,
     creature::NECRON,
@@ -761,6 +809,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::NOGGLE,
     creature::NOMAD,
     creature::NYMPH,
+    creature::OCAMPA,
     creature::OCTOPUS,
     creature::OFFICER,
     creature::OGRE,
@@ -806,6 +855,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::RIGGER,
     creature::ROBOT,
     creature::ROGUE,
+    creature::ROMULAN,
     creature::RUKH,
     creature::SABLE,
     creature::SALAMANDER,
@@ -859,7 +909,9 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::SURVIVOR,
     creature::SYMBIOTE,
     creature::SYNTH,
+    creature::TALAXIAN,
     creature::TALOSIAN,
+    creature::TAMARIAN,
     creature::TEDDY,
     creature::TELLARITE,
     creature::TENTACLE,
@@ -873,6 +925,8 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::TOSK,
     creature::TOY,
     creature::TREEFOLK,
+    creature::TRIBBLE,
+    creature::TRILL,
     creature::TRILOBITE,
     creature::TRISKELAVITE,
     creature::TROLL,
@@ -883,6 +937,7 @@ pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     creature::UTROM,
     creature::VAMPIRE,
     creature::VARMINT,
+    creature::VAU_N_AKAT,
     creature::VEDALKEN,
     creature::VILLAIN,
     creature::VOLVER,
@@ -914,6 +969,7 @@ pub const ALL_ARTIFACT_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     artifact::BOBBLEHEAD,
     artifact::BOOK,
     artifact::CLUE,
+    artifact::COMMUNICATOR,
     artifact::CONTRAPTION,
     artifact::EQUIPMENT,
     artifact::FOOD,
@@ -1624,6 +1680,34 @@ pub fn by_name(name: &str) -> Option<SubtypeId> {
         "lander" => artifact::LANDER,
         "mutagen" => artifact::MUTAGEN,
         "vibranium" => artifact::VIBRANIUM,
+        "aenar" => creature::AENAR,
+        "android" => creature::ANDROID,
+        "bajoran" => creature::BAJORAN,
+        "betazoid" => creature::BETAZOID,
+        "bolian" => creature::BOLIAN,
+        "brikar" => creature::BRIKAR,
+        "cardassian" => creature::CARDASSIAN,
+        "denobulan" => creature::DENOBULAN,
+        "edosian" => creature::EDOSIAN,
+        "el-aurian" => creature::EL_AURIAN,
+        "excalbian" => creature::EXCALBIAN,
+        "ferengi" => creature::FERENGI,
+        "hirogen" => creature::HIROGEN,
+        "illyrian" => creature::ILLYRIAN,
+        "jem'hadar" => creature::JEM_HADAR,
+        "kwejian" => creature::KWEJIAN,
+        "medusan" => creature::MEDUSAN,
+        "melkotian" => creature::MELKOTIAN,
+        "mindless-one" => creature::MINDLESS_ONE,
+        "na'kuhl" => creature::NA_KUHL,
+        "ocampa" => creature::OCAMPA,
+        "romulan" => creature::ROMULAN,
+        "talaxian" => creature::TALAXIAN,
+        "tamarian" => creature::TAMARIAN,
+        "tribble" => creature::TRIBBLE,
+        "trill" => creature::TRILL,
+        "vau-n'akat" => creature::VAU_N_AKAT,
+        "communicator" => artifact::COMMUNICATOR,
         _ => return None,
     })
 }
@@ -2140,6 +2224,34 @@ pub static NAMES: &[&str] = &[
     "Lander",
     "Mutagen",
     "Vibranium",
+    "Aenar",
+    "Android",
+    "Bajoran",
+    "Betazoid",
+    "Bolian",
+    "Brikar",
+    "Cardassian",
+    "Denobulan",
+    "Edosian",
+    "El-Aurian",
+    "Excalbian",
+    "Ferengi",
+    "Hirogen",
+    "Illyrian",
+    "Jem'Hadar",
+    "Kwejian",
+    "Medusan",
+    "Melkotian",
+    "Mindless-One",
+    "Na'kuhl",
+    "Ocampa",
+    "Romulan",
+    "Talaxian",
+    "Tamarian",
+    "Tribble",
+    "Trill",
+    "Vau-N'Akat",
+    "Communicator",
 ];
 
 pub fn name(id: SubtypeId) -> Option<&'static str> {

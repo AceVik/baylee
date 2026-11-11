@@ -274,7 +274,9 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::Crew(_)
             | CostPart::Saddle(_) => dst[0] = 1.0,
             CostPart::UntapSelf => dst[1] = 1.0,
-            CostPart::SacrificeSelf | CostPart::ReturnSelfToHand => dst[2] = 1.0,
+            CostPart::SacrificeSelf | CostPart::SacrificeGrantor | CostPart::ReturnSelfToHand => {
+                dst[2] = 1.0;
+            }
             CostPart::Sacrifice(_)
             | CostPart::SacrificeX(_)
             | CostPart::SacrificeAll(_)

@@ -51,6 +51,8 @@ pub mod network_disruptor;
 pub mod network_terminal;
 #[path = "neo/nezumi_bladeblesser.rs"]
 pub mod nezumi_bladeblesser;
+#[path = "neo/ninja_s_kunai.rs"]
+pub mod ninja_s_kunai;
 #[path = "neo/otawara_soaring_city.rs"]
 pub mod otawara_soaring_city;
 #[path = "neo/rabbit_battery.rs"]

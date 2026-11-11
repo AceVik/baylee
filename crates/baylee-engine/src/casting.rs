@@ -1028,6 +1028,10 @@ pub(crate) fn can_cast_form_paying(
     {
         return Err(CastError::NotInHand);
     }
+    let face_up = form
+        .is_none()
+        .then(|| playable_exile_projection(state, player, obj));
+    let obj = face_up.as_deref().unwrap_or(obj);
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
     let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
     // Flashback (CR 702.34a): a card may be cast from its owner's graveyard
@@ -1852,6 +1856,7 @@ fn alternative_parts_payable(
         // so there is nothing here an alternative cost could fail to pay.
         // Counted activation costs are not spell additional costs.
         CostPart::ExertSelf
+        | CostPart::SacrificeGrantor
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapX(_)

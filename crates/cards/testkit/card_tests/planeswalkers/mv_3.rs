@@ -4,3 +4,4 @@
 use super::*;
 
 mod grist_the_hunger_tide;
+mod vivien_champion_of_the_wilds;

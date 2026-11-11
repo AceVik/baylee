@@ -1147,6 +1147,13 @@ pub enum AwaitingOp {
         /// Who gives the chosen permanent up.
         player: PlayerId,
     },
+    /// One privately inspected library card chosen for face-down exile.
+    LookedCardToExile {
+        /// Inspected cards, top first.
+        looked: Vec<ObjectId>,
+        /// Prospective spell types the exact exile incarnation may be cast as.
+        cast_types: baylee_core::types::TypeSet,
+    },
 }
 
 /// Work to resume after a resolution-time mana payment.
@@ -1309,6 +1316,9 @@ impl AwaitingOp {
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
             Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
+            Self::LookedCardToExile { looked, cast_types } => {
+                crate::state::structural_fingerprint(&(84u8, looked, cast_types))
+            }
             // The plain exile keeps the value a written record holds.
             Self::ExileFromHandWithSource { cast: false } => {
                 crate::state::structural_fingerprint(&81u8)

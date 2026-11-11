@@ -71,6 +71,21 @@ impl<L: CardLookup> Engine<L> {
                     .any(|effect| matches!(effect, baylee_cards_dsl::Effect::AttachSelf { .. })),
                 _ => false,
             });
+        let granted = self.granted_definition(source, ability_index);
+        let mut damage_from_grantor = false;
+        if let Some(grant) = granted {
+            baylee_cards_dsl::Effect::walk(grant.effects, &mut 0, &mut |effect| {
+                damage_from_grantor |=
+                    matches!(effect, baylee_cards_dsl::Effect::GrantorDealsDamage { .. });
+            });
+        }
+        let grantor = if damage_from_grantor || cost.parts.contains(&CostPart::SacrificeGrantor) {
+            granted
+                .and_then(|grant| grant.source)
+                .and_then(|id| self.state.source_identity(id))
+        } else {
+            None
+        };
         let mut parts: SmallVec<[CostPart; 4]> = cost.parts.iter().copied().collect();
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards. External
@@ -122,6 +137,7 @@ impl<L: CardLookup> Engine<L> {
                     ordinary,
                     full.generic_total() - mana.generic_total(),
                 ),
+            grantor,
         }
     }
 
@@ -430,6 +446,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::DiscardHand
                 | CostPart::SacrificeAll(_)
                 | CostPart::SacrificeSelf
+                | CostPart::SacrificeGrantor
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
@@ -719,6 +736,26 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::SacrificeSelf => {
                     self.state.sacrifice_object(source, Cause::Cost)?;
+                }
+                CostPart::SacrificeGrantor => {
+                    let grantor = cost.grantor.ok_or(EngineError::IllegalAction(
+                        "a grantor sacrifice requires a granted ability",
+                    ))?;
+                    let lki = self
+                        .state
+                        .object(grantor.object)
+                        .filter(|object| {
+                            object.version == grantor.version
+                                && object.zone == Zone::Battlefield
+                                && object.controller == player
+                        })
+                        .map(crate::object::SacrificedLki::of)
+                        .ok_or(EngineError::IllegalAction(
+                            "the granting permanent cannot be sacrificed",
+                        ))?;
+                    paid.sacrificed = Some((grantor.object, grantor.version));
+                    paid.sacrificed_lki = Some(lki);
+                    self.state.sacrifice_object(grantor.object, Cause::Cost)?;
                 }
                 CostPart::ReturnSelfToHand => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

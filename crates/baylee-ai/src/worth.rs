@@ -1838,6 +1838,7 @@ impl HeuristicAgent {
             // At least the damage exchange is known; prevention and replacement
             // effects can reduce the incidental life gain, so do not rely on it.
             Effect::DealDamage { amount, .. }
+            | Effect::GrantorDealsDamage { amount, .. }
             | Effect::DealDamageEvenly { amount, .. }
             | Effect::DealDamageWithCappedLifeGain { amount }
             | Effect::DealDamageWithLimitedLifeGain { amount, .. } => {
@@ -2075,6 +2076,9 @@ impl HeuristicAgent {
                     };
                     self.spent(view, o, worth)
                 }
+                // The exact Equipment is not exposed as a payment choice;
+                // price it conservatively like another sacrificed permanent.
+                CostPart::SacrificeGrantor => 50,
                 CostPart::Sacrifice(filter) | CostPart::ExilePermanent(filter) => {
                     own(filter, &|_| true)
                         .into_iter()

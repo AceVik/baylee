@@ -43,7 +43,17 @@ impl<L: CardLookup> Engine<L> {
     ) {
         let second_req = self.loyalty_second_targets(source, ability_index);
         let id = if let Some(grant) = self.granted_definition(source, ability_index) {
-            self.push_granted_ability(player, source, targets, &grant)
+            let mut needs_grantor = false;
+            baylee_cards_dsl::Effect::walk(grant.effects, &mut 0, &mut |effect| {
+                needs_grantor |=
+                    matches!(effect, baylee_cards_dsl::Effect::GrantorDealsDamage { .. });
+            });
+            let grantor = if needs_grantor {
+                grant.source.and_then(|id| self.state.source_identity(id))
+            } else {
+                None
+            };
+            self.push_granted_ability(player, source, targets, &grant, grantor)
         } else {
             self.push_ability_to_stack(player, source, ability_index, targets)
         };

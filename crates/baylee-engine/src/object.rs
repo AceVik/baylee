@@ -1096,6 +1096,10 @@ pub enum Rider {
     /// cast, read by `Engine::finalize_spell` alone, and gone the moment the
     /// object leaves the stack, by whatever door (CR 400.7).
     Buyback,
+    /// Exact incarnation of the permanent whose continuous effect granted
+    /// this activated ability, for costs and damage that name the grantor.
+    /// Appended to preserve the derived replay identity of existing riders.
+    GrantedSource(baylee_core::ids::DamageSourceRef),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1158,6 +1162,7 @@ impl Rider {
             | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
+            | Self::GrantedSource(_)
             | Self::PhasedOutUntilHostLeaves { .. }
             | Self::CreatedBy(_)
             | Self::RevealedInHandCantPlayUntilTurn

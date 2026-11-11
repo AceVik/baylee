@@ -1301,6 +1301,11 @@ fn hash_rider_situation(
                     hash_damage_source(h, state, ability.source, *version);
                 }
             }
+            crate::object::Rider::GrantedSource(reference) => {
+                h.u8(94);
+                h.u32(position(reference.object));
+                hash_damage_source(h, state, reference.object, reference.version);
+            }
             crate::object::Rider::EventManaValue(value) => {
                 h.u8(76);
                 value.hash(h);
@@ -2088,6 +2093,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::AbilityCopy => h.u8(80),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
             Rider::Buyback => h.u8(92),
+            Rider::GrantedSource(reference) => {
+                h.u8(94);
+                reference.hash(h);
+            }
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);

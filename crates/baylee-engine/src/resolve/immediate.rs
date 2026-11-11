@@ -120,6 +120,9 @@ pub(super) fn exec_immediate(
         }
         Effect::Proliferate => super::proliferate::start(state, res),
         Effect::Hideaway(count) => super::hidden_exile::hideaway(state, res, count),
+        Effect::LookAtTopExileFaceDown { count, cast_types } => {
+            super::hidden_exile::look_at_top(state, res, count, cast_types)
+        }
         Effect::ExileTopFaceDownLinked => {
             super::hidden_exile::exile_top(state, res);
             None
@@ -365,6 +368,7 @@ pub(super) fn exec_immediate(
         | Effect::LoseLife { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamage { .. }
+        | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
         | Effect::PreventNextDamageToAttached { .. }
         | Effect::DealDamageToMatchingTargets { .. }

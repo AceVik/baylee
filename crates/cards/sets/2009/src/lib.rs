@@ -43,6 +43,8 @@ pub mod beacon_behemoth;
 pub mod behemoth_sledge;
 #[path = "m10/berserkers_of_blood_ridge.rs"]
 pub mod berserkers_of_blood_ridge;
+#[path = "zen/blazing_torch.rs"]
+pub mod blazing_torch;
 #[path = "m10/blinding_mage.rs"]
 pub mod blinding_mage;
 #[path = "zen/blood_seeker.rs"]

@@ -81,6 +81,121 @@ pub(super) fn choose(
     bottom_in_random_order(state, res.controller, rest);
 }
 
+/// Privately inspect a bounded top section for one face-down exile choice.
+pub(super) fn look_at_top(
+    state: &mut GameState,
+    res: &mut Resolution,
+    count: u8,
+    cast_types: baylee_core::types::TypeSet,
+) -> Option<Pending> {
+    let looked: Vec<_> = state
+        .zones
+        .list(ZoneLocation::Library(res.controller))
+        .iter()
+        .rev()
+        .take(usize::from(count))
+        .copied()
+        .collect();
+    if looked.is_empty() {
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::LookedCardToExile {
+        looked: looked.clone(),
+        cast_types,
+    });
+    Some(Pending::ChooseCards {
+        player: res.controller,
+        options: looked,
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    })
+}
+
+/// Exile the chosen card privately, then let its controller order the rest.
+pub(super) fn finish_look_at_top(
+    state: &mut GameState,
+    res: &mut Resolution,
+    looked: Vec<ObjectId>,
+    cast_types: baylee_core::types::TypeSet,
+    chosen: &[ObjectId],
+) -> Option<Pending> {
+    let library = ZoneLocation::Library(res.controller);
+    let Some(&card) = chosen
+        .first()
+        .filter(|card| looked.contains(card) && state.zones.contains(**card, library))
+    else {
+        return None;
+    };
+    let owner = state
+        .object(card)
+        .map_or(res.controller, |object| object.owner);
+    if let Some(pending) = ask_commander_replace(state, res, &[(card, ZoneLocation::Exile(owner))])
+    {
+        let Some(AwaitingOp::CommanderReplace { asked, remaining }) = res.awaiting.take() else {
+            unreachable!("replacement question retains its owners")
+        };
+        res.awaiting = Some(AwaitingOp::SelectedCommander {
+            operation: Box::new(AwaitingOp::LookedCardToExile { looked, cast_types }),
+            chosen: vec![card],
+            asked,
+            remaining,
+        });
+        return Some(pending);
+    }
+
+    if let Some(Rider::LinkedExile {
+        source,
+        acquisition,
+    }) = link(state, res)
+        && state
+            .move_object(
+                card,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .is_ok()
+        && state
+            .object(card)
+            .is_some_and(|object| object.zone == Zone::Exile)
+    {
+        let seen = std::iter::once(res.controller).collect();
+        state.hide_exiled_card(card, source, acquisition, seen, false);
+        let version = state.object(card).expect("the exiled card").version;
+        state.play_permissions.push(crate::state::PlayPermission {
+            player: res.controller,
+            card,
+            version,
+            free: false,
+            mana_any_type: false,
+            cast_only: true,
+            spell_types: Some(cast_types),
+            window: crate::state::PlayLifetime::WhileExiled,
+        });
+    }
+
+    let rest: Vec<_> = looked.into_iter().filter(|id| *id != card).collect();
+    if rest.len() > 1 {
+        res.awaiting = Some(AwaitingOp::DigBottom);
+        let count = u32::try_from(rest.len()).unwrap_or(u32::MAX);
+        return Some(Pending::Arrange {
+            player: res.controller,
+            cards: rest,
+            piles: vec![crate::choice::ArrangePile::all_of(
+                crate::choice::ArrangePlace::LibraryBottom,
+                count,
+            )],
+            prompt: crate::choice::ArrangePrompt::Order,
+        });
+    }
+    for card in rest {
+        let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+    }
+    None
+}
+
 pub(super) fn exile_top(state: &mut GameState, res: &Resolution) {
     if let Some(&card) = state
         .zones

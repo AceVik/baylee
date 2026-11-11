@@ -23,6 +23,8 @@ pub mod arahbo_the_first_fang;
 pub mod beast_kin_ranger;
 #[path = "fdn/bigfin_bouncer.rs"]
 pub mod bigfin_bouncer;
+#[path = "fdn/bloodthirsty_conqueror.rs"]
+pub mod bloodthirsty_conqueror;
 #[path = "fdn/boltwave.rs"]
 pub mod boltwave;
 #[path = "fdn/crackling_cyclops.rs"]

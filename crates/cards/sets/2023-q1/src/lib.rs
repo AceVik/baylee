@@ -37,6 +37,8 @@ pub mod font_of_progress;
 pub mod furnace_strider;
 #[path = "one/gitaxian_raptor.rs"]
 pub mod gitaxian_raptor;
+#[path = "one/glissa_sunslayer.rs"]
+pub mod glissa_sunslayer;
 #[path = "one/graaz_unstoppable_juggernaut.rs"]
 pub mod graaz_unstoppable_juggernaut;
 #[path = "one/malcator_s_watcher.rs"]

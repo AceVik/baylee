@@ -65,11 +65,16 @@ impl GameState {
 
     /// A play that could not legally be completed leaves the original card hidden.
     pub(crate) fn conceal_exiled_card(&mut self, card: ObjectId) {
-        let blank = self.bare_base(NAMELESS);
-        let Some(object) = self.object_mut(card).filter(|o| o.zone == Zone::Exile) else {
+        let Some(object) = self
+            .object(card)
+            .filter(|o| o.zone == Zone::Exile && !o.status.contains(Status::FACE_DOWN))
+        else {
             return;
         };
-        object.original_base = Some(Arc::clone(&object.base));
+        let original = Arc::clone(&object.base);
+        let blank = self.bare_base(NAMELESS);
+        let object = self.object_mut(card).expect("exiled card exists");
+        object.original_base = Some(original);
         object.base = blank;
         object.face_index = 0;
         object.status.insert(Status::FACE_DOWN);

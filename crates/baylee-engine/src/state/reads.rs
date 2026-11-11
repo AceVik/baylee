@@ -106,6 +106,7 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
         | PtCount::OnBattlefield(f)
         | PtCount::ChosenPlayerControls(f) => filter_reads_board_state(f),
         PtCount::CardTypesInAllGraveyards
+        | PtCount::CardTypesInOpponentsGraveyards
         | PtCount::InAllGraveyards(_)
         | PtCount::ExiledWithThis
         | PtCount::CountersOnThis(_)

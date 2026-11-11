@@ -1179,7 +1179,10 @@ impl<L: CardLookup> Engine<L> {
                 | resolve::AwaitingOp::SearchTakeover { inspected, .. },
             ) => inspected,
             Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
-            Some(resolve::AwaitingOp::Hideaway { looked }) => looked,
+            Some(
+                resolve::AwaitingOp::Hideaway { looked }
+                | resolve::AwaitingOp::LookedCardToExile { looked, .. },
+            ) => looked,
             Some(
                 resolve::AwaitingOp::TakeTop { looked, .. }
                 | resolve::AwaitingOp::RestTop { looked, .. },

@@ -878,6 +878,15 @@ pub enum Trigger {
     /// it becomes blocked, not once for every opposing creature (CR 509.3a,
     /// 509.3c). Otherwise this follows [`Self::AttachedBlocksOrBecomesBlockedBy`].
     AttachedBlocksOrBecomesBlockedByOneOrMore(&'static Filter),
+    /// Positive damage from a matching source to a matching permanent, combat
+    /// or otherwise. The damaged permanent is the event object. Simultaneous
+    /// combat damage triggers once per matching damaged permanent.
+    DealsDamageToObject {
+        /// The damage source, evaluated for the triggering ability's controller.
+        source: &'static Filter,
+        /// The damaged permanent, evaluated for the same controller.
+        recipient: &'static Filter,
+    },
 }
 
 impl Trigger {

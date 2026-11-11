@@ -230,6 +230,17 @@ impl<L: CardLookup> Engine<L> {
         phyrexian_life: i32,
     ) -> bool {
         use baylee_cards_dsl::CostPart;
+        if cost.parts.contains(&CostPart::SacrificeGrantor)
+            && !cost.grantor.is_some_and(|grantor| {
+                self.state.object(grantor.object).is_some_and(|object| {
+                    object.version == grantor.version
+                        && object.zone == crate::zone::Zone::Battlefield
+                        && object.controller == player
+                })
+            })
+        {
+            return false;
+        }
         let reserved =
             cost.parts
                 .iter()

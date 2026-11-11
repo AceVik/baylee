@@ -4186,6 +4186,27 @@ pub enum Effect {
     /// exact exiled incarnation for its madness cost as this ability resolves.
     /// Internal keyword machinery, not a card-authored instruction.
     Madness,
+    /// The exact permanent that granted this ability deals damage, rather
+    /// than the creature that received and activated it (Blazing Torch,
+    /// Ninja's Kunai). Its identity is captured before costs can move it.
+    /// Appended to preserve replay identities.
+    GrantorDealsDamage {
+        /// How much.
+        amount: Amount,
+        /// To what.
+        target: TargetSpec,
+    },
+    /// Look at the top `count` cards of your library, exile exactly one face
+    /// down, and put the rest on the bottom in any order. `cast_types` grants
+    /// a paid, indefinite cast permission for that exact exile incarnation,
+    /// restricted to prospective spells with one of those types (Vivien,
+    /// Champion of the Wilds). Appended to preserve replay identities.
+    LookAtTopExileFaceDown {
+        /// Maximum number of cards inspected.
+        count: u8,
+        /// Types the exiled card may be cast as while it remains exiled.
+        cast_types: TypeSet,
+    },
 }
 
 #[cfg(test)]

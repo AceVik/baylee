@@ -30,6 +30,7 @@ pub(crate) enum Slot {
     MovedSource,
     Linked(u32),
     DelayedObject(u32),
+    GrantedSource,
 }
 
 /// Targets announced before any payment can change their incarnations.
@@ -391,6 +392,12 @@ impl GameState {
                     _ => None,
                 });
                 slots.push((Slot::Source, ability.source, version));
+            }
+            if let Some(grantor) = obj.riders.iter().find_map(|r| match r {
+                Rider::GrantedSource(reference) => Some(*reference),
+                _ => None,
+            }) {
+                slots.push((Slot::GrantedSource, grantor.object, Some(grantor.version)));
             }
             if let Some(event) = obj.event_object {
                 let version = obj.riders.iter().find_map(|r| match r {

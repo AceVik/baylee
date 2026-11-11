@@ -1150,6 +1150,9 @@ pub enum PtCount {
     /// Counters of the named kind on this object (Rusting Golem: "the number
     /// of fade counters on it").
     CountersOnThis(crate::CounterKind),
+    /// Distinct card types among cards in the ability controller's opponents'
+    /// graveyards. The controller's own graveyard contributes nothing.
+    CardTypesInOpponentsGraveyards,
 }
 
 impl Modifier {

@@ -687,6 +687,23 @@ fn matches(
                 })
         }
         (
+            Trigger::DealsDamageToObject { source, recipient },
+            GameEvent::DamageDealt {
+                source: Some(dealer),
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && state.object(*dealer).is_some_and(|object| {
+                    eval::matches_damage_source_with_context(source, state, object, you, context)
+                })
+                && state.object(*dealt).is_some_and(|object| {
+                    eval::matches_with_context(recipient, state, object, you, context)
+                })
+        }
+        (
             Trigger::DealsCombatDamageToCreature(filter),
             GameEvent::DamageDealt {
                 source: Some(dealer),

@@ -58,6 +58,7 @@ mod carrionette;
 mod cavern_harpy;
 mod cephalid_scout;
 mod charming_prince;
+mod chevill_bane_of_monsters;
 mod cinder_crawler;
 mod citanul_druid;
 mod cloud_of_faeries;

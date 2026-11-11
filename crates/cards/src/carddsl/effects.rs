@@ -97,6 +97,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         }
         Effect::LookAtTopPick { .. } | Effect::LookAtTopPickThenReorder { .. }
         | Effect::LookAtTopFind { .. }
+        | Effect::LookAtTopExileFaceDown { .. }
         | Effect::LookAtTopMayTake { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
         | Effect::RevealTopOnePerType { .. }

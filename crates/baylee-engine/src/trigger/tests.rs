@@ -149,6 +149,60 @@ fn damage_trigger_source_filters_use_the_colorless_damage_projection() {
     assert_eq!(hits(&red, &event, &[], &state, source, me()), 0);
 }
 
+/// A damage-to-object trigger checks the dealer and the damaged permanent
+/// independently, ignores players and zero damage, and remembers the damaged
+/// permanent rather than the dealer as its event object.
+#[test]
+fn damage_to_an_object_matches_both_sides_and_remembers_the_recipient() {
+    use crate::event::DamageTarget;
+
+    let mut state = state();
+    let watcher = permanent(&mut state, me(), "Hooded Blightfang");
+    let other_dealer = permanent(&mut state, me(), "Gray Ogre");
+    let ours = permanent(&mut state, me(), "Our planeswalker");
+    let theirs = permanent(&mut state, them(), "Their planeswalker");
+    let trigger = Trigger::DealsDamageToObject {
+        source: &Filter::This,
+        recipient: &Filter::ControlledByOpponent,
+    };
+    let dealt = |source, target, amount| GameEvent::DamageDealt {
+        source: Some(source),
+        target,
+        amount,
+        is_combat: false,
+    };
+    let hits =
+        |event: &GameEvent| super::matching::hits(&trigger, event, &[], &state, watcher, me());
+
+    let qualifying = dealt(watcher, DamageTarget::Object(theirs), 1);
+    assert_eq!(hits(&qualifying), 1);
+    assert_eq!(
+        super::events::event_object_for(&trigger, &qualifying, watcher, &state),
+        Some(theirs),
+        "the ability destroys the planeswalker that was damaged"
+    );
+    assert_eq!(
+        hits(&dealt(other_dealer, DamageTarget::Object(theirs), 1)),
+        0,
+        "a different source does not qualify"
+    );
+    assert_eq!(
+        hits(&dealt(watcher, DamageTarget::Object(ours), 1)),
+        0,
+        "a different recipient does not qualify"
+    );
+    assert_eq!(
+        hits(&dealt(watcher, DamageTarget::Player(them()), 1)),
+        0,
+        "a player is not an object"
+    );
+    assert_eq!(
+        hits(&dealt(watcher, DamageTarget::Object(theirs), 0)),
+        0,
+        "damage prevented to nothing was not dealt"
+    );
+}
+
 fn state() -> GameState {
     let forest = baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
         .expect("registry contains Forest")

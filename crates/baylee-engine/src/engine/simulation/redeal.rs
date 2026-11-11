@@ -594,6 +594,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ReanimatedCreature {
             creature: source, ..
         }
+        | Rider::GrantedSource(source)
         | Rider::LinkedExile { source, .. } => Some(source.object),
         Rider::ActivationManaNote {
             last_exile: Some(exile),

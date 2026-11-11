@@ -49,6 +49,9 @@ pub struct ActivationPrice {
     /// printed on the ability. Only this suffix extends legacy replay hashes.
     pub imposed: usize,
     pub allowance: casting::SourceAllowance,
+    /// Exact incarnation of the permanent that granted this ability, when
+    /// its cost or effect names that permanent rather than its recipient.
+    pub grantor: Option<baylee_core::ids::DamageSourceRef>,
 }
 impl ActivationPrice {
     #[cfg(any(test, feature = "test-support"))]
@@ -58,6 +61,7 @@ impl ActivationPrice {
             parts: cost.parts.iter().copied().collect(),
             imposed: 0,
             allowance,
+            grantor: None,
         }
     }
 
@@ -86,6 +90,9 @@ impl std::hash::Hash for ActivationPrice {
         let imposed = self.imposed_parts();
         if !imposed.is_empty() {
             std::hash::Hash::hash(imposed, state);
+        }
+        if let Some(grantor) = self.grantor {
+            std::hash::Hash::hash(&grantor, state);
         }
     }
 }
@@ -142,6 +149,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::UntapSelf
         | CostPart::ExertSelf
         | CostPart::SacrificeSelf
+        | CostPart::SacrificeGrantor
         | CostPart::Sacrifice(_)
         | CostPart::ExilePermanent(_)
         | CostPart::SacrificeX(_)
@@ -189,6 +197,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         // may already be gone, an answer that may be missing.
         CostPart::PayCommanderColors
         | CostPart::SacrificeSelf
+        | CostPart::SacrificeGrantor
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
