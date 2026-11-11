@@ -112,6 +112,11 @@ pub struct Step4 {
     /// `rollout_sidecar` index), for a converter that binds labels to it.
     #[serde(skip)]
     pub seat_input: Option<u32>,
+    /// At a priority question: each candidate's coarse class
+    /// (`distill_labels::coarse_classes_of`), for a converter that writes
+    /// them beside the frames; never part of a frame.
+    #[serde(skip)]
+    pub cand_classes: Option<Vec<u8>>,
     /// Bundle distillation (`bundle_distillation_v1`): what a labelled frame
     /// carries beside its target `R` (`N`, whether it differs, the priority
     /// subtype, the groups that fired).

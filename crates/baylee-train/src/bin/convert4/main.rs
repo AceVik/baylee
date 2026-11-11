@@ -115,6 +115,11 @@ struct Args {
     /// run with any other deck is refused.
     #[arg(long, requires = "bundle_distill")]
     train_manifest: Option<PathBuf>,
+    /// With `--bundle-distill`: writes here, beside the frames, every labelled
+    /// priority frame's candidate classes (`coarse_class_v1`,
+    /// `coarse_classes.rs`).
+    #[arg(long, requires = "bundle_distill")]
+    coarse_classes: Option<PathBuf>,
     /// With `--search-targets`: the policy weight of the net's own
     /// unsearched decisions (0 leaves them out).
     #[arg(long, requires = "search_targets", default_value_t = 0.0)]
@@ -179,6 +184,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
 
 mod boundary;
 mod bundle_distill;
+mod coarse_classes;
 mod llm;
 mod on_policy;
 mod output;
@@ -608,6 +614,8 @@ fn main() -> anyhow::Result<()> {
         meta["ppo_eligible"] = json!(false);
     }
     let distill_counts = Arc::new(Mutex::new(bundle_distill::Counts::default()));
+    let coarse_rows = Arc::new(Mutex::new(Vec::<coarse_classes::Row>::new()));
+    let write_coarse = args.coarse_classes.is_some();
     if let Some(runs) = &distill_runs {
         meta["bundle_distillation"] = runs.metadata(&bundle_distill::Counts::default());
         meta["bundle_distillation_status"] = json!("in_progress");
@@ -640,6 +648,7 @@ fn main() -> anyhow::Result<()> {
         let converted = converted.clone();
         let replay_checks = replay_checks.clone();
         let distill_counts = distill_counts.clone();
+        let coarse_rows = coarse_rows.clone();
         let include_passive = args.include_passive_obs;
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
@@ -664,6 +673,7 @@ fn main() -> anyhow::Result<()> {
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut distill_cursor = gref.distill.as_ref().map(bundle_distill::Cursor::new);
                 let mut distill_steps = gref.distill.as_ref().map(|_| bundle_distill::JsonSteps::new(&root, gref.game_id)).transpose()?;
+                let mut game_coarse = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let emit = |mut step: Step4| {
@@ -671,6 +681,7 @@ fn main() -> anyhow::Result<()> {
                     if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
                     if let Some(cursor) = &mut distill_cursor { cursor.apply(&mut step)?; }
                     if let Some(steps) = &mut distill_steps { steps.push(&step)?; }
+                    if write_coarse { game_coarse.extend(coarse_classes::Row::of(&step)); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
@@ -721,6 +732,7 @@ fn main() -> anyhow::Result<()> {
                     distill_counts.lock().expect("distillation count lock").add(&cursor.counts);
                 }
                 if let Some(steps) = distill_steps { steps.finish()?; }
+                coarse_rows.lock().expect("coarse class lock").append(&mut game_coarse);
                 if let Some(labels) = frame_labels { labels.finish()?; }
                 if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
@@ -816,6 +828,14 @@ fn main() -> anyhow::Result<()> {
         }
         meta["bundle_distillation_steps_sha256"] = Value::Object(hashes);
         meta["bundle_distillation_status"] = json!("complete");
+        if let Some(dir) = &args.coarse_classes {
+            let rows = std::mem::take(&mut *coarse_rows.lock().expect("coarse class lock"));
+            let source = json!({"runs": args.runs, "dataset": args.out,
+                "steps_sha256": meta["bundle_distillation_steps_sha256"]});
+            let header = coarse_classes::write(dir, rows, &source)?;
+            meta["coarse_classes"] =
+                json!({"dir": dir, "rows": header["rows"], "rule": header["rule"]});
+        }
     }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
