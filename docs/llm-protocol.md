@@ -317,6 +317,14 @@ resolved over a model that could not tell what it destroyed (Carbon b3,
 as the ability knows it, the token's name or the card it is printed on, never
 "an unnamed object".
 
+A cast paid in its payment window (the card cast first, its mana made after,
+CR 601.2g) is told as that: "You are casting Sphinx's Revelation #50 (X is 2)
+and owe {2}{W}{U}{U} for it", and that passing short cancels the cast, the card
+staying where it was and what the window tapped for it untapping, as the
+engine does (CR 601.2h, 734.1). The card is not on the stack yet, so the X is
+read back from the price. Until 12 Nov 2026 the window said "pass and leave
+it unpaid (what it was for is lost)" and named neither (Carbon d1, d2).
+
 A resolved spell that more than one effect wants instead of the graveyard asks
 its controller which applies (`docs/protocol.md`, "Where a resolved spell
 goes"). The narrator says the spell has resolved and that the others then do

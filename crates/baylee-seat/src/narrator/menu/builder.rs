@@ -632,13 +632,14 @@ impl Builder<'_, '_> {
         if let Some(payment) = owed {
             match payment {
                 ManaPayment::Fixed(cost) => {
-                    let mut line = match table.controlled() {
-                        Some(p) => format!(
+                    let mut line = match (view.casting, table.controlled()) {
+                        (Some(card), _) => self.cast_owed(card, &cost, legal),
+                        (None, Some(p)) => format!(
                             "{} owes {cost}: a payment you agreed to for that player. Pay it, or \
                              pass and leave it unpaid (what it was for is lost).",
                             Table::player_id(p)
                         ),
-                        None => format!(
+                        (None, None) => format!(
                             "You owe {cost}: a payment you agreed to. Pay it, or pass and leave \
                              it unpaid (what it was for is lost)."
                         ),
@@ -674,10 +675,14 @@ impl Builder<'_, '_> {
             self.tap_against_untapped_counts(legal);
         }
         if legal.can_pass {
-            let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {
-                "Finish generating mana and choose the payment amount".into()
-            } else {
-                self.pass_label(owed.is_some())
+            let label = match (owed, view.casting) {
+                (Some(ManaPayment::AnyAmount { .. }), _) => {
+                    "Finish generating mana and choose the payment amount".into()
+                }
+                (Some(ManaPayment::Fixed(cost)), Some(card)) => {
+                    self.cast_pass_label(card, &cost, &pool, legal)
+                }
+                _ => self.pass_label(owed.is_some()),
             };
             self.option("p", label, Act::Now(PlayerAction::PassPriority));
             self.options.last_mut().expect("just pushed").alias = Some("pass".into());
@@ -985,6 +990,99 @@ impl Builder<'_, '_> {
             "its ability"
         };
         format!("Activate {named}{place}: {what}")
+    }
+
+    /// The payment window of a cast (`PlayerView::casting`): the spell, its
+    /// X where the price says it, what is owed, and what passing does. The
+    /// card is not on the stack yet and nothing in the window named it, and
+    /// "pass and leave it unpaid (what it was for is lost)" read as a payment
+    /// forfeited, where the engine reverses the cast (CR 601.2h, 734.1): the
+    /// card stays where it was, and what the window tapped for it untaps
+    /// (`Engine::give_back_window`, which gives back nothing when a mana
+    /// ability did more than tap). Carbon d1 game-0008 q164, d2 game-0007
+    /// q114.
+    fn cast_owed(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> String {
+        let table = self.table;
+        let spell = self.cast_named(card, cost, legal);
+        let subject = match table.controlled() {
+            Some(p) => format!("{} is casting {spell} and owes", Table::player_id(p)),
+            None => format!("You are casting {spell} and owe"),
+        };
+        let stays = if baylee_client_core::decision::hand(table.view)
+            .iter()
+            .any(|c| c.id == card)
+        {
+            format!("in {} hand", table.whose(table.decider()))
+        } else {
+            "where it was".into()
+        };
+        format!(
+            "{subject} {cost} for it: make the mana and pass, and it is cast. Passing without all \
+             of it cancels the cast (CR 601.2h, 734.1): the card stays {stays}, and what you \
+             tapped for it in this window untaps (unless a mana ability did more than tap)."
+        )
+    }
+
+    /// The pass of a cast's payment window, as what it does: casts the spell
+    /// when the pool pays it (the restricted mana the engine names for the
+    /// window counted), else cancels the cast.
+    fn cast_pass_label(
+        &self,
+        card: ObjectId,
+        cost: &ManaCost,
+        pool: &baylee_view::ManaPoolView,
+        legal: &LegalActions,
+    ) -> String {
+        let spell = self.cast_named(card, cost, legal);
+        let pool = baylee_ai::spend::pool_for(pool, legal, baylee_engine::choice::Spend::Owed);
+        if manaplan::plan(cost, &pool, &[]).is_some() {
+            format!("Pass priority: the mana in your pool pays {cost}, and {spell} is cast")
+        } else {
+            format!(
+                "Pass priority without the rest of {cost}: cancel the cast of {spell}; what you \
+                 tapped for it here untaps"
+            )
+        }
+    }
+
+    /// The spell a payment window is for, with its X: "Sphinx's Revelation
+    /// #50 (X is 2)".
+    fn cast_named(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> String {
+        let named = self.table.named(card);
+        match self.window_x(card, cost, legal) {
+            Some(x) => format!("{named} (X is {x})"),
+            None => named,
+        }
+    }
+
+    /// The X a cast's payment window is for. The view carries no X while
+    /// the card waits for its mana (it is not on the stack yet), so it is
+    /// read back from the price: the X at which the card's printed cost,
+    /// priced as every planner prices it (`baylee_ai::spell_price`), is what
+    /// is owed. `None` where no X, or more than the plain cast, explains the
+    /// price (a kicker, an alternative cost): then no X is said.
+    fn window_x(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> Option<u32> {
+        let view = self.table.view;
+        let identity = baylee_client_core::decision::known_cards(view)
+            .find(|c| c.id == card)?
+            .card;
+        let printed = baylee_cards::by_index(identity.index)?
+            .faces
+            .get(usize::from(identity.face))?
+            .mana_cost;
+        if !printed.has_variable() {
+            return None;
+        }
+        (0..=cost.cmc()).find(|&x| {
+            baylee_ai::spell_price(
+                view,
+                card,
+                Some(identity),
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+                printed.with_x(x),
+            ) == *cost
+        })
     }
 
     pub(super) fn pass_label(&self, owed: bool) -> String {

@@ -259,3 +259,72 @@ fn restricted_mana_floating_is_told_by_colour() {
         "{text}"
     );
 }
+
+/// Sphinx's Revelation cast for X = 2 from a payment window: the window
+/// names the spell and its X, and says what passing short does, which the
+/// engine then does: the cast is reversed (CR 601.2h, 734.1), the card
+/// stays in the hand and the Island tapped for it untaps. It read "Pay it,
+/// or pass and leave it unpaid (what it was for is lost)" with neither the
+/// spell nor X (Carbon d1 game-0008 q164, d2 game-0007 q114).
+#[test]
+fn a_cast_s_payment_window_names_the_spell_and_what_passing_does() {
+    let (mut session, view, legal) = position(
+        &["Plains", "Island", "Island", "Island", "Island"],
+        &["Sphinx's Revelation"],
+        &[],
+    );
+    let revelation = view.hand[0].id;
+    assert!(legal.payable.contains(&revelation), "{legal:?}");
+    session
+        .act_slice(ME, PlayerAction::CastSpell { card: revelation }, 0)
+        .expect("the cast begins");
+    finish_cast(&mut session, 2);
+    let island = view
+        .battlefield
+        .iter()
+        .find(|o| o.controller == ME && o.name.as_ref() == "Island")
+        .expect("an Island")
+        .id;
+    session
+        .act_slice(ME, PlayerAction::ActivateManaAbility { source: island }, 0)
+        .expect("one Island toward the cost");
+    // As a socket frame carries it: the choice context names the cast.
+    let (pending, view_now) = session.view_for_with_context(ME).expect("seat 0 is asked");
+    let request = request(view_now, pending, LogTail::default());
+    assert_eq!(request.view.casting, Some(revelation));
+    let text = told(&request);
+    assert!(!text.contains("what it was for is lost"), "{text}");
+    assert!(!text.contains("without paying the rest"), "{text}");
+    let owed = text
+        .lines()
+        .find(|line| line.contains("owe {2}{W}{U}{U}"))
+        .unwrap_or_else(|| panic!("the owed line: {text}"));
+    assert!(
+        owed.contains(&format!("Sphinx's Revelation {}", tag(revelation)))
+            && owed.contains("X is 2"),
+        "{owed}"
+    );
+    assert!(owed.contains("cancels the cast"), "{owed}");
+    let pass = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("p "))
+        .unwrap_or_else(|| panic!("the pass option: {text}"));
+    assert!(pass.contains("cancel"), "{pass}");
+    // What the words say is what the table does.
+    session
+        .act_slice(ME, PlayerAction::PassPriority, 0)
+        .expect("a pass settles the window");
+    let after = session.observe_view(ME);
+    assert!(
+        after.hand.iter().any(|c| c.id == revelation),
+        "the card is back"
+    );
+    assert!(after.stack.is_empty());
+    assert!(
+        after
+            .battlefield
+            .iter()
+            .any(|o| o.id == island && !o.status.is_tapped()),
+        "the Island untapped"
+    );
+}
