@@ -36,11 +36,15 @@ mod resume;
 mod simulation;
 mod spectators;
 mod table;
+#[cfg(any(test, feature = "simulation"))]
+mod teacher;
 
 #[cfg(any(test, feature = "simulation"))]
 pub use foresight::{ForesightStats, ProbedLeaf};
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
+#[cfg(any(test, feature = "simulation"))]
+pub use teacher::{Teacher, TeacherAnswer, TeacherHow, TeacherRefusal};
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their

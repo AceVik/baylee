@@ -123,41 +123,41 @@ pub struct ForesightStats {
 /// One answer a search tries, with the target it then names where the
 /// answer is a spell or an ability tried at one target.
 #[derive(Clone, Debug)]
-struct Plan {
-    first: PlayerAction,
-    then: Option<PlayerAction>,
+pub(super) struct Plan {
+    pub(super) first: PlayerAction,
+    pub(super) then: Option<PlayerAction>,
 }
 
 impl Plan {
-    const fn of(first: PlayerAction) -> Self {
+    pub(super) const fn of(first: PlayerAction) -> Self {
         Self { first, then: None }
     }
 }
 
 /// What one search holds while it runs: whose it is, what it deals from,
 /// who plays its forks and what it may spend.
-struct Search<'a> {
-    player: PlayerId,
+pub(super) struct Search<'a> {
+    pub(super) player: PlayerId,
     /// The deck analyses a fork's chairs are told: the table's for a search
     /// that deals the real lists, the seat's own and nothing else for a
     /// fair one.
-    decks: std::sync::Arc<[baylee_ai::intelligence::DeckIntel]>,
+    pub(super) decks: std::sync::Arc<[baylee_ai::intelligence::DeckIntel]>,
     /// The hidden cards of a fair search; `None` deals the real lists.
-    prior: Option<PublicPrior>,
-    model: HeuristicAgent,
-    budget: Foresight,
+    pub(super) prior: Option<PublicPrior>,
+    pub(super) model: HeuristicAgent,
+    pub(super) budget: Foresight,
     /// One seed per world, the same for every plan.
-    seeds: Vec<u64>,
+    pub(super) seeds: Vec<u64>,
     /// The question's number where its worlds are played on to the end
     /// ([`Session::set_foresight_probe`]).
-    probe: Option<u64>,
+    pub(super) probe: Option<u64>,
     /// The question, for the neighbours of a declaration.
-    pending: &'a Pending,
+    pub(super) pending: &'a Pending,
 }
 
 /// The seed of world `world` of a search by an agent seeded `agent` from
 /// the position hashed `position`.
-fn world_seed(agent: u64, position: u64, world: u64) -> u64 {
+pub(super) fn world_seed(agent: u64, position: u64, world: u64) -> u64 {
     let mut z = agent ^ WORLD ^ position.wrapping_mul(GOLDEN) ^ (world + 1).wrapping_mul(GOLDEN);
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
@@ -165,7 +165,7 @@ fn world_seed(agent: u64, position: u64, world: u64) -> u64 {
 }
 
 /// Which of [`ForesightStats::by_kind`] a question counts under.
-const fn kind(pending: &Pending) -> usize {
+pub(super) const fn kind(pending: &Pending) -> usize {
     match pending {
         Pending::Priority { .. } => 0,
         Pending::ChooseAttackers { .. } => 1,
@@ -327,7 +327,7 @@ impl Session {
     /// the same worlds. A declaration that then beats the level's own is
     /// tried against its own neighbours in turn, in those worlds, for
     /// [`ROUNDS`] rounds.
-    fn searched(
+    pub(super) fn searched(
         &mut self,
         search: &Search<'_>,
         agent: &HeuristicAgent,
@@ -556,7 +556,7 @@ impl Session {
     /// the table's own where the search deals the real lists, and for a
     /// fair search the seat's own deck and an empty one for every other
     /// chair, so that nothing in a fork was read from another player's list.
-    fn fork_decks(
+    pub(super) fn fork_decks(
         &self,
         at: usize,
         fair: bool,
