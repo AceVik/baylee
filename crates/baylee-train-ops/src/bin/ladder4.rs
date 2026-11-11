@@ -391,13 +391,44 @@ fn guest(args: &Args, game: &Game, room: &str, host_chair: bool, work: &Path) ->
             command.env(name, value);
         }
     }
+    // The host's chair is read for the line that says it is ready
+    // ([`copy_until_ready`]); a guest's goes straight to its log.
+    let stdout = if host_chair {
+        Stdio::piped()
+    } else {
+        Stdio::from(std::fs::File::create(work.join("seat.stdout.log"))?)
+    };
     command
         .current_dir(work)
         .stdin(Stdio::piped())
-        .stdout(std::fs::File::create(work.join("seat.stdout.log"))?)
+        .stdout(stdout)
         .stderr(std::fs::File::create(work.join("seat.stderr.log"))?)
         .spawn()
         .context("baylee-seat")
+}
+
+/// What the bridge prints once its mind answered its check and it said its
+/// chair is ready (`baylee-seat`'s `ready_and_wait`). The room's listing
+/// cannot say it: a host's own chair counts as ready there, since the host
+/// consents by starting, so a room started before this line would be
+/// playing when the bridge checks the chair it was handed, and it refuses.
+const BRIDGE_READY: &str = "the chair is ready";
+
+/// Copies the bridge's lines from `from` to `log`, raising `ready` at the
+/// first that says [`BRIDGE_READY`], until the bridge closes its stdout.
+fn copy_until_ready(
+    from: impl std::io::Read,
+    mut log: impl std::io::Write,
+    ready: &std::sync::atomic::AtomicBool,
+) {
+    for line in BufReader::new(from).lines() {
+        let Ok(line) = line else { break };
+        if line.contains(BRIDGE_READY) {
+            ready.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        let _ = writeln!(log, "{line}");
+    }
+    let _ = log.flush();
 }
 
 /// The private gateway, as the language model's own guest account sees it
@@ -588,6 +619,13 @@ fn play_house(args: &Args, game: &Game, level: &str, work: &Path) -> Result<Valu
         "game_id": room.game_id, "seat": 0,
         "seat_token": room.seat_token, "session_token": room.session_token,
     });
+    let ready = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let copier = {
+        let from = model.stdout.take().context("the bridge's stdout")?;
+        let log = std::fs::File::create(work.join("seat.stdout.log"))?;
+        let ready = ready.clone();
+        std::thread::spawn(move || copy_until_ready(from, log, &ready))
+    };
     let handed = model
         .stdin
         .as_mut()
@@ -603,7 +641,7 @@ fn play_house(args: &Args, game: &Game, level: &str, work: &Path) -> Result<Valu
             timed_out = true;
             break;
         }
-        if !begun {
+        if !begun && ready.load(std::sync::atomic::Ordering::SeqCst) {
             match gateway.room(&room.session_token, &room.game_id) {
                 Ok(Some(listed)) if listed["startable"] == true => {
                     match gateway.call(
@@ -630,6 +668,8 @@ fn play_house(args: &Args, game: &Game, level: &str, work: &Path) -> Result<Valu
         std::thread::sleep(Duration::from_millis(200));
     }
     reap(&mut model);
+    // The bridge is gone, so its stdout is closed and the copy ends.
+    let _ = copier.join();
     if !begun {
         // Best effort: the only chair holder leaving closes the room.
         let _ = gateway.call(
@@ -1070,6 +1110,27 @@ mod tests {
             "the decks swap within a pair"
         );
         assert!(schedule(&parse("deepseek-low:measured:2")).is_err());
+    }
+
+    /// The room starts only after the bridge said its chair is ready, and
+    /// every line it printed reaches the log whatever it says.
+    #[test]
+    fn the_bridge_is_ready_when_it_says_so() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ready = AtomicBool::new(false);
+        let mut log = Vec::new();
+        copy_until_ready(
+            "«LLM-l0» sits in chair 0 of room r with llm-deck; waiting for the host to start\n"
+                .as_bytes(),
+            &mut log,
+            &ready,
+        );
+        assert!(!ready.load(Ordering::SeqCst), "seated is not ready");
+        let said = "sits\nthe mind answered its check: the chair is ready\nthe game is on\n";
+        let mut log = Vec::new();
+        copy_until_ready(said.as_bytes(), &mut log, &ready);
+        assert!(ready.load(Ordering::SeqCst));
+        assert_eq!(String::from_utf8(log).unwrap(), said);
     }
 
     /// The model's account says what plays it, in a name the gateway takes.
