@@ -538,6 +538,7 @@ EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "va
                     "val_value_mse_to_r1",
                     # The house teacher's gate (`training4.house.HouseCounter`).
                     "val_house_top1_n_ne_h", "val_house_top1_n_ne_h_by_kind", "val_house_top1_n_eq_h",
+                    "val_house_top1_n_eq_h_by_kind",
                     "val_house_chain_start_act", "val_house_chain_start_act_h", "val_house_chain_start_act_r1",
                     "val_house_priority_pass_share", "val_house_priority_pass_share_h",
                     "val_house_priority_pass_share_r1", "val_house_gate")
