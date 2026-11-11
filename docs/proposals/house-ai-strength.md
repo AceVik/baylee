@@ -670,6 +670,17 @@ seat's model try its own attacks and blocks one turn deep inside every fork
 deals without it (34 / 3 against 32 / 4): inside the noise, at 1.6 times
 the cost. It was not kept.
 
+**The ladder with foresight** (train, 512 games a pair, both levels
+searching at their tiers): casual over novice 57.6 % (56 seeds for, 17
+against, p < 0.0001), steady over casual 56.1 % (52 / 21, p = 0.0004),
+sharp over steady 51.4 % (26 / 19, p = 0.37), expert over sharp 51.6 %
+(22 / 14, p = 0.24). The two lower rungs are wider than they ever were
+(§0a: 53.8 % and 51.9 % on train); the two upper rungs lean the right way
+and are not told apart at 512 games, their tiers being close (6 × 4,
+8 × 5, 8 × 6). If the order has to be provable there, the tiers below
+expert have to be spaced further apart, which costs those levels part of
+their gain over generation 6.
+
 **Cost** at expert's tier on this machine (one thread a game): about 41
 searched answers a game; a searched answer takes 78 ms at the median,
 0.39 s at the 95th percentile and 3.7 s at worst; about 6.5 CPU-seconds a
