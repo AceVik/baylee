@@ -77,6 +77,10 @@ def add_learner_options(parser):
                              "act, class = the six coarse classes. Groups differ: CE to R's group on its summed "
                              "probability (ce_coarse_r). Same group: a cast decision keeps CE to R, any other CE to "
                              "N's candidate (ce_fine_n). The KL keeps N = R; target questions unchanged. Off by default")
+    parser.add_argument("--pregate-chain-start", type=float, default=0., metavar="MIN_RATIO",
+                        help="After saving, exit 3 when the selected checkpoint's validation shows the student "
+                             "starting R's acting chains less than MIN_RATIO x r1's rate on the same rows, or passing "
+                             "where R passes less than MIN_RATIO x r1's (training4.distill.pregate). 0 = off")
     parser.add_argument("--skip-final-validation", action="store_true",
                         help="Throughput probes only: no held-out pass after a --max-steps/time-budget stop")
     parser.add_argument("--vectorized-rule-closure", action="store_true",
@@ -150,6 +154,10 @@ def check_learner_options(args, parser):
         parser.error("--distill-out-of-scope-weight weights the ce-n term only")
     if not args.distill_out_of_scope_weight >= 0:
         parser.error("--distill-out-of-scope-weight must be nonnegative")
+    if args.pregate_chain_start and (not args.distill_bundle or not 0 < args.pregate_chain_start <= 1
+                                     or 0 not in args.distill_kinds):
+        parser.error("--pregate-chain-start needs --distill-bundle with priority (0) among --distill-kinds "
+                     "and a ratio in (0, 1]")
     if args.distill_coarse and (not args.distill_bundle or args.distill_out_of_scope != "kl"
                                 or 0 not in args.distill_kinds):
         parser.error("--distill-coarse needs --distill-bundle, priority (0) among --distill-kinds and the "

@@ -403,6 +403,12 @@ class CoarseDistill(unittest.TestCase):
             D.Scope.from_options((8,), 1., (), {}, data, coarse="act")
         with self.assertRaisesRegex(ValueError, "Unknown coarse"):
             D.Scope.from_options((0,), 1., (), {}, data, coarse="six")
+        self.assertEqual(parse([*DistillOptions.STAGE_A, "--pregate-chain-start", ".8"]).pregate_chain_start, .8)
+        for bad in (["--pregate-chain-start", "1.5"], ["--pregate-chain-start", ".8", "--distill-kinds", "8"]):
+            with self.subTest(bad=bad), self.assertRaises(SystemExit):
+                parse([*DistillOptions.STAGE_A, *bad])
+        with self.assertRaises(SystemExit):
+            parse(["train5", "--data", "d", "--out", "o", "--pregate-chain-start", ".8"])
 
 
 def drifted():
@@ -491,44 +497,73 @@ class OutOfScopeAnchor(unittest.TestCase):
         self.assertEqual(actions, {("land", "cast", "cast", "mana"): 1})
         self.assertEqual(D.ACTION_NAMES[int(D.action_classes(batch["cand_feat"][0, 0, :4])[3])], "cast")
 
-    def test_audit_chains_count_taps_at_the_first_and_later_steps(self):
-        from training4.distill_audit import Chains
-        b, u = 1, 6
-        batch = batch_fixture(b=b, u=u)
+    @staticmethod
+    def chain_step(r, n, s, new):
+        """One lane of labelled priority decisions; candidates 0 pass, 1 tap, 2 cast;
+        R, N (the sidecar's) and the student's top-1 per frame."""
+        u = len(r)
+        batch = batch_fixture(b=1, u=u)
         batch["step_valid"][:] = True
         batch["is_decision"][:] = True
-        batch["is_new_traj"] = torch.ones(b, dtype=torch.bool)
-        batch["loss_weight"] = torch.ones(b, u)
-        batch["head"] = torch.zeros(b, u, dtype=torch.long)
-        batch["pending_kind"] = torch.zeros(b, u, dtype=torch.long)
+        batch["is_new_traj"] = torch.tensor([new])
+        batch["loss_weight"] = torch.ones(1, u)
+        batch["head"] = torch.zeros(1, u, dtype=torch.long)
+        batch["pending_kind"] = torch.zeros(1, u, dtype=torch.long)
+        batch["distill_subtype"] = torch.full((1, u), -1)
         batch["cand_mask"][:] = False
         batch["cand_mask"][..., :3] = True
-        batch["cand_feat"][:] = 0
-        for column, action in ((0, 0), (1, 5), (2, 3)):   # pass, mana, cast
-            batch["cand_feat"][:, :, column, action] = 1.
-        # R: mana, mana, cast, mana, pass, mana; r1 taps wherever R does; the student
-        # taps, then passes, casts, taps, passes, casts.
-        batch["single_idx"] = torch.tensor([[1, 1, 2, 1, 0, 1]])
-        student = torch.full((b, u, 7), -3.)
-        reference = torch.full((b, u, 7), -3.)
-        for t, (mine, theirs) in enumerate(((1, 1), (0, 1), (2, 2), (1, 1), (0, 0), (2, 1))):
-            student[0, t, mine] = 3.
-            reference[0, t, theirs] = 3.
-        plans = plan_batch(batch, 0)
-        chains = Chains(D.Scope(kinds=(0,)))
-        chains(outputs_from(student, torch.zeros(b, u, 4), torch.zeros(b, u)),
-               outputs_from(reference, torch.zeros(b, u, 4), torch.zeros(b, u)), batch, plans)
-        report = chains.report()
-        # Chains: [t0, t1] (student misses t1), [t3] (taps), [t5] (casts instead).
-        self.assertEqual(report["chains"], 3)
-        self.assertEqual(report["steps"]["first"]["decisions"], 3)
-        self.assertAlmostEqual(report["steps"]["first"]["student_mana"], 2 / 3)
-        self.assertAlmostEqual(report["steps"]["first"]["student_cast"], 1 / 3)
-        self.assertEqual(report["steps"]["later"]["decisions"], 1)
-        self.assertEqual(report["steps"]["later"]["student_pass"], 1.)
-        self.assertAlmostEqual(report["student_taps_through"], 1 / 3)
-        self.assertEqual(report["r1_taps_through"], 1.)
-        self.assertAlmostEqual(report["mean_length"], 4 / 3)
+        batch["coarse_class"] = torch.full((1, u, 7), -1)
+        batch["coarse_class"][..., :3] = torch.tensor([0, 1, 2])
+        batch["single_idx"] = torch.tensor([r])
+        batch["coarse_n_idx"] = torch.tensor([n])
+        logits = torch.full((1, u, 7), -3.)
+        for t, pick in enumerate(s):
+            logits[0, t, pick] = 3.
+        student = outputs_from(logits, torch.zeros(1, u, 4), torch.zeros(1, u))
+        reference = outputs_from(torch.zeros(1, u, 7), torch.zeros(1, u, 4), torch.zeros(1, u))
+        return student, reference, batch, plan_batch(batch, 0)
+
+    def test_chain_counter_reads_starts_mid_chain_passes_and_completion(self):
+        chains = D.ChainCounter(D.Scope(kinds=(0,)))
+        # One trajectory over two batches: R passes, then taps, taps, casts, taps (one
+        # chain across the batch edge), passes, casts (a new chain); then a new trajectory taps.
+        chains.observe(*self.chain_step([0, 1, 1, 2], [0, 0, 1, 2], [0, 1, 1, 0], True))
+        chains.observe(*self.chain_step([1, 0, 2], [1, 0, 0], [1, 0, 2], False))
+        chains.observe(*self.chain_step([1], [1], [0], True))
+        m = chains.metrics()
+        self.assertEqual((m["val_distill_chain_start_decisions"], m["val_distill_chain_mid_decisions"],
+                          m["val_distill_chain_pass_decisions"]), (3, 3, 2))
+        self.assertAlmostEqual(m["val_distill_chain_start_student_act"], 2 / 3)
+        self.assertAlmostEqual(m["val_distill_chain_start_r1_act"], 1 / 3)
+        self.assertAlmostEqual(m["val_distill_chain_start_top1_r"], 2 / 3)
+        self.assertEqual(m["val_distill_chain_start_top1_n"], 0.)
+        self.assertAlmostEqual(m["val_distill_chain_mid_student_act"], 2 / 3)
+        self.assertEqual(m["val_distill_chain_mid_r1_act"], 1.)
+        self.assertEqual(m["val_distill_chain_pass_student_act"], 0.)
+        # Chains: the long one (the student passes once), the lone cast (acts), the new trajectory's tap (passes).
+        self.assertEqual(m["val_distill_chains"], 3)
+        self.assertAlmostEqual(m["val_distill_chain_mean_length"], 2.)
+        self.assertAlmostEqual(m["val_distill_chain_completion"], 1 / 3)
+        self.assertAlmostEqual(m["val_distill_chain_completion_r1"], 1 / 3)
+        self.assertAlmostEqual(m["val_distill_pregate_start_act_ratio"], 2.)
+        self.assertEqual(m["val_distill_pregate_pass_ratio"], 1.)
+        self.assertEqual(m["val_distill_chain_by"]["start"]["class:tap"]["decisions"], 2)
+        self.assertEqual(m["val_distill_chain_by"]["start"]["subtype:unknown"]["decisions"], 3)
+
+    def test_pregate_verdict_and_its_command(self):
+        from training4 import pregate as P
+        good = dict(val_distill_pregate_start_act_ratio=.9, val_distill_pregate_pass_ratio=.97)
+        self.assertTrue(D.pregate(good, .8)[0])
+        self.assertFalse(D.pregate({**good, "val_distill_pregate_start_act_ratio": .06}, .8)[0])  # a1's collapse
+        self.assertFalse(D.pregate({**good, "val_distill_pregate_pass_ratio": .5}, .8)[0])        # acting everywhere
+        self.assertFalse(D.pregate({}, .8)[0])                                                    # no chain counts
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()) as out:
+            meta = Path(temporary) / "meta.json"
+            meta.write_text(json.dumps(dict(val_metrics=good)))
+            self.assertEqual(P.main(["--model", temporary]), 0)
+            meta.write_text(json.dumps(dict(val_metrics={**good, "val_distill_pregate_start_act_ratio": .5})))
+            self.assertEqual(P.main(["--model", str(meta), "--min-ratio", ".8"]), 3)
+        self.assertIn('"passed": false', out.getvalue())
 
     def test_audit_shares_boards_only_with_an_equal_trunk(self):
         from training4.distill_audit import same_upstream
@@ -904,6 +939,13 @@ class DriverStages(unittest.TestCase):
                 self.assertTrue(any(v is not None for v in epoch["train"].values()), name)
                 self.assertIsNone(epoch["validation"])   # --skip-final-validation
             self.assertNotIn("[distill]", logs["init"].getvalue())
+            # The pre-gate fails the stage after saving: no validation here, so no chain counts.
+            with self.assertRaises(SystemExit) as stopped:
+                run(root / "gated", [*init, *distill, "--train-policy-head-only", "--pregate-chain-start", "0.8"],
+                    labeled)
+            self.assertEqual(stopped.exception.code, 3)
+            self.assertTrue((root / "gated" / "net.pt").exists() and (root / "gated" / "meta.json").exists())
+            self.assertIn('[pregate] {"passed": false', logs["gated"].getvalue())
 
 
 if __name__ == "__main__":

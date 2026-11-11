@@ -454,7 +454,12 @@ EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "va
                     "val_distill_out_of_scope_top1_r", "val_distill_out_of_scope_top1_n",
                     "val_distill_out_of_scope_top1_neither", "val_distill_coarse_top1_r",
                     "val_distill_coarse_top1_r_n_ne_r", "val_distill_act_r_act_n_pass_student_act",
-                    "val_distill_act_r_pass_n_act_student_pass", *(f"val_distill_{name}" for name in TERMS),
+                    "val_distill_act_r_pass_n_act_student_pass", "val_distill_chain_start_student_act",
+                    "val_distill_chain_start_r1_act", "val_distill_chain_start_top1_r", "val_distill_chain_start_top1_n",
+                    "val_distill_chain_mid_student_act", "val_distill_chain_mid_r1_act",
+                    "val_distill_chain_completion", "val_distill_chain_completion_r1",
+                    "val_distill_pregate_start_act_ratio", "val_distill_pregate_pass_ratio",
+                    *(f"val_distill_{name}" for name in TERMS),
                     "val_value_mse_to_r1")
 
 
@@ -554,6 +559,135 @@ def coarse_confusion(prepared, batch, plans, scope):
         for layer, chosen in enumerate((rows, rows & differs[:, t])):
             table[layer] += torch.bincount(cell[chosen], minlength=n * n).double()
     return table.view(2, n, n)
+
+
+CHAIN_FIELDS = ("decisions", "top1_r", "top1_n", "student_act", "r1_act")
+
+
+class ChainCounter:
+    """R's acting chains at labelled priority decisions, read in trajectory order per lane.
+
+    R acts where its coarse class is not pass. A chain is a run of consecutive
+    labelled priority decisions of one trajectory where R acts; its `start` is
+    the first, after R passed or at the trajectory's start, every later one is
+    `mid` (teacher forced: the recorded states already hold R's earlier acts).
+    Rows where R passes are `pass`. Per position, overall, by R's subtype and by
+    R's coarse class, it counts the student's top-1 against R and N and whether
+    the student and r1 act (N: the sidecar's recorded answer, else r1's top-1).
+    Per chain it records whether the student, and r1, act at every step: in play
+    one pass ends the sequence. The validation lanes carry each trajectory on.
+    """
+
+    def __init__(self, scope):
+        self.scope = scope
+        self.lanes = {}
+        self.counts = {}
+        self.chains = []   # (length, student acts through, r1 acts through)
+
+    def close(self, lane):
+        chain = self.lanes.get(lane, {}).get("chain")
+        if chain:
+            self.chains.append((len(chain), all(s for s, _ in chain), all(n for _, n in chain)))
+        self.lanes[lane] = dict(prev_act=False, chain=[])
+
+    def add(self, position, keys, values):
+        for key in keys:
+            row = self.counts.setdefault(position, {}).setdefault(key, [0] * len(CHAIN_FIELDS))
+            for i, value in enumerate(values):
+                row[i] += value
+
+    def observe(self, prepared, reference, batch, plans):
+        device = prepared[0][4].device
+        get = lambda key: batch[key].to(device, non_blocking=True)
+        valid = get("step_valid")
+        labelled = (get("is_decision") & valid & (get("loss_weight") > 0) & (get("head") == 0)
+                    & (get("pending_kind") == PRIORITY))
+        columns = []
+        passes = COARSE.index("pass")
+        for t, plan in enumerate(plans):
+            b = labelled.shape[0]
+            if not plan.heads[0]:
+                columns.append(torch.full((b, 7), -1, dtype=torch.long, device=device))
+                continue
+            logits = prepared[t][1].float()
+            mask = get("cand_mask")[:, t, :logits.shape[1]]
+            classes = coarse_classes(batch, t, logits.shape[1]).to(device, non_blocking=True)
+            r_idx = get("single_idx")[:, t].clamp(min=0)
+            s_idx = torch.where(mask, logits, -1e9).argmax(-1)
+            n_idx = torch.where(mask, reference[t][1].float(), -1e9).argmax(-1)
+            if "coarse_n_idx" in batch:
+                recorded = get("coarse_n_idx")[:, t]
+                n_idx = torch.where(recorded >= 0, recorded, n_idx)
+            of = lambda index: classes.gather(1, index[:, None])[:, 0]
+            rows = labelled[:, t] & (mask.sum(-1) > 1)
+            columns.append(torch.stack((rows.long(), r_idx, n_idx, s_idx, of(r_idx), of(n_idx), of(s_idx)), 1))
+        table = torch.stack(columns, 1).cpu().tolist()          # [B, U, 7]
+        subtypes = (batch["distill_subtype"].cpu().tolist() if "distill_subtype" in batch
+                    else [[-1] * len(plans)] * len(table))
+        names = dict(enumerate(self.scope.subtype_names))
+        for lane in torch.nonzero(batch["is_new_traj"].cpu())[:, 0].tolist():
+            self.close(lane)
+        for lane, steps in enumerate(table):
+            state = self.lanes.setdefault(lane, dict(prev_act=False, chain=[]))
+            for t, (row, r_idx, n_idx, s_idx, r_class, n_class, s_class) in enumerate(steps):
+                if row != 1:
+                    continue
+                r_act, n_act, s_act = r_class != passes, n_class != passes, s_class != passes
+                if r_act:
+                    position = "mid" if state["prev_act"] else "start"
+                    state["chain"].append((s_act, n_act))
+                else:
+                    position = "pass"
+                    self.close(lane)
+                    state = self.lanes[lane]
+                keys = ("all", f"subtype:{names.get(subtypes[lane][t], 'unknown')}", f"class:{COARSE[r_class]}")
+                self.add(position, keys, (1, s_idx == r_idx, s_idx == n_idx, s_act, n_act))
+                state["prev_act"] = r_act
+
+    def metrics(self):
+        """Validation keys: overall rates per position, the breakdown, chain completion."""
+        for lane in list(self.lanes):
+            self.close(lane)
+        rate = lambda row: {name: (row[i] / row[0] if row[0] else None) if i else row[0]
+                            for i, name in enumerate(CHAIN_FIELDS)}
+        out = {}
+        for position in ("start", "mid", "pass"):
+            row = self.counts.get(position, {}).get("all", [0] * len(CHAIN_FIELDS))
+            for name, value in rate(row).items():
+                out[f"val_distill_chain_{position}_{name}"] = value
+        out["val_distill_chain_by"] = {position: {key: rate(row) for key, row in sorted(rows.items())}
+                                       for position, rows in self.counts.items()}
+        n = len(self.chains)
+        out.update(val_distill_chains=n,
+                   val_distill_chain_mean_length=sum(c[0] for c in self.chains) / n if n else None,
+                   val_distill_chain_completion=sum(c[1] for c in self.chains) / n if n else None,
+                   val_distill_chain_completion_r1=sum(c[2] for c in self.chains) / n if n else None)
+        start_s, start_r1 = out["val_distill_chain_start_student_act"], out["val_distill_chain_start_r1_act"]
+        pass_s, pass_r1 = out["val_distill_chain_pass_student_act"], out["val_distill_chain_pass_r1_act"]
+        out["val_distill_pregate_start_act_ratio"] = start_s / start_r1 if start_r1 else None
+        out["val_distill_pregate_pass_ratio"] = ((1 - pass_s) / (1 - pass_r1)
+                                                 if pass_s is not None and pass_r1 is not None and pass_r1 < 1
+                                                 else None)
+        return out
+
+
+def pregate(metrics, min_ratio):
+    """The offline pre-gate on a run's validation metrics: (passed, verdict).
+
+    Fails where the student starts R's acting chains less than `min_ratio`
+    times as often as r1 on the same rows (`val_distill_pregate_start_act_ratio`),
+    or passes where R passes less than `min_ratio` times as often as r1
+    (`val_distill_pregate_pass_ratio`), or where either is missing."""
+    start = metrics.get("val_distill_pregate_start_act_ratio")
+    passing = metrics.get("val_distill_pregate_pass_ratio")
+    checks = dict(start_act_ratio=start, pass_ratio=passing)
+    passed = all(value is not None and value >= min_ratio for value in checks.values())
+    return passed, dict(passed=passed, min_ratio=min_ratio, **checks,
+                        start_student_act=metrics.get("val_distill_chain_start_student_act"),
+                        start_r1_act=metrics.get("val_distill_chain_start_r1_act"),
+                        chain_completion=metrics.get("val_distill_chain_completion"),
+                        chain_completion_r1=metrics.get("val_distill_chain_completion_r1"),
+                        chain_starts=metrics.get("val_distill_chain_start_decisions"))
 
 
 def answers(prepared, reference, batch, plans, scope, actions=None):
@@ -688,6 +822,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     answer_table = {}
     confusion = torch.zeros(2, len(COARSE), len(COARSE), dtype=torch.float64, device=device)
     directions = torch.zeros(4, dtype=torch.float64, device=device)
+    chains = ChainCounter(scope) if PRIORITY in scope.kinds else None
     stats = torch.zeros(2 * len(TERMS), device=device)
     value = torch.zeros(3, dtype=torch.float64, device=device)
     hidden = None
@@ -720,6 +855,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
         if PRIORITY in scope.kinds:
             confusion = confusion + coarse_confusion(prepared, batch, plans, scope)
             directions = directions + act_directions(prepared, ref, batch, plans)
+            chains.observe(prepared, ref, batch, plans)
         if observe is not None:   # a caller's own reading of the batch, in trajectory order per lane
             observe(prepared, ref, batch, plans)
         if progress is not None:
@@ -761,6 +897,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
                        val_distill_act_r_act_n_pass_student_act=up_act / up if up else None,
                        val_distill_act_r_pass_n_act_decisions=int(down),
                        val_distill_act_r_pass_n_act_student_pass=down_pass / down if down else None)
+        metrics.update(chains.metrics())
     if think_steps is not None:
         metrics["val_distill_think_n_ne_r"] = int(think_steps[-1])
         metrics["val_distill_think_top1_r_at_n_ne_r_by_step"] = (
