@@ -154,6 +154,13 @@ impl EvaluationPlayer for SeatPlayers {
     fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
         self.learner.take_thinking_use()
     }
+    fn set_grouped_decode(&mut self) -> bool {
+        // Only the seat under test decodes by group; its opponents play as given.
+        self.learner.set_grouped_decode()
+    }
+    fn take_grouped_use(&mut self) -> baylee_train::netplay4::GroupedUse4 {
+        self.learner.take_grouped_use()
+    }
     fn set_tactic_rules(&mut self, rules: baylee_train::netplay4::TacticRules4) -> bool {
         let ok = self.learner.set_tactic_rules(rules);
         if self.search_opponent

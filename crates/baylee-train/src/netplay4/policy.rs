@@ -74,6 +74,7 @@ impl NetPlayer4 {
         pending: &Pending,
         h_in: &[f32],
     ) -> anyhow::Result<(Sampled4, Vec<f32>)> {
+        self.last_grouping = None;
         let k_val = self.thinking_steps;
         let mut outputs = self.run_onnx_step(state, cands, h_in, k_val)?;
         self.last_depth = k_val;
@@ -103,8 +104,14 @@ impl NetPlayer4 {
         if let Some(menu) = &mut self.payable_menu {
             menu.weigh(&mut cand_logits, cands);
         }
+        let grouping = self.group_priority(cands, view, pending, &mut cand_logits);
+        self.last_grouping = grouping;
         if self.last_menu.is_some() {
-            self.last_menu = Some(menu_trace(cands, &cand_logits, &pair_logits));
+            let mut trace = menu_trace(cands, &cand_logits, &pair_logits);
+            if let Some(grouping) = grouping {
+                trace["grouped_decode"] = serde_json::json!(grouping);
+            }
+            self.last_menu = Some(trace);
         }
         let sampled = PolicySampler4 {
             mode: self.policy_mode,
@@ -128,6 +135,38 @@ impl NetPlayer4 {
             },
         )?;
         Ok((sampled, cand_logits))
+    }
+}
+
+impl NetPlayer4 {
+    /// `--grouped-decode`: at a priority question with pass and act on the
+    /// menu, the group with more of the policy's probability wins and the
+    /// other leaves `cand_logits` where that decides the answer
+    /// ([`super::grouped`]). Every other question is left as it is.
+    fn group_priority(
+        &mut self,
+        cands: &crate::features4::EncodedCandidates4,
+        view: &PlayerView,
+        pending: &Pending,
+        cand_logits: &mut [f32],
+    ) -> Option<super::Grouping4> {
+        if !self.grouped_decode
+            || !matches!(pending, Pending::Priority { .. })
+            || cands.head != HeadKind4::SingleChoice
+        {
+            return None;
+        }
+        let n = cands.candidates.len();
+        let logits = cand_logits.get_mut(..n)?;
+        if logits.iter().any(|logit| !logit.is_finite()) {
+            // Invalid outputs are refused where they always were, unchanged.
+            return None;
+        }
+        let classes = crate::coarse_class::coarse_classes_of(cands, view);
+        let grouping = super::grouped::group(logits, &classes, self.temperature)?;
+        super::grouped::apply(logits, &classes, &grouping, self.temperature);
+        self.grouped_use.record(&grouping);
+        Some(grouping)
     }
 }
 
@@ -599,3 +638,5 @@ mod tests;
 
 #[cfg(test)]
 mod grouped_attack_tests;
+#[cfg(test)]
+mod grouped_decode_tests;

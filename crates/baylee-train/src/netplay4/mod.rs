@@ -40,6 +40,8 @@ mod diagnostic;
 pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
 mod abi;
 mod fallback;
+mod grouped;
+pub use grouped::{GROUPED_DECODE_CONTRACT, GroupedUse4, Grouping4};
 #[cfg(test)]
 mod fallback_tests;
 mod identity;
@@ -189,6 +191,14 @@ pub struct NetPlayer4 {
     /// `eval4 --tactician`: answers the attack, block and target questions
     /// it names; `None` everywhere else, live play included.
     tactician: Option<tactician::Tactician4>,
+    /// `--grouped-decode`: priority answers decided between pass and act by
+    /// summed probability ([`grouped`]); off unless asked.
+    grouped_decode: bool,
+    /// How often the grouping decided.
+    grouped_use: GroupedUse4,
+    /// The grouping of the latest answer, when it was a grouped priority
+    /// question; cleared before every decision step.
+    last_grouping: Option<Grouping4>,
     /// Whether the model's graphs state a confidence in their answer.
     states_confidence: bool,
     /// A second, deeper pass for answers the net is unsure of; off unless asked.
@@ -487,6 +497,9 @@ impl NetPlayer4 {
             last_menu: None,
             dirty_h_seats: 0,
             tactician: None,
+            grouped_decode: false,
+            grouped_use: GroupedUse4::default(),
+            last_grouping: None,
             states_confidence: files.states_confidence,
             adaptive: None,
             thinking_use: ThinkingUse4::default(),
@@ -630,6 +643,29 @@ impl NetPlayer4 {
         );
         self.adaptive = Some(adaptive);
         Ok(())
+    }
+
+    /// Turns the grouped decode at priority on or off ([`grouped`]).
+    pub const fn set_grouped_decode(&mut self, on: bool) {
+        self.grouped_decode = on;
+    }
+
+    /// Whether priority answers are decoded by group.
+    #[must_use]
+    pub const fn grouped_decode(&self) -> bool {
+        self.grouped_decode
+    }
+
+    /// What the grouping found at the latest answer, when it was a priority
+    /// question with both groups on its menu and `--grouped-decode` is on.
+    #[must_use]
+    pub const fn last_grouping(&self) -> Option<Grouping4> {
+        self.last_grouping
+    }
+
+    /// How often the grouping decided so far; the counts start again.
+    pub fn take_grouped_use(&mut self) -> GroupedUse4 {
+        std::mem::take(&mut self.grouped_use)
     }
 
     /// The second pass this player may take, if any.

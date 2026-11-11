@@ -34,6 +34,14 @@ trait EvaluationPlayer {
     fn rule_refs_left_out(&self) -> u64 {
         0
     }
+    /// Sets `--grouped-decode` on this player; `false` when it is no net.
+    fn set_grouped_decode(&mut self) -> bool {
+        false
+    }
+    /// What the grouping decided since this was last asked.
+    fn take_grouped_use(&mut self) -> baylee_train::netplay4::GroupedUse4 {
+        baylee_train::netplay4::GroupedUse4::default()
+    }
     /// Sets `--think-adaptive` on this player; `false` when it is no net.
     fn set_adaptive_thinking(
         &mut self,
@@ -134,6 +142,13 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
         Self::take_thinking_use(self)
+    }
+    fn set_grouped_decode(&mut self) -> bool {
+        Self::set_grouped_decode(self, true);
+        true
+    }
+    fn take_grouped_use(&mut self) -> baylee_train::netplay4::GroupedUse4 {
+        Self::take_grouped_use(self)
     }
     fn set_choice_guard(&mut self, guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         Self::set_choice_guard(self, *guard);

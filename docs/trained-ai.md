@@ -1103,6 +1103,28 @@ with the block attached plays as its source until trained.
 - Measure: `thinking_probe5.py` (what each step corrects and breaks,
   confidence calibration), `bench_thinking5.py` (latency per depth graph).
 
+### Grouped decode at priority (`--grouped-decode`)
+
+Off by default, in `seat4` and `eval4` (`netplay4::grouped`, contract
+`grouped_decode_v1`). At the first tap of a cast the net often puts most of
+its probability on acting, split across near-equal taps, while the single pass
+stays its top answer. With the flag, a priority question that offers both is
+read as two groups by the coarse classes of `crate::coarse_class`
+(`coarse_class_v1`, the one definition the converter's class files use too):
+pass (`PassPriority`, `CancelCast`) and act (tap, cast, activate, land,
+other). The group with the larger summed probability wins (softmax at the
+sampling temperature; at temperature 0 the plain softmax; a tie keeps the top
+answer's group) and the answer is the best candidate inside it. The losing
+group leaves the menu's logits where that decides the answer: when the greedy
+answer changes, and always when the answer is sampled. The tactical layer, if
+on, then reads those logits. Every other question is untouched.
+
+An answer the grouping decided carries no behaviour probability
+(`has_logprob = false`), and `eval4` refuses the flag for collection. The run
+summary's `grouped_decode` (and each deal's) counts the priority questions with
+both groups, the answers changed, and of those pass to act and act to pass; a
+journal's menu carries the two masses. Whether it helps play is unmeasured.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and

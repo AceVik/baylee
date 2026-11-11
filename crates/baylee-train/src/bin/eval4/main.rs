@@ -140,6 +140,17 @@ fn main() -> anyhow::Result<()> {
         .as_deref()
         .map(|text| baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps))
         .transpose()?;
+    let grouped_decode = args.grouped_decode;
+    if grouped_decode
+        && (args.legacy_v3
+            || args.random_policy
+            || args.collection_purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--grouped-decode is an evaluation of a v4/v5 net: no legacy model, random policy \
+             or collection (a recorded behaviour probability is the plain policy's)"
+        );
+    }
     if think_adaptive.is_some()
         && (args.legacy_v3
             || args.random_policy
@@ -653,6 +664,9 @@ fn main() -> anyhow::Result<()> {
             if let Some(guard) = choice_guard {
                 anyhow::ensure!(net.set_choice_guard(&guard), "--choice-guard needs a net");
             }
+            if grouped_decode {
+                anyhow::ensure!(net.set_grouped_decode(), "--grouped-decode needs a net");
+            }
             if let Some(adaptive) = think_adaptive {
                 anyhow::ensure!(
                     net.set_adaptive_thinking(adaptive)?,
@@ -908,8 +922,10 @@ fn main() -> anyhow::Result<()> {
                 let rules_fired = net.take_tactic_rules_fired();
                 let menu_stats = net.take_menu_stats();
                 let thinking_use = net.take_thinking_use();
+                let grouped_use = net.take_grouped_use();
                 let mut st = stats_arc.lock().expect("stats lock");
                 st.thinking.add(&thinking_use);
+                st.grouped.add(&grouped_use);
                 if let Some(deal_menu) = &menu_stats {
                     st.menu.get_or_insert_default().add(deal_menu);
                 }
@@ -920,6 +936,7 @@ fn main() -> anyhow::Result<()> {
                     "tactic_rules_fired": rules_fired,
                     "menu": menu_stats,
                     "thinking": think_adaptive.map(|_| thinking_use.report()),
+                    "grouped_decode": grouped_decode.then(|| grouped_use.report()),
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
                     "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
@@ -1101,6 +1118,11 @@ fn main() -> anyhow::Result<()> {
         "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
+    summary["grouped_decode"] = if grouped_decode {
+        st.grouped.report()
+    } else {
+        Value::Null
+    };
     summary["think_adaptive"] = json!(think_adaptive);
     summary["thinking"] = match think_adaptive {
         Some(_) => st.thinking.report(),

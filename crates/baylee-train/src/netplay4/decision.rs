@@ -255,6 +255,20 @@ impl NetPlayer4 {
                     cands.head,
                     logprob,
                 );
+                // An answer the grouping decided is not a draw from the plain
+                // policy: it never carries a behaviour probability.
+                let provenance = if self
+                    .last_grouping
+                    .is_some_and(|grouping| grouping.decides(self.temperature))
+                {
+                    StepProvenance4 {
+                        behavior_logprob: 0.0,
+                        has_logprob: false,
+                        ..provenance
+                    }
+                } else {
+                    provenance
+                };
                 self.coverage.record(p_kind, provenance.source);
                 let ranking = (rank && cands.head == HeadKind4::SingleChoice)
                     .then(|| rank_single_choice(&cands, &logits, view, pending));

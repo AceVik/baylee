@@ -148,6 +148,12 @@ struct Args {
     /// The net never saw such a candidate. Never for training.
     #[arg(long)]
     menu_payable: bool,
+    /// At priority, decide between pass and act by the policy's summed
+    /// probability per group (coarse classes `coarse_class_v1`), then take
+    /// the best answer inside the winning group. Evaluation only; the
+    /// summary counts the answers it changed.
+    #[arg(long)]
+    grouped_decode: bool,
     /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
     /// states a confidence below THRESHOLD is thought through again at DEEP
     /// deliberation steps. Needs a model with the deliberation block
@@ -414,6 +420,8 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    /// `--grouped-decode`: what the grouping decided over the run.
+    grouped: baylee_train::netplay4::GroupedUse4,
     /// `--think-adaptive`: second passes over the run.
     thinking: baylee_train::netplay4::ThinkingUse4,
     tactician:

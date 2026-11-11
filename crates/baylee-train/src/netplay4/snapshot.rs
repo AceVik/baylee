@@ -615,6 +615,10 @@ impl NetPlayer4 {
             last_menu: _,
             dirty_h_seats: _,
             tactician: _,
+            grouped_decode: _,
+            // Counted over a run, not a game's state.
+            grouped_use: _,
+            last_grouping: _,
             states_confidence: _,
             adaptive: _,
             // Counted over a run, not a game's state.
@@ -839,6 +843,7 @@ impl NetPlayer4 {
         twin.policy_mode = self.policy_mode;
         twin.thinking_steps = self.thinking_steps;
         twin.adaptive = self.adaptive;
+        twin.grouped_decode = self.grouped_decode;
         twin.restore(snapshot);
         Some(twin)
     }

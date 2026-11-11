@@ -66,6 +66,9 @@ mod tests {
         let hash = view_only_state_hash(&view, &pending);
         let mut net = NetPlayer4 {
             tactician: None,
+            grouped_decode: false,
+            grouped_use: crate::netplay4::GroupedUse4::default(),
+            last_grouping: None,
             states_confidence: false,
             adaptive: None,
             thinking_use: crate::netplay4::ThinkingUse4::default(),

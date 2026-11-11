@@ -21,6 +21,8 @@ pub use baylee_cards::carddsl;
 pub mod cardstructure;
 pub mod cardwalk;
 #[cfg(feature = "play")]
+pub mod coarse_class;
+#[cfg(feature = "play")]
 pub mod convert;
 #[cfg(feature = "play")]
 pub mod convert3;

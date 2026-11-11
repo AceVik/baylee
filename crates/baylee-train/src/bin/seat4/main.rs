@@ -68,6 +68,11 @@ struct Args {
         value_parser = clap::value_parser!(u8).range(1..=8)
     )]
     thinking_steps: u8,
+    /// At priority, decide between pass and act by the policy's summed
+    /// probability per group, then take the best answer inside the winning
+    /// group (`netplay4::grouped`). Off unless asked.
+    #[arg(long)]
+    grouped_decode: bool,
     /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
     /// states a confidence below THRESHOLD is thought through again at DEEP
     /// deliberation steps. Needs a model with the deliberation block; off
@@ -351,6 +356,7 @@ fn prepare_audit(
                     "policy_contract":brain.policy_mode().contract(),
                     "temperature":args.temperature,"thinking_steps":args.thinking_steps,
                     "think_adaptive":brain.adaptive_thinking(),
+                    "grouped_decode":brain.grouped_decode().then_some(baylee_train::netplay4::GROUPED_DECODE_CONTRACT),
                     "base_policy_seed":args.policy_seed,"effective_policy_seed":policy_seed,
                     "game_index":game,"seat":seat,
                     "seat_rng_rule":"base_xor_game_rotation17_xor_physical_seat_v1",
@@ -473,6 +479,7 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
         let adaptive = baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps)?;
         brain.set_adaptive_thinking(adaptive.deep, adaptive.threshold)?;
     }
+    brain.set_grouped_decode(args.grouped_decode);
     brain.set_tactic_rules(TacticRules4::parse(&args.tactics_rules)?);
     Ok(brain)
 }
