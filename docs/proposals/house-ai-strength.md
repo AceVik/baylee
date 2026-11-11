@@ -681,6 +681,26 @@ and are not told apart at 512 games, their tiers being close (6 × 4,
 expert have to be spaced further apart, which costs those levels part of
 their gain over generation 6.
 
+**Against BayleeAI** (the campaign's run on its GPU runtime built from
+e1db617b1, holdout2 as BayleeAI's opponent pool, round-robin, 512 deals a
+pair; the house is not selected on these numbers): r1 with its tactical
+bundle wins 46.1 % against the new expert, 44.1 % against the new sharp and
+44.3 % against the new steady; raw r1 wins 19.7 %, 20.5 % and 21.5 %.
+Against an outside opponent the new steady plays as strongly as the new
+expert: foresight dominates the tier, and steady < sharp < expert does not
+show there. Together with the train ladder above, the order of the three
+upper levels is not established under foresight; how far apart the tiers
+are set is the owner's decision.
+
+**A cap on answers does not bound the slow tail.** With one searched
+answer capped at 10,000 house answers in its forks nothing changes (no
+search reaches it); capped at 3,000, expert keeps 60.0 % (121 / 18) and the
+worst searched answer is as slow as before. The slow answers are slow per
+answer (large boards, where the model's own combat search is dear), not
+long in answers. A bound a host can rely on has to count finer work than
+answers: the engine's fuel of `lookahead-design.md` Q5, or the combat
+search's nodes summed over a search.
+
 **Cost** at expert's tier on this machine (one thread a game): about 41
 searched answers a game; a searched answer takes 78 ms at the median,
 0.39 s at the 95th percentile and 3.7 s at worst; about 6.5 CPU-seconds a
