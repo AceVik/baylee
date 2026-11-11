@@ -763,12 +763,19 @@ legt das Gateway selbst an und migriert sie.
 cargo build --release -p baylee-gateway -p baylee-agent -p baylee-engine-server
 
 export BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32)   # gemeinsam für Gateway und Agent
-RUST_LOG=info BAYLEE_GATEWAY_NAME="Mein Tisch" ./target/release/baylee-gateway   # lauscht auf 0.0.0.0:28766
+RUST_LOG=info BAYLEE_GATEWAY_NAME="Mein Tisch" ./target/release/baylee-gateway   # lauscht auf 127.0.0.1:28766
 RUST_LOG=info ./target/release/baylee-agent        # findet baylee-engine-server neben sich
 ```
 
 Ohne `RUST_LOG=info` protokollieren die Server nichts. Ohne verbundenen
 Agenten kann das Gateway Räume anzeigen, aber kein Spiel starten (`503`).
+
+Das Gateway lauscht nur auf diesem Rechner (`127.0.0.1`), bis du etwas
+anderes sagst. Hinter dem HTTPS-Proxy aus Schritt 6 genügt das. Sollen
+andere Rechner es direkt erreichen, etwa im LAN, setze `BAYLEE_BIND=0.0.0.0`
+(oder eine Adresse dieses Rechners). Die Server lesen jede Einstellung aus
+der Umgebung: `--help` zeigt, wie man sie startet, und jedes andere Argument
+hält sie vor dem Start an.
 
 Laufen Gateway und Agent auf demselben Rechner, können sie statt über TCP
 über einen **Unix-Socket** sprechen: `BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock`
@@ -785,6 +792,7 @@ Gateways ist es ein Entwicklungswerkzeug ohne Anmeldung.
 | --- | --- |
 | `DATABASE_URL` | Pflicht. |
 | `PORT` | Port, auf dem es lauscht (Standard `28766`). |
+| `BAYLEE_BIND` | Adresse, auf der es lauscht (Standard `127.0.0.1`, nur dieser Rechner; `0.0.0.0` für alle Schnittstellen). |
 | `BAYLEE_AGENT_TOKEN` | Das Geheimnis des Agenten. Ohne es kann sich kein Agent verbinden. |
 | `BAYLEE_GATEWAY_NAME` | Der Name, den Clients für das Gateway zeigen. |
 | `BAYLEE_REGISTRATION` | Ob ein Baylee-Account, der neu auf diesem Gateway ist, hereinkommt. Nicht gesetzt oder `open`: jeder (die Einstellung der offenen Beta). `off`: niemand Neues. `invite`, die Einstellung der geschlossenen Beta, lässt das Gateway jetzt nicht mehr starten. |

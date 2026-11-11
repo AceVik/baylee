@@ -8,6 +8,15 @@ Every variable a Baylee process reads, by process. A value outside its range
 refuses startup where this says so; the normative behaviour behind each is in
 the document it names.
 
+The servers take their settings from these variables and nothing from the
+command line but `--help`/`-h` (and the gateway's `records`, `legacy` and
+`help` subcommands; the engine server's `--attach`/`--game`/`--token`).
+`--help` prints the usage and exits 0; any other argument prints the reason
+and the usage and exits 2. Either way the process reads no setting, dials
+nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
+`baylee-engine-server`, `baylee-seathost`; `baylee-feedback` takes its
+`admin` and `export-reports` subcommands the same way).
+
 ## Neural player and offline evaluation (`baylee-train`)
 
 - `BAYLEE_EP=cuda` selects the v4 ONNX CUDA provider; unset or `cpu` uses CPU.
@@ -48,7 +57,8 @@ the document it names.
 
 ## Gateway (`baylee-gateway`)
 
-- `PORT` (`0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
+- `PORT` (default 28766; `0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
+- `BAYLEE_BIND` (the address the TCP port listens on, a numeric IP; unset or empty = `127.0.0.1`, this machine only; `0.0.0.0` or `::` = every interface, which only an operator who means it sets, never a default; anything else refuses startup). A public gateway needs no value: its TLS proxy dials `127.0.0.1:28766` and its agent the unix socket (`docs/releasing.md` §"Where the gateway listens"). With `BAYLEE_ENGINE_URL` unset, engines are told to dial the bound address, or loopback when it is every interface.
 - `DATABASE_URL` (required).
 - `BAYLEE_DB_POOL` (8).
 - `STORE_PATH` (import-only, not gitignored).

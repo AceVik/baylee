@@ -133,7 +133,7 @@ BAYLEE_REPLAY=<record or tape file> cargo run -p baylee-client   # a replay, eve
 BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
 BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT=$PWD cargo run -p baylee-client --features dev-control,dev-reload
 trunk serve index.html --release          # in crates/baylee-client/
-BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) BAYLEE_AUTH_MODE=guests ./target/debug/baylee-gateway   # 0.0.0.0:28766; guests, no Central
+BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) BAYLEE_AUTH_MODE=guests ./target/debug/baylee-gateway   # 127.0.0.1:28766 (BAYLEE_BIND=0.0.0.0 for every interface); guests, no Central
 BAYLEE_AGENT_TOKEN=<same> ./target/debug/baylee-agent
 ./target/debug/baylee-engine-server       # dev harness, loopback
 DATABASE_URL=… ./target/debug/baylee-gateway records export --out <new dir>   # anonymised complete game records (no game id, time or account) for training/balancing; the only input they may use (docs/privacy.md)

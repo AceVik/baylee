@@ -33,6 +33,7 @@
 #[cfg(test)]
 use baylee_cards_pool as _;
 
+pub mod cli;
 pub mod launch;
 pub mod state;
 

@@ -309,8 +309,11 @@ pub fn copy_dir(from: &Path, to: &Path) -> Result<()> {
 }
 
 /// The gateway and one agent, reachable from a phone on the same network.
-/// The gateway already binds 0.0.0.0; what this adds is the address to use
-/// from each surface. Needs PostgreSQL like any gateway (`DATABASE_URL`).
+/// A gateway listens on loopback unless told otherwise; this one is told to
+/// listen on every interface (`BAYLEE_BIND=0.0.0.0`), since a phone on Wi-Fi
+/// comes in on the LAN address and one over USB or in an emulator on
+/// loopback, and what this prints is the address to use from each surface.
+/// Needs PostgreSQL like any gateway (`DATABASE_URL`).
 pub fn serve_lan(print_only: bool) -> Result<i32> {
     let port: u16 = std::env::var("PORT")
         .ok()
@@ -365,8 +368,11 @@ pub fn serve_lan(print_only: bool) -> Result<i32> {
     };
     let log = |name: &str| fs::File::create(logs.join(format!("{name}.log")));
     let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into());
+    println!("  The gateway listens on every interface of this machine (BAYLEE_BIND=0.0.0.0).");
     let mut gateway = Command::new(exe("baylee-gateway"))
         .env("PORT", port.to_string())
+        // On purpose, and only here: the phone is on the network.
+        .env("BAYLEE_BIND", "0.0.0.0")
         .env("BAYLEE_AGENT_TOKEN", &token)
         // No Central here: the phone comes in as a guest.
         .env("BAYLEE_AUTH_MODE", "guests")

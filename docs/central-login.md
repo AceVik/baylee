@@ -690,8 +690,9 @@ version. Never combine `credential` or `heartbeat` with `bridge`: the official
 legacy bridge alone may reserve/export/close old account migrations. The reusable Central SDK
 offers registration, directory paging and versioned admin-list management; no
 registration or admin-management UI is implied by these server APIs.
-Use `BAYLEE_BIND=127.0.0.1` for local gateway fixtures; the existing default
-remains `0.0.0.0`. All test services must bind only loopback.
+Local gateway fixtures listen on `127.0.0.1`, the gateway's default since
+11.11.2026 (`BAYLEE_BIND`, `docs/dev/environment.md`); the fixtures still
+name it. All test services must bind only loopback.
 
 Deploy in order: Central with persistent OPAQUE setup and PostgreSQL 18+; the
 official gateway bridge and schema; synthetic end-to-end validation; the native

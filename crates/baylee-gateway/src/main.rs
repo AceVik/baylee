@@ -4,7 +4,9 @@
 //! bearer tokens with sliding expiry, auth rate limiting, generic
 //! credential errors, constant-time comparisons. TLS terminates at the
 //! reverse proxy in front of this process (Caddy/nginx) — this service
-//! must never be exposed on a plaintext listener in production.
+//! must never be exposed on a plaintext listener in production, and it
+//! listens on loopback unless `BAYLEE_BIND` names another address
+//! (`launch.rs`).
 #![deny(unsafe_code)]
 
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
@@ -27,6 +29,7 @@ mod cosmetics;
 mod departure;
 mod engine;
 mod handle;
+mod launch;
 mod legacyexport;
 mod llmaccess;
 mod lobby;
@@ -333,25 +336,36 @@ type Shared = Arc<AppState>;
 #[tokio::main]
 #[allow(clippy::too_many_lines)] // one statement per setting and route, read top to bottom
 async fn main() {
-    // The closed beta's key command (#317) is gone with its keys. Asked for
-    // anyway (a wrapper an older deploy installed, a habit), it says so and
-    // stops, before anything else: without this a gateway would start with
-    // whatever settings the shell held, and migrate the database it names.
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.first().map(String::as_str) == Some("invite") {
-        eprintln!("{}", registration::INVITE_COMMAND_GONE);
-        std::process::exit(2);
-    }
-    // The anonymised export of game records for training and balancing,
-    // likewise the operator's and the database's alone.
-    if args.first().map(String::as_str) == Some("records") {
-        std::process::exit(recordexport::cli(&args[1..]).await);
-    }
-    // The cutover's export of the accounts Central signs in from then on
-    // (`docs/central-login.md` §"Cutover"): the operator's and the
-    // database's alone, and never logged.
-    if args.first().map(String::as_str) == Some("legacy") {
-        std::process::exit(legacyexport::cli(&args[1..]).await);
+    // The command line first, before a setting is read, the database opened
+    // or a port bound: it serves only when it says nothing (`launch.rs`).
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .unwrap_or_else(|_| launch::refuse("an argument is not UTF-8"))
+        })
+        .collect();
+    match launch::command(&args).unwrap_or_else(|why| launch::refuse(&why)) {
+        launch::Command::Serve => {}
+        launch::Command::Help => {
+            println!("{}", launch::USAGE);
+            return;
+        }
+        // The closed beta's key command (#317) is gone with its keys. Asked
+        // for anyway (a wrapper an older deploy installed, a habit), it says
+        // so and stops: it never starts a gateway in its place, which would
+        // migrate the database the shell names.
+        launch::Command::Invite => {
+            eprintln!("{}", registration::INVITE_COMMAND_GONE);
+            std::process::exit(2);
+        }
+        // The anonymised export of game records for training and balancing,
+        // the operator's and the database's alone.
+        launch::Command::Records(rest) => std::process::exit(recordexport::cli(rest).await),
+        // The cutover's export of the accounts Central signs in from then on
+        // (`docs/central-login.md` §"Cutover"): the operator's and the
+        // database's alone, and never logged.
+        launch::Command::Legacy(rest) => std::process::exit(legacyexport::cli(rest).await),
     }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -359,7 +373,9 @@ async fn main() {
     let port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(28766);
+        .unwrap_or(launch::DEFAULT_PORT);
+    let bind = launch::bind_address(std::env::var("BAYLEE_BIND").ok().as_deref())
+        .unwrap_or_else(|why| panic!("{why}"));
     validate_the_dev_board();
     let display_name = display_name(std::env::var("BAYLEE_GATEWAY_NAME").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GATEWAY_NAME: {why}"));
@@ -453,7 +469,8 @@ async fn main() {
     // Bound after the database and the catalog, and before anything that has
     // to know the port: with `PORT=0` the kernel chooses it (#279), and the
     // address an engine is told to dial back on below must be that one.
-    let (listener, port) = listen(port).await;
+    let (listener, address) = listen(bind, port).await;
+    let port = address.port();
     // The admin console's own listener (`admin.rs`), loopback only and
     // bound beside the public one, so a taken port stops the start.
     let console_listener = match &console {
@@ -501,7 +518,7 @@ async fn main() {
         metrics: metrics::Metrics::default(),
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
-            .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
+            .unwrap_or_else(|_| launch::engine_url(bind, port)),
         registration,
         auth_mode,
         guest_cap,
@@ -703,7 +720,7 @@ async fn main() {
         serve_unix(std::path::Path::new(&path), app.clone());
     }
     state.central.bound(port);
-    announce(port);
+    announce(address);
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -755,22 +772,19 @@ fn serve_unix(path: &std::path::Path, app: Router) {
 /// Nagle's algorithm off ([`send_at_once`]).
 type Listening = axum::serve::TapIo<tokio::net::TcpListener, fn(&mut tokio::net::TcpStream)>;
 
-/// Binds the gateway's port, and answers which port that is: the one asked
-/// for, or with `PORT=0` the one the kernel chose.
-async fn listen(port: u16) -> (Listening, u16) {
+/// Binds the gateway's port on `bind` (`BAYLEE_BIND`, loopback unless an
+/// operator names another address, [`launch::bind_address`]), and answers
+/// where it is listening: the port asked for, or with `PORT=0` the one the
+/// kernel chose.
+async fn listen(bind: IpAddr, port: u16) -> (Listening, SocketAddr) {
     use axum::serve::ListenerExt as _;
-    let bind: IpAddr = std::env::var("BAYLEE_BIND")
-        .unwrap_or_else(|_| "0.0.0.0".into())
-        .parse()
-        .expect("BAYLEE_BIND must be a numeric IP address");
     let listener = tokio::net::TcpListener::bind((bind, port))
         .await
-        .expect("bind gateway port");
-    let port = listener
+        .unwrap_or_else(|e| panic!("bind gateway port {}: {e}", SocketAddr::new(bind, port)));
+    let address = listener
         .local_addr()
-        .expect("a bound listener has an address")
-        .port();
-    (listener.tap_io(send_at_once as fn(&mut _)), port)
+        .expect("a bound listener has an address");
+    (listener.tap_io(send_at_once as fn(&mut _)), address)
 }
 
 /// Turns Nagle's algorithm off on an accepted connection (`TCP_NODELAY`).
@@ -787,10 +801,11 @@ fn send_at_once(stream: &mut tokio::net::TcpStream) {
     }
 }
 
-/// Says the gateway is about to serve, and where: in the log, and to
-/// `BAYLEE_PORT_FILE` when one is named.
-fn announce(port: u16) {
-    tracing::info!(port, "baylee-gateway listening");
+/// Says the gateway is about to serve, and where: in the log, and its port
+/// to `BAYLEE_PORT_FILE` when one is named.
+fn announce(address: SocketAddr) {
+    let port = address.port();
+    tracing::info!(%address, port, "baylee-gateway listening");
     if let Some(path) = std::env::var_os("BAYLEE_PORT_FILE") {
         write_port_file(std::path::Path::new(&path), port)
             .unwrap_or_else(|e| panic!("BAYLEE_PORT_FILE {}: {e}", path.display()));

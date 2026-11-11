@@ -2275,8 +2275,10 @@ BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent
 The agent finds `baylee-engine-server` beside itself (`BAYLEE_ENGINE_BIN`
 overrides), reconnects with backoff, and takes `BAYLEE_GATEWAY`,
 `BAYLEE_AGENT_NAME` and `BAYLEE_AGENT_CAPACITY` (0 = no limit). The gateway
+listens on `127.0.0.1:{PORT}` unless `BAYLEE_BIND` names another address, and
 tells an engine to dial `BAYLEE_ENGINE_URL`, which defaults to
-`ws://127.0.0.1:{PORT}/engine/ws` — right for a single box, wrong the moment an
+`ws://{the bound address}:{PORT}/engine/ws` (loopback when bound to every
+interface) — right for a single box, wrong the moment an
 agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.

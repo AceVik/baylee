@@ -716,12 +716,19 @@ creates and migrates its tables itself.
 cargo build --release -p baylee-gateway -p baylee-agent -p baylee-engine-server
 
 export BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32)   # shared by gateway and agent
-RUST_LOG=info BAYLEE_GATEWAY_NAME="My table" BAYLEE_AUTH_MODE=guests ./target/release/baylee-gateway   # listens on 0.0.0.0:28766
+RUST_LOG=info BAYLEE_GATEWAY_NAME="My table" BAYLEE_AUTH_MODE=guests ./target/release/baylee-gateway   # listens on 127.0.0.1:28766
 RUST_LOG=info ./target/release/baylee-agent        # finds baylee-engine-server beside itself
 ```
 
 Without `RUST_LOG=info` the servers log nothing. Without a connected agent,
 the gateway can list rooms but cannot start a game (`503`).
+
+The gateway listens on this machine only (`127.0.0.1`) until you say
+otherwise. Behind the HTTPS proxy of step 6 that is all it needs. To let
+other machines dial it directly, on a LAN for instance, set
+`BAYLEE_BIND=0.0.0.0` (or one address of this machine). The servers take
+every setting from the environment: `--help` prints how to start them, and
+any other argument stops them before they start.
 
 When gateway and agent run on one machine, they can talk over a **unix
 socket** instead of TCP. Set `BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock`
@@ -738,6 +745,7 @@ arguments it is an unauthenticated development harness.
 | --- | --- |
 | `DATABASE_URL` | Required. |
 | `PORT` | Port to listen on (default `28766`). |
+| `BAYLEE_BIND` | Address to listen on (default `127.0.0.1`, this machine only; `0.0.0.0` for every interface). |
 | `BAYLEE_AGENT_TOKEN` | The agent's secret. Without it, no agent can connect. |
 | `BAYLEE_GATEWAY_NAME` | The name clients show for the gateway. |
 | `BAYLEE_REGISTRATION` | Whether a Baylee account new to this gateway may come in. Unset or `open`: anybody (the open beta's setting). `off`: nobody new. `invite`, the closed beta's setting, now stops the gateway from starting. Accounts are Baylee Central's, never the gateway's. |

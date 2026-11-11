@@ -638,3 +638,66 @@ async fn answer(ws: &mut Client, pending: &Pending) {
     )
     .await;
 }
+
+/// Runs the binary with `args` and a cleared environment, told to say its
+/// port in `port_file` should it ever listen (on loopback, on a port the
+/// kernel picks); its output, or a panic if it was still running when
+/// [`WAIT_BUDGET`] ran out.
+fn launch(args: &[&str], port_file: &std::path::Path) -> std::process::Output {
+    let _ = std::fs::remove_file(port_file);
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
+        .args(args)
+        .env_clear()
+        .env("PORT", "0")
+        .env("BAYLEE_BIND", "127.0.0.1")
+        .env("BAYLEE_PORT_FILE", port_file)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("spawn server");
+    for _ in 0..WAIT_TRIES {
+        if child
+            .try_wait()
+            .expect("the server can be waited on")
+            .is_some()
+        {
+            return child.wait_with_output().expect("the server's output");
+        }
+        std::thread::sleep(WAIT_STEP);
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_file(port_file);
+    panic!("baylee-engine-server {args:?} was still running: it started instead of answering");
+}
+
+/// `--help` says how to start it and starts nothing, and an argument it does
+/// not take stops it: neither opens the unauthenticated harness. The port
+/// file is written as soon as the harness is bound, so its absence is a
+/// socket never opened.
+#[test]
+fn help_and_an_unknown_argument_open_no_socket() {
+    let port_file =
+        std::env::temp_dir().join(format!("baylee-engine-cli-{}.port", std::process::id()));
+    for help in ["--help", "-h"] {
+        let out = launch(&[help], &port_file);
+        assert_eq!(out.status.code(), Some(0), "{help}: {out:?}");
+        let usage = String::from_utf8_lossy(&out.stdout);
+        assert!(usage.starts_with("usage: baylee-engine-server"), "{usage}");
+        assert!(!port_file.exists(), "{help} opened the harness");
+    }
+    for args in [
+        &["--version"][..],
+        &["--port", "28765"][..],
+        &["serve"][..],
+        &["--attach"][..],
+    ] {
+        let out = launch(args, &port_file);
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {out:?}");
+        let refused = String::from_utf8_lossy(&out.stderr);
+        assert!(refused.contains("usage: baylee-engine-server"), "{refused}");
+        assert!(out.stdout.is_empty(), "{args:?}");
+        assert!(!port_file.exists(), "{args:?} opened the harness");
+    }
+}

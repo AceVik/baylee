@@ -784,6 +784,35 @@ through the drain, verifies a fresh held-admission health response before
 rebooting, and releases only its own hold when the night window closes.
 An existing hold from another operation is never adopted or removed.
 
+### Where the gateway listens
+
+The gateway binds `127.0.0.1:28766` unless `/etc/baylee/gateway.env` names
+another address (`BAYLEE_BIND`, `docs/dev/environment.md`); before
+11.11.2026 the default was every interface. Everything on the server that
+dials it already uses loopback or the unix socket, so the server's
+`gateway.env` needs no `BAYLEE_BIND`:
+
+- Caddy proxies the public name to `127.0.0.1:28766`
+  (`scripts/server/play.caddy`, `scripts/server/site.caddy`).
+- The agent and its engines dial `BAYLEE_UNIX_SOCKET`
+  (`/run/baylee/gateway.sock`); a seat agent's bridges dial
+  `http://127.0.0.1:28766` (`scripts/server/baylee-seathost@.service`).
+- `baylee-deploy` reads `/health` and `/info` at `http://127.0.0.1:28766`
+  (`crates/baylee-ops/src/gateway.rs`), and the feedback service reaches the
+  admin console on its own loopback port (`BAYLEE_ADMIN_BIND`).
+
+A server where something else dials the gateway's TCP port from another
+machine (an agent elsewhere without a proxy in between, for instance) sets
+`BAYLEE_BIND=0.0.0.0`, or that one interface's address, in `gateway.env`
+before the release that brings this default is deployed, and keeps the port
+closed to everybody else in its firewall.
+
+The gateway's unit starts it with no argument, as `baylee-feedback.service`
+and `baylee-seathost@.service` start theirs: an argument it does not take
+now stops it with exit status 2 and the usage, where it was once ignored, and
+`--help` prints the usage and exits 0. Neither reads a setting or binds a
+port.
+
 ### What the server builds with
 
 The server builds each release itself, as the deploy user, in its checkout

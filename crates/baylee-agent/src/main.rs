@@ -14,7 +14,8 @@
 #![deny(unsafe_code)]
 
 use baylee_agent::{
-    AGENT_TOKEN_VAR, AgentConfig, ENGINE_TOKEN_VAR, Order, engine_argv, heartbeat, order, status,
+    AGENT_TOKEN_VAR, AgentConfig, Asked, ENGINE_TOKEN_VAR, Order, USAGE, asked, engine_argv,
+    heartbeat, order, status,
 };
 use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt, StreamExt};
@@ -91,8 +92,30 @@ async fn shutdown_signal() -> std::io::Result<()> {
     tokio::signal::ctrl_c().await
 }
 
+/// Stops on a command line the agent does not take: the reason and
+/// [`USAGE`] on standard error, exit status 2, nothing dialled.
+fn refuse(why: &str) -> ! {
+    eprintln!("baylee-agent: {why}\n\n{USAGE}");
+    std::process::exit(2);
+}
+
 #[tokio::main]
 async fn main() {
+    // The command line first: before a setting is read or a gateway dialled.
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .unwrap_or_else(|_| refuse("an argument is not UTF-8"))
+        })
+        .collect();
+    match asked(&args).unwrap_or_else(|why| refuse(&why)) {
+        Asked::Help => {
+            println!("{USAGE}");
+            return;
+        }
+        Asked::Run => {}
+    }
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();

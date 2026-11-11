@@ -29,6 +29,7 @@ mod e2e_central_load;
 mod e2e_chair_report;
 mod e2e_chair_tickets;
 mod e2e_clock;
+mod e2e_command_line;
 mod e2e_cors;
 mod e2e_deck_list;
 mod e2e_decks;

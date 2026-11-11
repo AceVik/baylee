@@ -25,6 +25,51 @@ use std::path::PathBuf;
 /// Where the control socket is on the gateway.
 pub const CONTROL_PATH: &str = "/agent/ws";
 
+/// What `baylee-agent --help` prints, and a refused command line after its
+/// reason.
+pub const USAGE: &str = "\
+usage: baylee-agent                 dial the gateway and start one engine per game it orders
+       baylee-agent --help | -h     this text
+
+It takes no argument and opens no port; its settings are environment
+variables: BAYLEE_GATEWAY (default http://127.0.0.1:28766; unix:<path> for
+the gateway's unix socket), BAYLEE_AGENT_TOKEN (required), BAYLEE_AGENT_NAME,
+BAYLEE_AGENT_CAPACITY (0 = no limit) and BAYLEE_ENGINE_BIN (default: the
+engine server beside this program).";
+
+/// What a command line asks the agent for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Asked {
+    /// Nothing: run.
+    Run,
+    /// `--help` or `-h`: print [`USAGE`], start nothing.
+    Help,
+}
+
+/// Reads a command line, without the program's name. The agent takes no
+/// argument but a request for help, so anything else stops it before it
+/// reads a setting or dials a gateway.
+///
+/// # Errors
+/// Any other argument. The refusal names a flag up to its `=` and repeats no
+/// value: a value may be a secret.
+pub fn asked(args: &[String]) -> Result<Asked, String> {
+    match args.first().map(String::as_str) {
+        None => Ok(Asked::Run),
+        Some("--help" | "-h") => Ok(Asked::Help),
+        Some(flag) if flag.starts_with('-') => {
+            let name = flag.split_once('=').map_or(flag, |(name, _)| name);
+            Err(format!(
+                "{name:?} is not a flag this program takes; its settings are environment \
+                 variables"
+            ))
+        }
+        Some(_) => Err(
+            "this program takes no argument; its settings are environment variables".to_string(),
+        ),
+    }
+}
+
 /// How this agent was configured.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentConfig {
@@ -272,6 +317,34 @@ pub fn heartbeat(millis: u64) -> Envelope {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn line(args: &[&str]) -> Vec<String> {
+        args.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn it_runs_on_nothing_and_helps_on_help() {
+        assert_eq!(asked(&[]), Ok(Asked::Run));
+        assert_eq!(asked(&line(&["--help"])), Ok(Asked::Help));
+        assert_eq!(asked(&line(&["-h"])), Ok(Asked::Help));
+    }
+
+    /// Every other argument stops it, and the refusal repeats no value.
+    #[test]
+    fn any_other_argument_is_refused_without_its_value() {
+        for (args, said) in [
+            (&["--version"][..], "\"--version\""),
+            (&["--gateway", "http://10.0.0.2:28766"][..], "\"--gateway\""),
+            (&["--token=s3cret"][..], "\"--token\""),
+            (&["run"][..], "takes no argument"),
+            (&["s3cret"][..], "takes no argument"),
+            (&["--bogus", "--help"][..], "\"--bogus\""),
+        ] {
+            let refused = asked(&line(args)).expect_err(said);
+            assert!(refused.contains(said), "{args:?}: {refused}");
+            assert!(!refused.contains("s3cret"), "{args:?}: {refused}");
+        }
+    }
 
     fn config() -> AgentConfig {
         AgentConfig {
