@@ -11,7 +11,10 @@
 //! seat was made, and a leaf is valued from the view the seat would be shown
 //! of the copy.
 
+mod leaf;
 pub mod prior;
+
+pub use leaf::{FEATURES, FEATURE_NAMES, LATE, LEAF, MAY_BE_NEGATIVE, late_share};
 
 use crate::{AIProfile, HeuristicAgent};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -19,8 +22,6 @@ use baylee_core::types::TypeSet;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{Phase, PlayerView};
 
-/// The life total past which more life is priced as nothing.
-const LIFE_CAP: i32 = 30;
 
 /// A seat's own answer at a root and the others worth trying beside it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -312,136 +313,3 @@ fn block_candidates(
     out
 }
 
-/// How many numbers [`HeuristicAgent::foresight_features`] gives.
-pub const FEATURES: usize = 14;
-
-/// What each feature counts, in order.
-pub const FEATURE_NAMES: [&str; FEATURES] = [
-    "life_low",
-    "life_mid",
-    "life_high",
-    "poison",
-    "hand",
-    "lands",
-    "creatures",
-    "power",
-    "toughness",
-    "keywords",
-    "others",
-    "mana_value",
-    "active",
-    "race",
-];
-
-impl HeuristicAgent {
-    /// The position `view` shows as numbers a leaf value is fitted on: each
-    /// one this seat's side less the other side, counted from what the view
-    /// shows and nothing else.
-    ///
-    /// Life in three bands (the first seven points, the next seven, and up
-    /// to [`LIFE_CAP`]), poison, cards in hand, lands, creatures with their
-    /// power, toughness and keyword count, other permanents, the mana value
-    /// of everything that is not a land, and whose turn it is.
-    #[must_use]
-    pub fn foresight_features(&self, view: &PlayerView) -> [f64; FEATURES] {
-        let me = view.seat;
-        let mut f = [0.0; FEATURES];
-        let sign = |seat: PlayerId| if self.hostile(seat, me) { -1.0 } else { 1.0 };
-        for seat in view.seats.iter().filter(|seat| !seat.has_lost()) {
-            let s = sign(seat.player);
-            let life = seat.life.clamp(0, LIFE_CAP);
-            f[0] += s * f64::from(life.min(7));
-            f[1] += s * f64::from((life - 7).clamp(0, 7));
-            f[2] += s * f64::from((life - 14).max(0));
-            f[3] -= s * f64::from(seat.poison);
-            f[4] += s * f64::from(seat.hand_count);
-        }
-        for object in &view.battlefield {
-            let s = sign(object.controller);
-            let creature = object.types.contains(TypeSet::CREATURE);
-            if object.types.contains(TypeSet::LAND) && !creature {
-                f[5] += s;
-                continue;
-            }
-            if creature {
-                f[6] += s;
-                f[7] += s * f64::from(object.power.unwrap_or(0).max(0));
-                f[8] += s * f64::from(object.toughness.unwrap_or(0).max(0));
-                f[9] += s * f64::from(object.keywords.count_ones());
-            } else {
-                f[10] += s;
-            }
-            f[11] += s * f64::from(object.mana_value);
-        }
-        f[12] = sign(view.active);
-        // The race: how much of the other side's life each side's creatures
-        // take in one attack, capped at twice over.
-        let (mut power, mut life) = ([0.0_f64; 2], [0.0_f64; 2]);
-        for seat in view.seats.iter().filter(|seat| !seat.has_lost()) {
-            life[usize::from(self.hostile(seat.player, me))] += f64::from(seat.life.max(1));
-        }
-        for object in &view.battlefield {
-            if object.types.contains(TypeSet::CREATURE) {
-                power[usize::from(self.hostile(object.controller, me))] +=
-                    f64::from(object.power.unwrap_or(0).max(0));
-            }
-        }
-        if life[0] > 0.0 && life[1] > 0.0 {
-            f[13] = (power[0] / life[1]).min(2.0) - (power[1] / life[0]).min(2.0);
-        }
-        f
-    }
-}
-
-/// The leaf value's weights, one per feature ([`FEATURE_NAMES`]): the value
-/// of a position is the logistic of their sum over
-/// [`HeuristicAgent::foresight_features`].
-///
-/// Fitted by `fit_leaf` (`baylee-train`) on 209,236 positions of 4,096
-/// games the house played against itself on the train split (11.11.2026):
-/// log loss 0.571 on the positions held out, against 0.693 for calling
-/// every position even.
-pub const LEAF: [f64; FEATURES] = [
-    0.11003, // life_low
-    0.13678, // life_mid
-    0.02447, // life_high
-    0.00000, // poison
-    0.08784, // hand
-    0.00000, // lands
-    0.09487, // creatures
-    0.12111, // power
-    0.06628, // toughness
-    0.14149, // keywords
-    0.00000, // others
-    0.01382, // mana_value
-    0.15621, // active
-    0.41514, // race
-];
-
-impl HeuristicAgent {
-    /// What the position `view` shows is worth to its seat's side, between
-    /// 0 (lost) and 1 (won): the fitted value ([`LEAF`]) of what the view
-    /// shows. A side with nobody left has lost.
-    #[must_use]
-    pub fn foresight_value(&self, view: &PlayerView) -> f64 {
-        let me = view.seat;
-        let alive = |hostile: bool| {
-            view.seats
-                .iter()
-                .any(|seat| !seat.has_lost() && self.hostile(seat.player, me) == hostile)
-        };
-        if !alive(false) {
-            return 0.0;
-        }
-        if !alive(true) {
-            return 1.0;
-        }
-        let z: f64 = self
-            .foresight_features(view)
-            .iter()
-            .zip(LEAF)
-            .map(|(x, w)| x * w)
-            .sum();
-        1.0 / (1.0 + (-z).exp())
-    }
-}

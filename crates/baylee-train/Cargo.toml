@@ -143,6 +143,16 @@ path = "src/bin/fit_leaf.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "fit_leaf_trees"
+path = "src/bin/fit_leaf_trees.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "pair_probe"
+path = "src/bin/pair_probe.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "inspect"
 path = "src/bin/inspect.rs"
 required-features = ["play"]

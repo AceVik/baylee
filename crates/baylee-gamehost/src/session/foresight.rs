@@ -103,6 +103,11 @@ struct Search<'a> {
     seeds: Vec<u64>,
     /// The question, for the neighbours of a declaration.
     pending: &'a Pending,
+    /// SCAFFOLD (not committed): the root's number where its worlds are
+    /// played to the end and written to the pair log.
+    sampled: Option<u64>,
+    /// SCAFFOLD: the plan being tried, for the pair log.
+    candidate: std::cell::Cell<usize>,
 }
 
 /// The seed of world `world` of a search by an agent seeded `agent` from
@@ -219,6 +224,10 @@ impl Session {
                 .map(|world| world_seed(agent.seed(), position, world))
                 .collect(),
             pending,
+            sampled: pair_every()
+                .filter(|every| position % every == 0)
+                .map(|_| position ^ agent.seed().rotate_left(17)),
+            candidate: std::cell::Cell::new(0),
         };
         let plans = candidates.into_iter().map(Plan::of).collect();
         let Ok((mut plans, chosen)) = self.searched(&search, &agent, &view, plans) else {
@@ -285,7 +294,8 @@ impl Session {
             if worlds > 0 && self.foresight_stats.answers - spent_before >= work {
                 break;
             }
-            for (plan, tried) in plans.iter().zip(&mut outcomes) {
+            for (at, (plan, tried)) in plans.iter().zip(&mut outcomes).enumerate() {
+                search.candidate.set(at);
                 tried.push(self.world(search, plan, seed)?);
             }
             worlds += 1;
@@ -313,7 +323,8 @@ impl Session {
             if plans.len() == before {
                 break;
             }
-            for plan in &plans[before..] {
+            for (at, plan) in plans[before..].iter().enumerate() {
+                search.candidate.set(before + at);
                 let mut tried = Vec::with_capacity(worlds);
                 for &seed in &search.seeds[..worlds] {
                     tried.push(self.world(search, plan, seed)?);
@@ -356,19 +367,37 @@ impl Session {
         let value = loop {
             if let Pending::GameOver(result) = *fork.pending() {
                 let winners = fork.winning_seats(result);
-                break if winners.contains(&player) {
+                let value = if winners.contains(&player) {
                     1.0
                 } else if winners.is_empty() {
                     0.5
                 } else {
                     0.0
                 };
+                if let Some(root) = search.sampled {
+                    let view = fork.observe_view(player);
+                    pair_row(search, root, seed, &view, value, &mut fork);
+                }
+                break value;
             }
-            if fork.state().turn.number >= stop
+            // SCAFFOLD (not committed): where the leaf is read.
+            let turn = fork.state().turn.number;
+            let own = fork.state().turn.active == player;
+            let there = match leaf_at() {
+                1 => turn >= stop && (own || turn >= stop + 2),
+                2 => turn >= stop && (!own || turn >= stop + 2),
+                _ => turn >= stop,
+            };
+            if there
                 || answers >= search.budget.answers
                 || fork.pump_at_most(1) == 0
             {
-                break search.model.foresight_value(&fork.observe_view(player));
+                let view = fork.observe_view(player);
+                let value = search.model.foresight_value(&view);
+                if let Some(root) = search.sampled {
+                    pair_row(search, root, seed, &view, value, &mut fork);
+                }
+                break value;
             }
             answers += 1;
         };
@@ -453,4 +482,76 @@ impl Session {
             }
         }
     }
+}
+
+/// SCAFFOLD (not committed): `BAYLEE_LEAF_AT` = `own` or `other`.
+fn leaf_at() -> u8 {
+    static AT: std::sync::OnceLock<u8> = std::sync::OnceLock::new();
+    *AT.get_or_init(|| match std::env::var("BAYLEE_LEAF_AT").as_deref() {
+        Ok("own") => 1,
+        Ok("other") => 2,
+        _ => 0,
+    })
+}
+
+/// SCAFFOLD (not committed): `BAYLEE_PAIR_EVERY`, one root in so many is
+/// played to the end; unset, none.
+fn pair_every() -> Option<u64> {
+    static EVERY: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *EVERY.get_or_init(|| {
+        std::env::var("BAYLEE_PAIR_LOG").ok()?;
+        Some(
+            std::env::var("BAYLEE_PAIR_EVERY")
+                .ok()
+                .and_then(|every| every.parse().ok())
+                .unwrap_or(8),
+        )
+    })
+}
+
+/// SCAFFOLD (not committed): plays `fork` on to its end from the leaf whose
+/// view is `view` and writes the leaf's features with the result, under the
+/// number of its root and world.
+fn pair_row(
+    search: &Search<'_>,
+    root: u64,
+    seed: u64,
+    view: &PlayerView,
+    value: f64,
+    fork: &mut SimulationSession,
+) {
+    use std::io::Write as _;
+    static LOG: std::sync::OnceLock<std::sync::Mutex<std::fs::File>> = std::sync::OnceLock::new();
+    let features = search.model.foresight_features(view);
+    let terminal = matches!(*fork.pending(), Pending::GameOver(_));
+    let mut more = 0;
+    let result = loop {
+        if let Pending::GameOver(result) = *fork.pending() {
+            let winners = fork.winning_seats(result);
+            break if winners.contains(&search.player) {
+                1.0
+            } else if winners.is_empty() {
+                0.5
+            } else {
+                0.0
+            };
+        }
+        if more >= 6000 || fork.pump_at_most(1) == 0 {
+            return;
+        }
+        more += 1;
+    };
+    let log = LOG.get_or_init(|| {
+        let path = std::env::var("BAYLEE_PAIR_LOG").expect("BAYLEE_PAIR_LOG");
+        std::sync::Mutex::new(std::fs::File::create(path).expect("the pair log"))
+    });
+    let line = format!(
+        "{{\"r\":{root},\"w\":{seed},\"p\":{},\"c\":{},\"k\":{},\"t\":{terminal},\"y\":{result:?},\"turn\":{},\"v\":{value:?},\"f\":{features:?}}}\n",
+        root ^ seed,
+        search.candidate.get(),
+        kind(search.pending),
+        view.turn
+    );
+    let mut log = log.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _ = log.write_all(line.as_bytes());
 }

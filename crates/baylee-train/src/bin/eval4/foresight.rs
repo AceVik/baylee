@@ -134,14 +134,15 @@ pub(crate) fn summary(games: u64) -> Value {
 }
 
 /// `--leaf-log`: where the positions a leaf value is fitted on are written.
-static LEAF_LOG: Mutex<Option<std::io::BufWriter<std::fs::File>>> = Mutex::new(None);
+/// The file and the number of games written to it.
+static LEAF_LOG: Mutex<Option<(std::io::BufWriter<std::fs::File>, u64)>> = Mutex::new(None);
 
 /// Opens the leaf log; every house-against-house table then writes to it.
 pub(crate) fn open_leaf_log(path: &std::path::Path) -> anyhow::Result<()> {
     let file = std::fs::File::create(path)?;
     *LEAF_LOG
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(std::io::BufWriter::new(file));
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((std::io::BufWriter::new(file), 0));
     Ok(())
 }
 
@@ -170,13 +171,14 @@ impl LeafTrace {
         }
     }
 
-    /// Writes the noted positions with the result: 1 won, 0 lost, 0.5 drawn.
+    /// Writes the noted positions with the game's number in the log and the
+    /// result: 1 won, 0 lost, 0.5 drawn.
     pub(crate) fn finish(&self, winners: &[u8]) {
         use std::io::Write as _;
         let mut log = LEAF_LOG
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let Some(log) = log.as_mut() else {
+        let Some((log, games)) = log.as_mut() else {
             return;
         };
         for (seat, turn, features) in &self.rows {
@@ -187,15 +189,20 @@ impl LeafTrace {
             } else {
                 0.0
             };
-            let _ = writeln!(log, "{}", json!({"y": won, "turn": turn, "f": features}));
+            let _ = writeln!(
+                log,
+                "{}",
+                json!({"g": *games, "seat": seat, "y": won, "turn": turn, "f": features[..]})
+            );
         }
+        *games += 1;
     }
 }
 
 /// Flushes the leaf log at the end of a run.
 pub(crate) fn close_leaf_log() {
     use std::io::Write as _;
-    if let Some(log) = LEAF_LOG
+    if let Some((log, _)) = LEAF_LOG
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_mut()

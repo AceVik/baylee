@@ -228,3 +228,73 @@ fn the_prior_is_built_from_what_the_seat_sees() {
     );
     assert_eq!(again, shown);
 }
+
+/// Every feature is one side less the other: the two seats of a duel read
+/// the same table as each other's negative, so an even table is even with
+/// no intercept.
+#[test]
+fn the_two_seats_read_a_table_as_each_others_negative() {
+    use baylee_cards_dsl::KeywordSet;
+    let me = PlayerId::new(0);
+    let them = PlayerId::new(1);
+    let mut flyer = permanent(obj(1), me, 2);
+    flyer.keywords = KeywordSet::FLYING.bits() | KeywordSet::LIFELINK.bits();
+    let mut wall = permanent(obj(2), them, 4);
+    wall.keywords = KeywordSet::DEFENDER.bits();
+    let mut tapped = permanent(obj(3), them, 3);
+    tapped.status = ObjectStatus::TAPPED;
+    let mut relic = permanent(obj(4), me, 0);
+    relic.types = TypeSet::ARTIFACT;
+    let board = vec![flyer, wall, tapped, relic, permanent(obj(5), me, 1)];
+    let mut mine = view(0, &[17, 9], board.clone());
+    mine.seats[0].hand_count = 3;
+    mine.seats[1].library_count = 4;
+    let mut theirs = view(1, &[17, 9], board);
+    theirs.seats[0].hand_count = 3;
+    theirs.seats[1].library_count = 4;
+    theirs.active = mine.active;
+    let (a, b) = (
+        agent().foresight_features(&mine),
+        agent().foresight_features(&theirs),
+    );
+    for (name, (a, b)) in crate::foresight::FEATURE_NAMES.iter().zip(a.iter().zip(b)) {
+        assert!((a + b).abs() < 1e-12, "{name}: {a} and {b}");
+    }
+    let value = agent().foresight_value(&mine) + agent().foresight_value(&theirs);
+    assert!((value - 1.0).abs() < 1e-12, "{value}");
+}
+
+/// What gets past the blockers: a flyer over creatures on the ground, and
+/// an attack into creatures that are tapped while it is the attacker's own
+/// turn; the side whose turn it is not is taken to untap before it blocks.
+#[test]
+fn damage_that_gets_through_is_counted_past_the_blockers() {
+    use baylee_cards_dsl::KeywordSet;
+    let me = PlayerId::new(0);
+    let them = PlayerId::new(1);
+    let through = |board: Vec<PublicObject>, active: PlayerId| {
+        let mut v = view(0, &[20, 20], board);
+        v.active = active;
+        let at = crate::foresight::FEATURE_NAMES
+            .iter()
+            .position(|name| *name == "through")
+            .expect("the feature");
+        agent().foresight_features(&v)[at] * 20.0
+    };
+    let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+    let blocker = permanent(obj(2), them, 1);
+    // One attacker, one blocker: mine is blocked; theirs is too.
+    let ground = permanent(obj(1), me, 3);
+    assert!(close(through(vec![ground.clone(), blocker.clone()], me), 0.0));
+    // A flyer is not blocked from the ground, and their 1/1 is by it.
+    let mut flyer = ground.clone();
+    flyer.keywords = KeywordSet::FLYING.bits();
+    assert!(close(through(vec![flyer, blocker.clone()], me), 3.0));
+    // A tapped blocker blocks nothing on my turn, and untaps before theirs:
+    // my 3 get through, and so does its 1 past my one blocker's block of
+    // nothing else.
+    let mut tapped = blocker;
+    tapped.status = ObjectStatus::TAPPED;
+    assert!(close(through(vec![ground.clone(), tapped.clone()], me), 3.0));
+    assert!(close(through(vec![ground, tapped], them), 0.0));
+}
