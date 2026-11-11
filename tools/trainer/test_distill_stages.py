@@ -317,6 +317,20 @@ class CoarseDistill(unittest.TestCase):
         # t2: R taps source 1, N taps source 2: only N's candidate gains.
         torch.testing.assert_close(grad[0, 2, :4], torch.tensor([.25, .25, -.75, .25]))
 
+    def test_act_exact_puts_r_acting_where_n_passes_on_rs_own_candidate(self):
+        _, after, stats, grad = self.step(coarse_batch(), coarse_scope("act-exact"))
+        _, _, group_stats, group_grad = self.step(coarse_batch(), coarse_scope("act"))
+        # t0 R taps source 1, N passes: the whole step goes to R's tap, not to the other
+        # tap and the cast (ce_coarse_r has two rows, so each carries half).
+        torch.testing.assert_close(grad[0, 0, :4], torch.tensor([.125, -.375, .125, .125]))
+        torch.testing.assert_close(group_grad[0, 0, :4], torch.tensor([.125, -.125 / 3, -.125 / 3, -.125 / 3]))
+        self.assertEqual(int(after[0, 0].argmax()), 1)
+        # t1 R passes, N taps: the pass group is one candidate, as under act; t2-t4 unchanged.
+        torch.testing.assert_close(grad[0, 1:], group_grad[0, 1:])
+        self.assertEqual(self.rows(stats, "ce_coarse_r"), 2.)
+        torch.testing.assert_close(stats[len(D.TERMS):], group_stats[len(D.TERMS):])
+        self.assertAlmostEqual(D.term_means(stats)["ce_coarse_r"], math.log(4.), places=5)
+
     def test_class_splits_the_six_classes(self):
         _, after, stats, _ = self.step(coarse_batch(), coarse_scope("class"))
         # t3 R cast / N tap now differ in class: CE to the cast class, no CE to R left.
@@ -388,7 +402,7 @@ class CoarseDistill(unittest.TestCase):
     def test_options(self):
         parse = DistillOptions().parse
         self.assertIsNone(parse(DistillOptions.STAGE_A).distill_coarse)
-        for mode in ("act", "class"):
+        for mode in ("act", "class", "act-exact"):
             args = parse([*DistillOptions.STAGE_A, "--distill-kinds", "0,8", "--distill-coarse", mode])
             self.assertEqual(args.distill_coarse, mode)
         for bad in (["--distill-coarse", "act", "--distill-out-of-scope", "ce-n"],
@@ -418,6 +432,70 @@ def drifted():
     student = [(o[0], (o[1] + torch.randn_like(o[1])).requires_grad_(), (o[2] + torch.randn_like(o[2])),
                 o[3], o[4]) for o in reference]
     return student, reference
+
+
+class DirectionProbe(unittest.TestCase):
+    def test_cached_head_reproduces_the_readout_and_its_coarse_loss(self):
+        import model5 as V5
+        from training4 import direction_probe as P
+        torch.manual_seed(5)
+        net = V5.PlayerNet5(V5.Config5(d_model=32, n_heads=4, n_layers=1, d_ff=64, structure_width=16,
+                                       relational_width=16, relational_revision=2, thinking_revision=2,
+                                       candidate_context_revision=3, deliberation_width=32, deliberation_heads=4,
+                                       deliberation_candidates=4, deliberation_steps=3)).eval()
+        with torch.no_grad():
+            for name, parameter in net.named_parameters():
+                if name.startswith(("cand_decoder.", "cand_context_gate.", "deliberation.correction")):
+                    parameter.normal_(std=.2)
+        net.decision_chunk, net.prune_unused_policy_heads = 2, True
+        batch = coarse_batch()
+        batch["cand_feat"] = batch["cand_feat"] + torch.randn_like(batch["cand_feat"])   # frames differ
+        plans = plan_batch(batch, 0, 2)
+        boards = encode_boards(net, batch, 2, CPU)
+        recorder = P.Recorder(net)
+        with torch.no_grad(), recorder:
+            prepared, _ = deferred_readouts(net, batch, boards, torch.zeros(1, 9, 32), plans, 2, CPU)
+        self.assertNotIn("candidate_hidden", net.__dict__)
+        found = [P.directions(batch, t, plan.candidates) for t, plan in enumerate(plans)]
+        # t0 R tap / N pass, t1 R pass / N tap; t2 and t3 act both ways, t4 N = R.
+        self.assertEqual([bool(split[0]) for _, split, *_ in found], [True, True, False, False, False])
+        self.assertEqual([bool(r_act[0]) for _, _, r_act, *_ in found], [True, False, True, True, True])
+        wanted = {t: [(0, "act" if found[t][2][0] else "pass")] for t in range(5)}
+        rows = P.cached_rows(recorder.groups(plans, 1, 5, 2), batch, plans, prepared, wanted)
+        self.assertEqual(len(rows), 5)
+        stacked = P.stack(rows)
+        with torch.no_grad():
+            logits = P.head_logits(net, stacked)
+        torch.testing.assert_close(logits.where(stacked["mask"], 0.), stacked["logits"].where(stacked["mask"], 0.),
+                                   atol=1e-5, rtol=1e-5)
+        self.assertGreater((logits[:, :4] - logits[:1, :4]).abs().max().item(), 1e-3)
+        # The loss over the cached frames is the readout's loss term for term.
+        scope = D.Scope(kinds=(0,), subtype_names=COARSE_SUBTYPES, coarse="act")
+        _, whole = D.distill_loss(prepared, prepared, batch, plans, scope)
+        _, cached = D.distill_loss(*P.loss_inputs(stacked, logits, stacked["logits"]), scope)
+        torch.testing.assert_close(cached, whole, atol=1e-5, rtol=1e-5)
+        self.assertEqual(cached[len(D.TERMS) + D.TERMS.index("ce_coarse_r")].item(), 2.)
+        groups = (stacked["coarse_class"] != 0).long()
+        split = stacked["n_ne_r"] & (groups.gather(1, stacked["single_idx"][:, None])
+                                     != groups.gather(1, stacked["coarse_n_idx"][:, None]))[:, 0]
+        values = P.per_row(logits, stacked)
+        torch.testing.assert_close(values["ce"][split].mean(), cached[D.TERMS.index("ce_coarse_r")] / 2)
+
+    def test_grouped_decode_counts_where_act_mass_outweighs_a_top1_pass(self):
+        from training4 import direction_probe as P
+        classes = torch.tensor([[0, 1, 1, 1], [0, 1, 1, 1], [0, 1, 2, 2], [0, 0, 1, 2]])
+        mask = torch.ones(4, 4, dtype=torch.bool)
+        mask[3, 1] = False   # CancelCast not on offer
+        # Row 0: pass .4 against three taps .2 each (act mass .6, top-1 pass); row 1: pass leads
+        # outright; row 2: a cast leads; row 3: pass .45, act .55 over two candidates.
+        prob = torch.tensor([[.4, .2, .2, .2], [.7, .1, .1, .1], [.2, .5, .2, .1], [.45, .0, .3, .25]])
+        table = {}
+        P.tally_decode(table, prob.clamp(min=1e-6).log(), mask, classes,
+                       dict(all=torch.ones(4, dtype=torch.bool), first=torch.tensor([True, False, False, False])))
+        self.assertEqual(dict(zip(P.DECODE_COLUMNS, table["all"])),
+                         dict(rows=4, top1_act=1, top1_pass=3, top1_pass_act_mass_over_half=2,
+                              top1_pass_act_mass_over_best_pass=2, top1_act_act_mass_at_most_half=0))
+        self.assertEqual(table["first"], [1, 0, 1, 1, 1, 0])
 
 
 class OutOfScopeAnchor(unittest.TestCase):

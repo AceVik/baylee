@@ -59,7 +59,7 @@ KL_TERMS = slice(1, 7)
 OUT_OF_SCOPE_MODES = ("kl", "ce-n")
 PRIORITY = 0   # pending kind of a priority decision
 COARSE = CLASSES   # coarse classes of a priority answer (coarse_class_v1)
-COARSE_MODES = (None, "act", "class")
+COARSE_MODES = (None, "act", "class", "act-exact")
 AUXILIARY_TARGETS = {}
 
 
@@ -103,7 +103,12 @@ class Scope:
     share a group, a `cast` decision keeps its cross-entropy to R (`ce_r`: which
     spell); any other, cross-entropy to N's recorded candidate (`ce_fine_n`: a
     tap's source or order). Every other decision keeps its term (the KL at
-    N = R; `ce_r` at target questions)."""
+    N = R; `ce_r` at target questions).
+
+    "act-exact" groups as "act", but where R acts and N passes `ce_coarse_r` is the
+    cross-entropy to R's own candidate: the summed act mass can grow while it
+    stays spread over equivalent taps and a single pass keeps the top-1, which
+    is what the net plays. Where R passes and N acts it stays the group's."""
     kinds: tuple = (0,)
     subtypes: tuple | None = None
     subtype_names: tuple = ()
@@ -310,8 +315,12 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                     kept = taught & ~split & cast
                     to_r, outside = (to_r & ~taught) | kept, outside & ~taught
                     ce = -log_s.gather(1, torch.where(to_r, r_idx, 0)[:, None])[:, 0]
+                    to_group = -torch.logsumexp(torch.where(mask & (groups == r_group), log_s, -1e9), -1)
+                    if scope.coarse == "act-exact":
+                        # R acts where N passes: R's own candidate, not the act group's mass.
+                        to_group = torch.where(r_group[:, 0] == 1, -log_s.gather(1, r_idx[:, None])[:, 0], to_group)
                     coarse_routes = [
-                        (8, split, -torch.logsumexp(torch.where(mask & (groups == r_group), log_s, -1e9), -1)),
+                        (8, split, to_group),
                         (9, taught & ~split & ~kept, -log_s.gather(1, n_idx.clamp(min=0)[:, None])[:, 0])]
                 routes = [(0, to_r, ce), (1, distilled & ~differs[:, t], kl),
                           (2, outside, kl), (3, genuine & ~in_kind[:, t], kl)] + coarse_routes
