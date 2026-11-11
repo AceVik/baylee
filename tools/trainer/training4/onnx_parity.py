@@ -65,8 +65,8 @@ def main(argv=None):
     flags = np.asarray(dataset.store.index["flags"])
     for trajectory in dataset.trajectories[::args.every]:
         if args.labelled_only:
-            rows = np.concatenate([dataset.segments[s] for s in trajectory])
-            decisions = [int(r) for r in rows if flags[r] & 1][:64]
+            stored = np.concatenate([dataset.segments[s] for s in trajectory])
+            decisions = [int(r) for r in stored if flags[r] & 1][:64]
             if not any(float(dataset.encode_single_step(r)["loss_weight"]) > 0 for r in decisions):
                 continue
         h_pt = torch.zeros(1, M.RECURRENT_SLOTS, net.cfg.d_model)
