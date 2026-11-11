@@ -45,6 +45,77 @@ def configure(net, args):
     return net
 
 
+class Chains:
+    """Mana chains under teacher forcing (validation's recorded states).
+
+    A chain is a run of consecutive labelled single-choice decisions of the
+    distilled kinds in one trajectory where R taps a mana ability; its first
+    step is a tap whose previous labelled decision was not one (a casting
+    sequence's start, in a main phase or at instant speed). Per position it
+    counts the student's and r1's top-1 actions; per chain, whether each would
+    have tapped at every step. In play one missed tap ends the sequence, so the
+    chain rate bounds play from above.
+    """
+
+    def __init__(self, scope):
+        self.scope = scope
+        self.lanes = {}
+        self.steps = {position: dict(decisions=0, student_mana=0, r1_mana=0, student_pass=0, student_cast=0)
+                      for position in ("first", "later")}
+        self.chains = []
+
+    def close(self, lane):
+        chain = self.lanes.get(lane, {}).get("chain")
+        if chain:
+            self.chains.append((len(chain), all(s for s, _ in chain), all(n for _, n in chain)))
+        self.lanes[lane] = dict(prev=None, chain=[])
+
+    def __call__(self, prepared, reference, batch, plans):
+        get = lambda key: batch[key].cpu()
+        valid, weight, heads = get("step_valid"), get("loss_weight"), get("head")
+        decision = get("is_decision") & valid & (weight > 0) & (heads == 0)
+        in_kind, _ = self.scope.masks(batch, torch.device("cpu"))
+        for lane in torch.nonzero(get("is_new_traj"))[:, 0].tolist():
+            self.close(lane)
+        for t, plan in enumerate(plans):
+            if not plan.heads[0]:
+                continue
+            student, r1 = prepared[t][1].float().cpu(), reference[t][1].float().cpu()
+            mask = get("cand_mask")[:, t, :student.shape[1]]
+            classes = D.action_classes(get("cand_feat")[:, t, :student.shape[1]])
+            top = lambda logits: torch.where(mask, logits, -1e9).argmax(-1)
+            r_actions = classes.gather(1, get("single_idx")[:, t].clamp(min=0)[:, None])[:, 0]
+            s_actions = classes.gather(1, top(student)[:, None])[:, 0]
+            n_actions = classes.gather(1, top(r1)[:, None])[:, 0]
+            chosen = decision[:, t] & (mask.sum(-1) > 1) & in_kind[:, t]
+            for lane in torch.nonzero(chosen)[:, 0].tolist():
+                state = self.lanes.setdefault(lane, dict(prev=None, chain=[]))
+                r_act, s_act, n_act = (D.ACTION_NAMES[int(x[lane])] for x in (r_actions, s_actions, n_actions))
+                if r_act != "mana":
+                    self.close(lane)
+                    self.lanes[lane]["prev"] = r_act
+                    continue
+                counts = self.steps["later" if state["prev"] == "mana" else "first"]
+                counts["decisions"] += 1
+                counts["student_mana"] += s_act == "mana"
+                counts["r1_mana"] += n_act == "mana"
+                counts["student_pass"] += s_act == "pass"
+                counts["student_cast"] += s_act == "cast"
+                state["chain"].append((s_act == "mana", n_act == "mana"))
+                state["prev"] = r_act
+
+    def report(self):
+        for lane in list(self.lanes):
+            self.close(lane)
+        steps = {position: {k: (v / c["decisions"] if k != "decisions" and c["decisions"] else v)
+                            for k, v in c.items()} for position, c in self.steps.items()}
+        n = len(self.chains)
+        return dict(steps=steps, chains=n,
+                    mean_length=sum(length for length, _, _ in self.chains) / n if n else None,
+                    student_taps_through=sum(s for _, s, _ in self.chains) / n if n else None,
+                    r1_taps_through=sum(r for _, _, r in self.chains) / n if n else None)
+
+
 def table_rows(metrics, groups):
     rows = []
     for group in groups:
@@ -106,15 +177,16 @@ def main(argv=None):
             print(f"[audit] batches={seen[0]} out_of_scope_decisions={done} "
                   f"seconds={time.perf_counter() - began:.0f}", flush=True)
 
+    chains = Chains(scope)
     metrics = D.evaluate_distill(student, reference, loader, torch.device("cpu"), scope, args.board_chunk, .05,
-                                 bf16=False, actions=actions, progress=progress)
+                                 bf16=False, actions=actions, progress=progress, observe=chains)
     groups = ["distilled", "out_of_scope", *(f"subtype:{name}" for name in ("unknown", *scope.subtype_names))]
     moves = sorted(({"subtype": s, "r_action": r, "n_action": n, "student_action": a, "count": c}
                     for (s, r, n, a), c in actions.items()), key=lambda m: -m["count"])
     report = dict(student=str(args.student), reference=str(args.reference), data=str(args.data),
                   trajectories=len(dataset.trajectories), of_trajectories=total_trajectories, every=args.every,
                   frames=metrics["val_frames"], shared_trunk=shared, seconds=round(time.perf_counter() - began),
-                  rows=table_rows(metrics, groups), neither_moves=moves,
+                  rows=table_rows(metrics, groups), neither_moves=moves, mana_chains=chains.report(),
                   terms={name: metrics.get(f"val_distill_{name}") for name in D.TERMS})
     text = json.dumps(report, indent=1)
     if args.out:

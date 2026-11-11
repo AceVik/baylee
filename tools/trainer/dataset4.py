@@ -436,6 +436,16 @@ class TrajectoryDataset4(Dataset):
         return frame
 
     def encode_single_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
+        frame = self._encode_step(step_or_row)
+        # Opt-in (`--distill-coarse`): a stored row's coarse answer classes, joined
+        # by (game, seat, cursor) from the dataset's sidecar (training4.coarse).
+        coarse = getattr(self, "coarse", None)
+        if coarse is not None and not isinstance(step_or_row, dict):
+            index = self.store.index[int(step_or_row)]
+            coarse.annotate(frame, int(index["game"]), int(index["seat"]), int(index["cursor"]))
+        return frame
+
+    def _encode_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
         if not isinstance(step_or_row, dict):
             buf = self.store.read_raw(int(step_or_row))
             if buf[:4] == BST4_MAGIC:

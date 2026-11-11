@@ -93,6 +93,11 @@ def main(default_architecture="v4") -> None:
     # nothing else; set before any loader copies the datasets into workers.
     from .distill import check_datasets
     check_datasets((train_ds, val_ds), args.distill_bundle)
+    if args.distill_coarse:
+        # Coarse answer classes beside the shards, outside the store's fingerprint.
+        from .coarse import CoarseClasses
+        for dataset in (train_ds, val_ds):
+            dataset.coarse = CoarseClasses.load(Path(dataset.data_dir) / "bundle-distill")
 
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
@@ -290,7 +295,8 @@ def main(default_architecture="v4") -> None:
         reference = Reference(reference_weights.to(device), net, args.trainable_trunk_from_layer)
         scope = Scope.from_options(args.distill_kinds, args.distill_kl_weight, args.distill_subtypes,
                                    args.distill_group_weights, (train_ds, val_ds),
-                                   args.distill_out_of_scope, args.distill_out_of_scope_weight)
+                                   args.distill_out_of_scope, args.distill_out_of_scope_weight,
+                                   args.distill_coarse)
         identity["bundle_distillation"] = dict(contract="bundle_distillation_v1", kinds=list(args.distill_kinds),
                                                subtypes=list(args.distill_subtypes) or None,
                                                group_weights=args.distill_group_weights or None,
@@ -299,6 +305,10 @@ def main(default_architecture="v4") -> None:
             # Named only when set, so every earlier run's identity stays as it was.
             identity["bundle_distillation"]["out_of_scope"] = dict(mode=args.distill_out_of_scope,
                                                                    weight=args.distill_out_of_scope_weight)
+        if args.distill_coarse:
+            identity["bundle_distillation"]["coarse"] = dict(mode=args.distill_coarse,
+                                                             rule=train_ds.coarse.header.get("rule"),
+                                                             rows=len(train_ds.coarse.index))
         if args.think_loss is not None:
             # The per-step terms take this loss's targets; no consequence term.
             identity["thinking"]["targets"] = "bundle_distillation_scope_v1"

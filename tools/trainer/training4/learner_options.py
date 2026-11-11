@@ -71,6 +71,12 @@ def add_learner_options(parser):
                              "cross-entropy to r1's top-1 (N), its own term ce_n_out_of_scope, the KL there reported only")
     parser.add_argument("--distill-out-of-scope-weight", type=float, default=1.0,
                         help="Weight of the ce-n term")
+    parser.add_argument("--distill-coarse", choices=("act", "class"), default=None,
+                        help="Labelled priority decisions where N != R learn by a group of answers (the dataset's "
+                             "bundle-distill/coarse-classes sidecar): act = pass (PassPriority, CancelCast) against "
+                             "act, class = the six coarse classes. Groups differ: CE to R's group on its summed "
+                             "probability (ce_coarse_r). Same group: a cast decision keeps CE to R, any other CE to "
+                             "N's candidate (ce_fine_n). The KL keeps N = R; target questions unchanged. Off by default")
     parser.add_argument("--skip-final-validation", action="store_true",
                         help="Throughput probes only: no held-out pass after a --max-steps/time-budget stop")
     parser.add_argument("--vectorized-rule-closure", action="store_true",
@@ -144,6 +150,10 @@ def check_learner_options(args, parser):
         parser.error("--distill-out-of-scope-weight weights the ce-n term only")
     if not args.distill_out_of_scope_weight >= 0:
         parser.error("--distill-out-of-scope-weight must be nonnegative")
+    if args.distill_coarse and (not args.distill_bundle or args.distill_out_of_scope != "kl"
+                                or 0 not in args.distill_kinds):
+        parser.error("--distill-coarse needs --distill-bundle, priority (0) among --distill-kinds and the "
+                     "out-of-scope KL (not --distill-out-of-scope ce-n)")
     if args.distill_bundle:
         if not args.distill_kinds or args.distill_kl_weight < 0 or args.distill_scalar_tolerance < 0:
             parser.error("--distill-bundle needs kinds and a nonnegative KL weight and scalar tolerance")
