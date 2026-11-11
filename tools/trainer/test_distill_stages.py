@@ -552,6 +552,53 @@ class OutOfScopeAnchor(unittest.TestCase):
         self.assertEqual(m["val_distill_pregate_pass_ratio"], 1.)
         self.assertEqual(m["val_distill_chain_by"]["start"]["class:tap"]["decisions"], 2)
         self.assertEqual(m["val_distill_chain_by"]["start"]["subtype:unknown"]["decisions"], 3)
+        # Pass drift at the starts: the student leads with an act twice and with pass once (logits +-3); r1 is flat.
+        self.assertAlmostEqual(m["val_distill_chain_start_pass_margin"], (-6 - 6 + 6) / 3, places=5)
+        self.assertEqual(m["val_distill_chain_start_pass_margin_r1"], 0.)
+        self.assertEqual(m["val_distill_chain_margin_by"]["start"]["class:tap"]["rows"], 2)
+
+    def test_pass_margin_and_training_drift_at_chain_starts(self):
+        mask = torch.tensor([[True, True, True, False], [True, False, False, False]])
+        classes = torch.tensor([[0, 1, 2, 0], [0, 1, 2, 0]])           # pass, tap, cast
+        logits = torch.tensor([[2., 1., -1., 9.], [5., 0., 0., 0.]])
+        margin = D.pass_margin(logits, mask, classes)
+        self.assertEqual(float(margin[0]), 1.)                         # pass 2 over the best act 1; 9 is masked
+        self.assertTrue(margin[1].isnan())                             # no act on offer
+        student, reference, batch, plans = self.chain_step([0, 1, 1], [0, 1, 1], [0, 1, 1], True)
+        batch["coarse_chain_start"] = torch.tensor([[False, True, False]])
+        drift = D.drift_means(D.chain_start_drift(student, reference, batch, plans))
+        self.assertEqual(drift, dict(student=-6., r1=0., rows=1))
+        line = json.loads(D.epoch_line(1, 3, None, {}, D.chain_start_drift(student, reference, batch, plans))
+                          .split(" ", 2)[2])
+        self.assertEqual(line["drift"]["student"], -6.)
+
+    def test_trained_balance_routes_frames_as_each_loss_does(self):
+        from training4.trained_balance import routes
+        # Frames: in scope R tap / N pass; in scope R pass / N tap; out of scope R tap / N tap 2 (another
+        # source); in scope cast, R cast / N tap; N = R pass.
+        in_scope = np.array([True, True, False, True, True])
+        differs = np.array([True, True, True, True, False])
+        r_class, n_class = np.array([1, 0, 1, 2, 0]), np.array([0, 1, 1, 1, 0])
+        cast = np.array([False, False, False, True, False])
+        term, target = routes("kl", in_scope, differs, r_class, n_class, cast)
+        self.assertEqual(term.tolist(), ["ce_r", "ce_r", "", "ce_r", ""])
+        term, target = routes("ce-n", in_scope, differs, r_class, n_class, cast)
+        self.assertEqual((term[2], int(target[2])), ("ce_n_out_of_scope", 1))
+        term, target = routes("act", in_scope, differs, r_class, n_class, cast)
+        self.assertEqual(term.tolist(), ["ce_coarse_r", "ce_coarse_r", "ce_fine_n", "ce_r", ""])
+        self.assertEqual(target.tolist()[:4], [1, 0, 1, 2])
+        term, _ = routes("class", in_scope, differs, r_class, n_class, cast)
+        self.assertEqual(term.tolist(), ["ce_coarse_r", "ce_coarse_r", "ce_fine_n", "ce_coarse_r", ""])
+
+    def test_sidecar_marks_chain_starts_per_trajectory(self):
+        from training4.coarse import INDEX, chain_starts
+        index = np.zeros(9, dtype=INDEX)
+        index["game"], index["seat"] = 1, 0
+        index["seat"][7:] = 1                                          # a second trajectory
+        # pass, tap (start), tap, land (neutral), cast, pass, activate (start); seat 1: land, tap (start)
+        index["r_class"] = [0, 1, 1, 4, 2, 0, 3, 4, 1]
+        index["cursor"] = np.arange(9)
+        self.assertEqual(chain_starts(index).tolist(), [False, True, False, False, False, False, True, False, True])
 
     def test_pregate_verdict_and_its_command(self):
         from training4 import pregate as P

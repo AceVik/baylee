@@ -94,9 +94,10 @@ def main(default_architecture="v4") -> None:
     from .distill import check_datasets
     check_datasets((train_ds, val_ds), args.distill_bundle)
     if args.distill_bundle:
-        # Coarse answer classes beside the shards, outside the store's fingerprint:
-        # training reads them for --distill-coarse; validation wherever the dataset has
-        # them, so every run's chain counts use the same classes.
+        # Coarse answer classes beside the shards, outside the store's fingerprint, read
+        # wherever the dataset has them: --distill-coarse trains on them, validation counts
+        # chains on them, and training reports the pass drift at its chain starts. With
+        # coarse distillation off they change no loss term.
         from .coarse import CoarseClasses
         for dataset in (train_ds, val_ds):
             directory = getattr(dataset, "data_dir", None)
@@ -104,7 +105,7 @@ def main(default_architecture="v4") -> None:
             present = sidecar is not None and (sidecar / "coarse-classes.json").is_file()
             if args.distill_coarse and not present:
                 raise ValueError("--distill-coarse needs the dataset's bundle-distill/coarse-classes sidecar")
-            if args.distill_coarse or (dataset is val_ds and present):
+            if present:
                 dataset.coarse = CoarseClasses.load(sidecar)
 
     train_sampler = D4.StatefulBatchSampler4(
@@ -560,6 +561,7 @@ def main(default_architecture="v4") -> None:
     t0 = time.perf_counter()
     stop = False
     distill_stats = None
+    distill_drift = None
     val_metrics = dict(best_val_metrics)
     if resume_epoch > args.epochs:
         print("[train4] Requested epochs already complete; checkpoint preserved", flush=True)
@@ -577,6 +579,7 @@ def main(default_architecture="v4") -> None:
             ep_tot = 0
             epoch_stats = torch.zeros(5, device=device)
             epoch_distill = None
+            epoch_drift = None
             think_stats = None
             ep_batches = 0
             h = resume_h if epoch == resume_epoch else None
@@ -656,6 +659,12 @@ def main(default_architecture="v4") -> None:
                         traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, scope, extra)
                         distill_stats = dstats if distill_stats is None else distill_stats + dstats
                         epoch_distill = dstats if epoch_distill is None else epoch_distill + dstats
+                        if "coarse_chain_start" in batch:
+                            # Pass drift at the chain starts this batch trains on (the sidecar's flag).
+                            from .distill import chain_start_drift
+                            drift = chain_start_drift(prepared, ref_prepared, batch, plans)
+                            distill_drift = drift if distill_drift is None else distill_drift + drift
+                            epoch_drift = drift if epoch_drift is None else epoch_drift + drift
                     else:
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                             aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
@@ -736,6 +745,10 @@ def main(default_architecture="v4") -> None:
                         from .distill import term_means
                         print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
                         distill_stats = None
+                    if distill_drift is not None:
+                        from .distill import drift_means
+                        print(f"[distill] drift step={step_num} " + json.dumps(drift_means(distill_drift)), flush=True)
+                        distill_drift = None
                     if think_stats is not None:
                         # Share of this epoch's decisions each step answers as the target; step 0 is the first proposal.
                         per_step = (think_stats[:-1] / think_stats[-1].clamp(min=1)).tolist()
@@ -765,6 +778,10 @@ def main(default_architecture="v4") -> None:
                 from .distill import term_means
                 print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
                 distill_stats = None
+            if distill_drift is not None:
+                from .distill import drift_means
+                print(f"[distill] drift step={step_num} " + json.dumps(drift_means(distill_drift)), flush=True)
+                distill_drift = None
             # Opt-in for throughput probes only: no held-out pass after the last step.
             skipped = args.skip_final_validation and stop
             val_metrics = dict(last_validation_metrics) if skipped else validate_and_save()
@@ -787,7 +804,7 @@ def main(default_architecture="v4") -> None:
             if reference is not None:
                 # Distillation trains none of the behaviour-cloning terms above.
                 from .distill import epoch_line
-                print(epoch_line(epoch, step_num, epoch_distill, val_metrics), flush=True)
+                print(epoch_line(epoch, step_num, epoch_distill, val_metrics, epoch_drift), flush=True)
             save_last(epoch if stop else epoch + 1, next_batch if stop else 0, h if stop else None)
             if stop:
                 break

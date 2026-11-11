@@ -28,6 +28,26 @@ INDEX = np.dtype([("game", "<u4"), ("cursor", "<u4"), ("seat", "u1"), ("r_class"
 PRIORITY = 0
 
 
+CHAIN_ACTS = (CLASSES.index("tap"), CLASSES.index("cast"), CLASSES.index("activate"))
+
+
+def chain_starts(index):
+    """Per row: R starts an acting chain there, a tap, cast or activation after R's
+    last labelled priority answer in the trajectory was a pass (or at its first);
+    land drops and other answers are neutral (`distill.ChainCounter`'s rule)."""
+    starts = np.zeros(len(index), dtype=bool)
+    group = (index["game"].astype(np.uint64) << np.uint64(32)) | index["seat"].astype(np.uint64)
+    previous, acting = None, False
+    for row, (where, answer) in enumerate(zip(group.tolist(), index["r_class"].tolist())):
+        if where != previous:
+            previous, acting = where, False
+        if answer in CHAIN_ACTS:
+            starts[row], acting = not acting, True
+        elif answer == CLASSES.index("pass"):
+            acting = False
+    return starts
+
+
 def key(game, seat, cursor):
     """One sortable u64 per (game, seat, cursor): the sidecar's own order."""
     return (np.asarray(game, np.uint64) << np.uint64(32)) | (np.asarray(seat, np.uint64) << np.uint64(28)) \
@@ -42,6 +62,7 @@ class CoarseClasses:
         self.keys = key(index["game"], index["seat"], index["cursor"])
         if len(self.keys) > 1 and not (self.keys[1:] > self.keys[:-1]).all():
             raise ValueError("Coarse class rows are not sorted by (game, seat, cursor) or repeat a key")
+        self.chain_start = chain_starts(index)
 
     @classmethod
     def load(cls, directory):
@@ -61,6 +82,7 @@ class CoarseClasses:
         width = len(frame["cand_mask"])
         frame["coarse_class"] = np.full(width, -1, dtype=np.int64)
         frame["coarse_n_idx"] = np.array(-1, dtype=np.int64)
+        frame["coarse_chain_start"] = np.array(False)
         labelled = (bool(frame["is_decision"]) and float(frame["loss_weight"]) > 0
                     and int(frame["pending_kind"]) == PRIORITY and int(frame["head"]) == 0)
         if not labelled:
@@ -78,6 +100,7 @@ class CoarseClasses:
             raise ValueError(f"Coarse class rows disagree with their classes (game {game}, cursor {cursor})")
         frame["coarse_class"] = classes
         frame["coarse_n_idx"] = np.array(int(row["n_idx"]), dtype=np.int64)
+        frame["coarse_chain_start"] = np.array(bool(self.chain_start[at]))
         return frame
 
 

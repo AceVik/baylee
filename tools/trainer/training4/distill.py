@@ -459,17 +459,20 @@ EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "va
                     "val_distill_chain_mid_student_act", "val_distill_chain_mid_r1_act",
                     "val_distill_chain_completion", "val_distill_chain_completion_r1",
                     "val_distill_pregate_start_act_ratio", "val_distill_pregate_pass_ratio",
+                    "val_distill_chain_start_pass_margin", "val_distill_chain_start_pass_margin_r1",
                     *(f"val_distill_{name}" for name in TERMS),
                     "val_value_mse_to_r1")
 
 
-def epoch_line(epoch, step, stats, val_metrics):
-    """`[distill] epoch` JSON: the epoch's training terms and validation's agreement
-    with R. A distillation run trains none of the behaviour-cloning terms the
-    `[train4] epoch` line prints, so they read zero there."""
+def epoch_line(epoch, step, stats, val_metrics, drift=None):
+    """`[distill] epoch` JSON: the epoch's training terms, the pass drift at the chain
+    starts it trained on, and validation's agreement with R. A distillation run trains
+    none of the behaviour-cloning terms the `[train4] epoch` line prints, so they read
+    zero there."""
     train = term_means(stats.cpu()) if stats is not None else None
     validation = {key: val_metrics[key] for key in EPOCH_VALIDATION if key in val_metrics}
     return "[distill] epoch " + json.dumps(dict(epoch=epoch, step=step, train=train,
+                                                drift=None if drift is None else drift_means(drift),
                                                 validation=validation or None))
 
 
@@ -565,6 +568,16 @@ CHAIN_FIELDS = ("decisions", "top1_r", "top1_n", "student_act", "r1_act")
 CHAIN_ACTS = tuple(COARSE.index(name) for name in ("tap", "cast", "activate"))   # R's acts that make a chain
 
 
+def pass_margin(logits, mask, classes):
+    """[B] the best pass candidate's logit minus the best acting candidate's; nan where
+    either side has no candidate."""
+    passing = mask & (classes == COARSE.index("pass"))
+    acting = mask & (classes != COARSE.index("pass"))
+    best = lambda chosen: torch.where(chosen, logits, float("-inf")).max(-1).values
+    margin = best(passing) - best(acting)
+    return torch.where(passing.any(-1) & acting.any(-1), margin, torch.full_like(margin, float("nan")))
+
+
 class ChainCounter:
     """R's acting chains at labelled priority decisions, read in trajectory order per lane.
 
@@ -586,7 +599,8 @@ class ChainCounter:
         self.scope = scope
         self.lanes = {}
         self.counts = {}
-        self.chains = []   # (length, student acts through, r1 acts through)
+        self.margins = {}   # position -> key -> [student margin sum, r1 margin sum, rows]
+        self.chains = []    # (length, student acts through, r1 acts through)
 
     def close(self, lane):
         chain = self.lanes.get(lane, {}).get("chain")
@@ -606,12 +620,13 @@ class ChainCounter:
         valid = get("step_valid")
         labelled = (get("is_decision") & valid & (get("loss_weight") > 0) & (get("head") == 0)
                     & (get("pending_kind") == PRIORITY))
-        columns = []
+        columns, gaps = [], []
         passes = COARSE.index("pass")
         for t, plan in enumerate(plans):
             b = labelled.shape[0]
             if not plan.heads[0]:
                 columns.append(torch.full((b, 7), -1, dtype=torch.long, device=device))
+                gaps.append(torch.full((b, 2), float("nan"), device=device))
                 continue
             logits = prepared[t][1].float()
             mask = get("cand_mask")[:, t, :logits.shape[1]]
@@ -625,7 +640,10 @@ class ChainCounter:
             of = lambda index: classes.gather(1, index[:, None])[:, 0]
             rows = labelled[:, t] & (mask.sum(-1) > 1)
             columns.append(torch.stack((rows.long(), r_idx, n_idx, s_idx, of(r_idx), of(n_idx), of(s_idx)), 1))
+            gaps.append(torch.stack((pass_margin(logits, mask, classes), pass_margin(reference[t][1].float(), mask,
+                                                                                     classes)), 1))
         table = torch.stack(columns, 1).cpu().tolist()          # [B, U, 7]
+        margins = torch.stack(gaps, 1).cpu().tolist()           # [B, U, 2]: student, r1
         subtypes = (batch["distill_subtype"].cpu().tolist() if "distill_subtype" in batch
                     else [[-1] * len(plans)] * len(table))
         names = dict(enumerate(self.scope.subtype_names))
@@ -649,6 +667,11 @@ class ChainCounter:
                     position = "neutral"
                 keys = ("all", f"subtype:{names.get(subtypes[lane][t], 'unknown')}", f"class:{COARSE[r_class]}")
                 self.add(position, keys, (1, s_idx == r_idx, s_idx == n_idx, s_act, n_act))
+                mine, theirs = margins[lane][t][:2]
+                if mine == mine and theirs == theirs:   # both a pass and an act candidate on offer
+                    for key in keys:
+                        row = self.margins.setdefault(position, {}).setdefault(key, [0., 0., 0])
+                        row[0], row[1], row[2] = row[0] + mine, row[1] + theirs, row[2] + 1
 
     def metrics(self):
         """Validation keys: overall rates per position, the breakdown, chain completion."""
@@ -663,6 +686,15 @@ class ChainCounter:
                 out[f"val_distill_chain_{position}_{name}"] = value
         out["val_distill_chain_by"] = {position: {key: rate(row) for key, row in sorted(rows.items())}
                                        for position, rows in self.counts.items()}
+        # Pass drift: the pass logit's margin over the best act candidate (positive: passing leads).
+        mean = lambda row, i: row[i] / row[2] if row[2] else None
+        for position in ("start", "mid"):
+            row = self.margins.get(position, {}).get("all", [0., 0., 0])
+            out[f"val_distill_chain_{position}_pass_margin"] = mean(row, 0)
+            out[f"val_distill_chain_{position}_pass_margin_r1"] = mean(row, 1)
+        out["val_distill_chain_margin_by"] = {
+            position: {key: dict(student=mean(row, 0), r1=mean(row, 1), rows=row[2]) for key, row in sorted(rows.items())}
+            for position, rows in self.margins.items()}
         n = len(self.chains)
         out.update(val_distill_chains=n,
                    val_distill_chain_mean_length=sum(c[0] for c in self.chains) / n if n else None,
@@ -675,6 +707,29 @@ class ChainCounter:
                                                  if pass_s is not None and pass_r1 is not None and pass_r1 < 1
                                                  else None)
         return out
+
+
+def chain_start_drift(prepared, reference, batch, plans):
+    """[student margin sum, r1 margin sum, rows] of the pass logit over the best acting
+    candidate at a training batch's chain starts (the sidecar's `coarse_chain_start`)."""
+    device = prepared[0][4].device
+    flags = batch["coarse_chain_start"].to(device, non_blocking=True) & batch["step_valid"].to(device)
+    out = torch.zeros(3, device=device)
+    for t, plan in enumerate(plans):
+        if not plan.heads[0]:
+            continue
+        logits = prepared[t][1].detach().float()
+        mask = batch["cand_mask"][:, t, :logits.shape[1]].to(device, non_blocking=True)
+        classes = coarse_classes(batch, t, logits.shape[1]).to(device, non_blocking=True)
+        mine, theirs = pass_margin(logits, mask, classes), pass_margin(reference[t][1].float(), mask, classes)
+        rows = flags[:, t] & ~mine.isnan() & ~theirs.isnan()
+        out += torch.stack((torch.where(rows, mine, 0.).sum(), torch.where(rows, theirs, 0.).sum(), rows.sum()))
+    return out
+
+
+def drift_means(drift):
+    student, r1, rows = drift.cpu().tolist()
+    return dict(student=student / rows if rows else None, r1=r1 / rows if rows else None, rows=int(rows))
 
 
 def pregate(metrics, min_ratio):
@@ -693,7 +748,9 @@ def pregate(metrics, min_ratio):
                         start_r1_act=metrics.get("val_distill_chain_start_r1_act"),
                         chain_completion=metrics.get("val_distill_chain_completion"),
                         chain_completion_r1=metrics.get("val_distill_chain_completion_r1"),
-                        chain_starts=metrics.get("val_distill_chain_start_decisions"))
+                        chain_starts=metrics.get("val_distill_chain_start_decisions"),
+                        start_pass_margin=metrics.get("val_distill_chain_start_pass_margin"),
+                        start_pass_margin_r1=metrics.get("val_distill_chain_start_pass_margin_r1"))
 
 
 def answers(prepared, reference, batch, plans, scope, actions=None):
