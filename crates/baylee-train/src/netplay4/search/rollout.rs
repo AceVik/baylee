@@ -19,6 +19,13 @@ use super::{
 /// guard against a world that never settles, not a budget.
 pub(super) const MAX_ROLLOUT_ACTIONS: u64 = 4096;
 
+/// The most actions a rollout takes per turn of a turn horizon before it
+/// stops. In the first probe two roots took five minutes each, each with a
+/// rollout that ended at a guard: read as a world that never settled and
+/// ran to [`MAX_ROLLOUT_ACTIONS`], an inference a step (not confirmed from a
+/// record). A turn of that probe took about 26 actions.
+pub(super) const MAX_ACTIONS_A_TURN: u64 = 400;
+
 /// Why a rollout ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LeafKind {
@@ -150,6 +157,11 @@ fn rollout<P: SearchPlayer4>(
         .ok()
         .filter(|turns| *turns > 0)
         .map(|turns| start_turn.saturating_add(turns));
+    let guard = if reach.turns > 0 {
+        MAX_ROLLOUT_ACTIONS.min(MAX_ACTIONS_A_TURN.saturating_mul(reach.turns as u64))
+    } else {
+        MAX_ROLLOUT_ACTIONS
+    };
     let mut next_own_turn: Option<u32> = None;
     let (mut steps, mut decisions) = (0_u64, 0_u64);
     let house = std::cell::Cell::new(0_u64);
@@ -267,7 +279,7 @@ fn rollout<P: SearchPlayer4>(
         if decisions >= horizon as u64 {
             return value(player, steps, decisions, LeafKind::Horizon);
         }
-        if steps >= MAX_ROLLOUT_ACTIONS {
+        if steps >= guard {
             return value(player, steps, decisions, LeafKind::Stopped);
         }
         if fork.needs_pump() {
