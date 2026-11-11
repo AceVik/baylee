@@ -226,6 +226,24 @@ impl EvaluationPlayer for SeatPlayers {
     fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
         self.distill_steps.as_mut().map(std::mem::take)
     }
+    fn give_distill_answer(
+        &mut self,
+        seat: u8,
+        answer: baylee_engine::choice::PlayerAction,
+    ) -> bool {
+        self.player_mut(usize::from(seat))
+            .is_some_and(|player| player.give_distill_answer(seat, answer))
+    }
+    fn distill_net_action(&self, seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
+        self.player(usize::from(seat))?.distill_net_action(seat)
+    }
+    fn distill_unencodable(&self) -> u64 {
+        self.learner.distill_unencodable()
+            + self
+                .opponent
+                .as_deref()
+                .map_or(0, EvaluationPlayer::distill_unencodable)
+    }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.player(usize::from(seat.get()))?.observed_value(seat)
     }

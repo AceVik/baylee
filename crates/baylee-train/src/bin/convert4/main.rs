@@ -585,6 +585,11 @@ fn main() -> anyhow::Result<()> {
         meta["ppo_eligible"] = json!(false);
     }
     let distill_counts = Arc::new(Mutex::new(bundle_distill::Counts::default()));
+    // The JSON steps name the dataset's one contract.
+    let distill_contract = distill_runs.as_ref().map_or(
+        bundle_distill::DISTILL_CONTRACT,
+        bundle_distill::Runs::contract,
+    );
     let coarse_rows = Arc::new(Mutex::new(Vec::<coarse_classes::Row>::new()));
     let write_coarse = args.coarse_classes.is_some();
     if let Some(runs) = &distill_runs {
@@ -643,7 +648,7 @@ fn main() -> anyhow::Result<()> {
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut distill_cursor = gref.distill.as_ref().map(bundle_distill::Cursor::new);
-                let mut distill_steps = gref.distill.as_ref().map(|_| bundle_distill::JsonSteps::new(&root, gref.game_id)).transpose()?;
+                let mut distill_steps = gref.distill.as_ref().map(|_| bundle_distill::JsonSteps::new(&root, gref.game_id, distill_contract)).transpose()?;
                 let mut game_coarse = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));

@@ -420,8 +420,9 @@ impl NetPlayer4 {
             .unwrap_or_default()
     }
 
-    /// Sets `eval4 --distill-labels`: from the next decision on, every answer
-    /// of the policy is labelled with `N` and the layer's `R`.
+    /// Sets `eval4 --distill-labels` or `--distill-teacher`: from the next
+    /// decision on, every answer of the policy is labelled with `N` and the
+    /// layer's `R` or the house's `H`.
     pub fn set_distill(&mut self, distill: distill::Distill4) {
         self.distill = Some(distill);
     }
@@ -431,6 +432,12 @@ impl NetPlayer4 {
         self.distill
             .as_mut()
             .and_then(distill::Distill4::take_label)
+    }
+
+    /// The labels of the decision this net answered last, left in place.
+    #[must_use]
+    pub fn distill_label(&self) -> Option<&distill::DistillLabel4> {
+        self.distill.as_ref().and_then(distill::Distill4::label)
     }
 
     /// Records a step of this net's seat ([`distill::Distill4::step`]).
@@ -449,6 +456,28 @@ impl NetPlayer4 {
     /// The game's distillation steps, taken; `None` without `--distill-labels`.
     pub fn take_distill_steps(&mut self) -> Option<Vec<distill::DistillStep4>> {
         self.distill.as_mut().map(distill::Distill4::take_steps)
+    }
+
+    /// The house's answer to the decision this net answers next, for a
+    /// house-teacher label ([`distill::Distill4::give`]). Returns whether this
+    /// net labels with a house teacher.
+    pub fn give_distill_answer(&mut self, answer: baylee_engine::choice::PlayerAction) -> bool {
+        match &mut self.distill {
+            Some(distill) if distill.teacher() == distill::DistillTeacher4::House => {
+                distill.give(answer);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Given answers this net's menus could not hold so far, its decisions
+    /// left unlabelled.
+    #[must_use]
+    pub fn distill_unencodable(&self) -> u64 {
+        self.distill
+            .as_ref()
+            .map_or(0, distill::Distill4::unencodable)
     }
 
     /// Sets `eval4 --choice-guard` (`tactics::guard`) for this net.

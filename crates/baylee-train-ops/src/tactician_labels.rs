@@ -5,7 +5,10 @@
 //!   the tactician's records, read only by its own trainer;
 //! - [`DISTILL_CONTRACT`] (`eval4 --distill-labels`): the whole net's
 //!   distillation labels beside the game records, read only by `convert4
-//!   --bundle-distill` ([`admit_distillation`]).
+//!   --bundle-distill` ([`admit_distillation`]);
+//! - [`HOUSE_DISTILL_CONTRACT`] (`eval4 --distill-teacher house:<level>`):
+//!   the same labels with a fair house level's answers in place of the
+//!   layer's, read only by the same reader.
 //!
 //! A run that keeps either names its contract in its `run.json`. Every reader
 //! of a run that turns it into training data of another kind (convert4, the
@@ -24,6 +27,13 @@ pub const IMITATION_CONTRACT: &str = "tactician_imitation_v1";
 
 /// The run and dataset contract of the whole net's distillation labels.
 pub const DISTILL_CONTRACT: &str = "bundle_distillation_v1";
+
+/// The run and dataset contract of the house-teacher labels: the distillation
+/// labels with a fair house level's answer `H` where the layer's `R` was.
+pub const HOUSE_DISTILL_CONTRACT: &str = "house_distillation_v1";
+
+/// The contracts `convert4 --bundle-distill` admits, one per dataset.
+pub const DISTILL_CONTRACTS: [&str; 2] = [DISTILL_CONTRACT, HOUSE_DISTILL_CONTRACT];
 
 /// The block a distillation dataset appends to a recorded seat's decision
 /// frame, after the BST4 payload (the free mask): this magic, the priority
@@ -73,35 +83,41 @@ pub fn trailing_distill_block(trailing: &[u8]) -> Result<Option<(u8, u64)>> {
 /// Refuses a run whose `run.json` keeps the layer's answers as labels.
 ///
 /// # Errors
-/// When any value in `run`, at any depth, is [`IMITATION_CONTRACT`] or
-/// [`DISTILL_CONTRACT`].
+/// When any value in `run`, at any depth, is [`IMITATION_CONTRACT`] or one
+/// of [`DISTILL_CONTRACTS`].
 pub fn refuse_imitation(run: &Value) -> Result<()> {
     ensure!(
         !names(run, IMITATION_CONTRACT),
         "this run keeps {IMITATION_CONTRACT} records: the tactical layer's answers as labels, \
          which train the tactician and nothing else"
     );
-    ensure!(
-        !names(run, DISTILL_CONTRACT),
-        "this run keeps {DISTILL_CONTRACT} labels: the tactical layer's answers, read only by \
-         convert4 --bundle-distill"
-    );
+    for contract in DISTILL_CONTRACTS {
+        ensure!(
+            !names(run, contract),
+            "this run keeps {contract} labels: a teacher's answers, read only by convert4 \
+             --bundle-distill"
+        );
+    }
     Ok(())
 }
 
 /// Admits a run to `convert4 --bundle-distill`: its `run.json` must declare
-/// the distillation contract (`distill.contract`). The tactician's imitation
-/// contract it may also name is for its own records, elsewhere.
+/// one of the distillation contracts (`distill.contract`), which is
+/// returned. The tactician's imitation contract it may also name is for its
+/// own records, elsewhere.
 ///
 /// # Errors
-/// A run that declares no [`DISTILL_CONTRACT`].
-pub fn admit_distillation(run: &Value) -> Result<()> {
-    ensure!(
-        run["distill"]["contract"] == DISTILL_CONTRACT,
-        "convert4 --bundle-distill reads only runs recorded with eval4 --distill-labels \
-         ({DISTILL_CONTRACT})"
-    );
-    Ok(())
+/// A run that declares none of [`DISTILL_CONTRACTS`].
+pub fn admit_distillation(run: &Value) -> Result<&'static str> {
+    DISTILL_CONTRACTS
+        .into_iter()
+        .find(|contract| run["distill"]["contract"] == *contract)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "convert4 --bundle-distill reads only runs recorded with eval4 --distill-labels \
+                 ({DISTILL_CONTRACT}) or --distill-teacher ({HOUSE_DISTILL_CONTRACT})"
+            )
+        })
 }
 
 /// Whether any string in `value`, at any depth, is `contract`.
@@ -128,6 +144,7 @@ mod tests {
             json!({"tactician": {"record_contract": "tactician_imitation_v1"}}),
             json!({"runs": [{"contracts": ["x", "tactician_imitation_v1"]}]}),
             json!({"distill": {"contract": "bundle_distillation_v1"}}),
+            json!({"distill": {"contract": "house_distillation_v1"}}),
         ] {
             assert!(refuse_imitation(&run).is_err());
         }
@@ -157,9 +174,13 @@ mod tests {
 
     #[test]
     fn only_a_declared_distillation_run_is_admitted_to_its_mode() {
-        admit_distillation(&json!({"distill": {"contract": "bundle_distillation_v1"},
+        let layer = admit_distillation(&json!({"distill": {"contract": "bundle_distillation_v1"},
             "labels": "tactician_imitation_v1"}))
         .unwrap();
+        assert_eq!(layer, DISTILL_CONTRACT);
+        let house =
+            admit_distillation(&json!({"distill": {"contract": "house_distillation_v1"}})).unwrap();
+        assert_eq!(house, HOUSE_DISTILL_CONTRACT);
         for run in [
             json!({"labels": "tactician_imitation_v1"}),
             json!({"distill": {"contract": "search_distillation_v1"}}),

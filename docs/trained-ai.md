@@ -1240,6 +1240,53 @@ mostly without a group firing: the layer's own reads), the layer played `R` at
 every labelled step and the student `N`, never `R`; with the flags off the game
 records are the same as before.
 
+**House-teacher distillation** (`house_distillation_v1`). `eval4
+--distill-teacher house:<level>` labels the same decisions with a fair house
+level's answer `H` in `R`'s place: at every decision of a net seat, before the
+net answers, `Session::teacher_answer` (gamehost, `session/teacher.rs`) asks a
+`Teacher` holding the agent a house chair of the table would hold (the level,
+the sides, `policy_seed(game id, seat)`; never the deal's seed) what it
+answers the seat's question with, from the seat's own view and deck; where
+the level has a foresight tier, its search runs as a chair's does (priority
+with nothing begun, attackers, blockers; the chosen target where the seat then
+cast that spell), always dealing the hidden cards from the seat's public
+prior, and in the teacher's own counts, so the table's searches and pending
+targets stay its own. A level that peeks is refused, and so is any run that
+is not a raw temperature-0 collection on train decks (`--decks-manifest`,
+`--deck-split train`, `--generated 0`). `H` is handed to the net
+(`Distill4::give`), which encodes it against its own menu as a
+behaviour-cloning teacher's answer and labels as above with no group fired;
+an `H` the menu cannot hold leaves the decision unlabelled and is counted.
+The net's own answer is played. Tests hold that a teacher answers the same
+whatever is hidden, that one holding a chair's agent answers each question as
+that chair with foresight did, and that at every kind of decision the label is
+`H` with `N` the answer played. `run.json`'s `distill` block names the
+contract and the `teacher` (level, profile, generation, foresight budget,
+fair); `games.jsonl` keeps per game `house_teacher`: answers by how they were
+found (heuristic, kept, replaced, refused, planned), labels by kind with `N ≠
+H`, the teacher's wall time (in all and per label; the searches' p50, p95 and
+worst), and `H`'s own answers at priority by coarse class, with nothing owed
+and paying, with its pass share and chain-start share (tap, cast, activate)
+at a free priority, and beside it at the same free priorities (`at_free`) the
+answer the seat played and `N` (at a forced step the one answer there was),
+so behaviour, `N` and `H` are compared at the same states; the run's summary
+sums them (`house_teacher`). `convert4 --bundle-distill` admits either
+contract, one per dataset (and one teacher): `bundle_distillation.contract`
+and `.teacher` name them, and the JSON steps' header carries the contract;
+every other reader refuses both. The coarse-class sidecar's version 2 adds
+`coarse-classes.played.bin`, one 8-byte row per index row: the record's
+(played) candidate and its class, and whether the priority was free (no cost
+owed), so a trainer reads the played answer at labelled frames. In the CPU
+smoke of 11 November (r1 with the bundle and raw r1 against `sharp-2026-11`,
+two train deals each, taught by `house:expert`) every step the net answered
+was labelled, forced steps were not, and nothing was unencodable: 1,003 labels
+(940 priority, 18 single, 36 subset, 9 scalar), 234 with `N ≠ H` (212 at
+priority, 78 of those the same intent by other mechanics: another mana
+source, or tapping first where the other casts). The teacher cost 8–13 CPU
+seconds a game (0.04–0.05 a label; a search 175–180 ms at the median, under
+0.5 s at worst, 44–69 searches a game, 3–4 % refused), and the game records
+with and without it were byte for byte the same.
+
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
 `run.json` names it too (`labels`, `tactician.record_contract`).
