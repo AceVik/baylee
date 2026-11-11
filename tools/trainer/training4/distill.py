@@ -52,10 +52,18 @@ from .deferred import deferred_readouts
 from .execution import encode_boards, plan_batch, transfer_batch
 
 CONTRACT = "bundle_distillation_v1"
+HOUSE_CONTRACT = "house_distillation_v1"   # R := H, the house expert's answer (`training4.house`)
+CONTRACTS = {"bundle": CONTRACT, "house": HOUSE_CONTRACT}
 N_NE_R_FLAG = 128  # BST4 header flags bit 7
 TERMS = ("ce_r", "kl_distilled_n_eq_r", "kl_kind_out_of_scope", "kl_single", "kl_subset", "kl_pair", "sq_scalar",
-         "ce_n_out_of_scope", "ce_coarse_r", "ce_fine_n")
+         "ce_n_out_of_scope", "ce_coarse_r", "ce_fine_n",
+         # The house teacher's terms (`training4.house`); a bundle run leaves them empty.
+         "ce_h_group", "ce_h_within", "ce_h_single", "bce_h_subset", "bce_h_pair", "sq_h_scalar", "sq_value_r1")
 KL_TERMS = slice(1, 7)
+KIND_SLOTS = 32   # pending kinds (`features4::PendingKind4`, 0..27) with room to spare
+# Training statistics: per term weighted sum, then weight; then per pending kind the
+# house terms' sum and weight (zero in a bundle run).
+STATS_WIDTH = 2 * len(TERMS) + 2 * KIND_SLOTS
 OUT_OF_SCOPE_MODES = ("kl", "ce-n")
 PRIORITY = 0   # pending kind of a priority decision
 COARSE = CLASSES   # coarse classes of a priority answer (coarse_class_v1)
@@ -68,16 +76,19 @@ def dataset_contract(meta):
     return value.get("contract") if isinstance(value, dict) else None
 
 
-def check_datasets(datasets, enabled):
-    """Fail closed both ways: R labels train only under --distill-bundle.
+def check_datasets(datasets, enabled, teacher="bundle"):
+    """Fail closed both ways: R labels train only under --distill-bundle, and only
+    under their own teacher (`--distill-teacher`): bundle_distillation_v1, or
+    house_distillation_v1 whose R is the house expert's answer H.
 
     Also hands each dataset the subtype and rule-group vocabularies its frames index.
     """
     for dataset in datasets:
         meta = getattr(dataset, "meta", None) or {}
         contract = dataset_contract(meta)
-        if enabled and contract != CONTRACT:
-            raise ValueError(f"--distill-bundle needs {CONTRACT} datasets")
+        if enabled and contract != CONTRACTS[teacher]:
+            raise ValueError(f"--distill-bundle with the {teacher} teacher needs {CONTRACTS[teacher]} datasets, "
+                             f"not {contract}")
         if not enabled and contract is not None:
             raise ValueError(f"{contract} labels train only under --distill-bundle")
         dataset.distillation = enabled
@@ -108,7 +119,12 @@ class Scope:
     "act-exact" groups as "act", but where R acts and N passes `ce_coarse_r` is the
     cross-entropy to R's own candidate: the summed act mass can grow while it
     stays spread over equivalent taps and a single pass keeps the top-1, which
-    is what the net plays. Where R passes and N acts it stays the group's."""
+    is what the net plays. Where R passes and N acts it stays the group's.
+
+    `teacher` "house" (house_distillation_v1, R := H) replaces all of this with
+    `training4.house.house_loss`: every labelled kind is taught, so kinds,
+    subtypes, group weights, the out-of-scope mode and `coarse` do not apply;
+    `value_weight` adds the value readout's squared distance to r1 there."""
     kinds: tuple = (0,)
     subtypes: tuple | None = None
     subtype_names: tuple = ()
@@ -117,11 +133,20 @@ class Scope:
     out_of_scope: str = "kl"
     out_of_scope_weight: float = 1.0
     coarse: str | None = None
+    teacher: str = "bundle"
+    value_weight: float = 0.0
 
     @classmethod
     def from_options(cls, kinds, kl_weight, subtypes, group_weights, datasets, out_of_scope="kl",
-                     out_of_scope_weight=1.0, coarse=None):
+                     out_of_scope_weight=1.0, coarse=None, teacher="bundle", value_weight=0.0):
         """Names resolved against vocabularies every dataset shares; unknown names fail."""
+        if teacher not in CONTRACTS:
+            raise ValueError(f"Unknown distillation teacher {teacher!r}")
+        if teacher == "house" and (subtypes or group_weights or out_of_scope != "kl" or coarse):
+            raise ValueError("The house teacher teaches every kind: no subtypes, group weights, out-of-scope "
+                             "mode or coarse mode")
+        if not value_weight >= 0 or (value_weight and teacher != "house"):
+            raise ValueError("A value weight is nonnegative and belongs to the house teacher")
         vocabularies = {(tuple(d.distill_subtypes), tuple(d.distill_groups)) for d in datasets}
         if len(vocabularies) != 1:
             raise ValueError("Training and validation distillation vocabularies differ")
@@ -145,7 +170,7 @@ class Scope:
         if coarse and (PRIORITY not in kinds or out_of_scope != "kl"):
             raise ValueError("Coarse distillation needs priority among the kinds and the out-of-scope KL")
         return cls(tuple(kinds), codes, subtype_names, weights, kl_weight, out_of_scope, float(out_of_scope_weight),
-                   coarse)
+                   coarse, teacher, float(value_weight))
 
     def groups(self, classes):
         """`classes` (COARSE indices) as this scope's coarse groups: act/pass or the class itself."""
@@ -267,7 +292,11 @@ def _bernoulli_kl(student, reference):
 
 
 def distill_loss(prepared, reference, batch, plans, scope, extra=None):
-    """Returns (loss, stats [2 * len(TERMS)]): per term weighted sum, then weight."""
+    """Returns (loss, stats [STATS_WIDTH]): per term weighted sum, then weight, then
+    the house teacher's per-kind block (zero here)."""
+    if scope.teacher == "house":
+        from .house import house_loss
+        return house_loss(prepared, reference, batch, plans, scope, extra)
     device = prepared[0][4].device
     get = lambda key: batch[key].to(device, non_blocking=True)
     valid = get("step_valid")
@@ -369,7 +398,7 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
         total = total + means[8] + means[9]
     for name, function in (extra or {}).items():
         total = total + function(prepared, batch, plans)
-    return total, torch.cat((sums.detach(), dens.detach()))
+    return total, torch.cat((sums.detach(), dens.detach(), torch.zeros(2 * KIND_SLOTS, device=device)))
 
 
 def thinking_terms(frames, reference, batch, plans, scope, config):
@@ -464,6 +493,36 @@ def term_means(stats):
             for i, name in enumerate(TERMS)}
 
 
+# `features4::PendingKind4`; unnamed codes read as kind<N>.
+KIND_NAMES = ("priority", "mana_ability", "damage_source", "damage_effect", "prevention", "attackers", "blockers",
+              "cards", "targets", "arrange", "legend", "mulligan", "mulligan_bottom", "discard", "yes_no",
+              "cast_mode", "number", "colour", "subtype", "card_name", "player", "pile")
+
+
+def kind_name(code):
+    return KIND_NAMES[code] if 0 <= code < len(KIND_NAMES) else f"kind{code}"
+
+
+def kind_means(stats):
+    """The house terms per pending kind: {name: [mean, weight]} for kinds with rows."""
+    base, out = 2 * len(TERMS), {}
+    for code in range(KIND_SLOTS):
+        weight = float(stats[base + KIND_SLOTS + code])
+        if weight > 0:
+            out[kind_name(code)] = [float(stats[base + code]) / weight, round(weight)]
+    return out
+
+
+def train_line(stats):
+    """`[distill] train` JSON: every term's mean, and per pending kind where any trained."""
+    stats = stats.cpu()
+    line = term_means(stats)
+    kinds = kind_means(stats)
+    if kinds:
+        line["kinds"] = kinds
+    return line
+
+
 # What a distillation epoch line reports of validation (the full set is in meta.json).
 EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "val_distill_distilled_top1_r",
                     "val_distill_out_of_scope_top1_r", "val_distill_out_of_scope_top1_n",
@@ -476,15 +535,20 @@ EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "va
                     "val_distill_pregate_start_act_ratio", "val_distill_pregate_pass_ratio",
                     "val_distill_chain_start_pass_margin", "val_distill_chain_start_pass_margin_r1",
                     *(f"val_distill_{name}" for name in TERMS),
-                    "val_value_mse_to_r1")
+                    "val_value_mse_to_r1",
+                    # The house teacher's gate (`training4.house.HouseCounter`).
+                    "val_house_top1_n_ne_h", "val_house_top1_n_ne_h_by_kind", "val_house_top1_n_eq_h",
+                    "val_house_chain_start_act", "val_house_chain_start_act_h", "val_house_chain_start_act_r1",
+                    "val_house_priority_pass_share", "val_house_priority_pass_share_h",
+                    "val_house_priority_pass_share_r1", "val_house_gate")
 
 
 def epoch_line(epoch, step, stats, val_metrics, drift=None):
-    """`[distill] epoch` JSON: the epoch's training terms, the pass drift at the chain
-    starts it trained on, and validation's agreement with R. A distillation run trains
-    none of the behaviour-cloning terms the `[train4] epoch` line prints, so they read
-    zero there."""
-    train = term_means(stats.cpu()) if stats is not None else None
+    """`[distill] epoch` JSON: the epoch's training terms (and per pending kind, for the
+    house teacher), the pass drift at the chain starts it trained on, and validation's
+    agreement with R. A distillation run trains none of the behaviour-cloning terms the
+    `[train4] epoch` line prints, so they read zero there."""
+    train = train_line(stats) if stats is not None else None
     validation = {key: val_metrics[key] for key in EPOCH_VALIDATION if key in val_metrics}
     return "[distill] epoch " + json.dumps(dict(epoch=epoch, step=step, train=train,
                                                 drift=None if drift is None else drift_means(drift),
@@ -507,8 +571,9 @@ def action_classes(cand_feat):
     return torch.where(marked.any(-1), marked.int().argmax(-1), len(PRIORITY_ACTIONS))
 
 
-# ACTION_NAMES -> COARSE: a mana ability is a tap; a cancel, a granted action or none is other.
-ACTION_COARSE = tuple(COARSE.index({"mana": "tap", "cancel": "other", "granted": "other", "none": "other"}.get(name, name))
+# ACTION_NAMES -> COARSE: a mana ability is a tap; a cancel passes (coarse_class_v1 counts
+# CancelCast as pass); a granted action or none is other.
+ACTION_COARSE = tuple(COARSE.index({"mana": "tap", "cancel": "pass", "granted": "other", "none": "other"}.get(name, name))
                       for name in ACTION_NAMES)
 
 
@@ -670,6 +735,9 @@ class ChainCounter:
                 if row != 1:
                     continue
                 n_act, s_act = n_class != passes, s_class != passes
+                if not state["prev_act"] and (r_class in CHAIN_ACTS or r_class == passes):
+                    # A chance to start a chain: R starts one here or passes again.
+                    self.add("opportunity", ("all",), (1, s_idx == r_idx, s_idx == n_idx, s_act, n_act))
                 if r_class in CHAIN_ACTS:
                     position = "mid" if state["prev_act"] else "start"
                     state["chain"].append((s_act, n_act))
@@ -695,10 +763,22 @@ class ChainCounter:
         rate = lambda row: {name: (row[i] / row[0] if row[0] else None) if i else row[0]
                             for i, name in enumerate(CHAIN_FIELDS)}
         out = {}
-        for position in ("start", "mid", "pass", "neutral"):
+        for position in ("start", "mid", "pass", "neutral", "opportunity"):
             row = self.counts.get(position, {}).get("all", [0] * len(CHAIN_FIELDS))
             for name, value in rate(row).items():
                 out[f"val_distill_chain_{position}_{name}"] = value
+        # Each player's own chain-start rate where a chain can start (R's last answer was a
+        # pass): R's is its starts over those rows; and each one's share of passes at priority.
+        chances = out["val_distill_chain_opportunity_decisions"]
+        out["val_distill_chain_opportunity_r_act"] = (out["val_distill_chain_start_decisions"] / chances
+                                                      if chances else None)
+        rows = [self.counts.get(position, {}).get("all", [0] * len(CHAIN_FIELDS))
+                for position in ("start", "mid", "pass", "neutral")]
+        total = sum(row[0] for row in rows)
+        out.update(val_distill_priority_decisions=total,
+                   val_distill_priority_pass_share_r=rows[2][0] / total if total else None,
+                   val_distill_priority_pass_share_student=1 - sum(row[3] for row in rows) / total if total else None,
+                   val_distill_priority_pass_share_r1=1 - sum(row[4] for row in rows) / total if total else None)
         out["val_distill_chain_by"] = {position: {key: rate(row) for key, row in sorted(rows.items())}
                                        for position, rows in self.counts.items()}
         # Pass drift: the pass logit's margin over the best act candidate (positive: passing leads).
@@ -901,7 +981,11 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     confusion = torch.zeros(2, len(COARSE), len(COARSE), dtype=torch.float64, device=device)
     directions = torch.zeros(4, dtype=torch.float64, device=device)
     chains = ChainCounter(scope) if PRIORITY in scope.kinds else None
-    stats = torch.zeros(2 * len(TERMS), device=device)
+    house = None
+    if scope.teacher == "house":
+        from .house import HouseCounter
+        house = HouseCounter(scalar_tolerance)
+    stats = torch.zeros(STATS_WIDTH, device=device)
     value = torch.zeros(3, dtype=torch.float64, device=device)
     hidden = None
     reference.hidden = None
@@ -934,6 +1018,8 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
             confusion = confusion + coarse_confusion(prepared, batch, plans, scope)
             directions = directions + act_directions(prepared, ref, batch, plans)
             chains.observe(prepared, ref, batch, plans)
+        if house is not None:
+            house.observe(prepared, ref, batch, plans)
         if observe is not None:   # a caller's own reading of the batch, in trajectory order per lane
             observe(prepared, ref, batch, plans)
         if progress is not None:
@@ -983,4 +1069,9 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     sse, drift, frames = value.cpu().tolist()
     metrics.update(val_mse=sse / max(frames, 1), val_value_mse_to_r1=drift / max(frames, 1), val_frames=int(frames),
                    val_distill_selection=metrics["val_distill_distilled_top1_r_at_n_ne_r"])
+    if house is not None:
+        # The house teacher selects on top-1 agreement with H at N != H over every kind.
+        metrics.update(house.metrics(metrics))
+        metrics["val_distill_kinds"] = kind_means(stats.cpu())
+        metrics["val_distill_selection"] = metrics["val_house_top1_n_ne_h"]
     return metrics

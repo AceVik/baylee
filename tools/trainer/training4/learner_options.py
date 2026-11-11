@@ -45,6 +45,9 @@ def add_learner_options(parser):
                         help="Print peak host memory after the window-state pass and at the end")
     parser.add_argument("--train-policy-head-only", action="store_true",
                         help="Stage A: freeze everything but the candidate (priority) head")
+    parser.add_argument("--train-pair-scalar-heads", action="store_true",
+                        help="With --train-policy-head-only: the blocker-pair and scalar heads learn too, so every "
+                             "kind of decision has a trainable head (the house teacher's arm a)")
     parser.add_argument("--adapter-on-candidate-head", type=int, default=0, metavar="RANK",
                         help="Stage A: freeze everything; train a rank-RANK adapter on the candidate head's input "
                              "layer, merged into its weights whenever a checkpoint is saved")
@@ -54,6 +57,15 @@ def add_learner_options(parser):
     parser.add_argument("--distill-bundle", action="store_true",
                         help="Distil bundle_distillation_v1 labels R: CE to R where N != R at --distill-kinds, "
                              "KL to the frozen --init policy everywhere else")
+    parser.add_argument("--distill-teacher", choices=("bundle", "house"), default="bundle",
+                        help="Whose labels: bundle (bundle_distillation_v1, the tactical layer) or house "
+                             "(house_distillation_v1, the house expert H): with house, every labelled kind is "
+                             "taught where N != H (priority by act/pass group, act-best, plus H's candidate inside "
+                             "the group; single choices, subsets, pairs and scalars to H) and kept at r1 by the KL "
+                             "where N = H (training4.house); --distill-kinds and the scope options do not apply")
+    parser.add_argument("--distill-value-weight", type=float, default=0.0,
+                        help="House teacher: weight of the value readout's squared distance to r1 at every frame "
+                             "(for a trainable trunk with a frozen value head). 0 = off")
     parser.add_argument("--distill-kinds", default="0",
                         help="Comma-separated pending kinds distilled to R (0 = priority, 11 = mulligan)")
     parser.add_argument("--distill-kl-weight", type=float, default=1.0, help="Weight of every KL-to-r1 term")
@@ -164,6 +176,18 @@ def check_learner_options(args, parser):
                                 or 0 not in args.distill_kinds):
         parser.error("--distill-coarse needs --distill-bundle, priority (0) among --distill-kinds and the "
                      "out-of-scope KL (not --distill-out-of-scope ce-n)")
+    if args.train_pair_scalar_heads and not args.train_policy_head_only:
+        parser.error("--train-pair-scalar-heads widens --train-policy-head-only")
+    if args.distill_teacher == "house":
+        if not args.distill_bundle:
+            parser.error("--distill-teacher house needs --distill-bundle")
+        if (args.distill_subtypes or weights or args.distill_out_of_scope != "kl" or args.distill_coarse
+                or args.pregate_chain_start or getattr(args, "think_supervision", False)):
+            parser.error("--distill-teacher house teaches every kind its own way: no --distill-subtypes, "
+                         "--distill-group-weights, --distill-out-of-scope, --distill-coarse, "
+                         "--pregate-chain-start or thinking terms")
+    if not args.distill_value_weight >= 0 or (args.distill_value_weight and args.distill_teacher != "house"):
+        parser.error("--distill-value-weight is nonnegative and belongs to --distill-teacher house")
     if args.distill_bundle:
         if not args.distill_kinds or args.distill_kl_weight < 0 or args.distill_scalar_tolerance < 0:
             parser.error("--distill-bundle needs kinds and a nonnegative KL weight and scalar tolerance")

@@ -18,6 +18,16 @@ when it fails. The coarse classes come from the dataset's sidecar when it has
 one, else from the candidates' action columns. The reference shares the
 student's boards when every weight before the heads is equal; otherwise it
 encodes its own.
+
+On a house_distillation_v1 dataset (R := H, the house expert) it is the house
+teacher's offline probe: every kind is in scope, and the report adds per
+pending kind the student's and r1's top-1 agreement with H at N != H and at
+N = H, the chain-start act rates of the student, H and r1 where H's last
+priority answer was a pass, whole-chain completion, the pass shares at
+priority, and the gate (`house.house_gate`: `--gate-top1` over every kind at
+N != H, the student's chain-start act rate at least `--gate-ratio` times H's).
+It prints `[pregate]` (against r1) and then `[house-gate]`, and exits 3 when
+the house gate fails.
 """
 from __future__ import annotations
 
@@ -82,6 +92,11 @@ def main(argv=None):
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--min-ratio", type=float, default=0.8, help="The pre-gate's ratio to r1")
+    parser.add_argument("--gate-top1", type=float, default=0.70,
+                        help="House teacher: held-out top-1 agreement with H at N != H over every kind")
+    parser.add_argument("--gate-ratio", type=float, default=0.9,
+                        help="House teacher: the student's chain-start act rate against H's")
+    parser.add_argument("--scalar-tolerance", type=float, default=0.05)
     parser.add_argument("--out", default="")
     args = parser.parse_args(argv)
     torch.set_num_threads(args.threads)
@@ -93,15 +108,19 @@ def main(argv=None):
     configure(r1, args)
     data = Path(args.data).expanduser()
     dataset = D4.TrajectoryDataset4(data, encoder_version=args.encoder_version, split="val", unroll_len=args.unroll)
-    D.check_datasets([dataset], True)
+    house = D.dataset_contract(getattr(dataset, "meta", None) or {}) == D.HOUSE_CONTRACT
+    D.check_datasets([dataset], True, "house" if house else "bundle")
     if (data / "bundle-distill" / "coarse-classes.json").is_file():
         from .coarse import CoarseClasses
         dataset.coarse = CoarseClasses.load(data / "bundle-distill")
     total_trajectories = len(dataset.trajectories)
     dataset.trajectories = dataset.trajectories[::args.every]
-    kinds = tuple(int(k) for k in args.kinds.split(","))
-    subtypes = tuple(s for s in args.subtypes.split(",") if s)
-    scope = D.Scope.from_options(kinds, 1.0, subtypes, {}, [dataset])
+    if house:
+        scope = D.Scope.from_options(tuple(range(D.KIND_SLOTS)), 1.0, (), {}, [dataset], teacher="house")
+    else:
+        kinds = tuple(int(k) for k in args.kinds.split(","))
+        subtypes = tuple(s for s in args.subtypes.split(",") if s)
+        scope = D.Scope.from_options(kinds, 1.0, subtypes, {}, [dataset])
     shared = same_upstream(student, r1)
     reference = D.Reference(r1, student)
     reference.shared_trunk, reference.shared_lower = shared, None
@@ -117,8 +136,8 @@ def main(argv=None):
             print(f"[audit] batches={seen[0]} out_of_scope_decisions={done} "
                   f"seconds={time.perf_counter() - began:.0f}", flush=True)
 
-    metrics = D.evaluate_distill(student, reference, loader, torch.device("cpu"), scope, args.board_chunk, .05,
-                                 bf16=False, actions=actions, progress=progress)
+    metrics = D.evaluate_distill(student, reference, loader, torch.device("cpu"), scope, args.board_chunk,
+                                 args.scalar_tolerance, bf16=False, actions=actions, progress=progress)
     groups = ["distilled", "out_of_scope", *(f"subtype:{name}" for name in ("unknown", *scope.subtype_names))]
     moves = sorted(({"subtype": s, "r_action": r, "n_action": n, "student_action": a, "count": c}
                     for (s, r, n, a), c in actions.items()), key=lambda m: -m["count"])
@@ -133,11 +152,19 @@ def main(argv=None):
                   coarse_confusion=metrics.get("val_distill_coarse_confusion"),
                   coarse_confusion_n_ne_r=metrics.get("val_distill_coarse_confusion_n_ne_r"),
                   terms={name: metrics.get(f"val_distill_{name}") for name in D.TERMS}, pregate=verdict)
+    gate = None
+    if house:
+        from .house import house_gate
+        passed, gate = house_gate(metrics, args.gate_top1, args.gate_ratio)
+        report.update(house={key: value for key, value in metrics.items() if key.startswith("val_house_")},
+                      kinds=metrics.get("val_distill_kinds"), house_gate=gate)
     text = json.dumps(report, indent=1)
     if args.out:
         Path(args.out).write_text(text + "\n")
     print(text, flush=True)
     print("[pregate] " + json.dumps(verdict), flush=True)
+    if gate is not None:
+        print("[house-gate] " + json.dumps(gate), flush=True)
     return 0 if passed else 3
 
 
