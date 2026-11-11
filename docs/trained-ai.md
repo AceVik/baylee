@@ -2254,14 +2254,25 @@ top-1 agreement with H at N ≠ H and at N = H (`val_house_top1_n_ne_h`,
 priority answer was a pass (`val_house_chain_start_act`, `_h`, `_r1`; the
 chain counter's `opportunity` rows), whole-chain completion, the pass share at
 priority of each (`val_house_priority_pass_share`, `_h`, `_r1`), and the gate
-(`house.house_gate`, `val_house_gate`): top-1 at N ≠ H over every kind at least
-70 %, and the student's chain-start act rate at least 0.9 times H's
-(one-sided, since passivity was round 0's failure; above 1.3 times the verdict
-says `more_active_than_teacher` and the play check judges it). It selects
-checkpoints on `val_house_top1_n_ne_h`; `[distill] epoch` carries the student's
+(`house.house_gate`, `val_house_gate`). At priority many N ≠ H rows are the
+same intent through other mechanics (another mana source; H casting with
+automatic payment where N taps first), so priority at N ≠ H is split by H's and
+N's coarse class (`val_house_priority_n_ne_h_by_pair`) into exact, same class,
+same act/pass group, and `within` (the student's best candidate inside H's
+group is H's). The gate reads agreement at N ≠ H of at least 70 % with
+priority by act/pass group and every other kind exactly
+(`val_house_gate_top1_n_ne_h`; the raw exact top-1 beside it), and the
+student's chain-start act rate at least 0.9 times H's (one-sided, since
+passivity was round 0's failure; above 1.3 times the verdict says
+`more_active_than_teacher` and the play check judges it). At free priority
+(sidecar version 2's flag: no cost owed; else every labelled priority) it sets
+the pass and chain-start (tap, cast, activate) shares of the student's top-1,
+H, N and what the seat played side by side (`val_house_free_priority`): before
+training the student is r1, so this is H against the behaviour. It selects
+checkpoints on the gate's agreement; `[distill] epoch` carries the student's
 agreement with H at N = H per kind (`val_house_top1_n_eq_h_by_kind`), the drift
-watch; `training4.pregate` and the audit print `[house-gate]` (the ratio and
-both rates) and exit 3 when it fails.
+watch; `training4.pregate` and the audit print `[house-gate]` and exit 3 when it
+fails. `distill_audit --split train` reads the training games.
 
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.

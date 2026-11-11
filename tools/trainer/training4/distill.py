@@ -537,8 +537,9 @@ EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "va
                     *(f"val_distill_{name}" for name in TERMS),
                     "val_value_mse_to_r1",
                     # The house teacher's gate (`training4.house.HouseCounter`).
-                    "val_house_top1_n_ne_h", "val_house_top1_n_ne_h_by_kind", "val_house_top1_n_eq_h",
-                    "val_house_top1_n_eq_h_by_kind",
+                    "val_house_gate_top1_n_ne_h", "val_house_other_top1_n_ne_h", "val_house_top1_n_ne_h",
+                    "val_house_top1_n_ne_h_by_kind", "val_house_top1_n_eq_h",
+                    "val_house_top1_n_eq_h_by_kind", "val_house_priority_n_ne_h", "val_house_free_priority",
                     "val_house_chain_start_act", "val_house_chain_start_act_h", "val_house_chain_start_act_r1",
                     "val_house_priority_pass_share", "val_house_priority_pass_share_h",
                     "val_house_priority_pass_share_r1", "val_house_gate")
@@ -1071,8 +1072,8 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     metrics.update(val_mse=sse / max(frames, 1), val_value_mse_to_r1=drift / max(frames, 1), val_frames=int(frames),
                    val_distill_selection=metrics["val_distill_distilled_top1_r_at_n_ne_r"])
     if house is not None:
-        # The house teacher selects on top-1 agreement with H at N != H over every kind.
+        # The house teacher selects on the gate's agreement with H at N != H (priority by group).
         metrics.update(house.metrics(metrics))
         metrics["val_distill_kinds"] = kind_means(stats.cpu())
-        metrics["val_distill_selection"] = metrics["val_house_top1_n_ne_h"]
+        metrics["val_distill_selection"] = metrics["val_house_gate_top1_n_ne_h"]
     return metrics

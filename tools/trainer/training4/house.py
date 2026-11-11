@@ -43,7 +43,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
-from .distill import (KIND_SLOTS, PRIORITY, TERMS, _bernoulli_kl, coarse_classes, kind_name)
+from .distill import (CHAIN_ACTS, KIND_SLOTS, PRIORITY, TERMS, _bernoulli_kl, coarse_classes, kind_name)
 from .coarse import CLASSES
 
 PASS = CLASSES.index("pass")
@@ -176,12 +176,83 @@ def decoded_agreement(outputs, get, t, head, scalar_tolerance):
     return torch.ones_like(number, dtype=torch.bool), (number - get("scalar_target")[:, t]).abs() <= scalar_tolerance
 
 
+PAIR_COLUMNS = ("rows", "exact", "class", "group", "within")
+
+
 class HouseCounter:
-    """Held-out agreement with H per pending kind, for the student and r1."""
+    """Held-out agreement with H per pending kind, for the student and r1.
+
+    At priority where N != H it also splits the student's agreement by H's and N's
+    coarse class (`H tap / N pass`, ...): H's exact candidate (the raw top-1), H's
+    coarse class (another mana source for the same tap counts), H's act/pass group,
+    and `within`, the student's best candidate inside H's act/pass group being H's
+    (the choice `ce_h_within` teaches, apart from acting or passing). Many N != H
+    rows are the same intent through other mechanics (another source, casting with
+    automatic payment where N taps first), which exact agreement counts as misses;
+    so the gate reads priority by act/pass group and every other kind exactly
+    (`val_house_gate_top1_n_ne_h`)."""
 
     def __init__(self, scalar_tolerance):
         self.scalar_tolerance = scalar_tolerance
         self.table = None
+        self.pairs = {}
+        self.free = {}          # who -> [rows, passes, chain-start answers] at free priority
+        self.free_flag = False  # the sidecar marks free priorities (version 2)
+
+    def observe_free(self, prepared, reference, batch, t, rows, get):
+        """Pass and chain-start (tap, cast, activate) shares of the student's top-1, H, N and
+        what the seat played, at the same free priorities (the sidecar's flag where it has
+        one, else every labelled priority)."""
+        if "coarse_free" in batch:
+            rows = rows & get("coarse_free")[:, t]
+            self.free_flag = True
+        logits = prepared[t][1].float()
+        width = logits.shape[1]
+        mask = get("cand_mask")[:, t, :width]
+        classes = coarse_classes(batch, t, width).to(logits.device, non_blocking=True)
+        of = lambda index: classes.gather(1, index.clamp(0, width - 1)[:, None])[:, 0]
+        n_idx = torch.where(mask, reference[t][1].float(), -1e9).argmax(-1)
+        if "coarse_n_idx" in batch:
+            recorded = get("coarse_n_idx")[:, t]
+            n_idx = torch.where(recorded >= 0, recorded, n_idx)
+        answers = dict(student=of(torch.where(mask, logits, -1e9).argmax(-1)),
+                       H=of(torch.where(rows, get("single_idx")[:, t], 0)), N=of(n_idx))
+        valid = dict.fromkeys(answers, rows)
+        if "coarse_p_class" in batch:
+            answers["played"] = get("coarse_p_class")[:, t]
+            valid["played"] = rows & (answers["played"] >= 0)
+        starts = torch.tensor(CHAIN_ACTS, device=logits.device)
+        for who, answer in answers.items():
+            chosen = valid[who]
+            counts = torch.stack((chosen, chosen & (answer == PASS), chosen & torch.isin(answer, starts))).sum(1)
+            row = self.free.setdefault(who, [0, 0, 0])
+            for i, count in enumerate(counts.tolist()):
+                row[i] += count
+
+    def observe_priority(self, prepared, reference, batch, t, rows, get):
+        """Tally priority rows at N != H by (H's class, N's class)."""
+        logits = prepared[t][1].float()
+        width = logits.shape[1]
+        mask = get("cand_mask")[:, t, :width]
+        classes = coarse_classes(batch, t, width).to(logits.device, non_blocking=True)
+        h_idx = torch.where(rows, get("single_idx")[:, t], 0).clamp(0, width - 1)
+        n_idx = torch.where(mask, reference[t][1].float(), -1e9).argmax(-1)
+        if "coarse_n_idx" in batch:
+            recorded = get("coarse_n_idx")[:, t]
+            n_idx = torch.where(recorded >= 0, recorded, n_idx).clamp(0, width - 1)
+        s_idx = torch.where(mask, logits, -1e9).argmax(-1)
+        of = lambda index: classes.gather(1, index[:, None])[:, 0]
+        h_class, n_class, s_class = of(h_idx), of(n_idx), of(s_idx)
+        h_group = h_class != PASS
+        inside = mask & ((classes != PASS) == h_group[:, None])
+        s_within = torch.where(inside, logits, -1e9).argmax(-1)
+        table = torch.stack((rows, s_idx == h_idx, s_class == h_class, (s_class != PASS) == h_group,
+                             s_within == h_idx, h_class, n_class), 1)[rows].tolist()
+        for _, exact, same_class, same_group, within, h, n in table:
+            key = f"H {CLASSES[h]} / N {CLASSES[n]}"
+            row = self.pairs.setdefault(key, [0] * len(PAIR_COLUMNS))
+            for i, hit in enumerate((1, exact, same_class, same_group, within)):
+                row[i] += int(hit)
 
     def observe(self, prepared, reference, batch, plans):
         device = prepared[0][4].device
@@ -202,6 +273,10 @@ class HouseCounter:
                 apart, same = rows & differs[:, t], rows & ~differs[:, t]
                 counts = torch.stack((apart, apart & mine, apart & theirs, same, same & mine, same & theirs), 1)
                 self.table.index_add_(0, kinds[:, t], counts.double())
+                if head == 0:
+                    priority = rows & (kinds[:, t] == PRIORITY)
+                    self.observe_priority(prepared, reference, batch, t, priority & differs[:, t], get)
+                    self.observe_free(prepared, reference, batch, t, priority, get)
 
     def metrics(self, chain=None):
         """`val_house_*`: agreement over every kind and per kind; with the chain counter's
@@ -225,6 +300,22 @@ class HouseCounter:
                    # The drift watch: where r1 already answers as H, how often the student still does.
                    val_house_top1_n_eq_h_by_kind={name: row["student_n_eq_h"] for name, row in by_kind.items()
                                                   if row["n_eq_h"]})
+        rates = lambda row: dict(rows=row[0], **{name: share(hits, row[0])
+                                                 for name, hits in zip(PAIR_COLUMNS[1:], row[1:])})
+        total = [sum(row[i] for row in self.pairs.values()) for i in range(len(PAIR_COLUMNS))]
+        # The gate's agreement: priority by act/pass group, every other kind exactly.
+        other_rows, other_hits = n_ne - table[PRIORITY, 0].item(), s_ne - table[PRIORITY, 1].item()
+        group_hits = total[PAIR_COLUMNS.index("group")]
+        out.update(val_house_priority_n_ne_h=rates(total),
+                   val_house_priority_n_ne_h_by_pair={key: rates(row) for key, row in
+                                                      sorted(self.pairs.items(), key=lambda item: -item[1][0])},
+                   val_house_other_top1_n_ne_h=share(other_hits, other_rows),
+                   val_house_gate_top1_n_ne_h=share(group_hits + other_hits, total[0] + other_rows),
+                   # Before training the student is r1: its top-1 against H's, N's and what was played.
+                   val_house_free_priority=dict(
+                       flagged=self.free_flag,
+                       **{who: dict(rows=rows, pass_share=share(passes, rows), chain_start_share=share(starts, rows))
+                          for who, (rows, passes, starts) in self.free.items()}))
         chain = chain or {}
         out.update(
             val_house_chain_start_act=chain.get("val_distill_chain_opportunity_student_act"),
@@ -244,22 +335,35 @@ class HouseCounter:
 
 
 def house_gate(metrics, min_top1=GATE_TOP1, min_ratio=GATE_CHAIN_RATIO, active_ratio=GATE_ACTIVE_RATIO):
-    """(passed, verdict): held-out top-1 agreement with H at N != H over every kind of at
-    least `min_top1`, and the student's chain-start act rate (where H's last priority
-    answer was a pass) at least `min_ratio` times H's own on the same rows. One-sided:
-    passivity was round 0's failure. Above `active_ratio` times H's the verdict says
-    `more_active_than_teacher` and passes; the play check judges whether that is reckless."""
-    top1 = metrics.get("val_house_top1_n_ne_h")
+    """(passed, verdict): held-out agreement with H at N != H over every kind of at least
+    `min_top1`, priority read by act/pass group and every other kind by its exact answer
+    (`val_house_gate_top1_n_ne_h`), and the student's chain-start act rate (where H's last
+    priority answer was a pass) at least `min_ratio` times H's own on the same rows.
+    One-sided: passivity was round 0's failure. Above `active_ratio` times H's the verdict
+    says `more_active_than_teacher` and passes; the play check judges whether that is
+    reckless. Beside it: the raw exact top-1 (all kinds, and priority alone), priority's
+    exact-within-group and class agreement, and the student's, H's and N's (r1's own
+    recorded answer, the behaviour before training for a raw arm) chain-start act rate
+    and pass shares side by side."""
+    top1 = metrics.get("val_house_gate_top1_n_ne_h")
     mine, theirs = metrics.get("val_house_chain_start_act"), metrics.get("val_house_chain_start_act_h")
     ratio = mine / theirs if mine is not None and theirs else None
     passed = top1 is not None and top1 >= min_top1 and ratio is not None and ratio >= min_ratio
-    return passed, dict(passed=passed, min_top1=min_top1, min_ratio=min_ratio, top1_n_ne_h=top1,
-                        top1_n_ne_h_r1=metrics.get("val_house_top1_n_ne_h_r1"),
-                        chain_start_act_ratio=ratio, chain_start_act=mine, chain_start_act_h=theirs,
-                        more_active_than_teacher=ratio is not None and ratio > active_ratio,
-                        chain_start_act_r1=metrics.get("val_house_chain_start_act_r1"),
-                        chain_completion=metrics.get("val_house_chain_completion"),
-                        chain_completion_r1=metrics.get("val_house_chain_completion_r1"),
-                        priority_pass_share=metrics.get("val_house_priority_pass_share"),
-                        priority_pass_share_h=metrics.get("val_house_priority_pass_share_h"),
-                        priority_pass_share_r1=metrics.get("val_house_priority_pass_share_r1"))
+    priority = metrics.get("val_house_priority_n_ne_h") or {}
+    act = dict(student=mine, H=theirs, N=metrics.get("val_house_chain_start_act_r1"))
+    return passed, dict(
+        passed=passed, min_top1=min_top1, min_ratio=min_ratio, gate_top1_n_ne_h=top1,
+        priority_group_n_ne_h=priority.get("group"), other_kinds_top1_n_ne_h=metrics.get("val_house_other_top1_n_ne_h"),
+        exact_top1_n_ne_h=metrics.get("val_house_top1_n_ne_h"), priority_exact_n_ne_h=priority.get("exact"),
+        priority_within_n_ne_h=priority.get("within"), priority_class_n_ne_h=priority.get("class"),
+        priority_rows_n_ne_h=priority.get("rows"), top1_n_ne_h_r1=metrics.get("val_house_top1_n_ne_h_r1"),
+        chain_start_act_ratio=ratio, more_active_than_teacher=ratio is not None and ratio > active_ratio,
+        chain_start_act=act,
+        pass_share_at_chances={who: None if rate is None else 1 - rate for who, rate in act.items()},
+        pass_share_at_priority=dict(student=metrics.get("val_house_priority_pass_share"),
+                                    H=metrics.get("val_house_priority_pass_share_h"),
+                                    N=metrics.get("val_house_priority_pass_share_r1")),
+        chain_completion=dict(student=metrics.get("val_house_chain_completion"),
+                              N=metrics.get("val_house_chain_completion_r1")),
+        chain_start_chances=metrics.get("val_house_chain_start_chances"),
+        at_free_priority=metrics.get("val_house_free_priority"))
