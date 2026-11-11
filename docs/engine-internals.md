@@ -2832,6 +2832,22 @@ static; mechanics it does not reach (searches, wishes, cards put back into
 a library) are covered by the refusals and the field-by-field rules above,
 not by a twin comparison yet.
 
+### The offer boundary (e1d85f5d0)
+
+Three changes of 11.11.2026 change what a seat is *offered* and not what the
+engine does. From e1d85f5d0 `LegalActions::cast_ways` names every way of
+casting a castable or payable card that lies outside the hand and the command
+zone (its flashback, escape, disturb face, foretell cost), from protocol 43
+`restricted_taps` and `restricted_floating` name what restricted mana may pay
+for (CR 106.6), and from 1e29094fb the planners, the house's included, read
+each `{2/C}` of a cost on its own (CR 107.4e). `LegalActions` is in neither
+snapshot hash, no answer is taken or refused differently, and every record
+replays. What moves is what binds a question by its JSON: a shadow label's
+`pending_sha256` and view hash, and a house answer asked again where a mixed
+`{2/C}` cost now plans. **Convert shadow labels written before e1d85f5d0 with
+the runtime that wrote them** (`docs/trained-ai.md`); `convert4` names the
+boundary when it meets one (`convert4::shadow_bc::offer_boundary`).
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to

@@ -266,6 +266,24 @@ starts. The fixture test plays one game with and without a watching
 `ScriptedMind`. It shows the same record, behavior probabilities and
 observations, and labels on 73 of 245 neural decisions.
 
+**The offer boundary (e1d85f5d0, 11.11.2026).** A shadow label binds the
+question it was given by the SHA-256 of its JSON and by the view hash
+(`view_only_state_hash`, which hashes the question too), and a house label is
+asked again. From e1d85f5d0 the question names the ways of casting a card from
+a graveyard or from exile (`LegalActions::cast_ways`), from protocol 43 what
+restricted mana may pay for (`restricted_taps`, `restricted_floating`), and
+from 1e29094fb the house plans each `{2/C}` of a cost on its own. None moves
+`snapshot_hash` or an answer the engine takes, so records replay; but a label
+written before the boundary and converted by a later build no longer binds
+where the question names one of them, or where the house answers a mixed
+`{2/C}` cost otherwise. **Convert shadow labels written before e1d85f5d0 with
+the runtime that wrote them.** `convert4` refuses such a label by name
+(`convert4::shadow_bc::offer_boundary`: `OFFER_REFUSAL`, the game, the input
+and `OFFER_RULE`) rather than as a generic mismatch: it rebuilds the question
+as a build before the boundary wrote it, and a label that binds that question
+is one such a build wrote. Datasets already converted stay valid as converted.
+The encoded states and menus do not read the new fields, so they are unchanged.
+
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
 same stable table half in both comparisons. Passing that same directory as

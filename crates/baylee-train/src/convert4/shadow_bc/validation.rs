@@ -1,6 +1,6 @@
 use super::{
     Context, EncodedCandidates4, EncodedState4, Pending, PlayerAction, PlayerView, ShadowBc4,
-    ShadowLabelProvenance4, StepProvenance4, TeacherTarget4, ensure, sha,
+    ShadowLabelProvenance4, StepProvenance4, TeacherTarget4, ensure, offer_boundary, sha,
 };
 use crate::features4::{
     HeadKind4, SourceKind4, decode_action4, encode_teacher_action4, view_only_state_hash,
@@ -36,17 +36,24 @@ pub(super) fn target(
             && decision_seq == label.decision_seq,
         "Shadow behavior/decision provenance mismatch"
     );
+    let view_hash = |pending: &Pending| {
+        format!(
+            "{:016x}",
+            if shadow.encoder_version == 8 {
+                crate::features8::view_only_state_hash8(view, pending)
+            } else {
+                view_only_state_hash(view, pending)
+            }
+        )
+    };
+    let bound = |pending: &Pending| -> anyhow::Result<bool> {
+        Ok(label.view_hash_fnv1a64 == view_hash(pending)
+            && label.pending_sha256 == sha(&serde_json::to_vec(pending)?))
+    };
+    let game = shadow.header["game"].as_str().unwrap_or("?").to_owned();
+    offer_boundary::refuse_if_written_before(view, pending, &game, input_n, &bound)?;
     ensure!(
-        label.view_hash_fnv1a64
-            == format!(
-                "{:016x}",
-                if shadow.encoder_version == 8 {
-                    crate::features8::view_only_state_hash8(view, pending)
-                } else {
-                    view_only_state_hash(view, pending)
-                }
-            )
-            && label.pending_sha256 == sha(&serde_json::to_vec(pending)?)
+        bound(pending)?
             && label.encoded_state_sha256 == sha(&serde_json::to_vec(state)?)
             && label.candidates_sha256 == sha(&serde_json::to_vec(menu)?),
         "Shadow view/state/menu mismatch"
@@ -70,8 +77,16 @@ pub(super) fn target(
                 ^ decision_seq.rotate_left(17)
                 ^ u64::from(seat),
         );
+        let answered = teacher.act(view, pending) == label.teacher_action;
+        if !answered && offer_boundary::reads_several_twobrids(view, pending) {
+            anyhow::bail!(offer_boundary::refusal(
+                &game,
+                input_n,
+                "the house plans each {2/C} of a cost on its own since 1e29094fb"
+            ));
+        }
         ensure!(
-            teacher.act(view, pending) == label.teacher_action && teacher.fallbacks() == 0,
+            answered && teacher.fallbacks() == 0,
             "Shadow teacher answer mismatch/refit"
         );
     }
