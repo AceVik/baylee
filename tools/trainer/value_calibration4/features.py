@@ -17,6 +17,10 @@ def predict(head, features, active, allied):
     return (torch.softmax(logits, -1) * allied).sum(-1).clamp(0, 1)
 
 
-def neural_decisions(batch):
-    return (batch["step_valid"] & batch["is_decision"] & (batch["source_kind"] == 0)
-            & batch["has_logprob"] & (batch["temperature"] > 1e-4))
+def neural_decisions(batch, greedy=False):
+    """The net's own decisions. By default only sampled ones (recorded logprob,
+    temperature > 0); `greedy` (opt-in) also counts its temperature-0 answers."""
+    decided = batch["step_valid"] & batch["is_decision"] & (batch["source_kind"] == 0)
+    if greedy:
+        return decided
+    return decided & batch["has_logprob"] & (batch["temperature"] > 1e-4)

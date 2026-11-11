@@ -2053,6 +2053,183 @@ default follows the training batch size for compatibility. Resume checks this
 scoring setting; old checkpoints implicitly used their training batch size.
 Full optimized validation logs progress every 500 batches without per-frame
 device synchronization.
+Learner throughput levers (`training4/learner_options.py`), all off by default:
+`--phase-profile PATH` writes per-phase step times for a warmup/measured window
+(`--phase-profile-sync` waits for the GPU at each boundary, so phases are
+completion times; without it they are the host's issue times), with NVML GPU
+utilization and the card-naming steps' share. `--passive-grad-window W` keeps
+gradient only on frames up to W before a decision of the same lane; the other
+frames encode their boards under no_grad and detach their memory update
+(burn-in), while value/auxiliary heads still train on them. With W covering an
+unpadded unroll the update is bit-identical to the default.
+`--window-burn-in B` trains only the windows `[decision - B, decision]`, merged
+per trajectory and packed into `--window-length` lanes; each piece starts from a
+stored H, so gradient never crosses a piece start. The stored H comes from a
+no-grad pass of the current weights over every passive frame at each epoch
+(`--window-state-refresh N` also every N updates); `--window-state-cache` reuses
+the pass of the untouched `--init` weights (a JSON key beside a `.states` file;
+an older Torch cache is refused unread). The stored H lives in a file in the
+cache's or the run's directory, read and written with positional I/O, so it
+sits in the reclaimable page cache and never in a process's resident set.
+`--window-state-seats S` stores memory slots 0..S only (2 for duels, a third of
+every slot; the other slots hold nothing any output reads, and a frame with a
+seat beyond S fails); `--window-state-bf16` halves the store and rounds H.
+The pass's loader collates only the board inputs and step flags
+(`collate_boards`): workers hand every batch over through /dev/shm, and the
+training collate pads every frame of a batch to its widest candidate list, so
+one card-naming question made a 32 x 32 batch tens of GB there.
+`--window-state-prefetch` (2) batches per worker wait there at most.
+Before the pass the run refuses an estimate of its host memory above
+`--memory-budget-fraction` (0.5) of the limit (`--memory-limit-gib`, else the
+cgroup's `memory.max`, else MemTotal), an estimate of the largest loader's
+/dev/shm use above `--shm-budget-fraction` (0.5) of this user's tmpfs quota
+there (`--shm-limit-gib` tightens it) and a store above the free disk;
+`--report-peak-rss` prints VmHWM, ru_maxrss and the cgroup's peak after the
+pass and at the end, and the pass logs the user's peak /dev/shm use.
+`python -m training4.state_pass_probe` runs the pass's loader alone on the CPU
+and reports its batch sizes and /dev/shm use. `--window-entity-buckets` packs
+pieces of similar size together. These runs start fresh from `--init` only.
+`--vectorized-rule-closure` builds the active rule closure's index arrays with
+numpy (identical tensors). `--skip-final-validation` is for throughput probes.
+Bundle distillation (`training4/distill.py`, `training4/partial.py`), off by
+default and for fresh `--init` runs only: `--distill-bundle` reads
+`bundle_distillation_v1` datasets, whose policy targets hold R, the tactical
+layer's answer with the bundle, at the recorded seat's decisions, and whose
+header flag bit 7 marks N != R (N, the net's greedy answer). Such a dataset is
+refused without the flag, and the flag refuses any other dataset. The loss is
+cross-entropy to R at `--distill-kinds` (pending kinds, priority = 0 by default)
+where N != R, plus `--distill-kl-weight` times KL to the frozen `--init` policy
+everywhere else (those kinds where N = R, other single choices, subsets and
+pairs per free entry, the scalar's squared distance); each term is logged.
+`--checkpoint-selection distill_n_ne_r` keeps the snapshot with the highest
+top-1 agreement with R where N != R at the distilled kinds; validation reports
+that agreement per group, every KL and the value's drift from r1. What learns:
+`--train-policy-head-only` (stage A, the candidate head), `--adapter-on-candidate-head R`
+(stage A, a rank-R update of `cand_scorer.0` merged into its weight in every
+saved checkpoint, so exports keep the plain architecture),
+`--trainable-trunk-from-layer L` (stage B, layers >= L, thinking block and
+heads; no gradient is recorded below L) and `--freeze-value-head`. With the
+trunk frozen the reference reads the student's own boards and memory, and the
+decision-window learner's stored H stays exact, so it is computed once.
+Stage B with `--compile-regions` and `--activation-checkpointing` needs
+`--saved-activation-layers` of at least `layers - L`: every trunk layer shares
+one compiled code object, frozen and trainable layers fill its cache with a
+graph per requires_grad and shape case, and on CUDA a backward recompute ran
+another graph than its forward (a `torch.utils.checkpoint` metadata mismatch).
+Keeping the trainable layers' activations means no compiled layer is
+recomputed (more GPU memory, no recompute time). A distillation run prints
+`[distill] epoch` with the epoch's terms and validation's agreement with R
+(the `[train4] epoch` line's behaviour-cloning terms are unused there), and a
+run shorter than 25 steps still prints its step line and terms.
+`--distill-subtypes cast,pass,instant_their_turn,spend` narrows the
+cross-entropy to those subtypes of the distilled kinds; their other subtypes stay
+under their own reported KL (`kl_kind_out_of_scope`), and validation reports the
+`N ≠ R` agreement per subtype while selection keeps the pooled scope. Single-choice
+target questions join the same way: with `--distill-kinds 0,8` (priority,
+ChooseTargets) and the subtype `target`, which the data side sets only where
+`side` or `aim` fired, they get cross-entropy to R; other target questions carry
+no subtype and stay under the KL.
+`--distill-group-weights mass=2,...` weights a cross-entropy row by the product
+of the weights of the rule groups that fired there (others 1). Frames carry the
+subtype and the fired groups as JSON step fields (`distill_subtype`, `fired`) or
+in an optional BST4 trailing block `BDX1` (u8 subtype, three reserved bytes, u64
+group mask), indexing `meta.json`'s `bundle_distillation.subtypes` and `.groups`.
+`--distill-out-of-scope ce-n` (default `kl`) holds the distilled kinds'
+out-of-scope single choices at N, r1's own top-1, by cross-entropy weighted by
+`--distill-out-of-scope-weight` (default 1), its own term `ce_n_out_of_scope`
+beside `ce_r`; their KL is still reported but no longer trained. Round 0's
+head-only arm A, with the KL there (0.18 at the end), moved the shared head off
+those answers (out-of-scope top-1 to R 73.8 to 45.2 %). For the distilled kinds'
+single choices, validation reports by group and subtype the student's
+agreement with N (`_top1_n`), the share it answers neither N nor R
+(`_top1_neither`), r1's own agreement with R (`_r1_top1_r`) and where r1's top-1
+disagrees with the recorded `N ≠ R` flag (`_n_flag_mismatch`).
+`python -m training4.distill_audit` computes the same for a checkpoint on the
+CPU, over every k-th validation trajectory, with the actions (by the candidate's
+priority column) the student moved to where it answers neither.
+`--distill-coarse {act,class,act-exact,act-best}` teaches the priority decisions where `N ≠ R`
+by a group of answers: `act` splits pass (PassPriority, CancelCast) from acting
+(tap, cast, activate, land, other), `class` takes the six coarse classes
+(rule `coarse_class_v1`). Where R's group differs from N's, cross-entropy to
+R's group on the student's summed probability of it (`ce_coarse_r`), so both
+directions are taught (R acts where N passes, R passes where N acts). Inside
+one group a `cast` decision keeps its cross-entropy to R (which spell); any
+other gets cross-entropy to N's recorded candidate (`ce_fine_n`: a tap's source
+or order). The KL keeps `N = R`, and target questions keep their cross-entropy to R.
+`act-exact` groups as `act`, but where R acts and N passes `ce_coarse_r` is the
+cross-entropy to R's own candidate: the summed act mass can rise while it stays
+spread over equivalent taps and the single pass keeps the top-1 the net plays
+(A″ acted at 1.4 % of those validation rows). `act-best` there takes
+`-log(p_best_act / (p_best_act + p_pass))`, which moves only the student's
+leading act and the pass group and is below `log 2` exactly when an act is the
+top-1. `python -m training4.direction_probe` checks both directions on the
+CPU: `capture` (whole validation trajectories) or `capture-windows` (sampled
+training decisions, each from its stored window state) keeps what the
+candidate head reads at those rows (under `--train-policy-head-only` the same
+for r1 and every student from it) and counts where a grouped decode (act or
+pass by group mass) would change r1's top-1; `evaluate`, `show` and `fit` (the
+overfit test, with or without the L2 anchor) use the head alone. The
+classes come from the dataset's sidecar `bundle-distill/coarse-classes.*`
+(written by the data side, outside the shards, so the store's fingerprint and
+a window-state cache stay valid): one class per candidate of every labelled
+priority frame, joined by (game, seat, cursor). The candidate features alone
+cannot tell a mana ability taken through `ActivateAbility`. A labelled priority
+frame the sidecar misses or contradicts fails the run. Validation reports the
+coarse confusion (R's class against the student's top-1 class) over every
+labelled priority decision and at `N ≠ R` (`val_distill_coarse_confusion`,
+`_n_ne_r`, `val_distill_coarse_top1_r`), and act/pass agreement per direction.
+It also follows R's acting chains (`ChainCounter`): a chain is a run of
+labelled priority decisions of one trajectory where R taps, casts or activates;
+its start follows a pass of R's, and R's land drops (which the student keeps
+making) neither start, continue nor end one. At the start, mid-chain (teacher
+forced), where R passes and at R's land drops,
+overall and by subtype and class (`val_distill_chain_by`), it reports the
+student's top-1 against R and N and how often the student and r1 act, plus
+the share of chains the student, and r1, act through
+(`val_distill_chain_completion`, `_r1`). Round 0's head-only arm A started 3.6 %
+of R's mana chains against r1's 62.6 % and acted through 3.2 % against 59.4 %;
+in play its casts fell to 5.4 % of r1's.
+The offline pre-gate (`distill.pregate`) fails a run whose student starts
+chains less than `MIN_RATIO` times as often as r1 on the same rows
+(`val_distill_pregate_start_act_ratio`), or passes where R passes less than
+`MIN_RATIO` times as often as r1 (`val_distill_pregate_pass_ratio`). It runs
+three ways, each exiting 3 on failure:
+- `--pregate-chain-start MIN_RATIO` on train5, after the checkpoint is saved;
+- `python -m training4.pregate --model DIR`, which reads `meta.json` in a
+  second, as a stage after the export and before any play gate;
+- `python -m training4.distill_audit` on a checkpoint from an older run.
+
+Two diagnostics follow the pass drift. At chain starts, validation and the
+audit report the mean margin of the best pass logit over the best acting
+candidate (`val_distill_chain_start_pass_margin`, `_r1`, by class in
+`val_distill_chain_margin_by`; positive: passing leads). Training prints the
+same margin over the chain starts it trains on as `[distill] drift` every 25
+steps and in `[distill] epoch`; the sidecar marks those frames
+(`coarse_chain_start`). `python -m training4.trained_balance` rebuilds a window
+run's epoch from its sampler (seed, lanes, entity buckets; the per-piece
+entity counts from its window-state cache) for the batches it consumed. It
+counts, per subtype, the cross-entropy frames each loss mode (`kl`, `ce-n`,
+`act`, `class`) gives an acting or a passing target, decoding no frame and
+running no network.
+
+In stage B the r1 reference runs only its own layers from L on, on the inputs the
+student's layer L received.
+**With the deliberation block** (arms "A + block" and "B + block"): add
+`--thinking-revision 2 --thinking-warmstart --think-supervision
+--deliberation-steps 4 [--thinking-lr RATE]` to the stage's own flag. The block
+trains wherever the candidate head trains (`partial_training.deliberation =
+trains`); it sits after the heads, so in stage A the reference still shares
+boards and memory. Its per-step terms take this loss's targets
+(`distill.thinking_terms`): R in scope where N != R, r1 everywhere else, at
+single choices and subsets; no consequence term. The reference's own block is
+switched off, so it stays r1. A block the warm start has just attached is left
+out of `--anchor-l2` (it has no trained value to stay near) and keeps weight
+decay; `--thinking-lr` gives it its own rate. `--train-thinking-only` trains the
+block alone and combines with no stage flag. Validation adds
+`val_distill_think_top1_r_at_n_ne_r_by_step`: the share of in-scope N != R
+decisions each step answers as R (step 0 the heads' first proposal, the last
+step the selection metric), and the training log's `[think] right_by_step` is
+the same share on the training batches.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
 `net.pt` is now selected by validation policy loss by default. The previous

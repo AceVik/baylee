@@ -74,6 +74,9 @@ class RuleEncoder(nn.Module):
             1,
         )
         self._closure_cache: dict[int, np.ndarray] = {}
+        # Opt-in (--vectorized-rule-closure): identical index arrays from CSR tables.
+        self.vectorized_closure = False
+        self._csr = None
         self._seen_mask = np.zeros(len(data["nodes"]), dtype=np.bool_)
         self._compact_lookup = np.zeros(len(data["nodes"]), dtype=np.int64)
         order = sorted(range(len(depths)), key=lambda i: (depths[i], i))
@@ -116,6 +119,41 @@ class RuleEncoder(nn.Module):
             res = np.array(sorted(vis), dtype=np.int64)
             self._closure_cache[root_id] = res
         return res
+
+    def _csr_tables(self):
+        if self._csr is None:
+            nodes = self.data["nodes"]
+            tags = np.array([n["tag"] for n in nodes], dtype=np.int64)
+            child_ptr = np.concatenate(([0], np.cumsum([len(n["children"]) for n in nodes]))).astype(np.int64)
+            byte_ptr = np.concatenate(([0], np.cumsum([len(n["bytes"]) for n in nodes]))).astype(np.int64)
+            children = np.array([c for n in nodes for c in n["children"]], dtype=np.int64)
+            values = np.array([b for n in nodes for b in n["bytes"]], dtype=np.int64)
+            self._csr = (tags, child_ptr, children, byte_ptr, values)
+        return self._csr
+
+    @staticmethod
+    def _ranges(pointer, ids):
+        """Concatenated CSR rows `ids`: flat positions, position within each row, row lengths."""
+        begin = pointer[ids]
+        length = pointer[ids + 1] - begin
+        first = np.cumsum(length) - length
+        within = np.arange(int(length.sum()), dtype=np.int64) - np.repeat(first, length)
+        return np.repeat(begin, length) + within, within, length
+
+    def _index_arrays(self, sorted_nodes, compact_lookup, depth_starts, depth_counts):
+        """The per-node loop of `encode_active`, as array operations with the same output."""
+        tags_all, child_ptr, children, byte_ptr, values = self._csr_tables()
+        rows = np.arange(len(sorted_nodes), dtype=np.int64)
+        child_flat, child_pos, counts = self._ranges(child_ptr, sorted_nodes)
+        byte_flat, byte_pos, byte_len = self._ranges(byte_ptr, sorted_nodes)
+        child_ids = compact_lookup[children[child_flat]]
+        owner = np.repeat(rows, counts)
+        offsets = np.concatenate(([0], np.cumsum(counts)))
+        levels = []
+        for start, cnt in zip(depth_starts.tolist(), depth_counts.tolist()):
+            lo, hi = offsets[start], offsets[start + cnt]
+            levels.append((start, cnt, child_ids[lo:hi], owner[lo:hi] - start, child_pos[lo:hi]))
+        return (tags_all[sorted_nodes], counts, values[byte_flat], np.repeat(rows, byte_len), byte_pos, levels)
 
     def encode_catalog(self):
         device = self.symbol.weight.device
@@ -169,7 +207,10 @@ class RuleEncoder(nn.Module):
         unique_depths, depth_starts, depth_counts = np.unique(sorted_depths, return_index=True, return_counts=True)
 
         level_specs = []
-        for start, cnt in zip(depth_starts.tolist(), depth_counts.tolist()):
+        if self.vectorized_closure:
+            tags, counts, byte_ids, byte_parents, byte_positions, level_specs = self._index_arrays(
+                sorted_nodes, compact_lookup, depth_starts, depth_counts)
+        for start, cnt in ([] if self.vectorized_closure else zip(depth_starts.tolist(), depth_counts.tolist())):
             c_ids, c_pars, c_pos = [], [], []
             for local_par in range(cnt):
                 idx = start + local_par
@@ -196,7 +237,7 @@ class RuleEncoder(nn.Module):
             np.array(byte_positions, dtype=np.int64),
         ]
         for _, _, c_ids, c_pars, c_pos in level_specs:
-            if c_ids:
+            if len(c_ids):
                 chunks.append(np.array(c_ids, dtype=np.int64))
                 chunks.append(np.array(c_pars, dtype=np.int64))
                 chunks.append(np.array(c_pos, dtype=np.int64))

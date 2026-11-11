@@ -373,7 +373,7 @@ class TrajectoryDataset4(Dataset):
         if n_pair == 0:
             pair_mask[0] = True
 
-        return {
+        return self._with_distillation({
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
             "entity_rules": entity_rules,
@@ -408,9 +408,44 @@ class TrajectoryDataset4(Dataset):
             "source_kind": np.array(src_kind, dtype=np.int64),
             "temperature": np.array(temp_val, dtype=np.float32),
             "thinking_steps": np.array(thinking_steps, dtype=np.int64),
-        }
+        }, flags, _pending_kind, -1, extension=buf[offset + n_fm:])
+
+    def _with_distillation(self, frame, flags, pending_kind, net_single, extension=b"", subtype=None, fired=()):
+        """Opt-in (`distillation`, set by --distill-bundle): pending kind, N != R
+        (`bundle_distillation_v1`, header flag bit 7), N's single-choice index
+        (JSON steps only; -1 when absent), the decision's subtype code (-1 when
+        unknown) and the bitmask of rule groups that fired. Subtype and groups
+        index the dataset's `bundle_distillation.subtypes`/`.groups` lists; a BST4
+        frame carries them in an optional trailing block `BDX1`, u8 subtype
+        (255 = none), three reserved bytes, u64 group mask. Default frames are unchanged."""
+        if getattr(self, "distillation", False):
+            frame["pending_kind"] = np.array(int(pending_kind), dtype=np.int64)
+            frame["n_ne_r"] = np.array(bool(flags & 128), dtype=bool)
+            frame["n_single_idx"] = np.array(-1 if net_single is None else int(net_single), dtype=np.int64)
+            code, mask = -1, 0
+            if extension[:4] == b"BDX1" and len(extension) >= 16:
+                code = -1 if extension[4] == 255 else int(extension[4])
+                mask = int.from_bytes(extension[8:16], "little")
+            elif subtype is not None or fired:
+                subtypes = getattr(self, "distill_subtypes", None) or []
+                groups = getattr(self, "distill_groups", None) or []
+                code = subtypes.index(subtype) if subtype in subtypes else -1
+                mask = sum(1 << groups.index(g) for g in set(fired) if g in groups)
+            frame["distill_subtype"] = np.array(code, dtype=np.int64)
+            frame["fired_mask"] = np.array(mask, dtype=np.int64)
+        return frame
 
     def encode_single_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
+        frame = self._encode_step(step_or_row)
+        # Opt-in (`--distill-coarse`): a stored row's coarse answer classes, joined
+        # by (game, seat, cursor) from the dataset's sidecar (training4.coarse).
+        coarse = getattr(self, "coarse", None)
+        if coarse is not None and not isinstance(step_or_row, dict):
+            index = self.store.index[int(step_or_row)]
+            coarse.annotate(frame, int(index["game"]), int(index["seat"]), int(index["cursor"]))
+        return frame
+
+    def _encode_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
         if not isinstance(step_or_row, dict):
             buf = self.store.read_raw(int(step_or_row))
             if buf[:4] == BST4_MAGIC:
@@ -570,7 +605,7 @@ class TrajectoryDataset4(Dataset):
         has_lp = bool(prov.get("has_logprob", False))
         temp_val = float(prov.get("temperature", 0.0))
 
-        return {
+        return self._with_distillation({
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
             "entity_rules": entity_rules,
@@ -609,7 +644,9 @@ class TrajectoryDataset4(Dataset):
             "thinking_steps": np.array(
                 int(prov.get("thinking_steps", 0)), dtype=np.int64
             ),
-        }
+        }, 128 if st.get("n_ne_r", False) else 0, st.get("pending_kind", 0),
+            (st.get("net_answer") or {}).get("single_idx"),
+            subtype=st.get("distill_subtype"), fired=st.get("fired") or ())
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
         if idx == -1:
