@@ -18,7 +18,8 @@ use baylee_train::features4::{
     HeadKind4, PendingKind4, SourceKind4, StepProvenance4, TeacherTarget4,
 };
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchPlayer4, SearchedAnswer4, Selection4, ViewContext4, search_decision,
+    KnownDecks, PriorDecks, ScriptFollow4, SearchPlayer4, SearchedAnswer4, Selection4,
+    ViewContext4, follow_script, search_decision,
 };
 use baylee_train::netplay4::{RootDecision4, rank_single_choice};
 use clap::Parser as _;
@@ -190,6 +191,12 @@ impl EvaluationPlayer for Fixture {
         config: SearchConfig4,
         seed: u64,
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
+        if config.fair() {
+            let fair = PriorDecks::new(table, view);
+            return Some(search_decision(
+                self, &fair, view, pending, teams, config, seed,
+            ));
+        }
         Some(search_decision(
             self,
             &KnownDecks(table),
@@ -199,6 +206,15 @@ impl EvaluationPlayer for Fixture {
             config,
             seed,
         ))
+    }
+    fn follow_script(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<ScriptFollow4> {
+        Some(follow_script(self, view, pending, teams, script))
     }
 }
 
@@ -451,6 +467,50 @@ fn a_critic_that_likes_lands_changes_answers_and_the_game_still_plays() {
         0,
         "one world clears no standard error"
     );
+}
+
+/// Likes what the seat has on the battlefield, whatever it is.
+fn permanents(view: &PlayerView) -> f32 {
+    let mine = view
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == view.seat)
+        .count();
+    (0.1 + 0.05 * f32::from(u16::try_from(mine).unwrap_or(u16::MAX))).min(1.0)
+}
+
+/// The fair search through the evaluator's loop: a passive fixture whose
+/// critic likes permanents is given lands and planned casts by the search,
+/// a chosen planned cast is followed tap by tap until the spell is sent,
+/// the table refuses none of it, and every world ends at its turn boundary
+/// or with the game.
+#[test]
+fn a_fair_search_follows_its_planned_casts_through_the_game_loop() {
+    let mut player = Fixture::new(true, permanents);
+    let config = config(6, 2, 64)
+        .with_fair(true)
+        .with_macros(true)
+        .with_neural_opponent(true)
+        .with_turns(2)
+        .unwrap()
+        .with_selection(Selection4::Mean)
+        .unwrap();
+    let mut search = GameSearch::new(config, 40);
+    let played = play(&mut player, Some(&mut search));
+    let tally = &search.tally;
+    assert_eq!(played.1, 0, "no searched or scripted answer refused");
+    assert!(tally.scripts > 0, "{tally:?}");
+    assert!(tally.scripts_done > 0, "{tally:?}");
+    assert!(tally.scripts_done + tally.scripts_broken <= tally.scripts);
+    assert!(
+        tally.changes.contains_key("PassPriority->PlannedCastSpell"),
+        "{:?}",
+        tally.changes
+    );
+    let leaves = tally.leaves;
+    assert!(leaves.boundary > 0, "{leaves:?}");
+    assert_eq!(leaves.settled + leaves.turn_end + leaves.immediate, 0);
+    assert_eq!(config.contract(), "belief_lookahead_v5");
 }
 
 /// A game whose searches run their worlds at once, on rollout players of
