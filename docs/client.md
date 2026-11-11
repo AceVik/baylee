@@ -9317,6 +9317,20 @@ That is also what finally put the proposer into a draw offer.
 so the question read "Ein Remis wurde angeboten. Annehmen?" — obvious at a
 duel, and not a question anybody can answer at a table of four.
 
+**Another player's library** is named the same way. An ordering, a look in
+a scry's shape, a search or a put-back can be about an opponent's library
+(Architects of Will, Jace's +2, Bribery), and a line that names no library,
+or says "deine Bibliothek", reads as the player's own. The question names no
+library; the cards do, since a card goes only into its owner's (CR 400.3), so
+`Interaction::prompt_in(view)` fills `Prompt::{Arrange, ChooseCards}::library`
+from the cards the view shows (`Interaction::library_in`,
+`decision::cards_owner`) when that owner is not the deciding player. The
+shelf then says `OrderOnTopOf`, `OrderOnBottomOf`, `LookAtTopOf` or a
+`Noun…Of` noun, and the tray's pile headings `ArrangeLibraryTopOf` /
+`ArrangeLibraryBottomOf` (`Arrangement::label_text`). The player's own
+library keeps the words it had. `prompt()` alone leaves `library` empty,
+which is the own library's wording, so only a reader with the view names it.
+
 Who says what:
 
 - The lobby's own status lines go through `Lobby::note`, which reads the

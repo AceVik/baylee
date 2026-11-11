@@ -255,6 +255,20 @@ impl Builder<'_, '_> {
                     baylee_engine::choice::ChoicePrompt::LookAtHand => {
                         self.table.for_decider(words::hand_choice_prompt(*max))
                     }
+                    // Whose library a search or a put-back is about: the
+                    // cards' owner's (Bribery searches an opponent's). A
+                    // search that offers nothing still shows the library
+                    // it went through.
+                    library @ (baylee_engine::choice::ChoicePrompt::SearchLibrary
+                    | baylee_engine::choice::ChoicePrompt::PutBackOnTop
+                    | baylee_engine::choice::ChoicePrompt::PutOnBottom) => {
+                        let shown: Vec<ObjectId> = options
+                            .iter()
+                            .copied()
+                            .chain(self.table.view.looking_at.iter().map(|o| o.id))
+                            .collect();
+                        words::library_choice_prompt(*library, &self.table.whose_cards(&shown))
+                    }
                     _ => self.table.for_decider(&words::choice_prompt(*prompt)),
                 };
                 self.line(format!("QUESTION: {question}."));
@@ -1484,23 +1498,42 @@ impl Builder<'_, '_> {
     ) {
         let table = self.table;
         let n = cards.len();
+        // Whose library and graveyard the piles are: the cards' owner's
+        // (CR 400.3), which is not the decider's when the cards came from
+        // another player's library (Architects of Will, Jace's +2). Said
+        // as it is, and not through `for_decider`, which would make the
+        // seat's own library the controlled player's.
+        let whose = table.whose_cards(cards);
+        let theirs = baylee_client_core::decision::cards_owner(table.view, cards)
+            .is_some_and(|owner| owner != table.decider());
         let intro = match prompt {
+            // A look at another player's library is no scry (CR 701.22a
+            // is "your library"); Jace's +2 asks it in the scry's shape.
+            ArrangePrompt::Scry if theirs && n == 1 => format!(
+                "QUESTION: This is the top card of {whose} library: put it on the bottom of \
+                 {whose} library, or leave it on top."
+            ),
+            ArrangePrompt::Scry if theirs => format!(
+                "QUESTION: These are the top {n} cards of {whose} library: put any number of \
+                 them on the bottom of {whose} library and the rest on top, in any order."
+            ),
             ArrangePrompt::Scry => format!(
                 "QUESTION: Scry {n} (CR 701.22a): put any number of these cards on the bottom \
-                 of your library and the rest on top, in any order."
+                 of {whose} library and the rest on top, in any order."
             ),
-            ArrangePrompt::Surveil => "QUESTION: Put any number of these cards into your \
-                 graveyard and the rest on top of your library, in any order."
-                .into(),
+            ArrangePrompt::Surveil => format!(
+                "QUESTION: Put any number of these cards into {whose} graveyard and the rest \
+                 on top of {whose} library, in any order."
+            ),
             ArrangePrompt::Order => "QUESTION: Put these cards in order.".into(),
             ArrangePrompt::DiscardToLibrary => format!(
                 "QUESTION: You are discarding {n} card(s). Library of Leng lets you put any \
-                 of them on top of your library instead of into your graveyard, in any order; \
-                 each is still discarded."
+                 of them on top of {whose} library instead of into {whose} graveyard, in any \
+                 order; each is still discarded."
             ),
             ArrangePrompt::TriggerOrder => return self.trigger_order(cards, piles),
         };
-        self.line(table.for_decider(&intro));
+        self.line(intro);
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
         self.line(format!("Cards: {}", named.join(", ")));
         for &card in cards {
@@ -1508,12 +1541,12 @@ impl Builder<'_, '_> {
         }
         self.line("Piles:");
         for (i, pile) in piles.iter().enumerate() {
-            let place = table.for_decider(match pile.place {
-                ArrangePlace::LibraryTop => "the top of your library",
-                ArrangePlace::LibraryBottom => "the bottom of your library",
-                ArrangePlace::Graveyard => "your graveyard",
-                ArrangePlace::Stack => "the stack",
-            });
+            let place = match pile.place {
+                ArrangePlace::LibraryTop => format!("the top of {whose} library"),
+                ArrangePlace::LibraryBottom => format!("the bottom of {whose} library"),
+                ArrangePlace::Graveyard => format!("{whose} graveyard"),
+                ArrangePlace::Stack => "the stack".into(),
+            };
             let order = if pile.ordered {
                 "; list them from the top down"
             } else {

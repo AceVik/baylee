@@ -163,6 +163,12 @@ booked. Lifecycle and inactivity heartbeats are specified in `docs/llm-seat.md`
   under a schema or a tool (the schema says it); under plain JSON it does.
   The shapes a question itself carries (piles, blocks, attacks, how many
   ids) are said to every model.
+- A library or graveyard a question puts cards into, or a search goes
+  through, is named by the cards' owner (CR 400.3; `Table::whose_cards`):
+  "your" only for the seat's own. Architects of Will aimed at P2 reads
+  `pile 1: the top of P2's library`, a Bribery `QUESTION: Search P2's
+  library`, and Jace's +2 is `This is the top card of P2's library`, never a
+  scry. A seat was told "your library" there before 11 Nov 2026.
 - An empty mana pool is not said.
 - Log lines that read the same once written are folded into one with a
   count (`(4 times)`).

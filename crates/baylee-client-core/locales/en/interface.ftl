@@ -2984,6 +2984,31 @@ NounCardsToBottom =
        *[other] cards to put on the bottom of your library
     }
 
+# card from $player's library: a search through another player's library
+# (Bribery), whose owner is named
+# Arguments: player, count
+NounCardsFromLibraryOf =
+    { $count ->
+        [one] card from { $player }'s library
+       *[other] cards from { $player }'s library
+    }
+
+# card to put on top of $player's library, another player's
+# Arguments: player, count
+NounCardsToTopOf =
+    { $count ->
+        [one] card to put on top of { $player }'s library
+       *[other] cards to put on top of { $player }'s library
+    }
+
+# card to put on the bottom of $player's library, another player's
+# Arguments: player, count
+NounCardsToBottomOf =
+    { $count ->
+        [one] card to put on the bottom of { $player }'s library
+       *[other] cards to put on the bottom of { $player }'s library
+    }
+
 # card you may play this turn
 # Arguments: count
 NounCardsToPlay =
@@ -3529,13 +3554,31 @@ OrderOnTop = Put these back on top: the first is the new top card
 # Put these on the bottom: the last is the bottom card
 OrderOnBottom = Put these on the bottom: the last is the bottom card
 
-# A scry (CR 701.22a): the looked-at cards go back on top or under the
-# library, each pile in an order.
+# Put these back on top of another player's library (Architects of Will
+# aimed at them): the first is the new top card. `$player` is whose
+# library it is, named as every other seat is named.
+# Arguments: player
+OrderOnTopOf = Put these back on top of { $player }'s library: the first is the new top card
+
+# Put these on the bottom of another player's library: the last is the
+# bottom card. `$player` is whose library it is.
+# Arguments: player
+OrderOnBottomOf = Put these on the bottom of { $player }'s library: the last is the bottom card
+
 # CR 603.3b: several triggered abilities go on the stack at once, and their
 # controller chooses the order. The first in the row resolves first.
 TriggerOrderPrompt = Order your triggers: the first resolves first
 
+# A scry (CR 701.22a): the looked-at cards go back on top or under the
+# library, each pile in an order.
 ScryPrompt = Scry: keep cards on top or put them on the bottom
+
+# The top of another player's library, asked the way a scry is asked
+# (Jace, the Mind Sculptor's +2) but no scry, which is of one's own
+# library (CR 701.22a): the cards stay on top of it or go under it.
+# `$player` is whose library it is.
+# Arguments: player
+LookAtTopOf = { $player }'s library: keep cards on top or put them on the bottom
 
 # The shared surveil/explore choice: keep cards on top or put them into
 # the graveyard, without labeling either operation as the other mechanic.
@@ -4847,6 +4890,17 @@ ArrangeLibraryBottom = Under the library
 
 # An arrangement's pile that goes into the graveyard.
 ArrangeGraveyard = Into the graveyard
+
+# An arrangement's pile that goes back on top of another player's library
+# (Architects of Will aimed at them), its first card the new top card.
+# `$player` is whose library it is.
+# Arguments: player
+ArrangeLibraryTopOf = On top of { $player }'s library
+
+# An arrangement's pile that goes under another player's library, its last
+# card the new bottom card. `$player` is whose library it is.
+# Arguments: player
+ArrangeLibraryBottomOf = Under { $player }'s library
 
 # The cards of an arrangement not yet put in any pile.
 ArrangeUnplaced = Not placed yet

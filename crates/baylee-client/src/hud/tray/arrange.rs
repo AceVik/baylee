@@ -21,7 +21,7 @@ use crate::ambience::Feel;
 use crate::hud::{ArrangeSlot, btn_radius, palette};
 use crate::ui_button::UiButton;
 use baylee_client_core::arrange::{Arrangement, Row};
-use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 use bevy::prelude::*;
 
 /// How tall a pile's end stands: a finger's width, and the same whatever the
@@ -45,6 +45,12 @@ pub(super) fn spawn_piles(
     assets: &AssetServer,
     cards: &mut Option<&mut UiCards<'_>>,
 ) {
+    // Whose library a library pile goes into, when it is another player's
+    // (Architects of Will aimed at them): named on its heading.
+    let library = grid
+        .interaction
+        .and_then(|i| i.library_in(grid.view))
+        .map(|owner| seat_name(lang, Some(grid.statics), owner));
     // `Browser::rows` lists an arrangement row by row, so each pile is one
     // unbroken run of the list and the loose rows are its tail.
     let mut from = 0;
@@ -53,7 +59,8 @@ pub(super) fn spawn_piles(
             .iter()
             .take_while(|r| r.pile == Some(row))
             .count();
-        let head = spawn_pile_head(commands, lang, grid.fonts, arrangement, row);
+        let label = arrangement.label_text(row, lang, library.as_deref());
+        let head = spawn_pile_head(commands, lang, grid.fonts, arrangement, row, &label);
         commands.entity(list).add_child(head);
         spawn_rows(
             commands,
@@ -86,15 +93,16 @@ pub(super) fn spawn_piles(
     );
 }
 
-/// Where a pile's cards are going, how many are in it, and a rule to the
-/// edge — the grid's run heading, carrying a count because a pile's size is
-/// part of the answer.
+/// Where a pile's cards are going (`label`, `Arrangement::label_text`), how
+/// many are in it, and a rule to the edge — the grid's run heading,
+/// carrying a count because a pile's size is part of the answer.
 fn spawn_pile_head(
     commands: &mut Commands,
     lang: Lang,
     fonts: &UiFonts,
     arrangement: &Arrangement,
     row: Row,
+    label: &str,
 ) -> Entity {
     let head = commands
         .spawn((
@@ -110,7 +118,7 @@ fn spawn_pile_head(
         ))
         .id();
     let count = arrangement.cards(row).len().to_string();
-    let words = Phrase::BrowseTabCount.fill(lang, &[arrangement.label(row).text(lang), &count]);
+    let words = Phrase::BrowseTabCount.fill(lang, &[label, &count]);
     let words = dialog_label(commands, fonts, &words, 10.5, palette::DIALOG_SOFT);
     let rule = commands
         .spawn((

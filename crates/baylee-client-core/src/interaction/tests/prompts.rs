@@ -1048,6 +1048,141 @@ fn arrangement_headlines_describe_the_destinations_without_mislabeling_explore()
     }
 }
 
+/// A roster in which seat 1 is called Mira, and a view in which this seat
+/// looks at two cards `owner` owns.
+fn looking_at_cards_of(owner: u8) -> (GameStatic, PlayerView) {
+    let mut roster = crate::test_support::statics(0);
+    roster.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "Mira".to_string(),
+        is_ai: false,
+        away: false,
+        team: None,
+        guest: false,
+    });
+    let view = crate::test_support::ViewBuilder::new(2)
+        .with_looking_at(vec![
+            crate::test_support::token(1, owner, "Mountain", 0, 0),
+            crate::test_support::token(2, owner, "Island", 0, 0),
+        ])
+        .build();
+    (roster, view)
+}
+
+/// Architects of Will aimed at an opponent puts the cards back on top of
+/// *their* library: the line and the pile's heading name that player, in
+/// both languages, and the player's own library reads as it always did. A
+/// line that named no library read as the player's own (hc-smoke,
+/// game-0002, question 278). The question carries no owner; the cards the
+/// view shows do (CR 400.3).
+#[test]
+fn ordering_another_players_library_names_that_player() {
+    let i = interaction(put_back(vec![obj(1), obj(2)]));
+    let (roster, theirs) = looking_at_cards_of(1);
+    assert_eq!(i.library_in(&theirs), Some(PlayerId::new(1)));
+    let line = |lang| {
+        i.prompt_in(&theirs)
+            .headline(lang, Turn::Mine, Some(&roster), false)
+    };
+    assert_eq!(
+        line(Lang::En),
+        "Put these back on top of Mira's library: the first is the new top card"
+    );
+    assert_eq!(
+        line(Lang::De),
+        "Lege diese oben auf die Bibliothek von Mira zurück: die erste ist die neue oberste Karte"
+    );
+    let arrangement = i.arrangement().expect("an arrangement");
+    let mira = Some("Mira");
+    assert_eq!(
+        arrangement.label_text(Row::Pile(0), Lang::En, mira),
+        "On top of Mira's library"
+    );
+    assert_eq!(
+        arrangement.label_text(Row::Pile(0), Lang::De, mira),
+        "Oben auf die Bibliothek von Mira"
+    );
+
+    let (roster, mine) = looking_at_cards_of(0);
+    assert_eq!(i.library_in(&mine), None);
+    assert_eq!(
+        i.prompt_in(&mine)
+            .headline(Lang::En, Turn::Mine, Some(&roster), false),
+        "Put these back on top: the first is the new top card"
+    );
+    assert_eq!(
+        arrangement.label_text(Row::Pile(0), Lang::En, None),
+        "On top of the library"
+    );
+}
+
+/// Jace, the Mind Sculptor's +2 asks in a scry's shape about the top of an
+/// opponent's library, and Bribery searches one: neither is said as the
+/// player's own library, and the look is no scry (CR 701.22a).
+#[test]
+fn a_look_or_a_search_through_another_players_library_names_that_player() {
+    let (roster, theirs) = looking_at_cards_of(1);
+    let look = interaction(Pending::Arrange {
+        player: me(),
+        cards: vec![obj(1)],
+        piles: vec![
+            ArrangePile::up_to(ArrangePlace::LibraryTop, 1),
+            ArrangePile::up_to(ArrangePlace::LibraryBottom, 1),
+        ],
+        prompt: ArrangePrompt::Scry,
+    });
+    let line = look
+        .prompt_in(&theirs)
+        .headline(Lang::En, Turn::Mine, Some(&roster), false);
+    assert_eq!(
+        line,
+        "Mira's library: keep cards on top or put them on the bottom"
+    );
+    let arrangement = look.arrangement().expect("an arrangement");
+    assert_eq!(
+        arrangement.label_text(Row::Pile(1), Lang::En, Some("Mira")),
+        "Under Mira's library"
+    );
+
+    let search = |options| {
+        interaction(Pending::ChooseCards {
+            player: me(),
+            options,
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::SearchLibrary,
+            total: None,
+        })
+    };
+    // From what it offers, or from the library it went through.
+    for offered in [vec![obj(2)], Vec::new()] {
+        let line = |lang| {
+            search(offered.clone()).prompt_in(&theirs).headline(
+                lang,
+                Turn::Mine,
+                Some(&roster),
+                false,
+            )
+        };
+        assert!(
+            line(Lang::En).contains("card from Mira's library"),
+            "{}",
+            line(Lang::En)
+        );
+        assert!(
+            line(Lang::De).contains("Karte aus der Bibliothek von Mira"),
+            "{}",
+            line(Lang::De)
+        );
+    }
+    let (roster, mine) = looking_at_cards_of(0);
+    let line =
+        search(vec![obj(2)])
+            .prompt_in(&mine)
+            .headline(Lang::En, Turn::Mine, Some(&roster), false);
+    assert!(line.contains("card from your library"), "{line}");
+}
+
 #[test]
 fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     let payer = PlayerId::new(1);

@@ -215,6 +215,10 @@ pub enum Prompt {
         max: u8,
         /// Why.
         reason: ChoicePrompt,
+        /// Another player's library a search or a put-back goes through
+        /// (Bribery), named by the line; `None` for the deciding player's
+        /// own, and wherever [`Interaction::prompt_in`] was not asked.
+        library: Option<PlayerId>,
     },
     /// Choose targets.
     ChooseTargets {
@@ -301,6 +305,11 @@ pub enum Prompt {
         /// The one place they all go, when there is only one — which is
         /// what says whether the first card named is the top card or not.
         onto: Option<ArrangePlace>,
+        /// Another player's library the cards go back into (Architects of
+        /// Will aimed at them), named by the line; `None` for the deciding
+        /// player's own, and wherever [`Interaction::prompt_in`] was not
+        /// asked.
+        library: Option<PlayerId>,
     },
     /// A yes-or-no question.
     YesNo {
@@ -765,6 +774,7 @@ impl Interaction {
                 min: *min,
                 max: *max,
                 reason: *prompt,
+                library: None,
             },
             Pending::ChooseTargets {
                 min, max, reason, ..
@@ -816,10 +826,58 @@ impl Interaction {
                     [pile] => Some(pile.place),
                     _ => None,
                 },
+                library: None,
             },
             Pending::YesNo { prompt, .. } => Prompt::YesNo { question: *prompt },
             Pending::GameOver(_) => Prompt::GameOver,
         }
+    }
+
+    /// [`Self::prompt`], with whose library the question is about where
+    /// `view` shows it is another player's than the one deciding.
+    ///
+    /// The question names no library. The cards it is about do: a card goes
+    /// only into its owner's library (CR 400.3), so the cards an arrangement
+    /// puts back, and the cards a search or a put-back offers (or, for a
+    /// search that offers none, the library it went through, which the view
+    /// shows as `looking_at`), are that library's owner's
+    /// ([`crate::decision::cards_owner`]). Architects of Will aimed at an
+    /// opponent puts the cards back on top of *their* library, and a line
+    /// that did not say so read as the player's own.
+    #[must_use]
+    pub fn prompt_in(&self, view: &PlayerView) -> Prompt {
+        let mut prompt = self.prompt();
+        if let Prompt::Arrange { library, .. } | Prompt::ChooseCards { library, .. } = &mut prompt {
+            *library = self.library_in(view);
+        }
+        prompt
+    }
+
+    /// Whose library this question is about, when `view` shows it is
+    /// another player's than the one deciding ([`Self::prompt_in`]): an
+    /// arrangement's, or a search's or a put-back's. `None` for the deciding
+    /// player's own, for a question about no library, and for cards the view
+    /// does not show.
+    #[must_use]
+    pub fn library_in(&self, view: &PlayerView) -> Option<PlayerId> {
+        let owner = match &self.pending {
+            Pending::Arrange { cards, .. } => crate::decision::cards_owner(view, cards),
+            Pending::ChooseCards {
+                options,
+                prompt:
+                    ChoicePrompt::SearchLibrary | ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom,
+                ..
+            } => {
+                let shown: Vec<ObjectId> = options
+                    .iter()
+                    .copied()
+                    .chain(view.looking_at.iter().map(|object| object.id))
+                    .collect();
+                crate::decision::cards_owner(view, &shown)
+            }
+            _ => None,
+        };
+        owner.filter(|owner| *owner != self.seat)
     }
 
     /// The prompt for a mana-payment, damage or prevention choice.

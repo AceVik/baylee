@@ -325,6 +325,7 @@ fn prompts_that_are_not_indexed_choices_have_no_rows() {
             &Prompt::Arrange {
                 reason: ArrangePrompt::Order,
                 onto: None,
+                library: None,
             },
             Lang::En,
             None,

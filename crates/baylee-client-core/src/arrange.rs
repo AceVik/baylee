@@ -13,7 +13,7 @@
 //! with a focus that walks every card, and nudges that move the held card one
 //! step at a time. The model knows no renderer; the tray draws what it says.
 
-use crate::i18n::Phrase;
+use crate::i18n::{Lang, Phrase};
 use crate::interaction::SelectionOutcome;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::{ArrangePile, ArrangePlace};
@@ -200,6 +200,24 @@ impl Arrangement {
                 Some(ArrangePlace::Stack) => Phrase::ArrangeStack,
                 Some(ArrangePlace::LibraryTop) | None => Phrase::ArrangeLibraryTop,
             },
+        }
+    }
+
+    /// [`Self::label`] in `lang`, naming the library a library pile goes
+    /// into when it is another player's: `library` is that player's name
+    /// (Architects of Will aimed at them puts the cards back on top of
+    /// *their* library, `Interaction::library_in`). `None` keeps "the
+    /// library", the deciding player's own.
+    #[must_use]
+    pub fn label_text(&self, row: Row, lang: Lang, library: Option<&str>) -> String {
+        match (self.label(row), library) {
+            (Phrase::ArrangeLibraryTop, Some(owner)) => {
+                Phrase::ArrangeLibraryTopOf.fill(lang, &[owner])
+            }
+            (Phrase::ArrangeLibraryBottom, Some(owner)) => {
+                Phrase::ArrangeLibraryBottomOf.fill(lang, &[owner])
+            }
+            (phrase, _) => phrase.text(lang).to_owned(),
         }
     }
 

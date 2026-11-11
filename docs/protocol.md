@@ -201,6 +201,23 @@ priority and yes-or-no questions. `PROTOCOL_VERSION` does not move, as it did no
 for views 84 and 85: the question rides as JSON in the envelope, and view 86 is
 the refusal.
 
+## Whose library a question is about (no wire change)
+
+`Pending::Arrange` names no library, and neither does `ChooseCards` with
+`SearchLibrary`, `PutBackOnTop` or `PutOnBottom`; the library may be another
+player's (Architects of Will aimed at an opponent, Jace, the Mind Sculptor's
++2, Bribery). The cards say whose it is: a card goes only into its owner's
+library or graveyard (CR 400.3), so a library pile goes into the library of
+the cards' owner, and a search's options, or the searched library the asked
+seat is shown, are that library's owner's. A reader takes the owner from the
+objects it is already shown (`looking_at`, a zone, a hand:
+`baylee_client_core::decision::cards_owner`) and says "your" only when that is
+the deciding seat; the desktop client (`Interaction::prompt_in`) and the
+language-model narrator (`Table::whose_cards`) both do. The owner is nothing
+the seat was not already shown, so nothing was added to the question or the
+view: the frame, `VIEW_VERSION`, `PROTOCOL_VERSION` and `snapshot_hash` are as
+they were.
+
 ## Composed ability origins (compatible addition)
 
 `PublicObject.ability_sources` maps runtime indices in composed ability lists

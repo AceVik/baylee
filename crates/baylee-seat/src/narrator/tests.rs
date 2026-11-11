@@ -1038,6 +1038,143 @@ fn the_shared_graveyard_arrangement_does_not_mislabel_explore() {
     assert!(!text.contains("701.25"));
 }
 
+/// The question a wake asks, from its `QUESTION:` line on: what the
+/// assertions below are about, without the board's own lines.
+fn question_of(view: PlayerView, pending: Pending) -> String {
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    let at = text.find("QUESTION:").expect("a question");
+    text[at..].to_string()
+}
+
+/// A card shown to the seat from P2's library or hand: P2 owns it.
+fn theirs(slot: u32, name: &str) -> PublicObject {
+    let mut object = card(slot, name);
+    object.owner = THEM;
+    object.controller = THEM;
+    object
+}
+
+/// Architects of Will aimed at P2 orders the top of P2's library, and the
+/// question says so: "your library" is only ever the seat's own. The seat
+/// was told "the top of your library" while ordering P2's (hc-smoke,
+/// game-0002, question 278).
+#[test]
+fn ordering_another_players_library_names_that_player() {
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+    let order = Pending::Arrange {
+        player: ME,
+        cards: vec![id(101), id(82), id(100)],
+        piles: vec![ArrangePile::all_of(ArrangePlace::LibraryTop, 3)],
+        prompt: ArrangePrompt::Order,
+    };
+    let (mut view, _) = board();
+    view.looking_at = vec![
+        theirs(101, "Mountain"),
+        theirs(82, "Island"),
+        theirs(100, "Mountain"),
+    ];
+    let question = question_of(view, order.clone());
+    assert!(
+        question.contains("pile 1: the top of P2's library (exactly 3 cards"),
+        "{question}"
+    );
+    assert!(!question.contains("your"), "{question}");
+
+    // The seat's own library is still "your".
+    let (mut view, _) = board();
+    view.looking_at = vec![
+        card(101, "Mountain"),
+        card(82, "Island"),
+        card(100, "Mountain"),
+    ];
+    let question = question_of(view, order);
+    assert!(
+        question.contains("pile 1: the top of your library (exactly 3 cards"),
+        "{question}"
+    );
+    assert!(!question.contains("P2"), "{question}");
+}
+
+/// Jace, the Mind Sculptor's +2 asks in a scry's shape about the top of
+/// P2's library. It is no scry (CR 701.22a is "your library"), and both
+/// piles are P2's library.
+#[test]
+fn a_look_at_another_players_library_is_no_scry_of_yours() {
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+    let (mut view, _) = board();
+    view.looking_at = vec![theirs(101, "Mountain")];
+    let question = question_of(
+        view,
+        Pending::Arrange {
+            player: ME,
+            cards: vec![id(101)],
+            piles: vec![
+                ArrangePile::up_to(ArrangePlace::LibraryTop, 1),
+                ArrangePile::up_to(ArrangePlace::LibraryBottom, 1),
+            ],
+            prompt: ArrangePrompt::Scry,
+        },
+    );
+    assert!(
+        question.starts_with(
+            "QUESTION: This is the top card of P2's library: put it on the bottom of P2's \
+             library, or leave it on top."
+        ),
+        "{question}"
+    );
+    assert!(question.contains("pile 1: the top of P2's library"));
+    assert!(question.contains("pile 2: the bottom of P2's library"));
+    assert!(
+        !question.contains("Scry") && !question.contains("your"),
+        "{question}"
+    );
+}
+
+/// A search through P2's library (Bribery) says it is P2's, from what it
+/// offers or, when it offers nothing, from the library it went through.
+#[test]
+fn a_search_of_another_players_library_names_that_player() {
+    use baylee_engine::choice::ChoicePrompt;
+    let search = |options: Vec<ObjectId>| Pending::ChooseCards {
+        player: ME,
+        options,
+        min: 0,
+        max: 1,
+        prompt: ChoicePrompt::SearchLibrary,
+        total: None,
+    };
+    let (mut view, _) = board();
+    view.looking_at = vec![theirs(120, "Serra Angel"), theirs(121, "Island")];
+    let question = question_of(view.clone(), search(vec![id(120)]));
+    assert!(
+        question.starts_with("QUESTION: Search P2's library: choose the cards to find."),
+        "{question}"
+    );
+    let question = question_of(view, search(Vec::new()));
+    assert!(
+        question.starts_with("QUESTION: Search P2's library"),
+        "{question}"
+    );
+
+    let (mut view, _) = board();
+    view.looking_at = vec![card(120, "Serra Angel")];
+    let question = question_of(view, search(vec![id(120)]));
+    assert!(
+        question.starts_with("QUESTION: Search your library"),
+        "{question}"
+    );
+}
+
 /// A multikicker's number says what each one costs and that fewer is an
 /// answer, and a spell on the stack says what it was cast with.
 #[test]

@@ -966,6 +966,21 @@ NounCardsToBottom =
         [one] Karte, die unter deine Bibliothek kommt
        *[other] Karten, die unter deine Bibliothek kommen
     }
+NounCardsFromLibraryOf =
+    { $count ->
+        [one] Karte aus der Bibliothek von { $player }
+       *[other] Karten aus der Bibliothek von { $player }
+    }
+NounCardsToTopOf =
+    { $count ->
+        [one] Karte, die oben auf die Bibliothek von { $player } kommt
+       *[other] Karten, die oben auf die Bibliothek von { $player } kommen
+    }
+NounCardsToBottomOf =
+    { $count ->
+        [one] Karte, die unter die Bibliothek von { $player } kommt
+       *[other] Karten, die unter die Bibliothek von { $player } kommen
+    }
 NounCardsToPlay =
     { $count ->
         [one] Karte, die du in diesem Zug spielen darfst
@@ -1212,8 +1227,11 @@ PutInOrder = Bringe diese in eine Reihenfolge
 OrderGraveyard = Friedhof ordnen: erste Karte oben
 OrderOnTop = Lege diese oben zurück: die erste ist die neue oberste Karte
 OrderOnBottom = Lege diese unter die Bibliothek: die letzte ist die unterste Karte
+OrderOnTopOf = Lege diese oben auf die Bibliothek von { $player } zurück: die erste ist die neue oberste Karte
+OrderOnBottomOf = Lege diese unter die Bibliothek von { $player }: die letzte ist die unterste Karte
 TriggerOrderPrompt = Bringe deine ausgelösten Fähigkeiten in eine Reihenfolge: die erste wird zuerst verrechnet
 ScryPrompt = Hellsicht: Karten oben lassen oder unter die Bibliothek legen
+LookAtTopOf = Bibliothek von { $player }: Karten oben lassen oder darunter legen
 SurveilPrompt = Karten oben lassen oder auf deinen Friedhof legen
 DiscardToLibraryPrompt = Abwerfen: auf deinen Friedhof oder stattdessen oben auf deine Bibliothek
 TheGameIsOver = Das Spiel ist vorbei
@@ -1609,6 +1627,8 @@ ArrangeLibraryTop = Oben auf die Bibliothek
 ArrangeStack = Auf den Stapel
 ArrangeLibraryBottom = Unter die Bibliothek
 ArrangeGraveyard = Auf den Friedhof
+ArrangeLibraryTopOf = Oben auf die Bibliothek von { $player }
+ArrangeLibraryBottomOf = Unter die Bibliothek von { $player }
 ArrangeUnplaced = Noch nicht gelegt
 ArrangePutHere = Hierher legen
 ArrangeEmptyPile = Leer

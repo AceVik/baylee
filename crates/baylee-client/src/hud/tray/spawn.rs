@@ -567,7 +567,7 @@ pub(super) fn spawn_tray(
             let line = target_context_line(
                 commands,
                 fonts,
-                &answering.prompt().headline(
+                &answering.prompt_in(view).headline(
                     lang,
                     baylee_client_core::Turn::of(view.active, view.seat),
                     Some(statics),

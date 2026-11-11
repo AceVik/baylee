@@ -1847,6 +1847,9 @@ pub(crate) mod flashback_reach_tests;
 mod owed_tests;
 
 #[cfg(test)]
+mod library_owner_tests;
+
+#[cfg(test)]
 mod activation_payment_tests;
 #[cfg(test)]
 mod controlled_turn_tests;

@@ -216,6 +216,24 @@ fn replacement_prompt(event: &str) -> String {
     format!("Choose the source whose replacement applies to this {event}")
 }
 
+/// What a choice of cards from or onto a library asks, saying whose library
+/// it is: `whose` is "your" or "P2's", the cards' owner's (CR 400.3), since a
+/// search may go through another player's (Bribery). Any other prompt is
+/// said as [`choice_prompt`] says it.
+#[must_use]
+pub fn library_choice_prompt(prompt: ChoicePrompt, whose: &str) -> String {
+    match prompt {
+        ChoicePrompt::SearchLibrary => format!("Search {whose} library: choose the cards to find"),
+        ChoicePrompt::PutBackOnTop => {
+            format!("Choose the cards to put back on top of {whose} library")
+        }
+        ChoicePrompt::PutOnBottom => {
+            format!("Choose the cards to put on the bottom of {whose} library")
+        }
+        other => choice_prompt(other),
+    }
+}
+
 /// What a [`ChoicePrompt`] asks, as an instruction.
 #[must_use]
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
@@ -242,8 +260,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::TappedForCounters { kind } => format!("Choose permanents tapped this way to receive one {} each (not targets)", baylee_client_core::interaction::counter_label(kind, baylee_client_core::Lang::En)),
         ChoicePrompt::Proliferate => "Choose permanents to give one additional counter of each kind already present".into(),
         ChoicePrompt::RevealDiscard => "Choose discards to reveal with Nephalia Academy; unselected cards use Library of Leng and stay hidden".into(),
-        ChoicePrompt::SearchLibrary => "Search your library: choose the cards to find".into(),
-        ChoicePrompt::PutBackOnTop => "Choose the cards to put back on top of your library".into(),
+        ChoicePrompt::SearchLibrary | ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {
+            library_choice_prompt(prompt, "your")
+        }
         ChoicePrompt::Wish => "Choose a card from outside the game".into(),
         ChoicePrompt::Delve => "Choose cards to exile from your graveyard for delve".into(),
         ChoicePrompt::CostSacrifice => "Choose what to sacrifice to pay the cost".into(),
@@ -286,7 +305,6 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Choose a card to reveal (choose none and it enters tapped)".into()
         }
         ChoicePrompt::PutIntoHand => "Choose the cards to put into your hand".into(),
-        ChoicePrompt::PutOnBottom => "Choose the cards to put on the bottom of your library".into(),
         ChoicePrompt::PlayFromExile => "Choose a card to play from exile".into(),
         ChoicePrompt::PutOntoBattlefield => "Choose the cards to put onto the battlefield".into(),
         ChoicePrompt::FromGraveyard => "Choose cards from the graveyard".into(),

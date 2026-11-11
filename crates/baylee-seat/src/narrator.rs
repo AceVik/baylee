@@ -748,6 +748,24 @@ impl<'a> Table<'a> {
         }
     }
 
+    /// Whose library or graveyard `cards` go into, as a possessive: their
+    /// owner's (CR 400.3), "your" only when that is the seat. Architects of
+    /// Will targeting P2 orders the top of "P2's library", not "your".
+    ///
+    /// The owner is what the view shows ([`decision::cards_owner`]); cards
+    /// of more than one owner go each into "each card's owner's", and cards
+    /// the view does not show are the decider's, whose cards a question is
+    /// about when nothing says otherwise.
+    ///
+    /// [`decision::cards_owner`]: baylee_client_core::decision::cards_owner
+    pub fn whose_cards(&self, cards: &[ObjectId]) -> String {
+        match baylee_client_core::decision::cards_owner(self.view, cards) {
+            Some(owner) => self.whose(owner),
+            None if cards.iter().any(|&card| self.visible(card)) => "each card's owner's".into(),
+            None => self.whose(self.decider()),
+        }
+    }
+
     /// Whether `p` plays on this seat's side.
     pub fn ally(&self, p: PlayerId) -> bool {
         self.same_side(p, self.me())

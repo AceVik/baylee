@@ -56,9 +56,13 @@ impl Duel {
             .as_ref()
             .map(CastMenu::prompt)
             .or_else(|| {
-                self.interaction
-                    .as_ref()
-                    .map(baylee_client_core::Interaction::prompt)
+                // Read against the view, which shows whose library a
+                // question is about when it is another player's.
+                self.interaction.as_ref().map(|i| {
+                    self.view
+                        .as_ref()
+                        .map_or_else(|| i.prompt(), |v| i.prompt_in(v))
+                })
             })
             .or_else(|| {
                 self.view
