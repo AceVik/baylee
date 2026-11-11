@@ -18,7 +18,10 @@ decisions it follows:
 - After the order holds, the house improves in rounds alongside BayleeAI.
   Each round studies the games BayleeAI or a language-model seat won against
   live `expert` and fixes general weaknesses, never exploits aimed at
-  BayleeAI. The house stays an opponent, never a teacher.
+  BayleeAI. The house was to stay an opponent, never a teacher; since
+  11.11.2026 the fair generation-7 `expert` with foresight is also a teacher
+  for BayleeAI (owner; the campaign builds that path), so a generation that
+  changes `expert`'s answers is told to the campaign.
 
 ## 0. Handover (10.11.2026)
 
@@ -617,11 +620,64 @@ unless a table switches it on (`Session::set_foresight`, `eval4
 (`set_foresight_work`). `docs/house-ai.md` §"Foresight" describes what
 stands; `docs/engine-internals.md` §"Forking a simulation" the prior.
 
-**The held-out gate has not been run** (coordinator, 11.11.2026: it is
-spent once, on a version that train says meets 62 %). Every number below is
-a development number on the train split, round-robin pairings, each game
-counted once by `house_duplicate`, the level against its own generation-6
-self; "for / against" are the seeds the level turned.
+**The held-out gate was run once** (11.11.2026, build bf1e9a720; the owner
+set its bar at 58 % and general, in place of §5's 62 %, and banked the
+round on it). Decks no development number had seen: the test split and
+`holdout2` of `manifest.v4.holdout2.json`, round-robin pairings, each game
+counted once by `house_duplicate`, every level with foresight on against
+its own generation-6 self without it. "For / against" are the seeds the
+level turned (won from both seats against lost from both); the sign test
+is two-sided over them.
+
+| Level | Test | `holdout2` | Together | Wilson 95 % | For / against | Sign test |
+| --- | ---: | ---: | ---: | --- | ---: | --- |
+| expert | 306 / 512 = 59.8 % | 301 / 512 = 58.8 % | 607 / 1,024 = 59.3 % | 56.2–62.3 | 101 / 6 | p < 0.0001 |
+| sharp | 306 / 512 = 59.8 % | 311 / 512 = 60.7 % | 617 / 1,024 = 60.3 % | 57.2–63.2 | 111 / 6 | p < 0.0001 |
+| steady | 153 / 256 = 59.8 % | 146 / 256 = 57.0 % | 299 / 512 = 58.4 % | 54.1–62.6 | 49 / 6 | p < 0.0001 |
+| casual | 138 / 256 = 53.9 % | 153 / 255 = 60.0 % | 291 / 511 = 56.9 % | 52.6–61.2 | 45 / 9 | p < 0.0001 |
+| novice | 131 / 256 = 51.2 % | 136 / 256 = 53.1 % | 267 / 512 = 52.1 % | 47.8–56.4 | 27 / 16 | p = 0.13 |
+
+expert, sharp and steady meet the bar; casual is a point short of it and
+clearly better than its predecessor; novice's two worlds of four
+candidates are not shown to gain anything. No deck reached ten turned
+seeds in any run, so the per-deck rule had nothing to read. One game of
+1,024 stayed open (casual, `holdout2`).
+
+*Generalisation,* the same deals against the frozen `sharp-2026-11`, which
+no fork seats:
+
+| Level | Generation 6 | With foresight | Gain |
+| --- | ---: | ---: | ---: |
+| expert, test | 283 / 512 = 55.3 % (35 / 8) | 320 / 512 = 62.5 % (68 / 4) | |
+| expert, `holdout2` | 287 / 512 = 56.1 % (37 / 6) | 331 / 511 = 64.8 % (80 / 5) | |
+| expert, together | 570 / 1,024 = 55.7 % | 651 / 1,023 = 63.6 % | +7.9 |
+| sharp, test | 270 / 512 = 52.7 % (25 / 11) | 319 / 512 = 62.3 % (68 / 5) | |
+| sharp, `holdout2` | 267 / 512 = 52.1 % (22 / 11) | 326 / 512 = 63.7 % (73 / 3) | |
+| sharp, together | 537 / 1,024 = 52.4 % | 645 / 1,024 = 63.0 % | +10.6 |
+
+The gain against an opponent the search never models is as large as the
+gain against the predecessor, on held-out decks as on train (below).
+Against opponents that are no house: BayleeAI r1 with its tactical bundle
+on `holdout2` wins 46.1 %, 44.1 % and 44.3 % against the new expert, sharp
+and steady (the run described further down), and DeepSeek at its low
+setting, in 96 games each of the coordinator's collector, loses to the
+house as often as not: the new expert won 47.9 % of them and the new sharp
+40.6 %. So the order sharp < expert shows against no outside opponent yet.
+
+*The 2v2 run per level* (must not be worse than 50 %) was still playing
+when this was written; its line follows.
+
+*What a searched answer cost in the gate.* The gate ran eight games at a
+time beside other jobs (a load of about forty on twenty-four threads), so
+these are times under load, not the cost of §"Cost" below: at expert's
+tier a searched answer took 100 to 119 ms at the median and 0.37 to 1.07 s
+at the 95th percentile, and the slowest single answers took 8, 10, 29 and
+118 s; sharp's slowest took 88 s. A count of candidates, worlds and
+answers does not bound a searched answer; §7 is that work.
+
+**On the train split,** as development went (every number from here to §6
+is a development number: round-robin pairings, each game counted once, the
+level against its own generation-6 self):
 
 | Level (tier: candidates × worlds) | Games | Share | Wilson 95 % | For / against |
 | --- | ---: | ---: | --- | ---: |
