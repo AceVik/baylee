@@ -246,6 +246,103 @@ class DistillLoss(unittest.TestCase):
         self.assertTrue(torch.equal(logits[0].grad[0, 4:], torch.zeros(3)))  # masked candidates
 
 
+def drifted():
+    """with_subtypes' frames; the student moved away from r1 everywhere, with gradients."""
+    torch.manual_seed(11)
+    reference = known_student()
+    student = [(o[0], (o[1] + torch.randn_like(o[1])).requires_grad_(), (o[2] + torch.randn_like(o[2])),
+                o[3], o[4]) for o in reference]
+    return student, reference
+
+
+class OutOfScopeAnchor(unittest.TestCase):
+    """--distill-out-of-scope ce-n: the kinds' out-of-scope single choices keep r1's top-1."""
+    OUTSIDE = ((0, 1), (1, 1))   # with_subtypes: (0,1) mana, (1,1) land
+
+    def run_loss(self, scope):
+        batch = with_subtypes(distill_batch())
+        student, reference = drifted()
+        loss, stats = D.distill_loss(student, reference, batch, plan_batch(batch, 0), scope)
+        loss.backward()
+        return loss, stats, [o[1].grad for o in student], reference
+
+    def test_default_is_the_kl_loss_term_for_term(self):
+        loss, stats, grads, _ = self.run_loss(scoped())
+        means = stats[:len(D.TERMS)] / stats[len(D.TERMS):].clamp(min=1e-6)
+        self.assertTrue(torch.equal(loss.detach(), means[0] + 1. * means[1:7].sum()))
+        self.assertEqual(stats[len(D.TERMS) + 7].item(), 0.)                  # no ce_n weight
+        self.assertIsNone(D.term_means(stats)["ce_n_out_of_scope"])
+        explicit = D.Scope(**{**scoped().__dict__, "out_of_scope": "kl", "out_of_scope_weight": 3.})
+        again, _, others, _ = self.run_loss(explicit)
+        self.assertTrue(torch.equal(again, loss))
+        for left, right in zip(grads, others):
+            self.assertTrue(torch.equal(left, right))
+
+    def test_ce_n_trains_only_out_of_scope_rows_toward_r1_top1(self):
+        weight = 2.5
+        anchored = D.Scope(**{**scoped().__dict__, "out_of_scope": "ce-n", "out_of_scope_weight": weight})
+        loss, stats, grads, reference = self.run_loss(anchored)
+        _, kl_stats, kl_grads, _ = self.run_loss(scoped())
+        means = D.term_means(stats)
+        # Its own term over the two out-of-scope rows; their KL is still reported, the others unchanged.
+        self.assertEqual(stats[len(D.TERMS) + 7].item(), 2.)
+        self.assertAlmostEqual(means["kl_kind_out_of_scope"], D.term_means(kl_stats)["kl_kind_out_of_scope"], places=6)
+        for name in ("ce_r", "kl_distilled_n_eq_r", "kl_single"):
+            self.assertAlmostEqual(means[name], D.term_means(kl_stats)[name], places=6, msg=name)
+        student, _ = drifted()
+        expected = 0.
+        for lane, t in self.OUTSIDE:
+            n = int(reference[t][1][lane, :4].argmax())
+            log_s = torch.log_softmax(student[t][1][lane, :4].detach(), -1)
+            expected += -float(log_s[n]) / 2
+            # Gradient there: weight * (p_student - onehot(N)) / rows, nothing from the KL.
+            target = torch.zeros(4)
+            target[n] = 1.
+            torch.testing.assert_close(grads[t][lane, :4], weight * (log_s.exp() - target) / 2, rtol=1e-5, atol=1e-6)
+        self.assertAlmostEqual(means["ce_n_out_of_scope"], expected, places=5)
+        # Everywhere else the gradient is the KL loss's own.
+        for t in range(3):
+            for lane in range(4):
+                if (lane, t) not in self.OUTSIDE:
+                    torch.testing.assert_close(grads[t][lane], kl_grads[t][lane], rtol=0, atol=0)
+        # The anchor's target is r1's top-1, not R: moving R changes nothing there.
+        batch = with_subtypes(distill_batch())
+        batch["single_idx"][1, 1] = 2
+        student, _ = drifted()
+        _, moved = D.distill_loss(student, reference, batch, plan_batch(batch, 0), anchored)
+        self.assertAlmostEqual(D.term_means(moved)["ce_n_out_of_scope"], expected, places=5)
+
+    def test_answers_against_n_and_r_and_the_actions_left_for(self):
+        batch = with_subtypes(distill_batch())
+        batch["cand_feat"][:] = 0
+        for column, action in ((0, 0), (1, 5), (2, 5), (3, 3)):   # pass, mana, mana, cast
+            batch["cand_feat"][:, :, column, action] = 1.
+        student = known_student()
+        reference = copy.deepcopy(student)
+        # (0,1) mana: R = 2, r1 = 0 (student agrees with r1); (1,1) land: R = 3, r1 = 3, student 1.
+        reference[1][1][0, :4] = torch.tensor([3., -3., -3., -3.])
+        reference[1][1][1, :4] = torch.tensor([-3., -3., -3., 3.])
+        actions = {}
+        table = {k: v.tolist() for k, v in D.answers(student, reference, batch, plan_batch(batch, 0), scoped(),
+                                                     actions).items()}
+        # [decisions, = N, = R, neither, r1 = R, (r1 != R) != flag]
+        self.assertEqual(table["subtype:mana"], [1, 1, 0, 0, 0, 1])
+        self.assertEqual(table["subtype:land"], [1, 0, 0, 1, 1, 1])
+        self.assertEqual(table["out_of_scope"], [2, 1, 0, 1, 1, 2])
+        self.assertEqual(actions, {("land", "cast", "cast", "mana"): 1})
+        self.assertEqual(D.ACTION_NAMES[int(D.action_classes(batch["cand_feat"][0, 0, :4])[3])], "cast")
+
+    def test_audit_shares_boards_only_with_an_equal_trunk(self):
+        from training4.distill_audit import same_upstream
+        student, r1 = tiny_net(), tiny_net()
+        self.assertTrue(same_upstream(student, r1))
+        with torch.no_grad():
+            student.cand_scorer[0].weight.add_(1.)        # a head-only student still shares r1's boards
+            self.assertTrue(same_upstream(student, r1))
+            student.trunk_layers[1].norm1.weight.add_(1.)  # a trained trunk does not
+        self.assertFalse(same_upstream(student, r1))
+
+
 class DistillContract(unittest.TestCase):
     def test_labels_train_only_under_the_flag(self):
         plain, labeled = SimpleNamespace(meta={}), SimpleNamespace(meta={"bundle_distillation": {"contract": D.CONTRACT}})
@@ -444,6 +541,23 @@ class DistillOptions(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.parse(["train5", "--data", "d", "--out", "o", "--distill-subtypes", "cast"])
 
+    def test_out_of_scope_anchor_options(self):
+        args = self.parse(self.STAGE_A)
+        self.assertEqual((args.distill_out_of_scope, args.distill_out_of_scope_weight), ("kl", 1.))
+        args = self.parse([*self.STAGE_A, "--distill-out-of-scope", "ce-n", "--distill-out-of-scope-weight", "2"])
+        self.assertEqual((args.distill_out_of_scope, args.distill_out_of_scope_weight), ("ce-n", 2.))
+        for bad in (["--distill-out-of-scope", "kl2"], ["--distill-out-of-scope-weight", "2"],
+                    ["--distill-out-of-scope", "ce-n", "--distill-out-of-scope-weight", "-1"]):
+            with self.subTest(bad=bad), self.assertRaises(SystemExit):
+                self.parse([*self.STAGE_A, *bad])
+        with self.assertRaises(SystemExit):   # distillation only
+            self.parse(["train5", "--data", "d", "--out", "o", "--distill-out-of-scope", "ce-n"])
+        data = [SimpleNamespace(distill_subtypes=list(SUBTYPES), distill_groups=[])]
+        scope = D.Scope.from_options((0,), 1., ("cast",), {}, data, "ce-n", 2)
+        self.assertEqual((scope.out_of_scope, scope.out_of_scope_weight), ("ce-n", 2.))
+        with self.assertRaisesRegex(ValueError, "Unknown out-of-scope"):
+            D.Scope.from_options((0,), 1., ("cast",), {}, data, "ce-r")
+
     def test_stage_b_never_recomputes_compiled_trunk_layers(self):
         arm_b = [a for a in self.STAGE_A if a != "--train-policy-head-only"]
         arm_b += ["--trainable-trunk-from-layer", "8", "--freeze-value-head", "--layers", "12"]
@@ -504,6 +618,12 @@ class DistillValidation(unittest.TestCase):
         self.assertAlmostEqual(metrics["val_distill_distilled_n_top1_r"], .6)
         self.assertEqual(metrics["val_distill_selection"], metrics["val_distill_distilled_top1_r_at_n_ne_r"])
         self.assertAlmostEqual(metrics["val_value_mse_to_r1"], 0., places=6)
+        # Untouched, the student is r1: it answers N everywhere, never neither.
+        self.assertEqual(metrics["val_distill_distilled_top1_n"], 1.)
+        self.assertEqual(metrics["val_distill_distilled_top1_neither"], 0.)
+        self.assertEqual(metrics["val_distill_distilled_r1_top1_r"], metrics["val_distill_distilled_top1_r"])
+        self.assertIsNone(metrics["val_distill_out_of_scope_top1_n"])   # no out-of-scope decision here
+        self.assertIsNone(metrics["val_distill_ce_n_out_of_scope"])
 
 
 class DriverStages(unittest.TestCase):

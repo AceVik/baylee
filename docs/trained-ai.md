@@ -2112,6 +2112,19 @@ of the weights of the rule groups that fired there (others 1). Frames carry the
 subtype and the fired groups as JSON step fields (`distill_subtype`, `fired`) or
 in an optional BST4 trailing block `BDX1` (u8 subtype, three reserved bytes, u64
 group mask), indexing `meta.json`'s `bundle_distillation.subtypes` and `.groups`.
+`--distill-out-of-scope ce-n` (default `kl`) holds the distilled kinds'
+out-of-scope single choices at N, r1's own top-1, by cross-entropy weighted by
+`--distill-out-of-scope-weight` (default 1), its own term `ce_n_out_of_scope`
+beside `ce_r`; their KL is still reported but no longer trained. Round 0's
+head-only arm A, with the KL there (0.18 at the end), moved the shared head off
+those answers (out-of-scope top-1 to R 73.8 to 45.2 %). For the distilled kinds'
+single choices, validation reports by group and subtype the student's
+agreement with N (`_top1_n`), the share it answers neither N nor R
+(`_top1_neither`), r1's own agreement with R (`_r1_top1_r`) and where r1's top-1
+disagrees with the recorded `N ≠ R` flag (`_n_flag_mismatch`).
+`python -m training4.distill_audit` computes the same for a checkpoint on the
+CPU, over every k-th validation trajectory, with the actions (by the candidate's
+priority column) the student moved to where it answers neither.
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.
 **With the deliberation block** (arms "A + block" and "B + block"): add

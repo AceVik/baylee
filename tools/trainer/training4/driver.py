@@ -289,11 +289,16 @@ def main(default_architecture="v4") -> None:
         from .distill import Scope
         reference = Reference(reference_weights.to(device), net, args.trainable_trunk_from_layer)
         scope = Scope.from_options(args.distill_kinds, args.distill_kl_weight, args.distill_subtypes,
-                                   args.distill_group_weights, (train_ds, val_ds))
+                                   args.distill_group_weights, (train_ds, val_ds),
+                                   args.distill_out_of_scope, args.distill_out_of_scope_weight)
         identity["bundle_distillation"] = dict(contract="bundle_distillation_v1", kinds=list(args.distill_kinds),
                                                subtypes=list(args.distill_subtypes) or None,
                                                group_weights=args.distill_group_weights or None,
                                                kl_weight=args.distill_kl_weight, version=2)
+        if args.distill_out_of_scope != "kl":
+            # Named only when set, so every earlier run's identity stays as it was.
+            identity["bundle_distillation"]["out_of_scope"] = dict(mode=args.distill_out_of_scope,
+                                                                   weight=args.distill_out_of_scope_weight)
         if args.think_loss is not None:
             # The per-step terms take this loss's targets; no consequence term.
             identity["thinking"]["targets"] = "bundle_distillation_scope_v1"
