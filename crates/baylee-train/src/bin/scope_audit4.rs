@@ -33,7 +33,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, ensure};
 use baylee_core::ids::PlayerId;
-use baylee_engine::choice::PlayerAction;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_gamehost::record::{Line, Source};
 use baylee_train::convert4::distill_labels::{
@@ -77,6 +77,8 @@ struct Label {
     /// Whether `R`'s and `N`'s actions are mana abilities ([`is_tap`]).
     rules_tap: bool,
     net_tap: bool,
+    /// The rule groups that changed something on the way to `R`.
+    fired: Vec<String>,
 }
 
 /// One input of a recorded seat.
@@ -92,10 +94,72 @@ struct Move {
     owed: bool,
     /// Whether it was the seat's own turn.
     my_turn: bool,
+    /// The turn number and the phase and step (`Main` alone names both main
+    /// phases) at the decision.
+    turn: u32,
+    when: String,
+    /// At priority: what the menu offered beyond passing and mana.
+    offered: Option<Offered>,
     /// The names on the stack at the decision.
     stack: Vec<String>,
     /// The decision's label, when the policy answered it.
     label: Option<Label>,
+}
+
+/// What a priority menu offered: spells castable now (mana floating),
+/// spells castable by paying in a window (`payable`), non-mana abilities.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct Offered {
+    castable: Vec<String>,
+    payable: Vec<String>,
+    abilities: Vec<String>,
+}
+
+impl Offered {
+    fn of(view: &PlayerView, pending: &Pending) -> Option<Self> {
+        let Pending::Priority { legal, .. } = pending else {
+            return None;
+        };
+        let names = |ids: &[baylee_core::ids::ObjectId]| -> Vec<String> {
+            ids.iter()
+                .filter_map(|id| name_of(view, &PlayerAction::CastSpell { card: *id }))
+                .collect()
+        };
+        let abilities = legal
+            .abilities
+            .iter()
+            .map(|&(source, ability_index)| PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            })
+            .filter(|action| !is_tap(view, action))
+            .filter_map(|action| name_of(view, &action))
+            .collect();
+        Some(Self {
+            castable: names(&legal.castable),
+            payable: names(&legal.payable),
+            abilities,
+        })
+    }
+
+    /// Which kinds the menu held.
+    fn kinds(&self) -> String {
+        let mut kinds = Vec::new();
+        if !self.castable.is_empty() {
+            kinds.push("castable");
+        }
+        if !self.payable.is_empty() {
+            kinds.push("payable");
+        }
+        if !self.abilities.is_empty() {
+            kinds.push("ability");
+        }
+        if kinds.is_empty() {
+            "nothing to cast or activate".to_owned()
+        } else {
+            kinds.join(" + ")
+        }
+    }
 }
 
 /// Whether an answer passes (priority, or the cast it cancels) or acts.
@@ -392,6 +456,248 @@ impl PassTally {
     }
 }
 
+/// What followed a decision where `R` passed and `N` would have tapped.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PassFollow {
+    /// The seat's input (index) and kind (`true`: a cast) of the cast or
+    /// activation that started within the window, if one did.
+    start: Option<(usize, bool)>,
+    /// `completed` (seen on the stack), `cancelled`, `unfinished` or `nothing`.
+    outcome: &'static str,
+    /// How it was paid: taps before it, taps in its payment window, or none.
+    path: &'static str,
+    /// When it started: the pass's step, a later step of its turn, a later turn.
+    started: &'static str,
+    /// Where the pass led: the seat's next decision.
+    led_to: String,
+}
+
+/// Where a pass at `here` led, read from the seat's next decision.
+fn led_to(here: &Move, next: Option<&Move>) -> String {
+    match next {
+        None => "the game ends".to_owned(),
+        Some(next) if next.turn != here.turn && next.my_turn => "the seat's next turn".to_owned(),
+        Some(next) if next.turn != here.turn => "the other side's turn".to_owned(),
+        Some(next)
+            if matches!(
+                next.action,
+                Some(PlayerAction::DeclareAttackers { .. } | PlayerAction::DeclareBlockers { .. })
+            ) =>
+        {
+            "combat: a declaration".to_owned()
+        }
+        Some(next) if next.when != here.when => format!("next step: {}", next.when),
+        Some(_) => "the same step: priority again".to_owned(),
+    }
+}
+
+/// Follows the seat's inputs after `moves[at]`, where `R` passed.
+fn follow_pass(moves: &[Move], at: usize, window: usize) -> PassFollow {
+    const LOOK: usize = 24;
+    let here = &moves[at];
+    let led_to = led_to(here, moves.get(at + 1));
+    let starts = |m: &Move| {
+        matches!(m.action, Some(PlayerAction::CastSpell { .. }))
+            || (matches!(m.action, Some(PlayerAction::ActivateAbility { .. })) && !m.tap)
+    };
+    let Some(start) = (at + 1..moves.len().min(at + 1 + window)).find(|&j| starts(&moves[j]))
+    else {
+        return PassFollow {
+            start: None,
+            outcome: "nothing",
+            path: "",
+            started: "",
+            led_to,
+        };
+    };
+    let cast = matches!(moves[start].action, Some(PlayerAction::CastSpell { .. }));
+    let tapped_before = moves[at + 1..start].iter().any(|m| m.tap);
+    let tapped_paying = moves
+        .iter()
+        .skip(start + 1)
+        .take_while(|m| m.owed)
+        .any(|m| m.tap);
+    let path = match (tapped_before, tapped_paying) {
+        (false, false) => "no tap: paid automatically or free",
+        (true, false) => "taps first, then the cast or activation",
+        (false, true) => "taps in its payment window",
+        (true, true) => "taps first and in its payment window",
+    };
+    let started = if moves[start].turn != here.turn {
+        "a later turn"
+    } else if moves[start].when == here.when {
+        "the pass's own step"
+    } else {
+        "a later step of the same turn"
+    };
+    let name = moves[start].name.clone();
+    let mut outcome = "unfinished";
+    for later in moves.iter().skip(start + 1).take(LOOK) {
+        if matches!(later.action, Some(PlayerAction::CancelCast)) {
+            outcome = "cancelled";
+            break;
+        }
+        if name.as_ref().is_some_and(|n| later.stack.contains(n)) {
+            outcome = "completed";
+            break;
+        }
+    }
+    PassFollow {
+        start: Some((start, cast)),
+        outcome,
+        path,
+        started,
+        led_to,
+    }
+}
+
+/// The rows where `R` passes and `N` would have tapped, over all subtypes.
+#[derive(Clone, Debug, Default, Serialize)]
+struct PassAudit {
+    rows: u64,
+    own_turn: u64,
+    by_subtype: BTreeMap<String, u64>,
+    /// `cast completed`, `activation completed`, `... cancelled`,
+    /// `... unfinished`, or `nothing` within the window.
+    outcome: BTreeMap<String, u64>,
+    /// Of the completed: how they were paid, and when they started.
+    path: BTreeMap<String, u64>,
+    started: BTreeMap<String, u64>,
+    /// Where the pass led.
+    led_to: BTreeMap<String, u64>,
+    /// What the menu offered at the pass (spells castable now, payable in a
+    /// window, non-mana abilities), and that against what followed.
+    offered: BTreeMap<String, u64>,
+    offered_then: BTreeMap<String, u64>,
+    /// The groups that fired there (`none`: the guard's own reading).
+    fired: BTreeMap<String, u64>,
+}
+
+impl PassAudit {
+    fn add(&mut self, other: &Self) {
+        self.rows += other.rows;
+        self.own_turn += other.own_turn;
+        merge(&mut self.by_subtype, &other.by_subtype);
+        merge(&mut self.outcome, &other.outcome);
+        merge(&mut self.path, &other.path);
+        merge(&mut self.started, &other.started);
+        merge(&mut self.led_to, &other.led_to);
+        merge(&mut self.offered, &other.offered);
+        merge(&mut self.offered_then, &other.offered_then);
+        merge(&mut self.fired, &other.fired);
+    }
+
+    fn count(
+        &mut self,
+        subtype: Option<DistillSubtype4>,
+        own_turn: bool,
+        offered: Option<&Offered>,
+        fired: &[String],
+        follow: &PassFollow,
+    ) {
+        if fired.is_empty() {
+            bump(&mut self.fired, "none");
+        }
+        for group in fired {
+            bump(&mut self.fired, group.clone());
+        }
+        let kinds = offered.map_or_else(|| "not a priority menu".to_owned(), Offered::kinds);
+        bump(&mut self.offered, kinds.clone());
+        let then = if follow.outcome == "completed" {
+            "a cast or activation reached the stack within the window"
+        } else {
+            "none within the window"
+        };
+        bump(&mut self.offered_then, format!("{kinds} -> {then}"));
+        self.rows += 1;
+        self.own_turn += u64::from(own_turn);
+        bump(
+            &mut self.by_subtype,
+            subtype.map_or("none", DistillSubtype4::name),
+        );
+        let what = match follow.start {
+            None => "nothing".to_owned(),
+            Some((_, cast)) => format!(
+                "{} {}",
+                if cast { "cast" } else { "activation" },
+                follow.outcome
+            ),
+        };
+        bump(&mut self.outcome, what);
+        if follow.outcome == "completed" {
+            bump(&mut self.path, follow.path);
+            bump(&mut self.started, follow.started);
+        }
+        bump(&mut self.led_to, follow.led_to.clone());
+    }
+}
+
+/// The sample's seed and its rows per run: own turn, the other side's.
+const SAMPLE_SEED: u64 = 0x5eed_0000_0000_0050;
+const SAMPLE_OWN: usize = 10;
+const SAMPLE_THEIRS: usize = 3;
+
+fn sample_quota(group: &str) -> usize {
+    if group.ends_with("/own") {
+        SAMPLE_OWN
+    } else {
+        SAMPLE_THEIRS
+    }
+}
+
+/// A stable hash for drawing the sample (FNV-1a over the seed and the row's
+/// key), the same whatever order the games are read in.
+fn sample_hash(seed: u64, key: &str) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64 ^ seed;
+    for byte in key.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    hash
+}
+
+/// Keeps the `keep` rows of lowest hash in a group of the sample.
+fn keep_lowest(list: &mut Vec<(u64, Value)>, keep: usize, hash: u64, row: impl FnOnce() -> Value) {
+    if list.len() >= keep && list.last().is_some_and(|(worst, _)| *worst <= hash) {
+        return;
+    }
+    let at = list.partition_point(|(h, _)| *h < hash);
+    list.insert(at, (hash, row()));
+    list.truncate(keep);
+}
+
+/// The seat's next inputs with their steps and the stack, for a sample row.
+fn sequel_with_steps(moves: &[Move], at: usize, window: usize) -> Vec<String> {
+    use std::fmt::Write as _;
+    let (mut when, mut turn) = (moves[at].when.clone(), moves[at].turn);
+    moves
+        .iter()
+        .skip(at + 1)
+        .take(window)
+        .map(|m| {
+            let mut entry = String::new();
+            if m.turn != turn {
+                let whose = if m.my_turn { "own" } else { "theirs" };
+                let _ = write!(entry, "[turn {} {whose}, {}] ", m.turn, m.when);
+            } else if m.when != when {
+                let _ = write!(entry, "[{}] ", m.when);
+            }
+            (when, turn) = (m.when.clone(), m.turn);
+            entry.push_str(&m.action.as_ref().map_or_else(|| "?".to_owned(), variant));
+            if let Some(name) = &m.name {
+                let _ = write!(entry, " {name}");
+            }
+            if m.owed {
+                entry.push_str(" (paying)");
+            }
+            if !m.stack.is_empty() {
+                let _ = write!(entry, " {{stack: {}}}", m.stack.join(", "));
+            }
+            entry
+        })
+        .collect()
+}
+
 /// Everything a run of the audit counts.
 #[derive(Clone, Debug, Default, Serialize)]
 struct Tally {
@@ -401,6 +707,11 @@ struct Tally {
     n_ne_r: u64,
     by_subtype: BTreeMap<String, SubtypeTally>,
     pass: PassTally,
+    /// Every row where `R` passes and `N` would have tapped (coarse classes).
+    r_pass_n_tap: PassAudit,
+    /// The seeded sample of those rows, by run and own turn or not.
+    #[serde(skip)]
+    sample: BTreeMap<String, Vec<(u64, Value)>>,
     examples: BTreeMap<String, Vec<Value>>,
 }
 
@@ -414,6 +725,14 @@ impl Tally {
             self.by_subtype.entry(name.clone()).or_default().add(tally);
         }
         self.pass.add(&other.pass);
+        self.r_pass_n_tap.add(&other.r_pass_n_tap);
+        for (group, rows) in &other.sample {
+            let mine = self.sample.entry(group.clone()).or_default();
+            let quota = sample_quota(group);
+            for (hash, row) in rows {
+                keep_lowest(mine, quota, *hash, || row.clone());
+            }
+        }
         for (class, list) in &other.examples {
             let mine = self.examples.entry(class.clone()).or_default();
             for example in list {
@@ -449,6 +768,71 @@ fn sequel(moves: &[Move], at: usize, window: usize) -> Vec<String> {
         .collect()
 }
 
+/// Counts a row where `R` passes and `N` would have tapped, and offers it to
+/// the sample.
+fn audit_pass(
+    moves: &[Move],
+    at: usize,
+    window: usize,
+    game: &str,
+    label: &Label,
+    tally: &mut Tally,
+) {
+    let m = &moves[at];
+    let follow = follow_pass(moves, at, window);
+    tally.r_pass_n_tap.count(
+        label.subtype,
+        m.my_turn,
+        m.offered.as_ref(),
+        &label.fired,
+        &follow,
+    );
+    let run = game.split('#').next().unwrap_or(game);
+    let group = format!("{run}/{}", if m.my_turn { "own" } else { "theirs" });
+    let hash = sample_hash(SAMPLE_SEED, &format!("{game}/{at}"));
+    let list = tally.sample.entry(group.clone()).or_default();
+    keep_lowest(list, sample_quota(&group), hash, || {
+        let start = follow.start.map(|(s, _)| {
+            let start = &moves[s];
+            format!(
+                "{} {}",
+                start
+                    .action
+                    .as_ref()
+                    .map_or_else(|| "?".to_owned(), variant),
+                start.name.clone().unwrap_or_default()
+            )
+        });
+        json!({"game": game, "input": at, "turn": m.turn, "when": m.when, "own_turn": m.my_turn,
+            "subtype": label.subtype.map(DistillSubtype4::name), "R": label.rules.as_ref().map(variant),
+            "N_taps": label.net_name, "fired": label.fired, "outcome": follow.outcome, "start": start, "path": follow.path,
+            "started": follow.started, "led_to": follow.led_to,
+            "offered": m.offered.as_ref().map(|o| json!({"castable": o.castable, "payable": o.payable, "abilities": o.abilities})),
+            "next": sequel_with_steps(moves, at, window)})
+    });
+}
+
+/// Counts a `pass` row: what `N` would have done where `R` passed.
+fn count_pass_subtype(
+    tally: &mut Tally,
+    label: &Label,
+    own_turn: bool,
+    keep: usize,
+    example: impl FnOnce() -> Value,
+) {
+    tally.pass.rows += 1;
+    let kind = label.net.as_ref().map_or_else(|| "?".to_owned(), variant);
+    if matches!(label.net, Some(PlayerAction::ActivateManaAbility { .. })) {
+        if own_turn {
+            tally.pass.net_taps_own_turn += 1;
+        } else {
+            tally.pass.net_taps_their_turn += 1;
+        }
+        tally.example("pass: N taps mana", keep, example);
+    }
+    bump(&mut tally.pass.net_kind, kind);
+}
+
 /// Counts one seat's inputs of one game.
 fn audit_seat(moves: &[Move], window: usize, keep: usize, game: &str, tally: &mut Tally) {
     for (at, m) in moves.iter().enumerate() {
@@ -460,6 +844,13 @@ fn audit_seat(moves: &[Move], window: usize, keep: usize, game: &str, tally: &mu
             continue;
         }
         tally.n_ne_r += 1;
+        if matches!(
+            label.rules,
+            Some(PlayerAction::PassPriority | PlayerAction::CancelCast)
+        ) && label.net_tap
+        {
+            audit_pass(moves, at, window, game, label, tally);
+        }
         let Some(subtype) = label.subtype else {
             continue;
         };
@@ -470,17 +861,7 @@ fn audit_seat(moves: &[Move], window: usize, keep: usize, game: &str, tally: &mu
                 "next": sequel(moves, at, window)})
         };
         if subtype == DistillSubtype4::Pass {
-            tally.pass.rows += 1;
-            let kind = label.net.as_ref().map_or_else(|| "?".to_owned(), variant);
-            if matches!(label.net, Some(PlayerAction::ActivateManaAbility { .. })) {
-                if m.my_turn {
-                    tally.pass.net_taps_own_turn += 1;
-                } else {
-                    tally.pass.net_taps_their_turn += 1;
-                }
-                tally.example("pass: N taps mana", keep, example);
-            }
-            bump(&mut tally.pass.net_kind, kind);
+            count_pass_subtype(tally, label, m.my_turn, keep, example);
             continue;
         }
         if !matches!(
@@ -621,7 +1002,7 @@ fn moves_of(game: &Game) -> anyhow::Result<BTreeMap<u8, Vec<Move>>> {
                     step.seat
                 );
                 seat_input += 1;
-                let (_, view) = session
+                let (pending, view) = session
                     .view_for_with_context(player)
                     .context("a seat input without a question")?;
                 let label = step.label.as_ref().map(|l| Label {
@@ -631,6 +1012,7 @@ fn moves_of(game: &Game) -> anyhow::Result<BTreeMap<u8, Vec<Move>>> {
                     net_name: l.net_action.as_ref().and_then(|a| name_of(&view, a)),
                     rules_tap: l.rules_action.as_ref().is_some_and(|a| is_tap(&view, a)),
                     net_tap: l.net_action.as_ref().is_some_and(|a| is_tap(&view, a)),
+                    fired: l.fired.clone(),
                     rules: l.rules_action.clone(),
                     net: l.net_action.clone(),
                 });
@@ -639,6 +1021,9 @@ fn moves_of(game: &Game) -> anyhow::Result<BTreeMap<u8, Vec<Move>>> {
                     tap: is_tap(&view, &action),
                     owed: view.owed.is_some(),
                     my_turn: view.active == player,
+                    turn: view.turn,
+                    when: format!("{:?}/{:?}", view.phase, view.step),
+                    offered: Offered::of(&view, &pending),
                     stack: view.stack.iter().map(|o| o.name.to_string()).collect(),
                     action: Some(action.clone()),
                     label,
@@ -693,8 +1078,9 @@ fn main() -> anyhow::Result<()> {
                     match moves_of(game) {
                         Ok(seats) => {
                             mine.games += 1;
-                            for moves in seats.values() {
-                                audit_seat(moves, args.window, args.examples, &name, &mut mine);
+                            for (seat, moves) in &seats {
+                                let key = format!("{name}/seat{seat}");
+                                audit_seat(moves, args.window, args.examples, &key, &mut mine);
                             }
                         }
                         Err(error) => {
@@ -715,7 +1101,14 @@ fn main() -> anyhow::Result<()> {
     });
     let tally = total.into_inner().expect("tally lock");
     let failures = failures.into_inner().expect("failure lock");
+    let sample: Vec<&Value> = tally
+        .sample
+        .values()
+        .flatten()
+        .map(|(_, row)| row)
+        .collect();
     let report = json!({"runs": args.run, "window": args.window, "tally": tally,
+        "r_pass_n_tap_sample": sample,
         "failures": failures.iter().take(20).collect::<Vec<_>>()});
     std::fs::write(&args.out, serde_json::to_vec_pretty(&report)?)?;
     eprintln!(
@@ -751,6 +1144,9 @@ mod tests {
             name: (!name.is_empty()).then(|| name.to_owned()),
             owed,
             my_turn: true,
+            turn: 1,
+            when: "PrecombatMain/Main".to_owned(),
+            offered: None,
             stack: stack.iter().map(|s| (*s).to_owned()).collect(),
             label: None,
         }
@@ -773,6 +1169,7 @@ mod tests {
             net_name: None,
             rules_tap,
             net_tap,
+            fired: vec![],
         });
         m
     }
@@ -878,6 +1275,122 @@ mod tests {
             mv(PlayerAction::PassPriority, "", false, &[]),
         ];
         assert_eq!(chain(&idle, 0, 6), Chain::Nothing);
+    }
+
+    #[test]
+    fn a_pass_is_followed_to_where_it_led_and_what_reached_the_stack() {
+        let at = |mut m: Move, turn: u32, when: &str, mine: bool| {
+            m.turn = turn;
+            m.when = when.to_owned();
+            m.my_turn = mine;
+            m.offered = Some(Offered::default());
+            m
+        };
+        // Passing in the first main phase, then tapping and casting after combat.
+        let later = vec![
+            at(
+                mv(PlayerAction::PassPriority, "", false, &[]),
+                3,
+                "PrecombatMain/Main",
+                true,
+            ),
+            at(
+                mv(PlayerAction::PassPriority, "", false, &[]),
+                3,
+                "Combat/CombatBegin",
+                true,
+            ),
+            at(
+                mv(tap(1), "Forest", false, &[]),
+                3,
+                "PostcombatMain/Main",
+                true,
+            ),
+            at(
+                mv(cast(9), "Grizzly Bears", false, &[]),
+                3,
+                "PostcombatMain/Main",
+                true,
+            ),
+            at(
+                mv(PlayerAction::PassPriority, "", false, &["Grizzly Bears"]),
+                3,
+                "PostcombatMain/Main",
+                true,
+            ),
+        ];
+        let follow = follow_pass(&later, 0, 6);
+        assert_eq!(follow.start, Some((3, true)));
+        assert_eq!(follow.outcome, "completed");
+        assert_eq!(follow.path, "taps first, then the cast or activation");
+        assert_eq!(follow.started, "a later step of the same turn");
+        assert_eq!(follow.led_to, "next step: Combat/CombatBegin");
+        // A cast in the pass's own step with no tap: paid automatically.
+        let autopay = vec![
+            at(
+                mv(PlayerAction::PassPriority, "", false, &[]),
+                5,
+                "Ending/End",
+                false,
+            ),
+            at(
+                mv(cast(4), "Shock", false, &["Llanowar Elves"]),
+                5,
+                "Ending/End",
+                false,
+            ),
+            at(
+                mv(PlayerAction::PassPriority, "", false, &["Shock"]),
+                5,
+                "Ending/End",
+                false,
+            ),
+        ];
+        let follow = follow_pass(&autopay, 0, 6);
+        assert_eq!(
+            (follow.outcome, follow.path, follow.started),
+            (
+                "completed",
+                "no tap: paid automatically or free",
+                "the pass's own step"
+            )
+        );
+        assert_eq!(follow.led_to, "the same step: priority again");
+        // A pass that ends the turn, nothing cast.
+        let idle = vec![
+            at(
+                mv(PlayerAction::PassPriority, "", false, &[]),
+                6,
+                "Ending/End",
+                true,
+            ),
+            at(
+                mv(PlayerAction::PassPriority, "", false, &[]),
+                7,
+                "Beginning/Upkeep",
+                false,
+            ),
+        ];
+        let follow = follow_pass(&idle, 0, 6);
+        assert_eq!(
+            (follow.outcome, follow.led_to.as_str()),
+            ("nothing", "the other side's turn")
+        );
+    }
+
+    #[test]
+    fn the_sample_keeps_the_lowest_hashes_whatever_the_order() {
+        let mut list = Vec::new();
+        for key in ["c", "a", "d", "b"] {
+            keep_lowest(&mut list, 2, sample_hash(1, key), || json!(key));
+        }
+        let mut expected: Vec<(u64, &str)> = ["a", "b", "c", "d"]
+            .iter()
+            .map(|k| (sample_hash(1, k), *k))
+            .collect();
+        expected.sort_unstable();
+        let kept: Vec<&str> = list.iter().map(|(_, v)| v.as_str().unwrap()).collect();
+        assert_eq!(kept, [expected[0].1, expected[1].1]);
     }
 
     #[test]
