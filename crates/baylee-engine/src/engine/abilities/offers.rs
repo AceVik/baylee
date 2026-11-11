@@ -850,6 +850,7 @@ impl<L: CardLookup> Engine<L> {
         // Only now is `abilities` the list a payment window narrows.
         self.settle_granted_offers(player, &mut legal);
         self.offer_cast_ways(player, &mut legal);
+        self.offer_restricted_mana(player, &mut legal);
         legal
     }
 

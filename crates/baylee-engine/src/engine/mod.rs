@@ -2116,6 +2116,7 @@ mod progress;
 mod simulation;
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::{DeckKnowledge, ForkRefusal, PriorFault, PublicPrior};
+mod restricted_offer;
 mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]
@@ -2362,6 +2363,8 @@ mod removal_flow_tests;
 mod replay_basics_tests;
 #[cfg(test)]
 mod resolution_tests;
+#[cfg(test)]
+mod restricted_offer_tests;
 #[cfg(test)]
 mod reveal_tests;
 #[cfg(test)]

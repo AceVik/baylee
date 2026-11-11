@@ -555,3 +555,155 @@ fn a_cost_of_twobrids_is_paid_by_a_mix() {
     assert!(table.lit(beast), "five sources pay {{2/G}}{{2/U}}{{2/R}}");
     table.click_and_cast(beast, &mut nothing);
 }
+
+// ------------------------------------------- restricted mana, the positive half
+//
+// Fault 69 (docs/observed-faults.md): these fail until the engine states what
+// restricted mana may pay for.
+
+/// Ancient Ziggurat: "{T}: Add one mana of any color. Spend this mana only to
+/// cast a creature spell." Two of them pay Grizzly Bears' {1}{G}, and nothing
+/// else on the table does; they never pay for Lightning Bolt.
+#[test]
+fn two_ziggurats_pay_for_a_creature_and_not_for_a_bolt() {
+    let mut table = Table::open(
+        "Mountain",
+        &["Grizzly Bears", "Lightning Bolt"],
+        &["Ancient Ziggurat", "Ancient Ziggurat"],
+        &[],
+    );
+    let bears = table.card("Grizzly Bears");
+    let bolt = table.card("Lightning Bolt");
+    assert!(
+        table.lit(bears),
+        "two Ziggurats pay {{1}}{{G}} for a creature"
+    );
+    assert!(!table.lit(bolt), "Ziggurat mana never pays for an instant");
+    table.click_and_cast(bears, &mut nothing);
+}
+
+/// The Ziggurat's red already floating and a Forest untapped: the creature
+/// takes the Forest's one tap.
+#[test]
+fn ziggurat_mana_floating_and_a_forest_pay_for_a_creature() {
+    let mut table = Table::open(
+        "Forest",
+        &["Grizzly Bears"],
+        &["Ancient Ziggurat", "Forest"],
+        &[],
+    );
+    tap(&mut table, "Ancient Ziggurat", 0, ManaColor::Red);
+    let bears = table.card("Grizzly Bears");
+    assert!(
+        table.lit(bears),
+        "red Ziggurat mana floating and a Forest pay {{1}}{{G}}"
+    );
+    assert_eq!(
+        baylee_client::mana_for(&table.duel, bears).map(|plan| plan.taps()),
+        Some(1),
+        "one tap: the Forest"
+    );
+    table.click_and_cast(bears, &mut nothing);
+}
+
+/// Pillar of the Paruns: "Spend this mana only to cast a multicolored
+/// spell." Two pay Watchwolf's {G}{W}, never Grizzly Bears'.
+#[test]
+fn two_pillars_pay_for_a_gold_spell_and_not_for_a_green_one() {
+    let mut table = Table::open(
+        "Forest",
+        &["Watchwolf", "Grizzly Bears"],
+        &["Pillar of the Paruns", "Pillar of the Paruns"],
+        &[],
+    );
+    let wolf = table.card("Watchwolf");
+    let bears = table.card("Grizzly Bears");
+    assert!(
+        table.lit(wolf),
+        "two Pillars pay {{G}}{{W}} for a gold spell"
+    );
+    assert!(
+        !table.lit(bears),
+        "Pillar mana never pays for a green spell"
+    );
+    table.click_and_cast(wolf, &mut nothing);
+}
+
+/// Eldrazi Temple: "{T}: Add {C}{C}. Spend this mana only to cast colorless
+/// Eldrazi spells or activate abilities of colorless Eldrazi." Two Temples
+/// and four Wastes are Eldrazi Devastator's {8}.
+#[test]
+fn two_temples_pay_for_a_colourless_eldrazi() {
+    let mut table = Table::open(
+        "Wastes",
+        &["Eldrazi Devastator"],
+        &[
+            "Eldrazi Temple",
+            "Eldrazi Temple",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+        ],
+        &[],
+    );
+    let devastator = table.card("Eldrazi Devastator");
+    assert!(table.lit(devastator), "2 + 2 + 4 Wastes pay {{8}}");
+    table.click_and_cast(devastator, &mut nothing);
+}
+
+/// The Temples' {C}{C} is never spent on a green Eldrazi: beside a Forest
+/// they make three mana for Kozilek's Predator's {3}{G}.
+#[test]
+fn cavern_mana_pays_for_the_named_type_only() {
+    let mut table = Table::open(
+        "Mountain",
+        &["Cavern of Souls", "Elvish Archdruid", "Grizzly Bears"],
+        &["Forest", "Mountain"],
+        &[],
+    );
+    let cavern = table.card("Cavern of Souls");
+    table.apply(PlayerAction::PlayLand { card: cavern });
+    let elf = baylee_core::generated::subtypes::creature::ELF;
+    let Pending::ChooseSubtype { options, .. } = table.engine.pending().clone() else {
+        panic!("Cavern of Souls asks for a type");
+    };
+    assert!(options.contains(&elf));
+    table.apply(PlayerAction::ChooseSubtype(elf));
+    let archdruid = table.card("Elvish Archdruid");
+    let bears = table.card("Grizzly Bears");
+    assert!(
+        table.lit(archdruid),
+        "Cavern's green, a Forest and a Mountain pay {{1}}{{G}}{{G}} for an Elf"
+    );
+    assert!(
+        table.lit(bears),
+        "the Forest's green and the Cavern's {{C}} pay {{1}}{{G}} for a Bear"
+    );
+    tap(&mut table, "Cavern of Souls", 1, ManaColor::Green);
+    assert!(
+        table.lit(archdruid),
+        "Cavern's green floating, a Forest and a Mountain still pay for the Elf"
+    );
+    table.click_and_cast(archdruid, &mut nothing);
+}
+
+/// The Cavern's green floating is no Bear's: the Mountain and the Forest
+/// would pay {1}{G} only with the Forest's green, which the Elf took.
+#[test]
+fn a_click_pays_an_elf_with_cavern_green() {
+    let mut table = Table::open(
+        "Mountain",
+        &["Cavern of Souls", "Elvish Archdruid"],
+        &["Forest", "Mountain"],
+        &[],
+    );
+    let cavern = table.card("Cavern of Souls");
+    table.apply(PlayerAction::PlayLand { card: cavern });
+    table.apply(PlayerAction::ChooseSubtype(
+        baylee_core::generated::subtypes::creature::ELF,
+    ));
+    let archdruid = table.card("Elvish Archdruid");
+    assert!(table.lit(archdruid));
+    table.click_and_cast(archdruid, &mut nothing);
+}

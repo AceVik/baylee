@@ -842,6 +842,8 @@ mod tests {
                 suspendable: vec![],
                 foretellable: vec![],
                 unpaid_foretell: vec![],
+                restricted_taps: vec![],
+                restricted_floating: vec![],
                 granted_actions: vec![],
             }),
         }
@@ -867,6 +869,8 @@ mod tests {
                 suspendable: vec![],
                 foretellable: vec![],
                 unpaid_foretell: vec![],
+                restricted_taps: vec![],
+                restricted_floating: vec![],
                 granted_actions: vec![],
             }),
         }
@@ -1659,6 +1663,8 @@ mod tests {
                 suspendable: vec![],
                 foretellable: vec![],
                 unpaid_foretell: vec![],
+                restricted_taps: vec![],
+                restricted_floating: vec![],
                 granted_actions: vec![],
             }),
         };
@@ -1701,6 +1707,8 @@ mod tests {
                 suspendable: vec![],
                 foretellable: vec![],
                 unpaid_foretell: vec![],
+                restricted_taps: vec![],
+                restricted_floating: vec![],
                 granted_actions: vec![],
             }),
         };
@@ -1875,6 +1883,8 @@ mod tests {
                 can_pass: true,
                 foretellable: vec![card],
                 unpaid_foretell: vec![],
+                restricted_taps: vec![],
+                restricted_floating: vec![],
                 ..LegalActions::default()
             }),
         };

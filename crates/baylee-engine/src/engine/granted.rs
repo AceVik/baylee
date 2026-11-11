@@ -1,7 +1,5 @@
 //! Dispatch for temporary special actions and their mana-payment windows.
-use super::{
-    CardLookup, Engine, EngineError, PaymentContinuation, PaymentWindow, Pending, PlayerId,
-};
+use super::{CardLookup, Engine, EngineError, PaymentContinuation, PaymentWindow, PlayerId};
 use crate::choice::{GrantedActionOffer, LegalActions};
 use baylee_cards_dsl::{SpecialActionCost, SpecialActionTiming};
 use baylee_core::ids::GrantedActionId;
@@ -134,10 +132,7 @@ impl<L: CardLookup> Engine<L> {
             self.mana_window = None;
             return Err(EngineError::IllegalAction("cannot make payment mana"));
         }
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
         Ok(())
     }
@@ -174,6 +169,11 @@ pub(super) struct ActivationPayment {
     opened: Box<super::WindowStart>,
 }
 impl ActivationPayment {
+    /// The permanent whose ability this payment activates.
+    pub(super) const fn source(&self) -> baylee_core::ids::ObjectId {
+        self.source.object
+    }
+
     pub(super) fn fingerprint(&self) -> u64 {
         // Keep the historical field order for every payment that predates
         // imposed non-mana costs; only that new suffix extends the digest.
@@ -381,10 +381,7 @@ impl<L: CardLookup> Engine<L> {
         });
         let mut legal = self.compute_legal(player);
         self.narrow_to_mana(&mut legal);
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
         Ok(())
     }

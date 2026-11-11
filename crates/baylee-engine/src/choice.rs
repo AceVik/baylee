@@ -768,9 +768,87 @@ pub struct LegalActions {
     /// `foretellable`. Never in `foretellable` as well.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub unpaid_foretell: Vec<ObjectId>,
+    /// What the mana of this seat's restricted mana abilities on offer may
+    /// be spent on (CR 106.6): `(source, ability index, spend)` for each
+    /// ability of `abilities` whose mana is spent only on some payments, and
+    /// each cast, activation or open payment of this offer it may pay.
+    ///
+    /// The view says what a land makes and never what that mana may pay
+    /// for, which is a rules question about the spell (its types, the
+    /// source's chosen creature type, the face cast). So the engine answers
+    /// it, as the payment will: Cavern of Souls naming Elf is listed for
+    /// casting Elvish Archdruid and not for Grizzly Bears, Ancient Ziggurat
+    /// for every creature spell and no instant. Planning hints only, as
+    /// `unpaid_abilities` are: the payment asks again. Only ever this seat's
+    /// own abilities, in its own offer.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub restricted_taps: Vec<(ObjectId, u32, Spend)>,
+    /// The restricted mana floating in this seat's pool that each spend may
+    /// use, by colour (`ManaColor::index`); a spend no such mana may pay is
+    /// left out. The view counts restricted mana by colour and no more, so
+    /// without this a planner could not count a Cavern's green it had
+    /// already tapped for an Elf.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub restricted_floating: Vec<(Spend, [u32; 6])>,
+}
+
+/// What a payment of this offer is for, as restricted mana asks it (CR
+/// 106.6): [`LegalActions::restricted_taps`] and
+/// [`LegalActions::restricted_floating`] name it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum Spend {
+    /// Casting this card of `castable` or `payable` this way: the face and
+    /// form that way puts on the stack (CR 601.3e) is what is asked.
+    Cast(ObjectId, CastModeKind),
+    /// Activating an ability of this source, one of `unpaid_abilities`.
+    Activate(ObjectId),
+    /// The payment the CR 605.3a window this offer is made in is open for.
+    Owed,
+}
+
+impl Spend {
+    /// The spend of casting `card` the way `kind` says: that way itself for
+    /// a face other than the front or a form (a prototype, face down, a
+    /// foretold card), each of which is a spell with characteristics of its
+    /// own (CR 601.3e), and the ordinary cast for every other way,
+    /// which casts the front as it is (an alternative cost, a kicker,
+    /// flashback, escape). The engine names a cast this way, and a planner
+    /// asks it this way.
+    #[must_use]
+    pub const fn cast(card: ObjectId, kind: CastModeKind) -> Self {
+        match kind {
+            CastModeKind::Face(_)
+            | CastModeKind::Prototype
+            | CastModeKind::Disguise
+            | CastModeKind::Foretell => Self::Cast(card, kind),
+            _ => Self::Cast(card, CastModeKind::Normal),
+        }
+    }
 }
 
 impl LegalActions {
+    /// The restricted mana abilities on offer whose mana may pay for
+    /// `spend`, as `(source, ability index)`.
+    #[must_use]
+    pub fn restricted_taps_for(&self, spend: Spend) -> Vec<(ObjectId, u32)> {
+        self.restricted_taps
+            .iter()
+            .filter(|(_, _, s)| *s == spend)
+            .map(|(source, index, _)| (*source, *index))
+            .collect()
+    }
+
+    /// The restricted mana floating that `spend` may use, by colour
+    /// (`ManaColor::index`); all zero when none may.
+    #[must_use]
+    pub fn restricted_floating_for(&self, spend: Spend) -> [u32; 6] {
+        self.restricted_floating
+            .iter()
+            .find(|(s, _)| *s == spend)
+            .map(|(_, by_colour)| *by_colour)
+            .unwrap_or_default()
+    }
+
     /// Additional generic mana for an activation of this permanent.
     #[must_use]
     pub fn activation_increase(&self, source: ObjectId) -> u32 {

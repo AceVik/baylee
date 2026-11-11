@@ -24,6 +24,8 @@ fn confirming_a_priority_choice_passes() {
                 suspendable: vec![],
                 foretellable: vec![],
                 unpaid_foretell: vec![],
+                restricted_taps: vec![],
+                restricted_floating: vec![],
                 granted_actions: vec![],
             }),
         },

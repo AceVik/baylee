@@ -21,6 +21,8 @@ fn priority_confirms_as_a_pass_and_exposes_the_legal_actions() {
         suspendable: vec![],
         foretellable: vec![],
         unpaid_foretell: vec![],
+        restricted_taps: vec![],
+        restricted_floating: vec![],
         granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
@@ -49,6 +51,8 @@ fn playing_a_card_maps_to_the_right_action_and_refuses_illegal_ones() {
         suspendable: vec![],
         foretellable: vec![],
         unpaid_foretell: vec![],
+        restricted_taps: vec![],
+        restricted_floating: vec![],
         granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
@@ -102,6 +106,8 @@ fn an_offered_ability_at_index_zero_beats_a_granted_mana_ability() {
             suspendable: vec![],
             foretellable: vec![],
             unpaid_foretell: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             granted_actions: vec![],
         }),
     });
@@ -137,6 +143,8 @@ fn index_zero_is_the_mana_shortcut_when_nothing_else_was_offered_there() {
             suspendable: vec![],
             foretellable: vec![],
             unpaid_foretell: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             granted_actions: vec![],
         }),
     });
@@ -169,6 +177,8 @@ fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
             suspendable: vec![],
             foretellable: vec![],
             unpaid_foretell: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             granted_actions: vec![],
         }),
     });
@@ -199,6 +209,8 @@ fn activating_an_ability_requires_it_to_have_been_offered() {
         suspendable: vec![],
         foretellable: vec![],
         unpaid_foretell: vec![],
+        restricted_taps: vec![],
+        restricted_floating: vec![],
         granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
@@ -251,6 +263,8 @@ fn foretell_maps_only_an_offered_card_to_its_special_action() {
         legal: Box::new(LegalActions {
             foretellable: vec![card],
             unpaid_foretell: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             ..Default::default()
         }),
     });

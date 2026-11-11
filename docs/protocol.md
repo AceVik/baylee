@@ -1,4 +1,4 @@
-| play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |# Protocol
+# Protocol
 
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
@@ -1048,6 +1048,56 @@ reversed when passed short, exactly as a `payable` cast. With nothing left
 to tap, `max` is the greatest X the floating mana pays for the whole cost,
 so an X the question offers is always one the cast can complete. A client
 bounds its X entry by `max`, never by its own count of the pool.
+
+## What restricted mana may pay for (protocol 43)
+
+Mana that may be spent only on some payments (CR 106.6: Cavern of Souls'
+coloured mana on a creature spell of the chosen type, Ancient Ziggurat's on
+a creature spell, Eldrazi Temple's on colourless Eldrazi) is a rules question
+about the payment: the spell's types, the face it is cast as (CR 601.3e), the
+source's chosen type. A view says what a land makes and, for mana already
+floating, how much of each colour is restricted, and never what it may pay
+for. So the offer says it, for the asked seat's own sources and own pool
+only, server to client:
+
+```text
+LegalActions.restricted_taps:     [(source ObjectId, ability index u32, Spend)]
+LegalActions.restricted_floating: [(Spend, [u32; 6])]   // by ManaColor::index
+Spend = Cast(ObjectId, CastModeKind) | Activate(ObjectId) | Owed
+```
+
+- `restricted_taps` names each restricted mana ability of `abilities` with
+  every spend its mana may pay; `restricted_floating` names each spend the
+  restricted mana floating may pay, with how much of each colour. A spend no
+  such mana pays is left out.
+- `Cast(card, kind)` is a way of casting a card of `castable` or `payable`:
+  a face other than the front or a form (`Face`, `Prototype`, `Disguise`,
+  `Foretell`) is named as itself, every other way as `Normal`, which casts
+  the front as it is (`Spend::cast` folds a kind the same way for a reader).
+  `Activate(source)` is an ability of a source of `unpaid_abilities`. `Owed`
+  is the payment the CR 605.3a window the offer is made in is open for.
+- Both are planning hints, as `unpaid_abilities` is: the payment asks
+  again, with the same reader (`casting::restriction_admits`,
+  `admitted_by_colour`). The engine computes them only while the seat has a
+  restricted mana ability on offer or restricted mana floating, so they are
+  empty in most offers.
+- Every planner but the frozen house reads them through one module,
+  `baylee_ai::spend`: the client's reach and its payment window,
+  the language-model seat, BayleeAI's menu. A restricted tap is then a source
+  like any other, and as many as a price needs are tapped; restricted mana
+  floating is counted as ordinary mana for the spend it may pay.
+- **Protocol 43.** A frame writes every field by position
+  (`baylee_core::wire`), so a peer of 42 refuses a frame of 43 and the
+  reverse (`version_refusal`), and engine, gateway, agent, seat and clients
+  are deployed together. In JSON (records, tapes, shadow labels) both fields
+  are left out when empty and default when absent. A client decodes them as
+  it decodes every frame: a list grows as its elements arrive, a truncated
+  or overlong frame is refused, `Spend` cannot nest
+  (`crates/baylee-view/tests/hostile_frames.rs`). Nothing a client sends
+  changed.
+
+What changed in protocol 43: the two fields above and `Spend`, and nothing
+else.
 
 ## Taking back a cast (`PlayerAction::CancelCast`)
 

@@ -253,3 +253,101 @@ fn a_million_made_up_actions_are_survived() {
     }
     assert!(read > 0, "some of them were actions");
 }
+
+/// An offer as the engine sends it (a priority that names what restricted
+/// mana may pay for, protocol 43), and the same offer cut and damaged: a
+/// client reads it whole or refuses it, never panics, and never holds memory
+/// for a list it only claims.
+mod offers {
+    use super::{FRAME_LIMIT, peak_of, varint};
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::wire::{decode, encode};
+    use baylee_engine::choice::{CastModeKind, LegalActions, Pending, Spend};
+
+    fn offer() -> Pending {
+        let card = ObjectId::new(50, 0);
+        let mut green = [0; 6];
+        green[4] = 1;
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                payable: vec![card],
+                restricted_taps: vec![
+                    (
+                        ObjectId::new(1, 0),
+                        1,
+                        Spend::Cast(card, CastModeKind::Normal),
+                    ),
+                    (
+                        ObjectId::new(2, 0),
+                        0,
+                        Spend::Cast(card, CastModeKind::Face(1)),
+                    ),
+                    (ObjectId::new(3, 0), 1, Spend::Activate(ObjectId::new(9, 0))),
+                    (ObjectId::new(1, 0), 1, Spend::Owed),
+                ],
+                restricted_floating: vec![(Spend::Cast(card, CastModeKind::Normal), green)],
+                ..LegalActions::default()
+            }),
+        }
+    }
+
+    #[test]
+    fn an_offer_naming_restricted_mana_survives_the_wire() {
+        let frame = encode(&offer());
+        let read = decode::<Pending>(&frame).expect("the offer reads");
+        assert_eq!(encode(&read), frame, "and reads as it was written");
+        let Pending::Priority { legal, .. } = read else {
+            panic!("a priority");
+        };
+        assert_eq!(legal.restricted_taps.len(), 4);
+        assert_eq!(legal.restricted_floating.len(), 1);
+    }
+
+    #[test]
+    fn every_cut_and_every_flipped_byte_of_an_offer_is_survived() {
+        let frame = encode(&offer());
+        for cut in 0..frame.len() {
+            assert!(
+                decode::<Pending>(&frame[..cut]).is_err(),
+                "a cut at {cut} read"
+            );
+        }
+        for at in 0..frame.len() {
+            for flip in [0x01, 0x80, 0xff] {
+                let mut damaged = frame.clone();
+                damaged[at] ^= flip;
+                let _ = decode::<Pending>(&damaged);
+            }
+        }
+    }
+
+    /// The two lists are the offer's last fields: each claims more than the
+    /// frame holds, and the reader holds what arrives and not what is claimed.
+    #[test]
+    fn a_claimed_restricted_list_allocates_nothing_for_the_claim() {
+        let quiet = Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions::default()),
+        };
+        let empty = encode(&quiet);
+        assert_eq!(
+            &empty[empty.len() - 2..],
+            &[0, 0],
+            "both lists close the offer"
+        );
+        for keep in [2, 1] {
+            let head = &empty[..empty.len() - keep];
+            for claim in [1 << 20, 1 << 40, u64::MAX] {
+                let mut frame = head.to_vec();
+                frame.extend(varint(claim));
+                frame.resize(FRAME_LIMIT, 0x01);
+                let held = peak_of(|| {
+                    assert!(decode::<Pending>(&frame).is_err());
+                });
+                assert!(held < 4 << 20, "a claim of {claim} held {held} bytes");
+            }
+        }
+    }
+}

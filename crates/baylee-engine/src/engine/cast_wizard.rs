@@ -1359,10 +1359,7 @@ impl<L: CardLookup> Engine<L> {
                         opened,
                     },
                 });
-                self.pending = Pending::Priority {
-                    player,
-                    legal: Box::new(legal),
-                };
+                self.pending = self.window_priority(player, legal);
                 self.awaiting_answer = true;
                 // A commanded card is played only "if able" (Word of
                 // Command). A price its player's lands cannot pay at all is

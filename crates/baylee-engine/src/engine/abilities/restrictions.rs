@@ -233,6 +233,10 @@ impl<L: CardLookup> Engine<L> {
         legal.suspendable.clear();
         legal.foretellable.clear();
         legal.unpaid_foretell.clear();
+        // What restricted mana pays for is stated of the narrowed offer
+        // (`offer_restricted_mana`), the payment a window is open for.
+        legal.restricted_taps.clear();
+        legal.restricted_floating.clear();
         legal
             .abilities
             .retain(|&(source, index)| self.is_payment_mana_offer(source, index));

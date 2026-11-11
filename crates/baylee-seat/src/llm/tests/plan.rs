@@ -42,6 +42,8 @@ fn offer(lands: &[u32], castable: &[u32], abilities: &[(u32, u32)], mana: &[u32]
             suspendable: Vec::new(),
             foretellable: Vec::new(),
             unpaid_foretell: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             granted_actions: vec![],
         }),
     }
