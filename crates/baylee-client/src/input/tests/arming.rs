@@ -308,9 +308,13 @@ fn the_reported_window() -> (LocalHost, crate::Duel, ObjectId) {
         print: PrintRef::new(0),
     };
     let filler: Vec<DeckEntry> = (0..40).map(|_| entry("Island")).collect();
+    // The frozen reference, not the default level: the live levels time
+    // their instants and hold Eerie Interlude for a creature that needs
+    // saving, so a live house never opens this window. The reference's
+    // answers are pinned and do not move when the house improves.
     let seat = |ai: bool, hand: Vec<DeckEntry>, field: Vec<DeckEntry>| SeatSpec {
         controller: if ai {
-            SeatController::Ai(AIProfile::default())
+            SeatController::Ai(AIProfile::SHARP_2026_11)
         } else {
             SeatController::Open
         },
