@@ -1473,17 +1473,24 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
 }
 
 /// The printed sentence of an offered ability, where the line table knows
-/// it.
+/// it. A granted ability's is its own words: the printed ability it
+/// inherits, or the one ability its grant quotes ([`granted_words`]), never
+/// the sentence that granted it.
 fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static str> {
     let view = table.view;
     if let Some(slot) = baylee_engine::choice::granted_slot(index) {
         let grant = view.object(source)?.grant(slot)?;
         let rules = grant.rules?;
-        return baylee_cards::oracle::sentence(
-            rules.card,
-            usize::from(rules.face),
-            grant.text?.line,
-        );
+        let face = usize::from(rules.face);
+        if let Some(at) = grant
+            .ability
+            .and_then(|ability| baylee_cards::lines::ability_line(rules.card, face, ability))
+            && let Some(own) = baylee_cards::oracle::sentence(rules.card, face, at.line)
+            && !own.contains(['"', '“'])
+        {
+            return Some(own);
+        }
+        return granted_words(granting_sentence(table, source, index)?);
     }
     let rules = view
         .object(source)
@@ -1504,6 +1511,34 @@ fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&
     let face = usize::from(rules.face);
     let at = baylee_cards::lines::ability_line(rules.card, face, index)?;
     baylee_cards::oracle::sentence(rules.card, face, at.line)
+}
+
+/// The sentence that granted an offered granted ability, where the line
+/// table knows it: Wandering Fumarole's whole `{2}{U}{R}` animation for the
+/// `{0}` switch it grants.
+fn granting_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static str> {
+    let slot = baylee_engine::choice::granted_slot(index)?;
+    let grant = table.view.object(source)?.grant(slot)?;
+    let rules = grant.rules?;
+    baylee_cards::oracle::sentence(rules.card, usize::from(rules.face), grant.text?.line)
+}
+
+/// The one ability a granting sentence quotes, as the card words it (CR
+/// 113.1a, 602.1): `{0}: Switch this creature's power and toughness until
+/// end of turn.` out of Wandering Fumarole's animation. `None` where the
+/// sentence quotes none, or several and the grant does not say which: the
+/// granting sentence is then told as that, never as the ability's own
+/// (Carbon b7, 11.11.2026: the `{0}` switch was offered as "{2}{U}{R}: Until
+/// end of turn…" with two Islands untapped).
+fn granted_words(sentence: &'static str) -> Option<&'static str> {
+    let mut quotes = sentence.match_indices(['"', '“', '”']);
+    let (open, mark) = quotes.next()?;
+    let (close, _) = quotes.next()?;
+    if quotes.next().is_some() {
+        return None;
+    }
+    let inner = sentence.get(open + mark.len()..close)?.trim();
+    (!inner.is_empty()).then_some(inner)
 }
 
 /// The sentence of the ability a yes/no question comes from.

@@ -309,7 +309,13 @@ up to what is floating, so a model that took "kicked up to 3 times" may answer
 fewer out of the same taps; zero is not kicked. While a land is left untapped
 the question's top reads the engine's ceiling of 50 instead, and a count the
 mana cannot pay reverses the cast (`docs/protocol.md`). A spell on the stack
-says how it was kicked and that its buyback was paid.
+says how it was kicked, that its buyback was paid, and the X announced for
+it ("X is 3", CR 601.2b, 107.3a); an ability on the stack says its X too.
+The view carried the X and the seat never read it, so Gaze of Granite
+resolved over a model that could not tell what it destroyed (Carbon b3,
+11 Nov 2026). An ability whose source is gone (a token that died) is named
+as the ability knows it, the token's name or the card it is printed on, never
+"an unnamed object".
 
 A resolved spell that more than one effect wants instead of the graveyard asks
 its controller which applies (`docs/protocol.md`, "Where a resolved spell

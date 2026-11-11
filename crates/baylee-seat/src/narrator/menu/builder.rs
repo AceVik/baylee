@@ -611,16 +611,18 @@ impl Builder<'_, '_> {
     pub(super) fn priority(&mut self, legal: &LegalActions) {
         let table = self.table;
         let view = table.view;
-        let mut intro = match table.controlled() {
+        // A priority the seat is woken for because the mana it made this
+        // step still floats (`wake::Verdict::Continue`) pays for nothing yet:
+        // the pool's line says what floats, and a payment owed says itself.
+        // "You are in the middle of paying for something" stood here, at
+        // windows after the pump or the Egg had resolved (Carbon b1, b6).
+        let intro = match table.controlled() {
             Some(p) => {
                 let p = Table::player_id(p);
                 format!("QUESTION: {p} has priority, and you decide for {p}.")
             }
             None => String::from("QUESTION: You have priority."),
         };
-        if self.request.continuing {
-            intro.push_str(" You are in the middle of paying for something.");
-        }
         self.line(intro);
         let pool = view
             .seat(table.decider())
@@ -927,10 +929,16 @@ impl Builder<'_, '_> {
                 .object(source)
                 .and_then(|o| o.grant(slot))
                 .is_some_and(|grant| grant.mana_ability);
-            return if makes_mana {
-                format!("Activate {named}: a mana ability it was granted")
+            let what = if makes_mana {
+                "a mana ability"
             } else {
-                format!("Activate {named}: an ability it was granted")
+                "an ability"
+            };
+            return match granting_sentence(table, source, index) {
+                Some(granting) => {
+                    format!("Activate {named}: {what} it was granted by \"{granting}\"")
+                }
+                None => format!("Activate {named}: {what} it was granted"),
             };
         }
         if index == PREPARED_CAST {

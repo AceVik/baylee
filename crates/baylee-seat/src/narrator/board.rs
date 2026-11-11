@@ -2,6 +2,7 @@
 
 use super::{Table, object_name, tag, words};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
+use baylee_core::mana::ManaColor;
 use baylee_core::types::{SubtypeSet, TypeSet};
 use baylee_view::{
     DayNight, HandObject, ManaPoolView, ObjectStatus, OrderedTrigger, PublicObject, StackItem,
@@ -91,26 +92,37 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
     }
 }
 
-/// A mana pool that holds something: "pool {R}{R}{G}".
+/// A mana pool that holds something: "pool {R}{R}{G}", and its restricted
+/// mana by colour, which the view counts so (CR 106.6): "pool {W} (+{B}
+/// restricted to some spells)". It was a bare count, so a model that had
+/// named black off Great Hall of the Biblioplex could not read its black
+/// back (Carbon b9).
 fn pool(pool: &ManaPoolView) -> String {
-    let mut out = String::from("pool ");
-    for (count, symbol) in [
-        (pool.white, "W"),
-        (pool.blue, "U"),
-        (pool.black, "B"),
-        (pool.red, "R"),
-        (pool.green, "G"),
-        (pool.colorless, "C"),
-    ] {
-        for _ in 0..count {
-            let _ = write!(out, "{{{symbol}}}");
+    let symbols = |count: &dyn Fn(ManaColor) -> u64| {
+        let mut out = String::new();
+        for color in ManaColor::ALL {
+            for _ in 0..count(color) {
+                let _ = write!(out, "{{{}}}", words::color_letter(color));
+            }
         }
+        out
+    };
+    let plain = symbols(&|color| {
+        u64::from(match color {
+            ManaColor::White => pool.white,
+            ManaColor::Blue => pool.blue,
+            ManaColor::Black => pool.black,
+            ManaColor::Red => pool.red,
+            ManaColor::Green => pool.green,
+            ManaColor::Colorless => pool.colorless,
+        })
+    });
+    let restricted = symbols(&|color| pool.restricted[color.index()]);
+    match (plain.is_empty(), restricted.is_empty()) {
+        (_, true) => format!("pool {plain}"),
+        (true, false) => format!("pool {restricted} (restricted to some spells)"),
+        (false, false) => format!("pool {plain} (+{restricted} restricted to some spells)"),
     }
-    let restricted = pool.restricted_total();
-    if restricted > 0 {
-        let _ = write!(out, " (+{restricted} restricted to some spells)");
-    }
-    out
 }
 
 /// Which zone an object is in, in words.
@@ -398,18 +410,23 @@ fn stack(table: &Table<'_>, out: &mut String) {
 }
 
 /// The printed sentence of an ability on the stack or going there, where a
-/// card prints one.
+/// card prints one, or a token's verified text says it
+/// (`baylee_cards::tokens::ability_text`).
 fn ability_sentence(item: StackItem) -> Option<&'static str> {
     let StackItem::Ability {
         ability,
         text,
         rules,
+        token,
         ..
     } = item
     else {
         return None;
     };
-    let rules = rules?;
+    let Some(rules) = rules else {
+        return token
+            .and_then(|token| baylee_cards::tokens::ability_text(token.token, token.index));
+    };
     text.and_then(|t| baylee_cards::oracle::sentence(rules.card, usize::from(t.face), t.line))
         .or_else(|| {
             let index = ability?.index;
@@ -459,18 +476,23 @@ pub(super) fn trigger_line(
     line
 }
 
-/// A stack object: a spell with its targets, or an ability with its text.
+/// A stack object: a spell with its targets, or an ability with its text,
+/// and the X announced for either (CR 601.2b, 107.3a: the value stands
+/// while it is on the stack, and every player may know it).
 pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
     let owner = table.whose(object.controller);
     let mut line = if let Some(item @ StackItem::Ability { source, .. }) = object.stack_item {
         let from = if table.visible(source) {
             table.named(source)
         } else {
-            object_name(object)
+            gone_source(object, item)
         };
         let mut line = format!("{} {owner} ability of {from}", tag(object.id));
         if let Some(sentence) = ability_sentence(item) {
             let _ = write!(line, ": \"{sentence}\"");
+        }
+        if let Some(x) = object.chosen_x {
+            let _ = write!(line, " · X is {x}");
         }
         line
     } else {
@@ -486,6 +508,9 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
             times => {
                 let _ = write!(line, ", kicked {times} times");
             }
+        }
+        if let Some(x) = object.chosen_x {
+            let _ = write!(line, ", X is {x}");
         }
         if object.bought_back {
             line.push_str(", buyback paid: it returns to its owner's hand as it resolves");
@@ -508,6 +533,40 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         }
     }
     line
+}
+
+/// The source of a stack ability the view no longer shows (a token that
+/// died, a card gone to a hidden zone), named as the ability still knows it
+/// (CR 113.7a): the stack object's own name, a registry token's name, or
+/// the card it is printed on; its handle is the one the seat was shown it
+/// by. A Pest's "When this token dies" read "an unnamed object" (Carbon b2).
+fn gone_source(object: &PublicObject, item: StackItem) -> String {
+    let StackItem::Ability {
+        source,
+        token,
+        rules,
+        ..
+    } = item
+    else {
+        return tag(object.id);
+    };
+    let name = Some(object.name.as_ref())
+        .filter(|name| !name.is_empty())
+        .or_else(|| {
+            token.and_then(|token| baylee_cards::tokens::by_token_id(token.token).map(|t| t.name))
+        })
+        .or_else(|| {
+            rules.and_then(|rules| {
+                baylee_cards::by_index(rules.card)?
+                    .faces
+                    .get(usize::from(rules.face))
+                    .map(|face| face.name)
+            })
+        });
+    name.map_or_else(
+        || format!("{} (no longer in view)", tag(source)),
+        |name| format!("{name} {}", tag(source)),
+    )
 }
 
 /// Whether the objects a stack ability carries as its targets are ones it
