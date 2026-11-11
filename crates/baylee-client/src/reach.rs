@@ -152,9 +152,26 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             // life again would plan zero taps and mark a life-only card as needing
             // land taps even over off-colour lands.
             if legal.castable.contains(&id) {
-                manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
+                manasources::plan_for_spell(
+                    &cost,
+                    &pool,
+                    view,
+                    legal,
+                    id,
+                    baylee_engine::choice::CastModeKind::Normal,
+                )
+                .is_some()
             } else {
-                manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
+                manasources::plan_with_life_for_spell(
+                    &cost,
+                    &pool,
+                    view,
+                    legal,
+                    id,
+                    baylee_engine::choice::CastModeKind::Normal,
+                    life,
+                )
+                .is_some()
             }
         };
     baylee_client_core::decision::hand(view)

@@ -118,7 +118,7 @@ pub(super) fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectI
                     .filter(|(way, desc)| *way == id && desc.cost.symbols().next().is_some())
                     .filter_map(|(_, desc)| {
                         let price = desc.cost.with_x(u32::from(desc.cost.has_variable()));
-                        baylee_ai::plan_for_spell(&price, &pool, view, legal, id)
+                        baylee_ai::plan_for_spell(&price, &pool, view, legal, id, desc.kind)
                     })
                     .filter(|plan| !plan.steps.is_empty())
                     .min_by_key(Plan::taps)
@@ -129,7 +129,8 @@ pub(super) fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectI
             let printed = printed.with_x(u32::from(printed.has_variable()));
             let price =
                 baylee_ai::spell_price(view, id, Some(card), legal, CastModeKind::Normal, printed);
-            let plan = baylee_ai::plan_for_spell(&price, &pool, view, legal, id)?;
+            let plan =
+                baylee_ai::plan_for_spell(&price, &pool, view, legal, id, CastModeKind::Normal)?;
             (!plan.steps.is_empty()).then_some((id, plan))
         })
         .collect()

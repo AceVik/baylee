@@ -136,9 +136,9 @@ pub fn reachable_modes(
     let mut out = Vec::new();
     let mut offer = |kind, cost: ManaCost| {
         let cost = baylee_ai::spell_price(view, card, Some(hand.card), legal, kind, cost);
-        if let Some(plan) =
-            crate::manasources::plan_with_life_for_spell(&cost, &pool, view, legal, card, life)
-        {
+        if let Some(plan) = crate::manasources::plan_with_life_for_spell(
+            &cost, &pool, view, legal, card, kind, life,
+        ) {
             out.push(ReachableMode { kind, cost, plan });
         }
     };
@@ -226,12 +226,9 @@ pub fn reachable_modes(
 /// answers it and names the whole price (`LegalActions::cast_ways`), and the
 /// way is offered as named. Brazen Borrower beside two Islands was dark: its
 /// own `{1}{U}{U}` is out of reach, and Petty Theft's `{1}{U}` was never
-/// asked about.
-///
-/// Planned with unrestricted mana only. What restricted mana may pay for is
-/// asked of the spell the way makes (CR 601.3e), and the restricted reader
-/// asks it of the card's front: an Ancient Ziggurat's creature-only mana
-/// would pay for Petty Theft, an instant.
+/// asked about. What restricted mana may pay for it is the engine's word on
+/// that face too (`Spend::cast`): an Ancient Ziggurat's creature-only mana
+/// pays for the Borrower and never for Petty Theft, an instant.
 fn face_modes(
     view: &PlayerView,
     legal: &LegalActions,
@@ -239,7 +236,7 @@ fn face_modes(
     pool: &baylee_view::ManaPoolView,
     life: i32,
 ) -> Vec<ReachableMode> {
-    let mut faces = legal
+    legal
         .cast_ways
         .iter()
         .filter(|(id, way)| {
@@ -247,17 +244,14 @@ fn face_modes(
                 && matches!(way.kind, CastModeKind::Face(_))
                 && way.cost.symbols().next().is_some()
         })
-        .peekable();
-    if faces.peek().is_none() {
-        return Vec::new();
-    }
-    let plain = crate::manasources::sources(view, legal);
-    faces
         .filter_map(|(_, way)| {
-            baylee_client_core::manaplan::plan_with_life(
+            crate::manasources::plan_with_life_for_spell(
                 &crate::reach::least_x(way.cost),
                 pool,
-                &plain,
+                view,
+                legal,
+                card,
+                way.kind,
                 life,
             )
             .map(|plan| ReachableMode {

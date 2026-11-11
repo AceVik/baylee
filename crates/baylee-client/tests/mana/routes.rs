@@ -556,10 +556,12 @@ fn a_cost_of_twobrids_is_paid_by_a_mix() {
     table.click_and_cast(beast, &mut nothing);
 }
 
-// ------------------------------------------- restricted mana, the positive half
+// ------------------------------------- restricted mana, what it pays for
 //
-// Fault 69 (docs/observed-faults.md): these fail until the engine states what
-// restricted mana may pay for.
+// Fault 69: the engine states what restricted mana may pay for
+// (`LegalActions::restricted_taps`, `restricted_floating`), and every
+// restricted tap and every restricted mana floating it names is planned like
+// any other mana (`baylee_ai::spend`), in the reach and in the window.
 
 /// Ancient Ziggurat: "{T}: Add one mana of any color. Spend this mana only to
 /// cast a creature spell." Two of them pay Grizzly Bears' {1}{G}, and nothing
@@ -706,4 +708,22 @@ fn a_click_pays_an_elf_with_cavern_green() {
     let archdruid = table.card("Elvish Archdruid");
     assert!(table.lit(archdruid));
     table.click_and_cast(archdruid, &mut nothing);
+}
+
+/// Dismember, `{1}{B/P}{B/P}`, at 20 life beside a Mountain: lit, and the
+/// click casts it with the Mountain and 4 life (CR 107.4f).
+#[test]
+fn phyrexian_mana_is_paid_with_life() {
+    let mut table = Table::open(
+        "Mountain",
+        &["Dismember"],
+        &["Mountain"],
+        &["Grizzly Bears"],
+    );
+    let dismember = table.card("Dismember");
+    assert!(table.lit(dismember), "a Mountain and 4 life pay it");
+    table.click_and_cast(dismember, &mut |_, pending| match pending {
+        Pending::YesNo { .. } => Some(PlayerAction::YesNo(true)),
+        _ => None,
+    });
 }

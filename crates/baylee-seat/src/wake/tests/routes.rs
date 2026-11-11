@@ -181,3 +181,67 @@ fn a_foretold_card_is_reached_at_its_foretell_cost() {
     assert_eq!(foretold.plan.steps.len(), 3);
     assert_eq!(foretold.way, Some(Way::Mode(CastModeKind::Foretell)));
 }
+
+/// Two Ancient Ziggurats ("Spend this mana only to cast a creature spell")
+/// are Grizzly Bears' {1}{G}, and the seat reaches it with both; Lightning
+/// Bolt it never reaches with them (CR 106.6). The engine says which spells
+/// their mana pays (`LegalActions::restricted_taps`).
+#[test]
+fn restricted_mana_is_reached_for_the_spells_it_pays() {
+    let mut session = table(
+        "Mountain",
+        &["Ancient Ziggurat", "Ancient Ziggurat"],
+        &["Grizzly Bears", "Lightning Bolt"],
+    );
+    let (view, legal) = play_to(&mut session, 1, &mut |_| None);
+    let reach = reachable(&view, &legal);
+    let bears = reach_of(&reach, "Grizzly Bears").expect("two Ziggurats pay {1}{G}");
+    assert_eq!(bears.plan.steps.len(), 2);
+    assert!(reach_of(&reach, "Lightning Bolt").is_none(), "{reach:?}");
+}
+
+/// A Ziggurat's red already floating and a Forest: the Bears take the
+/// Forest's one tap, the floating red counted as the engine says it may pay
+/// (`LegalActions::restricted_floating`).
+#[test]
+fn floating_restricted_mana_counts_for_the_spells_it_pays() {
+    let mut session = table(
+        "Forest",
+        &["Ancient Ziggurat", "Forest"],
+        &["Grizzly Bears"],
+    );
+    let (view, _) = play_to(&mut session, 1, &mut |_| None);
+    let ziggurat = id_of(&view, "Ancient Ziggurat");
+    session
+        .act_slice(
+            ME,
+            PlayerAction::ActivateAbility {
+                source: ziggurat,
+                ability_index: 0,
+            },
+            0,
+        )
+        .unwrap();
+    let (view, legal) = play_to(&mut session, 1, &mut |pending| match pending {
+        Pending::ChooseColor { .. } => {
+            Some(PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Red))
+        }
+        _ => None,
+    });
+    let reach = reachable(&view, &legal);
+    let bears = reach_of(&reach, "Grizzly Bears").expect("red floating and a Forest");
+    assert_eq!(bears.plan.steps.len(), 1);
+}
+
+/// Dismember, `{1}{B/P}{B/P}`, at 20 life beside a Mountain: the Mountain
+/// pays `{1}` and 4 life the two Phyrexian symbols (CR 107.4f), as the
+/// engine takes it. The seat planned the symbols as black only and never
+/// offered it (Carbon's reports, 11.11.2026).
+#[test]
+fn phyrexian_mana_is_reached_with_life() {
+    let (_, view, legal) =
+        super::played::position(&["Mountain"], &["Dismember"], &["Grizzly Bears"]);
+    let reach = reachable(&view, &legal);
+    let dismember = reach_of(&reach, "Dismember").expect("a Mountain and 4 life pay {1}{B/P}{B/P}");
+    assert_eq!(dismember.plan.steps.len(), 1);
+}

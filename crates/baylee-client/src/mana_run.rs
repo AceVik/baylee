@@ -400,10 +400,10 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
             .map(|mode| mode.plan.clone());
     }
     let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
-    let plan = |cost: baylee_core::mana::ManaCost| {
+    let plan = |cost: baylee_core::mana::ManaCost, way: baylee_engine::choice::CastModeKind| {
         let cost = reach::least_x(cost);
         if legal.castable.contains(&card) {
-            manasources::plan_for_spell(&cost, &seat.mana_pool, view, legal, card)
+            manasources::plan_for_spell(&cost, &seat.mana_pool, view, legal, card, way)
         } else {
             manasources::plan_with_life_for_spell(
                 &cost,
@@ -411,6 +411,7 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
                 view,
                 legal,
                 card,
+                way,
                 seat.life,
             )
         }
@@ -426,13 +427,20 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
             let identity = view.object(card).and_then(|o| o.card);
             return named
                 .into_iter()
-                .filter_map(|(_, cost)| {
-                    plan(identity.map_or(cost, |c| baylee_ai::less_delve(view, card, c, cost)))
+                .filter_map(|(way, cost)| {
+                    plan(
+                        identity.map_or(cost, |c| baylee_ai::less_delve(view, card, c, cost)),
+                        way,
+                    )
                 })
                 .min_by_key(baylee_client_core::manaplan::Plan::taps);
         }
     }
-    plan(spell_cost(view, legal, card)?).or_else(|| {
+    plan(
+        spell_cost(view, legal, card)?,
+        baylee_engine::choice::CastModeKind::Normal,
+    )
+    .or_else(|| {
         // A hand card whose own cost is out of reach may still be cast as
         // its other face (an Adventure, CR 716.3), at the price the engine
         // names for that face.

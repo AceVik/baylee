@@ -35,6 +35,7 @@ mod proliferate;
 mod redirect;
 mod restricted;
 pub mod search;
+pub mod spend;
 mod stall;
 mod tactics;
 mod timing;
@@ -1134,11 +1135,12 @@ pub fn apply_triggered_mana_bonus(
     policy::apply_triggered_mana_bonus(view, object, source);
 }
 
-/// Plans mana taps for casting `spell` at `cost`, including restricted mana
-/// sources (CR 106.6) whose filters admit `spell` when unrestricted sources
-/// alone are short: one if one is enough, and as many as it takes otherwise.
-/// A plan with several is for a caller that sends every tap and then casts,
-/// without planning again in between.
+/// Plans mana taps for casting `spell` the way `way` says at `cost`, with
+/// every restricted mana source and every restricted mana floating the
+/// engine says may pay for that cast (CR 106.6; [`spend::plan_for`]), and
+/// 2 life for a Phyrexian symbol the mana cannot pay while the seat has it
+/// (CR 107.4f). A plan with several restricted taps is for a caller that
+/// sends every tap and then casts, or casts first and pays in the window.
 #[must_use]
 pub fn plan_for_spell(
     cost: &baylee_core::mana::ManaCost,
@@ -1146,16 +1148,33 @@ pub fn plan_for_spell(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     spell: ObjectId,
+    way: baylee_engine::choice::CastModeKind,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    policy::plan_for_spell(cost, pool, view, legal, spell)
+    let plain = policy::sources(view, legal);
+    let restricted = policy::restricted_sources(view, legal);
+    spend::plan_for(
+        baylee_engine::choice::Spend::cast(spell, way),
+        cost,
+        spend::Mana {
+            pool,
+            plain: &plain,
+            restricted: &restricted,
+        },
+        legal,
+        // A Phyrexian symbol the mana cannot pay is paid with 2 life where
+        // the seat has it (CR 107.4f, 119.4), as the engine takes it, and
+        // never its last: Dismember at 20 life beside a Mountain was never
+        // offered.
+        view.seat(baylee_client_core::decision::resource_player(view))
+            .map(|seat| seat.life.saturating_sub(1)),
+        None,
+    )
 }
 
-/// Plans mana taps for activating an ability on `source` at `cost`, tapping
-/// `source` last, only where nothing else pays and never when `taps_self` is
-/// true, and including a restricted mana source whose restriction admits an
-/// ability of `source` when unrestricted sources alone are short: mana that
-/// pays for abilities (CR 106.6), and never mana that may be spent only to
-/// cast a spell.
+/// Plans mana taps for activating an ability on `source` at `cost`: the
+/// other sources first, `source` itself only where nothing else pays and
+/// never when `taps_self` is true, with every restricted mana the engine
+/// says may pay for an ability of `source` (CR 106.6; [`spend::plan_for`]).
 #[must_use]
 pub fn plan_for_activation(
     cost: &baylee_core::mana::ManaCost,
@@ -1165,7 +1184,26 @@ pub fn plan_for_activation(
     source: ObjectId,
     taps_self: bool,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    policy::plan_for_activation(cost, pool, view, legal, source, taps_self)
+    let mut pool = *pool;
+    pool.spending = view
+        .object(source)
+        .map_or(pool.spending, |o| o.ability_mana_spending);
+    let spend = baylee_engine::choice::Spend::Activate(source);
+    let all = policy::sources(view, legal);
+    let others: Vec<baylee_client_core::manaplan::Source> =
+        all.iter().filter(|s| s.id != source).cloned().collect();
+    let restricted = policy::restricted_sources(view, legal);
+    let mana = |plain| spend::Mana {
+        pool: &pool,
+        plain,
+        restricted: &restricted,
+    };
+    spend::plan_for(spend, cost, mana(&others), legal, None, Some(source)).or_else(|| {
+        if taps_self {
+            return None;
+        }
+        spend::plan_for(spend, cost, mana(&all), legal, None, None)
+    })
 }
 
 /// What casting `id` (`card`) under `mode` costs, from the `cost` the caller

@@ -3817,7 +3817,7 @@ werden kann, sowie Flashback etc. wird gerne Mal nicht angeboten."
 The second half is fixed: a card cast from a graveyard or from exile is priced
 at the way the engine names for it (`LegalActions::cast_ways`), and an
 Adventure in hand is offered at its own price (`docs/client.md` §"A card in a
-pile is reached for too"). The first half is entry 69.
+pile is reached for too"). The first half is entry 69, fixed with protocol 43.
 
 And from a language-model seat's report the same day: the planner read every
 `{2/C}` of a cost one way, all one coloured mana or all two generic, never a
@@ -3825,7 +3825,7 @@ mix, so Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an Island, Obelisk of Bant
 and three Plains was never offered. Each is read on its own now (CR 107.4e,
 `manaplan::twobrid_readings`).
 
-### 69. Restricted mana is planned one tap at a time, never once it floats, and never in a payment window — CONFIRMED
+### 69. Restricted mana is planned one tap at a time, never once it floats, and never in a payment window — FIXED
 
 The engine offers the spells: `payable` asks no mana, and `castable` merges
 the restricted mana a spell may spend once it floats
@@ -3853,6 +3853,16 @@ is offered for a spell it may not pay for); closing the positive half needs
 the engine to state, per offered cast and activation, which restricted mana
 abilities and how much floating restricted mana it may spend.
 
+**Fixed** (protocol 43): the offer states it, for the asked seat's own sources
+and pool (`LegalActions::restricted_taps`, `restricted_floating`, by `Spend`;
+`engine/restricted_offer.rs`, with the payment's own reader
+`casting::restriction_admits`), a window's offer included
+(`Engine::window_priority`). One planner reads it,
+`baylee_ai::spend::plan_for`, for the client's reach and payment window, the
+seat and BayleeAI's menu: every restricted tap it names is a source, the
+restricted mana floating it names is mana. The house keeps its reading
+(`sharp-2026-11`). `tests/mana/routes.rs` plays every board above to the
+stack; `engine::restricted_offer_tests` holds the statement.
 ### 70. The house never taps for a card it may cast from exile, or for a disturb face — KNOWN coverage gap
 
 Found with fault 69, 11.11.2026. The house plans its casts over its hand, its
@@ -3876,3 +3886,16 @@ a disturb face that is an instant behind a creature front would be withheld
 outside a main phase. No disturb card in the pool has one, and the engine's
 `payable` has already asked the right face, so it under-offers and never
 over-offers.
+
+### 72. The house plans no Phyrexian mana with life — KNOWN, for the house's next generation
+
+From Carbon's reports, 11.11.2026 (`hc-expert-a` game 10, question 176, and
+five more): Dismember at 20 life beside lands that make no black was never
+offered. The planners read `{B/P}` as black only (`manaplan::plan`), and life
+was the player's decision (`manaplan::plan_with_life`), which the client
+asked and the seat, BayleeAI's menu and the house did not. The engine accepts
+the cast. The seat and the menu now plan through `baylee_ai::plan_for_spell`,
+which pays a Phyrexian symbol with 2 life where no mana pays it and the seat
+keeps at least 1 life (CR 107.4f, 119.4). The house's casting path
+(`policy::spend_on`) is left as it is, frozen in `sharp-2026-11` and live,
+since it changes play; it adopts this behind a profile generation.

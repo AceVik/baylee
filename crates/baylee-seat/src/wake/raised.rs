@@ -79,7 +79,7 @@ pub(super) fn ways(
     view: &PlayerView,
     legal: &LegalActions,
     plain: &[Reach],
-    pay: &dyn Fn(ObjectId, CardIdentity, ManaCost) -> Option<Plan>,
+    pay: &dyn Fn(ObjectId, CardIdentity, ManaCost, CastModeKind) -> Option<Plan>,
 ) -> Vec<Reach> {
     let mut out: Vec<Reach> = Vec::new();
     for (id, desc) in &legal.cast_ways {
@@ -97,7 +97,7 @@ pub(super) fn ways(
         if !baylee_ai::spell_can_be_cast_now(view, legal, *id, card) {
             continue;
         }
-        let Some(plan) = pay(*id, card, desc.cost.with_x(0)) else {
+        let Some(plan) = pay(*id, card, desc.cost.with_x(0), desc.kind) else {
             continue;
         };
         // One option a price: the mode question says which way, and a way
@@ -135,14 +135,18 @@ pub(super) fn ways(
                 .additional_costs
                 .iter()
                 .fold(reach.plan.cost, |cost, extra| cost.combine(&extra.mana));
-            out.extend(pay(reach.object, reach.card, kicked).map(|plan| with(Way::Kicker, plan)));
+            out.extend(
+                pay(reach.object, reach.card, kicked, CastModeKind::Normal)
+                    .map(|plan| with(Way::Kicker, plan)),
+            );
         }
         if let Some(buyback) = face.buyback {
             let mana = buyback.mana.with_less_generic(legal.buyback_less);
             if mana != ManaCost::ZERO {
                 let bought = reach.plan.cost.combine(&mana);
                 out.extend(
-                    pay(reach.object, reach.card, bought).map(|plan| with(Way::Buyback, plan)),
+                    pay(reach.object, reach.card, bought, CastModeKind::Normal)
+                        .map(|plan| with(Way::Buyback, plan)),
                 );
             }
         }
@@ -154,7 +158,7 @@ pub(super) fn ways(
                 continue;
             };
             let priced = repeated(reach.plan.cost, each, &|cost| {
-                pay(reach.object, reach.card, cost)
+                pay(reach.object, reach.card, cost, CastModeKind::Normal)
             });
             out.extend(
                 priced

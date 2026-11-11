@@ -735,7 +735,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         return Vec::new();
     }
     let sources = baylee_ai::mana_sources(view, legal);
-    if sources.is_empty() {
+    if !baylee_ai::spend::has_mana_to_plan(view, legal) {
         return Vec::new();
     }
     let me = decision::resource_player(view);
@@ -749,19 +749,20 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     // A plan with nothing to tap is no reach: the mana is in the pool
     // already, so what keeps the engine from listing the card is not mana
     // (a target, an additional cost, a raised cost), and no tap gives it.
-    let whole_price = |id: ObjectId, card: baylee_view::CardIdentity, mut total: ManaCost| {
-        if has_convoke(card) && !convoke_creatures.is_empty() {
-            total = reduce_for_convoke(total, &convoke_creatures);
-        }
-        baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
-            .filter(|plan| !plan.steps.is_empty())
-    };
+    let whole_price =
+        |id: ObjectId, card: baylee_view::CardIdentity, mut total: ManaCost, way: CastModeKind| {
+            if has_convoke(card) && !convoke_creatures.is_empty() {
+                total = reduce_for_convoke(total, &convoke_creatures);
+            }
+            baylee_ai::plan_for_spell(&total, &pool, view, legal, id, way)
+                .filter(|plan| !plan.steps.is_empty())
+        };
     let payable =
         |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
             cost.symbols().next()?;
             // The price the engine charges, its reductions included (CR 601.2f).
             let total = baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
-            whole_price(id, card, baylee_ai::less_delve(view, id, card, total))
+            whole_price(id, card, baylee_ai::less_delve(view, id, card, total), mode)
         };
     let mut reach: Vec<Reach> = hand
         .iter()
@@ -865,7 +866,7 @@ fn convoke_creatures(
 pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<AbilityReach> {
     if owes(view)
         || legal.unpaid_abilities.is_empty()
-        || baylee_ai::mana_sources(view, legal).is_empty()
+        || !baylee_ai::spend::has_mana_to_plan(view, legal)
     {
         return Vec::new();
     }
@@ -918,7 +919,7 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
 pub fn reachable_foretell(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Plan)> {
     if owes(view)
         || legal.unpaid_foretell.is_empty()
-        || baylee_ai::mana_sources(view, legal).is_empty()
+        || !baylee_ai::spend::has_mana_to_plan(view, legal)
     {
         return Vec::new();
     }

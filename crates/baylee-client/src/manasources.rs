@@ -14,7 +14,7 @@ use std::borrow::Cow;
 
 use baylee_client_core::manaplan::{Source, Tap, basic_land_color};
 use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_engine::choice::LegalActions;
+use baylee_engine::choice::{CastModeKind, LegalActions, Spend};
 use baylee_view::PlayerView;
 
 use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
@@ -162,11 +162,10 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     sources
 }
 
-/// Restricted taps with the restriction their mana is spent under (CR 106.6).
-fn restricted_sources(
-    view: &PlayerView,
-    legal: &LegalActions,
-) -> Vec<(Source, baylee_cards_dsl::ManaRestriction)> {
+/// The restricted taps on offer (CR 106.6), as this client reads what they
+/// make: the sources [`baylee_ai::spend`] takes them from, beside the
+/// engine's word on what each may pay for (`LegalActions::restricted_taps`).
+fn restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     let mut out = Vec::new();
     for &(id, index) in &legal.abilities {
         if legal.activation_increase(id) > 0 {
@@ -193,9 +192,9 @@ fn restricted_sources(
         if baylee_cards_dsl::mana_with_riders(cost, effects).is_none() {
             continue;
         }
-        let Some(only_for) = baylee_ai::mana_restriction(effects) else {
+        if baylee_ai::mana_restriction(effects).is_none() {
             continue;
-        };
+        }
         let Some(mut source) = read_mana_ability_with_restrictions(
             view,
             id,
@@ -223,49 +222,44 @@ fn restricted_sources(
         {
             source.priced = true;
         }
-        out.push((source, only_for));
+        out.push(source);
     }
     out
 }
 
-/// The ordinary sources plus the best restricted tap whose filter admits
-/// `subject`. It goes last: once it floats, the engine's own merge can make
-/// the cast legal without this planner ever evaluating restricted pool mana.
-fn with_one_restricted(
+/// Plans the taps that pay `cost` for `spend` ([`baylee_ai::spend::plan_for`]):
+/// this client's reading of what each source makes, and the engine's of what
+/// restricted mana may pay for.
+#[allow(clippy::too_many_arguments)] // the payment, its price, the mana, and the two limits
+fn plan_spend(
+    spend: Spend,
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
     view: &PlayerView,
     legal: &LegalActions,
-    subject: baylee_core::ids::ObjectId,
-    activation: bool,
-) -> Option<Vec<Source>> {
-    let agent = baylee_ai::HeuristicAgent::new(baylee_ai::AIProfile::default());
-    let best = restricted_sources(view, legal)
-        .into_iter()
-        .filter(|(source, restriction)| {
-            if activation {
-                agent.admits_activation(view, restriction, Some(source.id), subject)
-            } else {
-                agent.admits(view, restriction, Some(source.id), subject)
-            }
-        })
-        .map(|(source, _)| source)
-        .min_by_key(|source| {
-            (
-                source.priced,
-                std::cmp::Reverse(source.amount),
-                std::cmp::Reverse(source.colors.len()),
-                source.id,
-            )
-        })?;
-    let mut sources: Vec<Source> = sources(view, legal)
-        .into_iter()
-        .filter(|source| source.id != best.id)
-        .collect();
-    sources.push(best);
-    Some(sources)
+    plain: &[Source],
+    life: Option<i32>,
+    except: Option<baylee_core::ids::ObjectId>,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let restricted = restricted_sources(view, legal);
+    baylee_ai::spend::plan_for(
+        spend,
+        cost,
+        baylee_ai::spend::Mana {
+            pool,
+            plain,
+            restricted: &restricted,
+        },
+        legal,
+        life,
+        except,
+    )
 }
 
-/// The ordinary plan first, then one restricted tap whose filter admits the
-/// spell. A non-Ally spell can never borrow the Tea Shop's coloured Ally mana.
+/// The taps that cast `spell` the way `way` says at `cost`: the ordinary
+/// sources, and every restricted tap and restricted mana floating the engine
+/// says may pay for that cast (CR 106.6). A non-Ally spell can never borrow
+/// the Tea Shop's coloured Ally mana.
 #[must_use]
 pub fn plan_for_spell(
     cost: &ManaCost,
@@ -273,16 +267,22 @@ pub fn plan_for_spell(
     view: &PlayerView,
     legal: &LegalActions,
     spell: baylee_core::ids::ObjectId,
+    way: CastModeKind,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    let plain = sources(view, legal);
-    baylee_client_core::manaplan::plan(cost, pool, &plain).or_else(|| {
-        let sources = with_one_restricted(view, legal, spell, false)?;
-        baylee_client_core::manaplan::plan(cost, pool, &sources)
-    })
+    plan_spend(
+        Spend::cast(spell, way),
+        cost,
+        pool,
+        view,
+        legal,
+        &sources(view, legal),
+        None,
+        None,
+    )
 }
 
-/// [`plan_for_spell`], also allowing the existing Phyrexian-life fallback
-/// before and after the restricted source is considered.
+/// [`plan_for_spell`], settling a Phyrexian symbol with 2 life only where
+/// no mana pays it.
 #[must_use]
 pub fn plan_with_life_for_spell(
     cost: &ManaCost,
@@ -290,19 +290,25 @@ pub fn plan_with_life_for_spell(
     view: &PlayerView,
     legal: &LegalActions,
     spell: baylee_core::ids::ObjectId,
+    way: CastModeKind,
     life: i32,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    let plain = sources(view, legal);
-    baylee_client_core::manaplan::plan_with_life(cost, pool, &plain, life).or_else(|| {
-        let sources = with_one_restricted(view, legal, spell, false)?;
-        baylee_client_core::manaplan::plan_with_life(cost, pool, &sources, life)
-    })
+    plan_spend(
+        Spend::cast(spell, way),
+        cost,
+        pool,
+        view,
+        legal,
+        &sources(view, legal),
+        Some(life),
+        None,
+    )
 }
 
 /// The mana for `source`'s own activation. The source itself stays reserved,
-/// and a restricted tap is admitted only if its mana may pay for an ability
-/// (never mana "only to cast" a spell, CR 106.6) and this permanent's
-/// characteristics satisfy its filter (an Ally source, for example).
+/// and restricted mana pays only where the engine says it may pay for an
+/// ability of this permanent: never mana "only to cast" a spell (CR 106.6),
+/// and an Ally source's only for an Ally.
 #[must_use]
 pub fn plan_for_activation(
     cost: &ManaCost,
@@ -315,11 +321,38 @@ pub fn plan_for_activation(
         .into_iter()
         .filter(|candidate| candidate.id != source)
         .collect();
-    baylee_client_core::manaplan::plan(cost, pool, &plain).or_else(|| {
-        let mut sources = with_one_restricted(view, legal, source, true)?;
-        sources.retain(|candidate| candidate.id != source);
-        baylee_client_core::manaplan::plan(cost, pool, &sources)
-    })
+    plan_spend(
+        Spend::Activate(source),
+        cost,
+        pool,
+        view,
+        legal,
+        &plain,
+        None,
+        Some(source),
+    )
+}
+
+/// The pool and the sources an open payment window is planned from: what
+/// floats and every source, with the restricted mana the engine says may pay
+/// what the window owes (`Spend::Owed`).
+#[must_use]
+pub fn window_inputs(
+    view: &PlayerView,
+    legal: &LegalActions,
+    pool: &baylee_view::ManaPoolView,
+) -> (baylee_view::ManaPoolView, Vec<Source>) {
+    let plain = sources(view, legal);
+    let restricted = restricted_sources(view, legal);
+    baylee_ai::spend::inputs_for(
+        legal,
+        Spend::Owed,
+        baylee_ai::spend::Mana {
+            pool,
+            plain: &plain,
+            restricted: &restricted,
+        },
+    )
 }
 
 /// Whether tapping `object` sets off a non-mana trigger (City of Brass,
@@ -1306,11 +1339,13 @@ mod tests {
         legal.payable = vec![exiled];
         view.exile[0] = vec![crate::registry_printed(41, 0, "Gray Ogre")];
 
-        let sources = with_one_restricted(&view, &legal, exiled, false).expect("linked spell");
+        // What it makes is this reader's; what it may pay for (the exiled
+        // card alone) is the engine's `restricted_taps`.
+        let sources = restricted_sources(&view, &legal);
         let source = sources
             .iter()
             .find(|source| source.id == ObjectId::new(1, 0))
-            .unwrap();
+            .expect("the Cauldron's restricted tap is read");
         assert_eq!(source.amount, 3);
         assert!(
             source.bundle,
@@ -1320,8 +1355,6 @@ mod tests {
             source.colors,
             vec![ManaColor::Red, ManaColor::Red, ManaColor::Colorless]
         );
-        assert!(with_one_restricted(&view, &legal, ObjectId::new(42, 0), false).is_none());
-        assert!(with_one_restricted(&view, &legal, exiled, true).is_none());
     }
 
     /// The owner's own game: General Tazri's `{W}{U}{B}{R}{G}` ability puts
@@ -2084,9 +2117,16 @@ mod tests {
             hand_card(10, "Ondu Cleric", 2, &[baylee_core::color::Color::White]),
             hand_card(11, "Savannah Lions", 1, &[baylee_core::color::Color::White]),
         ];
+        // The engine names the Tea Shop's Ally mana for the Ally and for
+        // nothing else (`LegalActions::restricted_taps`).
         let legal = LegalActions {
             mana_abilities: vec![ObjectId::new(2, 0)],
             abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
+            restricted_taps: vec![(
+                ObjectId::new(1, 0),
+                1,
+                Spend::Cast(ObjectId::new(10, 0), CastModeKind::Normal),
+            )],
             ..LegalActions::default()
         };
         (view, legal)
@@ -2099,8 +2139,15 @@ mod tests {
         assert_eq!(sources(&view, &legal).len(), 2, "only the free taps");
 
         let ally = ObjectId::new(10, 0);
-        let plan = plan_for_spell(&mana_cost("{1}{W}"), &pool, &view, &legal, ally)
-            .expect("the Mountain pays generic and the Tea Shop pays white");
+        let plan = plan_for_spell(
+            &mana_cost("{1}{W}"),
+            &pool,
+            &view,
+            &legal,
+            ally,
+            CastModeKind::Normal,
+        )
+        .expect("the Mountain pays generic and the Tea Shop pays white");
         assert_eq!(plan.steps.len(), 2, "{plan:?}");
         let last = plan.steps.last().expect("the restricted tap is last");
         assert_eq!(last.source, ObjectId::new(1, 0));
@@ -2109,12 +2156,28 @@ mod tests {
 
         let lions = ObjectId::new(11, 0);
         assert!(
-            plan_for_spell(&mana_cost("{W}"), &pool, &view, &legal, lions).is_none(),
+            plan_for_spell(
+                &mana_cost("{W}"),
+                &pool,
+                &view,
+                &legal,
+                lions,
+                CastModeKind::Normal,
+            )
+            .is_none(),
             "a non-Ally creature cannot spend the Ally-only mana"
         );
         assert!(
-            plan_with_life_for_spell(&mana_cost("{1}{W}"), &pool, &view, &legal, ally, 20)
-                .is_some(),
+            plan_with_life_for_spell(
+                &mana_cost("{1}{W}"),
+                &pool,
+                &view,
+                &legal,
+                ally,
+                CastModeKind::Normal,
+                20,
+            )
+            .is_some(),
             "the cast-mode planner uses the same restricted fallback"
         );
     }
@@ -2161,6 +2224,11 @@ mod tests {
         )];
         let legal = LegalActions {
             abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
+            restricted_taps: vec![(
+                ObjectId::new(1, 0),
+                1,
+                Spend::Cast(ObjectId::new(10, 0), CastModeKind::Normal),
+            )],
             ..LegalActions::default()
         };
         let plan = plan_for_spell(
@@ -2169,6 +2237,7 @@ mod tests {
             &view,
             &legal,
             ObjectId::new(10, 0),
+            CastModeKind::Normal,
         )
         .expect("the only coloured tap is the restricted Ally tap");
         assert_eq!(plan.steps.len(), 1);

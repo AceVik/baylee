@@ -5633,9 +5633,12 @@ changing it:
 2. **It never spends what a player would want to decide.** Phyrexian mana is
    read as its colour and never as two life; `{X}` is refused
    outright; `{S}` is paid only by a source marked `snow` (CR 107.4h). Restricted mana (Cavern of Souls) is not counted in the generic
-   matcher. `manasources` first tries the unrestricted plan, then adds at most
-   one restricted tap whose filter provably admits this spell or activation,
-   always last, so the engine's own payment check remains authoritative.
+   matcher. A payment's plan first tries the unrestricted sources, then adds
+   every restricted tap the engine names for that payment
+   (`LegalActions::restricted_taps`) and counts the restricted mana floating
+   it names (`restricted_floating`), through `baylee_ai::spend` (protocol 43,
+   §"What restricted mana may pay for"); the engine's own payment check
+   remains authoritative.
 3. **It under-counts rather than over-counts.** A source that makes two mana
    *of one chosen colour* is worth one mana here, because two units that must
    match are not two independent units, and pretending otherwise builds a plan
@@ -5895,9 +5898,9 @@ A face other than the front, cast from the hand (an Adventure, CR 716.3; the
 other side of a modal double-faced card, CR 712.8b), is the one way the list
 reads off the engine rather than the card: whether that face may be cast now
 is a question about it alone (CR 601.3e), and `LegalActions::cast_ways` asks
-it and names its whole price. Planned with unrestricted mana only, since
-what restricted mana pays for is asked of the face cast and the restricted
-reader asks it of the front. Brazen Borrower beside two Islands was dark
+it and names its whole price, and what restricted mana may pay for that face
+(`Spend::cast`): an Ancient Ziggurat pays for the Borrower and never for
+Petty Theft. Brazen Borrower beside two Islands was dark
 until it was listed (11.11.2026): the creature's `{1}{U}{U}` is out of
 reach, Petty Theft's `{1}{U}` is not. Alone in reach it is a chooser of one
 row, as a kicker is, so the row says which spell the click casts.
@@ -6224,12 +6227,15 @@ colour alone must not carry meaning, and five discs is a number the player has
 to stop and count. `baylee-client-core/src/manapool.rs` decides the row and is
 tested without a renderer, like everything else in that crate.
 
-The generic matcher still refuses restricted mana, and that is the point —
-the player can do by hand the thing it is right to refuse. A purpose-specific
-plan now tries the ordinary sources first and then, only when the filter
-provably admits this exact spell or activation, adds one restricted tap last.
-The engine still makes the final payment check, so no plan depends on reading
-restricted mana already floating in the pool.
+The generic matcher still refuses restricted mana: what it may pay for is a
+rules question about one payment. A payment's plan tries the ordinary sources
+first and then every restricted tap the engine names for that payment, as
+many as the price needs, with the restricted mana floating the engine says it
+may spend counted as mana (`baylee_ai::spend`, protocol 43). It used to add
+one restricted tap, judged off the view, and count nothing that floated: two
+Ancient Ziggurats never lit Grizzly Bears, and a Cavern of Souls' green
+tapped by hand left the Elf it was tapped for dark. The engine still makes the
+final payment check.
 
 `BoardMana::colors` is a choice for an ordinary ability, but repeated entries in
 a host-projected fixed mixture are one bundle produced together, not independent

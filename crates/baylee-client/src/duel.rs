@@ -549,12 +549,17 @@ impl Duel {
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
-        let sources = self
+        // The restricted mana the engine says may pay what the window owes
+        // (CR 106.6), still in a land or floating, is planned like any other:
+        // a Cavern of Souls' green for the Elf whose cast opened it.
+        let Some(legal) = self
             .interaction
             .as_ref()
             .and_then(Interaction::legal_actions)
-            .map(|legal| manasources::sources(view, legal))
-            .unwrap_or_default();
+        else {
+            return Some((cost, pool, Vec::new()));
+        };
+        let (pool, sources) = manasources::window_inputs(view, legal, &pool);
         Some((cost, pool, sources))
     }
 
