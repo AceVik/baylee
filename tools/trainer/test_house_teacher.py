@@ -198,6 +198,10 @@ class HouseGate(unittest.TestCase):
         # r1 (zeros) passes at t1 where H passes, and r1's number is H's.
         self.assertEqual((by_kind["priority"]["r1"], by_kind["number"]["r1"]), (1 / 3, 1.))
         self.assertFalse(metrics["val_house_gate"]["passed"])
+        # The drift watch where N = H, per kind, and in the epoch line.
+        self.assertEqual(metrics["val_house_top1_n_eq_h_by_kind"], dict(targets=0., attackers=1., blockers=1.))
+        epoch = json.loads(D.epoch_line(1, 5, None, metrics).split(" ", 2)[2])
+        self.assertEqual(epoch["validation"]["val_house_top1_n_eq_h_by_kind"]["attackers"], 1.)
 
     def test_gate_reads_top1_and_the_chain_start_rate_against_h(self):
         good = dict(val_house_top1_n_ne_h=.72, val_house_chain_start_act=.55, val_house_chain_start_act_h=.6)
@@ -206,7 +210,13 @@ class HouseGate(unittest.TestCase):
                             ("val_house_chain_start_act_h", None)):
             with self.subTest(name=name):
                 self.assertFalse(H.house_gate({**good, name: value})[0])
-        self.assertAlmostEqual(H.house_gate(good)[1]["chain_start_act_ratio"], .55 / .6)
+        verdict = H.house_gate(good)[1]
+        self.assertAlmostEqual(verdict["chain_start_act_ratio"], .55 / .6)
+        self.assertEqual((verdict["chain_start_act"], verdict["chain_start_act_h"]), (.55, .6))
+        self.assertFalse(verdict["more_active_than_teacher"])
+        # One-sided: a student far more active than H passes, flagged for the play check.
+        passed, verdict = H.house_gate({**good, "val_house_chain_start_act": .8})
+        self.assertTrue(passed and verdict["more_active_than_teacher"])
 
     def test_chain_starts_where_h_could_start_one_and_pass_shares(self):
         """H answers pass, tap, cast, pass, pass, cast: chances to start a chain at t0, t1, t4, t5

@@ -2524,9 +2524,13 @@ priority answer was a pass (`val_house_chain_start_act`, `_h`, `_r1`; the
 chain counter's `opportunity` rows), whole-chain completion, the pass share at
 priority of each (`val_house_priority_pass_share`, `_h`, `_r1`), and the gate
 (`house.house_gate`, `val_house_gate`): top-1 at N ≠ H over every kind at least
-70 %, and the student's chain-start act rate at least 0.9 times H's. It selects
-checkpoints on `val_house_top1_n_ne_h`; `training4.pregate` and the audit exit
-3 when the house gate fails.
+70 %, and the student's chain-start act rate at least 0.9 times H's
+(one-sided, since passivity was round 0's failure; above 1.3 times the verdict
+says `more_active_than_teacher` and the play check judges it). It selects
+checkpoints on `val_house_top1_n_ne_h`; `[distill] epoch` carries the student's
+agreement with H at N = H per kind (`val_house_top1_n_eq_h_by_kind`), the drift
+watch; `training4.pregate` and the audit print `[house-gate]` (the ratio and
+both rates) and exit 3 when it fails.
 
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.

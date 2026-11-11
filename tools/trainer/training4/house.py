@@ -51,6 +51,7 @@ H_TERMS = ("ce_h_group", "ce_h_within", "ce_h_single", "bce_h_subset", "bce_h_pa
 R1_TERMS = ("kl_distilled_n_eq_r", "kl_subset", "kl_pair", "sq_scalar")
 GATE_TOP1 = 0.70        # held-out top-1 agreement with H at N != H over every kind
 GATE_CHAIN_RATIO = 0.9  # the student's chain-start act rate against H's
+GATE_ACTIVE_RATIO = 1.3  # above this the verdict flags a student more active than the teacher
 
 
 def house_loss(prepared, reference, batch, plans, scope, extra=None):
@@ -220,7 +221,10 @@ class HouseCounter:
         out = dict(val_house_n_ne_h=int(n_ne), val_house_top1_n_ne_h=share(s_ne, n_ne),
                    val_house_top1_n_ne_h_r1=share(r_ne, n_ne), val_house_n_eq_h=int(n_eq),
                    val_house_top1_n_eq_h=share(s_eq, n_eq), val_house_top1_n_eq_h_r1=share(r_eq, n_eq),
-                   val_house_top1_n_ne_h_by_kind=by_kind)
+                   val_house_top1_n_ne_h_by_kind=by_kind,
+                   # The drift watch: where r1 already answers as H, how often the student still does.
+                   val_house_top1_n_eq_h_by_kind={name: row["student_n_eq_h"] for name, row in by_kind.items()
+                                                  if row["n_eq_h"]})
         chain = chain or {}
         out.update(
             val_house_chain_start_act=chain.get("val_distill_chain_opportunity_student_act"),
@@ -239,10 +243,12 @@ class HouseCounter:
         return out
 
 
-def house_gate(metrics, min_top1=GATE_TOP1, min_ratio=GATE_CHAIN_RATIO):
+def house_gate(metrics, min_top1=GATE_TOP1, min_ratio=GATE_CHAIN_RATIO, active_ratio=GATE_ACTIVE_RATIO):
     """(passed, verdict): held-out top-1 agreement with H at N != H over every kind of at
     least `min_top1`, and the student's chain-start act rate (where H's last priority
-    answer was a pass) at least `min_ratio` times H's own on the same rows."""
+    answer was a pass) at least `min_ratio` times H's own on the same rows. One-sided:
+    passivity was round 0's failure. Above `active_ratio` times H's the verdict says
+    `more_active_than_teacher` and passes; the play check judges whether that is reckless."""
     top1 = metrics.get("val_house_top1_n_ne_h")
     mine, theirs = metrics.get("val_house_chain_start_act"), metrics.get("val_house_chain_start_act_h")
     ratio = mine / theirs if mine is not None and theirs else None
@@ -250,6 +256,7 @@ def house_gate(metrics, min_top1=GATE_TOP1, min_ratio=GATE_CHAIN_RATIO):
     return passed, dict(passed=passed, min_top1=min_top1, min_ratio=min_ratio, top1_n_ne_h=top1,
                         top1_n_ne_h_r1=metrics.get("val_house_top1_n_ne_h_r1"),
                         chain_start_act_ratio=ratio, chain_start_act=mine, chain_start_act_h=theirs,
+                        more_active_than_teacher=ratio is not None and ratio > active_ratio,
                         chain_start_act_r1=metrics.get("val_house_chain_start_act_r1"),
                         chain_completion=metrics.get("val_house_chain_completion"),
                         chain_completion_r1=metrics.get("val_house_chain_completion_r1"),
