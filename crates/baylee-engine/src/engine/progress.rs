@@ -35,6 +35,12 @@ pub(super) mod untap_replacements;
 
 #[cfg(test)]
 thread_local! {
+    /// Set, the untap step untaps without first bringing the effect table in
+    /// step with what it phased in and out: the engine as it was, for
+    /// `phasing_tests`' control and `recorded_lockstep_tests`, which plays
+    /// recorded games against it.
+    pub(in crate::engine) static UNTAP_BEFORE_PHASED_STATICS: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
     /// Set, a question the machine stops on is asked although the game is
     /// already decided: the engine as it was, for `game_end_tests`, which
     /// holds the change to removing that question and nothing else, and

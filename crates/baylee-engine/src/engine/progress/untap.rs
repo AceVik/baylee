@@ -179,11 +179,25 @@ impl<L: CardLookup> Engine<L> {
                 })
             })
             .collect();
+        let phased = !going.is_empty() || !coming.is_empty();
         if !going.is_empty() {
             self.state.phase_out(&going);
         }
         for id in coming {
             self.state.phase_in(id);
+        }
+        // What phased in has its statics back before anything untaps, and
+        // what phased out has them set aside (CR 502.1 comes before 502.3,
+        // CR 702.26b): a phased-in Aura's "enchanted creature doesn't untap"
+        // keeps its creature tapped in this very step. The table follows
+        // phasing only in `sync_board_rules`, which the progress loop runs
+        // on its next pass, after the untap. A step in which nothing phased
+        // has nothing to bring along and does not sync.
+        #[cfg(test)]
+        let phased = phased && !super::UNTAP_BEFORE_PHASED_STATICS.with(std::cell::Cell::get);
+        if phased {
+            self.sync_static_effects();
+            self.state.refresh_characteristics();
         }
         self.check_day_night();
         self.return_during_untap();

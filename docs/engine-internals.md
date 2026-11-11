@@ -2093,6 +2093,16 @@ back from its abilities when it phases in. Effects a resolution made are
 not parked. The leave probe (`docs/verification-hooks.md` §"L4: the leave
 probe") checks all of this per card.
 
+The untap step syncs the table itself, right after it phases permanents in
+and out and before the active player untaps (CR 502.1, then 502.3): the
+progress loop's next pass would come after the untap. So a Sleep Paralysis
+that phased in with its creature keeps it tapped in that very step, and a
+permanent with phasing that phased out no longer holds anything tapped. An
+untap step in which nothing phased does not sync. Until 11 November 2026
+the parked statics came back only after the untap, so a record from before
+in which an Aura or another static that keeps permanents tapped phased in
+plays differently from that untap step on.
+
 **Phasing out and in** is `GameState::phase_out` and `phase_in`
 (`phasing.rs`), which `Effect::PhaseOut` and the untap step share.
 `Effect::PhaseOut` phases out every target it has (Clever Concealment's

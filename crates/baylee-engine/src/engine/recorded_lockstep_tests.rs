@@ -1,9 +1,10 @@
 //! Recorded games played twice in lockstep: by the engine as it is and by
-//! the engine as it was before fixes from Carbon's ladder games
-//! (11.11.2026), switched back on by [`as_before`]. An order between damage
-//! effects that cannot change the event is no longer asked
-//! (`damage::ASK_EVERY_ORDER`), and a decided game asks nothing more
-//! (`ASK_IN_A_DECIDED_GAME`).
+//! the engine as it was before three fixes from Carbon's ladder games
+//! (11.11.2026), switched back on by [`as_before`]. The untap step now
+//! brings the statics of what phased in along before it untaps
+//! (`UNTAP_BEFORE_PHASED_STATICS`), an order between damage effects that
+//! cannot change the event is no longer asked (`damage::ASK_EVERY_ORDER`),
+//! and a decided game asks nothing more (`ASK_IN_A_DECIDED_GAME`).
 //!
 //! Both engines take every recorded answer. After the opening and after each
 //! answer their hashes are compared, and the first answer they part on is
@@ -39,9 +40,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// The record version this reads (`baylee_gamehost::record::RECORD_VERSION`).
 const RECORD_VERSION: u64 = 1;
 
-/// Runs `f` as the engine was before the fixes.
+/// Runs `f` as the engine was before the three fixes.
 fn as_before<T>(f: impl FnOnce() -> T) -> T {
     let set = |on: bool| {
+        super::progress::UNTAP_BEFORE_PHASED_STATICS.with(|s| s.set(on));
         super::progress::ASK_IN_A_DECIDED_GAME.with(|s| s.set(on));
         crate::damage::ASK_EVERY_ORDER.with(|s| s.set(on));
     };

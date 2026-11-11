@@ -527,6 +527,135 @@ fn what_is_attached_to_an_attachment_phases_out_and_in_with_it_too() {
     }
 }
 
+fn island() -> baylee_core::ids::CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+
+fn sleep_paralysis() -> baylee_core::ids::CardIndex {
+    card_index("5a8bd4a4-8b10-4eef-8341-28be2afa2c00")
+}
+
+fn vaporous_djinn() -> baylee_core::ids::CardIndex {
+    card_index("66fc64db-7dc4-43fa-8087-281a72286c35")
+}
+
+/// Passes until `until` holds, declining every "pay or else" on the way:
+/// Vaporous Djinn's upkeep payment, which its controller cannot make here.
+fn pass_declining(
+    engine: &mut Engine<RegistryLookup>,
+    until: impl Fn(&Engine<RegistryLookup>) -> bool,
+) {
+    for _ in 0..50 {
+        if until(engine) {
+            return;
+        }
+        if let Pending::YesNo { player, .. } = engine.pending().clone() {
+            engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            continue;
+        }
+        pass_until(engine, |e| {
+            until(e) || matches!(e.pending(), Pending::YesNo { .. })
+        });
+    }
+    panic!("never reached, at {:?}", engine.pending());
+}
+
+/// The first decision of turn `number`, seat 1's: its upkeep, after the
+/// untap step.
+fn seat_one_turn(number: u32) -> impl Fn(&Engine<RegistryLookup>) -> bool {
+    move |e| e.state().turn.number == number && e.state().turn.active == PlayerId::new(1)
+}
+
+/// An Aura that phased out with its creature phases in with it before the
+/// active player untaps (CR 502.1, then 502.3; CR 702.26g), and its static
+/// is in force again by then: "enchanted creature doesn't untap during its
+/// controller's untap step" keeps the creature tapped.
+///
+/// The record: Carbon's ladder game hc-expert-b/game-0019, turns 15 to 17.
+/// Seat 0's Sleep Paralysis on seat 1's Vaporous Djinn; the Djinn's
+/// controller declined its upkeep payment, the Djinn phased out tapped and
+/// the Aura with it, and at seat 1's next untap step both phased in and
+/// the Djinn untapped. Its statics were parked while it was phased out
+/// (`EffectTable::follow_phasing`) and came back only on the progress
+/// loop's next pass, after the untap.
+#[test]
+fn an_aura_phasing_in_with_its_creature_keeps_it_from_untapping() {
+    let (engine, djinn, _) = sleep_paralysis_through_phasing();
+    assert!(
+        is_tapped(&engine, djinn),
+        "the Djinn untapped in the untap step it phased in at"
+    );
+    let (then, djinn, _) = super::progress::UNTAP_BEFORE_PHASED_STATICS.with(|before| {
+        before.set(true);
+        let then = sleep_paralysis_through_phasing();
+        before.set(false);
+        then
+    });
+    assert!(
+        !is_tapped(&then, djinn),
+        "the control: as it was, the Djinn untapped"
+    );
+}
+
+fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+    engine
+        .state()
+        .object(id)
+        .is_some_and(|o| o.status.contains(Status::TAPPED))
+}
+
+/// Seat 0's Sleep Paralysis on seat 1's Vaporous Djinn, played to seat 1's
+/// upkeep in turn 4: the Aura taps the Djinn, seat 1 cannot pay the Djinn's
+/// {U}{U} in turn 2, so it phases out then and the Aura with it, and both
+/// phase in at seat 1's next untap step. Returns the engine at that
+/// upkeep, the Djinn and the Aura.
+fn sleep_paralysis_through_phasing() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(209, basic_forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[sleep_paralysis()])
+        .battlefield(1, &[vaporous_djinn()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let djinn = on_battlefield(&engine, p1, vaporous_djinn()).expect("seated");
+    cast_from_hand(&mut engine, p0, sleep_paralysis());
+    let rest = drive_to_rest(&mut engine, p0);
+    assert!(
+        matches!(rest, Rest::Reached),
+        "the Aura and its trigger resolve: {rest:?}"
+    );
+    let aura = on_battlefield(&engine, p0, sleep_paralysis()).expect("the Aura resolved");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(djinn),
+        "Sleep Paralysis enchants the Djinn"
+    );
+    assert!(is_tapped(&engine, djinn), "its trigger tapped the Djinn");
+
+    // An untap step with nothing phasing keeps it tapped.
+    pass_declining(&mut engine, seat_one_turn(2));
+    assert!(
+        is_tapped(&engine, djinn),
+        "the Djinn untapped under Sleep Paralysis"
+    );
+    pass_declining(&mut engine, |e| e.state().turn.number == 3);
+    assert!(is_phased_out(&engine, djinn), "the Djinn phased out");
+    assert!(is_phased_out(&engine, aura), "the Aura phased out with it");
+
+    pass_declining(&mut engine, seat_one_turn(4));
+    assert!(
+        !is_phased_out(&engine, djinn) && !is_phased_out(&engine, aura),
+        "both phased in at seat 1's untap step"
+    );
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(djinn),
+        "the Aura phased in attached to the Djinn"
+    );
+    (engine, djinn, aura)
+}
+
 /// "You control a phased-out creature. You cast a spell that says 'Destroy
 /// all creatures.' The phased-out creature is not destroyed." (CR 702.26b's
 /// own example.)
