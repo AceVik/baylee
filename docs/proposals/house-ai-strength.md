@@ -664,8 +664,11 @@ setting, in 96 games each of the coordinator's collector, loses to the
 house as often as not: the new expert won 47.9 % of them and the new sharp
 40.6 %. So the order sharp < expert shows against no outside opponent yet.
 
-*The 2v2 run per level* (must not be worse than 50 %) was still playing
-when this was written; its line follows.
+*The 2v2 run per level* (must not be worse than 50 %; `holdout2`, 256
+rows, teams 1,2,1,2, fixed pairings, each game once): expert won 75 of 128
+(58.6 %, Wilson 49.9–66.8; 13 seeds for, 2 against, p = 0.007). sharp,
+steady, casual and novice were still playing when the round was handed over
+(§7 says where their lines land).
 
 *What a searched answer cost in the gate.* The gate ran eight games at a
 time beside other jobs (a load of about forty on twenty-four threads), so
@@ -906,3 +909,247 @@ The share is bounded by which answers are tried and by how the house plays
 the worlds on, not by how finely the end of a world is priced: (2) and (3)
 are the open steps, and a block is the question to start (2) with. A
 neural leaf is not indicated by anything here.
+
+## 7. Handover: a hard budget for a search, and block repairs (11.11.2026)
+
+Written when the round changed hands in the middle of two tasks. The
+owner's decisions in force: the foresight round is banked on the gate of
+§5a; next come **heuristic repairs mined from the search's disagreements,
+blocks first**, behind a new generation; no neural model in the house; the
+tiers stay as they are. The fork goes onto the internet-facing engine
+server only once BayleeAI's own search probe shows five points or more
+**and** a hard budget per decision exists; until then foresight stays opt-in
+and off in hosting. The fair generation-7 `expert` with foresight is now
+also a teacher for BayleeAI, so a generation that changes `expert`'s
+answers is told to the coordinator for the campaign.
+
+### 7.1 Where a search's time goes (measured)
+
+`eval4`'s summary now times every searched answer by the CPU time of its
+game's thread (`foresight.ms_*`, `cost`, `cost_slowest_hundredth`,
+`slowest`, `work`, `by_board`), so a time is the answer's own work whatever
+else the machine runs. expert against `expert:generation=6`, the first 256
+train deals, round-robin, six games at a time at nice 10 beside a load of
+48 to 88 on 24 threads; 9,776 searched answers, 1,643 CPU-seconds:
+
+| | p50 | p95 | p99 | p99.9 | max |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CPU time of a searched answer, ms | 116 | 464 | 852 | 1,523 | 4,249 |
+| work on the meter, units (provisional prices) | 1.8 M | 5.8 M | 10.1 M | | 54 M |
+
+- **All searches:** the engine applying answers 49 %, the house answering
+  what is no attack or block 43 %, attacks and blocks 3 %, making forks
+  2.6 %, leaves 0.15 %. A search makes 21 forks and gives 1,850 answers in
+  them at the mean.
+- **The slowest hundredth:** attacks and blocks 18 %. **The five slowest
+  (2.1 to 4.2 s):** attacks and blocks 65 %: boards of 38 to 43 permanents
+  where the forks' model, which is `expert` with its 262,144 nodes for every
+  declaration, visits 11 to 36 million nodes in one searched answer (about
+  80 ns a node). This is the suspected tail, confirmed.
+- **Below those, at 1.3 to 1.4 s:** priority searches on boards of 23 to 28
+  permanents with 145 forks and 12,000 to 14,000 answers and no combat
+  search to speak of. So the tail has two parts, and a node cap alone
+  leaves the second: the count of forks and answers has to be bounded too.
+- **An answer costs more on a fuller table** (the engine's step included,
+  by the mean permanents and stack objects over a search's answers): 41 µs
+  below 8, 57 µs from 8, 77 µs from 16, 109 µs from 24, 154 µs from 32.
+  About 30 µs and 3.2 µs a permanent. A fork is about 200 µs whatever the
+  table. The longest single answer in a fork was 48 ms, a combat search.
+- The times the gate saw (up to 118 s for one answer) were wall time at
+  nice 10 on a machine at load forty. They are scheduling, not work; a
+  host's wall bound is a question of its own scheduling.
+
+### 7.2 The budget unit (built behind the flag, not yet measured)
+
+Built on the branch (commit below), off unless a table sets it:
+
+- `baylee_ai::WorkMeter`: a count and a bound. An agent counts the nodes
+  its combat searches visit into its meter and asks it how many it may
+  still visit (`search::attackers_on` and `blockers_within` take the
+  allowance; with none left the greedy declaration stands). An agent nobody
+  gave a meter has an unbounded one of its own, so no answer outside a
+  bounded search changes: the pins of generation 0 and 6 are untouched by
+  construction, and the 256-deal run above reproduces the unmetered one
+  game for game (156 of 256, 32 seeds for, 4 against).
+- A search has one meter for all its forks (`session/foresight.rs`). The
+  unit is one combat-search node; a fork and a house answer in a fork are
+  priced in the same unit by what is on the table
+  (`session/simulation.rs`: `fork_work`, `answer_work`).
+- `Session::set_foresight_work(units)` / `eval4 --foresight-work N` bounds a
+  search. It checks the meter before every fork and after every answer;
+  out of work it drops the world in progress and the round of worlds that
+  belongs to, and chooses among the plans tried in the same worlds (the
+  level's own if not one round was finished). It overruns by at most the
+  step it was in. Under a bound one combat search gets a 256th of it
+  (`SEARCH_SHARE`, `--foresight-nodes` overrides). A probed world's
+  play-on past its leaf is taken off the meter (`unmetered`).
+- This replaces the old cap on answers (same flag, new unit), which
+  bounded nothing (§5a).
+
+**Still to do, in order:**
+
+1. *Fit the prices.* They are provisional (`750 + 25 × board` for an
+   answer, `1500 + 8 × objects` for a fork). The table above says about
+   `375 + 40 × board` and a flat 2,500 at 80 ns a unit. With the
+   provisional prices a unit took 0.063 µs at the median of searches, 0.108
+   at the 99th percentile and 0.136 at worst (`foresight.work`); the aim is
+   to bring those together, so that a bound in units is a bound in time
+   with a known worst factor. Read `by_board` and `work.micros_per_unit_*`
+   again after refitting.
+2. *Measure that the share holds.* expert against `expert:generation=6`,
+   1,024 train deals (59.9 %, 121 / 19 unbounded), at
+   `--foresight-work 8000000`, `4000000` and `2000000`; compare game by
+   game with `house_duplicate --before`. Report `foresight.cut` (searches
+   stopped by the bound) and `ms_p50/p95/p99/max`. Expected from the work
+   percentiles: 8 M cuts about 2 % of searches, 4 M about 10 %.
+   Separately try the node share alone (`--foresight-work` huge,
+   `--foresight-nodes 16384`): §5a found better rollouts worth nothing, so
+   a model that searches 16,384 nodes instead of 262,144 should cost
+   nothing either and removes the worst tail by itself.
+3. *Decide where the bound lives.* As a host setting it changes no level.
+   If hosting wants one expert everywhere (and the campaign one teacher),
+   the bound belongs in `AIProfile::foresight()` behind the next
+   generation, with the host's setting only ever tightening it.
+4. *What the unit does not bound:* one engine step. An answer is priced
+   by the table's size, not by what applying it does; a step that makes
+   thousands of objects or resolves a deep trigger chain costs more than
+   its price. The fork's 400-answer cap and the table-size price cover the
+   common cases; a real engine fuel (`lookahead-design.md` Q5) would cover
+   the rest and is a change inside the engine's hot paths. Say so in the
+   hosting proposal rather than claim a strict p100.
+5. Tests to add before it is relied on: a bounded search is deterministic
+   (same view, seed and bound, same answer and same `work`), a bound of 0
+   gives the level's own answer, and `tests/foresight.rs`'s fairness test
+   with a bound set.
+
+### 7.3 Block repairs: the approach and the tools
+
+`Session::set_foresight_questions` / `eval4 --foresight-questions <file>
+[--foresight-question-kinds block,attack,priority]
+[--foresight-questions-all]` writes every searched question of the kinds
+named as a JSON line: the seat's whole view, the question, each answer
+tried with its value in every world, and the answer given. Without `-all`
+only the questions the search answered otherwise.
+
+`foresight_mine --log <files> [--ask <level>] [--show N] [--class <part>]`
+reads block questions and tables what changed from the level's blocks to
+the search's (`added`, `dropped`, `moved`, `mixed`; and the block that
+changed as `chump`, `trade`, `eat`, `wall` or `gang`), where the seat stood
+(life band, whether the level's blocks let lethal through), and each
+class's gain (the search's value of its answer less the level's own,
+summed). `--ask expert:generation=8` asks a level's heuristics every logged
+question again, with no game played: how many of the search's replacements
+it now gives itself (`repaired`), how many answers the search let stand it
+now changes, and what the search made of those where it had tried them.
+That is the development loop for a repair: change the heuristic behind the
+new generation, `--ask` it against the log, and only play games (train:
+against its generation-7 self and against `sharp-2026-11`) when the table
+moves. Asked again, `expert` gives the logged answer at 265 of 265, so the
+re-asking is exact.
+
+The commands as run (bigace paths; six threads at nice 10 there):
+
+```
+eval4 --model ~/baylee-data/v6/train/v6s-league/r1-4eb/fp16 --random-policy \
+  --decks-manifest ~/baylee-data/v6/decks-20261107c/manifest.v4.json \
+  --deck-split train --threads 6 --seats 2 --deck-schedule round-robin \
+  --deals 256 --baseline expert --against expert:generation=6 \
+  --house-foresight --foresight-questions blocks.jsonl \
+  --foresight-question-kinds block --foresight-questions-all --out run.json
+foresight_mine --log blocks.jsonl --ask expert --show 3
+eval4 … --house-foresight --foresight-probe probe.jsonl   # then: foresight_probe --log probe.jsonl
+```
+
+**A first, small table** (the 256 deals above: 265 blocks searched, 30
+answered otherwise, the search's gain 3.27 in leaf value):
+
+| What changed | Questions | Gain | A question |
+| --- | ---: | ---: | ---: |
+| dropped trade | 5 | 1.14 | 0.227 |
+| added chump | 11 | 1.13 | 0.103 |
+| added trade | 9 | 0.73 | 0.082 |
+| mixed | 3 | 0.19 | 0.065 |
+| dropped chump, dropped gang | 2 | 0.07 | |
+
+Thirty questions decide nothing; log 2,048 train deals or more first (deals
+from another range than the probe's 8448 on, `--deal-offset`). What the
+thirty suggest, as hypotheses:
+
+- *Added chump* is mostly not a chump: the blocker has a use in dying
+  (Penumbra Kavu leaves a 3/3, a Devil token deals a damage) or the level
+  left home a token worth nothing against an attacker that then connects.
+  `search::worth` prices a creature by mana value, power and toughness
+  alone, so a token is 100 plus its stats and a death trigger is nothing.
+- *Added trade*: an even trade refused at a comfortable life (a 1/1 for a
+  1/1) where the search takes it; the block search prices damage flat at 45
+  a point and the trade at zero.
+- *Dropped trade* and the `mixed` double blocks: the level trades or
+  gang-blocks into an attacker while the opponent keeps creatures home
+  and cards in hand; the search keeps the blockers. The block search's
+  horizon is 0: it does not see what the block leaves it for its own turn.
+- By life, 24 of the 30 are above ten: this is not about racing at low
+  life, which is where the second round tried (and dropped) race prices in
+  the block search.
+
+The probe says a block is worth 1.25 ± 0.49 won games per 100 questions
+against 0.33 for an attack and 0.19 for a priority (§6a), at 3 % of the
+questions: a repair of all of it is worth a point or two of share at most.
+Read the larger log before choosing which class to repair.
+
+### 7.4 The Carbon analyst's findings (hypotheses, not verified)
+
+`~/baylee-data/v6/house/carbon/summary.md` and `findings.md`: an analyst
+reading the new house's games against DeepSeek (72 of 192 so far). Nearly
+all of it is casts and targets, not blocks. Checked against the code so
+far:
+
+- **Plausible and large: the priority roots try no spell that costs
+  mana.** `foresight::priority_candidates` lists `legal.castable`, and at
+  a root the pool is empty (`settled`), where every spell of cost one or
+  more is in `legal.payable`. So a search compares the level's own plan
+  (which starts with a mana tap) with passing, lands and abilities, and
+  never one spell with another or a target with another (`targets_of` is
+  reached only for free spells). A `CastSpell` of a payable card is an
+  answer the question takes; whether the forks' model then pays it
+  (`policy::pay_owed`) has to be tried. If it does, payable spells as
+  candidates are the widest thing a search does not yet try, and worth
+  measuring before any heuristic repair.
+- To verify, each a small general fix behind the new generation: Auras and
+  pumps aimed at an opponent's creature (`target_side::aura_side` is said
+  never to be called by `baylee-ai`; `target_side::amount` gives 0 for
+  `Amount::CountOf`), "attacking creatures get" pumps cast outside combat
+  (`timing::read` has no `PumpFilter`), sweepers at X = 0
+  (`bad_removal_exchange` skips costs with X), Equipment whose static is
+  `Filter::And(&[CREATURE, AttachedToBySource])` never equipped
+  (`worth::equipped`), a creature of power 0 declared as an attacker, and
+  `policy::produced_colors` reading basic land types only at the mulligan.
+  None of these has been reproduced here.
+
+### 7.5 State of the machines and runs
+
+- **Branch** `c42/house-g8` in `~/Projects/baylee-house-lookahead`, target
+  dir `/mnt/xdata/cargo-target/house-g8` (the older
+  `/mnt/xdata/cargo-target/house-lookahead` holds the gate's binaries; the
+  2v2 chain runs from it, so do not build into it while that runs).
+- **The 2v2 gate chain** was started by the round before
+  (`m.zsh gate2v2_<level> 256 <level> <level>:generation=6
+  --house-foresight`, a detached zsh, pids 3061175 and 3061177 when
+  checked) and writes
+  `…/scratchpad/gateB.out` and `gate2v2_<level>.json` beside it; expert is
+  in (§5a), sharp was playing at the handover. Add the remaining lines to
+  §5a.
+- **bigace** is oversubscribed: eval runs at six threads and nice 10
+  there, and as few as possible.
+- **acenb** (`ace@192.168.0.12`, 16 threads, no nice needed, work only
+  under `~/baylee-work/house/`, start no server, leave its services
+  alone) is set up half way: decks with path-adjusted manifests in
+  `~/baylee-work/house/decks/`, the model in `model/fp16`, sources in
+  `src/`. bigace's eval4 does not run there: it reads the checkout it was
+  built in (`baylee_train::working::repo_root`, a compiled-in path), and a
+  build there stops at `glib-sys` (the notebook lacks the GLib development
+  packages, which is the owner's to install). Either gets it going; then
+  check one small run against bigace (same `house_duplicate` line and the
+  same `foresight` counts) before relying on it. Nothing runs there now.
+- Scratch files of this round are named `g8-*` in the session scratchpad:
+  `g8-prof-b.json` (the profile above), `g8-q-blocks-a.jsonl` (the 265
+  block questions), `g8-eval4-b1` (the eval4 that made them).

@@ -1288,10 +1288,19 @@ same answer on any machine:
 | 4 | sharp | 8 | 5 |
 | 5 | expert, seer | 8 | 6 |
 
-A host may also cap the work of one searched answer
-(`Session::set_foresight_work`, `eval4 --foresight-work`): once the forks of
-one search have taken that many house answers, no further world is started
-and the answer is chosen from the worlds every candidate was tried in.
+A host may also bound the work of one searched answer
+(`Session::set_foresight_work`, `eval4 --foresight-work`). A search counts
+what it does on a meter (`baylee_ai::WorkMeter`): each node the forks'
+combat searches visit is one unit, and each fork and each house answer in a
+fork has a price in the same unit that grows with what is on the table
+(`session/simulation.rs`, `fork_work` and `answer_work`). Once the bound is
+spent the search stops where it stands, drops the world it was in and the
+round of worlds that belongs to, and chooses among the answers it tried in
+the same worlds; the level's own where not one round was finished. Under a
+bound one combat search in a fork may visit a 256th of it and no more
+(`SEARCH_SHARE`; `set_foresight_nodes` sets another share). Off unless a
+host sets it; the prices are provisional and the bound is not yet measured
+(`docs/proposals/house-ai-strength.md` §7).
 
 **Fairness.** `session/tests/foresight.rs` deals the house the two games of
 `tests/fair_house.rs`, which differ only in the opponent's decklist, hand
