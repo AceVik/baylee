@@ -192,3 +192,243 @@ fn damage_from_a_black_deathtoucher_is_prevented() {
         "the cleric's damage is not prevented"
     );
 }
+
+fn paladin_en_vec() -> CardIndex {
+    card_index("fd8722e1-9c41-4037-ab7e-47e2aa9858a0")
+}
+
+fn disciple_of_grace() -> CardIndex {
+    card_index("7f4ceca9-0f55-4fa6-8e64-befbc4303d4e")
+}
+
+fn plague_spitter() -> CardIndex {
+    card_index("5feedfb0-30e6-400d-9e28-d541ea1aa14e")
+}
+
+/// Seat 0's Paladin en-Vec and Disciple of Grace, both with protection from
+/// black, under seat 1's Plague Spitter, which deals 1 damage to each
+/// creature and each player at seat 1's upkeep.
+fn paladin_and_disciple() -> Game {
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[paladin_en_vec(), disciple_of_grace()])
+        .battlefield(1, &[plague_spitter()])
+        .start();
+    keep_mulligans(&mut engine);
+    engine
+}
+
+fn seat_one_main(engine: &Game) -> bool {
+    engine.state().turn.active == P1 && engine.state().turn.phase == Phase::FirstMain
+}
+
+/// Protection on two different creatures is two effects on two objects,
+/// and nobody chooses an order between them: CR 616.1 asks the affected
+/// object's controller only when two or more effects try to modify how the
+/// event affects that one object. Each protection prevents its own
+/// creature's damage whichever applies first.
+///
+/// The record: Carbon's ladder game hc-expert-b/game-0011, turn 13. Plague
+/// Spitter's upkeep damage to each creature asked seat 0 which of Paladin
+/// en-Vec's and Disciple of Grace's protection from black applied next.
+///
+/// The question was the whole difference: the engine as it was, answered
+/// either way, reaches the same board, which hashes as this one does.
+#[test]
+fn protection_on_two_creatures_asks_no_order() {
+    let mut engine = paladin_and_disciple();
+    let paladin = on_battlefield(&engine, P0, paladin_en_vec()).unwrap();
+    let disciple = on_battlefield(&engine, P0, disciple_of_grace()).unwrap();
+    let spitter = on_battlefield(&engine, P1, plague_spitter()).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseDamageEffect { .. }) || seat_one_main(e)
+    });
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseDamageEffect { .. }),
+        "asked an order between two creatures' protection: {:?}",
+        engine.pending()
+    );
+    for first in [0, 1] {
+        let then = crate::damage::ASK_EVERY_ORDER.with(|ask| {
+            ask.set(true);
+            let mut then = paladin_and_disciple();
+            pass_until(&mut then, |e| {
+                matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+            });
+            let Pending::ChooseDamageEffect {
+                player,
+                choice,
+                options,
+                ..
+            } = then.pending().clone()
+            else {
+                unreachable!()
+            };
+            assert_eq!(options.len(), 2, "the control: as it was, it asked");
+            then.apply(
+                player,
+                PlayerAction::ChooseDamageEffect {
+                    choice,
+                    effect: options[first].id,
+                },
+            )
+            .unwrap();
+            pass_until(&mut then, seat_one_main);
+            ask.set(false);
+            then
+        });
+        assert_eq!(then.snapshot_hash(), engine.snapshot_hash(), "{first}");
+    }
+    let damage = |id| engine.state().object(id).unwrap().damage;
+    assert_eq!(damage(paladin), 0, "the Paladin's protection prevented it");
+    assert_eq!(
+        damage(disciple),
+        0,
+        "the Disciple's protection prevented it"
+    );
+    assert_eq!(damage(spitter), 1, "the Spitter damaged itself");
+    for seat in [P0, P1] {
+        assert_eq!(
+            engine.state().players[usize::from(seat.get())].life,
+            19,
+            "each player took 1"
+        );
+    }
+}
+
+fn pestilence() -> CardIndex {
+    card_index("dafe63ef-f3d6-45e7-877a-573da92ba85e")
+}
+
+fn pariah() -> CardIndex {
+    card_index("2c5c8250-1860-42a1-a335-071f54830d37")
+}
+
+/// Seat 0's Pestilence and Swamp beside its Paladin en-Vec, which wears seat
+/// 0's Pariah, in seat 0's first main phase: `(engine, paladin)`.
+fn pariah_on_the_paladin() -> (Game, ObjectId) {
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[pestilence(), swamp(), paladin_en_vec(), pariah()])
+        .start();
+    let paladin = on_battlefield(&engine, P0, paladin_en_vec()).unwrap();
+    let aura = on_battlefield(&engine, P0, pariah()).unwrap();
+    {
+        // What a starting battlefield cannot say, set before the first
+        // state-based check would put the Aura into a graveyard.
+        let state = engine.dev_state_mut(P0).expect("the harness trusts itself");
+        state.object_mut(aura).expect("seated").attached_to = Some(paladin);
+        state.invalidate_projections();
+    }
+    keep_mulligans(&mut engine);
+    main_phase(&mut engine);
+    (engine, paladin)
+}
+
+/// Activates Pestilence ({B}: 1 damage to each creature and each player) and
+/// passes until it has resolved or a damage effect is to be chosen.
+fn pestilence_once(engine: &mut Game) {
+    let source = on_battlefield(engine, P0, pestilence()).unwrap();
+    tap_all_mana(engine, P0);
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+            || (stack_is_empty(e)
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0))
+    });
+}
+
+/// A redirection beside protection, where every order prevents everything.
+/// Pestilence deals 1 to the Paladin and 1 to seat 0: protection from
+/// black prevents the first (CR 702.16e), and Pariah sends the second to the
+/// Paladin, whose protection prevents it there too. CR 616.1 has seat 0
+/// choose among effects on one object or player; the Paladin's damage meets
+/// only the protection and seat 0's only Pariah, and the protection is not
+/// spent, so the redirected damage meets it as well whichever came first.
+///
+/// The record: Carbon's ladder game hc-expert-d2/game-0010, q179, turn 14,
+/// which asked seat 0 to order the Paladin's protection and Pariah.
+#[test]
+fn a_redirection_onto_protection_asks_no_order() {
+    let (mut engine, paladin) = pariah_on_the_paladin();
+    pestilence_once(&mut engine);
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseDamageEffect { .. }),
+        "asked an order between protection and Pariah: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().object(paladin).unwrap().damage,
+        0,
+        "both points were sent to the Paladin and prevented there"
+    );
+    assert_eq!(engine.state().players[0].life, 20, "Pariah took seat 0's");
+    assert_eq!(engine.state().players[1].life, 19, "seat 1 took 1");
+    for first in [0, 1] {
+        let then = crate::damage::ASK_EVERY_ORDER.with(|ask| {
+            ask.set(true);
+            let (mut then, _) = pariah_on_the_paladin();
+            pestilence_once(&mut then);
+            let Pending::ChooseDamageEffect {
+                player,
+                choice,
+                options,
+                ..
+            } = then.pending().clone()
+            else {
+                panic!("the control: as it was, it asked: {:?}", then.pending())
+            };
+            assert_eq!(options.len(), 2, "protection and Pariah");
+            then.apply(
+                player,
+                PlayerAction::ChooseDamageEffect {
+                    choice,
+                    effect: options[first].id,
+                },
+            )
+            .unwrap();
+            pestilence_answered(&mut then);
+            ask.set(false);
+            then
+        });
+        assert_eq!(then.snapshot_hash(), engine.snapshot_hash(), "{first}");
+    }
+}
+
+/// Passes until Pestilence has resolved, choosing the first offered damage
+/// effect on the way.
+fn pestilence_answered(engine: &mut Game) {
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseDamageEffect {
+                player,
+                choice,
+                options,
+                ..
+            } => engine
+                .apply(
+                    player,
+                    PlayerAction::ChooseDamageEffect {
+                        choice,
+                        effect: options[0].id,
+                    },
+                )
+                .unwrap(),
+            Pending::Priority { player, .. } if stack_is_empty(engine) && player == P0 => {
+                return;
+            }
+            _ => pass_until(engine, |e| {
+                matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+                    || (stack_is_empty(e)
+                        && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0))
+            }),
+        }
+    }
+    panic!("Pestilence never finished: {:?}", engine.pending());
+}

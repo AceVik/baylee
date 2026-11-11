@@ -101,6 +101,108 @@ enum PendingDamage {
     OptionalRedirect { candidate: Candidate },
 }
 
+#[cfg(test)]
+thread_local! {
+    /// Set, a chooser offered more than one effect is always asked their
+    /// order: the engine as it was, for `protection_flow_tests`, which holds
+    /// the change to removing that question and nothing else, and
+    /// `recorded_lockstep_tests`.
+    pub(crate) static ASK_EVERY_ORDER: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
+
+/// Whether the order in which one chooser's `options` apply can change what
+/// the event does, and so whether the chooser is asked for it.
+///
+/// CR 616.1 has the affected object's controller (or the affected player)
+/// choose among the effects that try to modify how the event affects that
+/// object or player. Effects that each modify damage no other option
+/// touches, on behalf of an effect no other option shares, and that only
+/// prevent it, give the same result in every order: protection from black
+/// on two different creatures under Plague Spitter (Carbon's ladder game
+/// hc-expert-b/game-0011, turn 13) is one effect on each creature and
+/// nothing to choose between.
+///
+/// One redirection among them changes nothing either when what it sends
+/// meets the same effects in every order: nothing at its destination may
+/// spend a budget, so every option there is prevention that is never spent
+/// (`never_spent`). Pariah sending seat 0's Pestilence damage to a Paladin
+/// en-Vec beside the Paladin's own (hc-expert-d2/game-0010, turn 14): the
+/// redirected point meets the Paladin's protection after either answer, and
+/// both points are prevented. The rest keep the question as before: a
+/// shared effect (one shield over several recipients, bought prevention)
+/// spends one budget, a second redirection, a reflection, an amount
+/// replacement or a face-up turn changes what the other effects see, a
+/// redirection onto a shield decides what the shield is spent on, and a
+/// counter removal applies point by point when it is chosen and all at once
+/// when it is not.
+fn order_matters(options: &[Candidate]) -> bool {
+    #[cfg(test)]
+    if ASK_EVERY_ORDER.with(std::cell::Cell::get) {
+        return true;
+    }
+    let meet = options.iter().enumerate().any(|(at, option)| {
+        options[..at].iter().any(|earlier| {
+            earlier.key == option.key
+                || earlier
+                    .option
+                    .parts
+                    .iter()
+                    .any(|part| option.option.parts.contains(part))
+        })
+    });
+    if meet {
+        return true;
+    }
+    let mut redirections = options.iter().filter_map(|c| match c.option.kind {
+        DamageEffectKind::Redirect { to } => Some(to),
+        _ => None,
+    });
+    let destination = redirections.next();
+    if redirections.next().is_some() {
+        return true;
+    }
+    options.iter().any(|option| match option.option.kind {
+        DamageEffectKind::Redirect { .. } => false,
+        kind if never_spent(kind) => false,
+        kind => !only_prevents(kind) || Some(option.recipient) == destination,
+    })
+}
+
+/// Prevention that prevents all the damage it applies to and is never spent
+/// doing so (protection, Fog, "all damage that would be dealt by
+/// artifacts"): damage a redirection brings to its recipient meets it the
+/// same way whenever it arrives.
+fn never_spent(kind: DamageEffectKind) -> bool {
+    matches!(
+        kind,
+        DamageEffectKind::Protection
+            | DamageEffectKind::PreventAll
+            | DamageEffectKind::PreventCombat
+    )
+}
+
+/// An effect that prevents some or all of the damage it was offered for and
+/// does nothing else to the event; a life gain it brings is a result held
+/// to the commit (CR 120.4, 615.5).
+fn only_prevents(kind: DamageEffectKind) -> bool {
+    match kind {
+        DamageEffectKind::PreventNext { .. }
+        | DamageEffectKind::PreventThisEvent { .. }
+        | DamageEffectKind::PreventCombat
+        | DamageEffectKind::Protection
+        | DamageEffectKind::PreventAll
+        | DamageEffectKind::PreventFromSource { .. } => true,
+        DamageEffectKind::ReplaceAmount { .. }
+        | DamageEffectKind::Reflect { .. }
+        | DamageEffectKind::RemoveShieldCounter
+        | DamageEffectKind::TurnFaceUp { .. }
+        | DamageEffectKind::Redirect { .. }
+        | DamageEffectKind::RedirectNext { .. }
+        | DamageEffectKind::RemoveCounter { .. } => false,
+    }
+}
+
 pub(super) fn recipient_forbids_prevention_or_redirection(
     state: &GameState,
     recipient: DamageTarget,
@@ -282,7 +384,7 @@ impl DamageWork {
                 .min_by_key(|p| Self::apnap(state, *p))
                 .expect("nonempty effects");
             options.retain(|c| Self::chooser(state, c.recipient) == first);
-            if options.iter().any(|c| c.key != options[0].key) {
+            if options.iter().any(|c| c.key != options[0].key) && order_matters(&options) {
                 self.step += 1;
                 let mut ids: Vec<u32> = options
                     .iter()

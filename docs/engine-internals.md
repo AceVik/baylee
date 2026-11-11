@@ -1565,7 +1565,23 @@ Fight collects both creatures' power before either result changes counters.
 controller, which applicable effect to apply. After each answer the engine
 recomputes applicability and the chooser. Different players decide in APNAP
 order, restarting that order when redirection makes an earlier player's
-choice applicable (CR 101.4d). One effect alone needs no ordering question.
+choice applicable (CR 101.4d). One effect alone needs no ordering question,
+and neither do several whose order cannot change the event
+(`damage::order_matters`): each only prevents (protection, Fog, a shield,
+bought prevention), no two modify the same damage part, and no effect is
+offered for two recipients, so each applies to its own damage whichever
+comes first. Protection from black on two creatures under Plague Spitter is
+an effect on each creature and nothing to choose between (CR 616.1 has the
+controller choose among the effects on one object). One redirection may be
+among them when nothing at its destination has a budget, every option there
+being prevention that is never spent (protection, Fog): Pariah sending a
+player's Pestilence damage to a Paladin en-Vec beside the Paladin's own
+meets the protection in every order. A second redirection, a redirection
+onto a shield, a reflection, an amount replacement, a face-up turn or a
+counter removal keeps the question, as does a shared shield. Until 11
+November 2026 every
+chooser offered two different effects was asked, so a record from before
+holds that answer where a build after it asks nothing.
 An infinite shield such as Fog remains in force; a finite shield spends only
 its actual prevention. A chosen-source shield that prevents or redirects
 nothing remains available (CR 609.7b).
