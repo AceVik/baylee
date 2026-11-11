@@ -2212,6 +2212,53 @@ counts, per subtype, the cross-entropy frames each loss mode (`kl`, `ce-n`,
 `act`, `class`) gives an acting or a passing target, decoding no frame and
 running no network.
 
+**The house teacher** (`--distill-bundle --distill-teacher house`,
+`training4.house`) reads `house_distillation_v1` datasets: the same layout with
+R := H, the gen-7 house expert's answer computed with foresight on a fork of
+the game for the student's seat (fair levels only), at every decision the
+recorded seat answers; the meta's `bundle_distillation.teacher` names the
+expert. Each teacher reads only its own contract. Every labelled kind is
+taught, each term the mean over its rows, all printed apart and per pending
+kind (`[distill] train {..., "kinds": {name: [mean, rows]}}`, also in
+`[distill] epoch` and `val_distill_kinds`):
+- N ≠ H at priority, where H's act/pass group differs from N's: H acts,
+  `-log(p_best_act / (p_best_act + p_pass))` (`ce_h_group`, act-best: round 0's
+  overfit showed the summed act mass rising while spread over equivalent taps);
+  H passes, `-log P(pass group)`. Inside H's group, where it offers more than one
+  answer, H's exact candidate, `-log(p_H / P(group))` (`ce_h_within`), which
+  moves no mass between the groups;
+- N ≠ H at every other single choice (mulligan, targets, cards, modes, mana
+  abilities): `-log p_H` (`ce_h_single`); at subsets (attackers, multiple
+  targets) and pairs (blocks), binary cross-entropy to H's mask on every free
+  entry (`bce_h_subset`, `bce_h_pair`); at numbers, the squared error to H's
+  normalized value (`sq_h_scalar`);
+- N = H: KL to r1 at every head (`kl_distilled_n_eq_r`, `kl_subset`,
+  `kl_pair`, `sq_scalar`), times `--distill-kl-weight`;
+- `--distill-value-weight W`: W times the value readout's squared distance to
+  r1's at every frame (`sq_value_r1`, always reported), for a trainable trunk
+  under a frozen value head.
+
+The groups come from the coarse-class sidecar (CancelCast passes), else the
+candidates' action columns; N is the sidecar's recorded answer, else r1's top-1.
+Arm a is `--train-policy-head-only --train-pair-scalar-heads` (the candidate,
+pair and scalar heads learn; the trunk stays shared with the reference); arm b
+is `--trainable-trunk-from-layer 8 --freeze-value-head --saved-activation-layers
+4 --distill-value-weight 1`. Neither takes `--anchor-l2`: round 0's overfit
+showed the 0.15 anchor capping the act direction at about 61 % on the training
+rows themselves, and here the KL at every N = H decision of every kind (most of
+the labels) holds what H does not teach, the value term holds the value
+readout, and validation's agreement at N = H shows any drift. Validation (and
+`distill_audit` on a held-out set) reports per kind the student's and r1's
+top-1 agreement with H at N ≠ H and at N = H (`val_house_top1_n_ne_h`,
+`_by_kind`), the chain-start act rate of the student, H and r1 where H's last
+priority answer was a pass (`val_house_chain_start_act`, `_h`, `_r1`; the
+chain counter's `opportunity` rows), whole-chain completion, the pass share at
+priority of each (`val_house_priority_pass_share`, `_h`, `_r1`), and the gate
+(`house.house_gate`, `val_house_gate`): top-1 at N ≠ H over every kind at least
+70 %, and the student's chain-start act rate at least 0.9 times H's. It selects
+checkpoints on `val_house_top1_n_ne_h`; `training4.pregate` and the audit exit
+3 when the house gate fails.
+
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.
 **With the deliberation block** (arms "A + block" and "B + block"): add
