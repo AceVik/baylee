@@ -69,12 +69,12 @@ fn ask(view: &PlayerView, pending: Pending, question: u64) -> Request {
 }
 
 /// The model's answer: a call of `decide` with `input`.
-fn decides(input: Value) -> Scripted {
+pub(super) fn decides(input: Value) -> Scripted {
     Scripted::ok(claude(&[("toolu_1", "decide", input)]))
 }
 
 /// The text of the decision the `n`th call carried.
-fn told(provider: &Provider0, n: usize) -> String {
+pub(super) fn told(provider: &Provider0, n: usize) -> String {
     let seen = provider.seen();
     last_user(&seen[n])
         .iter()

@@ -1512,6 +1512,8 @@ fn a_limit_says_it_is_one_and_when_it_lifts() {
 
 mod plan;
 
+mod taps;
+
 mod draw;
 
 mod extras;

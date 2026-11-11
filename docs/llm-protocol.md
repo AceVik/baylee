@@ -387,7 +387,15 @@ exactly; nothing of a plan is ever guessed (`narrator::Stop`):
   (`Stop::OtherPlayer`: "the plan was for P2's decisions, and this
   question is your own");
 - the table refused what a step sent (the step is not counted as done);
-- the taps of a cast were interrupted by another question;
+- the taps of a cast were interrupted by another question. What a tap's own
+  cost asks is not an interruption (CR 605.3a, 601.2h): Lazotep Quarry's
+  "Sacrifice a creature" with one creature is answered with it; with two,
+  the question is the model's, told that the option's taps are under way,
+  and the colour, the rest of the taps and the cast follow its answer
+  without a call (`seatstate::follow_plan`). An option says what such a tap
+  costs: "Lazotep Quarry #34 for {R} (its cost: {T}, Sacrifice a
+  creature)". Until 12 Nov 2026 the sacrifice dropped the taps, and the
+  cast never came (Carbon c3);
 - the targets named ahead are not legal now;
 - the attack step passed without the attack the plan names.
 

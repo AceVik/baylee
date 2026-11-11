@@ -755,7 +755,11 @@ impl Builder<'_, '_> {
         }
     }
 
-    /// The taps of a plan: "taps Forest #22, Mountain #23".
+    /// The taps of a plan: "taps Forest #22, Mountain #23", and what a tap
+    /// costs beyond the tap where it costs more: "Lazotep Quarry #34 for {R}
+    /// (its cost: {T}, Sacrifice a creature)". The sacrifice was never said,
+    /// so a model that took the option was asked for it as if out of nowhere
+    /// (Carbon c2, 11.11.2026).
     pub(super) fn taps(&self, steps: &[manaplan::Step]) -> String {
         let named: Vec<String> = steps
             .iter()
@@ -764,10 +768,37 @@ impl Builder<'_, '_> {
                 if let Some(color) = step.color {
                     let _ = write!(name, " for {{{}}}", words::color_letter(color));
                 }
+                if let Some(cost) = self.dear_tap(step) {
+                    let _ = write!(name, " (its cost: {cost})");
+                }
                 name
             })
             .collect();
         format!("taps {}", named.join(", "))
+    }
+
+    /// The printed cost of a step's mana ability where it is more than the
+    /// tap (a sacrifice, life, mana, a counter), as the card words it.
+    fn dear_tap(&self, step: &manaplan::Step) -> Option<&'static str> {
+        let manaplan::Tap::Ability(index) = step.tap else {
+            return None;
+        };
+        let (AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }) =
+            ability_def(self.table, step.source, index)?
+        else {
+            return None;
+        };
+        if cost.mana.is_empty()
+            && cost
+                .parts
+                .iter()
+                .all(|part| *part == baylee_cards_dsl::CostPart::TapSelf)
+        {
+            return None;
+        }
+        let sentence = ability_sentence(self.table, step.source, index)?;
+        let (cost, _) = sentence.split_once(':')?;
+        Some(cost.trim())
     }
 
     pub(super) fn reach_label(&self, reach: &Reach) -> String {

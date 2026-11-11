@@ -42,7 +42,7 @@ use baylee_client_core::decision;
 use baylee_client_core::manaplan;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
-use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
+use baylee_engine::choice::{ChoicePrompt, LegalActions, Pending, PlayerAction, TargetPrompt};
 use baylee_view::{LogEvent, LogObject, PlayerView};
 use serde_json::json;
 use std::collections::{BTreeSet, VecDeque};
@@ -65,6 +65,12 @@ pub(crate) struct Plan {
     color: Option<ManaColor>,
     /// The colour for that tap's second question, when it asks two.
     second: Option<ManaColor>,
+    /// The permanent whose tap went out last, for what its cost asks.
+    tapping: Option<ObjectId>,
+    /// Why the taps wait for the mind: a tap's cost asked a question with a
+    /// choice in it (a sacrifice of one of two creatures), told to the mind
+    /// with it. The mind's answer to it keeps the taps going.
+    paused: Option<String>,
 }
 
 /// The steps of a plan the model wrote, still to run, and what it did.
@@ -551,7 +557,15 @@ impl Seat {
     fn start(&mut self, act: Act, label: String, view: &PlayerView) -> PlayerAction {
         match act {
             Act::Now(action) => {
-                self.plan = None;
+                // The answer to a cost an option's tap asked: the taps go on
+                // after it (`follow_plan`).
+                if !self
+                    .plan
+                    .as_mut()
+                    .is_some_and(|plan| plan.paused.take().is_some())
+                {
+                    self.plan = None;
+                }
                 action
             }
             Act::Taps { steps, then } => {
@@ -565,6 +579,8 @@ impl Seat {
                     player: decision::resource_player(view),
                     color: first.and_then(|s| s.color),
                     second: first.and_then(|s| s.second),
+                    tapping: first.map(|s| s.source),
+                    paused: None,
                 });
                 if let Some(step) = first {
                     narrator::tap(&step)
@@ -692,7 +708,14 @@ impl Seat {
         if let Some(action) = self.follow_hint(request) {
             return Some((action, "the targets named ahead".to_string()));
         }
-        self.follow_queue(request)
+        let queued = self.follow_queue(request);
+        // The question is the mind's: say why the option's taps wait for it.
+        if queued.is_none()
+            && let Some(why) = self.plan.as_ref().and_then(|plan| plan.paused.clone())
+        {
+            self.notes.push(why);
+        }
+        queued
     }
 
     /// The answer the plan's next step gives this question, or why the
@@ -782,7 +805,13 @@ impl Seat {
         }
     }
 
+    /// The answer an option's taps give this question: the next tap, its
+    /// colour, the cost a tap asks where it has one answer, and at the end
+    /// what the taps were for. A cost a tap asks with a choice in it is the
+    /// mind's, and the taps wait for its answer ([`Plan::paused`]); anything
+    /// else ends them, and the mind is told.
     fn follow_plan(&mut self, request: &Request) -> Option<PlayerAction> {
+        let table = Table::new(&request.view, &request.context);
         let plan = self.plan.as_mut()?;
         let view = &request.view;
         let same = (view.turn, view.phase, view.step) == plan.at
@@ -794,6 +823,31 @@ impl Seat {
                     return Some(PlayerAction::ChooseColor(color));
                 }
             }
+            // What the tap in flight costs beyond the tap (CR 605.3a,
+            // 601.2h): Lazotep Quarry's sacrifice. One answer is given; a
+            // choice is the mind's, and the taps go on after it.
+            Pending::ChooseCards {
+                options,
+                min,
+                prompt,
+                ..
+            } if same && pays_a_cost(prompt) => {
+                if options.len() <= usize::from(*min) {
+                    return Some(PlayerAction::ChooseObjects {
+                        objects: options.clone(),
+                    });
+                }
+                let tapped = plan
+                    .tapping
+                    .map_or_else(|| "a tap".to_string(), |source| table.named(source));
+                plan.paused = Some(format!(
+                    "The taps of your option \"{}\" are under way: {tapped} asks this as part \
+                     of what its tap costs. Answer it; the rest of the taps and what they are \
+                     for follow without another question.",
+                    plan.label
+                ));
+                return None;
+            }
             Pending::Priority { legal, .. } if same => {
                 if let Some(step) = plan.steps.front().copied() {
                     let action = narrator::tap(&step);
@@ -801,6 +855,7 @@ impl Seat {
                         plan.steps.pop_front();
                         plan.color = step.color;
                         plan.second = step.second;
+                        plan.tapping = Some(step.source);
                         return Some(action);
                     }
                 } else if offered(legal, &plan.then) {
@@ -827,8 +882,10 @@ impl Seat {
             self.stop(&Stop::TapsStopped);
         } else {
             self.notes.push(format!(
-                "Your plan ({}) stopped before it finished: the table asked something else. Any \
-                 mana it made is in your pool.",
+                "The taps of your option \"{}\" stopped before it was taken: the table asked \
+                 something else first. The mana they made is in your pool and what it was for \
+                 has not happened; take it again, or spend the mana before it empties at the \
+                 end of this step.",
                 plan.label
             ));
         }
@@ -1003,4 +1060,18 @@ fn offered(legal: &LegalActions, action: &PlayerAction) -> bool {
         PlayerAction::PassPriority => legal.can_pass,
         _ => false,
     }
+}
+
+/// Whether a question of cards is part of a cost being paid (CR 601.2h,
+/// 602.2b): the permanent sacrificed, the card discarded, tapped, returned
+/// or exiled for it.
+const fn pays_a_cost(prompt: &ChoicePrompt) -> bool {
+    matches!(
+        prompt,
+        ChoicePrompt::CostSacrifice
+            | ChoicePrompt::CostDiscard
+            | ChoicePrompt::CostTap
+            | ChoicePrompt::CostReturn
+            | ChoicePrompt::CostExile
+    )
 }
