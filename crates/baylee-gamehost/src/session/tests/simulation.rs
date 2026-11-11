@@ -271,3 +271,58 @@ fn a_fork_shows_its_seat_what_the_table_shows_it() {
         session.observe_view(SEARCHER).turn
     );
 }
+
+/// A fork on a public prior deals the house's hidden cards from the prior
+/// and tells no chair of the fork a real list it does not own: the
+/// searcher's chair keeps its deck, the house's chair is told the prior's
+/// cards as its deck. The fork plays on as any other, and the table is as
+/// it was.
+#[test]
+fn a_fork_on_a_prior_knows_no_list_but_the_searchers() {
+    use baylee_engine::engine::PublicPrior;
+    use baylee_engine::zone::ZoneLocation;
+
+    let house = PlayerId::new(1);
+    let forest = baylee_cards::decks::by_name("Forest").expect("the registry holds Forest");
+    let bears = baylee_cards::decks::by_name("Grizzly Bears").expect("and Grizzly Bears");
+    let mut session = table(38);
+    to_forkable_main(&mut session, 3);
+    let before = session.snapshot_hash();
+    let prior = PublicPrior::new().with_player(house, vec![(forest, 2), (bears, 1)]);
+    let mut fork = session
+        .fork_for(SEARCHER, DeckKnowledge::Prior(&prior), POLICY_SEED)
+        .expect("the root forks on a prior");
+
+    assert_eq!(
+        fork.told_deck(SEARCHER),
+        session.scouting_decks[0].cards,
+        "the searcher's own list"
+    );
+    let mut listed = vec![forest, bears];
+    listed.sort_unstable();
+    assert_eq!(fork.told_deck(house), listed, "the prior's cards");
+    assert_ne!(fork.told_deck(house), session.scouting_decks[1].cards);
+    let state = fork.state();
+    for zone in [ZoneLocation::Hand(house), ZoneLocation::Library(house)] {
+        assert!(!state.zones.list(zone).is_empty());
+        for &id in state.zones.list(zone) {
+            let card = state.object(id).and_then(|o| o.card).expect("a card");
+            assert!(listed.contains(&card.index), "dealt from the prior");
+        }
+    }
+
+    assert_eq!(play_fork(&mut fork, 60).len(), 60, "the fork plays on");
+    assert_eq!(session.snapshot_hash(), before, "the table is untouched");
+    assert_eq!(
+        session
+            .fork_for(
+                SEARCHER,
+                DeckKnowledge::Prior(&PublicPrior::new()),
+                POLICY_SEED
+            )
+            .err(),
+        Some(ForkRefusal::UnusablePrior(
+            baylee_engine::engine::PriorFault::NoCards(house)
+        ))
+    );
+}

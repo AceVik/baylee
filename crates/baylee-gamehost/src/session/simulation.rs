@@ -76,6 +76,14 @@ impl Session {
     /// count of refitted answers (`HeuristicAgent::fallbacks`) stays shared
     /// with the table's, as every copy of an agent shares it.
     ///
+    /// `decks` goes to the engine as it is. Under [`DeckKnowledge::Prior`]
+    /// the fork's house is not told the real lists either: the chair of
+    /// `seat` keeps its own, and every other chair's house is told, as its
+    /// deck, the cards the prior lists for it (each once) with the
+    /// commanders it really has, which are public. A house answering for
+    /// another chair in the fork would otherwise play the prior's cards by
+    /// the real list, and the search would read that list off its play.
+    ///
     /// Takes `&self`: forking, and anything done to the fork, leaves this
     /// session — its engine, hash, record and chairs — as it was.
     ///
@@ -84,10 +92,27 @@ impl Session {
     pub fn fork_for(
         &self,
         seat: PlayerId,
-        decks: DeckKnowledge,
+        decks: DeckKnowledge<'_>,
         policy_seed: u64,
     ) -> Result<SimulationSession, ForkRefusal> {
         let shared = self.hands_told(seat)[0];
+        let scouting_decks = match decks {
+            DeckKnowledge::Prior(prior) => self
+                .scouting_decks
+                .iter()
+                .zip(0u8..)
+                .map(|(real, at)| {
+                    let chair = PlayerId::new(at);
+                    let cards = if chair == seat {
+                        real.cards.clone()
+                    } else {
+                        prior.cards(chair).iter().map(|&(card, _)| card).collect()
+                    };
+                    DeckIntel::new(cards, real.commanders.clone())
+                })
+                .collect(),
+            DeckKnowledge::Known | DeckKnowledge::Unknown => Arc::clone(&self.scouting_decks),
+        };
         let engine = self
             .engine
             .fork_for_with_shared(seat, decks, policy_seed, shared)?;
@@ -109,7 +134,7 @@ impl Session {
             engine,
             seats,
             teams: self.teams.clone(),
-            scouting_decks: Arc::clone(&self.scouting_decks),
+            scouting_decks,
             fair_scouting: self.fair_scouting,
             seq: self.seq,
             decisions: self.decisions,
@@ -138,6 +163,12 @@ impl SimulationSession {
             hand_sharing: self.hand_sharing,
             ai_hand_share_policy: self.ai_hand_share_policy,
         }
+    }
+
+    /// The deck the house in `chair` is told as its own when it scouts.
+    #[cfg(test)]
+    pub(super) fn told_deck(&self, chair: PlayerId) -> &[baylee_core::ids::CardIndex] {
+        &self.scouting_decks[usize::from(chair.get())].cards
     }
 
     /// The seat this simulation was forked for.
