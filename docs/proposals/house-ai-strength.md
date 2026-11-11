@@ -743,3 +743,110 @@ model in the house without a new decision of the owner. In order:
    train improves.
 4. **The gate** once train shows 63 % or more for expert, then the
    BayleeAI slot.
+
+## 6a. What the leaf round measured (11.11.2026)
+
+§6 (1) is done, and its answer is no: a better leaf does not move the
+share. Nothing of the leaf was changed; the round leaves tools
+(`eval4 --foresight-probe`, `foresight_probe`, `fit_leaf` with games held
+out, a choice of features, a ridge and `--pairs`) and this record.
+
+**The measurement** is §5a's: expert against `expert:generation=6`, 1,024
+train games, each counted once (`house_duplicate`). The build reproduces
+§5a's row exactly (613 of 1,023 decided, 121 seeds turned for and 19
+against). Log loss is on whole games held out, every fifth, where the
+earlier 0.571 held out single positions of games the fit had seen. The
+figures of one column are of one split; which games fall in the fifth
+moves them by about 0.02 (a log from another run numbers its games in
+another order: 0.576 for the standing weights), so they compare with each
+other and not with a figure from another log.
+
+| Leaf | Log loss held out | Share | Wilson 95 % | For / against | Games won / lost that the standing leaf lost / won |
+| --- | ---: | ---: | --- | ---: | ---: |
+| the fourteen counts, fitted on heuristic self-play (stands) | 0.558 | 59.9 % | 56.9–62.9 | 121 / 19 | |
+| the same counts, fitted on the searching house's games | 0.592 on those games (the standing weights: 0.582) | 60.3 % | 57.2–63.2 | 115 / 9 | 26 / 22 |
+| 49 features, linear | 0.540 | 59.9 % | 56.9–62.9 | 115 / 13 | 32 / 32 |
+| 49 features, each also by the turn, and 200 boosted depth-2 trees | 0.526 | 59.4 % | 56.4–62.4 | 113 / 16 | 36 / 41 |
+| the fourteen counts, read at the start of the seat's own turn | 0.558 | 59.9 % | 56.9–62.9 | 119 / 17 | 11 / 11 |
+| the fourteen counts, read at the start of another seat's turn | 0.558 | 61.2 % | 58.1–64.1 | 123 / 9 | 53 / 41 |
+
+The last column is `house_duplicate --before`: the games are the same deals
+against the same opponent, so a variant is read by the games that went
+another way, and none of these splits is far from even (the widest, 53 to
+41, has a two-sided p of 0.26).
+
+The 49 features are the fourteen and, each one side less the other: power
+with evasion, the largest power, flying, first strike, deathtouch, reach,
+vigilance, haste, defender, menace, hexproof and indestructible as counts,
+double strike, lifelink, trample and infect by power, the other keywords,
+untapped lands and untapped creatures with their power and toughness, the
+library's last ten cards, the graveyard, planeswalkers and their loyalty,
+artifacts, enchantments, tokens, the creatures' mana value, the sums of
+`tactics::material` and of the lands' `permanent_worth`, printed abilities
+and mana makers that are no land, the damage that gets past the other
+side's blockers in one attack, and whether the side to move has the other
+dead on the table. Without the bound at zero the linear fit reaches 0.537;
+a weight for each feature that grows with the turn, 0.538. The searching
+house's games (35,295 positions of some 650 games) are
+harder to call than heuristic self-play, and a fit on so few of them calls
+them worse than the standing weights do.
+
+So a value that calls games better (0.558 to 0.526) changes the answers of
+about two searched questions in a hundred and wins nothing with them. The
+experiment code is on the local branch `c42/house-leaf-experiments`; it is
+not for merging.
+
+**Where the leaf is read.** A world stops where the fourth turn boundary
+falls: in a duel that is the start of the searching seat's own turn for a
+question asked in its turn, and of the opponent's for a block. Letting a
+world run on (two turns at most) until the seat's own turn starts changes
+22 games and wins none. Letting it run on until another seat's turn
+starts, so that the searching seat has always had the last turn, costs a
+fifth turn of rollout at every question of its own turn and is the one
+variant that leans up: 53 to 41 on the measured deals and, played again on
+the next 1,024 train deals (`--deal-offset 1024`: 58.7 % against 58.2 %
+for the standing search), 39 to 33. Together 92 games won and 74 lost of
+2,043, nine tenths of a point, two-sided p 0.19: not shown, and too small
+to carry the share to 62 % if it were.
+
+**Why, measured.** `eval4 --foresight-probe` plays the worlds of one
+searched question in three on to the end of the game, in games the
+searching house plays against itself (deals from 8448 on, stopped at the
+thirty-minute bound: 4,114 questions, 174,204 worlds). `foresight_probe`
+then judges a choice by results: the *lead* is how much more often the
+chosen answer's worlds were won than the level's own answer's. The worlds
+are the search's own, with the hidden cards it supposes and a house player
+in every chair, so a lead is what the search's model of the game says a
+choice is worth, not a share of real games.
+
+| Choice by | Replaced | Lead per 100 questions | On half the worlds, judged on the other half |
+| --- | ---: | ---: | ---: |
+| the standing leaf | 6.5 % | 0.25 ± 0.07 | 0.15 ± 0.06 |
+| 49 features, linear | 6.6 % | 0.32 ± 0.07 | 0.16 ± 0.06 |
+| 49 features by the turn | 6.7 % | 0.33 ± 0.07 | 0.14 ± 0.06 |
+| the same and 200 trees | 7.2 % | 0.33 ± 0.06 | — |
+| fourteen counts fitted on pairs (`fit_leaf --pairs`) | 7.0 % | 0.32 ± 0.06 | 0.18 ± 0.06 |
+| the played-out results themselves, of three worlds | 3.3 % | — | 0.08 ± 0.05 |
+
+- A richer leaf looks a quarter better where a choice is judged in the
+  worlds it was made in (0.07 to 0.09 over the standing leaf question by
+  question, each ± 0.03), and no better where it is judged in other worlds,
+  which is how the real game judges it. It learns the six deals, not the
+  position.
+- Knowing how each world ends is worth less than the leaf: three results
+  are too few to choose by. The leaf is already the less noisy judge of a
+  world, which is why playing forks to the end lost in §5a.
+- The margin hardly matters: 0.0 to 0.16 gives 0.14, 0.15, 0.15, 0.14,
+  0.12 and 0.08 on half judged on half. Nearly half the lead comes from the
+  replaced answers the leaf puts 0.16 or more ahead, 0.7 % of the questions
+  asked; those the leaf puts 0.02 to 0.04 ahead, four in ten of the
+  replaced, win nothing.
+- By question: a priority is worth 0.19 ± 0.07 per 100, an attack
+  0.33 ± 0.21, a block 1.25 ± 0.49, at 83 %, 13 % and 3 % of the questions.
+
+**What it says about §6.** A search wins by the few answers where the
+level's own is plainly wrong, and it finds those with any sensible leaf.
+The share is bounded by which answers are tried and by how the house plays
+the worlds on, not by how finely the end of a world is priced: (2) and (3)
+are the open steps, and a block is the question to start (2) with. A
+neural leaf is not indicated by anything here.

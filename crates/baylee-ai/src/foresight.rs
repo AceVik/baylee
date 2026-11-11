@@ -399,8 +399,16 @@ impl HeuristicAgent {
 ///
 /// Fitted by `fit_leaf` (`baylee-train`) on 209,236 positions of 4,096
 /// games the house played against itself on the train split (11.11.2026):
-/// log loss 0.571 on the positions held out, against 0.693 for calling
-/// every position even.
+/// log loss 0.558 on a fifth of those games held out whole (0.559 for
+/// weights fitted without them; 0.576 on another fifth, so read such a
+/// figure against others of the same split only),
+/// against 0.693 for calling every position even.
+///
+/// These fourteen counts stand after a round that tried to better them
+/// (`docs/proposals/house-ai-strength.md` §6a): weights fitted on the
+/// searching house's own games, 49 features, weights that change with the
+/// turn and boosted trees call a game better, down to 0.526, and none of
+/// them wins the search a game more.
 pub const LEAF: [f64; FEATURES] = [
     0.11003, // life_low
     0.13678, // life_mid
