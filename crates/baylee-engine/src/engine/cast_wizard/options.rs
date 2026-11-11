@@ -15,6 +15,7 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(card)
             .ok_or(EngineError::IllegalAction("no such card"))?;
+        let obj = casting::playable_exile_projection(&self.state, player, obj);
         let card_ref = obj
             .card
             .ok_or(EngineError::IllegalAction("not card-backed"))?;
@@ -27,7 +28,7 @@ impl<L: CardLookup> Engine<L> {
         // Each way of casting is asked as the spell it makes: what a lock on
         // the front stops, a back face it does not reach still casts.
         let forbidden =
-            |face: usize| casting::face_is_forbidden(&self.state, player, obj, def, face);
+            |face: usize| casting::face_is_forbidden(&self.state, player, &obj, def, face);
         if commanded
             && (!casting::may_begin_casting(&self.state, player)
                 || (0..def.faces.len()).all(forbidden))

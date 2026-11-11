@@ -165,6 +165,8 @@ pub mod mox_jasper;
 pub mod narset_s_rebuke;
 #[path = "fin/overkill.rs"]
 pub mod overkill;
+#[path = "ptdm/qarsi_revenant.rs"]
+pub mod qarsi_revenant;
 #[path = "fin/rabanastre_royal_city.rs"]
 pub mod rabanastre_royal_city;
 #[path = "tdm/rebellious_strike.rs"]

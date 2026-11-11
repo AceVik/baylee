@@ -131,7 +131,12 @@ pub(super) fn pt_count(
                 count_controlled(state, obj, c, Some(chosen), you, filter, context)
             })
         }
-        baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
+        baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => {
+            card_types_in_graveyards(state, |_| true)
+        }
+        baylee_cards_dsl::PtCount::CardTypesInOpponentsGraveyards => {
+            card_types_in_graveyards(state, |seat| state.is_opponent(seat, you))
+        }
         baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
         baylee_cards_dsl::PtCount::CountersOnThis(kind) => usize::from(
             state
@@ -184,7 +189,7 @@ fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId
         .flatten()
 }
 
-/// The number of card types (CR 205.2a) among cards in all graveyards.
+/// The number of card types (CR 205.2a) among cards in selected graveyards.
 ///
 /// Read off each card's own characteristics: a card in a graveyard is
 /// what it prints (CR 400.7 left every effect on it behind), and a
@@ -192,7 +197,7 @@ fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId
 /// ([`GameObject::is_card`]): a token or a copy that died lies in the
 /// graveyard until state-based actions remove it (CR 704.5d, 704.5e), and
 /// the engine projects before it checks them.
-fn card_types_in_all_graveyards(state: &GameState) -> usize {
+fn card_types_in_graveyards(state: &GameState, include: impl Fn(PlayerId) -> bool) -> usize {
     use baylee_core::types::TypeSet;
     const CARD_TYPES: [TypeSet; 9] = [
         TypeSet::ARTIFACT,
@@ -208,6 +213,9 @@ fn card_types_in_all_graveyards(state: &GameState) -> usize {
     let mut seen = TypeSet::EMPTY;
     for player in 0..state.players.len() {
         let seat = PlayerId::new(u8::try_from(player).unwrap_or(u8::MAX));
+        if !include(seat) {
+            continue;
+        }
         for id in state.zones.list(crate::zone::ZoneLocation::Graveyard(seat)) {
             if let Some(o) = state.object(*id).filter(|o| o.is_card()) {
                 seen = seen.union(o.characteristics().types);

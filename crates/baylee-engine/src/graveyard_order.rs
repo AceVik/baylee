@@ -47,6 +47,7 @@ impl PaymentBatch {
     pub(crate) fn before_part(&mut self, state: &mut GameState, part: &CostPart) {
         let kind = match part {
             CostPart::SacrificeSelf
+            | CostPart::SacrificeGrantor
             | CostPart::Sacrifice(_)
             | CostPart::SacrificeX(_)
             | CostPart::SacrificeAll(_) => Some(0),

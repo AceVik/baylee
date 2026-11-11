@@ -141,6 +141,8 @@ pub mod mudflat_village;
 pub mod murky_sewer;
 #[path = "dsk/neglected_manor.rs"]
 pub mod neglected_manor;
+#[path = "dsk/nowhere_to_run.rs"]
+pub mod nowhere_to_run;
 #[path = "blb/oakhollow_village.rs"]
 pub mod oakhollow_village;
 #[path = "blb/overprotect.rs"]
@@ -217,6 +219,8 @@ pub mod towering_viewpoint;
 pub mod treeguard_duo;
 #[path = "dsk/tunnel_surveyor.rs"]
 pub mod tunnel_surveyor;
+#[path = "dsk/unstoppable_slasher.rs"]
+pub mod unstoppable_slasher;
 #[path = "dsk/valgavoth_s_lair.rs"]
 pub mod valgavoth_s_lair;
 #[path = "blb/valley_mightcaller.rs"]

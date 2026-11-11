@@ -226,18 +226,45 @@ pub enum SpellForm {
     Foretell(ManaCost),
 }
 
+/// The spell characteristics a player may use to assess a face-down exiled
+/// card under an ordinary play permission. This is only a private projection:
+/// the real card is revealed when its cast is announced, never while building
+/// an offer. Without the projection, the blank face-down base would both hide
+/// a permitted creature and make a forbidden noncreature look typeless.
+pub(crate) fn playable_exile_projection<'a>(
+    state: &GameState,
+    player: PlayerId,
+    object: &'a crate::object::GameObject,
+) -> std::borrow::Cow<'a, crate::object::GameObject> {
+    if object.zone == Zone::Exile
+        && object.status.contains(crate::object::Status::FACE_DOWN)
+        && object.original_base.is_some()
+        && object.may_look_at_exile(player)
+        && super::play_permission(state, player, object.id).is_some()
+    {
+        std::borrow::Cow::Owned(face_up_projection(object))
+    } else {
+        std::borrow::Cow::Borrowed(object)
+    }
+}
+
+fn face_up_projection(object: &crate::object::GameObject) -> crate::object::GameObject {
+    let mut object = object.clone();
+    if let Some(original) = &object.original_base {
+        object.base = std::sync::Arc::clone(original);
+    }
+    object.status.remove(crate::object::Status::FACE_DOWN);
+    object.cache.clear();
+    object
+}
+
 impl SpellForm {
     #[doc(hidden)]
     pub fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
-        let mut object = object.clone();
         if matches!(self, Self::Foretell(_)) {
-            if let Some(original) = &object.original_base {
-                object.base = std::sync::Arc::clone(original);
-            }
-            object.status.remove(crate::object::Status::FACE_DOWN);
-            object.cache.clear();
-            return object;
+            return face_up_projection(object);
         }
+        let mut object = object.clone();
         object.base = std::sync::Arc::new(object.characteristics().clone());
         object.cache.clear();
         let base = object.base_mut();

@@ -539,6 +539,8 @@ pub mod taurean_mauler;
 pub mod thistledown_duo;
 #[path = "shm/thistledown_liege.rs"]
 pub mod thistledown_liege;
+#[path = "mor/thornbite_staff.rs"]
+pub mod thornbite_staff;
 #[path = "ala/tidehollow_strix.rs"]
 pub mod tidehollow_strix;
 #[path = "shm/toil_to_renown.rs"]

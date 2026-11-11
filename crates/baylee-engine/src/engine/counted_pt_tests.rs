@@ -43,6 +43,8 @@ const LIEGE: u32 = 1192;
 const RAIDER: u32 = 1193;
 /// A vanilla 2/2.
 const BEAR: u32 = 1194;
+/// A 1/3 whose power is one plus the card types in opposing graveyards.
+const OPPOSING_GRAVEYARDS: u32 = 1195;
 
 static FOREST: Filter = Filter::HasSubtype(subtypes::land::FOREST);
 static THEIR_CREATURES: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent]);
@@ -71,6 +73,16 @@ static LIEGE_TEXT: &[AbilityDef] = &[
 static RAIDING: &[AbilityDef] = &[static_ability!(
     Filter::This,
     Modifier::ModifyPTHalfCount(PtCount::DefendingPlayerControls(&FOREST)),
+)];
+static OPPOSING_GRAVEYARD_POWER: &[AbilityDef] = &[static_ability!(
+    Filter::This,
+    Modifier::CharacteristicPTSeparate {
+        power: PtCount::Plus {
+            base: &PtCount::CardTypesInOpponentsGraveyards,
+            offset: 1,
+        },
+        toughness: PtCount::Fixed(3),
+    }
 )];
 
 fn body(
@@ -103,6 +115,12 @@ fn lookup() -> SyntheticLookup {
         body(LIEGE, "Liege", (0, 0), LIEGE_TEXT),
         body(RAIDER, "Raider", (1, 1), RAIDING),
         body(BEAR, "Bear", (2, 2), &[]),
+        body(
+            OPPOSING_GRAVEYARDS,
+            "Opposing graveyards",
+            (1, 3),
+            OPPOSING_GRAVEYARD_POWER,
+        ),
     ])
 }
 
@@ -316,4 +334,71 @@ fn a_count_of_the_defending_player_s_is_read_as_the_attack_is_declared() {
 
     walk(&mut engine, &attack, my_second_main);
     assert_eq!(pt(&engine, raiders[0]), (1, 1), "combat over: nobody again");
+}
+
+/// Card types are a set across only the opponents' graveyards: a type unique
+/// to our graveyard adds nothing, and a second opposing creature adds no new
+/// type. The moves themselves must invalidate the projected power.
+#[test]
+fn opposing_graveyard_types_exclude_ours_and_do_not_count_duplicates() {
+    fn move_to_graveyard(engine: &mut Engine<SyntheticLookup>, object: ObjectId) {
+        let owner = engine.state().object(object).expect("card exists").owner;
+        let state = engine.dev_state_mut(ME).expect("the harness moves cards");
+        state
+            .move_object(
+                object,
+                crate::zone::ZoneLocation::Graveyard(owner),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the move is legal");
+        state.refresh_characteristics();
+    }
+    fn grizzly_bears() -> u32 {
+        baylee_cards::by_oracle_id("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+            .expect("Grizzly Bears exists")
+            .index
+            .get()
+    }
+
+    let mut engine = start(
+        &[OPPOSING_GRAVEYARDS],
+        &[grizzly_bears(), grizzly_bears(), forest()],
+    );
+    let source = permanent(&engine, ME, OPPOSING_GRAVEYARDS);
+    assert_eq!(pt(&engine, source), (1, 3));
+
+    let own_forest = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(ME))[0];
+    move_to_graveyard(&mut engine, own_forest);
+    assert_eq!(
+        pt(&engine, source),
+        (1, 3),
+        "a land in our own graveyard does not count"
+    );
+
+    let bears = permanents(&engine, grizzly_bears());
+    assert_eq!(bears.len(), 2);
+    move_to_graveyard(&mut engine, bears[0]);
+    assert_eq!(
+        pt(&engine, source),
+        (2, 3),
+        "an opposing creature adds one card type"
+    );
+    move_to_graveyard(&mut engine, bears[1]);
+    assert_eq!(
+        pt(&engine, source),
+        (2, 3),
+        "a second creature is not a second card type"
+    );
+
+    let opposing_forest = permanent(&engine, THEM, forest());
+    move_to_graveyard(&mut engine, opposing_forest);
+    assert_eq!(
+        pt(&engine, source),
+        (3, 3),
+        "an opposing land adds a different card type"
+    );
 }

@@ -2434,6 +2434,9 @@ hashes, layers and does nothing. This paragraph said THREE until
     opponent chosen for this incarnation controls (Lost Order of Jarkeld).
     It is zero without a choice, and updates as that player's board changes.
   - `CardTypesInAllGraveyards`
+  - `CardTypesInOpponentsGraveyards`: the same distinct card types, but only
+    among cards in the ability controller's opponents' graveyards. The
+    controller's own graveyard and repeated types add nothing.
   - `ExiledWithThis`: the cards in exile exiled with this object as it is now
     (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
   - `CountersOnThis(kind)`: counters of the named kind on the affected object
@@ -2652,6 +2655,11 @@ Triggers, reflexive events and amounts:
 - **`Trigger::DealsDamageToOpponent(filter)`** is the same with any damage,
   combat or not (Hypnotic Specter: "whenever this creature deals damage to
   an opponent, that player discards a card at random", `PlayerRel::DamagedPlayer`).
+- **`Trigger::DealsDamageToObject { source, recipient }`** is "whenever a
+  [source] deals damage to a [recipient permanent]", combat or noncombat.
+  Both filters are checked at the event, positive actual damage is required,
+  and `TargetSpec::EventObject` names the damaged permanent. Separate source /
+  recipient damage happenings trigger separately, including in one combat step.
 - **`Trigger::DealtDamage(filter)`** is "whenever [a permanent] is dealt
   damage" (Fungusaur). All combat damage in a step is dealt at once
   (CR 510.2), so a creature blocked by three triggers it once (CR 603.2c);

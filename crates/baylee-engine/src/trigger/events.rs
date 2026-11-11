@@ -139,6 +139,7 @@ pub(super) fn event_object_for(
         ) => Some(*blocker),
         (
             Trigger::DealsCombatDamageToCreature(_)
+            | Trigger::DealsDamageToObject { .. }
             | Trigger::DealtDamage(_)
             | Trigger::DealtCombatDamage(_),
             GameEvent::DamageDealt {

@@ -25,6 +25,8 @@ pub mod archway_of_innovation;
 pub mod arena_of_glory;
 #[path = "otj/arid_archway.rs"]
 pub mod arid_archway;
+#[path = "m3c/barrowgoyf.rs"]
+pub mod barrowgoyf;
 #[path = "mh3/bloodsoaked_insight.rs"]
 pub mod bloodsoaked_insight;
 #[path = "mh3/boggart_trawler.rs"]
@@ -95,6 +97,8 @@ pub mod glaring_fleshraker;
 pub mod glasswing_grace;
 #[path = "otj/gold_pan.rs"]
 pub mod gold_pan;
+#[path = "mh3/grist_voracious_larva.rs"]
+pub mod grist_voracious_larva;
 #[path = "mh3/harbinger_of_the_seas.rs"]
 pub mod harbinger_of_the_seas;
 #[path = "otj/harrier_strix.rs"]
@@ -133,6 +137,8 @@ pub mod marionette_apprentice;
 pub mod mirage_mesa;
 #[path = "mh3/monumental_henge.rs"]
 pub mod monumental_henge;
+#[path = "m3c/mutated_cultist.rs"]
+pub mod mutated_cultist;
 #[path = "mh3/nightshade_dryad.rs"]
 pub mod nightshade_dryad;
 #[path = "otj/oasis_gardener.rs"]
@@ -237,6 +243,8 @@ pub mod urza_s_cave;
 pub mod vault_plunderer;
 #[path = "otj/voracious_varmint.rs"]
 pub mod voracious_varmint;
+#[path = "otj/vraska_the_silencer.rs"]
+pub mod vraska_the_silencer;
 #[path = "mh3/warren_soultrader.rs"]
 pub mod warren_soultrader;
 #[path = "mh3/waterlogged_teachings.rs"]

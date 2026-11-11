@@ -419,7 +419,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         Effect::LoseLife { amount, target } => {
             costs(amount, &reading.players(target), certain, reading, facts);
         }
-        Effect::DealDamage { amount, target } => {
+        Effect::DealDamage { amount, target } | Effect::GrantorDealsDamage { amount, target } => {
             facts.reads.add(counted(amount));
             match reading.struck(target) {
                 Struck::Players(struck) => costs(amount, &struck, certain, reading, facts),
@@ -469,6 +469,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         Effect::Scry { .. }
         | Effect::ScryFor { .. }
         | Effect::LookAtTopFind { .. }
+        | Effect::LookAtTopExileFaceDown { .. }
         | Effect::LookAtTopPick { .. }
         | Effect::LookAtTopPickThenReorder { .. }
         | Effect::LookAtTopMayPut { .. }

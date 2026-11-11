@@ -11,6 +11,7 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         targets: SmallVec<[ObjectId; 2]>,
         granted: &crate::effects::GrantedAbility,
+        grantor: Option<baylee_core::ids::DamageSourceRef>,
     ) -> ObjectId {
         let captured = self
             .activating_abilities
@@ -45,6 +46,11 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(object) = self.state.object_mut(id) {
             object.riders.push(crate::object::Rider::GrantedActivated);
+            if let Some(grantor) = grantor {
+                object
+                    .riders
+                    .push(crate::object::Rider::GrantedSource(grantor));
+            }
             if acquisition != 0 {
                 object
                     .riders

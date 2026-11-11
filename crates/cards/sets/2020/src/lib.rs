@@ -101,6 +101,8 @@ pub mod chain_to_memory;
 pub mod chained_brute;
 #[path = "iko/checkpoint_officer.rs"]
 pub mod checkpoint_officer;
+#[path = "iko/chevill_bane_of_monsters.rs"]
+pub mod chevill_bane_of_monsters;
 #[path = "pznr/clearwater_pathway.rs"]
 pub mod clearwater_pathway;
 #[path = "znr/cliffhaven_sell_sword.rs"]
@@ -225,6 +227,8 @@ pub mod historian_of_zhalfir;
 pub mod hobblefiend;
 #[path = "iko/honey_mammoth.rs"]
 pub mod honey_mammoth;
+#[path = "m21/hooded_blightfang.rs"]
+pub mod hooded_blightfang;
 #[path = "cmr/hullbreacher.rs"]
 pub mod hullbreacher;
 #[path = "iko/humble_naturalist.rs"]
@@ -337,6 +341,8 @@ pub mod nesting_grounds;
 pub mod neutralize;
 #[path = "thb/nexus_wardens.rs"]
 pub mod nexus_wardens;
+#[path = "pznr/nighthawk_scavenger.rs"]
+pub mod nighthawk_scavenger;
 #[path = "cmr/nightshade_harvester.rs"]
 pub mod nightshade_harvester;
 #[path = "znr/nimana_skydancer.rs"]

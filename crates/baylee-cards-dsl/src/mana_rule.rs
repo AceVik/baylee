@@ -81,6 +81,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::UntapSelf
         | CostPart::ExertSelf
         | CostPart::SacrificeSelf
+        | CostPart::SacrificeGrantor
         | CostPart::Sacrifice(_)
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
@@ -137,6 +138,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::DiscardAnyThenDraw
         | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopToPlay { .. }
+        | Effect::LookAtTopExileFaceDown { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }
         | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }

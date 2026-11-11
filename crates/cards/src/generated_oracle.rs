@@ -20074,7 +20074,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Slagwurm Armor
     &[
-        "Equipped creature gets +0/+6.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery. This card enters unattached and stays on the battlefield if the creature leaves.)",
+        "Equipped creature gets +0/+6.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
     // Slith Ascendant
     &["Flying\nWhenever this creature deals combat damage to a player, put a +1/+1 counter on it."],
@@ -20172,7 +20172,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Vermiculos
     &["Whenever an artifact enters, this creature gets +4/+4 until end of turn."],
     &[],
-    &[],
+    // Viridian Longbow
+    &[
+        "Equipped creature has \"{T}: This creature deals 1 damage to any target.\"\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Viridian Shaman
     &["When this creature enters, destroy target artifact."],
     &[],
@@ -24530,7 +24533,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Changeling (This card is every creature type.)\nWhenever an opponent casts a spell, you may put a +1/+1 counter on this creature.",
     ],
     &[],
-    &[],
+    // Thornbite Staff
+    &[
+        "Equipped creature has \"{2}, {T}: This creature deals 1 damage to any target\" and \"Whenever a creature dies, untap this creature.\"\nWhenever a Shaman creature enters, you may attach this Equipment to it.\nEquip {4}",
+    ],
     &[],
     &[],
     // Vendilion Clique
@@ -26476,7 +26482,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Blazing Torch
+    &[
+        "Equipped creature can't be blocked by Vampires or Zombies.\nEquipped creature has \"{T}, Sacrifice Blazing Torch: Blazing Torch deals 2 damage to any target.\"\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Blood Seeker
     &["Whenever a creature an opponent controls enters, you may have that player lose 1 life."],
     &[],
@@ -39730,7 +39739,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["{6}{B}: Each opponent loses 2 life and you gain 2 life."],
     &[],
     &[],
-    &[],
+    // Vivien, Champion of the Wilds
+    &[
+        "You may cast creature spells as though they had flash.\n+1: Until your next turn, up to one target creature gains reach and vigilance.\n−2: Look at the top three cards of your library. Exile one face down and put the rest on the bottom of your library in any order. For as long as it remains exiled, you may cast it if it's a creature spell.",
+    ],
     &[],
     &[],
     &[],
@@ -41429,7 +41441,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Checkpoint Officer
     &["{1}{W}, {T}: Tap target creature."],
-    &[],
+    // Chevill, Bane of Monsters
+    &[
+        "Deathtouch\nAt the beginning of your upkeep, if your opponents control no permanents with bounty counters on them, put a bounty counter on target creature or planeswalker an opponent controls.\nWhenever a permanent an opponent controls with a bounty counter on it dies, you gain 3 life and draw a card.",
+    ],
     &[],
     &[],
     &[],
@@ -41829,7 +41844,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\n{1}, Sacrifice another creature: Put a +1/+1 counter on this creature.",
     ],
-    &[],
+    // Hooded Blightfang
+    &[
+        "Deathtouch\nWhenever a creature you control with deathtouch attacks, each opponent loses 1 life and you gain 1 life.\nWhenever a creature you control with deathtouch deals damage to a planeswalker, destroy that planeswalker.",
+    ],
     &[],
     &[],
     // Igneous Cur
@@ -42332,7 +42350,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Needleverge Pathway
     &["{T}: Add {R}.", "{T}: Add {W}."],
-    &[],
+    // Nighthawk Scavenger
+    &[
+        "Flying, deathtouch, lifelink\nNighthawk Scavenger's power is equal to 1 plus the number of card types among cards in your opponents' graveyards.",
+    ],
     &[],
     // Nimana Skydancer
     &[
@@ -44467,7 +44488,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Soulknife Spy
     &["Whenever this creature deals combat damage to a player, draw a card."],
-    &[],
+    // Spare Dagger
+    &[
+        "Equipped creature gets +1/+0 and has \"Whenever this creature attacks, you may sacrifice Spare Dagger. When you do, this creature deals 1 damage to any target.\"\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
     &[],
     &[],
@@ -45694,7 +45718,10 @@ pub static ORACLE: &[&[&str]] = &[
         "This creature has deathtouch as long as you control an artifact.\nThis creature has menace as long as you control an enchantment. (It can't be blocked except by two or more creatures.)",
     ],
     &[],
-    &[],
+    // Ninja's Kunai
+    &[
+        "Equipped creature has \"{1}, {T}, Sacrifice Ninja's Kunai: Ninja's Kunai deals 3 damage to any target.\"\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
     &[],
     &[],
@@ -46189,7 +46216,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Mari, the Killing Quill
+    &[
+        "Whenever a creature an opponent controls dies, exile it with a hit counter on it.\nAssassins, Mercenaries, and Rogues you control have deathtouch and \"Whenever this creature deals combat damage to a player, you may remove a hit counter from a card that player owns in exile. If you do, draw a card and create two Treasure tokens.\"",
+    ],
     &[],
     &[],
     &[],
@@ -48576,7 +48606,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Glissa Sunslayer
+    &[
+        "First strike, deathtouch\nWhenever Glissa Sunslayer deals combat damage to a player, choose one —\n• You draw a card and lose 1 life.\n• Destroy target enchantment.\n• Remove up to three counters from target permanent.",
+    ],
     &[],
     &[],
     &[],
@@ -52364,7 +52397,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Voracious Varmint
     &["Vigilance\n{1}, Sacrifice this creature: Destroy target artifact or enchantment."],
     &[],
-    &[],
+    // Vraska, the Silencer
+    &[
+        "Deathtouch\nWhenever a nontoken creature an opponent controls dies, you may pay {1}. If you do, return that card to the battlefield tapped under your control. It's a Treasure artifact with \"{T}, Sacrifice this artifact: Add one mana of any color,\" and it loses all other card types.",
+    ],
     &[],
     &[],
     &[],
@@ -52428,7 +52464,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Barrowgoyf
+    &[
+        "Deathtouch, lifelink\nBarrowgoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1.\nWhenever this creature deals combat damage to a player, you may mill that many cards. If you do, you may put a creature card from among them into your hand.",
+    ],
     &[],
     &[],
     &[],
@@ -52588,7 +52627,11 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Grist, Voracious Larva
+    &[
+        "Deathtouch\nWhenever Grist or another creature you control enters, if it entered from your graveyard or you cast it from your graveyard, you may pay {G}. If you do, exile Grist, then return it to the battlefield transformed under its owner's control.",
+        "+1: Create a 1/1 black and green Insect creature token, then mill two cards. Put a deathtouch counter on the token if a black card was milled this way.\n−2: Destroy target artifact or enchantment.\n−6: For each creature card in your graveyard, create a token that's a copy of it, except it's a 1/1 black and green Insect.",
+    ],
     &[],
     &[],
     // Harbinger of the Seas
@@ -52666,7 +52709,10 @@ pub static ORACLE: &[&[&str]] = &[
         "This land enters tapped unless you control a Plains.\n{T}: Add {W}.\n{2}{W}{W}, {T}: Look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. (Artifacts, legendaries, and Sagas are historic.)",
     ],
     &[],
-    &[],
+    // Mutated Cultist
+    &[
+        "Devoid (This card has no color.)\nWhen you cast this spell, remove all counters from up to one target permanent or opponent. The next spell you cast this turn costs {1} less to cast for each counter removed this way.\nDeathtouch",
+    ],
     &[],
     &[],
     &[],
@@ -53857,7 +53903,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Nowhere to Run
+    &[
+        "Flash\nWhen this enchantment enters, target creature an opponent controls gets -3/-3 until end of turn.\nCreatures your opponents control can be the targets of spells and abilities as though they didn't have hexproof. Ward abilities of those creatures don't trigger.",
+    ],
     &[],
     &[],
     &[],
@@ -53977,7 +54026,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Unstoppable Slasher
+    &[
+        "Deathtouch\nWhenever this creature deals combat damage to a player, they lose half their life, rounded up.\nWhen this creature dies, if it had no counters on it, return it to the battlefield tapped under its owner's control with two stun counters on it.",
+    ],
     &[],
     &[],
     &[],
@@ -54097,7 +54149,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Bloodthirsty Conqueror
+    &[
+        "Flying, deathtouch\nWhenever an opponent loses life, you gain that much life. (Damage causes loss of life.)",
+    ],
     // Boltwave
     &["Boltwave deals 3 damage to each opponent."],
     &[],
@@ -55021,7 +55076,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Qarsi Revenant
+    &[
+        "Flying, deathtouch, lifelink\nRenew — {2}{B}, Exile this card from your graveyard: Put a flying counter, a deathtouch counter, and a lifelink counter on target creature. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],
@@ -56228,7 +56286,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Gwenom, Remorseless
+    &[
+        "Deathtouch, lifelink\nWhenever Gwenom attacks, until end of turn, you may look at the top card of your library any time and you may play cards from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
+    ],
     &[],
     &[],
     &[],
@@ -57196,7 +57257,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Chitinous Graspling
     &["Changeling (This card is every creature type.)\nReach"],
     &[],
-    &[],
+    // Chronicle of Victory
+    &[
+        "As Chronicle of Victory enters, choose a creature type.\nCreatures you control of the chosen type get +2/+2 and have first strike and trample.\nWhenever you cast a spell of the chosen type, draw a card.",
+    ],
     &[],
     // Clachan Festival
     &[
@@ -57711,7 +57775,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Madame Null, Power Broker
+    &[
+        "Deathtouch\nWhenever another creature you control enters, you may pay life equal to its power. If you do, put that many +1/+1 counters on it.",
+    ],
     // Manhole Cover
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\nWhen this artifact enters, target creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)\n{2}, Sacrifice this artifact: Target player draws a card.",
@@ -59732,7 +59799,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Vraska, the Cutting Glare
+    &[
+        "Deathtouch\nWhen Vraska enters, if you control six or more lands, destroy target permanent an opponent controls. They create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
     &[],
     &[],
     &[],

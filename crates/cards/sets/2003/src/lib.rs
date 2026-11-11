@@ -947,6 +947,8 @@ pub mod vermiculos;
 pub mod vexing_beetle;
 #[path = "lgn/vile_deacon.rs"]
 pub mod vile_deacon;
+#[path = "mrd/viridian_longbow.rs"]
+pub mod viridian_longbow;
 #[path = "mrd/viridian_shaman.rs"]
 pub mod viridian_shaman;
 #[path = "lgn/voidmage_apprentice.rs"]

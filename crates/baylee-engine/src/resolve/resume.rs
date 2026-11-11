@@ -70,6 +70,13 @@ pub(super) fn resume_inner(
             return run(state, res);
         }
         AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
+        AwaitingOp::LookedCardToExile { looked, cast_types } => {
+            if let Some(pending) =
+                hidden_exile::finish_look_at_top(state, res, looked, cast_types, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::RevealLibrarySearch => {
             if !chosen.is_empty() {
                 state.journal.record(GameEvent::Revealed {

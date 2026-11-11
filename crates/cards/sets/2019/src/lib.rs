@@ -673,6 +673,8 @@ pub mod venerable_knight;
 pub mod venomous_changeling;
 #[path = "rna/vindictive_vampire.rs"]
 pub mod vindictive_vampire;
+#[path = "pwar/vivien_champion_of_the_wilds.rs"]
+pub mod vivien_champion_of_the_wilds;
 #[path = "m20/vivien_s_crocodile.rs"]
 pub mod vivien_s_crocodile;
 #[path = "rna/vizkopa_vampire.rs"]

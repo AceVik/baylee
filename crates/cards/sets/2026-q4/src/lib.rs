@@ -109,6 +109,8 @@ pub mod the_theorist_jace_beleren;
 pub mod theorist_s_proxy;
 #[path = "trk/u_s_s_enterprise_d_galaxy_class.rs"]
 pub mod u_s_s_enterprise_d_galaxy_class;
+#[path = "fra/vraska_the_cutting_glare.rs"]
+pub mod vraska_the_cutting_glare;
 #[path = "trc/warship_flight_crew.rs"]
 pub mod warship_flight_crew;
 #[path = "trc/worf_chief_tactical_officer.rs"]

@@ -864,6 +864,7 @@ impl Effect {
             | Effect::ExileTargetsCreateTokens { .. }
             | Effect::DealDamageToBothTargetInstances { .. }
             | Effect::DealDamage { .. }
+            | Effect::GrantorDealsDamage { .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { .. }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::Fight { .. }
@@ -1185,6 +1186,7 @@ impl Effect {
             | Effect::RevealUntilLandDealDamage { .. }
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
+            | Effect::LookAtTopExileFaceDown { .. }
             | Effect::ExileTopFaceDownLinked
             | Effect::ExileChosenFromHandWithSource(_)
             | Effect::ExileChosenFromHandWithSourceAndCast(_)

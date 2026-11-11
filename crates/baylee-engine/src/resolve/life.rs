@@ -26,6 +26,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamage { .. }
+        | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamageToMatchingTargets { .. }
@@ -784,6 +785,34 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                     }
                     assignments
                 })
+        }
+        Effect::GrantorDealsDamage { amount, target } => {
+            let Some(grantor) = state.object(res.on_stack).and_then(|object| {
+                object.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::GrantedSource(reference) => Some(*reference),
+                    _ => None,
+                })
+            }) else {
+                return Vec::new();
+            };
+            recipients(state, res, you, target)
+                .into_iter()
+                .map(|to| {
+                    let n = match to {
+                        DamageTarget::Player(player) => {
+                            super::amount_for_player(&amount, state, you, res, player)
+                        }
+                        DamageTarget::Object(_) => amount2(&amount, state, you, res),
+                    };
+                    Assignment {
+                        source: grantor.object,
+                        source_version: Some(grantor.version),
+                        recipient: to,
+                        amount: n,
+                        is_combat: false,
+                    }
+                })
+                .collect()
         }
         Effect::DealDamage { amount, target }
         | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {

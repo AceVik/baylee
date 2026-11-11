@@ -335,6 +335,7 @@ fn consumes(cost: &Cost) -> bool {
             CostPart::TapSelf
             | CostPart::UntapSelf
             | CostPart::SacrificeSelf
+            | CostPart::SacrificeGrantor
             | CostPart::Sacrifice(_)
             | CostPart::ExilePermanent(_)
             | CostPart::Discard(_)

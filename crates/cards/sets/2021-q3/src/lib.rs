@@ -171,6 +171,8 @@ pub mod silver_raven;
 pub mod snarling_wolf;
 #[path = "afr/soulknife_spy.rs"]
 pub mod soulknife_spy;
+#[path = "afr/spare_dagger.rs"]
+pub mod spare_dagger;
 #[path = "afr/steadfast_paladin.rs"]
 pub mod steadfast_paladin;
 #[path = "mid/stuffed_bear.rs"]

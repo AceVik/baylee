@@ -277,6 +277,11 @@ pub enum CostPart {
     /// Exile the top N cards of your library (Arc-Slogger: "Exile the top ten
     /// cards of your library").
     ExileTopOfLibrary(u8),
+    /// Sacrifice the exact permanent whose continuous effect granted this
+    /// activated ability (Blazing Torch, Ninja's Kunai, Spare Dagger).
+    /// Only a granted ability may carry this part; the recipient is not the
+    /// permanent being sacrificed. Appended to preserve replay identities.
+    SacrificeGrantor,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

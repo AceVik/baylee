@@ -122,10 +122,13 @@ impl<L: CardLookup> Engine<L> {
             },
         };
         let card = wizard.card;
-        if !self.rewind_cast(&wizard)
-            && let Some(object) = self.state.object_mut(card)
-        {
-            object.x_value = 0;
+        if !self.rewind_cast(&wizard) {
+            if wizard.revealed_exile {
+                self.state.conceal_exiled_card(card);
+            }
+            if let Some(object) = self.state.object_mut(card) {
+                object.x_value = 0;
+            }
         }
         self.state.journal.record(GameEvent::CastCancelled {
             player,

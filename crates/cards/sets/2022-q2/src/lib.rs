@@ -129,6 +129,8 @@ pub mod mahadi_emporium_master;
 pub mod majestic_metamorphosis;
 #[path = "clb/manor_gate.rs"]
 pub mod manor_gate;
+#[path = "ncc/mari_the_killing_quill.rs"]
+pub mod mari_the_killing_quill;
 #[path = "snc/midnight_assassin.rs"]
 pub mod midnight_assassin;
 #[path = "snc/most_wanted.rs"]

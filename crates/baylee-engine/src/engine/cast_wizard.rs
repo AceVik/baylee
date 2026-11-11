@@ -185,6 +185,9 @@ pub struct CastWizard {
     pub free: bool,
     /// This nested cast uses the costless, nameless 2/2 face.
     pub masked: bool,
+    /// This cast revealed a privately visible exiled card on announcement.
+    /// It must be concealed again if that announcement is not completed.
+    pub revealed_exile: bool,
     /// An effect casting it as it resolves, paying its costs (CR 608.2g,
     /// Conduit of Worlds); `None` for every other cast.
     pub by_effect: Option<EffectCast>,
@@ -251,6 +254,7 @@ impl CastWizard {
             options,
             free: false,
             masked: false,
+            revealed_exile: false,
             by_effect: None,
             started: None,
             paying: casting::Paying::FromThePool,
@@ -599,6 +603,9 @@ impl<L: CardLookup> Engine<L> {
             wizard.kicked = wizard.option == Some(CastModeKind::Kicked);
             wizard.stage = WizardStage::Permission;
         }
+        // The offer and option validation used a private projection. The
+        // physical card becomes public only now, when its cast is announced.
+        wizard.revealed_exile = self.state.reveal_exiled_card(card);
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -1123,8 +1130,11 @@ impl<L: CardLookup> Engine<L> {
     /// [`Self::continue_cast_wizard`]'s to settle.
     pub(crate) fn advance_cast_wizard(&mut self) -> Result<(), EngineError> {
         let result = self.advance_cast_wizard_inner();
-        if result.is_err() {
-            self.cast_wizard = None;
+        if result.is_err()
+            && let Some(wizard) = self.cast_wizard.take()
+            && wizard.revealed_exile
+        {
+            self.state.conceal_exiled_card(wizard.card);
         }
         result
     }

@@ -37,6 +37,7 @@ mod draw_memory;
 mod draw_replacements;
 mod effects;
 mod flanking;
+mod grantor;
 mod land_transformations;
 mod life_gain;
 mod mana;

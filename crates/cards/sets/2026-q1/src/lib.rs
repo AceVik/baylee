@@ -37,6 +37,8 @@ pub mod bot_bashing_time;
 pub mod buzz_bots;
 #[path = "ecl/chitinous_graspling.rs"]
 pub mod chitinous_graspling;
+#[path = "ecl/chronicle_of_victory.rs"]
+pub mod chronicle_of_victory;
 #[path = "ecl/clachan_festival.rs"]
 pub mod clachan_festival;
 #[path = "tmc/containment_protocol.rs"]
@@ -103,6 +105,8 @@ pub mod impolite_entrance;
 pub mod iron_shield_elf;
 #[path = "ecl/kulrath_mystic.rs"]
 pub mod kulrath_mystic;
+#[path = "tmt/madame_null_power_broker.rs"]
+pub mod madame_null_power_broker;
 #[path = "tmc/manhole_cover.rs"]
 pub mod manhole_cover;
 #[path = "tmt/mechanized_ninja_cavalry.rs"]
