@@ -253,6 +253,19 @@ struct Args {
     /// search's leaf value on.
     #[arg(long)]
     leaf_log: Option<PathBuf>,
+    /// `--house-foresight`: judges the searches by the games played on from
+    /// them. Of the questions searched, one in `--foresight-probe-every`
+    /// has every world played on past its leaf to the end of the game, and
+    /// each such world is written here as a JSON line: the question and the
+    /// world, the answer tried, what the seat's view showed at the leaf,
+    /// the leaf's value and how the game came out
+    /// (`Session::set_foresight_probe`). Slower, and no answer changes.
+    /// `foresight_probe` reads the file; `fit_leaf --pairs` fits on it.
+    #[arg(long, requires = "house_foresight")]
+    foresight_probe: Option<PathBuf>,
+    /// `--foresight-probe`: one searched question in this many is probed.
+    #[arg(long, default_value_t = 8, requires = "foresight_probe")]
+    foresight_probe_every: u64,
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).
     #[arg(long)]
     no_baseline: bool,

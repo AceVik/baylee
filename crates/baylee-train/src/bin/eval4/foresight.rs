@@ -43,6 +43,8 @@ impl Table {
         session.set_foresight(on);
         let work = WORK.load(Ordering::Relaxed);
         session.set_foresight_work((work > 0).then_some(work));
+        let every = PROBE_EVERY.load(Ordering::Relaxed);
+        session.set_foresight_probe((on && every > 0).then_some(every));
         Self(session)
     }
 }
@@ -62,6 +64,7 @@ impl DerefMut for Table {
 
 impl Drop for Table {
     fn drop(&mut self) {
+        write_probe(&self.0.take_foresight_probe());
         let stats = self.0.foresight_stats();
         if stats.asked == 0 {
             return;
@@ -134,14 +137,16 @@ pub(crate) fn summary(games: u64) -> Value {
 }
 
 /// `--leaf-log`: where the positions a leaf value is fitted on are written.
-static LEAF_LOG: Mutex<Option<std::io::BufWriter<std::fs::File>>> = Mutex::new(None);
+/// The file and the number of games written to it.
+static LEAF_LOG: Mutex<Option<(std::io::BufWriter<std::fs::File>, u64)>> = Mutex::new(None);
 
 /// Opens the leaf log; every house-against-house table then writes to it.
 pub(crate) fn open_leaf_log(path: &std::path::Path) -> anyhow::Result<()> {
     let file = std::fs::File::create(path)?;
     *LEAF_LOG
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(std::io::BufWriter::new(file));
+        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+        Some((std::io::BufWriter::new(file), 0));
     Ok(())
 }
 
@@ -170,13 +175,14 @@ impl LeafTrace {
         }
     }
 
-    /// Writes the noted positions with the result: 1 won, 0 lost, 0.5 drawn.
+    /// Writes the noted positions with the game's number in the log and the
+    /// result: 1 won, 0 lost, 0.5 drawn.
     pub(crate) fn finish(&self, winners: &[u8]) {
         use std::io::Write as _;
         let mut log = LEAF_LOG
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let Some(log) = log.as_mut() else {
+        let Some((log, games)) = log.as_mut() else {
             return;
         };
         for (seat, turn, features) in &self.rows {
@@ -187,19 +193,82 @@ impl LeafTrace {
             } else {
                 0.0
             };
-            let _ = writeln!(log, "{}", json!({"y": won, "turn": turn, "f": features}));
+            let _ = writeln!(
+                log,
+                "{}",
+                json!({"g": *games, "seat": seat, "y": won, "turn": turn, "f": features})
+            );
         }
+        *games += 1;
     }
 }
 
-/// Flushes the leaf log at the end of a run.
-pub(crate) fn close_leaf_log() {
-    use std::io::Write as _;
-    if let Some(log) = LEAF_LOG
+/// `--foresight-probe`: where the probed leaves are written, and the number
+/// of tables written to it.
+static PROBE_LOG: Mutex<Option<(std::io::BufWriter<std::fs::File>, u64)>> = Mutex::new(None);
+/// `--foresight-probe-every`, 0 while nothing is probed.
+static PROBE_EVERY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Opens the probe log; every searching table then has one searched
+/// question in `every` played on from its leaves and writes them here.
+pub(crate) fn open_probe_log(path: &std::path::Path, every: u64) -> anyhow::Result<()> {
+    anyhow::ensure!(every > 0, "--foresight-probe-every must be at least 1");
+    let file = std::fs::File::create(path)?;
+    *PROBE_LOG
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .as_mut()
-    {
-        let _ = log.flush();
+        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+        Some((std::io::BufWriter::new(file), 0));
+    PROBE_EVERY.store(every, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Writes a table's probed leaves under the table's number in the log: `g`
+/// the table, `r` the question, `w` the world, `c` the answer tried (0 the
+/// level's own), `k` the question's kind (0 priority, 1 attack, 2 block),
+/// `t` whether the game ended before the leaf, `turn`, `f` the features,
+/// `v` the leaf's value and `y` how the game came out.
+fn write_probe(leaves: &[baylee_gamehost::ProbedLeaf]) {
+    use std::io::Write as _;
+    if leaves.is_empty() {
+        return;
+    }
+    let mut log = PROBE_LOG
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let Some((log, tables)) = log.as_mut() else {
+        return;
+    };
+    for leaf in leaves {
+        let _ = writeln!(
+            log,
+            "{}",
+            json!({
+                "g": *tables,
+                "r": leaf.root,
+                "w": leaf.world,
+                "c": leaf.candidate,
+                "k": leaf.kind,
+                "t": leaf.ended,
+                "turn": leaf.turn,
+                "f": leaf.features,
+                "v": leaf.value,
+                "y": leaf.played,
+            })
+        );
+    }
+    *tables += 1;
+}
+
+/// Flushes the leaf log and the probe log at the end of a run.
+pub(crate) fn close_logs() {
+    use std::io::Write as _;
+    for log in [&LEAF_LOG, &PROBE_LOG] {
+        if let Some((log, _)) = log
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_mut()
+        {
+            let _ = log.flush();
+        }
     }
 }
