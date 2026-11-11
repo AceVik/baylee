@@ -242,11 +242,37 @@ struct Args {
     /// what it cost.
     #[arg(long)]
     house_foresight: bool,
-    /// `--house-foresight`: caps one searched answer at this many house
-    /// answers in its forks, after which no further world is started
-    /// (`Session::set_foresight_work`); `0` leaves the level's whole budget.
+    /// `--house-foresight`: bounds one searched answer at this much work on
+    /// its meter (`Session::set_foresight_work`: a node of the forks' combat
+    /// searches is one unit, a fork and a house answer in a fork are priced
+    /// in the same unit), after which the search stops where it stands; `0`
+    /// leaves the level's whole budget.
     #[arg(long, default_value_t = 0, requires = "house_foresight")]
     foresight_work: u64,
+    /// `--foresight-work`: the most nodes one combat search in a fork may
+    /// visit (`Session::set_foresight_nodes`); `0` leaves it the bound's
+    /// usual share.
+    #[arg(long, default_value_t = 0, requires = "foresight_work")]
+    foresight_nodes: u32,
+    /// `--house-foresight`: writes the searched questions here, a JSON line
+    /// each: the seat's view and question, every answer tried with its
+    /// value in each world, and the one given
+    /// (`Session::set_foresight_questions`). `foresight_mine` reads the file.
+    #[arg(long, requires = "house_foresight")]
+    foresight_questions: Option<PathBuf>,
+    /// `--foresight-questions`: the kinds of question written, of
+    /// `priority`, `attack` and `block`.
+    #[arg(
+        long,
+        value_delimiter = ',',
+        default_value = "block",
+        requires = "foresight_questions"
+    )]
+    foresight_question_kinds: Vec<String>,
+    /// `--foresight-questions`: also the questions where the level's own
+    /// answer stood, not only those the search answered otherwise.
+    #[arg(long, requires = "foresight_questions")]
+    foresight_questions_all: bool,
     /// Writes, for every house-against-house game, each house chair's
     /// position at the start of every turn (`HeuristicAgent::foresight_features`)
     /// with the game's result, a JSON line each: what `fit_leaf` fits the

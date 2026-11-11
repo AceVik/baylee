@@ -28,6 +28,6 @@ pub use session::project as replay;
 /// What a table's house searches have cost (`Session::foresight_stats`) and
 /// what a probed search saw (`Session::take_foresight_probe`).
 #[cfg(any(test, feature = "simulation"))]
-pub use session::{ForesightStats, ProbedLeaf};
+pub use session::{ForesightStats, ProbedLeaf, SEARCH_SHARE, SearchCost, SearchedQuestion};
 pub use session::{RegistryLookup, SeatKind, Session};
 pub use view::{SeatContext, game_static, owed_payment, player_view};

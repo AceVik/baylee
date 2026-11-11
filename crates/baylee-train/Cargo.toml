@@ -40,7 +40,7 @@ play = [
 # the net's lookahead (`netplay4::search`, `eval4 --search`). Not `play`:
 # that is a default, and `cargo build-servers`/`build-client` select
 # `--workspace`, so a default of this crate unifies into every shipped binary.
-onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "baylee-driver/onnx", "baylee-gamehost/simulation"]
+onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "dep:rustix", "baylee-driver/onnx", "baylee-gamehost/simulation"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only
@@ -92,7 +92,7 @@ time = { workspace = true, optional = true }
 tokio-tungstenite = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
-rustix = { workspace = true, features = ["process"], optional = true }
+rustix = { workspace = true, features = ["process", "time"], optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
@@ -145,6 +145,11 @@ required-features = ["play"]
 [[bin]]
 name = "foresight_probe"
 path = "src/bin/foresight_probe.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "foresight_mine"
+path = "src/bin/foresight_mine.rs"
 required-features = ["play"]
 
 [[bin]]

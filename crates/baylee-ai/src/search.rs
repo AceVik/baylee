@@ -659,16 +659,26 @@ pub fn attackers(
     victim: PlayerId,
     profile: AIProfile,
 ) -> AttackSearch {
-    attackers_on(&Board::new(view), squad, victim, profile)
+    attackers_on(
+        &Board::new(view),
+        squad,
+        victim,
+        profile,
+        profile.node_budget(),
+    )
 }
 
 /// [`attackers`] on a table whose objects are already indexed, so that one
-/// decision indexes them once.
+/// decision indexes them once, visiting at most `allow` nodes: the level's
+/// budget, or what its agent's meter has left of it ([`crate::WorkMeter`]).
+/// With none left the greedy declaration stands, as it does wherever the
+/// search proves nothing better.
 pub(crate) fn attackers_on(
     board: &Board,
     squad: &[ObjectId],
     victim: PlayerId,
     profile: AIProfile,
+    allow: u32,
 ) -> AttackSearch {
     let fallback = crate::combat::choose_attackers(board, squad, victim);
     let mut result = AttackSearch {
@@ -677,6 +687,9 @@ pub(crate) fn attackers_on(
         completed: 0,
         lethal: false,
     };
+    if allow == 0 {
+        return result;
+    }
     let Some(position) = attack_position(board, squad, victim, profile) else {
         return result;
     };
@@ -699,7 +712,7 @@ pub(crate) fn attackers_on(
         .chain(std::iter::once(all).filter(|&m| m != greedy))
         .chain((1..all).filter(|&m| m != greedy));
     for going in candidates {
-        if result.nodes >= profile.node_budget() {
+        if result.nodes >= allow {
             break;
         }
         let mut reply = Reply {
@@ -711,7 +724,7 @@ pub(crate) fn attackers_on(
             cutoff: best,
             best_groups: [0; MAX],
             nodes: 0,
-            limit: (profile.node_budget() - result.nodes).min(if profile.lookahead >= 2 {
+            limit: (allow - result.nodes).min(if profile.lookahead >= 2 {
                 profile.node_budget() * 3 / 4
             } else {
                 profile.node_budget() / 4
@@ -817,9 +830,23 @@ pub fn blockers(
     life: i32,
     profile: AIProfile,
 ) -> Vec<(ObjectId, ObjectId)> {
+    blockers_within(view, options, life, profile, profile.node_budget()).0
+}
+
+/// [`blockers`] visiting at most `allow` nodes, and how many it visited: the
+/// level's budget, or what its agent's meter has left of it
+/// ([`crate::WorkMeter`]). With none left the blocks are the greedy ones, as
+/// they are for a level that does not search.
+pub(crate) fn blockers_within(
+    view: &PlayerView,
+    options: &[baylee_engine::choice::BlockOption],
+    life: i32,
+    profile: AIProfile,
+    allow: u32,
+) -> (Vec<(ObjectId, ObjectId)>, u32) {
     let board = Board::new(view);
-    if profile.lookahead == 0 || options.len() > MAX {
-        return crate::combat::choose_blocks(&board, options, life);
+    if profile.lookahead == 0 || allow == 0 || options.len() > MAX {
+        return (crate::combat::choose_blocks(&board, options, life), 0);
     }
     // Out of the engine's own pairings, not out of the view's combat block:
     // the offer is the authority on what is attacking this seat, and it is
@@ -827,7 +854,7 @@ pub fn blockers(
     // out of. In a healthy game the two name the same creatures.
     let ids = crate::combat::deduped(options.iter().flat_map(|o| o.attackers.iter().copied()));
     if ids.len() > MAX {
-        return crate::combat::choose_blocks(&board, options, life);
+        return (crate::combat::choose_blocks(&board, options, life), 0);
     }
     let attackers: Vec<_> = ids.iter().filter_map(|&id| board.fighter(id)).collect();
     let mut ordered_options: Vec<_> = options
@@ -842,7 +869,7 @@ pub fn blockers(
     // function's blind spot.
     let described = ids.iter().all(|id| board.aim(*id).is_some());
     if !described || attackers.len() != ids.len() || ordered_options.len() != options.len() {
-        return crate::combat::choose_blocks(&board, options, life);
+        return (crate::combat::choose_blocks(&board, options, life), 0);
     }
     // Sort blockers most valuable first, as `fight` and `attack_position`
     // require: the attacker assigns gang-block damage to kill our most
@@ -898,7 +925,7 @@ pub fn blockers(
         cutoff: i64::MIN,
         best_groups: [0; MAX],
         nodes: 0,
-        limit: profile.node_budget(),
+        limit: allow,
         complete: true,
         all_lethal: true,
     };
@@ -920,7 +947,7 @@ pub fn blockers(
             }
         }
     }
-    result
+    (result, reply.nodes)
 }
 
 #[cfg(test)]

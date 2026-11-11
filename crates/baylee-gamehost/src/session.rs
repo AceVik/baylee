@@ -38,7 +38,7 @@ mod spectators;
 mod table;
 
 #[cfg(any(test, feature = "simulation"))]
-pub use foresight::{ForesightStats, ProbedLeaf};
+pub use foresight::{ForesightStats, ProbedLeaf, SEARCH_SHARE, SearchCost, SearchedQuestion};
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
 
@@ -306,13 +306,34 @@ pub struct Session {
     /// answer ([`Session::set_foresight`]).
     #[cfg(any(test, feature = "simulation"))]
     foresight: bool,
-    /// The most answers the forks of one search may take before no further
-    /// world is started ([`Session::set_foresight_work`]).
+    /// The most work one search may spend before it stops where it stands
+    /// ([`Session::set_foresight_work`]).
     #[cfg(any(test, feature = "simulation"))]
     foresight_work: Option<u64>,
     /// What those searches have cost ([`Session::foresight_stats`]).
     #[cfg(any(test, feature = "simulation"))]
     foresight_stats: foresight::ForesightStats,
+    /// The cost of the search in progress, kept while its worlds are played.
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_cost: foresight::SearchCost,
+    /// The clock those costs are timed by ([`Session::set_foresight_clock`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_clock: simulation::Clock,
+    /// What the search in progress has spent on forks and answers at their
+    /// prices, the rest of its meter being combat-search nodes.
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_priced: u64,
+    /// The most nodes one combat search in a fork may visit under a bound
+    /// ([`Session::set_foresight_nodes`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_nodes: Option<u32>,
+    /// Which searched questions are kept, by kind, and whether only the
+    /// replaced ones ([`Session::set_foresight_questions`]).
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_questions: Option<([bool; 3], bool)>,
+    /// The searched questions kept and not yet taken.
+    #[cfg(any(test, feature = "simulation"))]
+    foresight_asked: Vec<foresight::SearchedQuestion>,
     /// One searched question in so many is probed
     /// ([`Session::set_foresight_probe`]).
     #[cfg(any(test, feature = "simulation"))]
@@ -445,6 +466,18 @@ impl Session {
             foresight_work: None,
             #[cfg(any(test, feature = "simulation"))]
             foresight_stats: foresight::ForesightStats::default(),
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_cost: foresight::SearchCost::default(),
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_clock: simulation::Clock::default(),
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_priced: 0,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_nodes: None,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_questions: None,
+            #[cfg(any(test, feature = "simulation"))]
+            foresight_asked: Vec::new(),
             #[cfg(any(test, feature = "simulation"))]
             foresight_probe: None,
             #[cfg(any(test, feature = "simulation"))]

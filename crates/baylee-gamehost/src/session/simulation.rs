@@ -43,6 +43,72 @@ pub struct SimulationSession {
     hand_sharing: baylee_core::preset::HandSharingRule,
     ai_hand_share_policy: baylee_core::preset::AiHandSharePolicy,
     seat: PlayerId,
+    /// What the house's answers and the engine's steps in this fork have
+    /// taken, where a search measures its forks ([`Self::seat_model`]).
+    /// Read by no answer.
+    timing: Option<ForkTiming>,
+    /// The meter of the search this fork belongs to, which every house
+    /// answer given here is counted into ([`answer_work`]).
+    meter: Option<Arc<baylee_ai::WorkMeter>>,
+}
+
+/// The clock a table's searches are measured by: the wall clock, or the one
+/// its harness gave it (`Session::set_foresight_clock`), such as the CPU
+/// time of the thread a game is played on, which another job on the machine
+/// does not stretch. A measurement only: no answer reads a clock.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct Clock(pub(super) Option<fn() -> std::time::Duration>);
+
+impl Clock {
+    /// The time now, from an origin that is the same for every reading.
+    pub(super) fn now(self) -> std::time::Duration {
+        static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        self.0.map_or_else(
+            || ORIGIN.get_or_init(std::time::Instant::now).elapsed(),
+            |clock| clock(),
+        )
+    }
+}
+
+/// What a measured fork has taken so far.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct ForkTiming {
+    clock: Clock,
+    /// The house's answers: to every other question, and to an attack or a
+    /// block.
+    pub(super) think: [std::time::Duration; 2],
+    /// How many answers of each.
+    pub(super) asked: [u32; 2],
+    /// The engine applying them.
+    pub(super) apply: std::time::Duration,
+    /// The permanents and stack objects each answer was given over, summed.
+    pub(super) board: u64,
+    /// What those answers cost on the search's meter ([`answer_work`]).
+    pub(super) work: u64,
+    /// The longest single answer, the engine's step included.
+    pub(super) longest: std::time::Duration,
+}
+
+/// What one house answer in a fork costs on a search's meter
+/// (`baylee_ai::WorkMeter`, in nodes of the combat search), the engine's
+/// step that applies it included, with `board` permanents and stack objects
+/// in the fork: reading the table and moving the game both grow with what is
+/// on it.
+///
+/// Provisional (11.11.2026): set from one 256-game profile at expert's tier,
+/// where an answer with its step took about 85 µs of its thread's CPU time
+/// at the mean and about 145 µs on a board of forty permanents, and a node
+/// about 0.08 µs. To be fitted to `eval4`'s `foresight.by_board` before a
+/// bound is relied on (`docs/proposals/house-ai-strength.md` §7).
+pub(super) const fn answer_work(board: u64) -> u64 {
+    750 + 25 * board
+}
+
+/// What making one fork costs on a search's meter, in the same unit, with
+/// `objects` live objects in the game: a fork copies them all. Provisional as
+/// [`answer_work`] is: a fork took about 210 µs at the mean.
+pub(super) const fn fork_work(objects: u64) -> u64 {
+    1500 + 8 * objects
 }
 
 /// The `SplitMix64` stream constant, the step between seeds of one purpose.
@@ -179,6 +245,8 @@ impl Session {
             hand_sharing: self.house_rules.hand_sharing,
             ai_hand_share_policy: self.ai_hand_share_policy,
             seat,
+            timing: None,
+            meter: None,
         })
     }
 }
@@ -407,13 +475,34 @@ impl SimulationSession {
             let Some(pending) = self.engine.pending_for(player).cloned() else {
                 return answered;
             };
+            let board = self.board();
+            if let Some(meter) = &self.meter {
+                meter.spend(answer_work(board));
+            }
+            let asked = self.timing.as_ref().map(|timing| timing.clock.now());
             let Some(action) = self.table().house_answer(player, &pending) else {
                 return answered;
             };
             let by = self.seats[usize::from(player.get())]
                 .is_away()
                 .then_some(HouseAnswer::StandIn);
+            let thought = self.timing.as_ref().map(|timing| timing.clock.now());
             let moves = self.apply_house(player, action);
+            if let (Some(timing), Some(asked), Some(thought)) =
+                (self.timing.as_mut(), asked, thought)
+            {
+                let combat = matches!(
+                    pending,
+                    Pending::ChooseAttackers { .. } | Pending::ChooseBlockers { .. }
+                );
+                let now = timing.clock.now();
+                timing.think[usize::from(combat)] += thought.saturating_sub(asked);
+                timing.asked[usize::from(combat)] += 1;
+                timing.apply += now.saturating_sub(thought);
+                timing.board += board;
+                timing.work += answer_work(board);
+                timing.longest = timing.longest.max(now.saturating_sub(asked));
+            }
             self.seq += 1;
             if moves {
                 self.decisions += 1;
@@ -452,16 +541,25 @@ impl SimulationSession {
     /// agents or seeds. With `fair`, the fork is held fair as well, so that
     /// no chair is told more than the deck it was forked with
     /// (`Session::forked`).
+    ///
+    /// Every copy counts its combat searches into `work` and is held to
+    /// what that meter has left, so that one search's forks are bounded
+    /// between them; and the fork is measured by `clock` from here on
+    /// ([`Self::timing`]).
     pub(super) fn seat_model(
         &mut self,
         player: PlayerId,
         model: &baylee_ai::HeuristicAgent,
         seed: u64,
         fair: bool,
+        work: &Arc<baylee_ai::WorkMeter>,
+        clock: Clock,
     ) {
         self.seats = (0..self.seats.len())
             .map(|at| {
-                let agent = model.simulated(house_seed(seed, at));
+                let agent = model
+                    .simulated(house_seed(seed, at))
+                    .metered(Arc::clone(work));
                 if at == usize::from(player.get()) {
                     SeatKind::Driven(agent)
                 } else {
@@ -472,5 +570,44 @@ impl SimulationSession {
         if fair {
             self.fair_scouting = true;
         }
+        self.meter = Some(Arc::clone(work));
+        self.timing = Some(ForkTiming {
+            clock,
+            ..ForkTiming::default()
+        });
+    }
+
+    /// What this fork's answers and steps have taken since a search seated
+    /// its model in it.
+    pub(super) fn timing(&self) -> ForkTiming {
+        self.timing.unwrap_or_default()
+    }
+
+    /// Takes this fork off its search's meter: what is played in it from
+    /// here on is counted nowhere and bounded by nothing. For the worlds a
+    /// probe plays on past their leaf, which are no part of the search.
+    pub(super) fn unmetered(&mut self) {
+        self.meter = None;
+        for seat in &mut self.seats {
+            let (SeatKind::Ai(agent) | SeatKind::Driven(agent) | SeatKind::StandIn(agent)) = seat
+            else {
+                continue;
+            };
+            *agent = agent.clone().metered(Arc::default());
+        }
+    }
+
+    /// The permanents and stack objects in this fork: what an answer here
+    /// is priced by ([`answer_work`]).
+    fn board(&self) -> u64 {
+        use baylee_engine::zone::ZoneLocation;
+        let zones = &self.engine.state().zones;
+        (zones.list(ZoneLocation::Battlefield).len() + zones.list(ZoneLocation::Stack).len()) as u64
+    }
+
+    /// The live objects in this fork: what making it is priced by
+    /// ([`fork_work`]).
+    pub(super) fn objects(&self) -> u64 {
+        self.engine.state().arena.len() as u64
     }
 }

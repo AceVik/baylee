@@ -38,9 +38,11 @@ pub mod search;
 mod stall;
 mod tactics;
 mod timing;
+mod work;
 mod worth;
 pub use restricted::only_for as mana_restriction;
 pub use stall::StallMemory;
+pub use work::WorkMeter;
 pub use worth::mana_poured;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -69,6 +71,10 @@ pub struct HeuristicAgent {
     /// The last priority action given and where from ([`stall`]), shared
     /// by every clone.
     stall: StallMemory,
+    /// What this agent's combat searches have cost and may still cost
+    /// ([`WorkMeter`]). Its own and unbounded unless a host that seats many
+    /// copies gives them one between them ([`Self::metered`]).
+    work: std::sync::Arc<WorkMeter>,
 }
 
 impl HeuristicAgent {
@@ -82,6 +88,7 @@ impl HeuristicAgent {
             strategy: intelligence::Strategy::default(),
             fallbacks: std::sync::Arc::default(),
             stall: StallMemory::default(),
+            work: std::sync::Arc::default(),
         }
     }
 
@@ -274,7 +281,14 @@ impl HeuristicAgent {
         // Indexed once for the whole decision: every step below
         // looks creatures up by handle, one per creature.
         let board = board::Board::new(view);
-        let report = search::attackers_on(&board, squad, victim, self.profile);
+        let report = search::attackers_on(
+            &board,
+            squad,
+            victim,
+            self.profile,
+            self.work.nodes(self.profile.node_budget()),
+        );
+        self.work.spend(u64::from(report.nodes));
         // An attack that wins goes at the player, whatever walker is
         // standing there. The search's proof is one way to know, but
         // it gives up above sixteen creatures a side and never runs
@@ -474,20 +488,19 @@ impl HeuristicAgent {
                 bounds,
                 ..
             } => {
-                let mut pairs = combat::obey_block_rules(
-                    search::blockers(
-                        view,
-                        &blockers,
-                        view.seat(player).map_or(0, |s| s.life),
-                        self.profile,
-                    ),
-                    &obeying,
-                    |attacker| {
-                        view.object(attacker).is_some_and(|o| {
-                            o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
-                        })
-                    },
+                let (searched, nodes) = search::blockers_within(
+                    view,
+                    &blockers,
+                    view.seat(player).map_or(0, |s| s.life),
+                    self.profile,
+                    self.work.nodes(self.profile.node_budget()),
                 );
+                self.work.spend(u64::from(nodes));
+                let mut pairs = combat::obey_block_rules(searched, &obeying, |attacker| {
+                    view.object(attacker).is_some_and(|o| {
+                        o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
+                    })
+                });
                 // Whatever chose them, the blocks are held to the counts the
                 // question states (menace, CR 702.111b), which are the ones
                 // the engine holds the declaration to.

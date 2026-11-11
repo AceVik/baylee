@@ -63,7 +63,17 @@ impl HeuristicAgent {
             strategy: crate::intelligence::Strategy::default(),
             fallbacks: std::sync::Arc::default(),
             stall: crate::StallMemory::default(),
+            work: std::sync::Arc::default(),
         }
+    }
+
+    /// This agent counting its combat searches into `work` and held to what
+    /// that meter has left: how a host bounds the copies it seats in the
+    /// forks of one search between them ([`crate::WorkMeter`]).
+    #[must_use]
+    pub fn metered(mut self, work: std::sync::Arc<crate::WorkMeter>) -> Self {
+        self.work = work;
+        self
     }
 
     /// Forgets the last action this agent gave ([`crate::stall`]): the host

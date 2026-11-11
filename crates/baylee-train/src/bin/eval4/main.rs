@@ -626,9 +626,17 @@ fn main() -> anyhow::Result<()> {
             args.house_foresight,
             args.random_policy,
             args.foresight_work,
+            args.foresight_nodes,
         );
         if let Some(path) = &args.leaf_log {
             foresight::open_leaf_log(path)?;
+        }
+        if let Some(path) = &args.foresight_questions {
+            foresight::open_question_log(
+                path,
+                &args.foresight_question_kinds,
+                !args.foresight_questions_all,
+            )?;
         }
         if let Some(path) = &args.foresight_probe {
             foresight::open_probe_log(path, args.foresight_probe_every)?;
@@ -1136,6 +1144,7 @@ fn main() -> anyhow::Result<()> {
     summary["seer_peeks"] = json!(args.seer_peeks);
     summary["house_foresight"] = json!(args.house_foresight);
     summary["foresight_work"] = json!(args.foresight_work);
+    summary["foresight_nodes"] = json!(args.foresight_nodes);
     foresight::close_logs();
     summary["foresight"] = foresight::summary(args.deals);
     summary["tactician"] = tactician_setup.as_ref().map_or(
