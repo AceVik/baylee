@@ -17,9 +17,17 @@
 //! `Pending::Priority`), other single choices (targets, modes, options),
 //! subsets (attackers, several targets, cards), pairs (blockers), and
 //! numbers. Forced answers, fallbacks and trigger orders carry no label.
+//!
+//! The house teacher (`house_distillation_v1`, `eval4 --distill-teacher
+//! house:<level>`) labels the same decisions with a fair house level's answer
+//! `H` in `R`'s place: the host asks the level at the seat's question before
+//! the net answers and gives the answer here ([`Distill4::give`]); the label
+//! is `H` encoded against the net's own menu, and no group fires. An `H` the
+//! menu cannot hold leaves its decision unlabelled, counted
+//! ([`Distill4::unencodable`]).
 
 use baylee_core::ids::ObjectId;
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 
 use super::policy::{layer_scalar, sample_categorical};
@@ -27,21 +35,34 @@ use super::{ChoiceGuard4, TacticRules4, TacticalParts, choices, tactics};
 use crate::deckgen::Rng;
 use crate::features4::{
     EncodedCandidates4, HeadKind4, PendingKind4, TeacherTarget4, decode_action4,
-    denormalize_scalar_choice, normalize_scalar_choice, sample_pairs_constrained,
-    sample_subset_constrained,
+    denormalize_scalar_choice, encode_teacher_action4, normalize_scalar_choice,
+    sample_pairs_constrained, sample_subset_constrained,
 };
 
 pub use crate::convert4::distill_labels::{
     DistillLabel4, DistillStep4, DistillSubtype4, menu_of, menu_signature,
 };
-pub use baylee_train_ops::tactician_labels::DISTILL_CONTRACT;
+pub use baylee_train_ops::tactician_labels::{DISTILL_CONTRACT, HOUSE_DISTILL_CONTRACT};
+
+/// Whose answer `R` is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DistillTeacher4 {
+    /// The tactical layer under these rule groups (`bundle_distillation_v1`).
+    Rules(TacticRules4),
+    /// A house level the host asks and gives the answer of
+    /// (`house_distillation_v1`, [`Distill4::give`]).
+    House,
+}
 
 /// A net's distillation recorder.
 #[derive(Clone, Debug)]
 pub struct Distill4 {
-    rules: TacticRules4,
+    teacher: DistillTeacher4,
+    /// The house's answer to the decision at hand, given by the host.
+    given: Option<PlayerAction>,
     last: Option<DistillLabel4>,
     steps: Vec<DistillStep4>,
+    unencodable: u64,
 }
 
 impl Distill4 {
@@ -49,20 +70,58 @@ impl Distill4 {
     #[must_use]
     pub const fn new(rules: TacticRules4) -> Self {
         Self {
-            rules,
+            teacher: DistillTeacher4::Rules(rules),
+            given: None,
             last: None,
             steps: Vec::new(),
+            unencodable: 0,
         }
+    }
+
+    /// Labels with the answers of a house level the host gives
+    /// ([`Self::give`]).
+    #[must_use]
+    pub const fn house() -> Self {
+        Self {
+            teacher: DistillTeacher4::House,
+            given: None,
+            last: None,
+            steps: Vec::new(),
+            unencodable: 0,
+        }
+    }
+
+    /// Whose answer `R` is.
+    #[must_use]
+    pub const fn teacher(&self) -> DistillTeacher4 {
+        self.teacher
+    }
+
+    /// The house's answer `H` to the decision the net answers next.
+    pub fn give(&mut self, answer: PlayerAction) {
+        self.given = Some(answer);
+    }
+
+    /// The house's answer to the decision at hand, taken.
+    pub(super) fn take_given(&mut self) -> Option<PlayerAction> {
+        self.given.take()
+    }
+
+    /// A given answer the net's menu could not hold: the decision stays
+    /// unlabelled.
+    pub(super) fn count_unencodable(&mut self) {
+        self.unencodable += 1;
+    }
+
+    /// How many given answers the menu could not hold so far.
+    #[must_use]
+    pub const fn unencodable(&self) -> u64 {
+        self.unencodable
     }
 
     /// Forgets the last decision's labels (a new decision begins).
     pub(super) fn begin(&mut self) {
         self.last = None;
-    }
-
-    /// The label groups.
-    pub(super) const fn rules(&self) -> TacticRules4 {
-        self.rules
     }
 
     /// Keeps the labels of the decision just answered.
@@ -78,6 +137,9 @@ impl Distill4 {
     /// Records a step of this net's seat: the last decision's labels when the
     /// policy answered it.
     pub fn step(&mut self, seat: u8, decision_seq: u64, record_byte_offset: usize, answered: bool) {
+        // A given answer belongs to one decision; one the policy never
+        // answered is dropped with it.
+        self.given = None;
         let label = self.last.take().filter(|_| answered);
         self.steps.push(DistillStep4 {
             seat,
@@ -262,8 +324,31 @@ pub(super) fn label(
     rules: TacticRules4,
     executed: &TeacherTarget4,
 ) -> DistillLabel4 {
-    let net = net_target(q);
     let (rules_t, fired) = rules_target(q, rules);
+    assemble(q, rules_t, fired, executed)
+}
+
+/// The house teacher's labels of one decision whose policy answered
+/// `executed`: `house`, the level's answer, in `R`'s place, encoded against
+/// the menu as a behaviour-cloning teacher's is; no group fires. `None`
+/// where the menu cannot hold it.
+pub(super) fn house_label(
+    q: &Question<'_>,
+    house: &PlayerAction,
+    executed: &TeacherTarget4,
+) -> Option<DistillLabel4> {
+    let target = encode_teacher_action4(q.cands, q.pending, house)?;
+    Some(assemble(q, target, Vec::new(), executed))
+}
+
+/// A decision's labels with `R` given: `N` read, both decoded and compared.
+fn assemble(
+    q: &Question<'_>,
+    rules_t: TeacherTarget4,
+    fired: Vec<String>,
+    executed: &TeacherTarget4,
+) -> DistillLabel4 {
+    let net = net_target(q);
     let decode = |target: &TeacherTarget4| decode_action4(q.cands, q.view, q.pending, target);
     let net_action = decode(&net);
     let rules_action = decode(&rules_t);

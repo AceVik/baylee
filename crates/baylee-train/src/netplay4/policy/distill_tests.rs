@@ -169,3 +169,127 @@ fn r_read_on_copies_is_what_the_layer_plays_and_a_student_plays_n() {
         );
     }
 }
+
+/// The raw net's answer at this question with the house's `house` given
+/// first, the label it kept, and the answers its menu could not hold.
+fn taught(
+    cands: &EncodedCandidates4,
+    view: &PlayerView,
+    pending: &Pending,
+    logits: &[f32],
+    house: Option<PlayerAction>,
+) -> (TeacherTarget4, Option<DistillLabel4>, u64) {
+    let mut rng = Rng::new(17);
+    let mut distill = Distill4::house();
+    if let Some(house) = house {
+        distill.give(house);
+    }
+    let (_, _, _, target) = PolicySampler4 {
+        tactician: None,
+        distill: Some(&mut distill),
+        mode: PolicyMode4::Raw,
+        temperature: 0.0,
+        rng: &mut rng,
+        active_source: None,
+        guard: &mut ChoiceGuard4::default(),
+        rules: &mut TacticRules4::default(),
+    }
+    .select(
+        cands,
+        view,
+        pending,
+        PolicyOutputs4 {
+            embeddings: None,
+            cand_logits: logits,
+            pair_logits: logits,
+            scalar_pred: 0.37,
+            value: 0.4,
+        },
+    )
+    .unwrap();
+    let unencodable = distill.unencodable();
+    (target, distill.take_label(), unencodable)
+}
+
+/// The house teacher's labels (`house_distillation_v1`): `H` in `R`'s place,
+/// encoded against the net's own menu, no group fired, `N` the raw answer
+/// played; no label where no answer was given.
+#[test]
+fn a_house_answer_given_first_is_the_label_and_the_net_plays_its_own() {
+    let player = NetPlayer4::without_graphs(10, D);
+    let mut kinds = BTreeSet::new();
+    let (mut differing, mut agreeing) = (0, 0);
+    for seed in 1..8_u64 {
+        let mut session = table(seed);
+        let mut here = 0;
+        while let Some((pending, view)) = drive(&mut session, |_, _| true) {
+            let (_, cands) = player.policy_encoding(&view, &pending, &[None, None]);
+            let forced = match cands.head {
+                HeadKind4::SingleChoice => cands.candidates.len() <= 1,
+                HeadKind4::SubsetPick => cands.candidates.is_empty(),
+                HeadKind4::PairPick => cands.pairs.is_empty(),
+                HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
+            };
+            let house = session.house_action(ME).unwrap();
+            if forced || matches!(pending, Pending::Arrange { .. }) {
+                session.act_slice(ME, house, 0).unwrap();
+                continue;
+            }
+            let logits: Vec<f32> = (0..cands.candidates.len().max(cands.pairs.len()))
+                .map(|i| ((i as f32 + seed as f32 + here as f32) * 0.61).cos() * 3.0)
+                .collect();
+            let (_, nothing, _) = taught(&cands, &view, &pending, &logits, None);
+            assert!(nothing.is_none(), "a label without a given answer");
+            let (target, label, unencodable) =
+                taught(&cands, &view, &pending, &logits, Some(house.clone()));
+            let Some(encoded) = crate::features4::encode_teacher_action4(&cands, &pending, &house)
+            else {
+                assert!(label.is_none() && unencodable == 1, "{pending:?}");
+                session.act_slice(ME, house, 0).unwrap();
+                continue;
+            };
+            let label = label.expect("an encodable answer is a label");
+            assert_eq!(unencodable, 0);
+            assert!(same(cands.head, &label.rules, &encoded), "{pending:?}");
+            assert!(same(cands.head, &label.net, &target), "{pending:?}");
+            assert!(same(cands.head, &label.executed, &target));
+            assert!(label.fired.is_empty());
+            assert!(DistillSubtype4::fits(&label), "{label:?}");
+            let decoded = crate::features4::decode_action4(&cands, &view, &pending, &encoded);
+            assert_eq!(label.rules_action, decoded);
+            assert_eq!(
+                label.n_ne_r,
+                label.net_action.is_some() && label.net_action != label.rules_action
+                    || label.net_action.is_none() && !same(cands.head, &label.net, &encoded),
+                "{pending:?}"
+            );
+            if label.n_ne_r {
+                differing += 1;
+            } else {
+                agreeing += 1;
+            }
+            kinds.insert(label.kind.clone());
+            // The house plays on, so the tables reach every kind of question.
+            session.act_slice(ME, house, 0).unwrap();
+            here += 1;
+            if here >= 200 {
+                break;
+            }
+        }
+    }
+    assert!(differing > 0 && agreeing > 0, "{differing} / {agreeing}");
+    for kind in ["priority", "single", "subset"] {
+        assert!(kinds.contains(kind), "no {kind} decision met: {kinds:?}");
+    }
+}
+
+/// A given answer belongs to one decision: a step the policy did not answer
+/// drops it, so it never labels the next.
+#[test]
+fn a_given_answer_never_outlives_its_decision() {
+    let mut distill = Distill4::house();
+    distill.give(PlayerAction::PassPriority);
+    distill.step(0, 1, 0, false);
+    assert!(distill.take_given().is_none());
+    assert!(distill.take_steps()[0].label.is_none());
+}

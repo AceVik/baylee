@@ -240,6 +240,7 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
         None,
         search,
         None,
+        None,
     )
     .unwrap();
     assert!(!outcome.1, "the fixture finishes its game");
@@ -268,6 +269,7 @@ fn a_seated_house_plays_a_deal_to_its_end() {
         true,
         5000,
         false,
+        None,
         None,
         None,
         None,

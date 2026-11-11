@@ -40,7 +40,7 @@ use baylee_train::features4::{HeadKind4, SourceKind4, TeacherTarget4};
 use baylee_train_ops::tactician_labels::NO_SUBTYPE;
 use serde_json::{Value, json};
 
-pub(super) use baylee_train_ops::tactician_labels::DISTILL_CONTRACT;
+pub(super) use baylee_train_ops::tactician_labels::{DISTILL_CONTRACT, HOUSE_DISTILL_CONTRACT};
 
 /// Where a game's JSON steps go, under the dataset.
 pub(super) fn steps_path(game_id: u32) -> String {
@@ -130,6 +130,10 @@ pub(super) struct Runs {
     decks: TrainDecks,
     seated: std::collections::BTreeSet<String>,
     sources: Vec<Value>,
+    /// The contract every run declares, and for house-teacher runs the
+    /// teacher they name: one of each per dataset.
+    contract: Option<&'static str>,
+    teacher: Option<Value>,
 }
 
 impl Runs {
@@ -139,22 +143,52 @@ impl Runs {
             decks,
             seated: std::collections::BTreeSet::new(),
             sources: Vec::new(),
+            contract: None,
+            teacher: None,
         }
     }
 
-    /// Admits one run: it must declare the distillation contract, and every
-    /// deck it can seat must be a train deck of the manifest.
+    /// Admits one run: it must declare a distillation contract, the same as
+    /// every other run of the dataset (and a house-teacher run the same
+    /// teacher), and every deck it can seat must be a train deck of the
+    /// manifest.
     ///
     /// # Errors
-    /// A run without `distill.contract == bundle_distillation_v1`, or one
-    /// with a deck outside the train split.
+    /// A run without `distill.contract` one of `bundle_distillation_v1` and
+    /// `house_distillation_v1`, one whose contract or teacher differs from
+    /// the runs before it, or one with a deck outside the train split.
     pub(super) fn admit(&mut self, run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
-        baylee_train_ops::tactician_labels::admit_distillation(run_json)
+        let contract = baylee_train_ops::tactician_labels::admit_distillation(run_json)
             .with_context(|| format!("{}", run_dir.display()))?;
+        let teacher = (contract == HOUSE_DISTILL_CONTRACT)
+            .then(|| run_json["distill"]["teacher"].clone())
+            .filter(Value::is_object);
+        ensure!(
+            contract != HOUSE_DISTILL_CONTRACT || teacher.is_some(),
+            "{}: a {contract} run names no teacher",
+            run_dir.display()
+        );
+        ensure!(
+            self.contract.is_none_or(|first| first == contract),
+            "{}: a {contract} run among {} runs; a dataset holds one teacher's labels",
+            run_dir.display(),
+            self.contract.unwrap_or_default()
+        );
+        ensure!(
+            self.teacher.is_none() || self.teacher == teacher,
+            "{}: taught by {}, the dataset's runs before by {}",
+            run_dir.display(),
+            teacher.as_ref().map_or(Value::Null, |t| t["level"].clone()),
+            self.teacher
+                .as_ref()
+                .map_or(Value::Null, |t| t["level"].clone())
+        );
         let seated = self.decks.seated(run_dir, run_json)?;
+        self.contract = Some(contract);
+        self.teacher.clone_from(&teacher);
         self.sources.push(
             json!({"run": run_dir, "label_rules": run_json["distill"]["label_rules"],
-            "players": run_json["distill"]["players"], "decks": seated.len()}),
+            "teacher": teacher, "players": run_json["distill"]["players"], "decks": seated.len()}),
         );
         self.seated.extend(seated);
         Ok(())
@@ -162,8 +196,15 @@ impl Runs {
 
     /// What `meta.json` says about the dataset (counts filled at the end).
     pub(super) fn metadata(&self, counts: &Counts) -> Value {
-        json!({"contract": DISTILL_CONTRACT, "version": 2,
-            "target": "the tactical layer's answer R at every labelled decision of the recorded seats",
+        let contract = self.contract();
+        let target = if contract == HOUSE_DISTILL_CONTRACT {
+            "the house teacher's answer H (in R's fields) at every labelled decision of the \
+             recorded seats"
+        } else {
+            "the tactical layer's answer R at every labelled decision of the recorded seats"
+        };
+        json!({"contract": contract, "version": 2, "teacher": self.teacher,
+            "target": target,
             "loss_weight": "1 at labelled decisions of the recorded seats, 0 elsewhere",
             "value_targets": "game outcomes, as usual",
             "subtypes": DistillSubtype4::ALL.map(DistillSubtype4::name),
@@ -185,6 +226,11 @@ impl Runs {
                 "count": self.seated.len(), "split": "train", "all_train": true,
                 "checked": "every deck of each run's run.json, against the manifest"},
             "sources": self.sources, "counts": counts})
+    }
+
+    /// The contract the admitted runs declare (the layer's before any is).
+    pub(super) fn contract(&self) -> &'static str {
+        self.contract.unwrap_or(DISTILL_CONTRACT)
     }
 }
 
@@ -451,11 +497,12 @@ pub(super) struct JsonSteps {
 }
 
 impl JsonSteps {
-    /// Opens a game's JSON steps under the dataset `root`.
+    /// Opens a game's JSON steps under the dataset `root`, for a dataset of
+    /// `contract`.
     ///
     /// # Errors
     /// When the file exists already or cannot be written.
-    pub(super) fn new(root: &Path, game_id: u32) -> anyhow::Result<Self> {
+    pub(super) fn new(root: &Path, game_id: u32, contract: &str) -> anyhow::Result<Self> {
         let path = root.join(steps_path(game_id));
         fs::create_dir_all(path.parent().context("steps directory")?)?;
         ensure!(!path.exists(), "{} exists", path.display());
@@ -469,7 +516,7 @@ impl JsonSteps {
         );
         serde_json::to_writer(
             &mut writer,
-            &json!({"kind": "header", "contract": DISTILL_CONTRACT, "schema": 2,
+            &json!({"kind": "header", "contract": contract, "schema": 2,
                 "game_id": game_id}),
         )?;
         writeln!(writer)?;
@@ -726,7 +773,7 @@ mod tests {
         ));
         let labels = game(vec![Some(label(1, 2, 2)), None]);
         let mut cursor = Cursor::new(&labels);
-        let mut steps = JsonSteps::new(&root, 7).unwrap();
+        let mut steps = JsonSteps::new(&root, 7, DISTILL_CONTRACT).unwrap();
         for mut step in [
             frame(0, Some(0), 2),
             frame(0, Some(1), 0),
@@ -868,5 +915,54 @@ mod tests {
         assert_eq!(meta["subtypes"][9], "target");
         assert_eq!(meta["groups"].as_array().unwrap().len(), 20);
         assert_eq!(meta["groups"][7], "spend");
+    }
+
+    #[test]
+    fn a_house_teacher_dataset_names_its_teacher_and_takes_no_other_labels() {
+        let dir = std::path::Path::new("runs/h");
+        let house = |level: &str| {
+            let mut run = run(&["adapted/A/train-deck"]);
+            run["distill"] = json!({"contract": HOUSE_DISTILL_CONTRACT,
+                "teacher": {"kind": "house", "level": level, "fair": true}});
+            run
+        };
+        let mut runs = Runs::new(manifest());
+        let mut nameless = house("house:expert");
+        nameless["distill"]
+            .as_object_mut()
+            .unwrap()
+            .remove("teacher");
+        assert!(runs.admit(dir, &nameless).is_err());
+        runs.admit(dir, &house("house:expert")).unwrap();
+        runs.admit(dir, &house("house:expert")).unwrap();
+        let other = runs
+            .admit(dir, &house("house:sharp"))
+            .unwrap_err()
+            .to_string();
+        assert!(other.contains("house:sharp"), "{other}");
+        let layer = runs
+            .admit(dir, &run(&["adapted/A/train-deck"]))
+            .unwrap_err()
+            .to_string();
+        assert!(layer.contains("one teacher"), "{layer}");
+        let meta = runs.metadata(&Counts::default());
+        assert_eq!(meta["contract"], HOUSE_DISTILL_CONTRACT);
+        assert_eq!(meta["teacher"]["level"], "house:expert");
+        assert_eq!(meta["sources"].as_array().unwrap().len(), 2);
+        assert_eq!(meta["sources"][0]["teacher"]["level"], "house:expert");
+        assert!(meta["target"].as_str().unwrap().contains("house teacher"));
+        assert_eq!(runs.contract(), HOUSE_DISTILL_CONTRACT);
+        // And the other way round: a dataset of the layer's labels takes no
+        // house-teacher run, and names no teacher.
+        let mut layer_runs = Runs::new(manifest());
+        layer_runs
+            .admit(dir, &run(&["adapted/A/train-deck"]))
+            .unwrap();
+        assert!(layer_runs.admit(dir, &house("house:expert")).is_err());
+        assert_eq!(
+            layer_runs.metadata(&Counts::default())["teacher"],
+            Value::Null
+        );
+        assert_eq!(layer_runs.contract(), DISTILL_CONTRACT);
     }
 }
