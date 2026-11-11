@@ -2343,11 +2343,20 @@ sits in the reclaimable page cache and never in a process's resident set.
 `--window-state-seats S` stores memory slots 0..S only (2 for duels, a third of
 every slot; the other slots hold nothing any output reads, and a frame with a
 seat beyond S fails); `--window-state-bf16` halves the store and rounds H.
+The pass's loader collates only the board inputs and step flags
+(`collate_boards`): workers hand every batch over through /dev/shm, and the
+training collate pads every frame of a batch to its widest candidate list, so
+one card-naming question made a 32 x 32 batch tens of GB there.
+`--window-state-prefetch` (2) batches per worker wait there at most.
 Before the pass the run refuses an estimate of its host memory above
 `--memory-budget-fraction` (0.5) of the limit (`--memory-limit-gib`, else the
-cgroup's `memory.max`, else MemTotal) and a store above the free disk;
+cgroup's `memory.max`, else MemTotal), an estimate of the largest loader's
+/dev/shm use above `--shm-budget-fraction` (0.5) of this user's tmpfs quota
+there (`--shm-limit-gib` tightens it) and a store above the free disk;
 `--report-peak-rss` prints VmHWM, ru_maxrss and the cgroup's peak after the
-pass and at the end. `--window-entity-buckets` packs
+pass and at the end, and the pass logs the user's peak /dev/shm use.
+`python -m training4.state_pass_probe` runs the pass's loader alone on the CPU
+and reports its batch sizes and /dev/shm use. `--window-entity-buckets` packs
 pieces of similar size together. These runs start fresh from `--init` only.
 `--vectorized-rule-closure` builds the active rule closure's index arrays with
 numpy (identical tensors). `--skip-final-validation` is for throughput probes.

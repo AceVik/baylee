@@ -355,6 +355,22 @@ class DecisionWindows(unittest.TestCase):
         self.assertEqual(plan.states.dtype, np.int16)
         self.assertEqual(plan.store_bytes(32, 2, True) * 2, plan.store_bytes(32, 2, False))
 
+    def test_state_pass_batch_shares_only_compact_board_fields(self):
+        dataset = FakeTrajectories([11, 7, 6], 4, self.DECISIONS, present_seats=2)
+        items = [dataset[i] for i in range(len(dataset.segments))]
+        boards, full = W.collate_boards(items), D4.collate_trajectories(items)
+        self.assertEqual(tuple(boards), W.STATE_PASS_FIELDS)
+        self.assertLess(boards["entity_feat"].shape[2], 5)   # the unused entity column is cut
+        for name, tensor in boards.items():
+            torch.testing.assert_close(tensor, full[name], rtol=0, atol=0, msg=name)
+            # Fresh storage: a worker shares exactly the tensor's bytes.
+            self.assertEqual(tensor.untyped_storage().nbytes(), tensor.numel() * tensor.element_size(), msg=name)
+        self.assertNotIn("cand_feat", boards)
+        # The probe's estimate of what the training collate shares, without allocating it.
+        from training4.state_pass_probe import padded_bytes, shared_bytes
+        self.assertEqual(padded_bytes(items), (sum(shared_bytes(full).values()), 7))
+        self.assertLess(sum(shared_bytes(boards).values()), sum(shared_bytes(full).values()))
+
     def test_file_store_equals_the_ram_store_for_any_write_and_read_order(self):
         rng = np.random.default_rng(4)
         values = torch.randn(23, 9, 16)
@@ -538,10 +554,10 @@ class MemoryBudget(unittest.TestCase):
         self.assertEqual(duel * 3, every_slot)
         shape = dict(state_workers=6, state_lanes=32, unroll=32, train_workers=2, batch=8, length=32)
         # The OOM run's layout is estimated above the whole unit; the guard's limit is a flag.
-        with self.assertRaisesRegex(MemoryError, r"Estimated host memory 57.3 GiB exceeds 0.5 of the 56.0 GiB "
+        with self.assertRaisesRegex(MemoryError, r"Estimated host memory 56.6 GiB exceeds 0.5 of the 56.0 GiB "
                                                  r"limit: state_store 40.68 GiB"):
             B.check(B.window_estimate(frames, pieces, every_slot, True, **shape), unit, .5)
-        with self.assertRaisesRegex(MemoryError, "30.2 GiB exceeds 0.5 of the 48.0 GiB"):
+        with self.assertRaisesRegex(MemoryError, "29.5 GiB exceeds 0.5 of the 48.0 GiB"):
             B.check(B.window_estimate(frames, pieces, duel, True, **shape), guard, .5)
         with tempfile.TemporaryDirectory() as temporary:
             for scale in (1, 3):   # the data may grow two to three times
@@ -549,7 +565,15 @@ class MemoryBudget(unittest.TestCase):
                 self.assertEqual(on_disk["state_store"], 0)
                 total = B.check(on_disk, guard, .5, [(Path(temporary) / "not" / "yet", 1)])
                 self.assertEqual(total, sum(on_disk.values()))
-                self.assertLess(total, 18 * B.GIB)
+                self.assertLess(total, 17 * B.GIB)
+        # /dev/shm: the board-only pass holds 12 batches of 1,024 frames at most, a
+        # quarter of the 24.28 GiB user quota. The training collate's widest round-0
+        # batch, measured at 11.46 GiB (12,681 candidates), would not fit twice.
+        quota = 26_069_893_120
+        shm = B.shm_estimate(6, 2, 32, 32, 2, 8, 32)
+        self.assertEqual(B.check_shm(shm, quota, .5), 3 * B.GIB)
+        with self.assertRaisesRegex(MemoryError, "state pass loader, 22.9 GiB"):
+            B.check_shm(dict(state_pass=2 * int(11.46 * B.GIB)), quota, .5)
 
     def test_stores_on_one_filesystem_add_up_against_free_disk(self):
         from training4 import memory_budget as B
@@ -560,6 +584,32 @@ class MemoryBudget(unittest.TestCase):
             B.check({}, B.GIB, .5, [(first, 5 * B.GIB)])
             with self.assertRaisesRegex(MemoryError, "needs 10.0 GiB; .* has 10.0 GiB free"):
                 B.check({}, B.GIB, .5, [(first, 5 * B.GIB), (second, 5 * B.GIB)])
+
+    def test_shm_limit_is_the_user_quota_else_the_tmpfs_size(self):
+        from training4 import memory_budget as B
+        with patch.object(B, "shm_quota", return_value=(24 * B.GIB, 0)):
+            self.assertEqual(B.shm_limit(), (24 * B.GIB, "quota"))
+            self.assertEqual(B.shm_limit(8.), (8 * B.GIB, "flag"))
+            self.assertEqual(B.shm_limit(30.), (24 * B.GIB, "quota"))   # a flag only tightens
+        with patch.object(B, "shm_quota", return_value=(None, None)):
+            self.assertEqual(B.shm_limit()[1], "statvfs")
+            with patch.object(B.os, "statvfs", side_effect=OSError):
+                self.assertEqual(B.shm_limit(4.), (4 * B.GIB, "flag"))
+                with self.assertRaisesRegex(ValueError, "--shm-limit-gib"):
+                    B.shm_limit()
+        self.assertEqual(B.shm_quota("/nonexistent-shm"), (None, None))
+        limit, used = B.shm_quota()   # the live tmpfs: a usrquota mount answers with this user's use
+        if limit is not None:
+            self.assertGreaterEqual(used, 0)
+
+    def test_shm_check_refuses_the_largest_loader_over_its_share(self):
+        from training4 import memory_budget as B
+        holders = B.shm_estimate(6, 2, 32, 32, 2, 8, 32)
+        self.assertEqual(holders["state_pass"], 12 * 1024 * B.BOARD_FRAME_BYTES)
+        self.assertEqual(B.check_shm(holders, 24 * B.GIB, .5), max(holders.values()))
+        with self.assertRaisesRegex(MemoryError, r"/dev/shm use of the state pass loader, .* exceeds 0.5 of the "
+                                                 r"1.0 GiB this user may hold"):
+            B.check_shm(holders, B.GIB, .5)
 
     def test_peak_memory_reads_hwm_rusage_and_the_cgroup_peak(self):
         from training4 import memory_budget as B
@@ -612,28 +662,34 @@ class DriverRoute(unittest.TestCase):
         forest = M.PlayerNet4(M.Config4(d_model=32, n_heads=4, n_layers=1, d_ff=64)).rules.data
         Dataset, Sampler = fake_driver_classes(driver, forest)
         window = ["--window-burn-in", "0", "--window-length", "4", "--window-state-seats", "2", "--report-peak-rss"]
+        cases = (("ram", ["--memory-limit-gib", "0.001"], r"exceeds 0.5 of the 0.0 GiB limit"),
+                 ("shm", ["--shm-limit-gib", "0.001"], r"/dev/shm use of the state pass loader, .* exceeds 0.5"),
+                 ("fits", ["--memory-limit-gib", "1000", "--shm-limit-gib", "1000"], None))
         with tempfile.TemporaryDirectory() as temporary:
-            for limit, raised in (("0.001", MemoryError), ("1000", RuntimeError)):
-                argv = ["train5", "--data", "fake", "--out", str(Path(temporary) / limit), *self.TINY, *window,
-                        "--memory-limit-gib", limit]
+            for name, limits, refusal in cases:
+                argv = ["train5", "--data", "fake", "--out", str(Path(temporary) / name), *self.TINY, *window, *limits]
                 stdout = io.StringIO()
-                with self.subTest(limit=limit), patch("sys.argv", argv), \
+                with self.subTest(name), patch("sys.argv", argv), \
                         patch.object(driver.D4, "TrajectoryDataset4", Dataset), \
                         patch.object(driver.D4, "StatefulBatchSampler4", Sampler), \
                         patch.object(driver, "DataLoader", return_value=[]), \
                         patch.object(W, "window_states", side_effect=RuntimeError("state pass")), \
                         patch.object(budget_module, "cgroup_limit", return_value=None), \
+                        patch.object(budget_module, "shm_quota", return_value=(64 * budget_module.GIB, 0)), \
                         patch.object(driver.torch, "set_num_threads"), contextlib.redirect_stdout(stdout), \
-                        self.assertRaises(raised) as caught:
+                        self.assertRaises(RuntimeError if refusal is None else MemoryError) as caught:
                     driver.main("v5")
-                if raised is MemoryError:
-                    self.assertRegex(str(caught.exception), r"exceeds 0.5 of the 0.0 GiB limit")
+                if refusal is not None:
+                    self.assertRegex(str(caught.exception), refusal)
                     self.assertNotIn("[memory] budget", stdout.getvalue())
-                else:   # inside the budget, the run reaches the state pass
+                else:   # inside both budgets, the run reaches the state pass
                     self.assertEqual(str(caught.exception), "state pass")
                     budget = json.loads(stdout.getvalue().split("[memory] budget ", 1)[1].splitlines()[0])
                     self.assertEqual((budget["limit_source"], budget["limit_gib"]), ("flag", 1000.))
-                    self.assertEqual(budget["store_dirs"], [str(Path(temporary) / limit)])   # no cache: the run's own
+                    self.assertEqual(budget["store_dirs"], [str(Path(temporary) / name)])   # no cache: the run's own
+                    shm = json.loads(stdout.getvalue().split("[memory] shm ", 1)[1].splitlines()[0])
+                    self.assertEqual((shm["limit_source"], shm["limit_gib"]), ("quota", 64.))
+                    self.assertEqual(set(shm["loaders_gib"]), {"state_pass", "training"})
 
     def test_full_gradient_window_update_equals_default_update(self):
         from training4 import driver

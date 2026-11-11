@@ -21,6 +21,8 @@ def add_learner_options(parser):
     parser.add_argument("--window-epoch-fraction", type=float, default=1.0,
                         help="1c: stop each epoch after this fraction of its window batches")
     parser.add_argument("--window-state-workers", type=int, default=4, help="1c: loader workers of the H pass")
+    parser.add_argument("--window-state-prefetch", type=int, default=2,
+                        help="1c: batches each H-pass worker prepares ahead; every one waits in /dev/shm")
     parser.add_argument("--window-state-cache", default="",
                         help="1c: reuse/write the initial H pass of this exact plan and --init checkpoint "
                              "(a JSON key file beside its .states store file and .entities.npy)")
@@ -34,6 +36,11 @@ def add_learner_options(parser):
                              "only tighten the cgroup's memory.max (0 = that, else MemTotal)")
     parser.add_argument("--memory-budget-fraction", type=float, default=0.5,
                         help="Refuse a window run whose estimated host memory exceeds this fraction of the limit")
+    parser.add_argument("--shm-limit-gib", type=float, default=0.,
+                        help="Shared memory this user may hold in /dev/shm, where loader workers hand over "
+                             "batches; it can only tighten the tmpfs quota (0 = that quota, else the tmpfs size)")
+    parser.add_argument("--shm-budget-fraction", type=float, default=0.5,
+                        help="Refuse a window run whose estimated /dev/shm use exceeds this fraction of that limit")
     parser.add_argument("--report-peak-rss", action="store_true",
                         help="Print peak host memory after the window-state pass and at the end")
     parser.add_argument("--train-policy-head-only", action="store_true",
@@ -84,6 +91,9 @@ def check_learner_options(args, parser):
             parser.error("--window-state-seats must be between 1 and 8")
     if args.memory_limit_gib < 0 or not 0 < args.memory_budget_fraction <= 1:
         parser.error("--memory-limit-gib must be nonnegative and --memory-budget-fraction in (0, 1]")
+    if args.shm_limit_gib < 0 or not 0 < args.shm_budget_fraction <= 1 or args.window_state_prefetch < 1:
+        parser.error("--shm-limit-gib must be nonnegative, --shm-budget-fraction in (0, 1] "
+                     "and --window-state-prefetch positive")
     if args.phase_profile and (args.phase_profile_warmup < 0 or args.phase_profile_steps < 1):
         parser.error("Phase profile needs nonnegative warmup and positive steps")
     stages = [args.train_policy_head_only, args.adapter_on_candidate_head > 0, args.trainable_trunk_from_layer >= 0]

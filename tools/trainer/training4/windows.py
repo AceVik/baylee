@@ -210,9 +210,47 @@ def piece_lookup(dataset, pieces):
     return segment, start % unroll, order
 
 
+# What the state pass reads of a batch: the board inputs and the step flags.
+STATE_PASS_FIELDS = (*BOARD_INPUTS, "step_valid", "is_decision", "is_new_traj", "segment_index")
+
+
+def collate_boards(items):
+    """The state pass's batch: `STATE_PASS_FIELDS` only.
+
+    A loader worker hands every tensor of a batch to the parent through a file
+    in /dev/shm. Candidates, pairs and targets never go there (one card-naming
+    question pads every frame of its batch to its candidate count), and the
+    entity and edge axes are cut to their last used column in fresh storage,
+    so the shared bytes are the bytes the pass reads.
+    """
+    from dataset4 import padded_stack
+    out = {k: torch.from_numpy(padded_stack([item[k] for item in items])) for k in STATE_PASS_FIELDS}
+    for mask, names in (("entity_mask", ("entity_feat", "entity_dsl", "entity_mask", "entity_rules")),
+                        ("edge_mask", ("edge_index", "edge_type", "edge_mask"))):
+        used = out[mask].any(dim=(0, 1)).nonzero()
+        width = int(used[-1]) + 1 if len(used) else 1
+        if width < out[mask].shape[2]:
+            for name in names:
+                out[name] = out[name][:, :, :width].clone()
+    return out
+
+
+def state_pass_loader(dataset, lanes, workers, prefetch=2, pin_memory=False, collate=collate_boards):
+    """Whole trajectories in order, `lanes` segments per batch, as the state pass reads them.
+
+    At most `workers * prefetch` batches are in flight; each sits in /dev/shm
+    from the moment its worker hands it over until the parent drops it.
+    """
+    from torch.utils.data import DataLoader
+    from sampler4 import StatefulBatchSampler4
+    sampler = StatefulBatchSampler4(dataset, batch_size=lanes, shuffle=False)
+    return DataLoader(dataset, batch_sampler=sampler, collate_fn=collate, num_workers=workers,
+                      pin_memory=pin_memory, **({"prefetch_factor": prefetch} if workers else {}))
+
+
 @torch.no_grad()
 def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, workers=2, token_budget=0,
-                  nograd_scale=8, timing_out=None, store=None):
+                  nograd_scale=8, timing_out=None, store=None, prefetch=2):
     """Stored H entering every piece start, from one no-grad pass over all frames.
 
     Lanes stream whole trajectories in order, as validation does, and reset H at
@@ -221,10 +259,8 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
     (store, per-piece maximum entity count). A frame with a present seat beyond
     the store's seats fails: its state would be dropped.
     """
-    from torch.utils.data import DataLoader
-    from sampler4 import StatefulBatchSampler4
-    import dataset4 as D4
     from .burn_in import encode_trimmed, trimmed_groups
+    from .memory_budget import shm_quota
 
     unroll = dataset.unroll_len
     d = net.cfg.d_model
@@ -239,10 +275,7 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
     piece_segment, piece_frame, by_segment = piece_lookup(dataset, pieces)
     sorted_segment = piece_segment[by_segment]
     entity_counts = np.zeros(int(lengths.sum()), dtype=np.int32)
-    sampler = StatefulBatchSampler4(dataset, batch_size=lanes, shuffle=False)
-    loader = DataLoader(dataset, batch_sampler=sampler, collate_fn=D4.collate_trajectories,
-                        num_workers=workers, pin_memory=device.type == "cuda",
-                        **({"prefetch_factor": 2} if workers else {}))
+    loader = state_pass_loader(dataset, lanes, workers, prefetch, pin_memory=device.type == "cuda")
     hidden = None
     # Loader workers verify the packed cache before their first read; report
     # that start apart from the steady pass.
@@ -299,6 +332,10 @@ def window_states(net, dataset, pieces, device, lanes, thinking_steps, bf16, wor
                 store.write(pids, values)
             timing["frames"] += int(valid.sum())
             timing["encoded"] += int(rows.numel())
+            # This user's /dev/shm in use: the batches the workers hand over wait there.
+            shm = shm_quota()[1]
+            if shm is not None:
+                timing["shm_peak_gib"] = max(timing.get("shm_peak_gib", 0.), round(shm / 2 ** 30, 3))
             if timing["first_batch_s"] is None:
                 timing["first_batch_s"] = time.perf_counter() - began
                 timing["first_batch_frames"] = timing["frames"]
@@ -436,7 +473,7 @@ class WindowTraining:
         return StateStore.bytes_for(len(self.pieces), seats, width, bf16)
 
     def refresh(self, net, device, lanes, thinking_steps, bf16, workers, token_budget, cache=None, source=None,
-                seats=M.RECURRENT_SLOTS - 1, store_bf16=False, run_dir=None):
+                seats=M.RECURRENT_SLOTS - 1, store_bf16=False, run_dir=None, prefetch=2):
         """Recompute stored H with the current weights.
 
         `cache`, with `source` naming the exact weights, reuses an earlier pass of
@@ -474,7 +511,8 @@ class WindowTraining:
         else:
             store = StateStore(len(self.pieces), seats, width, store_bf16, path)
         store, self.entities = window_states(net, self.dataset, self.pieces, device, lanes, thinking_steps, bf16,
-                                             workers, token_budget, timing_out=self.timing, store=store)
+                                             workers, token_budget, timing_out=self.timing, store=store,
+                                             prefetch=prefetch)
         self._replace(store, owned)
         if cache is not None:
             np.save(Path(str(cache) + ".entities.npy"), self.entities)
