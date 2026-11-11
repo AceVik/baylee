@@ -681,7 +681,8 @@ fn clean_slots(roots: &[PathBuf]) -> Result<BTreeMap<(String, String, String), f
     Ok(slots)
 }
 
-/// [`ladder_table`] of `roots`, its arms printed as a markdown table.
+/// [`ladder_table`] of `roots`, its arms and their model's tokens printed as
+/// markdown tables.
 fn printed_ladder_table(roots: &[PathBuf]) -> Result<Value> {
     let table = ladder_table(roots)?;
     println!(
@@ -698,6 +699,19 @@ fn printed_ladder_table(roots: &[PathBuf]) -> Result<Value> {
             column(3),
             column(4),
             column(5)
+        );
+    }
+    println!();
+    println!("| arm | input | cache read | cache write | output |");
+    println!("| --- | --- | --- | --- | --- |");
+    for (arm, sums) in table["tokens"].as_object().context("no tokens")? {
+        let kind = |index: usize| sums[index].as_u64().unwrap_or(0);
+        println!(
+            "| {arm} | {} | {} | {} | {} |",
+            kind(0),
+            kind(1),
+            kind(2),
+            kind(3)
         );
     }
     Ok(table)

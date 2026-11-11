@@ -3124,6 +3124,14 @@ Every game keeps `seat4 --journal`: this seat's views, questions, answers and th
 `--later-reference` and `--later-arm` add a second round on the same deck pairs. A game is clean when the house gave at most 5 % of the answers it and
 the model gave between them, and the seat closed with a summary: `agy` can die in mid-game, and the result the table then records says nothing.
 
+A house arm (`--arm PROFILE:house=LEVEL:GAMES`, a fair level a player can choose) plays the language model against the house in the room's own
+AI chair, played inside the game's engine as at any hosted table, with no `seat4`: the model's guest account (`LLM-l<game>`, one sign-in a game)
+opens the room with the model's deck, sets the ladder's rules, makes chair 1 the house at LEVEL with the other deck, and hands chair 0 to the bridge
+(`--host-chair`); the room starts once the bridge has said ready. A game's `won` and `net_deck` are then the house's. With an engine server built
+with `house-foresight` (`docs/house-ai.md` §"Foresight") the house searches. `--only FIELD=VALUE` plays only the manifest's decks whose field says so
+(`--only split=holdout2 --only format=constructed`). `phase_a4 ladder` reads the model's summary in either chair and sums its calls' tokens by kind
+(uncached input, cache read, cache write, output) per arm.
+
 Measured on 2026-11-06, B-refresh with plain tactics against the 18-group bundle, 20 life, train decks, net on both sides, bootstrap over deck pairs:
 
 | Opponent | Round 1: slots, wins plain and bundle | Round 1 difference | Both rounds: slots | Both rounds difference |
