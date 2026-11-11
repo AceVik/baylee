@@ -408,6 +408,12 @@ struct Args {
     /// each ability and each land, read off the engine's offer, K in all.
     #[arg(long, requires = "search")]
     search_macros: bool,
+    /// No house answer in a world: a rollout stops where its next answer
+    /// would be the house's (a fallback of the net, or the fork's house for
+    /// a refused answer) and the position before it is scored. Without it
+    /// such answers are played and counted (`house_answers`).
+    #[arg(long, requires = "search")]
+    search_house_free: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -449,7 +455,8 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_neural_opponent(args.search_neural_opponent)
         .with_fair(args.search_fair)
         .with_turns(args.search_turns)?
-        .with_macros(args.search_macros);
+        .with_macros(args.search_macros)
+        .with_house_free(args.search_house_free);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {

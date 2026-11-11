@@ -333,3 +333,34 @@ fn a_fair_search_names_its_contract() {
     );
     assert!(plain.with_turns(SearchConfig4::MAX_TURNS + 1).is_err());
 }
+
+/// A player whose later rollout answers are the house's, as a net's
+/// fallbacks are: by default they are played and counted, and a house-free
+/// search stops each rollout before the first of them, so no house answer is
+/// in any world it scores.
+#[test]
+fn a_house_free_search_plays_no_house_answer_in_a_world() {
+    let falling_back = || {
+        let mut player = Mock::new(steady, creatures);
+        player.fallback_after = Some(6);
+        player
+    };
+    let preset = deal(12, &opponent("Grizzly Bears"));
+    let counted = play(&preset, falling_back(), foresight(4, 2));
+    let played: u64 = counted.reports.iter().map(|r| r.house_answers).sum();
+    assert!(played > 0, "house answers in rollouts are counted");
+    assert!(counted.reports.iter().all(|r| r.leaves.house_stop == 0));
+
+    let free = play(
+        &preset,
+        falling_back(),
+        foresight(4, 2).with_house_free(true),
+    );
+    assert!(!free.reports.is_empty());
+    assert!(free.reports.iter().all(|r| r.house_answers == 0));
+    let stops: u64 = free.reports.iter().map(|r| r.leaves.house_stop).sum();
+    assert!(stops > 0, "rollouts stopped before a house answer");
+    for report in &free.reports {
+        assert!(report.leaves.house_stop <= report.leaves.stopped);
+    }
+}

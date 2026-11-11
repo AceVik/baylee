@@ -125,6 +125,17 @@ pub struct SearchConfig4 {
     decks: Decks4,
     turns: usize,
     macros: bool,
+    house: HouseInWorlds4,
+}
+
+/// What a rollout does where its next answer would be the house's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum HouseInWorlds4 {
+    /// Plays it, as the evaluator does at the table, and counts it.
+    Answers,
+    /// Stops there and scores the position before it.
+    Stops,
 }
 
 /// What a search's worlds deal the hidden cards from.
@@ -191,6 +202,7 @@ impl SearchConfig4 {
             decks: Decks4::Known,
             turns: 0,
             macros: false,
+            house: HouseInWorlds4::Answers,
         })
     }
 
@@ -246,6 +258,30 @@ impl SearchConfig4 {
     #[must_use]
     pub const fn macros(&self) -> bool {
         self.macros
+    }
+
+    /// The same search with no house answer in a world: where a rollout's
+    /// next answer would be the house's (the player's own fallback for a
+    /// question it does not support, a repeated view or a failed decode, or
+    /// the fork's house standing in for a refused answer), the rollout stops
+    /// and the position before it is scored (`leaves.house_stop`). For a
+    /// search whose worlds feed labels: the house is no label source.
+    /// Otherwise such answers are played and counted
+    /// ([`SearchReport4::house_answers`]).
+    #[must_use]
+    pub const fn with_house_free(self, house_free: bool) -> Self {
+        let house = if house_free {
+            HouseInWorlds4::Stops
+        } else {
+            HouseInWorlds4::Answers
+        };
+        Self { house, ..self }
+    }
+
+    /// Whether a rollout stops where a house answer would be played.
+    #[must_use]
+    pub const fn house_free(&self) -> bool {
+        matches!(self.house, HouseInWorlds4::Stops)
     }
 
     /// The same search, with every other chair in a rollout answered by the
@@ -464,6 +500,7 @@ impl SearchConfig4 {
             metadata["turns"] = json!(self.turns);
             metadata["stop"] = json!("game_over_or_the_turn_boundary_after_turns_turns_or_horizon");
         }
+        metadata["house_in_worlds"] = json!(self.house);
         if self.macros {
             metadata["roots"] = json!(
                 "priority_at_the_start_of_a_chain_where_the_policy_acts_or_in_the_seats_main_phase_\
@@ -788,6 +825,9 @@ pub struct SearchReport4 {
     pub rollout_steps: u64,
     /// Decisions of the searching seat that counted toward the horizon.
     pub seat_decisions: u64,
+    /// House answers played in rollouts: a chair's answer the player gave
+    /// as the house's, or the fork's house standing in for a refused one.
+    pub house_answers: u64,
     /// How the rollouts ended.
     pub leaves: LeafCounts4,
     /// Whether the rollouts ran at once, on rollout players of the player's
@@ -814,6 +854,9 @@ pub struct LeafCounts4 {
     /// Nobody could answer, an answer was refused, or the action cap was
     /// reached.
     pub stopped: u64,
+    /// Of `stopped`: the next answer was the house's and the search plays
+    /// none ([`SearchConfig4::with_house_free`]).
+    pub house_stop: u64,
 }
 
 impl LeafCounts4 {
@@ -826,6 +869,7 @@ impl LeafCounts4 {
         self.turn_end += other.turn_end;
         self.boundary += other.boundary;
         self.stopped += other.stopped;
+        self.house_stop += other.house_stop;
     }
 
     /// Rollouts scored by the value head.

@@ -33,6 +33,9 @@ pub(super) struct Mock {
     value: fn(&PlayerView) -> f32,
     confidence: f32,
     lends: bool,
+    /// Rollout answers past this many are given as the house's, as a net
+    /// gives its fallbacks.
+    pub(super) fallback_after: Option<u64>,
 }
 
 impl Mock {
@@ -49,6 +52,7 @@ impl Mock {
             value,
             confidence: 0.0,
             lends: false,
+            fallback_after: None,
         }
     }
 
@@ -153,10 +157,21 @@ impl SearchPlayer4 for Mock {
             .with_seed(self.state.sampling)
             .act(view, pending);
         self.record(pending, SourceKind4::Net);
+        let source = if self
+            .fallback_after
+            .is_some_and(|after| self.state.answers > after)
+        {
+            SourceKind4::House
+        } else {
+            SourceKind4::Net
+        };
         Answer4 {
             action,
             value: 0.5,
-            provenance: StepProvenance4::default(),
+            provenance: StepProvenance4 {
+                source,
+                ..StepProvenance4::default()
+            },
             target: TeacherTarget4::default(),
         }
     }

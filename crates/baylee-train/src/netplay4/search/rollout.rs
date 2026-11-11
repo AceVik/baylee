@@ -39,6 +39,9 @@ pub(super) struct Reach {
     /// Turn boundaries past the root; `0` for v2's stops (the seat's first
     /// settled pass, the end of its next own turn).
     pub(super) turns: usize,
+    /// Whether a rollout stops where a house answer would be played in it
+    /// ([`SearchConfig4::with_house_free`]).
+    pub(super) house_free: bool,
 }
 
 /// How a rollout ended.
@@ -47,6 +50,13 @@ struct Leaf {
     steps: u64,
     decisions: u64,
     kind: LeafKind,
+    /// House answers played in the rollout: a chair's answer the player
+    /// itself gave as the house's (a question it does not support, a
+    /// repeated view, a failed decode), or the fork's house standing in
+    /// for an answer the fork refused.
+    house: u64,
+    /// Whether the rollout stopped because the next answer was the house's.
+    house_stop: bool,
 }
 
 /// Whether the searching seat's question is a settled position to score:
@@ -142,6 +152,8 @@ fn rollout<P: SearchPlayer4>(
         .map(|turns| start_turn.saturating_add(turns));
     let mut next_own_turn: Option<u32> = None;
     let (mut steps, mut decisions) = (0_u64, 0_u64);
+    let house = std::cell::Cell::new(0_u64);
+    let from_house = |answer: &Answer4| answer.provenance.source == SourceKind4::House;
     let value = |player: &P, steps, decisions, kind| -> anyhow::Result<Leaf> {
         let score = player
             .observed_value(seat)
@@ -151,6 +163,16 @@ fn rollout<P: SearchPlayer4>(
             steps,
             decisions,
             kind,
+            house: house.get(),
+            house_stop: false,
+        })
+    };
+    // The leaf where the next answer would be the house's and the search
+    // plays none: the position before it, scored by the value head.
+    let house_stop = |player: &P, steps, decisions| -> anyhow::Result<Leaf> {
+        value(player, steps, decisions, LeafKind::Stopped).map(|leaf| Leaf {
+            house_stop: true,
+            ..leaf
         })
     };
     loop {
@@ -174,6 +196,8 @@ fn rollout<P: SearchPlayer4>(
                 steps,
                 decisions,
                 kind: LeafKind::Terminal,
+                house: house.get(),
+                house_stop: false,
             });
         }
         if fork.state().has_left(seat) {
@@ -183,6 +207,8 @@ fn rollout<P: SearchPlayer4>(
                 steps,
                 decisions,
                 kind: LeafKind::Stopped,
+                house: house.get(),
+                house_stop: false,
             });
         }
         let observed = context.observe(fork, seat);
@@ -214,6 +240,8 @@ fn rollout<P: SearchPlayer4>(
                 steps,
                 decisions,
                 kind: LeafKind::Stopped,
+                house: house.get(),
+                house_stop: false,
             });
         }
         if observed.casting.is_none()
@@ -259,7 +287,16 @@ fn rollout<P: SearchPlayer4>(
                 return value(player, steps, decisions, LeafKind::Settled);
             }
             let counts = counts_toward_horizon(&answer, &view);
+            if from_house(&answer) {
+                if reach.house_free {
+                    return house_stop(player, steps, decisions);
+                }
+                house.set(house.get() + 1);
+            }
             if fork.act_slice(seat, answer.action, 0).is_err() {
+                if reach.house_free {
+                    return house_stop(player, steps, decisions);
+                }
                 // As the evaluator does after a refused answer.
                 let accepted = fork
                     .house_action(seat)
@@ -267,6 +304,7 @@ fn rollout<P: SearchPlayer4>(
                 if !accepted {
                     return value(player, steps, decisions, LeafKind::Stopped);
                 }
+                house.set(house.get() + 1);
             }
             steps += 1;
             decisions += u64::from(counts);
@@ -280,13 +318,23 @@ fn rollout<P: SearchPlayer4>(
             return value(player, steps, decisions, LeafKind::Stopped);
         };
         let answer = player.answer(&view, &pending, teams);
+        if from_house(&answer) {
+            if reach.house_free {
+                return house_stop(player, steps, decisions);
+            }
+            house.set(house.get() + 1);
+        }
         if fork.act_slice(other, answer.action, 0).is_err() {
+            if reach.house_free {
+                return house_stop(player, steps, decisions);
+            }
             let accepted = fork
                 .house_action(other)
                 .is_some_and(|house| fork.act_slice(other, house, 0).is_ok());
             if !accepted {
                 return value(player, steps, decisions, LeafKind::Stopped);
             }
+            house.set(house.get() + 1);
         }
         steps += 1;
     }
@@ -566,6 +614,7 @@ impl Tally {
                 rollouts: 0,
                 rollout_steps: 0,
                 seat_decisions: 0,
+                house_answers: 0,
                 leaves: LeafCounts4::default(),
                 parallel,
             },
@@ -585,6 +634,8 @@ impl Tally {
         report.rollouts += 1;
         report.rollout_steps += leaf.steps;
         report.seat_decisions += leaf.decisions;
+        report.house_answers += leaf.house;
+        report.leaves.house_stop += u64::from(leaf.house_stop);
         let kind = &mut report.leaves;
         *match leaf.kind {
             LeafKind::Terminal => &mut kind.terminal,
@@ -651,6 +702,7 @@ impl<S> Rounds<'_, S> {
             reach: Reach {
                 decisions: config.horizon(),
                 turns: config.turns(),
+                house_free: config.house_free(),
             },
             neural_opponent: config.neural_opponent(),
         };

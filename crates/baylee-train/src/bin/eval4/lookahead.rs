@@ -59,6 +59,8 @@ pub(super) struct SearchTally {
     pub rollout_steps: u64,
     /// Decisions of the searching seat that counted toward the horizon.
     pub seat_decisions: u64,
+    /// House answers played in rollouts.
+    pub house_answers: u64,
     /// How the rollouts ended.
     pub leaves: LeafCounts4,
     /// Searched decisions whose rollouts ran at once, on twins of the net.
@@ -97,6 +99,7 @@ impl SearchTally {
         self.rollouts += other.rollouts;
         self.rollout_steps += other.rollout_steps;
         self.seat_decisions += other.seat_decisions;
+        self.house_answers += other.house_answers;
         self.leaves.add(&other.leaves);
         self.parallel += other.parallel;
         self.followed += other.followed;
@@ -134,6 +137,7 @@ impl SearchTally {
             "rollouts": self.rollouts,
             "rollout_steps": self.rollout_steps,
             "seat_decisions": self.seat_decisions,
+            "house_answers": self.house_answers,
             "leaves": self.leaves,
             "terminal_leaves": self.leaves.terminal,
             "value_leaves": self.leaves.value(),
@@ -381,6 +385,7 @@ impl GameSearch {
                 self.tally.rollouts += report.rollouts;
                 self.tally.rollout_steps += report.rollout_steps;
                 self.tally.seat_decisions += report.seat_decisions;
+                self.tally.house_answers += report.house_answers;
                 self.tally.leaves.add(&report.leaves);
                 self.tally.parallel += u64::from(report.parallel);
             }
