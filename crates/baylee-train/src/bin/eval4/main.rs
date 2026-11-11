@@ -58,6 +58,7 @@ mod diagnostics;
 mod failure_terminal;
 mod foresight;
 mod house_seat;
+mod house_teacher;
 mod lookahead;
 mod precision;
 mod profile_spec;
@@ -283,6 +284,46 @@ fn main() -> anyhow::Result<()> {
             "--distill-labels labels the net's own answers: --raw-policy at temperature 0, against \
              the house or a self-play copy, no search, shadow, random seat, payable menu or \
              collection purpose"
+        );
+    }
+    let distill_teacher = args
+        .distill_teacher
+        .as_deref()
+        .map(house_teacher::TeacherSpec::parse)
+        .transpose()?;
+    if distill_teacher.is_some()
+        && (!args.raw_policy
+            || args.temperature != 0.0
+            || args.legacy_v3
+            || args.search.is_some()
+            || args.shadow_teacher.is_some()
+            || args.random_policy
+            || args.menu_payable
+            || args.dev_free_temperature
+            || args.house_as_seat
+            || collection.purpose != collector::Purpose::Evaluation
+            || (collection.opponent_path.is_some()
+                && collection.opponent_role != collector::OpponentRole::SelfPlay))
+    {
+        bail!(
+            "--distill-teacher labels the net's own answers: --raw-policy at temperature 0, \
+             against the house or a self-play copy, no search, shadow, random seat, seated \
+             house, payable menu, free temperature or collection purpose"
+        );
+    }
+    // The teacher's labels are training data: they are collected on train
+    // decks only, which convert4 checks again against its --train-manifest.
+    if distill_teacher.is_some()
+        && (args.decks_manifest.is_none()
+            || args.deck_split != "train"
+            || args.generated != 0
+            || args.held_out_cards
+            || !args.holdout_tier.is_empty()
+            || args.shape == "all")
+    {
+        bail!(
+            "--distill-teacher collects on train decks only: --decks-manifest with --deck-split \
+             train, --generated 0, no held-out cards, holdout tier or expanded decks"
         );
     }
     let dev_arm = args.dev_free_temperature || args.menu_payable;
@@ -602,6 +643,18 @@ fn main() -> anyhow::Result<()> {
                 "players": {"choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules},
             });
         }
+        if let Some(teacher) = &distill_teacher {
+            // The same reader, the house's answer in the layer's place.
+            run["distill"] = json!({
+                "contract": baylee_train::netplay4::distill::HOUSE_DISTILL_CONTRACT,
+                "teacher": teacher.metadata(),
+                "label": "a fair house level's answer H at the same question, asked before the \
+                          net answered; N the net's raw greedy answer; no rule group fires",
+                "sidecar": "games.jsonl distill_sidecar, one entry per rollout_sidecar step",
+                "costs": "games.jsonl house_teacher, one entry per game",
+                "players": {"choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules},
+            });
+        }
         if let Some(setup) = &tactician_setup {
             run["tactician"] = setup.metadata();
             if setup.keeps_labels() {
@@ -734,6 +787,7 @@ fn main() -> anyhow::Result<()> {
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
         let shadow_spec = shadow_spec.clone();
+        let distill_teacher = distill_teacher.clone();
         let deals = end_deal;
         let seats = args.seats;
         let deck_schedule = args.deck_schedule;
@@ -831,6 +885,12 @@ fn main() -> anyhow::Result<()> {
                     "--distill-labels needs a net"
                 );
             }
+            if distill_teacher.is_some() {
+                anyhow::ensure!(
+                    net.set_distill(&baylee_train::netplay4::distill::Distill4::house()),
+                    "--distill-teacher needs a net"
+                );
+            }
             if let Some(setup) = &tactician_setup {
                 anyhow::ensure!(
                     net.set_tactician(setup.tactician()?),
@@ -904,6 +964,11 @@ fn main() -> anyhow::Result<()> {
                     )?),
                     _ => None,
                 };
+                // `--distill-teacher`: the house's teachers of this game.
+                let mut game_teacher = distill_teacher
+                    .as_ref()
+                    .map(|spec| house_teacher::GameTeacher::new(spec, &deal_game_id, &teams_arc));
+                let unencodable_before = net.distill_unencodable();
                 let mut game_search =
                     search_config.map(|config| lookahead::GameSearch::new(config, search_max));
                 let (
@@ -939,10 +1004,17 @@ fn main() -> anyhow::Result<()> {
                     } else {None},
                     game_search.as_mut(),
                     value_log.as_deref(),
+                    game_teacher.as_mut(),
                 )?;
 
                 // `--distill-labels`: one entry per rollout step of the net's seats.
                 let distill_steps = net.take_distill_steps();
+                let teacher_counts = game_teacher.map(|teacher| {
+                    teacher.finish(
+                        distill_steps.as_deref(),
+                        net.distill_unencodable() - unencodable_before,
+                    )
+                });
                 if let Some((f, offset)) = &mut shard_file {
                     diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
                     if let Some(search) = game_search.as_mut() {
@@ -982,6 +1054,11 @@ fn main() -> anyhow::Result<()> {
                     if let Some(search) = &game_search {
                         // Only searched runs name it, as run.json does.
                         entry["search_events"] = json!(search.events);
+                    }
+                    if let Some(counts) = &teacher_counts {
+                        // Only house-teacher runs name it: what the teacher
+                        // answered and cost in this game.
+                        entry["house_teacher"] = counts.clone();
                     }
                     if let Some(steps) = &distill_steps {
                         // Only labelling runs name it; aligned step for step with
@@ -1024,6 +1101,7 @@ fn main() -> anyhow::Result<()> {
                         false,
                         max_decisions,
                         baseline_shard.is_some(),
+                        None,
                         None,
                         None,
                         None,
@@ -1311,6 +1389,7 @@ fn main() -> anyhow::Result<()> {
     summary["foresight_nodes"] = json!(args.foresight_nodes);
     foresight::close_logs();
     summary["foresight"] = foresight::summary(args.deals);
+    summary["house_teacher"] = house_teacher::summary();
     summary["tactician"] = tactician_setup.as_ref().map_or(Value::Null, |setup| {
         json!({"setup": setup.metadata(), "decisions": st.tactician,
             "latency": tactician::latency(&st.tactician)})

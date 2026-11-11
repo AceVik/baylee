@@ -105,6 +105,19 @@ trait EvaluationPlayer {
     fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
         None
     }
+    /// The house's answer to `seat`'s next decision, for a house-teacher
+    /// label (`--distill-teacher`). Returns whether the seat's player takes it.
+    fn give_distill_answer(
+        &mut self,
+        _seat: u8,
+        _answer: baylee_engine::choice::PlayerAction,
+    ) -> bool {
+        false
+    }
+    /// Given answers the player's menus could not hold so far.
+    fn distill_unencodable(&self) -> u64 {
+        0
+    }
     /// What `--menu-payable` counted since this was last asked.
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
@@ -252,6 +265,16 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
         Self::take_distill_steps(self)
+    }
+    fn give_distill_answer(
+        &mut self,
+        _seat: u8,
+        answer: baylee_engine::choice::PlayerAction,
+    ) -> bool {
+        Self::give_distill_answer(self, answer)
+    }
+    fn distill_unencodable(&self) -> u64 {
+        Self::distill_unencodable(self)
     }
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         Self::take_menu_stats(self)

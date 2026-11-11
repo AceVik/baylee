@@ -108,6 +108,17 @@ struct Args {
     /// self-play copy. Only `convert4 --bundle-distill` reads such a run.
     #[arg(long, requires = "record_out")]
     distill_labels: Option<String>,
+    /// House-teacher labels (`house_distillation_v1`): at every answer of the
+    /// policy, the net's raw greedy answer `N` and the answer `H` of a fair
+    /// house level (`house:<level>`, as `--baseline` names one; never one
+    /// that peeks), asked at the same question before the net answers, with
+    /// its foresight in forks dealt from the seat's public prior. Kept as
+    /// `--distill-labels` keeps its labels; the net's answer is played. A
+    /// collection on train decks only: `--decks-manifest`, `--deck-split
+    /// train`, `--generated 0`. Only `convert4 --bundle-distill` reads such a
+    /// run.
+    #[arg(long, requires = "record_out", conflicts_with = "distill_labels")]
+    distill_teacher: Option<String>,
     /// Where the window decisions are kept (`wNN.jsonl`, `wNN.f32`).
     #[arg(long, requires = "tactician_windows")]
     tactician_out: Option<PathBuf>,

@@ -475,22 +475,32 @@ impl PolicySampler4<'_> {
         }
         // `eval4 --distill-labels`: `N` and the layer's `R` at this state, read
         // on copies, whoever answered it.
+        // `--distill-teacher house:<level>`: `N` and the house's `H`, given by
+        // the host before the net answered.
         if let Some(distill) = self.distill.as_deref_mut() {
-            let rules = distill.rules();
-            distill.keep(super::distill::label(
-                &super::distill::Question {
-                    cands,
-                    view,
-                    pending,
-                    cand_logits,
-                    pair_logits,
-                    scalar_pred,
-                    active_source: self.active_source,
-                    rng: self.rng,
-                },
-                rules,
-                &target,
-            ));
+            let question = super::distill::Question {
+                cands,
+                view,
+                pending,
+                cand_logits,
+                pair_logits,
+                scalar_pred,
+                active_source: self.active_source,
+                rng: self.rng,
+            };
+            match distill.teacher() {
+                super::distill::DistillTeacher4::Rules(rules) => {
+                    distill.keep(super::distill::label(&question, rules, &target));
+                }
+                super::distill::DistillTeacher4::House => {
+                    if let Some(house) = distill.take_given() {
+                        match super::distill::house_label(&question, &house, &target) {
+                            Some(label) => distill.keep(label),
+                            None => distill.count_unencodable(),
+                        }
+                    }
+                }
+            }
         }
         let mut action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;
