@@ -1270,7 +1270,16 @@ and paying, with its pass share and chain-start share (tap, cast, activate)
 at a free priority; the run's summary sums them (`house_teacher`). `convert4
 --bundle-distill` admits either contract, one per dataset (and one teacher):
 `bundle_distillation.contract` and `.teacher` name them, and the JSON steps'
-header carries the contract; every other reader refuses both.
+header carries the contract; every other reader refuses both. In the CPU
+smoke of 11 November (r1 with the bundle and raw r1 against `sharp-2026-11`,
+two train deals each, taught by `house:expert`) every step the net answered
+was labelled, forced steps were not, and nothing was unencodable: 1,003 labels
+(940 priority, 18 single, 36 subset, 9 scalar), 234 with `N ≠ H` (212 at
+priority, 78 of those the same intent by other mechanics: another mana
+source, or tapping first where the other casts). The teacher cost 8–13 CPU
+seconds a game (0.04–0.05 a label; a search 175–180 ms at the median, under
+0.5 s at worst, 44–69 searches a game, 3–4 % refused), and the game records
+with and without it were byte for byte the same.
 
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
