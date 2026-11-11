@@ -95,6 +95,10 @@ impl Plan {
 /// who plays its forks and what it may spend.
 struct Search<'a> {
     player: PlayerId,
+    /// The deck analyses a fork's chairs are told: the table's for a search
+    /// that deals the real lists, the seat's own and nothing else for a
+    /// fair one.
+    decks: std::sync::Arc<[baylee_ai::intelligence::DeckIntel]>,
     /// The hidden cards of a fair search; `None` deals the real lists.
     prior: Option<PublicPrior>,
     model: HeuristicAgent,
@@ -213,6 +217,7 @@ impl Session {
         let search = Search {
             player,
             prior,
+            decks: self.fork_decks(at, fair),
             model: agent.simulated(0),
             budget,
             seeds: (0..u64::from(budget.worlds))
@@ -437,9 +442,10 @@ impl Session {
             .prior
             .as_ref()
             .map_or(DeckKnowledge::Known, DeckKnowledge::Prior);
-        match self.fork_for(search.player, decks, seed) {
+        let told = std::sync::Arc::clone(&search.decks);
+        match self.forked(search.player, decks, seed, told) {
             Ok(mut fork) => {
-                fork.seat_model(search.player, &search.model, seed, search.prior.is_none());
+                fork.seat_model(search.player, &search.model, seed, search.prior.is_some());
                 Ok(fork)
             }
             Err(refusal) => {
@@ -452,5 +458,32 @@ impl Session {
                 Err(refusal)
             }
         }
+    }
+}
+
+impl Session {
+    /// The deck analyses the chairs of `at`'s search are told in a fork:
+    /// the table's own where the search deals the real lists, and for a
+    /// fair search the seat's own deck and an empty one for every other
+    /// chair, so that nothing in a fork was read from another player's list.
+    fn fork_decks(
+        &self,
+        at: usize,
+        fair: bool,
+    ) -> std::sync::Arc<[baylee_ai::intelligence::DeckIntel]> {
+        if !fair {
+            return std::sync::Arc::clone(&self.scouting_decks);
+        }
+        self.scouting_decks
+            .iter()
+            .enumerate()
+            .map(|(chair, deck)| {
+                if chair == at {
+                    deck.clone()
+                } else {
+                    baylee_ai::intelligence::DeckIntel::new(Vec::new(), Vec::new())
+                }
+            })
+            .collect()
     }
 }

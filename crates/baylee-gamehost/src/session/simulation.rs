@@ -95,7 +95,6 @@ impl Session {
         decks: DeckKnowledge<'_>,
         policy_seed: u64,
     ) -> Result<SimulationSession, ForkRefusal> {
-        let shared = self.hands_told(seat)[0];
         let scouting_decks = match decks {
             DeckKnowledge::Prior(prior) => self
                 .scouting_decks
@@ -113,6 +112,22 @@ impl Session {
                 .collect(),
             DeckKnowledge::Known | DeckKnowledge::Unknown => Arc::clone(&self.scouting_decks),
         };
+        self.forked(seat, decks, policy_seed, scouting_decks)
+    }
+
+    /// [`Self::fork_for`] with the deck analyses its chairs are told given
+    /// by the caller: a house search (`session/foresight.rs`) seats its own
+    /// model in every chair and tells no chair but its own a deck, and
+    /// analysing a prior's thousands of cards for every fork would be most
+    /// of what a fork costs.
+    pub(super) fn forked(
+        &self,
+        seat: PlayerId,
+        decks: DeckKnowledge<'_>,
+        policy_seed: u64,
+        scouting_decks: Arc<[DeckIntel]>,
+    ) -> Result<SimulationSession, ForkRefusal> {
+        let shared = self.hands_told(seat)[0];
         let engine = self
             .engine
             .fork_for_with_shared(seat, decks, policy_seed, shared)?;
@@ -414,16 +429,15 @@ impl SimulationSession {
     /// fork a house search plays (`session/foresight.rs`).
     ///
     /// Nothing of the table's own chairs is left: not their kinds, levels,
-    /// agents or seeds. Unless `keep_decks` (a level that peeks, at a table
-    /// that lets it), no chair but `player`'s is told a deck either, and the
-    /// fork is held fair, so that nothing in it was read from another
-    /// player's list.
+    /// agents or seeds. With `fair`, the fork is held fair as well, so that
+    /// no chair is told more than the deck it was forked with
+    /// (`Session::forked`).
     pub(super) fn seat_model(
         &mut self,
         player: PlayerId,
         model: &baylee_ai::HeuristicAgent,
         seed: u64,
-        keep_decks: bool,
+        fair: bool,
     ) {
         self.seats = (0..self.seats.len())
             .map(|at| {
@@ -435,19 +449,7 @@ impl SimulationSession {
                 }
             })
             .collect();
-        if !keep_decks {
-            self.scouting_decks = self
-                .scouting_decks
-                .iter()
-                .enumerate()
-                .map(|(at, deck)| {
-                    if at == usize::from(player.get()) {
-                        deck.clone()
-                    } else {
-                        DeckIntel::new(Vec::new(), Vec::new())
-                    }
-                })
-                .collect();
+        if fair {
             self.fair_scouting = true;
         }
     }
