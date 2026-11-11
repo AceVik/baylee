@@ -658,6 +658,18 @@ turns 23.6 % of seeds for and 3.7 % against, and 62 % needs a net 24 %.
 An instant-speed root at every priority outside the main phase made a run
 many times slower and was cut to the two cases above.
 
+**The gain is general.** Against the frozen `sharp-2026-11`, which no
+fork ever seats, on the same 1,024 train deals: `expert:generation=6` wins
+55.7 % (Wilson 52.6–58.7; 91 seeds for, 33 against) and the new expert
+63.3 % (60.3–66.2; 152 / 16). That is 7.6 points against an independent
+opponent beside 9.9 against its own predecessor.
+
+**Better rollouts alone do not lift it.** A probe that let the searching
+seat's model try its own attacks and blocks one turn deep inside every fork
+(a search within the search) won 62.1 % against 60.9 % for the same 256
+deals without it (34 / 3 against 32 / 4): inside the noise, at 1.6 times
+the cost. It was not kept.
+
 **Cost** at expert's tier on this machine (one thread a game): about 41
 searched answers a game; a searched answer takes 78 ms at the median,
 0.39 s at the 95th percentile and 3.7 s at worst; about 6.5 CPU-seconds a
@@ -687,7 +699,7 @@ model in the house without a new decision of the owner. In order:
    lands, cards left in the library, and the turn. Linear first; a small
    tree scorer if the linear fit leaves log loss on the table. Measured as
    §5a: expert against expert:generation=6 on train.
-2. **Whether better rollouts pay at all.** Before distilling anything, a
+2. **Whether better rollouts pay at all** (done, §5a: barely). Before distilling anything, a
    nested probe: in a fork, let the model chair of the searching seat try
    its combat declarations in one world for one turn. If expert does not
    gain from that at 256 games, distillation of combat cannot gain either.
