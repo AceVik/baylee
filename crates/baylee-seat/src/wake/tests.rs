@@ -12,6 +12,7 @@ use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 mod combat;
 mod controlled;
 mod foretell;
+mod payments;
 mod phasing;
 pub(crate) mod played;
 mod routes;

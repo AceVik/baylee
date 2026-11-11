@@ -37,7 +37,7 @@ pub(crate) fn position(
 }
 
 /// [`position`] with counters on seat 0's battlefield before the game begins.
-fn position_with(
+pub(super) fn position_with(
     mine: &[&str],
     hand: &[&str],
     theirs: &[&str],
@@ -319,7 +319,7 @@ fn a_filter_land_alone_reaches_no_coloured_spell() {
 }
 
 /// Seat 0's question now, read as the bridge reads it.
-fn asked(session: &Session) -> (PlayerView, LegalActions) {
+pub(super) fn asked(session: &Session) -> (PlayerView, LegalActions) {
     let (pending, view) = session.view_for(ME).expect("seat 0 is asked");
     let Pending::Priority { legal, .. } = pending else {
         panic!("seat 0 holds priority, not {pending:?}");
@@ -328,7 +328,11 @@ fn asked(session: &Session) -> (PlayerView, LegalActions) {
 }
 
 /// Sends a plan's taps as the bridge does, each with its colour, and `then`.
-fn run(session: &mut Session, plan: &baylee_client_core::manaplan::Plan, then: PlayerAction) {
+pub(super) fn run(
+    session: &mut Session,
+    plan: &baylee_client_core::manaplan::Plan,
+    then: PlayerAction,
+) {
     for step in &plan.steps {
         session
             .act_slice(ME, crate::narrator::tap(step), 0)

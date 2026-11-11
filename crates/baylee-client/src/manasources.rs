@@ -229,7 +229,11 @@ fn restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
 
 /// Plans the taps that pay `cost` for `spend` ([`baylee_ai::spend::plan_for`]):
 /// this client's reading of what each source makes, and the engine's of what
-/// restricted mana may pay for.
+/// restricted mana may pay for. A counter-paid mana ability counts once per
+/// activation its counters pay (Druids' Repository), and an activation
+/// leaves another permanent whose own tapping ability waits for mana
+/// untapped where the rest pays both (the second Rishadan Port), as the
+/// seat plans (`baylee_ai::spend::plan_keeping`).
 #[allow(clippy::too_many_arguments)] // the payment, its price, the mana, and the two limits
 fn plan_spend(
     spend: Spend,
@@ -242,17 +246,24 @@ fn plan_spend(
     except: Option<baylee_core::ids::ObjectId>,
 ) -> Option<baylee_client_core::manaplan::Plan> {
     let restricted = restricted_sources(view, legal);
-    baylee_ai::spend::plan_for(
+    let mut plain = plain.to_vec();
+    baylee_ai::spend::repeat_counter_sources(view, &mut plain);
+    let keep = match spend {
+        Spend::Activate(source) => baylee_ai::spend::keepers(view, legal, Some(source)),
+        _ => Vec::new(),
+    };
+    baylee_ai::spend::plan_keeping(
         spend,
         cost,
         baylee_ai::spend::Mana {
             pool,
-            plain,
+            plain: &plain,
             restricted: &restricted,
         },
         legal,
         life,
         except,
+        &keep,
     )
 }
 

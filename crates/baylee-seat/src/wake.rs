@@ -881,7 +881,7 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
         .iter()
         .filter_map(|&(source, ability_index, cost)| {
             cost.symbols().next()?;
-            let taps_self = ability_taps_self(view, source, ability_index);
+            let taps_self = baylee_ai::ability_taps_its_source(view, source, ability_index);
             let plan = baylee_ai::plan_for_activation(
                 &cost.with_x(0),
                 &pool,
@@ -964,24 +964,6 @@ fn printed_ability(
     baylee_cards::by_index(rules.card)?
         .abilities_for_face(usize::from(rules.face))
         .get(usize::try_from(index).ok()?)
-}
-
-/// Whether the ability's cost taps `source`, whose mana then pays none of it.
-/// A granted ability's cost is on no card it has, so the view says.
-fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
-    use baylee_cards_dsl::AbilityDef;
-    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-        return view
-            .object(source)
-            .and_then(|object| object.grant(slot))
-            .is_some_and(|grant| grant.taps);
-    }
-    match printed_ability(view, source, index) {
-        Some(
-            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
-        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
-        _ => false,
-    }
 }
 
 /// Whether the seat could activate something now that its card allows in

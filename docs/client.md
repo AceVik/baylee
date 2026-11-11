@@ -5621,6 +5621,20 @@ animation) only breaks a tie: kept up with nothing left to pay for it, Mind
 Stone cost a hand its `{U}` (report 5.11.2026;
 `a_rock_with_a_paid_ability_gives_way_to_a_colour_the_hand_wants`).
 
+An activation's payment goes one step further, because there the paid
+ability is not a guess about later: another permanent whose own ability taps
+it and waits only for mana (`LegalActions::unpaid_abilities`; the second
+Rishadan Port) is left untapped wherever the rest pays the activation and,
+after it, that permanent's own price, from untapped sources alone; the
+dearest is given up first, and with none kept the plan is the one above, so
+nothing payable stops being so (`baylee_ai::spend::plan_keeping`; Carbon b4,
+11.11.2026: two Ports paid each other's `{1}`, and both could never be used).
+A mana ability paid by removing its own counters and no tap (Druids'
+Repository) is read once per activation its counters pay, each its own step
+(`baylee_ai::spend::repeat_counter_sources`, at most eight). Both are the
+shared planner's, for the client and the seat; the frozen house keeps its
+reading.
+
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
 
@@ -5638,7 +5652,11 @@ changing it:
    (`LegalActions::restricted_taps`) and counts the restricted mana floating
    it names (`restricted_floating`), through `baylee_ai::spend` (protocol 43,
    §"What restricted mana may pay for"); the engine's own payment check
-   remains authoritative.
+   remains authoritative. That mana is earmarked for the payment
+   (`manaplan::Earmarked`, `plan_earmarked`): it pays the cost's symbols and
+   never a paid mana ability's cost on the way, so Study Hall's black is
+   planned while Great Hall of the Biblioplex's mana floats for instants, and
+   that mana never pays Study Hall's `{1}`.
 3. **It under-counts rather than over-counts.** A source that makes two mana
    *of one chosen colour* is worth one mana here, because two units that must
    match are not two independent units, and pretending otherwise builds a plan

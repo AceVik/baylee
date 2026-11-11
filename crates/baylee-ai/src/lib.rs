@@ -1141,6 +1141,8 @@ pub fn apply_triggered_mana_bonus(
 /// 2 life for a Phyrexian symbol the mana cannot pay while the seat has it
 /// (CR 107.4f). A plan with several restricted taps is for a caller that
 /// sends every tap and then casts, or casts first and pays in the window.
+/// A counter-paid mana ability counts once per activation its counters pay
+/// ([`spend::repeat_counter_sources`]).
 #[must_use]
 pub fn plan_for_spell(
     cost: &baylee_core::mana::ManaCost,
@@ -1150,7 +1152,8 @@ pub fn plan_for_spell(
     spell: ObjectId,
     way: baylee_engine::choice::CastModeKind,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    let plain = policy::sources(view, legal);
+    let mut plain = policy::sources(view, legal);
+    spend::repeat_counter_sources(view, &mut plain);
     let restricted = policy::restricted_sources(view, legal);
     spend::plan_for(
         baylee_engine::choice::Spend::cast(spell, way),
@@ -1175,6 +1178,10 @@ pub fn plan_for_spell(
 /// other sources first, `source` itself only where nothing else pays and
 /// never when `taps_self` is true, with every restricted mana the engine
 /// says may pay for an ability of `source` (CR 106.6; [`spend::plan_for`]).
+/// Another permanent whose own tapping ability waits for mana is tapped
+/// only where the rest cannot pay both ([`spend::plan_keeping`]: the second
+/// Rishadan Port), and a counter-paid mana ability counts once per
+/// activation its counters pay ([`spend::repeat_counter_sources`]).
 #[must_use]
 pub fn plan_for_activation(
     cost: &baylee_core::mana::ManaCost,
@@ -1189,7 +1196,8 @@ pub fn plan_for_activation(
         .object(source)
         .map_or(pool.spending, |o| o.ability_mana_spending);
     let spend = baylee_engine::choice::Spend::Activate(source);
-    let all = policy::sources(view, legal);
+    let mut all = policy::sources(view, legal);
+    spend::repeat_counter_sources(view, &mut all);
     let others: Vec<baylee_client_core::manaplan::Source> =
         all.iter().filter(|s| s.id != source).cloned().collect();
     let restricted = policy::restricted_sources(view, legal);
@@ -1198,12 +1206,15 @@ pub fn plan_for_activation(
         plain,
         restricted: &restricted,
     };
-    spend::plan_for(spend, cost, mana(&others), legal, None, Some(source)).or_else(|| {
-        if taps_self {
-            return None;
-        }
-        spend::plan_for(spend, cost, mana(&all), legal, None, None)
-    })
+    let keep = spend::keepers(view, legal, Some(source));
+    spend::plan_keeping(spend, cost, mana(&others), legal, None, Some(source), &keep).or_else(
+        || {
+            if taps_self {
+                return None;
+            }
+            spend::plan_keeping(spend, cost, mana(&all), legal, None, None, &keep)
+        },
+    )
 }
 
 /// What casting `id` (`card`) under `mode` costs, from the `cost` the caller
@@ -1305,6 +1316,54 @@ pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool 
                 ..
             },
         ) => !policy::priced(cost) && cost.mana == baylee_core::mana::ManaCost::ZERO,
+        _ => false,
+    }
+}
+
+/// Whether ability `index` of `source` is a mana ability (CR 605.1a), as its
+/// card or its grant says; `false` where the view cannot say.
+#[must_use]
+pub fn is_mana_ability(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        return view
+            .object(source)
+            .and_then(|object| object.grant(slot))
+            .is_some_and(|grant| grant.mana_ability);
+    }
+    matches!(
+        activate::printed(view, source, index),
+        Some(
+            AbilityDef::Activated {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ModalActivated {
+                mana_ability: true,
+                ..
+            }
+        )
+    )
+}
+
+/// Whether ability `index` of `source` taps `source` as part of its cost,
+/// whose mana then pays none of it. A granted ability's cost is on no card
+/// it has, so the view says ([`baylee_view::GrantSource::taps`]).
+#[must_use]
+pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        return view
+            .object(source)
+            .and_then(|object| object.grant(slot))
+            .is_some_and(|grant| grant.taps);
+    }
+    match activate::printed(view, source, index) {
+        Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
         _ => false,
     }
 }

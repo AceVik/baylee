@@ -3899,3 +3899,30 @@ which pays a Phyrexian symbol with 2 life where no mana pays it and the seat
 keeps at least 1 life (CR 107.4f, 119.4). The house's casting path
 (`policy::spend_on`) is left as it is, frozen in `sharp-2026-11` and live,
 since it changes play; it adopts this behind a profile generation.
+
+### 73. The house pays a Port with a Port, counts one counter of a Repository, and converts nothing beside floating restricted mana — KNOWN, for the house's next generation
+
+From Carbon's reports, 11.11.2026 (chunks b and c; `ladder/triage-hc-expert-bc`
+in the campaign's data). Three readings the shared planner
+(`baylee_ai::spend`: the client, the seat, BayleeAI's menu) no longer has and
+the house still does, because its path is frozen in `sharp-2026-11`, pinned
+by generation, and changes play:
+
+- **A second Rishadan Port.** `policy::plan_for_activation` pays one Port's
+  `{1}` with the other Port whenever the lands beside it make colours the hand
+  wants (`manaplan::prioritize` values a paid ability only as a tie-break), so
+  a house that would use both Ports uses one. The shared path leaves a
+  permanent whose own tapping ability waits for mana untapped where the rest
+  pays both (`spend::keepers`, `spend::plan_keeping`).
+- **Druids' Repository.** `policy::sources` reads a mana ability paid by
+  removing its own counters, with no tap, as one mana however many counters
+  there are. The shared path reads it once per activation the counters pay
+  (`spend::repeat_counter_sources`).
+- **A conversion beside restricted mana.** `manaplan::plan` plans no paid mana
+  ability (Study Hall, a filter land) while any restricted mana floats
+  (`manaplan/convert.rs`). The shared path earmarks the restricted mana the
+  engine names for one payment (`manaplan::plan_earmarked`): it pays the cost
+  and never a converter's `{1}`, and the rest is left alone.
+
+Each is one call away for the house's next generation, behind a profile field
+the reference does not set.

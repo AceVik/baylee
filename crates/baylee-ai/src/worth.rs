@@ -41,7 +41,7 @@ mod permissions;
 pub(crate) use landwalk::subtype_choice;
 
 /// Match engine counter identities to their public representation.
-fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
+pub(crate) fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
     use baylee_view::CounterKind as V;
     match kind {
         CounterKind::Plus { power, toughness } => V::Plus { power, toughness },

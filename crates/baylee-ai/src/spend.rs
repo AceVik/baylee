@@ -124,6 +124,13 @@ pub fn sources_for(
 /// that needs no restricted tap takes none. With `life`, a Phyrexian symbol
 /// is paid with 2 life only where no mana pays it
 /// (`manaplan::plan_with_life`). `except` is as [`sources_for`] reads it.
+///
+/// The restricted mana is earmarked for `cost` (`manaplan::Earmarked`): it
+/// pays the cost's symbols and never a paid mana ability's `{1}` on the
+/// way, and restricted mana the engine does not name for `spend` is left
+/// alone, so a filter land or Study Hall is still planned while some floats
+/// (Carbon b9: Great Hall of the Biblioplex's mana floating for instants
+/// kept Study Hall's black out of every plan).
 #[must_use]
 pub fn plan_for(
     spend: Spend,
@@ -133,16 +140,23 @@ pub fn plan_for(
     life: Option<i32>,
     except: Option<ObjectId>,
 ) -> Option<Plan> {
-    let pool = pool_for(mana.pool, legal, spend);
-    let plan = |sources: &[Source], with_life: bool| match life {
-        Some(life) if with_life => manaplan::plan_with_life(cost, &pool, sources, life),
-        _ => manaplan::plan(cost, &pool, sources),
-    };
-    let named = legal
-        .restricted_taps_for(spend)
+    let mut named = legal.restricted_taps_for(spend);
+    named.retain(|(source, _)| Some(*source) != except);
+    let taps: Vec<(ObjectId, Tap)> = named
         .iter()
-        .any(|(source, _)| Some(*source) != except);
-    let all = named.then(|| sources_for(legal, spend, mana, except));
+        .map(|&(source, index)| (source, Tap::Ability(index)))
+        .collect();
+    let earmarked = manaplan::Earmarked {
+        floating: legal.restricted_floating_for(spend),
+        taps: &taps,
+    };
+    let plan = |sources: &[Source], with_life: bool| match life {
+        Some(life) if with_life => {
+            manaplan::plan_with_life_earmarked(cost, mana.pool, earmarked, sources, life)
+        }
+        _ => manaplan::plan_earmarked(cost, mana.pool, earmarked, sources),
+    };
+    let all = (!named.is_empty()).then(|| sources_for(legal, spend, mana, except));
     plan(mana.plain, false)
         .or_else(|| all.as_deref().and_then(|all| plan(all, false)))
         .or_else(|| plan(mana.plain, true))
@@ -179,6 +193,153 @@ pub fn has_mana_to_plan(view: &PlayerView, legal: &LegalActions) -> bool {
     !legal.restricted_taps.is_empty()
         || !legal.restricted_floating.is_empty()
         || !crate::policy::sources(view, legal).is_empty()
+}
+
+/// A permanent a payment leaves untapped where it can: an ability of its
+/// own that taps it is on offer and waits only for mana
+/// (`LegalActions::unpaid_abilities`), at `cost`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Keep {
+    /// The permanent.
+    pub source: ObjectId,
+    /// What its cheapest such ability costs in mana, `{X}` at 0.
+    pub cost: ManaCost,
+}
+
+/// Every permanent but `except` with an ability on offer that taps it and
+/// waits only for mana, cheapest first: the second Rishadan Port while the
+/// first is paid for. A mana ability is no such claim (it is a source).
+#[must_use]
+pub fn keepers(view: &PlayerView, legal: &LegalActions, except: Option<ObjectId>) -> Vec<Keep> {
+    let mut out: Vec<Keep> = Vec::new();
+    for &(source, index, cost) in &legal.unpaid_abilities {
+        if Some(source) == except
+            || crate::is_mana_ability(view, source, index)
+            || !crate::ability_taps_its_source(view, source, index)
+        {
+            continue;
+        }
+        let cost = cost.with_x(0);
+        match out.iter_mut().find(|kept| kept.source == source) {
+            Some(kept) if cost.cmc() < kept.cost.cmc() => kept.cost = cost,
+            Some(_) => {}
+            None => out.push(Keep { source, cost }),
+        }
+    }
+    out.sort_by_key(|kept| (kept.cost.cmc(), kept.source));
+    out
+}
+
+/// [`plan_for`], leaving each of `keep` untapped where the rest of the mana
+/// pays `cost` and, after it, every kept permanent's own ability too.
+///
+/// Two Rishadan Ports beside five lands paid each other's `{1}`: a Port is
+/// worth least to a hand that wants coloured mana (`manaplan::prioritize`
+/// values an ability that costs mana only as a tie-break, report 5.11.2026),
+/// so the seat offered each Port's activation tapping the other, and both
+/// could never be used (Carbon b4, 11.11.2026). A permanent is kept only
+/// while what is left pays its ability, from untapped sources alone; the
+/// dearest is given up first, and with none kept the plan is [`plan_for`]'s,
+/// so nothing that was payable stops being so.
+#[must_use]
+pub fn plan_keeping(
+    spend: Spend,
+    cost: &ManaCost,
+    mana: Mana<'_>,
+    legal: &LegalActions,
+    life: Option<i32>,
+    except: Option<ObjectId>,
+    keep: &[Keep],
+) -> Option<Plan> {
+    let mut kept: Vec<Keep> = keep
+        .iter()
+        .filter(|kept| mana.plain.iter().any(|source| source.id == kept.source))
+        .copied()
+        .collect();
+    while !kept.is_empty() {
+        let held = |source: &&Source| !kept.iter().any(|k| k.source == source.id);
+        let plain: Vec<Source> = mana.plain.iter().filter(held).cloned().collect();
+        let restricted: Vec<Source> = mana.restricted.iter().filter(held).cloned().collect();
+        let fewer = Mana {
+            pool: mana.pool,
+            plain: &plain,
+            restricted: &restricted,
+        };
+        if let Some(found) = plan_for(spend, cost, fewer, legal, life, except) {
+            let left: Vec<Source> = plain
+                .iter()
+                .filter(|source| !found.steps.iter().any(|step| step.source == source.id))
+                .cloned()
+                .collect();
+            let owed = kept
+                .iter()
+                .fold(ManaCost::ZERO, |sum, kept| sum.combine(&kept.cost));
+            if manaplan::plan(&owed, &ManaPoolView::default(), &left).is_some() {
+                return Some(found);
+            }
+        }
+        kept.pop();
+    }
+    plan_for(spend, cost, mana, legal, life, except)
+}
+
+/// The most activations of one counter-paid mana ability a plan reads: past
+/// it a plan under-counts (`manaplan`'s third rule), and the matching stays
+/// small.
+const MOST_REPEATS: u16 = 8;
+
+/// `sources` with a counter-paid mana ability that does not tap its
+/// permanent read once for every activation its counters pay: Druids'
+/// Repository with two charge counters ("Remove a charge counter from this
+/// enchantment: Add one mana of any color") is two mana, each its own
+/// activation and colour, where `manaplan` counts one source a permanent
+/// (Carbon c1, 11.11.2026). Each further activation is a source of its own
+/// beside the first, so a plan's steps name the permanent once per
+/// activation. Only for the planners of [`plan_for`]; the frozen house keeps
+/// its own reading.
+pub fn repeat_counter_sources(view: &PlayerView, sources: &mut Vec<Source>) {
+    use baylee_cards_dsl::{AbilityDef, CostPart};
+    let mut more: Vec<Source> = Vec::new();
+    for source in sources.iter() {
+        let Tap::Ability(index) = source.tap else {
+            continue;
+        };
+        if source.colors.is_empty() || source.converter.is_some() {
+            continue;
+        }
+        let Some(
+            AbilityDef::Activated {
+                cost,
+                mana_ability: true,
+                ..
+            }
+            | AbilityDef::ActivatedConditional {
+                cost,
+                mana_ability: true,
+                ..
+            },
+        ) = crate::activate::printed(view, source.id, index)
+        else {
+            continue;
+        };
+        let [CostPart::RemoveCounterSelf { kind, n }] = cost.parts else {
+            continue;
+        };
+        if !cost.mana.is_empty() || *n == 0 {
+            continue;
+        }
+        let Some(object) = view.object(source.id) else {
+            continue;
+        };
+        let times = object.counter_count(crate::worth::counter_view(*kind)) / n;
+        for _ in 1..times.min(MOST_REPEATS) {
+            more.push(Source {
+                dear: None,
+                ..source.clone()
+            });
+        }
+    }
+    sources.extend(more);
 }
 
 #[cfg(test)]

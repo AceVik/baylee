@@ -25,8 +25,9 @@
 //!    is read as its colour and never as two life; restricted mana (Cavern of
 //!    Souls) is not counted here, because its purpose is a rules question.
 //!    `baylee_ai::spend` adds the restricted taps and the restricted mana
-//!    floating the engine names for one payment (protocol 43), and the engine
-//!    checks the payment.
+//!    floating the engine names for one payment (protocol 43) as
+//!    [`Earmarked`] mana ([`plan_earmarked`]), which pays that cost and never
+//!    a paid mana ability's on the way, and the engine checks the payment.
 //! 3. **It under-counts rather than over-counts.** A source that makes two
 //!    mana *of one chosen colour* is worth one mana here, because two units
 //!    that must share a colour are not two independent units and pretending
@@ -470,6 +471,56 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
     plain_plan(cost, pool, sources).or_else(|| convert::plan(cost, pool, sources))
 }
 
+/// Mana that may pay the cost being planned and nothing else on the way:
+/// restricted mana (CR 106.6) the engine names for this one payment
+/// (`LegalActions::restricted_taps`, `restricted_floating`, read by
+/// `baylee_ai::spend`).
+///
+/// It pays the cost's own symbols as any mana does, and never a paid mana
+/// ability's cost on the way to them: Great Hall of the Biblioplex's mana may
+/// be spent "only to cast an instant or sorcery spell", so it pays Esper
+/// Charm and not Study Hall's `{1}`. Some restricted mana could pay that
+/// `{1}` (a Powerstone's), and is under-counted here, which is this module's
+/// third rule.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Earmarked<'a> {
+    /// Restricted mana floating that may pay this cost, by colour
+    /// (`ManaColor::index`).
+    pub floating: [u32; 6],
+    /// The taps among the sources whose mana is restricted, by permanent and
+    /// action.
+    pub taps: &'a [(ObjectId, Tap)],
+}
+
+/// [`plan`] with what the engine said restricted mana may pay for: `pool`'s
+/// unrestricted mana, `earmarked`'s for this cost alone, and `pool`'s other
+/// restricted mana left alone. Unlike [`plan`], restricted mana floating
+/// does not keep a paid mana ability out of the plan: what may spend it is
+/// known here (Carbon b9: Study Hall's black was never planned while Great
+/// Hall's mana floated for instants and sorceries).
+#[must_use]
+pub fn plan_earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+) -> Option<Plan> {
+    let mut plain = *pool;
+    plain.restricted = [0; 6];
+    plain_plan(cost, &with_floating(&plain, &earmarked.floating), sources)
+        .or_else(|| convert::earmarked(cost, &plain, earmarked, sources))
+}
+
+/// `pool` with `floating` added to its unrestricted counts.
+fn with_floating(pool: &ManaPoolView, floating: &[u32; 6]) -> ManaPoolView {
+    let mut out = *pool;
+    for color in ManaColor::ALL {
+        let at = slot(&mut out, color);
+        *at = at.saturating_add(floating[color.index()]);
+    }
+    out
+}
+
 /// [`plan`] with no paid mana ability among its answers.
 fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
     let pours: Vec<usize> = sources
@@ -561,7 +612,26 @@ pub fn plan_with_life(
     sources: &[Source],
     life: i32,
 ) -> Option<Plan> {
-    if let Some(found) = plan(cost, pool, sources) {
+    with_life(cost, life, |cost| plan(cost, pool, sources))
+}
+
+/// [`plan_with_life`] with [`plan_earmarked`]'s reading of restricted mana.
+#[must_use]
+pub fn plan_with_life_earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+    life: i32,
+) -> Option<Plan> {
+    with_life(cost, life, |cost| {
+        plan_earmarked(cost, pool, earmarked, sources)
+    })
+}
+
+/// [`plan_with_life`] over any planner of mana alone.
+fn with_life(cost: &ManaCost, life: i32, plan: impl Fn(&ManaCost) -> Option<Plan>) -> Option<Plan> {
+    if let Some(found) = plan(cost) {
         return Some(found);
     }
     let symbols = cost.phyrexian_count();
@@ -579,7 +649,7 @@ pub fn plan_with_life(
                 continue;
             }
             let settled = cost.with_phyrexian_settled(mask);
-            let Some(mut found) = plan(&settled, pool, sources) else {
+            let Some(mut found) = plan(&settled) else {
                 continue;
             };
             found.cost = *cost;
