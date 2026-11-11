@@ -416,6 +416,43 @@ class DecisionWindows(unittest.TestCase):
             plan.close()
             self.assertFalse(path.exists())
 
+    def test_stage_b_refreshes_keep_one_run_file_and_the_cache(self):
+        """Epoch 1 reads the cache; epochs 2 and 3 recompute into one run file, removed at close."""
+        dataset = FakeTrajectories([6, 4], 4, [np.array([0, 0, 1, 0, 1, 0], bool), np.array([0, 1, 0, 0], bool)])
+        net = tiny_net().eval()
+        with tempfile.TemporaryDirectory() as temporary:
+            cache, run = Path(temporary) / "states.json", Path(temporary) / "run"
+            with torch.no_grad():
+                W.WindowTraining(dataset, 1, 4, 2, seed=0).refresh(net, CPU, 2, 2, False, 0, 0, cache=cache, source="a")
+                plan = W.WindowTraining(dataset, 1, 4, 2, seed=0)
+                self.assertEqual(plan.refresh(net, CPU, 2, 2, False, 0, 0, cache=cache, source="a", run_dir=run),
+                                 "cache")
+                for _ in range(2):
+                    self.assertEqual(plan.refresh(net, CPU, 2, 2, False, 0, 0, run_dir=run), "computed")
+                    self.assertEqual(sorted(p.name for p in run.iterdir()), ["window-states.raw"])
+            plan.close()
+            self.assertEqual(list(run.iterdir()), [])
+            self.assertTrue(Path(str(cache) + ".states").exists())   # the cache is never the run's to delete
+
+    def test_a_pass_that_fails_leaves_no_state_file(self):
+        dataset = FakeTrajectories([6, 4], 4, [np.array([0, 0, 1, 0, 1, 0], bool), np.array([0, 1, 0, 0], bool)])
+        net = tiny_net().eval()
+        with tempfile.TemporaryDirectory() as temporary:
+            cache, run = Path(temporary) / "states.json", Path(temporary) / "run"
+            plan = W.WindowTraining(dataset, 1, 4, 2, seed=0)
+            with torch.no_grad(), patch.object(W, "window_states", side_effect=RuntimeError("killed")):
+                for options in (dict(cache=cache, source="a"), dict(run_dir=run)):
+                    with self.subTest(options=list(options)), self.assertRaisesRegex(RuntimeError, "killed"):
+                        plan.refresh(net, CPU, 2, 2, False, 0, 0, **options)
+            self.assertEqual(sorted(p.name for p in Path(temporary).rglob("*") if p.is_file()), [])
+            with torch.no_grad():   # a run file reused by a later refresh goes too
+                plan.refresh(net, CPU, 2, 2, False, 0, 0, run_dir=run)
+                with patch.object(W, "window_states", side_effect=RuntimeError("killed")), \
+                        self.assertRaisesRegex(RuntimeError, "killed"):
+                    plan.refresh(net, CPU, 2, 2, False, 0, 0, run_dir=run)
+            self.assertFalse((run / "window-states.raw").exists())
+            self.assertIsNone(plan.states)
+
     def test_state_cache_reuses_only_the_same_plan_and_weights(self):
         decisions = [np.array([0, 0, 1, 0, 1, 0], bool), np.array([0, 1, 0, 0], bool)]
         dataset = FakeTrajectories([6, 4], 4, decisions)
@@ -690,6 +727,8 @@ class DriverRoute(unittest.TestCase):
                     shm = json.loads(stdout.getvalue().split("[memory] shm ", 1)[1].splitlines()[0])
                     self.assertEqual((shm["limit_source"], shm["limit_gib"]), ("quota", 64.))
                     self.assertEqual(set(shm["loaders_gib"]), {"state_pass", "training"})
+                    # The failed pass left no state file behind.
+                    self.assertFalse((Path(temporary) / name / "window-states.raw").exists())
 
     def test_full_gradient_window_update_equals_default_update(self):
         from training4 import driver

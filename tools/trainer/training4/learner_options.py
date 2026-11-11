@@ -101,6 +101,16 @@ def check_learner_options(args, parser):
         parser.error("Adapter rank must be nonnegative and the trunk layer -1 or nonnegative")
     if sum(stages) > 1:
         parser.error("Choose one of --train-policy-head-only, --adapter-on-candidate-head, --trainable-trunk-from-layer")
+    upper = args.layers - args.trainable_trunk_from_layer
+    if (args.trainable_trunk_from_layer >= 0 and args.compile_regions and args.activation_checkpointing
+            and args.saved_activation_layers < upper):
+        # Frozen and trainable layers share one compiled code object; its cache
+        # holds a graph per requires_grad and shape case, and on CUDA a backward
+        # recompute can run another graph than the forward did.
+        parser.error(f"--trainable-trunk-from-layer {args.trainable_trunk_from_layer} with --compile-regions would "
+                     "recompute compiled trunk layers in backward, which can run another graph than their forward "
+                     f"(a torch.utils.checkpoint metadata mismatch); keep their activations with "
+                     f"--saved-activation-layers {upper}")
     partial = any(stages) or args.freeze_value_head
     if partial and (args.freeze_trunk or args.train_candidate_column is not None or args.train_rules_only):
         parser.error("Partial training replaces --freeze-trunk, --train-candidate-column and --train-rules-only")

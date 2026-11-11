@@ -14,6 +14,7 @@ using bf16 mixed precision on CUDA:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import time
@@ -525,6 +526,14 @@ def main(default_architecture="v4") -> None:
                                                     holders_gib={k: round(v / 2**30, 2) for k, v in estimate.items()})),
               flush=True)
 
+    def step_line(epoch, loss):
+        elapsed = time.perf_counter() - t0
+        return (f"[train4] step={step_num} epoch={epoch} loss={float(loss.detach()):.4f} "
+                f"optimizer_updates={optimizer_updates} "
+                f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
+                f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
+                f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}")
+
     t0 = time.perf_counter()
     stop = False
     distill_stats = None
@@ -532,7 +541,8 @@ def main(default_architecture="v4") -> None:
     if resume_epoch > args.epochs:
         print("[train4] Requested epochs already complete; checkpoint preserved", flush=True)
         return
-    with checkpoint_writer:
+    # The run's own state file (B recomputes 14.6 GB of H each epoch) goes also when the run fails.
+    with checkpoint_writer, contextlib.closing(windows) if windows is not None else contextlib.nullcontext():
         if args.validate_initial and not args.resume:
             validate_and_save()
         for epoch in range(resume_epoch, args.epochs + 1):
@@ -543,6 +553,7 @@ def main(default_architecture="v4") -> None:
             ep_corr = 0
             ep_tot = 0
             epoch_stats = torch.zeros(5, device=device)
+            epoch_distill = None
             think_stats = None
             ep_batches = 0
             h = resume_h if epoch == resume_epoch else None
@@ -621,6 +632,7 @@ def main(default_architecture="v4") -> None:
                             extra = {**AUXILIARY_TARGETS, "thinking": think_extra}
                         traj_loss, dstats = distill_loss(prepared, ref_prepared, batch, plans, scope, extra)
                         distill_stats = dstats if distill_stats is None else distill_stats + dstats
+                        epoch_distill = dstats if epoch_distill is None else epoch_distill + dstats
                     else:
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                             aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
@@ -696,12 +708,7 @@ def main(default_architecture="v4") -> None:
                 ep_batches += 1
                 next_batch = batch_idx + 1
                 if step_num % 25 == 0:
-                    elapsed = time.perf_counter() - t0
-                    print(f"[train4] step={step_num} epoch={epoch} loss={float(traj_loss.detach()):.4f} "
-                          f"optimizer_updates={optimizer_updates} "
-                          f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
-                          f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
-                          f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
+                    print(step_line(epoch, traj_loss), flush=True)
                     if distill_stats is not None:
                         from .distill import term_means
                         print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
@@ -728,6 +735,13 @@ def main(default_architecture="v4") -> None:
                 if stop:
                     break
 
+            if ep_batches and step_num % 25:
+                # The steps since the last 25-step line, so a short run prints them too.
+                print(step_line(epoch, traj_loss), flush=True)
+            if distill_stats is not None:
+                from .distill import term_means
+                print("[distill] train " + json.dumps(term_means(distill_stats.cpu())), flush=True)
+                distill_stats = None
             # Opt-in for throughput probes only: no held-out pass after the last step.
             skipped = args.skip_final_validation and stop
             val_metrics = dict(last_validation_metrics) if skipped else validate_and_save()
@@ -747,12 +761,14 @@ def main(default_architecture="v4") -> None:
                 f"val_acc={val_metrics.get('val_top1_acc', missing):.3f} ({elapsed:.1f}s)",
                 flush=True,
             )
+            if reference is not None:
+                # Distillation trains none of the behaviour-cloning terms above.
+                from .distill import epoch_line
+                print(epoch_line(epoch, step_num, epoch_distill, val_metrics), flush=True)
             save_last(epoch if stop else epoch + 1, next_batch if stop else 0, h if stop else None)
             if stop:
                 break
 
-    if windows is not None:
-        windows.close()
     if args.report_peak_rss:
         from .memory_budget import peak_memory
         print("[memory] at end " + json.dumps(peak_memory()), flush=True)

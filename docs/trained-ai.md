@@ -2089,6 +2089,16 @@ saved checkpoint, so exports keep the plain architecture),
 heads; no gradient is recorded below L) and `--freeze-value-head`. With the
 trunk frozen the reference reads the student's own boards and memory, and the
 decision-window learner's stored H stays exact, so it is computed once.
+Stage B with `--compile-regions` and `--activation-checkpointing` needs
+`--saved-activation-layers` of at least `layers - L`: every trunk layer shares
+one compiled code object, frozen and trainable layers fill its cache with a
+graph per requires_grad and shape case, and on CUDA a backward recompute ran
+another graph than its forward (a `torch.utils.checkpoint` metadata mismatch).
+Keeping the trainable layers' activations means no compiled layer is
+recomputed (more GPU memory, no recompute time). A distillation run prints
+`[distill] epoch` with the epoch's terms and validation's agreement with R
+(the `[train4] epoch` line's behaviour-cloning terms are unused there), and a
+run shorter than 25 steps still prints its step line and terms.
 `--distill-subtypes cast,pass,instant_their_turn,spend` narrows the
 cross-entropy to those subtypes of the distilled kinds; their other subtypes stay
 under their own reported KL (`kl_kind_out_of_scope`), and validation reports the
