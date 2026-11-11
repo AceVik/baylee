@@ -344,16 +344,21 @@ pub fn plan_for_activation(
     )
 }
 
-/// The pool and the sources an open payment window is planned from: what
-/// floats and every source, with the restricted mana the engine says may pay
-/// what the window owes (`Spend::Owed`).
+/// The mana an open payment window is planned from: what floats and every
+/// source, a counter-paid mana ability once per activation its counters
+/// pay, with the restricted mana the engine says may pay what the window
+/// owes (`Spend::Owed`) earmarked for it (`paystage::WindowMana`). The
+/// window pays what the reach lit ([`plan_for_spell`] plans the same way):
+/// Hymn to Tourach beside Great Hall's black and Study Hall, Prowling
+/// Nightstalker with a Repository's two counters.
 #[must_use]
 pub fn window_inputs(
     view: &PlayerView,
     legal: &LegalActions,
     pool: &baylee_view::ManaPoolView,
-) -> (baylee_view::ManaPoolView, Vec<Source>) {
-    let plain = sources(view, legal);
+) -> baylee_client_core::paystage::WindowMana {
+    let mut plain = sources(view, legal);
+    baylee_ai::spend::repeat_counter_sources(view, &mut plain);
     let restricted = restricted_sources(view, legal);
     baylee_ai::spend::inputs_for(
         legal,

@@ -536,13 +536,12 @@ impl Duel {
         }
     }
 
-    /// The pool, and what this seat could tap, for the payment it owes.
+    /// What this seat owes, and the mana it could pay with.
     fn payment_inputs(
         &self,
     ) -> Option<(
         baylee_core::mana::ManaCost,
-        baylee_view::ManaPoolView,
-        Vec<baylee_client_core::manaplan::Source>,
+        baylee_client_core::paystage::WindowMana,
     )> {
         let cost = self.owed_cost()?;
         let view = self.view.as_ref()?;
@@ -550,25 +549,29 @@ impl Duel {
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
         // The restricted mana the engine says may pay what the window owes
-        // (CR 106.6), still in a land or floating, is planned like any other:
-        // a Cavern of Souls' green for the Elf whose cast opened it.
+        // (CR 106.6), still in a land or floating, is planned like any other,
+        // earmarked for the window: a Cavern of Souls' green for the Elf whose
+        // cast opened it, Great Hall's black for the Hymn beside Study Hall.
         let Some(legal) = self
             .interaction
             .as_ref()
             .and_then(Interaction::legal_actions)
         else {
-            return Some((cost, pool, Vec::new()));
+            let window = baylee_client_core::paystage::WindowMana {
+                pool,
+                ..Default::default()
+            };
+            return Some((cost, window));
         };
-        let (pool, sources) = manasources::window_inputs(view, legal, &pool);
-        Some((cost, pool, sources))
+        Some((cost, manasources::window_inputs(view, legal, &pool)))
     }
 
     /// What "Pay now" would stage: the taps that pay what the pool and the
     /// staged taps leave owing, over the sources not staged yet.
     fn compute_owed_plan(&self) -> Option<baylee_client_core::manaplan::Plan> {
         self.interaction.as_ref()?.legal_actions()?;
-        let (cost, pool, sources) = self.payment_inputs()?;
-        self.pay_staged.suggest(&cost, &pool, &sources)
+        let (cost, window) = self.payment_inputs()?;
+        self.pay_staged.suggest_in(&cost, &window)
     }
 
     /// What the window still owes once the pool and the staged taps have
@@ -576,8 +579,8 @@ impl Duel {
     /// seat's own fixed-cost window.
     #[must_use]
     pub fn payment_remaining(&self) -> Option<Vec<baylee_core::mana::ManaSymbol>> {
-        let (cost, pool, sources) = self.payment_inputs()?;
-        Some(self.pay_staged.remaining(&cost, &pool, &sources))
+        let (cost, window) = self.payment_inputs()?;
+        Some(self.pay_staged.remaining_in(&cost, &window))
     }
 
     /// Whether the pool and the staged taps pay what is owed, so that Go is
@@ -585,7 +588,7 @@ impl Duel {
     #[must_use]
     pub fn staged_covers(&self) -> bool {
         self.payment_inputs()
-            .is_some_and(|(cost, pool, sources)| self.pay_staged.covers(&cost, &pool, &sources))
+            .is_some_and(|(cost, window)| self.pay_staged.covers_in(&cost, &window))
     }
 
     /// Stages a tap in the open window, or takes it back when its permanent

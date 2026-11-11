@@ -19,6 +19,7 @@
 //! `policy::sources`); what its mana may *pay for* is the engine's alone.
 
 use baylee_client_core::manaplan::{self, Dear, Plan, Source, Tap};
+use baylee_client_core::paystage::WindowMana;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{LegalActions, Spend};
@@ -163,19 +164,25 @@ pub fn plan_for(
         .or_else(|| all.as_deref().and_then(|all| plan(all, true)))
 }
 
-/// The pool and the sources a payment for `spend` is planned from, for a
-/// caller that plans with its own matcher (the client's payment window
-/// stages taps over them): [`pool_for`] and [`sources_for`].
+/// The mana a payment for `spend` is planned from, for a caller that plans
+/// with its own matcher (the client's payment window stages taps over it):
+/// the unrestricted pool, [`sources_for`], and the restricted mana the engine
+/// names for `spend`, earmarked for it as [`plan_for`] reads it
+/// (`manaplan::Earmarked`).
 #[must_use]
-pub fn inputs_for(
-    legal: &LegalActions,
-    spend: Spend,
-    mana: Mana<'_>,
-) -> (ManaPoolView, Vec<Source>) {
-    (
-        pool_for(mana.pool, legal, spend),
-        sources_for(legal, spend, mana, None),
-    )
+pub fn inputs_for(legal: &LegalActions, spend: Spend, mana: Mana<'_>) -> WindowMana {
+    let mut pool = *mana.pool;
+    pool.restricted = [0; 6];
+    WindowMana {
+        pool,
+        sources: sources_for(legal, spend, mana, None),
+        floating: legal.restricted_floating_for(spend),
+        taps: legal
+            .restricted_taps_for(spend)
+            .into_iter()
+            .map(|(source, index)| (source, Tap::Ability(index)))
+            .collect(),
+    }
 }
 
 /// The restricted taps on offer as this crate reads what they make (its

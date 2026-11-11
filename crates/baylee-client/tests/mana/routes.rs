@@ -66,8 +66,12 @@ struct Table {
 impl Table {
     /// The game at seat 0's first main phase.
     fn open(library: &str, hand: &[&str], mine: &[&str], theirs: &[&str]) -> Self {
-        let engine = Engine::new(&preset(library, hand, mine, theirs), RegistryLookup)
-            .expect("the duel starts");
+        Self::dealt(&preset(library, hand, mine, theirs))
+    }
+
+    /// The game `preset` deals, at seat 0's first main phase.
+    fn dealt(preset: &GamePreset) -> Self {
+        let engine = Engine::new(preset, RegistryLookup).expect("the duel starts");
         let mut table = Self {
             engine,
             duel: Duel::default(),
@@ -554,6 +558,61 @@ fn a_cost_of_twobrids_is_paid_by_a_mix() {
     let beast = table.card("Temur Tawnyback");
     assert!(table.lit(beast), "five sources pay {{2/G}}{{2/U}}{{2/R}}");
     table.click_and_cast(beast, &mut nothing);
+}
+
+/// Druids' Repository with two charge counters ("Remove a charge counter from
+/// this enchantment: Add one mana of any color") is two mana: with a Swamp and
+/// a Plains it pays Prowling Nightstalker's `{3}{B}`, each counter its own
+/// step of the run (Carbon c1, 11.11.2026: one mana a permanent).
+#[test]
+fn a_repository_pays_one_mana_for_each_counter() {
+    let mut preset = preset(
+        "Swamp",
+        &["Prowling Nightstalker"],
+        &["Druids' Repository", "Swamp", "Plains"],
+        &[],
+    );
+    preset.house_rules.starting_counters = vec![baylee_core::preset::StartingCounters {
+        seat: 0,
+        permanent: 0,
+        counters: vec![baylee_core::preset::StartingCounter {
+            kind: "charge".into(),
+            amount: 2,
+        }],
+    }];
+    let mut table = Table::dealt(&preset);
+    let stalker = table.card("Prowling Nightstalker");
+    assert!(
+        table.lit(stalker),
+        "two counters and two lands pay {{3}}{{B}}"
+    );
+    table.click_and_cast(stalker, &mut nothing);
+}
+
+/// Great Hall of the Biblioplex's black floats for instants and sorceries
+/// only; Hymn to Tourach's second `{B}` is Study Hall's, its `{1}` paid by the
+/// Island. Nothing was planned through Study Hall while any restricted mana
+/// floated (Carbon b9).
+#[test]
+fn a_conversion_is_planned_beside_restricted_mana() {
+    let mut table = Table::open(
+        "Island",
+        &["Hymn to Tourach"],
+        &["Great Hall of the Biblioplex", "Study Hall", "Island"],
+        &[],
+    );
+    tap(
+        &mut table,
+        "Great Hall of the Biblioplex",
+        1,
+        ManaColor::Black,
+    );
+    let hymn = table.card("Hymn to Tourach");
+    assert!(
+        table.lit(hymn),
+        "the Hall's {{B}} and Study Hall's, paid by the Island"
+    );
+    table.click_and_cast(hymn, &mut nothing);
 }
 
 // ------------------------------------- restricted mana, what it pays for

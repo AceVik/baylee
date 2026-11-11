@@ -512,7 +512,8 @@ pub fn plan_earmarked(
 }
 
 /// `pool` with `floating` added to its unrestricted counts.
-fn with_floating(pool: &ManaPoolView, floating: &[u32; 6]) -> ManaPoolView {
+#[must_use]
+pub fn with_floating(pool: &ManaPoolView, floating: &[u32; 6]) -> ManaPoolView {
     let mut out = *pool;
     for color in ManaColor::ALL {
         let at = slot(&mut out, color);

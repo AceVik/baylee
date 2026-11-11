@@ -5520,7 +5520,17 @@ activation's, a tax, a pact, ward.
   asks nothing (`staging_step`), and anything else is sent one action at a
   time as before, which the window still accepts. A click on a staged land,
   `Esc` (above the cast's own rung) or the shelf's "Untap all" takes taps
-  back; nothing was sent, so nothing else changes.
+  back; nothing was sent, so nothing else changes. A plan that activates one
+  permanent twice (Druids' Repository, a counter each) stages both
+  (`Staging::extend`).
+- **What it is planned from** is the shared planner's reading of the window
+  (`baylee_ai::spend::inputs_for`, `paystage::WindowMana`): the unrestricted
+  pool, every source (each restricted tap the engine names for the window),
+  and the restricted mana floating that it names, earmarked for what is owed
+  (`Staging::suggest_in`, `covers_in`, `remaining_in`). So the window pays
+  what the reach lit: Hymn to Tourach beside Great Hall's black and Study
+  Hall, which lit and then stopped (`CardCostsUnavailable`) while the window
+  planned no conversion beside restricted mana (Carbon b9, c1).
 - **Drawn** as `Proposal::Staged`: the permanent splits from its pile and
   lies turned (`board::card_group` sets the tapped bit on the group, never on
   the view) with `WILL_TAP` on the felt; the suggestion "Pay now" would add
