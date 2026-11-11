@@ -97,7 +97,7 @@ struct Fixture {
 
 /// One game, answer by answer.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-struct Game {
+pub(crate) struct Game {
     /// The table's decks, seed and sides, as [`TABLES`] has them.
     decks: Vec<String>,
     seed: u64,
@@ -127,12 +127,12 @@ fn deck(name: &str) -> baylee_cards::decks::LoadedDeck {
 
 /// The preset as `baylee_train::selfplay::table_for` builds a benchmark
 /// table: every seat the reference, on its side.
-fn preset(table: &Table) -> GamePreset {
+fn preset(table: &Table, profile: AIProfile) -> GamePreset {
     let decks: Vec<_> = table.decks.iter().map(|name| deck(name)).collect();
     let refs: Vec<_> = decks.iter().collect();
     let mut preset = preset_for_all(table.seed, &refs);
     for (i, seat) in preset.seats.iter_mut().enumerate() {
-        seat.controller = SeatController::Ai(AIProfile::SHARP_2026_11);
+        seat.controller = SeatController::Ai(profile);
         seat.team = table.teams.get(i).copied().filter(|t| *t != 0);
     }
     preset
@@ -153,12 +153,12 @@ fn answer_hash<'a>(actions: impl Iterator<Item = &'a PlayerAction>) -> String {
 }
 
 /// Plays one table to its end as the benchmark seats it.
-fn play(index: usize, table: &Table) -> Game {
-    let preset = preset(table);
+fn play(index: usize, table: &Table, name: &str, profile: AIProfile) -> Game {
+    let preset = preset(table, profile);
     let mut session = Session::new_recorded(&preset, "reference").expect("the table starts");
     let seats = preset.seats.len();
     session.describe(
-        format!("{NAME}/{index}"),
+        format!("{name}/{index}"),
         (0..seats).map(|s| s.to_string()).collect(),
     );
     session.set_fair_scouting(true);
@@ -202,12 +202,42 @@ fn play(index: usize, table: &Table) -> Game {
     }
 }
 
-fn played() -> Fixture {
-    let games: Vec<Game> = TABLES
+/// The decision set played by `profile` in every chair, the games described
+/// as `name`'s (the table's public game id, from which each chair's policy
+/// seed is derived).
+pub(crate) fn games_of(name: &str, profile: AIProfile) -> Vec<Game> {
+    TABLES
         .iter()
         .enumerate()
-        .map(|(i, table)| play(i, table))
-        .collect();
+        .map(|(i, table)| play(i, table, name, profile))
+        .collect()
+}
+
+impl Game {
+    /// What a pin keeps of a game: its decks, its seed, the FNV-1a hash of
+    /// its answers, how many there were and who won.
+    pub(crate) fn summary(&self) -> (String, u64, String, usize, Vec<u8>) {
+        (
+            self.decks.join(" v "),
+            self.seed,
+            self.answers.clone(),
+            self.inputs.len(),
+            self.winners.clone(),
+        )
+    }
+}
+
+/// The answer hash over all of `games`, in order.
+pub(crate) fn hash_of(games: &[Game]) -> String {
+    answer_hash(
+        games
+            .iter()
+            .flat_map(|g| g.inputs.iter().map(|i| &i.action)),
+    )
+}
+
+fn played() -> Fixture {
+    let games = games_of(NAME, AIProfile::SHARP_2026_11);
     Fixture {
         profile: NAME.to_owned(),
         constants: AIProfile::SHARP_2026_11,

@@ -72,7 +72,7 @@ pub(crate) fn parse(spec: &str) -> anyhow::Result<AIProfile> {
                         AIProfile::GENERATION
                     );
                 }
-                profile.generation = generation;
+                profile = profile.at_generation(generation);
             }
             _ => bail!(
                 "{spec}: unknown knob {key} (lookahead, temperature, mulligan, hold_up, politics, \

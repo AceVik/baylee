@@ -639,6 +639,15 @@ impl AIProfile {
         self.generation >= generation
     }
 
+    /// This level as it played at `generation`: the same constants on the
+    /// house code of that generation, without what came after it. What a
+    /// measurement names `<level>:generation=N`, and what a generation's
+    /// pinned answers (`baylee-gamehost`'s `generation_pins`) are played by.
+    #[must_use]
+    pub const fn at_generation(self, generation: u16) -> Self {
+        Self { generation, ..self }
+    }
+
     /// Deterministic search work per decision. A clock cutoff would make the
     /// same view choose differently on different machines; benchmarks measure
     /// latency, while these node counts decide when to return the incumbent.

@@ -21,6 +21,7 @@ mod ai_miracle;
 mod ai_upkeep_payments;
 mod ai_ward;
 mod fair_house;
+mod generation_pins;
 mod question_note;
 mod reference_profile;
 mod stall_guard;
