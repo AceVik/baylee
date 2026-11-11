@@ -44,7 +44,7 @@ pub mod tape;
 /// Version 41 writes every other frame of a game the same way.
 /// Version 42 tells a printing shown in `GameStaticMsg::more`, not the whole payload.
 /// Version 43 states what restricted mana may pay for (CR 106.6):
-/// `LegalActions::restricted_taps` and `restricted_floating`, by `Spend`.
+/// `LegalActions::restricted_taps` (in classes of taps) and `restricted_floating`, by `Spend`.
 pub const PROTOCOL_VERSION: u32 = 43;
 
 /// Duration of the shared portal flight; clocks start after arrival.

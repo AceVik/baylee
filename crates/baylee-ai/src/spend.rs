@@ -184,7 +184,7 @@ pub fn has_mana_to_plan(view: &PlayerView, legal: &LegalActions) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_engine::choice::CastModeKind;
+    use baylee_engine::choice::{CastModeKind, RestrictedTaps};
 
     fn o(n: u32) -> ObjectId {
         ObjectId::new(n, 0)
@@ -228,7 +228,10 @@ mod tests {
         let cost = ManaCost::parse("{1}{G}");
         let mut legal = LegalActions::default();
         assert!(plan_for(bears, &cost, mana, &legal, None, None).is_none());
-        legal.restricted_taps = vec![(o(1), 0, bears), (o(2), 0, bears)];
+        legal.restricted_taps = vec![RestrictedTaps {
+            taps: vec![(o(1), 0), (o(2), 0)],
+            spends: vec![bears],
+        }];
         let plan = plan_for(bears, &cost, mana, &legal, None, None).expect("both Ziggurats");
         assert_eq!(plan.taps(), 2);
         let bolt = Spend::Cast(o(51), CastModeKind::Normal);
@@ -277,7 +280,10 @@ mod tests {
             restricted: &restricted,
         };
         let legal = LegalActions {
-            restricted_taps: vec![(o(1), 1, elf)],
+            restricted_taps: vec![RestrictedTaps {
+                taps: vec![(o(1), 1)],
+                spends: vec![elf],
+            }],
             ..LegalActions::default()
         };
         let sources = sources_for(&legal, elf, mana, None);

@@ -3856,8 +3856,8 @@ abilities and how much floating restricted mana it may spend.
 **Fixed** (protocol 43): the offer states it, for the asked seat's own sources
 and pool (`LegalActions::restricted_taps`, `restricted_floating`, by `Spend`;
 `engine/restricted_offer.rs`, with the payment's own reader
-`casting::restriction_admits`), a window's offer included
-(`Engine::window_priority`). One planner reads it,
+`casting::provenance_allows`, asked once per class of sources alike), a
+window's offer included (`Engine::window_priority`). One planner reads it,
 `baylee_ai::spend::plan_for`, for the client's reach and payment window, the
 seat and BayleeAI's menu: every restricted tap it names is a source, the
 restricted mana floating it names is mana. The house keeps its reading

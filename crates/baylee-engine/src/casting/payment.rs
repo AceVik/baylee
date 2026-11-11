@@ -314,7 +314,7 @@ impl SpendFor {
 }
 
 /// Borrow the ordinary spell; clone only an alternative projection needed by mana rules.
-pub(super) fn spending_object(
+pub(crate) fn spending_object(
     state: &GameState,
     what: SpendFor,
 ) -> Option<std::borrow::Cow<'_, crate::object::GameObject>> {
@@ -402,7 +402,7 @@ pub(super) fn admitted_from_pool(
 /// `spell` the object that payment is for ([`spending_object`]). The one
 /// reading of a restriction, for mana in the pool and for mana a restricted
 /// mana ability would make.
-fn provenance_allows(
+pub(crate) fn provenance_allows(
     state: &GameState,
     provenance: &crate::mana_provenance::ManaProvenance,
     what: SpendFor,
@@ -420,47 +420,54 @@ fn provenance_allows(
     }
 }
 
-/// Whether the mana that `player`'s mana ability of `source` would make
-/// under `restriction`, made now, may pay for `what` (CR 106.6): the
-/// restriction captured as the ability's resolution would capture it (its
-/// source's chosen type, watermark and linked exile) and asked as the
-/// payment asks the mana in the pool.
-///
-/// What `LegalActions::restricted_taps` states, so a planner taps a
-/// Cavern of Souls for the spells its mana may pay for and no other.
-pub(crate) fn restriction_admits(
+/// The provenance the mana `player`'s mana ability of `source` would carry
+/// under `restriction`, made now: the restriction captured as the ability's
+/// resolution would capture it (its source's chosen type, watermark and
+/// linked exile). What `LegalActions::restricted_taps` asks payments of, so
+/// a planner taps a Cavern of Souls for the spells its mana may pay for and
+/// no other.
+pub(crate) fn restricted_provenance(
     state: &GameState,
     player: PlayerId,
     source: ObjectId,
     restriction: baylee_cards_dsl::ManaRestriction,
-    what: SpendFor,
-) -> bool {
-    let provenance = crate::mana_provenance::ManaProvenance::capture(
+) -> crate::mana_provenance::ManaProvenance {
+    crate::mana_provenance::ManaProvenance::capture(
         state,
         crate::eval::live_context(state, source),
         None,
         player,
         Some(restriction),
-    );
-    provenance_allows(
-        state,
-        &provenance,
-        what,
-        spending_object(state, what).as_deref(),
     )
 }
 
-/// The restricted mana floating in `player`'s pool that a payment for
-/// `what` may spend, by colour (`ManaColor::index`): what
-/// `LegalActions::restricted_floating` states.
-pub(crate) fn admitted_by_colour(state: &GameState, player: PlayerId, what: SpendFor) -> [u32; 6] {
+/// The restricted mana floating in `player`'s pool, by provenance class
+/// (`mana_provenance::ProvenanceClass`): one provenance of each class with
+/// the units of each colour its mana floats in, source credits apart. What
+/// `LegalActions::restricted_floating` asks payments of, a class once.
+pub(crate) fn floating_classes(
+    state: &GameState,
+    player: PlayerId,
+) -> Vec<(crate::mana_provenance::ManaProvenance, [u32; 6])> {
     let pool = &state.players[usize::from(player.get())].mana_pool;
-    let mut by_colour = [0_u32; 6];
-    for (mana, ..) in admitted_from_pool(state, what, pool) {
-        let slot = &mut by_colour[mana.color.index()];
+    let mut classes: Vec<(crate::mana_provenance::ManaProvenance, [u32; 6])> = Vec::new();
+    let mut index: std::collections::HashMap<crate::mana_provenance::ProvenanceClass, usize> =
+        std::collections::HashMap::new();
+    for mana in pool.restricted() {
+        if super::source_cost::is_source_credit(state, *mana) {
+            continue;
+        }
+        let Some(provenance) = state.restriction_info.get(&mana.restriction.0) else {
+            continue;
+        };
+        let at = *index.entry(provenance.class()).or_insert_with(|| {
+            classes.push((*provenance, [0; 6]));
+            classes.len() - 1
+        });
+        let slot = &mut classes[at].1[mana.color.index()];
         *slot = slot.saturating_add(u32::from(mana.amount));
     }
-    by_colour
+    classes
 }
 
 /// The mana in `player`'s pool that carries a rider for `what` and restricts

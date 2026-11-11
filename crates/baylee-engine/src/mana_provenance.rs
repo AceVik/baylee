@@ -258,3 +258,95 @@ impl
         }
     }
 }
+
+/// What decides whether mana of one provenance may pay for a payment
+/// (CR 106.6), and nothing more: two provenances of one class admit the
+/// same payments, so an offer asks a class once (`LegalActions::
+/// restricted_taps`), however many Powerstones are in it.
+///
+/// The restriction itself, the text it is read through, the choices it
+/// captured (a chosen type, a watermark, a linked exile) and its controller;
+/// and its source only where the filter reads anything of that source beyond
+/// those captures, which no restriction of the pool does (`reads_source`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct ProvenanceClass {
+    restriction: ManaRestriction,
+    text: crate::text_changes::TextChangeMap,
+    controller: PlayerId,
+    chosen_subtype: Option<SubtypeId>,
+    source_watermark: Option<WatermarkId>,
+    last_linked_exile: Option<baylee_core::ids::DamageSourceRef>,
+    source: Option<baylee_core::ids::ObjectId>,
+}
+
+impl ManaProvenance {
+    /// The class this provenance admits payments as.
+    pub(crate) fn class(&self) -> ProvenanceClass {
+        let reads = |filter: Option<&Filter>| filter.is_some_and(reads_source);
+        ProvenanceClass {
+            restriction: self.restriction,
+            text: self.context.text,
+            controller: self.controller,
+            chosen_subtype: self.chosen_subtype,
+            source_watermark: self.source_watermark,
+            last_linked_exile: self.last_linked_exile,
+            source: (reads(Some(self.restriction.filter))
+                || reads(self.restriction.ability_filter)
+                || self.context.reference.is_some()
+                || self.context.resolved_name.is_some())
+            .then_some(self.context.source),
+        }
+    }
+}
+
+/// Whether evaluating `filter` for a restriction can read the restriction's
+/// source beyond what its provenance captured: anything but the plain
+/// characteristics, zones and control a spell or a source is asked about,
+/// and the two captures the provenance holds. Unknown is a yes, which only
+/// keeps two sources apart.
+fn reads_source(filter: &Filter) -> bool {
+    match filter {
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(reads_source),
+        Filter::Not(part) => reads_source(part),
+        Filter::Kicked
+        | Filter::CastFromHand
+        | Filter::IsCommander
+        | Filter::HasAdventure
+        | Filter::Any
+        | Filter::HasType(_)
+        | Filter::LacksType(_)
+        | Filter::HasSupertype(_)
+        | Filter::HasSubtype(_)
+        | Filter::HasWatermark
+        | Filter::SharesWatermarkWithSource
+        | Filter::UnCard
+        | Filter::HasColor(_)
+        | Filter::IsColorless
+        | Filter::Monocolored
+        | Filter::Named(_)
+        | Filter::NameOriginallyPrintedIn(_)
+        | Filter::IsToken
+        | Filter::HasManaAbility
+        | Filter::ControlledByYou
+        | Filter::ControlledByOpponent
+        | Filter::ControlledByActivePlayer
+        | Filter::OwnedByYou
+        | Filter::Tapped
+        | Filter::Untapped
+        | Filter::EnteredThisTurn
+        | Filter::HasCounter(_)
+        | Filter::HasAnyCounter
+        | Filter::CountersAtLeast(..)
+        | Filter::MatchesChosenTypeOfSource
+        | Filter::IsAttached
+        | Filter::HasKeyword(_)
+        | Filter::CmcAtMost(_)
+        | Filter::CmcAtLeast(_)
+        | Filter::ToughnessAtMost(_)
+        | Filter::ToughnessAtLeast(_)
+        | Filter::PowerAtLeast(_)
+        | Filter::PowerAtMost(_)
+        | Filter::InZone(_) => false,
+        _ => true,
+    }
+}

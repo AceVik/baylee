@@ -157,7 +157,7 @@ mod tests {
     use super::*;
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::{ObjectId, PlayerId, PrintRef};
-    use baylee_engine::choice::{CastModeDesc, CastModeKind, LegalActions, Spend};
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, LegalActions, RestrictedTaps, Spend};
     use baylee_view::{CardIdentity, HandObject};
 
     fn identity(name: &str) -> CardIdentity {
@@ -214,11 +214,10 @@ mod tests {
                 (borrower, way(CastModeKind::Normal)),
                 (borrower, way(CastModeKind::Face(1))),
             ],
-            restricted_taps: vec![(
-                ObjectId::new(1, 0),
-                0,
-                Spend::Cast(borrower, CastModeKind::Normal),
-            )],
+            restricted_taps: vec![RestrictedTaps {
+                taps: vec![(ObjectId::new(1, 0), 0)],
+                spends: vec![Spend::Cast(borrower, CastModeKind::Normal)],
+            }],
             ..LegalActions::default()
         };
         let earlier = as_written_before(&view, &priority(legal));

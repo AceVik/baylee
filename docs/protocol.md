@@ -1061,15 +1061,30 @@ for. So the offer says it, for the asked seat's own sources and own pool
 only, server to client:
 
 ```text
-LegalActions.restricted_taps:     [(source ObjectId, ability index u32, Spend)]
+LegalActions.restricted_taps:     [RestrictedTaps]
+RestrictedTaps = { taps: [(source ObjectId, ability index u32)], spends: [Spend] }
 LegalActions.restricted_floating: [(Spend, [u32; 6])]   // by ManaColor::index
 Spend = Cast(ObjectId, CastModeKind) | Activate(ObjectId) | Owed
 ```
 
-- `restricted_taps` names each restricted mana ability of `abilities` with
-  every spend its mana may pay; `restricted_floating` names each spend the
-  restricted mana floating may pay, with how much of each colour. A spend no
-  such mana pays is left out.
+- `restricted_taps` names the restricted mana abilities of `abilities` in
+  classes: the abilities of one class make mana that is admitted alike (the
+  same restriction, read through the same text, with the same captured
+  choice and controller; every Powerstone is one class, each Cavern of Souls
+  naming a different type another), and `spends` is every spend that mana
+  may pay. A seat asks `LegalActions::restricted_taps_for(spend)`.
+  `restricted_floating` names each spend the restricted mana floating may
+  pay, with how much of each colour. A spend no such mana pays is left out,
+  and so is a class whose mana pays none.
+- The lists grow with the board and not with its square: the engine asks
+  each class once per spend, with the spend's object built once
+  (`engine::restricted_offer`), so a thousand Powerstones beside a thousand
+  Clues are one class of a thousand taps and a thousand spends. A backstop,
+  `choice::RESTRICTED_ENTRIES` (4,096), bounds the taps and spends of
+  `restricted_taps` together and the entries of `restricted_floating`, and
+  sixteen times as many asks bound the work (sources whose restriction
+  reads the source itself are a class each); past either the offer names
+  less and never something else, and the payment asks again.
 - `Cast(card, kind)` is a way of casting a card of `castable` or `payable`:
   a face other than the front or a form (`Face`, `Prototype`, `Disguise`,
   `Foretell`) is named as itself, every other way as `Normal`, which casts
@@ -1077,10 +1092,11 @@ Spend = Cast(ObjectId, CastModeKind) | Activate(ObjectId) | Owed
   `Activate(source)` is an ability of a source of `unpaid_abilities`. `Owed`
   is the payment the CR 605.3a window the offer is made in is open for.
 - Both are planning hints, as `unpaid_abilities` is: the payment asks
-  again, with the same reader (`casting::restriction_admits`,
-  `admitted_by_colour`). The engine computes them only while the seat has a
-  restricted mana ability on offer or restricted mana floating, so they are
-  empty in most offers.
+  again, with the same reader (`casting::provenance_allows`). The engine
+  computes them only while the seat has a restricted mana ability on offer
+  or restricted mana floating, so they are empty in most offers. Only the
+  asked seat's own abilities and own pool are named; an opponent's
+  restricted land or floating mana never is.
 - Every planner but the frozen house reads them through one module,
   `baylee_ai::spend`: the client's reach and its payment window,
   the language-model seat, BayleeAI's menu. A restricted tap is then a source
@@ -1091,13 +1107,14 @@ Spend = Cast(ObjectId, CastModeKind) | Activate(ObjectId) | Owed
   reverse (`version_refusal`), and engine, gateway, agent, seat and clients
   are deployed together. In JSON (records, tapes, shadow labels) both fields
   are left out when empty and default when absent. A client decodes them as
-  it decodes every frame: a list grows as its elements arrive, a truncated
-  or overlong frame is refused, `Spend` cannot nest
-  (`crates/baylee-view/tests/hostile_frames.rs`). Nothing a client sends
-  changed.
+  it decodes every frame: a list grows as its elements arrive, so a claimed
+  length allocates nothing for the claim (a class's own lists included), a
+  truncated or overlong frame is refused, `Spend` cannot nest
+  (`crates/baylee-engine/tests/hostile_actions.rs`, module `offers`).
+  Nothing a client sends changed.
 
-What changed in protocol 43: the two fields above and `Spend`, and nothing
-else.
+What changed in protocol 43: the two fields above, `RestrictedTaps` and
+`Spend`, and nothing else.
 
 ## Taking back a cast (`PlayerAction::CancelCast`)
 

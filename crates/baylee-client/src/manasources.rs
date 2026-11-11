@@ -1072,7 +1072,7 @@ mod tests {
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::ObjectId;
     use baylee_core::mana::ManaColor;
-    use baylee_engine::choice::GRANTED_ABILITY;
+    use baylee_engine::choice::{GRANTED_ABILITY, RestrictedTaps};
 
     mod borrowed;
 
@@ -2122,11 +2122,10 @@ mod tests {
         let legal = LegalActions {
             mana_abilities: vec![ObjectId::new(2, 0)],
             abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
-            restricted_taps: vec![(
-                ObjectId::new(1, 0),
-                1,
-                Spend::Cast(ObjectId::new(10, 0), CastModeKind::Normal),
-            )],
+            restricted_taps: vec![RestrictedTaps {
+                taps: vec![(ObjectId::new(1, 0), 1)],
+                spends: vec![Spend::Cast(ObjectId::new(10, 0), CastModeKind::Normal)],
+            }],
             ..LegalActions::default()
         };
         (view, legal)
@@ -2224,11 +2223,10 @@ mod tests {
         )];
         let legal = LegalActions {
             abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
-            restricted_taps: vec![(
-                ObjectId::new(1, 0),
-                1,
-                Spend::Cast(ObjectId::new(10, 0), CastModeKind::Normal),
-            )],
+            restricted_taps: vec![RestrictedTaps {
+                taps: vec![(ObjectId::new(1, 0), 1)],
+                spends: vec![Spend::Cast(ObjectId::new(10, 0), CastModeKind::Normal)],
+            }],
             ..LegalActions::default()
         };
         let plan = plan_for_spell(

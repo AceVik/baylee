@@ -262,7 +262,7 @@ mod offers {
     use super::{FRAME_LIMIT, peak_of, varint};
     use baylee_core::ids::{ObjectId, PlayerId};
     use baylee_core::wire::{decode, encode};
-    use baylee_engine::choice::{CastModeKind, LegalActions, Pending, Spend};
+    use baylee_engine::choice::{CastModeKind, LegalActions, Pending, RestrictedTaps, Spend};
 
     fn offer() -> Pending {
         let card = ObjectId::new(50, 0);
@@ -274,18 +274,18 @@ mod offers {
                 can_pass: true,
                 payable: vec![card],
                 restricted_taps: vec![
-                    (
-                        ObjectId::new(1, 0),
-                        1,
-                        Spend::Cast(card, CastModeKind::Normal),
-                    ),
-                    (
-                        ObjectId::new(2, 0),
-                        0,
-                        Spend::Cast(card, CastModeKind::Face(1)),
-                    ),
-                    (ObjectId::new(3, 0), 1, Spend::Activate(ObjectId::new(9, 0))),
-                    (ObjectId::new(1, 0), 1, Spend::Owed),
+                    RestrictedTaps {
+                        taps: vec![(ObjectId::new(1, 0), 1), (ObjectId::new(4, 0), 1)],
+                        spends: vec![Spend::Cast(card, CastModeKind::Normal), Spend::Owed],
+                    },
+                    RestrictedTaps {
+                        taps: vec![(ObjectId::new(2, 0), 0)],
+                        spends: vec![Spend::Cast(card, CastModeKind::Face(1))],
+                    },
+                    RestrictedTaps {
+                        taps: vec![(ObjectId::new(3, 0), 1)],
+                        spends: vec![Spend::Activate(ObjectId::new(9, 0))],
+                    },
                 ],
                 restricted_floating: vec![(Spend::Cast(card, CastModeKind::Normal), green)],
                 ..LegalActions::default()
@@ -301,8 +301,12 @@ mod offers {
         let Pending::Priority { legal, .. } = read else {
             panic!("a priority");
         };
-        assert_eq!(legal.restricted_taps.len(), 4);
+        assert_eq!(legal.restricted_taps.len(), 3);
         assert_eq!(legal.restricted_floating.len(), 1);
+        assert_eq!(
+            legal.restricted_taps_for(Spend::Owed),
+            vec![(ObjectId::new(1, 0), 1), (ObjectId::new(4, 0), 1)]
+        );
     }
 
     #[test]
@@ -324,7 +328,8 @@ mod offers {
     }
 
     /// The two lists are the offer's last fields: each claims more than the
-    /// frame holds, and the reader holds what arrives and not what is claimed.
+    /// frame holds, and so does a class's list of taps, and the reader holds
+    /// what arrives and not what is claimed.
     #[test]
     fn a_claimed_restricted_list_allocates_nothing_for_the_claim() {
         let quiet = Pending::Priority {
@@ -337,8 +342,11 @@ mod offers {
             &[0, 0],
             "both lists close the offer"
         );
-        for keep in [2, 1] {
-            let head = &empty[..empty.len() - keep];
+        let lists = &empty[..empty.len() - 2];
+        let floating = &empty[..empty.len() - 1];
+        let mut one_class = lists.to_vec();
+        one_class.extend(varint(1));
+        for head in [lists, floating, &one_class[..]] {
             for claim in [1 << 20, 1 << 40, u64::MAX] {
                 let mut frame = head.to_vec();
                 frame.extend(varint(claim));

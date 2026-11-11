@@ -769,27 +769,48 @@ pub struct LegalActions {
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub unpaid_foretell: Vec<ObjectId>,
     /// What the mana of this seat's restricted mana abilities on offer may
-    /// be spent on (CR 106.6): `(source, ability index, spend)` for each
-    /// ability of `abilities` whose mana is spent only on some payments, and
-    /// each cast, activation or open payment of this offer it may pay.
+    /// be spent on (CR 106.6), class by class: each [`RestrictedTaps`] names
+    /// abilities of `abilities` whose mana is spent only on some payments and
+    /// is admitted alike (every Powerstone, every Ancient Ziggurat), and each
+    /// cast, activation or open payment of this offer that mana may pay.
     ///
     /// The view says what a land makes and never what that mana may pay
     /// for, which is a rules question about the spell (its types, the
     /// source's chosen creature type, the face cast). So the engine answers
     /// it, as the payment will: Cavern of Souls naming Elf is listed for
     /// casting Elvish Archdruid and not for Grizzly Bears, Ancient Ziggurat
-    /// for every creature spell and no instant. Planning hints only, as
-    /// `unpaid_abilities` are: the payment asks again. Only ever this seat's
-    /// own abilities, in its own offer.
+    /// for every creature spell and no instant. A class keeps the list as
+    /// long as the board and not as the board squared: a thousand Powerstones
+    /// beside a thousand Clues are one class of a thousand taps and a
+    /// thousand spends. At most [`RESTRICTED_ENTRIES`] taps and spends in all;
+    /// past that the offer names less, never more, and the payment asks
+    /// again. Planning hints only, as `unpaid_abilities` are. Only ever this
+    /// seat's own abilities, in its own offer.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
-    pub restricted_taps: Vec<(ObjectId, u32, Spend)>,
+    pub restricted_taps: Vec<RestrictedTaps>,
     /// The restricted mana floating in this seat's pool that each spend may
     /// use, by colour (`ManaColor::index`); a spend no such mana may pay is
-    /// left out. The view counts restricted mana by colour and no more, so
-    /// without this a planner could not count a Cavern's green it had
-    /// already tapped for an Elf.
+    /// left out, and at most [`RESTRICTED_ENTRIES`] are named. The view
+    /// counts restricted mana by colour and no more, so without this a
+    /// planner could not count a Cavern's green it had already tapped for an
+    /// Elf.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub restricted_floating: Vec<(Spend, [u32; 6])>,
+}
+
+/// The most taps and spends [`LegalActions::restricted_taps`] names in all,
+/// and the most entries [`LegalActions::restricted_floating`] holds: a
+/// backstop on what one offer carries, far past any board that is played.
+pub const RESTRICTED_ENTRIES: usize = 4096;
+
+/// One class of restricted mana abilities on offer whose mana is admitted
+/// alike (CR 106.6), and what it may pay for.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RestrictedTaps {
+    /// The abilities, as `(source, ability index)`.
+    pub taps: Vec<(ObjectId, u32)>,
+    /// What their mana may pay for.
+    pub spends: Vec<Spend>,
 }
 
 /// What a payment of this offer is for, as restricted mana asks it (CR
@@ -833,8 +854,8 @@ impl LegalActions {
     pub fn restricted_taps_for(&self, spend: Spend) -> Vec<(ObjectId, u32)> {
         self.restricted_taps
             .iter()
-            .filter(|(_, _, s)| *s == spend)
-            .map(|(source, index, _)| (*source, *index))
+            .filter(|class| class.spends.contains(&spend))
+            .flat_map(|class| class.taps.iter().copied())
             .collect()
     }
 
