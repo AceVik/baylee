@@ -30,17 +30,25 @@ def main(argv=None):
     parser.add_argument("--min-ratio", type=float, default=0.8)
     parser.add_argument("--gate-top1", type=float, default=0.70)
     parser.add_argument("--gate-ratio", type=float, default=0.9)
+    parser.add_argument("--out", default="", help="Also write the verdicts as JSON (a pipeline stage's output)")
+    parser.add_argument("--report-only", action="store_true",
+                        help="Exit 0 whatever the verdict, so later stages still run; the verdict is in --out")
     args = parser.parse_args(argv)
     path = Path(args.model).expanduser()
     meta = json.loads((path / "meta.json" if path.is_dir() else path).read_text())
     metrics = meta.get("val_metrics") or {}
     passed, verdict = pregate(metrics, args.min_ratio)
     print("[pregate] " + json.dumps(verdict), flush=True)
+    report = dict(model=str(path), pregate=verdict)
     if "house" in (meta.get("bundle_distillation") or {}):
         from .house import house_gate
         passed, gate = house_gate(metrics, args.gate_top1, args.gate_ratio)
         print("[house-gate] " + json.dumps(gate), flush=True)
-    return 0 if passed else 3
+        report["house_gate"] = gate
+    report["passed"] = passed
+    if args.out:
+        Path(args.out).write_text(json.dumps(report, indent=1) + "\n")
+    return 0 if passed or args.report_only else 3
 
 
 if __name__ == "__main__":
