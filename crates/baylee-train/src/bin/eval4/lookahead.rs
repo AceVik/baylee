@@ -358,6 +358,8 @@ impl GameSearch {
                     "ses": report.ses,
                     "priors": report.priors,
                     "scores": report.scores,
+                    "worlds": report.worlds,
+                    "house_answers": report.house_answers,
                     "chosen": report.chosen,
                     "rounds": report.rounds,
                     "leaves": report.leaves,

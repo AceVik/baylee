@@ -815,6 +815,11 @@ pub struct SearchReport4 {
     /// The standard error of each improvement; `None` with fewer than two
     /// rounds, and for the policy's answer.
     pub ses: Vec<Option<f64>>,
+    /// Every candidate's score in every complete round: `worlds[p][i]` is
+    /// candidate `i`'s in world `p`. Candidates meet the same worlds, so a
+    /// row is a paired comparison: the fork advantage of an answer over the
+    /// policy's is `worlds[p][i] - worlds[p][0]` (`fork_advantage4`).
+    pub worlds: Vec<Vec<f32>>,
     /// Each candidate's prior: the policy's probability of it.
     pub priors: Vec<f64>,
     /// The score the selection ranked each candidate by.
@@ -1297,6 +1302,7 @@ fn choose_and_answer<P: SearchPlayer4>(
     report.diffs = choice.diffs;
     report.ses = choice.ses;
     report.scores = choice.scores;
+    report.worlds = worlds;
     report.changed = report.chosen != 0;
     let chosen = &candidates[report.chosen];
     let pick = &chosen.root;

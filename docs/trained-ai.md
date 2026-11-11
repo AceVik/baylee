@@ -1278,6 +1278,24 @@ the evaluator; nothing of it ships.
   the plan breaks; the summary counts `scripts`, `scripts_done` and
   `scripts_broken`, and a change to a planned cast as `Planned<kind>`.
 
+*No house in a world, and the records a teacher is read from.* A rollout
+can still meet a house answer: the net's own fallback (a question it does
+not support, a repeated view, a failed decode) or the fork's house standing
+in for an answer the fork refused, as the evaluator does at the table. They
+are counted (`house_answers`, per event and in the summary). With
+`--search-house-free` a rollout stops before the first of them and the
+position before it is scored (`leaves.house_stop`), so no house answer is
+in a world whose scores become labels: the house is no label source. Every
+searched decision's event in `games.jsonl` holds each candidate's score in
+each world (`worlds[p][i]`, the same worlds for every candidate); the fork
+advantage of an answer is its score less the policy's own in the same
+world. `fork_advantage4 --games <games.jsonl…> [--margin 0.03]` judges those
+choices as the house's search was judged: chosen on every second world and
+judged on the others, both ways round, beside the same choice judged in the
+worlds it was made in, for all decisions and by the kind of the policy's
+answer. A lead that holds on the other half is a signal a student can
+learn; one that vanishes there is the search fitting its few worlds.
+
 The leaf is unchanged: the value head of the model that plays. The house's
 leaf round found that a search wins by the few answers that are plainly
 wrong and finds them with any sensible leaf (`house-ai-strength.md` §6a),

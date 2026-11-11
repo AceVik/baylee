@@ -609,6 +609,7 @@ impl Tally {
                 means: Vec::new(),
                 diffs: Vec::new(),
                 ses: Vec::new(),
+                worlds: Vec::new(),
                 priors: Vec::new(),
                 scores: Vec::new(),
                 rollouts: 0,

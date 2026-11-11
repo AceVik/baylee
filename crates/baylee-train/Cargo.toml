@@ -143,6 +143,11 @@ path = "src/bin/fit_leaf.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "fork_advantage4"
+path = "src/bin/fork_advantage4.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "foresight_probe"
 path = "src/bin/foresight_probe.rs"
 required-features = ["play"]
