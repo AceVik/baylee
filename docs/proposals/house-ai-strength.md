@@ -606,3 +606,97 @@ for the decision: the time per searched decision (p50, p95, max) and the
 CPU per game at each tier, and proposed bounds: a hard budget of rollouts
 and answers per decision, a cap on searching chairs per host, and one
 searched decision per pump slice.
+
+## 5a. What the third round built and measured (11.11.2026)
+
+Built as planned in §5.2 and §5.3, with these differences: the model in
+every chair of a fork is `expert`'s heuristics for every searching level
+(a noisy level's own heuristics made poor rollouts), foresight is off
+unless a table switches it on (`Session::set_foresight`, `eval4
+--house-foresight`), and a host can cap the work of one answer
+(`set_foresight_work`). `docs/house-ai.md` §"Foresight" describes what
+stands; `docs/engine-internals.md` §"Forking a simulation" the prior.
+
+**The held-out gate has not been run** (coordinator, 11.11.2026: it is
+spent once, on a version that train says meets 62 %). Every number below is
+a development number on the train split, round-robin pairings, each game
+counted once by `house_duplicate`, the level against its own generation-6
+self; "for / against" are the seeds the level turned.
+
+| Level (tier: candidates × worlds) | Games | Share | Wilson 95 % | For / against |
+| --- | ---: | ---: | --- | ---: |
+| novice (4 × 2) | 512 | 53.6 % | 49.3–57.9 | 25 / 7 |
+| casual (5 × 3) | 512 | 53.9 % | 49.6–58.2 | 29 / 9 |
+| steady (6 × 4) | 512 | 55.8 % | 51.4–60.0 | 46 / 16 |
+| sharp (8 × 5) | 512 | 59.7 % | 55.4–63.9 | 57 / 8 |
+| expert (8 × 6) | 1,024 | 59.9 % | 56.9–62.9 | 121 / 19 |
+
+So the fork is worth about ten points at the top tier, where a heuristic
+was worth one to four, and it is short of 62 %.
+
+**How expert got there** (1,024 train games a row unless said; a row's
+noise is about ±1.2 points):
+
+| Setting | Share | For / against |
+| --- | ---: | ---: |
+| Known decks, hand-written leaf, 2 turns (256 games) | 54.7 % | 17 / 5 |
+| the same, 4 turns / 8 turns (256 games) | 57.9 % / 59.4 % | 23 / 3, 27 / 3 |
+| the same, played to the end, 4 × 4 (256 games) | 52.6 % | 15 / 9 |
+| fair prior instead of Known, 4 turns (256 games) | 57.9 % | 22 / 2 |
+| fair prior, fitted leaf, 4 turns | 57.5 % | 96 / 19 |
+| + roots where the level's plan starts with a mana tap | 59.0 % | 107 / 15 |
+| + single targets, second combat round, race feature | 59.6 % | 118 / 19 |
+| + instant-speed roots where the level acts or must answer | 59.9 % | 121 / 19 |
+| 12 worlds instead of 6 | 60.0 % | 118 / 16 |
+| a second look at every challenger in six more worlds | 58.7 % | 104 / 16 |
+
+The fair prior costs nothing against dealing the real lists. More worlds,
+a longer horizon, more roots and a stricter choice do not move the share
+past 60 %: it is not noise that limits it. About three seeds in four are
+won by the same deck from both seats whoever pilots it; the new expert
+turns 23.6 % of seeds for and 3.7 % against, and 62 % needs a net 24 %.
+An instant-speed root at every priority outside the main phase made a run
+many times slower and was cut to the two cases above.
+
+**Cost** at expert's tier on this machine (one thread a game): about 41
+searched answers a game; a searched answer takes 78 ms at the median,
+0.39 s at the 95th percentile and 3.7 s at worst; about 6.5 CPU-seconds a
+game for the searching chair. About 5 % of the questions a search would
+take are refused by the fork (something public naming a hidden card, a
+miracle check queued, triggers not yet scanned) and get the level's own
+answer.
+
+**Tools.** `eval4 --house-foresight [--foresight-work N]` (the summary's
+`foresight` holds counts, refusals by reason and the time per searched
+answer), `eval4 --leaf-log <file>` and `fit_leaf --log <file>`
+(`baylee-train`).
+
+## 6. Round four: past the plateau (plan, 11.11.2026)
+
+One step of rollout improvement over the heuristics saturates near 60 %.
+The next step has to improve what the rollouts are made of. The house may
+learn from its own self-play (coordinator, 11.11.2026); it stays no teacher
+for BayleeAI, deterministic, fair, and Rust at play time, with no neural
+model in the house without a new decision of the owner. In order:
+
+1. **A better leaf.** The leaf decides every trade a search weighs, and
+   today's is fourteen counts. Fit it on positions of games the *searching*
+   house plays (`--house-foresight --leaf-log`), with what the counts miss:
+   power that evades blockers, each common keyword by itself, tapped and
+   untapped creatures at the leaf, what a side can still cast with its
+   lands, cards left in the library, and the turn. Linear first; a small
+   tree scorer if the linear fit leaves log loss on the table. Measured as
+   §5a: expert against expert:generation=6 on train.
+2. **Whether better rollouts pay at all.** Before distilling anything, a
+   nested probe: in a fork, let the model chair of the searching seat try
+   its combat declarations in one world for one turn. If expert does not
+   gain from that at 256 games, distillation of combat cannot gain either.
+3. **Distil the search into the base.** Record, at searched roots of
+   self-play on train, the level's answer, the search's answer and the
+   margin. Where they disagree systematically, refit the constants the
+   heuristic already has (`worth`, the attack search's prices, the
+   hold-up reserve) or a small linear scorer over its own features, behind
+   generation 8, and search on top of the improved base. Iterate while
+   train improves.
+4. **The gate** once train shows 63 % or more for expert, then the
+   BayleeAI slot.
