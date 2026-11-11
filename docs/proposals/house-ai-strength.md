@@ -508,3 +508,101 @@ Per round:
    reference, per deck, and the rating ladder's numbers from the campaign.
 
 CPU runs go through the coordinator; nothing here uses the GPU.
+
+## 5. The third round: foresight through the engine fork (11.11.2026)
+
+The owner's goal for this round: every level wins at least 62 % against
+its own generation-6 self, by playing better and not by playing against
+that predecessor. §0a found that a hand-written rule moves a rung by one to
+four points, so this round builds §3 (4): the house tries its options in
+copies of the game and plays the one that comes out best. This section is
+the plan, written before the build; §5a and later record what was built
+and measured.
+
+### 5.1 How the result is measured (fixed before the work)
+
+1. **The predecessor is pinned.** `tests/generation_pins.rs`
+   (`baylee-gamehost`) plays every level at generation 6 over the
+   reference's six tables and holds the answer hashes
+   (`tests/reference/generation-6.json`, recorded on dd9f9f329, whose
+   house code is main's e2f693dab). `eval4 --against expert:generation=6`
+   builds the same profile (`AIProfile::at_generation`). A change to
+   shared code that reaches generation 6 fails the pin and is gated.
+2. **Development on the train split, the gate once on held-out decks.**
+   The gate: test split and `holdout2`
+   (`manifest.v4.holdout2.json`), `--deck-schedule round-robin`, each
+   game counted once (`house_duplicate`), at least 1,024 independent duel
+   games per level, `<level>` against `<level>:generation=6`. The number
+   is the share of decided games with its Wilson interval and the sign
+   test over turned seeds; the goal is a point estimate of 62 %. One 2v2
+   run per level must not be worse than 50 %.
+3. **Generalisation.** The new level and its generation-6 self each play
+   the frozen `sharp-2026-11` and BayleeAI r1 with its tactical bundle on
+   the same deals; the gain must show there too. A large old-against-new
+   margin with a small gain against these two would be exploitation and
+   does not count.
+4. **Per deck:** no deck with ten or more seeds turned against more often
+   than for (`house_duplicate`'s rule line).
+5. **The ladder stays ordered,** by budget: a higher level tries more
+   options in more worlds.
+
+### 5.2 What is built
+
+**Foresight** (generation 7, `AIProfile::FORESIGHT`, a level's
+`foresight` tier, zero for a profile from before it). At a decision with
+more than one sensible answer the host forks the game for the seat
+(`Session::fork_for`), gives one candidate answer in the fork, lets the
+house play every chair on to a horizon, and scores where the game stands
+from the seat's view in that fork. Each candidate is tried in the same
+worlds (the same deals of the hidden cards and the same future
+randomness), and the level's own answer stands unless another candidate's
+mean score beats it by a margin.
+
+- *Roots.* What the engine can fork: ordinary priority with nothing
+  suspended, declare attackers, declare blockers. Candidates come from the
+  question's own offer: the level's answer first, then pass, each land,
+  each spell and ability offered, and for combat the level's declaration
+  beside none, all, and its neighbours by one creature.
+- *The opponent in a fork is never the real opponent.* Every chair of a
+  fork is played by the searching level's own generation-6 play, seeded
+  from the policy seed, with no deck knowledge for the other chairs. The
+  real opponent's level, agent, seed and deck analysis are not in the
+  fork. That is the fairness rule and also the rule against playing the
+  predecessor: the search models "a house player", whoever sits there.
+- *The hidden cards.* A fair level forks with `DeckKnowledge::Prior`
+  (new, §5.3); `seer` with `Known`.
+- *The leaf.* The game's result if it ended; otherwise a value in [0, 1]
+  from the seat's view: life, the board's material as `worth` already
+  prices it, cards in hand, lands. One function for every level, fitted on
+  self-play outcomes of the train split, never on games against a
+  particular opponent.
+- *Budgets are counts,* never time: candidates, worlds, horizon in turns
+  and a cap on answers per rollout, by tier. The same view, policy seed
+  and budget give the same answer.
+- *Where it runs.* In `baylee-gamehost` under the `simulation` feature,
+  which only the training crates enable. A hosting build has no fork, and
+  there a generation-7 level answers as its heuristics do. Shipping the
+  feature is the owner's decision (§5.4).
+
+### 5.3 A fair fork: `DeckKnowledge::Prior`
+
+A fair level may not deal the opponents' hidden cards from their lists.
+`DeckKnowledge::Prior(&PublicPrior)` deals each other owner's hidden slots
+(hand, library, outside the game) by weight from a list the caller built
+from the seat's view alone, on the belief stream; the seat's own library
+is dealt from its own cards, which it knows. No refusal on that path may
+depend on which card an opponent hides. The prior the house builds
+(`baylee-ai`): the cards the opponent has shown (a deck repeats its
+cards), basic lands of the colours shown at a deck's usual land share,
+and the card pool's cards of those colours at a low weight. Tests: the
+engine's twin games (two games that differ only in the opponent's list,
+hand and library fork to the same game), and `tests/fair_house.rs`
+extended to foresight: every fair level answers both deals the same.
+
+### 5.4 What the owner decides, and what is measured for it
+
+Shipping `simulation` to the hosts is not part of this round. Measured
+for the decision: the time per searched decision (p50, p95, max) and the
+CPU per game at each tier, and proposed bounds: a hard budget of rollouts
+and answers per decision, a cap on searching chairs per host, and one
+searched decision per pump slice.
