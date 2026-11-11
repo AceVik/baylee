@@ -1650,7 +1650,12 @@ before. Its play is now written when it moves, with where from, instead of
 "played a card" while it was still in a hand followed by a move line. And
 the journal records a player's life loss before the damage that caused it:
 where the two are the same player and amount, in one action, the damage
-line now comes first (`GameLog::cause_before_effect`).
+line now comes first (`GameLog::cause_before_effect`). Each damage keeps its
+own life line: when several creatures deal combat damage to one player at
+once (CR 510.2), the log reads damage, life, damage, life, …, and a life line
+told after damage to that player never folds the next creature's loss into
+it. The same damage again and again (a loop) still folds into one counted
+pair. Only the order and folding of lines changed; no field did.
 
 ### What a line cannot name
 

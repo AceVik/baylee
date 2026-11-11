@@ -1034,6 +1034,13 @@ impl GameLog {
     /// and a client writes as one (`LogLine::follows`). Only this batch's
     /// lines that nobody has been sent move, and only a pair that is the
     /// same amount for the same player.
+    ///
+    /// The two are put back in their new order as if written so, which lets
+    /// a loop of the same damage fold into one pair of lines again, and the
+    /// life line then stands for its damage alone ([`Self::fold`]): four
+    /// creatures' simultaneous combat damage (CR 510.2) reads as four
+    /// damage lines each followed by the life it cost, never a life change
+    /// spanning two of them told before the second.
     fn cause_before_effect(&mut self, batch: usize) {
         let first = batch.max(self.sealed);
         let n = self.lines.len();
@@ -1056,7 +1063,11 @@ impl GameLog {
                 && i64::from(*old) - i64::from(*new) == i64::from(*amount)
         );
         if pair {
-            self.lines.swap(n - 2, n - 1);
+            let damage = self.lines.split_off(n - 1);
+            let life = self.lines.split_off(n - 2);
+            for line in damage.into_iter().chain(life) {
+                self.place(line);
+            }
         }
     }
 
@@ -1309,14 +1320,18 @@ impl GameLog {
     /// Appends a line, or folds it into the ones before it when it says what
     /// they said again.
     fn push(&mut self, event: LogEvent, sees: Vec<Sees>) {
-        let line = Line {
+        self.place(Line {
             turn: self.turn,
             repeat: 1,
             at: self.now,
             event,
             sees,
             phase: self.phase,
-        };
+        });
+    }
+
+    /// Appends `line`, or folds it into the ones before it ([`Self::fold`]).
+    fn place(&mut self, line: Line) {
         if !self.fold(&line) {
             self.lines.push(line);
         }
@@ -1327,7 +1342,13 @@ impl GameLog {
     /// lines before them said. A real loop runs thousands of times before
     /// the engine calls it one, and this is what keeps it a few lines long.
     ///
-    /// Only lines nobody has been sent fold, and only public ones.
+    /// Only lines nobody has been sent fold, and only public ones. A life
+    /// line told after damage to that player is what that damage cost, and
+    /// takes no later change of life into it on its own: the journal writes
+    /// the next creature's loss before its damage, and folded there it would
+    /// tell two creatures' damage as one life change ahead of the second
+    /// ([`Self::cause_before_effect`]). A loop of the same damage still
+    /// folds, damage and life together.
     fn fold(&mut self, line: &Line) -> bool {
         let n = self.lines.len();
         for k in 1..=FOLD_SPAN {
@@ -1336,6 +1357,9 @@ impl GameLog {
             };
             if start < self.sealed {
                 break;
+            }
+            if k == 1 && self.costs_damage(start) {
+                continue;
             }
             let (first, second) = self.lines[start..].split_at(k);
             let again = first
@@ -1355,6 +1379,25 @@ impl GameLog {
             }
         }
         false
+    }
+
+    /// Whether the line at `at` is a change of life told right after damage
+    /// dealt to that player: what the damage cost ([`Self::fold`]).
+    fn costs_damage(&self, at: usize) -> bool {
+        let Some(LogEvent::Life { player, .. }) = self.lines.get(at).map(|l| &l.event) else {
+            return false;
+        };
+        at.checked_sub(1)
+            .and_then(|before| self.lines.get(before))
+            .is_some_and(|before| {
+                matches!(
+                    before.event,
+                    LogEvent::Damage {
+                        target: LogTarget::Player(hurt),
+                        ..
+                    } if hurt == *player
+                )
+            })
     }
 }
 
@@ -2257,6 +2300,101 @@ mod tests {
             life_then_damage((1, 20, 17), (1, 3), true),
             ["life", "damage"],
             "a line sent already stays where it was told"
+        );
+    }
+
+    /// Writes what the journal writes for each `(source, amount)` dealt to
+    /// player 1 in turn, starting at `life`: the loss of life, then the
+    /// damage. Returns the lines as `(repeat, event)`.
+    fn damage_in_turn(life: i32, dealt: &[(u32, u32)]) -> Vec<(u32, LogEvent)> {
+        let mut log = a_log();
+        let mut life = life;
+        for &(source, amount) in dealt {
+            let new = life - i32::try_from(amount).expect("a small amount");
+            log.push(
+                LogEvent::Life {
+                    player: PlayerId::new(1),
+                    old: life,
+                    new,
+                },
+                Vec::new(),
+            );
+            log.push(
+                LogEvent::Damage {
+                    source: Some(known(source)),
+                    target: LogTarget::Player(PlayerId::new(1)),
+                    amount,
+                    combat: true,
+                },
+                Vec::new(),
+            );
+            log.cause_before_effect(0);
+            life = new;
+        }
+        log.lines
+            .iter()
+            .map(|l| (l.repeat, l.event.clone()))
+            .collect()
+    }
+
+    /// Four unblocked creatures' combat damage is dealt at once (CR 510.2)
+    /// and the journal writes each loss of life before its damage. Each
+    /// damage is told before the life it cost, and no life line spans two
+    /// creatures: the third line said "went to 7 (from 12)" ahead of the
+    /// second creature's damage (hc-expert-a, game-0023, question 334).
+    #[test]
+    fn simultaneous_damage_is_told_damage_first_each_with_its_own_life() {
+        let damage = |source: u32, amount| LogEvent::Damage {
+            source: Some(known(source)),
+            target: LogTarget::Player(PlayerId::new(1)),
+            amount,
+            combat: true,
+        };
+        let life = |old, new| LogEvent::Life {
+            player: PlayerId::new(1),
+            old,
+            new,
+        };
+        assert_eq!(
+            damage_in_turn(12, &[(46, 3), (58, 2), (56, 2), (45, 2)]),
+            [
+                (1, damage(46, 3)),
+                (1, life(12, 9)),
+                (1, damage(58, 2)),
+                (1, life(9, 7)),
+                (1, damage(56, 2)),
+                (1, life(7, 5)),
+                (1, damage(45, 2)),
+                (1, life(5, 3)),
+            ]
+        );
+    }
+
+    /// The same damage over and over (a loop) still folds into one damage
+    /// line and the life it cost, both counted.
+    #[test]
+    fn a_loop_of_the_same_damage_folds_into_one_pair() {
+        assert_eq!(
+            damage_in_turn(20, &[(7, 1); 5]),
+            [
+                (
+                    5,
+                    LogEvent::Damage {
+                        source: Some(known(7)),
+                        target: LogTarget::Player(PlayerId::new(1)),
+                        amount: 1,
+                        combat: true,
+                    }
+                ),
+                (
+                    5,
+                    LogEvent::Life {
+                        player: PlayerId::new(1),
+                        old: 20,
+                        new: 15,
+                    }
+                ),
+            ]
         );
     }
 
