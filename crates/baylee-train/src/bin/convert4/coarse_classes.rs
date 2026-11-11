@@ -20,10 +20,9 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context as _, ensure};
+use baylee_train::coarse_class::{COARSE_CLASS_RULE, COARSE_CLASSES, NO_CLASS};
 use baylee_train::convert4::Step4;
-use baylee_train::convert4::distill_labels::{
-    COARSE_CLASS_RULE, COARSE_CLASSES, DistillSubtype4, NO_CLASS,
-};
+use baylee_train::convert4::distill_labels::DistillSubtype4;
 use serde_json::{Value, json};
 
 /// The bytes of one index row.

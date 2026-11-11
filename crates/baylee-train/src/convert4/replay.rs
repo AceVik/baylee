@@ -500,7 +500,7 @@ fn replay_feature_frames(
                     let cur_life = view.seats.get(s_idx).map_or(20, |s| s.life);
                     // Each candidate's coarse class at priority, beside the frame.
                     let cand_classes = matches!(pending, Pending::Priority { .. })
-                        .then(|| super::distill_labels::coarse_classes_of(&cands, &view));
+                        .then(|| crate::coarse_class::coarse_classes_of(&cands, &view));
                     emit(
                         Step4 {
                             game_id,

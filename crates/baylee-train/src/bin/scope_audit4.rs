@@ -36,9 +36,8 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_gamehost::record::{Line, Source};
-use baylee_train::convert4::distill_labels::{
-    DistillStep4, DistillSubtype4, is_mana_ability_action as is_tap,
-};
+use baylee_train::coarse_class::is_mana_ability_action as is_tap;
+use baylee_train::convert4::distill_labels::{DistillStep4, DistillSubtype4};
 use baylee_view::PlayerView;
 use clap::Parser;
 use flate2::read::GzDecoder;
