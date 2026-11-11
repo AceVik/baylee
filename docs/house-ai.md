@@ -1250,10 +1250,32 @@ what is on the table, whose turn it is, and the race (how much of the other
 side's life each side's creatures take in one attack). The weights are
 fitted by `fit_leaf` (`baylee-train`) on positions the house played against
 itself on the train split (`eval4 --leaf-log`), a logistic regression
-without an intercept and with no weight below zero, so that a correlation
-(a flooded hand has many lands) is never a reason to hold something back.
-The value says who is ahead between two house players; nothing in it knows
-an opponent.
+without an intercept and with no weight below zero but the turn's, so that
+a correlation (a flooded hand has many lands) is never a reason to hold
+something back. The fit reports its log loss on whole games held out. The
+value says who is ahead between two house players; nothing in it knows an
+opponent.
+
+A richer value was measured and does not stand (11.11.2026,
+`docs/proposals/house-ai-strength.md` §6a). Forty-nine features in place of
+the fourteen, the same weights fitted on the searching house's own games or
+on pairs of worlds played to their end, boosted trees over the features, and
+a leaf read at another point of the turn each call a game's result better or
+no worse, and each leaves the level's share against its predecessor within
+the noise of where the fourteen counts have it. What limits a search is not
+what its leaf can tell apart.
+
+**Judging a search.** A table can play the worlds of its searches on
+(`Session::set_foresight_probe`, `eval4 --foresight-probe <file>`): of the
+questions it searches, one in so many has every world of every answer tried
+played on past the leaf until the game ends, and each world is written with
+what the leaf showed, what the leaf value made of it and how the game came
+out. No answer depends on it. `foresight_probe` (`baylee-train`) reads the
+file and says what the search's choices won in those games over the level's
+own answers, by question kind and by how far ahead the leaf put the answer
+chosen, and what another set of weights would have chosen from the same
+leaves; `fit_leaf --pairs` fits weights on the pairs of answers whose games
+came out differently.
 
 **Budgets** are counts, so the same view, policy seed and budget give the
 same answer on any machine:
