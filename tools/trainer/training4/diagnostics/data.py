@@ -4,7 +4,7 @@ import numpy as np
 import orjson
 from torch_io4 import file_digest as file_hash
 from dataset4 import TrajectoryDataset4
-from trajectory_store4 import BST4_HDR, BST4_MAGIC
+from trajectory_store4 import BST4_HDR, BST4_MAGIC, bst4_payload_end
 
 PENDING_NAMES = ('Priority','ChooseManaAbility','ChooseDamageSource','ChooseDamageEffect',
     'AllocatePrevention','DeclareAttackers','DeclareBlockers','ChooseCards','ChooseTargets','Arrange',
@@ -32,7 +32,9 @@ class DiagnosticDataset(TrajectoryDataset4):
                 size = nc if head == 1 else npairs
                 if nm != size or nf != size:
                     raise ValueError('Diagnostic subset/pair masks are incomplete')
-                masks = raw[len(raw)-nm-nf:] if nm + nf else b''
+                # The masks end the payload; a distillation block may follow.
+                end = bst4_payload_end(header)
+                masks = raw[end-nm-nf:end]
                 if any(value not in (0, 1) for value in masks):
                     raise ValueError('Diagnostic masks must be binary')
             encoded = super().encode_single_step({'_bst4': raw})

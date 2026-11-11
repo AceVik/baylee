@@ -121,6 +121,7 @@ impl NetPlayer4 {
             guard: &mut self.choice_guard,
             rules: &mut self.tactic_rules,
             tactician: self.tactician.as_mut(),
+            distill: self.distill.as_mut(),
         }
         .select(
             cands,
@@ -217,6 +218,8 @@ struct PolicySampler4<'a> {
     rules: &'a mut super::TacticRules4,
     /// `eval4 --tactician`: answers its windows before any other path.
     tactician: Option<&'a mut super::tactician::Tactician4>,
+    /// `eval4 --distill-labels`: labels every answer with `N` and `R`.
+    distill: Option<&'a mut super::distill::Distill4>,
 }
 
 impl PolicySampler4<'_> {
@@ -281,6 +284,8 @@ impl PolicySampler4<'_> {
             None => None,
         };
 
+        // What the rule groups change at this question, for an imitation record.
+        let rules_before = *self.rules;
         let raw = self.mode == PolicyMode4::Raw;
         let parts = self.guard.tactical;
         let at_priority = matches!(pending, Pending::Priority { .. });
@@ -433,87 +438,7 @@ impl PolicySampler4<'_> {
                     let pred = if raw && !parts.scalar {
                         scalar_pred.clamp(0.0, 1.0)
                     } else {
-                        match pending {
-                            Pending::ChooseNumber {
-                                reason:
-                                    baylee_engine::choice::NumberPrompt::X
-                                    | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
-                                ..
-                            } => 1.0,
-                            Pending::ChooseNumber {
-                                min,
-                                max,
-                                reason:
-                                    baylee_engine::choice::NumberPrompt::DivideDamage {
-                                        target,
-                                        left,
-                                        ..
-                                    },
-                                ..
-                            } if *max > *min => {
-                                let rem_t = match target {
-                                    baylee_engine::choice::TargetRef::Object(oid) => {
-                                        view.object(oid.object).map_or(*max, |o| {
-                                            u32::try_from(
-                                                (i32::from(o.toughness.unwrap_or(1))
-                                                    - i32::from(o.damage))
-                                                .max(1),
-                                            )
-                                            .unwrap_or(1)
-                                        })
-                                    }
-                                    baylee_engine::choice::TargetRef::Player(pid) => {
-                                        view.seat(*pid).map_or(*max, |s| {
-                                            u32::try_from(s.life.max(1)).unwrap_or(*max)
-                                        })
-                                    }
-                                };
-                                let assign = rem_t.min(*left).clamp(*min, *max);
-                                normalize_scalar_choice(assign, *min, *max)
-                            }
-                            Pending::ChooseNumber {
-                                min,
-                                max,
-                                reason:
-                                    baylee_engine::choice::NumberPrompt::CombatDamage {
-                                        source,
-                                        recipient,
-                                        index,
-                                        of,
-                                        left,
-                                        lethal,
-                                    },
-                                ..
-                            } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
-                                // A trampler's question says what is lethal, and
-                                // its last blocker is asked too (CR 702.19b).
-                                let src_dt = view.object(*source).is_some_and(|o| {
-                                    (o.keywords & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits())
-                                        != 0
-                                });
-                                let rem_t = lethal.unwrap_or_else(|| {
-                                    if src_dt {
-                                        1
-                                    } else {
-                                        view.object(*recipient).map_or(*max, |o| {
-                                            u32::try_from(
-                                                (i32::from(o.toughness.unwrap_or(1))
-                                                    - i32::from(o.damage))
-                                                .max(1),
-                                            )
-                                            .unwrap_or(1)
-                                        })
-                                    }
-                                });
-                                let assign = if rem_t <= *left {
-                                    rem_t.clamp(*min, *max)
-                                } else {
-                                    *min
-                                };
-                                normalize_scalar_choice(assign, *min, *max)
-                            }
-                            _ => scalar_pred.clamp(0.0, 1.0),
-                        }
+                        layer_scalar(view, pending, scalar_pred)
                     };
                     let chosen_int =
                         denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
@@ -526,6 +451,47 @@ impl PolicySampler4<'_> {
             }
         };
 
+        // `eval4 --tactician-imitate`: the layer has answered; at a window the
+        // tactician keeps its answer as the label and may explore away from it.
+        if let Some(tactician) = self.tactician.as_deref_mut()
+            && tactician.imitates()
+            && let Some(played) = tactician.imitate(
+                &super::tactician::TacticianStep {
+                    cands,
+                    view,
+                    pending,
+                    cand_logits,
+                    pair_logits,
+                    value,
+                    embeddings,
+                    active_source: self.active_source,
+                    rng: self.rng,
+                },
+                &target,
+                &self.rules.fired_since(&rules_before),
+            )?
+        {
+            target = played;
+        }
+        // `eval4 --distill-labels`: `N` and the layer's `R` at this state, read
+        // on copies, whoever answered it.
+        if let Some(distill) = self.distill.as_deref_mut() {
+            let rules = distill.rules();
+            distill.keep(super::distill::label(
+                &super::distill::Question {
+                    cands,
+                    view,
+                    pending,
+                    cand_logits,
+                    pair_logits,
+                    scalar_pred,
+                    active_source: self.active_source,
+                    rng: self.rng,
+                },
+                rules,
+                &target,
+            ));
+        }
         let mut action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;
         // The policy selects an equivalence group, not a particular copy.
@@ -561,6 +527,81 @@ impl PolicySampler4<'_> {
             anyhow::bail!("decoded action failed answer_fault: {fault:?}");
         }
         Ok((action, value.clamp(0.0, 1.0), logprob, target))
+    }
+}
+
+/// The tactical layer's normalized number for a scalar question: the whole
+/// X or payment, a kill's worth of divided damage, lethal combat damage to
+/// each blocker in turn; the net's own prediction elsewhere.
+pub(super) fn layer_scalar(view: &PlayerView, pending: &Pending, scalar_pred: f32) -> f32 {
+    match pending {
+        Pending::ChooseNumber {
+            reason:
+                baylee_engine::choice::NumberPrompt::X
+                | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
+            ..
+        } => 1.0,
+        Pending::ChooseNumber {
+            min,
+            max,
+            reason: baylee_engine::choice::NumberPrompt::DivideDamage { target, left, .. },
+            ..
+        } if *max > *min => {
+            let rem_t = match target {
+                baylee_engine::choice::TargetRef::Object(oid) => {
+                    view.object(oid.object).map_or(*max, |o| {
+                        u32::try_from(
+                            (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1),
+                        )
+                        .unwrap_or(1)
+                    })
+                }
+                baylee_engine::choice::TargetRef::Player(pid) => view
+                    .seat(*pid)
+                    .map_or(*max, |s| u32::try_from(s.life.max(1)).unwrap_or(*max)),
+            };
+            let assign = rem_t.min(*left).clamp(*min, *max);
+            normalize_scalar_choice(assign, *min, *max)
+        }
+        Pending::ChooseNumber {
+            min,
+            max,
+            reason:
+                baylee_engine::choice::NumberPrompt::CombatDamage {
+                    source,
+                    recipient,
+                    index,
+                    of,
+                    left,
+                    lethal,
+                },
+            ..
+        } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
+            // A trampler's question says what is lethal, and
+            // its last blocker is asked too (CR 702.19b).
+            let src_dt = view.object(*source).is_some_and(|o| {
+                (o.keywords & baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits()) != 0
+            });
+            let rem_t = lethal.unwrap_or_else(|| {
+                if src_dt {
+                    1
+                } else {
+                    view.object(*recipient).map_or(*max, |o| {
+                        u32::try_from(
+                            (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1),
+                        )
+                        .unwrap_or(1)
+                    })
+                }
+            });
+            let assign = if rem_t <= *left {
+                rem_t.clamp(*min, *max)
+            } else {
+                *min
+            };
+            normalize_scalar_choice(assign, *min, *max)
+        }
+        _ => scalar_pred.clamp(0.0, 1.0),
     }
 }
 
@@ -640,3 +681,9 @@ mod tests;
 mod grouped_attack_tests;
 #[cfg(test)]
 mod grouped_decode_tests;
+
+#[cfg(test)]
+mod tactician_tests;
+
+#[cfg(test)]
+mod distill_tests;

@@ -257,6 +257,41 @@ class Diagnostics(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'incomplete'):
             data.encode_single_step({'_bst4':pack_step_bst4(step,{})})
 
+    def test_a_distillation_block_after_the_payload_changes_no_frame_read(self):
+        import struct
+        from policy_training4.targets import _bst4_choice
+        from trajectory_store4 import DISTILL_BLOCK, bst4_distill_block
+        data=DiagnosticDataset.__new__(DiagnosticDataset)
+        data.max_entities=M.MAX_ENTITIES;data.max_edges=M.MAX_EDGES;data.max_cands=M.MAX_CANDIDATES;data.max_pairs=M.MAX_PAIRS
+        step=dict(game_id=1,seat=0,step_cursor=0,turn=1,head=1,pending_kind=7,is_decision=True,
+            state=dict(entity_feat=[],entity_card_ids=[],entity_rule_refs=[],
+                       seat_feat=np.zeros((8,M.SEAT_FEAT_WIDTH)).tolist(),global_feat=[0.]*M.GLOBAL_FEAT_WIDTH,edges=[]),
+            cand_feat=[[0.]*M.CAND_FEAT_WIDTH]*2,cand_entity_idx=[-1,-1],cand_rel_seat_idx=[-1,-1],
+            cand_rule_refs=[[],[]],pairs=[],target=dict(single_idx=0,multi_mask=[1,0],free_mask=[1,1],scalar_norm=0.),outcome=.5)
+        plain=pack_step_bst4(step,{})
+        block=lambda magic=b'BDX1',reserved=b'\0\0\0': DISTILL_BLOCK.pack(magic,3,reserved,1<<8|1)
+        distilled=plain+block()
+        self.assertIsNone(bst4_distill_block(plain))
+        self.assertEqual(bst4_distill_block(distilled),(3,257))
+        for wrong in (plain+b'BDX1',plain+block(b'BDX2'),plain+block(reserved=b'\0\1\0'),distilled+b'\0'):
+            with self.assertRaises(ValueError):
+                bst4_distill_block(wrong)
+        # The diagnostics read the same masks and encode the same frame.
+        a=data.encode_single_step({'_bst4':plain});b=data.encode_single_step({'_bst4':distilled})
+        self.assertEqual(a.keys(),b.keys())
+        for key in a:
+            if torch.is_tensor(a[key]):
+                self.assertTrue(torch.equal(a[key],b[key]),key)
+            else:
+                np.testing.assert_array_equal(np.asarray(a[key]),np.asarray(b[key]),err_msg=key)
+        # A sampled net frame's masks read the same too.
+        def sampled(raw):
+            raw=bytearray(raw);flags=struct.unpack_from('<I',raw,24)[0]
+            struct.pack_into('<I',raw,24,flags|4);struct.pack_into('<I',raw,36,0)
+            struct.pack_into('<ff',raw,80,-.5,1.);return bytes(raw)
+        self.assertTrue(_bst4_choice(sampled(plain)))
+        self.assertTrue(_bst4_choice(sampled(distilled)))
+
     def test_loader_pins_only_cuda_without_initializing_gpu(self):
         import diagnose_policy4
         args=SimpleNamespace(batch_size=8,num_workers=0)

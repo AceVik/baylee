@@ -19,6 +19,38 @@ INDEX = np.dtype([("game", "<u4"), ("seat", "<u4"), ("cursor", "<u8"),
                   ("offset", "<u8"), ("length", "<u4"), ("flags", "<u4")])
 BST4_MAGIC = b"BST4"
 BST4_HDR = struct.Struct("<4s10I2i9f12I")
+# A distillation dataset (`bundle_distillation_v1`) ends a recorded seat's
+# decision frame in this block after the payload: the magic, a u8 subtype code
+# (index in meta `bundle_distillation.subtypes`, 255 none), three zero bytes and
+# a u64 mask of the groups that fired (bit i: `bundle_distillation.groups[i]`).
+# `baylee_train_ops::tactician_labels::distill_block` writes it.
+DISTILL_BLOCK = struct.Struct("<4sB3sQ")
+DISTILL_BLOCK_MAGIC = b"BDX1"
+NO_SUBTYPE = 255
+
+
+def bst4_payload_end(header) -> int:
+    """Where a BST4 frame's own payload ends (after its free mask), from its
+    unpacked `BST4_HDR`: a distillation block may follow it."""
+    (n_ent, ent_width, ent_rule_cols, seat_width, global_width, n_edg,
+     n_cand, cand_width, cand_rule_cols, n_pair, n_mm, n_fm) = header[22:34]
+    return (BST4_HDR.size + n_ent * (ent_width * 4 + 7 + ent_rule_cols * 8)
+            + seat_width * 32 + global_width * 4 + n_edg * 12
+            + n_cand * (cand_width * 4 + 8 + cand_rule_cols * 8) + n_pair * 4 + n_mm + n_fm)
+
+
+def bst4_distill_block(raw: bytes):
+    """A BST4 frame's distillation block as `(subtype, fired_mask)`, or None
+    when the frame ends at its payload. Any other trailing bytes are refused."""
+    end = bst4_payload_end(BST4_HDR.unpack_from(raw))
+    if len(raw) == end:
+        return None
+    if len(raw) != end + DISTILL_BLOCK.size:
+        raise ValueError(f"BST4 frame has {len(raw) - end} trailing bytes that are no distillation block")
+    magic, subtype, reserved, fired = DISTILL_BLOCK.unpack_from(raw, end)
+    if magic != DISTILL_BLOCK_MAGIC or reserved != b"\0\0\0":
+        raise ValueError("BST4 frame ends in a malformed distillation block")
+    return subtype, fired
 
 def _executable():
     executable = shutil.which("trajectory_cache4")

@@ -29,6 +29,7 @@ pub mod research_tensor;
 pub mod self_imitation;
 #[cfg(target_os = "linux")]
 pub mod supervisor;
+pub mod tactician_labels;
 pub mod trajectory;
 #[cfg(target_os = "linux")]
 pub mod watch;
