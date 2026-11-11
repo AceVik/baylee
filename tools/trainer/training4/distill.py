@@ -562,20 +562,24 @@ def coarse_confusion(prepared, batch, plans, scope):
 
 
 CHAIN_FIELDS = ("decisions", "top1_r", "top1_n", "student_act", "r1_act")
+CHAIN_ACTS = tuple(COARSE.index(name) for name in ("tap", "cast", "activate"))   # R's acts that make a chain
 
 
 class ChainCounter:
     """R's acting chains at labelled priority decisions, read in trajectory order per lane.
 
-    R acts where its coarse class is not pass. A chain is a run of consecutive
-    labelled priority decisions of one trajectory where R acts; its `start` is
-    the first, after R passed or at the trajectory's start, every later one is
-    `mid` (teacher forced: the recorded states already hold R's earlier acts).
-    Rows where R passes are `pass`. Per position, overall, by R's subtype and by
+    R acts where it taps, casts or activates. A chain is a run of R's acts in
+    one trajectory; its `start` is the first after R passed (or at the
+    trajectory's start), every later one is `mid` (teacher forced: the recorded
+    states already hold R's earlier acts). Rows where R passes are `pass` and
+    end a chain; R's land drops and other answers are `neutral` and neither
+    start, continue nor end one (a land drop would otherwise count as a chain
+    the student always starts). Per position, overall, by R's subtype and by
     R's coarse class, it counts the student's top-1 against R and N and whether
-    the student and r1 act (N: the sidecar's recorded answer, else r1's top-1).
-    Per chain it records whether the student, and r1, act at every step: in play
-    one pass ends the sequence. The validation lanes carry each trajectory on.
+    the student and r1 act, anything but pass (N: the sidecar's recorded answer,
+    else r1's top-1). Per chain it records whether the student, and r1, act at
+    every step: in play one pass ends the sequence. The validation lanes carry
+    each trajectory on.
     """
 
     def __init__(self, scope):
@@ -632,17 +636,19 @@ class ChainCounter:
             for t, (row, r_idx, n_idx, s_idx, r_class, n_class, s_class) in enumerate(steps):
                 if row != 1:
                     continue
-                r_act, n_act, s_act = r_class != passes, n_class != passes, s_class != passes
-                if r_act:
+                n_act, s_act = n_class != passes, s_class != passes
+                if r_class in CHAIN_ACTS:
                     position = "mid" if state["prev_act"] else "start"
                     state["chain"].append((s_act, n_act))
-                else:
+                    state["prev_act"] = True
+                elif r_class == passes:
                     position = "pass"
                     self.close(lane)
                     state = self.lanes[lane]
+                else:
+                    position = "neutral"
                 keys = ("all", f"subtype:{names.get(subtypes[lane][t], 'unknown')}", f"class:{COARSE[r_class]}")
                 self.add(position, keys, (1, s_idx == r_idx, s_idx == n_idx, s_act, n_act))
-                state["prev_act"] = r_act
 
     def metrics(self):
         """Validation keys: overall rates per position, the breakdown, chain completion."""
@@ -651,7 +657,7 @@ class ChainCounter:
         rate = lambda row: {name: (row[i] / row[0] if row[0] else None) if i else row[0]
                             for i, name in enumerate(CHAIN_FIELDS)}
         out = {}
-        for position in ("start", "mid", "pass"):
+        for position in ("start", "mid", "pass", "neutral"):
             row = self.counts.get(position, {}).get("all", [0] * len(CHAIN_FIELDS))
             for name, value in rate(row).items():
                 out[f"val_distill_chain_{position}_{name}"] = value

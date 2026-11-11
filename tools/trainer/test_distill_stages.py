@@ -499,8 +499,8 @@ class OutOfScopeAnchor(unittest.TestCase):
 
     @staticmethod
     def chain_step(r, n, s, new):
-        """One lane of labelled priority decisions; candidates 0 pass, 1 tap, 2 cast;
-        R, N (the sidecar's) and the student's top-1 per frame."""
+        """One lane of labelled priority decisions; candidates 0 pass, 1 tap, 2 cast,
+        3 land; R, N (the sidecar's) and the student's top-1 per frame."""
         u = len(r)
         batch = batch_fixture(b=1, u=u)
         batch["step_valid"][:] = True
@@ -511,9 +511,9 @@ class OutOfScopeAnchor(unittest.TestCase):
         batch["pending_kind"] = torch.zeros(1, u, dtype=torch.long)
         batch["distill_subtype"] = torch.full((1, u), -1)
         batch["cand_mask"][:] = False
-        batch["cand_mask"][..., :3] = True
+        batch["cand_mask"][..., :4] = True
         batch["coarse_class"] = torch.full((1, u, 7), -1)
-        batch["coarse_class"][..., :3] = torch.tensor([0, 1, 2])
+        batch["coarse_class"][..., :4] = torch.tensor([0, 1, 2, 4])
         batch["single_idx"] = torch.tensor([r])
         batch["coarse_n_idx"] = torch.tensor([n])
         logits = torch.full((1, u, 7), -3.)
@@ -526,13 +526,16 @@ class OutOfScopeAnchor(unittest.TestCase):
     def test_chain_counter_reads_starts_mid_chain_passes_and_completion(self):
         chains = D.ChainCounter(D.Scope(kinds=(0,)))
         # One trajectory over two batches: R passes, then taps, taps, casts, taps (one
-        # chain across the batch edge), passes, casts (a new chain); then a new trajectory taps.
+        # chain across the batch edge), drops a land (neutral: the chain goes on), passes,
+        # casts (a new chain); then a new trajectory drops a land and taps (a chain start).
         chains.observe(*self.chain_step([0, 1, 1, 2], [0, 0, 1, 2], [0, 1, 1, 0], True))
-        chains.observe(*self.chain_step([1, 0, 2], [1, 0, 0], [1, 0, 2], False))
-        chains.observe(*self.chain_step([1], [1], [0], True))
+        chains.observe(*self.chain_step([1, 3, 0, 2], [1, 3, 0, 0], [1, 3, 0, 2], False))
+        chains.observe(*self.chain_step([3, 1], [3, 1], [3, 0], True))
         m = chains.metrics()
         self.assertEqual((m["val_distill_chain_start_decisions"], m["val_distill_chain_mid_decisions"],
-                          m["val_distill_chain_pass_decisions"]), (3, 3, 2))
+                          m["val_distill_chain_pass_decisions"], m["val_distill_chain_neutral_decisions"]),
+                         (3, 3, 2, 2))
+        self.assertEqual(m["val_distill_chain_by"]["neutral"]["class:land"]["decisions"], 2)
         self.assertAlmostEqual(m["val_distill_chain_start_student_act"], 2 / 3)
         self.assertAlmostEqual(m["val_distill_chain_start_r1_act"], 1 / 3)
         self.assertAlmostEqual(m["val_distill_chain_start_top1_r"], 2 / 3)
