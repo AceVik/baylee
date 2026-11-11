@@ -396,6 +396,7 @@ mod tests {
                 net_answer: baylee_train::convert4::NetAnswer4::default(),
                 subtype: None,
                 fired: vec![],
+                played: None,
             }),
         }
     }

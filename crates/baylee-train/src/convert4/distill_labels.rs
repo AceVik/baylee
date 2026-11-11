@@ -76,6 +76,11 @@ pub struct DistillFrameLabel4 {
     pub subtype: Option<DistillSubtype4>,
     /// The rule groups that changed something on the way to `R`.
     pub fired: Vec<String>,
+    /// The single choice the seat played here (the record's answer, the
+    /// frame's target before `R` replaced it). Not in the JSON steps: the
+    /// coarse-class sidecar carries it (`p_idx`).
+    #[serde(skip)]
+    pub played: Option<u16>,
 }
 
 /// What a labelled decision is, where the distillation scope reads it. At

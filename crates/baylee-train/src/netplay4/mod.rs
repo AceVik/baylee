@@ -440,6 +440,12 @@ impl NetPlayer4 {
             .and_then(distill::Distill4::take_label)
     }
 
+    /// The labels of the decision this net answered last, left in place.
+    #[must_use]
+    pub fn distill_label(&self) -> Option<&distill::DistillLabel4> {
+        self.distill.as_ref().and_then(distill::Distill4::label)
+    }
+
     /// Records a step of this net's seat ([`distill::Distill4::step`]).
     pub fn distill_step(
         &mut self,

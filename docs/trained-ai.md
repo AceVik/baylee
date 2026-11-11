@@ -1384,10 +1384,16 @@ found (heuristic, kept, replaced, refused, planned), labels by kind with `N ≠
 H`, the teacher's wall time (in all and per label; the searches' p50, p95 and
 worst), and `H`'s own answers at priority by coarse class, with nothing owed
 and paying, with its pass share and chain-start share (tap, cast, activate)
-at a free priority; the run's summary sums them (`house_teacher`). `convert4
---bundle-distill` admits either contract, one per dataset (and one teacher):
-`bundle_distillation.contract` and `.teacher` name them, and the JSON steps'
-header carries the contract; every other reader refuses both. In the CPU
+at a free priority, and beside it at the same free priorities (`at_free`) the
+answer the seat played and `N` (at a forced step the one answer there was),
+so behaviour, `N` and `H` are compared at the same states; the run's summary
+sums them (`house_teacher`). `convert4 --bundle-distill` admits either
+contract, one per dataset (and one teacher): `bundle_distillation.contract`
+and `.teacher` name them, and the JSON steps' header carries the contract;
+every other reader refuses both. The coarse-class sidecar's version 2 adds
+`coarse-classes.played.bin`, one 8-byte row per index row: the record's
+(played) candidate and its class, and whether the priority was free (no cost
+owed), so a trainer reads the played answer at labelled frames. In the CPU
 smoke of 11 November (r1 with the bundle and raw r1 against `sharp-2026-11`,
 two train deals each, taught by `house:expert`) every step the net answered
 was labelled, forced steps were not, and nothing was unencodable: 1,003 labels

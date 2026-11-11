@@ -105,6 +105,14 @@ pub(crate) struct TeacherCounts {
     /// `H` at priority by coarse class: with nothing owed, and paying.
     free: [u64; COARSE_CLASSES.len()],
     paying: [u64; COARSE_CLASSES.len()],
+    /// At the same free priorities: the answer the seat played, and `N`
+    /// (at a forced step, the one answer there was, which was played).
+    played_free: [u64; COARSE_CLASSES.len()],
+    net_free: [u64; COARSE_CLASSES.len()],
+    /// Free priorities whose `N` is the forced answer, and those with no `N`
+    /// (a fallback played after the engine refused the net).
+    net_forced: u64,
+    net_unknown: u64,
     /// Labels by kind: labelled, and of those the net answered otherwise.
     labels: BTreeMap<String, [u64; 2]>,
     /// Answers the net's menu could not hold, their decisions unlabelled.
@@ -129,6 +137,14 @@ impl TeacherCounts {
         for (sum, n) in self.paying.iter_mut().zip(other.paying) {
             *sum += n;
         }
+        for (sum, n) in self.played_free.iter_mut().zip(other.played_free) {
+            *sum += n;
+        }
+        for (sum, n) in self.net_free.iter_mut().zip(other.net_free) {
+            *sum += n;
+        }
+        self.net_forced += other.net_forced;
+        self.net_unknown += other.net_unknown;
         for (kind, [labelled, differ]) in &other.labels {
             let sum = self.labels.entry(kind.clone()).or_default();
             sum[0] += labelled;
@@ -169,13 +185,24 @@ impl TeacherCounts {
                 .map(|(name, n)| ((*name).to_owned(), json!(n)))
                 .collect::<serde_json::Map<_, _>>()
         };
-        let free: u64 = self.free.iter().sum();
-        let starts: u64 = COARSE_CLASSES
-            .iter()
-            .zip(self.free)
-            .filter(|(name, _)| CHAIN_START.contains(name))
-            .map(|(_, n)| n)
-            .sum();
+        // One answerer's answers at the free priorities, with its pass and
+        // chain-start shares.
+        let answered = |counts: &[u64; COARSE_CLASSES.len()]| {
+            let answers: u64 = counts.iter().sum();
+            let starts: u64 = COARSE_CLASSES
+                .iter()
+                .zip(counts)
+                .filter(|(name, _)| CHAIN_START.contains(name))
+                .map(|(_, n)| n)
+                .sum();
+            json!({"classes": classes(counts), "answers": answers,
+                "pass_share": share(counts[0], answers),
+                "chain_start_share": share(starts, answers)})
+        };
+        let house = answered(&self.free);
+        let mut net = answered(&self.net_free);
+        net["forced"] = json!(self.net_forced);
+        net["unknown"] = json!(self.net_unknown);
         json!({
             "games": self.games,
             "answers": self.how.iter().sum::<u64>(),
@@ -204,10 +231,17 @@ impl TeacherCounts {
             "priority": {
                 "free": classes(&self.free),
                 "paying": classes(&self.paying),
-                "free_answers": free,
-                "pass_share": share(self.free[0], free),
-                "chain_start_share": share(starts, free),
+                "free_answers": house["answers"],
+                "pass_share": house["pass_share"],
+                "chain_start_share": house["chain_start_share"],
                 "chain_start": CHAIN_START,
+                "at_free": {
+                    "states": "every free priority H answered (Priority, no cost owed), \
+                               forced steps included",
+                    "house": house,
+                    "played": answered(&self.played_free),
+                    "net": net,
+                },
             },
         })
     }
@@ -231,6 +265,9 @@ pub(crate) struct GameTeacher<'a> {
     game_id: String,
     teams: Vec<Option<u8>>,
     seats: BTreeMap<u8, Teacher>,
+    /// Whether the question H was last asked at, by seat, was a free
+    /// priority: Priority with no cost owed.
+    at_free: BTreeMap<u8, bool>,
     counts: TeacherCounts,
 }
 
@@ -242,6 +279,7 @@ impl<'a> GameTeacher<'a> {
             game_id: game_id.to_owned(),
             teams: teams.to_vec(),
             seats: BTreeMap::new(),
+            at_free: BTreeMap::new(),
             counts: TeacherCounts {
                 games: 1,
                 ..TeacherCounts::default()
@@ -267,6 +305,8 @@ impl<'a> GameTeacher<'a> {
                 super::house_seat::agent(&self.game_id, seat, self.spec.profile, &self.teams),
             )?),
         };
+        let free = matches!(pending, Pending::Priority { .. }) && view.owed.is_none();
+        self.at_free.insert(seat.get(), free);
         let (started, cpu_started) = (Instant::now(), thread_cpu_micros());
         let Some(answer) = session.teacher_answer(seat, teacher) else {
             return Ok(None);
@@ -296,9 +336,47 @@ impl<'a> GameTeacher<'a> {
         Ok(Some(answer.action))
     }
 
+    /// What `seat` played at the question `H` was last asked (its `view`),
+    /// and `N` there (`net`; with `forced`, the net had one answer and so
+    /// none of its own): counted beside `H` where that question was a free
+    /// priority. Before [`Self::played`], which forgets the question.
+    pub(crate) fn observed(
+        &mut self,
+        seat: PlayerId,
+        view: &PlayerView,
+        played: &PlayerAction,
+        net: Option<&PlayerAction>,
+        forced: bool,
+    ) {
+        if self.at_free.get(&seat.get()) != Some(&true) {
+            return;
+        }
+        let class = |action: &PlayerAction| {
+            usize::from(coarse_class(
+                Some(action),
+                is_mana_ability_action(view, action),
+            ))
+        };
+        let bump = |counts: &mut [u64; COARSE_CLASSES.len()], class: usize| {
+            if let Some(n) = counts.get_mut(class) {
+                *n += 1;
+            }
+        };
+        bump(&mut self.counts.played_free, class(played));
+        match (net, forced) {
+            (Some(net), _) => bump(&mut self.counts.net_free, class(net)),
+            (None, true) => {
+                bump(&mut self.counts.net_free, class(played));
+                self.counts.net_forced += 1;
+            }
+            (None, false) => self.counts.net_unknown += 1,
+        }
+    }
+
     /// `seat` played `action`: the target a search chose stays planned
     /// only where it was the spell it chose.
     pub(crate) fn played(&mut self, seat: PlayerId, action: &PlayerAction) {
+        self.at_free.remove(&seat.get());
         if let Some(teacher) = self.seats.get_mut(&seat.get()) {
             teacher.played(action);
         }
@@ -371,6 +449,9 @@ mod tests {
             cpu: 2_000_000,
             free: [6, 2, 1, 1, 0, 0],
             paying: [0, 3, 0, 0, 0, 0],
+            played_free: [8, 1, 1, 0, 0, 0],
+            net_free: [9, 0, 1, 0, 0, 0],
+            net_forced: 3,
             ..TeacherCounts::default()
         };
         counts.labels.insert("priority".into(), [10, 4]);
@@ -385,5 +466,13 @@ mod tests {
         assert_eq!(json["priority"]["pass_share"], 0.6);
         assert_eq!(json["priority"]["chain_start_share"], 0.4);
         assert_eq!(json["cpu_seconds_per_label"], 0.2);
+        // The played answer and N at the same free priorities, beside H.
+        let at_free = &json["priority"]["at_free"];
+        assert_eq!(at_free["house"]["pass_share"], 0.6);
+        assert_eq!(at_free["played"]["answers"], 20);
+        assert_eq!(at_free["played"]["pass_share"], 0.8);
+        assert_eq!(at_free["played"]["chain_start_share"], 0.2);
+        assert_eq!(at_free["net"]["chain_start_share"], 0.1);
+        assert_eq!(at_free["net"]["forced"], 6);
     }
 }

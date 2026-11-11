@@ -234,6 +234,9 @@ impl EvaluationPlayer for SeatPlayers {
         self.player_mut(usize::from(seat))
             .is_some_and(|player| player.give_distill_answer(seat, answer))
     }
+    fn distill_net_action(&self, seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
+        self.player(usize::from(seat))?.distill_net_action(seat)
+    }
     fn distill_unencodable(&self) -> u64 {
         self.learner.distill_unencodable()
             + self

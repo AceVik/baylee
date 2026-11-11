@@ -134,6 +134,12 @@ impl Distill4 {
         self.last.take()
     }
 
+    /// The last decision's labels, left in place.
+    #[must_use]
+    pub const fn label(&self) -> Option<&DistillLabel4> {
+        self.last.as_ref()
+    }
+
     /// Records a step of this net's seat: the last decision's labels when the
     /// policy answered it.
     pub fn step(&mut self, seat: u8, decision_seq: u64, record_byte_offset: usize, answered: bool) {
