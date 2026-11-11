@@ -2163,6 +2163,20 @@ three ways, each exiting 3 on failure:
 - `python -m training4.pregate --model DIR`, which reads `meta.json` in a
   second, as a stage after the export and before any play gate;
 - `python -m training4.distill_audit` on a checkpoint from an older run.
+
+Two diagnostics follow the pass drift. At chain starts, validation and the
+audit report the mean margin of the best pass logit over the best acting
+candidate (`val_distill_chain_start_pass_margin`, `_r1`, by class in
+`val_distill_chain_margin_by`; positive: passing leads). Training prints the
+same margin over the chain starts it trains on as `[distill] drift` every 25
+steps and in `[distill] epoch`; the sidecar marks those frames
+(`coarse_chain_start`). `python -m training4.trained_balance` rebuilds a window
+run's epoch from its sampler (seed, lanes, entity buckets; the per-piece
+entity counts from its window-state cache) for the batches it consumed. It
+counts, per subtype, the cross-entropy frames each loss mode (`kl`, `ce-n`,
+`act`, `class`) gives an acting or a passing target, decoding no frame and
+running no network.
+
 In stage B the r1 reference runs only its own layers from L on, on the inputs the
 student's layer L received.
 **With the deliberation block** (arms "A + block" and "B + block"): add
