@@ -126,11 +126,12 @@ fn play_one_table(
         }
     }
 
-    let mut session = if record_steps {
+    let session = if record_steps {
         Session::new_recorded(&preset, baylee_build::short()).context("new_recorded")?
     } else {
         Session::new(&preset).context("Session::new")?
     };
+    let mut session = foresight::Table::new(session, net.is_some());
     session.describe(
         game_id.to_owned(),
         (0..n_seats).map(|s| s.to_string()).collect(),
@@ -218,6 +219,7 @@ fn play_one_table(
         }};
     }
 
+    let mut leaf_trace = foresight::LeafTrace::default();
     loop {
         if let Pending::GameOver(result) = session.pending() {
             let winners: Vec<u8> = session
@@ -225,6 +227,9 @@ fn play_one_table(
                 .into_iter()
                 .map(PlayerId::get)
                 .collect();
+            if net.is_none() {
+                leaf_trace.finish(&winners);
+            }
             // One scale with the search's terminal leaves.
             let util = terminal_utility(focal_seat as u8, teams, &winners, n_seats);
             let mut outcome_json = match winners.as_slice() {
@@ -307,6 +312,9 @@ fn play_one_table(
         // Observe every pre-action root. A multi-answer pump would skip states
         // that the record converter subsequently replays, breaking recurrent PPO.
         if session.needs_pump() {
+            if net.is_none() {
+                leaf_trace.note(&session, n_seats);
+            }
             let routed = session.pump_at_most(1);
             if let Some(shadow) = shadow.as_deref_mut() {
                 shadow.hear(routed);

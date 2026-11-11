@@ -138,6 +138,11 @@ path = "src/bin/house_duplicate.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "fit_leaf"
+path = "src/bin/fit_leaf.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "inspect"
 path = "src/bin/inspect.rs"
 required-features = ["play"]

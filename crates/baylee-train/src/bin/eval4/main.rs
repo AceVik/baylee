@@ -56,6 +56,7 @@ mod attempts;
 mod collector;
 mod diagnostics;
 mod failure_terminal;
+mod foresight;
 mod house_seat;
 mod lookahead;
 mod precision;
@@ -609,6 +610,14 @@ fn main() -> anyhow::Result<()> {
         let policy_seed = args.policy_seed;
         let k_steps = args.thinking_steps;
         let temp = args.temperature;
+        foresight::configure(
+            args.house_foresight,
+            args.random_policy,
+            args.foresight_work,
+        );
+        if let Some(path) = &args.leaf_log {
+            foresight::open_leaf_log(path)?;
+        }
         let fair = args.fair_scouting && !args.seer_peeks;
         let house_as_seat = args.house_as_seat;
         let no_base = args.no_baseline;
@@ -1099,6 +1108,10 @@ fn main() -> anyhow::Result<()> {
     };
     summary["random_policy"] = json!(args.random_policy);
     summary["seer_peeks"] = json!(args.seer_peeks);
+    summary["house_foresight"] = json!(args.house_foresight);
+    summary["foresight_work"] = json!(args.foresight_work);
+    foresight::close_leaf_log();
+    summary["foresight"] = foresight::summary(args.deals);
     summary["tactician"] = tactician_setup.as_ref().map_or(
         Value::Null,
         |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),

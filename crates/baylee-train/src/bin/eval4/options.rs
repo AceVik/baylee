@@ -229,6 +229,24 @@ struct Args {
     /// for a benchmark of the net. Every other level stays fair either way.
     #[arg(long)]
     seer_peeks: bool,
+    /// The house's chairs try their options in forks of the game before
+    /// they answer, where their level has a foresight tier
+    /// (`AIProfile::FORESIGHT`). With `--random-policy` only the
+    /// house-against-house game searches. The summary's `foresight` holds
+    /// what it cost.
+    #[arg(long)]
+    house_foresight: bool,
+    /// `--house-foresight`: caps one searched answer at this many house
+    /// answers in its forks, after which no further world is started
+    /// (`Session::set_foresight_work`); `0` leaves the level's whole budget.
+    #[arg(long, default_value_t = 0, requires = "house_foresight")]
+    foresight_work: u64,
+    /// Writes, for every house-against-house game, each house chair's
+    /// position at the start of every turn (`HeuristicAgent::foresight_features`)
+    /// with the game's result, a JSON line each: what `fit_leaf` fits the
+    /// search's leaf value on.
+    #[arg(long)]
+    leaf_log: Option<PathBuf>,
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).
     #[arg(long)]
     no_baseline: bool,
