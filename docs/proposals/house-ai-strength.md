@@ -664,11 +664,21 @@ setting, in 96 games each of the coordinator's collector, loses to the
 house as often as not: the new expert won 47.9 % of them and the new sharp
 40.6 %. So the order sharp < expert shows against no outside opponent yet.
 
-*The 2v2 run per level* (must not be worse than 50 %; `holdout2`, 256
-rows, teams 1,2,1,2, fixed pairings, each game once): expert won 75 of 128
-(58.6 %, Wilson 49.9–66.8; 13 seeds for, 2 against, p = 0.007). sharp,
-steady, casual and novice were still playing when the round was handed over
-(§7 says where their lines land).
+*The 2v2 run per level* (must not be worse than 50 %; the test split of
+`manifest.v4.holdout2.json`, 256 rows, teams 1,2,1,2, fixed pairings, each
+game once; build bf1e9a720), each
+level with foresight against its own generation-6 self:
+
+| Level | Won | Share | Wilson 95 % | For / against | Sign test |
+| --- | ---: | ---: | --- | ---: | --- |
+| expert | 75 / 128 | 58.6 % | 49.9–66.8 | 13 / 2 | p = 0.007 |
+| sharp | 79 / 128 | 61.7 % | 53.1–69.7 | 17 / 2 | p = 0.0007 |
+| steady | 79 / 128 | 61.7 % | 53.1–69.7 | 15 / 0 | p = 0.0001 |
+| casual | 72 / 128 | 56.2 % | 47.6–64.5 | 11 / 3 | p = 0.057 |
+| novice | 66 / 128 | 51.6 % | 43.0–60.0 | 6 / 4 | p = 0.75 |
+
+No level is worse than 50 %; novice, as in the duels, is not shown to
+gain. No game stayed open.
 
 *What a searched answer cost in the gate.* The gate ran eight games at a
 time beside other jobs (a load of about forty on twenty-four threads), so
@@ -923,6 +933,16 @@ and off in hosting. The fair generation-7 `expert` with foresight is now
 also a teacher for BayleeAI, so a generation that changes `expert`'s
 answers is told to the coordinator for the campaign.
 
+**Since the handover** (the evening of 11.11.2026): the analyst's widest
+finding was true, and generation 8 (§7.6) lets a priority search try the
+spells its lands pay for: expert 64.1 % against its generation-6 self on
+train, where generation 7 had 59.9 %. Generation 9 (§7.7) puts a bound in
+the level, eight million units at expert's tier, which cost nothing
+measurable on generation 8 and holds a searched answer under a second of
+CPU time; §7.8 is what that bound does and does not promise a host. The
+coordinator spends the held-out gate on generation 9. The teacher stays
+pinned at generation 7 (`tests/reference/foresight-generation-7.json`).
+
 ### 7.1 Where a search's time goes (measured)
 
 `eval4`'s summary now times every searched answer by the CPU time of its
@@ -959,7 +979,7 @@ train deals, round-robin, six games at a time at nice 10 beside a load of
   nice 10 on a machine at load forty. They are scheduling, not work; a
   host's wall bound is a question of its own scheduling.
 
-### 7.2 The budget unit (built behind the flag, not yet measured)
+### 7.2 The budget unit (as handed over; measured and decided in §7.7)
 
 Built on the branch (commit below), off unless a table sets it:
 
@@ -986,7 +1006,8 @@ Built on the branch (commit below), off unless a table sets it:
 - This replaces the old cap on answers (same flag, new unit), which
   bounded nothing (§5a).
 
-**Still to do, in order:**
+**Still to do, in order** (as handed over; all five are done, §7.7 and
+§7.8 say how):
 
 1. *Fit the prices.* They are provisional (`750 + 25 × board` for an
    answer, `1500 + 8 × objects` for a fork). The table above says about
@@ -1096,24 +1117,25 @@ against 0.33 for an attack and 0.19 for a priority (§6a), at 3 % of the
 questions: a repair of all of it is worth a point or two of share at most.
 Read the larger log before choosing which class to repair.
 
-### 7.4 The Carbon analyst's findings (hypotheses, not verified)
+### 7.4 The Carbon analyst's findings (one verified and built, the rest hypotheses)
 
 `~/baylee-data/v6/house/carbon/summary.md` and `findings.md`: an analyst
-reading the new house's games against DeepSeek (72 of 192 so far). Nearly
+reading the new house's games against DeepSeek (all 192). Nearly
 all of it is casts and targets, not blocks. Checked against the code so
 far:
 
-- **Plausible and large: the priority roots try no spell that costs
-  mana.** `foresight::priority_candidates` lists `legal.castable`, and at
-  a root the pool is empty (`settled`), where every spell of cost one or
-  more is in `legal.payable`. So a search compares the level's own plan
+- **Verified, built as generation 8 and measured (§7.6): the priority
+  roots tried no spell that costs mana.** `foresight::priority_candidates`
+  listed `legal.castable`, and at a root the pool is empty (`settled`),
+  where every spell of cost one or more is in `legal.payable`. So a search
+  compared the level's own plan
   (which starts with a mana tap) with passing, lands and abilities, and
   never one spell with another or a target with another (`targets_of` is
   reached only for free spells). A `CastSpell` of a payable card is an
   answer the question takes; whether the forks' model then pays it
   (`policy::pay_owed`) has to be tried. If it does, payable spells as
   candidates are the widest thing a search does not yet try, and worth
-  measuring before any heuristic repair.
+  measuring before any heuristic repair. It does, and it was.
 - To verify, each a small general fix behind the new generation: Auras and
   pumps aimed at an opponent's creature (`target_side::aura_side` is said
   never to be called by `baylee-ai`; `target_side::amount` gives 0 for
@@ -1128,28 +1150,158 @@ far:
 ### 7.5 State of the machines and runs
 
 - **Branch** `c42/house-g8` in `~/Projects/baylee-house-lookahead`, target
-  dir `/mnt/xdata/cargo-target/house-g8` (the older
-  `/mnt/xdata/cargo-target/house-lookahead` holds the gate's binaries; the
-  2v2 chain runs from it, so do not build into it while that runs).
-- **The 2v2 gate chain** was started by the round before
-  (`m.zsh gate2v2_<level> 256 <level> <level>:generation=6
-  --house-foresight`, a detached zsh, pids 3061175 and 3061177 when
-  checked) and writes
-  `…/scratchpad/gateB.out` and `gate2v2_<level>.json` beside it; expert is
-  in (§5a), sharp was playing at the handover. Add the remaining lines to
+  dir `/mnt/xdata/cargo-target/house-g8`. Generations 8 and 9 and the
+  generation-7 search pin are on it (§7.6, §7.7).
+- **The 2v2 gate chain** of the round before finished; its lines are in
   §5a.
-- **bigace** is oversubscribed: eval runs at six threads and nice 10
-  there, and as few as possible.
-- **acenb** (`ace@192.168.0.12`, 16 threads, no nice needed, work only
-  under `~/baylee-work/house/`, start no server, leave its services
-  alone) is set up half way: decks with path-adjusted manifests in
-  `~/baylee-work/house/decks/`, the model in `model/fp16`, sources in
-  `src/`. bigace's eval4 does not run there: it reads the checkout it was
-  built in (`baylee_train::working::repo_root`, a compiled-in path), and a
-  build there stops at `glib-sys` (the notebook lacks the GLib development
-  packages, which is the owner's to install). Either gets it going; then
-  check one small run against bigace (same `house_duplicate` line and the
-  same `foresight` counts) before relying on it. Nothing runs there now.
+- **bigace** is for builds and tests only while the campaign collects
+  there (coordinator, 11.11.2026); an eval that must run there takes at
+  most two threads at nice 15.
+- **acenb** (`ace@192.168.0.12`, all sixteen threads at normal priority,
+  start no server, leave MediaVault, Pulse and the net failover alone)
+  runs every eval. bigace's `eval4` runs there from a mirror of the
+  checkout at the same path (`/home/ace/Projects/baylee-house-lookahead`,
+  rsync of the sources without `.git` and `target`), because it reads the
+  checkout it was built in (`baylee_train::working::repo_root`); the decks
+  are under `~/baylee-work/house/decks*` with path-adjusted manifests, the
+  model in `model/fp16`, binaries in `bin/` (named `g8-c<n>-<tool>` by
+  build), outputs in `out/`. The same 24 train deals give the same
+  `house_duplicate` line and the same `foresight` counts on both machines.
+  A level name in zsh is quoted (`"${l}:generation=6"`): `$l:g` is a zsh
+  modifier.
 - Scratch files of this round are named `g8-*` in the session scratchpad:
-  `g8-prof-b.json` (the profile above), `g8-q-blocks-a.jsonl` (the 265
-  block questions), `g8-eval4-b1` (the eval4 that made them).
+  `g8-prof-b.json` (the profile of §7.1), `g8-q-blocks-a.jsonl` (the 265
+  block questions of §7.3), `g8-t2-*.json` and `g8-t3-*.json` (the runs of
+  §7.6 and §7.7), `g8bin/` (the binaries by build).
+
+### 7.6 Generation 8: a search tries the spells its lands pay for (measured)
+
+The Carbon finding of §7.4 held: at a root the pool is empty, so
+`legal.castable` holds only spells that cost nothing, and a priority search
+set the level's own plan (a tap) beside passing, lands and abilities only.
+Generation 8 (`AIProfile::SPELL_ROOTS`, commit 93b113f9a) adds each spell of
+`legal.payable` the planner pays for (`HeuristicAgent::pays_for`: no X, the
+taps `spend_on` finds, nothing held back) as a `CastSpell` candidate; the
+fork's model pays it in the payment window (`pay_owed`), which
+`session/tests/simulation.rs` checks spell by spell. The forks' model now
+plays the searching level's generation, so `expert:generation=7` searches as
+it did: `tests/reference/foresight-generation-7.json` pins its searched
+answers in two reference duels to turn 6 (the same pin passes on
+06421a05f's code), and 24 train deals replay game for game.
+
+Train split, round-robin, each game once, acenb (sixteen threads):
+
+| Run | Games | Share | Wilson 95 % | For / against |
+| --- | ---: | ---: | --- | ---: |
+| expert gen 8 against `expert:generation=6` | 1,021 | 64.1 % | 61.1–66.9 | 155 / 11 |
+| expert gen 7 against `expert:generation=6` (§5a) | 1,023 | 59.9 % | 56.9–62.9 | 121 / 19 |
+| expert gen 8 against `expert:generation=7` | 1,020 | 54.8 % | 51.7–57.8 | 81 / 33 |
+| expert gen 8 against `sharp-2026-11` | 1,023 | 67.7 % | 64.8–70.5 | 192 / 11 |
+| expert gen 7 against `sharp-2026-11`, the same deals | 1,022 | 63.3 % | 60.3–66.2 | 152 / 16 |
+| steady gen 8 against `steady:generation=6` (bigace) | 511 | 62.4 % | 58.1–66.5 | 73 / 10 |
+
+Against the frozen reference the same deals go 92 games to 47 for
+generation 8 over generation 7. The searching chair spends about 10.1
+CPU-seconds a game on its searches where generation 7 spent 7.0, and the
+slowest searched answer took 14.7 s of thread CPU time (4.9 s for
+generation 7 on the same deals); §7.7 bounds it.
+
+### 7.7 The bound, measured, and where it lives
+
+**The prices** (commit 6e14e9555) are fitted to §7.1's `by_board`: an
+answer in a fork 375 units and 40 a permanent or stack object, a fork a
+flat 2,500 (it took 196 to 206 µs on every size of table). On generation 8
+a unit then took 0.068 µs of thread CPU time at the median of searches,
+0.089 at the 95th percentile, 0.100 at the 99th and 0.13 to 0.19 at worst
+(searches of 100,000 units or more, acenb under a full load of its own),
+so a bound in units is a bound in time within about twice its median
+price.
+
+**What a bound costs** (expert at generation 8 against
+`expert:generation=6`, the 1,024 train deals of §7.6, the table's bound
+`--foresight-work`, each game set beside the unbounded run's by
+`house_duplicate --before`; times are thread CPU time per searched answer):
+
+| Bound, units | Share | For / against | Games won / lost against unbounded | Searches cut | p50 | p95 | p99 | p99.9 | max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| none | 64.1 % | 155 / 11 | | 0 | 163 ms | 799 ms | 1.44 s | 3.72 s | 14.7 s |
+| 8,000,000 | 63.7 % | 151 / 11 | 7 / 11 (p = 0.48) | 9.4 % | 166 ms | 637 ms | 761 ms | 867 ms | 973 ms |
+| 4,000,000 | 61.5 % | 137 / 19 | 25 / 51 (p = 0.004) | 30 % | 165 ms | 350 ms | 398 ms | 442 ms | 482 ms |
+| 2,000,000 | 57.3 % | 93 / 19 | 37 / 106 (p < 0.0001) | 60 % | 124 ms | 177 ms | 201 ms | 224 ms | 254 ms |
+
+Unbounded, the work of a searched answer was 2.4 M units at the median,
+10.4 M at the 95th percentile, 18 M at the 99th and 107 M at most; the
+slowest searches were attacks and blocks on boards of 34 to 37 permanents
+where the forks' combat searches visited 50 to 86 million nodes. Eight
+million units cost nothing measurable and take the slowest answer from
+14.7 s to under one; four million cost two and a half points.
+
+The forks' combat searches alone (`--foresight-nodes 16384` under a bound
+too large to cut, in place of the 262,144 nodes `expert` searches for one
+declaration) kept 64.0 % with 1 game won and 2 lost against unbounded, and
+took the slowest answer to 6.0 s: the model's depth in a fork is worth
+nothing measurable, and the tail needs the bound as well.
+
+**Where the bound lives: in the level** (decided 11.11.2026, with a Fable
+advisor's reading; generation 9, `AIProfile::BOUNDED_SEARCH`). A bound set
+only by a host would make a hosted `expert` a player nobody measured: the
+numbers above, the teacher's campaign and the ladder would each describe
+another `expert`. And a host's bound did two things at once: it stopped
+searches, and through `SEARCH_SHARE` it also cut the forks' combat depth to
+a 256th of it, so it changed answers in searches it never stopped. So:
+
+- `Foresight` carries `work` and `nodes`. From generation 9 `work` is eight
+  million units at expert's tier and scales with the tier's candidates ×
+  worlds (sharp 6.67 M, steady 4 M, casual 2.5 M, novice 1.33 M), so every
+  tier is cut about as rarely and the spacing of the tiers is not moved
+  (steady's searches on train, 4.0 M being half of expert's: 5.2 M at the
+  95th percentile where expert's are 10.4 M). `nodes` is 16,384 whatever
+  the bound, so a bound that does not bind changes no answer.
+- The meter takes the tighter of the level's bound and the host's
+  (`Session::search_meter`): a host may lower a level's bound, never raise
+  it. Before generation 9 both are unbounded, so generations 7 (the
+  teacher's) and 8 search as they did.
+- A search cut before half its worlds were played keeps the level's own
+  answer: its comparison rests on too few deals.
+- Tests (`session/tests/foresight.rs`): a bounded search answers and spends
+  alike when played again and stays inside its bound but for the step it
+  was in; a bound of nothing plays as a table without foresight, answer for
+  answer, with no fork made; the fair twin deals are searched alike under a
+  bound, unit for unit; a host only ever tightens a level's bound.
+
+### 7.8 For hosting: what the bound holds, and what it does not
+
+Proposed for the owner's decision on putting foresight on the
+internet-facing engine server (§7: once BayleeAI's search probe shows five
+points or more and a hard budget exists):
+
+- **Per searched answer,** the level's bound in units: at expert's tier
+  eight million, measured at most 0.97 s of thread CPU time on acenb
+  (p99 0.76 s) over some 43,000 searches. A search runs past its bound by
+  at most the price of the step it was in: one fork (2,500 units) or one
+  house answer (375 units and 40 a permanent or stack object); a combat
+  search in a fork is held to what is left.
+- **Outside the meter:** the level's own answer, which a search computes
+  before it forks, with the level's own combat search (up to 262,144 nodes
+  for expert, about 20 ms).
+- **What the unit does not bound: one engine step.** An answer is priced by
+  the size of the table, not by what applying it does. A step that makes
+  thousands of objects, resolves a long chain of triggers, or runs a loop
+  until the engine's loop watch stops it costs more than its price, and the
+  meter only notices after it. The fork's cap of 400 answers in a world
+  and the table-size price cover the common cases; an engine fuel counted
+  inside the engine's own steps (`lookahead-design.md` Q5) would cover the
+  rest and is a change in the engine's hot paths. So no strict p100 is
+  claimed: the measured maximum is what the train decks produced.
+- **Time is CPU time, not wall time.** On a loaded host a searched answer
+  waits for a core; the gate's runs saw 118 s of wall time for an answer
+  that was a few seconds of work. A host needs its own scheduling: a cap on
+  searching chairs per core, and one searched decision per pump slice
+  (§5.4).
+- **A host bound tighter than the level's makes another player.** Its games
+  are not `expert`'s numbers; a measurement names it as `expert:work=N`
+  would, and a hosted record should say the bound it played under (not
+  built).
+- **Determinism** rests on a search playing its forks one after another
+  (`work.rs`): the same view, seed and bound spend the same units on any
+  machine.
