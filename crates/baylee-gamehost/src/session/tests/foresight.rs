@@ -542,3 +542,55 @@ fn expert_at_generation_7_searches_as_pinned() {
         "too few searches: {played:?}"
     );
 }
+
+/// A search's meter takes the tighter of the level's bound and the table's,
+/// so a host can lower a level's bound and never raise it; and the nodes one
+/// combat search in a fork may visit are the level's where it sets them,
+/// whatever the bound, and a share of the bound where it does not.
+#[test]
+fn a_host_only_ever_tightens_a_levels_bound() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Plains", 60),
+        AIProfile::EXPERT,
+    );
+    let mut session = Session::new(&preset).expect("the table starts");
+    let free = AIProfile::EXPERT
+        .at_generation(AIProfile::SPELL_ROOTS)
+        .foresight()
+        .expect("expert searches");
+    let level = baylee_core::preset::Foresight {
+        work: 4_000_000,
+        nodes: 16_384,
+        ..free
+    };
+    let meter = |session: &Session, budget| {
+        let meter = session.search_meter(budget);
+        (meter.left(), meter.nodes(u32::MAX))
+    };
+    assert_eq!(meter(&session, level), (4_000_000, 16_384));
+    assert_eq!(meter(&session, free), (u64::MAX, u32::MAX));
+    session.set_foresight_work(Some(1_000_000));
+    assert_eq!(
+        meter(&session, level),
+        (1_000_000, 16_384),
+        "a host tightens"
+    );
+    assert_eq!(
+        meter(&session, free),
+        (
+            1_000_000,
+            u32::try_from(1_000_000 / crate::SEARCH_SHARE).unwrap()
+        ),
+        "a level that sets no nodes has the bound's share"
+    );
+    session.set_foresight_work(Some(9_000_000));
+    assert_eq!(
+        meter(&session, level),
+        (4_000_000, 16_384),
+        "a host never loosens"
+    );
+    session.set_foresight_nodes(Some(100));
+    assert_eq!(meter(&session, level), (4_000_000, 100));
+}

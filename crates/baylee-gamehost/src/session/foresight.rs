@@ -415,7 +415,7 @@ impl Session {
             seeds: (0..u64::from(budget.worlds))
                 .map(|world| world_seed(agent.seed(), position, world))
                 .collect(),
-            work: std::sync::Arc::new(self.search_meter()),
+            work: std::sync::Arc::new(self.search_meter(budget)),
             pending,
             probe: self
                 .foresight_probe
@@ -453,17 +453,24 @@ impl Session {
         Some(plan.first)
     }
 
-    /// The meter of one search at this table: unbounded unless the table
-    /// bounds a search's work ([`Session::set_foresight_work`]), and under a
-    /// bound one combat search's share of it.
-    fn search_meter(&self) -> baylee_ai::WorkMeter {
-        self.foresight_work
-            .map_or_else(baylee_ai::WorkMeter::default, |work| {
-                let search = self
-                    .foresight_nodes
-                    .unwrap_or_else(|| u32::try_from(work / SEARCH_SHARE).unwrap_or(u32::MAX));
-                baylee_ai::WorkMeter::bounded(work, search)
-            })
+    /// The meter of one search at this table under the level's `budget`:
+    /// bounded by the level's work ([`Foresight::work`]) or the table's
+    /// ([`Session::set_foresight_work`]), whichever is the tighter, so a host
+    /// can lower a level's bound and never raise it. One combat search in a
+    /// fork may visit the table's nodes ([`Session::set_foresight_nodes`]),
+    /// else the level's ([`Foresight::nodes`]); a level that sets none has,
+    /// under a bound, the bound's [`SEARCH_SHARE`]th. Unbounded where
+    /// nothing bounds it.
+    pub(super) fn search_meter(&self, budget: Foresight) -> baylee_ai::WorkMeter {
+        let work = budget.work.min(self.foresight_work.unwrap_or(u64::MAX));
+        let search = self.foresight_nodes.unwrap_or_else(|| {
+            if budget.nodes < u32::MAX || work == u64::MAX {
+                budget.nodes
+            } else {
+                u32::try_from(work / SEARCH_SHARE).unwrap_or(u32::MAX)
+            }
+        });
+        baylee_ai::WorkMeter::bounded(work, search)
     }
 
     /// Keeps a searched question where the table was asked to

@@ -526,6 +526,16 @@ pub struct Foresight {
     /// The most answers the house gives in one world before it is scored
     /// where it stands.
     pub answers: u16,
+    /// The most work one searched answer may spend, in units of the
+    /// search's meter (`baylee_ai::WorkMeter`: a node of the forks' combat
+    /// searches, and a fork and a house answer in a fork at their prices).
+    /// A search that has spent it stops where it stands. `u64::MAX` for
+    /// none.
+    pub work: u64,
+    /// The most nodes one combat search in a fork may visit: how hard the
+    /// forks' model thinks about one attack or block, whatever the bound.
+    /// `u32::MAX` leaves the model its own budget.
+    pub nodes: u32,
 }
 
 /// Difficulty profile of an AI seat (one code path, parameterized).
@@ -669,8 +679,30 @@ impl AIProfile {
     /// a root, that is every spell with a cost, so before it a search never
     /// set one spell or one target against another.
     pub const SPELL_ROOTS: u16 = 8;
+    /// A level's search is bounded by the level itself
+    /// ([`Foresight::work`], [`Foresight::nodes`]), so the same level plays
+    /// the same wherever it searches: in a measurement, as a teacher and at
+    /// a host, which can lower the bound and never raise it. The work grows
+    /// with the tier's candidates and worlds ([`Self::EXPERT_WORK`]), so
+    /// each tier is cut about as rarely; the forks' model thinks about one
+    /// attack or block within [`Self::FORK_NODES`], whatever the bound.
+    pub const BOUNDED_SEARCH: u16 = 9;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::SPELL_ROOTS;
+    pub const GENERATION: u16 = Self::BOUNDED_SEARCH;
+
+    /// The work a bounded search ([`Self::BOUNDED_SEARCH`]) may spend at
+    /// expert's tier, in the units of the search's meter; a lower tier may
+    /// spend as much less as it tries fewer candidates in fewer worlds.
+    /// Expert at generation 8 ran past eight million in one search in ten
+    /// and lost nothing measurable when stopped there; at four million it
+    /// lost 2.6 points (`docs/proposals/house-ai-strength.md` §7.7).
+    pub const EXPERT_WORK: u64 = 8_000_000;
+
+    /// The most nodes one combat search in a fork of a bounded search
+    /// ([`Self::BOUNDED_SEARCH`]) may visit: a sixteenth of what `expert`
+    /// itself searches for one attack or block, which is what the slowest
+    /// searches spent their time on.
+    pub const FORK_NODES: u32 = 16_384;
 
     /// Whether this profile plays the house code of `generation` and later,
     /// as every level does and a frozen reference before it does not.
@@ -713,11 +745,21 @@ impl AIProfile {
             4 => (8, 5),
             _ => (8, 6),
         };
+        let (work, nodes) = if self.plays(Self::BOUNDED_SEARCH) {
+            (
+                Self::EXPERT_WORK * (candidates as u64 * worlds as u64) / 48,
+                Self::FORK_NODES,
+            )
+        } else {
+            (u64::MAX, u32::MAX)
+        };
         Some(Foresight {
             candidates,
             worlds,
             turns: 4,
             answers: 400,
+            work,
+            nodes,
         })
     }
 
@@ -1605,6 +1647,30 @@ mod tests {
         assert!(!AIProfile::SHARP_2026_11.plays(AIProfile::TEAM_PLAY));
         assert!(AIProfile::SHARP_2026_11.plays(AIProfile::FROZEN_2026_11));
         assert!(AIProfile::default().plays(AIProfile::GENERATION));
+    }
+
+    /// From generation 9 a level bounds its own search, by the cells of its
+    /// tier, and its forks' combat searches by a fixed count of nodes;
+    /// before it, nothing of the level bounds a search.
+    #[test]
+    fn a_level_bounds_its_own_search_from_generation_9() {
+        let budget = |profile: AIProfile| profile.foresight().expect("a tier");
+        assert_eq!(budget(AIProfile::EXPERT).work, AIProfile::EXPERT_WORK);
+        assert_eq!(budget(AIProfile::STEADY).work, AIProfile::EXPERT_WORK / 2);
+        assert_eq!(budget(AIProfile::EXPERT).nodes, AIProfile::FORK_NODES);
+        let mut last = 0;
+        for (name, profile) in AIProfile::NAMED {
+            let bounded = budget(profile);
+            assert!(bounded.work >= last, "{name}: a higher tier may spend more");
+            last = bounded.work;
+            let before = budget(profile.at_generation(AIProfile::SPELL_ROOTS));
+            assert_eq!((before.work, before.nodes), (u64::MAX, u32::MAX), "{name}");
+            assert_eq!(
+                (before.candidates, before.worlds),
+                (bounded.candidates, bounded.worlds),
+                "{name}: the bound changes no count"
+            );
+        }
     }
 
     /// A room that chose no format says nothing about one on the wire, a

@@ -1288,27 +1288,36 @@ came out differently.
 **Budgets** are counts, so the same view, policy seed and budget give the
 same answer on any machine:
 
-| Tier | Level | Candidates | Worlds |
-| ---: | --- | ---: | ---: |
-| 1 | novice | 4 | 2 |
-| 2 | casual | 5 | 3 |
-| 3 | steady | 6 | 4 |
-| 4 | sharp | 8 | 5 |
-| 5 | expert, seer | 8 | 6 |
+| Tier | Level | Candidates | Worlds | Work, from generation 9 |
+| ---: | --- | ---: | ---: | ---: |
+| 1 | novice | 4 | 2 | 1,333,333 |
+| 2 | casual | 5 | 3 | 2,500,000 |
+| 3 | steady | 6 | 4 | 4,000,000 |
+| 4 | sharp | 8 | 5 | 6,666,666 |
+| 5 | expert, seer | 8 | 6 | 8,000,000 |
 
-A host may also bound the work of one searched answer
-(`Session::set_foresight_work`, `eval4 --foresight-work`). A search counts
-what it does on a meter (`baylee_ai::WorkMeter`): each node the forks'
-combat searches visit is one unit, and each fork and each house answer in a
-fork has a price in the same unit that grows with what is on the table
-(`session/simulation.rs`, `fork_work` and `answer_work`). Once the bound is
-spent the search stops where it stands, drops the world it was in and the
-round of worlds that belongs to, and chooses among the answers it tried in
-the same worlds; the level's own where not one round was finished. Under a
-bound one combat search in a fork may visit a 256th of it and no more
-(`SEARCH_SHARE`; `set_foresight_nodes` sets another share). Off unless a
-host sets it; the prices are provisional and the bound is not yet measured
-(`docs/proposals/house-ai-strength.md` §7).
+**The bound.** From generation 9 (`AIProfile::BOUNDED_SEARCH`) a level
+bounds its own search: `Foresight::work`, eight million units at
+expert's tier and as much less below it as the tier tries fewer
+candidates in fewer worlds, and `Foresight::nodes`, the 16,384 nodes one
+combat search in a fork may visit whatever the bound. A host may lower
+the bound of one searched answer (`Session::set_foresight_work`, `eval4
+--foresight-work`) and never raise it: the meter takes the tighter of the
+two, so a level plays alike in a measurement, as a teacher and at a host
+that leaves the bound as it is. A search counts what it does on a meter
+(`baylee_ai::WorkMeter`): each node the forks' combat searches visit is
+one unit, and each fork and each house answer in a fork has a price in
+the same unit (`session/simulation.rs`: an answer 375 units and 40 a
+permanent or stack object, a fork 2,500, fitted to thread CPU time at
+about 0.07 µs a unit). Once the bound is spent the search
+stops where it stands, drops the world it was in and the round of worlds
+that belongs to, and chooses among the answers it tried in the same
+worlds; the level's own where fewer than half its worlds were finished.
+A level from before generation 9 is bounded only by a host, and under a
+host's bound one combat search in a fork may visit a 256th of it
+(`SEARCH_SHARE`; `set_foresight_nodes` sets another count). What it cost
+and what it bounds is in `docs/proposals/house-ai-strength.md` §7.7; one
+engine step is not bounded by the unit.
 
 **Fairness.** `session/tests/foresight.rs` deals the house the two games of
 `tests/fair_house.rs`, which differ only in the opponent's decklist, hand
