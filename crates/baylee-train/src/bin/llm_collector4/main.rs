@@ -98,6 +98,12 @@ enum Commands {
         pairings_file: Option<PathBuf>,
         #[arg(long)]
         deck_manifest: PathBuf,
+        /// `FIELD=VALUE`: seats only the decks of `--deck-manifest` whose
+        /// entry says VALUE for FIELD (`split=train`, `format=constructed`);
+        /// given again, every one holds. The train guard then checks every
+        /// deck that is left.
+        #[arg(long)]
+        only: Vec<String>,
         /// The deck manifest whose train split teacher games may seat
         /// (`manifest.v4.holdout2.json`): every deck of `--deck-manifest`
         /// must be a train deck of it, read by key, cards or near, or the
@@ -183,6 +189,7 @@ async fn main() -> anyhow::Result<()> {
             profiles_config,
             pairings_file,
             deck_manifest,
+            only,
             train_manifest,
             evaluation,
             concurrency,
@@ -202,7 +209,7 @@ async fn main() -> anyhow::Result<()> {
                 gateway_bin,
                 profiles_config,
                 pairings_file,
-                deck_manifest,
+                (deck_manifest, schedule::only_fields(&only)?),
                 train_manifest,
                 evaluation,
                 concurrency,
@@ -627,7 +634,7 @@ async fn run_collect(
     gateway_bin: PathBuf,
     profiles_config: PathBuf,
     pairings_file: Option<PathBuf>,
-    deck_manifest: PathBuf,
+    decks: (PathBuf, Vec<(String, String)>),
     train_manifest: Option<PathBuf>,
     evaluation: bool,
     concurrency: usize,
@@ -657,12 +664,13 @@ async fn run_collect(
     )
     .await?;
     let own = Arc::new(teacher::OwnDatabase::prove(&admin_cleanup, db.clone()).await?);
+    let (deck_manifest, only) = decks;
     let sched = Scheduler::new(
         root.clone(),
         gateway.clone(),
         profiles_config,
         pairings_file,
-        &deck_manifest,
+        (&deck_manifest, &only),
         call_timeout_seconds,
         game_timeout_seconds,
     )?
