@@ -482,10 +482,17 @@ pub(super) fn trigger_line(
 pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
     let owner = table.whose(object.controller);
     let mut line = if let Some(item @ StackItem::Ability { source, .. }) = object.stack_item {
+        // A source the view no longer shows (a token that died, a card gone
+        // to a hidden zone) is named as the ability knows it, with the handle
+        // the seat was shown it by (`Table::ability_source`). A Pest's "When
+        // this token dies" read "an unnamed object" (Carbon b2).
         let from = if table.visible(source) {
             table.named(source)
         } else {
-            gone_source(object, item)
+            table.ability_source(object, item).map_or_else(
+                || format!("{} (no longer in view)", tag(source)),
+                |name| format!("{name} {}", tag(source)),
+            )
         };
         let mut line = format!("{} {owner} ability of {from}", tag(object.id));
         if let Some(sentence) = ability_sentence(item) {
@@ -533,40 +540,6 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         }
     }
     line
-}
-
-/// The source of a stack ability the view no longer shows (a token that
-/// died, a card gone to a hidden zone), named as the ability still knows it
-/// (CR 113.7a): the stack object's own name, a registry token's name, or
-/// the card it is printed on; its handle is the one the seat was shown it
-/// by. A Pest's "When this token dies" read "an unnamed object" (Carbon b2).
-fn gone_source(object: &PublicObject, item: StackItem) -> String {
-    let StackItem::Ability {
-        source,
-        token,
-        rules,
-        ..
-    } = item
-    else {
-        return tag(object.id);
-    };
-    let name = Some(object.name.as_ref())
-        .filter(|name| !name.is_empty())
-        .or_else(|| {
-            token.and_then(|token| baylee_cards::tokens::by_token_id(token.token).map(|t| t.name))
-        })
-        .or_else(|| {
-            rules.and_then(|rules| {
-                baylee_cards::by_index(rules.card)?
-                    .faces
-                    .get(usize::from(rules.face))
-                    .map(|face| face.name)
-            })
-        });
-    name.map_or_else(
-        || format!("{} (no longer in view)", tag(source)),
-        |name| format!("{name} {}", tag(source)),
-    )
 }
 
 /// Whether the objects a stack ability carries as its targets are ones it

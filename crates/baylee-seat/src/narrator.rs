@@ -786,9 +786,23 @@ impl<'a> Table<'a> {
         matches!((side(a), side(b)), (Some(x), Some(y)) if x == y)
     }
 
-    /// An object's name as the view shows it, wherever it is.
+    /// An object's name as the view shows it, wherever it is. An ability
+    /// on the stack with no name of its own is named for its source
+    /// ([`Self::ability_source`]): "Pest's ability", never "an unnamed
+    /// object" (Carbon b2; d2 game-0005 q136, "woke because P2's an unnamed
+    /// object #123 is on the stack").
     pub fn name(&self, id: ObjectId) -> Option<String> {
         if let Some(object) = self.view.object(id) {
+            if object.name.is_empty()
+                && let Some(item @ baylee_view::StackItem::Ability { source, .. }) =
+                    object.stack_item
+                && source != id
+            {
+                return Some(self.ability_source(object, item).map_or_else(
+                    || "an ability".to_string(),
+                    |name| format!("{name}'s ability"),
+                ));
+            }
             return Some(object_name(object));
         }
         self.view
@@ -798,6 +812,46 @@ impl<'a> Table<'a> {
             .chain(self.view.controlled_hands.iter().flat_map(|h| &h.cards))
             .find(|card| card.id == id)
             .map(|card| card.name.clone())
+    }
+
+    /// What a stack ability's source is called (CR 113.7a: the ability
+    /// exists apart from it): its name while the view shows it, else as the
+    /// ability still knows it, the ability object's own name, a registry
+    /// token's name or the card it is printed on. `None` where nothing says.
+    pub fn ability_source(
+        &self,
+        object: &PublicObject,
+        item: baylee_view::StackItem,
+    ) -> Option<String> {
+        let baylee_view::StackItem::Ability {
+            source,
+            token,
+            rules,
+            ..
+        } = item
+        else {
+            return None;
+        };
+        if source != object.id
+            && let Some(name) = self.name(source)
+        {
+            return Some(name);
+        }
+        Some(object.name.to_string())
+            .filter(|name| !name.is_empty())
+            .or_else(|| {
+                token.and_then(|token| {
+                    baylee_cards::tokens::by_token_id(token.token).map(|t| t.name.to_string())
+                })
+            })
+            .or_else(|| {
+                rules.and_then(|rules| {
+                    baylee_cards::by_index(rules.card)?
+                        .faces
+                        .get(usize::from(rules.face))
+                        .map(|face| face.name.to_string())
+                })
+            })
     }
 
     /// An object named with its handle: "Serra Angel #45", or "#45" when

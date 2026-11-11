@@ -125,9 +125,15 @@ fn a_gone_token_s_trigger_names_the_token() {
         }),
     });
     view.stack = vec![ability];
-    let text = told(&request(view, priority(&board().0), log));
+    let request = request(view, priority(&board().0), log);
+    let text = told(&request);
     assert!(!text.contains("an unnamed object"), "{text}");
     assert!(text.contains("#123 P2's ability of Pest #120"), "{text}");
+    // The ability itself, wherever a line names it by its handle (the
+    // held line's "woke because P2's … is on the stack"): Carbon d2
+    // game-0005 q136 read "P2's an unnamed object #123".
+    let table = Table::new(&request.view, &request.context);
+    assert_eq!(table.named(id(123)), "Pest's ability #123");
 }
 
 /// At a priority the seat is woken for because the mana it made this step
