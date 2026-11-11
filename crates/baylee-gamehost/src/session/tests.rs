@@ -20,6 +20,7 @@ mod scouting;
 mod shared_hand;
 mod simulation;
 mod static_policy;
+mod teacher;
 mod team_exercise;
 mod trample_division;
 mod trigger_order;
