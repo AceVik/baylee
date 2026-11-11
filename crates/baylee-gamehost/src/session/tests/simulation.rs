@@ -326,3 +326,82 @@ fn a_fork_on_a_prior_knows_no_list_but_the_searchers() {
         ))
     );
 }
+
+/// Every spell a search tries at a root because the seat's lands pay for it
+/// while it is cast (`AIProfile::SPELL_ROOTS`: in `legal.payable`, and among
+/// the candidates) is paid by the house once the chair is released in a
+/// fork, so it goes on the stack and is not taken back. The offer's other
+/// payable cards, which the planner does not pay for, are no candidates.
+#[test]
+fn a_spell_cast_in_a_fork_is_paid_by_the_house_that_plays_on() {
+    let mut session = table(31);
+    let mut tried = 0;
+    for turn in 3..9 {
+        to_forkable_main(&mut session, turn);
+        let (pending, view) = session.view_for(SEARCHER).expect("the searcher is asked");
+        let Pending::Priority { legal, .. } = &pending else {
+            unreachable!("a forkable main phase is a priority");
+        };
+        let searcher = baylee_ai::HeuristicAgent::new(baylee_core::preset::AIProfile::EXPERT);
+        let own = session.house_action(SEARCHER).expect("an answer");
+        let tried_here: Vec<ObjectId> = searcher
+            .foresight_candidates(&view, &pending, &own, usize::MAX)
+            .answers
+            .into_iter()
+            .filter_map(|answer| match answer {
+                PlayerAction::CastSpell { card } if legal.payable.contains(&card) => Some(card),
+                _ => None,
+            })
+            .collect();
+        for card in tried_here {
+            let mut fork = session
+                .fork_for(SEARCHER, DeckKnowledge::Known, POLICY_SEED)
+                .expect("the root forks");
+            let index = |view: &baylee_view::PlayerView| {
+                view.hand
+                    .iter()
+                    .find(|held| held.id == card)
+                    .map(|held| held.card.index)
+                    .or_else(|| {
+                        view.command
+                            .iter()
+                            .flatten()
+                            .find(|object| object.id == card)
+                            .and_then(|object| object.card.map(|card| card.index))
+                    })
+            };
+            let (_, view) = fork.view_for(SEARCHER).expect("asked");
+            let printed = index(&view).expect("a payable card is in the hand or the command zone");
+            if fork
+                .act_slice(SEARCHER, PlayerAction::CastSpell { card }, 0)
+                .is_err()
+            {
+                continue;
+            }
+            assert!(fork.release(SEARCHER));
+            let mut cast = false;
+            for _ in 0..40 {
+                let view = fork.observe_view(SEARCHER);
+                if view.casting.is_none()
+                    && view.owed.is_none()
+                    && view.stack.iter().any(|spell| {
+                        spell.controller == SEARCHER
+                            && spell.card.is_some_and(|on| on.index == printed)
+                    })
+                {
+                    cast = true;
+                    break;
+                }
+                if fork.pump_at_most(1) == 0 {
+                    break;
+                }
+            }
+            assert!(
+                cast,
+                "the house did not pay for card {card:?} cast in a fork"
+            );
+            tried += 1;
+        }
+    }
+    assert!(tried > 0, "no spell was offered to be paid while cast");
+}

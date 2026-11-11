@@ -1030,6 +1030,23 @@ impl HeuristicAgent {
         })
     }
 
+    /// Whether the planner pays for `card` from what the seat has, holding
+    /// nothing back: the card is one the offer lets it cast and pay for
+    /// while it is cast (`legal.payable`), it prints no X (an X is announced
+    /// from the mana the planner means to make, which a cast paid afterwards
+    /// has not made), and [`Self::spend_on`] finds the taps for it. What a
+    /// search tries as a spell at a root ([`crate::AIProfile::SPELL_ROOTS`]),
+    /// whatever this level's own scoring makes of it.
+    pub(crate) fn pays_for(&self, view: &PlayerView, legal: &LegalActions, card: ObjectId) -> bool {
+        legal.payable.contains(&card)
+            && identity(view, card)
+                .and_then(face)
+                .is_some_and(|f| !f.mana_cost.has_variable())
+            && self
+                .spend_on(view, legal, 0, |_, id, _, _| (id == card).then_some(1))
+                .is_some()
+    }
+
     /// Whether now is `card`'s moment ([`crate::timing`]): always for a
     /// card the engine offers at sorcery speed alone, and for an
     /// instant-speed one when what it is for can happen now.

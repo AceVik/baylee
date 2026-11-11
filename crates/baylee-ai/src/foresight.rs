@@ -50,11 +50,15 @@ impl HeuristicAgent {
     /// sits there does. A level's own heuristics give its own answer, which
     /// stands unless the search finds better; its budget says how hard the
     /// search looks.
+    ///
+    /// The model plays the searching level's generation: a search measured
+    /// as `<level>:generation=N` plays its forks on the house code of that
+    /// generation too, so a later generation moves neither half of it.
     #[must_use]
     pub fn simulated(&self, seed: u64) -> Self {
         let profile = AIProfile {
             sight: self.profile.sight,
-            ..AIProfile::EXPERT
+            ..AIProfile::EXPERT.at_generation(self.profile.generation)
         };
         Self {
             profile,
@@ -98,7 +102,8 @@ impl HeuristicAgent {
     /// seat's own main phase or where it means to act or has an opponent's
     /// spell to answer (`settled`), no mana floating and no cast in
     /// progress: passing, each land and each spell and ability the offer
-    /// lists, one per card. *Attackers*: the level's declaration, none, all,
+    /// lists, one per card; from [`AIProfile::SPELL_ROOTS`] also each spell
+    /// the seat's mana pays for while it is cast. *Attackers*: the level's declaration, none, all,
     /// and the declaration with one creature more or one fewer. *Blockers*:
     /// the level's blocks, none, and the blocks with one more or one fewer.
     /// Every candidate is checked against the question as an answer is
@@ -114,7 +119,20 @@ impl HeuristicAgent {
         let mut answers = vec![own.clone()];
         let others = match pending {
             Pending::Priority { player, legal } if settled(view, *player, own) => {
-                priority_candidates(view, legal)
+                // With nothing floating, a spell with a cost is offered to be
+                // paid while it is cast, not as castable: the planner says
+                // which of those the seat's mana pays for.
+                let paid: Vec<ObjectId> = if self.profile.plays(AIProfile::SPELL_ROOTS) {
+                    legal
+                        .payable
+                        .iter()
+                        .copied()
+                        .filter(|&card| self.pays_for(view, legal, card))
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                priority_candidates(view, legal, &paid)
             }
             Pending::ChooseAttackers {
                 attackers,
@@ -195,10 +213,12 @@ fn settled(view: &PlayerView, player: PlayerId, own: &PlayerAction) -> bool {
 }
 
 /// Passing, each land, each spell and each ability of the offer, one per
-/// card: two copies of a card in hand are one candidate.
+/// card: two copies of a card in hand are one candidate. The spells are the
+/// castable ones and `paid`, those the planner pays for while they are cast.
 fn priority_candidates(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
+    paid: &[ObjectId],
 ) -> Vec<PlayerAction> {
     let card_of = |id: ObjectId| {
         view.hand
@@ -212,7 +232,7 @@ fn priority_candidates(
     }
     let mut seen = Vec::new();
     let mut spells: Vec<(u32, ObjectId)> = Vec::new();
-    for &id in &legal.castable {
+    for &id in legal.castable.iter().chain(paid) {
         let (card, mana_value) = card_of(id).map_or((None, 0), |(card, mv)| (Some(card), mv));
         if card.is_some() && seen.contains(&card) {
             continue;

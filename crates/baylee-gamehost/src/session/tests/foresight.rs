@@ -148,6 +148,74 @@ fn foresight_is_off_until_a_table_switches_it_on() {
     assert_eq!(session.foresight_stats().asked, 0);
 }
 
+/// The priority questions `profile` searched in deal `seed` of the goblins,
+/// each with the spells the offer had it pay for while they are cast.
+fn searched_priority(profile: AIProfile, seed: u64) -> Vec<crate::SearchedQuestion> {
+    let deck = goblins_and_bolts();
+    let preset = deal(seed, &deck, &opponent("Llanowar Elves", 30), profile);
+    let mut session = Session::new(&preset).expect("the table starts");
+    session.set_foresight(true);
+    session.set_foresight_questions([true, false, false], false);
+    let person = PlayerId::new(1);
+    for _ in 0..10_000 {
+        let _ = session.pump();
+        if matches!(session.pending(), Pending::GameOver(_))
+            || session.state().turn.number > LAST_TURN
+        {
+            break;
+        }
+        let Some((pending, _)) = session.view_for(person) else {
+            continue;
+        };
+        let nothing = timeout_answer(&pending).unwrap_or(PlayerAction::PassPriority);
+        session
+            .act(person, nothing)
+            .expect("doing nothing is an answer");
+    }
+    session.take_foresight_questions()
+}
+
+/// The spells a searched priority question tried that the offer had the seat
+/// pay for while they are cast, with what each made in its worlds.
+fn paid_casts(question: &crate::SearchedQuestion) -> Vec<&Vec<Option<f64>>> {
+    let Pending::Priority { legal, .. } = &question.pending else {
+        return Vec::new();
+    };
+    question
+        .tried
+        .iter()
+        .filter(|(answer, _, _)| {
+            matches!(answer, PlayerAction::CastSpell { card } if legal.payable.contains(card))
+        })
+        .map(|(_, _, worlds)| worlds)
+        .collect()
+}
+
+/// From [`AIProfile::SPELL_ROOTS`] a search at priority tries the spells the
+/// seat's lands pay for, cast and then paid in the fork; the generation
+/// before it tries only what floating mana pays for, which at a root is
+/// nothing with a cost.
+#[test]
+fn a_search_tries_the_spells_its_lands_pay_for() {
+    let now = searched_priority(AIProfile::EXPERT, 12);
+    let tried: Vec<_> = now.iter().flat_map(paid_casts).collect();
+    assert!(!tried.is_empty(), "no spell paid while cast was tried");
+    assert!(
+        tried
+            .iter()
+            .any(|worlds| worlds.iter().all(Option::is_some)),
+        "the forks paid for none of the spells tried: {tried:?}"
+    );
+    let before = searched_priority(AIProfile::EXPERT.at_generation(AIProfile::FORESIGHT), 12);
+    assert!(!before.is_empty(), "generation 7 searched no priority");
+    assert!(
+        before
+            .iter()
+            .all(|question| paid_casts(question).is_empty()),
+        "generation 7 tried a spell paid while cast"
+    );
+}
+
 /// A table that judges its searches answers as one that does not: the
 /// worlds of the probed questions are played on to the end and kept, each
 /// with the level's own answer among those tried, and no answer changes.

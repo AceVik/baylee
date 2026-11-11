@@ -1203,12 +1203,20 @@ question's own offer (`HeuristicAgent::foresight_candidates`): the level's
 own answer first, then passing, each spell (the dearest first), each land
 and each ability, one per card; for an attack the level's declaration
 beside all, none, and itself with one creature more or fewer, and for a
-block the same around the level's blocks. A spell or ability that asks for
-exactly one target is also tried at each of its first four targets, and the
-target chosen with it is given when the engine asks. A declaration that
-beats the level's own is tried against its own neighbours for two more
-rounds. Every candidate is an answer the question takes
-(`Pending::answer_fault`).
+block the same around the level's blocks. With nothing floating at a
+root, a spell with a cost is not castable but offered to be paid while it
+is cast (`legal.payable`, CR 601.2g-h); from generation 8
+(`AIProfile::SPELL_ROOTS`) each such spell the planner pays for from the
+seat's sources (`HeuristicAgent::pays_for`: no X, and the taps found as the
+level would find them, nothing held back) is a spell of the list too, cast
+in the fork and paid there by the house that plays the chair on. Before
+it, a priority search set the level's own plan, which begins with a tap,
+only beside passing, lands and abilities, never one spell or one target
+against another. A spell or ability that asks for exactly one target is
+also tried at each of its first four targets, and the target chosen with
+it is given when the engine asks. A declaration that beats the level's
+own is tried against its own neighbours for two more rounds. Every
+candidate is an answer the question takes (`Pending::answer_fault`).
 
 **A world.** Each candidate is given in a fork of the game and the house
 plays every chair on until the turn counter has advanced four turns, the
@@ -1220,10 +1228,10 @@ another's mean value over the same worlds is more than 0.02 higher; then
 the best is given.
 
 **Who plays in a fork.** One model in every chair
-(`HeuristicAgent::simulated`): `expert`'s heuristics, with the searching
-chair's sides and sight, seeded from the world. Not the real opponent: its
-level, its agent, its seed and the analysis of its deck are not in a fork,
-so a search asks what a good house player would do in each seat and cannot
+(`HeuristicAgent::simulated`): `expert`'s heuristics at the searching
+level's generation, with the searching chair's sides and sight, seeded
+from the world. Not the real opponent: its level, its agent, its seed and
+the analysis of its deck are not in a fork, so a search asks what a good house player would do in each seat and cannot
 be fitted to the player who sits there. Not the searching level either: a
 level's own heuristics give its own answer and every answer no search
 takes (mulligans, payments, most choices); its tier says how hard the

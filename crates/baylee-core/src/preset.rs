@@ -663,8 +663,14 @@ impl AIProfile {
     /// offer's other sensible answers, each played on by the house in the
     /// same dealt worlds and scored where the game then stands.
     pub const FORESIGHT: u16 = 7;
+    /// A search at priority also tries each spell the seat's mana would pay
+    /// for, cast and paid for while it is cast (CR 601.2g-h), beside the
+    /// spells the floating pool already pays for: with nothing floating at
+    /// a root, that is every spell with a cost, so before it a search never
+    /// set one spell or one target against another.
+    pub const SPELL_ROOTS: u16 = 8;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::FORESIGHT;
+    pub const GENERATION: u16 = Self::SPELL_ROOTS;
 
     /// Whether this profile plays the house code of `generation` and later,
     /// as every level does and a frozen reference before it does not.
