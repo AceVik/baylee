@@ -444,6 +444,24 @@ class DistillOptions(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.parse(["train5", "--data", "d", "--out", "o", "--distill-subtypes", "cast"])
 
+    def test_stage_b_never_recomputes_compiled_trunk_layers(self):
+        arm_b = [a for a in self.STAGE_A if a != "--train-policy-head-only"]
+        arm_b += ["--trainable-trunk-from-layer", "8", "--freeze-value-head", "--layers", "12"]
+        compiled = ["--compile-regions", "--activation-checkpointing"]
+        stderr = io.StringIO()
+        with patch("sys.argv", [*arm_b, *compiled]), contextlib.redirect_stderr(stderr), \
+                self.assertRaises(SystemExit):
+            from training4.cli import parse_args
+            parse_args("v5")
+        self.assertIn("--saved-activation-layers 4", stderr.getvalue())
+        with self.assertRaises(SystemExit):
+            self.parse([*arm_b, *compiled, "--saved-activation-layers", "3"])
+        self.assertEqual(self.parse([*arm_b, *compiled, "--saved-activation-layers", "4"]).saved_activation_layers, 4)
+        # Without compiling, or without checkpointing, nothing compiled is recomputed.
+        self.parse([*arm_b, "--activation-checkpointing"])
+        self.parse([*arm_b, "--compile-regions"])
+        self.parse([*self.STAGE_A, *compiled])   # stage A trains no trunk layer
+
     def test_stage_a_recipe_parses_and_guards_reject_mixtures(self):
         args = self.parse(self.STAGE_A)
         self.assertEqual((args.distill_kinds, args.checkpoint_selection), ((0,), "distill_n_ne_r"))
@@ -517,16 +535,19 @@ class DriverStages(unittest.TestCase):
                   "--batch-size", "4", "--unroll", "3", "--board-chunk", "2", "--decision-chunk", "2", "--max-steps", "1",
                   "--epochs", "1", "--loss-version", "5", "--loss-normalization", "unroll_per_head", "--lr", "1e-2"]
 
+        logs = {}
+
         def run(output, extra, data_meta):
             meta.clear()
             meta.update(data_meta)
             argv = ["train5", "--out", str(output), *common, *extra]
+            stdout = logs[output.name] = io.StringIO()
             with patch("sys.argv", argv), patch.object(driver.D4, "TrajectoryDataset4", Dataset), \
                     patch.object(driver.D4, "StatefulBatchSampler4", Sampler), \
                     patch.object(driver, "DataLoader", return_value=[]), \
                     patch.object(driver, "prefetch_batches", return_value=[(copy.deepcopy(batch), None)]), \
                     patch.object(driver, "evaluate_device", return_value=dict(val_pol_loss=1., val_mse=1., val_aux_mse=1., val_top1_acc=0.)), \
-                    patch.object(driver.torch, "set_num_threads"), contextlib.redirect_stdout(io.StringIO()):
+                    patch.object(driver.torch, "set_num_threads"), contextlib.redirect_stdout(stdout):
                 driver.main("v5")
             return torch.load(output / "last.pt", map_location="cpu", weights_only=False)
 
@@ -555,6 +576,16 @@ class DriverStages(unittest.TestCase):
                 self.assertTrue(all(k.startswith(allowed) for k in changed), (name, changed))
                 self.assertEqual(saved["checkpoint_selection"], "distill_n_ne_r")
                 self.assertEqual(saved["bundle_distillation"]["kinds"], [0])
+                # A one-step run still prints its step line and its distillation terms.
+                text = logs[name].getvalue()
+                self.assertIn("[train4] step=1 epoch=1 ", text)
+                self.assertIn("[distill] train {", text)
+                epoch = json.loads(text.split("[distill] epoch ", 1)[1].splitlines()[0])
+                self.assertEqual((epoch["epoch"], epoch["step"]), (1, 1))
+                self.assertEqual(set(epoch["train"]), set(D.TERMS))
+                self.assertTrue(any(v is not None for v in epoch["train"].values()), name)
+                self.assertIsNone(epoch["validation"])   # --skip-final-validation
+            self.assertNotIn("[distill]", logs["init"].getvalue())
 
 
 if __name__ == "__main__":

@@ -510,9 +510,18 @@ class WindowTraining:
             store = self.states
         else:
             store = StateStore(len(self.pieces), seats, width, store_bf16, path)
-        store, self.entities = window_states(net, self.dataset, self.pieces, device, lanes, thinking_steps, bf16,
-                                             workers, token_budget, timing_out=self.timing, store=store,
-                                             prefetch=prefetch)
+        try:
+            store, self.entities = window_states(net, self.dataset, self.pieces, device, lanes, thinking_steps,
+                                                 bf16, workers, token_budget, timing_out=self.timing, store=store,
+                                                 prefetch=prefetch)
+        except BaseException:
+            # A pass that did not finish leaves no store file: neither a run's
+            # nor a cache's, whose key was never written.
+            if store is self.states:
+                self.close()
+            else:
+                store.close(delete=True)
+            raise
         self._replace(store, owned)
         if cache is not None:
             np.save(Path(str(cache) + ".entities.npy"), self.entities)

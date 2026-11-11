@@ -38,6 +38,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import copy
 from dataclasses import dataclass
+import json
 
 import torch
 import torch.nn.functional as F
@@ -374,6 +375,22 @@ def term_means(stats):
     n = len(TERMS)
     return {name: float(stats[i] / stats[n + i]) if float(stats[n + i]) > 0 else None
             for i, name in enumerate(TERMS)}
+
+
+# What a distillation epoch line reports of validation (the full set is in meta.json).
+EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "val_distill_distilled_top1_r",
+                    "val_distill_out_of_scope_top1_r", *(f"val_distill_{name}" for name in TERMS),
+                    "val_value_mse_to_r1")
+
+
+def epoch_line(epoch, step, stats, val_metrics):
+    """`[distill] epoch` JSON: the epoch's training terms and validation's agreement
+    with R. A distillation run trains none of the behaviour-cloning terms the
+    `[train4] epoch` line prints, so they read zero there."""
+    train = term_means(stats.cpu()) if stats is not None else None
+    validation = {key: val_metrics[key] for key in EPOCH_VALIDATION if key in val_metrics}
+    return "[distill] epoch " + json.dumps(dict(epoch=epoch, step=step, train=train,
+                                                validation=validation or None))
 
 
 GROUPS = ("distilled", "out_of_scope", "single", "subset", "pair", "scalar")
