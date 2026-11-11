@@ -59,7 +59,7 @@ KL_TERMS = slice(1, 7)
 OUT_OF_SCOPE_MODES = ("kl", "ce-n")
 PRIORITY = 0   # pending kind of a priority decision
 COARSE = CLASSES   # coarse classes of a priority answer (coarse_class_v1)
-COARSE_MODES = (None, "act", "class", "act-exact")
+COARSE_MODES = (None, "act", "class", "act-exact", "act-best")
 AUXILIARY_TARGETS = {}
 
 
@@ -319,6 +319,12 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                     if scope.coarse == "act-exact":
                         # R acts where N passes: R's own candidate, not the act group's mass.
                         to_group = torch.where(r_group[:, 0] == 1, -log_s.gather(1, r_idx[:, None])[:, 0], to_group)
+                    elif scope.coarse == "act-best":
+                        # R acts where N passes: the student's best act against the pass group,
+                        # -log(p_best / (p_best + p_pass)); it is below log 2 exactly when an act leads.
+                        best = torch.where(mask & (groups == 1), log_s, -1e9).amax(-1)
+                        passing = torch.logsumexp(torch.where(mask & (groups == 0), log_s, -1e9), -1)
+                        to_group = torch.where(r_group[:, 0] == 1, torch.logaddexp(best, passing) - best, to_group)
                     coarse_routes = [
                         (8, split, to_group),
                         (9, taught & ~split & ~kept, -log_s.gather(1, n_idx.clamp(min=0)[:, None])[:, 0])]
