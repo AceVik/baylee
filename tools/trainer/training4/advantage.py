@@ -372,13 +372,19 @@ def held_out_halves(rows):
 
 
 def fit(rows: AdvantageRows, kind="mlp", hidden=0, tau=0.02, lr=1e-3, weight_decay=1e-2, epochs=40, batch=512,
-        patience=6, seed=1, log=print):
+        patience=6, seed=1, log=print, train_fraction=1.0):
+    """`train_fraction` < 1 trains on that share of the training games only (a learning curve);
+    the held-out games and the report stay the same."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     prepared = Prepared(rows, tau)
     head = SearchHead(prepared.rows.shape[1], kind, hidden)
     optimizer = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=weight_decay)
     train = np.flatnonzero(~rows.held_out)
+    if train_fraction < 1:
+        games = np.unique(rows.roots["game"][train])
+        kept = rng.choice(games, max(1, int(round(len(games) * train_fraction))), replace=False)
+        train = train[np.isin(rows.roots["game"][train], kept)]
     held = torch.from_numpy(rows.held_out)
     best, best_state, history, waited = None, None, [], 0
     for epoch in range(1, epochs + 1):
@@ -615,6 +621,8 @@ def main(argv=None):
     fitting.add_argument("--batch", type=int, default=512, help="Roots per step")
     fitting.add_argument("--patience", type=int, default=6)
     fitting.add_argument("--seed", type=int, required=True)
+    fitting.add_argument("--train-fraction", type=float, default=1.0,
+                         help="Train on this share of the training games (a learning curve); held-out unchanged")
     fitting.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
     if args.command == "smoke":
@@ -633,7 +641,7 @@ def main(argv=None):
         raise ValueError(f"The rows come from different nets: {sorted(map(str, sources))}")
     rows = AdvantageRows.concat(parts)
     head, result = fit(rows, args.head, args.hidden, args.tau, args.lr, args.weight_decay, args.epochs, args.batch,
-                       args.patience, args.seed)
+                       args.patience, args.seed, train_fraction=args.train_fraction)
     out.mkdir(parents=True)
     width = 2 * rows.d_model + TAIL
     export(head, width, out / "advantage.onnx")
@@ -646,6 +654,7 @@ def main(argv=None):
                             "(all zero for an unknown class), payable_added 0/1, own 0/1",
                 override="argmax over the scored items of score_i - score_own; play it when it exceeds margin",
                 head=args.head, hidden=args.hidden, tau=args.tau, seed=args.seed, lr=args.lr,
+                train_fraction=args.train_fraction,
                 rows=[dict(path=str(p), sha256=hashlib.sha256(Path(p).read_bytes()).hexdigest()) for p in args.rows],
                 roots=dict(train=int((~rows.held_out).sum()), held_out=int(rows.held_out.sum())),
                 onnx_sha256=hashlib.sha256((out / "advantage.onnx").read_bytes()).hexdigest(), **result)
