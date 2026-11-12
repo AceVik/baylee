@@ -129,6 +129,26 @@ struct Args {
     /// mapped to `[0, 1]`) from the game's calibrated search events.
     #[arg(long, requires = "search_targets")]
     search_turn_value_target: bool,
+    /// Search-advantage labels (`search_advantage_v1`): at each searched
+    /// priority root of a recorded seat, the fork advantage of every answer the
+    /// search tried, on the root's payable menu, beside the frames
+    /// (`search-advantage/`) with each root's twin (`search-advantage-menus/`).
+    /// Every frame keeps policy weight 0. Reads only searched runs whose decks
+    /// `--train-manifest` puts in train.
+    #[arg(
+        long,
+        conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights", "search_targets", "bundle_distill"]
+    )]
+    search_advantage: bool,
+    /// Converts only the first N games, in the runs' and their `games.jsonl`
+    /// order (never by outcome): a probe's subset.
+    #[arg(long)]
+    first_games: Option<usize>,
+    /// With `--search-advantage`: a JSON receipt of how the converter was
+    /// checked against the collection's own (the byte-identity check), kept in
+    /// `meta.json`.
+    #[arg(long, requires = "search_advantage")]
+    search_advantage_receipt: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -150,6 +170,8 @@ struct GameRef {
     search_events: Option<search_distill::GameSearchEvents>,
     /// `--bundle-distill`: the game's labels.
     distill: Option<bundle_distill::GameLabels>,
+    /// `--search-advantage`: the game's roots.
+    search_roots: Option<search_advantage::GameRoots>,
     validation: bool,
     shadow: Option<shadow::Source>,
     llm: Option<llm::Source>,
@@ -189,6 +211,7 @@ mod on_policy;
 mod output;
 mod policy_provenance;
 mod research;
+mod search_advantage;
 mod search_distill;
 mod self_imitation;
 mod shadow;
@@ -226,6 +249,9 @@ fn main() -> anyhow::Result<()> {
     if args.search_targets && (!args.include_passive_obs || !args.val_runs.is_empty()) {
         bail!("--search-targets requires --include-passive-obs and distills --runs only");
     }
+    if args.search_advantage && !args.include_passive_obs {
+        bail!("--search-advantage requires --include-passive-obs for complete recurrent history");
+    }
     if args.out.exists() {
         bail!("{} already exists", args.out.display());
     }
@@ -258,6 +284,13 @@ fn main() -> anyhow::Result<()> {
     } else {
         None
     };
+    // Search-advantage labels check every deck each run can seat against the
+    // same manifest, as bundle distillation does.
+    let search_decks = args
+        .search_advantage
+        .then(|| bundle_distill::TrainDecks::load(&args.train_manifest))
+        .transpose()?;
+    let mut search_sources = Vec::new();
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
@@ -269,7 +302,7 @@ fn main() -> anyhow::Result<()> {
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
-    for run_dir in args.runs.iter().chain(&args.val_runs) {
+    'runs: for run_dir in args.runs.iter().chain(&args.val_runs) {
         let run_json: Value = serde_json::from_slice(
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
@@ -279,6 +312,20 @@ fn main() -> anyhow::Result<()> {
             runs.admit(run_dir, &run_json)?;
         } else {
             admit_run(run_dir, &run_json)?;
+        }
+        if let Some(decks) = &search_decks {
+            anyhow::ensure!(
+                run_json["search"].is_object(),
+                "{}: --search-advantage reads searched runs only",
+                run_dir.display()
+            );
+            let seated = decks.seated(run_dir, &run_json)?;
+            search_sources.push(
+                json!({"run": run_dir, "search": run_json["search"]["contract"],
+                "collection_build": run_json["evaluator_build"],
+                "collection_revision": run_json["evaluator_revision"],
+                "collection_dirty": run_json["evaluator_dirty"], "decks": seated.len()}),
+            );
         }
         let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
         let run_exploration = exploration::run_contract(&run_json)?;
@@ -478,12 +525,24 @@ fn main() -> anyhow::Result<()> {
                 } else {
                     None
                 },
+                search_roots: if args.search_advantage {
+                    Some(
+                        search_advantage::GameRoots::from_game(&v)
+                            .with_context(|| format!("{} {}", run_dir.display(), v["game"]))?,
+                    )
+                } else {
+                    None
+                },
                 validation: if args.val_runs.is_empty() {
                     args.val_every > 0 && seed.is_multiple_of(args.val_every)
                 } else {
                     args.val_runs.contains(run_dir)
                 },
             });
+            // A probe's subset: the first games in order, never by outcome.
+            if args.first_games.is_some_and(|n| games.len() >= n) {
+                break 'runs;
+            }
         }
     }
 
@@ -686,6 +745,16 @@ fn main() -> anyhow::Result<()> {
         meta["behavior_mixture"] = exploration::metadata(&proposers);
         meta["supervised_eligible"] = json!(false);
     }
+    // Search-advantage labels, gathered from every worker.
+    let search_labels = Arc::new(Mutex::new((
+        Vec::<search_advantage::Row>::new(),
+        search_advantage::Counts::default(),
+        Vec::<String>::new(),
+    )));
+    if args.search_advantage {
+        meta["ppo_eligible"] = json!(false);
+        meta["policy_provenance_version"] = Value::Null;
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -711,6 +780,7 @@ fn main() -> anyhow::Result<()> {
         let distill_counts = distill_counts.clone();
         let coarse_rows = coarse_rows.clone();
         let include_passive = args.include_passive_obs;
+        let search_labels = search_labels.clone();
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
         let search_weighting = search_targets
@@ -737,7 +807,12 @@ fn main() -> anyhow::Result<()> {
                 let mut game_coarse = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
+                let search_roots = gref.search_roots.as_ref().map(search_advantage::GameRoots::roots);
+                let mut search_game = gref.search_roots.as_ref()
+                    .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone()))
+                    .transpose()?;
                 let emit = |mut step: Step4| {
+                    if let Some(game) = &mut search_game { game.apply(&mut step)?; }
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
                     if gref.explored { exploration::apply(&mut step); }
                     if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
@@ -759,7 +834,7 @@ fn main() -> anyhow::Result<()> {
                 } else if live_bc {
                     baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,None,None,None,true,encoder_version,None,gref.team_hands,emit)
                 } else {
-                    baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),gref.team_hands,emit)
+                    baylee_train::convert4::stream_game4_with_roots(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),gref.team_hands,search_roots.as_ref(),emit)
                 };
                 let extracted = match result {
                     Ok(ex) => ex,
@@ -799,6 +874,13 @@ fn main() -> anyhow::Result<()> {
                 if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
+                if let Some(game) = search_game {
+                    let (rows, counts, shard) = game.finish()?;
+                    let mut labels = search_labels.lock().expect("search label lock");
+                    labels.0.extend(rows);
+                    labels.1.add(&counts);
+                    labels.2.extend(shard);
+                }
                 let rows = if gref.validation { &val_rows } else { &train_rows };
                 rows.lock().expect("row lock").push((gref.game_id, name, extracted.steps));
                 *replay_checks.lock().expect("replay check lock").entry(extracted.replay_check.name()).or_default() += 1;
@@ -898,6 +980,37 @@ fn main() -> anyhow::Result<()> {
             meta["coarse_classes"] =
                 json!({"dir": dir, "rows": header["rows"], "rule": header["rule"]});
         }
+    }
+    if args.search_advantage {
+        anyhow::ensure!(
+            rejected.is_empty(),
+            "search-advantage conversion rejected games; no completed meta.json published"
+        );
+        let (rows, counts, mut shards) =
+            std::mem::take(&mut *search_labels.lock().expect("search label lock"));
+        shards.sort();
+        let receipt = args
+            .search_advantage_receipt
+            .as_deref()
+            .map(|path| -> anyhow::Result<Value> {
+                let bytes =
+                    fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+                Ok(json!({"path": path, "sha256": shadow::sha(&bytes),
+                    "receipt": serde_json::from_slice::<Value>(&bytes)?}))
+            })
+            .transpose()?;
+        let source = json!({"runs": search_sources,
+            "decks": search_decks.as_ref().map(bundle_distill::TrainDecks::describe),
+            "converter_build": baylee_build::short(), "converter_check": receipt,
+            "first_games": args.first_games});
+        let header =
+            search_advantage::write(&args.out.join("search-advantage"), rows, &counts, &source)?;
+        meta["search_advantage"] = json!({
+            "contract": header["contract"], "sidecar": "search-advantage/header.json",
+            "twins": header["twins"], "counts": header["counts"], "source": source,
+            "policy_weight": "0 on every frame: the search's answers are no policy targets",
+        });
+        meta[baylee_train_ops::search_advantage::MENUS_SHARDS_KEY] = json!(shards);
     }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
