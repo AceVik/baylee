@@ -912,3 +912,102 @@ fn a_record_from_before_the_count_boundary_is_refused_by_name() {
     let error = terminal_targets(&parted, false).unwrap_err();
     assert!(error.starts_with("replay audit: Diverged"), "{error}");
 }
+
+/// A game this build records with Fire // Ice in seat 0's hand: kept, passed
+/// to seat 0's first main phase, and conceded by seat 1.
+fn fire_ice_game() -> (Vec<u8>, baylee_core::preset::GamePreset) {
+    let card = |name: &str| baylee_core::preset::DeckEntry {
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: baylee_core::ids::PrintRef::new(0),
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+    };
+    let deck = HouseDeck::named("victory").unwrap();
+    let mut preset = crate::selfplay::table_for(13, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
+    preset.format = baylee_core::preset::FormatId::Freeform;
+    preset.modifiers.clear();
+    for seat in &mut preset.seats {
+        seat.deck = vec![card("Island"); 32];
+        seat.commanders.clear();
+        seat.sideboard.clear();
+        seat.starting_life = Some(20);
+        seat.starting_hand = Some(vec![]);
+        seat.starting_battlefield = vec![];
+    }
+    preset.house_rules.starting_player = Some(0);
+    preset.seats[0].starting_hand = Some(vec![card("Fire // Ice")]);
+    let mut session = baylee_gamehost::Session::new_recorded(&preset, "this build").unwrap();
+    session.take_over(PlayerId::new(0));
+    session.take_over(PlayerId::new(1));
+    while !(session.observe_view(PlayerId::new(0)).phase == baylee_view::Phase::FirstMain
+        && matches!(session.pending(), Pending::Priority { player, .. } if player.get() == 0))
+    {
+        let seat = session.pending().asked().unwrap();
+        let action = match session.pending() {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("{other:?}"),
+        };
+        session.act(seat, action).unwrap();
+    }
+    session
+        .act(PlayerId::new(1), PlayerAction::Concede)
+        .unwrap();
+    (session.take_record(), preset)
+}
+
+/// `record` with its opening hash `opening` and every input's engine hash
+/// another, as a build that reads the game otherwise from its opening on
+/// writes it; the public table's digests stay.
+fn opening_as(record: &[u8], opening: &str) -> Vec<u8> {
+    let mut out = Vec::new();
+    for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let mut value: serde_json::Value = serde_json::from_slice(line).unwrap();
+        if value["kind"] == "header" {
+            value["hash"] = opening.into();
+        } else if value["kind"] == "input" {
+            value["hash"] = "0123456789abcdef".into();
+        }
+        out.extend(serde_json::to_vec(&value).unwrap());
+        out.push(b'\n');
+    }
+    out
+}
+
+/// A record written before the split boundary ([`SPLIT_BOUNDARY`]) opens
+/// with the hash a build that read Fire // Ice by its left half wrote, and is
+/// refused by name where it is held to this build's hashes: the builds, the
+/// card and the rule. One of another build converts by its public table as
+/// before, which reads cards by index and no characteristic. A record that
+/// opens with any other hash is a divergence as before.
+#[test]
+fn a_record_from_before_the_split_boundary_is_refused_by_name() {
+    let (record, preset) = fire_ice_game();
+    let (_, check) = terminal_targets(&record, false).unwrap();
+    assert_eq!(check, ReplayCheck::Exact, "this build's own record");
+
+    let engine =
+        baylee_engine::engine::Engine::new(&preset, baylee_gamehost::RegistryLookup).unwrap();
+    let before = format!(
+        "{:016x}",
+        engine.snapshot_hash_reading_split_cards_by_left_half()
+    );
+    assert_ne!(before, format!("{:016x}", engine.snapshot_hash()));
+    let old = opening_as(&record, &before);
+    let error = terminal_targets(&old, false).unwrap_err();
+    assert!(error.starts_with(SPLIT_REFUSAL), "{error}");
+    for named in [
+        baylee_gamehost::record::this_build(),
+        SPLIT_RULE,
+        "Fire // Ice",
+        "CR 709.4",
+    ] {
+        assert!(error.contains(named), "{named} in: {error}");
+    }
+    let (_, check) = terminal_targets(&old, true).unwrap();
+    assert_eq!(check, ReplayCheck::SeenAcrossBuilds);
+
+    let other = opening_as(&record, "0123456789abcdef");
+    let error = terminal_targets(&other, false).unwrap_err();
+    assert!(error.starts_with("replay audit: Diverged"), "{error}");
+}

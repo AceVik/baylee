@@ -216,11 +216,13 @@ pub mod question_boundary;
 mod replay;
 pub mod research;
 pub mod shadow_bc;
+pub mod split_boundary;
 mod streaming;
 mod team_hands;
 pub use activator_boundary::{ACTIVATOR_BOUNDARY, BOUNDARY_REFUSAL, BOUNDARY_RULE};
 pub use count_boundary::{COUNT_BOUNDARY, COUNT_REFUSAL, COUNT_RULE};
 pub use question_boundary::{QUESTION_BOUNDARY, QUESTION_REFUSAL, QUESTION_RULE};
+pub use split_boundary::{SPLIT_BOUNDARY, SPLIT_REFUSAL, SPLIT_RULE};
 #[cfg(test)]
 use streaming::terminal_targets;
 pub use streaming::{

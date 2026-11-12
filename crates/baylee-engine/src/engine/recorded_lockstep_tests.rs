@@ -1,16 +1,18 @@
 //! Recorded games played twice in lockstep: by the engine as it is and by
-//! the engine as it was before four fixes from Carbon's ladder games
+//! the engine as it was before five fixes from Carbon's ladder games
 //! (11.11.2026 and 12.11.2026), switched back on by [`as_before`]. The untap
 //! step now brings the statics of what phased in along before it untaps
 //! (`UNTAP_BEFORE_PHASED_STATICS`), an order between damage effects that
 //! cannot change the event is no longer asked (`damage::ASK_EVERY_ORDER`),
-//! a decided game asks nothing more (`ASK_IN_A_DECIDED_GAME`), and "for each
+//! a decided game asks nothing more (`ASK_IN_A_DECIDED_GAME`), "for each
 //! creature, its controller sacrifices …" counts first, asks in APNAP order
-//! and sacrifices together (`resolve::for_each::ONE_AT_A_TIME`).
+//! and sacrifices together (`resolve::for_each::ONE_AT_A_TIME`), and a split card
+//! is both of its halves off the stack (`object::SPLIT_BY_LEFT_HALF`; every
+//! record with one in a deck parts at its opening).
 //!
 //! `BAYLEE_LOCKSTEP_BEFORE=<names>` (comma-separated: `untap`, `decided`,
-//! `damage-order`, `for-each`) switches back only the fixes it names, so a
-//! report parts the records on those alone; unset, all four.
+//! `damage-order`, `for-each`, `split`) switches back only the fixes it names,
+//! so a report parts the records on those alone; unset, all five.
 //!
 //! Both engines take every recorded answer. After the opening and after each
 //! answer their hashes are compared, and the first answer they part on is
@@ -51,16 +53,16 @@ const RECORD_VERSION: u64 = 1;
 
 /// The fixes [`as_before`] can switch back, by the name
 /// `BAYLEE_LOCKSTEP_BEFORE` gives them.
-const FIXES: [&str; 4] = ["untap", "decided", "damage-order", "for-each"];
+const FIXES: [&str; 5] = ["untap", "decided", "damage-order", "for-each", "split"];
 
 /// Which of [`FIXES`] the engine as it was goes without: every one, or the
 /// ones `BAYLEE_LOCKSTEP_BEFORE` names, comma-separated, which parts the
 /// records on those fixes alone.
-fn before() -> &'static [bool; 4] {
-    static BEFORE: std::sync::OnceLock<[bool; 4]> = std::sync::OnceLock::new();
+fn before() -> &'static [bool; 5] {
+    static BEFORE: std::sync::OnceLock<[bool; 5]> = std::sync::OnceLock::new();
     BEFORE.get_or_init(|| {
         let Ok(named) = std::env::var("BAYLEE_LOCKSTEP_BEFORE") else {
-            return [true; 4];
+            return [true; 5];
         };
         let named: Vec<&str> = named.split(',').map(str::trim).collect();
         for name in &named {
@@ -73,15 +75,16 @@ fn before() -> &'static [bool; 4] {
     })
 }
 
-/// Runs `f` as the engine was before the fixes (all four, or those
+/// Runs `f` as the engine was before the fixes (all five, or those
 /// [`before`] names).
 fn as_before<T>(f: impl FnOnce() -> T) -> T {
     let set = |on: bool| {
-        let [untap, decided, order, for_each] = *before();
+        let [untap, decided, order, for_each, split] = *before();
         super::progress::UNTAP_BEFORE_PHASED_STATICS.with(|s| s.set(on && untap));
         super::progress::ASK_IN_A_DECIDED_GAME.with(|s| s.set(on && decided));
         crate::damage::ASK_EVERY_ORDER.with(|s| s.set(on && order));
         crate::resolve::for_each::ONE_AT_A_TIME.with(|s| s.set(on && for_each));
+        crate::object::SPLIT_BY_LEFT_HALF.with(|s| s.set(on && split));
     };
     set(true);
     let out = f();

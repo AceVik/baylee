@@ -194,6 +194,10 @@ pub(super) fn terminal_targets(
     // build that does so is named in its seen audit's reason. One from
     // before the count boundary departs where a "for each creature, its
     // controller sacrifices" count is open, and is named the same two ways.
+    // One from before the split boundary opens with the hash that build
+    // wrote, a split card read by its left half, and is refused by name
+    // where it is held to this build's hashes; one of another build
+    // replays by its public table, which reads no characteristic.
     let (engine, check) = match baylee_gamehost::record::replay_exact(record) {
         Ok(checked) if checked.ended => (checked.engine, ReplayCheck::Exact),
         Ok(_) => return Err("record has no verified terminal state".into()),
@@ -214,6 +218,10 @@ pub(super) fn terminal_targets(
         Err(e @ baylee_gamehost::record::ReplayError::Refused { .. }) => {
             return Err(super::question_boundary::refusal(record)
                 .or_else(|| super::count_boundary::refusal(record))
+                .unwrap_or_else(|| format!("replay audit: {e:?}")));
+        }
+        Err(e @ baylee_gamehost::record::ReplayError::Diverged { n: None, .. }) => {
+            return Err(super::split_boundary::refusal(record)
                 .unwrap_or_else(|| format!("replay audit: {e:?}")));
         }
         Err(e) => return Err(format!("replay audit: {e:?}")),
