@@ -585,6 +585,43 @@ pub fn stream_game4_with_encoder_and_producer(
     encoder_version: u32,
     producer: Option<&ProducerEncoder>,
     team_hands: super::TeamHands,
+    emit: impl FnMut(Step4) -> Result<(), String>,
+) -> Result<StreamedGame4, String> {
+    stream_game4_with_roots(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        shadow,
+        llm,
+        live_bc,
+        encoder_version,
+        producer,
+        team_hands,
+        None,
+        emit,
+    )
+}
+
+/// [`stream_game4_with_encoder_and_producer`], keeping at each root `roots`
+/// asks for its payable menu beside the frame ([`Step4::search_root`],
+/// `search_advantage_v1`).
+///
+/// # Errors
+/// As [`stream_game4_with_encoder_and_producer`].
+#[allow(clippy::too_many_arguments)]
+pub fn stream_game4_with_roots(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    llm: Option<&mut super::llm_bc::LlmBc4>,
+    live_bc: bool,
+    encoder_version: u32,
+    producer: Option<&ProducerEncoder>,
+    team_hands: super::TeamHands,
+    roots: Option<&super::search_roots::Roots4>,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
     if !matches!(encoder_version, 7..=10) {
@@ -633,6 +670,7 @@ pub fn stream_game4_with_encoder_and_producer(
         live_bc,
         encoder_version,
         team_hands,
+        roots,
         |step, life| {
             let seat = step.seat as usize;
             if let Some((mut previous, previous_life)) = pending[seat].take() {

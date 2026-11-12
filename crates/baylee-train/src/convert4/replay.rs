@@ -54,6 +54,7 @@ pub(super) fn replay_frames_modes(
     live_bc: bool,
     encoder_version: u32,
     team_hands: TeamHands,
+    roots: Option<&super::search_roots::Roots4>,
     emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
     let replay = replay_feature_frames(
@@ -67,6 +68,7 @@ pub(super) fn replay_frames_modes(
         encoder_version,
         team_hands,
         FeaturePurpose::Ordinary,
+        roots,
         emit,
     )?;
     Ok(ReplaySummary {
@@ -101,6 +103,7 @@ pub(super) fn replay_research_frames(
         encoder,
         TeamHands::Unknown,
         FeaturePurpose::Research { natural },
+        None,
         emit,
     )
 }
@@ -128,6 +131,7 @@ fn replay_feature_frames(
     encoder_version: u32,
     team_hands: TeamHands,
     purpose: FeaturePurpose,
+    roots: Option<&super::search_roots::Roots4>,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<super::streaming::FeatureReplaySummary, String> {
     if !matches!(encoder_version, 7..=10) {
@@ -331,6 +335,7 @@ fn replay_feature_frames(
                                     distill: None,
                                     cand_classes: None,
                                     behavior_mixture: None,
+                                    search_root: None,
                                 },
                                 cur_life,
                             )?;
@@ -521,6 +526,32 @@ fn replay_feature_frames(
                     // Each candidate's coarse class at priority, beside the frame.
                     let cand_classes = matches!(pending, Pending::Priority { .. })
                         .then(|| crate::coarse_class::coarse_classes_of(&cands, &view));
+                    // A search-advantage root: its payable menu, built where
+                    // the frame's own menu is, beside the frame.
+                    let search_root = roots
+                        .filter(|roots| {
+                            matches!(pending, Pending::Priority { .. })
+                                && roots.asks(seat_u8, input_n)
+                        })
+                        .map(|roots| {
+                            let encode = |question: &Pending| {
+                                if encoder_version == 10 {
+                                    crate::features10::encode_candidates10(&state, &view, question)
+                                } else {
+                                    encode_candidates7_grouped(&state, &view, question)
+                                }
+                            };
+                            let (menu, first_added) =
+                                (roots.menu)(&view, &pending, &cands, &encode);
+                            let classes = crate::coarse_class::coarse_classes_of(&menu, &view);
+                            Box::new(super::search_roots::SearchRoot4 {
+                                record_input_n: input_n,
+                                pending: pending.clone(),
+                                menu,
+                                first_added,
+                                classes,
+                            })
+                        });
                     emit(
                         Step4 {
                             game_id,
@@ -572,6 +603,7 @@ fn replay_feature_frames(
                             distill: None,
                             cand_classes,
                             behavior_mixture,
+                            search_root,
                         },
                         cur_life,
                     )?;

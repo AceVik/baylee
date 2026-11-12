@@ -613,6 +613,7 @@ mod tests {
             behavior_mixture: None,
             distill: None,
             cand_classes: None,
+            search_root: None,
         }
     }
 
