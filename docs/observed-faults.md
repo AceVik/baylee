@@ -3992,3 +3992,10 @@ answer to whether a cost is paid, and the taps it made when it was frozen.
 The house's next generation moves to `manaplan::plan` behind a profile field
 the reference does not set (`policy::spend_on`, `pay_owed`,
 `activation_plan`).
+
+From generation 10 (`AIProfile::FULL_CASTS`) the house's taps for a cast, a
+payment window and an ability's mana are planned through `baylee_ai::spend`,
+which is `manaplan::plan` with the trade (`policy/full_casts.rs`,
+`baylee_ai::plan_for_activation`). What it still reads frozen is the X and
+kicker it aims for and whether a cast is viable at all (`aim`,
+`granted::viable_cast`), which ask only whether a cost is paid.
