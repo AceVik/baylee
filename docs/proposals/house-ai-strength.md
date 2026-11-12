@@ -1198,7 +1198,10 @@ Train split, round-robin, each game once, acenb (sixteen threads):
 | expert gen 8 against `expert:generation=7` | 1,020 | 54.8 % | 51.7–57.8 | 81 / 33 |
 | expert gen 8 against `sharp-2026-11` | 1,023 | 67.7 % | 64.8–70.5 | 192 / 11 |
 | expert gen 7 against `sharp-2026-11`, the same deals | 1,022 | 63.3 % | 60.3–66.2 | 152 / 16 |
-| steady gen 8 against `steady:generation=6` (bigace) | 511 | 62.4 % | 58.1–66.5 | 73 / 10 |
+| sharp gen 8 against `sharp:generation=6` (gen 7: 59.7 %) | 1,020 | 65.1 % | 62.1–68.0 | 162 / 10 |
+| steady gen 8 against `steady:generation=6` (gen 7: 55.8 %; bigace) | 511 | 62.4 % | 58.1–66.5 | 73 / 10 |
+| casual gen 8 against `casual:generation=6` (gen 7: 53.9 %) | 512 | 57.6 % | 53.3–61.8 | 48 / 9 |
+| novice gen 8 against `novice:generation=6` (gen 7: 53.6 %) | 256 | 57.0 % | 50.9–62.9 | 26 / 8 |
 
 Against the frozen reference the same deals go 92 games to 47 for
 generation 8 over generation 7. The searching chair spends about 10.1
@@ -1269,6 +1272,17 @@ a 256th of it, so it changed answers in searches it never stopped. So:
   answer, with no fork made; the fair twin deals are searched alike under a
   bound, unit for unit; a host only ever tightens a level's bound.
 
+**Generation 9 measured** (train, the 1,024 deals of §7.6, acenb): against
+`expert:generation=8` 505 of 1,020 (49.5 %; 6 seeds for, 11 against,
+p = 0.33), so the bound costs nothing measurable; against
+`expert:generation=6` 647 of 1,021 (63.4 %; 148 for, 11 against), 6 games
+won and 13 lost against generation 8 on the same deals (p = 0.17); against
+`sharp-2026-11` 692 of 1,022 (67.7 %; 192 for, 12 against), 6 games won
+and 6 lost against generation 8 on the same deals. One
+search in eleven reaches its bound, and a searched answer took 166 ms of
+thread CPU time at the median, 643 ms at the 95th percentile, 776 ms at the
+99th, 858 ms at the 99.9th and 922 ms at most (generation 8: 14.7 s).
+
 ### 7.8 For hosting: what the bound holds, and what it does not
 
 Proposed for the owner's decision on putting foresight on the
@@ -1305,3 +1319,111 @@ points or more and a hard budget exists):
 - **Determinism** rests on a search playing its forks one after another
   (`work.rs`): the same view, seed and bound spend the same units on any
   machine.
+
+### 7.9 Block repairs: the larger log, and what the hypotheses of §7.3 are worth
+
+**The log.** Expert at generation 8 against `expert:generation=6`, train
+deals 2048 to 4095 (none of the measured deals), every searched block
+written (`--foresight-question-kinds block --foresight-questions-all`;
+`g8-q-blocks-b.jsonl`, 2,181 questions). Those games, a second sample of
+generation 8 on train, went 1,271 of 2,045 (62.2 %; 271 seeds for, 24
+against). The search answered 304 blocks otherwise than the level, a gain
+of 28.9 in leaf value over them all:
+
+| What changed | Questions | Gain | A question |
+| --- | ---: | ---: | ---: |
+| added chump | 99 | 8.19 | 0.083 |
+| added trade | 72 | 5.57 | 0.077 |
+| dropped trade | 40 | 4.75 | 0.119 |
+| mixed | 36 | 4.49 | 0.125 |
+| dropped chump | 23 | 1.99 | 0.086 |
+| added gang | 16 | 1.44 | 0.090 |
+| the rest (dropped gang, eat, wall; moved) | 18 | 2.50 | |
+
+By life, 254 of the 304 are above ten.
+
+**What the examples show** (`foresight_mine --show`). An *added chump* is
+often a blocker whose death does something (Kingfisher draws, Mogg War
+Marshal leaves a token, Nether Spirit comes back), one that is doomed
+anyway (Birds of Paradise before a Masticore), one that prevents the damage
+(Fog Bank), or an attacker that grows when unblocked (Murk Dwellers). An
+*added trade* is mostly a trade down in mana value the level refuses at a
+comfortable life (a 2/1 for two into a 2/1 for one). A *dropped trade* is
+mostly an attacker the trade does not kill (Drudge Skeletons, Albino Troll
+and River Boa regenerate) or a block that saves little (Ball Lightning
+dies at the end of the turn anyway) or spends a utility creature (Mother of
+Runes).
+
+**What a repair recovers**, asking the logged questions again
+(`foresight_mine --ask`, no game played; the experiment is the local branch
+`c42/house-block-reads`, generation 10, not for merging):
+
+| Read in the block search | Replacements repaired | Standing answers changed (search gain) | Net gain of 28.9 |
+| --- | ---: | ---: | ---: |
+| an attacker that can regenerate with its controller's open lands does not die | 0 | 4 (−0.07) | 0.00 |
+| that, and a creature whose own death triggers costs two mana value less | 14 | 23 (−0.45) | +0.97 |
+| that, and every mana value halved in a block | 34 | 137 (−3.07) | +0.36 |
+
+So the hypotheses hold in kind and are worth little in size: the best
+general read recovers a thirtieth of the search's own block gain, and a
+blunter price (mana value) breaks as many blocks as it mends. A block is 3 %
+of searched questions and the search already answers those itself; what a
+repair could still buy is better blocks in the forks' rollouts and in hosted
+games, which have no fork. Measured in games on train only after the gate
+(§7.11).
+
+### 7.10 The held-out gate of generation 9 (12.11.2026)
+
+Spent once, on generation 9 (the coordinator's decision: generation 9
+plays as generation 8 on train and is the one that can be hosted), with the
+rebased build 459ef64e8 on acenb and nothing else running there. The
+protocol of §5a: the test split and `holdout2` of
+`manifest.v4.holdout2.json`, round-robin pairings, each game counted once,
+every level with foresight against its own generation-6 self (the owner's
+bar, 62 %); the same deals as the generation-7 gate.
+
+| Level | Test | `holdout2` | Together | Wilson 95 % | For / against | Sign test | Generation 7's gate |
+| --- | ---: | ---: | ---: | --- | ---: | --- | ---: |
+| expert | 314 / 512 = 61.3 % | 325 / 512 = 63.5 % | 639 / 1,024 = 62.4 % | 59.4–65.3 | 135 / 8 | p < 0.0001 | 59.3 % |
+| sharp | 309 / 512 = 60.4 % | 324 / 512 = 63.3 % | 633 / 1,024 = 61.8 % | 58.8–64.7 | 128 / 7 | p < 0.0001 | 60.3 % |
+| steady | 164 / 256 = 64.1 % | 159 / 256 = 62.1 % | 323 / 512 = 63.1 % | 58.8–67.2 | 71 / 4 | p < 0.0001 | 58.4 % |
+| casual | 145 / 256 = 56.6 % | 157 / 256 = 61.3 % | 302 / 512 = 59.0 % | 54.7–63.2 | 53 / 7 | p < 0.0001 | 56.9 % |
+| novice | 136 / 256 = 53.1 % | 137 / 256 = 53.5 % | 273 / 512 = 53.3 % | 49.0–57.6 | 32 / 15 | p ≈ 0.02 | 52.1 % |
+
+expert and steady clear 62 % on held-out decks, sharp is two tenths of a
+point short of it, and every level gains on its generation-7 gate. No deck
+reached ten turned seeds in any run, and no duel stayed open.
+
+*Generalisation,* the same deals against the frozen `sharp-2026-11`, set
+beside the generation-7 gate's games by `house_duplicate --before`:
+
+| Level | Generation 6 (§5a) | Generation 7 (§5a) | Generation 9 | Gain over 6 | Games won / lost against generation 7 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| expert, test | 55.3 % | 62.5 % | 334 / 512 = 65.2 % (83 / 5) | | 32 / 18 |
+| expert, `holdout2` | 56.1 % | 64.8 % | 345 / 511 = 67.5 % (92 / 3) | | 25 / 11 |
+| expert, together | 570 / 1,024 = 55.7 % | 651 / 1,023 = 63.6 % | 679 / 1,023 = 66.4 % | +10.7 | 57 / 29 |
+| sharp, test | 52.7 % | 62.3 % | 330 / 512 = 64.5 % (76 / 2) | | 29 / 18 |
+| sharp, `holdout2` | 52.1 % | 63.7 % | 338 / 512 = 66.0 % (85 / 3) | | 25 / 13 |
+| sharp, together | 537 / 1,024 = 52.4 % | 645 / 1,024 = 63.0 % | 668 / 1,024 = 65.2 % | +12.8 | 54 / 31 |
+
+*Time per searched answer* (thread CPU time, the expert duels above,
+acenb with nothing else running): test p50 148 ms, p95 528 ms, p99 663 ms,
+p99.9 734 ms, max 872 ms; `holdout2` 160 ms, 563 ms, 785 ms, 1,100 ms and
+1,271 ms. sharp's slowest answer took 963 ms. One expert search in
+nineteen on test and one in thirteen on `holdout2` reached its bound.
+
+*The 2v2 run per level* (must not be worse than 50 %; the test split of
+`manifest.v4.holdout2.json`, 256 rows, teams 1,2,1,2, fixed pairings, each
+game once), generation 9 against its generation-6 self:
+
+| Level | Won | Share | Wilson 95 % | For / against | Sign test | Generation 7 |
+| --- | ---: | ---: | --- | ---: | --- | ---: |
+| expert | 73 / 128 | 57.0 % | 48.4–65.3 | 12 / 3 | p = 0.035 | 58.6 % |
+| sharp | 79 / 128 | 61.7 % | 53.1–69.7 | 18 / 3 | p = 0.002 | 61.7 % |
+| steady | 75 / 128 | 58.6 % | 49.9–66.8 | 13 / 2 | p = 0.007 | 61.7 % |
+| casual | 72 / 128 | 56.2 % | 47.6–64.5 | 11 / 3 | p = 0.057 | 56.2 % |
+| novice | 71 / 128 | 55.5 % | 46.8–63.8 | 9 / 2 | p = 0.065 | 51.6 % |
+
+No level is worse than 50 %, and no game stayed open. A 2v2 run of 128
+games moves by about four points either way, so these lines say no more
+than that the team game did not get worse.
