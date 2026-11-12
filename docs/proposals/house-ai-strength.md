@@ -1579,12 +1579,30 @@ seeds the higher level turned:
 | steady over casual | 53.8 % | 66 / 27 | 0.0001 |
 | steady over casual with steady's reserve | 53.5 % | 64 / 28 | 0.0002 |
 | steady with lookahead 1 over casual with the reserve | 54.1 % | 67 / 25 | < 0.0001 |
+| sharp over steady | 51.9 % | 52 / 33 | 0.050 |
+| sharp with lookahead 2 over steady | 52.1 % | 55 / 34 | 0.033 |
+| sharp over steady with lookahead 1 | 51.5 % | 48 / 33 | 0.12 |
+| expert over sharp | 50.9 % | 44 / 35 | 0.37 |
+| expert over sharp with lookahead 2 | 50.6 % | 41 / 35 | 0.57 |
+| expert over sharp searching at casual's tier (5 × 3) | 51.0 % | 48 / 38 | 0.33 |
+| expert over sharp searching at novice's tier (4 × 2) | 52.2 % | 59 / 38 | 0.042 |
 | seer (generation 15) over expert | 53.6 % | 75 / 40 | 0.001 |
 
 So `novice` keeps every opening hand: its card skill is the ladder's
 lowest step and what keeps `casual` measurably above it, and it still
 clears the bar at 63.9 %. A reserve for `casual` bought little; combat
 lookahead is the strongest head-to-head lever measured.
+
+The upper rungs do not separate. `sharp` and `expert` tie (50.9 %), and
+`sharp` leads `steady` by a hair (51.9 %, p = 0.050). Lookahead 2 for
+`sharp` changes neither (52.1 % over `steady`, 50.6 % under `expert`). A
+search whose forks are played by the level's own heuristics (for the levels
+whose noise is ±100 or less, in place of `expert`'s) moved `sharp` over
+`steady` to 52.4 % (65 / 40, p = 0.019), cost `steady` over `casual` (52.2 %,
+58 / 36, p = 0.030) and left `expert` over `sharp` at 51.0 % (43 / 33); it is
+not kept. Under foresight every level that searches plays its searched
+questions about as `expert` would, and above `steady` nothing that told the
+levels apart before the search shows through it.
 
 ### 8.5 Generation 17 on train
 
@@ -1615,3 +1633,74 @@ plays as 17 does):
   diagnostics are the other `g10-*` (`g10-n9`, `g10-c4`, …).
 - A queue of runs is a plain list of `eval4` and `house_duplicate`
   invocations (`out/g1x-q*.sh`), started with `nohup sh`.
+
+### 8.7 The top of the ladder: what was tried, and the owner's options
+
+Generation 17 meets the bar on train at every level (§8.5), and the three
+lower rungs and seer over expert hold (§8.4). `sharp` over `steady` is at the
+edge (51.9 %, p = 0.050) and `expert` over `sharp` does not show (50.9 %).
+The held-out gate is not spent (coordinator, 12.11.2026): the strict order
+does not hold on train.
+
+Tried for `expert` over `sharp` (train, 1,024 deals, round-robin, both
+searching; measurement tiers of a local build,
+`~/baylee-data/v6/house/round5-patches/expert-extension-tiers.patch`):
+
+| `expert` with … against `sharp` with … | Share | For / against | p |
+| --- | ---: | ---: | ---: |
+| as it is, as it is | 50.9 % | 44 / 35 | 0.37 |
+| a horizon of six turns, as it is | 49.1 % | 42 / 51 | 0.41 |
+| a horizon of eight turns, as it is | 47.8 % | 39 / 61 | 0.035 (against) |
+| an opponent's turn searched wherever a spell could be cast, as it is | 51.1 % | 46 / 37 | 0.38 |
+| six answers in eight worlds (the same work), as it is | 52.1 % | 48 / 27 | 0.020 |
+| twice the work (twelve answers in eight worlds, 16 M units), as it is | 52.1 % | 48 / 26 | 0.014 |
+| as it is, forks that search no combat | 51.4 % | 46 / 33 | 0.18 |
+| as it is, lookahead 2 | 50.6 % | 41 / 35 | 0.57 |
+| as it is, casual's tier (5 × 3) | 51.0 % | 48 / 38 | 0.33 |
+| as it is, novice's tier (4 × 2) | 52.2 % | 59 / 38 | 0.042 |
+
+A longer horizon inside the 8 M bound is cut short more often and loses;
+more of an opponent's turn searched finds nothing; the forks' model is not
+what limits `sharp` (with a model that searches no combat it still beats its
+generation-6 self 66.7 %, 179 / 10). Nothing reaches the 54 % a rung needs
+to be shown on 1,024 held-out games.
+
+**The options, with their cost to `sharp`'s bar** (for the owner):
+
+- **(a) Accept** that above `steady` the order is not provable under
+  foresight. Every level meets the bar (`sharp` 65.9 %, `expert` 65.4 %
+  against generation 6), `expert` is not weaker than `sharp` (50.9 %), and
+  the gate would show the three lower rungs and seer over expert. Cost to
+  `sharp`: none.
+- **(b) Raise `expert`'s ceiling.** Twice the work (16 M units) gives 52.1 %
+  over `sharp` (p = 0.014 on train, too thin to expect on held-out decks),
+  and a searched answer then took up to 2.1 s of CPU time (p99 1.5 s; 1.0 s
+  and 0.83 s at 8 M). Fewer answers in more worlds at the same work gives
+  the same 52.1 % with no cost to hosting, and is the cheaper half of this.
+  Cost to `sharp`: none; to hosting: about twice the CPU of a searched
+  `expert` answer.
+- **(c) Restructure `sharp`.** Its search cut to `novice`'s tier gives
+  `expert` 52.2 % (p = 0.042) and leaves `sharp` 62.8 % against generation 6
+  (148 / 19), a hair over the bar on train, so below it on held-out decks
+  is likely; and `sharp` over `steady` (now 51.9 %) would fall, since
+  `steady` would search more than `sharp`. Cost to `sharp`: about three
+  points, and the rung below.
+
+Combining (b)'s same-work half with (c) at a milder cut (sharp at
+`steady`'s tier) is the one untried mix that could reach 53 to 54 %; it
+costs `sharp` perhaps a point and `sharp` over `steady` its tier edge.
+
+### 8.8 Candidates for the next generation
+
+- Observed fault 82: the house sizes X over unrestricted sources only
+  (`policy::aim` and `spend_on_full` get the plain sources, `largest_x` reads
+  floating mana through `plan_frozen`), so beside Vodalian Arcanist it aims
+  X one short; the seat now uses `baylee_ai::mana_sources_in_view_for` and
+  `manaplan::greatest_x_earmarked`.
+- Observed fault 74: the house never suspends (`unpaid_suspend`,
+  `baylee_ai::suspend_plans`).
+- A search in a draw step is still refused while the turn's first draw
+  waits for its miracle check (1,005 of `novice`'s searched questions at
+  generation 13, now mostly in an opponent's draw step); an engine fork
+  that carries a pending check of a card no miracle could be would search
+  those.
