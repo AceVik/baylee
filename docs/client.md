@@ -51,7 +51,12 @@ and a secant), so a bank that faces the viewer is seen and one that faces
 away hides behind its lip; the banks are shaded by one painted light
 (`CUT_LIGHT`), lit from below by what runs in the bed, and the lip that faces
 the light carries one pale line. Away from a channel the slab is its top and
-none of this runs. Water ripples and caustics travel faster than the molten
+none of this runs. At effects `Low` (`Effects::carved`, `FeltParams::flat`)
+the march and the water's caustics are left out and the channels are drawn as
+from straight above at every angle: `Low` is where a software rasteriser
+starts, and `Medium` and `High` keep the carved table
+(`docs/perf-client.md` §"The flat path at effects Low").
+Water ripples and caustics travel faster than the molten
 crust, each at **one** speed for the whole bed (a speed that differs across
 it, multiplied by the time, shears the pattern without end: after ten minutes
 every pixel of water was another cell). The crust is two octaves of noise and

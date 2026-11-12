@@ -81,6 +81,9 @@ struct FeltParams {
     thickness: f32,
     /// How many seats stand on the dial (0 to 8).
     seats: f32,
+    /// 1 where the channels are drawn from straight above and without their
+    /// caustics (effects `Low`); 0 is the carved table.
+    flat: f32,
     pattern: vec4<f32>,
     /// The texel offset of each cellular field's cells in `vein_points`:
     /// trunk in `xy`, capillary in `zw`.
@@ -668,7 +671,8 @@ fn stone_at(silt: f32) -> vec3<f32> {
 }
 
 /// The water in a channel's bed at warped point `warp`, `mid` of the way in
-/// from its shore, `fine` how much of the fine work a pixel can still show.
+/// from its shore, `fine` how much of the fine work a pixel can still show
+/// (none on the flat table).
 fn water_at(warp: vec2<f32>, mid: f32, fine: f32, t: f32) -> vec3<f32> {
     // One speed for the whole bed. A speed that differs across the channel
     // and is multiplied by the time shears the pattern without end: after
@@ -678,14 +682,19 @@ fn water_at(warp: vec2<f32>, mid: f32, fine: f32, t: f32) -> vec3<f32> {
     let eddy = vnoise(flow_base * 0.55 + vec2<f32>(t * 0.11, -t * 0.08)) - 0.5;
     let flow = flow_base + vec2<f32>(eddy * 0.38, -eddy * 0.24);
     let current = fbm_rot(flow);
-    let c_a = abs(vnoise(flow * 2.1 + vec2<f32>(t * 0.28, -t * 0.19)) - 0.5);
-    let c_b = abs(
-        vnoise(
-            vec2<f32>(flow.x * 1.7 - flow.y * 1.3, flow.x * 1.3 + flow.y * 1.7) * 1.6
-                - vec2<f32>(t * 0.21, t * 0.31),
-        ) - 0.5,
-    );
-    let caustic = (1.0 - smoothstep(0.02, 0.24, c_a * 0.6 + c_b * 0.4)) * (0.45 + 0.55 * mid);
+    // The caustics are two more noises and fine work: not worked out where
+    // no pixel could show them, which is far away and on the flat table.
+    var caustic = 0.0;
+    if (fine > 0.0) {
+        let c_a = abs(vnoise(flow * 2.1 + vec2<f32>(t * 0.28, -t * 0.19)) - 0.5);
+        let c_b = abs(
+            vnoise(
+                vec2<f32>(flow.x * 1.7 - flow.y * 1.3, flow.x * 1.3 + flow.y * 1.7) * 1.6
+                    - vec2<f32>(t * 0.21, t * 0.31),
+            ) - 0.5,
+        );
+        caustic = (1.0 - smoothstep(0.02, 0.24, c_a * 0.6 + c_b * 0.4)) * (0.45 + 0.55 * mid);
+    }
     // Deep and dark in the middle, clear over the shallows at the shore.
     var river = mix(vec3<f32>(0.020, 0.135, 0.170), vec3<f32>(0.008, 0.040, 0.072), mid);
     // The current's own light is broad enough to be seen from any chair;
@@ -762,8 +771,15 @@ fn glass_at(field: Veins, slope: vec2<f32>, slant: vec2<f32>, pixel: f32, sheen:
     // channels the slab is its top, and most of the table is away from them
     // (`docs/perf-client.md`).
     if (field.cut < CUT_BANK) {
-        let lean = clamp(dot(slope, slant) * CUT_DEPTH, -3.0, 3.0);
-        let hit = cut_hit(field.cut, lean);
+        // The flat table (`params.flat`, effects `Low`) is the cut seen
+        // from straight above: where a ray that does not lean ends, which
+        // needs no march, and without the water's caustics.
+        let carved = params.flat < 0.5;
+        var hit = vec2<f32>(min(cut_profile(field.cut), CUT_FILL), field.cut);
+        if (carved) {
+            let lean = clamp(dot(slope, slant) * CUT_DEPTH, -3.0, 3.0);
+            hit = cut_hit(field.cut, lean);
+        }
         let across = abs(hit.y);
         let down = cut_profile(across);
         // How much fine work a pixel can show: all of it up close, none
@@ -781,7 +797,7 @@ fn glass_at(field: Veins, slope: vec2<f32>, slant: vec2<f32>, pixel: f32, sheen:
             let mid = 1.0 - smoothstep(0.0, 1.0, across / CUT_BED);
             var fluid = vec3<f32>(0.0);
             if (field.hot < 0.999) {
-                fluid = water_at(under, mid, fine, t);
+                fluid = water_at(under, mid, select(0.0, fine, carved), t);
             }
             if (field.hot > 0.001) {
                 var molten = molten_at(under, mid, fine, t);

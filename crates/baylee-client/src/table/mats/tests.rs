@@ -111,6 +111,7 @@ impl Table {
                     flames: Vec4::ZERO,
                     tail: Vec4::new(0.0, tail.y, tail.z, 0.0),
                     motion: crate::cardmat::STILL,
+                    flat: 0.0,
                 },
                 Mesh3d(mesh),
                 MeshMaterial3d(material.clone()),

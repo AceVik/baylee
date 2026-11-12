@@ -31,6 +31,8 @@ pub struct Slab {
     pub(super) tail: Vec4,
     /// The motion setting the pulse was last running at.
     pub(super) motion: f32,
+    /// Whether the channels were last drawn flat (`FeltParams::flat`).
+    pub(super) flat: f32,
 }
 
 /// A card's corner radius.

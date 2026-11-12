@@ -265,6 +265,17 @@ impl Effects {
         !matches!(self, Self::Low)
     }
 
+    /// Whether the table's channels are drawn cut into the slab, with the
+    /// eye's ray followed down their banks; without it they are drawn from
+    /// straight above, at every angle, and without their caustics.
+    ///
+    /// Only `Low` goes without. `Medium` is where every laptop and phone
+    /// starts (`Graphics::auto_preset`), and the carved table is the table.
+    #[must_use]
+    pub const fn carved(self) -> bool {
+        !matches!(self, Self::Low)
+    }
+
     /// The detail flag the ambient shaders branch on: 1 for the full,
     /// 0 for the lighter versions.
     #[must_use]
@@ -1155,5 +1166,25 @@ mod tests {
         assert_eq!(samples, [1, 1, 2, 4]);
         assert!(!Effects::Low.ambient_motion());
         assert!(Effects::Medium.ambient_motion() && Effects::High.ambient_motion());
+    }
+
+    /// The carved table is what a device shows before its player chose
+    /// anything: every level but `Low` draws it, and so does every preset a
+    /// GPU can start on except the software rasteriser's.
+    #[test]
+    fn only_low_effects_draw_the_table_flat() {
+        assert!(!Effects::Low.carved());
+        assert!(Effects::Medium.carved() && Effects::High.carved());
+        for adapter in ["Apple M1", "Apple M1 Max", "NVIDIA GeForce RTX 4070", ""] {
+            for mobile in [false, true] {
+                let start = Graphics::of(Graphics::auto_preset(adapter, mobile));
+                assert!(start.effects.carved(), "{adapter:?}, mobile {mobile}");
+            }
+        }
+        assert!(
+            !Graphics::of(Graphics::auto_preset("llvmpipe", false))
+                .effects
+                .carved()
+        );
     }
 }

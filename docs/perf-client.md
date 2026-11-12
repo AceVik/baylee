@@ -1211,6 +1211,43 @@ over its whole face where it drew lines, which is the first place to look. No
 effects level takes the relief away, and no weaker GPU was measured; both are
 open.
 
+### The flat path at effects Low
+
+The PM's note on the above: give `Low` the flat path or fewer march steps, and
+measure it. `Effects::carved` is false at `Low` only; `felt.wesl` then takes
+the channel as seen from straight above (no six-step march and secant down
+the bank, `cut_hit`) and skips the water's two caustic layers
+(`FeltParams::flat`, 0 being the carved table so that a material nobody wrote
+is the table everybody knows).
+
+Measured the same way as the table above, but on a **debug** build
+(`dev-control`, `dev-reload`), a four-seat Commander table after the
+mulligans, effects Medium, the branch forced by hot reload in one client and
+alternated, load average 11 to 25:
+
+| Felt | GPU busy, ms/s (each run) | Frames a second (each run) |
+| --- | --- | --- |
+| carved | 440.9, 453.1, 455.7, 450.7, 454.6, 457.3 | 52.1, 40.6, 53.7, 55.3, 55.3, 54.4 |
+| flat | 433.1, 434.8, 429.2, 450.2 | 51.7, 53.2, 35.6, 53.2 |
+| mats hidden (`/hide`) | 450.2 | 54.8 |
+| felt hidden (`/hide`) | 438.5 | 54.2 |
+
+The flat branch reads about 3 % less GPU time (means 452 against 437), which
+is the size of the spread between runs of one shader (4 %). The last row says
+why nothing better can be read here: with the whole felt not drawn the figure
+moves by the same 3 %. GPU busy time summed over the process does not resolve
+one material on this GPU, which clocks itself to the work; a frame-time
+reading on a GPU that is the limit would, and none was at hand. No weak GPU
+was measured, so the saving where it matters is still an assumption.
+
+What was decided on that: `Low` draws flat, because `Low` is where a software
+rasteriser starts (`Graphics::auto_preset`) and there every march step is CPU
+time, and because the two looks differ by little at a table's distance.
+`Medium` and `High` stay carved: every laptop and phone starts on `Medium`,
+and the carved table is the table. One trace also showed about 31 ms/s of
+compute intervals, which is Bevy's GPU preprocessing and not ours; it is the
+next thing to look at (`NoIndirectDrawing`, `use_gpu_instance_buffer_builder`).
+
 ### The backdrops
 
 Before: two 4K `.mp4` files played through the player's own `ffmpeg`, a

@@ -180,6 +180,13 @@ pub fn sync_table(
     } else {
         crate::cardmat::MOVING
     };
+    // Effects `Low` draws the channels from straight above. Without a
+    // device's choice the table is the carved one.
+    let flat = if quality.as_deref().is_some_and(|q| !q.0.effects.carved()) {
+        1.0
+    } else {
+        0.0
+    };
 
     // Where the light enters: the active seat's own shore, running inward
     // round the rail. At two seats that is the reference photograph —
@@ -229,6 +236,7 @@ pub fn sync_table(
                     flames: Vec4::ZERO,
                     tail: Vec4::new(0.0, up.x, up.y, 0.0),
                     motion,
+                    flat,
                 },
                 // The floor of the scene answers no clicks: a pointer on bare
                 // cloth means the table, not the thing under it.
@@ -251,6 +259,7 @@ pub fn sync_table(
                         gain: crate::feltmat::WASH_GAIN,
                         thickness: TABLE_THICKNESS,
                         seats: 0.0,
+                        flat,
                         pattern: duel.table_pattern.0,
                         veins: vein_offsets,
                         // The dial is written by `dial::turn_the_dial` once a
@@ -300,7 +309,8 @@ pub fn sync_table(
         && (next_flames - slab.flames).abs().max_element() <= 1e-4
         && (next_tail - slab.tail).abs().max_element() <= 1e-4
         && (slab.source - source).abs().max_element() <= 1e-4
-        && (slab.motion - motion).abs() <= f32::EPSILON;
+        && (slab.motion - motion).abs() <= f32::EPSILON
+        && (slab.flat - flat).abs() <= f32::EPSILON;
     if still && !recut && !repattern {
         return;
     }
@@ -309,6 +319,7 @@ pub fn sync_table(
     slab.tail = next_tail;
     slab.source = source;
     slab.motion = motion;
+    slab.flat = flat;
 
     if recut {
         slab.cut = span;
@@ -340,6 +351,7 @@ pub fn sync_table(
         material.params.flames_tail = next_tail;
         material.params.source = source;
         material.params.motion = motion;
+        material.params.flat = flat;
     }
 }
 

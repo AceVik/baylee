@@ -476,6 +476,7 @@ fn the_table_tears_into_pieces_and_is_one_slab_again_when_docked() {
                 flames: Vec4::ZERO,
                 tail: Vec4::ZERO,
                 motion: 0.0,
+                flat: 0.0,
             },
             Mesh3d(mesh),
             MeshMaterial3d(material.clone()),
