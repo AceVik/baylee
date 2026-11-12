@@ -17,6 +17,7 @@ information is unrepresentable in a view, and the gateway runs no rules.
 - `baylee-view` depends only on `baylee-core` ids, serde.
 - `baylee-client-core` is the client brain, knows no renderer, holds most client tests. Only `baylee-client` needs a GPU.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
+- `baylee-avif` (→ client): reads AVIF pictures and image sequences. The container reader is safe Rust with strict bounds (`Bounds`: bytes, dimensions, frames, duration) and is fuzzed; the AV1 frames are decoded by `rav1d` 1.1.0 behind one small `unsafe` wrapper (`dav1d.rs`). `Player` is opened only on files the client ships: rav1d aborts the process on some damaged streams, so no file from outside reaches it until that is decided (`docs/legal.md` §"The vista loops as AVIF, and their decoder").
 - `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.
 - `baylee-cardtext` sits under core, links only serde: `/catalog/text` wire shape and sentence pairing (`pick`, `align`, `verify`, `split_cost`) for catalog and client.
 - Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-deckio`, `-protocol`, `-seal`, `-view`, `-client-core`, `-client`.

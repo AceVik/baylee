@@ -66,6 +66,7 @@ baylee-build = { path = "crates/baylee-build" }
 baylee-pgo = { path = "crates/baylee-pgo" }
 baylee-db = { path = "crates/baylee-db" }
 baylee-feedback = { path = "crates/baylee-feedback" }
+baylee-avif = { path = "crates/baylee-avif" }
 baylee-update = { path = "crates/baylee-update" }
 baylee-seat = { path = "crates/baylee-seat" }
 baylee-seathost = { path = "crates/baylee-seathost" }

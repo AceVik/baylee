@@ -1,0 +1,26 @@
+[package]
+name = "baylee-avif"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Plays AVIF image sequences: a bounded reader of their sample tables and a small wrapper round rav1d's decoder. Profile pictures from Central and the front door's loops both come through it."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+# The decoder the owner chose for animated pictures (12.11.2026, Central's
+# `docs/dependency-proposal/profile-picture.md` §0.8): rav1d, the Rust port of
+# dav1d, behind the small `unsafe` wrapper in `src/dav1d.rs`. Without its
+# assembly: the published crate's arm64 assembly does not build (it lacks
+# `asm-offsets.h`), and the x86 assembly needs nasm on every builder. Eight-bit
+# only: every file Central stores and every loop we ship is eight-bit.
+# It does not build for wasm32 (`libc::ptrdiff_t`); the browser shows stills.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rav1d = { version = "1.1.0", default-features = false, features = ["bitdepth_8"] }
+libc = "0.2"
