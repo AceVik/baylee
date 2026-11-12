@@ -854,13 +854,7 @@ impl HeuristicAgent {
         }) {
             return Some(self.divided_targets(view, offer, total));
         }
-        self.rank(
-            view,
-            offer,
-            context,
-            meaning(context.effects, context.x),
-            &[],
-        )
+        self.rank(view, offer, context, self.sided_meaning(context), &[])
     }
 
     /// The targets for damage divided as this seat chooses (CR 601.2d): the
@@ -891,11 +885,24 @@ impl HeuristicAgent {
                 left -= need;
             }
         }
+        // Nothing it can finish: the whole of it to an opponent where one
+        // may be named, and otherwise to the best creature alone. Before
+        // [`AIProfile::WHOLE_BURN`] the creature was named and the opponent
+        // beside it, and the damage split between a creature that lived
+        // and a player.
+        let whole = self
+            .profile
+            .plays(baylee_core::preset::AIProfile::WHOLE_BURN);
+        let face = players.iter().any(|p| self.hostile(*p, view.seat));
         if chosen.is_empty()
             && max > 0
+            && !(whole && face)
             && let Some(o) = hostile.first()
         {
             chosen.push(o.id);
+            if whole {
+                left = 0;
+            }
         }
         let mut chosen_players = Vec::new();
         if left > 0
@@ -1050,7 +1057,7 @@ impl HeuristicAgent {
         options: &[PlayerId],
         context: &DecisionContext<'_>,
     ) -> PlayerId {
-        let m = meaning(context.effects, context.x);
+        let m = self.sided_meaning(context);
         options
             .iter()
             .copied()

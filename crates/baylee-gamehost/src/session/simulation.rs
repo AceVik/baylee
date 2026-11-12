@@ -327,6 +327,20 @@ impl SimulationSession {
         self.table().view_for_with_announcement_context(seat)
     }
 
+    /// What `agent` answers the question `seat` stands before, from the
+    /// view a house chair there is shown and the engine's account of the
+    /// spell or ability asked about; `None` where `seat` is asked nothing.
+    pub(super) fn model_answer(
+        &self,
+        seat: PlayerId,
+        agent: &baylee_ai::HeuristicAgent,
+    ) -> Option<PlayerAction> {
+        let table = self.table();
+        let pending = table.engine.pending_for(seat)?;
+        let view = table.house_view(seat, pending);
+        Some(agent.act_with_context(&view, pending, &table.engine.decision_context()))
+    }
+
     /// As [`Session::observe_view`].
     #[must_use]
     pub fn observe_view(&self, seat: PlayerId) -> PlayerView {

@@ -1680,6 +1680,40 @@ asks `profile.plays(...)`. The generations so far:
     `novice` keeps every opening hand, the ladder's lowest card skill; a
     step for it too lifted it to 67 % against its generation-6 self and left
     it level with `casual` (51 %, `docs/proposals/house-ai-strength.md` §8).
+18. `SOUND_ROOTS`: a search tries only what its level's own reading could
+    mean (`HeuristicAgent::foresight_candidates`). A cast that reading calls
+    wasted is no candidate (`wasted_cast`: every target on the wrong side, a
+    removal with nothing to take, a sweep or a mode that gains nothing, an
+    instant outside its moment), nor an ability it reads as worth nothing
+    or less, nor a bounce land with no land to return; and passing is no
+    candidate while a land worth playing waits in hand (the leaf weighs a
+    card in hand and no land, so a search found reasons to skip a land
+    drop). A spell or an ability is tried, beside the level's own target, at
+    the others on the same side of the table, the most valuable first
+    (`foresight_targets`); before it, at the first four the engine listed.
+19. `SIZED_SWEEPS`: a sweep sized by X is paid at the X that gains its side
+    the most, the smallest such, and not cast where no X gains anything
+    (`best_sweep_x`); a rider beside the sweep and a bound of "mana value X
+    or less" are read.
+20. `LAND_COLOURS`: a land searched for is the one whose colour the hand
+    waits for (`land_colour_need`).
+21. `HAND_DISCARDS`: a discard gives up the card the seat misses least
+    (`discard_least`): a land past the sixth on the table and in hand, then
+    the spell furthest out of reach. A spell's or an ability's discard,
+    which the engine asks as a plain choice, was answered with the oldest
+    cards in hand.
+22. `PAID_UPKEEPS`: a price whose refusal has the seat sacrifice another
+    permanent of its own is paid (Demonic Hordes).
+23. `FIRST_STRIKE_TRICKS`: a trick on a lone blocker is read through the
+    whole exchange, first strike included.
+24. `SIDE_READS`: a target is chosen by side for effects the shared reader
+    (`baylee_engine::target_side`, which the trained AI's encoder also
+    reads and which therefore stays as it is) has no sign for: a
+    regeneration shield, a body set to a size, a permanent made a creature,
+    a discard, and a spell's second target by what the spell does to that
+    target alone (`sides.rs`: `sided_meaning`, `side_of`).
+25. `WHOLE_BURN`: damage divided as its caster chooses that finishes no
+    creature goes whole to an opponent, or whole to the best creature.
 
 Only a change
 that has to move the reference, such as an engine or card fix that changes

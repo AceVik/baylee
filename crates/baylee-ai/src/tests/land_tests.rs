@@ -248,3 +248,33 @@ fn a_bounce_land_returns_a_tapped_basic_and_not_itself() {
         }
     );
 }
+
+/// From [`AIProfile::LAND_COLOURS`] a land searched for is the one whose
+/// colour the hand waits for: beside an Island, with a green card in hand, a
+/// search that offers an Island and a Forest takes the Forest. The
+/// generation before took the first by handle.
+#[test]
+fn a_land_search_finds_the_colour_the_hand_waits_for() {
+    use baylee_engine::choice::ChoicePrompt;
+    let me = PlayerId::new(0);
+    let land = |slot: u32, name: &str| carded(permanent(obj(slot), me, 0), name, TypeSet::LAND);
+    let mut v = view(0, &[20, 20], vec![land(9, "Island")]);
+    v.hand = vec![hand_card(1, "Llanowar Elves")];
+    v.looking_at = vec![land(2, "Island"), land(3, "Forest")];
+    let context = baylee_engine::engine::DecisionContext::default();
+    let found = |profile: AIProfile| {
+        HeuristicAgent::new(profile).select_cards(
+            &v,
+            &[obj(2), obj(3)],
+            0,
+            1,
+            ChoicePrompt::SearchLibrary,
+            &context,
+        )
+    };
+    assert_eq!(found(AIProfile::EXPERT), Some(vec![obj(3)]));
+    assert_eq!(
+        found(AIProfile::EXPERT.at_generation(AIProfile::SIZED_SWEEPS)),
+        Some(vec![obj(2)])
+    );
+}

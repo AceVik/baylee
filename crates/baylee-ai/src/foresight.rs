@@ -132,7 +132,35 @@ impl HeuristicAgent {
                 } else {
                     Vec::new()
                 };
-                priority_candidates(view, legal, &paid)
+                let mut tried = priority_candidates(view, legal, &paid);
+                // A cast the level's own reading calls wasted (a pump with
+                // only the opponents' creatures to name, a sweep that gains
+                // nothing, a trick outside combat) is no answer worth a
+                // world: set against passing over a handful of deals, one
+                // was given now and then on the deals' say-so.
+                // Nor is an ability the level reads as a loss or as nothing
+                // (a creature fed to a free sacrifice outlet before combat).
+                // Nor a land that gains nothing (a bounce land with no
+                // other land to return: the leaf counts the card back in
+                // hand and no land), nor passing while a land worth playing
+                // waits in hand: a land drop is not something to look for a
+                // reason to skip, and a leaf that weighs a card in hand and
+                // no land on the table found one.
+                if self.profile.plays(AIProfile::SOUND_ROOTS) {
+                    let lands = crate::land::worth_playing(view, &legal.lands);
+                    let drop = crate::land::pick(view, legal).is_some();
+                    tried.retain(|answer| match answer {
+                        PlayerAction::PlayLand { card } => lands.contains(card),
+                        PlayerAction::PassPriority => !drop,
+                        PlayerAction::CastSpell { card } => !self.wasted_cast(view, *card),
+                        PlayerAction::ActivateAbility {
+                            source,
+                            ability_index,
+                        } => !self.wasted_activation(view, *source, *ability_index),
+                        _ => true,
+                    });
+                }
+                tried
             }
             Pending::ChooseAttackers {
                 attackers,
@@ -151,6 +179,75 @@ impl HeuristicAgent {
             }
         }
         Candidates { answers }
+    }
+}
+
+impl HeuristicAgent {
+    /// The single targets a search tries a spell or an ability at beside
+    /// `own`, the target this level names for it
+    /// ([`AIProfile::SOUND_ROOTS`]): the others of `objects` and `players`
+    /// on the side of the table `own` is on, the objects worth most first,
+    /// at most `most`. `None` where `own` names no single target, which
+    /// leaves the search the engine's list.
+    #[must_use]
+    pub fn foresight_targets(
+        &self,
+        view: &PlayerView,
+        own: &PlayerAction,
+        objects: &[ObjectId],
+        players: &[PlayerId],
+        most: usize,
+    ) -> Option<Vec<PlayerAction>> {
+        let PlayerAction::ChooseTargets {
+            objects: named,
+            players: seats,
+        } = own
+        else {
+            return None;
+        };
+        let me = view.seat;
+        let side = match (named.as_slice(), seats.as_slice()) {
+            ([object], []) => self.hostile(view.object(*object)?.controller, me),
+            ([], [seat]) => self.hostile(*seat, me),
+            _ => return None,
+        };
+        let mut ranked: Vec<(i64, ObjectId)> = objects
+            .iter()
+            .filter(|id| !named.contains(id))
+            .filter_map(|&id| {
+                let object = view.object(id)?;
+                (self.hostile(object.controller, me) == side)
+                    .then(|| (crate::tactics::material(object), id))
+            })
+            .collect();
+        ranked.sort_by_key(|&(worth, id)| (std::cmp::Reverse(worth), id));
+        let objects = ranked
+            .into_iter()
+            .map(|(_, id)| PlayerAction::ChooseTargets {
+                objects: vec![id],
+                players: Vec::new(),
+            });
+        let players = players
+            .iter()
+            .filter(|seat| !seats.contains(seat) && self.hostile(**seat, me) == side)
+            .map(|&seat| PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![seat],
+            });
+        Some(objects.chain(players).take(most).collect())
+    }
+}
+
+impl HeuristicAgent {
+    /// Whether this level reads activating ability `index` of `source` now
+    /// as worth nothing or less at its best target; `false` where it cannot
+    /// read the ability, which leaves it to the search.
+    fn wasted_activation(&self, view: &PlayerView, source: ObjectId, index: u32) -> bool {
+        crate::activate::printed(view, source, index)
+            .and_then(|def| {
+                self.activation_worth(view, crate::worth::Origin::of(view, source), def)
+            })
+            .is_some_and(|worth| worth <= 0)
     }
 }
 

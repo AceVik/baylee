@@ -135,6 +135,119 @@ pub(crate) fn land_face(card: CardIdentity) -> Option<&'static FaceDef> {
         .and_then(|index| def.faces.get(index))
 }
 
+/// Whether `effect`, or an effect it runs, has a player discard.
+fn discards(effect: &Effect) -> bool {
+    if matches!(
+        effect,
+        Effect::DiscardForPlayers { .. }
+            | Effect::DiscardAmountForPlayers { .. }
+            | Effect::DiscardCount { .. }
+            | Effect::DiscardEachOrDraw { .. }
+    ) {
+        return true;
+    }
+    let (then, otherwise) = effect.branches();
+    then.iter().chain(otherwise).any(discards)
+}
+
+/// The `count` cards of `offered`, all in this seat's hand, it misses
+/// least ([`crate::AIProfile::HAND_DISCARDS`]), worst first. A land past the
+/// sixth the seat has, on the table and in hand together, goes first; then
+/// the spell furthest out of reach of those lands, the cheaper of two as
+/// far; and a land the seat still needs last. Before it a land was counted
+/// against the lands in hand alone, and a spell by its mana value, so a
+/// sweeper went before the eighth Mountain.
+fn discard_least(view: &PlayerView, offered: &[ObjectId], count: usize) -> Vec<ObjectId> {
+    let on_table = view
+        .battlefield_of(view.seat)
+        .filter(|o| o.types.contains(TypeSet::LAND))
+        .count();
+    let mut left: Vec<_> = hand(view)
+        .iter()
+        .filter(|card| offered.contains(&card.id))
+        .collect();
+    let mut lands = on_table + hand(view).iter().filter(|c| plays_as_land(c.card)).count();
+    let mut result = Vec::with_capacity(count);
+    for _ in 0..count.min(left.len()) {
+        let worst = left
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, c)| {
+                let value = if plays_as_land(c.card) {
+                    if lands > 6 { -1000 } else { 2000 }
+                } else {
+                    let reach = u32::try_from(lands).unwrap_or(u32::MAX);
+                    800 - i64::from(c.mana_value.saturating_sub(reach)) * 150
+                };
+                (value, c.mana_value, c.id)
+            })
+            .map_or(0, |(i, _)| i);
+        let card = left.remove(worst);
+        if plays_as_land(card.card) {
+            lands = lands.saturating_sub(1);
+        }
+        result.push(card.id);
+    }
+    result
+}
+
+/// The colours the basic land types of a land face give it (CR 305.6).
+fn typed_colours(land: &FaceDef) -> impl Iterator<Item = ManaColor> + '_ {
+    land.subtypes.iter().filter_map(|&subtype| {
+        let mut one = baylee_core::types::SubtypeSet::EMPTY;
+        one.insert(subtype);
+        manaplan::basic_land_color(&one)
+    })
+}
+
+/// How much the seat's hand waits for the colours the land `id` would make
+/// by its basic land types ([`crate::AIProfile::LAND_COLOURS`]): the
+/// coloured symbols in the hand's costs of each such colour, over the lands
+/// the seat already has of it, and far more for a colour it has no land of.
+/// Zero for a card that is no land with a basic type, or whose colours the
+/// hand asks for nowhere.
+fn land_colour_need(view: &PlayerView, id: ObjectId) -> i64 {
+    let Some(land) = identity(view, id).and_then(land_face) else {
+        return 0;
+    };
+    let mut have = [0_i64; 6];
+    for object in view.battlefield_of(view.seat) {
+        if let Some(f) = object.card.and_then(land_face) {
+            for colour in typed_colours(f) {
+                have[colour.index()] += 1;
+            }
+        }
+    }
+    typed_colours(land)
+        .map(|colour| {
+            let wanted: i64 = view
+                .hand
+                .iter()
+                .filter_map(|card| face(card.card))
+                .filter(|f| !f.types.contains(TypeSet::LAND))
+                .map(|f| {
+                    i64::try_from(
+                        f.mana_cost
+                            .symbols()
+                            .filter(|symbol| symbol.colors().intersects(color_set(colour)))
+                            .count(),
+                    )
+                    .unwrap_or(0)
+                })
+                .sum();
+            let owned = have[colour.index()];
+            if wanted == 0 {
+                0
+            } else if owned == 0 {
+                1000 + wanted
+            } else {
+                wanted * 100 / (1 + owned)
+            }
+        })
+        .max()
+        .unwrap_or(0)
+}
+
 /// Whether a card in hand can be played as a land at all.
 pub(crate) fn plays_as_land(card: CardIdentity) -> bool {
     land_face(card).is_some()
@@ -335,6 +448,21 @@ impl HeuristicAgent {
         let lower = Self::largest_x(view, min, max, context, |x| {
             crate::tactics::meaning(context.effects, x).draws(view) < library
         });
+        // A sweep is sized to what it gains, not to the mana there is
+        // ([`crate::AIProfile::SIZED_SWEEPS`]).
+        if self.profile.plays(crate::AIProfile::SIZED_SWEEPS)
+            && context.whole_spell
+            && lower > min
+            && let Some((_, x)) = self.best_sweep_x(
+                view,
+                context.source,
+                context.effects,
+                min,
+                lower.min(min.saturating_add(SWEEP_X_READ)),
+            )
+        {
+            return x;
+        }
         if let (Some(source), Some(printed)) = (context.source, context.printed)
             && context.whole_spell
             && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
@@ -518,6 +646,10 @@ impl HeuristicAgent {
         if self.profile.card_skill() == 0 {
             return crate::costliest(view, count);
         }
+        if self.profile.plays(crate::AIProfile::HAND_DISCARDS) {
+            let offered: Vec<ObjectId> = hand(view).iter().map(|card| card.id).collect();
+            return discard_least(view, &offered, count);
+        }
         let mut hand: Vec<_> = hand(view).iter().collect();
         let mut lands = hand.iter().filter(|c| plays_as_land(c.card)).count();
         let mut result = Vec::with_capacity(count);
@@ -541,6 +673,35 @@ impl HeuristicAgent {
             result.push(card.id);
         }
         result
+    }
+
+    /// The cards to give up where an effect has this seat discard from its
+    /// own hand and the question says no more than "choose"
+    /// ([`crate::AIProfile::HAND_DISCARDS`]): the engine asks a spell's or
+    /// an ability's discard as a plain choice of exactly so many cards.
+    /// `None` for every other question, and below the skill that reads
+    /// cards.
+    pub(crate) fn forced_discard(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        max: u8,
+        effects: &[Effect],
+    ) -> Option<Vec<ObjectId>> {
+        if !self.profile.plays(crate::AIProfile::HAND_DISCARDS)
+            || self.profile.card_skill() == 0
+            || min == 0
+            || min != max
+            || !effects.iter().any(discards)
+        {
+            return None;
+        }
+        let held = hand(view);
+        options
+            .iter()
+            .all(|id| held.iter().any(|card| card.id == *id))
+            .then(|| discard_least(view, options, usize::from(min)))
     }
 
     fn best_offered_cards(
@@ -674,7 +835,21 @@ impl HeuristicAgent {
             | ChoicePrompt::PlayFromExile
             | ChoicePrompt::PutOntoBattlefield
             | ChoicePrompt::PutIntoGraveyard => {
-                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                if self.profile.plays(crate::AIProfile::LAND_COLOURS)
+                    && prompt != ChoicePrompt::PutIntoGraveyard
+                {
+                    // Of lands worth the same, the one whose colour the hand
+                    // waits for.
+                    ranked.sort_by_cached_key(|id| {
+                        (
+                            std::cmp::Reverse(value(id)),
+                            std::cmp::Reverse(land_colour_need(view, *id)),
+                            *id,
+                        )
+                    });
+                } else {
+                    ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                }
                 usize::from(max)
             }
             ChoicePrompt::FromGraveyard => {
@@ -1064,6 +1239,26 @@ impl HeuristicAgent {
                 .is_some()
     }
 
+    /// Whether this level's own reading calls casting `card` now a waste,
+    /// whatever its score: every target it could name is on the wrong side
+    /// of the table, a removal has nothing to take, a sweep or a mode gains
+    /// nothing ([`Self::bad_removal_exchange`]), or it is an instant whose
+    /// moment this is not ([`Self::instant_moment`]). What a search does not
+    /// try as a spell at a root from [`crate::AIProfile::SOUND_ROOTS`].
+    pub(crate) fn wasted_cast(&self, view: &PlayerView, card: ObjectId) -> bool {
+        let Some(printed) = identity(view, card) else {
+            return false;
+        };
+        let Some(f) = face(printed) else {
+            return false;
+        };
+        let spells = baylee_cards::by_index(printed.index).map_or(&[][..], |def| {
+            def.abilities_for_face(usize::from(printed.face))
+        });
+        self.bad_removal_exchange(view, printed, f, spells)
+            || !self.instant_moment(view, printed)
+    }
+
     /// Whether now is `card`'s moment ([`crate::timing`]): always for a
     /// card the engine offers at sorcery speed alone, and for an
     /// instant-speed one when what it is for can happen now.
@@ -1413,6 +1608,21 @@ impl HeuristicAgent {
                     {
                         return true;
                     }
+                    // A sweep sized by X is cast where some X gains
+                    // something ([`crate::AIProfile::SIZED_SWEEPS`]).
+                    // A rider beside the sweep (a token, a card) is worth
+                    // something this does not price, so such a sweep is
+                    // held back only where it loses.
+                    if f.mana_cost.has_variable()
+                        && self.profile.plays(crate::AIProfile::SIZED_SWEEPS)
+                        && self
+                            .best_sweep_x(view, id, effects, 1, SWEEP_X_READ)
+                            .is_some_and(|(net, _)| {
+                                net < i64::from(effects.iter().all(board_sweeper))
+                            })
+                    {
+                        return true;
+                    }
                 }
                 AbilityDef::ModalSpell { modes, .. }
                     if !modes
@@ -1457,11 +1667,53 @@ impl HeuristicAgent {
         id: Option<ObjectId>,
         effects: &[Effect],
     ) -> Option<i64> {
-        if effects.is_empty() || !effects.iter().all(board_sweeper) {
+        self.sweeper_net_worth_at(view, id, effects, 0, false)
+    }
+
+    /// The X from `min` to `max` at which a sweep printing `effects` gains
+    /// this side the most, with what it gains there, the smallest such X:
+    /// Savage Twister at the X that takes the opponents' creatures and
+    /// leaves this seat's larger one. `None` where `effects` is no sweep.
+    pub(crate) fn best_sweep_x(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        effects: &[Effect],
+        min: u32,
+        max: u32,
+    ) -> Option<(i64, u32)> {
+        let mut best = None;
+        for x in min..=max.max(min) {
+            let net = self.sweeper_net_worth_at(view, id, effects, x, true)?;
+            if best.is_none_or(|(kept, _)| net > kept) {
+                best = Some((net, x));
+            }
+        }
+        best
+    }
+
+    /// [`Self::sweeper_net_worth`] with its damage and a mana-value bound
+    /// read at `x`; with `riders`, of a list that sweeps and also does
+    /// something else (Vampires' Vengeance and its Blood token), which is
+    /// left unpriced.
+    fn sweeper_net_worth_at(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        effects: &[Effect],
+        x: u32,
+        riders: bool,
+    ) -> Option<i64> {
+        let sweeps = if riders {
+            effects.iter().any(board_sweeper)
+        } else {
+            !effects.is_empty() && effects.iter().all(board_sweeper)
+        };
+        if !sweeps {
             return None;
         }
         let mut net = 0_i64;
-        for effect in effects {
+        for effect in effects.iter().filter(|effect| board_sweeper(effect)) {
             if let Effect::KeepOneOfEachAndSacrificeRest { filters } = effect {
                 net += self.keep_one_of_each_net_worth(view, id, filters)?;
                 continue;
@@ -1477,7 +1729,7 @@ impl HeuristicAgent {
                     *filter,
                     false,
                     true,
-                    Some(crate::tactics::amount(*amount, 0)),
+                    Some(crate::tactics::amount(*amount, x)),
                 ),
                 _ => return None,
             };
@@ -1485,9 +1737,7 @@ impl HeuristicAgent {
                 continue;
             }
             for o in &view.battlefield {
-                if self.filter_matches(filter, view, o, baylee_cards_dsl::ZoneRef::Battlefield, id)
-                    == Some(false)
-                {
+                if self.swept(filter, view, o, id, x) == Some(false) {
                     continue;
                 }
                 if check_indest
@@ -1516,6 +1766,35 @@ impl HeuristicAgent {
             }
         }
         Some(net)
+    }
+
+    /// Whether a sweep over `filter` at `x` takes `object`: the filter's
+    /// reading, with a bound of "mana value X or less" (Gaze of Granite)
+    /// read at `x` where one was announced, which the filter alone cannot
+    /// say.
+    fn swept(
+        &self,
+        filter: &Filter,
+        view: &PlayerView,
+        object: &baylee_view::PublicObject,
+        id: Option<ObjectId>,
+        x: u32,
+    ) -> Option<bool> {
+        match filter {
+            Filter::CmcAtMostX if x > 0 => Some(object.mana_value <= x),
+            Filter::And(parts) if x > 0 => {
+                let mut unknown = false;
+                for part in *parts {
+                    match self.swept(part, view, object, id, x) {
+                        Some(false) => return Some(false),
+                        None => unknown = true,
+                        Some(true) => {}
+                    }
+                }
+                if unknown { None } else { Some(true) }
+            }
+            _ => self.filter_matches(filter, view, object, baylee_cards_dsl::ZoneRef::Battlefield, id),
+        }
     }
 
     /// The best result of choosing one permanent per filter before sacrificing
@@ -2132,6 +2411,10 @@ fn harmful_targeted(effect: &Effect) -> bool {
         }
     }
 }
+
+/// The largest X a sweep is read at ([`HeuristicAgent::best_sweep_x`]): past
+/// the toughness of nearly every creature.
+const SWEEP_X_READ: u32 = 20;
 
 /// Whether `effect` is a symmetric board sweeper.
 fn board_sweeper(effect: &Effect) -> bool {
@@ -3558,10 +3841,11 @@ fn taps_needed(
 /// window it cannot fill ends exactly where refusing ended — one question
 /// later.
 #[allow(clippy::too_many_lines)]
-pub(crate) fn pays_tax(
+pub(crate) fn pays_tax_as(
     view: &PlayerView,
     price: baylee_core::mana::ManaCost,
     context: &baylee_engine::engine::DecisionContext<'_>,
+    profile: crate::AIProfile,
 ) -> bool {
     // A price rather than a tax — Crystal Rod's "you may pay {1}. If you
     // do, you gain 1 life" — asks the same question the other way round:
@@ -3620,7 +3904,11 @@ pub(crate) fn pays_tax(
         .effects
         .iter()
         .flat_map(payment_unpaid_effects)
-        .any(refusing_costs_a_card);
+        .any(|effect| {
+            refusing_costs_a_card(effect)
+                || (profile.plays(crate::AIProfile::PAID_UPKEEPS)
+                    && refusing_costs_a_permanent(effect))
+        });
     if !refusal_costs_a_card {
         return false;
     }
@@ -3706,6 +3994,37 @@ fn refusing_costs_a_card(effect: &Effect) -> bool {
         // which the mana is not worth keeping for.
         | Effect::DealDamage {
             target: baylee_cards_dsl::TargetSpec::Player(baylee_cards_dsl::PlayerRel::You),
+            ..
+        } => true,
+        _ => false,
+    }
+}
+
+/// [`pays_tax_as`] for the house as it was frozen, which reads no later
+/// generation's refusals.
+#[cfg(test)]
+pub(crate) fn pays_tax(
+    view: &PlayerView,
+    price: baylee_core::mana::ManaCost,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+) -> bool {
+    pays_tax_as(view, price, context, crate::AIProfile::SHARP_2026_11)
+}
+
+/// Whether leaving a price unpaid has the seat sacrifice a permanent of its
+/// own that is not the one asking ([`crate::AIProfile::PAID_UPKEEPS`]):
+/// Demonic Hordes' "sacrifice a land of an opponent's choice", an upkeep
+/// that has its controller sacrifice a creature.
+fn refusing_costs_a_permanent(effect: &Effect) -> bool {
+    use baylee_cards_dsl::PlayerRel;
+    match effect {
+        Effect::Sequence(effects) => effects.iter().any(refusing_costs_a_permanent),
+        Effect::SacrificeChosenByOpponent {
+            player: PlayerRel::You,
+            ..
+        }
+        | Effect::SacrificeFilter {
+            who: PlayerRel::You,
             ..
         } => true,
         _ => false,

@@ -1012,6 +1012,21 @@ impl Session {
         else {
             return Ok(Vec::new());
         };
+        if search
+            .model
+            .profile()
+            .plays(baylee_core::preset::AIProfile::SOUND_ROOTS)
+            && let Some(own) = fork.model_answer(player, &search.model)
+            && let Some(aimed) = search.model.foresight_targets(
+                &fork.observe_view(player),
+                &own,
+                &options,
+                &player_options,
+                TARGETS - 1,
+            )
+        {
+            return Ok(aimed);
+        }
         let objects = options
             .into_iter()
             .map(|object| PlayerAction::ChooseTargets {

@@ -542,6 +542,13 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::ChooseObjects { objects };
                 }
+                // A discard an effect asks as a plain choice.
+                if prompt == ChoicePrompt::Generic
+                    && let Some(objects) =
+                        self.forced_discard(view, &options, min, max, context.effects)
+                {
+                    return PlayerAction::ChooseObjects { objects };
+                }
                 if matches!(prompt, ChoicePrompt::CostTapExactlyOrNone { .. }) {
                     // The optional benefit is not priced here. Decline rather than
                     // submitting an invalid partial payment or tapping blindly.
@@ -962,17 +969,18 @@ impl HeuristicAgent {
                 // What refusing a tax costs is not the same question for
                 // every tax, so it is asked of the effect rather than of the
                 // prompt: ward counters the spell this seat has just cast.
-                YesNoPrompt::PayTax { mana } => PlayerAction::YesNo(policy::pays_tax(
+                YesNoPrompt::PayTax { mana } => PlayerAction::YesNo(policy::pays_tax_as(
                     view,
                     baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
                     context,
+                    self.profile,
                 )),
                 YesNoPrompt::PayMana { cost } => {
-                    PlayerAction::YesNo(policy::pays_tax(view, cost, context))
+                    PlayerAction::YesNo(policy::pays_tax_as(view, cost, context, self.profile))
                 }
                 YesNoPrompt::PayManaAndLife { cost, life } => PlayerAction::YesNo(
                     view.seat(player).is_some_and(|seat| i64::from(seat.life) > i64::from(life) + 5)
-                        && policy::pays_tax(view, cost, context),
+                        && policy::pays_tax_as(view, cost, context, self.profile),
                 ),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
