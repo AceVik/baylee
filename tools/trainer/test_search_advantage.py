@@ -210,8 +210,9 @@ class SearchAdvantage(unittest.TestCase):
         rows = synthetic(roots=120)
         with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()), \
                 contextlib.redirect_stderr(io.StringIO()):
-            path = Path(temporary) / "rows.npz"
-            rows.save(path)
+            path, other = Path(temporary) / "rows.npz", Path(temporary) / "other.npz"
+            rows.save(path, model_sha256="48a5")
+            rows.save(other, model_sha256="ffff")
             out = Path(temporary) / "head"
             meta = V.main(["fit", "--rows", str(path), "--out", str(out), "--head", "linear", "--seed", "2",
                            "--epochs", "3", "--threads", "1"])
@@ -219,8 +220,12 @@ class SearchAdvantage(unittest.TestCase):
             self.assertTrue((out / "advantage.onnx").exists())
             with self.assertRaises(FileExistsError):
                 V.main(["fit", "--rows", str(path), "--out", str(out), "--seed", "2"])
+            with self.assertRaises(ValueError):   # one head reads one net's embeddings
+                V.main(["fit", "--rows", str(path), "--rows", str(other), "--out", str(out) + "2", "--seed", "2"])
         self.assertEqual((saved["contract"], saved["row_tail"], saved["width"]), (V.CONTRACT, V.TAIL, 2 * 16 + V.TAIL))
-        self.assertEqual(meta["margin"], saved["margin"])
+        self.assertEqual((meta["margin"], saved["source_checkpoint_sha256"]), (saved["margin"], "48a5"))
+        self.assertEqual(saved["tail"][:6], [f"class:{name}" for name in ("pass", "tap", "cast", "activate", "land",
+                                                                           "other")])
 
 
 if __name__ == "__main__":

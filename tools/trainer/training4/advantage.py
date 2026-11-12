@@ -161,8 +161,10 @@ class AdvantageRows:
         meta = json.loads(str(data["meta"]))
         if meta.get("contract") != ROWS_CONTRACT:
             raise ValueError(f"{path} is not {ROWS_CONTRACT}")
-        return cls({name: data[f"root_{name}"] for name in ROOT_FIELDS}, data["state"], data["cand"],
+        rows = cls({name: data[f"root_{name}"] for name in ROOT_FIELDS}, data["state"], data["cand"],
                    {name: data[f"cand_{name}"] for name in CAND_FIELDS}, data["held_out"], meta.get("kinds", ()))
+        rows.meta = meta
+        return rows
 
     def save(self, path, **meta):
         np.savez(path, meta=json.dumps(dict(contract=ROWS_CONTRACT, kinds=list(self.kinds), **meta)),
@@ -564,7 +566,12 @@ def main(argv=None):
     out = Path(args.out)
     if out.exists():
         raise FileExistsError(f"{out} exists; a head gets its own directory")
-    rows = AdvantageRows.concat([AdvantageRows.load(path) for path in args.rows])
+    parts = [AdvantageRows.load(path) for path in args.rows]
+    # The head reads one net's embeddings: every rows file must come from the same checkpoint.
+    sources = {p.meta.get("model_sha256") for p in parts}
+    if len(sources) != 1:
+        raise ValueError(f"The rows come from different nets: {sorted(map(str, sources))}")
+    rows = AdvantageRows.concat(parts)
     head, result = fit(rows, args.head, args.hidden, args.tau, args.lr, args.weight_decay, args.epochs, args.batch,
                        args.patience, args.seed)
     out.mkdir(parents=True)
@@ -573,6 +580,11 @@ def main(argv=None):
     torch.save(dict(state_dict=head.state_dict(), width=width, kind=args.head, hidden=args.hidden), out / "head.pt")
     meta = dict(contract=CONTRACT, d_model=rows.d_model, row_tail=TAIL, width=width,
                 tail=["class:" + name for name in CLASSES] + ["payable_added", "own"],
+                # The play side checks it against the playing graph's model.onnx.json.
+                source_checkpoint_sha256=next(iter(sources)),
+                rows_layout="[state_emb (d) | cand_emb (d) | tail], float32; tail: coarse_class_v1 one-hot "
+                            "(all zero for an unknown class), payable_added 0/1, own 0/1",
+                override="argmax over the scored items of score_i - score_own; play it when it exceeds margin",
                 head=args.head, hidden=args.hidden, tau=args.tau, seed=args.seed, lr=args.lr,
                 rows=[dict(path=str(p), sha256=hashlib.sha256(Path(p).read_bytes()).hexdigest()) for p in args.rows],
                 roots=dict(train=int((~rows.held_out).sum()), held_out=int(rows.held_out.sum())),
