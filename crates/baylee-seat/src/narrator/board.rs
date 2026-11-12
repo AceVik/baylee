@@ -377,6 +377,16 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     {
         out.push(format!("chosen name {}", face.name));
     }
+    // The colour and the opponent chosen as it entered are as public as the
+    // type and the name (CR 614.12): Ward Sliver's colour is what every
+    // Sliver has protection from, which the projection carries as no keyword
+    // at all (Carbon b6, attempt 63, q252).
+    if let Some(color) = object.chosen_color {
+        out.push(format!("chosen color {}", words::color_name(color)));
+    }
+    if let Some(opponent) = object.chosen_opponent {
+        out.push(format!("chosen opponent {}", table.player(opponent)));
+    }
     if let Some([left, right]) = object.unlocked_doors {
         let open: Vec<&str> = [(left, "left"), (right, "right")]
             .into_iter()
@@ -535,6 +545,11 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         }
         if let Some(x) = object.chosen_x {
             let _ = write!(line, ", X is {x}");
+        }
+        // A colour chosen as the spell was cast is announced with it, as
+        // its X is.
+        if let Some(color) = object.chosen_color {
+            let _ = write!(line, ", chosen color {}", words::color_name(color));
         }
         if object.bought_back {
             line.push_str(", buyback paid: it returns to its owner's hand as it resolves");

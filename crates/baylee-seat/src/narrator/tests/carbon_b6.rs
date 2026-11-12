@@ -1,11 +1,14 @@
 //! What the Carbon seat was offered or told wrong in block 6 (12.11.2026),
-//! on a real engine: a cast that tapped the only Mountain an `{R}` ability on
-//! the board was waiting for.
+//! on a real engine where it can be: a cast that tapped the only Mountain an
+//! `{R}` ability on the board was waiting for, and Ward Sliver's chosen
+//! colour shown nowhere.
 
+use super::carbon::{picked, send};
 use super::*;
 use crate::wake::reachable;
 use crate::wake::tests::played::position;
 use baylee_core::ids::CardIndex;
+use baylee_engine::choice::PlayerAction;
 use baylee_gamehost::Session;
 use baylee_view::LogTail;
 
@@ -92,4 +95,85 @@ fn a_cast_leaves_the_only_mountain_up_for_an_ability_on_the_board() {
         .find(|line| line.contains("Cast Sabertooth Nishoba"))
         .unwrap_or_else(|| panic!("the Nishoba is offered: {text}"));
     assert!(!cast.contains(&tag(mountain)), "{cast}");
+}
+
+/// Ward Sliver chose blue as it entered: every Sliver has protection from
+/// blue (CR 614.12, 702.16), and nothing the seat read said so, because the
+/// view's `chosen_color` was never printed (Carbon b6, segment 2, attempt
+/// 63, seat 0, q252). The permanent's line says it now, as it says a chosen
+/// type or name.
+#[test]
+fn a_permanent_s_line_says_the_colour_chosen_as_it_entered() {
+    let (mut session, view, _) = position(
+        &["Plains", "Plains", "Plains", "Plains", "Plains"],
+        &["Ward Sliver"],
+        &[],
+    );
+    let sliver = view.hand[0].id;
+    let request = asked(&session);
+    let act = picked(&request, "Cast Ward Sliver");
+    send(&mut session, act);
+    for _ in 0..8 {
+        match session.pending().clone() {
+            Pending::ChooseColor { player, .. } => {
+                session
+                    .act_slice(
+                        player,
+                        PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue),
+                        0,
+                    )
+                    .expect("blue");
+            }
+            Pending::Priority { player, .. }
+                if session
+                    .observe_view(ME)
+                    .battlefield
+                    .iter()
+                    .any(|o| o.id == sliver) =>
+            {
+                assert_eq!(player, ME, "the Sliver resolved on seat 0's turn");
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                session
+                    .act_slice(player, PlayerAction::PassPriority, 0)
+                    .expect("a pass");
+            }
+            other => panic!("the Sliver's cast asked {other:?}"),
+        }
+    }
+    let request = asked(&session);
+    assert_eq!(
+        request.view.object(sliver).and_then(|o| o.chosen_color),
+        Some(baylee_core::mana::ManaColor::Blue),
+        "the view carries the colour"
+    );
+    let text = told(&request);
+    let line = text
+        .lines()
+        .find(|line| line.contains(&format!("{} Ward Sliver", tag(sliver))))
+        .unwrap_or_else(|| panic!("Ward Sliver on the battlefield: {text}"));
+    assert!(line.contains("chosen color blue"), "{line}");
+}
+
+/// The other choice made as a permanent enters that the view carries and
+/// the seat did not print: an opponent (Black Vise). Shown as the chosen
+/// type and name are, beside the colour.
+#[test]
+fn a_permanent_s_line_says_the_opponent_and_colour_chosen_for_it() {
+    let (mut view, log) = board();
+    let serra = view
+        .battlefield
+        .iter_mut()
+        .find(|o| o.id == id(45))
+        .expect("Serra Angel");
+    serra.chosen_opponent = Some(ME);
+    serra.chosen_color = Some(baylee_core::mana::ManaColor::Green);
+    let text = told(&request(view, priority(&board().0), log));
+    let line = text
+        .lines()
+        .find(|line| line.contains("#45 Serra Angel"))
+        .unwrap_or_else(|| panic!("Serra Angel: {text}"));
+    assert!(line.contains("chosen opponent you"), "{line}");
+    assert!(line.contains("chosen color green"), "{line}");
 }
