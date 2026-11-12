@@ -104,21 +104,40 @@ fn sections(lines: &[String]) -> Option<Vec<Section<'_>>> {
 
 /// The ids a line names: "#45", each whole.
 fn tags(line: &str) -> BTreeSet<&str> {
-    let mut out = BTreeSet::new();
+    in_order(line).collect()
+}
+
+/// The ids a line names, each whole, in the order it names them.
+fn in_order(line: &str) -> impl Iterator<Item = &str> {
     let bytes = line.as_bytes();
     let mut at = 0;
-    while let Some(found) = line[at..].find('#') {
-        let start = at + found;
-        let mut end = start + 1;
-        while end < bytes.len() && bytes[end].is_ascii_digit() {
-            end += 1;
+    std::iter::from_fn(move || {
+        while let Some(found) = line[at..].find('#') {
+            let start = at + found;
+            let mut end = start + 1;
+            while end < bytes.len() && bytes[end].is_ascii_digit() {
+                end += 1;
+            }
+            at = end;
+            if end > start + 1 {
+                return Some(&line[start..end]);
+            }
         }
-        if end > start + 1 {
-            out.insert(&line[start..end]);
-        }
-        at = end;
+        None
+    })
+}
+
+/// The objects a line of the board is about, which leave with it: a line of
+/// one object ("#45 Serra Angel · …", a card, a spell, an ability) is its
+/// first id, whatever else it names (an Aura's host, a spell's targets, a
+/// blocker's attacker); a list ("lands: Forest #21, Forest #22") is every id
+/// it names.
+fn own(line: &str) -> Vec<&str> {
+    if line.trim_start().starts_with('#') {
+        in_order(line).take(1).collect()
+    } else {
+        in_order(line).collect()
     }
-    out
 }
 
 /// `state` told as what changed since `told`, or `None` when it is to be
@@ -172,20 +191,14 @@ pub(super) fn difference(told: &Told, state: &str) -> Option<String> {
         // changed line: an Equipment moved off Captain Storm loses the line
         // that named him as its host, and he is still on his own line.
         let still: BTreeSet<&str> = section.lines.iter().flat_map(|line| tags(line)).collect();
-        // A stack line names its targets as well as itself, and only the
-        // spell left: Short Circuit resolved, Bishop's Soldier did not go.
-        let stack = section.heading.starts_with("Stack");
+        // A lost line took only its own objects with it ([`own`]): a stack
+        // line names its targets as well (Short Circuit resolved, Bishop's
+        // Soldier did not go), an Aura's line its host, which may stand in
+        // another player's section (Pacifism destroyed, the Guardian it was
+        // on told as gone under P2's battlefield: Carbon self-play b1-4).
         let left: Vec<String> = vanished
             .iter()
-            .flat_map(|line| {
-                let named = tags(line);
-                let own = named.iter().copied().min_by_key(|tag| line.find(tag));
-                if stack {
-                    own.into_iter().collect()
-                } else {
-                    named
-                }
-            })
+            .flat_map(|line| own(line))
             .filter(|t| !still.contains(t))
             .collect::<BTreeSet<&str>>()
             .into_iter()
@@ -310,6 +323,46 @@ mod tests {
         };
         let after = difference(&told, &at(false)).expect("two lines changed");
         assert!(after.contains("no longer here: #104\n"), "{after}");
+    }
+
+    /// Pacifism, P2's Aura on P1's Serra's Guardian, destroyed: only the
+    /// Aura left P2's battlefield. The Guardian its line named as its host is
+    /// on P1's, a section the old reading never looked in, and was told as
+    /// gone (Carbon self-play b1-4, b1-5: an Aura is in its controller's
+    /// section, CR 303.4e, whoever controls what it enchants).
+    #[test]
+    fn an_aura_that_left_takes_no_host_from_another_section_with_it() {
+        let at = |aura: bool| {
+            let mut out = String::from(
+                "You (P1): 20 life\nP2 (opponent): 20 life\nYour battlefield:\n  lands: \
+                 Plains #1, Plains #2\n  #56 Serra's Guardian · Creature — Angel · 5/5 · \
+                 flying\nP2's battlefield:\n  lands: Swamp #90, Swamp #91\n  #87 Grizzly \
+                 Bears · Creature — Bear · 2/2\n",
+            );
+            if aura {
+                out.push_str(
+                    "  #86 Pacifism · Enchantment — Aura · attached to Serra's Guardian #56\n",
+                );
+            }
+            out
+        };
+        let told = Told {
+            question: 12,
+            turn: 7,
+            lines: lines(&at(true)),
+            names: vec![
+                (ObjectId::new(56, 0), "Serra's Guardian #56".into()),
+                (ObjectId::new(86, 0), "Pacifism #86".into()),
+            ],
+        };
+        let after = difference(&told, &at(false)).expect("one line changed");
+        assert!(after.contains("no longer here: Pacifism #86\n"), "{after}");
+        assert!(!after.contains("Serra's Guardian"), "{after}");
+        // A land gone from the lands line is still told: a list line holds
+        // every object it names.
+        let swamp = at(false).replace("Swamp #90, Swamp #91", "Swamp #90");
+        let after = difference(&told, &swamp).expect("two lines changed");
+        assert!(after.contains("#91"), "{after}");
     }
 
     #[test]
