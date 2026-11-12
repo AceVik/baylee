@@ -1449,8 +1449,12 @@ without searching. A table searches only while its person plays it, and an
 account plays one game at a time on a gateway (conceding frees it at once,
 and the game it leaves searches no more; a seat bridge left behind counts
 for nobody), so holding every slot takes as many accounts as there are
-slots, each playing its table at the machine's speed. A game everybody has
-left costs at most 5,000 heuristic answers or 20 seconds more.
+slots, each playing its table at the machine's speed. A game in which no
+seat answers over a socket any more (no person and no seat bridge) costs at
+most 5,000 heuristic answers or 20 seconds more. A seat bridge left alone
+with the house is not bounded so: its game runs on without search and
+without that cap, as every hosted game did before foresight, paced by the
+bridge's own answers.
 
 ### What the house's search costs
 
