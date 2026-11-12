@@ -348,6 +348,18 @@ class SearchAdvantage(unittest.TestCase):
         self.assertEqual([r["source"] for r in saved["rows"]], [0, 1])
         self.assertEqual(set(saved["held_out_by_source"]), {"0", "1"})
 
+    def test_label_noise_bounds_the_pearson_by_the_labels_own_error(self):
+        clean, noisy = synthetic(noise=.001), synthetic(noise=.2)
+        self.assertGreater(V.label_noise(clean)["pearson_ceiling"], .99)
+        rough = V.label_noise(noisy)
+        self.assertLess(rough["pearson_ceiling"], .9)
+        self.assertGreater(rough["pearson_ceiling"], .4)
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()):
+            path = Path(temporary) / "rows.npz"
+            noisy.save(path)
+            out = V.main(["labels", "--rows", str(path)])
+        self.assertAlmostEqual(out[str(path)]["reliability"], rough["reliability"], places=6)
+
     def test_fit_command_writes_the_head_and_its_contract(self):
         rows = synthetic(roots=120)
         with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()), \

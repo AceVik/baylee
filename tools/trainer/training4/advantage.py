@@ -725,6 +725,23 @@ def capture(args):
     return rows
 
 
+def label_noise(rows: AdvantageRows):
+    """How much of the labels' spread is signal: over the searched items besides the own answer,
+    reliability = 1 - mean(SE^2) / Var(A), and sqrt(reliability) bounds the Pearson any head can
+    reach against these A (a head that knew the true advantage exactly would score it)."""
+    is_own = np.zeros(len(rows.cand), dtype=bool)
+    is_own[rows.roots["offset"] + rows.roots["own"]] = True
+    items = rows.labels["searched"].astype(bool) & ~is_own
+    A, se = rows.labels["A"][items].astype(np.float64), rows.labels["SE"][items].astype(np.float64)
+    if len(A) < 2:
+        return dict(items=int(len(A)), reliability=None, pearson_ceiling=None)
+    reliability = 1. - float(np.mean(se ** 2)) / float(A.var())
+    return dict(items=int(len(A)), roots=int(len(rows.state)), var_A=float(A.var()), mean_SE2=float(np.mean(se ** 2)),
+                median_abs_A=float(np.median(np.abs(A))), median_SE=float(np.median(se)),
+                share_A_over_halves_margin=float(np.mean(A > HALVES_MARGIN)),
+                reliability=reliability, pearson_ceiling=float(np.sqrt(reliability)) if reliability > 0 else 0.)
+
+
 def smoke(args):
     """A hand-set smoke head for the play path: score = payable-added (0/1), margin 0, so the
     student plays the first payable-added macro item wherever one is offered. Not a fitted head:
@@ -758,6 +775,8 @@ def smoke(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
+    noise = commands.add_parser("labels", help="The labels' reliability and the Pearson ceiling it sets, per rows file")
+    noise.add_argument("--rows", action="append", required=True)
     smoking = commands.add_parser("smoke", help="A hand-set head for testing the play path")
     smoking.add_argument("--model", required=True, help="The net's directory (its fp16/model.onnx.json)")
     smoking.add_argument("--out", required=True)
@@ -806,6 +825,10 @@ def main(argv=None):
                          help="Do not join the dataset's judged halves (the search's own held-out lead)")
     fitting.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
+    if args.command == "labels":
+        out = {path: label_noise(AdvantageRows.load(path)) for path in args.rows}
+        print("[advantage] labels " + json.dumps(out), flush=True)
+        return out
     if args.command == "smoke":
         return smoke(args)
     if args.command == "capture":
