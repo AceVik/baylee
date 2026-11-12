@@ -543,6 +543,13 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::ChooseObjects { objects };
                 }
+                // A discard an effect asks as a plain choice.
+                if prompt == ChoicePrompt::Generic
+                    && let Some(objects) =
+                        self.forced_discard(view, &options, min, max, context.effects)
+                {
+                    return PlayerAction::ChooseObjects { objects };
+                }
                 if matches!(prompt, ChoicePrompt::CostTapExactlyOrNone { .. }) {
                     // The optional benefit is not priced here. Decline rather than
                     // submitting an invalid partial payment or tapping blindly.

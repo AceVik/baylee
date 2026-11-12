@@ -66,7 +66,7 @@ pub(crate) fn pick(view: &PlayerView, legal: &LegalActions) -> Option<ObjectId> 
 /// otherwise tried after every other land on offer: a plain land is a whole
 /// land now, where the Karoo trades the land it returns for a second mana
 /// later. It is played once nothing plainer is offered.
-fn worth_playing(view: &PlayerView, offered: &[ObjectId]) -> Vec<ObjectId> {
+pub(crate) fn worth_playing(view: &PlayerView, offered: &[ObjectId]) -> Vec<ObjectId> {
     let has_land = view
         .battlefield_of(view.seat)
         .any(|o| o.types.contains(TypeSet::LAND));
