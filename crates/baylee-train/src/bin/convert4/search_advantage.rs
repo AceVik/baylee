@@ -234,6 +234,9 @@ pub(super) struct Row {
     choice4: u32,
     half_a: u32,
     half_b: u32,
+    /// Where the search kept a bare tap: the spell its chain cast at the
+    /// table ([`chain_spell`]), `u32::MAX` elsewhere.
+    intent: u32,
     items: Vec<Item>,
 }
 
@@ -297,6 +300,8 @@ fn label(event: &Event, root: &SearchRoot4) -> Result<(Vec<usize>, Vec<Item>), &
 /// A game being converted: its roots, its twins' stream and its rows.
 pub(super) struct GameLabels<'a> {
     roots: &'a GameRoots,
+    /// The record's inputs: seat, number and answer, in order.
+    inputs: Vec<(u8, u64, PlayerAction)>,
     twins: super::output::GameWriter,
     rows: Vec<Row>,
     counts: Counts,
@@ -313,9 +318,11 @@ impl<'a> GameLabels<'a> {
         root: &Path,
         game_id: u32,
         rule_roots: std::sync::Arc<BTreeMap<String, u32>>,
+        record: &[u8],
     ) -> anyhow::Result<Self> {
         Ok(Self {
             roots,
+            inputs: record_inputs(record)?,
             twins: super::output::GameWriter::in_split(root, MENUS_SPLIT, game_id, rule_roots)?,
             rows: Vec::new(),
             counts: roots.counts.clone(),
@@ -387,6 +394,12 @@ impl<'a> GameLabels<'a> {
             choice4: index(event.chosen),
             half_a: index(halves.on_even),
             half_b: index(halves.on_odd),
+            // Kept: the record follows the bundle's own chain from its tap.
+            intent: if kind_of(event) == Some(1) && event.chosen == 0 {
+                chain_spell(&self.inputs, step.seat, root.record_input_n)
+            } else {
+                u32::MAX
+            },
             items: rows,
         });
         Ok(())
@@ -401,6 +414,65 @@ impl<'a> GameLabels<'a> {
         let shard = self.twins.finish()?;
         Ok((self.rows, self.counts, Some(shard)))
     }
+}
+
+/// The kind of an event's root ([`ROOT_KINDS`]).
+fn kind_of(event: &Event) -> Option<u8> {
+    event.candidates.first().and_then(root_kind)
+}
+
+/// The seat, number and answer of every input of a record, in order.
+///
+/// # Errors
+/// A line that is no record line.
+fn record_inputs(record: &[u8]) -> anyhow::Result<Vec<(u8, u64, PlayerAction)>> {
+    let mut inputs = Vec::new();
+    for line in record
+        .split(|&b| b == b'\n')
+        .filter(|line| !line.is_empty())
+    {
+        if let baylee_gamehost::record::Line::Input {
+            seat, n, action, ..
+        } = serde_json::from_slice(line).context("a record line")?
+        {
+            inputs.push((seat, n, action));
+        }
+    }
+    Ok(inputs)
+}
+
+/// The most of a seat's inputs a chain is followed for.
+const CHAIN: usize = 16;
+
+/// The spell a chain begun at `seat`'s input `n` cast at the table: the
+/// card of the seat's first cast, suspend or foretell after it, as the
+/// record names it, before the seat passes, cancels or answers anything
+/// but a mana ability; `u32::MAX` where it does none of those within
+/// [`CHAIN`] of its inputs. An activated ability may be a mana ability,
+/// which the record does not say, so it does not end a chain.
+fn chain_spell(inputs: &[(u8, u64, PlayerAction)], seat: u8, n: u64) -> u32 {
+    let card = |card: &baylee_core::ids::ObjectId| {
+        serde_json::to_value(card)
+            .ok()
+            .and_then(|value| value.as_u64())
+            .and_then(|id| u32::try_from(id).ok())
+            .unwrap_or(u32::MAX)
+    };
+    inputs
+        .iter()
+        .skip_while(|(_, at, _)| *at <= n)
+        .filter(|(by, _, _)| *by == seat)
+        .take(CHAIN)
+        .find_map(|(_, _, action)| match action {
+            PlayerAction::CastSpell { card: spell }
+            | PlayerAction::Suspend { card: spell }
+            | PlayerAction::Foretell { card: spell } => Some(card(spell)),
+            PlayerAction::ActivateManaAbility { .. }
+            | PlayerAction::ChooseManaAbility { .. }
+            | PlayerAction::ActivateAbility { .. } => None,
+            _ => Some(u32::MAX),
+        })
+        .unwrap_or(u32::MAX)
 }
 
 /// A root's twin: its frame with the payable menu, at policy weight 0; the
@@ -442,14 +514,16 @@ pub(super) fn write(
     extra: &Value,
 ) -> anyhow::Result<Value> {
     fs::create_dir_all(dir)?;
-    let paths = ["index.bin", "cands.bin", "header.json"].map(|name| dir.join(name));
+    let paths = ["index.bin", "cands.bin", "header.json", "intents.bin"].map(|name| dir.join(name));
     for path in &paths {
         ensure!(!path.exists(), "{} exists", path.display());
     }
     rows.sort_by_key(|row| (row.game, row.seat, row.cursor));
     let mut index = Vec::with_capacity(rows.len() * INDEX_ROW);
     let mut cands = Vec::new();
+    let mut intents = Vec::with_capacity(rows.len() * 4);
     for row in &rows {
+        intents.extend_from_slice(&row.intent.to_le_bytes());
         let offset = (cands.len() / CAND_ROW) as u64;
         index.extend_from_slice(&row.game.to_le_bytes());
         index.extend_from_slice(&row.cursor.to_le_bytes());
@@ -475,6 +549,7 @@ pub(super) fn write(
     }
     fs::write(&paths[0], &index)?;
     fs::write(&paths[1], &cands)?;
+    fs::write(&paths[3], &intents)?;
     let header = json!({
         "contract": SEARCH_ADVANTAGE_CONTRACT,
         "version": 1,
@@ -501,6 +576,13 @@ pub(super) fn write(
                           the policy's own item 0 and 0",
             "coarse_classes": baylee_train::coarse_class::COARSE_CLASSES,
             "sha256": super::shadow::sha(&cands)},
+        "intents": {"file": "intents.bin", "dtype": "<u4", "rows": rows.len(),
+            "order": "the index's",
+            "meaning": "where the search kept a bare tap (root kind tap, choice4 the own \
+                        answer): the card the seat's chain then cast, suspended or \
+                        foretold at the table, as the record names it; u32::MAX elsewhere \
+                        or where the chain passed first. For analysis only.",
+            "sha256": super::shadow::sha(&intents)},
         "counts": counts,
         "source": extra,
     });
@@ -536,6 +618,7 @@ mod tests {
             choice4: 1,
             half_a: 1,
             half_b: u32::MAX,
+            intent: if game == 1 { 29 } else { u32::MAX },
             items: (0..n)
                 .map(|at| item(f32::from(u8::try_from(at).unwrap()) * 0.1, at < 2))
                 .collect(),
@@ -549,6 +632,7 @@ mod tests {
         let header = write(&dir, vec![row(2, 5, 3), row(1, 9, 2)], &counts, &json!({})).unwrap();
         let index = fs::read(dir.join("index.bin")).unwrap();
         let cands = fs::read(dir.join("cands.bin")).unwrap();
+        let intents = fs::read(dir.join("intents.bin")).unwrap();
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(index.len(), 2 * INDEX_ROW);
         assert_eq!(cands.len(), 5 * CAND_ROW);
@@ -574,6 +658,9 @@ mod tests {
         assert_eq!(header["counts"]["dropped"]["stopped"], 1);
         assert_eq!(header["contract"], "search_advantage_v1");
         assert_eq!(header["index"]["rows"], 2);
+        // The chain spells, in the index's order: game 1's first.
+        assert_eq!(intents, [29, 0, 0, 0, 255, 255, 255, 255]);
+        assert_eq!(header["intents"]["rows"], 2);
     }
 
     #[test]
@@ -607,5 +694,54 @@ mod tests {
         assert!(fallen.events.is_empty());
         assert_eq!(fallen.counts.dropped["game_fallback"], 3);
         assert!(GameRoots::from_game(&json!({"fallback_answers": 0})).is_err());
+    }
+}
+
+#[cfg(test)]
+mod chain_tests {
+    use super::{CHAIN, chain_spell};
+    use baylee_core::ids::ObjectId;
+    use baylee_engine::choice::PlayerAction;
+
+    #[test]
+    fn a_kept_tap_names_the_spell_its_chain_cast_and_nothing_else() {
+        let tap = |source: u32| PlayerAction::ActivateManaAbility {
+            source: ObjectId::new(source, 0),
+        };
+        let cast = |card: u32| PlayerAction::CastSpell {
+            card: ObjectId::new(card, 0),
+        };
+        let inputs = vec![
+            (0, 4, tap(10)),
+            (1, 5, PlayerAction::PassPriority),
+            (0, 6, tap(11)),
+            (0, 7, cast(29)),
+            (0, 8, PlayerAction::PassPriority),
+            (0, 9, tap(12)),
+            (0, 10, PlayerAction::PassPriority),
+            (0, 11, cast(30)),
+        ];
+        let id = |card: u32| {
+            u32::try_from(
+                serde_json::to_value(ObjectId::new(card, 0))
+                    .unwrap()
+                    .as_u64()
+                    .unwrap(),
+            )
+            .unwrap()
+        };
+        // From the tap at 4: the other seat's pass is not the chain's; the
+        // cast at 7 is.
+        assert_eq!(chain_spell(&inputs, 0, 4), id(29));
+        // From the tap at 9 the seat passes before it casts.
+        assert_eq!(chain_spell(&inputs, 0, 9), u32::MAX);
+        // Nothing after the last input.
+        assert_eq!(chain_spell(&inputs, 0, 11), u32::MAX);
+        // A chain that only taps for longer than it is followed names none.
+        let long: Vec<_> = (0..=CHAIN as u64)
+            .map(|n| (0, n, tap(10)))
+            .chain([(0, 99, cast(29))])
+            .collect();
+        assert_eq!(chain_spell(&long, 0, 0), u32::MAX);
     }
 }
