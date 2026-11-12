@@ -434,6 +434,8 @@ def main(argv=None):
     fitting.add_argument("--patience", type=int, default=4)
     fitting.add_argument("--minutes", type=float, default=0., help="Stop training after this long (0: no limit)")
     fitting.add_argument("--seed", type=int, required=True)
+    fitting.add_argument("--load-only", action="store_true",
+                         help="Load every root and check the untrained tower on training roots, then stop (sizing)")
     fitting.add_argument("--smoke-games", type=int, default=0,
                          help="Smoke tests only: the first N training games of each rows file (never a held-out one)")
     fitting.add_argument("--hold-out-every", type=int, default=0,
@@ -485,6 +487,18 @@ def main(argv=None):
     full = [V.AdvantageRows.load(p) for p in args.rows] if keeps is not None else parts
     roots = Roots.load(full, args.state_dir, net, source, keeps=keeps)
     net = net.to(device)
+    if args.load_only:
+        # Sizing only: every root loaded, the untrained tower checked on training roots; no step,
+        # no held-out root read, nothing written.
+        tower = make_tower(net, args.arm).to(device)
+        head = V.SearchHead(2 * rows.d_model + V.TAIL, args.head, args.hidden).to(device)
+        batches = Batches(rows, roots, TowerPass(net, tower, 32, 2, device), head, args.tau, device)
+        check = reproduce(rows, batches, np.flatnonzero(~rows.held_out)[:args.batch], tower)
+        size = sum(np.asarray(v).nbytes for frame in roots.frames for v in frame.values()) / 2**20
+        out_line = dict(roots=len(roots.frames), frames_mib=round(size), hidden_mib=round(roots.hidden.numel() * 4 / 2**20),
+                        reproduce=check)
+        print("[tower] load-only " + json.dumps(out_line), flush=True)
+        return out_line
     tower, head, state, result = fit(rows, roots, net, args.arm, device, args.head, args.hidden, args.tau, args.head_lr,
                                      args.tower_lr, args.weight_decay, args.epochs, args.batch, args.patience,
                                      args.seed, args.minutes)
