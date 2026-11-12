@@ -247,6 +247,86 @@ class SearchAdvantage(unittest.TestCase):
         self.assertTrue(saved["smoke"] and meta["smoke"])
         self.assertEqual((saved["margin"], saved["source_checkpoint_sha256"], saved["width"]), (0., "ab", 8 + V.TAIL))
 
+    def test_ranking_loss_is_the_kl_to_the_tempered_advantages(self):
+        rows = synthetic(roots=3)
+        rows.labels["searched"][rows.roots["offset"][2]:] = False   # root 2 searched one item: no list
+        rows.labels["searched"][rows.roots["offset"][2] + rows.roots["own"][2]] = True
+        prepared = V.Prepared(rows, tau=.02)
+        scores, T = torch.randn(len(rows.cand)) * .05, .02
+        chosen = torch.tensor([True, False, True])
+        lo, n, own = (int(rows.roots[k][0]) for k in ("offset", "n", "own"))
+        a = torch.tensor(rows.labels["A"][lo:lo + n], dtype=torch.float32)
+        a[own] = 0.
+        p, log_q = torch.softmax(a / T, 0), torch.log_softmax(scores[lo:lo + n] / T, 0)
+        expected = float((p * (p.log() - log_q)).sum())   # one list: root 2 has a single searched item
+        self.assertAlmostEqual(float(V.ranking_loss(prepared, scores, chosen, T)), expected, places=4)
+        exact = prepared.rank_target + 1.   # q_i - q_own = A_i (a shift per root changes nothing)
+        self.assertAlmostEqual(float(V.ranking_loss(prepared, exact, torch.ones(3, dtype=torch.bool), T)), 0., places=5)
+        scores.requires_grad_(True)
+        V.ranking_loss(prepared, scores, chosen, T).backward()
+        self.assertTrue(torch.isfinite(scores.grad).all())
+        self.assertEqual(float(scores.grad[rows.roots["offset"][1]:rows.roots["offset"][2]].abs().sum()), 0.)
+
+    def test_ranking_fit_keeps_gaps_in_the_advantages_units(self):
+        rows = synthetic()
+        head, result = V.fit(rows, kind="linear", lr=3e-2, epochs=60, batch=64, patience=10, seed=1,
+                             log=lambda *_: None, objective="ranking", temperature=.05)
+        held = result["held_out"]
+        self.assertEqual((result["objective"], result["temperature"]), ("ranking", .05))
+        self.assertGreater(held["pearson_pooled"], .9)
+        self.assertGreater(held["calibration_slope"], .6)
+        self.assertLess(held["calibration_slope"], 1.5)
+        self.assertGreater(held["agreement"]["student_vs_a_half"], .5)
+        self.assertIsNotNone(held["agreement"]["halves_same_answer"])
+        self.assertGreater(held["top1_vs_choice4"]["share"], .5)
+        self.assertLess(result["history"][-1]["select"], result["zero_head_loss"]["select"])
+
+    def test_sources_keep_their_games_apart_and_train_alone_or_equal(self):
+        small, large = synthetic(roots=120, seed=4), synthetic(roots=360, seed=5)
+        for part in (small, large):
+            part.held_out = part.roots["game"] % 4 == 0
+        both = V.AdvantageRows.concat([small, large])
+        self.assertEqual(len(np.unique(both.game_key())), len(np.unique(small.roots["game"])) +
+                         len(np.unique(large.roots["game"])))
+        select, final = V.held_out_halves(both)
+        alone_select, alone_final = V.held_out_halves(large)   # a source splits the same pooled or alone
+        np.testing.assert_array_equal(final[both.source == 1], alone_final)
+        np.testing.assert_array_equal(select[both.source == 1], alone_select)
+        rng = np.random.default_rng(1)
+        only = V.training_roots(both, rng, train_sources=[1])
+        self.assertTrue((both.source[only] == 1).all() and not both.held_out[only].any())
+        self.assertEqual(len(only), int((~large.held_out).sum()))
+        equal = V.training_roots(both, rng, equal_sources=True)
+        per = [int((both.source[equal] == s).sum()) for s in (0, 1)]
+        self.assertEqual(per[0], int((~small.held_out).sum()))
+        self.assertLess(abs(per[1] - per[0]), 6)   # whole games of three roots
+        half = V.training_roots(both, rng, train_fraction=.5, equal_sources=True)
+        self.assertLess(abs(int((both.source[half] == 1).sum()) - per[0] / 2), 6)
+        with self.assertRaises(ValueError):
+            V.training_roots(both, rng, train_sources=[2])
+        _, result = V.fit(both, kind="linear", lr=3e-2, epochs=3, batch=64, seed=1, log=lambda *_: None,
+                          train_sources=[0])
+        self.assertEqual(set(result["held_out_by_source"]), {"0", "1"})
+        self.assertEqual(result["train_roots_by_source"], {"0": int((~small.held_out).sum()), "1": 0})
+
+    def test_fit_command_picks_the_temperature_on_the_selection_half(self):
+        rows = synthetic(roots=120)
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            first, second = Path(temporary) / "c1.npz", Path(temporary) / "c2.npz"
+            rows.save(first, model_sha256="48a5")
+            synthetic(roots=90, seed=7).save(second, model_sha256="48a5")
+            out = Path(temporary) / "head"
+            V.main(["fit", "--rows", str(first), "--rows", str(second), "--out", str(out), "--head", "linear",
+                    "--seed", "2", "--epochs", "3", "--threads", "1", "--objective", "ranking",
+                    "--temperatures", "0.01,0.05", "--equal-sources"])
+            saved = json.loads((out / "advantage.json").read_text())
+        self.assertEqual([t["temperature"] for t in saved["temperature_selection"]], [.01, .05])
+        self.assertIn(saved["temperature"], (.01, .05))
+        self.assertEqual((saved["objective"], saved["equal_sources"]), ("ranking", True))
+        self.assertEqual([r["source"] for r in saved["rows"]], [0, 1])
+        self.assertEqual(set(saved["held_out_by_source"]), {"0", "1"})
+
     def test_fit_command_writes_the_head_and_its_contract(self):
         rows = synthetic(roots=120)
         with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()), \

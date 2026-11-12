@@ -16,15 +16,20 @@ play an item replaces the bundle's answer only where score_i - score_own clears
 the margin.
 
 `fit` trains by weighted pairwise regression, sum_i w_i ((q_i - q_own) - A_i)^2
-over the searched candidates, w_i = 1 / (SE_i^2 + tau^2), and reports on held-out
-games: the rank correlation of q_i - q_own with A_i per root and pooled; top-1
-agreement with the 4-world choice where it replaced the bundle's answer, by root
-kind, beside the two halves' agreement on the same roots (the label's own noise,
-so no fixed 80 % bar); the calibration slope of A on q_i - q_own; a margin sweep
-with the summed held-out A of the overrides (margin chosen on one half of the
-held-out games, reported on the other); the overrides by direction; and the
-payable-added items apart from the ordinary ones. It exports `advantage.onnx`
-(`rows` [N, 2d + TAIL] -> `score` [N]) with `advantage.json`.
+over the searched candidates, w_i = 1 / (SE_i^2 + tau^2), or (`--objective
+ranking`) by a softmax over each root's searched items against p_i ∝ exp(A_i / T),
+T chosen on the margin-selection half; both keep q_i - q_own in A's units. It
+reports on held-out games: the rank correlation of q_i - q_own with A_i per root
+and pooled; top-1 agreement with the 4-world choice where it replaced the
+bundle's answer, by root kind, and with either half where a half replaced it,
+beside the two halves' agreement on the same roots (the label's own noise, so no
+fixed 80 % bar); the calibration slope of A on q_i - q_own; a margin sweep with
+the summed held-out A of the overrides (margin and early stopping on one half of
+the held-out games, reported on the other); the overrides by direction; and the
+payable-added items apart from the ordinary ones. Several rows files (chunks)
+keep their games apart, can train on some chunks or at equal size, and report
+per chunk. It exports `advantage.onnx` (`rows` [N, 2d + TAIL] -> `score` [N])
+with `advantage.json`.
 
 Rows (`AdvantageRows`, one .npz) come from eval4's recordings at the roots or
 from a converted dataset through the frozen net; both give the same arrays.
@@ -48,6 +53,9 @@ ROWS_CONTRACT = "search_advantage_rows_v1"
 PASS = CLASSES.index("pass")
 TAIL = len(CLASSES) + 2   # class one-hot, payable-added, the bundle's own answer
 MARGINS = (0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12)
+# The halves replace the bundle's answer only past this lead (search_labels::halves); top-1
+# agreement holds the head to the same rule.
+HALVES_MARGIN = 0.03
 NONE = -1
 ROOT_FIELDS = ("game", "seat", "cursor", "kind", "own", "choice4", "half_a", "half_b", "offset", "n")
 CAND_FIELDS = ("A", "SE", "searched", "payable", "cls")
@@ -144,12 +152,16 @@ class SearchAdvantage:
 class AdvantageRows:
     """Roots and their candidates: `roots[name]` [R], `state` [R, d], `cand` [N, d] and
     `labels[name]` [N]; root r's candidates are `[offset[r], offset[r] + n[r])`.
-    `held_out` [R] marks the held-out games."""
+    `held_out` [R] marks the held-out games; `source` [R] the rows file (chunk) each root came
+    from, since every chunk numbers its games from the start."""
 
-    def __init__(self, roots, state, cand, labels, held_out=None, kinds=()):
+    def __init__(self, roots, state, cand, labels, held_out=None, kinds=(), source=None):
         self.roots, self.state, self.cand, self.labels = roots, state, cand, labels
         self.kinds = tuple(kinds)
         self.held_out = np.zeros(len(state), dtype=bool) if held_out is None else held_out
+        self.source = np.zeros(len(state), dtype=np.int64) if source is None else np.asarray(source, dtype=np.int64)
+        if len(self.source) != len(state):
+            raise ValueError("Advantage rows: one source per root")
         n, offset = roots["n"], roots["offset"]
         if len(cand) != int(n.sum()) or not (offset == np.concatenate(([0], np.cumsum(n)[:-1]))).all():
             raise ValueError("Advantage rows: candidate offsets do not tile the candidates")
@@ -188,7 +200,12 @@ class AdvantageRows:
                  for name in ROOT_FIELDS}
         return cls(roots, np.concatenate([p.state for p in parts]), np.concatenate([p.cand for p in parts]),
                    {name: np.concatenate([p.labels[name] for p in parts]) for name in CAND_FIELDS},
-                   np.concatenate([p.held_out for p in parts]), parts[0].kinds)
+                   np.concatenate([p.held_out for p in parts]), parts[0].kinds,
+                   np.concatenate([np.full(len(p.state), i, dtype=np.int64) for i, p in enumerate(parts)]))
+
+    def game_key(self):
+        """[R] one id per game across sources."""
+        return self.source * (1 << 32) + self.roots["game"].astype(np.int64)
 
     def tail(self):
         """[N, TAIL]: class one-hot, payable-added, the bundle's own answer."""
@@ -238,6 +255,11 @@ class Prepared:
         self.target = torch.from_numpy(rows.labels["A"].astype(np.float32))
         se = rows.labels["SE"].astype(np.float32)
         self.weight = torch.from_numpy(np.where(searched & ~is_own, 1. / (se ** 2 + tau ** 2), 0.).astype(np.float32))
+        # The ranking objective's lists: every searched item, the bundle's own at A = 0, in the
+        # roots that searched at least two.
+        self.searched = torch.from_numpy(searched)
+        self.rank_target = torch.from_numpy(np.where(is_own, 0., rows.labels["A"]).astype(np.float32))
+        self.ranked = torch.from_numpy(np.bincount(root_of, weights=searched, minlength=len(rows.state)) >= 2)
 
     def gaps(self, scores):
         """[N] q_i - q_own of each candidate's root."""
@@ -249,6 +271,34 @@ def pairwise_loss(prepared, scores, chosen):
     rows = prepared.scored & chosen[prepared.root_of]
     w = torch.where(rows, prepared.weight, 0.)
     return (w * (prepared.gaps(scores) - prepared.target).square()).sum() / w.sum().clamp(min=1e-12)
+
+
+def _log_softmax(values, root, roots):
+    """Log-softmax of `values` within each root (`root` [M] the root of each value)."""
+    top = torch.full((roots,), -torch.inf, dtype=values.dtype).scatter_reduce(0, root, values.detach(), "amax")
+    shifted = values - top[root]
+    total = torch.zeros(roots, dtype=values.dtype).index_add(0, root, shifted.exp())
+    return shifted - total.log()[root]
+
+
+def ranking_loss(prepared, scores, chosen, temperature):
+    """Mean over the `chosen` roots with two or more searched items of KL(p || softmax(q / T)),
+    p_i ∝ exp(A_i / T) over the searched items (the bundle's own at A = 0). At its optimum
+    q_i - q_own = A_i, so the gaps stay in A's units and the margins mean the same."""
+    lists = chosen & prepared.ranked
+    members = prepared.searched & lists[prepared.root_of]
+    root, roots = prepared.root_of[members], len(chosen)
+    log_p = _log_softmax(prepared.rank_target[members] / temperature, root, roots)
+    log_q = _log_softmax(scores[members] / temperature, root, roots)
+    return (log_p.exp() * (log_p - log_q)).sum() / max(int(lists.sum()), 1)
+
+
+def objective_loss(objective, temperature):
+    if objective == "pairwise":
+        return pairwise_loss
+    if objective == "ranking":
+        return lambda prepared, scores, chosen: ranking_loss(prepared, scores, chosen, temperature)
+    raise ValueError(f"Unknown objective {objective!r}")
 
 
 def ranks(values):
@@ -276,14 +326,17 @@ def correlation(x, y, w=None):
 
 
 def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
-    """Held-out metrics of one head's gaps (q_i - q_own) on the `chosen` roots."""
+    """Held-out metrics of one head's gaps (q_i - q_own) on the `chosen` roots. Top-1 agreement
+    plays the head as the halves play: its best item where it leads by HALVES_MARGIN, else the
+    bundle's own answer."""
     gaps, weight = np.asarray(gaps, dtype=np.float64), np.asarray(weight, dtype=np.float64)
     A = rows.labels["A"].astype(np.float64)
     searched = rows.labels["searched"].astype(bool)
     payable = rows.labels["payable"].astype(bool)
     cls = rows.labels["cls"].astype(np.int64)
-    roots = rows.roots
+    roots, games = rows.roots, rows.game_key()
     per_root, kinds, overrides = [], {}, {}
+    agree = dict(roots=0, halves_agree=0, student_vs_halves=0., student_vs_choice4=0)
     search_gain = 0.   # the labels' own 4-world choice, in-sample to its worlds (biased upward)
     sweep = {m: [] for m in MARGINS}   # per root: (game, A of the override or 0)
     pairs = dict(rows=[], weight=[], payable=[])
@@ -301,7 +354,7 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         cell = kinds.setdefault(kind, dict(roots=0, changed=0, student_agrees=0, halves=0, halves_agree=0))
         cell["roots"] += 1
         choice4, half_a, half_b = int(roots["choice4"][r]), int(roots["half_a"][r]), int(roots["half_b"][r])
-        top = own if best is None or gaps[lo + best] <= 0 else int(best)
+        top = own if best is None or gaps[lo + best] <= HALVES_MARGIN else int(best)
         if choice4 != NONE and choice4 != own:
             cell["changed"] += 1
             cell["student_agrees"] += int(top == choice4)
@@ -309,9 +362,13 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         if half_a != NONE and half_b != NONE and (half_a != own or half_b != own):
             cell["halves"] += 1
             cell["halves_agree"] += int(half_a == half_b)
+            agree["roots"] += 1
+            agree["halves_agree"] += int(half_a == half_b)
+            agree["student_vs_halves"] += (int(top == half_a) + int(top == half_b)) / 2
+            agree["student_vs_choice4"] += int(top == choice4)
         for m in MARGINS:
             take = best is not None and gaps[lo + best] > m
-            sweep[m].append((int(roots["game"][r]), A[lo + best] if take else 0., take))
+            sweep[m].append((int(games[r]), A[lo + best] if take else 0., take))
         if margin is not None and best is not None and gaps[lo + best] > margin:
             key = direction(cls[lo + own], cls[lo + best], payable[lo + best])
             overrides[key] = overrides.get(key, 0) + 1
@@ -332,6 +389,16 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
     for kind, cell in sorted(kinds.items()):
         out["by_kind"][kind] = dict(cell, top1_vs_choice4=cell["student_agrees"] / cell["changed"] if cell["changed"] else None,
                                     halves_same_answer=cell["halves_agree"] / cell["halves"] if cell["halves"] else None)
+    changed = sum(cell["changed"] for cell in kinds.values())
+    out["top1_vs_choice4"] = dict(roots=changed, share=sum(cell["student_agrees"] for cell in kinds.values()) / changed
+                                  if changed else None)
+    # Where a half replaced the bundle's answer: how often the two halves agree (the label's own
+    # ceiling), how often the head agrees with a half, and with the 4-world choice.
+    n_agree = agree["roots"]
+    out["agreement"] = dict(roots=n_agree, margin=HALVES_MARGIN,
+                            halves_same_answer=agree["halves_agree"] / n_agree if n_agree else None,
+                            student_vs_a_half=agree["student_vs_halves"] / n_agree if n_agree else None,
+                            student_vs_choice4=agree["student_vs_choice4"] / n_agree if n_agree else None)
     for m, picks in sweep.items():
         games = {}
         for game, a, _ in picks:
@@ -362,30 +429,62 @@ def direction(own_cls, chosen_cls, payable):
 
 
 def held_out_halves(rows):
-    """The held-out games split in two, alternating in game id order (ids held out by a stride
-    share their parity, so parity would put every game on one side): margin selection, report."""
-    games = rows.roots["game"]
-    held = np.unique(games[rows.held_out])
-    report_games = held[1::2]
-    in_report = np.isin(games, report_games)
+    """The held-out games split in two, alternating in game id order within each source (ids held
+    out by a stride share their parity, so parity would put every game on one side): margin
+    selection and early stopping, report. A source splits the same alone or pooled."""
+    keys = rows.game_key()
+    report_games = [np.unique(keys[rows.held_out & (rows.source == s)])[1::2] for s in np.unique(rows.source)]
+    in_report = np.isin(keys, np.concatenate(report_games) if report_games else np.zeros(0, dtype=np.int64))
     return rows.held_out & ~in_report, rows.held_out & in_report
 
 
+def training_roots(rows: AdvantageRows, rng, train_fraction=1.0, train_sources=None, equal_sources=False):
+    """The roots a fit trains on: the games not held out, of `train_sources` (all by default).
+    With `equal_sources` each source gives about as many roots as the smallest, and with
+    `train_fraction` < 1 that share of its roots (whole games, drawn at random)."""
+    present = np.unique(rows.source)
+    sources = present if train_sources is None else np.array(sorted(set(train_sources)), dtype=np.int64)
+    if not np.isin(sources, present).all() or not len(sources):
+        raise ValueError(f"Training sources {sources.tolist()} are not among the rows' {present.tolist()}")
+    train = ~rows.held_out & np.isin(rows.source, sources)
+    if not equal_sources and train_fraction >= 1:
+        return np.flatnonzero(train)
+    keys = rows.game_key()
+    sizes = {int(s): int((train & (rows.source == s)).sum()) for s in sources}
+    floor, kept = min(sizes.values()), []
+    for s in sources:
+        games, counts = np.unique(keys[train & (rows.source == s)], return_counts=True)
+        order = rng.permutation(len(games))
+        target = train_fraction * (floor if equal_sources else sizes[int(s)])
+        take = int(np.searchsorted(np.cumsum(counts[order]), target)) + 1   # games until the target is met
+        kept.append(games[order[:max(1, min(take, len(games)))]])
+    return np.flatnonzero(train & np.isin(keys, np.concatenate(kept)))
+
+
+def best_margin(selection):
+    """The margin with the largest gain on the selection half (the largest such margin on a tie)."""
+    gain = max(v["gain_per_100_roots"] for v in selection["margins"].values())
+    return max(float(m) for m, v in selection["margins"].items() if v["gain_per_100_roots"] == gain), gain
+
+
 def fit(rows: AdvantageRows, kind="mlp", hidden=0, tau=0.02, lr=1e-3, weight_decay=1e-2, epochs=40, batch=512,
-        patience=6, seed=1, log=print, train_fraction=1.0):
-    """`train_fraction` < 1 trains on that share of the training games only (a learning curve);
-    the held-out games and the report stay the same."""
+        patience=6, seed=1, log=print, train_fraction=1.0, objective="pairwise", temperature=0.02,
+        train_sources=None, equal_sources=False):
+    """`train_fraction` < 1 trains on that share of the training games only (a learning curve),
+    `train_sources` on some sources only and `equal_sources` on as many roots of each; the
+    held-out games and the report stay the same. Early stopping and the margin read the
+    selection half of the held-out games; the report half is read once, at the end."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     prepared = Prepared(rows, tau)
+    loss_of = objective_loss(objective, temperature)
     head = SearchHead(prepared.rows.shape[1], kind, hidden)
     optimizer = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=weight_decay)
-    train = np.flatnonzero(~rows.held_out)
-    if train_fraction < 1:
-        games = np.unique(rows.roots["game"][train])
-        kept = rng.choice(games, max(1, int(round(len(games) * train_fraction))), replace=False)
-        train = train[np.isin(rows.roots["game"][train], kept)]
-    held = torch.from_numpy(rows.held_out)
+    train = training_roots(rows, rng, train_fraction, train_sources, equal_sources)
+    select, final = held_out_halves(rows)
+    trained = torch.zeros(len(rows.state), dtype=torch.bool)
+    trained[torch.from_numpy(train)] = True
+    selecting, reporting = torch.from_numpy(select), torch.from_numpy(final)
     best, best_state, history, waited = None, None, [], 0
     for epoch in range(1, epochs + 1):
         head.train()
@@ -396,19 +495,19 @@ def fit(rows: AdvantageRows, kind="mlp", hidden=0, tau=0.02, lr=1e-3, weight_dec
             members = chosen[prepared.root_of]
             scores = torch.zeros(len(prepared.rows))
             scores[members] = head(prepared.rows[members])
-            loss = pairwise_loss(prepared, scores, chosen)
+            loss = loss_of(prepared, scores, chosen)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
         head.eval()
         with torch.no_grad():
             scores = head(prepared.rows)
-            train_loss = float(pairwise_loss(prepared, scores, ~held))
-            held_loss = float(pairwise_loss(prepared, scores, held))
-        history.append(dict(epoch=epoch, train=train_loss, held_out=held_loss))
-        log(f"[advantage] epoch={epoch} train={train_loss:.6f} held_out={held_loss:.6f}")
-        if best is None or held_loss < best:
-            best, best_state, waited = held_loss, {k: v.clone() for k, v in head.state_dict().items()}, 0
+            losses = {name: float(loss_of(prepared, scores, part))
+                      for name, part in (("train", trained), ("select", selecting), ("report", reporting))}
+        history.append(dict(epoch=epoch, **losses))
+        log(f"[advantage] {objective} epoch={epoch} " + " ".join(f"{k}={v:.6f}" for k, v in losses.items()))
+        if best is None or losses["select"] < best:
+            best, best_state, waited = losses["select"], {k: v.clone() for k, v in head.state_dict().items()}, 0
         else:
             waited += 1
             if waited >= patience:
@@ -418,16 +517,21 @@ def fit(rows: AdvantageRows, kind="mlp", hidden=0, tau=0.02, lr=1e-3, weight_dec
     with torch.no_grad():
         gaps = prepared.gaps(head(prepared.rows)).numpy()
     weight = prepared.weight.numpy()
-    select, final = held_out_halves(rows)
     chooser = report(rows, gaps, weight, select)
-    best_gain = max(v["gain_per_100_roots"] for v in chooser["margins"].values())
-    margin = max(float(m) for m, v in chooser["margins"].items() if v["gain_per_100_roots"] == best_gain)
+    margin, _ = best_margin(chooser)
     zero = torch.zeros(len(prepared.rows))
-    return head, dict(history=history, margin=margin, margin_selection=chooser,
-                      zero_head_loss=dict(train=float(pairwise_loss(prepared, zero, ~held)),
-                                          held_out=float(pairwise_loss(prepared, zero, held))),
-                      held_out=report(rows, gaps, weight, final, margin),
-                      train=report(rows, gaps, weight, ~rows.held_out, margin))
+    out = dict(objective=objective, temperature=temperature if objective == "ranking" else None,
+               train_roots=int(len(train)),
+               train_roots_by_source={str(int(s)): int((rows.source[train] == s).sum()) for s in np.unique(rows.source)},
+               history=history, margin=margin, margin_selection=chooser,
+               zero_head_loss={name: float(loss_of(prepared, zero, part))
+                               for name, part in (("train", trained), ("select", selecting), ("report", reporting))},
+               held_out=report(rows, gaps, weight, final, margin),
+               train=report(rows, gaps, weight, np.isin(np.arange(len(rows.state)), train), margin))
+    if len(np.unique(rows.source)) > 1:
+        out["held_out_by_source"] = {str(int(s)): report(rows, gaps, weight, final & (rows.source == s), margin)
+                                     for s in np.unique(rows.source)}
+    return head, out
 
 
 def export(head, width, path):
@@ -641,6 +745,13 @@ def main(argv=None):
     fitting.add_argument("--seed", type=int, required=True)
     fitting.add_argument("--train-fraction", type=float, default=1.0,
                          help="Train on this share of the training games (a learning curve); held-out unchanged")
+    fitting.add_argument("--objective", choices=("pairwise", "ranking"), default="pairwise")
+    fitting.add_argument("--temperatures", default="0.01",
+                         help="The ranking objective's T, comma separated; with several, the selection half picks one")
+    fitting.add_argument("--train-sources", default="",
+                         help="Train on these --rows files only (0-based, comma separated); all report")
+    fitting.add_argument("--equal-sources", action="store_true",
+                         help="Train on about as many roots of each --rows file as the smallest gives")
     fitting.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
     if args.command == "smoke":
@@ -664,9 +775,30 @@ def main(argv=None):
     sources = {p.meta.get("model_sha256") for p in parts}
     if len(sources) != 1:
         raise ValueError(f"The rows come from different nets: {sorted(map(str, sources))}")
+    for path, part in zip(args.rows, parts):
+        margin = part.meta.get("sidecar", {}).get("index", {}).get("halves", {}).get("margin", HALVES_MARGIN)
+        if margin != HALVES_MARGIN:
+            raise ValueError(f"{path}: the halves' margin is {margin}, not {HALVES_MARGIN}")
     rows = AdvantageRows.concat(parts)
-    head, result = fit(rows, args.head, args.hidden, args.tau, args.lr, args.weight_decay, args.epochs, args.batch,
-                       args.patience, args.seed, train_fraction=args.train_fraction)
+    train_sources = [int(s) for s in args.train_sources.split(",") if s] or None
+    temperatures = [float(t) for t in args.temperatures.split(",") if t] if args.objective == "ranking" else [None]
+    fits = []
+    for temperature in temperatures:
+        fits.append(fit(rows, args.head, args.hidden, args.tau, args.lr, args.weight_decay, args.epochs, args.batch,
+                        args.patience, args.seed, train_fraction=args.train_fraction, objective=args.objective,
+                        temperature=temperature, train_sources=train_sources, equal_sources=args.equal_sources))
+    # T from the selection half alone: the largest gain at its own best margin, then agreement with a half.
+    selection = []
+    for (_, result), temperature in zip(fits, temperatures):
+        chooser = result["margin_selection"]
+        selection.append(dict(temperature=temperature, select_margin=result["margin"],
+                              select_gain_per_100_roots=best_margin(chooser)[1],
+                              select_student_vs_a_half=chooser["agreement"]["student_vs_a_half"],
+                              select_pearson=chooser["pearson_pooled"], epochs=len(result["history"])))
+    pick = max(range(len(fits)), key=lambda i: (selection[i]["select_gain_per_100_roots"],
+                                                selection[i]["select_student_vs_a_half"] or 0.))
+    head, result = fits[pick]
+    result = dict(result, temperature_selection=selection if args.objective == "ranking" else None)
     out.mkdir(parents=True)
     width = 2 * rows.d_model + TAIL
     export(head, width, out / "advantage.onnx")
@@ -679,12 +811,15 @@ def main(argv=None):
                             "(all zero for an unknown class), payable_added 0/1, own 0/1",
                 override="argmax over the scored items of score_i - score_own; play it when it exceeds margin",
                 head=args.head, hidden=args.hidden, tau=args.tau, seed=args.seed, lr=args.lr,
-                train_fraction=args.train_fraction,
-                rows=[dict(path=str(p), sha256=hashlib.sha256(Path(p).read_bytes()).hexdigest()) for p in args.rows],
-                roots=dict(train=int((~rows.held_out).sum()), held_out=int(rows.held_out.sum())),
+                train_fraction=args.train_fraction, train_sources=train_sources, equal_sources=args.equal_sources,
+                # Sources are the --rows files in this order: per-source reports name them by index.
+                rows=[dict(source=i, path=str(p), sha256=hashlib.sha256(Path(p).read_bytes()).hexdigest())
+                      for i, p in enumerate(args.rows)],
+                roots=dict(train=result["train_roots"], held_out=int(rows.held_out.sum())),
                 onnx_sha256=hashlib.sha256((out / "advantage.onnx").read_bytes()).hexdigest(), **result)
     (out / "advantage.json").write_text(json.dumps(meta, indent=1))
-    print("[advantage] " + json.dumps(dict(margin=result["margin"], held_out=result["held_out"])), flush=True)
+    print("[advantage] " + json.dumps(dict(objective=args.objective, temperature=result["temperature"],
+                                           margin=result["margin"], held_out=result["held_out"])), flush=True)
     return meta
 
 
