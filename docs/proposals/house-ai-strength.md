@@ -1469,3 +1469,149 @@ creature by mana value and body, the hold-up reserve) can be measured in
 tens of thousands of games an hour, heuristics alone first and with the
 fork after. That, and the analyst's cast and target findings (§7.4), which
 touch every hosted game, are where the next generation should come from.
+
+## 8. Round five: generations 10 to 17 (12.11.2026)
+
+The owner's bar stands for every level, `casual` and `novice` included
+(coordinator, 12.11.2026): each wins at least 62 % against its own
+generation-6 self on held-out decks, and the levels stay strictly ordered,
+novice < casual < steady < sharp < expert < seer, each adjacent pair shown
+by the sign test on round-robin pairings. Allowed for the lower levels: a
+larger search, better discipline, a better mulligan, and a narrower noise
+band (noise exists only against exploitation, so it is never widened to
+weaken a level). The generation numbered 10 in §7.11 was an experiment on a
+local branch and is not this one.
+
+### 8.1 What was built
+
+Each behind its own generation (`AIProfile::plays`); the frozen reference,
+the generation-6 pins and the generation-7 search pin are unchanged
+(`docs/house-ai.md` §"The frozen reference" lists them).
+
+- **10 `FULL_CASTS`**: the house pays through `baylee_ai::spend`, the
+  planner the client, the seat and BayleeAI's menu share
+  (`policy/full_casts.rs`): restricted mana where the engine names it,
+  Phyrexian life down to six (and the question whether to pay a symbol with
+  life answered no where the mana it made pays), every counter of a
+  counter-paid mana ability, a second Port kept untapped, a conversion
+  beside restricted mana; and a card cast from exile or a graveyard at each
+  way `LegalActions::cast_ways` prices (observed faults 70, 72, 73).
+- **11 `TARGET_SIDES`** (Carbon's rank 1, verified): an Aura spell's
+  attach read no side, so the target question fell back to the opponents'
+  creatures and every Holy Strength went on theirs. Its own Aura now goes on
+  the creature its statics help most (`sides.rs`), and a spell whose every
+  target is on the wrong side is not cast.
+- **12 `EQUIPMENT_AND_X`**: 563 cards write "equipped creature" as
+  `And(creature, attached to the source)`, which `worth::equipped` read as
+  no static, so an equip was worth nothing and never paid for (Carbon's
+  rank 5, verified); and no instant or sorcery is cast at X = 0.
+- **13 `QUIET_DRAW_STEP`**: nothing begun in the seat's own draw step.
+  `novice` and `casual` cast instants there on sight, and the engine forks
+  nothing while the turn's first draw waits for its miracle check: 3,519 of
+  `novice`'s 42,162 searched questions (8 %) were refused for it, the level's
+  noisy answer given unsearched.
+- **14 `TIMED_INSTANTS`**: every level casts an instant at its moment;
+  `novice` and `casual` still keep no mana up.
+- **15 `SEER_HANDS`**: `seer`'s forks keep the hands it is told. With
+  `Known` alone each hand was dealt again from what its player hides, and a
+  peeking search was a fair one.
+- **16 `NOISE_BAND`**: no level's noise is wider than ±400 (`novice` had
+  ±800).
+- **17 `CARD_SKILL`**: `casual` reads its cards as `steady` does (colours
+  planned, an early play asked of the opening hand, scry and surveil read).
+  `novice` keeps every opening hand (§8.4).
+
+### 8.2 Heuristics alone (no fork, as a hosted table without search plays)
+
+Train split, 2,048 deals, round-robin, each game once, each generation
+against the one before it (the seeds the level turned, for and against):
+
+| Level | 10 vs 9 | 11 vs 9 | 12 vs 11 | 13 vs 12 | 14 vs 13 |
+| --- | --- | --- | --- | --- | --- |
+| novice | 50.0 % (2 / 1) | 51.9 % (62 / 23) | 49.9 % (15 / 18) | 52.3 % (90 / 44) | 49.6 % (41 / 49) |
+| casual | 50.2 % (4 / 0) | 52.0 % (59 / 18) | 50.6 % (28 / 16) | 51.6 % (77 / 44) | 50.0 % (30 / 30) |
+| steady | 50.1 % (3 / 1) | 51.1 % (40 / 16) | 50.4 % (20 / 12) | | |
+| sharp | 50.1 % (4 / 2) | 51.5 % (47 / 16) | 51.3 % (28 / 2) | | |
+| expert | 50.0 % (2 / 1) | 50.9 % (37 / 18) | 50.6 % (24 / 11) | | |
+
+Generation 10 touches few games (the cards it fixes are rare in the
+decks); 11 and 13 are the general gains.
+
+### 8.3 Why the lower levels stayed short, measured
+
+Train, 1,024 deals with foresight, each level against its own
+generation-6 self (generation 9's code unless said):
+
+| Variant | novice | casual |
+| --- | ---: | ---: |
+| as it was (tier 1 / tier 2) | 55.4 % (83 / 28) | 56.5 % (84 / 18) |
+| a larger search (steady's tier for novice, sharp's for casual) | 56.9 % | 56.9 % |
+| mulligan skill 2 | 58.1 % | 56.7 % |
+| mulligan skill 1 (novice) | 57.6 % | |
+| noise ±100 | 58.7 % | 60.3 % (generation 11) |
+| steady's hold-up (generation 11) | | 63.3 % (148 / 12) |
+| generation 11 | 56.6 % | 58.5 % |
+| generation 13 | 59.0 % (110 / 18) | 63.0 % (145 / 13) |
+| generation 14 | 59.5 % (112 / 15) | 64.2 % (158 / 13) |
+| generation 16 | 63.9 % (151 / 10) | as 14 |
+| generation 17 | as 16 | 65.3 % (168 / 13) |
+| generation 17 with a card-skill step for novice too (not kept) | 67.0 % (182 / 9) | |
+| generation 16 at casual's tier | 64.6 % (159 / 12) | |
+
+The search budget is not what held them back. `steady`'s hold-up was worth
+five points to `casual`, and most of that was not the reserve but the
+draw-step instants of §8.1 (13), which no search could weigh; `novice`'s
+±800 noise cost it four.
+
+### 8.4 The ladder on train
+
+The lower rungs fell together as the levels gained: every alternative a
+level searches is played on by the same model, so what told them apart
+(noise, a reserve, a mulligan) counts for less under a search. Train,
+1,024 deals, round-robin, both levels searching, the sign test over the
+seeds the higher level turned:
+
+| Pair | Share | For / against | p |
+| --- | ---: | ---: | ---: |
+| casual over novice, both one card-skill step up (not kept) | 51.0 % | 41 / 32 | 0.35 |
+| casual with steady's reserve over that novice | 51.8 % | 47 / 30 | 0.068 |
+| casual over novice keeping every hand (generation 17 as kept) | 53.5 % | 69 / 36 | 0.002 |
+| steady over casual | 53.8 % | 66 / 27 | 0.0001 |
+| steady over casual with steady's reserve | 53.5 % | 64 / 28 | 0.0002 |
+| steady with lookahead 1 over casual with the reserve | 54.1 % | 67 / 25 | < 0.0001 |
+| seer (generation 15) over expert | 53.6 % | 75 / 40 | 0.001 |
+
+So `novice` keeps every opening hand: its card skill is the ladder's
+lowest step and what keeps `casual` measurably above it, and it still
+clears the bar at 63.9 %. A reserve for `casual` bought little; combat
+lookahead is the strongest head-to-head lever measured.
+
+### 8.5 Generation 17 on train
+
+Each level against its own generation-6 self, train, 1,024 deals with
+foresight, round-robin, each game once (`novice` measured at 16, which it
+plays as 17 does):
+
+| Level | Share | Wilson 95 % | For / against | Generation 9 |
+| --- | ---: | --- | ---: | ---: |
+| novice | 651 / 1,018 = 63.9 % | 61.0–66.8 | 151 / 10 | 55.4 % |
+| casual | 667 / 1,022 = 65.3 % | 62.3–68.1 | 168 / 13 | 56.5 % |
+| steady | 658 / 1,021 = 64.4 % | 61.5–67.3 | 158 / 11 | 62.4 % (511 games) |
+| sharp | 674 / 1,022 = 65.9 % | 63.0–68.8 | 174 / 12 | 65.1 % |
+| expert | 666 / 1,019 = 65.4 % | 62.4–68.2 | 172 / 15 | 63.4 % |
+
+### 8.6 State of the machines and runs
+
+- **Branch** `c42/house-g10` in `~/Projects/baylee-house-g10` (from
+  `c42/shared`), target dir `/mnt/xdata/cargo-target/house-g10`.
+- **acenb** runs every eval from a mirror of that checkout at the same path
+  (`/home/ace/Projects/baylee-house-g10`); binaries in
+  `~/baylee-work/house/bin/` named `g<generation>-<build>-<tool>`
+  (`g17-a-eval4`), outputs in `~/baylee-work/house/out/`: `g1x-h-*`
+  heuristics alone, `g1x-f-<level>-v6` a level with foresight against its
+  generation-6 self, `g1x-L-<higher>-<lower>` a ladder pair, `gate-*` the
+  held-out gate. The `g10-*` files of the previous round (block reads,
+  §7.11) are `g10-h-v9`, `g10-f-v9`, `g10-h-vS`; this round's generation-9
+  diagnostics are the other `g10-*` (`g10-n9`, `g10-c4`, …).
+- A queue of runs is a plain list of `eval4` and `house_duplicate`
+  invocations (`out/g1x-q*.sh`), started with `nohup sh`.
