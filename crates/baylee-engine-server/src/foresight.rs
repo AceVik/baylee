@@ -31,7 +31,7 @@
 //! the agent's engines with a lock on a file (`flock(2)`), which the kernel
 //! lets go when a process ends however it ends.
 
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -145,12 +145,15 @@ impl Settings {
     }
 
     /// What a table of this engine lets its house's searches spend, or `None`
-    /// where the house does not search: switched off, or no slots to hold
-    /// the machine's count by.
+    /// where the house does not search: switched off, no slots named, or a
+    /// slots directory that is not there (it was swept away, say), which is
+    /// said in the log. The house searches only while a person still plays
+    /// at the table ([`HostForesight::needs_a_person`]).
     ///
     /// # Errors
-    /// A slots directory that others may write to: anyone who can write
-    /// there can take the slots or put something in their place.
+    /// A slots directory that is not one, belongs to another user, or lets
+    /// anybody but its owner in: whoever can write there can take the slots
+    /// or put something in their place.
     pub fn host(&self) -> Result<Option<HostForesight>, String> {
         if !self.on {
             return Ok(None);
@@ -158,7 +161,13 @@ impl Settings {
         let Some(dir) = &self.slots else {
             return Ok(None);
         };
-        let slots = Slots::new(dir, self.searches)?;
+        let Some(slots) = Slots::new(dir, self.searches)? else {
+            tracing::warn!(
+                dir = %dir.display(),
+                "the search slots' directory is not there: the house answers without searching"
+            );
+            return Ok(None);
+        };
         Ok(Some(HostForesight {
             percent: self.percent,
             ceiling: CEILING,
@@ -168,6 +177,7 @@ impl Settings {
             }),
             permits: Some(std::sync::Arc::new(slots)),
             yields: true,
+            needs_a_person: true,
         }))
     }
 }
@@ -193,8 +203,9 @@ pub fn monotonic() -> Duration {
 ///
 /// A file is opened for each attempt and kept open while its lock is held,
 /// so a slot is given back when the search ends or its process does. A slot
-/// file that was cleared away is made again; a directory that is gone gives
-/// no slot, and the house answers without searching.
+/// file that was cleared away is made again (mode 0600); one that is a
+/// symbolic link is not followed. A directory that is gone gives no slot,
+/// and the house answers without searching.
 #[derive(Debug)]
 pub struct Slots {
     dir: PathBuf,
@@ -204,13 +215,17 @@ pub struct Slots {
 }
 
 impl Slots {
-    /// The slots in `dir`, `count` of them.
+    /// The slots in `dir`, `count` of them; `None` where `dir` is not there
+    /// (or cannot be read), so there are no slots to take.
     ///
     /// # Errors
-    /// `dir` is not a directory, or others than its owner may write in it.
-    pub fn new(dir: &Path, count: usize) -> Result<Self, String> {
-        let meta = std::fs::metadata(dir)
-            .map_err(|e| format!("BAYLEE_FORESIGHT_SLOTS {}: {e}", dir.display()))?;
+    /// `dir` is not a directory, is not this user's own, or lets anybody but
+    /// its owner in (`mode & 0o077`): the agent makes its own 0700, and an
+    /// operator's must be as private.
+    pub fn new(dir: &Path, count: usize) -> Result<Option<Self>, String> {
+        let Ok(meta) = std::fs::symlink_metadata(dir) else {
+            return Ok(None);
+        };
         if !meta.is_dir() {
             return Err(format!(
                 "BAYLEE_FORESIGHT_SLOTS {} is not a directory",
@@ -219,28 +234,52 @@ impl Slots {
         }
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt as _;
-            if meta.permissions().mode() & 0o022 != 0 {
+            use std::os::unix::fs::MetadataExt as _;
+            if meta.uid() != rustix::process::geteuid().as_raw() {
                 return Err(format!(
-                    "BAYLEE_FORESIGHT_SLOTS {} may be written by others than its owner",
+                    "BAYLEE_FORESIGHT_SLOTS {} belongs to another user",
                     dir.display()
                 ));
             }
+            if meta.mode() & 0o077 != 0 {
+                return Err(format!(
+                    "BAYLEE_FORESIGHT_SLOTS {} lets others than its owner in (mode {:o}); \
+                     it must be 0700",
+                    dir.display(),
+                    meta.mode() & 0o7777
+                ));
+            }
         }
-        Ok(Self {
+        Ok(Some(Self {
             dir: dir.to_path_buf(),
             count,
             said: AtomicBool::new(false),
-        })
+        }))
     }
 
+    /// Slot `slot`'s file, made if it is not there; never through a symbolic
+    /// link.
     fn open(&self, slot: usize) -> std::io::Result<File> {
-        OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(self.dir.join(format!("slot-{slot}")))
+        let path = self.dir.join(format!("slot-{slot}"));
+        #[cfg(unix)]
+        {
+            use rustix::fs::{Mode, OFlags};
+            let fd = rustix::fs::open(
+                &path,
+                OFlags::RDWR | OFlags::CREATE | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                Mode::from_raw_mode(0o600),
+            )?;
+            Ok(File::from(fd))
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(path)
+        }
     }
 }
 
@@ -369,32 +408,71 @@ mod tests {
         }
     }
 
-    /// A slots directory others may write to is refused; the agent makes one
-    /// only its own user may enter.
+    /// A slots directory anybody but its owner may enter is refused, and so
+    /// is a file in its place; the agent makes one only its own user may
+    /// enter (0700).
     #[cfg(unix)]
     #[test]
-    fn a_slots_directory_others_may_write_is_refused() {
+    fn a_slots_directory_others_may_enter_is_refused() {
         use std::os::unix::fs::PermissionsExt as _;
         let dir = tempfile::tempdir().expect("a temp dir");
-        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o777))
-            .expect("chmod");
-        assert!(Slots::new(dir.path(), 1).is_err());
+        for mode in [0o777, 0o770, 0o750, 0o705, 0o701] {
+            std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(mode))
+                .expect("chmod");
+            assert!(Slots::new(dir.path(), 1).is_err(), "{mode:o} was taken");
+        }
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700))
             .expect("chmod");
-        assert!(Slots::new(dir.path(), 1).is_ok());
+        assert!(matches!(Slots::new(dir.path(), 1), Ok(Some(_))));
         let file = dir.path().join("file");
         std::fs::write(&file, b"").expect("a file");
         assert!(Slots::new(&file, 1).is_err(), "not a directory");
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(dir.path(), &link).expect("a link");
+        assert!(
+            Slots::new(&link, 1).is_err(),
+            "a link is no directory of its own"
+        );
+    }
+
+    /// A slots directory that is not there (swept away while the agent ran)
+    /// is no reason to refuse a game: the engine starts, says so, and its
+    /// house answers without searching.
+    #[test]
+    fn a_missing_slots_directory_means_no_search_and_no_refusal() {
+        let dir = slots_dir();
+        let gone = dir.path().join("swept");
+        assert!(matches!(Slots::new(&gone, 1), Ok(None)));
+        let gone = gone.to_str().expect("a UTF-8 path");
+        let settings = read(&[("BAYLEE_FORESIGHT_SLOTS", gone)]).expect("in range");
+        assert!(
+            matches!(settings.host(), Ok(None)),
+            "a missing directory starts the engine without search"
+        );
+    }
+
+    /// A slot file that is a symbolic link is not followed: the search finds
+    /// no slot, and nothing is made or locked where the link points.
+    #[cfg(unix)]
+    #[test]
+    fn a_slot_that_is_a_link_is_not_followed() {
+        let dir = slots_dir();
+        let elsewhere = slots_dir();
+        let target = elsewhere.path().join("target");
+        std::os::unix::fs::symlink(&target, dir.path().join("slot-0")).expect("a link");
+        let slots = Slots::new(dir.path(), 1).expect("slots").expect("there");
+        assert!(slots.try_acquire().is_none(), "a link is no slot");
+        assert!(!target.exists(), "nothing made where the link points");
     }
 
     /// Two engines' slots in one directory: no more searches at once than
     /// there are slots, each given back when it is dropped, and a slot file
-    /// cleared away is made again.
+    /// cleared away is made again, for its owner alone.
     #[test]
     fn slots_hold_the_count_across_holders() {
         let dir = slots_dir();
-        let one = Slots::new(dir.path(), 2).expect("slots");
-        let other = Slots::new(dir.path(), 2).expect("slots");
+        let slots = || Slots::new(dir.path(), 2).expect("slots").expect("there");
+        let (one, other) = (slots(), slots());
         let first = one.try_acquire().expect("a slot");
         let second = other.try_acquire().expect("the other slot");
         assert!(one.try_acquire().is_none(), "both taken");
@@ -404,6 +482,12 @@ mod tests {
         drop((second, third));
         std::fs::remove_file(dir.path().join("slot-0")).expect("clear one away");
         assert!(one.try_acquire().is_some(), "made again");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt as _;
+            let made = std::fs::metadata(dir.path().join("slot-0")).expect("made");
+            assert_eq!(made.mode() & 0o777, 0o600);
+        }
         let gone = dir.path().to_path_buf();
         drop(dir);
         assert!(!gone.exists());

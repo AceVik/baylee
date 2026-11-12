@@ -236,6 +236,8 @@ where
             preset_json: serde_json::to_vec(&preset).expect("a preset"),
             seat_names: vec!["House".into(), "Load".into()],
             seat_guests: Vec::new(),
+            // The house's chair, and the seat this test plays as a person's.
+            seat_accounts: vec![false, true],
         })),
     };
     let attached = Envelope {

@@ -100,6 +100,13 @@ pub(in crate::session) struct Desk {
     replaced_at: Vec<Option<u64>>,
     /// Per seat, the target a search chose with the spell it gave.
     then: Vec<Option<PlayerAction>>,
+    /// Per seat, whether it is a person's own ([`Session::mark_people`]);
+    /// `None` until the host says, when every seat that answers over a
+    /// socket counts.
+    people: Option<Vec<bool>>,
+    /// Whether a search was begun for the answer being given: a permit was
+    /// taken, whatever became of the search ([`HostForesight::yields`]).
+    begun: bool,
 }
 
 impl Desk {
@@ -123,6 +130,8 @@ impl Desk {
             probed: Vec::new(),
             replaced_at: vec![None; seats],
             then: vec![None; seats],
+            people: None,
+            begun: false,
         }
     }
 }
@@ -491,17 +500,46 @@ impl Session {
         std::mem::take(&mut self.foresight.probed)
     }
 
-    /// [`Self::foreseen`], and whether the pump slice ends with it: after a
-    /// searched answer, where the host asks for that
-    /// ([`HostForesight::yields`]).
+    /// Says which seats are a person's own, in seat order: an account sits
+    /// there, and not a seat bridge its host handed the chair to, which
+    /// plays on when its host has left. A host that needs a person at the
+    /// table to search ([`HostForesight::needs_a_person`]) counts these
+    /// alone; unsaid, every seat that answers over a socket counts. A seat
+    /// past the list is nobody's.
+    pub fn mark_people(&mut self, people: &[bool]) {
+        self.foresight.people = Some(people.to_vec());
+    }
+
+    /// Whether a person still plays at this table: a seat of theirs
+    /// ([`Session::mark_people`]) that answers over a socket and has not left
+    /// the game (conceded, lost, or gone for good). A chair the house holds
+    /// for an absent player is not one until the player comes back.
+    #[must_use]
+    pub fn a_person_plays(&self) -> bool {
+        self.seats.iter().enumerate().any(|(at, kind)| {
+            let person = self
+                .foresight
+                .people
+                .as_ref()
+                .is_none_or(|people| people.get(at).copied().unwrap_or(false));
+            person
+                && kind.answers_over_socket()
+                && u8::try_from(at).is_ok_and(|seat| !self.has_left(PlayerId::new(seat)))
+        })
+    }
+
+    /// [`Self::foreseen`], and whether the pump slice ends with it: after an
+    /// answer a search was begun for (a permit taken, whether the search then
+    /// ran, was given up or was refused by the engine), where the host asks
+    /// for that ([`HostForesight::yields`]).
     pub(super) fn foreseen_in_slice(
         &mut self,
         player: PlayerId,
         pending: &Pending,
     ) -> (Option<PlayerAction>, bool) {
-        let searched = self.foresight.stats.searched;
+        self.foresight.begun = false;
         let answer = self.foreseen(player, pending);
-        let spent = self.foresight.host.yields && self.foresight.stats.searched != searched;
+        let spent = self.foresight.host.yields && self.foresight.begun;
         (answer, spent)
     }
 
@@ -512,7 +550,7 @@ impl Session {
     /// candidate only, or cannot be forked, and where the host has no search
     /// to spare or its wall guard gave the search up.
     pub(super) fn foreseen(&mut self, player: PlayerId, pending: &Pending) -> Option<PlayerAction> {
-        if !self.foresight.on {
+        if !self.foresight.on || (self.foresight.host.needs_a_person && !self.a_person_plays()) {
             return None;
         }
         let at = usize::from(player.get());
@@ -558,6 +596,7 @@ impl Session {
         let Ok(permit) = self.search_permit(player) else {
             return Some(own);
         };
+        self.foresight.begun = true;
         let started = self.foresight.clock.now();
         let deadline = self
             .foresight

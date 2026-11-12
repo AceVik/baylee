@@ -99,6 +99,27 @@ fn refuse(why: &str) -> ! {
     std::process::exit(2);
 }
 
+/// Makes the slots' directory again where something swept it away while the
+/// agent ran (a timer clearing `/tmp`, say): mode 0700, and only where
+/// nothing is at that path, so nothing there is taken over. One that cannot
+/// be made leaves the next engine without slots, which says so and answers
+/// without searching.
+fn remake_slots(slots: &std::path::Path) {
+    if std::fs::symlink_metadata(slots).is_ok() {
+        return;
+    }
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    match builder.create(slots) {
+        Ok(()) => tracing::warn!(
+            dir = %slots.display(),
+            "the search slots' directory was gone: made again"
+        ),
+        Err(e) => tracing::warn!(dir = %slots.display(), %e, "the search slots' directory is gone"),
+    }
+}
+
 /// Makes this agent's own directory for its engines' search slots where the
 /// operator named none (`baylee_agent::slots_parent`), and names it in
 /// `config`. The directory is removed when what this returns is dropped. One
@@ -436,7 +457,10 @@ fn start(
     // Every engine of this agent takes its search slots in one directory,
     // so the operator's count holds across them (`BAYLEE_FORESIGHT_SEARCHES`).
     match &config.foresight_slots {
-        Some(slots) => engine.env(baylee_agent::SLOTS_VAR, slots),
+        Some(slots) => {
+            remake_slots(slots);
+            engine.env(baylee_agent::SLOTS_VAR, slots)
+        }
         None => engine.env_remove(baylee_agent::SLOTS_VAR),
     };
     let child = engine.spawn();

@@ -25,7 +25,10 @@ const STEP: u64 = 10_000;
 /// as no host is, and a search the guard gives up answers otherwise than
 /// its twin (`ForesightStats::walled`), which is the guard's purpose and not
 /// what these tests are about.
-fn hosted(dir: &std::path::Path, pairs: &[(&str, &str)]) -> baylee_gamehost::HostForesight {
+pub(super) fn hosted(
+    dir: &std::path::Path,
+    pairs: &[(&str, &str)],
+) -> baylee_gamehost::HostForesight {
     let mut env: std::collections::BTreeMap<String, std::ffi::OsString> = pairs
         .iter()
         .map(|(name, value)| ((*name).to_string(), std::ffi::OsString::from(value)))
@@ -246,7 +249,9 @@ fn no_preset_raises_what_a_hosted_search_may_spend() {
 fn a_hosted_table_searches_nothing_while_every_slot_is_taken() {
     let dir = slots_dir();
     let host = hosted(dir.path(), &[("BAYLEE_FORESIGHT_SEARCHES", "2")]);
-    let elsewhere = crate::foresight::Slots::new(dir.path(), 2).expect("slots");
+    let elsewhere = crate::foresight::Slots::new(dir.path(), 2)
+        .expect("slots")
+        .expect("there");
     let held = [
         baylee_gamehost::SearchPermits::try_acquire(&elsewhere).expect("one"),
         baylee_gamehost::SearchPermits::try_acquire(&elsewhere).expect("two"),

@@ -428,6 +428,7 @@ impl LocalHost {
                 }),
                 permits: Some(permits),
                 yields: true,
+                needs_a_person: true,
             });
         self
     }

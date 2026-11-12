@@ -595,6 +595,7 @@ fn a_game_that_cannot_start_says_so_rather_than_hanging() {
                 preset_json: b"not a preset".to_vec(),
                 seat_names: Vec::new(),
                 seat_guests: Vec::new(),
+                seat_accounts: Vec::new(),
             })),
         },
         &[],

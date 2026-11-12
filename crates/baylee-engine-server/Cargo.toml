@@ -36,6 +36,12 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+# The search slots (`src/foresight.rs`): the engine's own user, to hold the
+# slots' directory to, and a slot file opened without following a link.
+# Already in the tree (the gateway's metrics, the deploy hooks).
+rustix = { workspace = true, features = ["fs", "process"] }
+
 [dev-dependencies]
 # The other end of the command line this binary is started with. The agent
 # writes the three flags and this reads them, and nothing in the build links

@@ -867,10 +867,12 @@ mod attached {
                 wall_ms = settings.wall_ms,
                 "the house searches within its levels' bounds"
             ),
-            (None, true) => tracing::warn!(
+            (None, true) if settings.slots.is_none() => tracing::warn!(
                 "BAYLEE_FORESIGHT_SLOTS is not set (the agent sets it): the house answers \
                  without searching"
             ),
+            // A slots directory that is not there said so itself.
+            (None, true) => {}
             (None, false) => {
                 tracing::info!("BAYLEE_FORESIGHT=off: the house answers without searching");
             }

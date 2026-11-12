@@ -609,6 +609,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket, place: Option<a
                         preset_json,
                         seat_names: names,
                         seat_guests: guests,
+                        seat_accounts: game.seat_accounts(),
                     })),
                 },
             ))

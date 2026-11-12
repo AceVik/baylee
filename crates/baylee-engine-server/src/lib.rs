@@ -77,6 +77,24 @@ pub const RECORD_CHUNK_BYTES: usize = 32 * 1024;
 /// there and then ([`v1::FlushRecord`]).
 pub const RECORD_FLUSH_MS: u64 = 30_000;
 
+/// The most answers the house gives alone, once every seat that answers over
+/// a socket has left, before the game is closed with no winners
+/// ([`EngineRunner::remainder_bound`]). A house-only remainder plays by the
+/// heuristics alone (no search), so this bounds what a game everybody left
+/// can still cost. Measured 12.11.2026 (release build, a person conceding at
+/// turn 4 against `expert` houses): two houses finished in 760 to 990
+/// answers (0.1 s), three in 4,045 (0.9 s), seven in 15,000 to 25,000
+/// (4.6 to 10 s of a core). So the remainders of the tables people mostly
+/// play are played out, and the result stands; an eight-chair one is cut at
+/// about two seconds.
+pub const REMAINDER_ANSWERS: u64 = 5_000;
+
+/// The most wall time, in milliseconds as the engine is told it, the house
+/// plays alone before the game is closed ([`REMAINDER_ANSWERS`]'s other
+/// half): a remainder of large boards, whose answers each cost more, is cut
+/// by this.
+pub const REMAINDER_MS: u64 = 20_000;
+
 /// Whether `pending` bytes of the record, uncompressed, are a piece to send
 /// while the game goes on: [`RECORD_CHUNK_BYTES`] or more.
 const fn record_due(pending: usize) -> bool {
@@ -156,6 +174,13 @@ pub struct EngineRunner {
     /// What the house's search may spend at this game's table, or `None`
     /// where it does not search ([`Self::with_foresight`]).
     foresight: Option<baylee_gamehost::HostForesight>,
+    /// The house's answer count ([`Session::decision_seq`]) and the time (as
+    /// told) when the last seat that answers over a socket left, while
+    /// nobody has come back.
+    remainder_from: Option<(u64, u64)>,
+    /// The most answers the house gives alone before the game is closed
+    /// ([`REMAINDER_ANSWERS`], [`Self::remainder_bound`]).
+    remainder_answers: u64,
 }
 
 impl Default for EngineRunner {
@@ -177,6 +202,8 @@ impl Default for EngineRunner {
             enter_at: None,
             pump_budget: DEFAULT_PUMP_BUDGET,
             foresight: None,
+            remainder_from: None,
+            remainder_answers: REMAINDER_ANSWERS,
         }
     }
 }
@@ -203,6 +230,15 @@ impl EngineRunner {
     #[must_use]
     pub fn with_foresight(mut self, host: Option<baylee_gamehost::HostForesight>) -> Self {
         self.foresight = host;
+        self
+    }
+
+    /// The most answers the house gives alone once nobody is left at the
+    /// table, in place of [`REMAINDER_ANSWERS`]: for a test.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn with_remainder_answers(mut self, answers: u64) -> Self {
+        self.remainder_answers = answers;
         self
     }
 
@@ -554,6 +590,11 @@ impl EngineRunner {
     /// asked: nobody won or lost, and the record ends where the game was
     /// closed. A game already over is left alone.
     fn close(&mut self, reason: &str) -> Vec<Envelope> {
+        self.closed(reason, "closed by an admin")
+    }
+
+    /// [`Self::close`], with what `GameEnded` gives as the reason.
+    fn closed(&mut self, reason: &str, ended_why: &str) -> Vec<Envelope> {
         if self.ended {
             return Vec::new();
         }
@@ -570,7 +611,7 @@ impl EngineRunner {
         if let Some(data) = self.session.as_mut().map(Session::take_record) {
             out.push(self.record_chunk(&data, true));
         }
-        out.push(ended(&self.game_id, "closed by an admin"));
+        out.push(ended(&self.game_id, ended_why));
         out
     }
 
@@ -663,6 +704,11 @@ impl EngineRunner {
         if let Some(host) = &self.foresight {
             session.set_foresight(true);
             session.set_foresight_host(host.clone());
+        }
+        // Which chairs an account sits in: the house searches only while one
+        // of them plays, not for a seat bridge whose host has gone.
+        if !setup.seat_accounts.is_empty() {
+            session.mark_people(&setup.seat_accounts);
         }
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
         session.mark_guests(setup.seat_guests.clone());
@@ -1224,7 +1270,61 @@ impl EngineRunner {
     fn ending(&mut self) -> Vec<Envelope> {
         let mut out = self.participation_endings();
         out.extend(self.game_ending());
+        out.extend(self.remainder_bound());
         out
+    }
+
+    /// Whether a seat that answers over a socket still plays: a person's, a
+    /// seat bridge's, a developer's. Without one the house plays the rest of
+    /// the game alone, at the machine's speed.
+    fn sockets_remain(session: &Session) -> bool {
+        (0..session.seat_count())
+            .filter_map(|seat| u8::try_from(seat).ok())
+            .map(PlayerId::new)
+            .any(|seat| {
+                !session.has_left(seat)
+                    && session
+                        .seat_kind(seat)
+                        .is_some_and(SeatKind::answers_over_socket)
+            })
+    }
+
+    /// The house plays a game on alone once every seat that answers over a
+    /// socket has left it, so that the result stands (a player who conceded
+    /// lost, one whose house teammate wins won) and the record is whole. It
+    /// does so by its heuristics (no search: `HostForesight::needs_a_person`)
+    /// and within [`REMAINDER_ANSWERS`] of its answers and [`REMAINDER_MS`]
+    /// of time: past either the game is closed as an admin closes one
+    /// ([`Self::close`]), no winners and the record ending where it stopped,
+    /// so a game everybody left can never keep its engine busy for long. A
+    /// seat that comes back starts the count again. Read after each pump
+    /// slice, so the house may run past the count by one slice
+    /// ([`ATTACHED_PUMP_SLICE`] answers).
+    fn remainder_bound(&mut self) -> Vec<Envelope> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        if self.ended || Self::sockets_remain(session) {
+            self.remainder_from = None;
+            return Vec::new();
+        }
+        let answers = session.decision_seq();
+        let (from, since) = *self.remainder_from.get_or_insert((answers, self.now));
+        let alone = answers.saturating_sub(from);
+        let ms = self.now.saturating_sub(since);
+        if alone < self.remainder_answers && ms < REMAINDER_MS {
+            return Vec::new();
+        }
+        tracing::warn!(
+            game_id = self.game_id,
+            answers = alone,
+            ms,
+            "nobody is left at the table and the house did not finish the game within its bound"
+        );
+        self.closed(
+            "nobody is left at the table, and the house did not finish the game",
+            "nobody is left",
+        )
     }
 
     /// Only the rules session can release a player's active-game hold.
@@ -1234,15 +1334,7 @@ impl EngineRunner {
         let Some(session) = self.session.as_ref() else {
             return Vec::new();
         };
-        let humans_remain = (0..session.seat_count())
-            .filter_map(|seat| u8::try_from(seat).ok())
-            .map(PlayerId::new)
-            .any(|seat| {
-                !session.has_left(seat)
-                    && session
-                        .seat_kind(seat)
-                        .is_some_and(SeatKind::answers_over_socket)
-            });
+        let humans_remain = Self::sockets_remain(session);
         let mut seats = Vec::new();
         for seat in (0..session.seat_count())
             .filter_map(|seat| u8::try_from(seat).ok())

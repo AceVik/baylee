@@ -393,6 +393,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -1103,6 +1110,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -1832,6 +1846,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -2503,6 +2524,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -3174,6 +3202,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -3847,6 +3882,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -4522,6 +4564,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -5249,6 +5298,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -5920,6 +5976,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -6591,6 +6654,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -7264,6 +7334,13 @@ channels:
               // Whether each seat is a guest's, in seat order: shown, and nothing more.
               // Empty from a gateway older than this.
               repeated bool seat_guests = 4;
+              // Whether an account sits in each seat, in seat order: a person's own
+              // chair, and not a seat bridge its host handed the chair to (which has no
+              // account and plays on when its host has gone) nor an AI chair. The house
+              // searches only while one of them still plays (`docs/house-ai.md`
+              // §"Foresight at a host"). Empty from a gateway older than this: every seat
+              // that answers over a socket counts.
+              repeated bool seat_accounts = 5;
             }
 
             // Gateway → engine: a seat's socket opened.
@@ -8535,6 +8612,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -9206,6 +9290,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -9877,6 +9968,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -10548,6 +10646,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -11219,6 +11324,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -11890,6 +12002,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -12561,6 +12680,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -13238,6 +13364,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -13909,6 +14042,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -14580,6 +14720,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -15251,6 +15398,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -15922,6 +16076,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -16593,6 +16754,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -17264,6 +17432,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -17941,6 +18116,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -18612,6 +18794,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -19289,6 +19478,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -19960,6 +20156,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -20631,6 +20834,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -21302,6 +21512,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -21973,6 +22190,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -22644,6 +22868,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -23315,6 +23546,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -23986,6 +24224,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -24657,6 +24902,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -25328,6 +25580,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -25999,6 +26258,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -26670,6 +26936,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -27341,6 +27614,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -28012,6 +28292,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -28683,6 +28970,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -29354,6 +29648,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -30025,6 +30326,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -30696,6 +31004,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.
@@ -31367,6 +31682,13 @@ components:
             // Whether each seat is a guest's, in seat order: shown, and nothing more.
             // Empty from a gateway older than this.
             repeated bool seat_guests = 4;
+            // Whether an account sits in each seat, in seat order: a person's own
+            // chair, and not a seat bridge its host handed the chair to (which has no
+            // account and plays on when its host has gone) nor an AI chair. The house
+            // searches only while one of them still plays (`docs/house-ai.md`
+            // §"Foresight at a host"). Empty from a gateway older than this: every seat
+            // that answers over a socket counts.
+            repeated bool seat_accounts = 5;
           }
 
           // Gateway → engine: a seat's socket opened.

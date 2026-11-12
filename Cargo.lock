@@ -1989,6 +1989,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "prost",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "tempfile",

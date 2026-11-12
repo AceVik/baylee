@@ -43,6 +43,16 @@ fn duel(timeout_secs: u32) -> GamePreset {
 }
 
 fn setup(runner: &mut EngineRunner, preset: &GamePreset) -> Vec<Envelope> {
+    setup_accounts(runner, preset, Vec::new())
+}
+
+/// [`setup`], with the gateway saying which chairs an account sits in
+/// (`GameSetup.seat_accounts`).
+fn setup_accounts(
+    runner: &mut EngineRunner,
+    preset: &GamePreset,
+    accounts: Vec<bool>,
+) -> Vec<Envelope> {
     runner.handle(
         Envelope {
             msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
@@ -50,6 +60,7 @@ fn setup(runner: &mut EngineRunner, preset: &GamePreset) -> Vec<Envelope> {
                 preset_json: serde_json::to_vec(preset).expect("preset serializes"),
                 seat_names: vec!["You".to_string(), "House".to_string()],
                 seat_guests: Vec::new(),
+                seat_accounts: accounts,
             })),
         },
         &[],

@@ -44,9 +44,17 @@ pub struct HostForesight {
     /// The searches the host lets run at once, across every table that
     /// shares the pool; `None` for no limit.
     pub permits: Option<Arc<dyn SearchPermits>>,
-    /// Ends a pump slice after each searched answer, so that the host's
-    /// event loop reads its sockets between two searches.
+    /// Ends a pump slice after each answer a search was begun for (searched,
+    /// given up or refused by the engine), so that the host's event loop
+    /// reads its sockets between two searches.
     pub yields: bool,
+    /// Searches only while a person still plays at the table
+    /// (`Session::a_person_plays`): a seat of theirs that answers over a
+    /// socket and has not left the game. Once the last one has conceded or
+    /// left, the house plays the rest by its heuristics, so a table nobody
+    /// plays at any more cannot hold the host's searches for itself. A
+    /// harness that seats the house alone leaves it off.
+    pub needs_a_person: bool,
 }
 
 impl Default for HostForesight {
@@ -57,6 +65,7 @@ impl Default for HostForesight {
             wall: None,
             permits: None,
             yields: false,
+            needs_a_person: false,
         }
     }
 }

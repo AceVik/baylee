@@ -116,6 +116,7 @@ impl Host {
             }),
             permits: Some(crate::Searches::new(1)),
             yields: true,
+            needs_a_person: true,
         };
         match self {
             Self::Bare => None,
@@ -361,6 +362,105 @@ fn a_search_past_the_wall_guard_gives_the_levels_own_answer() {
             .iter()
             .all(|cost| cost.walled && cost.cut)
     );
+}
+
+/// Two `expert` chairs and a person's chair (the last), the person holding
+/// no cards at the start.
+fn two_houses_and_a_person(seed: u64) -> GamePreset {
+    let (goblins, merfolk, plains) = (
+        goblins_and_bolts(),
+        merfolk_and_counters(),
+        opponent("Plains", 60),
+    );
+    let mut preset = baylee_cards::decks::preset_for_all(seed, &[&goblins, &merfolk, &plains]);
+    preset.house_rules.starting_player = Some(0);
+    preset.seats[0].controller = SeatController::Ai(AIProfile::EXPERT);
+    preset.seats[1].controller = SeatController::Ai(AIProfile::EXPERT);
+    preset.seats[2].controller = SeatController::Open;
+    preset.seats[2].starting_hand = Some(Vec::new());
+    preset
+}
+
+/// The table of [`two_houses_and_a_person`], played as `host` hosts it: the
+/// person passes until the house has searched a few times (or never does),
+/// then concedes, and the two houses play the rest out. What the house had
+/// searched when the person conceded, what it searched in all, and whether
+/// the game came to its end.
+fn conceded(host: Host, people: Option<&[bool]>) -> (u64, u64, bool) {
+    let mut session =
+        Session::new_recorded(&two_houses_and_a_person(21), "foresight").expect("the table starts");
+    session.describe(
+        "foresight".into(),
+        vec!["a".into(), "b".into(), "person".into()],
+    );
+    if let Some(host) = host.bounds() {
+        session.set_foresight_host(host);
+    }
+    if let Some(people) = people {
+        session.mark_people(people);
+    }
+    session.set_foresight(true);
+    let person = PlayerId::new(2);
+    for _ in 0..10_000 {
+        let _ = session.pump();
+        if session.needs_pump() {
+            continue;
+        }
+        if session.foresight_stats().searched > 3 || session.state().turn.number > LAST_TURN {
+            break;
+        }
+        let Some((pending, _)) = session.view_for(person) else {
+            break;
+        };
+        let nothing = timeout_answer(&pending).unwrap_or(PlayerAction::PassPriority);
+        session
+            .act(person, nothing)
+            .expect("doing nothing is an answer");
+    }
+    let before = session.foresight_stats().searched;
+    session
+        .act(person, PlayerAction::Concede)
+        .expect("a person may concede");
+    assert!(!session.a_person_plays(), "nobody plays here any more");
+    for _ in 0..1_000_000 {
+        // A harness searches on: a few searches say so, and the rest of its
+        // game is no part of the test.
+        if matches!(session.pending(), Pending::GameOver(_))
+            || !session.needs_pump()
+            || session.foresight_stats().searched > before + 2
+        {
+            break;
+        }
+        let _ = session.pump();
+    }
+    let over = matches!(session.pending(), Pending::GameOver(_));
+    (before, session.foresight_stats().searched, over)
+}
+
+/// A host that needs a person at the table stops searching the moment the
+/// last one concedes, and the houses play the rest out by their heuristics:
+/// a game everybody has left holds none of the host's searches. A harness,
+/// which needs no person, searches the rest as before.
+#[test]
+fn a_host_searches_only_while_a_person_plays() {
+    let (before, after, over) = conceded(Host::Served, None);
+    assert!(before > 3, "the house searched while the person played");
+    assert_eq!(after, before, "a search after the last person conceded");
+    assert!(over, "the houses played the game out");
+    let (before, after, _) = conceded(Host::Bare, None);
+    assert!(after > before, "a harness searches a table of houses");
+}
+
+/// A seat its host handed to a seat bridge is nobody's own: where the host
+/// says so ([`Session::mark_people`]), a table of houses and a bridge
+/// searches nothing, from the start.
+#[test]
+fn a_seat_bridge_alone_is_no_person_to_search_for() {
+    let (before, after, over) = conceded(Host::Served, Some(&[false, false, false]));
+    assert_eq!((before, after), (0, 0), "nobody's seat, and still a search");
+    assert!(over);
+    let (before, _, _) = conceded(Host::Served, Some(&[false, false, true]));
+    assert!(before > 3, "the person's own seat counts");
 }
 
 /// A host that asks for it gets one searched answer a pump slice, so its
