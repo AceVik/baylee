@@ -232,6 +232,7 @@ fn main() -> anyhow::Result<()> {
     let mut policy_sources = Vec::new();
     let mut shadow_seen = BTreeSet::new();
     let mut llm_seen = BTreeSet::new();
+    let mut house_refusals = llm::HouseRefusals::default();
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
@@ -323,6 +324,32 @@ fn main() -> anyhow::Result<()> {
             let sidecar: Option<Vec<RolloutStepSidecar4>> = v
                 .get("rollout_sidecar")
                 .and_then(|sc| serde_json::from_value(sc.clone()).ok());
+            let llm = if args.llm_bc {
+                anyhow::ensure!(
+                    sidecar.is_none(),
+                    "LLM BC must not fabricate neural rollout provenance"
+                );
+                let game = v["game"].as_str().context("LLM game key")?;
+                let source = llm::Source::load(
+                    run_dir,
+                    game,
+                    &run_dir.join("records").join(shard_name),
+                    offset,
+                    len,
+                )?;
+                anyhow::ensure!(
+                    llm_seen.insert(source.record_sha().to_string()),
+                    "Duplicate LLM record across source namespaces"
+                );
+                // The corpus rule: a game the house answered more than 5 % of
+                // a seat's questions of is no teacher data.
+                if !house_refusals.admits(run_dir, game, &source)? {
+                    continue;
+                }
+                Some(source)
+            } else {
+                None
+            };
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
                 seat_weights,
@@ -359,26 +386,7 @@ fn main() -> anyhow::Result<()> {
                 } else {
                     None
                 },
-                llm: if args.llm_bc {
-                    anyhow::ensure!(
-                        sidecar.is_none(),
-                        "LLM BC must not fabricate neural rollout provenance"
-                    );
-                    let source = llm::Source::load(
-                        run_dir,
-                        v["game"].as_str().context("LLM game key")?,
-                        &run_dir.join("records").join(shard_name),
-                        offset,
-                        len,
-                    )?;
-                    anyhow::ensure!(
-                        llm_seen.insert(source.record_sha().to_string()),
-                        "Duplicate LLM record across source namespaces"
-                    );
-                    Some(source)
-                } else {
-                    None
-                },
+                llm,
                 sidecar,
                 search_events: search_targets
                     .is_some()
@@ -392,6 +400,19 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    if args.llm_bc {
+        // Written before any game converts, so a conversion that fails later
+        // still says which games the corpus rule left out.
+        fs::write(
+            args.out.join("llm-refused-house-share.json"),
+            serde_json::to_vec_pretty(&house_refusals.metadata())?,
+        )?;
+        eprintln!(
+            "[convert4] the corpus rule refused {} LLM games (house over {} % of a seat)",
+            house_refusals.count(),
+            baylee_train::convert4::llm_bc::house_share::MAX_HOUSE_SHARE_PERCENT
+        );
+    }
     if games.is_empty() {
         bail!("no finished games found across {:?}", args.runs);
     }
@@ -533,6 +554,7 @@ fn main() -> anyhow::Result<()> {
             // Before any game converts: a stale list stops the conversion.
             meta["llm_bc_skipped_unreplayable"] = skip.metadata()?;
         }
+        meta["llm_bc_refused_house_share"] = house_refusals.metadata();
     }
     if args.live_bc {
         meta["live_bc_version"] = json!(1);
@@ -747,6 +769,13 @@ fn main() -> anyhow::Result<()> {
         unencoded_total.load(Ordering::Relaxed),
         started.elapsed().as_secs_f64()
     );
+    if args.llm_bc {
+        eprintln!(
+            "[convert4] LLM games refused by the corpus rule (house over {} % of a seat): {}",
+            baylee_train::convert4::llm_bc::house_share::MAX_HOUSE_SHARE_PERCENT,
+            house_refusals.count()
+        );
+    }
     Ok(())
 }
 

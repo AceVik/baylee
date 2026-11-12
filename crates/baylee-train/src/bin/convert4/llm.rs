@@ -2,7 +2,7 @@
 use anyhow::{Context, ensure};
 use baylee_train::convert4::{
     Step4,
-    llm_bc::{LlmBc4, schema::Manifest, sha},
+    llm_bc::{LlmBc4, house_share, schema::Manifest, sha},
 };
 use serde_json::{Value, json};
 use std::{
@@ -72,6 +72,16 @@ impl Source {
     }
     pub(super) fn record_sha(&self) -> &str {
         &self.manifest.record_sha256
+    }
+    /// Why the corpus rule keeps this game out of training: the house
+    /// answered more than 5 % of a seat's questions, or the game does not say
+    /// (`llm_bc::house_share`).
+    pub(super) fn house_refusal(&self) -> anyhow::Result<Option<String>> {
+        house_share::manifest_refusal(&self.manifest)
+    }
+    /// The collector's attempt this game is.
+    pub(super) fn source_game(&self) -> &str {
+        &self.manifest.source_game
     }
     pub(super) fn verify(&self, record: &[u8]) -> Result<LlmBc4, String> {
         let check = || -> anyhow::Result<LlmBc4> {
@@ -228,4 +238,50 @@ pub(super) fn finish_metadata(root: &Path, meta: &mut Value) -> anyhow::Result<(
     meta["llm_bc_frame_sha256"] = Value::Object(frames);
     meta["llm_bc_status"] = json!("complete");
     Ok(())
+}
+
+/// The LLM games the corpus rule left out (`llm_bc::house_share`): named,
+/// with their reasons, before any game converts.
+#[derive(Default)]
+pub(super) struct HouseRefusals {
+    considered: u64,
+    refused: Vec<Value>,
+}
+
+impl HouseRefusals {
+    /// Counts a game the selection met, and whether it stays: `false` where
+    /// the rule refuses it, which is then remembered with its reason.
+    pub(super) fn admits(
+        &mut self,
+        run: &Path,
+        frozen_game: &str,
+        source: &Source,
+    ) -> anyhow::Result<bool> {
+        self.considered += 1;
+        let Some(reason) = source.house_refusal()? else {
+            return Ok(true);
+        };
+        eprintln!(
+            "[convert4] LLM game {} refused: {reason}",
+            source.source_game()
+        );
+        self.refused.push(json!({"run": run, "game": frozen_game,
+            "source_game": source.source_game(), "reason": reason}));
+        Ok(false)
+    }
+
+    /// How many games the rule refused.
+    pub(super) fn count(&self) -> usize {
+        self.refused.len()
+    }
+
+    /// What the dataset says about the rule and the games it left out.
+    pub(super) fn metadata(&self) -> Value {
+        json!({"rule": "a game whose technical result says the house answered more than \
+                        max_house_share_percent of either seat's questions (house / (house + llm) \
+                        of seats[s].transcript_answer_counts), or does not say, is left out, \
+                        both seats with it",
+            "max_house_share_percent": house_share::MAX_HOUSE_SHARE_PERCENT,
+            "considered": self.considered, "refused": self.refused.len(), "games": self.refused})
+    }
 }

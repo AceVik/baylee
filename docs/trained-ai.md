@@ -914,6 +914,23 @@ games out and records them, with their reasons and the list's digest, as
 may be listed, and a list naming a game the runs lack is refused, so the
 selection never depends on an outcome or goes stale silently.
 
+Who answered decides too (the corpus rule, the ladder's clean rule; owner
+and coordinator, 12 November). The collector admits a game on technical
+grounds only, so a game whose model session broke is admitted with the
+house answering that seat in its place (two Carbon games of segment 2, the
+house at 82 % and 98 % of a seat). `convert4 --llm-bc` therefore leaves out
+every game whose technical result says the house answered more than 5 %
+(`llm_bc::house_share::MAX_HOUSE_SHARE_PERCENT`; exactly 5 % is kept) of
+either seat's questions, house / (house + llm) of
+`seats[s].transcript_answer_counts`, both seats with it, and every game that
+does not say: before any game converts, by name and reason ("house answered
+49 of 60 (81.7 %) of seat 1's questions, over 5 %"), in
+`llm-refused-house-share.json` and in `meta.json` as
+`llm_bc_refused_house_share` (the rule, the threshold, the games considered
+and refused). The selection never reads an outcome, and no excluded list has
+to be kept by hand; the admission check of each game (`LlmBc4::load`) holds
+the same rule beside the teacher's identity.
+
 #### Bringing a model onto a new catalog, step by step
 
 New cards keep arriving; this is the repeatable procedure, as run on

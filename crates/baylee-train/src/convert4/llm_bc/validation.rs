@@ -124,6 +124,13 @@ pub(super) fn load(
     } else {
         None
     };
+    // Beside who the teacher is, who answered: a game the house answered
+    // more than 5 % of a seat's questions of is no teacher data
+    // (`house_share`). convert4 leaves such a game out before it converts;
+    // here it can only fail.
+    if let Some(reason) = super::house_share::refusal(&technical) {
+        anyhow::bail!("LLM game {game} refused: {reason}");
+    }
     let mut remaining = BTreeMap::new();
     for (seat, evidence) in manifest.seats.iter().enumerate() {
         ensure!(
