@@ -142,8 +142,21 @@ class SearchAdvantage(unittest.TestCase):
                                      coarse_classes=["pass", "tap", "cast", "activate", "land", "other"]))
             (folder / "header.json").write_text(json.dumps(header))
             sidecar = V.SearchAdvantage.load(folder)
+            self.assertTrue(np.isnan(sidecar.judged_for([7], [1], [100])).all())   # no file: unknown
+            judged = np.zeros(2, dtype=V.SIDECAR_JUDGED)
+            judged["a_on_b"], judged["b_on_a"] = [.05, 0.], [-.02, .01]
+            judged.tofile(folder / "halves-judged.bin")
+            header["halves_judged"] = dict(dtype=[["a_on_b", "<f4"], ["b_on_a", "<f4"]], file="halves-judged.bin",
+                                           rows=2, sha256=digest("halves-judged.bin"))
+            (folder / "header.json").write_text(json.dumps(header))
+            with_judged = V.SearchAdvantage.load(folder)
+            np.testing.assert_allclose(with_judged.judged_for([7, 7], [1, 1], [204, 100]), [[0., .01], [.05, -.02]])
+            with self.assertRaises(ValueError):   # a root the index does not hold
+                with_judged.judged_for([7], [0], [100])
             for broken in (dict(index=dict(header["index"], rows=3)), dict(cands=dict(header["cands"], sha256="0" * 64)),
-                           dict(cands=dict(header["cands"], coarse_classes=["tap", "pass"]))):
+                           dict(cands=dict(header["cands"], coarse_classes=["tap", "pass"])),
+                           dict(halves_judged=dict(header["halves_judged"], sha256="0" * 64)),
+                           dict(halves_judged=dict(header["halves_judged"], dtype=[["a_on_b", "<f8"]]))):
                 (folder / "header.json").write_text(json.dumps(dict(header, **broken)))
                 with self.subTest(header=broken), self.assertRaises(ValueError):
                     V.SearchAdvantage.load(folder)
@@ -305,10 +318,17 @@ class SearchAdvantage(unittest.TestCase):
         self.assertLess(abs(int((both.source[half] == 1).sum()) - per[0] / 2), 6)
         with self.assertRaises(ValueError):
             V.training_roots(both, rng, train_sources=[2])
+        both.judged[:] = np.where(both.source == 0, .02, -.01)[:, None]
+        both.judged[both.source == 1, 1] = .03
         _, result = V.fit(both, kind="linear", lr=3e-2, epochs=3, batch=64, seed=1, log=lambda *_: None,
                           train_sources=[0])
         self.assertEqual(set(result["held_out_by_source"]), {"0", "1"})
         self.assertEqual(result["train_roots_by_source"], {"0": int((~small.held_out).sum()), "1": 0})
+        self.assertAlmostEqual(result["held_out_by_source"]["0"]["search_halves"]["lead_per_100_roots"], 2., places=4)
+        self.assertAlmostEqual(result["held_out_by_source"]["1"]["search_halves"]["lead_per_100_roots"], 1., places=4)
+        self.assertIsNotNone(result["held_out"]["search_halves"]["se"])
+        self.assertIsNone(V.report(small, np.zeros(len(small.cand)), np.ones(len(small.cand)), small.held_out)
+                          ["search_halves"]["lead_per_100_roots"])   # unknown without the sidecar's file
 
     def test_fit_command_picks_the_temperature_on_the_selection_half(self):
         rows = synthetic(roots=120)

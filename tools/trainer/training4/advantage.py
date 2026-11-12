@@ -71,13 +71,17 @@ SIDECAR_INDEX = np.dtype([("game", "<u4"), ("cursor", "<u4"), ("root_cursor", "<
 SIDECAR_ITEM = np.dtype([("A", "<f4"), ("SE", "<f4"), ("searched", "u1"), ("payable_added", "u1"),
                          ("cls", "u1"), ("pad", "u1")])
 MISSING = 0xFFFFFFFF
+# Optional, one row per root in the index's order: each half's choice judged on the other half's
+# worlds, over the own answer (0 where the half kept it). Their mean is the search's own
+# out-of-sample lead on those roots.
+SIDECAR_JUDGED = np.dtype([("a_on_b", "<f4"), ("b_on_a", "<f4")])
 
 
 class SearchAdvantage:
     """The sidecar, read fail-closed: every root's items tile the item file, its own item is
     searched with A = 0, and its indices lie on its menu."""
 
-    def __init__(self, index, items, header):
+    def __init__(self, index, items, header, judged=None):
         if index.dtype.itemsize != 48 or items.dtype.itemsize != 12:
             raise ValueError("Search-advantage rows have another width")
         n, offset = index["n_cand"].astype(np.int64), index["offset"].astype(np.int64)
@@ -93,7 +97,9 @@ class SearchAdvantage:
             value = index[name].astype(np.int64)
             if ((value != MISSING) & (value >= n)).any():
                 raise ValueError(f"Search-advantage {name} off the menu")
-        self.index, self.items, self.header = index, items, header
+        if judged is not None and len(judged) != len(index):
+            raise ValueError("Search-advantage judged halves and index disagree on the row count")
+        self.index, self.items, self.header, self.judged = index, items, header, judged
         self.kinds = tuple(header.get("root_kinds", header.get("kinds", ())))
         from .coarse import key
         self.keys = key(index["game"], index["seat"], index["cursor"])
@@ -109,18 +115,42 @@ class SearchAdvantage:
         at = np.minimum(np.searchsorted(sorted_keys, wanted), len(sorted_keys) - 1)
         return np.where(sorted_keys[at] == wanted, self.order[at], -1) if len(sorted_keys) else np.full(len(wanted), -1)
 
+    def judged_for(self, game, seat, root_cursor):
+        """[R, 2] (a_on_b, b_on_a) of these roots, found by their root frame; NaN without the file."""
+        if self.judged is None:
+            return np.full((len(game), 2), np.nan, dtype=np.float32)
+        from .coarse import key
+        keys = key(self.index["game"], self.index["seat"], self.index["root_cursor"])
+        order = np.argsort(keys, kind="stable")
+        if (np.diff(keys[order]) == 0).any():
+            raise ValueError("Search-advantage roots repeat a root frame: judged halves cannot be joined")
+        wanted = key(np.asarray(game), np.asarray(seat), np.asarray(root_cursor))
+        at = np.minimum(np.searchsorted(keys[order], wanted), len(order) - 1)
+        if not (keys[order][at] == wanted).all():
+            raise ValueError("A root has no row in the search-advantage index")
+        row = order[at]
+        return np.stack((self.judged["a_on_b"][row], self.judged["b_on_a"][row]), 1).astype(np.float32)
+
     @classmethod
     def load(cls, directory):
-        """`<dataset>/search-advantage/`: header.json, index.bin, cands.bin."""
+        """`<dataset>/search-advantage/`: header.json, index.bin, cands.bin, and the judged halves
+        where the header names them."""
         directory = Path(directory)
         header = json.loads((directory / "header.json").read_text())
         if header.get("contract") != SIDECAR_CONTRACT:
             raise ValueError(f"{directory} holds {header.get('contract')!r}, not {SIDECAR_CONTRACT}")
         index = np.fromfile(directory / "index.bin", dtype=SIDECAR_INDEX)
         items = np.fromfile(directory / "cands.bin", dtype=SIDECAR_ITEM)
+        files = [("index.bin", len(index), header.get("index", {})), ("cands.bin", len(items), header.get("cands", {}))]
+        judged = None
+        if "halves_judged" in header:
+            part = header["halves_judged"]
+            if [tuple(field) for field in part.get("dtype", ())] != [(n, SIDECAR_JUDGED[n].str) for n in SIDECAR_JUDGED.names]:
+                raise ValueError("Search-advantage judged halves have another layout")
+            judged = np.fromfile(directory / part.get("file", "halves-judged.bin"), dtype=SIDECAR_JUDGED)
+            files.append((part.get("file", "halves-judged.bin"), len(judged), part))
         # The header describes each file: its row count, its digest, and the names its codes index.
-        for name, rows, part in (("index.bin", len(index), header.get("index", {})),
-                                 ("cands.bin", len(items), header.get("cands", {}))):
+        for name, rows, part in files:
             if part.get("rows", rows) != rows:
                 raise ValueError(f"Search-advantage header and {name} disagree on the row count")
             if "sha256" in part and hashlib.sha256((directory / name).read_bytes()).hexdigest() != part["sha256"]:
@@ -128,7 +158,7 @@ class SearchAdvantage:
         if list(header.get("cands", {}).get("coarse_classes", CLASSES)) != list(CLASSES):
             raise ValueError("Search-advantage coarse classes are named in another order")
         kinds = header.get("index", {}).get("root_kinds", header.get("root_kinds", ()))
-        return cls(index, items, dict(header, root_kinds=list(kinds)))
+        return cls(index, items, dict(header, root_kinds=list(kinds)), judged)
 
     def labels(self, roots):
         """The root fields and item labels of `AdvantageRows` for sidecar rows `roots`, in order."""
@@ -162,6 +192,8 @@ class AdvantageRows:
         self.source = np.zeros(len(state), dtype=np.int64) if source is None else np.asarray(source, dtype=np.int64)
         if len(self.source) != len(state):
             raise ValueError("Advantage rows: one source per root")
+        # [R, 2] the sidecar's judged halves (a_on_b, b_on_a), NaN where unknown; joined at fit time.
+        self.judged = np.full((len(state), 2), np.nan, dtype=np.float32)
         n, offset = roots["n"], roots["offset"]
         if len(cand) != int(n.sum()) or not (offset == np.concatenate(([0], np.cumsum(n)[:-1]))).all():
             raise ValueError("Advantage rows: candidate offsets do not tile the candidates")
@@ -198,10 +230,12 @@ class AdvantageRows:
         shift = np.cumsum([0] + [len(p.cand) for p in parts[:-1]])
         roots = {name: np.concatenate([p.roots[name] + (s if name == "offset" else 0) for p, s in zip(parts, shift)])
                  for name in ROOT_FIELDS}
-        return cls(roots, np.concatenate([p.state for p in parts]), np.concatenate([p.cand for p in parts]),
-                   {name: np.concatenate([p.labels[name] for p in parts]) for name in CAND_FIELDS},
-                   np.concatenate([p.held_out for p in parts]), parts[0].kinds,
-                   np.concatenate([np.full(len(p.state), i, dtype=np.int64) for i, p in enumerate(parts)]))
+        out = cls(roots, np.concatenate([p.state for p in parts]), np.concatenate([p.cand for p in parts]),
+                  {name: np.concatenate([p.labels[name] for p in parts]) for name in CAND_FIELDS},
+                  np.concatenate([p.held_out for p in parts]), parts[0].kinds,
+                  np.concatenate([np.full(len(p.state), i, dtype=np.int64) for i, p in enumerate(parts)]))
+        out.judged = np.concatenate([p.judged for p in parts])
+        return out
 
     def game_key(self):
         """[R] one id per game across sources."""
@@ -397,6 +431,20 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
                                   if changed else None)
     # Where a half replaced the bundle's answer: how often the two halves agree (the label's own
     # ceiling), how often the head agrees with a half, and with the 4-world choice.
+    # The search's own held-out lead on these roots: each half's choice judged on the other half's
+    # worlds (the same denominator and game blocks as the margin sweep).
+    picked = np.flatnonzero(chosen)
+    judged = rows.judged[picked].astype(np.float64)
+    known = np.isfinite(judged).all(1)
+    if picked.size and known.all():
+        lead = judged.mean(1)
+        by_game = np.bincount(np.unique(games[picked], return_inverse=True)[1], weights=lead)
+        out["search_halves"] = dict(
+            roots=int(picked.size), lead_per_100_roots=float(lead.mean() * 100),
+            se=float(np.sqrt(len(by_game) * by_game.var(ddof=1)) / picked.size * 100) if len(by_game) > 1 else None,
+            a_on_b_per_100_roots=float(judged[:, 0].mean() * 100), b_on_a_per_100_roots=float(judged[:, 1].mean() * 100))
+    else:
+        out["search_halves"] = dict(roots=int(picked.size), unknown=int((~known).sum()), lead_per_100_roots=None)
     n_agree = agree["roots"]
     share = lambda name: agree[name] / n_agree if n_agree else None
     out["agreement"] = dict(roots=n_agree, halves_margin=HALVES_MARGIN, halves_same_answer=share("halves_agree"),
@@ -754,6 +802,8 @@ def main(argv=None):
                          help="Train on these --rows files only (0-based, comma separated); all report")
     fitting.add_argument("--equal-sources", action="store_true",
                          help="Train on about as many roots of each --rows file as the smallest gives")
+    fitting.add_argument("--no-halves-judged", dest="halves_judged", action="store_false",
+                         help="Do not join the dataset's judged halves (the search's own held-out lead)")
     fitting.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
     if args.command == "smoke":
@@ -777,10 +827,23 @@ def main(argv=None):
     sources = {p.meta.get("model_sha256") for p in parts}
     if len(sources) != 1:
         raise ValueError(f"The rows come from different nets: {sorted(map(str, sources))}")
+    judged_from = []
     for path, part in zip(args.rows, parts):
         margin = part.meta.get("sidecar", {}).get("index", {}).get("halves", {}).get("margin", HALVES_MARGIN)
         if margin != HALVES_MARGIN:
             raise ValueError(f"{path}: the halves' margin is {margin}, not {HALVES_MARGIN}")
+        # The judged halves come from the dataset's sidecar, which must still be the one captured.
+        sidecar_dir = Path(part.meta.get("data", "")) / "search-advantage"
+        if args.halves_judged and (sidecar_dir / "header.json").is_file():
+            sidecar = SearchAdvantage.load(sidecar_dir)
+            captured = part.meta.get("sidecar", {}).get("index", {}).get("sha256")
+            if captured != sidecar.header.get("index", {}).get("sha256"):
+                raise ValueError(f"{path}: the sidecar at {sidecar_dir} is not the one these rows were captured from")
+            part.judged = sidecar.judged_for(part.roots["game"], part.roots["seat"], part.roots["cursor"])
+            judged_from.append(dict(source=len(judged_from), dir=str(sidecar_dir),
+                                    sha256=sidecar.header.get("halves_judged", {}).get("sha256")))
+        else:
+            judged_from.append(dict(source=len(judged_from), dir=None, sha256=None))
     rows = AdvantageRows.concat(parts)
     train_sources = [int(s) for s in args.train_sources.split(",") if s] or None
     temperatures = [float(t) for t in args.temperatures.split(",") if t] if args.objective == "ranking" else [None]
@@ -814,6 +877,7 @@ def main(argv=None):
                 override="argmax over the scored items of score_i - score_own; play it when it exceeds margin",
                 head=args.head, hidden=args.hidden, tau=args.tau, seed=args.seed, lr=args.lr,
                 train_fraction=args.train_fraction, train_sources=train_sources, equal_sources=args.equal_sources,
+                halves_judged=judged_from,
                 # Sources are the --rows files in this order: per-source reports name them by index.
                 rows=[dict(source=i, path=str(p), sha256=hashlib.sha256(Path(p).read_bytes()).hexdigest())
                       for i, p in enumerate(args.rows)],
