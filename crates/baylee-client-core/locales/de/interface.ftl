@@ -1252,6 +1252,11 @@ PayLifeFor =
         [one] { $amount } Lebenspunkt für { $permanent } zahlen?
        *[other] { $amount } Lebenspunkte für { $permanent } zahlen?
     }
+PayLifeForTheirs =
+    { $amount ->
+        [one] { $amount } Lebenspunkt für { $permanent } von { $player } zahlen?
+       *[other] { $amount } Lebenspunkte für { $permanent } von { $player } zahlen?
+    }
 PayTax = {"{"}{ $mana }{"}"} zahlen?
 PayMana = { $cost } zahlen?
 PayManaAndLife =

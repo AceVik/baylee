@@ -97,7 +97,9 @@ pub mod glow {
     /// `card_common.wesl`'s `GLOW_*` constants are the other half of each.
     pub const REACHABLE: u32 = 1 << 23;
     /// This card is one the question this seat is answering will take: a
-    /// legal target, or a card it may choose (report 09).
+    /// legal target, or a card it may choose (report 09); or the one
+    /// permanent a yes-or-no question is about (Cleansing's land,
+    /// `Interaction::asked_about`), which is lit and takes no press.
     ///
     /// Light on the felt round the ones it will take; the rest are dimmed
     /// for as long as the question is open ([`super::veil::DIM`], the

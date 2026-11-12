@@ -1212,6 +1212,7 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
             amount: 7,
             permanent: None,
         },
+        whose: None,
     };
     assert_eq!(
         prompt.headline(Lang::En, Turn::Theirs, None, false),
@@ -1243,6 +1244,7 @@ fn a_life_payment_for_a_land_names_the_land() {
             amount: 1,
             permanent: Some(land),
         },
+        whose: None,
     };
     let names = |id: ObjectId| (id == land).then(|| "Plains".to_string());
     assert_eq!(
@@ -1257,6 +1259,82 @@ fn a_life_payment_for_a_land_names_the_land() {
         prompt.headline(Lang::En, Turn::Theirs, None, false),
         "Pay 1 life?",
         "a land the renderer cannot name"
+    );
+}
+
+/// Cleansing asks every player for every land, so the line says whose land
+/// it is where it is another player's: its controller off the view, its
+/// name off the roster (`Interaction::prompt_in`). The deciding player's own
+/// land is named alone. While it is asked the table lights that land and
+/// dims every other (`asked_about`, `leaves_out`), the other Plains of the
+/// same player too, and another seat's question lights nothing here.
+#[test]
+fn a_life_payment_for_another_players_land_says_whose_and_lights_that_land() {
+    let (roster, _) = looking_at_cards_of(1);
+    let view = crate::test_support::ViewBuilder::new(2)
+        .with_battlefield(0, [crate::test_support::token(30, 0, "Plains", 0, 0)])
+        .with_battlefield(
+            1,
+            [
+                crate::test_support::token(25, 1, "Plains", 0, 0),
+                crate::test_support::token(26, 1, "Plains", 0, 0),
+            ],
+        )
+        .build();
+    let pending = |player, land| Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: Some(land),
+        },
+        source: None,
+    };
+    let names = |id: ObjectId| view.object(id).map(|o| o.name.to_string());
+    let line = |i: &Interaction, lang| {
+        i.prompt_in(&view)
+            .headline_naming(lang, Turn::Theirs, Some(&roster), false, &names)
+    };
+
+    let theirs = interaction(pending(me(), obj(25)));
+    assert_eq!(theirs.permanent_in(&view), Some(PlayerId::new(1)));
+    assert_eq!(line(&theirs, Lang::En), "Pay 1 life for Mira's Plains?");
+    assert_eq!(
+        line(&theirs, Lang::De),
+        "1 Lebenspunkt für Plains von Mira zahlen?"
+    );
+
+    let mine = interaction(pending(me(), obj(30)));
+    assert_eq!(mine.permanent_in(&view), None, "the deciding player's own");
+    assert_eq!(line(&mine, Lang::En), "Pay 1 life for Plains?");
+    assert_eq!(line(&mine, Lang::De), "1 Lebenspunkt für Plains zahlen?");
+
+    assert_eq!(theirs.asked_about(), Some(obj(25)));
+    assert!(!theirs.leaves_out(obj(25)), "the land it is asked about");
+    assert!(
+        theirs.leaves_out(obj(26)),
+        "the other Plains of the same player"
+    );
+    assert!(
+        theirs.leaves_out(obj(30)),
+        "the deciding player's own Plains"
+    );
+
+    let elsewhere = Interaction::new(pending(PlayerId::new(1), obj(30)), me());
+    assert_eq!(elsewhere.asked_about(), None, "another seat's question");
+    assert!(!elsewhere.leaves_out(obj(25)));
+
+    let unnamed = interaction(Pending::YesNo {
+        player: me(),
+        prompt: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
+        source: None,
+    });
+    assert_eq!(unnamed.asked_about(), None);
+    assert!(
+        !unnamed.leaves_out(obj(30)),
+        "a ward's payment is about no land"
     );
 }
 
@@ -1923,6 +2001,7 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
                 amount,
                 permanent: None,
             },
+            whose: None,
         };
         assert_eq!(
             prompt.headline(Lang::En, Turn::Mine, None, false),
@@ -1980,6 +2059,7 @@ fn mixed_payment_and_untap_replacement_questions_explain_the_complete_choice() {
     let cost = baylee_core::mana::ManaCost::from_symbol_generic(2);
     let prompt = Prompt::YesNo {
         question: YesNoPrompt::PayManaAndLife { cost, life: 65_536 },
+        whose: None,
     };
     assert_eq!(
         prompt.headline(Lang::En, Turn::Mine, None, false),
