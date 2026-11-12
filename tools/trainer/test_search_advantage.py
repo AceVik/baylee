@@ -219,6 +219,25 @@ class SearchAdvantage(unittest.TestCase):
             (score,) = session.run(["score"], {"rows": rows.numpy()})
         np.testing.assert_allclose(score, head(rows).detach().numpy(), atol=1e-5)
 
+    def test_smoke_head_prefers_payable_added_items_and_says_so(self):
+        import onnxruntime
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            net = Path(temporary) / "net"
+            (net / "fp16").mkdir(parents=True)
+            (net / "fp16" / "model.onnx.json").write_text(json.dumps(dict(d_model=4, source_checkpoint_sha256="ab")))
+            out = Path(temporary) / "smoke"
+            meta = V.main(["smoke", "--model", str(net), "--out", str(out)])
+            session = onnxruntime.InferenceSession(str(out / "advantage.onnx"), providers=["CPUExecutionProvider"])
+            rows = np.random.default_rng(0).normal(size=(3, 8 + V.TAIL)).astype(np.float32)
+            rows[:, 8:] = 0.
+            rows[1, 8 + 6] = 1.                     # the second item is payable-added
+            (score,) = session.run(["score"], {"rows": rows})
+            saved = json.loads((out / "advantage.json").read_text())
+        np.testing.assert_allclose(score, [0., 1., 0.], atol=1e-6)
+        self.assertTrue(saved["smoke"] and meta["smoke"])
+        self.assertEqual((saved["margin"], saved["source_checkpoint_sha256"], saved["width"]), (0., "ab", 8 + V.TAIL))
+
     def test_fit_command_writes_the_head_and_its_contract(self):
         rows = synthetic(roots=120)
         with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()), \

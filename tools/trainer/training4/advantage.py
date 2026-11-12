@@ -540,9 +540,42 @@ def capture(args):
     return rows
 
 
+def smoke(args):
+    """A hand-set smoke head for the play path: score = payable-added (0/1), margin 0, so the
+    student plays the first payable-added macro item wherever one is offered. Not a fitted head:
+    its json says `smoke: true` and it must never be gated."""
+    export_meta = json.loads((Path(args.model).expanduser() / "fp16" / "model.onnx.json").read_text())
+    d_model, source = int(export_meta["d_model"]), export_meta["source_checkpoint_sha256"]
+    out = Path(args.out)
+    if out.exists():
+        raise FileExistsError(f"{out} exists; a head gets its own directory")
+    width = 2 * d_model + TAIL
+    head = SearchHead(width, "linear")
+    with torch.no_grad():
+        head.net.weight.zero_()
+        head.net.bias.zero_()
+        head.net.weight[0, 2 * d_model + len(CLASSES)] = 1.   # the payable-added flag
+    out.mkdir(parents=True)
+    export(head, width, out / "advantage.onnx")
+    meta = dict(contract=CONTRACT, d_model=d_model, row_tail=TAIL, width=width,
+                tail=["class:" + name for name in CLASSES] + ["payable_added", "own"],
+                source_checkpoint_sha256=source, margin=0.0, head="linear", smoke=True,
+                note="SMOKE HEAD, hand-set: score = payable_added; tests the play path only, never gate it",
+                rows_layout="[state_emb (d) | cand_emb (d) | tail], float32; tail: coarse_class_v1 one-hot "
+                            "(all zero for an unknown class), payable_added 0/1, own 0/1",
+                override="argmax over the scored items of score_i - score_own; play it when it exceeds margin",
+                onnx_sha256=hashlib.sha256((out / "advantage.onnx").read_bytes()).hexdigest())
+    (out / "advantage.json").write_text(json.dumps(meta, indent=1))
+    print("[advantage] smoke head " + json.dumps(dict(out=str(out), d_model=d_model, source=source)), flush=True)
+    return meta
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
+    smoking = commands.add_parser("smoke", help="A hand-set head for testing the play path")
+    smoking.add_argument("--model", required=True, help="The net's directory (its fp16/model.onnx.json)")
+    smoking.add_argument("--out", required=True)
     grabbing = commands.add_parser("capture")
     grabbing.add_argument("--data", required=True, help="A converted dataset with search-advantage-menus and its sidecar")
     grabbing.add_argument("--model", required=True, help="The frozen net (r1)")
@@ -574,6 +607,8 @@ def main(argv=None):
     fitting.add_argument("--seed", type=int, required=True)
     fitting.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
+    if args.command == "smoke":
+        return smoke(args)
     if args.command == "capture":
         args.splits = tuple(s for s in args.splits.split(",") if s)
         return capture(args)
