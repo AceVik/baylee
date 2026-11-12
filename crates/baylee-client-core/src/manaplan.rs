@@ -466,9 +466,25 @@ impl Plan {
 /// one ([`Source::converter`]); its plan's steps are in the order they must
 /// be sent, and one that spends a floating mana planned for the spell is not
 /// answered.
+///
+/// Floating mana pays the pips of its own colour where lands can pay the
+/// rest, and of the permanents that could pay, the ones least worth keeping
+/// are tapped ([`spare`]): `{3}{U}{G}` over a floating `{U}{G}` taps three
+/// Forests and keeps the Island the hand's blue needs.
 #[must_use]
 pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
-    plain_plan(cost, pool, sources).or_else(|| convert::plan(cost, pool, sources))
+    plain_plan(cost, pool, sources, Settle::Spare).or_else(|| convert::plan(cost, pool, sources))
+}
+
+/// [`plan`] as the frozen house reads it (`docs/house-ai.md` §"The frozen
+/// reference"; every pinned generation): the matching and its
+/// consolidation, with no tapped permanent traded for one worth less
+/// ([`spare`], Carbon b4, 12.11.2026). Whether a cost plans at all is the
+/// same answer as [`plan`]'s; only which permanents it taps may differ, and
+/// the house taps what it tapped when it was frozen.
+#[must_use]
+pub fn plan_frozen(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+    plain_plan(cost, pool, sources, Settle::Frozen).or_else(|| convert::plan(cost, pool, sources))
 }
 
 /// Mana that may pay the cost being planned and nothing else on the way:
@@ -507,8 +523,13 @@ pub fn plan_earmarked(
 ) -> Option<Plan> {
     let mut plain = *pool;
     plain.restricted = [0; 6];
-    plain_plan(cost, &with_floating(&plain, &earmarked.floating), sources)
-        .or_else(|| convert::earmarked(cost, &plain, earmarked, sources))
+    plain_plan(
+        cost,
+        &with_floating(&plain, &earmarked.floating),
+        sources,
+        Settle::Spare,
+    )
+    .or_else(|| convert::earmarked(cost, &plain, earmarked, sources))
 }
 
 /// `pool` with `floating` added to its unrestricted counts.
@@ -523,7 +544,12 @@ pub fn with_floating(pool: &ManaPoolView, floating: &[u32; 6]) -> ManaPoolView {
 }
 
 /// [`plan`] with no paid mana ability among its answers.
-fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+fn plain_plan(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    settle: Settle,
+) -> Option<Plan> {
     let pours: Vec<usize> = sources
         .iter()
         .enumerate()
@@ -531,7 +557,7 @@ fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Optio
         .map(|(index, _)| index)
         .collect();
     if pours.is_empty() || pours.len() > MAX_POURS {
-        return plan_once(cost, pool, sources);
+        return plan_once(cost, pool, sources, settle);
     }
     // Every reading at once: `None` keeps a permanent's one-mana reading,
     // `Some(c)` names the colour all of its mana is poured in.
@@ -576,7 +602,7 @@ fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Optio
                 narrowed[index].dear = None;
             }
         }
-        let Some(mut found) = plan_once(cost, pool, &narrowed) else {
+        let Some(mut found) = plan_once(cost, pool, &narrowed, settle) else {
             continue;
         };
         // The engine still asks such a permanent its colour: narrowing it
@@ -792,7 +818,12 @@ fn twobrid_readings(cost: &ManaCost) -> Vec<Twobrid> {
 }
 
 /// [`plan`] for one reading of every source.
-fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+fn plan_once(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    settle: Settle,
+) -> Option<Plan> {
     // `{2/C}` reads two ways and only the player knows which they meant, so
     // each symbol is tried both ways, the coloured halves first (one mana,
     // not two). Everything else has a single reading.
@@ -802,7 +833,7 @@ fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
-        if let Some(found) = assign(&needs, pool, sources, false) {
+        if let Some(found) = assign(&needs, pool, sources, false, settle) {
             return Some(Plan {
                 cost: *cost,
                 ..found
@@ -820,7 +851,7 @@ fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
-        if let Some(found) = assign(&needs, pool, sources, true) {
+        if let Some(found) = assign(&needs, pool, sources, true, settle) {
             return Some(Plan {
                 cost: *cost,
                 ..found
@@ -1048,12 +1079,16 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
 /// An order is per pip, though, and a plan is per permanent, so the matching
 /// is followed by [`consolidate`]: price first would otherwise tap the Tower
 /// *and* the Tomb for `{2}`, where the Tomb alone pays it and costs the same
-/// two damage.
+/// two damage. And an augmenting path moves a pip to the next unit in that
+/// order whatever it is worth, so with [`Settle::Spare`] each consolidation
+/// is followed by [`spare`], which trades a tapped permanent for an untapped
+/// one worth less wherever the rest still pays.
 fn assign(
     needs: &[ColorMask],
     pool: &ManaPoolView,
     sources: &[Source],
     widen: bool,
+    settle: Settle,
 ) -> Option<Plan> {
     let units = units(pool, sources, needs.len(), widen);
     // A widened permanent is priced for every pip: the matcher cannot price
@@ -1090,8 +1125,136 @@ fn assign(
         }
     }
 
-    consolidate(needs, &units, &mut taken, sources, &priced);
+    let rank = |source: usize| {
+        (
+            priced(source),
+            sources[source].preserve,
+            mask_of(&sources[source].colors).count(),
+        )
+    };
+    loop {
+        consolidate(needs, &units, &mut taken, sources, &priced);
+        if settle == Settle::Frozen || !spare(needs, &units, &mut taken, &order, &rank) {
+            break;
+        }
+    }
     Some(steps(needs, &units, &taken, sources, widen))
+}
+
+/// How a matching settles which of the permanents that could pay a pip is
+/// tapped, once every pip has a unit.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Settle {
+    /// [`consolidate`] and then [`spare`], until neither changes the plan.
+    Spare,
+    /// [`consolidate`] alone: the matching as the frozen house reads it
+    /// ([`plan_frozen`]).
+    Frozen,
+}
+
+/// What a permanent is worth keeping untapped, in the matcher's terms:
+/// clean before priced, then [`Source::preserve`], then the colours it makes.
+type Rank = (bool, u32, u32);
+
+/// Trades one tapped permanent for an untapped one ranked below it, where
+/// the rest of the plan still pays: `true` when it made a trade.
+///
+/// The matching reaches for floating mana first, pip by pip, and an
+/// augmenting path frees a unit by moving the pip that holds it on to the
+/// next unit in the order, whatever that unit is worth. With `{U}{G}`
+/// floating and `{3}{U}{G}` owed, the floating blue and green went to the
+/// generic pips, the `{U}` moved onto the only Island and the `{G}` onto a
+/// Forest, and two Forests stayed untapped where three paid the `{3}` and
+/// the Island was the one blue source a `{U}{G}` card in hand needed (Carbon
+/// b4, attempt 4, q247). The order ranks units, and the plan is the
+/// permanents it taps.
+///
+/// So the dearest tapped permanent is offered the cheapest untapped one
+/// ranked below it ([`Rank`]): its pips are taken off it and matched again
+/// over the floating mana, the permanents the plan taps anyway and the one
+/// offered, and nothing else. A trade that pays every pip, and spends no
+/// less of the floating mana, is kept. Each one puts a lower-ranked
+/// permanent in a higher-ranked one's place, or none in it, so the rounds
+/// end; every pip is matched to a unit whose colours fit it, so the plan
+/// stays a plan, and the taps never grow.
+fn spare(
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &mut [Option<usize>],
+    order: &[usize],
+    rank: &dyn Fn(usize) -> Rank,
+) -> bool {
+    let tapped: BTreeSet<usize> = units
+        .iter()
+        .zip(taken.iter())
+        .filter_map(|(unit, holder)| holder.and(unit.from))
+        .collect();
+    let mut dear: Vec<usize> = tapped.iter().copied().collect();
+    dear.sort_by_key(|&source| std::cmp::Reverse((rank(source), source)));
+    let mut cheap: Vec<usize> = units
+        .iter()
+        .filter_map(|unit| unit.from)
+        .filter(|source| !tapped.contains(source))
+        .collect::<BTreeSet<usize>>()
+        .into_iter()
+        .collect();
+    cheap.sort_by_key(|&source| (rank(source), source));
+    let floating = |taken: &[Option<usize>]| {
+        units
+            .iter()
+            .zip(taken)
+            .filter(|(unit, holder)| unit.from.is_none() && holder.is_some())
+            .count()
+    };
+    let spent = floating(taken);
+    for &given in &dear {
+        for &offered in cheap.iter().take_while(|&&c| rank(c) < rank(given)) {
+            let Some(trial) = trade(given, offered, needs, units, taken, order, &tapped) else {
+                continue;
+            };
+            if floating(&trial) >= spent {
+                taken.copy_from_slice(&trial);
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// The matching with `given`'s pips matched again over the floating mana,
+/// the permanents in `tapped` but `given`, and `offered`; `None` when one of
+/// them finds no place there.
+fn trade(
+    given: usize,
+    offered: usize,
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &[Option<usize>],
+    order: &[usize],
+    tapped: &BTreeSet<usize>,
+) -> Option<Vec<Option<usize>>> {
+    let open = |unit: usize| {
+        units[unit]
+            .from
+            .is_none_or(|source| source == offered || (source != given && tapped.contains(&source)))
+    };
+    let fits =
+        |demand: usize, unit: usize| open(unit) && needs[demand].overlaps(units[unit].colors);
+    let mut trial = taken.to_vec();
+    let mut freed: Vec<usize> = units
+        .iter()
+        .zip(trial.iter_mut())
+        .filter(|(unit, _)| unit.from == Some(given))
+        .filter_map(|(_, holder)| holder.take())
+        .collect();
+    freed.sort_by_key(|&demand| needs[demand].count());
+    for demand in freed {
+        let mut seen = vec![false; units.len()];
+        if !augment(demand, &fits, order, &mut trial, &mut seen) {
+            return None;
+        }
+    }
+    Some(trial)
 }
 
 /// Gives back every tap whose mana the rest of the plan already makes.
@@ -1189,8 +1352,8 @@ fn augment<F: Fn(usize, usize) -> bool>(
     demand: usize,
     fits: &F,
     order: &[usize],
-    taken: &mut Vec<Option<usize>>,
-    seen: &mut Vec<bool>,
+    taken: &mut [Option<usize>],
+    seen: &mut [bool],
 ) -> bool {
     for &unit in order {
         if seen[unit] || !fits(demand, unit) {
@@ -1516,6 +1679,102 @@ mod tests {
                     .is_empty()
             );
         }
+    }
+
+    /// Carbon b4, attempt 4, q247: Nimbus Swimmer at X = 3 owed `{3}{U}{G}`
+    /// over a floating `{U}{G}`, beside Forests #87, #85, #81, #82 and Island
+    /// #100, with Double Major (`{G}{U}`) in hand. The pool pays its own
+    /// colours and three Forests the `{3}` (CR 601.2g, 601.2h, 107.3a); the
+    /// one plan the seat was offered tapped two Forests and the Island,
+    /// because the matching gave the floating mana to the generic pips and
+    /// moved `{U}` onto the Island. The frozen house's reading still does,
+    /// and taps what it tapped when it was frozen.
+    #[test]
+    fn floating_mana_pays_its_own_colours_and_the_scarce_land_stays_untapped() {
+        use crate::test_support::{ViewBuilder, token};
+        let land_object = |id: u32, name: &str| {
+            let mut object = token(id, 0, name, 0, 0);
+            object.types = baylee_core::types::TypeSet::LAND;
+            object
+        };
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    land_object(87, "Forest"),
+                    land_object(85, "Forest"),
+                    land_object(81, "Forest"),
+                    land_object(82, "Forest"),
+                    land_object(100, "Island"),
+                ],
+            )
+            .build();
+        let mut sources = vec![
+            land(87, ManaColor::Green),
+            land(85, ManaColor::Green),
+            land(81, ManaColor::Green),
+            land(82, ManaColor::Green),
+            land(100, ManaColor::Blue),
+        ];
+        prioritize(&mut sources, &view, &[cost("{G}{U}")], &|_| {
+            baylee_cards_dsl::UseBeyondMana::Nothing
+        });
+        let pool = ManaPoolView {
+            blue: 1,
+            green: 1,
+            ..empty()
+        };
+        let owed = cost("{3}{U}{G}");
+        let found = plan(&owed, &pool, &sources).expect("three Forests and the pool pay it");
+        assert_eq!(found.taps(), 3);
+        assert!(
+            !tapped(&found).contains(&100),
+            "the Island stays untapped: {:?}",
+            tapped(&found)
+        );
+        let frozen = plan_frozen(&owed, &pool, &sources).expect("the same cost plans");
+        assert_eq!(frozen.taps(), 3);
+        assert!(
+            tapped(&frozen).contains(&100),
+            "the frozen reading is the record's plan, two Forests and the Island: {:?}",
+            tapped(&frozen)
+        );
+        // Whatever order the lands come in.
+        sources.reverse();
+        let found = plan(&owed, &pool, &sources).expect("payable");
+        assert_eq!(found.taps(), 3);
+        assert!(!tapped(&found).contains(&100), "{:?}", tapped(&found));
+    }
+
+    /// The trade never makes a plan dearer: a floating `{U}` with nothing in
+    /// hand asking for blue and an Island beside two Forests paying `{2}{U}`
+    /// spends the pool on the `{U}` and two Forests on the `{2}`; with a
+    /// priced land the only other source, the clean one is kept tapped
+    /// rather than traded for it; and nothing is traded away from a cost
+    /// only the scarce land pays.
+    #[test]
+    fn the_trade_keeps_the_pool_spent_and_never_reaches_for_a_priced_land() {
+        let pool = ManaPoolView { blue: 1, ..empty() };
+        let mut island = land(3, ManaColor::Blue);
+        island.preserve = 50;
+        let sources = [land(1, ManaColor::Green), land(2, ManaColor::Green), island];
+        let found = plan(&cost("{2}{U}"), &pool, &sources).expect("payable");
+        assert_eq!(tapped(&found), [1, 2]);
+        assert_eq!(
+            tapped(&plan(&cost("{2}{U}{U}"), &pool, &sources).expect("payable")),
+            [1, 2, 3],
+            "the second blue needs the Island"
+        );
+        let tomb = Source {
+            priced: true,
+            ..land(4, ManaColor::Colorless)
+        };
+        let sources = [land(1, ManaColor::Green), tomb];
+        assert_eq!(
+            tapped(&plan(&cost("{1}{U}"), &pool, &sources).expect("payable")),
+            [1],
+            "the Forest pays the {{1}}, not the priced land"
+        );
     }
 
     #[test]

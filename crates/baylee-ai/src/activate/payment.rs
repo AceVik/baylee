@@ -68,7 +68,7 @@ pub(super) fn reachable(
         let reachable = pool
             .total()
             .saturating_add(sources.iter().map(|s| u64::from(s.amount)).sum());
-        u64::from(cost.cmc()) <= reachable && manaplan::plan(&cost, pool, &sources).is_some()
+        u64::from(cost.cmc()) <= reachable && manaplan::plan_frozen(&cost, pool, &sources).is_some()
     };
     affordable(&pool)
         || (!spends_life

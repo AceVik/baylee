@@ -16,7 +16,7 @@ pub(crate) fn pay_fixed(
 ) -> Option<PlayerAction> {
     let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
     let (grant, pool) = planned_pool(view, legal)?;
-    let plan = manaplan::plan(cost, &pool, sources)?;
+    let plan = manaplan::plan_frozen(cost, &pool, sources)?;
     if let Some(step) = plan.steps.first() {
         return Some(match step.tap {
             Tap::Intrinsic => PlayerAction::ActivateManaAbility {
@@ -28,7 +28,7 @@ pub(crate) fn pay_fixed(
             },
         });
     }
-    if manaplan::plan(cost, &seat.mana_pool, &[]).is_some() {
+    if manaplan::plan_frozen(cost, &seat.mana_pool, &[]).is_some() {
         return None;
     }
     Some(PlayerAction::TakeGrantedAction { id: grant })
@@ -89,7 +89,7 @@ pub(crate) fn protect(
         else {
             return None;
         };
-        if amount == 0 || cost.cmc() != 1 || manaplan::plan(&cost, pool, &[]).is_none() {
+        if amount == 0 || cost.cmc() != 1 || manaplan::plan_frozen(&cost, pool, &[]).is_none() {
             return None;
         }
         let friendly = match target {
@@ -127,7 +127,7 @@ pub(crate) fn viable_cast(
     let Some(seat) = view.seat(baylee_client_core::decision::resource_player(view)) else {
         return false;
     };
-    manaplan::plan(cost, &seat.mana_pool, sources).is_some()
+    manaplan::plan_frozen(cost, &seat.mana_pool, sources).is_some()
         || planned_pool(view, legal)
-            .is_some_and(|(_, future)| manaplan::plan(cost, &future, sources).is_some())
+            .is_some_and(|(_, future)| manaplan::plan_frozen(cost, &future, sources).is_some())
 }

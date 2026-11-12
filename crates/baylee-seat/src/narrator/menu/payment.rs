@@ -19,6 +19,14 @@
 //! - the generic part paid in colours the cost does not name, most colours
 //!   first, only where the taps and the pool make exactly what is owed (so
 //!   every unit is spent and the colours tapped are the colours spent);
+//! - the cost paid leaving other mana untapped: for each kind of source the
+//!   first plan leaves standing, the plan that taps that kind first, where
+//!   what it leaves differs. The planner keeps the colour the hand needs most
+//!   (`manaplan::prioritize`), and the seat cannot choose lands itself, so
+//!   it is shown the other way too: `{3}{U}{G}` over a floating `{U}{G}` is
+//!   paid by three Forests, keeping an Island and a Forest, or by two
+//!   Forests and the Island, keeping two Forests (Carbon b4, attempt 4,
+//!   q247);
 //! - the cost paid without one nonbasic land the first plan taps.
 
 use baylee_client_core::manaplan::{self, Plan, Source};
@@ -32,8 +40,9 @@ use baylee_view::{ManaPoolView, PlayerView};
 pub(super) const OTHERS: usize = 3;
 
 /// Plans other than `first` that pay `owed` from `pool` and `sources`, in
-/// the order they are listed: by colour, then without a nonbasic land; no
-/// two tap the same sources for the same colours, and none is `first`.
+/// the order they are listed: by colour, then leaving other mana untapped,
+/// then without a nonbasic land; no two tap the same sources for the same
+/// colours, and none is `first`.
 pub(super) fn others(
     view: &PlayerView,
     owed: &ManaCost,
@@ -59,6 +68,9 @@ pub(super) fn others(
             colours_seen.push(made);
             keep(plan, &mut out);
         }
+    }
+    for plan in leaving_other_mana(owed, pool, sources, first) {
+        keep(plan, &mut out);
     }
     for step in &first.steps {
         let basic = view
@@ -120,6 +132,72 @@ fn by_colour(owed: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Vec<Pl
         )
     });
     plans
+}
+
+/// What a source makes, as the seat reads what is left up: its colours and
+/// how much one tap makes.
+type Kind = (Vec<usize>, u8);
+
+fn kind(source: &Source) -> Kind {
+    let mut colours: Vec<usize> = source.colors.iter().map(|c| c.index()).collect();
+    colours.sort_unstable();
+    colours.dedup();
+    (colours, source.amount)
+}
+
+/// The kinds of the sources `plan` leaves untapped, sorted: two plans that
+/// leave the same kinds standing leave the same mana up.
+fn left_up(plan: &Plan, sources: &[Source]) -> Vec<Kind> {
+    let mut left: Vec<Kind> = sources
+        .iter()
+        .filter(|source| !plan.steps.iter().any(|step| step.source == source.id))
+        .map(kind)
+        .collect();
+    left.sort_unstable();
+    left
+}
+
+/// For each kind of source `first` leaves untapped, in source order, the
+/// plan that taps sources of that kind ahead of every other (they are made
+/// the least worth keeping, `Source::preserve`), where it leaves other mana
+/// up than `first` and the plans before it.
+fn leaving_other_mana(
+    owed: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    first: &Plan,
+) -> Vec<Plan> {
+    let mut seen = vec![left_up(first, sources)];
+    let mut kinds: Vec<Kind> = Vec::new();
+    for source in sources {
+        let standing = !first.steps.iter().any(|step| step.source == source.id);
+        if standing && !kinds.contains(&kind(source)) {
+            kinds.push(kind(source));
+        }
+    }
+    let mut out = Vec::new();
+    for wanted in kinds {
+        let ranked: Vec<Source> = sources
+            .iter()
+            .map(|source| Source {
+                preserve: if kind(source) == wanted {
+                    0
+                } else {
+                    source.preserve.saturating_add(1 << 24)
+                },
+                ..source.clone()
+            })
+            .collect();
+        let Some(plan) = manaplan::plan(owed, pool, &ranked).filter(|p| !p.steps.is_empty()) else {
+            continue;
+        };
+        let left = left_up(&plan, sources);
+        if !seen.contains(&left) {
+            seen.push(left);
+            out.push(plan);
+        }
+    }
+    out
 }
 
 /// Whether `plan`'s taps and the pool make exactly the mana `owed` costs:

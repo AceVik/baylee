@@ -361,7 +361,7 @@ fn to_main(session: &mut Session, turn: u32) {
 
 /// The option `menu` lists whose words start with `label`, as the model
 /// would pick it.
-fn picked(request: &Request, label: &str) -> Act {
+pub(super) fn picked(request: &Request, label: &str) -> Act {
     let menu = Narrator::new(&request.context).menu(request);
     let id = menu
         .offered()
@@ -380,7 +380,7 @@ fn picked(request: &Request, label: &str) -> Act {
 }
 
 /// Sends an option's taps and its action as the bridge does.
-fn send(session: &mut Session, act: Act) {
+pub(super) fn send(session: &mut Session, act: Act) {
     match act {
         Act::Now(action) => {
             session

@@ -3943,3 +3943,32 @@ path is frozen in `sharp-2026-11`, pinned by generation, and changes play, so
 the reading goes behind a profile field the reference does not set: suspend
 from `suspendable` and from `unpaid_suspend` through the same planner, as the
 seat does.
+
+### 75. The house taps the land with the scarce colour where floating mana and plain lands pay — KNOWN, for the house's next generation
+
+From Carbon's block 4 reports, 12.11.2026 (segment 2, attempt 4, seat 1,
+q247). `{3}{U}{G}` owed over a floating `{U}{G}`, beside four Forests and an
+Island, with Double Major (`{G}{U}`) in hand: the language-model seat was
+offered one plan, two Forests and the Island, which left no blue. The matching
+reaches for floating mana first, pip by pip, and Kuhn's augmenting path frees
+a unit by moving the pip that holds it on to the next unit in its order,
+whatever that unit is worth, so the floating blue and green paid generic mana
+and `{U}` moved onto the Island (CR 601.2g, 601.2h).
+
+`manaplan::plan` now follows the matching with `spare`: the dearest tapped
+permanent is traded for the cheapest untapped one ranked below it (clean
+before priced, then `Source::preserve`, then fewer colours) wherever the rest
+still pays, spending no less of the floating mana. The client, the seat,
+BayleeAI's menu and everything through `baylee_ai::spend` plan that way; the
+seat's payment window also lists the plan that leaves other mana up
+(`narrator/menu/payment.rs`).
+
+The house's path is frozen in `sharp-2026-11` and pinned by generation, and
+it taps one step at a time and plans again, so it meets floating mana before
+nearly every cast it taps for. Every `manaplan::plan` call of `baylee_ai`'s
+`policy`, `granted`, `activate/payment` and `worth/permissions` is now
+`manaplan::plan_frozen`, which is the matching without the trade: the same
+answer to whether a cost is paid, and the taps it made when it was frozen.
+The house's next generation moves to `manaplan::plan` behind a profile field
+the reference does not set (`policy::spend_on`, `pay_owed`,
+`activation_plan`).

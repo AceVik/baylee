@@ -5603,6 +5603,20 @@ unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
 
+An order ranks units and a plan is the permanents it taps, and an augmenting
+path frees a unit by moving the pip that holds it on to the next unit in the
+order, whatever that unit is worth. With `{U}{G}` floating and `{3}{U}{G}`
+owed, the floating mana went to the generic pips and the `{U}` moved onto the
+only Island, where three Forests paid the `{3}` and a `{G}{U}` card in hand
+needed the blue (Carbon b4, 12.11.2026). So each consolidation is followed by
+`spare`, which offers the dearest tapped permanent the cheapest untapped one
+ranked below it (clean before priced, then `Source::preserve`, then fewer
+colours), matches its pips again over the floating mana, what the plan taps
+anyway and the one offered, and keeps a trade that pays every pip and spends
+no less of the floating mana. The taps never grow and payability does not
+move. The frozen house plans without it (`manaplan::plan_frozen`,
+`docs/observed-faults.md` entry 75).
+
 A paid mana ability (a filter land's or a Signet's `{1}, {T}`) is a trade and
 not a source, and the matcher above never sees one. `manaplan/convert.rs` is
 asked only when it has said no, so a board that planned before plans the same

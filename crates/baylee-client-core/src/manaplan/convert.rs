@@ -412,7 +412,13 @@ fn holds(
         };
         floating = after;
     }
-    super::plain_plan(cost, &with_floating(&floating, earmarked), &[]).is_some()
+    super::plain_plan(
+        cost,
+        &with_floating(&floating, earmarked),
+        &[],
+        super::Settle::Spare,
+    )
+    .is_some()
 }
 
 /// The pool once `step` is made: what a converter spends taken out, and what

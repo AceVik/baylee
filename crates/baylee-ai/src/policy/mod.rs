@@ -389,7 +389,9 @@ impl HeuristicAgent {
             .min(u32::try_from(reachable).unwrap_or(u32::MAX));
         while lower < upper {
             let x = lower + (upper - lower).div_ceil(2);
-            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some() && allowed(x) {
+            if manaplan::plan_frozen(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
+                && allowed(x)
+            {
                 lower = x;
             } else {
                 upper = x - 1;
@@ -956,7 +958,7 @@ impl HeuristicAgent {
                     continue;
                 }
                 let cost = spell_cost(view, id, f);
-                let Some(plan) = manaplan::plan(&cost, &pool, &sources) else {
+                let Some(plan) = manaplan::plan_frozen(&cost, &pool, &sources) else {
                     continue;
                 };
                 let quality = (
@@ -1178,11 +1180,11 @@ impl HeuristicAgent {
             }
             let spell_harm = self.spell_total_harm(view, Some(id), card, f);
             let action = if legal.castable.contains(&id)
-                && (!floats_first || manaplan::plan(&cost, pool, &[]).is_some())
+                && (!floats_first || manaplan::plan_frozen(&cost, pool, &[]).is_some())
             {
                 PlayerAction::CastSpell { card: id }
             } else {
-                let Some(plan) = manaplan::plan(&cost, pool, sources) else {
+                let Some(plan) = manaplan::plan_frozen(&cost, pool, sources) else {
                     continue;
                 };
                 if !plan_survives(view, &plan.steps, spell_harm) {
@@ -2337,7 +2339,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
     }
     let seat = view.seat(resource_player(view))?;
     let sources = sources(view, legal);
-    let normal = manaplan::plan(&owed, &seat.mana_pool, &sources);
+    let normal = manaplan::plan_frozen(&owed, &seat.mana_pool, &sources);
     if normal.is_none() && matches!(view.owed, Some(ManaPayment::Fixed(_))) {
         return crate::granted::pay_fixed(view, legal, &owed, &sources);
     }
@@ -2345,7 +2347,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
         // Partial prevention still helps when the full amount is unreachable.
         if matches!(view.owed, Some(ManaPayment::AnyAmount { .. })) {
             let one_more = seat.mana_pool.total() - seat.mana_pool.restricted_total() + 1;
-            manaplan::plan(
+            manaplan::plan_frozen(
                 &ManaCost::from_symbol_generic(u32::try_from(one_more).ok()?),
                 &seat.mana_pool,
                 &sources,
@@ -2397,7 +2399,7 @@ fn owed_color(view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
         .copied()
         .filter(|&color| {
             one_more(seat.mana_pool, color)
-                .is_some_and(|pool| manaplan::plan(&owed, &pool, &sources).is_some())
+                .is_some_and(|pool| manaplan::plan_frozen(&owed, &pool, &sources).is_some())
         })
         .collect();
     if keeps.len() == options.len() {
@@ -2914,7 +2916,7 @@ fn activation_plan(
     source: ObjectId,
     reserved: bool,
 ) -> Option<manaplan::Plan> {
-    if let Some(plan) = manaplan::plan(cost, pool, plain) {
+    if let Some(plan) = manaplan::plan_frozen(cost, pool, plain) {
         return Some(plan);
     }
     if restricted.is_empty() {
@@ -2944,7 +2946,7 @@ fn activation_plan(
         .cloned()
         .collect();
     all.push(best.source.clone());
-    manaplan::plan(cost, pool, &all)
+    manaplan::plan_frozen(cost, pool, &all)
 }
 
 /// Whether `id` may be tapped for: the engine lists it as castable once paid
@@ -3104,7 +3106,7 @@ fn aim(
                     return None;
                 }
                 let cost = cost.with_x(x);
-                manaplan::plan(&cost, pool, sources)
+                manaplan::plan_frozen(&cost, pool, sources)
                     .is_some()
                     .then_some(cost)
             })
@@ -3112,7 +3114,7 @@ fn aim(
         return (x, true);
     }
     let fits = |net: &baylee_core::mana::ManaCost| {
-        net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some()
+        net.cmc() <= budget && manaplan::plan_frozen(net, pool, sources).is_some()
     };
     if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
         return (net, true);
@@ -3257,7 +3259,8 @@ pub(crate) fn buys_back(
     face(card)
         .and_then(|f| f.buyback)
         .is_some_and(|buyback| buyback_parts_worth(view, buyback.parts, card))
-        && manaplan::plan(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[]).is_some()
+        && manaplan::plan_frozen(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[])
+            .is_some()
 }
 
 /// The answer to `NumberPrompt::Multikicker`: as far as the floating pool
@@ -3281,7 +3284,8 @@ pub(crate) fn multikicks(
         .rev()
         .find(|n| {
             kicks_safely(view, context.effects, *n, seat.library_count)
-                && manaplan::plan(&spell.combine_n(&each, *n), &seat.mana_pool, &[]).is_some()
+                && manaplan::plan_frozen(&spell.combine_n(&each, *n), &seat.mana_pool, &[])
+                    .is_some()
         })
         .unwrap_or(min)
 }
@@ -3402,7 +3406,7 @@ pub(crate) fn kicks(
     identity(view, id)
         .and_then(face)
         .and_then(|f| kicked_price(view, f, context.effects, cost.with_x(context.x), &[]))
-        .is_some_and(|net| manaplan::plan(&net, &seat.mana_pool, &[]).is_some())
+        .is_some_and(|net| manaplan::plan_frozen(&net, &seat.mana_pool, &[]).is_some())
 }
 
 /// The permanents to tap for a convoke or waterbend question: as few as the
@@ -3483,7 +3487,7 @@ fn taps_needed(
     (0..=taps.len()).find(|&n| {
         let (rest, colored) = total.convoked_colored(&colors[..n]);
         let generic = u32::try_from(n).unwrap_or(u32::MAX).saturating_sub(colored);
-        manaplan::plan(&rest.with_less_generic(generic), pool, &[]).is_some()
+        manaplan::plan_frozen(&rest.with_less_generic(generic), pool, &[]).is_some()
     })
 }
 
@@ -3668,7 +3672,7 @@ fn refusing_costs_a_card(effect: &Effect) -> bool {
 /// exists yet.
 pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
     view.seat(resource_player(view)).is_some_and(|seat| {
-        manaplan::plan(cost, &seat.mana_pool, &remaining_sources(view)).is_some()
+        manaplan::plan_frozen(cost, &seat.mana_pool, &remaining_sources(view)).is_some()
     })
 }
 
@@ -3699,7 +3703,7 @@ fn deferred_price(
 }
 
 pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
-    manaplan::plan(
+    manaplan::plan_frozen(
         cost,
         &baylee_view::ManaPoolView::default(),
         &own_sources(view, false),
