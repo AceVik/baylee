@@ -11918,6 +11918,21 @@ chosen").
   now dimmed too, for as long as the question is open ("A passing state lies
   on the print", below). A press on one the choice will not take answers
   nothing, as it did (`activate_card` falls through to `Answer::Refused`).
+- **A question about one permanent lights it (protocol 45, the owner,
+  12.11.2026).** Cleansing ("for each land, destroy that land unless any
+  player pays 1 life") asks land by land (CR 608.2d), and since protocol 45
+  `YesNoPrompt::PayLife` names the land (`permanent`). While this seat's
+  question is open that land wears `CHOOSABLE`'s light and every other
+  permanent is dimmed (`Interaction::asked_about`, `leaves_out`), so the
+  light walks from land to land as the questions come; a press on it
+  answers nothing, the question is answered on the shelf. The line names the
+  land and, where it is another player's, whose: its controller off the
+  view (`Interaction::prompt_in`, `Prompt::YesNo::whose`), named by
+  `i18n::seat_name` — "Pay 1 life for Mira's Plains?" / "1 Lebenspunkt für
+  Plains von Mira zahlen?", the seat's own land by its name alone
+  (`PayLifeFor`, `PayLifeForTheirs`). `/state` gives the land as
+  `interaction.asked_about`. A life payment about no permanent (ward, a
+  resolving "you may pay N life") lights and dims nothing, as before.
 - **A passing state lies on the print (the owner, 13.10.2026).** A state
   that comes and goes with the game is one term in each card shader after
   the finish (`card_common.wesl`'s `veiled`), weighed by the card's

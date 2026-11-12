@@ -3610,6 +3610,11 @@ PayLife = Pay { $amount } life?
 # Arguments: amount, permanent
 PayLifeFor = Pay { $amount } life for { $permanent }?
 
+# The same life payment for another player's permanent, named with whose it is
+# ($player, the seat's name): Cleansing asks every player for every land.
+# Arguments: amount, permanent, player
+PayLifeForTheirs = Pay { $amount } life for { $player }'s { $permanent }?
+
 # Pay {$mana}?
 # Arguments: mana
 PayTax = Pay {"{"}{ $mana }{"}"}?
