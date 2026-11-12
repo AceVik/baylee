@@ -111,7 +111,7 @@ impl HeuristicAgent {
                 }
                 continue;
             }
-            let side = baylee_engine::target_side::effects_side(effects, 0);
+            let side = self.side_of(effects);
             let Some(aims) = self.aims(view, origin, &req.spec) else {
                 continue;
             };
@@ -155,5 +155,106 @@ impl HeuristicAgent {
             }
         }
         values.iter().all(|value| *value <= 0)
+    }
+}
+
+/// What `effect` does to what it names where the shared reader
+/// (`baylee_engine::target_side`) has no sign for it, summed through what
+/// the effect runs inside itself: a regeneration shield helps, a creature
+/// set to a body of four or more points helps and to a smaller one hurts
+/// ("becomes a 4/4" against "becomes a 0/1"), a permanent made a creature
+/// is this seat's own to make, and a player made to discard is hurt by each
+/// card. Zero for everything else.
+fn unread_benefit(effect: &Effect) -> i32 {
+    use baylee_cards_dsl::{Modifier, PlayerRel};
+    let own = match effect {
+        Effect::Regenerate { .. } => 1,
+        Effect::CreateContinuousEffect { modifier, .. } => match modifier {
+            Modifier::SetPT(power, toughness) => {
+                if i32::from(*power) + i32::from(*toughness) >= 4 {
+                    1
+                } else {
+                    -1
+                }
+            }
+            Modifier::AddType(types) if types.contains(baylee_core::types::TypeSet::CREATURE) => 1,
+            _ => 0,
+        },
+        Effect::DiscardForPlayers {
+            who: PlayerRel::Chosen,
+            count,
+        } => -i32::from(*count),
+        _ => 0,
+    };
+    let (then, otherwise) = effect.branches();
+    own + then
+        .iter()
+        .chain(otherwise)
+        .map(unread_benefit)
+        .sum::<i32>()
+}
+
+/// The sign of what `effects` do to their second target: the power and
+/// toughness a `PumpTargetSlot` for that slot gives or takes. `None` where
+/// no effect names the second slot.
+fn second_slot_sign(effects: &[Effect], x: u32) -> Option<i32> {
+    use baylee_cards_dsl::TargetSlot;
+    let mut sign = None;
+    for effect in effects {
+        if let Effect::PumpTargetSlot {
+            slot: TargetSlot::Second,
+            power,
+            toughness,
+            keywords,
+            ..
+        } = effect
+        {
+            let points = crate::tactics::amount(*power, x) + crate::tactics::amount(*toughness, x);
+            let own = if points == 0 && keywords.bits() != 0 {
+                1
+            } else {
+                points.signum()
+            };
+            sign = Some(sign.unwrap_or(0) + own);
+        }
+    }
+    sign
+}
+
+impl HeuristicAgent {
+    /// What the effects a target question is asked for mean, with the side
+    /// readings of [`AIProfile::SIDE_READS`] beside the shared reader's: the
+    /// rows of [`unread_benefit`], and for a spell's second target the sign
+    /// of what it does to that target alone (Consume Strength's −2/−2 goes
+    /// on an opponent's creature, Martial Glory's +0/+3 on this seat's).
+    pub(crate) fn sided_meaning(&self, context: &DecisionContext<'_>) -> crate::tactics::Meaning {
+        let mut m = crate::tactics::meaning(context.effects, context.x);
+        if !self.profile.plays(AIProfile::SIDE_READS) {
+            return m;
+        }
+        if context.second_instance
+            && let Some(sign) = second_slot_sign(context.effects, context.x)
+        {
+            let mut second = crate::tactics::Meaning::default();
+            second.benefit = sign;
+            return second;
+        }
+        m.benefit += context.effects.iter().map(unread_benefit).sum::<i32>();
+        m
+    }
+
+    /// The side `effects` want of what they name: the shared reader's, and
+    /// where that has none, the sign of [`unread_benefit`] from
+    /// [`AIProfile::SIDE_READS`].
+    fn side_of(&self, effects: &[Effect]) -> Option<TargetSide> {
+        let shared = baylee_engine::target_side::effects_side(effects, 0);
+        if shared.is_some() || !self.profile.plays(AIProfile::SIDE_READS) {
+            return shared;
+        }
+        match effects.iter().map(unread_benefit).sum::<i32>() {
+            sign if sign > 0 => Some(TargetSide::Helpful),
+            sign if sign < 0 => Some(TargetSide::Harmful),
+            _ => None,
+        }
     }
 }

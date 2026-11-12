@@ -675,8 +675,68 @@ impl AIProfile {
     /// Spend renewable command-equipment charges and stop voluntary token
     /// activations after an ample board, without limiting human combinations.
     pub const RENEWABLE_RUN_CHARGES: u16 = 23;
-    /// What the ordinary named profiles play.
-    pub const GENERATION: u16 = Self::CHOSEN_AND_LINKED_FILTERS;
+    /// A search tries only what its level's own reading could mean. A cast
+    /// that reading calls wasted is no candidate (every target on the wrong
+    /// side, a removal with nothing to take, a sweep or a mode that gains
+    /// nothing, an instant outside its moment): the spells a search tries
+    /// from [`Self::SPELL_ROOTS`] passed none of those checks, and a lead of
+    /// a few hundredths over a handful of deals gave a Giant Growth to an
+    /// opponent's creature. And a spell or an ability is tried, beside the
+    /// level's own target, at the others on the same side of the table, the
+    /// most valuable first; before it, at the first four the engine listed,
+    /// the level's own among them a second time and both sides alike.
+    pub const SOUND_ROOTS: u16 = 24;
+    /// A sweep sized by X (Savage Twister, "X damage to each creature") is
+    /// cast at the X that gains its side the most, the smallest such X, and
+    /// not at all where no X gains anything. Before it the house paid the
+    /// largest X its mana made and took its own creatures with the rest.
+    pub const SIZED_SWEEPS: u16 = 25;
+    /// A land searched for is the one whose colour the hand waits for: of
+    /// the lands a search offers, worth the same by their count, the one
+    /// with a basic land type whose colour the hand's costs ask for and the
+    /// seat's lands make least, a colour it has no land of first. Before it
+    /// the first by handle was taken, and an Evolving Wilds found a sixth
+    /// Island beside a hand of green cards.
+    pub const LAND_COLOURS: u16 = 26;
+    /// A discard is the card the seat misses least. A spell's or an
+    /// ability's discard, which the engine asks as a plain choice, was
+    /// answered with the first cards in hand, the oldest; and the cleanup's
+    /// counted a land against the lands in hand alone and a spell by its
+    /// mana value, so a sweeper went before the eighth land. Now a land
+    /// past the sixth on the table and in hand goes first, then the spell
+    /// furthest out of the lands' reach.
+    pub const HAND_DISCARDS: u16 = 27;
+    /// A price whose refusal has the seat sacrifice another permanent of
+    /// its own is paid as one that sacrifices the permanent asking is:
+    /// Demonic Hordes' upkeep, unpaid for seven turns, took seven of its
+    /// controller's lands.
+    pub const PAID_UPKEEPS: u16 = 28;
+    /// A trick on a lone blocker is read through the whole exchange, first
+    /// strike included: a blocker that strikes first with the trick and
+    /// kills its attacker is saved, where the reading before it counted the
+    /// attacker's power against the blocker's toughness and saw nothing
+    /// turned (three Daring Leaps kept in hand through a lost game).
+    pub const FIRST_STRIKE_TRICKS: u16 = 29;
+    /// A target is chosen by side for effects the shared reader has no sign
+    /// for: a regeneration shield and a body set to four points or more go
+    /// on this seat's creature (a Square Up went on the opponent's Fog
+    /// Bank), a body set smaller and a discard go to an opponent (Wistful
+    /// Thinking's "draws two, then discards four" was aimed at its caster by
+    /// the draw), and a spell's second target is read by what the spell does
+    /// to that target alone (Consume Strength's −2/−2, Martial Glory's
+    /// +0/+3).
+    pub const SIDE_READS: u16 = 30;
+    /// Damage divided as its caster chooses that can finish no creature goes
+    /// whole to an opponent, or whole to the best creature where no player
+    /// may be named; it was split between a creature that survived it and a
+    /// player (CR 601.2d).
+    pub const WHOLE_BURN: u16 = 31;
+    /// What every level a player is offered plays: the newest generation.
+    /// Generations are cumulative, so from [`Self::SOUND_ROOTS`] the named
+    /// levels also play the Tower policies 20 to 23, which they skipped while
+    /// this was [`Self::CHOSEN_AND_LINKED_FILTERS`]; a Tower contract keeps
+    /// the generation it names ([`Self::TOWER_EXPERT`]).
+    pub const GENERATION: u16 = Self::WHOLE_BURN;
 
     /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the
     /// band of every level but `novice` before it.
