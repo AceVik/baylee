@@ -442,27 +442,29 @@ class RootPass:
     the scalar head's input (`state_emb`) and `cand_scorer[3]`'s (`cand_emb`), as r1's graph
     exports them with `--embeddings`."""
 
-    def __init__(self, net, board_chunk, thinking_steps):
-        self.net, self.board_chunk, self.thinking_steps = net, board_chunk, thinking_steps
+    def __init__(self, net, board_chunk, thinking_steps, device=torch.device("cpu")):
+        self.net, self.board_chunk, self.thinking_steps, self.device = net, board_chunk, thinking_steps, device
 
     @torch.no_grad()
     def __call__(self, frames, hidden):
         import dataset4 as D4
         from .deferred import deferred_readouts
-        from .execution import encode_boards, plan_batch
+        from .execution import encode_boards, plan_batch, transfer_batch
         items = [{**{name: value[None] for name, value in frame.items()}, "step_valid": np.array([True]),
                   "is_new_traj": np.array(True), "segment_index": np.array(-1, dtype=np.int64)} for frame in frames]
-        batch = D4.collate_trajectories(items)
-        plans = plan_batch(batch, 0, self.thinking_steps)
+        host = D4.collate_trajectories(items)
+        plans = plan_batch(host, 0, self.thinking_steps)
+        batch = transfer_batch(host, self.device)
         seen = {"state": [], "cand": []}
-        keep = lambda name: (lambda _module, args: seen[name].append(args[0].detach().float()))
+        keep = lambda name: (lambda _module, args: seen[name].append(args[0].detach().float().cpu()))
         handles = [self.net.scalar_head.register_forward_pre_hook(keep("state")),
                    self.net.cand_scorer[3].register_forward_pre_hook(keep("cand"))]
         try:
             self.net.clear_structure()
-            self.net.prepare_structure((batch["entity_rules"], batch["cand_rules"]))
-            boards = encode_boards(self.net, batch, self.board_chunk, torch.device("cpu"))
-            deferred_readouts(self.net, batch, boards, hidden, plans, self.net.decision_chunk, torch.device("cpu"))
+            self.net.prepare_structure((host["entity_rules"], host["cand_rules"]))
+            boards = encode_boards(self.net, batch, self.board_chunk, self.device)
+            deferred_readouts(self.net, batch, boards, hidden.to(self.device), plans, self.net.decision_chunk,
+                              self.device)
         finally:
             for handle in handles:
                 handle.remove()
@@ -483,7 +485,7 @@ def capture(args):
     """Rows from a converted dataset: every twin frame of `search-advantage-menus` joins its sidecar
     row and its root frame (same game, seat, cursor) in train/ or val/; the root's memory is the
     stored window state of the piece holding the root frame (burn-in 0: a piece is a run of
-    decision frames, which never move memory), computed once by a CPU state pass."""
+    decision frames, which never move memory), computed once by a state pass (`--device` cpu or cuda, fp32 either way)."""
     import dataset4 as D4
     from torch_io4 import file_digest
     from trajectory_store4 import TrajectoryStore4
@@ -492,7 +494,9 @@ def capture(args):
     from .windows import WindowTraining
 
     torch.set_num_threads(args.threads)
+    device = torch.device(args.device)
     path, _, net = load_source(args.model)
+    net = net.to(device)   # fp32 throughout, on the CPU or the GPU alike
     net.decision_chunk, net.board_token_budget = args.decision_chunk, args.board_token_budget
     net.prune_unused_policy_heads, net.gpu_prefetch = False, 0
     data = Path(args.data).expanduser()
@@ -503,13 +507,20 @@ def capture(args):
     twin_rows = sidecar.find(twin["game"], twin["seat"], twin["cursor"])
     if (twin_rows < 0).any() or len(np.unique(twin_rows)) != len(sidecar.index) or len(twin_rows) != len(sidecar.index):
         raise ValueError("Search-advantage twins and sidecar rows do not match one to one")
-    passer, source = RootPass(net, args.board_chunk, args.thinking_steps), file_digest(path)
+    passer, source = RootPass(net, args.board_chunk, args.thinking_steps, device), file_digest(path)
     parts, counts = [], {}
     for split in args.splits:
         dataset = D4.TrajectoryDataset4(data, split=split, unroll_len=32, encoder_version=args.encoder_version)
+        kept_games = None
+        if args.max_games:
+            # The first games by id: only their trajectories get a state pass and only their twins a row.
+            store_games = dataset.store.index["game"]
+            game_of = [int(store_games[dataset.segments[t[0]][0]]) for t in dataset.trajectories]
+            kept_games = np.array(sorted(set(game_of))[:args.max_games])
+            dataset.trajectories = [t for t, g in zip(dataset.trajectories, game_of) if g in set(kept_games.tolist())]
         plan = WindowTraining(dataset, 0, 32, 8, 0, 0)
         began = time.perf_counter()
-        origin = plan.refresh(net, torch.device("cpu"), args.lanes, args.thinking_steps, False, args.workers,
+        origin = plan.refresh(net, device, args.lanes, args.thinking_steps, False, args.workers,
                               args.board_token_budget, cache=Path(args.state_dir).expanduser() / f"{split}.json",
                               source=source, seats=2)
         print(f"[capture] split={split} states={origin} seconds={time.perf_counter() - began:.0f}", flush=True)
@@ -523,6 +534,8 @@ def capture(args):
         wanted = key(twin["game"], twin["seat"], twin["cursor"])
         at = np.minimum(np.searchsorted(keys[order], wanted), len(order) - 1)
         here = np.flatnonzero(keys[order][at] == wanted)
+        if kept_games is not None:
+            here = here[np.isin(twin["game"][here], kept_games)]
         roots_rows = order[at[here]]
         if (piece_of[roots_rows] < 0).any():
             raise ValueError("A searched root is not a decision frame of its split")
@@ -551,6 +564,8 @@ def capture(args):
     rows = AdvantageRows.concat(parts)
     counts["twins"], counts["unplaced"] = int(len(twin_rows)), int(len(twin_rows) - sum(counts[s] for s in args.splits))
     rows.save(args.out, data=str(data), model=str(path), model_sha256=source, splits=list(args.splits), counts=counts,
+              device=str(device), runtime=args.runtime, trainer_source=str(Path(__file__).resolve().parents[3]),
+              max_games=args.max_games, hold_out_every=args.hold_out_every,
               sidecar=sidecar.header)
     print("[capture] " + json.dumps(counts), flush=True)
     return rows
@@ -600,6 +615,7 @@ def main(argv=None):
     grabbing.add_argument("--splits", default="train,val")
     grabbing.add_argument("--hold-out-every", type=int, default=0,
                           help="Also hold out the games whose id is a multiple of K (0: only the val split)")
+    grabbing.add_argument("--max-games", type=int, default=0, help="Only the first N games by id (0: all)")
     grabbing.add_argument("--batch", type=int, default=32)
     grabbing.add_argument("--lanes", type=int, default=16)
     grabbing.add_argument("--workers", type=int, default=2)
@@ -609,6 +625,8 @@ def main(argv=None):
     grabbing.add_argument("--thinking-steps", type=int, default=2)
     grabbing.add_argument("--encoder-version", type=int, default=10)
     grabbing.add_argument("--threads", type=int, default=8)
+    grabbing.add_argument("--device", default="cpu", help="cpu or cuda (inference only, fp32)")
+    grabbing.add_argument("--runtime", default="", help="A sealed runtime directory put first on PATH (trajectory_cache4, train_ops)")
     fitting = commands.add_parser("fit")
     fitting.add_argument("--rows", action="append", required=True, help=f"{ROWS_CONTRACT} .npz files")
     fitting.add_argument("--out", required=True, help="A new directory for the head")
@@ -629,6 +647,13 @@ def main(argv=None):
         return smoke(args)
     if args.command == "capture":
         args.splits = tuple(s for s in args.splits.split(",") if s)
+        if args.runtime:
+            # The sealed runtime's native tools first, for this process and its loader workers.
+            import os
+            runtime = Path(args.runtime).expanduser()
+            if not (runtime / "trajectory_cache4").is_file() or not (runtime / "train_ops").is_file():
+                raise FileNotFoundError(f"{runtime} lacks trajectory_cache4 or train_ops")
+            os.environ["PATH"] = f"{runtime}{os.pathsep}{os.environ.get('PATH', '')}"
         return capture(args)
     torch.set_num_threads(args.threads)
     out = Path(args.out)
