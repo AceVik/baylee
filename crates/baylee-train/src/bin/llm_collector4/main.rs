@@ -40,6 +40,10 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the command line, parsed once at startup and moved into its run"
+)]
 enum Commands {
     /// Run a single high-capacity baylee-gateway + single baylee-agent serving many concurrent tables.
     Serve {
@@ -104,6 +108,13 @@ enum Commands {
         /// deck that is left.
         #[arg(long)]
         only: Vec<String>,
+        /// Another collector root whose admitted games count, with this
+        /// root's, towards which decks and deck pairs are played next (and
+        /// whose records count towards uniqueness): a corpus's later
+        /// segment on a root of its own goes on with the pairs the earlier
+        /// root has not played. Only its receipts are read. Repeatable.
+        #[arg(long)]
+        balance_with: Vec<PathBuf>,
         /// The deck manifest whose train split teacher games may seat
         /// (`manifest.v4.holdout2.json`): every deck of `--deck-manifest`
         /// must be a train deck of it, read by key, cards or near, or the
@@ -190,6 +201,7 @@ async fn main() -> anyhow::Result<()> {
             pairings_file,
             deck_manifest,
             only,
+            balance_with,
             train_manifest,
             evaluation,
             concurrency,
@@ -209,7 +221,7 @@ async fn main() -> anyhow::Result<()> {
                 gateway_bin,
                 profiles_config,
                 pairings_file,
-                (deck_manifest, schedule::only_fields(&only)?),
+                (deck_manifest, schedule::only_fields(&only)?, balance_with),
                 train_manifest,
                 evaluation,
                 concurrency,
@@ -634,7 +646,7 @@ async fn run_collect(
     gateway_bin: PathBuf,
     profiles_config: PathBuf,
     pairings_file: Option<PathBuf>,
-    decks: (PathBuf, Vec<(String, String)>),
+    decks: (PathBuf, Vec<(String, String)>, Vec<PathBuf>),
     train_manifest: Option<PathBuf>,
     evaluation: bool,
     concurrency: usize,
@@ -664,7 +676,7 @@ async fn run_collect(
     )
     .await?;
     let own = Arc::new(teacher::OwnDatabase::prove(&admin_cleanup, db.clone()).await?);
-    let (deck_manifest, only) = decks;
+    let (deck_manifest, only, balance_with) = decks;
     let sched = Scheduler::new(
         root.clone(),
         gateway.clone(),
@@ -674,6 +686,7 @@ async fn run_collect(
         call_timeout_seconds,
         game_timeout_seconds,
     )?
+    .balanced_with(&balance_with)?
     .with_report_games(report_games)
     .with_starting_life(starting_life)?
     .numbers_only(evaluation);
