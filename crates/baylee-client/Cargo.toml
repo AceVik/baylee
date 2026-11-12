@@ -38,7 +38,10 @@ baylee-cardtext.workspace = true
 baylee-client-core.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
-baylee-gamehost.workspace = true
+# `foresight`: an offline table's house searches within its levels' bounds
+# (`host.rs`, `LocalHost::into_installed`). Not `simulation`, the training
+# harness, which no shipped build may hold (`cargo dev gate shipped-features`).
+baylee-gamehost = { workspace = true, features = ["foresight"] }
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 # The header logo's accessible name (`shellkit::header::brand_mark`); bevy_a11y
