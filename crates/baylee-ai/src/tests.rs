@@ -242,6 +242,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         })
         .collect();
     PlayerView {
+        divided: Vec::new(),
         damage_sources: Vec::new(),
         target_objects: battlefield
             .iter()

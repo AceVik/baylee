@@ -45,7 +45,11 @@ pub mod tape;
 /// Version 42 tells a printing shown in `GameStaticMsg::more`, not the whole payload.
 /// Version 43 states what restricted mana may pay for (CR 106.6):
 /// `LegalActions::restricted_taps` (in classes of taps) and `restricted_floating`, by `Spend`.
-pub const PROTOCOL_VERSION: u32 = 43;
+/// Version 44 states a suspend whose mana is still in the lands
+/// (`LegalActions::unpaid_suspend`, CR 116.2f), the division of a spell's
+/// damage on the stack (`PlayerView::divided`, CR 601.2d) and a log line's
+/// step (`LogEntry::step`, CR 510.4).
+pub const PROTOCOL_VERSION: u32 = 44;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -276,7 +280,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_forty_three() {
+    fn the_wire_version_is_forty_four() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -342,7 +346,12 @@ mod tests {
         // 43: an offer says what restricted mana may pay for
         // (`LegalActions::restricted_taps`, `restricted_floating`), two fields
         // a positional reader of 42 would take for bytes after the value.
-        assert_eq!(PROTOCOL_VERSION, 43);
+        // 44: an offer states a suspend still to be paid for
+        // (`LegalActions::unpaid_suspend`), a view the division a spell on the
+        // stack announced (`PlayerView::divided`) and a log line its step
+        // (`LogEntry::step`): fields a positional reader of 43 would take for
+        // bytes after the value.
+        assert_eq!(PROTOCOL_VERSION, 44);
     }
 
     #[test]

@@ -1129,6 +1129,7 @@ pub(crate) mod tests {
         let told = LogTail {
             from: 3,
             entries: vec![LogEntry {
+                step: None,
                 at: 0,
                 turn: 2,
                 repeat: 1,
@@ -1246,6 +1247,7 @@ pub(crate) mod tests {
         view.seq = 7;
         let view_frame = baylee_view::ViewFrame::snapshot_of(&view);
         let entry = |turn| LogEntry {
+            step: None,
             at: 0,
             turn,
             repeat: 1,

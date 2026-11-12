@@ -1,7 +1,7 @@
 use crate::counters::CounterKind;
 use crate::objects::{CardIdentity, RulesFace, StackText};
 use crate::seats::LossCause;
-use crate::turn::{DayNight, Phase};
+use crate::turn::{DayNight, Phase, Step};
 use baylee_core::ids::{AbilityRef, Defender, ObjectId, PlayerId, PrintRef, SeatSet};
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +75,12 @@ pub struct LogEntry {
     /// opening mulligans) and from a host that never said.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub phase: Option<Phase>,
+    /// The step of [`Self::phase`] it happened in, for a reader that tells a
+    /// combat's two damage steps apart (CR 510.4: the first-strike step and
+    /// the regular one are one phase). `None` where `phase` is, and from a
+    /// host that never said.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub step: Option<Step>,
 }
 
 /// An object as the log may name it to one seat: exactly as that seat's view

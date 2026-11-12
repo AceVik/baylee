@@ -141,6 +141,7 @@ pub(super) fn view_of(i: usize, spec: &Spec, hand: bool) -> PlayerView {
 /// What the spectators are told of `view`: its public half.
 pub(super) fn spectator_of(view: &PlayerView) -> baylee_view::SpectatorView {
     baylee_view::SpectatorView {
+        divided: Vec::new(),
         seq: view.seq,
         turn: view.turn,
         phase: view.phase,

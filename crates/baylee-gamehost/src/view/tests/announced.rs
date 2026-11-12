@@ -756,3 +756,115 @@ fn an_ability_aimed_by_someone_else_is_told_while_it_is_on_the_stack() {
         assert_eq!(view.foreign_targets, vec![view.stack[0].id]);
     }
 }
+
+/// The division of a spell's damage is announced as it is cast (CR 601.2d),
+/// so every seat reads it on the stack, not only its caster in the question
+/// it answered. Fire Covenant's split of 5 among two Zombies and Bloodflow
+/// Connoisseur read "targets Zombie, Zombie, Bloodflow Connoisseur" to the
+/// opponent, who could not tell which one died (Carbon block 3, attempt 18,
+/// q210-q216).
+#[test]
+fn a_divided_spell_on_the_stack_shows_every_seat_its_division() {
+    let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).expect(name),
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand = Some(vec![entry("Arc Lightning")]);
+    preset.seats[0].starting_battlefield =
+        vec![entry("Mountain"), entry("Mountain"), entry("Mountain")];
+    preset.seats[1].starting_battlefield = vec![entry("Grizzly Bears"), entry("Hill Giant")];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    for land in view.battlefield.iter().filter(|o| o.controller == me) {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: land.id })
+            .unwrap();
+    }
+    let named = |name: &str| {
+        view.battlefield
+            .iter()
+            .find(|object| object.name == name)
+            .unwrap()
+            .id
+    };
+    let (bears, giant) = (named("Grizzly Bears"), named("Hill Giant"));
+    let spell = view
+        .hand
+        .iter()
+        .find(|card| card.name == "Arc Lightning")
+        .unwrap()
+        .id;
+    engine
+        .apply(me, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseTargets {
+                objects: vec![bears, giant],
+                players: vec![them],
+            },
+        )
+        .unwrap();
+    // One to the Bears, the rest asked of the Giant, the player takes what is left.
+    for share in [1, 1] {
+        assert!(
+            matches!(
+                engine.pending(),
+                Pending::ChooseNumber {
+                    reason: baylee_engine::choice::NumberPrompt::DivideDamage { .. },
+                    ..
+                }
+            ),
+            "{:?}",
+            engine.pending()
+        );
+        engine.apply(me, PlayerAction::ChooseNumber(share)).unwrap();
+    }
+    for seat in [me, them] {
+        let view = seen_by(&engine, seat);
+        assert_eq!(view.stack.len(), 1, "{:?}", engine.pending());
+        let spell = &view.stack[0];
+        let [division] = view.divided.as_slice() else {
+            panic!("seat {seat:?}: one division, not {:?}", view.divided);
+        };
+        assert_eq!(division.object, spell.id);
+        let shares: Vec<u32> = division.shares.iter().map(|(_, share)| *share).collect();
+        assert_eq!(shares, vec![1, 1, 1], "seat {seat:?}: {division:?}");
+        let targets: Vec<TargetRef> = division.shares.iter().map(|(target, _)| *target).collect();
+        assert_eq!(
+            targets, spell.targets,
+            "the division names the targets by the stack's own handles"
+        );
+    }
+    let watching = spectator_view(
+        engine.state(),
+        1,
+        None,
+        baylee_core::ids::SeatSet::new(),
+        baylee_core::ids::SeatSet::new(),
+        &[],
+        &[],
+    );
+    assert_eq!(
+        watching.divided,
+        seen_by(&engine, them).divided,
+        "a spectator is told it as every seat is"
+    );
+    // Gone with the spell.
+    while !view_stack_empty(&engine) {
+        let Pending::Priority { player, .. } = *engine.pending() else {
+            panic!("the spell resolves on passes: {:?}", engine.pending());
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(seen_by(&engine, them).divided.is_empty());
+}
+
+fn view_stack_empty(engine: &Engine<Registry>) -> bool {
+    engine.state().zones.list(ZoneLocation::Stack).is_empty()
+}

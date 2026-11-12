@@ -229,6 +229,7 @@ mod tests {
     fn book() -> LogBook {
         let entries: Vec<LogEntry> = (0..3)
             .map(|seat| LogEntry {
+                step: None,
                 at: 1_700_000_000_000,
                 turn: u32::from(seat) + 1,
                 repeat: 1,

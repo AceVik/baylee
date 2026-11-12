@@ -7,7 +7,7 @@ use crate::seats::SeatView;
 use crate::seen::{Seen, SeenIn, from_described, from_hand, from_public};
 use crate::shown_hands::SharedHand;
 use crate::turn::{DayNight, Phase, Step};
-use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef, SeatSet};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef, SeatSet, TargetRef};
 use baylee_core::mana::ManaPayment;
 use serde::{Deserialize, Serialize};
 
@@ -385,6 +385,25 @@ pub struct PlayerView {
     /// in the ordinary case, and then not written.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub foreign_targets: Vec<ObjectId>,
+    /// How each spell or ability on [`Self::stack`] that divides its damage
+    /// among its targets divides it, as announced when it was cast or put
+    /// on the stack (CR 601.2d, 603.3d). Public: the division is announced
+    /// to the table, so every seat and spectator is told it. Beside the
+    /// stack and not on its objects, so an object's shape is what it was.
+    /// Empty in the ordinary case, and then not written.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub divided: Vec<Division>,
+}
+
+/// How one object on the stack divides its damage among its targets
+/// ([`PlayerView::divided`], CR 601.2d).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Division {
+    /// The spell or ability on the stack.
+    pub object: ObjectId,
+    /// Each target, by the handle [`PublicObject::targets`] names it, with
+    /// its share, in the order announced.
+    pub shares: Vec<(TargetRef, u32)>,
 }
 
 /// One player whose decisions another makes (CR 724.5).
@@ -420,6 +439,17 @@ pub struct TargetingContext {
 }
 
 impl PlayerView {
+    /// How `object` on the stack divides its damage among its targets
+    /// ([`Self::divided`]): each target with its share, in the order
+    /// announced; empty for anything that divides nothing.
+    #[must_use]
+    pub fn division(&self, object: ObjectId) -> &[(TargetRef, u32)] {
+        self.divided
+            .iter()
+            .find(|division| division.object == object)
+            .map_or(&[], |division| division.shares.as_slice())
+    }
+
     /// Describe exactly this target; never substitute a newer object at its handle.
     #[must_use]
     pub fn target_object(

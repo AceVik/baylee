@@ -783,21 +783,27 @@ impl<L: CardLookup> Engine<L> {
                         // the cost — then refused it. An offer the answer
                         // disagrees with is worse than no offer, because the
                         // client draws it as something to click.
+                        //
+                        // A suspend whose mana the pool does not hold yet is
+                        // the planner's (`unpaid_suspend`), as an unpaid
+                        // foretell is: without it no seat that taps first
+                        // could ever suspend a card that prints no mana cost
+                        // (Carbon block 3, Ancestral Vision).
                         AbilityDef::Suspend { cost, .. }
-                            if from == ActivationZone::Hand
-                                && sorcery_timing
-                                && self.can_pay_mana(
-                                    player,
-                                    casting::SpendFor::OtherFrom(
-                                        baylee_core::ids::DamageSourceRef {
-                                            object: card,
-                                            version: obj.version,
-                                        },
-                                    ),
-                                    cost,
-                                ) =>
+                            if from == ActivationZone::Hand && sorcery_timing =>
                         {
-                            legal.suspendable.push(card);
+                            if self.can_pay_mana(
+                                player,
+                                casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
+                                    object: card,
+                                    version: obj.version,
+                                }),
+                                cost,
+                            ) {
+                                legal.suspendable.push(card);
+                            } else {
+                                legal.unpaid_suspend.push((card, *cost));
+                            }
                         }
                         _ => {}
                     }
@@ -805,8 +811,13 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.offer_granted_actions(player, &mut legal);
-        // After every mana offer, which `unpaid_foretell` asks after.
+        // After every mana offer, which `unpaid_foretell` asks after, and
+        // `unpaid_suspend` too: a hint only while there is mana to make it
+        // with (CR 605.3a).
         self.offer_foretell(player, &mut legal);
+        if !legal.unpaid_suspend.is_empty() && !self.offers_mana(&legal) {
+            legal.unpaid_suspend.clear();
+        }
         self.settle_payable(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);

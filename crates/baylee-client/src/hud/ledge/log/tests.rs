@@ -571,6 +571,7 @@ fn tail(from: u32, count: u32) -> LogTail {
         from,
         entries: (from..from + count)
             .map(|i| LogEntry {
+                step: None,
                 at: 0,
                 turn: 1,
                 repeat: 1,
@@ -620,6 +621,7 @@ fn book(from: u32, events: Vec<LogEvent>) -> LogTail {
         entries: events
             .into_iter()
             .map(|event| LogEntry {
+                step: None,
                 at: 0,
                 turn: 1,
                 repeat: 1,

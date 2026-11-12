@@ -130,6 +130,7 @@ impl<L: CardLookup> Engine<L> {
         legal.castable.clear();
         legal.payable.clear();
         legal.suspendable.clear();
+        legal.unpaid_suspend.clear();
         // Foretell is a special action, not casting or activating an ability.
         legal.abilities.retain(|&(source, index)| {
             crate::choice::is_special_action(index) || self.is_mana_offer(source, index)
@@ -233,6 +234,7 @@ impl<L: CardLookup> Engine<L> {
         legal.suspendable.clear();
         legal.foretellable.clear();
         legal.unpaid_foretell.clear();
+        legal.unpaid_suspend.clear();
         // What restricted mana pays for is stated of the narrowed offer
         // (`offer_restricted_mana`), the payment a window is open for.
         legal.restricted_taps.clear();

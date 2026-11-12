@@ -137,6 +137,10 @@ impl<'a> ObservableView<'a> {
             flash_types,
             controls,
             foreign_targets,
+            // A division is announced with its spell and leaves with it, so the
+            // stack already marks when it changes; left out, every hash a label
+            // or a clock kept before protocol 44 stands.
+            divided: _,
         } = view;
         Self {
             decision_player,
@@ -248,8 +252,8 @@ pub fn board_observation_hash(view: &PlayerView) -> u64 {
 #[must_use]
 pub fn board_observation_sha256(view: &PlayerView) -> [u8; 32] {
     use sha2::Digest as _;
-    let bytes = serde_json::to_vec(&ObservableView::from_view(view))
-        .expect("ObservableView serializes");
+    let bytes =
+        serde_json::to_vec(&ObservableView::from_view(view)).expect("ObservableView serializes");
     sha2::Sha256::digest(bytes).into()
 }
 
@@ -299,8 +303,7 @@ mod known_cards_serde {
     where
         S: Serializer,
     {
-        let vec: Vec<((u8, u64), KnownCardMemory4)> =
-            map.iter().map(|(&k, &v)| (k, v)).collect();
+        let vec: Vec<((u8, u64), KnownCardMemory4)> = map.iter().map(|(&k, &v)| (k, v)).collect();
         vec.serialize(serializer)
     }
 

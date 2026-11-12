@@ -9,7 +9,7 @@ use crate::log::PolicyAct;
 use crate::objects::{DamageSourceView, HandObject, OrderedTrigger, PublicObject};
 use crate::patch::{ListEdit, PatchError, Zone};
 use crate::player_view::{
-    Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext,
+    Ballot, Division, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext,
 };
 use crate::seats::SeatView;
 use crate::shown_hands::SharedHand;
@@ -149,4 +149,5 @@ view_fields! {
     FlashTypes flash_types: TypeSet,
     Controls controls: Vec<PlayerControl>,
     ForeignTargets foreign_targets: Vec<ObjectId>,
+    Divided divided: Vec<Division>,
 }

@@ -1079,6 +1079,7 @@ mod tests {
     /// is one a seat was shown).
     fn naming(objects: Vec<baylee_view::LogObject>) -> baylee_view::LogEntry {
         baylee_view::LogEntry {
+            step: None,
             at: 0,
             turn: 3,
             repeat: 1,
@@ -1122,6 +1123,7 @@ mod tests {
             // Again, in another line, and as the target of an aim.
             naming(vec![named(40, 5, "Lightning Bolt")]),
             baylee_view::LogEntry {
+                step: None,
                 at: 0,
                 turn: 3,
                 repeat: 1,

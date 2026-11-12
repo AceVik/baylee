@@ -768,6 +768,15 @@ pub struct LegalActions {
     /// `foretellable`. Never in `foretellable` as well.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub unpaid_foretell: Vec<ObjectId>,
+    /// Cards with suspend that may be exiled with their time counters once
+    /// the suspend cost is made, with that cost: every rule `suspendable`
+    /// asks holds except that the mana is not floating yet, and the seat has
+    /// a mana ability to activate (CR 116.2f, 702.62a, 605.3a). Planning
+    /// hints, never accepted actions, as `unpaid_foretell` is: a client makes
+    /// the mana, and the card is then `suspendable`. Never in `suspendable`
+    /// as well. Only cards in this seat's own hand, so no longer than it.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub unpaid_suspend: Vec<(ObjectId, baylee_core::mana::ManaCost)>,
     /// What the mana of this seat's restricted mana abilities on offer may
     /// be spent on (CR 106.6), class by class: each [`RestrictedTaps`] names
     /// abilities of `abilities` whose mana is spent only on some payments and

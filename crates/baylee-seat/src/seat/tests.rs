@@ -827,6 +827,7 @@ fn named_table() -> (v1::GameStaticMsg, baylee_view::GameStatic) {
 
 fn log_line(turn: u32, event: baylee_view::LogEvent) -> baylee_view::LogEntry {
     baylee_view::LogEntry {
+        step: None,
         turn,
         repeat: 1,
         at: 0,

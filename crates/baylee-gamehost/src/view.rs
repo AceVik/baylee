@@ -67,7 +67,7 @@ pub(crate) const fn day_night(d: EngineDayNight) -> DayNight {
 }
 
 /// Translates the engine's step into the wire enum.
-const fn step(s: EngineStep) -> Step {
+pub(crate) const fn step(s: EngineStep) -> Step {
     match s {
         EngineStep::Untap => Step::Untap,
         EngineStep::Upkeep => Step::Upkeep,
@@ -662,7 +662,29 @@ pub fn player_view(
             .copied()
             .filter(|&id| state.targets_chosen_by_another(id))
             .collect(),
+        divided: divisions(state),
     }
+}
+
+/// How each spell or ability on the stack divides its damage, as announced
+/// (CR 601.2d, 603.3d): public, so every seat and spectator is told it
+/// ([`PlayerView::divided`]). The engine keeps a division by its stack
+/// object and names the targets by the handles a stack object's `targets`
+/// read; an entry for an object no longer on the stack is not told.
+pub(crate) fn divisions(state: &GameState) -> Vec<baylee_view::Division> {
+    if state.divided.is_empty() {
+        return Vec::new();
+    }
+    let stack = state.zones.list(ZoneLocation::Stack);
+    state
+        .divided
+        .iter()
+        .filter(|(object, _)| stack.contains(object))
+        .map(|(object, shares)| baylee_view::Division {
+            object: *object,
+            shares: shares.clone(),
+        })
+        .collect()
 }
 
 /// The permanent whose effect makes `seat` cast spells only as sorceries
@@ -799,6 +821,7 @@ pub fn spectator_view(
             &SeatContext::default(),
             &mut references,
         ),
+        divided: divisions(state),
         library_tops: state
             .players
             .iter()

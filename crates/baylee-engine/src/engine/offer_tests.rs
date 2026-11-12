@@ -1135,6 +1135,98 @@ fn a_suspend_card_is_offered_only_once_its_cost_is_on_the_table() {
         .expect("offered, then refused");
 }
 
+/// A suspend whose mana is still in the lands is stated as a hint, as an
+/// unpaid foretell is (Carbon block 3, attempt 30, q322): with ten untapped
+/// Islands and Ancestral Vision in hand the seat was offered nothing, because
+/// `suspendable` asks the pool (the test above) and nothing told a planner
+/// what to tap for. A card that prints no mana cost (CR 202.1b) has no other
+/// way out of the hand, so no seat that plans its taps could ever suspend it
+/// (CR 116.2f, 702.62a).
+///
+/// The hint authorizes nothing: only `suspendable` does.
+#[test]
+fn a_suspend_the_lands_can_pay_is_stated_with_its_cost_and_authorizes_nothing() {
+    let seat = PlayerId::new(0);
+    let vision = card_index("9728dec9-d482-4c7a-8cdc-44d010dc878d");
+    let island = card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373");
+    let mut engine = Duel::new(SEED, island)
+        .hand(0, &[vision])
+        .battlefield(0, &[island])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.suspendable.is_empty(), "{:?}", legal.suspendable);
+    let card = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(seat))
+        .iter()
+        .find(|&&id| {
+            engine
+                .state()
+                .object(id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == vision)
+        })
+        .expect("Ancestral Vision in hand");
+    assert_eq!(
+        legal.unpaid_suspend,
+        vec![(card, baylee_core::mana::ManaCost::parse("{U}"))],
+        "the Island makes the {{U}}, so the suspend is a hint with its cost"
+    );
+    assert!(
+        engine
+            .pending()
+            .answer_fault(&PlayerAction::Suspend { card })
+            .is_some(),
+        "a hint is no offer: the suspend is refused until the {{U}} floats"
+    );
+
+    let source = legal.mana_abilities[0];
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("an untapped Island taps for {U}");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(legal.suspendable, vec![card]);
+    assert!(
+        legal.unpaid_suspend.is_empty(),
+        "never a hint and an offer at once: {:?}",
+        legal.unpaid_suspend
+    );
+    engine
+        .apply(seat, PlayerAction::Suspend { card })
+        .expect("offered, then refused");
+}
+
+/// With nothing to make the mana with there is nothing to plan, and no hint.
+#[test]
+fn a_suspend_with_no_mana_source_is_no_hint() {
+    let seat = PlayerId::new(0);
+    let vision = card_index("9728dec9-d482-4c7a-8cdc-44d010dc878d");
+    let island = card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373");
+    let mut engine = Duel::new(SEED, island).hand(0, &[vision]).start();
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.suspendable.is_empty());
+    assert!(
+        legal.unpaid_suspend.is_empty(),
+        "no land, no hint: {:?}",
+        legal.unpaid_suspend
+    );
+}
+
 /// A cost of `{0}` is still a cost, and still buys a spell.
 ///
 /// The other side of `casting::has_a_printed_cost`, and the reason it is a

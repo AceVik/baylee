@@ -234,6 +234,7 @@ fn a_stack_entry_takes_the_modes_the_log_announced() {
         name: format!("object {slot}"),
     };
     let aimed = |slot, ability, card, modes| LogEntry {
+        step: None,
         at: 0,
         turn: 3,
         repeat: 1,

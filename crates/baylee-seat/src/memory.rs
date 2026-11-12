@@ -228,6 +228,7 @@ mod tests {
 
     fn line(turn: u32) -> LogEntry {
         LogEntry {
+            step: None,
             turn,
             repeat: 1,
             at: 0,

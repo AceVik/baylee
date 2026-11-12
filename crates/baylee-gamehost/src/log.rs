@@ -28,10 +28,10 @@ use baylee_engine::state::GameState;
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     CardIdentity, LogAbility, LogEntry, LogEvent, LogFrom, LogObject, LogPlace, LogTarget, LogZone,
-    Phase, RulesFace,
+    Phase, RulesFace, Step,
 };
 
-use crate::view::{counter, day_night, loss_cause, may_know_card, phase, rules_face};
+use crate::view::{counter, day_night, loss_cause, may_know_card, phase, rules_face, step};
 
 /// The longest run of lines a repeat is looked for in: a loop that blinks a
 /// creature is three lines long (its trigger, the exile, the return).
@@ -101,6 +101,8 @@ struct Line {
     sees: Vec<Sees>,
     /// The phase it happened in ([`LogEntry::phase`]).
     phase: Option<Phase>,
+    /// The step it happened in ([`LogEntry::step`]).
+    step: Option<Step>,
 }
 
 impl Line {
@@ -116,7 +118,11 @@ impl Line {
     /// direction, starting where this one ended, is the same thing again,
     /// and the folded line spans both.
     fn folds_with(&self, later: &Self) -> bool {
-        if self.turn != later.turn || self.phase != later.phase || self.sees != later.sees {
+        if self.turn != later.turn
+            || self.phase != later.phase
+            || self.step != later.step
+            || self.sees != later.sees
+        {
             return false;
         }
         match (&self.event, &later.event) {
@@ -197,6 +203,7 @@ impl Line {
             at: self.at,
             event,
             phase: self.phase,
+            step: self.step,
         }
     }
 }
@@ -249,6 +256,8 @@ pub struct GameLog {
     turn: u32,
     /// The phase the journal is in, as far as it has been read.
     phase: Option<Phase>,
+    /// The step the journal is in, as far as it has been read.
+    step: Option<Step>,
     /// Every spell and ability on the stack a line has named, with what it
     /// was last announced with ([`LogEvent::Aimed`]).
     aims: BTreeMap<ObjectId, Aim>,
@@ -299,6 +308,7 @@ impl GameLog {
             started: false,
             turn: state.turn.number,
             phase: None,
+            step: None,
             aims: BTreeMap::new(),
             landing: BTreeMap::new(),
             merged: BTreeSet::new(),
@@ -628,13 +638,21 @@ impl GameLog {
                 cause: Cause::Setup,
                 ..
             } => {}
-            GameEvent::StepChanged { phase: now, .. } => self.phase = Some(phase(*now)),
+            GameEvent::StepChanged {
+                phase: now,
+                step: at,
+                ..
+            } => {
+                self.phase = Some(phase(*now));
+                self.step = Some(step(*at));
+            }
             GameEvent::TurnStarted { number, active } => {
                 self.started = true;
                 self.turn = *number;
                 // The turn's heading belongs to no phase: the untap step's
                 // own change of step follows it.
                 self.phase = None;
+                self.step = None;
                 self.push(LogEvent::TurnStarted { active: *active }, Vec::new());
             }
             GameEvent::CardsKept { player, cards } => {
@@ -1327,6 +1345,7 @@ impl GameLog {
             event,
             sees,
             phase: self.phase,
+            step: self.step,
         });
     }
 
@@ -2000,6 +2019,7 @@ mod tests {
 
     fn line(event: LogEvent, sees: Vec<Sees>) -> Line {
         Line {
+            step: None,
             turn: 1,
             repeat: 1,
             at: 0,
@@ -2067,6 +2087,7 @@ mod tests {
 
     fn a_log() -> GameLog {
         GameLog {
+            step: None,
             now: 0,
             read: 0,
             lines: Vec::new(),
@@ -2468,6 +2489,32 @@ mod tests {
         assert_eq!(
             told.iter().map(|e| (e.repeat, e.phase)).collect::<Vec<_>>(),
             [(2, Some(Phase::FirstMain)), (1, Some(Phase::Combat))]
+        );
+    }
+
+    /// A combat's two damage steps are one phase (CR 510.4): a double
+    /// striker's line in each is told with its step, and the same line in
+    /// the two steps does not fold into one, which read as one hit in one
+    /// step (Carbon block 3, attempt 28, q331).
+    #[test]
+    fn the_same_line_in_two_damage_steps_is_two_lines_with_their_steps() {
+        let mut log = a_log();
+        let shuffled = || LogEvent::Shuffled {
+            player: PlayerId::new(0),
+        };
+        log.phase = Some(Phase::Combat);
+        log.step = Some(Step::CombatDamageFirst);
+        log.push(shuffled(), Vec::new());
+        log.step = Some(Step::CombatDamage);
+        log.push(shuffled(), Vec::new());
+        assert_eq!(log.len(), 2, "the regular step starts a line of its own");
+        let told = log.told(PlayerId::new(1), 0, log.len());
+        assert_eq!(
+            told.iter().map(|e| (e.repeat, e.step)).collect::<Vec<_>>(),
+            [
+                (1, Some(Step::CombatDamageFirst)),
+                (1, Some(Step::CombatDamage))
+            ]
         );
     }
 }

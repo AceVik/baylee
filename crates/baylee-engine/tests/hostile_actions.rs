@@ -288,6 +288,10 @@ mod offers {
                     },
                 ],
                 restricted_floating: vec![(Spend::Cast(card, CastModeKind::Normal), green)],
+                unpaid_suspend: vec![(
+                    ObjectId::new(61, 0),
+                    baylee_core::mana::ManaCost::parse("{1}{U}"),
+                )],
                 ..LegalActions::default()
             }),
         }
@@ -303,6 +307,13 @@ mod offers {
         };
         assert_eq!(legal.restricted_taps.len(), 3);
         assert_eq!(legal.restricted_floating.len(), 1);
+        assert_eq!(
+            legal.unpaid_suspend,
+            vec![(
+                ObjectId::new(61, 0),
+                baylee_core::mana::ManaCost::parse("{1}{U}")
+            )]
+        );
         assert_eq!(
             legal.restricted_taps_for(Spend::Owed),
             vec![(ObjectId::new(1, 0), 1), (ObjectId::new(4, 0), 1)]
@@ -347,6 +358,85 @@ mod offers {
         let mut one_class = lists.to_vec();
         one_class.extend(varint(1));
         for head in [lists, floating, &one_class[..]] {
+            for claim in [1 << 20, 1 << 40, u64::MAX] {
+                let mut frame = head.to_vec();
+                frame.extend(varint(claim));
+                frame.resize(FRAME_LIMIT, 0x01);
+                let held = peak_of(|| {
+                    assert!(decode::<Pending>(&frame).is_err());
+                });
+                assert!(held < 4 << 20, "a claim of {claim} held {held} bytes");
+            }
+        }
+    }
+}
+
+/// `LegalActions::unpaid_suspend` (protocol 44): a list of cards with their
+/// suspend costs, as a client reads it from a hostile host.
+mod unpaid_suspend {
+    use super::{FRAME_LIMIT, peak_of, varint};
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::mana::ManaCost;
+    use baylee_core::wire::{decode, encode};
+    use baylee_engine::choice::{LegalActions, Pending};
+
+    fn offer(unpaid_suspend: Vec<(ObjectId, ManaCost)>) -> Pending {
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                mana_abilities: vec![ObjectId::new(1, 0)],
+                unpaid_suspend,
+                ..LegalActions::default()
+            }),
+        }
+    }
+
+    /// Where a list of the offer stands: the first byte at which the offer
+    /// written with `a` and with `b` differ.
+    fn first_difference(a: &[u8], b: &[u8]) -> usize {
+        a.iter()
+            .zip(b)
+            .position(|(x, y)| x != y)
+            .expect("the two frames differ")
+    }
+
+    #[test]
+    fn an_unpaid_suspend_survives_the_wire_and_every_damage() {
+        let frame = encode(&offer(vec![
+            (ObjectId::new(61, 0), ManaCost::parse("{U}")),
+            (ObjectId::new(62, 0), ManaCost::parse("{1}{B}")),
+        ]));
+        let read = decode::<Pending>(&frame).expect("the offer reads");
+        assert_eq!(encode(&read), frame, "and reads as it was written");
+        for cut in 0..frame.len() {
+            assert!(
+                decode::<Pending>(&frame[..cut]).is_err(),
+                "a cut at {cut} read"
+            );
+        }
+        for at in 0..frame.len() {
+            for flip in [0x01, 0x80, 0xff] {
+                let mut damaged = frame.clone();
+                damaged[at] ^= flip;
+                let _ = decode::<Pending>(&damaged);
+            }
+        }
+    }
+
+    /// The list claims more cards than the frame holds, and then one card's
+    /// cost claims a longer notation than is left: the reader holds what
+    /// arrives and not what is claimed.
+    #[test]
+    fn a_claimed_list_or_cost_allocates_nothing_for_the_claim() {
+        let none = encode(&offer(Vec::new()));
+        let blank = encode(&offer(vec![(ObjectId::new(61, 0), ManaCost::parse(""))]));
+        let list = first_difference(&none, &blank);
+        assert_eq!((none[list], blank[list]), (0, 1), "the list's length");
+        let priced = encode(&offer(vec![(ObjectId::new(61, 0), ManaCost::parse("{U}"))]));
+        let cost = first_difference(&blank, &priced);
+        assert_eq!(blank[cost], 0, "the cost's length");
+        for head in [&none[..list], &blank[..cost]] {
             for claim in [1 << 20, 1 << 40, u64::MAX] {
                 let mut frame = head.to_vec();
                 frame.extend(varint(claim));

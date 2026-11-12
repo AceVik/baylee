@@ -69,6 +69,7 @@ pub fn question(budget: Duration) -> Request {
 
 fn empty_view(me: PlayerId) -> PlayerView {
     PlayerView {
+        divided: Vec::new(),
         decision_player: Some(me),
         controlled_hands: Vec::new(),
         damage_sources: Vec::new(),

@@ -379,7 +379,12 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // reads, and `HouseRules::hand_sharing` is additive, defaulted and omitted
     // at its default: a reader of 90 decodes every view and static as before,
     // so 90 still names the shape.
-    const RECORDED: (u32, u64) = (90, 15_127_532_572_721_103_107);
+    // `PlayerView::divided` and `SpectatorView::divided`, what each spell on
+    // the stack announced it divides its damage into (CR 601.2d, `Division`),
+    // are additive, defaulted and omitted while empty: a JSON reader of 90
+    // reads every tape and record as before, so 90 still names the shape.
+    // Frames are positional, so it is protocol 44.
+    const RECORDED: (u32, u64) = (90, 3_202_790_225_129_117_285);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

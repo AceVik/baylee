@@ -1116,6 +1116,75 @@ Spend = Cast(ObjectId, CastModeKind) | Activate(ObjectId) | Owed
 What changed in protocol 43: the two fields above, `RestrictedTaps` and
 `Spend`, and nothing else.
 
+## A suspend still to be paid for, a division on the stack, a log line's step (protocol 44)
+
+Three facts a seat could not read before, all from the Carbon seats' reports
+of 12.11.2026, all server to client only:
+
+```text
+LegalActions.unpaid_suspend: [(ObjectId, ManaCost)]   // the asked seat's own hand
+PlayerView.divided:          [Division]               // public, beside the stack
+SpectatorView.divided:       [Division]               // the same
+Division = { object: ObjectId, shares: [(TargetRef, u32)] }
+LogEntry.step:               Option<Step>             // public, beside LogEntry.phase
+```
+
+- **`unpaid_suspend`** names the cards in the asked seat's hand that it could
+  suspend (CR 116.2f, 702.62a) once the suspend cost is made, with that cost
+  in the protocol-8 notation: every rule `suspendable` asks holds but the mana,
+  and the seat has a mana ability to activate (CR 605.3a). It is a planning
+  hint, as `unpaid_foretell` is, and never authorizes `PlayerAction::Suspend`:
+  only membership in `suspendable` does, so a client makes the mana first and
+  rechecks the offer. Without it no seat that plans its taps could suspend at
+  all, and a card that prints no mana cost (Ancestral Vision, CR 202.1b) has
+  no other way out of the hand. A card is in one of the two lists, never both.
+  A payment window and split second narrow it as they narrow `suspendable`.
+  The language-model seat and BayleeAI's menu (`eval4 --menu-payable`) plan
+  it through `baylee_ai::suspend_plans`, the client through its own sources
+  (`mana_run::suspend_mana_for`), each as an activation's cost, so mana that
+  may be spent only on spells never pays it. The house never suspends
+  (`docs/observed-faults.md` 74).
+- **`divided`** is how each spell or ability on the stack that divides its
+  damage among its targets divides it, as announced when it was cast or put on
+  the stack (CR 601.2d, 603.3d): the stack object, and each target, by the same
+  handle its `targets` names it, with its share, in the order announced. The
+  division is announced to the table, so every seat and every spectator is
+  told it, not only the caster in the question it answered
+  (`PlayerView::division(object)` reads one). It stands beside the stack and
+  not on its objects, so a `PublicObject` keeps its shape: what the house
+  hashes a position by (`stall::position`, which seeds its foresight) is the
+  same bytes as before. An entry goes with its object off the stack.
+- **`step`** is the step of `phase` a log line happened in. A combat with a
+  first or double striker deals damage in two steps of one phase (CR 510.4),
+  and a reader that groups by phase told both as one run: a seat read a
+  Frostburn Weird as hitting in the first-strike step. Two lines alike in two
+  steps no longer fold into one. `None` where `phase` is.
+- **Bounds.** `unpaid_suspend` is no longer than the asked seat's hand,
+  `divided` than the stack and a division's shares than its object's targets;
+  a step is one of twelve. A client decodes them as it decodes every frame: a
+  list grows as its elements arrive and a cost's notation is checked against
+  the bytes left, so a claimed length allocates nothing for the claim, a step
+  past the twelfth is refused, and a cut or damaged frame is refused with the
+  view held (`crates/baylee-engine/tests/hostile_actions.rs`, module
+  `unpaid_suspend`; `crates/baylee-view/tests/hostile_frames.rs`,
+  `a_division_on_the_stack_survives_the_wire_and_every_damage`,
+  `a_claimed_division_allocates_nothing_for_the_claim`,
+  `a_log_line_s_step_survives_the_wire_and_every_damage`). A patch carries
+  `divided` whole as the field it is (`ViewField::Divided`). Nothing a client
+  sends changed.
+- **Protocol 44.** A frame writes every field by position, so a peer of 43
+  refuses a frame of 44 and the reverse, and engine, gateway, agent, seat and
+  clients are deployed together. In JSON (records, tapes, shadow labels) all
+  three are left out when empty and default when absent, so `VIEW_VERSION`
+  stays 90. `LegalActions`, views and the log are in neither snapshot hash,
+  and none moves an answer the engine takes. A shadow label written before
+  binds another question where the offer names an unpaid suspend
+  (`docs/engine-internals.md` §"The protocol-44 boundary"); the division and
+  the step are in no observation a label binds.
+
+What changed in protocol 44: the three fields above and `Division`, and
+nothing else.
+
 ## Taking back a cast (`PlayerAction::CancelCast`)
 
 A seat may take back a cast it began from priority at any of the cast's own

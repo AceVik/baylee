@@ -9,6 +9,7 @@ const BOLT: CardIndex = CardIndex::new(7);
 
 fn entry(turn: u32, event: LogEvent) -> LogEntry {
     LogEntry {
+        step: None,
         at: 0,
         turn,
         repeat: 1,
@@ -488,6 +489,7 @@ fn a_name_that_looks_like_a_placeholder_stays_a_name() {
     };
     let book = book(&[
         LogEntry {
+            step: None,
             at: 0,
             turn: 1,
             repeat: 3,
@@ -743,6 +745,7 @@ fn a_turn_opens_with_a_heading() {
 #[test]
 fn a_folded_line_says_how_often_unless_it_spans() {
     let folded = |event| LogEntry {
+        step: None,
         at: 0,
         turn: 1,
         repeat: 5,

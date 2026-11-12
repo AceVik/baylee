@@ -62,6 +62,7 @@ pub(crate) fn obj(id: u32, controller: u8) -> PublicObject {
 
 pub(crate) fn view(seats: u8) -> PlayerView {
     PlayerView {
+        divided: Vec::new(),
         seq: 1,
         seat: PlayerId::new(0),
         turn: 1,

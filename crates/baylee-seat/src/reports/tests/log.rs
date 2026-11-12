@@ -18,6 +18,7 @@ const ME: PlayerId = PlayerId::new(1);
 
 fn entry(turn: u32, event: LogEvent) -> LogEntry {
     LogEntry {
+        step: None,
         at: 1_700_000_000_000,
         turn,
         repeat: 1,

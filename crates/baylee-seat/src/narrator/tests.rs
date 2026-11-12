@@ -110,6 +110,7 @@ fn known(object: &PublicObject) -> LogObject {
 
 fn line(turn: u32, event: LogEvent) -> LogEntry {
     LogEntry {
+        step: None,
         turn,
         repeat: 1,
         at: 0,
@@ -297,6 +298,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             suspendable: Vec::new(),
             foretellable: Vec::new(),
             unpaid_foretell: vec![],
+            unpaid_suspend: vec![],
             restricted_taps: vec![],
             restricted_floating: vec![],
             granted_actions: vec![],
