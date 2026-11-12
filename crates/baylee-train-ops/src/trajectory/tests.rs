@@ -94,10 +94,19 @@ fn bst4_layout_and_admission_metadata_match_the_fixed_python_abi() -> Result<()>
     let mut distilled = raw.clone();
     distilled.extend_from_slice(&crate::tactician_labels::distill_block(2, 1 << 8));
     assert_eq!(packing::metadata(&distilled)?, meta);
+    // A search-advantage twin: the payload, then exactly one BSA1 block.
+    let mut twin = raw.clone();
+    twin.extend_from_slice(&crate::search_advantage::twin_block(41));
+    assert_eq!(packing::metadata(&twin)?, meta);
+    let mut two = twin.clone();
+    two.extend_from_slice(&crate::search_advantage::twin_block(41));
+    assert!(packing::metadata(&two).is_err());
     for trailing in [
         &b"BDX1"[..],
         &[0; 16][..],
         &b"BDX2\x02\0\0\0\0\x01\0\0\0\0\0\0"[..],
+        &b"BSA1\x02\0\0\0\x29\0\0\0\0\0\0\0"[..],
+        &b"BSA1\x01\0\0\0\x29\0\0\0\0\0\0\x01"[..],
     ] {
         let mut wrong = raw.clone();
         wrong.extend_from_slice(trailing);
