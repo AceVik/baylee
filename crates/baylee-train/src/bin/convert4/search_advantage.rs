@@ -108,6 +108,12 @@ struct Event {
     diffs: Vec<Option<f64>>,
     #[serde(default)]
     ses: Vec<Option<f64>>,
+    /// From runtime 0852c2a4b: in each world, the seat's first answer at
+    /// priority after the policy's own when that is a bare mana ability
+    /// (`null` otherwise). Other new fields (`ends`, `taken_back`) are read
+    /// by nothing here.
+    #[serde(default)]
+    own_intents: Vec<Option<PlayerAction>>,
 }
 
 /// What became of a game's events, by reason.
@@ -117,6 +123,9 @@ pub(super) struct Counts {
     pub(super) events: u64,
     pub(super) labelled: u64,
     pub(super) dropped: BTreeMap<String, u64>,
+    /// Where each root's chain spell (`intents.bin`) came from.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(super) intents: BTreeMap<String, u64>,
 }
 
 impl Counts {
@@ -130,6 +139,9 @@ impl Counts {
         self.labelled += other.labelled;
         for (reason, n) in &other.dropped {
             *self.dropped.entry(reason.clone()).or_default() += n;
+        }
+        for (source, n) in &other.intents {
+            *self.intents.entry(source.clone()).or_default() += n;
         }
     }
 }
@@ -340,7 +352,8 @@ impl<'a> GameLabels<'a> {
         let Some(root) = step.search_root.take() else {
             return Ok(());
         };
-        let Some(event) = self.roots.events.get(&(step.seat, root.record_input_n)) else {
+        let roots = self.roots;
+        let Some(event) = roots.events.get(&(step.seat, root.record_input_n)) else {
             return Err(format!(
                 "a root the replay kept at input {} has no search event",
                 root.record_input_n
@@ -380,6 +393,7 @@ impl<'a> GameLabels<'a> {
         self.twins
             .push_with_block(&twin, &twin_block(step.step_cursor))
             .map_err(|e| e.to_string())?;
+        let intent = self.intent(event, step.seat, root.record_input_n);
         self.counts.labelled += 1;
         self.rows.push(Row {
             game: step.game_id,
@@ -395,14 +409,30 @@ impl<'a> GameLabels<'a> {
             half_a: index(halves.on_even),
             half_b: index(halves.on_odd),
             // Kept: the record follows the bundle's own chain from its tap.
-            intent: if kind_of(event) == Some(1) && event.chosen == 0 {
-                chain_spell(&self.inputs, step.seat, root.record_input_n)
-            } else {
-                u32::MAX
-            },
+            intent,
             items: rows,
         });
         Ok(())
+    }
+
+    /// A root's chain spell (`intents.bin`): where the event says what the
+    /// policy's bare tap was for (`own_intents`, runtime 0852c2a4b on), the
+    /// spell every world names; else, where the search kept the tap, the
+    /// spell the record's chain cast; `u32::MAX` elsewhere. Counted by
+    /// where it came from, and where the events and the record both say,
+    /// whether they differ.
+    fn intent(&mut self, event: &Event, seat: u8, n: u64) -> u32 {
+        if kind_of(event) != Some(1) {
+            return u32::MAX;
+        }
+        let from_record = (event.chosen == 0).then(|| chain_spell(&self.inputs, seat, n));
+        let (intent, source) = intent_of(event, from_record);
+        let mut count = |key: &str| *self.counts.intents.entry(key.to_owned()).or_default() += 1;
+        count(source);
+        if source == "events" && from_record.is_some_and(|spell| spell != intent) {
+            count("record_differs");
+        }
+        intent
     }
 
     /// Publishes the game's twins (where it has any) and gives its rows,
@@ -413,6 +443,26 @@ impl<'a> GameLabels<'a> {
     pub(super) fn finish(self) -> anyhow::Result<(Vec<Row>, Counts, Option<String>)> {
         let shard = self.twins.finish()?;
         Ok((self.rows, self.counts, Some(shard)))
+    }
+}
+
+/// A tap root's chain spell and where it came from: the spell every world
+/// of the event names (`own_intents`), else the record's (`from_record`,
+/// where the search kept the tap).
+fn intent_of(event: &Event, from_record: Option<u32>) -> (u32, &'static str) {
+    if event.own_intents.is_empty() {
+        return from_record.map_or((u32::MAX, "none"), |spell| (spell, "record"));
+    }
+    let named: Vec<u32> = event
+        .own_intents
+        .iter()
+        .flatten()
+        .map(|action| spell_card(action).unwrap_or(u32::MAX))
+        .collect();
+    match named.split_first() {
+        Some((first, rest)) if rest.iter().all(|other| other == first) => (*first, "events"),
+        Some(_) => (u32::MAX, "events_disagree"),
+        None => (u32::MAX, "events_none"),
     }
 }
 
@@ -451,28 +501,35 @@ const CHAIN: usize = 16;
 /// [`CHAIN`] of its inputs. An activated ability may be a mana ability,
 /// which the record does not say, so it does not end a chain.
 fn chain_spell(inputs: &[(u8, u64, PlayerAction)], seat: u8, n: u64) -> u32 {
-    let card = |card: &baylee_core::ids::ObjectId| {
-        serde_json::to_value(card)
-            .ok()
-            .and_then(|value| value.as_u64())
-            .and_then(|id| u32::try_from(id).ok())
-            .unwrap_or(u32::MAX)
-    };
     inputs
         .iter()
         .skip_while(|(_, at, _)| *at <= n)
         .filter(|(by, _, _)| *by == seat)
         .take(CHAIN)
         .find_map(|(_, _, action)| match action {
-            PlayerAction::CastSpell { card: spell }
-            | PlayerAction::Suspend { card: spell }
-            | PlayerAction::Foretell { card: spell } => Some(card(spell)),
             PlayerAction::ActivateManaAbility { .. }
             | PlayerAction::ChooseManaAbility { .. }
             | PlayerAction::ActivateAbility { .. } => None,
-            _ => Some(u32::MAX),
+            other => Some(spell_card(other).unwrap_or(u32::MAX)),
         })
         .unwrap_or(u32::MAX)
+}
+
+/// The card a cast, a suspend or a foretell names, as the record and the
+/// events write it; `None` for any other answer.
+fn spell_card(action: &PlayerAction) -> Option<u32> {
+    match action {
+        PlayerAction::CastSpell { card }
+        | PlayerAction::Suspend { card }
+        | PlayerAction::Foretell { card } => Some(
+            serde_json::to_value(card)
+                .ok()
+                .and_then(|value| value.as_u64())
+                .and_then(|id| u32::try_from(id).ok())
+                .unwrap_or(u32::MAX),
+        ),
+        _ => None,
+    }
 }
 
 /// A root's twin: its frame with the payable menu, at policy weight 0; the
@@ -578,10 +635,13 @@ pub(super) fn write(
             "sha256": super::shadow::sha(&cands)},
         "intents": {"file": "intents.bin", "dtype": "<u4", "rows": rows.len(),
             "order": "the index's",
-            "meaning": "where the search kept a bare tap (root kind tap, choice4 the own \
-                        answer): the card the seat's chain then cast, suspended or \
-                        foretold at the table, as the record names it; u32::MAX elsewhere \
-                        or where the chain passed first. For analysis only.",
+            "meaning": "at a tap root: where the event says what the policy's bare tap \
+                        was for (own_intents, runtime 0852c2a4b on), the card every world \
+                        names; else, where the search kept the tap (choice4 the own \
+                        answer), the card the seat's chain then cast, suspended or \
+                        foretold at the table, as the record names it; u32::MAX elsewhere, \
+                        where the worlds disagree or the chain passed first. Counted by \
+                        source in counts.intents. For analysis only.",
             "sha256": super::shadow::sha(&intents)},
         "counts": counts,
         "source": extra,
@@ -628,6 +688,7 @@ mod tests {
             events: 3,
             labelled: 2,
             dropped: BTreeMap::from([("stopped".to_owned(), 1)]),
+            intents: BTreeMap::new(),
         };
         let header = write(&dir, vec![row(2, 5, 3), row(1, 9, 2)], &counts, &json!({})).unwrap();
         let index = fs::read(dir.join("index.bin")).unwrap();
@@ -743,5 +804,49 @@ mod chain_tests {
             .chain([(0, 99, cast(29))])
             .collect();
         assert_eq!(chain_spell(&long, 0, 0), u32::MAX);
+    }
+}
+
+#[cfg(test)]
+mod intent_tests {
+    use super::{Event, GameRoots, intent_of};
+    use serde_json::json;
+
+    /// An event of runtime 0852c2a4b, with `ends`, `own_intents` and
+    /// `taken_back` beside the fields read before.
+    fn event(own_intents: &serde_json::Value, chosen: usize) -> serde_json::Value {
+        json!({"accepted": true, "seat": 0, "record_input_n": 5,
+            "action": {"ActivateManaAbility": {"source": 7}},
+            "candidates": [{"ActivateManaAbility": {"source": 7}}, "PassPriority"],
+            "scripts": [null, null], "worlds": [[0.5, 0.4], [0.5, 0.45]], "chosen": chosen,
+            "leaves": {"stopped": 0, "boundary": 2}, "diffs": [0.0, -0.075],
+            "ses": [null, 0.025], "ends": [["boundary", "boundary"], ["boundary", "boundary"]],
+            "own_intents": own_intents, "taken_back": [false, false]})
+    }
+
+    #[test]
+    fn the_new_fields_parse_and_own_intents_name_the_spell() {
+        let cast = json!({"CastSpell": {"card": 29}});
+        let both = event(&json!([cast, cast]), 0);
+        let game = json!({"fallback_answers": 0, "refused_answers": 0,
+            "search_events": [both.clone()]});
+        let roots = GameRoots::from_game(&game).unwrap();
+        assert!(roots.roots().asks(0, 5), "a 0852c2a4b event is a root");
+        let parsed: Event = serde_json::from_value(both).unwrap();
+        // The worlds name the spell: it stands, and the record's differs.
+        assert_eq!(intent_of(&parsed, Some(30)), (29, "events"));
+        let split: Event =
+            serde_json::from_value(event(&json!([cast, {"CastSpell": {"card": 31}}]), 1)).unwrap();
+        assert_eq!(intent_of(&split, None), (u32::MAX, "events_disagree"));
+        let none: Event = serde_json::from_value(event(&json!([null, null]), 0)).unwrap();
+        assert_eq!(intent_of(&none, Some(29)), (u32::MAX, "events_none"));
+        // Before 0852c2a4b events carry none: the record's chain.
+        let old: Event = serde_json::from_value(event(&json!([]), 0)).unwrap();
+        assert_eq!(intent_of(&old, Some(29)), (29, "record"));
+        assert_eq!(intent_of(&old, None), (u32::MAX, "none"));
+        // A pass that let the mana go names no spell.
+        let pass: Event =
+            serde_json::from_value(event(&json!(["PassPriority", "PassPriority"]), 0)).unwrap();
+        assert_eq!(intent_of(&pass, Some(29)), (u32::MAX, "events"));
     }
 }
