@@ -247,6 +247,17 @@ pub fn library_choice_prompt(prompt: ChoicePrompt, whose: &str) -> String {
     }
 }
 
+/// The band question of an attacker with banding, where some attacker
+/// offered has none: a band holds any number with banding and at most one
+/// without (CR 702.22c), which the question's bound alone cannot say once
+/// both kinds are offered.
+#[must_use]
+pub fn band_prompt_with_one_unbanded() -> String {
+    "Choose the attackers to join the band: any number with banding and at most one without \
+     (choose none and it attacks alone)"
+        .into()
+}
+
 /// What a [`ChoicePrompt`] asks, as an instruction.
 #[must_use]
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {

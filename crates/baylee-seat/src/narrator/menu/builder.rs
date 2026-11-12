@@ -269,6 +269,16 @@ impl Builder<'_, '_> {
                             .collect();
                         words::library_choice_prompt(*library, &self.table.whose_cards(&shown))
                     }
+                    // A band holds any number with banding and one without
+                    // (CR 702.22c): said where both kinds are offered, which
+                    // the bound alone cannot say.
+                    baylee_engine::choice::ChoicePrompt::Band { with }
+                        if self.has_banding(*with)
+                            && options.iter().any(|&option| !self.has_banding(option)) =>
+                    {
+                        self.table
+                            .for_decider(&words::band_prompt_with_one_unbanded())
+                    }
                     _ => self.table.for_decider(&words::choice_prompt(*prompt)),
                 };
                 self.line(format!("QUESTION: {question}."));
@@ -1807,6 +1817,13 @@ impl Builder<'_, '_> {
         };
         let pays = manaplan::greatest_x_earmarked(&cost, &pool, earmarked, &sources, &assist)?;
         Some(note.x_targets.map_or(pays, |targets| pays.min(targets)))
+    }
+
+    /// Whether the view shows `id` with banding (CR 702.22).
+    fn has_banding(&self, id: ObjectId) -> bool {
+        self.table.view.object(id).is_some_and(|object| {
+            object.keywords & baylee_cards_dsl::KeywordSet::BANDING.bits() != 0
+        })
     }
 
     /// The printed face of the spell being cast (`PlayerView::casting`): in
