@@ -373,6 +373,7 @@ mod tests {
             llm_label: None,
             seat_input: Some(0),
             cand_classes: None,
+            search_root: None,
             distill,
         };
         writer.pack_bst4(&step).unwrap();

@@ -612,6 +612,7 @@ mod tests {
             seat_input: input,
             distill: None,
             cand_classes: None,
+            search_root: None,
         }
     }
 
