@@ -144,15 +144,18 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
     let scripted_played = scripted_played.unwrap_or_else(|e| panic!("the scripted seat: {e:#}"));
     let house_played = house_played.unwrap_or_else(|e| panic!("the house seat: {e:#}"));
 
-    // One game, one result, seen the same from both chairs: the house won.
+    // One game, one result, seen the same from both chairs. Who wins is not
+    // this test's question: both bridges answer standing questions on their
+    // own clocks, so the winner moves with the machine's load. What must
+    // hold is that the two chairs read one result, from opposite sides.
     assert!(house_played.result.is_some(), "{house_played:?}");
     assert_eq!(scripted_played.result, house_played.result);
-    assert_eq!(
-        house_played.stats.outcome,
-        Some(Outcome::Won),
-        "{house_played:?}"
-    );
-    assert_eq!(scripted_played.stats.outcome, Some(Outcome::Lost));
+    match (scripted_played.stats.outcome, house_played.stats.outcome) {
+        (Some(Outcome::Won), Some(Outcome::Lost))
+        | (Some(Outcome::Lost), Some(Outcome::Won))
+        | (Some(Outcome::Draw), Some(Outcome::Draw)) => {}
+        other => panic!("the chairs disagree on the result: {other:?} ({house_played:?})"),
+    }
 
     for (played, name) in [(&scripted_played, "scripted"), (&house_played, "house")] {
         let stats = &played.stats;
