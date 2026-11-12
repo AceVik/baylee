@@ -10190,6 +10190,41 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   at the interface level and the device's effects volume.
 - `/state.chat` reports the machine and the window and every chat control
   where a pointer would press it (`controls[].press`).
+- **A person's disc.** Wherever a person is shown they wear one disc
+  (`shellkit::avatar::disc`): their picture where the client holds one
+  (`avatar::Portraits`, keyed by the account's tag), else a monogram on a
+  tinted ground. Letters and tint are Baylee Central's own rule
+  (`client-core::avatar`: the first letter of the name, or of its first two
+  words; one of six tints by Central's hash over the tag in decimal), so one
+  person has one colour in the client and on the website. A friend who is
+  offline keeps theirs at half strength. `avatar::wear_portraits` gives a
+  disc its face when it is spawned and again only when `Portraits` changes.
+  Nothing fills `Portraits` from the network yet: the native Central
+  listener refuses picture requests until its M6, so every disc shows its
+  monogram. A picture, once it comes, is outside input: `baylee-avif` reads
+  its container under `Bounds::PICTURE` in safe Rust, but its AV1 decoder
+  (rav1d 1.1.0) aborts the process on some damaged streams and is therefore
+  opened only on files the client ships, so the picture path stays shut
+  until that is solved (the crate's own docs). The header's account pill is
+  the disc, the name, and the tag quieter after it.
+- **A person's card.** The pointer resting 0.32 s on a name (a chat line's
+  `ChatName`, a friend's or a recent player's row, the account pill; any
+  node carrying `shellkit::avatar::PersonLink`) opens that person's card
+  (`social::card`): the disc on a band of their tint, the name and tag (a
+  nickname first, the handle under it), a friend's presence and place, how
+  the account stands to them ("Friends for 3 months", a request either
+  way, blocked, a guest) and when it last played with them (the recent
+  players list). `client-core::social::card` decides every line from what
+  the client already holds. The gateway tells nobody another player's games
+  or wins, so the one statistic is on the account's own card: its decks'
+  games and wins on this device. One node outside every retained tree, as
+  `lobby::hint` is; once a card stands the next name is handed it at once,
+  and a gap of 0.12 s between two rows does not take it down. It opens and
+  leaves on the HUD's curves (`hud::motion`) about the corner it hangs
+  from, the disc a beat after the card; `reduce_motion` cuts both. A row's
+  card stands beside the row, never over the next one. It is never
+  pickable, any press puts it away, and nothing is written once it stands.
+  Names are plain text on one line, cut at 28 characters.
 
 ## Embedding (the open-world plan)
 

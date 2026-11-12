@@ -577,7 +577,9 @@ fn the_pills_read_me_and_the_stats() {
     app.update();
     app.update();
     let drawn = labels(&mut app);
-    assert!(drawn.iter().any(|l| l == "AceVik#0007"), "{drawn:?}");
+    // The pill writes the name and, quieter after it, the tag.
+    assert!(drawn.iter().any(|l| l == "AceVik"), "{drawn:?}");
+    assert!(drawn.iter().any(|l| l == "#0007"), "{drawn:?}");
     assert!(
         drawn.iter().any(|l| l == "3 tables · 12 online"),
         "{drawn:?}"

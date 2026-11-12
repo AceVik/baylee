@@ -47,6 +47,7 @@ pub mod arrange;
 pub mod atmosphere;
 pub mod audiomix;
 pub mod automation;
+pub mod avatar;
 pub mod banlist;
 pub mod board;
 pub mod browser;

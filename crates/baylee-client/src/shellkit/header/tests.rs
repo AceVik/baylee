@@ -255,10 +255,17 @@ fn assert_controls_fit(app: &mut App, root: Entity, width: f32, step: TextSize) 
     let mut labels = app
         .world_mut()
         .query::<(&Text, &bevy::text::TextLayoutInfo)>();
+    // The pill draws the name and, quieter after it, the tag.
+    let (name, tag) = HANDLE.split_once('#').expect("a handle has a tag");
+    let tag = format!("#{tag}");
+    assert!(
+        labels.iter(app.world()).any(|(text, _)| text.0 == tag),
+        "the account's tag stays drawn"
+    );
     let (_, layout) = labels
         .iter(app.world())
-        .find(|(text, _)| text.0 == HANDLE)
-        .expect("the full account handle stays drawn");
+        .find(|(text, _)| text.0 == name)
+        .expect("the full account name stays drawn");
     assert!(
         !layout.glyphs.is_empty(),
         "the test must measure real glyphs"
@@ -414,6 +421,7 @@ fn narrow_desktop_with_large_german_text_wraps_without_losing_actions() {
 /// shipped fonts: contextual and shared header actions must remain reachable,
 /// the wide account keeps its handle, and no version stands beside the brand.
 #[test]
+#[allow(clippy::too_many_lines)] // one walk through the builder's whole header
 fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
     use crate::buildui::{Env, Layout};
     use crate::lobby::{
@@ -474,7 +482,12 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                 .iter(app.world())
                 .map(|text| text.0.as_str())
                 .collect();
-            assert!(drawn.contains(&HANDLE), "the wide account keeps its handle");
+            let (name, tag) = HANDLE.split_once('#').expect("a handle has a tag");
+            let tag = format!("#{tag}");
+            assert!(
+                drawn.contains(&name) && drawn.contains(&tag.as_str()),
+                "the wide account keeps its name and its tag"
+            );
             assert!(
                 drawn.iter().all(|text| *text != baylee_build::VERSION),
                 "no version beside the builder's brand"

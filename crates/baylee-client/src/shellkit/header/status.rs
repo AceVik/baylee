@@ -67,11 +67,7 @@ pub fn status<G: Bundle, B: Bundle, A: Bundle, R: Bundle>(
     commands.entity(bell).insert(HeaderTrigger::Bell);
     commands.entity(bar).add_child(bell);
     if let Some(handle) = look.handle {
-        let account = if wide {
-            controls::pill(commands, kit, None, handle, true, actions.account)
-        } else {
-            avatar(commands, kit, handle, actions.account)
-        };
+        let account = account(commands, kit, handle, wide, actions.account);
         commands.entity(account).insert(HeaderTrigger::Account);
         commands.entity(bar).add_child(account);
     }

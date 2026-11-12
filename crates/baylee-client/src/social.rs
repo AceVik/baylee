@@ -31,6 +31,7 @@ use bevy::prelude::*;
 
 use crate::lobby::LobbyState;
 
+pub(crate) mod card;
 #[cfg(not(target_arch = "wasm32"))]
 mod central;
 pub(crate) mod drawer;
@@ -702,6 +703,7 @@ pub(crate) fn install(app: &mut App) {
     keys::install(app);
     menu::install(app);
     drawer::install(app);
+    card::install(app);
     toasts::install(app);
     sheet::install(app);
     #[cfg(not(target_arch = "wasm32"))]

@@ -878,3 +878,63 @@ NoticeUnread =
 # The lobby header's notice for a friend request.
 # Arguments: player
 NoticeFriendRequest = Friend request from { $player }
+
+# The card that opens over a person's name: the account's own.
+CardYou = This is you
+
+# The same card: a friend since today.
+CardFriendToday = Friends since today
+
+# Arguments: count
+CardFriendDays =
+    { $count ->
+        [one] Friends for { $count } day
+       *[other] Friends for { $count } days
+    }
+
+# Arguments: count
+CardFriendMonths =
+    { $count ->
+        [one] Friends for { $count } month
+       *[other] Friends for { $count } months
+    }
+
+# Arguments: count
+CardFriendYears =
+    { $count ->
+        [one] Friends for { $count } year
+       *[other] Friends for { $count } years
+    }
+
+# They asked to be this account's friend.
+CardAskedYou = Wants to be your friend
+
+# This account asked them.
+CardAsked = Friend request sent
+
+# Blocked by this account.
+CardBlocked = Blocked
+
+# A guest has no account.
+CardGuest = Guest · cannot be added
+
+# This account sat at a table with them today.
+CardPlayedToday = Played together today
+
+# Arguments: count
+CardPlayedDays =
+    { $count ->
+        [one] Played together { $count } day ago
+       *[other] Played together { $count } days ago
+    }
+
+# The account's own card: what its decks have played on this device.
+# Arguments: wins, count
+CardOwnGames =
+    { $count ->
+        [one] { $count } game · { $wins } won
+       *[other] { $count } games · { $wins } won
+    }
+
+# The same line before any game was played.
+CardNoGames = No games played yet
