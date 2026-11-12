@@ -1753,22 +1753,31 @@ impl Builder<'_, '_> {
     /// (sources this reading does not know): then the engine's range stands,
     /// as the client's X question and the house's own X answer read it
     /// (`manaplan::greatest_x`, `HeuristicAgent::largest_x`).
+    ///
+    /// A spell with convoke, improvise or delve is paid by its creatures,
+    /// artifacts and graveyard as well (`manaplan::Assist`): Chord of Calling
+    /// beside five Forests and three green creatures was asked "from 0 to
+    /// 3", what the Forests and Leaf Gilder's mana pay alone, where X = 5 is
+    /// paid (Carbon b4, attempt 8, q158; CR 702.51a).
     fn payable_x(&self) -> Option<u32> {
         let note = self.request.note.as_ref()?;
         let cost = note.cost.filter(ManaCost::has_variable)?;
         let view = self.table.view;
-        let pool = view
-            .seat(baylee_client_core::decision::resource_player(view))?
-            .mana_pool;
+        let caster = baylee_client_core::decision::resource_player(view);
+        let pool = view.seat(caster)?.mana_pool;
         let sources = baylee_ai::mana_sources_in_view(view);
-        let pays = manaplan::greatest_x(&cost, &pool, &sources)?;
+        let assist = self
+            .casting_face()
+            .map_or_else(manaplan::Assist::default, |face| {
+                manaplan::Assist::read(view, caster, face, &sources)
+            });
+        let pays = manaplan::greatest_x_assisted(&cost, &pool, &sources, &assist)?;
         Some(note.x_targets.map_or(pays, |targets| pays.min(targets)))
     }
 
-    /// How many times the floating pool pays `each` beside the spell being
-    /// cast, read off the printed cost; `None` when the pool does not reach
-    /// that, which is the engine's range to answer.
-    fn kicks_floating(&self, each: &ManaCost) -> Option<u32> {
+    /// The printed face of the spell being cast (`PlayerView::casting`): in
+    /// the hand it was cast from, or wherever the view shows it now.
+    fn casting_face(&self) -> Option<&'static baylee_cards_dsl::FaceDef> {
         let view = self.table.view;
         let casting = view.casting?;
         let card = baylee_client_core::decision::hand(view)
@@ -1776,9 +1785,17 @@ impl Builder<'_, '_> {
             .find(|held| held.id == casting)
             .map(|held| held.card)
             .or_else(|| view.object(casting).and_then(|object| object.card))?;
-        let face = baylee_cards::by_index(card.index)?
+        baylee_cards::by_index(card.index)?
             .faces
-            .get(usize::from(card.face))?;
+            .get(usize::from(card.face))
+    }
+
+    /// How many times the floating pool pays `each` beside the spell being
+    /// cast, read off the printed cost; `None` when the pool does not reach
+    /// that, which is the engine's range to answer.
+    fn kicks_floating(&self, each: &ManaCost) -> Option<u32> {
+        let view = self.table.view;
+        let face = self.casting_face()?;
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;

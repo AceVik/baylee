@@ -722,9 +722,107 @@ pub fn greatest_repeat(
 /// and capping would forbid an X the engine would take.
 #[must_use]
 pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<u32> {
+    greatest_x_assisted(cost, pool, sources, &Assist::default())
+}
+
+/// What pays a spell's mana cost beside mana, read off the board: the
+/// creatures convoke taps (CR 702.51a), the artifacts improvise taps
+/// (CR 702.126a) and the cards delve exiles (CR 702.66a). The engine counts
+/// them for the spell; a planner that counts only mana caps the spell's X
+/// short of what the board pays. Chord of Calling beside five Forests, Leaf
+/// Gilder and two more green creatures pays X = 5, and the seat was asked
+/// X "from 0 to 3", what the Forests and the Gilder's mana pay alone (Carbon
+/// b4, attempt 8, q158).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Assist {
+    /// A creature convoke may tap, as a source of one mana of one of its
+    /// colours, which pays `{1}` as well (CR 702.51a).
+    pub convoke: Vec<Source>,
+    /// The generic mana paid otherwise, one each: a colourless creature
+    /// convoked, an artifact improvised, a card delved.
+    pub generic: u32,
+}
+
+impl Assist {
+    /// What `face`'s convoke, improvise and delve take from `caster`'s board
+    /// as `view` shows it: untapped creatures and artifacts that are not
+    /// among `sources` (a permanent taps once, for mana or to help), and the
+    /// cards in `caster`'s graveyard. Improvise an effect grants for the next
+    /// spell is not in the view and is not counted, which under-counts.
+    #[must_use]
+    pub fn read(
+        view: &baylee_view::PlayerView,
+        caster: baylee_core::ids::PlayerId,
+        face: &baylee_cards_dsl::FaceDef,
+        sources: &[Source],
+    ) -> Self {
+        use baylee_core::types::TypeSet;
+        use baylee_view::ObjectStatus;
+        let mut out = Self::default();
+        if face.convoke || face.improvise {
+            for object in view.battlefield_of(caster) {
+                if object.status.contains(ObjectStatus::TAPPED)
+                    || object.status.contains(ObjectStatus::PHASED_OUT)
+                    || sources.iter().any(|source| source.id == object.id)
+                {
+                    continue;
+                }
+                if face.convoke && object.types.contains(TypeSet::CREATURE) {
+                    if object.colors.is_empty() {
+                        out.generic = out.generic.saturating_add(1);
+                    } else {
+                        out.convoke.push(Source {
+                            colors: colors_of(object.colors),
+                            ..Source::fixed(object.id, Tap::Intrinsic, ManaColor::Colorless)
+                        });
+                    }
+                } else if face.improvise && object.types.contains(TypeSet::ARTIFACT) {
+                    out.generic = out.generic.saturating_add(1);
+                }
+            }
+        }
+        if face.delve {
+            let buried = view
+                .graveyards
+                .get(usize::from(caster.get()))
+                .map_or(0, Vec::len);
+            out.generic = out
+                .generic
+                .saturating_add(u32::try_from(buried).unwrap_or(u32::MAX));
+        }
+        out
+    }
+}
+
+/// [`greatest_x`] with what `assist` pays beside the mana: each convoking
+/// creature as one more source, and the rest of the help off the generic
+/// part, X's included.
+#[must_use]
+pub fn greatest_x_assisted(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    assist: &Assist,
+) -> Option<u32> {
     if !cost.has_variable() {
         return None;
     }
+    let mut all = sources.to_vec();
+    all.extend(assist.convoke.iter().cloned());
+    let pays = |x: u32| {
+        let total = cost.with_x(x);
+        let help = assist.generic.min(total.generic_total());
+        plan(&total.with_less_generic(help), pool, &all).is_some()
+    };
+    let ceiling = mana_ceiling(pool, &all).saturating_add(assist.generic);
+    // Affordability only shrinks as X grows, so the first X that plans from
+    // the top is the greatest. The ceiling is a few dozen at most.
+    (0..=ceiling).rev().find(|&x| pays(x))
+}
+
+/// Every mana `pool` and `sources` hold, poured as one colour where a source
+/// may: no X past this can be paid, however the pips fall.
+fn mana_ceiling(pool: &ManaPoolView, sources: &[Source]) -> u32 {
     let floating = [
         pool.white,
         pool.blue,
@@ -735,8 +833,6 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
     ]
     .into_iter()
     .fold(0_u32, u32::saturating_add);
-    // Every mana there is, poured as one colour where a source may: no X past
-    // this can be paid, however the pips fall.
     let poured = sources
         .iter()
         .map(|s| {
@@ -748,12 +844,7 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
             free.max(s.converter.as_ref().map_or(0, Converter::mana))
         })
         .fold(0_usize, usize::saturating_add);
-    let ceiling = floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX));
-    // Affordability only shrinks as X grows, so the first X that plans from
-    // the top is the greatest. The ceiling is a few dozen at most.
-    (0..=ceiling)
-        .rev()
-        .find(|&x| plan(&cost.with_x(x), pool, sources).is_some())
+    floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX))
 }
 
 /// How many permanents pouring several mana of one chosen colour [`plan`]
@@ -1774,6 +1865,96 @@ mod tests {
             tapped(&plan(&cost("{1}{U}"), &pool, &sources).expect("payable")),
             [1],
             "the Forest pays the {{1}}, not the priced land"
+        );
+    }
+
+    /// What convoke, improvise and delve read off the board, and the X it
+    /// lets a cost reach: a delve face (Treasure Cruise's) paying `{X}{U}{U}`
+    /// over two Islands and three cards in the graveyard reaches X = 3
+    /// (CR 702.66a), where the Islands alone pay X = 0. A green creature convokes as a source of green, a
+    /// colourless one and an artifact as `{1}` (CR 702.51a, 702.126a); a
+    /// tapped one helps with nothing, and a creature that is a mana source
+    /// already is counted once.
+    #[test]
+    fn convoke_improvise_and_delve_raise_the_x_a_board_pays() {
+        use crate::test_support::{ViewBuilder, token};
+        use baylee_core::types::TypeSet;
+        let body = |id: u32, types: TypeSet, colors: ColorSet| {
+            let mut object = token(id, 0, "Helper", 1, 1);
+            object.types = types;
+            object.colors = colors;
+            object
+        };
+        let mut tapped_elf = body(13, TypeSet::CREATURE, ColorSet::of(Color::Green));
+        tapped_elf.status = baylee_view::ObjectStatus::TAPPED;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    body(10, TypeSet::CREATURE, ColorSet::of(Color::Green)),
+                    body(
+                        11,
+                        TypeSet::CREATURE.union(TypeSet::ARTIFACT),
+                        ColorSet::EMPTY,
+                    ),
+                    body(12, TypeSet::ARTIFACT, ColorSet::EMPTY),
+                    tapped_elf,
+                    body(14, TypeSet::CREATURE, ColorSet::of(Color::Green)),
+                ],
+            )
+            .with_graveyard(
+                0,
+                vec![
+                    token(20, 0, "a", 0, 0),
+                    token(21, 0, "b", 0, 0),
+                    token(22, 0, "c", 0, 0),
+                ],
+            )
+            .build();
+        let card = |name: &str| {
+            let index = baylee_cards::decks::by_name(name).expect("in the pool");
+            &baylee_cards::by_index(index).expect("a card").faces[0]
+        };
+        let me = baylee_core::ids::PlayerId::new(0);
+        // #14 taps for mana already: a source, and no convoke beside it.
+        let elf_mana = land(14, ManaColor::Green);
+        let islands = [land(1, ManaColor::Blue), land(2, ManaColor::Blue)];
+        let mut sources = islands.to_vec();
+        sources.push(elf_mana);
+
+        let knot = Assist::read(&view, me, card("Treasure Cruise"), &islands);
+        assert_eq!(
+            knot,
+            Assist {
+                convoke: Vec::new(),
+                generic: 3
+            }
+        );
+        let pool = empty();
+        assert_eq!(greatest_x(&cost("{X}{U}{U}"), &pool, &islands), Some(0));
+        assert_eq!(
+            greatest_x_assisted(&cost("{X}{U}{U}"), &pool, &islands, &knot),
+            Some(3)
+        );
+
+        let chord = Assist::read(&view, me, card("Chord of Calling"), &sources);
+        let convoked: Vec<u32> = chord.convoke.iter().map(|s| s.id.slot()).collect();
+        assert_eq!(
+            convoked,
+            [10],
+            "the untapped green creature not already a source"
+        );
+        assert_eq!(chord.convoke[0].colors, [ManaColor::Green]);
+        assert_eq!(chord.generic, 1, "the colourless artifact creature");
+
+        let whir = Assist::read(&view, me, card("Whir of Invention"), &sources);
+        assert_eq!(
+            whir,
+            Assist {
+                convoke: Vec::new(),
+                generic: 2
+            },
+            "both artifacts"
         );
     }
 

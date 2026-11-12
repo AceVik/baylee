@@ -1855,6 +1855,8 @@ mod activation_payment_tests;
 mod controlled_turn_tests;
 #[cfg(test)]
 mod reachable_tests;
+#[cfg(test)]
+mod x_cap_tests;
 
 #[cfg(test)]
 mod schedule_order_tests;

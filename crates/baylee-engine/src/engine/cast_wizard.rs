@@ -2019,6 +2019,9 @@ mod restricted_x_tests;
 #[cfg(test)]
 mod pool_x_tests;
 
+#[cfg(test)]
+mod convoke_x_tests;
+
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]

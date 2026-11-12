@@ -431,8 +431,15 @@ impl Duel {
     /// ([`manaplan::greatest_repeat`]): the number the player is shown is the
     /// most their lands pay on top of the spell.
     ///
+    /// A spell with convoke, improvise or delve counts its creatures,
+    /// artifacts and graveyard beside the mana ([`manaplan::Assist`]): capped
+    /// by the mana alone, Chord of Calling beside five Forests and three
+    /// green creatures was offered X up to 3 where 5 is paid (Carbon b4,
+    /// attempt 8, q158, the seat's same reading; CR 702.51a).
+    ///
     /// [`manaplan::greatest_x`]: baylee_client_core::manaplan::greatest_x
     /// [`manaplan::greatest_repeat`]: baylee_client_core::manaplan::greatest_repeat
+    /// [`manaplan::Assist`]: baylee_client_core::manaplan::Assist
     fn cap_x(&mut self) {
         let Some(cap) = self.x_cap() else {
             return;
@@ -465,19 +472,22 @@ impl Duel {
             .filter(|(of, _)| of == player)
             .map(|(_, legal)| legal)?;
         let cost = spell_cost(view, legal, card)?;
-        let pool = view
-            .seat(baylee_client_core::decision::resource_player(view))?
-            .mana_pool;
+        let caster = baylee_client_core::decision::resource_player(view);
+        let pool = view.seat(caster)?.mana_pool;
         let sources = manasources::sources(view, legal);
-        match kick {
-            Some(each) => baylee_client_core::manaplan::greatest_repeat(
+        if let Some(each) = kick {
+            return baylee_client_core::manaplan::greatest_repeat(
                 &cost.with_x(view.announced_x.unwrap_or(0)),
                 &each,
                 &pool,
                 &sources,
-            ),
-            None => baylee_client_core::manaplan::greatest_x(&cost, &pool, &sources),
+            );
         }
+        let assist = casting_face(view, card)
+            .map_or_else(baylee_client_core::manaplan::Assist::default, |face| {
+                baylee_client_core::manaplan::Assist::read(view, caster, face, &sources)
+            });
+        baylee_client_core::manaplan::greatest_x_assisted(&cost, &pool, &sources, &assist)
     }
 
     /// Works out afresh which lands would settle an open payment window.
@@ -1425,4 +1435,15 @@ impl Duel {
             .iter()
             .any(|card| legal.castable.contains(&card.id))
     }
+}
+
+/// The printed face of `card`, the spell being cast: in the hand it was cast
+/// from, or wherever the view shows it now.
+fn casting_face(view: &PlayerView, card: ObjectId) -> Option<&'static baylee_cards_dsl::FaceDef> {
+    let identity = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|held| held.id == card)
+        .map(|held| held.card)
+        .or_else(|| view.object(card).and_then(|object| object.card))?;
+    reach::printed_face(identity)
 }

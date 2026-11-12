@@ -5617,6 +5617,16 @@ no less of the floating mana. The taps never grow and payability does not
 move. The frozen house plans without it (`manaplan::plan_frozen`,
 `docs/observed-faults.md` entry 75).
 
+The X question is capped by the same planner (`manaplan::greatest_x`), and a
+spell with convoke, improvise or delve is paid by its creatures, artifacts
+and graveyard as well: `manaplan::Assist` reads them off the view (a
+permanent already counted as a mana source taps once), a coloured creature
+as one more source of its colours and the rest as generic help, and
+`greatest_x_assisted` counts them (CR 702.51a, 702.126a, 702.66a). Capped by
+mana alone, Chord of Calling beside five Forests and three green creatures
+was offered X up to 3 where 5 is paid. Improvise an effect grants for the
+next spell is not in the view, and is not counted.
+
 A paid mana ability (a filter land's or a Signet's `{1}, {T}`) is a trade and
 not a source, and the matcher above never sees one. `manaplan/convert.rs` is
 asked only when it has said no, so a board that planned before plans the same

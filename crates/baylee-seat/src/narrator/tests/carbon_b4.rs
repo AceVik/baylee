@@ -1,6 +1,7 @@
 //! What the Carbon seat was offered wrong in block 4 (12.11.2026), on a real
 //! engine: a payment window's one plan tapped the land with the scarce
-//! colour where Forests paid.
+//! colour where Forests paid, and a convoke spell's X was capped at what the
+//! lands' mana pays alone.
 
 use super::carbon::{picked, send};
 use super::*;
@@ -134,4 +135,82 @@ fn an_owed_payment_keeps_the_scarce_island_untapped_and_offers_the_other_way() {
         "the Island is still up for Double Major"
     );
     assert_eq!(untapped(&session, "Forest").len(), 1);
+}
+
+/// Casts `card` from seat 0's hand off the pool and returns the line of the
+/// X question, the cast's first, as the seat is told it.
+fn x_line(session: &mut Session, card: ObjectId) -> String {
+    session
+        .act_slice(ME, PlayerAction::CastSpell { card }, 0)
+        .expect("the spell is castable at X = 0");
+    let asked = asked_with_note(session);
+    assert!(
+        matches!(asked.pending, Pending::ChooseNumber { .. }),
+        "X is asked first: {:?}",
+        asked.pending
+    );
+    let text = told(&asked);
+    text.lines()
+        .find(|line| line.contains("value of X"))
+        .unwrap_or_else(|| panic!("X is asked: {text}"))
+        .to_string()
+}
+
+/// Carbon b4, attempt 8, q158: Chord of Calling (`{X}{G}{G}{G}`, convoke)
+/// cast off an empty pool beside five untapped Forests, Leaf Gilder,
+/// Elvish Vanguard and Fierce Empath. Five Forests and three convoking
+/// creatures make eight mana, so X = 5 is paid (CR 107.3a, 702.51a); the
+/// engine's question is open while a land is untapped, and the seat capped
+/// it at 3, what the Forests and the Gilder's mana pay alone.
+#[test]
+fn a_convoke_spells_x_counts_the_creatures_that_convoke() {
+    let (mut session, view, legal) = position(
+        &[
+            "Forest",
+            "Forest",
+            "Forest",
+            "Forest",
+            "Forest",
+            "Leaf Gilder",
+            "Elvish Vanguard",
+            "Fierce Empath",
+        ],
+        &["Chord of Calling"],
+        &[],
+    );
+    let chord = view.hand[0].id;
+    assert!(
+        legal.castable.contains(&chord),
+        "convoke pays {{G}}{{G}}{{G}}"
+    );
+    let line = x_line(&mut session, chord);
+    assert!(line.contains("(from 0 to 5)"), "{line}");
+}
+
+/// Whir of Invention (`{X}{U}{U}{U}`, improvise) with `{U}{U}{U}` floating
+/// off three Islands, a fourth Island untapped and two Ornithopters: the
+/// Island and the two artifacts pay X = 3 (CR 702.126a). The Island's mana
+/// alone pays X = 1.
+#[test]
+fn an_improvise_spells_x_counts_the_artifacts() {
+    let (mut session, view, _) = position(
+        &[
+            "Island",
+            "Island",
+            "Island",
+            "Island",
+            "Ornithopter",
+            "Ornithopter",
+        ],
+        &["Whir of Invention"],
+        &[],
+    );
+    let whir = view.hand[0].id;
+    for island in &untapped(&session, "Island")[..3] {
+        session
+            .act_slice(ME, PlayerAction::ActivateManaAbility { source: *island }, 0)
+            .expect("an Island's blue");
+    }
+    let line = x_line(&mut session, whir);
+    assert!(line.contains("(from 0 to 3)"), "{line}");
 }
