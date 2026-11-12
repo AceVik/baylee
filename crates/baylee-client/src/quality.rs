@@ -533,28 +533,31 @@ fn pace(
     in_use: Res<InUse>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
-    front: Option<Res<crate::vista::FrontScene>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     winit: Option<ResMut<WinitSettings>>,
+    film: Option<Res<crate::vista::Moving>>,
     mut resting: ResMut<Resting>,
 ) {
     let passive = watched_from_behind();
     let menu = phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed);
     let still = ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use));
-    // While the interior tavern loop is visible in the lobby (`!front.shown`),
-    // keep the 60 fps cadence rather than dropping to the 30 fps menu settle cap.
-    let tavern_loop_active = menu && !still && front.is_some_and(|f| !f.shown);
-    let untouched_secs = if passive || tavern_loop_active {
+    // A moving picture asks for no cadence of its own: it plays by the
+    // scene's clock at whatever rate the menu is drawn (`vista::loops`).
+    // What it asks is not to be stopped: a menu whose film is seen eases to
+    // the idle rate and stays there (`Showing::picture`). (Until 12.11.2026
+    // the tavern pinned the lobby at 60 frames a second for good.)
+    let untouched_secs = if passive {
         0.0
     } else {
         (time.elapsed_secs_f64() - watch.last_input) as f32
     };
     let showing = Showing {
-        focused: focused(&windows) || passive || tavern_loop_active,
+        focused: focused(&windows) || passive,
         hidden: watch.hidden || minimised(&windows),
         menu,
         untouched_secs,
         still,
+        picture: film.is_some_and(|film| film.0),
     };
     resting.set_if_neq(Resting(in_use.0.rests(showing)));
     let Some(mut winit) = winit else {

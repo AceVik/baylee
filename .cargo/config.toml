@@ -43,7 +43,7 @@ build-client = "build --locked --workspace --bin baylee-client --bin baylee-laun
 # platform `cfg`; their other dependencies are platform-neutral and checked as
 # libraries. `client_check_covers_every_platform_cfg` in baylee-tools keeps
 # this list complete.
-check-client = "check --locked --all-targets -p baylee-client -p baylee-client-core -p baylee-update -p baylee-seat -p baylee-keyring -p baylee-core -p baylee-engine"
+check-client = "check --locked --all-targets -p baylee-client -p baylee-client-core -p baylee-update -p baylee-seat -p baylee-keyring -p baylee-avif -p baylee-core -p baylee-engine"
 
 # macOS keeps debug info in each codegen unit's `.o` (`split-debuginfo =
 # unpacked`, the default there) and leaves those files in `target/debug/deps`.

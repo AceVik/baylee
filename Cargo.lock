@@ -1797,6 +1797,7 @@ dependencies = [
  "accesskit",
  "baylee-account",
  "baylee-ai",
+ "baylee-avif",
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",

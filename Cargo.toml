@@ -361,6 +361,15 @@ debug = "line-tables-only"
 [profile.dev.package."*"]
 debug = false
 
+# rav1d decodes the backdrops' loops (`baylee-avif`), and an AV1 decoder
+# without optimisation is seconds a frame: `vista::loops`' four tests, which
+# decode the shipped loops, took 10.2 s alone, and one ran into its own 20 s
+# deadline beside 1400 others (12.11.2026). A dependency is built once, so
+# this costs a developer's rebuild nothing.
+[profile.dev.package.rav1d]
+opt-level = 3
+debug = false
+
 # The gate's test run (`cargo dev gate`'s `test` step, nextest
 # `--cargo-profile gate`): the dev profile, with the crates the slowest tests
 # spend their time in at opt-level 1. Measured 10.11.2026 on the MacBook: three

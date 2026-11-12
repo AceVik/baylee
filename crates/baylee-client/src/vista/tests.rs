@@ -103,10 +103,7 @@ fn lobby_world(
     let handle = app
         .world_mut()
         .resource_mut::<Assets<VistaMaterial>>()
-        .add(VistaMaterial {
-            params: VistaParams::default(),
-            sanctuary: Handle::default(),
-        });
+        .add(VistaMaterial::of(Handle::default()));
     app.world_mut().spawn((
         Vista::Interior,
         Settled::default(),
@@ -163,16 +160,4 @@ fn baylees_home_anchor_is_the_same_across_scenes() {
     assert!(scenes.iter().all(|scene| scene.home == home));
     assert_ne!(scenes[0].panel.x, scenes[1].panel.x);
     assert_ne!(scenes[1].panel.x, scenes[2].panel.x);
-}
-
-/// A decoder that keeps failing is tried again ever more slowly and then given
-/// up, so a broken ffmpeg is never respawned at frame rate.
-#[cfg(not(target_arch = "wasm32"))]
-#[test]
-fn a_failing_video_decoder_backs_off_and_is_given_up() {
-    use std::time::Duration;
-    assert_eq!(VideoStream::backoff(1), Duration::from_millis(500));
-    assert!(VideoStream::backoff(2) > VideoStream::backoff(1));
-    assert_eq!(VideoStream::backoff(u32::MAX), Duration::from_secs(8));
-    assert!((1..=10).contains(&VideoStream::MOST_FAILURES));
 }

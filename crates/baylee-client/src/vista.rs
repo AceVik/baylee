@@ -201,6 +201,9 @@ pub struct VistaParams {
     pub air: Vec4,
     /// Login flight progress, active flag, virtual seconds, logical height.
     pub portal: Vec4,
+    /// How much of the scene's moving picture is drawn over its still, 0–1
+    /// (`vista::loops::light` is its one writer); the rest is spare.
+    pub moving: Vec4,
 }
 
 /// The scene, as a UI material.
@@ -213,6 +216,71 @@ pub struct VistaMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub sanctuary: Handle<Image>,
+    /// The moving picture's running frame: luma, and the two chroma planes
+    /// at half its size (`vista::loops`). A white pixel each until a loop is
+    /// wired, which `VistaParams::moving` keeps unseen until then.
+    #[texture(3)]
+    pub loop_y: Handle<Image>,
+    /// As `loop_y`.
+    #[texture(4)]
+    pub loop_u: Handle<Image>,
+    /// As `loop_y`.
+    #[texture(5)]
+    pub loop_v: Handle<Image>,
+    /// The moving picture's first frame, which is the still at the loop's
+    /// size: where the running frame agrees with it, the still's own detail
+    /// is drawn.
+    #[texture(6)]
+    pub first_y: Handle<Image>,
+    /// As `first_y`.
+    #[texture(7)]
+    pub first_u: Handle<Image>,
+    /// As `first_y`.
+    #[texture(8)]
+    pub first_v: Handle<Image>,
+}
+
+impl VistaMaterial {
+    /// A scene over this still, with no moving picture yet.
+    #[must_use]
+    pub fn of(sanctuary: Handle<Image>) -> Self {
+        Self {
+            params: VistaParams::default(),
+            sanctuary,
+            loop_y: Handle::default(),
+            loop_u: Handle::default(),
+            loop_v: Handle::default(),
+            first_y: Handle::default(),
+            first_u: Handle::default(),
+            first_v: Handle::default(),
+        }
+    }
+
+    /// The six planes of the moving picture, in `loops::Planes`' order.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    fn planes(&self) -> impl Iterator<Item = &Handle<Image>> {
+        [
+            &self.loop_y,
+            &self.loop_u,
+            &self.loop_v,
+            &self.first_y,
+            &self.first_u,
+            &self.first_v,
+        ]
+        .into_iter()
+    }
+
+    /// Draws this loop's planes.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    fn wire(&mut self, planes: &loops::Planes) {
+        let [loop_y, loop_u, loop_v, first_y, first_u, first_v] = planes.clone();
+        self.loop_y = loop_y;
+        self.loop_u = loop_u;
+        self.loop_v = loop_v;
+        self.first_y = first_y;
+        self.first_u = first_u;
+        self.first_v = first_v;
+    }
 }
 
 impl UiMaterial for VistaMaterial {
@@ -304,7 +372,7 @@ impl Plugin for VistaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrontScene>()
             .init_resource::<Gaze>()
-            .add_systems(Update, (gaze, paint, step_vista_videos).chain());
+            .add_systems(Update, (gaze, paint).chain());
         // As for the ambient field: a headless test has no asset server and
         // no render world, and there is nothing to draw on there.
         if !app.world().contains_resource::<AssetServer>() {
@@ -313,53 +381,16 @@ impl Plugin for VistaPlugin {
         let assets = app.world().resource::<AssetServer>();
         let world_image = assets.load("scenes/baylees-world.png");
         let tavern_image = assets.load("scenes/tavern-lobby.png");
-        #[cfg(not(target_arch = "wasm32"))]
-        let world_id = world_image.id();
-        #[cfg(not(target_arch = "wasm32"))]
-        let tavern_id = tavern_image.id();
         let art = VistaArt([
             world_image,
             assets.load("scenes/baylee-cloud.png"),
             assets.load("brand/baylee-logo.png"),
             tavern_image,
         ]);
-        app.insert_resource(art);
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let mut streams = Vec::with_capacity(2);
-            if let Some(s) = VideoStream::spawn(
-                Vista::Front,
-                world_id,
-                "scenes/world-loop.mp4",
-                "world-video-stream",
-            ) {
-                streams.push(s);
-            }
-            if let Some(s) = VideoStream::spawn(
-                Vista::Interior,
-                tavern_id,
-                "scenes/tavern-loop.mp4",
-                "tavern-video-stream",
-            ) {
-                streams.push(s);
-            }
-            if !streams.is_empty() {
-                let videos = VistaVideos(std::sync::Arc::from(streams));
-                app.insert_resource(videos.clone());
-                if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
-                    render_app.insert_resource(videos).add_systems(
-                        bevy::render::Render,
-                        upload_vista_frames
-                            .in_set(bevy::render::RenderSystems::PrepareAssets)
-                            .after(
-                                bevy::render::render_asset::prepare_assets::<
-                                    bevy::render::texture::GpuImage,
-                                >,
-                            ),
-                    );
-                }
-            }
-        }
+        app.insert_resource(art).init_resource::<Moving>();
+        // The two moving pictures, where the decoder is built: a desktop.
+        #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+        loops::install(app);
         embedded_asset!(app, "shaders/vista.wesl");
         embedded_asset!(app, "shaders/memorial.wesl");
         embedded_asset!(app, "shaders/memorial_paper.wesl");
@@ -388,10 +419,9 @@ pub fn surface(
         Vista::Interior => "scenes/tavern-lobby.png",
         Vista::Front | Vista::Wait => "scenes/baylees-world.png",
     };
-    let handle = materials.add(VistaMaterial {
-        params: VistaParams::default(),
-        sanctuary: assets.map_or_else(Handle::default, |a| a.load(scene_path)),
-    });
+    let handle = materials.add(VistaMaterial::of(
+        assets.map_or_else(Handle::default, |a| a.load(scene_path)),
+    ));
     commands
         .spawn((
             Node {
@@ -591,6 +621,10 @@ pub(crate) fn paint(
         }
         let energy = if frozen { 0.0 } else { 1.0 };
         let next_params = VistaParams {
+            // The loop's own (`loops::light`): kept as it is found.
+            moving: materials
+                .get(&handle.0)
+                .map_or(Vec4::ZERO, |material| material.params.moving),
             panel,
             home: home_anchor(aspect),
             view: Vec4::new(gaze.0.x, gaze.0.y, aspect, energy),
@@ -630,323 +664,15 @@ pub(crate) fn paint(
     }
 }
 
-/// Streams the pre-built 4K 60fps seamless video loops (`scenes/world-loop.mp4` for
-/// [`Vista::Front`] and `scenes/tavern-loop.mp4` for [`Vista::Interior`]) via hardware
-/// decoding into double-buffered staging slots, uploading directly into the GPU textures
-/// in [`bevy::render::RenderApp`] via `RenderQueue::write_texture` without mutating
-/// `Assets<Image>` or reallocating `MTLTexture`s. Inactive streams automatically reap
-/// their `ffmpeg` child and park with zero CPU/GPU cost.
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Resource, Clone)]
-struct VistaVideos(std::sync::Arc<[std::sync::Arc<VideoStream>]>);
+/// Whether a moving picture is being shown: one of the loops is seen and
+/// plays. `quality::pace` reads it, so that a menu left alone goes on
+/// drawing while its film runs (`graphics::Showing::picture`); written by
+/// `loops::step`, and `false` wherever there are no loops.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct Moving(pub bool);
 
-#[cfg(not(target_arch = "wasm32"))]
-struct VideoStream {
-    kind: Vista,
-    image_id: AssetId<Image>,
-    wanted_tick: std::sync::atomic::AtomicU64,
-    active: std::sync::atomic::AtomicBool,
-    stop: std::sync::atomic::AtomicBool,
-    ready: std::sync::Mutex<ReadyFrame>,
-    child: std::sync::Mutex<Option<std::process::Child>>,
-    reader: std::sync::OnceLock<std::thread::Thread>,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-struct ReadyFrame {
-    seq: u64,
-    uploaded_seq: u64,
-    buf: Vec<u8>,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl Drop for VideoStream {
-    fn drop(&mut self) {
-        self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
-        if let Ok(mut guard) = self.child.lock()
-            && let Some(mut child) = guard.take()
-        {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-        if let Some(t) = self.reader.get() {
-            t.unpark();
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl VideoStream {
-    const WIDTH: u32 = 3840;
-    const HEIGHT: u32 = 2160;
-    const FRAME_BYTES: usize = (Self::WIDTH as usize) * (Self::HEIGHT as usize) * 4;
-    const FPS: f32 = 60.0;
-
-    /// A decoder that failed this many times in a row is given up for the
-    /// session: the still picture stays, and nothing respawns at frame rate.
-    const MOST_FAILURES: u32 = 5;
-
-    /// The pause after the `n`th failure in a row: 0.25 s, doubling, at most 8 s.
-    fn backoff(failures: u32) -> std::time::Duration {
-        std::time::Duration::from_millis(250 << failures.min(5))
-    }
-
-    fn spawn_ffmpeg(mp4_path: &std::path::Path) -> Option<std::process::Child> {
-        use std::process::{Command, Stdio};
-        Command::new("ffmpeg")
-            .args([
-                "-v",
-                "error",
-                "-hwaccel",
-                "videotoolbox",
-                "-stream_loop",
-                "-1",
-                "-i",
-            ])
-            .arg(mp4_path)
-            .args(["-f", "rawvideo", "-pix_fmt", "rgba", "-"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .ok()
-    }
-
-    #[allow(
-        clippy::too_many_lines,
-        reason = "the reader thread's loop is one state machine: decoder, backoff, park"
-    )]
-    fn spawn(
-        kind: Vista,
-        image_id: AssetId<Image>,
-        rel_path: &'static str,
-        thread_name: &'static str,
-    ) -> Option<std::sync::Arc<Self>> {
-        use std::io::Read;
-        use std::sync::{
-            Arc, Mutex, OnceLock,
-            atomic::{AtomicBool, AtomicU64, Ordering},
-        };
-
-        // VideoToolbox and a player's own ffmpeg are a Mac's; elsewhere the
-        // still picture stands, as it does before a loop is found.
-        if !cfg!(target_os = "macos") {
-            return None;
-        }
-        // Where the asset server reads `assets/` from: `BEVY_ASSET_ROOT`, the
-        // crate under `cargo run`, else beside the executable (a package). Not
-        // a path baked in at build time: that names the build machine's tree.
-        let mp4_path = bevy::asset::io::file::FileAssetReader::get_base_path()
-            .join("assets")
-            .join(rel_path);
-        let stream = Arc::new(Self {
-            kind,
-            image_id,
-            wanted_tick: AtomicU64::new(0),
-            active: AtomicBool::new(false),
-            stop: AtomicBool::new(false),
-            ready: Mutex::new(ReadyFrame {
-                seq: 0,
-                uploaded_seq: 0,
-                // Filled on the first frame: a client whose video never
-                // plays (no ffmpeg, no file) holds no 33 MB frames.
-                buf: Vec::new(),
-            }),
-            child: Mutex::new(None),
-            reader: OnceLock::new(),
-        });
-        let stream_bg = Arc::clone(&stream);
-        let handle = std::thread::Builder::new()
-            .name(thread_name.to_string())
-            .spawn(move || {
-                let mut work_buf = Vec::new();
-                let mut failures: u32 = 0;
-                // When the next try may spawn a decoder: the reader is unparked
-                // every frame the vista shows, so a pause alone would not hold.
-                let mut retry_at: Option<std::time::Instant> = None;
-                let mut last_tick = u64::MAX;
-                let mut stdout: Option<std::process::ChildStdout> = None;
-                let mut idle_polls: u32 = 0;
-
-                while !stream_bg.stop.load(Ordering::Relaxed) {
-                    if !stream_bg.active.load(Ordering::Relaxed) {
-                        idle_polls = idle_polls.saturating_add(1);
-                        if idle_polls > 20
-                            && stdout.take().is_some()
-                            && let Ok(mut guard) = stream_bg.child.lock()
-                            && let Some(mut child) = guard.take()
-                        {
-                            let _ = child.kill();
-                            let _ = child.wait();
-                        }
-                        if stdout.is_none() {
-                            std::thread::park();
-                        } else {
-                            std::thread::park_timeout(std::time::Duration::from_millis(25));
-                        }
-                        continue;
-                    }
-                    idle_polls = 0;
-                    let tick = stream_bg.wanted_tick.load(Ordering::Relaxed);
-                    if tick == last_tick {
-                        std::thread::park_timeout(std::time::Duration::from_millis(8));
-                        continue;
-                    }
-                    if stdout.is_none() {
-                        if failures >= Self::MOST_FAILURES || !mp4_path.is_file() {
-                            // Given up, or nothing to play: wait for `stop`.
-                            std::thread::park();
-                            continue;
-                        }
-                        if let Some(at) = retry_at {
-                            let now = std::time::Instant::now();
-                            if now < at {
-                                std::thread::park_timeout(at - now);
-                                continue;
-                            }
-                        }
-                        if let Some(mut proc) = Self::spawn_ffmpeg(&mp4_path) {
-                            work_buf.resize(Self::FRAME_BYTES, 0);
-                            stdout = proc.stdout.take();
-                            if let Ok(mut guard) = stream_bg.child.lock()
-                                && let Some(mut old) = guard.replace(proc)
-                            {
-                                let _ = old.kill();
-                                let _ = old.wait();
-                            }
-                        } else {
-                            // No ffmpeg on this machine.
-                            failures = Self::MOST_FAILURES;
-                            continue;
-                        }
-                    }
-                    if let Some(pipe) = stdout.as_mut() {
-                        if pipe.read_exact(&mut work_buf).is_ok() {
-                            failures = 0;
-                            last_tick = tick;
-                            if let Ok(mut guard) = stream_bg.ready.lock() {
-                                std::mem::swap(&mut work_buf, &mut guard.buf);
-                                guard.seq = guard.seq.wrapping_add(1);
-                            }
-                        } else {
-                            // The decoder ended or could not decode: reap it and
-                            // wait before the next try, so a failing ffmpeg is not
-                            // respawned at frame rate.
-                            stdout = None;
-                            if let Ok(mut guard) = stream_bg.child.lock()
-                                && let Some(mut child) = guard.take()
-                            {
-                                let _ = child.kill();
-                                let _ = child.wait();
-                            }
-                            failures += 1;
-                            retry_at = Some(std::time::Instant::now() + Self::backoff(failures));
-                        }
-                    }
-                }
-            })
-            .ok()?;
-        let _ = stream.reader.set(handle.thread().clone());
-        Some(stream)
-    }
-}
-
-#[allow(unused_variables)]
-fn step_vista_videos(
-    surfaces: Query<(&Vista, &MaterialNode<VistaMaterial>, &Visibility)>,
-    materials: Option<Res<Assets<VistaMaterial>>>,
-    #[cfg(not(target_arch = "wasm32"))] videos: Option<Res<VistaVideos>>,
-) {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        use std::sync::atomic::Ordering;
-        let (Some(materials), Some(videos)) = (materials, videos) else {
-            return;
-        };
-        for stream in videos.0.iter() {
-            let mut active = false;
-            for (kind, handle, vis) in &surfaces {
-                if *kind != stream.kind || *vis == Visibility::Hidden {
-                    continue;
-                }
-                let Some((t, energy)) = materials
-                    .get(&handle.0)
-                    .map(|m| (m.params.portal.z, m.params.view.w))
-                else {
-                    continue;
-                };
-                if energy <= 0.0 {
-                    continue;
-                }
-                active = true;
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let tick = (t * VideoStream::FPS) as u64;
-                let prev = stream.wanted_tick.swap(tick, Ordering::Relaxed);
-                if prev != tick
-                    && let Some(reader) = stream.reader.get()
-                {
-                    reader.unpark();
-                }
-                break;
-            }
-            let was_active = stream.active.swap(active, Ordering::Relaxed);
-            if active != was_active
-                && let Some(reader) = stream.reader.get()
-            {
-                reader.unpark();
-            }
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn upload_vista_frames(
-    videos: Option<Res<VistaVideos>>,
-    gpu_images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
-    render_queue: Res<bevy::render::renderer::RenderQueue>,
-) {
-    let Some(videos) = videos else {
-        return;
-    };
-    for stream in videos.0.iter() {
-        if !stream.active.load(std::sync::atomic::Ordering::Relaxed) {
-            continue;
-        }
-        let Some(gpu_image) = gpu_images.get(stream.image_id) else {
-            continue;
-        };
-        // The frames are 8-bit RGBA at 3840 × 2160: a still picture of
-        // another size or depth would make the copy invalid.
-        let size = gpu_image.texture_descriptor.size;
-        if size.width != VideoStream::WIDTH
-            || size.height != VideoStream::HEIGHT
-            || !matches!(
-                gpu_image.texture_descriptor.format,
-                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb
-                    | bevy::render::render_resource::TextureFormat::Rgba8Unorm
-            )
-        {
-            continue;
-        }
-        let Ok(mut guard) = stream.ready.try_lock() else {
-            continue;
-        };
-        if guard.seq == guard.uploaded_seq || guard.buf.len() != VideoStream::FRAME_BYTES {
-            continue;
-        }
-        render_queue.write_texture(
-            gpu_image.texture.as_image_copy(),
-            &guard.buf,
-            bevy::render::render_resource::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(VideoStream::WIDTH * 4),
-                rows_per_image: None,
-            },
-            size,
-        );
-        guard.uploaded_seq = guard.seq;
-    }
-}
+#[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+mod loops;
 
 #[cfg(test)]
 mod tests;
