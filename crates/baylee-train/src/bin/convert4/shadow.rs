@@ -259,6 +259,7 @@ mod tests {
             distill: None,
             cand_classes: None,
             behavior_mixture: None,
+            search_root: None,
         };
         let mut writer = FrameLabels::new(&directory, 1, &source).unwrap();
         writer.push(&step).unwrap();

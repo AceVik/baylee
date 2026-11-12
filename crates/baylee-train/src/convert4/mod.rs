@@ -131,6 +131,11 @@ pub struct Step4 {
     /// decision, beside its recorded π; absent from ordinary output.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub behavior_mixture: Option<baylee_train_ops::exploration::StepExploration>,
+    /// Search-advantage labels (`search_advantage_v1`): at a root a converter
+    /// asked for ([`search_roots::Roots4`]), what its twin is built from;
+    /// never part of a frame.
+    #[serde(skip)]
+    pub search_root: Option<Box<search_roots::SearchRoot4>>,
 }
 
 /// The net's own answer `N` at a distilled decision, by head.
@@ -220,6 +225,7 @@ pub fn extract_game4_with_team_hands(
         false,
         7,
         team_hands,
+        None,
         |step, life| {
             raw_steps.push((step, life));
             Ok(())
@@ -253,6 +259,7 @@ pub mod llm_bc;
 pub mod question_boundary;
 mod replay;
 pub mod research;
+pub mod search_roots;
 pub mod shadow_bc;
 pub mod split_boundary;
 mod streaming;
