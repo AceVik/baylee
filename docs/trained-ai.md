@@ -1503,6 +1503,36 @@ seconds a game (0.04–0.05 a label; a search 175–180 ms at the median, under
 0.5 s at worst, 44–69 searches a game, 3–4 % refused), and the game records
 with and without it were byte for byte the same.
 
+**Search-advantage labels** (`search_advantage_v1`, `convert4
+--search-advantage`). A fork-search run (`eval4 --search … --record-out`)
+keeps every searched decision's worlds (`search_events`); the student learns
+the search's fork advantages with their uncertainty, not its top-1 choice
+(coordinator, 12 November). At each searched priority root of a recorded seat
+the replay keeps, beside the frame, the root's payable menu: the frame's own
+menu and after it the spells the planner pays for (`netplay4::PayableMenu4`,
+the one builder of the student's second pass at roots). Each search candidate
+takes an item of that menu (`search_labels::macro_items`: a planned cast its
+added "cast X" item, everything else its own item as the encoder groups it),
+and the sidecar `search-advantage/` keeps per root the policy's own item, the
+search's choice over its four worlds and on worlds {0, 2} and {1, 3}
+(`search_labels::halves`, margin 0.03), and per item the advantage over the
+policy's own answer with its paired standard error (`search_labels::paired`;
+NaN where no candidate took it; 0 and 0 at the policy's own), whether it was
+searched, whether the payable menu added it, and its coarse class. Each
+labelled root has a twin in the split `search-advantage-menus/` under the
+root's own key, its frame again with the payable menu and the recorded answer
+at its own index, ending in the 16-byte block BSA1 (kind 1, the root cursor),
+which the native packing admits and `trajectory_cache4 build --split
+search-advantage-menus` caches; every frame of the dataset keeps policy weight
+0, so no answer the search played becomes a policy target. A root is labelled
+only where its event was accepted, none of its rollouts was stopped, its game
+had no fallback or refused answer and every candidate maps to an item of its
+own; every other root is counted by its reason. Records of the fork-search
+runtimes before 445a4e276 (the count boundary) convert with one converter,
+c42/shared up to 253beb52b with the house-teacher line, after its frames were
+shown to be byte for byte those of the collection's own convert4; the meta
+names the collection's build, the converter's and that check.
+
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
 `run.json` names it too (`labels`, `tactician.record_contract`).
