@@ -579,7 +579,8 @@ impl Default for AIProfile {
 }
 
 impl AIProfile {
-    /// Keeps every opening hand, taps out, and makes noisy spell choices.
+    /// Keeps every opening hand (the lowest card skill,
+    /// [`Self::card_skill`]), taps out, and searches least.
     pub const NOVICE: Self = Self {
         lookahead: 0,
         temperature_milli: 800,
@@ -590,7 +591,8 @@ impl AIProfile {
         generation: Self::GENERATION,
         foresight: 1,
     };
-    /// Fixes land-starved hands, but still taps out with loose evaluation.
+    /// Reads its cards as `steady` does from generation 17 (it fixed only
+    /// land-starved hands before), but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
         temperature_milli: 400,
         mulligan_skill: 1,
@@ -715,8 +717,36 @@ impl AIProfile {
     /// miracle check through that round, and the engine forks nothing
     /// while it does).
     pub const QUIET_DRAW_STEP: u16 = 13;
+    /// Every level casts an instant at its moment ([`Self::INSTANT_TIMING`]),
+    /// not only one that keeps mana up: a combat trick once blocks are
+    /// declared where it turns an exchange, anything lasting in its own main
+    /// phase or the opponents' combat or end step. A level that keeps no mana
+    /// up ([`HoldUp::None`]: `novice`, `casual`) still taps out for what it
+    /// casts at sorcery speed; it no longer casts a trick on sight.
+    pub const TIMED_INSTANTS: u16 = 14;
+    /// The level that peeks (`seer`), at a table that lets it, searches in
+    /// forks that keep every other player's hand as it is: it is told those
+    /// hands, and a fork from the real lists dealt them again from what
+    /// each player hides. The libraries are still dealt.
+    pub const SEER_HANDS: u16 = 15;
+    /// A level's noise ([`Self::temperature_milli`]) is at most
+    /// [`Self::NOISE_CEILING`] wide: noise exists so that players cannot learn
+    /// to exploit a level, never to weaken one (owner, 10.11.2026), and
+    /// `novice`'s ±800 was twice any other level's ([`Self::noise_milli`]).
+    pub const NOISE_BAND: u16 = 16;
+    /// `casual` reads its cards as `steady` does ([`Self::card_skill`]): it
+    /// plans its colours, checks its opening hand for an early play and
+    /// reads what it scries, surveils and keeps. `novice` keeps every
+    /// opening hand: the card skill of the ladder's lowest step, and with
+    /// the noise of [`Self::NOISE_BAND`] what keeps `casual` above it (one
+    /// step more for `novice` too left the two level, 51 % on train).
+    pub const CARD_SKILL: u16 = 17;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::QUIET_DRAW_STEP;
+    pub const GENERATION: u16 = Self::CARD_SKILL;
+
+    /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the
+    /// band of every level but `novice` before it.
+    pub const NOISE_CEILING: u32 = 400;
 
     /// The work a bounded search ([`Self::BOUNDED_SEARCH`]) may spend at
     /// expert's tier, in the units of the search's meter; a lower tier may
@@ -743,6 +773,31 @@ impl AIProfile {
     #[must_use]
     pub const fn plays(self, generation: u16) -> bool {
         self.generation >= generation
+    }
+
+    /// How well this level reads its cards (the mulligan, a scry, a
+    /// surveil, what it keeps and discards, the colour it makes), as its
+    /// generation plays it: [`Self::mulligan_skill`], and two for a level of
+    /// skill one (`casual`) from [`Self::CARD_SKILL`].
+    #[must_use]
+    pub const fn card_skill(self) -> u8 {
+        if self.plays(Self::CARD_SKILL) && self.mulligan_skill == 1 {
+            2
+        } else {
+            self.mulligan_skill
+        }
+    }
+
+    /// The width of this level's noise in milli-units, as its generation
+    /// plays it: [`Self::temperature_milli`], at most [`Self::NOISE_CEILING`]
+    /// from [`Self::NOISE_BAND`].
+    #[must_use]
+    pub const fn noise_milli(self) -> u32 {
+        if self.plays(Self::NOISE_BAND) && self.temperature_milli > Self::NOISE_CEILING {
+            Self::NOISE_CEILING
+        } else {
+            self.temperature_milli
+        }
     }
 
     /// This level as it played at `generation`: the same constants on the
@@ -1684,6 +1739,37 @@ mod tests {
         assert!(!AIProfile::SHARP_2026_11.plays(AIProfile::TEAM_PLAY));
         assert!(AIProfile::SHARP_2026_11.plays(AIProfile::FROZEN_2026_11));
         assert!(AIProfile::default().plays(AIProfile::GENERATION));
+    }
+
+    /// From generation 16 no level's noise is wider than the ceiling, and
+    /// below it every level keeps the band it was given.
+    #[test]
+    fn a_level_plays_its_noise_within_the_ceiling_from_generation_16() {
+        for (name, profile) in AIProfile::NAMED {
+            assert!(profile.noise_milli() <= AIProfile::NOISE_CEILING, "{name}");
+            let before = profile.at_generation(AIProfile::SEER_HANDS);
+            assert_eq!(before.noise_milli(), profile.temperature_milli, "{name}");
+        }
+        assert_eq!(AIProfile::NOVICE.temperature_milli, 800);
+        assert_eq!(AIProfile::NOVICE.noise_milli(), AIProfile::NOISE_CEILING);
+        assert_eq!(AIProfile::CASUAL.noise_milli(), 400);
+        assert_eq!(AIProfile::SHARP_2026_11.noise_milli(), 30);
+    }
+
+    /// From generation 17 `casual` reads its cards as `steady` does, and
+    /// `novice` keeps the lowest step.
+    #[test]
+    fn casual_reads_its_cards_as_steady_from_generation_17() {
+        let skill = |profile: AIProfile| profile.card_skill();
+        assert_eq!(skill(AIProfile::NOVICE), 0);
+        assert_eq!(skill(AIProfile::CASUAL), 2);
+        assert_eq!(skill(AIProfile::STEADY), 2);
+        assert_eq!(skill(AIProfile::EXPERT), 2);
+        for (name, profile) in AIProfile::NAMED {
+            let before = profile.at_generation(AIProfile::NOISE_BAND);
+            assert_eq!(skill(before), profile.mulligan_skill, "{name}");
+        }
+        assert_eq!(skill(AIProfile::SHARP_2026_11), 2);
     }
 
     /// From generation 9 a level bounds its own search, by the cells of its

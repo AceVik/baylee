@@ -190,9 +190,13 @@ fn deaths(attacker: Fighter, blockers: &[Fighter]) -> (bool, Vec<bool>) {
 
 impl HeuristicAgent {
     /// Whether this level times its instants: one that manages its open
-    /// mana, from [`AIProfile::INSTANT_TIMING`].
+    /// mana, from [`AIProfile::INSTANT_TIMING`]; every level from
+    /// [`AIProfile::TIMED_INSTANTS`]. A level that keeps no mana up
+    /// ([`HoldUp::None`]) still taps out (its reserve is nothing), and casts
+    /// an instant where the mana is there at the instant's moment.
     pub(crate) fn times_instants(&self) -> bool {
-        self.profile.hold_up != HoldUp::None && self.profile.plays(AIProfile::INSTANT_TIMING)
+        (self.profile.hold_up != HoldUp::None || self.profile.plays(AIProfile::TIMED_INSTANTS))
+            && self.profile.plays(AIProfile::INSTANT_TIMING)
     }
 
     /// Whether now is a moment to cast an instant-speed card that prints

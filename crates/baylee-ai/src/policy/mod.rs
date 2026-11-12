@@ -424,7 +424,7 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn noise(&self, view: &PlayerView, id: ObjectId) -> i64 {
-        let width = u64::from(self.profile.temperature_milli.min(10_000));
+        let width = u64::from(self.profile.noise_milli().min(10_000));
         if width == 0 {
             return 0;
         }
@@ -465,7 +465,7 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn mulligan(&self, view: &PlayerView, taken: u8, free: bool) -> PlayerAction {
-        let skill = self.profile.mulligan_skill;
+        let skill = self.profile.card_skill();
         // Four cards can still play; repeatedly demanding an ideal seven
         // would mulligan a land-light deck to zero.
         let limit = if free { 4 } else { 3 };
@@ -515,7 +515,7 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn discard(&self, view: &PlayerView, count: usize) -> Vec<ObjectId> {
-        if self.profile.mulligan_skill == 0 {
+        if self.profile.card_skill() == 0 {
             return crate::costliest(view, count);
         }
         let mut hand: Vec<_> = hand(view).iter().collect();
@@ -550,7 +550,7 @@ impl HeuristicAgent {
         max: u8,
     ) -> Vec<ObjectId> {
         let mut ranked = options.to_vec();
-        if self.profile.mulligan_skill >= 2 {
+        if self.profile.card_skill() >= 2 {
             let value = Self::card_value(view);
             ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
         } else {
@@ -662,7 +662,7 @@ impl HeuristicAgent {
         ) {
             return Some(self.keep_permanents(view, options, max));
         }
-        if self.profile.mulligan_skill < 2 {
+        if self.profile.card_skill() < 2 {
             return None;
         }
         let value = Self::card_value(view);
@@ -812,7 +812,7 @@ impl HeuristicAgent {
     /// is the answer with nothing else to go on. Ties keep the first pile.
     pub(crate) fn pile(&self, view: &PlayerView, piles: &[Vec<ObjectId>]) -> usize {
         let value = Self::card_value(view);
-        let reads = self.profile.mulligan_skill >= 2;
+        let reads = self.profile.card_skill() >= 2;
         let worth = |pile: &Vec<ObjectId>| -> (i64, usize) {
             let sum: i64 = if reads {
                 pile.iter().map(|id| value(id).max(0)).sum()
@@ -837,7 +837,7 @@ impl HeuristicAgent {
     /// Only a card worth less than nothing goes: unknown cards are kept,
     /// because an id alone is not information about the top of a library.
     pub(crate) fn send_away(&self, view: &PlayerView, cards: &[ObjectId]) -> Option<Vec<ObjectId>> {
-        if self.profile.mulligan_skill < 2 {
+        if self.profile.card_skill() < 2 {
             return None;
         }
         let value = Self::card_value(view);
@@ -898,7 +898,7 @@ impl HeuristicAgent {
         let may_pay = |id: ObjectId| {
             only_for.is_none_or(|restriction| self.admits(view, &restriction, context.source, id))
         };
-        if self.profile.mulligan_skill >= 2
+        if self.profile.card_skill() >= 2
             && let Some(color) = self.planned_color(view, options, &may_pay)
         {
             return color;

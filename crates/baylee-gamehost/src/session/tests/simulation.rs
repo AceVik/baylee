@@ -405,3 +405,58 @@ fn a_spell_cast_in_a_fork_is_paid_by_the_house_that_plays_on() {
     }
     assert!(tried > 0, "no spell was offered to be paid while cast");
 }
+
+/// A fork from the real lists deals each other player's hand again from
+/// what that player hides; told that hand (`seen`, a level that peeks from
+/// `AIProfile::SEER_HANDS`), it keeps it card for card, and still deals the
+/// library.
+#[test]
+fn a_fork_keeps_the_hands_its_seat_is_told() {
+    let mut session = table(32);
+    to_forkable_main(&mut session, 3);
+    let other = PlayerId::new(1);
+    let cards = |state: &baylee_engine::state::GameState, zone| -> Vec<_> {
+        state
+            .zones
+            .list(zone)
+            .iter()
+            .filter_map(|id| state.object(*id).and_then(|o| o.card))
+            .map(|card| card.index)
+            .collect()
+    };
+    let hand = baylee_engine::zone::ZoneLocation::Hand(other);
+    let library = baylee_engine::zone::ZoneLocation::Library(other);
+    let real = cards(session.state(), hand);
+    assert!(!real.is_empty(), "the opponent holds cards");
+    let decks = std::sync::Arc::clone(&session.scouting_decks);
+    let mut told = baylee_core::ids::SeatSet::new();
+    told.insert(other);
+    let mut redealt = 0;
+    for seed in 0..8 {
+        let kept = session
+            .forked(
+                SEARCHER,
+                DeckKnowledge::Known,
+                POLICY_SEED + seed,
+                std::sync::Arc::clone(&decks),
+                told,
+            )
+            .expect("the root forks");
+        assert_eq!(cards(kept.state(), hand), real, "the hand it is told stays");
+        let dealt = session
+            .forked(
+                SEARCHER,
+                DeckKnowledge::Known,
+                POLICY_SEED + seed,
+                std::sync::Arc::clone(&decks),
+                baylee_core::ids::SeatSet::new(),
+            )
+            .expect("the root forks");
+        redealt += usize::from(cards(dealt.state(), hand) != real);
+        assert_eq!(
+            cards(kept.state(), library).len(),
+            cards(session.state(), library).len()
+        );
+    }
+    assert!(redealt > 0, "a hand it is not told is dealt again");
+}

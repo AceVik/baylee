@@ -1033,10 +1033,12 @@ impl Session {
     /// [`SimulationSession::release`]).
     ///
     /// A level that peeks at a table that lets it forks from the real lists
-    /// and keeps the table's deck analyses. Every other fork deals the other
-    /// players' hidden cards from the search's prior, and tells no chair but
-    /// the seat's a deck. A refusal is counted under its question and
-    /// reason.
+    /// and keeps the table's deck analyses; from
+    /// `AIProfile::SEER_HANDS` its forks also keep every other player's hand
+    /// as it is, since the level is told those hands, and deal only the
+    /// libraries. Every other fork deals the other players' hidden cards
+    /// from the search's prior, and tells no chair but the seat's a deck. A
+    /// refusal is counted under its question and reason.
     fn fork_modelled(
         &mut self,
         search: &Search<'_>,
@@ -1047,9 +1049,23 @@ impl Session {
             .as_ref()
             .map_or(DeckKnowledge::Known, DeckKnowledge::Prior);
         let told = std::sync::Arc::clone(&search.decks);
+        let mut seen = baylee_core::ids::SeatSet::new();
+        if search.prior.is_none()
+            && search
+                .model
+                .profile()
+                .plays(baylee_core::preset::AIProfile::SEER_HANDS)
+        {
+            for seat in (0..self.seat_count()).filter_map(|at| u8::try_from(at).ok()) {
+                let seat = PlayerId::new(seat);
+                if seat != search.player {
+                    seen.insert(seat);
+                }
+            }
+        }
         let clock = self.foresight.clock;
         let forking = clock.now();
-        let forked = self.forked(search.player, decks, seed, told);
+        let forked = self.forked(search.player, decks, seed, told, seen);
         self.foresight.cost.forks += 1;
         if forked.is_ok() {
             search.work.spend(super::simulation::FORK_WORK);

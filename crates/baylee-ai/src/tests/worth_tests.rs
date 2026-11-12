@@ -587,7 +587,8 @@ fn a_pact_is_not_cast_when_its_price_loses_or_outweighs_the_spell() {
 
 /// Nothing cast in this seat's own upkeep could not as well be cast a step
 /// later, so on an empty stack it spends nothing — here a fetchland, which the
-/// draw step cracks as before.
+/// draw step cracked before generation 13 (`QUIET_DRAW_STEP`) and the main
+/// phase cracks from it.
 #[test]
 fn a_seat_spends_nothing_in_its_own_upkeep() {
     let mut v = view(0, &[20, 20], vec![card(1, ME, "Arid Mesa", TypeSet::LAND)]);
@@ -600,10 +601,25 @@ fn a_seat_spends_nothing_in_its_own_upkeep() {
     );
 
     v.step = baylee_view::Step::Draw;
+    let before =
+        HeuristicAgent::new(AIProfile::default().at_generation(AIProfile::EQUIPMENT_AND_X));
+    assert_eq!(
+        before.act(&v, &offering(vec![(obj(1), 0)])),
+        activates(1, 0),
+        "in the draw step, before generation 13"
+    );
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority,
+        "not in the draw step from generation 13"
+    );
+
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
     assert_eq!(
         agent().act(&v, &offering(vec![(obj(1), 0)])),
         activates(1, 0),
-        "in the draw step"
+        "in the main phase"
     );
 }
 

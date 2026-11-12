@@ -187,7 +187,7 @@ impl Session {
                 .collect(),
             DeckKnowledge::Known | DeckKnowledge::Unknown => Arc::clone(&self.scouting_decks),
         };
-        self.forked(seat, decks, policy_seed, scouting_decks)
+        self.forked(seat, decks, policy_seed, scouting_decks, SeatSet::new())
     }
 
     /// What the seat of `view` may suppose every other player hides, for a
@@ -214,15 +214,21 @@ impl Session {
     /// by the caller: a house search (`session/foresight.rs`) seats its own
     /// model in every chair and tells no chair but its own a deck, and
     /// analysing a prior's thousands of cards for every fork would be most
-    /// of what a fork costs.
+    /// of what a fork costs. `seen` are the hands the seat is told beside
+    /// its teammates' (a level that peeks, at a table that lets it): the
+    /// fork keeps them as they are, where it deals every other hidden card.
     pub(super) fn forked(
         &self,
         seat: PlayerId,
         decks: DeckKnowledge<'_>,
         policy_seed: u64,
         scouting_decks: Arc<[DeckIntel]>,
+        seen: SeatSet,
     ) -> Result<SimulationSession, ForkRefusal> {
-        let shared = self.hands_told(seat)[0];
+        let mut shared = self.hands_told(seat)[0];
+        for owner in seen.iter() {
+            shared.insert(owner);
+        }
         let engine = self
             .engine
             .fork_for_with_shared(seat, decks, policy_seed, shared)?;

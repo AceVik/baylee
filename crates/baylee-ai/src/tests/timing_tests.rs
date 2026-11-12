@@ -19,12 +19,25 @@ const TIMING: [(&str, AIProfile); 3] = [
     ("EXPERT", AIProfile::EXPERT),
 ];
 
-/// The levels that cast at the first chance, and the frozen reference.
+/// The levels that cast at the first chance: the ones that keep no mana up,
+/// before every level timed its instants (`AIProfile::TIMED_INSTANTS`), and
+/// the frozen reference.
 const FIRST_CHANCE: [(&str, AIProfile); 3] = [
-    ("NOVICE", AIProfile::NOVICE),
-    ("CASUAL", AIProfile::CASUAL),
+    (
+        "NOVICE",
+        AIProfile::NOVICE.at_generation(AIProfile::QUIET_DRAW_STEP),
+    ),
+    (
+        "CASUAL",
+        AIProfile::CASUAL.at_generation(AIProfile::QUIET_DRAW_STEP),
+    ),
     ("SHARP_2026_11", AIProfile::SHARP_2026_11),
 ];
+
+/// The levels that keep no mana up, as they play now: they tap out, and time
+/// what they cast at instant speed (`AIProfile::TIMED_INSTANTS`).
+const TAPPING_OUT: [(&str, AIProfile); 2] =
+    [("NOVICE", AIProfile::NOVICE), ("CASUAL", AIProfile::CASUAL)];
 
 fn cast_effects(name: &str) -> &'static [baylee_cards_dsl::Effect] {
     let def = baylee_cards::by_index(baylee_cards::decks::by_name(name).unwrap()).unwrap();
@@ -194,8 +207,8 @@ fn a_trick_on_an_unblocked_attacker_is_cast_for_lethal_only() {
 /// **Something lasting waits out the upkeep and the draw step**: a
 /// Lightning Bolt for the opponent's creature is cast in their end step or
 /// once they attack, not in their upkeep, and not in this seat's own draw
-/// step. The levels that tap out, and the frozen reference, cast it at the
-/// first chance as before.
+/// step. The levels that tap out cast it at the first chance before generation
+/// 14, and the frozen reference does still.
 #[test]
 fn a_lasting_instant_waits_for_an_end_step_or_an_attack() {
     let mut theirs = view(0, &[20, 20], vec![permanent(obj(2), THEM, 3)]);
@@ -231,6 +244,19 @@ fn a_lasting_instant_waits_for_an_end_step_or_an_attack() {
     for (name, profile) in FIRST_CHANCE {
         assert_eq!(
             HeuristicAgent::new(profile).act(&theirs, &bolt),
+            PlayerAction::CastSpell { card: obj(3) },
+            "{name}"
+        );
+    }
+    for (name, profile) in TAPPING_OUT {
+        let agent = HeuristicAgent::new(profile);
+        assert_eq!(
+            agent.act(&theirs, &bolt),
+            PlayerAction::PassPriority,
+            "{name}"
+        );
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&end, &bolt),
             PlayerAction::CastSpell { card: obj(3) },
             "{name}"
         );

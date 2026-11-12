@@ -398,7 +398,6 @@ fn every_adjacent_difficulty_changes_a_real_decision() {
          peeks (`only_the_seer_peeks_and_nothing_peeks_by_default`)"
     );
     let mut v = view(0, &[20, 20], vec![]);
-    v.hand = (0..7).map(|i| hand_card(i, "Brainstorm")).collect();
     let pending = Pending::Mulligan {
         player: v.seat,
         taken: 0,
@@ -408,16 +407,34 @@ fn every_adjacent_difficulty_changes_a_real_decision() {
     let answer = |profile, view: &PlayerView, pending: &Pending| {
         HeuristicAgent::new(profile).act(view, pending)
     };
-    assert_ne!(
-        answer(AIProfile::NOVICE, &v, &pending),
-        answer(AIProfile::CASUAL, &v, &pending)
-    );
+    // Novice keeps every hand (`AIProfile::card_skill`), and casual also
+    // asks a two-lander for an early play.
     v.hand = vec![hand_card(0, "Island"), hand_card(1, "Island")];
     v.hand
         .extend((2..7).map(|i| hand_card(i, "Darksteel Forge")));
     assert_ne!(
-        answer(AIProfile::CASUAL, &v, &pending),
-        answer(AIProfile::STEADY, &v, &pending)
+        answer(AIProfile::NOVICE, &v, &pending),
+        answer(AIProfile::CASUAL, &v, &pending)
+    );
+    // Casual taps out where steady keeps a counterspell's mana up while an
+    // opponent holds cards (`policy::reserve`).
+    let mut main = view(0, &[20, 20], vec![permanent(obj(1), PlayerId::new(0), 2)]);
+    main.phase = baylee_view::Phase::SecondMain;
+    main.step = baylee_view::Step::Main;
+    main.seats[1].hand_count = 3;
+    main.seats[0].mana_pool.blue = 5;
+    main.hand = vec![hand_card(3, "Counterspell"), hand_card(5, "Hill Giant")];
+    let giant = Pending::Priority {
+        player: main.seat,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            castable: vec![obj(5)],
+            can_pass: true,
+            ..Default::default()
+        }),
+    };
+    assert_ne!(
+        answer(AIProfile::CASUAL, &main, &giant),
+        answer(AIProfile::STEADY, &main, &giant)
     );
     let v = view(
         0,

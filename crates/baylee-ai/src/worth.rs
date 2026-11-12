@@ -1562,14 +1562,14 @@ impl HeuristicAgent {
             Effect::Scry { amount }
             | Effect::Surveil { amount }
             | Effect::ScryFor { amount, .. } => {
-                if self.profile.mulligan_skill >= 2 {
+                if self.profile.card_skill() >= 2 {
                     count(*amount)? * 40
                 } else {
                     0
                 }
             }
             Effect::ReorderTopLibrary { count } => {
-                if self.profile.mulligan_skill >= 2 {
+                if self.profile.card_skill() >= 2 {
                     i64::from(*count) * 20
                 } else {
                     0

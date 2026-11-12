@@ -9,8 +9,8 @@ is offered (§"The frozen reference").
 
 | Profile | Opening hand | Spell selection and mana | Combat |
 | --- | --- | --- | --- |
-| novice | Keeps every hand | ±800 deterministic score noise; taps out | Individual trades |
-| casual | Rejects fewer than two or more than five lands | ±400 noise; taps out | Individual trades |
+| novice | Keeps every hand | ±400 deterministic score noise (±800 before generation 16); taps out, and casts an instant at its moment (§"When an instant is cast", from generation 14) | Individual trades |
+| casual | Also checks early plays and colour access, as steady (rejected only fewer than two or more than five lands before generation 17) | ±400 noise; taps out, and casts an instant at its moment (from generation 14) | Individual trades |
 | steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; casts an instant at its moment and keeps mana up for a counterspell or, before combat, a trick (§"When an instant is cast") | Individual trades; a trick once blocks are declared |
 | sharp | Same opening policy as steady | ±30 seeded score noise; also makes mana for an ability worth its price (§"Mana for an ability") | Searches whole attack sets and blocking assignments, including gang blocks |
 | expert | Same opening policy as sharp | ±12 seeded noise | Also simulates retaliation by surviving opponents, and prices the damage of an attack by the life it leaves |
@@ -1093,8 +1093,11 @@ alone. And what such a level keeps up in its own main phase
 opponent holds a card, and, before combat while a creature of its own can
 attack, a trick's: what it would develop goes down after combat, where the
 trick has had its chance. Never mana for an instant that could as well be
-cast now. `novice`, `casual` and the frozen reference keep casting at the
-first chance (`timing_tests.rs` pins both sides).
+cast now. The frozen reference keeps casting at the first chance
+(`timing_tests.rs` pins both sides), and so did `novice` and `casual` until
+generation 14 (`AIProfile::TIMED_INSTANTS`): from it they time their instants
+too, and keep nothing up, so they tap out as before for what they cast at
+sorcery speed and cast an instant where the mana is there at its moment.
 
 Measured with eval4 (`--random-policy`, house against house, each game
 counted once by `house_duplicate`, train split, 2048 duel rows, 10.11.2026):
@@ -1255,7 +1258,11 @@ basic lands for the colours of the spells shown), and a player who has
 shown nothing is supposed to play a deck like the seat's own. The seat's
 own library is dealt from its own cards, which it knows. No chair but the
 seat's is told a deck. `seer`, at a table that lets it peek, forks with
-`Known` and keeps the table's deck analyses.
+`Known` and keeps the table's deck analyses; from generation 15
+(`AIProfile::SEER_HANDS`) its forks also keep every other player's hand as
+it is, since it is told those hands, and deal only the libraries (with
+`Known` alone each hand was dealt again from what its player hides, and
+`seer` searched as `expert` does).
 
 **The leaf.** The game's result where the fork ended; otherwise the
 logistic of fourteen weighted counts read from the seat's view of the fork
@@ -1648,6 +1655,28 @@ asks `profile.plays(...)`. The generations so far:
     so an equip is worth what it gives (it read as nothing, and was never
     paid for); and an instant or sorcery with X in its cost is not cast at
     X = 0.
+13. `QUIET_DRAW_STEP`: nothing is begun in the seat's own draw step with
+    nothing on the stack. A level that keeps no mana up cast its instants
+    there on sight, and no search could weigh them: the engine forks nothing
+    while the turn's first draw waits for its miracle check, which is the
+    whole of that round (8 % of novice's searched questions were refused
+    so).
+14. `TIMED_INSTANTS`: every level casts an instant at its moment
+    (§"When an instant is cast"), not only one that keeps mana up. `novice`
+    and `casual` still keep nothing up and tap out for what they cast at
+    sorcery speed; a combat trick is no longer cast on sight.
+15. `SEER_HANDS`: `seer`'s forks keep the hands it is told (§"Foresight",
+    "What is hidden in a fork").
+16. `NOISE_BAND`: a level's noise is at most ±400 milli-units
+    (`AIProfile::noise_milli`). Noise is there so that players cannot learn
+    to exploit a level, never to weaken one, and `novice`'s ±800 was twice
+    any other level's.
+17. `CARD_SKILL`: `casual` reads its cards as `steady` does
+    (`AIProfile::card_skill`): it plans its colours, checks its opening hand
+    for an early play, and reads what it scries, surveils and keeps.
+    `novice` keeps every opening hand, the ladder's lowest card skill; a
+    step for it too lifted it to 67 % against its generation-6 self and left
+    it level with `casual` (51 %, `docs/proposals/house-ai-strength.md` §8).
 
 Only a change
 that has to move the reference, such as an engine or card fix that changes
