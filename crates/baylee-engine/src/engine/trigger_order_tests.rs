@@ -651,3 +651,35 @@ fn a_queued_trigger_handle_names_its_place_and_no_object() {
     let plains = on_battlefield(&engine, seat(0), plains()).expect("a Plains");
     assert_eq!(plains.queued_trigger_place(), None);
 }
+
+/// A token that has ceased to exist (CR 704.5d) is named in the order
+/// question by what it last was (CR 113.7a, 111.4): Carbon block 3,
+/// attempt 20, q140, two rows read "#T6 · about you" with no name, a
+/// Pest's "When this creature dies, you gain 1 life" beside Blood Artist's.
+#[test]
+fn a_gone_token_s_trigger_is_named_in_the_order_question() {
+    let plains = plains();
+    let mut engine = with_the_rule(
+        Duel::new(SEED, plains)
+            .battlefield(0, &[blood_artist(), plains, plains, plains, plains])
+            .hand(0, &[wrath_of_god()]),
+    );
+    crate::resolve::tokens::create_tokens(
+        &mut engine.state,
+        seat(0),
+        &baylee_cards::generated_tokens::PEST_1_1_BLACK_GREEN,
+        None,
+        1,
+    );
+    engine.state.invalidate_projections();
+    engine.refresh_offer();
+    cast_and_resolve(&mut engine, wrath_of_god());
+    assert!(is_order_question(&engine), "{:?}", engine.pending());
+    let names: Vec<String> = engine
+        .queued_triggers()
+        .into_iter()
+        .map(|row| row.name)
+        .collect();
+    assert!(names.iter().all(|name| !name.is_empty()), "{names:?}");
+    assert!(names.iter().any(|name| name == "Pest"), "{names:?}");
+}
