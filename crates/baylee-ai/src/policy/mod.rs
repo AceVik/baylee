@@ -16,9 +16,12 @@ use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
 
+mod full_casts;
 mod mana_effects;
 mod x_exact;
 mod x_targets;
+
+pub(crate) use full_casts::{pay_owed_full, pays_phyrexian_with_life};
 
 #[cfg(test)]
 use mana_effects::spell_mana_increase;
@@ -1032,6 +1035,18 @@ impl HeuristicAgent {
         })
     }
 
+    /// The next tap toward a price this seat owes in a payment window
+    /// ([`pay_owed`]), planned as this level's generation plans it: from
+    /// [`crate::AIProfile::FULL_CASTS`] through the shared planner
+    /// ([`pay_owed_full`]).
+    pub(crate) fn owed_tap(&self, view: &PlayerView, legal: &LegalActions) -> Option<PlayerAction> {
+        if self.profile.plays(crate::AIProfile::FULL_CASTS) {
+            pay_owed_full(view, legal)
+        } else {
+            pay_owed(view, legal)
+        }
+    }
+
     /// Whether the planner pays for `card` from what the seat has, holding
     /// nothing back: the card is one the offer lets it cast and pay for
     /// while it is cast (`legal.payable`), it prints no X (an X is announced
@@ -1100,6 +1115,9 @@ impl HeuristicAgent {
         reserve: u32,
         score: impl Fn(&PlayerView, ObjectId, CardIdentity, u64) -> Option<i64>,
     ) -> Option<PlayerAction> {
+        if self.profile.plays(crate::AIProfile::FULL_CASTS) {
+            return self.spend_on_full(view, legal, reserve, score);
+        }
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
@@ -1343,6 +1361,11 @@ impl HeuristicAgent {
             return true;
         }
         let id = own_casts(view).find(|&id| identity(view, id) == Some(card));
+        // From generation 11, no spell whose every target is on the wrong
+        // side (`sides`).
+        if self.aims_only_wrong(view, id, card, spells) {
+            return true;
+        }
         // Decide whether the spell has a useful legal-shaped target before
         // spending mana. Merely seeing an enemy permanent is insufficient
         // for colour/type restrictions or a symmetric same-name sweep.

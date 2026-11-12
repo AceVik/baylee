@@ -755,6 +755,13 @@ impl HeuristicAgent {
         if let Some(action) = self.fight_targets(view, objects, min, max, context) {
             return Some(action);
         }
+        // This seat's own Aura goes where its statics help this seat's side
+        // (`sides`, from generation 11).
+        if players.is_empty()
+            && let Some(action) = self.aura_target(view, objects, min, context)
+        {
+            return Some(action);
+        }
         let offer = Offer {
             objects,
             players,

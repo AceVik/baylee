@@ -1614,6 +1614,40 @@ asks `profile.plays(...)`. The generations so far:
    are pinned beside the reference (`tests/generation_pins.rs`,
    `tests/reference/generation-6.json`), so a measurement against
    `<level>:generation=6` plays the level as it was.
+8. `SPELL_ROOTS`: a priority search also tries each spell the seat's mana
+   pays for while it is cast (§"Foresight").
+9. `BOUNDED_SEARCH`: a level bounds its own search (§"Foresight", "The
+   bound"). The searched answers of `expert` at generation 7, the
+   trained AI's house teacher, are pinned
+   (`tests/reference/foresight-generation-7.json`).
+10. `FULL_CASTS`: the house pays through the planner the client, the seat
+    and the trained AI's menu share (`baylee_ai::spend`; `policy/full_casts.rs`):
+    restricted mana where the engine names it for the payment (CR 106.6), a
+    Phyrexian symbol with 2 life where no mana pays it and the seat keeps
+    more than six life (CR 107.4f; the question whether to pay one with life
+    is answered no where the mana floating and the untapped sources pay the
+    whole cost), every counter of a counter-paid mana ability, a permanent
+    whose own tapping ability waits for mana kept untapped (the second
+    Rishadan Port), a conversion beside restricted mana. And it taps for a
+    card it may cast from exile or a graveyard at the price the engine names
+    for each way (`LegalActions::cast_ways`): an Adventure's creature, a
+    foretold card, a permission's card, a disturb face, each scored as the
+    face the way puts on the stack. Before it such a card was cast only
+    where its mana already floated (`docs/observed-faults.md` 70, 72, 73).
+11. `TARGET_SIDES`: a spell is aimed at the side it helps or hurts
+    (`sides.rs`). This seat's own Aura goes on the creature its statics do
+    the most for (a Holy Strength on its own creature, a Pacifism on an
+    opponent's); before it an Aura's attach read no side and went on an
+    opponent's creature first. And a spell is not cast where every target it
+    could name is on the wrong side: an Aura no creature gains from, a spell
+    that helps what it targets with no target of this side, one that hurts
+    with none of another side (a Broadside Barrage with only this seat's
+    creatures to hit).
+12. `EQUIPMENT_AND_X`: an Equipment's statics are read inside the
+    `And(creature, attached to the source)` most of them are written with,
+    so an equip is worth what it gives (it read as nothing, and was never
+    paid for); and an instant or sorcery with X in its cost is not cast at
+    X = 0.
 
 Only a change
 that has to move the reference, such as an engine or card fix that changes

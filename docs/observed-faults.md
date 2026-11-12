@@ -3863,7 +3863,7 @@ seat and BayleeAI's menu: every restricted tap it names is a source, the
 restricted mana floating it names is mana. The house keeps its reading
 (`sharp-2026-11`). `tests/mana/routes.rs` plays every board above to the
 stack; `engine::restricted_offer_tests` holds the statement.
-### 70. The house never taps for a card it may cast from exile, or for a disturb face — KNOWN coverage gap
+### 70. The house never taps for a card it may cast from exile, or for a disturb face — FIXED for the house from generation 10
 
 Found with fault 69, 11.11.2026. The house plans its casts over its hand, its
 commanders and the graveyard cards the view prices (`own_casts`:
@@ -3876,6 +3876,11 @@ for. The engine names each such way and its price (`LegalActions::cast_ways`),
 so the reading is there; the house is frozen as `sharp-2026-11`, so the change
 goes behind a profile field the reference does not set.
 
+**Fixed** for the house from generation 10 (`AIProfile::FULL_CASTS`): every card
+the offer names from a graveyard or an exile zone is planned at each way
+`LegalActions::cast_ways` prices (`tests/ai_full_casts.rs`: a foretold
+Doomskar, a disturbed Malevolent Hermit, an adventuring Brazen Borrower).
+
 ### 71. A back face cast from a graveyard is timed by its front's types in the client — KNOWN coverage gap
 
 Found with fault 69, 11.11.2026. The client's reach asks
@@ -3887,7 +3892,7 @@ outside a main phase. No disturb card in the pool has one, and the engine's
 `payable` has already asked the right face, so it under-offers and never
 over-offers.
 
-### 72. The house plans no Phyrexian mana with life — KNOWN, for the house's next generation
+### 72. The house plans no Phyrexian mana with life — FIXED for the house from generation 10
 
 From Carbon's reports, 11.11.2026 (`hc-expert-a` game 10, question 176, and
 five more): Dismember at 20 life beside lands that make no black was never
@@ -3900,7 +3905,13 @@ keeps at least 1 life (CR 107.4f, 119.4). The house's casting path
 (`policy::spend_on`) is left as it is, frozen in `sharp-2026-11` and live,
 since it changes play; it adopts this behind a profile generation.
 
-### 73. The house pays a Port with a Port, counts one counter of a Repository, and converts nothing beside floating restricted mana — KNOWN, for the house's next generation
+**Fixed** for the house from generation 10 (`AIProfile::FULL_CASTS`): it plans
+through `baylee_ai::spend` with life down to six, and answers the question
+whether to pay a symbol with life no where the mana it made pays it
+(`tests/ai_full_casts.rs`: Dismember beside two Mountains, and beside a
+Mountain and two Swamps).
+
+### 73. The house pays a Port with a Port, counts one counter of a Repository, and converts nothing beside floating restricted mana — FIXED for the house from generation 10
 
 From Carbon's reports, 11.11.2026 (chunks b and c; `ladder/triage-hc-expert-bc`
 in the campaign's data). Three readings the shared planner
@@ -3926,6 +3937,15 @@ by generation, and changes play:
 
 Each is one call away for the house's next generation, behind a profile field
 the reference does not set.
+
+**Fixed** for the house from generation 10 (`AIProfile::FULL_CASTS`, 12.11.2026):
+its casts, its payment windows and the mana it makes for an ability are
+planned through `baylee_ai::spend` (`policy/full_casts.rs`); the frozen
+reference and every earlier generation keep their reading.
+The three readings are the shared planner's and held by its tests
+(`spend.rs`, `paystage/tests.rs`); `baylee-gamehost` `tests/ai_full_casts.rs`
+plays the house through the engine's statement (two Ancient Ziggurats into a
+Grizzly Bears).
 
 ### 74. The house never suspends — KNOWN, for the house's next generation
 

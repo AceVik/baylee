@@ -1102,17 +1102,29 @@ impl HeuristicAgent {
     /// What an equipment is worth on `c`: its statics on the equipped
     /// creature, and its triggers — a token copy of `c` each combat is `c`
     /// once more.
+    ///
+    /// "Equipped creature" is written `And(creature, attached to the
+    /// source)` on most Equipment (Bonesplitter), which the bare match read
+    /// as no static at all, so an equip was worth nothing and never paid
+    /// for; from [`crate::AIProfile::EQUIPMENT_AND_X`] it is read inside the
+    /// conjunction (`target_side::enchants`).
     fn equipped(&self, view: &PlayerView, equipment: &PublicObject, c: &PublicObject) -> i64 {
+        let whole = self.profile.plays(crate::AIProfile::EQUIPMENT_AND_X);
+        let on_it = |filter: &Filter| {
+            if whole {
+                baylee_engine::target_side::enchants(filter)
+            } else {
+                matches!(filter, Filter::AttachedToBySource)
+            }
+        };
         printed_list(equipment)
             .iter()
             .map(|a| match a {
-                AbilityDef::Static(s) if matches!(s.filter, Filter::AttachedToBySource) => {
-                    match s.modifier {
-                        Modifier::ModifyPT(p, t) => i64::from(p) * 110 + i64::from(t) * 30,
-                        Modifier::AddKeyword(k) => 60 * i64::from(k.bits().count_ones()),
-                        _ => 40,
-                    }
-                }
+                AbilityDef::Static(s) if on_it(&s.filter) => match s.modifier {
+                    Modifier::ModifyPT(p, t) => i64::from(p) * 110 + i64::from(t) * 30,
+                    Modifier::AddKeyword(k) => 60 * i64::from(k.bits().count_ones()),
+                    _ => 40,
+                },
                 AbilityDef::Triggered { effects, .. } => {
                     if effects
                         .iter()

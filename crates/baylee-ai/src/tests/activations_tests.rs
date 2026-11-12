@@ -461,6 +461,15 @@ fn restricted_mana_is_not_counted_as_held_up() {
             payable: vec![obj(1), obj(2)],
             abilities: vec![(obj(20), 0)],
             mana_abilities: vec![obj(21)],
+            // What the engine says the Ziggurat may pay for (CR 106.6),
+            // which the house reads from generation 10.
+            restricted_taps: vec![baylee_engine::choice::RestrictedTaps {
+                taps: vec![(obj(20), 0)],
+                spends: vec![baylee_engine::choice::Spend::Cast(
+                    obj(2),
+                    baylee_engine::choice::CastModeKind::Normal,
+                )],
+            }],
             ..Default::default()
         }),
     };

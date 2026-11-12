@@ -687,8 +687,36 @@ impl AIProfile {
     /// each tier is cut about as rarely; the forks' model thinks about one
     /// attack or block within [`Self::FORK_NODES`], whatever the bound.
     pub const BOUNDED_SEARCH: u16 = 9;
+    /// The house pays as the client, the seat and the trained AI's menu pay
+    /// (`baylee_ai::spend`): restricted mana where the engine says it may
+    /// pay (CR 106.6), a Phyrexian symbol with 2 life where no mana pays it
+    /// (CR 107.4f), every counter of a counter-paid mana ability, a second
+    /// permanent whose own tapping ability waits for mana kept untapped,
+    /// and a conversion beside restricted mana. And it taps for a card it
+    /// may cast from exile or a graveyard at the price the engine names for
+    /// each way (an Adventure's creature, a foretold card, a disturb face).
+    pub const FULL_CASTS: u16 = 10;
+    /// The house aims a spell at the side it helps or hurts: its own Aura
+    /// on the creature the Aura's statics help (or the opponent's it
+    /// hurts), and none cast where nothing gains from it; a spell that
+    /// helps what it targets not cast with no target of its own side, and
+    /// one that hurts not cast with no target of the other side.
+    pub const TARGET_SIDES: u16 = 11;
+    /// An Equipment is worth what its statics do to the equipped creature
+    /// however its filter is written ("equipped creature" is mostly
+    /// `And(creature, attached to the source)`, which read as nothing, so an
+    /// equip was never worth its price), and an instant or sorcery with X in
+    /// its cost is not cast at X = 0.
+    pub const EQUIPMENT_AND_X: u16 = 12;
+    /// Nothing is begun in the seat's own draw step with nothing on the
+    /// stack: what is done there can be done as well in the main phase, and
+    /// a level that does not time its instants cast them there on sight,
+    /// where a search cannot weigh them (the turn's first draw waits for its
+    /// miracle check through that round, and the engine forks nothing
+    /// while it does).
+    pub const QUIET_DRAW_STEP: u16 = 13;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::BOUNDED_SEARCH;
+    pub const GENERATION: u16 = Self::QUIET_DRAW_STEP;
 
     /// The work a bounded search ([`Self::BOUNDED_SEARCH`]) may spend at
     /// expert's tier, in the units of the search's meter; a lower tier may

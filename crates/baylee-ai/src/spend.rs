@@ -1,7 +1,9 @@
 //! One planner for a payment the engine names, restricted mana included
 //! (CR 106.6): the client's reach and payment window, the language-model
-//! seat and the trained AI's dev menu plan through it. The frozen house does not: it
-//! keeps its own reading (`policy::spend_on`, `restricted`).
+//! seat, the trained AI's dev menu and, from generation 10
+//! (`AIProfile::FULL_CASTS`, `policy/full_casts.rs`), the house plan through
+//! it. The frozen reference and the earlier generations keep the house's own
+//! reading (`policy::spend_on`, `restricted`).
 //!
 //! What a restricted mana ability's mana, or restricted mana already
 //! floating, may pay for is the engine's statement in the offer
@@ -302,8 +304,8 @@ const MOST_REPEATS: u16 = 8;
 /// activation and colour, where `manaplan` counts one source a permanent
 /// (Carbon c1, 11.11.2026). Each further activation is a source of its own
 /// beside the first, so a plan's steps name the permanent once per
-/// activation. Only for the planners of [`plan_for`]; the frozen house keeps
-/// its own reading.
+/// activation. Only for the planners of [`plan_for`]; the frozen reference
+/// and the house before generation 10 keep their own reading.
 pub fn repeat_counter_sources(view: &PlayerView, sources: &mut Vec<Source>) {
     use baylee_cards_dsl::{AbilityDef, CostPart};
     let mut more: Vec<Source> = Vec::new();

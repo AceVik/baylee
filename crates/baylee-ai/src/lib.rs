@@ -35,6 +35,7 @@ mod proliferate;
 mod redirect;
 mod restricted;
 pub mod search;
+mod sides;
 pub mod spend;
 mod stall;
 mod tactics;
@@ -338,7 +339,7 @@ impl HeuristicAgent {
         //    spell is on the stack and waiting for the price, and every step
         //    below this one is about developing a board. An agent that
         //    played a land here would be answering a different question.
-        if let Some(action) = policy::pay_owed(view, legal) {
+        if let Some(action) = self.owed_tap(view, legal) {
             return action;
         }
         if view.owed.is_some() && view.awaiting == Some(view.seat) {
@@ -373,6 +374,20 @@ impl HeuristicAgent {
                     ability_index,
                 };
             }
+            return PlayerAction::PassPriority;
+        }
+        // 0c. Nothing begun in this seat's own draw step with nothing on the
+        //     stack (from `AIProfile::QUIET_DRAW_STEP`). What can be done
+        //     there can be done as well in the main phase that follows, and a
+        //     level that does not time its instants cast them there on sight:
+        //     a pump with no combat to turn, a spell its search could not weigh
+        //     (the engine forks nothing while the turn's first draw waits for
+        //     its miracle check, which a draw step's first round always does).
+        if self.profile.plays(AIProfile::QUIET_DRAW_STEP)
+            && view.active == view.seat
+            && view.step == baylee_view::Step::Draw
+            && view.stack.is_empty()
+        {
             return PlayerAction::PassPriority;
         }
         // 1. Play a land, unless playing it costs more life than the seat
@@ -917,6 +932,19 @@ impl HeuristicAgent {
                         view.seat(player)
                             .is_some_and(|s| s.life > i32::from(amount) + 5),
                     )
+                }
+                // A Phyrexian symbol of this seat's own cast (CR 107.4f):
+                // from generation 10 paid with the mana the planner made for
+                // it where that mana pays (`policy::pays_phyrexian_with_life`).
+                YesNoPrompt::PayLife { amount }
+                    if self.profile.plays(AIProfile::FULL_CASTS)
+                        && amount == 2
+                        && context.actor == Some(player)
+                        && context.cost.is_some_and(|cost| cost.phyrexian_count() > 0) =>
+                {
+                    PlayerAction::YesNo(context.cost.is_some_and(|cost| {
+                        policy::pays_phyrexian_with_life(view, &cost, amount)
+                    }))
                 }
                 YesNoPrompt::PayLife { amount } => PlayerAction::YesNo(
                     view.seat(player)

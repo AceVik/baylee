@@ -118,14 +118,15 @@ pub(crate) fn float_for(
     let mana = cost
         .mana
         .with_more_generic(legal.activation_increase(source));
-    let plan = crate::policy::plan_for_activation(
-        &mana,
-        &seat.mana_pool,
-        view,
-        legal,
-        source,
-        cost.parts.contains(&CostPart::TapSelf),
-    )?;
+    let taps_self = cost.parts.contains(&CostPart::TapSelf);
+    // From generation 10 through the shared planner, which keeps a second
+    // Port untapped for its own ability and reads every restricted tap the
+    // engine names for this one.
+    let plan = if agent.profile().plays(AIProfile::FULL_CASTS) {
+        crate::plan_for_activation(&mana, &seat.mana_pool, view, legal, source, taps_self)
+    } else {
+        crate::policy::plan_for_activation(&mana, &seat.mana_pool, view, legal, source, taps_self)
+    }?;
     // A plan with nothing to tap means the pool pays already, and the
     // engine would be offering the ability: something else stops it.
     let step = plan.steps.first()?;
