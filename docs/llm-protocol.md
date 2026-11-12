@@ -477,6 +477,14 @@ cleanup window. It ends at its point (`my_main2` written in the second main
 phase means the next one), at any wake, and at the model's next answer of
 its own, which sets it again or not at all.
 
+The windows it passes are the model's own stops as well, and the prompt
+says so ("until passes priority at your stops too: to be asked at a stop
+before then, leave until out"). A model holding up Disharmony for the
+other side's combat answered `until: my_turn` and was next woken at the
+block declaration, its stop in the declare attackers step passed (Carbon
+b4, attempt 21, q104 and q116; CR 508.2, 117.3d): the seat did what it
+was told, and the prompt had not said it.
+
 `react`, while `until` holds, for something of the other side's on the
 stack: `all` (the model is woken; the default), `targets_me` (woken only
 when it targets this seat, a permanent it controls or its commander, as
