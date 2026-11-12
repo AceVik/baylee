@@ -30,7 +30,18 @@ impl GameWriter {
         id: u32,
         roots: Arc<std::collections::BTreeMap<String, u32>>,
     ) -> anyhow::Result<Self> {
-        let dir = root.join(if validation { "val" } else { "train" });
+        Self::in_split(root, if validation { "val" } else { "train" }, id, roots)
+    }
+
+    /// A game's stream in the dataset's split `split` (`train`, `val`, or a
+    /// search-advantage dataset's twins).
+    pub fn in_split(
+        root: &Path,
+        split: &str,
+        id: u32,
+        roots: Arc<std::collections::BTreeMap<String, u32>>,
+    ) -> anyhow::Result<Self> {
+        let dir = root.join(split);
         fs::create_dir_all(&dir)?;
         let final_path = dir.join(format!("game-{id:06}.bst4"));
         let partial = final_path.with_extension("bst4.partial");
@@ -261,7 +272,18 @@ impl GameWriter {
     }
 
     pub fn push(&mut self, step: &Step4) -> anyhow::Result<()> {
+        self.push_with_block(step, &[])
+    }
+
+    /// [`Self::push`], the frame's payload followed by `block` (a
+    /// search-advantage twin's BSA1).
+    pub fn push_with_block(&mut self, step: &Step4, block: &[u8]) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            block.is_empty() || step.distill.is_none(),
+            "a frame ends in one block at most"
+        );
         self.pack_bst4(step)?;
+        self.bst4_buf.extend_from_slice(block);
         self.zlib_buf.clear();
         {
             let mut zenc = ZlibEncoder::new(&mut self.zlib_buf, Compression::fast());

@@ -94,7 +94,12 @@ impl TrainDecks {
     /// # Errors
     /// A run that names no decks, or any deck the manifest puts in another
     /// split or does not list, named with its split.
-    fn seated(&self, run_dir: &Path, run_json: &Value) -> anyhow::Result<Vec<String>> {
+    /// The manifest, as a dataset names it.
+    pub(super) fn describe(&self) -> Value {
+        json!({"manifest": self.path, "manifest_sha256": self.sha256})
+    }
+
+    pub(super) fn seated(&self, run_dir: &Path, run_json: &Value) -> anyhow::Result<Vec<String>> {
         let decks = run_json["decks"]
             .as_array()
             .filter(|decks| !decks.is_empty())
