@@ -417,7 +417,16 @@ class TrajectoryDataset4(Dataset):
         unknown) and the bitmask of rule groups that fired. Subtype and groups
         index the dataset's `bundle_distillation.subtypes`/`.groups` lists; a BST4
         frame carries them in an optional trailing block `BDX1`, u8 subtype
-        (255 = none), three reserved bytes, u64 group mask. Default frames are unchanged."""
+        (255 = none), three reserved bytes, u64 group mask. Default frames are unchanged.
+
+        A search-advantage twin (the payable menu of a searched root, in the
+        `search-advantage-menus` split) ends in a `BSA1` block instead: kind u8 (1 =
+        twin), three zero bytes, the root's cursor u32, four zero bytes; it gives the
+        frame `twin_root_cursor` and is refused when malformed."""
+        if extension[:4] == b"BSA1":
+            if (len(extension) != 16 or extension[4] != 1 or any(extension[5:8]) or any(extension[12:16])):
+                raise ValueError("Malformed BSA1 search-advantage twin block")
+            frame["twin_root_cursor"] = np.array(int.from_bytes(extension[8:12], "little"), dtype=np.int64)
         if getattr(self, "distillation", False):
             frame["pending_kind"] = np.array(int(pending_kind), dtype=np.int64)
             frame["n_ne_r"] = np.array(bool(flags & 128), dtype=bool)

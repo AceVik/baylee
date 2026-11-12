@@ -35,6 +35,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import time
 
 import numpy as np
 import torch
@@ -85,7 +86,7 @@ class SearchAdvantage:
             if ((value != MISSING) & (value >= n)).any():
                 raise ValueError(f"Search-advantage {name} off the menu")
         self.index, self.items, self.header = index, items, header
-        self.kinds = tuple(header.get("root_kinds", ()))
+        self.kinds = tuple(header.get("root_kinds", header.get("kinds", ())))
         from .coarse import key
         self.keys = key(index["game"], index["seat"], index["cursor"])
         self.order = np.argsort(self.keys, kind="stable")
@@ -102,14 +103,15 @@ class SearchAdvantage:
 
     @classmethod
     def load(cls, directory):
+        """`<dataset>/search-advantage/`: header.json, index.bin, cands.bin."""
         directory = Path(directory)
-        header = json.loads((directory / "search-advantage.json").read_text())
+        header = json.loads((directory / "header.json").read_text())
         if header.get("contract") != SIDECAR_CONTRACT:
             raise ValueError(f"{directory} holds {header.get('contract')!r}, not {SIDECAR_CONTRACT}")
-        files = header.get("files", {})
-        index = np.fromfile(directory / files.get("index", "search-advantage.index.bin"), dtype=SIDECAR_INDEX)
-        items = np.fromfile(directory / files.get("items", "search-advantage.items.bin"), dtype=SIDECAR_ITEM)
-        if header.get("roots", len(index)) != len(index):
+        index = np.fromfile(directory / "index.bin", dtype=SIDECAR_INDEX)
+        items = np.fromfile(directory / "cands.bin", dtype=SIDECAR_ITEM)
+        roots = header.get("roots", header.get("counts", {}).get("roots", len(index)))
+        if roots != len(index):
             raise ValueError("Search-advantage header and index disagree on the root count")
         return cls(index, items, header)
 
@@ -410,9 +412,137 @@ def export(head, width, path):
                       dynamic_axes={"rows": {0: "N"}, "score": {0: "N"}}, opset_version=18, dynamo=False)
 
 
+class RootPass:
+    """One forward of frozen twin frames from their roots' memory, keeping what the head reads:
+    the scalar head's input (`state_emb`) and `cand_scorer[3]`'s (`cand_emb`), as r1's graph
+    exports them with `--embeddings`."""
+
+    def __init__(self, net, board_chunk, thinking_steps):
+        self.net, self.board_chunk, self.thinking_steps = net, board_chunk, thinking_steps
+
+    @torch.no_grad()
+    def __call__(self, frames, hidden):
+        import dataset4 as D4
+        from .deferred import deferred_readouts
+        from .execution import encode_boards, plan_batch
+        items = [{**{name: value[None] for name, value in frame.items()}, "step_valid": np.array([True]),
+                  "is_new_traj": np.array(True), "segment_index": np.array(-1, dtype=np.int64)} for frame in frames]
+        batch = D4.collate_trajectories(items)
+        plans = plan_batch(batch, 0, self.thinking_steps)
+        seen = {"state": [], "cand": []}
+        keep = lambda name: (lambda _module, args: seen[name].append(args[0].detach().float()))
+        handles = [self.net.scalar_head.register_forward_pre_hook(keep("state")),
+                   self.net.cand_scorer[3].register_forward_pre_hook(keep("cand"))]
+        try:
+            self.net.clear_structure()
+            self.net.prepare_structure((batch["entity_rules"], batch["cand_rules"]))
+            boards = encode_boards(self.net, batch, self.board_chunk, torch.device("cpu"))
+            deferred_readouts(self.net, batch, boards, hidden, plans, self.net.decision_chunk, torch.device("cpu"))
+        finally:
+            for handle in handles:
+                handle.remove()
+            self.net.clear_structure()
+        if len(seen["state"]) != 1 or len(seen["cand"]) != 1:
+            raise RuntimeError("A root pass read the heads more than once")
+        widths = [int(frame["cand_mask"].shape[0]) for frame in frames]
+        return seen["state"][0], [seen["cand"][0][i, :width] for i, width in enumerate(widths)]
+
+
+def capture(args):
+    """Rows from a converted dataset: every twin frame of `search-advantage-menus` joins its sidecar
+    row and its root frame (same game, seat, cursor) in train/ or val/; the root's memory is the
+    stored window state of the piece holding the root frame (burn-in 0: a piece is a run of
+    decision frames, which never move memory), computed once by a CPU state pass."""
+    import dataset4 as D4
+    from torch_io4 import file_digest
+    from trajectory_store4 import TrajectoryStore4
+    from value_calibration4.checkpoint import load_source
+    from .coarse import key
+    from .windows import WindowTraining
+
+    torch.set_num_threads(args.threads)
+    path, _, net = load_source(args.model)
+    net.decision_chunk, net.board_token_budget = args.decision_chunk, args.board_token_budget
+    net.prune_unused_policy_heads, net.gpu_prefetch = False, 0
+    data = Path(args.data).expanduser()
+    meta = json.loads((data / "meta.json").read_text())
+    sidecar = SearchAdvantage.load(data / "search-advantage")
+    menus = TrajectoryStore4(data, "search-advantage-menus", meta["search_advantage_menus_shards"])
+    twin = menus.index
+    twin_rows = sidecar.find(twin["game"], twin["seat"], twin["cursor"])
+    if (twin_rows < 0).any() or len(np.unique(twin_rows)) != len(sidecar.index) or len(twin_rows) != len(sidecar.index):
+        raise ValueError("Search-advantage twins and sidecar rows do not match one to one")
+    passer, source = RootPass(net, args.board_chunk, args.thinking_steps), file_digest(path)
+    parts, counts = [], {}
+    for split in args.splits:
+        dataset = D4.TrajectoryDataset4(data, split=split, unroll_len=32, encoder_version=args.encoder_version)
+        plan = WindowTraining(dataset, 0, 32, 8, 0, 0)
+        began = time.perf_counter()
+        origin = plan.refresh(net, torch.device("cpu"), args.lanes, args.thinking_steps, False, args.workers,
+                              args.board_token_budget, cache=Path(args.state_dir).expanduser() / f"{split}.json",
+                              source=source, seats=2)
+        print(f"[capture] split={split} states={origin} seconds={time.perf_counter() - began:.0f}", flush=True)
+        # Each store row's piece (decision frames only; -1 elsewhere).
+        piece_of = np.full(len(dataset.store.index), -1, dtype=np.int64)
+        for pid, (trajectory, start, length) in enumerate(plan.pieces.tolist()):
+            piece_of[plan.rows[trajectory][start:start + length]] = pid
+        index = dataset.store.index
+        keys = key(index["game"], index["seat"], index["cursor"])
+        order = np.argsort(keys, kind="stable")
+        wanted = key(twin["game"], twin["seat"], twin["cursor"])
+        at = np.minimum(np.searchsorted(keys[order], wanted), len(order) - 1)
+        here = np.flatnonzero(keys[order][at] == wanted)
+        roots_rows = order[at[here]]
+        if (piece_of[roots_rows] < 0).any():
+            raise ValueError("A searched root is not a decision frame of its split")
+        states, cands = [], []
+        for start in range(0, len(here), args.batch):
+            chunk = here[start:start + args.batch]
+            frames = [dataset._encode_bst4(menus.read_raw(int(row))) for row in chunk]
+            for row, frame in zip(chunk, frames):
+                side = sidecar.index[twin_rows[row]]
+                if int(frame.get("twin_root_cursor", -1)) != int(side["root_cursor"]) or \
+                        int(frame["cand_mask"].shape[0]) != int(side["n_cand"]):
+                    raise ValueError(f"Twin frame and sidecar row disagree (game {int(side['game'])}, "
+                                     f"cursor {int(side['cursor'])})")
+            hidden = plan.states.read(piece_of[roots_rows[start:start + args.batch]])
+            state, cand = passer(frames, hidden)
+            states.append(state.half().numpy())
+            cands.extend(c.half().numpy() for c in cand)
+            if (start // args.batch) % 10 == 0:
+                print(f"[capture] split={split} roots={start + len(chunk)}/{len(here)}", flush=True)
+        plan.close()
+        roots, labels = sidecar.labels(twin_rows[here])
+        parts.append(AdvantageRows(roots, np.concatenate(states) if states else np.zeros((0, net.cfg.d_model), np.float16),
+                                   np.concatenate(cands) if cands else np.zeros((0, net.cfg.d_model), np.float16),
+                                   labels, np.full(len(here), split == "val"), sidecar.kinds))
+        counts[split] = int(len(here))
+    rows = AdvantageRows.concat(parts)
+    counts["twins"], counts["unplaced"] = int(len(twin_rows)), int(len(twin_rows) - sum(counts[s] for s in args.splits))
+    rows.save(args.out, data=str(data), model=str(path), model_sha256=source, splits=list(args.splits), counts=counts,
+              sidecar=sidecar.header)
+    print("[capture] " + json.dumps(counts), flush=True)
+    return rows
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
+    grabbing = commands.add_parser("capture")
+    grabbing.add_argument("--data", required=True, help="A converted dataset with search-advantage-menus and its sidecar")
+    grabbing.add_argument("--model", required=True, help="The frozen net (r1)")
+    grabbing.add_argument("--out", required=True, help=f"The {ROWS_CONTRACT} .npz to write")
+    grabbing.add_argument("--state-dir", required=True, help="Where the CPU window-state caches go")
+    grabbing.add_argument("--splits", default="train,val")
+    grabbing.add_argument("--batch", type=int, default=32)
+    grabbing.add_argument("--lanes", type=int, default=16)
+    grabbing.add_argument("--workers", type=int, default=2)
+    grabbing.add_argument("--board-chunk", type=int, default=32)
+    grabbing.add_argument("--decision-chunk", type=int, default=4)
+    grabbing.add_argument("--board-token-budget", type=int, default=32768)
+    grabbing.add_argument("--thinking-steps", type=int, default=2)
+    grabbing.add_argument("--encoder-version", type=int, default=10)
+    grabbing.add_argument("--threads", type=int, default=8)
     fitting = commands.add_parser("fit")
     fitting.add_argument("--rows", action="append", required=True, help=f"{ROWS_CONTRACT} .npz files")
     fitting.add_argument("--out", required=True, help="A new directory for the head")
@@ -427,6 +557,9 @@ def main(argv=None):
     fitting.add_argument("--seed", type=int, required=True)
     fitting.add_argument("--threads", type=int, default=8)
     args = parser.parse_args(argv)
+    if args.command == "capture":
+        args.splits = tuple(s for s in args.splits.split(",") if s)
+        return capture(args)
     torch.set_num_threads(args.threads)
     out = Path(args.out)
     if out.exists():
