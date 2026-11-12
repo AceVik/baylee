@@ -495,7 +495,10 @@ fn removal_goes_around_a_ward_it_cannot_pay_and_through_one_it_can() {
 fn life_ward_preserves_the_house_agents_life_reserve() {
     let pending = Pending::YesNo {
         player: PlayerId::new(0),
-        prompt: YesNoPrompt::PayLife { amount: 7 },
+        prompt: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
         source: None,
     };
     for (life, pay) in [(20, true), (12, false), (7, false), (6, false)] {
@@ -679,7 +682,10 @@ fn large_life_payment_preserves_exact_price_and_reserve_without_overflow() {
     ] {
         let pending = Pending::YesNo {
             player: PlayerId::new(0),
-            prompt: YesNoPrompt::PayLife { amount },
+            prompt: YesNoPrompt::PayLife {
+                amount,
+                permanent: None,
+            },
             source: None,
         };
         assert_eq!(

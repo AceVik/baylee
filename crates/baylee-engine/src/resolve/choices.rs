@@ -611,7 +611,10 @@ pub(super) fn exec_choice(
             });
             Some(Pending::YesNo {
                 player,
-                prompt: YesNoPrompt::PayLife { amount },
+                prompt: YesNoPrompt::PayLife {
+                    amount,
+                    permanent: None,
+                },
                 source: resolving_ability(state, res),
             })
         }

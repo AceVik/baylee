@@ -390,7 +390,10 @@ impl<L: CardLookup> Engine<L> {
                     });
                     self.pending = Pending::YesNo {
                         player,
-                        prompt: crate::choice::YesNoPrompt::PayLife { amount: 2 },
+                        prompt: crate::choice::YesNoPrompt::PayLife {
+                            amount: 2,
+                            permanent: None,
+                        },
                         // The ability being activated, which is what the
                         // question is about.
                         source: self

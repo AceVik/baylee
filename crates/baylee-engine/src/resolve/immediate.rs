@@ -3503,10 +3503,15 @@ pub(super) fn cleansing_advance(
                     to_destroy,
                     life,
                 });
+                // The land the payment keeps, named: a seat that paid for
+                // ten lands was told "Pay 1 life?" ten times and could not
+                // tell its own from its opponent's (Carbon b8, segment 3,
+                // attempt 27, q163-q173; CR 608.2d).
                 return Some(Pending::YesNo {
                     player: asked,
                     prompt: crate::choice::YesNoPrompt::PayLife {
                         amount: u32::from(life),
+                        permanent: Some(perm),
                     },
                     source: resolving_ability(state, res),
                 });

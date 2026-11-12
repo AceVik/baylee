@@ -1146,11 +1146,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "do not pay".into(),
         ),
         YesNoPrompt::ProliferatePlayer { player } => proliferate_words(*player),
-        YesNoPrompt::PayLife { amount } => (
-            format!("Pay {amount} life?"),
-            format!("pay {amount} life"),
-            "don't pay".into(),
-        ),
+        YesNoPrompt::PayLife { amount, permanent } => pay_life_words(table, *amount, *permanent),
         YesNoPrompt::Miracle { card } => miracle_words(table, *card),
         YesNoPrompt::Madness { card } => madness_words(table, *card),
         YesNoPrompt::DrawOffer { proposer } => (
@@ -1336,6 +1332,37 @@ fn madness_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) 
         ),
         format!("cast it for its madness cost{price}"),
         table.for_decider("put it into your graveyard"),
+    )
+}
+
+/// "Pay N life?", and for which permanent where the payment is for one,
+/// with whose it is: Cleansing asks each player, land by land, whether to
+/// pay 1 life so that land is not destroyed (CR 608.2d), and a seat told
+/// only "Pay 1 life?" paid for ten lands it could not tell apart (Carbon b8,
+/// segment 3, attempt 27, q163-q173).
+fn pay_life_words(
+    table: &Table<'_>,
+    amount: u32,
+    permanent: Option<ObjectId>,
+) -> (String, String, String) {
+    let Some(permanent) = permanent else {
+        return (
+            format!("Pay {amount} life?"),
+            format!("pay {amount} life"),
+            "don't pay".into(),
+        );
+    };
+    let named = table.named(permanent);
+    let whose = table
+        .view
+        .object(permanent)
+        .map_or_else(String::new, |object| {
+            format!("{} ", table.whose(object.controller))
+        });
+    (
+        format!("Pay {amount} life for {whose}{named}?"),
+        format!("pay {amount} life for {named}"),
+        format!("don't pay for {named}"),
     )
 }
 

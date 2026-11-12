@@ -2131,7 +2131,10 @@ fn large_life_payment_names_the_exact_cost_in_the_seat_menu() {
     let (view, log) = board();
     let pending = Pending::YesNo {
         player: ME,
-        prompt: baylee_engine::choice::YesNoPrompt::PayLife { amount: 65_536 },
+        prompt: baylee_engine::choice::YesNoPrompt::PayLife {
+            amount: 65_536,
+            permanent: None,
+        },
         source: None,
     };
     let request = request(view, pending, log);
@@ -2267,6 +2270,7 @@ mod land_triggers;
 mod log_cap;
 mod naming;
 mod owed;
+mod pay_life;
 mod power_surge;
 mod raised;
 mod suspend;

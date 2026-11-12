@@ -49,7 +49,9 @@ pub mod tape;
 /// (`LegalActions::unpaid_suspend`, CR 116.2f), the division of a spell's
 /// damage on the stack (`PlayerView::divided`, CR 601.2d) and a log line's
 /// step (`LogEntry::step`, CR 510.4).
-pub const PROTOCOL_VERSION: u32 = 44;
+/// Version 45 names the permanent a life payment is for
+/// (`YesNoPrompt::PayLife::permanent`): Cleansing's land, CR 608.2d.
+pub const PROTOCOL_VERSION: u32 = 45;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -280,7 +282,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_forty_four() {
+    fn the_wire_version_is_forty_five() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -351,7 +353,10 @@ mod tests {
         // stack announced (`PlayerView::divided`) and a log line its step
         // (`LogEntry::step`): fields a positional reader of 43 would take for
         // bytes after the value.
-        assert_eq!(PROTOCOL_VERSION, 44);
+        // 45: a life payment names the permanent it is for
+        // (`YesNoPrompt::PayLife::permanent`, Cleansing's land): a field a
+        // positional reader of 44 would take for the next one.
+        assert_eq!(PROTOCOL_VERSION, 45);
     }
 
     #[test]

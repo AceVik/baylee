@@ -1807,7 +1807,7 @@ pub fn pay_life_ward(engine: &mut Engine<RegistryLookup>, payer: PlayerId, amoun
     pass_until(engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
     assert!(
         matches!(engine.pending(), Pending::YesNo {
-        player, prompt: baylee_engine::choice::YesNoPrompt::PayLife { amount: offered }, ..
+        player, prompt: baylee_engine::choice::YesNoPrompt::PayLife { amount: offered, .. }, ..
     } if *player == payer && *offered == u32::from(amount)),
         "{:?}",
         engine.pending()

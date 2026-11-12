@@ -1185,6 +1185,47 @@ LogEntry.step:               Option<Step>             // public, beside LogEntry
 What changed in protocol 44: the three fields above and `Division`, and
 nothing else.
 
+## The permanent a life payment is for (protocol 45)
+
+From the Carbon seats' reports of 12.11.2026 (block 8, segment 3, attempt
+27): Cleansing ("For each land, destroy that land unless any player pays 1
+life") asks each player, land by land, whether to pay 1 life, and the
+question named no land. A seat declined the first and paid for the next ten
+without knowing whose each was. Server to client only:
+
+```text
+YesNoPrompt::PayLife { amount: u32, permanent: Option<ObjectId> }
+```
+
+- **`permanent`** is the permanent the payment is for, where it is for one:
+  Cleansing names the land it asks about. The choice is made as the effect
+  is applied (CR 608.2d), and "that land" is what it is about. A permanent
+  on the battlefield, so public: every seat already sees it and its name.
+  `None` for every other life payment the engine asks, which is about no one
+  permanent: ward's (CR 702.21a), a resolving "you may pay N life", a
+  Phyrexian symbol's 2 life (CR 107.4f), and another player's life for a
+  revealed draw to go to its owner's graveyard instead.
+- The language-model seat says it with whose it is and its handle ("Pay 1
+  life for P2's Plains #25?", and the answers "pay 1 life for Plains #25" or
+  "don't pay for Plains #25"), the client's headline with the name it draws
+  ("Pay 1 life for Plains?", `Phrase::PayLifeFor`; without a name, the line
+  it read before).
+- **Bounds.** One `Option<ObjectId>`: a tag and, where it names one, a
+  handle. A cut frame is refused and a damaged one is read or refused,
+  never panicked on (`crates/baylee-engine/tests/hostile_actions.rs`, module
+  `pay_life`). Nothing a client sends changed.
+- **Protocol 45.** A frame writes every field by position, so a peer of 44
+  refuses a frame of 45 and the reverse, and engine, gateway, agent, seat and
+  clients are deployed together. In JSON (records, tapes, shadow labels) the
+  field is left out at `None` and defaults when absent, so `VIEW_VERSION`
+  stays 90 and a record written before reads as it was. A `Pending` is in
+  no snapshot hash, and no answer the engine takes moves. A shadow label
+  written before at a Cleansing question binds another question JSON (the
+  question names the land now): convert such labels with the runtime that
+  wrote them.
+
+What changed in protocol 45: the field above, and nothing else.
+
 ## Taking back a cast (`PlayerAction::CancelCast`)
 
 A seat may take back a cast it began from priority at any of the cast's own

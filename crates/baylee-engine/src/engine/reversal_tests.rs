@@ -732,7 +732,10 @@ fn a_reversed_phyrexian_choice_pays_neither_life_nor_mana() {
     };
     assert_eq!(player, p0);
     assert!(
-        matches!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 }),
+        matches!(
+            prompt,
+            crate::choice::YesNoPrompt::PayLife { amount: 2, .. }
+        ),
         "{prompt:?}"
     );
     cease(&mut engine, p0, pod, ZoneLocation::Battlefield);

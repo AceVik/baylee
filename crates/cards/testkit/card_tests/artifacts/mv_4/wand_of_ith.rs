@@ -105,7 +105,14 @@ fn wand_of_ith_land_declined_is_discarded() {
     let wand = on_battlefield(&engine, PlayerId::new(0), wand_of_ith()).expect("Wand");
     let prompt = wand_on_p1_until_asked(&mut engine);
     assert!(is_tapped(&engine, wand), "{{T}} was paid");
-    assert_eq!(prompt, YesNoPrompt::PayLife { amount: 1 }, "a land costs 1");
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: None
+        },
+        "a land costs 1"
+    );
     engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(hand_size(&engine, p1), 0);
@@ -119,7 +126,13 @@ fn wand_of_ith_land_paid_stays_in_hand() {
     let p1 = PlayerId::new(1);
     let mut engine = a_wand_over_a_hand(&[forest()]);
     let prompt = wand_on_p1_until_asked(&mut engine);
-    assert_eq!(prompt, YesNoPrompt::PayLife { amount: 1 });
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: None
+        }
+    );
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(hand_size(&engine, p1), 1, "kept");
@@ -134,7 +147,13 @@ fn wand_of_ith_nonland_paid_costs_its_mana_value() {
     let p1 = PlayerId::new(1);
     let mut engine = a_wand_over_a_hand(&[serra_angel()]);
     let prompt = wand_on_p1_until_asked(&mut engine);
-    assert_eq!(prompt, YesNoPrompt::PayLife { amount: 5 });
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayLife {
+            amount: 5,
+            permanent: None
+        }
+    );
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(life(&engine, p1), 15);
@@ -163,8 +182,8 @@ fn wand_of_ith_touches_only_the_revealed_card() {
     let mut engine = a_wand_over_a_hand(&[forest(), serra_angel()]);
     let prompt = wand_on_p1_until_asked(&mut engine);
     let revealed_is_land = match prompt {
-        YesNoPrompt::PayLife { amount: 1 } => true,
-        YesNoPrompt::PayLife { amount: 5 } => false,
+        YesNoPrompt::PayLife { amount: 1, .. } => true,
+        YesNoPrompt::PayLife { amount: 5, .. } => false,
         other => panic!("a land costs 1 and the Angel 5, got {other:?}"),
     };
     engine.apply(p1, PlayerAction::YesNo(false)).unwrap();

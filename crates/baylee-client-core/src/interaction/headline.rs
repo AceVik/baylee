@@ -209,7 +209,7 @@ impl Prompt {
                 onto,
                 library,
             } => arrange_line(lang, *reason, *onto, *library, statics),
-            Self::YesNo { question } => yes_no_line(lang, *question, statics),
+            Self::YesNo { question } => yes_no_line(lang, *question, statics, &name),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
         }
     }
@@ -796,8 +796,14 @@ pub fn buyback_price(
     pieces.into_iter().flatten().collect::<Vec<_>>().join(", ")
 }
 
-/// The roster is taken for the one question that is about another player.
-fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
+/// The roster is taken for the one question that is about another player,
+/// and `name` for a life payment that is for one permanent.
+fn yes_no_line(
+    lang: Lang,
+    question: YesNoPrompt,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
     match question {
         YesNoPrompt::SacrificeToEnter { count } => {
             Phrase::SacrificeToEnter.fill(lang, &[&count.to_string()])
@@ -822,7 +828,12 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::Buyback { cost, parts } => {
             Phrase::BuybackAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }
-        YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
+        // Cleansing asks land by land whether to pay for that land (CR
+        // 608.2d): the question names it, or it cannot be answered.
+        YesNoPrompt::PayLife { amount, permanent } => permanent.and_then(name).map_or_else(
+            || Phrase::PayLife.fill(lang, &[&amount.to_string()]),
+            |permanent| Phrase::PayLifeFor.fill(lang, &[&amount.to_string(), &permanent]),
+        ),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::PayManaAndLife { cost, life } => {
@@ -954,11 +965,11 @@ mod tests {
             card: ObjectId::new(41, 0),
         };
         assert_eq!(
-            yes_no_line(Lang::En, question, None),
+            yes_no_line(Lang::En, question, None, &|_| None),
             "Cast it for its madness cost, or put it into your graveyard?"
         );
         assert_eq!(
-            yes_no_line(Lang::De, question, None),
+            yes_no_line(Lang::De, question, None, &|_| None),
             "Für die Wahnsinn-Kosten wirken oder auf deinen Friedhof legen?"
         );
     }

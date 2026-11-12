@@ -3605,6 +3605,11 @@ PayAdditionalCost = Pay the additional cost?
 # Arguments: amount
 PayLife = Pay { $amount } life?
 
+# Optional life payment for the one permanent named $permanent (Cleansing:
+# "destroy that land unless any player pays 1 life", asked land by land).
+# Arguments: amount, permanent
+PayLifeFor = Pay { $amount } life for { $permanent }?
+
 # Pay {$mana}?
 # Arguments: mana
 PayTax = Pay {"{"}{ $mana }{"}"}?

@@ -1307,7 +1307,10 @@ impl<L: CardLookup> Engine<L> {
             let card = self.state.object(wizard.card).and_then(|o| o.card);
             self.pending = Pending::YesNo {
                 player: wizard.player,
-                prompt: YesNoPrompt::PayLife { amount: 2 },
+                prompt: YesNoPrompt::PayLife {
+                    amount: 2,
+                    permanent: None,
+                },
                 source: card.map(|c| {
                     baylee_core::ids::AbilityRef::new(c.index, baylee_core::ids::AbilityRef::SPELL)
                 }),

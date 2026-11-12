@@ -690,6 +690,14 @@ pub enum YesNoPrompt {
     PayLife {
         /// Life to pay without truncating computed cumulative costs.
         amount: u32,
+        /// The permanent the payment is for, where it is for one: Cleansing
+        /// asks each player, land by land, whether to pay 1 life so that
+        /// land is not destroyed (CR 608.2d), and the question has to say
+        /// which land. A permanent on the battlefield, so public. `None`
+        /// for a payment about no one permanent (ward, a resolving "you may
+        /// pay N life"); left out of JSON then, as before protocol 45.
+        #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+        permanent: Option<ObjectId>,
     },
     /// "Reveal and cast for its miracle cost?" (CR 702.94).
     Miracle {

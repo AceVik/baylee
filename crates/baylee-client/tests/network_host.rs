@@ -907,7 +907,7 @@ fn life_ward_payment_round_trips_from_session_through_the_client() {
                 },
                 Pending::YesNo {
                     player,
-                    prompt: YesNoPrompt::PayLife { amount: 7 },
+                    prompt: YesNoPrompt::PayLife { amount: 7, .. },
                     ..
                 } => {
                     assert_eq!(*player, SEAT);

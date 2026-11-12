@@ -449,3 +449,67 @@ mod unpaid_suspend {
         }
     }
 }
+
+/// Protocol 45: a life payment names the permanent it is for, where it is for
+/// one (`YesNoPrompt::PayLife::permanent`, Cleansing's land, CR 608.2d). A
+/// frame writes the field whether or not it names one; JSON (records, tapes,
+/// shadow labels) leaves it out when it names none, as before.
+mod pay_life {
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::wire::{decode, encode};
+    use baylee_engine::choice::{Pending, YesNoPrompt};
+
+    fn question(permanent: Option<ObjectId>) -> Pending {
+        Pending::YesNo {
+            player: PlayerId::new(1),
+            prompt: YesNoPrompt::PayLife {
+                amount: 1,
+                permanent,
+            },
+            source: None,
+        }
+    }
+
+    fn prompt(pending: &Pending) -> YesNoPrompt {
+        let Pending::YesNo { prompt, .. } = pending else {
+            panic!("a yes or no: {pending:?}");
+        };
+        *prompt
+    }
+
+    #[test]
+    fn a_life_payment_survives_the_wire_and_every_damage() {
+        for permanent in [None, Some(ObjectId::new(25, 3))] {
+            let frame = encode(&question(permanent));
+            let read = decode::<Pending>(&frame).expect("the question reads");
+            assert_eq!(prompt(&read), prompt(&question(permanent)));
+            assert_eq!(encode(&read), frame, "and reads as it was written");
+            for cut in 0..frame.len() {
+                assert!(
+                    decode::<Pending>(&frame[..cut]).is_err(),
+                    "a cut at {cut} read"
+                );
+            }
+            for at in 0..frame.len() {
+                for flip in [0x01, 0x80, 0xff] {
+                    let mut damaged = frame.clone();
+                    damaged[at] ^= flip;
+                    let _ = decode::<Pending>(&damaged);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn json_leaves_out_a_permanent_it_does_not_name() {
+        let none = serde_json::to_string(&question(None)).expect("writes");
+        assert!(!none.contains("permanent"), "as before protocol 45: {none}");
+        let read: Pending = serde_json::from_str(&none).expect("reads");
+        assert_eq!(prompt(&read), prompt(&question(None)));
+        let land = Some(ObjectId::new(25, 3));
+        let named = serde_json::to_string(&question(land)).expect("writes");
+        assert!(named.contains("permanent"), "{named}");
+        let read: Pending = serde_json::from_str(&named).expect("reads");
+        assert_eq!(prompt(&read), prompt(&question(land)));
+    }
+}

@@ -1194,7 +1194,10 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     let payer = PlayerId::new(1);
     let pending = Pending::YesNo {
         player: payer,
-        prompt: YesNoPrompt::PayLife { amount: 7 },
+        prompt: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
         source: None,
     };
     // Use the wire decoder so the new enum must survive serialization too.
@@ -1205,7 +1208,10 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     let other = Interaction::new(pending, PlayerId::new(0));
     assert_eq!(other.answer_yes_no(true), None);
     let prompt = Prompt::YesNo {
-        question: YesNoPrompt::PayLife { amount: 7 },
+        question: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
     };
     assert_eq!(
         prompt.headline(Lang::En, Turn::Theirs, None, false),
@@ -1215,7 +1221,43 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
         prompt.headline(Lang::De, Turn::Theirs, None, false),
         "7 Lebenspunkte zahlen?"
     );
-    assert!(!YesNoPrompt::PayLife { amount: 7 }.automatable());
+    assert!(
+        !YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None
+        }
+        .automatable()
+    );
+}
+
+/// Cleansing asks land by land whether to pay 1 life for that land (CR
+/// 608.2d), and a seat told only "Pay 1 life?" paid for ten lands it could
+/// not tell apart (Carbon b8, segment 3, attempt 27, q163-q173). The line
+/// names the land where the renderer can, and reads as before where it
+/// cannot.
+#[test]
+fn a_life_payment_for_a_land_names_the_land() {
+    let land = obj(25);
+    let prompt = Prompt::YesNo {
+        question: YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: Some(land),
+        },
+    };
+    let names = |id: ObjectId| (id == land).then(|| "Plains".to_string());
+    assert_eq!(
+        prompt.headline_naming(Lang::En, Turn::Theirs, None, false, &names),
+        "Pay 1 life for Plains?"
+    );
+    assert_eq!(
+        prompt.headline_naming(Lang::De, Turn::Theirs, None, false, &names),
+        "1 Lebenspunkt für Plains zahlen?"
+    );
+    assert_eq!(
+        prompt.headline(Lang::En, Turn::Theirs, None, false),
+        "Pay 1 life?",
+        "a land the renderer cannot name"
+    );
 }
 
 #[test]
@@ -1862,7 +1904,10 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
         let payer = PlayerId::new(1);
         let pending = Pending::YesNo {
             player: payer,
-            prompt: YesNoPrompt::PayLife { amount },
+            prompt: YesNoPrompt::PayLife {
+                amount,
+                permanent: None,
+            },
             source: None,
         };
         let decoded: Pending =
@@ -1874,7 +1919,10 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
             None
         );
         let prompt = Prompt::YesNo {
-            question: YesNoPrompt::PayLife { amount },
+            question: YesNoPrompt::PayLife {
+                amount,
+                permanent: None,
+            },
         };
         assert_eq!(
             prompt.headline(Lang::En, Turn::Mine, None, false),

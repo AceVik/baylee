@@ -31,7 +31,10 @@ fn birthing_pod_finds_a_creature_one_mana_value_above_the_sacrifice() {
     };
     assert_eq!(
         prompt,
-        baylee_engine::choice::YesNoPrompt::PayLife { amount: 2 }
+        baylee_engine::choice::YesNoPrompt::PayLife {
+            amount: 2,
+            permanent: None
+        }
     );
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     let Pending::ChooseCards {

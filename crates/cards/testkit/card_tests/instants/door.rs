@@ -1294,7 +1294,10 @@ fn mental_misstep_asks_life_or_mana_when_both_can_pay() {
         };
         assert_eq!(
             prompt,
-            baylee_engine::choice::YesNoPrompt::PayLife { amount: 2 }
+            baylee_engine::choice::YesNoPrompt::PayLife {
+                amount: 2,
+                permanent: None
+            }
         );
         assert_eq!(source.map(|s| s.card), Some(mental_misstep()));
         engine.apply(p0, PlayerAction::YesNo(pay_life)).unwrap();

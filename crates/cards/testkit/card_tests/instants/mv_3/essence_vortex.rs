@@ -41,7 +41,7 @@ fn vortex_answering(engine: &mut Engine<RegistryLookup>, target: ObjectId, pay: 
             }
             Pending::YesNo {
                 player,
-                prompt: YesNoPrompt::PayLife { amount },
+                prompt: YesNoPrompt::PayLife { amount, .. },
                 ..
             } => {
                 assert_eq!(player, P1, "\"its controller\" is asked, not the caster");

@@ -936,7 +936,7 @@ impl HeuristicAgent {
                 // A Phyrexian symbol of this seat's own cast (CR 107.4f):
                 // from generation 10 paid with the mana the planner made for
                 // it where that mana pays (`policy::pays_phyrexian_with_life`).
-                YesNoPrompt::PayLife { amount }
+                YesNoPrompt::PayLife { amount, .. }
                     if self.profile.plays(AIProfile::FULL_CASTS)
                         && amount == 2
                         && context.actor == Some(player)
@@ -946,7 +946,7 @@ impl HeuristicAgent {
                         policy::pays_phyrexian_with_life(view, &cost, amount)
                     }))
                 }
-                YesNoPrompt::PayLife { amount } => PlayerAction::YesNo(
+                YesNoPrompt::PayLife { amount, .. } => PlayerAction::YesNo(
                     view.seat(player)
                         .is_some_and(|seat| i64::from(seat.life) > i64::from(amount) + 5),
                 ),
