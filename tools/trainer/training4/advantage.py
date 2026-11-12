@@ -237,6 +237,19 @@ class AdvantageRows:
         out.judged = np.concatenate([p.judged for p in parts])
         return out
 
+    def subset(self, keep):
+        """The roots where `keep` [R] holds, with their candidates, in their order."""
+        keep = np.asarray(keep, dtype=bool)
+        items = np.repeat(keep, self.roots["n"])
+        roots = {name: self.roots[name][keep] for name in ROOT_FIELDS}
+        roots["offset"] = np.concatenate(([0], np.cumsum(roots["n"])[:-1])).astype(np.int64)
+        out = AdvantageRows(roots, self.state[keep], self.cand[items], {k: v[items] for k, v in self.labels.items()},
+                            self.held_out[keep], self.kinds, self.source[keep])
+        out.judged = self.judged[keep]
+        if hasattr(self, "meta"):
+            out.meta = self.meta
+        return out
+
     def game_key(self):
         """[R] one id per game across sources."""
         return self.source * (1 << 32) + self.roots["game"].astype(np.int64)
@@ -386,7 +399,8 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         pairs["rows"].extend((lo + others).tolist())
         best = others[np.argmax(gaps[lo + others])] if len(others) else None
         kind = rows.kinds[int(roots["kind"][r])] if 0 <= int(roots["kind"][r]) < len(rows.kinds) else str(int(roots["kind"][r]))
-        cell = kinds.setdefault(kind, dict(roots=0, changed=0, student_agrees=0, halves=0, halves_agree=0))
+        cell = kinds.setdefault(kind, dict(roots=0, changed=0, student_agrees=0, halves=0, halves_agree=0,
+                                           overrides=0, override_A=0.))
         cell["roots"] += 1
         choice4, half_a, half_b = int(roots["choice4"][r]), int(roots["half_a"][r]), int(roots["half_b"][r])
         top = own if best is None or gaps[lo + best] <= 0 else int(best)
@@ -409,6 +423,8 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         if margin is not None and best is not None and gaps[lo + best] > margin:
             key = direction(cls[lo + own], cls[lo + best], payable[lo + best])
             overrides[key] = overrides.get(key, 0) + 1
+            cell["overrides"] += 1
+            cell["override_A"] += float(A[lo + best])
     idx = np.array(pairs["rows"], dtype=np.int64)
     calib = lambda sel: (float((weight[sel] * gaps[sel] * A[sel]).sum() / (weight[sel] * gaps[sel] ** 2).sum())
                          if sel.size and (weight[sel] * gaps[sel] ** 2).sum() > 0 else None)
@@ -424,8 +440,13 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         calibration_slope=calib(idx), by_kind={}, margins={}, items=split,
         search_choice4_A_per_100_roots=search_gain / max(int(chosen.sum()), 1) * 100)
     for kind, cell in sorted(kinds.items()):
+        # Overrides: at the report's margin, how often the head replaced the bundle's answer at
+        # this kind of root, and the A those replacements earned per 100 such roots.
         out["by_kind"][kind] = dict(cell, top1_vs_choice4=cell["student_agrees"] / cell["changed"] if cell["changed"] else None,
-                                    halves_same_answer=cell["halves_agree"] / cell["halves"] if cell["halves"] else None)
+                                    halves_same_answer=cell["halves_agree"] / cell["halves"] if cell["halves"] else None,
+                                    override_share=cell["overrides"] / cell["roots"] if margin is not None else None,
+                                    override_A_per_100_roots=cell["override_A"] / cell["roots"] * 100
+                                    if margin is not None else None)
     changed = sum(cell["changed"] for cell in kinds.values())
     out["top1_vs_choice4"] = dict(roots=changed, share=sum(cell["student_agrees"] for cell in kinds.values()) / changed
                                   if changed else None)
@@ -629,6 +650,28 @@ class RootPass:
         return seen["state"][0], [seen["cand"][0][i, :width] for i, width in enumerate(widths)]
 
 
+def locate_roots(dataset, plan, twin, kept_games=None):
+    """The twins (rows of `search-advantage-menus`, in index order) whose root frame lies in this
+    split, their root frames' store rows, and each store row's piece in `plan` (decision frames
+    only; -1 elsewhere): (here, roots_rows, piece_of)."""
+    from .coarse import key
+    piece_of = np.full(len(dataset.store.index), -1, dtype=np.int64)
+    for pid, (trajectory, start, length) in enumerate(plan.pieces.tolist()):
+        piece_of[plan.rows[trajectory][start:start + length]] = pid
+    index = dataset.store.index
+    keys = key(index["game"], index["seat"], index["cursor"])
+    order = np.argsort(keys, kind="stable")
+    wanted = key(twin["game"], twin["seat"], twin["cursor"])
+    at = np.minimum(np.searchsorted(keys[order], wanted), len(order) - 1)
+    here = np.flatnonzero(keys[order][at] == wanted)
+    if kept_games is not None:
+        here = here[np.isin(twin["game"][here], kept_games)]
+    roots_rows = order[at[here]]
+    if (piece_of[roots_rows] < 0).any():
+        raise ValueError("A searched root is not a decision frame of its split")
+    return here, roots_rows, piece_of
+
+
 def held_out_of(split, games, every=0):
     """Held out: the val split's games, and with `every` > 0 the games whose id is a multiple of it."""
     games = np.asarray(games)
@@ -644,7 +687,6 @@ def capture(args):
     from torch_io4 import file_digest
     from trajectory_store4 import TrajectoryStore4
     from value_calibration4.checkpoint import load_source
-    from .coarse import key
     from .windows import WindowTraining
 
     torch.set_num_threads(args.threads)
@@ -678,21 +720,7 @@ def capture(args):
                               args.board_token_budget, cache=Path(args.state_dir).expanduser() / f"{split}.json",
                               source=source, seats=2)
         print(f"[capture] split={split} states={origin} seconds={time.perf_counter() - began:.0f}", flush=True)
-        # Each store row's piece (decision frames only; -1 elsewhere).
-        piece_of = np.full(len(dataset.store.index), -1, dtype=np.int64)
-        for pid, (trajectory, start, length) in enumerate(plan.pieces.tolist()):
-            piece_of[plan.rows[trajectory][start:start + length]] = pid
-        index = dataset.store.index
-        keys = key(index["game"], index["seat"], index["cursor"])
-        order = np.argsort(keys, kind="stable")
-        wanted = key(twin["game"], twin["seat"], twin["cursor"])
-        at = np.minimum(np.searchsorted(keys[order], wanted), len(order) - 1)
-        here = np.flatnonzero(keys[order][at] == wanted)
-        if kept_games is not None:
-            here = here[np.isin(twin["game"][here], kept_games)]
-        roots_rows = order[at[here]]
-        if (piece_of[roots_rows] < 0).any():
-            raise ValueError("A searched root is not a decision frame of its split")
+        here, roots_rows, piece_of = locate_roots(dataset, plan, twin, kept_games)
         states, cands = [], []
         for start in range(0, len(here), args.batch):
             chunk = here[start:start + args.batch]
@@ -723,6 +751,47 @@ def capture(args):
               sidecar=sidecar.header)
     print("[capture] " + json.dumps(counts), flush=True)
     return rows
+
+
+def load_rows(paths, halves_judged=True):
+    """Rows files as one set of sources, in order: (rows, parts, the net's sha256s, judged_from).
+    Every file must come from the same net and the halves' margin; with `halves_judged` each joins
+    its dataset's judged halves, from the very sidecar it was captured from."""
+    parts = [AdvantageRows.load(path) for path in paths]
+    # The head reads one net's embeddings: every rows file must come from the same checkpoint.
+    sources = {p.meta.get("model_sha256") for p in parts}
+    if len(sources) != 1:
+        raise ValueError(f"The rows come from different nets: {sorted(map(str, sources))}")
+    judged_from = []
+    for path, part in zip(paths, parts):
+        margin = part.meta.get("sidecar", {}).get("index", {}).get("halves", {}).get("margin", HALVES_MARGIN)
+        if margin != HALVES_MARGIN:
+            raise ValueError(f"{path}: the halves' margin is {margin}, not {HALVES_MARGIN}")
+        # The judged halves come from the dataset's sidecar, which must still be the one captured.
+        sidecar_dir = Path(part.meta.get("data", "")) / "search-advantage"
+        if halves_judged and (sidecar_dir / "header.json").is_file():
+            sidecar = SearchAdvantage.load(sidecar_dir)
+            captured = part.meta.get("sidecar", {}).get("index", {}).get("sha256")
+            if captured != sidecar.header.get("index", {}).get("sha256"):
+                raise ValueError(f"{path}: the sidecar at {sidecar_dir} is not the one these rows were captured from")
+            part.judged = sidecar.judged_for(part.roots["game"], part.roots["seat"], part.roots["cursor"])
+            judged_from.append(dict(source=len(judged_from), dir=str(sidecar_dir),
+                                    sha256=sidecar.header.get("halves_judged", {}).get("sha256")))
+        else:
+            judged_from.append(dict(source=len(judged_from), dir=None, sha256=None))
+    return AdvantageRows.concat(parts), parts, sources, judged_from
+
+
+def item_labels(rows: AdvantageRows, tau):
+    """Per candidate: the pairwise target A, its weight 1 / (SE^2 + tau^2) (0 for the own answer and
+    unsearched items) and the row tail, as `Prepared` builds them, without the embeddings."""
+    own = rows.roots["offset"] + rows.roots["own"]
+    is_own = np.zeros(len(rows.cand), dtype=bool)
+    is_own[own] = True
+    searched = rows.labels["searched"].astype(bool)
+    se = rows.labels["SE"].astype(np.float32)
+    weight = np.where(searched & ~is_own, 1. / (se ** 2 + tau ** 2), 0.).astype(np.float32)
+    return rows.labels["A"].astype(np.float32), weight, rows.tail()
 
 
 def label_noise(rows: AdvantageRows):
@@ -845,29 +914,7 @@ def main(argv=None):
     out = Path(args.out)
     if out.exists():
         raise FileExistsError(f"{out} exists; a head gets its own directory")
-    parts = [AdvantageRows.load(path) for path in args.rows]
-    # The head reads one net's embeddings: every rows file must come from the same checkpoint.
-    sources = {p.meta.get("model_sha256") for p in parts}
-    if len(sources) != 1:
-        raise ValueError(f"The rows come from different nets: {sorted(map(str, sources))}")
-    judged_from = []
-    for path, part in zip(args.rows, parts):
-        margin = part.meta.get("sidecar", {}).get("index", {}).get("halves", {}).get("margin", HALVES_MARGIN)
-        if margin != HALVES_MARGIN:
-            raise ValueError(f"{path}: the halves' margin is {margin}, not {HALVES_MARGIN}")
-        # The judged halves come from the dataset's sidecar, which must still be the one captured.
-        sidecar_dir = Path(part.meta.get("data", "")) / "search-advantage"
-        if args.halves_judged and (sidecar_dir / "header.json").is_file():
-            sidecar = SearchAdvantage.load(sidecar_dir)
-            captured = part.meta.get("sidecar", {}).get("index", {}).get("sha256")
-            if captured != sidecar.header.get("index", {}).get("sha256"):
-                raise ValueError(f"{path}: the sidecar at {sidecar_dir} is not the one these rows were captured from")
-            part.judged = sidecar.judged_for(part.roots["game"], part.roots["seat"], part.roots["cursor"])
-            judged_from.append(dict(source=len(judged_from), dir=str(sidecar_dir),
-                                    sha256=sidecar.header.get("halves_judged", {}).get("sha256")))
-        else:
-            judged_from.append(dict(source=len(judged_from), dir=None, sha256=None))
-    rows = AdvantageRows.concat(parts)
+    rows, parts, sources, judged_from = load_rows(args.rows, args.halves_judged)
     train_sources = [int(s) for s in args.train_sources.split(",") if s] or None
     temperatures = [float(t) for t in args.temperatures.split(",") if t] if args.objective == "ranking" else [None]
     fits = []
