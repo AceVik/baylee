@@ -3999,3 +3999,37 @@ which is `manaplan::plan` with the trade (`policy/full_casts.rs`,
 `baylee_ai::plan_for_activation`). What it still reads frozen is the X and
 kicker it aims for and whether a cast is viable at all (`aim`,
 `granted::viable_cast`), which ask only whether a cost is paid.
+
+## Found while fixing Carbon's block 5 reports, 2026-11-12
+
+Fade Away's two faults (the nonactive player asked first, a creature
+sacrificed for another skipped) are fixed in the engine
+(`docs/engine-internals.md` §"For each permanent, its controller"). Two
+neighbours of the fix were seen and are left for a round of their own.
+
+### 76. "Each player sacrifices …" asks in seat order and sacrifices one player at a time — CONFIRMED
+
+`Effect::SacrificeFilter` with `who: EachPlayer` (Innocent Blood, Tremble,
+Simplify, Abyssal Gatekeeper, Hurloon Shaman and the other edicts over every
+player) asks the players in seat order (`eval::players`), not APNAP, and
+sacrifices each pick before the next player is asked
+(`resolve/resume.rs`, `AwaitingOp::SacrificeFilter`). CR 101.4 has the
+active player choose first, then each other player in turn order, and then
+the sacrifices happen at once. Two things move: on seat 1's turn seat 0
+picks first, and a permanent that sees others die (a leaves-the-battlefield
+ability looks back in time, CR 603.10a) misses a sacrifice made after its
+own. `DestroyChosenForPlayers` and `ReturnChosenToHand`, which share the
+shape (`resolve/chosen.rs`), do the same. The fix is the count's: choose in
+APNAP order, hold, then `sacrifice_together`; it changes play wherever an
+edict meets a turn of seat 1 or a death trigger, so it needs its own
+boundary.
+
+### 77. A later player is not shown what an earlier player chose to sacrifice — KNOWN
+
+CR 101.4b: a player knows the choices the earlier players made. Fade Away's
+held picks stay on the battlefield until the last player has chosen, and
+nothing in a view or the log names them, so the next player decides without
+seeing them; the Dungeon's tax choices (`resolve/dungeon/tax.rs`) are held
+the same way. It takes information away and leaks none. Closing it needs a
+public record of a held pick (an event the log and the view read) or a mark
+on the held permanent in the view.
