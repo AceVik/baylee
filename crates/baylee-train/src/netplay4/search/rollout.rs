@@ -68,6 +68,10 @@ struct Leaf {
     /// Whether the rollout stopped because the root's cast or activation
     /// was taken back.
     taken_back: bool,
+    /// For a candidate that is a bare mana ability, the seat's first
+    /// answer at priority after it that is not one: what the taps were for
+    /// (a cast, an ability, or a pass that let the mana go).
+    intent: Option<PlayerAction>,
 }
 
 impl Leaf {
@@ -172,6 +176,7 @@ fn rollout<P: SearchPlayer4>(
     mut active_root_cast: Option<baylee_core::ids::ObjectId>,
     mut root_snapshot_hash: Option<u64>,
     root_journal_len: usize,
+    mut intent: Option<&mut Option<PlayerAction>>,
 ) -> anyhow::Result<Leaf> {
     let seat = root.seat;
     let horizon = reach.decisions;
@@ -203,6 +208,7 @@ fn rollout<P: SearchPlayer4>(
             house: house.get(),
             house_stop: false,
             taken_back: false,
+            intent: None,
         })
     };
     // The leaf where the next answer would be the house's and the search
@@ -237,6 +243,7 @@ fn rollout<P: SearchPlayer4>(
                 house: house.get(),
                 house_stop: false,
                 taken_back: false,
+                intent: None,
             });
         }
         if fork.state().has_left(seat) {
@@ -249,6 +256,7 @@ fn rollout<P: SearchPlayer4>(
                 house: house.get(),
                 house_stop: false,
                 taken_back: false,
+                intent: None,
             });
         }
         let observed = context.observe(fork, seat);
@@ -283,6 +291,7 @@ fn rollout<P: SearchPlayer4>(
                 house: house.get(),
                 house_stop: false,
                 taken_back: true,
+                intent: None,
             });
         }
         if observed.casting.is_none()
@@ -318,6 +327,15 @@ fn rollout<P: SearchPlayer4>(
         }
         if let Some((pending, view)) = context.view_for(fork, seat) {
             let answer = player.answer(&view, &pending, teams);
+            // What a root's bare tap was for: the seat's first priority
+            // answer after it that is not a mana ability.
+            if let Some(intent) = intent.as_deref_mut()
+                && intent.is_none()
+                && matches!(pending, Pending::Priority { .. })
+                && !super::is_mana_action(&view, &answer.action)
+            {
+                *intent = Some(answer.action.clone());
+            }
             // Past the root's phase, the seat has done what it does in this main
             // phase: score the position it would pass on, before the pass.
             if last_turn.is_none()
@@ -599,7 +617,10 @@ impl Start<'_> {
                 return Ok(None);
             }
         }
-        rollout(
+        // A bare tap says nothing of what it pays for: the rollout notes it.
+        let bare_tap = candidate.script.is_none() && super::is_mana_action(self.view, action);
+        let mut intent = None;
+        let leaf = rollout(
             player,
             &mut world,
             self.view,
@@ -608,8 +629,9 @@ impl Start<'_> {
             root_cast,
             root_snapshot_hash,
             journal_cursor,
-        )
-        .map(Some)
+            bare_tap.then_some(&mut intent),
+        )?;
+        Ok(Some(Leaf { intent, ..leaf }))
     }
 }
 
@@ -629,6 +651,9 @@ struct Tally {
     scores: Vec<f32>,
     /// How the current round's rollouts ended, beside `scores`.
     ends: Vec<LeafEnd4>,
+    /// What the policy's own answer was for in the current round, when it
+    /// is a bare tap.
+    own_intent: Option<PlayerAction>,
 }
 
 impl Tally {
@@ -661,12 +686,14 @@ impl Tally {
                 house_answers: 0,
                 leaves: LeafCounts4::default(),
                 ends: Vec::with_capacity(particles),
+                own_intents: Vec::with_capacity(particles),
                 taken_back: Vec::new(),
                 parallel,
             },
             worlds: Vec::with_capacity(particles),
             scores: Vec::with_capacity(candidates.len()),
             ends: Vec::with_capacity(candidates.len()),
+            own_intent: None,
         }
     }
 
@@ -694,11 +721,16 @@ impl Tally {
             LeafKind::Boundary => &mut kind.boundary,
             LeafKind::Stopped => &mut kind.stopped,
         } += 1;
+        if self.scores.is_empty() {
+            // The policy's own answer opens each round.
+            self.own_intent.clone_from(&leaf.intent);
+        }
         self.scores.push(leaf.score);
         self.ends.push(leaf.end());
         if self.scores.len() == self.candidates {
             self.worlds.push(std::mem::take(&mut self.scores));
             report.ends.push(std::mem::take(&mut self.ends));
+            report.own_intents.push(self.own_intent.take());
             report.rounds += 1;
         }
         true

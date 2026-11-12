@@ -364,3 +364,33 @@ fn a_house_free_search_plays_no_house_answer_in_a_world() {
         assert!(report.leaves.house_stop <= report.leaves.stopped);
     }
 }
+
+/// The steady house's own answer at the start of a chain is a bare tap: in
+/// each world its rollout says what the tap paid for, the seat's next answer
+/// at priority that is not a tap (here a cast). Any other answer of its own
+/// says nothing.
+#[test]
+fn a_bare_tap_is_followed_to_what_it_pays_for() {
+    let played = play(
+        &deal(12, &opponent("Grizzly Bears")),
+        Mock::new(steady, creatures),
+        foresight(4, 2),
+    );
+    let mut taps = 0;
+    for report in &played.reports {
+        assert_eq!(report.own_intents.len(), report.rounds);
+        if matches!(report.actions[0], PlayerAction::ActivateManaAbility { .. }) {
+            taps += 1;
+            assert!(
+                report
+                    .own_intents
+                    .iter()
+                    .any(|intent| matches!(intent, Some(PlayerAction::CastSpell { .. }))),
+                "{report:?}"
+            );
+        } else {
+            assert!(report.own_intents.iter().all(Option::is_none), "{report:?}");
+        }
+    }
+    assert!(taps > 0, "the steady house starts a cast with a tap");
+}

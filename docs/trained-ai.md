@@ -1363,7 +1363,12 @@ as it does `house_stop`). A score at a stop is the value of a position the
 rollout did not play on from, which a label may leave out: a rollout whose
 root cast the engine took back is scored just under the root's own value,
 and so is a loop the net's repeated-view fallback ends before a house
-answer.
+answer. Where the policy's own answer is a bare tap (the first of a chain,
+not a planned cast), `own_intents[p]` says what it was for in world `p`:
+the seat's first answer at priority after it that is not a mana ability (a
+cast, an ability, or a pass that let the mana go), `null` where the rollout
+ended first and for any other answer. A switch from that tap to a planned
+cast of the same spell is then the same spell paid for otherwise.
 
 *The stall guard (`--search-stall-guard`).* A cast the engine cannot
 finish (no legal target once an X is announced, a cost it cannot pay) is

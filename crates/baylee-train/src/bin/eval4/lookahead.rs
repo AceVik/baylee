@@ -167,9 +167,9 @@ impl SearchTally {
 
 /// A searched decision's event for `games.jsonl`: where its answer is in the
 /// record, the candidates in order (the policy's first), each one's score
-/// and end in every world, their means, paired improvements and standard
-/// errors, priors, selection scores, the choice and what the stall guard
-/// set aside.
+/// and end in every world, what the policy's bare tap was for in each,
+/// their means, paired improvements and standard errors, priors, selection
+/// scores, the choice and what the stall guard set aside.
 fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchReport4) -> Value {
     json!({
         "decision_seq": table.decision_seq(),
@@ -193,6 +193,7 @@ fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchRe
         "rounds": report.rounds,
         "leaves": report.leaves,
         "ends": report.ends,
+        "own_intents": report.own_intents,
         "taken_back": report.taken_back,
     })
 }

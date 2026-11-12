@@ -889,6 +889,13 @@ pub struct SearchReport4 {
     /// (`house_stop`, `taken_back`, `stopped`) is the value of a position
     /// the rollout did not play on from, which a label may leave out.
     pub ends: Vec<Vec<LeafEnd4>>,
+    /// When the policy's own answer is a bare mana ability (the first tap
+    /// of a chain), what it was for in each complete round: the seat's
+    /// first answer at priority after it that is not a mana ability (a
+    /// cast, an ability, or a pass that let the mana go); `None` where the
+    /// rollout ended first, and in every round for any other answer. A
+    /// label then knows which spell the policy's taps began.
+    pub own_intents: Vec<Option<PlayerAction>>,
     /// Answers the table took back from this position earlier, which the
     /// stall guard dropped from the candidates or, the policy's own, did
     /// not choose ([`SearchConfig4::with_stall_guard`]).
