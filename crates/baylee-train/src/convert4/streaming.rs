@@ -191,22 +191,29 @@ pub(super) fn terminal_targets(
     // and never left out as an ordinary divergence. One from before the
     // question boundary departs only where it answers a question this build
     // no longer asks, and is refused by name the same way; one of another
-    // build that does so is named in its seen audit's reason.
+    // build that does so is named in its seen audit's reason. One from
+    // before the count boundary departs where a "for each creature, its
+    // controller sacrifices" count is open, and is named the same two ways.
     let (engine, check) = match baylee_gamehost::record::replay_exact(record) {
         Ok(checked) if checked.ended => (checked.engine, ReplayCheck::Exact),
         Ok(_) => return Err("record has no verified terminal state".into()),
         Err(baylee_gamehost::record::ReplayError::Diverged { n: None, .. }) if across_builds => (
-            replay_seen_across_builds(record)
-                .map_err(|e| super::question_boundary::seen_refusal(record).unwrap_or(e))?,
+            replay_seen_across_builds(record).map_err(|e| {
+                super::question_boundary::seen_refusal(record)
+                    .or_else(|| super::count_boundary::seen_refusal(record))
+                    .unwrap_or(e)
+            })?,
             ReplayCheck::SeenAcrossBuilds,
         ),
         Err(e @ baylee_gamehost::record::ReplayError::Diverged { n: Some(_), .. }) => {
             return Err(super::activator_boundary::refusal(record)
                 .or_else(|| super::question_boundary::refusal(record))
+                .or_else(|| super::count_boundary::refusal(record))
                 .unwrap_or_else(|| format!("replay audit: {e:?}")));
         }
         Err(e @ baylee_gamehost::record::ReplayError::Refused { .. }) => {
             return Err(super::question_boundary::refusal(record)
+                .or_else(|| super::count_boundary::refusal(record))
                 .unwrap_or_else(|| format!("replay audit: {e:?}")));
         }
         Err(e) => return Err(format!("replay audit: {e:?}")),

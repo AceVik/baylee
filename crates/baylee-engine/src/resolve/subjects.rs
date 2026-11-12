@@ -136,6 +136,11 @@ impl SubjectContext {
         self.event_identity
     }
 
+    /// Whether a `ForEachMatching` count is open (`resolve::for_each`).
+    pub(crate) const fn count_open(&self) -> bool {
+        self.counted.is_some()
+    }
+
     pub(crate) fn destruction_progress(&self) -> u64 {
         if self.destruction_batches.is_empty() {
             0

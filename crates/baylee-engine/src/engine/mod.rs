@@ -1353,6 +1353,22 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
+    /// Whether a resolution stands between the count of a "for each
+    /// permanent, its controller sacrifices …" instruction and the
+    /// sacrifices it ends with (`resolve::for_each`): the positions where a
+    /// record written before that count (the count boundary,
+    /// `docs/engine-internals.md`) parts from this build.
+    ///
+    /// For a replay audit to tell such a record from one that diverges.
+    /// Nothing in a game reads it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn count_open(&self) -> bool {
+        self.resolution
+            .as_ref()
+            .is_some_and(|resolution| resolution.subject.count_open())
+    }
+
     /// [`Self::snapshot_hash`], with `target_choice` folded in where the
     /// engine's own activator goes.
     #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.

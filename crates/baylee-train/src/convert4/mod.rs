@@ -209,6 +209,7 @@ pub fn extract_game4_with_team_hands(
 }
 
 pub mod activator_boundary;
+pub mod count_boundary;
 mod idle_pass;
 pub mod llm_bc;
 pub mod question_boundary;
@@ -218,6 +219,7 @@ pub mod shadow_bc;
 mod streaming;
 mod team_hands;
 pub use activator_boundary::{ACTIVATOR_BOUNDARY, BOUNDARY_REFUSAL, BOUNDARY_RULE};
+pub use count_boundary::{COUNT_BOUNDARY, COUNT_REFUSAL, COUNT_RULE};
 pub use question_boundary::{QUESTION_BOUNDARY, QUESTION_REFUSAL, QUESTION_RULE};
 #[cfg(test)]
 use streaming::terminal_targets;

@@ -305,6 +305,25 @@ table. The lists are in `~/baylee-data/v6/train/question-boundary-c55a8c6eb/`
 (`docs/engine-internals.md` §"The question boundary"). Datasets already
 converted stay valid as converted.
 
+**The count boundary (445a4e276, 12.11.2026).** From 445a4e276 "for each
+creature, its controller sacrifices a permanent of their choice unless they
+pay {1}" (Fade Away) counts first, asks the active player's payments and
+sacrifices before any other player's, and sacrifices everything chosen at
+once; a build before it asked creature by creature in battlefield order and
+sacrificed each choice at once. Every Fade Away resolution plays differently
+from its first question, and the count is in the snapshot hash while it is
+open. **Convert records written before 445a4e276 with the runtime that wrote
+them.** `convert4` refuses one that opens with its own hash by name
+(`convert4::count_boundary`: `COUNT_REFUSAL`, the builds, the first input and
+`COUNT_RULE`) and stops the run, as at the other boundaries; a record of
+another build that parts there by its public table is named in its seen
+audit's reason. Over `~/baylee-data/v6` (12.11.2026) 24 records replayed
+exactly before and do not after, each from its first Fade Away: 21 of
+`v6t-campaign/distill/gate`, 2 of `v6s-league/gen4` and Carbon's seg2
+`attempt-000000033` (from input 258). The list is in
+`~/baylee-data/v6/train/count-boundary-445a4e276/` (`docs/engine-internals.md`
+§"The count boundary"). Datasets already converted stay valid as converted.
+
 **The protocol-44 boundary (12.11.2026).** From protocol 44 a question names a
 suspend whose mana is still in the lands (`LegalActions::unpaid_suspend`). It
 moves neither `snapshot_hash` nor an answer the engine takes, the house does

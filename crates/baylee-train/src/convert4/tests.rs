@@ -749,3 +749,166 @@ fn a_record_from_before_the_question_boundary_is_refused_by_name() {
     let error = terminal_targets(&with_inserted(&record, None, &pass, None), false).unwrap_err();
     assert!(error.starts_with("replay audit: Refused"), "{error}");
 }
+
+/// A recorded game on this build in which seat 0 casts Fade Away over seat
+/// 1's two Grizzly Bears, nobody pays, seat 1 gives up both Bears, and seat
+/// 1 then concedes: the record, and the input after which Fade Away begins
+/// to resolve (its count opens and its first question is asked).
+fn fade_away_game() -> (Vec<u8>, u64) {
+    const CASTER: PlayerId = PlayerId::new(0);
+    const OTHER: PlayerId = PlayerId::new(1);
+    let card = |name: &str| baylee_core::preset::DeckEntry {
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: baylee_core::ids::PrintRef::new(0),
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+    };
+    let deck = HouseDeck::named("victory").unwrap();
+    let mut preset = crate::selfplay::table_for(12, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
+    preset.format = baylee_core::preset::FormatId::Freeform;
+    preset.modifiers.clear();
+    for seat in &mut preset.seats {
+        seat.deck = vec![card("Island"); 32];
+        seat.commanders.clear();
+        seat.sideboard.clear();
+        seat.starting_life = Some(20);
+        seat.starting_hand = Some(vec![]);
+        seat.starting_battlefield = vec![];
+    }
+    preset.house_rules.starting_player = Some(0);
+    preset.seats[0].starting_hand = Some(vec![card("Fade Away")]);
+    preset.seats[0].starting_battlefield = vec![card("Island"); 3];
+    preset.seats[1].starting_battlefield = vec![card("Grizzly Bears"); 2];
+    let mut session = baylee_gamehost::Session::new_recorded(&preset, "this build").unwrap();
+    session.take_over(CASTER);
+    session.take_over(OTHER);
+    let act = |session: &mut baylee_gamehost::Session, action: PlayerAction| {
+        let seat = session.pending().asked().unwrap();
+        session.act(seat, action).unwrap();
+    };
+    while !(session.observe_view(CASTER).phase == baylee_view::Phase::FirstMain
+        && matches!(session.pending(), Pending::Priority { player, .. } if *player == CASTER))
+    {
+        let action = match session.pending() {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("{other:?}"),
+        };
+        act(&mut session, action);
+    }
+    let view = session.observe_view(CASTER);
+    for island in view
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == CASTER && o.name == "Island")
+        .map(|o| o.id)
+        .collect::<Vec<_>>()
+    {
+        act(
+            &mut session,
+            PlayerAction::ActivateManaAbility { source: island },
+        );
+    }
+    act(
+        &mut session,
+        PlayerAction::CastSpell {
+            card: view.hand[0].id,
+        },
+    );
+    while !(session.state().zones.stack_is_empty()
+        && matches!(session.pending(), Pending::Priority { .. }))
+    {
+        let action = match session.pending().clone() {
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            Pending::YesNo { .. } => PlayerAction::YesNo(false),
+            Pending::ChooseCards { options, .. } => PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+            other => panic!("{other:?}"),
+        };
+        act(&mut session, action);
+    }
+    assert!(
+        session
+            .observe_view(OTHER)
+            .battlefield
+            .iter()
+            .all(|o| o.name != "Grizzly Bears"),
+        "both Bears were given up"
+    );
+    session.act(OTHER, PlayerAction::Concede).unwrap();
+    let record = session.take_record();
+    // The input before the first answer to "pay {1}?", as the record numbers it.
+    let inputs: Vec<serde_json::Value> = record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .map(|l| serde_json::from_slice::<serde_json::Value>(l).unwrap())
+        .filter(|v| v["kind"] == "input")
+        .collect();
+    let first = inputs
+        .iter()
+        .position(|v| v["action"].get("YesNo").is_some())
+        .expect("Fade Away asked");
+    let from = inputs[first - 1]["n"].as_u64().unwrap();
+    (record, from)
+}
+
+/// `record` with other digests at input `n`: the engine hash, and with
+/// `seen` the public table's too.
+fn with_other_digests_at(record: &[u8], n: u64, seen: bool) -> Vec<u8> {
+    let mut out = Vec::new();
+    for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let mut value: serde_json::Value = serde_json::from_slice(line).unwrap();
+        if value["kind"] == "input" && value["n"].as_u64() == Some(n) {
+            value["hash"] = "0123456789abcdef".into();
+            if seen {
+                value["seen"] = "fedcba9876543210".into();
+            }
+        }
+        out.extend(serde_json::to_vec(&value).unwrap());
+        out.push(b'\n');
+    }
+    out
+}
+
+/// A record written before the count boundary ([`COUNT_BOUNDARY`]) parts
+/// from this build as Fade Away begins to resolve, where this build holds
+/// its count open, and is refused by name: the build that wrote it, the
+/// build converting it, where, and the rule, both ways the audit runs; one
+/// of another build that parts there by its public table is named in its
+/// seen audit's reason. A record that parts where no count is open is a
+/// divergence as before.
+#[test]
+fn a_record_from_before_the_count_boundary_is_refused_by_name() {
+    let (record, from) = fade_away_game();
+    let (_, check) = terminal_targets(&record, false).unwrap();
+    assert_eq!(check, ReplayCheck::Exact, "this build's own record");
+
+    let old = with_other_digests_at(&record, from, false);
+    for across_builds in [false, true] {
+        let error = terminal_targets(&old, across_builds).unwrap_err();
+        assert!(error.starts_with(COUNT_REFUSAL), "{error}");
+        for named in [
+            baylee_gamehost::record::this_build(),
+            COUNT_RULE,
+            &format!("from input {from}"),
+            "Fade Away",
+        ] {
+            assert!(error.contains(named), "{named} in: {error}");
+        }
+    }
+    let another = as_another_build(&with_other_digests_at(&record, from, true), None);
+    let error = terminal_targets(&another, true).unwrap_err();
+    assert!(
+        error.starts_with(&format!(
+            "seen replay audit: written before count boundary {COUNT_BOUNDARY}"
+        )),
+        "{error}"
+    );
+    assert!(error.contains(COUNT_RULE), "{error}");
+
+    // Before Fade Away resolves no count is open: an ordinary divergence.
+    let parted = with_other_digests_at(&record, from - 1, false);
+    let error = terminal_targets(&parted, false).unwrap_err();
+    assert!(error.starts_with("replay audit: Diverged"), "{error}");
+}

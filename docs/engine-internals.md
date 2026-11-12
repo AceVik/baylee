@@ -2977,6 +2977,43 @@ among them, were already another build's. The lists are in
 `~/baylee-data/v6/train/question-boundary-c55a8c6eb/` (`lockstep-parted.jsonl`
 with whether each replayed exactly before, `lockstep-all.jsonl`).
 
+### The count boundary (445a4e276)
+
+From 445a4e276 "for each creature, its controller sacrifices a permanent of
+their choice unless they pay {1}" counts first, asks the active player's
+payments and sacrifices before any other player's and sacrifices everything
+chosen at once (§"For each permanent, its controller"). Unlike the question
+boundary, the game itself goes another way: the count is in the snapshot
+hash while it is open, so a record written before parts from a later build
+at the input on which Fade Away begins to resolve, and from there the two
+builds ask different players different questions and can sacrifice
+different permanents. **Convert records written before 445a4e276 with the
+runtime that wrote them.** A later `convert4` refuses such a record by name
+(`convert4::count_boundary`: `COUNT_REFUSAL`, the builds, the first input and
+`COUNT_RULE`) when it opens with the converting build's hash and parts from
+it first where that build holds a count open (`Engine::count_open`), before
+the input or after it, and the run stops after `rejected-games.json` lists
+every such game, as at the other two boundaries; `--llm-bc-skip-unreplayable`
+does not take it. A record of another build that parts there by its public
+table is named in its seen audit's reason.
+
+`engine::recorded_lockstep_tests` with `BAYLEE_LOCKSTEP_BEFORE=for-each`
+switches back this fix alone, and `BAYLEE_LOCKSTEP_EXPORTS` reads an LLM
+collector's attempts, which export one game to a file. Over all 195,578
+games under `~/baylee-data/v6` on 12.11.2026 (the 316 runs with a
+`games.jsonl`, and the collectors' exports) 24 records part, every one at
+the input on which a Fade Away begins to resolve and every one a record that
+replayed exactly before: 21 in `train/v6t-campaign/distill/gate`
+(`records-r1b-raw-1v1-r0h2` 11, `records-a1-raw-1v1-r0h2` 5,
+`records-b1-raw-1v1-r0h2` 5), 2 in `train/v6s-league/gen4` and Carbon's
+seg2 `attempt-000000033` (input 258, turn 12). `convert4` refuses them by
+name (checked on the Carbon game and on one record each of the gate and the
+league). 157,950 are alike, and 37,604, older builds' records, are refused
+by both builds at the same input, as they were before this fix. The lists are
+in `~/baylee-data/v6/train/count-boundary-445a4e276/` (`parted-only.jsonl`,
+the parted records and the summary; `lockstep-parted.jsonl`, every record
+not alike).
+
 ### The protocol-44 boundary
 
 Three changes of 12.11.2026, from the Carbon seats' reports, change what a
