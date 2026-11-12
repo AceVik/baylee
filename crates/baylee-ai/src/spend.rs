@@ -75,7 +75,7 @@ pub fn sources_for(
 ) -> Vec<Source> {
     let mut named = legal.restricted_taps_for(spend);
     named.retain(|(source, _)| Some(*source) != except);
-    let mut restricted: Vec<Source> = mana
+    let restricted: Vec<Source> = mana
         .restricted
         .iter()
         .filter(|source| {
@@ -83,6 +83,16 @@ pub fn sources_for(
         })
         .cloned()
         .collect();
+    beside(mana.plain, restricted)
+}
+
+/// `plain` with the restricted taps of `restricted` beside them, last, each
+/// in place of its permanent's unrestricted tap as [`sources_for`] places
+/// the ones the engine names: taps whose mana may pay one payment, however
+/// the caller learnt that (the engine's statement there; a reading of the
+/// view where a question carries no offer, [`crate::mana_sources_in_view_for`]).
+#[must_use]
+pub fn beside(plain: &[Source], mut restricted: Vec<Source>) -> Vec<Source> {
     // One per permanent: the one that makes the most, then the most colours.
     restricted.sort_by_key(|s| {
         (
@@ -92,9 +102,9 @@ pub fn sources_for(
         )
     });
     restricted.dedup_by_key(|s| s.id);
-    let mut out: Vec<Source> = Vec::with_capacity(mana.plain.len() + restricted.len());
+    let mut out: Vec<Source> = Vec::with_capacity(plain.len() + restricted.len());
     let mut last: Vec<Source> = Vec::with_capacity(restricted.len());
-    for source in mana.plain {
+    for source in plain {
         let Some(at) = restricted.iter().position(|r| r.id == source.id) else {
             out.push(source.clone());
             continue;

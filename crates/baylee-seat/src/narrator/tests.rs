@@ -2258,6 +2258,7 @@ mod carbon_b3;
 mod carbon_b4;
 mod carbon_b5;
 mod carbon_b6;
+mod carbon_b7;
 pub(crate) mod controlled;
 mod event_object;
 mod foretell;

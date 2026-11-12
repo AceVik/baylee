@@ -3731,8 +3731,32 @@ pub(crate) fn remaining_sources(view: &PlayerView) -> Vec<Source> {
     own_sources(view, true)
 }
 
-/// Whether this seat's mana sources, all untapped again, make `cost`: what
-/// it can pay in its next upkeep (CR 502.3), with nothing floating.
+/// [`remaining_sources`], and beside them the restricted taps of the same
+/// estimate whose mana may pay for casting `spell` as far as the view can
+/// tell ([`HeuristicAgent::admits`], CR 106.6): Vodalian Arcanist's `{C}`
+/// for an instant or a sorcery, never Ancient Ziggurat's for one. For a
+/// question that carries no offer, where the engine's own statement
+/// (`LegalActions::restricted_taps`) is not at hand; a restriction the view
+/// cannot read admits nothing.
+pub(crate) fn remaining_sources_for(
+    view: &PlayerView,
+    spell: ObjectId,
+) -> (Vec<Source>, Vec<Source>) {
+    let estimate = own_offer(view, true);
+    let (restricted, plain) = split_restricted(offers(view, &estimate));
+    let reader = HeuristicAgent::new(crate::AIProfile::default());
+    let restricted = restricted
+        .into_iter()
+        .filter(|offer| {
+            offer.only_for.as_ref().is_some_and(|restriction| {
+                reader.admits(view, restriction, Some(offer.source.id), spell)
+            })
+        })
+        .map(|offer| offer.source)
+        .collect();
+    (usable(view, &estimate, plain), restricted)
+}
+
 /// The price `effect` puts off to the next upkeep: what the delayed ability it
 /// creates asks for, read off the card's list, where that ability is printed.
 fn deferred_price(
@@ -3751,6 +3775,8 @@ fn deferred_price(
     })
 }
 
+/// Whether this seat's mana sources, all untapped again, make `cost`: what
+/// it can pay in its next upkeep (CR 502.3), with nothing floating.
 pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
     manaplan::plan_frozen(
         cost,
@@ -3764,6 +3790,12 @@ pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCo
 /// as they stand once its untap step has untapped them and its creatures
 /// have been under its control since the turn began.
 fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
+    sources(view, &own_offer(view, now))
+}
+
+/// The mana abilities [`own_sources`] reads, as an offer would list them:
+/// an estimate off the view, never actions to send.
+fn own_offer(view: &PlayerView, now: bool) -> LegalActions {
     let mut estimate = LegalActions::default();
     for object in view.battlefield_of(resource_player(view)) {
         if object
@@ -3826,7 +3858,7 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
             }
         }
     }
-    sources(view, &estimate)
+    estimate
 }
 
 /// The cards that keep a total the question states (crew's "total power N

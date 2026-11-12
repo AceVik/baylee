@@ -813,20 +813,56 @@ pub fn greatest_x_assisted(
     sources: &[Source],
     assist: &Assist,
 ) -> Option<u32> {
+    greatest_x_by(cost, pool, sources, assist, |total, all| {
+        plan(total, pool, all).is_some()
+    })
+}
+
+/// [`greatest_x_assisted`] with restricted mana that may pay this cast
+/// (CR 106.6), as [`plan_earmarked`] reads it: `earmarked`'s floating mana
+/// and the restricted taps among `sources` pay the cost's own symbols, X's
+/// included, and never a paid mana ability's `{1}`; `pool`'s other
+/// restricted mana pays nothing. Vodalian Arcanist's `{C}` for Invoke the
+/// Firemind (`{X}{U}{U}{R}`) over a floating `{U}{U}{R}` and two Islands
+/// is X = 3, where the Islands alone pay 2 (Carbon b7, attempt 22, q214).
+#[must_use]
+pub fn greatest_x_earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+    assist: &Assist,
+) -> Option<u32> {
+    let counted = with_floating(pool, &earmarked.floating);
+    greatest_x_by(cost, &counted, sources, assist, |total, all| {
+        plan_earmarked(total, pool, earmarked, all).is_some()
+    })
+}
+
+/// The greatest X `pays` pays `cost` at, with what `assist` pays beside the
+/// mana, below the ceiling of `counted` (the mana that may pay) and
+/// `sources`.
+fn greatest_x_by(
+    cost: &ManaCost,
+    counted: &ManaPoolView,
+    sources: &[Source],
+    assist: &Assist,
+    pays: impl Fn(&ManaCost, &[Source]) -> bool,
+) -> Option<u32> {
     if !cost.has_variable() {
         return None;
     }
     let mut all = sources.to_vec();
     all.extend(assist.convoke.iter().cloned());
-    let pays = |x: u32| {
+    let pays_at = |x: u32| {
         let total = cost.with_x(x);
         let help = assist.generic.min(total.generic_total());
-        plan(&total.with_less_generic(help), pool, &all).is_some()
+        pays(&total.with_less_generic(help), &all)
     };
-    let ceiling = mana_ceiling(pool, &all).saturating_add(assist.generic);
+    let ceiling = mana_ceiling(counted, &all).saturating_add(assist.generic);
     // Affordability only shrinks as X grows, so the first X that plans from
     // the top is the greatest. The ceiling is a few dozen at most.
-    (0..=ceiling).rev().find(|&x| pays(x))
+    (0..=ceiling).rev().find(|&x| pays_at(x))
 }
 
 /// Every mana `pool` and `sources` hold, poured as one colour where a source
@@ -1880,10 +1916,10 @@ mod tests {
     /// What convoke, improvise and delve read off the board, and the X it
     /// lets a cost reach: a delve face (Treasure Cruise's) paying `{X}{U}{U}`
     /// over two Islands and three cards in the graveyard reaches X = 3
-    /// (CR 702.66a), where the Islands alone pay X = 0. A green creature convokes as a source of green, a
-    /// colourless one and an artifact as `{1}` (CR 702.51a, 702.126a); a
-    /// tapped one helps with nothing, and a creature that is a mana source
-    /// already is counted once.
+    /// (CR 702.66a), where the Islands alone pay X = 0.
+    /// A green creature convokes as a source of green, a colourless one and
+    /// an artifact as `{1}` (CR 702.51a, 702.126a); a tapped one helps with
+    /// nothing, and a creature that is a mana source already is counted once.
     #[test]
     fn convoke_improvise_and_delve_raise_the_x_a_board_pays() {
         use crate::test_support::{ViewBuilder, token};
@@ -2824,6 +2860,55 @@ mod tests {
         pool.green = 1;
         let forests = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
         assert_eq!(greatest_x(&cost("{X}{G}{G}"), &pool, &forests), Some(1));
+    }
+
+    /// Restricted mana that may pay the cast counts toward its X, earmarked
+    /// for it (CR 106.6, 107.3a): Invoke the Firemind (`{X}{U}{U}{R}`) over a
+    /// floating `{U}{U}{R}`, two Islands and Vodalian Arcanist's `{C}`
+    /// reaches X = 3, the Islands alone X = 2 (Carbon b7, attempt 22, q214).
+    /// The same `{C}` floating counts where it is earmarked, and restricted
+    /// mana floating that nobody named for the cast pays nothing.
+    #[test]
+    fn greatest_x_counts_restricted_mana_earmarked_for_the_cast() {
+        let mut pool = empty();
+        pool.blue = 2;
+        pool.red = 1;
+        let firemind = cost("{X}{U}{U}{R}");
+        let islands = [land(1, ManaColor::Blue), land(2, ManaColor::Blue)];
+        let arcanist = Source::fixed(ObjectId::new(3, 0), Tap::Ability(0), ManaColor::Colorless);
+        let taps = [(arcanist.id, arcanist.tap)];
+        let mut sources = islands.to_vec();
+        sources.push(arcanist);
+        let alone = Assist::default();
+        assert_eq!(
+            greatest_x_assisted(&firemind, &pool, &islands, &alone),
+            Some(2)
+        );
+        let tapped = Earmarked {
+            floating: [0; 6],
+            taps: &taps,
+        };
+        assert_eq!(
+            greatest_x_earmarked(&firemind, &pool, tapped, &sources, &alone),
+            Some(3)
+        );
+        let mut floated = pool;
+        floated.restricted[ManaColor::Colorless.index()] = 1;
+        assert_eq!(
+            greatest_x_earmarked(&firemind, &floated, Earmarked::default(), &islands, &alone),
+            Some(2),
+            "restricted mana nobody named for the cast pays nothing"
+        );
+        let mut colourless = [0; 6];
+        colourless[ManaColor::Colorless.index()] = 1;
+        let named = Earmarked {
+            floating: colourless,
+            taps: &[],
+        };
+        assert_eq!(
+            greatest_x_earmarked(&firemind, &floated, named, &islands, &alone),
+            Some(3)
+        );
     }
 
     /// A multikicker on top of a spell: five Forests pay {G}{G} and {1}{G}

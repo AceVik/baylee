@@ -1176,6 +1176,37 @@ pub fn mana_sources_in_view(view: &PlayerView) -> Vec<baylee_client_core::manapl
     policy::remaining_sources(view)
 }
 
+/// [`mana_sources_in_view`] for casting `spell`, with the restricted mana
+/// abilities whose mana may pay for it beside them (CR 106.6), and those
+/// restricted taps apart, for a planner to earmark for this cast
+/// (`manaplan::Earmarked`: their mana pays the spell's own symbols, never a
+/// paid mana ability's `{1}` on the way).
+///
+/// For the X of a cast being announced (CR 601.2b), a question that carries
+/// no offer, so the engine's statement of what restricted mana may pay for
+/// (`LegalActions::restricted_taps`) is not at hand, and the view is read
+/// instead, as the house reads it (`HeuristicAgent::admits`): Vodalian
+/// Arcanist's `{C}` ("spend this mana only to cast an instant or sorcery
+/// spell") counts for Invoke the Firemind, and Ancient Ziggurat's (creature
+/// spells only) does not. A restriction the view cannot read admits nothing,
+/// which under-counts. Without its Arcanist the seat was asked X "from 0 to
+/// 2" where 3 is paid (Carbon b7, segment 3, attempt 22, q214).
+#[must_use]
+pub fn mana_sources_in_view_for(
+    view: &PlayerView,
+    spell: ObjectId,
+) -> (
+    Vec<baylee_client_core::manaplan::Source>,
+    Vec<(ObjectId, baylee_client_core::manaplan::Tap)>,
+) {
+    let (plain, restricted) = policy::remaining_sources_for(view, spell);
+    let taps = restricted
+        .iter()
+        .map(|source| (source.id, source.tap))
+        .collect();
+    (spend::beside(&plain, restricted), taps)
+}
+
 /// The paid mana abilities the engine offers, as the planner reads them: a
 /// filter land's, a Signet's. `mana_sources` carries them on its sources, and
 /// this hands them to a planner with a reader of its own (the client's).

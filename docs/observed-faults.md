@@ -4102,3 +4102,51 @@ enters (Serra's Emissary: protection from it, `Rider::ChosenCardType`), a
 second chosen basic land type and a chosen number, and the view carries none
 of them, so neither the seat nor the client can show them. Each wants a
 `PublicObject` field.
+
+## Found while fixing Carbon's block 7 reports, 2026-11-12
+
+The seat's two faults are fixed. Its X question counts a restricted mana
+ability whose restriction admits the spell (segment 3, attempt 22, q214:
+Invoke the Firemind beside Vodalian Arcanist was asked X "from 0 to 2" where
+3 is paid; CR 106.6, 601.2b), read off the view
+(`baylee_ai::mana_sources_in_view_for`). An attack or block with nothing to
+declare is declared while a plan runs, where it used to stop the plan
+(attempt 8, q207; `wake::WakeFilter::judge`). The same X reading is left in
+two other places.
+
+### 82. The house aims an X with its unrestricted mana alone — KNOWN, for the house's next generation
+
+The house sizes an X spell's X over its unrestricted sources and floats the
+whole price before the cast (`policy::aim`, given the plain taps by
+`spend_on` and by generation 10's `spend_on_full` alike), and answers the X
+question from the floating pool through `manaplan::plan_frozen`, which
+counts no restricted mana (`HeuristicAgent::largest_x`). Beside Vodalian
+Arcanist it aims Invoke the Firemind at the X its lands pay, one short. Its
+path is frozen in `sharp-2026-11` and pinned by generation, and the X it
+aims changes play, so the reading goes behind a profile field the reference
+does not set: aim over the sources `baylee_ai::spend` adds for the cast (the
+engine's statement, `LegalActions::restricted_taps`), and answer X from the
+pool with the restricted mana floating that the engine names for it
+(`restricted_floating`).
+
+### 83. The client's X cap counts no restricted mana, and the seat's counts all that floats — KNOWN
+
+The desktop client caps its X question over `manasources::sources`, which
+reads no restricted tap (`Duel::x_cap`), so it asks the record's Firemind
+"up to 2" as the seat did. It keeps its last priority's offer
+(`priority_legal`), which names the restricted taps and floating mana that
+may pay the cast (`spend::sources_for`, `LegalActions::restricted_floating_for`),
+so the fix there is the engine's statement and not a reading of the view.
+
+The seat's X question carries no offer, and the view says what restricted
+mana floats by colour, never what it may pay for. The seat counts all of it
+as mana that may pay the spell: X is announced before mana abilities (CR
+601.2b, 601.2g), so that mana was made before the cast began, nearly always
+by the seat's own taps for this very spell. Mana that may not pay it (Ancient
+Ziggurat's floating beside a sorcery) makes the bound too high, and an X past
+the mana reverses the cast (CR 601.2h, 734.1), which the engine's open range
+("from 0 to 4294967295") allowed for any number. Counting it exactly needs
+the statement at the X question: the last priority's offer kept beside it,
+as the client keeps one (the seat's `Request` carries none, and
+`baylee-train` builds it too), or a `DecisionNote` field, which is a protocol
+change.

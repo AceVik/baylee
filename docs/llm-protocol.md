@@ -330,7 +330,17 @@ X is 0 in this count, and you choose X when you cast it)". The X question then
 asks from 0 to the most the pool and the untapped sources pay for the cost
 the question's note names (`DecisionNote::cost`), where the engine's own range
 is open (CR 601.2b) and was told as "from 0 to 4294967295". Where the seat
-cannot read the sources, the engine's range stands.
+cannot read the sources, the engine's range stands. A restricted mana ability
+counts where its restriction admits the spell, read off the view since the
+question carries no offer (`baylee_ai::mana_sources_in_view_for`, CR 106.6):
+Vodalian Arcanist's `{C}` for an instant or a sorcery, never Ancient
+Ziggurat's for one (Carbon b7, attempt 22, q214: Invoke the Firemind was
+asked "from 0 to 2" beside an Arcanist, where 3 is paid). Restricted mana
+already floating is the view's by colour alone and counts as if it may pay:
+X is announced before mana abilities (CR 601.2b, 601.2g), so it was made
+before the cast began, nearly always by the seat's own taps for this spell.
+Where it may not pay, the bound is too high and the cast is reversed for want
+of mana (CR 601.2h, 734.1), as any X past the mana was under the open range.
 
 Taking one taps for that price and casts, and the question then comes as it
 always does: the model answers it, so "Cast Capsize with its buyback for

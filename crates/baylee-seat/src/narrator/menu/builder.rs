@@ -1766,19 +1766,46 @@ impl Builder<'_, '_> {
     /// beside five Forests and three green creatures was asked "from 0 to
     /// 3", what the Forests and Leaf Gilder's mana pay alone, where X = 5 is
     /// paid (Carbon b4, attempt 8, q158; CR 702.51a).
+    ///
+    /// A restricted mana ability counts where its restriction admits the
+    /// spell, as the view reads it (`baylee_ai::mana_sources_in_view_for`,
+    /// CR 106.6), its mana earmarked for the spell (`manaplan::Earmarked`):
+    /// Invoke the Firemind (`{X}{U}{U}{R}`) over a floating `{U}{U}{R}`, two
+    /// untapped lands and Vodalian Arcanist ("spend this mana only to cast
+    /// an instant or sorcery spell") was asked "from 0 to 2" where X = 3 is
+    /// paid (Carbon b7, segment 3, attempt 22, q214).
+    ///
+    /// Restricted mana already floating counts as mana that may pay the
+    /// spell. The view says its colour and not what it may pay for, which
+    /// only an offer states (`LegalActions::restricted_floating`), and an X
+    /// question carries none. X is announced before mana abilities are
+    /// activated (CR 601.2b, 601.2g), so what floats was made before the cast
+    /// began, nearly always by the seat's own taps for this spell. Mana that
+    /// may not pay it makes the bound too high, which risks no more than a
+    /// cast reversed for want of mana (CR 601.2h, 734.1); the engine's open
+    /// range ("from 0 to 4294967295") risked that for any number.
     fn payable_x(&self) -> Option<u32> {
         let note = self.request.note.as_ref()?;
         let cost = note.cost.filter(ManaCost::has_variable)?;
         let view = self.table.view;
         let caster = baylee_client_core::decision::resource_player(view);
         let pool = view.seat(caster)?.mana_pool;
-        let sources = baylee_ai::mana_sources_in_view(view);
+        let (sources, taps) = view.casting.map_or_else(
+            || (baylee_ai::mana_sources_in_view(view), Vec::new()),
+            |spell| baylee_ai::mana_sources_in_view_for(view, spell),
+        );
         let assist = self
             .casting_face()
             .map_or_else(manaplan::Assist::default, |face| {
                 manaplan::Assist::read(view, caster, face, &sources)
             });
-        let pays = manaplan::greatest_x_assisted(&cost, &pool, &sources, &assist)?;
+        let earmarked = manaplan::Earmarked {
+            floating: pool
+                .restricted
+                .map(|amount| u32::try_from(amount).unwrap_or(u32::MAX)),
+            taps: &taps,
+        };
+        let pays = manaplan::greatest_x_earmarked(&cost, &pool, earmarked, &sources, &assist)?;
         Some(note.x_targets.map_or(pays, |targets| pays.min(targets)))
     }
 

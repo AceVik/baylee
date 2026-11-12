@@ -11,7 +11,7 @@ use baylee_engine::choice::PlayerAction;
 use baylee_gamehost::Session;
 use baylee_view::LogTail;
 
-fn told(request: &Request) -> String {
+pub(super) fn told(request: &Request) -> String {
     Narrator::new(&request.context)
         .wake(request, &[], None)
         .text
@@ -22,7 +22,7 @@ fn card(name: &str) -> CardIndex {
 }
 
 /// Seat 0's untapped permanents named `name`, in the view's order.
-fn untapped(session: &Session, name: &str) -> Vec<ObjectId> {
+pub(super) fn untapped(session: &Session, name: &str) -> Vec<ObjectId> {
     let card = card(name);
     session
         .observe_view(ME)
@@ -35,7 +35,7 @@ fn untapped(session: &Session, name: &str) -> Vec<ObjectId> {
 }
 
 /// The question seat 0 is asked now, with its note, as the bridge builds it.
-fn asked_with_note(session: &Session) -> Request {
+pub(super) fn asked_with_note(session: &Session) -> Request {
     let (pending, view) = session.view_for_with_context(ME).expect("seat 0 is asked");
     let mut asked = request(view, pending, LogTail::default());
     asked.note = session.question_note(ME);
