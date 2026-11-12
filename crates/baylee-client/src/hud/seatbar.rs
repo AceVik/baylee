@@ -850,9 +850,17 @@ const DEAD_INK: f32 = 0.28;
 
 /// How faint a step the standing orders skip is written.
 ///
-/// Still readable: the absence of the stop accent carries the standing order,
-/// so the label need not fade to a watermark. Contrast needs a live composite.
-const SKIP_INK: f32 = 0.68;
+/// Still readable, and plainly the quieter of the two: at 0.68 a skipped
+/// step and a stop differed by a third of the ink and an eight-pixel dash,
+/// and the owner could not tell them apart at a glance (12.11.2026). A stop
+/// is lit ([`STOP_WASH`]); a skipped step is written at under half.
+const SKIP_INK: f32 = 0.46;
+
+/// How strongly a standing stop lights its tile's ground, as the alpha of
+/// [`palette::SEAT_STOP`]: a key that is down, under the full-width bar that
+/// says the same. Low enough that the gold of the step shown, which lies
+/// over it, is the only fill a bar ever shows at full strength.
+const STOP_WASH: f32 = 0.15;
 
 /// The corner a step tile is cut with.
 const TILE_RADIUS: f32 = 3.0;
@@ -1423,7 +1431,9 @@ struct TileState {
 
 /// One step tile, with separate channels for each claim:
 ///
-/// - A small top accent marks a standing stop; skipped labels are quieter.
+/// - A standing stop is lit: a wash on the tile's ground and a bar along its
+///   whole top edge. A skipped step has neither and is written at under half
+///   the ink.
 /// - Gold fill is the active seat's current live step. Other current steps
 ///   keep their under-tick, including untap and cleanup.
 /// - A frame is keyboard selection, never a standing order.
@@ -1509,6 +1519,27 @@ fn spawn_tile(
             ..default()
         }]),
     ));
+    let stop = state.live && !state.skipped && !state.lost;
+    if stop {
+        // Under the gold, which covers it on the step shown: off that step
+        // this is the tile's whole ground.
+        let wash = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    right: px(0),
+                    top: px(0),
+                    bottom: px(0),
+                    border_radius: BorderRadius::all(px(TILE_RADIUS)),
+                    ..default()
+                },
+                BackgroundColor(palette::SEAT_STOP.with_alpha(STOP_WASH)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(tile).add_child(wash);
+    }
     let gold = commands
         .spawn((
             StepFill(key),
@@ -1553,22 +1584,21 @@ fn spawn_tile(
         }
     }
 
-    if state.live && !state.skipped && !state.lost {
+    if stop {
+        // The bar runs the tile's whole top edge, short of its corners: the
+        // eight-pixel dash it replaces was lost on a track turned onto a mat.
+        let inset = if density.tiles_have_glyphs() {
+            TILE_RADIUS
+        } else {
+            1.0
+        };
         let marker = commands
             .spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    left: px(if density.tiles_have_glyphs() {
-                        4.0
-                    } else {
-                        1.0
-                    }),
+                    left: px(inset),
+                    right: px(inset),
                     top: px(0),
-                    width: px(if density.tiles_have_glyphs() {
-                        8.0
-                    } else {
-                        3.0
-                    }),
                     height: px(2),
                     border_radius: BorderRadius::all(px(1)),
                     ..default()

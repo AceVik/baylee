@@ -73,12 +73,16 @@ pub(crate) fn gameplay(out: &mut Out, view: &View) {
         lines.push(out.words(caption.text(lang), true));
         let mut chips = Vec::new();
         for (i, step) in RAIL_ROWS.into_iter().enumerate() {
-            let skipped = prefs.orders.is_skipped(side, step);
+            // Lit is a stop, as a marked tile is on the table: the page and
+            // the mat say the same thing the same way round (the owner,
+            // 12.11.2026, on the marks going under). It was the skipped
+            // step that was lit here until then.
+            let stops = !prefs.orders.is_skipped(side, step);
             chips.push(controls::chip(
                 out.commands,
                 out.kit,
                 step.name().text(lang),
-                skipped,
+                stops,
                 None,
                 false,
                 (

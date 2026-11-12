@@ -1556,8 +1556,8 @@ SwitchOn = on
 # off
 SwitchOff = off
 
-# A red step is one the client passes for you.
-RailExplain = A red step is one the client passes for you. A preset is a place to start: every step is yours to change.
+# A lit step is one the table stops at; the client passes the others.
+RailExplain = At a lit step the table stops and asks you; the client passes the others for you. A preset is a place to start: every step is yours to change.
 
 # The button that writes a preset into the rail.
 UsePreset = use
@@ -6736,7 +6736,7 @@ TourT15Body = You pick a colour as a symbol, not a word. You type a number or st
 TourT16Title = The phases
 
 # Tour step T16's words (TOURS.md §2).
-TourT16Body = On each mat's edge stand the twelve steps of a turn; the current one is lit. Green: the table asks you here. Red: it passes for you here. It starts on a preset. A click toggles a step, Shift+W and Shift+S walk them. Presets: Settings › Gameplay. Your own attack and block steps never go red.
+TourT16Body = On each mat's edge stand the twelve steps of a turn; the current one is gold. Lit: the table asks you here. Dim: it passes for you here. It starts on a preset. A click toggles a step, Shift+W and Shift+S walk them. Presets: Settings › Gameplay. Your own attack and block steps always stay lit.
 
 # Tour step T17's title (TOURS.md §2).
 TourT17Title = Passing
