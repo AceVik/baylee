@@ -437,9 +437,19 @@ impl Duel {
     /// green creatures was offered X up to 3 where 5 is paid (Carbon b4,
     /// attempt 8, q158, the seat's same reading; CR 702.51a).
     ///
+    /// Restricted mana counts where the offer names it for this cast (CR
+    /// 106.6), earmarked for the spell's own symbols
+    /// ([`manaplan::greatest_x_earmarked`]): Invoke the Firemind
+    /// (`{X}{U}{U}{R}`) over a floating `{U}{U}{R}`, two Islands and Vodalian
+    /// Arcanist's `{C}` for instants and sorceries pays X = 3 where the
+    /// Islands alone pay 2 (Carbon b7, attempt 22, q214, which the seat
+    /// answers the same way). Mana the offer does not name for the cast pays
+    /// nothing here, as it pays nothing at the payment.
+    ///
     /// [`manaplan::greatest_x`]: baylee_client_core::manaplan::greatest_x
     /// [`manaplan::greatest_repeat`]: baylee_client_core::manaplan::greatest_repeat
     /// [`manaplan::Assist`]: baylee_client_core::manaplan::Assist
+    /// [`manaplan::greatest_x_earmarked`]: baylee_client_core::manaplan::greatest_x_earmarked
     fn cap_x(&mut self) {
         let Some(cap) = self.x_cap() else {
             return;
@@ -474,20 +484,33 @@ impl Duel {
         let cost = spell_cost(view, legal, card)?;
         let caster = baylee_client_core::decision::resource_player(view);
         let pool = view.seat(caster)?.mana_pool;
-        let sources = manasources::sources(view, legal);
         if let Some(each) = kick {
             return baylee_client_core::manaplan::greatest_repeat(
                 &cost.with_x(view.announced_x.unwrap_or(0)),
                 &each,
                 &pool,
-                &sources,
+                &manasources::sources(view, legal),
             );
         }
+        // The cast's own mana, as its payment will be planned: restricted
+        // mana the offer names for this cast is earmarked for it (CR 106.6).
+        let mana = manasources::spend_inputs(
+            view,
+            legal,
+            &pool,
+            baylee_engine::choice::Spend::cast(card, baylee_engine::choice::CastModeKind::Normal),
+        );
         let assist = casting_face(view, card)
             .map_or_else(baylee_client_core::manaplan::Assist::default, |face| {
-                baylee_client_core::manaplan::Assist::read(view, caster, face, &sources)
+                baylee_client_core::manaplan::Assist::read(view, caster, face, &mana.sources)
             });
-        baylee_client_core::manaplan::greatest_x_assisted(&cost, &pool, &sources, &assist)
+        baylee_client_core::manaplan::greatest_x_earmarked(
+            &cost,
+            &mana.pool,
+            mana.earmarked(),
+            &mana.sources,
+            &assist,
+        )
     }
 
     /// Works out afresh which lands would settle an open payment window.

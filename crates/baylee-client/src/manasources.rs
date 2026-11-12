@@ -361,12 +361,28 @@ pub fn window_inputs(
     legal: &LegalActions,
     pool: &baylee_view::ManaPoolView,
 ) -> baylee_client_core::paystage::WindowMana {
+    spend_inputs(view, legal, pool, Spend::Owed)
+}
+
+/// The mana a payment for `spend` is planned from, as [`window_inputs`]
+/// reads the window's: what floats and every source, with the restricted
+/// mana the engine names for `spend` in `legal` earmarked for it. The X
+/// question of a cast reads the cast's (`Duel::cap_x`), out of the offer the
+/// cast was begun from: X is announced before any mana ability is activated
+/// (CR 601.2b, 601.2g), so what floats and what may tap are that offer's.
+#[must_use]
+pub fn spend_inputs(
+    view: &PlayerView,
+    legal: &LegalActions,
+    pool: &baylee_view::ManaPoolView,
+    spend: Spend,
+) -> baylee_client_core::paystage::WindowMana {
     let mut plain = sources(view, legal);
     baylee_ai::spend::repeat_counter_sources(view, &mut plain);
     let restricted = restricted_sources(view, legal);
     baylee_ai::spend::inputs_for(
         legal,
-        Spend::Owed,
+        spend,
         baylee_ai::spend::Mana {
             pool,
             plain: &plain,
