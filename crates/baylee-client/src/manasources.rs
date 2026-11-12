@@ -146,6 +146,10 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                     }
                 })
         })
+        // What the abilities on the board still wait for, as the seat ranks
+        // it: the only Mountain an `{R}` ability needs is kept as a scarce
+        // colour of the hand is (`baylee_ai::board_claims`, Carbon b6).
+        .chain(baylee_ai::board_claims(view, legal))
         .collect();
     for source in &mut sources {
         source.snow = view.object(source.id).is_some_and(|o| {

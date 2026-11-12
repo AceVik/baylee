@@ -5654,6 +5654,14 @@ An ability that costs mana of its own (Mind Stone's draw, a creature land's
 animation) only breaks a tie: kept up with nothing left to pay for it, Mind
 Stone cost a hand its `{U}` (report 5.11.2026;
 `a_rock_with_a_paid_ability_gives_way_to_a_colour_the_hand_wants`).
+What such an ability costs is a colour wanted, beside the hand's: the client
+and the seat hand `prioritize` the mana costs of the abilities the engine
+lists as waiting only for mana (`LegalActions::unpaid_abilities`, mana
+abilities aside; `baylee_ai::board_claims`), so the only Mountain
+Thornscape Apprentice's "`{R}`, `{T}`" needs is kept as a scarce colour of
+the hand is. Ranked by the hand alone, Sabertooth Nishoba's one plan tapped
+that Mountain and left a Forest standing (Carbon b6, 12.11.2026). The house
+ranks by its hand alone (`docs/observed-faults.md` entry 78).
 
 An activation's payment goes one step further, because there the paid
 ability is not a guess about later: another permanent whose own ability taps

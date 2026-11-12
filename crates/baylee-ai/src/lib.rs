@@ -1127,12 +1127,44 @@ pub fn policy_seed(game: &str, seat: u8) -> u64 {
 /// leaves out is left out for every caller alike: restricted mana, which
 /// can pay only for some spells, and any ability whose price is more than a
 /// tap it cannot plan.
+///
+/// Ranked for keeping by the colours the hand and the abilities on the board
+/// still want ([`board_claims`]); the house itself ranks by its hand alone.
 #[must_use]
 pub fn mana_sources(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
 ) -> Vec<baylee_client_core::manaplan::Source> {
-    policy::sources(view, legal)
+    policy::sources_keeping(view, legal, &board_claims(view, legal))
+}
+
+/// The mana costs of the abilities the seat could activate on the
+/// battlefield once their mana is made (`LegalActions::unpaid_abilities`),
+/// mana abilities aside: what a land is kept back for beside the cards in
+/// hand (`manaplan::prioritize`).
+///
+/// A plan that ranks lands by the hand alone keeps nothing for them: with
+/// Sabertooth Nishoba (`{4}{W}{G}`) in hand, seven lands and Thornscape
+/// Apprentice on the battlefield, the one plan the seat was offered tapped
+/// the only Mountain, which alone pays the Apprentice's "`{R}`, `{T}`:
+/// Target creature gains first strike", and left a Forest standing (Carbon
+/// b6, segment 2, attempt 57, q262). The player chooses what pays (CR
+/// 601.2g, 601.2h), and keeps the red.
+///
+/// A paid mana ability (a filter land's `{W/U}`, a Signet's `{1}`) is a
+/// trade the planner makes itself (`manaplan/convert.rs`), not a use kept
+/// for later, so it claims nothing.
+#[must_use]
+pub fn board_claims(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<baylee_core::mana::ManaCost> {
+    legal
+        .unpaid_abilities
+        .iter()
+        .filter(|&&(source, index, _)| !is_mana_ability(view, source, index))
+        .map(|&(_, _, cost)| cost)
+        .collect()
 }
 
 /// [`mana_sources`] read off the view alone, for a question that carries no
@@ -1179,7 +1211,9 @@ pub fn apply_triggered_mana_bonus(
 /// (CR 107.4f). A plan with several restricted taps is for a caller that
 /// sends every tap and then casts, or casts first and pays in the window.
 /// A counter-paid mana ability counts once per activation its counters pay
-/// ([`spend::repeat_counter_sources`]).
+/// ([`spend::repeat_counter_sources`]). A land an ability on the board alone
+/// pays for is kept as a scarce colour of the hand is ([`mana_sources`],
+/// [`board_claims`]); the house never casts through here.
 #[must_use]
 pub fn plan_for_spell(
     cost: &baylee_core::mana::ManaCost,
@@ -1189,7 +1223,7 @@ pub fn plan_for_spell(
     spell: ObjectId,
     way: baylee_engine::choice::CastModeKind,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    let mut plain = policy::sources(view, legal);
+    let mut plain = mana_sources(view, legal);
     spend::repeat_counter_sources(view, &mut plain);
     let restricted = policy::restricted_sources(view, legal);
     spend::plan_for(

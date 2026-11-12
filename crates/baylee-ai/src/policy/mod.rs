@@ -2496,6 +2496,24 @@ pub(crate) fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     usable(view, legal, split_restricted(offers(view, legal)).1)
 }
 
+/// [`sources`], ranked by the colours `claims` want as well as the hand's:
+/// the mana costs of what else the seat may spend mana on
+/// ([`crate::board_claims`]), so a land that alone pays one of them is kept
+/// as a scarce colour of the hand is (`manaplan::prioritize`). The house
+/// ranks by its hand alone, as it always has; the planners every other
+/// caller reads (the seat, the client, the trained AI's menu) pass the board.
+pub(crate) fn sources_keeping(
+    view: &PlayerView,
+    legal: &LegalActions,
+    claims: &[ManaCost],
+) -> Vec<Source> {
+    usable(
+        view,
+        legal,
+        split_restricted(offers_claimed(view, legal, claims)).1,
+    )
+}
+
 /// The restricted taps on offer as the planner reads what they make, one
 /// source each, and nothing of what they may pay for: that is the engine's
 /// statement (`LegalActions::restricted_taps`), which [`crate::spend`]
@@ -2526,9 +2544,16 @@ struct Offer {
     only_for: Option<baylee_cards_dsl::ManaRestriction>,
 }
 
-/// Every offered simple mana tap, restricted ones with their filter.
-#[allow(clippy::too_many_lines)]
+/// Every offered simple mana tap, restricted ones with their filter, ranked
+/// by the colours the hand wants: the house's reading.
 fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
+    offers_claimed(view, legal, &[])
+}
+
+/// [`offers`], ranked by the colours `claims` want beside the hand's
+/// ([`sources_keeping`]).
+#[allow(clippy::too_many_lines)]
+fn offers_claimed(view: &PlayerView, legal: &LegalActions, claims: &[ManaCost]) -> Vec<Offer> {
     // The price rides on `manaplan::Source` itself. It used to be paired
     // with the source only until the dedup had run, because the solver asked
     // nothing but what comes out; since #165's second half the solver ranks
@@ -2640,6 +2665,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 }
             })
         })
+        .chain(claims.iter().copied())
         .collect();
     let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
     // The registry's answer, as the client's: a land used for more than

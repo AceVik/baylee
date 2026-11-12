@@ -96,7 +96,10 @@ second time: `manaplan::Source` carries `priced`, and the matcher reaches for
 a priced tap only where no clean one fits the pip (#210). Among clean taps
 it keeps, as the client does, a creature first, then a permanent used for
 more than mana at no mana of its own (Karakas: `CardDef::use_beyond_mana`,
-handed to `manaplan::prioritize`), then the colours its hand needs.
+handed to `manaplan::prioritize`), then the colours its hand needs. The
+client and the language-model seat also count what the abilities on their
+board wait for (`baylee_ai::board_claims`); the house does not, in every
+generation (`docs/observed-faults.md` entry 78).
 Command-zone commanders participate in these plans, including their public
 cast-count tax, and so does a graveyard card the view says the seat may
 flash back, at the price it names (`PublicObject::flashback`, #242): the

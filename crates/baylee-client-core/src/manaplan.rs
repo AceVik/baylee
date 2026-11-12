@@ -242,7 +242,8 @@ pub fn add_converters(
     }
 }
 
-/// Rank taps by the board and colours still needed by cards in hand.
+/// Rank taps by the board and colours still needed by `wanted`: the cards in
+/// hand, and the abilities waiting for mana where the caller passes them.
 /// Creatures retain their combat and tap-ability value; a permanent with an
 /// ability that costs no mana (`beyond_mana`, asked of the rules it has:
 /// Karakas) is kept next; scarce hand colours are held back ahead of
@@ -260,10 +261,17 @@ pub fn add_converters(
 /// for its `{1}`, `{T}` draw with nothing left to pay the `{1}` cost two
 /// Islands their place, and the `{U}` in hand went uncast (report 5.11.2026).
 /// It only breaks a tie, ahead of a land nothing in hand is waiting for.
+///
+/// What such an ability *costs* is another matter, and `wanted` carries it
+/// beside the hand: the costs whose colours a source is valued by. The house
+/// hands in its hand alone; the client and the seat add the abilities on the
+/// board that wait only for mana (`baylee_ai::board_claims`), so the only
+/// Mountain Thornscape Apprentice's `{R}` needs is kept as a scarce colour of
+/// the hand is (Carbon b6, attempt 57, q262).
 pub fn prioritize(
     sources: &mut [Source],
     view: &baylee_view::PlayerView,
-    hand: &[ManaCost],
+    wanted: &[ManaCost],
     beyond_mana: &dyn Fn(baylee_view::RulesFace) -> baylee_cards_dsl::UseBeyondMana,
 ) {
     let mut supply = [0_u32; 6];
@@ -272,7 +280,8 @@ pub fn prioritize(
         supply[index] = u32::try_from(sources.iter().filter(|s| s.colors.contains(&color)).count())
             .unwrap_or(u32::MAX);
         demand[index] = u32::try_from(
-            hand.iter()
+            wanted
+                .iter()
                 .flat_map(ManaCost::symbols)
                 .filter(|symbol| mask_of_set(symbol.colors()).holds(color))
                 .count(),
