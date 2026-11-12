@@ -675,11 +675,12 @@ pub(crate) fn divisions(state: &GameState) -> Vec<baylee_view::Division> {
     if state.divided.is_empty() {
         return Vec::new();
     }
-    let stack = state.zones.list(ZoneLocation::Stack);
+    // An arena lookup per entry, not a scan of the stack: the cost stays
+    // linear in the divisions however tall the stack grows.
     state
         .divided
         .iter()
-        .filter(|(object, _)| stack.contains(object))
+        .filter(|(object, _)| state.object(*object).is_some_and(|o| o.zone == Zone::Stack))
         .map(|(object, shares)| baylee_view::Division {
             object: *object,
             shares: shares.clone(),
