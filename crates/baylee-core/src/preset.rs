@@ -698,6 +698,12 @@ impl AIProfile {
     /// lost 2.6 points (`docs/proposals/house-ai-strength.md` §7.7).
     pub const EXPERT_WORK: u64 = 8_000_000;
 
+    /// The highest foresight tier ([`Self::foresight`]): the named levels
+    /// use one to five, and the tiers above them are there for a
+    /// measurement to try a wider search on a level (`eval4`'s `foresight`
+    /// knob).
+    pub const TIERS: u8 = 8;
+
     /// The most nodes one combat search in a fork of a bounded search
     /// ([`Self::BOUNDED_SEARCH`]) may visit: a sixteenth of what `expert`
     /// itself searches for one attack or block, which is what the slowest
@@ -743,7 +749,10 @@ impl AIProfile {
             2 => (5, 3),
             3 => (6, 4),
             4 => (8, 5),
-            _ => (8, 6),
+            5 => (8, 6),
+            6 => (10, 6),
+            7 => (10, 8),
+            _ => (12, 8),
         };
         let (work, nodes) = if self.plays(Self::BOUNDED_SEARCH) {
             (

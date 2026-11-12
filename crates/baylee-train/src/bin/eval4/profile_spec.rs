@@ -17,8 +17,10 @@ use baylee_core::preset::{AIProfile, HoldUp, Politics};
 ///
 /// Knobs: `lookahead` (0–2), `temperature` (milli-units), `mulligan` (0–2),
 /// `hold_up` (`none`, `basic`, `threat_aware`), `politics` (`random`,
-/// `attack_leader`, `archenemy`) and `generation` (at most
-/// [`AIProfile::GENERATION`]).
+/// `attack_leader`, `archenemy`), `generation` (at most
+/// [`AIProfile::GENERATION`]) and `foresight` (a tier up to
+/// [`AIProfile::TIERS`], searched at from [`AIProfile::FORESIGHT`]; the
+/// knobs apply in order, and `generation` keeps a level's tier).
 pub(crate) fn parse(spec: &str) -> anyhow::Result<AIProfile> {
     let (name, knobs) = spec.split_once(':').unwrap_or((spec, ""));
     let mut profile =
@@ -74,9 +76,16 @@ pub(crate) fn parse(spec: &str) -> anyhow::Result<AIProfile> {
                 }
                 profile = profile.at_generation(generation);
             }
+            "foresight" => {
+                let tier = number()?;
+                if tier > u32::from(AIProfile::TIERS) {
+                    bail!("{spec}: foresight is a tier from 0 to {}", AIProfile::TIERS);
+                }
+                profile.foresight = u8::try_from(tier)?;
+            }
             _ => bail!(
                 "{spec}: unknown knob {key} (lookahead, temperature, mulligan, hold_up, politics, \
-                 generation)"
+                 generation, foresight)"
             ),
         }
     }
@@ -121,6 +130,13 @@ mod tests {
             (1, 30, Politics::Random, 0)
         );
         assert_eq!(parse("sharp:").unwrap(), AIProfile::SHARP);
+        let wider = parse("novice:foresight=3").unwrap();
+        assert_eq!(wider.foresight, 3);
+        assert_eq!(
+            wider.foresight(),
+            AIProfile::STEADY.foresight(),
+            "novice searched at steady's tier"
+        );
     }
 
     /// A knob never makes a fair level peek, nor plays code this build does
@@ -135,6 +151,7 @@ mod tests {
             "steady:temperature=-1",
             "steady:mulligan",
             "steady:politics=kingmaker",
+            "steady:foresight=9",
         ] {
             assert!(parse(spec).is_err(), "{spec}");
         }
