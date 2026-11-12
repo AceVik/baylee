@@ -315,6 +315,12 @@ pub enum Prompt {
     YesNo {
         /// What is being decided.
         question: YesNoPrompt,
+        /// Another player's permanent the question is about (Cleansing's
+        /// land, `YesNoPrompt::PayLife::permanent`), named by the line by
+        /// whose it is; `None` for the deciding player's own, for a question
+        /// about no permanent, and wherever [`Interaction::prompt_in`] was
+        /// not asked.
+        whose: Option<PlayerId>,
     },
     /// The game is over.
     GameOver,
@@ -828,7 +834,10 @@ impl Interaction {
                 },
                 library: None,
             },
-            Pending::YesNo { prompt, .. } => Prompt::YesNo { question: *prompt },
+            Pending::YesNo { prompt, .. } => Prompt::YesNo {
+                question: *prompt,
+                whose: None,
+            },
             Pending::GameOver(_) => Prompt::GameOver,
         }
     }
@@ -844,13 +853,64 @@ impl Interaction {
     /// ([`crate::decision::cards_owner`]). Architects of Will aimed at an
     /// opponent puts the cards back on top of *their* library, and a line
     /// that did not say so read as the player's own.
+    ///
+    /// A yes-or-no question about one permanent says whose it is the same
+    /// way, where it is another player's ([`Self::permanent_in`]): Cleansing
+    /// asks land by land, and "Pay 1 life for Plains?" ten times over a
+    /// table of Plains said neither which land nor whose.
     #[must_use]
     pub fn prompt_in(&self, view: &PlayerView) -> Prompt {
         let mut prompt = self.prompt();
-        if let Prompt::Arrange { library, .. } | Prompt::ChooseCards { library, .. } = &mut prompt {
-            *library = self.library_in(view);
+        match &mut prompt {
+            Prompt::Arrange { library, .. } | Prompt::ChooseCards { library, .. } => {
+                *library = self.library_in(view);
+            }
+            Prompt::YesNo { whose, .. } => *whose = self.permanent_in(view),
+            _ => {}
         }
         prompt
+    }
+
+    /// The one permanent this question is about, where it names one: the
+    /// land a Cleansing life payment is for (CR 608.2d,
+    /// `YesNoPrompt::PayLife::permanent`). The table lights it and dims the
+    /// rest while the question is open ([`Self::leaves_out`]). Only this
+    /// seat's own question, as every light on the table is.
+    #[must_use]
+    pub fn asked_about(&self) -> Option<ObjectId> {
+        if !self.is_mine() {
+            return None;
+        }
+        match &self.pending {
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayLife { permanent, .. },
+                ..
+            } => *permanent,
+            _ => None,
+        }
+    }
+
+    /// Whose the permanent this question is about is, when `view` shows it
+    /// is another player's than the one deciding ([`Self::prompt_in`]): its
+    /// controller, the player across whose side of the table it lies. `None`
+    /// for the deciding player's own, for a question about no permanent, and
+    /// for one the view does not show.
+    #[must_use]
+    pub fn permanent_in(&self, view: &PlayerView) -> Option<PlayerId> {
+        let Pending::YesNo {
+            prompt:
+                YesNoPrompt::PayLife {
+                    permanent: Some(permanent),
+                    ..
+                },
+            ..
+        } = &self.pending
+        else {
+            return None;
+        };
+        view.object(*permanent)
+            .map(|object| object.controller)
+            .filter(|controller| *controller != self.seat)
     }
 
     /// Whose library this question is about, when `view` shows it is
@@ -1016,11 +1076,16 @@ impl Interaction {
     /// does not go dark and light again as the aim walks. A question whose
     /// options are left implicit (a discard from the hand) or that names no
     /// object at all leaves nothing out; nor does an ordering, whose cards
-    /// lie in the zone dialog.
+    /// lie in the zone dialog. A yes-or-no question about one permanent
+    /// ([`Self::asked_about`]) leaves out every other: Cleansing's land is
+    /// the one card left bright while its payment is asked.
     #[must_use]
     pub fn leaves_out(&self, id: ObjectId) -> bool {
         if !self.is_mine() || self.is_selected(id) {
             return false;
+        }
+        if let Some(about) = self.asked_about() {
+            return id != about;
         }
         match &self.mode {
             Mode::Objects { options, max, .. } => {

@@ -598,12 +598,20 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
 /// to order (report 09). Combat's declarations are their own picture
 /// (`combatlines`), and a choice that names nothing (a discard from the
 /// hand, which the engine leaves implicit) lights nothing on the table.
+///
+/// A yes-or-no question about one permanent lights that permanent the same
+/// way ([`Interaction::asked_about`](baylee_client_core::interaction::Interaction::asked_about)):
+/// Cleansing's land, while its life payment is asked, the one card left
+/// bright among the dimmed. The light is all it gets; a press on it answers
+/// nothing, since nothing on the table is selectable in a yes-or-no question.
 pub(crate) fn choosable(duel: &Duel, members: &[ObjectId]) -> bool {
     duel.interaction.as_ref().is_some_and(|i| {
-        i.bounds().is_some()
+        (i.bounds().is_some()
             && !i.selectable().is_empty()
             && members.iter().any(|id| i.is_selectable(*id))
-            && !members.iter().any(|id| i.is_selected(*id))
+            && !members.iter().any(|id| i.is_selected(*id)))
+            || i.asked_about()
+                .is_some_and(|about| members.contains(&about))
     })
 }
 
