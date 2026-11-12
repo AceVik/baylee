@@ -8927,6 +8927,21 @@ dialog keeps the rule in its own two inks (`dialog_text`), rather than
 borrowing `slip_text`, whose aside grey and warm letter-shadow are both about
 lifting ink off parchment.
 
+**The tabs are grouped by seat, and they wrap.** The row was one line cut at
+the sheet's edge: at four seats the last seat's piles were tabs nobody could
+reach, and a pile's name said whose it was only by a word in front of it
+(played 12.11.2026; the owner asked the same day for a dialog that is
+"thought through and complete"). "All" and what no seat owns (a reveal, the
+stack, a battlefield a question asks about) come first. Then every seat is a
+group, the viewer's first and the others in turn order: its name once, a tab
+for each of its piles that holds a card, and two numbers, the cards in its
+library and in its hand. Those two are numbers and not tabs because nobody
+may look through them (CR 401.2, CR 402.3), and a seat whose piles are all
+empty is still there with them, so the sheet says where every card at the
+table is. A group never breaks: it goes to the next line whole
+(`TRAY_SEAT_GAP` between groups), the title row grows by that line and the
+list gives it up, and the minimise button stays on the first line.
+
 **The sheet moves and resizes, and remembers where it was put.**
 `browser::Placement` is a rectangle inside the *band* — everything between the
 window's top edge and the hand bar; it used to start under the phase rail, a

@@ -1,6 +1,6 @@
 //! The dialog's tree, built: the panel, its head, tabs, list and foot.
 
-use super::footer::{spawn_control, spawn_footer, spawn_tab, spawn_view};
+use super::footer::{spawn_control, spawn_footer, spawn_tab, spawn_tab_fact, spawn_view};
 use super::rows::{spawn_rows, zone_label};
 #[allow(clippy::wildcard_imports)] // the tray's own vocabulary
 use super::*;
@@ -190,7 +190,9 @@ pub(super) fn spawn_tray(
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
                     column_gap: px(TRAY_GAP),
-                    height: px(TRAY_TITLE_H),
+                    // At least a line, and as many as the tabs wrap onto:
+                    // the list below takes what is left of the sheet.
+                    min_height: px(TRAY_TITLE_H),
                     flex_shrink: 0.0,
                     ..default()
                 },
@@ -219,6 +221,8 @@ pub(super) fn spawn_tray(
                     Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
+                        // On the first line of tabs, however many there are.
+                        align_self: AlignSelf::FlexStart,
                         column_gap: px(HEAD_BTN_GAP),
                         flex_shrink: 0.0,
                         ..default()
@@ -248,7 +252,7 @@ pub(super) fn spawn_tray(
             commands.entity(row).add_children(&[down, out]);
             row
         });
-        // ---- the zone tabs, "All" first ----
+        // ---- the zone tabs, "All" first, then a group for every seat ----
         //
         // They take the row's slack and the minimise button keeps its 22 px,
         // which is why the tabs grow and it does not. `min_width` of zero is the
@@ -256,14 +260,20 @@ pub(super) fn spawn_tray(
         // to shrink below the width of its own chips and pushes the button off
         // the sheet. On a question's sheet there is no button and the tabs have
         // the row to themselves, which is the one case where that slack is free.
+        //
+        // **They wrap.** The row was one line cut at the sheet's edge, and at
+        // four seats the last seat's piles were tabs nobody could reach
+        // (played 12.11.2026). A seat's tabs stay together and go to the next
+        // line together.
         let tabs = commands
             .spawn((
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: px(4),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: px(TRAY_SEAT_GAP),
+                    row_gap: px(4),
                     align_items: AlignItems::Center,
-                    height: px(TRAY_TAB_H),
-                    overflow: Overflow::clip(),
+                    min_height: px(TRAY_TAB_H),
                     flex_grow: 1.0,
                     flex_basis: px(0),
                     min_width: px(0),
@@ -289,7 +299,10 @@ pub(super) fn spawn_tray(
             browser.shows_every_zone(),
             live,
         )];
-        for zone in browser.zones(view) {
+        // What no seat owns stands with "All": what is being looked at, the
+        // stack, the battlefield a question asks about.
+        let zones = browser.zones(view);
+        for zone in zones.iter().copied().filter(|zone| zone.seat().is_none()) {
             chips.push(spawn_tab(
                 commands,
                 fonts,
@@ -298,6 +311,63 @@ pub(super) fn spawn_tray(
                 browser.is_ticked(zone) || pinned == Some(zone),
                 live,
             ));
+        }
+        // Every seat is a group, mine first: its name once, a tab for each
+        // of its piles with something in it, and how many cards it holds in
+        // its library and its hand, which nobody may look through and anybody
+        // may count: numbers and not tabs (CR 401.2, 401.3, 402.3). A seat
+        // with empty piles is still here with its numbers: the sheet says
+        // where every card at the table is (the owner, 12.11.2026).
+        let seats = view.seats.len();
+        for step in 0..seats {
+            let at = (view.seat.get() as usize + step) % seats;
+            let Some(seat) = view.seats.get(at) else {
+                continue;
+            };
+            let who = if seat.player == view.seat {
+                Phrase::You.text(lang).to_string()
+            } else {
+                seat_name(lang, Some(statics), seat.player)
+            };
+            let group = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: px(4),
+                        height: px(TRAY_TAB_H),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let name = dialog_label(commands, fonts, &who, 11.0, palette::DIALOG_SOFT);
+            commands.entity(group).add_child(name);
+            for zone in zones
+                .iter()
+                .copied()
+                .filter(|zone| zone.seat() == Some(seat.player))
+            {
+                let count = browser.tab_count(zone, view, interaction);
+                let tab = spawn_tab(
+                    commands,
+                    fonts,
+                    Some(zone),
+                    Phrase::BrowseTabCount
+                        .fill(lang, &[zone.label().text(lang), &count.to_string()]),
+                    browser.is_ticked(zone) || pinned == Some(zone),
+                    live,
+                );
+                commands.entity(group).add_child(tab);
+            }
+            let facts = [
+                (glyph::LIBRARY, seat.library_count),
+                (glyph::HAND, seat.hand_count),
+            ]
+            .map(|(icon, count)| spawn_tab_fact(commands, fonts, icon, count));
+            commands.entity(group).add_children(&facts);
+            chips.push(group);
         }
         commands.entity(tabs).add_children(&chips);
         commands.entity(title_row).add_child(tabs);
