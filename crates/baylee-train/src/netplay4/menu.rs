@@ -11,8 +11,18 @@
 //!
 //! The net never saw these candidates: in training a spell is on the menu only
 //! with its mana floating. [`MenuStats4`] says what a frozen net makes of them.
-//! A measurement and nothing else: `eval4` refuses it with collection, search
-//! and shadow labels, and no such run may become training data.
+//! As a way to play, the arm is a measurement and nothing else: `eval4`
+//! refuses it with collection, search and shadow labels, and no run played
+//! with it may become policy data.
+//!
+//! The menu itself may be an input (coordinator, 12 November 2026, on the
+//! owner's ruling of 11 November that the planner-paid menu is no rule
+//! script): the search student reads this payable menu at the search's
+//! roots, in a second pass beside the seat's own (`search_advantage_v1`, its
+//! labels the search's fork advantages). It is built by this module's
+//! [`PayableMenu4`] wherever it is read, in conversion, in the evaluator and
+//! in the shipped seat alike, so the student meets the same menu in training
+//! and in play.
 
 use baylee_client_core::manaplan::Plan;
 use baylee_core::ids::ObjectId;
@@ -182,9 +192,19 @@ impl PayableMenu4 {
         std::mem::take(&mut self.stats)
     }
 
+    /// The first item the last [`Self::extend`] added: every item before it
+    /// is the seat's own menu, every one from it a cast or a suspend the
+    /// planner pays for (`search_labels::macro_items` reads them so).
+    #[must_use]
+    pub const fn first_added(&self) -> usize {
+        self.first_added
+    }
+
     /// Appends the reachable spells to a priority menu, encoded by `encode`
-    /// exactly as the same spells are with their mana floating.
-    pub(super) fn extend(
+    /// exactly as the same spells are with their mana floating. The search
+    /// student's root menu is built here and nowhere else, in conversion
+    /// and in play.
+    pub fn extend(
         &mut self,
         cands: &mut EncodedCandidates4,
         view: &PlayerView,
