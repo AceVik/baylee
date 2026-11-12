@@ -139,7 +139,7 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 - `BAYLEE_AGENT_NAME`.
 - `BAYLEE_AGENT_CAPACITY` (0 = unlimited).
 - `BAYLEE_ENGINE_BIN` (default beside the agent).
-- `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory only their user may write to, which the engines check). The agent hands it to every engine it starts.
+- `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory of their user's own with mode `0700`, which the engines check). The agent hands it to every engine it starts, and makes it again (`0700`) first if something swept it away.
 
 Its engines inherit the agent's environment (less its token), so the house's search is set on the agent's unit: `BAYLEE_FORESIGHT`, `BAYLEE_FORESIGHT_WORK`, `BAYLEE_FORESIGHT_SEARCHES` and `BAYLEE_FORESIGHT_WALL_MS` below.
 
@@ -173,7 +173,7 @@ The house's search at the tables an attached engine hosts (`docs/house-ai.md` §
 - `BAYLEE_FORESIGHT_WORK` (percent of each level's own bound one search may spend, `1..=100`, default `100`; never more than `expert`'s bound, eight million units, whatever a preset says; below 100 the levels play weaker than measured).
 - `BAYLEE_FORESIGHT_SEARCHES` (searches at once on the machine, among every engine of the agent, `1..=256`; default half the cores the process may use, at least one; a search that finds every slot taken is not made, the level answers as its heuristics do, and nothing waits).
 - `BAYLEE_FORESIGHT_WALL_MS` (`100..=60000`, default `3000`: a search still running after this much wall time is given up, the level's own answer is given and the engine logs a warning).
-- `BAYLEE_FORESIGHT_SLOTS` (the slots' directory, from the agent; unset = no search; refused at launch if others than its owner may write to it).
+- `BAYLEE_FORESIGHT_SLOTS` (the slots' directory, from the agent; unset or not there = no search, said in the log, and the engine plays on; one that is not a directory, not the engine's user's own, or not `0700` (`mode & 0o077` set) refuses launch; slot files are made `0600` and never opened through a symbolic link).
 
 A game's end logs `house searches` (asked, searched, replaced, refused, busy, walled, the slowest in ms, the most work one search spent) at `info`; each searched answer is a `debug` line of `baylee_gamehost` (`house search`, its µs and work).
 

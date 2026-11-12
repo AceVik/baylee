@@ -2132,9 +2132,11 @@ is in that library".
 
 Since 12.11.2026 the engine server has the house levels try their options
 in copies of the game before they answer, at every table it hosts
-(`docs/house-ai.md` §"Foresight", §"Foresight at a host"). Nothing on the
-wire changes: no message, field or route is new, the protocol and view
-versions stay, and nothing new is read from a client.
+(`docs/house-ai.md` §"Foresight", §"Foresight at a host"). Nothing a
+client sends or is sent changes, the protocol and view versions stay, and
+nothing new is read from a client. The engine link gains one field the
+gateway fills: `GameSetup.seat_accounts`, whether an account sits in each
+chair (a seat bridge its host handed a chair to has none).
 
 - **What decides what a search may spend.** A player names a level in the
   lobby, as before (`ai` on a room's chair or a one-tap game, checked with
@@ -2163,6 +2165,18 @@ versions stay, and nothing new is read from a client.
   resumed table apply the recorded answers and ask no house, so a search
   that was given up, or never made for want of a slot, replays exactly as
   it was played.
+- **Only while a person plays.** The house searches only while a chair an
+  account sits in (`GameSetup.seat_accounts`) still plays: answers over a
+  socket and has not conceded, lost or left. When the last person concedes
+  the gateway frees their account at once (`SeatParticipationEnded`), and
+  the rest of that game holds no search.
+- **A game nobody plays any more.** Once no seat answers over a socket (no
+  person and no seat bridge), the house plays the game out alone, by its
+  heuristics, so that its result and its record stand, within 5,000 of its
+  answers and 20 seconds (`REMAINDER_ANSWERS`, `REMAINDER_MS`). Past either,
+  the engine closes it as an admin closes one: `GameClosed` to whoever is
+  watching, the record's last piece, and `GameEnded` with no winners and
+  the reason `nobody is left`.
 
 ## Combat enumerates its own answers
 

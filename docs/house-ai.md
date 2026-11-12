@@ -1375,7 +1375,11 @@ operator's settings (`baylee-engine-server`'s `foresight.rs`,
   many files there (`flock`) while it runs. A search that finds every slot
   taken is not made: the level answers as its heuristics do, at once, and
   the table counts it (`ForesightStats::busy`). Nothing waits for a slot, so
-  nothing queues. An engine that was given no slots searches nothing.
+  nothing queues. An engine that was given no slots, or whose slots' directory
+  is gone, searches nothing (and says so); one whose directory is not its
+  user's own and 0700 refuses to start. Slot files are made 0600 and never
+  opened through a symbolic link, and the agent makes its directory again
+  before it starts an engine if something swept it away.
 - **A wall guard** (`BAYLEE_FORESIGHT_WALL_MS`, default 3,000). The meter
   is read before each fork and after each answer in one, and so is the
   host's clock: a search past the guard is given up where it stands and the
@@ -1384,10 +1388,28 @@ operator's settings (`baylee-engine-server`'s `foresight.rs`,
   (`a house search ran past the host's wall guard`). One engine step is not
   interrupted, so a search may run past the guard by the step it was in.
 - **One searched answer a slice.** The engine's event loop pumps the house
-  in slices; a slice ends after an answer that was searched, so the engine
-  reads its socket (clock probes, a flush of the record, a seat coming back)
-  between two searches, and a player sees the house's land before it
-  thinks about its spell.
+  in slices; a slice ends after an answer a search was begun for (a slot
+  taken, whether the search then ran, was given up or was refused by the
+  engine), so the engine reads its socket (clock probes, a flush of the
+  record, a seat coming back) between two searches, and a player sees the
+  house's land before it thinks about its spell.
+- **Only while a person plays** (`HostForesight::needs_a_person`). The house
+  searches only while a chair an account sits in still plays: it answers
+  over a socket and has not conceded, lost or left
+  (`Session::a_person_plays`). The gateway tells the engine which chairs
+  those are (`GameSetup.seat_accounts`): not a seat bridge its host handed a
+  chair to, which has no account and plays on when its host has gone. When
+  the last person concedes, the gateway frees their account at once, and
+  the rest of the game is played by the levels' heuristics.
+- **A house-only remainder is bounded.** Once no seat answers over a socket
+  any more (no person and no seat bridge), the house plays the game out
+  alone, so that its result stands (a player who conceded lost; one whose
+  house teammate goes on to win won) and its record is whole. It does so by
+  its heuristics and within 5,000 of its answers and 20 seconds
+  (`REMAINDER_ANSWERS`, `REMAINDER_MS`; measured: two houses finish in
+  about 1,000 answers, three in about 4,000, seven take 15,000 to 25,000);
+  past either the engine closes the game as an admin closes one, no winners
+  (`GameEnded` reason `nobody is left`), the record ending where it stopped.
 - **A switch** (`BAYLEE_FORESIGHT=off`): every level answers as its
   heuristics do.
 
@@ -1423,9 +1445,12 @@ the number of tables; past it the house plays by its heuristics, as every
 hosted game did before. One search holds one fork of its game at a time.
 What a player can take from other players is the slots: tables that search
 all the time keep them busy, and the other tables' house then answers
-without searching. One account plays one game at a time on a gateway, so
-holding every slot takes as many accounts as there are slots, each at a
-table it plays at the machine's speed.
+without searching. A table searches only while its person plays it, and an
+account plays one game at a time on a gateway (conceding frees it at once,
+and the game it leaves searches no more; a seat bridge left behind counts
+for nobody), so holding every slot takes as many accounts as there are
+slots, each playing its table at the machine's speed. A game everybody has
+left costs at most 5,000 heuristic answers or 20 seconds more.
 
 ### What the house's search costs
 

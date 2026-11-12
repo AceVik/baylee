@@ -829,7 +829,16 @@ agent's unit, whose environment every engine inherits
   finds no slot free is not made and the level answers as before. The
   agent makes the slots' directory itself (in systemd's `RuntimeDirectory=`
   when the unit names one, which no timer sweeps; else in
-  `XDG_RUNTIME_DIR` or `/tmp`) and removes it when it stops.
+  `XDG_RUNTIME_DIR` or `/tmp`) and removes it when it stops. Give the
+  agent's unit `RuntimeDirectory=baylee-agent` (recommended). Should the
+  directory be swept away anyway, the agent makes it again before the next
+  engine, and an engine that finds none starts, logs a warning and plays
+  without searching; one whose directory is not its user's own and `0700`
+  refuses to start.
+- **Games nobody plays any more** are played out by the heuristics, without
+  search, within 5,000 house answers and 20 seconds, then closed with no
+  winners (`nobody is left`); the house searches only while a person
+  (an account, not a seat bridge) still plays.
 - **The wall guard:** `BAYLEE_FORESIGHT_WALL_MS`, three seconds by default;
   a search past it is given up and logged as a warning (`a house search ran
   past the host's wall guard`). Warnings in numbers mean a host short of
