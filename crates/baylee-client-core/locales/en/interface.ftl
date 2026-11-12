@@ -4946,6 +4946,11 @@ BattleProtectedBy = Protected by { $player }
 # Arguments: defense
 BattleDefense = Defense { $defense }
 
+# A target's share of the damage a spell on the stack divides, announced as
+# it was cast (CR 601.2d), drawn beside that target.
+# Arguments: amount
+StackDividedDamage = { $amount } damage
+
 # The last two names of a list, joined.
 # Arguments: list, last
 LogAnd = { $list } and { $last }

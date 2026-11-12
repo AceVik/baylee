@@ -3926,3 +3926,20 @@ by generation, and changes play:
 
 Each is one call away for the house's next generation, behind a profile field
 the reference does not set.
+
+### 74. The house never suspends — KNOWN, for the house's next generation
+
+From Carbon's reports, 12.11.2026 (self-play block 3, attempt 30, seat 1,
+q322: Ancestral Vision beside ten untapped Islands, and no suspend offered).
+The engine offered `suspendable` only once the suspend cost floated (fault
+31) and named no suspend still to be paid for, so no seat that taps first
+could suspend. Protocol 44 names one (`LegalActions::unpaid_suspend`), and the
+language-model seat, BayleeAI's menu and the client now tap for it and suspend
+(`baylee_ai::suspend_plans`, `client::mana_run::suspend_mana_for`). The house
+(`HeuristicAgent`, `policy`) answers `PlayerAction::Suspend` nowhere: it
+neither suspends a card whose cost floats nor taps for one, so Ancestral
+Vision and Profane Tutor, the pool's two suspend cards, stay in hand. Its
+path is frozen in `sharp-2026-11`, pinned by generation, and changes play, so
+the reading goes behind a profile field the reference does not set: suspend
+from `suspendable` and from `unpaid_suspend` through the same planner, as the
+seat does.

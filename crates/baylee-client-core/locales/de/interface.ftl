@@ -1640,6 +1640,7 @@ LogAPlaneswalker = einen Planeswalker
 LogABattle = eine Schlacht
 BattleProtectedBy = Beschützt von { $player }
 BattleDefense = Verteidigung { $defense }
+StackDividedDamage = { $amount } Schaden
 LogAnd = { $list } und { $last }
 LogYouInList = du
 LogRepeated = { $line } (×{ $count })

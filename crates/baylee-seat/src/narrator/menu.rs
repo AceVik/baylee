@@ -10,7 +10,9 @@
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::reports::Report;
-use crate::wake::{Reach, ReachFrom, Way, reachable, reachable_abilities, reachable_foretell};
+use crate::wake::{
+    Reach, ReachFrom, Way, reachable, reachable_abilities, reachable_foretell, reachable_suspend,
+};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};

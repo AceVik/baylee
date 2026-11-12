@@ -150,6 +150,26 @@ fn a_suspend_card_taps_its_island_and_then_suspends() {
     );
 }
 
+/// The engine names the suspend with its cost while the {U} is still in the
+/// Island (`LegalActions::unpaid_suspend`, protocol 44): what the reach above
+/// plans from, instead of a cost read off the card.
+#[test]
+fn an_unpaid_suspend_is_named_with_its_cost() {
+    let mut table = Table::open_with(&suspend_preset());
+    table.walk_to_main();
+    let vision = table
+        .view()
+        .hand
+        .iter()
+        .find(|c| c.name == "Ancestral Vision")
+        .expect("the card is in the opening hand")
+        .id;
+    assert_eq!(
+        table.legal().unpaid_suspend,
+        vec![(vision, baylee_core::mana::ManaCost::parse("{U}"))]
+    );
+}
+
 /// The click path resolves a cast before a suspend, and nothing in the pool
 /// is both.
 ///

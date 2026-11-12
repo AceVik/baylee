@@ -443,7 +443,24 @@ pub(super) fn trigger_line(
     row: &OrderedTrigger,
     rows: &[OrderedTrigger],
 ) -> String {
-    let mut line = format!("{} {}", tag(row.handle), row.name);
+    // A row the host could not name is named by what the ability came from:
+    // the token's own name (CR 111.4), or the card it is printed on. A Pest
+    // that died read "#T6  · about you" (Carbon block 3, attempt 20, q140).
+    let name = Some(row.name.clone())
+        .filter(|name| !name.is_empty())
+        .or_else(|| match row.item {
+            StackItem::Ability { token, rules, .. } => token
+                .and_then(|token| baylee_cards::tokens::by_token_id(token.token))
+                .map(|token| token.name.to_string())
+                .or_else(|| {
+                    let rules = rules?;
+                    let def = baylee_cards::by_index(rules.card)?;
+                    Some(def.faces.get(usize::from(rules.face))?.name.to_string())
+                }),
+            StackItem::Spell => None,
+        })
+        .unwrap_or_else(|| "an ability whose source is gone".to_string());
+    let mut line = format!("{} {name}", tag(row.handle));
     if let Some(sentence) = ability_sentence(row.item) {
         let _ = write!(line, ": \"{sentence}\"");
     }
@@ -524,13 +541,28 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         }
         line
     };
+    let name = |target: TargetRef| match target {
+        TargetRef::Object(source) => table.named_target(source),
+        TargetRef::Player(p) => table.player(p),
+    };
+    // Each target's share of a division, announced as the spell was cast
+    // (CR 601.2d): public, and the one thing that says which target dies.
+    // Fire Covenant's 5 among two Zombies and a Bloodflow Connoisseur read
+    // as three names (Carbon block 3, attempt 18, q210).
+    let division = table.view.division(object.id);
+    let share = |target: &TargetRef| {
+        division
+            .iter()
+            .find(|(divided, _)| divided == target)
+            .map(|(_, share)| *share)
+    };
     if !object.targets.is_empty() {
         let targets: Vec<String> = object
             .targets
             .iter()
-            .map(|target| match *target {
-                TargetRef::Object(source) => table.named_target(source),
-                TargetRef::Player(p) => table.player(p),
+            .map(|target| match share(target) {
+                Some(share) => format!("{} ({share} damage)", name(*target)),
+                None => name(*target),
             })
             .collect();
         if names_without_targeting(object) {
@@ -538,6 +570,15 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         } else {
             let _ = write!(line, " · targets {}", targets.join(", "));
         }
+    }
+    // A share the targets do not name (none does today) is still said.
+    let unnamed: Vec<String> = division
+        .iter()
+        .filter(|(target, _)| !object.targets.contains(target))
+        .map(|(target, share)| format!("{share} to {}", name(*target)))
+        .collect();
+    if !unnamed.is_empty() {
+        let _ = write!(line, " · divides its damage: {}", unnamed.join(", "));
     }
     line
 }

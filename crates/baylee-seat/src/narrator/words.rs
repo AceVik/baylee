@@ -34,6 +34,19 @@ pub const fn step_name(phase: Phase, step: Step) -> &'static str {
     }
 }
 
+/// A phase in words, for the marks the list since the last decision puts
+/// where the phase changes (CR 500.1).
+#[must_use]
+pub const fn phase_name(phase: Phase) -> &'static str {
+    match phase {
+        Phase::Beginning => "beginning phase",
+        Phase::FirstMain => "precombat main phase",
+        Phase::Combat => "combat",
+        Phase::SecondMain => "postcombat main phase",
+        Phase::Ending => "ending phase",
+    }
+}
+
 /// A step or phase by the short name a model writes in `stops` and
 /// `until` (`main1`, `attackers`, `end_step`): the header says the step
 /// in the words the model answers with.

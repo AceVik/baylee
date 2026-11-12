@@ -55,6 +55,31 @@ must not classify a window containing `LegalActions::foretellable` as
 "nothing to do". Taking the action also ends the preceding mana-tapping
 sequence. The later cast uses its separate foretell casting mode.
 
+Suspend is offered the same way (CR 116.2f, 702.62a): `Suspend X for {U}
+(exile it with 4 time counters on it; paid from your pool)` when the cost
+floats, and with its taps first when the engine names it in
+`LegalActions::unpaid_suspend` (`wake::reachable_suspend`): Ancestral Vision
+beside untapped Islands was never offered (Carbon block 3). A window whose only
+play is such a suspend is not one with nothing but mana in it.
+
+A question the engine asks while the view stands in another step says the
+step it belongs to: a division of combat damage is headed `damage` and says
+"As the first-strike combat damage step begins, before any damage is dealt"
+(CR 510.1), though declare blockers has not yet handed over. A colour chosen
+as an ability resolves (Wild Mongrel) is "Choose a colour for ..." with the
+colours' letters for ids, and a plan's `color B` answers it. A price that
+nothing untapped reaches ("Pay {21}?" beside seven Swamps) offers only the
+no, and says why (CR 118.3, 608.2d).
+
+The list since the last decision marks the phase each run of lines happened
+in (`-- combat --`) and, in combat, each damage step
+(`-- first-strike combat damage step --`, `-- combat damage step --`), from
+the step the host writes on each log line (`LogEntry::step`, protocol 44): a
+double striker's two hits read as one step's otherwise (CR 510.4). A spell on
+the stack that divides its damage says each target's share
+(`targets Grizzly Bears #64 (1 damage), Hill Giant #65 (2 damage)`, CR
+601.2d).
+
 The state stays prose. On 602 captured boards, re-encoding the same state
 (header, log and question unchanged) costs, per whole wake:
 

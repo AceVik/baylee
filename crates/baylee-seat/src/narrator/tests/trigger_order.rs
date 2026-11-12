@@ -118,3 +118,45 @@ fn a_list_that_is_not_every_ability_once_is_refused() {
         assert!(wake.menu.resolve(&order(wrong)).is_err(), "{wrong:?}");
     }
 }
+
+/// A row a host could not name (a token gone before its trigger was
+/// ordered, from an engine before the fix) is named by the token the
+/// ability came from, never left blank (Carbon block 3, attempt 20, q140:
+/// "#T6  · about you").
+#[test]
+fn a_nameless_token_row_is_named_by_its_token() {
+    let (mut view, _) = board();
+    let pest =
+        baylee_cards::tokens::token_id(&baylee_cards::generated_tokens::PEST_1_1_BLACK_GREEN);
+    let mut gone = row(1, "Dingus Egg", 1, ("you", ME));
+    gone.name = String::new();
+    gone.about_name = None;
+    gone.item = StackItem::Ability {
+        source: id(120),
+        ability: None,
+        text: None,
+        rules: None,
+        token: Some(baylee_view::TokenAbility {
+            token: pest,
+            index: 0,
+        }),
+    };
+    view.trigger_order = vec![row(0, "Dingus Egg", 0, ("Mountain", ME)), gone];
+    let cards: Vec<ObjectId> = view.trigger_order.iter().map(|t| t.handle).collect();
+    let pending = Pending::Arrange {
+        player: ME,
+        cards,
+        piles: vec![ArrangePile::all_of(ArrangePlace::Stack, 2)],
+        prompt: ArrangePrompt::TriggerOrder,
+    };
+    let request = request(view, pending, LogTail::default());
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    let tag = tag(ObjectId::queued_trigger(1));
+    let line = text
+        .lines()
+        .find(|line| line.trim_start().starts_with(&tag))
+        .unwrap_or_else(|| panic!("the row:\n{text}"));
+    assert!(line.contains(&format!("{tag} Pest")), "{line}");
+}

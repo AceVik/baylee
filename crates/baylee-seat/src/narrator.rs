@@ -318,6 +318,9 @@ impl Narrator {
         if entries.is_empty() && !gap {
             return Vec::new();
         }
+        // The step of each entry, by its place in the book, for the marks
+        // below ([`step_marks`]).
+        let steps: Vec<Option<baylee_view::Step>> = entries.iter().map(|e| e.step).collect();
         let mut book = LogBook::new();
         book.append(&LogTail { from: 0, entries }, table.view);
         let statics = table.statics();
@@ -331,10 +334,15 @@ impl Narrator {
         // four Treasures that left the battlefield have no handle left to
         // tell them apart by, and four lines would say nothing a count
         // does not.
+        // A mark ("-- combat --") is a line of its own, counted 0 times, and
+        // nothing folds into it.
         let mut folded: Vec<(String, u32)> = Vec::new();
         // Whole sentences: a line the panel indents under the one above
         // ("now at 17 life") would lose its subject here.
-        for line in book.lines_whole(&wording) {
+        let written = book.lines_whole(&wording);
+        let marks = step_marks(&written, &steps);
+        for (line, marks) in written.iter().zip(marks) {
+            folded.extend(marks.into_iter().map(|mark| (mark, 0)));
             let mut text = line.text.clone();
             // Name spans in reverse, so earlier ranges stay put.
             for span in line.names.iter().rev() {
@@ -344,13 +352,16 @@ impl Narrator {
             }
             let times = line.times.max(1);
             match folded.last_mut() {
-                Some((last, n)) if *last == text => *n += times,
+                Some((last, n)) if *n > 0 && *last == text => *n += times,
                 _ => folded.push((text, times)),
             }
         }
         let mut lines: Vec<String> = folded
             .into_iter()
             .map(|(mut text, times)| {
+                if times == 0 {
+                    return text;
+                }
                 if times > 1 {
                     let _ = write!(text, " ({times} times)");
                 }
@@ -946,7 +957,7 @@ impl<'a> Table<'a> {
             "DECISION q{} · {} · {} · {} s",
             request.question,
             self.turn_short(),
-            words::step_id(self.view.phase, self.view.step),
+            words::step_id(self.view.phase, shown_step(self.view, &request.pending)),
             request.budget.as_secs(),
         );
         if let Some(stops) = stops_summary {
@@ -961,13 +972,100 @@ impl<'a> Table<'a> {
             "q{} · {} · {} · {}",
             request.question,
             self.turn(),
-            words::step_name(self.view.phase, self.view.step),
+            words::step_name(self.view.phase, shown_step(self.view, &request.pending)),
             crate::scripted::kind(&request.pending),
         );
         if let Some(p) = self.controlled() {
             let _ = write!(line, " for {}", Self::player_id(p));
         }
         line
+    }
+}
+
+/// The marks put before each line of the list since the last decision: the
+/// phase it happened in, where that is not the line before's ("-- combat
+/// --"), and in combat each damage step ("-- first-strike combat damage
+/// step --", "-- combat damage step --"). A combat with a double striker
+/// deals damage in two steps of one phase (CR 510.4, 702.4b), and told as
+/// one run the second step's damage read as the first's: a Frostburn Weird
+/// seemed to hit in the first-strike step (Carbon block 3, attempt 28,
+/// q331). `steps` is each entry's step by its place in the book; a line
+/// whose host never said its phase is marked with nothing.
+fn step_marks(
+    lines: &[baylee_client_core::gamelog::LogLine],
+    steps: &[Option<baylee_view::Step>],
+) -> Vec<Vec<String>> {
+    use baylee_view::Step;
+    let mut was: Option<(u32, baylee_view::Phase, Option<Step>)> = None;
+    lines
+        .iter()
+        .map(|line| {
+            let mut marks = Vec::new();
+            let Some(phase) = line.phase.filter(|_| !line.header) else {
+                was = None;
+                return marks;
+            };
+            let step = steps.get(line.index).copied().flatten();
+            let same_phase = was.is_some_and(|(turn, p, _)| turn == line.turn && p == phase);
+            if !same_phase {
+                marks.push(format!("-- {} --", words::phase_name(phase)));
+            }
+            let damage = matches!(step, Some(Step::CombatDamageFirst | Step::CombatDamage));
+            if damage && !(same_phase && was.is_some_and(|(_, _, s)| s == step)) {
+                let step = step.unwrap_or(Step::CombatDamage);
+                marks.push(format!("-- {} --", words::step_name(phase, step)));
+            }
+            was = Some((line.turn, phase, step));
+            marks
+        })
+        .collect()
+}
+
+/// The step a question belongs to, as the header says it: the view's,
+/// but for a division of combat damage. The engine asks that as the step
+/// before the damage step hands over to it (declare blockers, or the
+/// first-strike damage step; nobody holds priority between, so no board can
+/// change), and the damage is the damage step's to assign (CR 510.1): the
+/// header said "blockers" over Wild Mongrel's division (Carbon block 3,
+/// attempt 32, q105).
+fn shown_step(view: &PlayerView, pending: &baylee_engine::choice::Pending) -> baylee_view::Step {
+    let division = matches!(
+        pending,
+        baylee_engine::choice::Pending::ChooseNumber {
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
+            ..
+        }
+    );
+    if division {
+        damage_step_ahead(view)
+    } else {
+        view.step
+    }
+}
+
+/// The combat damage step a division asked now is for: the first-strike
+/// step when declare blockers hands over to one (a creature in combat has
+/// first strike or double strike, CR 510.4), the regular one otherwise.
+pub(crate) fn damage_step_ahead(view: &PlayerView) -> baylee_view::Step {
+    use baylee_cards_dsl::KeywordSet;
+    let strikes_first = |id: ObjectId| {
+        view.object(id).is_some_and(|o| {
+            o.keywords & (KeywordSet::FIRST_STRIKE.bits() | KeywordSet::DOUBLE_STRIKE.bits()) != 0
+        })
+    };
+    match view.step {
+        baylee_view::Step::DeclareBlockers
+            if view
+                .combat
+                .attackers
+                .iter()
+                .map(|a| a.creature)
+                .chain(view.combat.blockers.iter().map(|b| b.blocker))
+                .any(strikes_first) =>
+        {
+            baylee_view::Step::CombatDamageFirst
+        }
+        _ => baylee_view::Step::CombatDamage,
     }
 }
 

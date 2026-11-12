@@ -522,8 +522,33 @@ impl Builder<'_, '_> {
             self.offer(label, act, Some(reach.card.index));
         }
         for &card in &legal.suspendable {
-            let label = format!("Suspend {}", table.named(card));
+            let label = match self.suspend_terms(card) {
+                Some((counters, cost)) => format!(
+                    "Suspend {} for {cost} (exile it with {} on it; paid from {} pool)",
+                    table.named(card),
+                    time_counters(counters),
+                    table.whose(table.decider())
+                ),
+                None => format!("Suspend {}", table.named(card)),
+            };
             self.offer(label, Act::Now(PlayerAction::Suspend { card }), None);
+        }
+        // The suspend cost still in the lands (`LegalActions::unpaid_suspend`):
+        // tapped first, then suspended (CR 116.2f, 702.62a).
+        for (card, cost, plan) in reachable_suspend(view, legal) {
+            let counters = self
+                .suspend_terms(card)
+                .map_or_else(|| "time counters".to_string(), |(n, _)| time_counters(n));
+            let label = format!(
+                "Suspend {} for {cost} (exile it with {counters} on it) ({})",
+                table.named(card),
+                self.taps(&plan.steps)
+            );
+            let act = Act::Taps {
+                steps: plan.steps,
+                then: PlayerAction::Suspend { card },
+            };
+            self.offer(label, act, None);
         }
         for &card in &legal.foretellable {
             let label = format!("Foretell {} for {{2}} (exile face down)", table.named(card));
@@ -901,6 +926,22 @@ impl Builder<'_, '_> {
             }
             None => format!("Cast {named} {cost}"),
         }
+    }
+
+    /// A hand card's "Suspend N—[cost]" as its card prints it (CR 702.62a):
+    /// the time counters and the cost. `None` for a card the seat cannot
+    /// name or one without suspend.
+    pub(super) fn suspend_terms(&self, card: ObjectId) -> Option<(u8, ManaCost)> {
+        let identity = baylee_client_core::decision::known_cards(self.table.view)
+            .find(|c| c.id == card)?
+            .card;
+        baylee_cards::by_index(identity.index)?
+            .abilities_for_face(usize::from(identity.face))
+            .iter()
+            .find_map(|ability| match ability {
+                AbilityDef::Suspend { counters, cost } => Some((*counters, *cost)),
+                _ => None,
+            })
     }
 
     /// Where a castable card is cast from, when not from the hand of the
@@ -1478,12 +1519,38 @@ impl Builder<'_, '_> {
                  734.2).",
             );
         }
-        self.option(
-            "y",
-            format!("Yes: {yes}"),
-            Act::Now(PlayerAction::YesNo(true)),
-        );
-        self.options.last_mut().expect("just pushed").alias = Some("yes".into());
+        // A price no untapped source can reach is no option: a cost cannot
+        // be paid without the resources to pay it fully (CR 118.3), and an
+        // impossible option cannot be chosen (CR 608.2d). The engine asks
+        // either way, so the seat leaves the yes out. Circular Logic's
+        // {21} beside seven Swamps was offered (Carbon block 3).
+        let unreachable = match prompt {
+            YesNoPrompt::PayTax { mana } => {
+                let cost = ManaCost::parse(&format!("{{{mana}}}"));
+                out_of_reach(table.view, &cost).map(|most| (cost, most))
+            }
+            YesNoPrompt::PayMana { cost } | YesNoPrompt::PayManaAndLife { cost, .. } => {
+                out_of_reach(table.view, cost).map(|most| (*cost, most))
+            }
+            _ => None,
+        };
+        if let Some((cost, most)) = unreachable {
+            let whose = match table.controlled() {
+                Some(p) => format!("{} has", Table::player_id(p)),
+                None => "you have".to_string(),
+            };
+            self.line(format!(
+                "You cannot pay {cost}: what floats and what {whose} untapped make at most \
+                 {most} mana (CR 118.3), so the only answer is not to pay."
+            ));
+        } else {
+            self.option(
+                "y",
+                format!("Yes: {yes}"),
+                Act::Now(PlayerAction::YesNo(true)),
+            );
+            self.options.last_mut().expect("just pushed").alias = Some("yes".into());
+        }
         self.option(
             "n",
             format!("No: {no}"),
@@ -1497,7 +1564,45 @@ impl Builder<'_, '_> {
 }
 
 impl Builder<'_, '_> {
+    /// A colour (or a combination of colours) chosen as an ability resolves
+    /// (CR 608.2d, 105.1): Wild Mongrel's "becomes the color of your
+    /// choice". The engine asks it through the cast-mode question; it was
+    /// worded "How do you cast Wild Mongrel?", and a plan's `color B` step
+    /// stopped on it (Carbon block 3, attempt 32, q136). Each option is
+    /// named by its colours, as a colour question's are, so the plan's
+    /// colour step and a model's `B` both answer it.
+    fn colour_choice(&mut self, object: ObjectId, options: &[CastModeDesc]) {
+        let table = self.table;
+        let single = options
+            .iter()
+            .all(|option| matches!(option.kind, CastModeKind::Colors(c) if c.len() == 1));
+        self.line(format!(
+            "QUESTION: Choose {} for {} (its ability is resolving):",
+            if single { "a colour" } else { "colours" },
+            table.named(object)
+        ));
+        for (at, option) in options.iter().enumerate() {
+            let CastModeKind::Colors(colors) = option.kind else {
+                continue;
+            };
+            let (letters, names) = colour_words(colors);
+            self.option(
+                letters,
+                names.clone(),
+                Act::Now(PlayerAction::ChooseMode(at)),
+            );
+            self.options.last_mut().expect("just pushed").alias = Some(names);
+        }
+        self.line("Options:");
+        self.list_options();
+        self.answer_pick("pick=[one option id]");
+    }
+
     pub(super) fn cast_mode(&mut self, object: ObjectId, options: &[CastModeDesc]) {
+        if super::plan::colours_only(options) {
+            self.colour_choice(object, options);
+            return;
+        }
         let table = self.table;
         let card = table.view.object(object).and_then(|o| o.card).or_else(|| {
             baylee_client_core::decision::known_cards(table.view)
@@ -1605,29 +1710,7 @@ impl Builder<'_, '_> {
                 "How many times do you pay its multikicker? Each time costs {cost} more, and \
                  zero is not kicked at all. Fewer than the mana you floated is a legal answer"
             ),
-            NumberPrompt::CombatDamage {
-                source,
-                recipient,
-                index,
-                of,
-                left,
-                lethal,
-            } => {
-                let trample = lethal.map_or_else(String::new, |lethal| {
-                    format!(
-                        ". It has trample: {lethal} is lethal damage to {}, and once every \
-                         blocker has been assigned lethal damage, whatever you leave after the \
-                         last blocker tramples over to what it is attacking",
-                        table.named(*recipient),
-                    )
-                });
-                format!(
-                    "Divide {}'s combat damage: how much goes to {} (creature {} of {of})? {left} is left to divide{trample}",
-                    table.named(*source),
-                    table.named(*recipient),
-                    u16::from(*index) + 1
-                )
-            }
+            NumberPrompt::CombatDamage { .. } => combat_division_words(table, reason),
             NumberPrompt::DivideDamage {
                 target,
                 index,
@@ -2052,4 +2135,105 @@ fn counts_untapped_lands(object: &PublicObject) -> bool {
                 counts
             })
     })
+}
+
+/// "4 time counters", "1 time counter": what a suspend exiles a card with
+/// (CR 702.62a).
+fn time_counters(counters: u8) -> String {
+    if counters == 1 {
+        "1 time counter".to_string()
+    } else {
+        format!("{counters} time counters")
+    }
+}
+
+/// The most mana the decider could make now, when that is less than `cost`
+/// (its mana value) and the planner cannot pay it either: what floats and
+/// every source the view shows untapped (`baylee_ai::mana_sources_in_view`,
+/// with the mana a Mana Flare adds), the count the house reads a price
+/// against. `None` while the price may be within reach, and whenever an
+/// untapped permanent shows mana the count does not know (a creature
+/// still summoning sick, a granted ability): then the question stays the
+/// player's.
+fn out_of_reach(view: &baylee_view::PlayerView, cost: &ManaCost) -> Option<u64> {
+    let decider = baylee_client_core::decision::resource_player(view);
+    let pool = view.seat(decider)?.mana_pool;
+    let sources = baylee_ai::mana_sources_in_view(view);
+    let unknown = view.battlefield_of(decider).any(|o| {
+        !o.status.is_tapped()
+            && !o.status.is_phased_out()
+            && (o.board_mana.is_some() || o.granted_mana.is_some())
+            && !sources.iter().any(|s| s.id == o.id)
+    });
+    if unknown {
+        return None;
+    }
+    let most = pool.total() + sources.iter().map(|s| u64::from(s.amount)).sum::<u64>();
+    (most < u64::from(cost.cmc()) && manaplan::plan(cost, &pool, &sources).is_none())
+        .then_some(most)
+}
+
+/// A combination of colours as an option says it: its letters in WUBRG
+/// order (`B`, `WU`), the id a colour question uses, and its names
+/// (`black`, `white + blue`).
+fn colour_words(colors: baylee_core::color::ColorSet) -> (String, String) {
+    use baylee_core::color::Color;
+    let named: Vec<(&str, &str)> = [
+        (Color::White, "W", "white"),
+        (Color::Blue, "U", "blue"),
+        (Color::Black, "B", "black"),
+        (Color::Red, "R", "red"),
+        (Color::Green, "G", "green"),
+    ]
+    .into_iter()
+    .filter(|(color, _, _)| colors.contains(*color))
+    .map(|(_, letter, name)| (letter, name))
+    .collect();
+    (
+        named.iter().map(|(letter, _)| *letter).collect(),
+        named
+            .iter()
+            .map(|(_, name)| *name)
+            .collect::<Vec<_>>()
+            .join(" + "),
+    )
+}
+
+/// A division of combat damage in words (`NumberPrompt::CombatDamage`): whose
+/// damage, which creature this share goes to, what is left, and a trampler's
+/// lethal mark. Said as the damage step it belongs to (CR 510.1): the engine
+/// asks it before that step begins, so the step the view still stands in
+/// ("blockers") does not read as the step the damage is dealt in (Carbon
+/// block 3, attempt 32, q105).
+fn combat_division_words(table: &Table<'_>, reason: &NumberPrompt) -> String {
+    let NumberPrompt::CombatDamage {
+        source,
+        recipient,
+        index,
+        of,
+        left,
+        lethal,
+    } = reason
+    else {
+        return String::new();
+    };
+    let trample = lethal.map_or_else(String::new, |lethal| {
+        format!(
+            ". It has trample: {lethal} is lethal damage to {}, and once every blocker has \
+             been assigned lethal damage, whatever you leave after the last blocker tramples \
+             over to what it is attacking",
+            table.named(*recipient),
+        )
+    });
+    format!(
+        "As the {} begins, before any damage is dealt (CR 510.1): divide {}'s combat damage: \
+         how much goes to {} (creature {} of {of})? {left} is left to divide{trample}",
+        words::step_name(
+            table.view.phase,
+            super::super::damage_step_ahead(table.view)
+        ),
+        table.named(*source),
+        table.named(*recipient),
+        u16::from(*index) + 1
+    )
 }

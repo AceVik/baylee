@@ -890,6 +890,10 @@ pub struct StackTarget {
     pub name: Option<String>,
     /// The target's own art, when this seat may see its face.
     pub art: Option<ImageKey>,
+    /// The share of the spell's damage this target is dealt, as the division
+    /// was announced on casting (CR 601.2d, `PlayerView::divided`); `None`
+    /// for a spell that divides nothing.
+    pub share: Option<u32>,
 }
 
 impl StackTarget {
@@ -1896,8 +1900,18 @@ fn build_stack_item(
         _ => StackKind::Spell,
     };
     let art = stack_art(lookup, o, kind, reg);
-    let mut targets: Vec<StackTarget> =
-        o.targets.iter().map(|t| stack_target(lookup, *t)).collect();
+    let mut targets: Vec<StackTarget> = o
+        .targets
+        .iter()
+        .map(|t| StackTarget {
+            share: view
+                .division(o.id)
+                .iter()
+                .find(|(divided, _)| divided == t)
+                .map(|(_, share)| *share),
+            ..stack_target(lookup, *t)
+        })
+        .collect();
     if targets.is_empty()
         && let Some(host) = o.attached_to
     {
@@ -1910,6 +1924,7 @@ fn build_stack_item(
             is_current: host_obj.is_some(),
             name: host_obj.map(|h| h.name.to_string()),
             art: host_obj.and_then(|h| art_of(h, ArtSize::Small, reg)),
+            share: None,
         });
     }
     let copy_original = (kind == StackKind::Spell)
@@ -1949,6 +1964,7 @@ fn stack_target(lookup: &Lookup<'_>, what: TargetRef) -> StackTarget {
         is_current: object.is_some_and(|o| o.is_current),
         name: object.map(|o| o.name.clone()),
         art: object.and_then(|o| o.card.map(|c| ImageKey::of(c, ArtSize::Small))),
+        share: None,
     }
 }
 

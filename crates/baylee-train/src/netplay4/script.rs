@@ -1,5 +1,5 @@
-//! A cast or an activation as one answer: the planner's taps, then the
-//! action they pay for.
+//! A cast, an activation or a suspend as one answer: the planner's taps,
+//! then the action they pay for.
 //!
 //! At priority a spell is on the engine's offer only with its mana floating,
 //! so "cast this" is a chain that starts at one of several equivalent taps.
@@ -83,6 +83,7 @@ fn offered(pending: &Pending, then: &PlayerAction) -> bool {
     };
     match then {
         PlayerAction::CastSpell { card } => legal.castable.contains(card),
+        PlayerAction::Suspend { card } => legal.suspendable.contains(card),
         PlayerAction::ActivateAbility {
             source,
             ability_index,

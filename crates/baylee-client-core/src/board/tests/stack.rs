@@ -339,3 +339,23 @@ fn a_stack_entry_carries_entering_choices_and_groups_identical_effects() {
             .contains(&ImageKey::new(PrintRef::new(99), 0, ArtSize::Small))
     );
 }
+
+/// A spell that divides its damage says each target's share beside it, as
+/// announced when it was cast (CR 601.2d): public, so every seat's stack
+/// draws it (Carbon block 3: Fire Covenant's 5 read as three names).
+#[test]
+fn a_divided_spell_says_each_targets_share() {
+    let mut arc = printed(2, 0, "Arc Lightning", 22);
+    arc.stack_item = Some(StackItem::Spell);
+    let player = TargetRef::Player(PlayerId::new(1));
+    arc.targets = vec![player];
+    let mut view = ViewBuilder::new(2).with_stack(vec![arc]).build();
+    view.divided = vec![baylee_view::Division {
+        object: ObjectId::new(2, 0),
+        shares: vec![(player, 3)],
+    }];
+    let m = model(&view);
+    assert_eq!(m.stack[0].targets[0].share, Some(3));
+    let plain = bolt_at_bears();
+    assert_eq!(model(&plain).stack[0].targets[0].share, None);
+}

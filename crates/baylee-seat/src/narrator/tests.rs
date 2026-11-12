@@ -2254,6 +2254,7 @@ fn the_card_texts_a_model_was_told_are_kept_for_the_game() {
 }
 
 mod carbon;
+mod carbon_b3;
 pub(crate) mod controlled;
 mod event_object;
 mod foretell;
@@ -2263,6 +2264,7 @@ mod naming;
 mod owed;
 mod power_surge;
 mod raised;
+mod suspend;
 mod triage;
 mod trigger_order;
 mod upkeep_payments;

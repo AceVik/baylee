@@ -569,6 +569,7 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
         && legal.foretellable.is_empty()
         && reachable_abilities(view, legal).is_empty()
         && reachable_foretell(view, legal).is_empty()
+        && reachable_suspend(view, legal).is_empty()
         && legal
             .abilities
             .iter()
@@ -941,6 +942,23 @@ pub fn reachable_foretell(view: &PlayerView, legal: &LegalActions) -> Vec<(Objec
         .collect()
 }
 
+/// Every card in `legal.unpaid_suspend` whose suspend cost the seat's
+/// untapped sources pay now, with that cost and the taps; none while a
+/// payment is owed ([`owes`]). Suspend is a special action, not a spell
+/// (CR 116.2f, 702.62a), so its cost is planned as an activation's is
+/// (`baylee_ai::suspend_plans`). Without it a seat with every land untapped
+/// could never suspend (Carbon block 3: Ancestral Vision beside ten Islands).
+#[must_use]
+pub fn reachable_suspend(
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Vec<(ObjectId, ManaCost, Plan)> {
+    if owes(view) {
+        return Vec::new();
+    }
+    baylee_ai::suspend_plans(view, legal)
+}
+
 /// The printed ability `index` of `source`, on the battlefield, in a
 /// graveyard or in the hand, as the face it shows now prints it; `None`
 /// for a special action, a granted ability or an object the view cannot
@@ -999,14 +1017,15 @@ fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
         })
 }
 
-/// Whether the seat could cast, activate or foretell something by tapping
-/// what it has untapped ([`reachable`], [`reachable_abilities`],
-/// [`reachable_foretell`]).
+/// Whether the seat could cast, activate, foretell or suspend something by
+/// tapping what it has untapped ([`reachable`], [`reachable_abilities`],
+/// [`reachable_foretell`], [`reachable_suspend`]).
 #[must_use]
 pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
     !reachable(view, legal).is_empty()
         || !reachable_abilities(view, legal).is_empty()
         || !reachable_foretell(view, legal).is_empty()
+        || !reachable_suspend(view, legal).is_empty()
 }
 
 /// Commanders standing in their owner's command zone, not yet castable,

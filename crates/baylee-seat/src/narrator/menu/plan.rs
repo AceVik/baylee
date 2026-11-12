@@ -439,6 +439,7 @@ pub fn asked(pending: &Pending) -> &'static str {
         {
             "where the resolved spell goes"
         }
+        Pending::ChooseCastMode { options, .. } if colours_only(options) => "a colour",
         Pending::ChooseCastMode { .. } => "how to cast it",
         Pending::ChooseNumber { .. } => "a number",
         Pending::ChooseAttackers { .. } => "attackers",
@@ -450,6 +451,16 @@ pub fn asked(pending: &Pending) -> &'static str {
         | Pending::DiscardChoice { .. } => "cards to choose",
         _ => "something the plan has no step for",
     }
+}
+
+/// Whether a cast-mode question asks a colour, or a combination of
+/// colours, chosen as an ability resolves (`CastModeKind::Colors`: Wild
+/// Mongrel's "becomes the color of your choice"), and nothing else.
+pub(super) fn colours_only(options: &[baylee_engine::choice::CastModeDesc]) -> bool {
+    !options.is_empty()
+        && options
+            .iter()
+            .all(|option| matches!(option.kind, baylee_engine::choice::CastModeKind::Colors(_)))
 }
 
 mod decision;

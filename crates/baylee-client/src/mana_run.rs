@@ -554,18 +554,22 @@ pub(super) fn spell_cost(
 /// because the two costs are different numbers on the same card — Ancestral
 /// Vision prints no mana cost at all and suspends for `{U}` — and a caller
 /// that took the wrong one would tap the wrong lands.
+///
+/// The cost is the one the engine names with the card
+/// (`LegalActions::unpaid_suspend`), and it is planned as an activation's:
+/// suspend is a special action, no spell (CR 116.2f), so mana that may be
+/// spent only on spells never pays it. `None` for a card the engine names no
+/// such cost for, and for a plan with nothing to tap.
 #[must_use]
 pub fn suspend_mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    let hand_card = baylee_client_core::decision::hand(view)
-        .iter()
-        .find(|c| c.id == card)?;
-    let cost = suspend_cost(hand_card.card)?;
+    let (_, cost) = legal.unpaid_suspend.iter().find(|(id, _)| *id == card)?;
     let pool = view
         .seat(baylee_client_core::decision::resource_player(view))?
         .mana_pool;
-    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+    manasources::plan_for_activation(cost, &pool, view, legal, card)
+        .filter(|plan| !plan.steps.is_empty())
 }
 
 /// The taps for foretell's fixed {2} special action, never its later cast cost.

@@ -348,15 +348,26 @@ fn pile_in_reach(
         && crate::mana_for(duel, card).is_some()
 }
 
-/// Which cards a tap or two would make suspendable. Unlike casting an instant
-/// with suspend, the special action itself is always sorcery-speed (CR 702.62a).
+/// Which cards a tap or two would make suspendable: the engine's own list of
+/// them (`LegalActions::unpaid_suspend`, every rule of CR 116.2f asked but the
+/// mana, the special action's sorcery timing included), whose cost the seat's
+/// untapped sources pay ([`crate::suspend_mana_for`]). The engine names each
+/// cost, so nothing here reads one off a card or guesses at the timing.
 pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
-    special_action_reach(
-        duel,
-        |legal| &legal.suspendable,
-        suspend_cost,
-        baylee_client_core::timing::sorcery_window,
-    )
+    let Some(legal) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+    else {
+        return std::collections::HashSet::new();
+    };
+    legal
+        .unpaid_suspend
+        .iter()
+        .map(|(card, _)| *card)
+        .filter(|card| !legal.suspendable.contains(card))
+        .filter(|card| crate::suspend_mana_for(duel, *card).is_some())
+        .collect()
 }
 
 /// Foretell needs only priority on its owner's turn, not a main phase or an
@@ -379,8 +390,10 @@ pub(super) fn foretell_reach(duel: &Duel) -> std::collections::HashSet<ObjectId>
     )
 }
 
-/// Shared planner for hand-based special actions. The engine's offer remains
-/// authoritative: these are only cards not already payable from floating mana.
+/// The planner of a hand special action whose cost the card states (foretell;
+/// suspend reads the engine's `unpaid_suspend` instead). The engine's offer
+/// remains authoritative: these are only cards not already payable from
+/// floating mana.
 fn special_action_reach(
     duel: &Duel,
     offered: impl for<'a> Fn(&'a baylee_engine::choice::LegalActions) -> &'a [ObjectId],
@@ -417,21 +430,6 @@ fn special_action_reach(
         })
         .map(|card| card.id)
         .collect()
-}
-
-/// What a card's suspend ability costs, or `None` when it has none.
-///
-/// Off the card and not off the view: `AbilityDef::Suspend` is printed data,
-/// and a `HandObject` carries the projected characteristics rather than the
-/// abilities. The card's own list rather than the face's, for the reason
-/// `keywords_for_face` exists — a single-faced card keeps its abilities on
-/// the `CardDef` and leaves the face's list empty.
-pub(super) fn suspend_cost(card: baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost> {
-    let def = baylee_cards::by_index(card.index)?;
-    def.abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::Suspend { cost, .. } => Some(*cost),
-        _ => None,
-    })
 }
 
 /// A commander's printed cost, before CR 903.8's tax.

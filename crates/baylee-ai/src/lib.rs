@@ -1226,6 +1226,49 @@ pub fn plan_for_activation(
     )
 }
 
+/// Every card of `legal.unpaid_suspend` whose suspend cost the seat's
+/// untapped sources pay, with that cost and the taps (CR 116.2f, 702.62a).
+/// Suspend is a special action and no spell, so the cost is planned as an
+/// activation's is ([`plan_for_activation`] of the card): mana that may be
+/// spent only on spells never pays it. None while a payment is owed, and
+/// none whose plan taps nothing: that card's mana already floats, and the
+/// engine offers it in `suspendable` instead.
+///
+/// The one reading of the hint for the language-model seat's reach and
+/// `BayleeAI`'s menu; the client plans the same hint with its own sources.
+#[must_use]
+pub fn suspend_plans(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<(
+    ObjectId,
+    baylee_core::mana::ManaCost,
+    baylee_client_core::manaplan::Plan,
+)> {
+    if view.owed.is_some()
+        || legal.unpaid_suspend.is_empty()
+        || !spend::has_mana_to_plan(view, legal)
+    {
+        return Vec::new();
+    }
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|seat| seat.mana_pool)
+    else {
+        return Vec::new();
+    };
+    legal
+        .unpaid_suspend
+        .iter()
+        .filter(|(card, _)| !legal.suspendable.contains(card))
+        .filter_map(|&(card, cost)| {
+            let plan = plan_for_activation(&cost, &pool, view, legal, card, false)
+                .filter(|plan| !plan.steps.is_empty())?;
+            Some((card, cost, plan))
+        })
+        .collect()
+}
+
 /// What casting `id` (`card`) under `mode` costs, from the `cost` the caller
 /// read — printed, flashback or alternative, a commander's tax included: the
 /// engine's published increases added, coloured ones as pips
