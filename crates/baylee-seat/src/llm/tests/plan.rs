@@ -449,6 +449,44 @@ async fn a_sorcery_after_combat_waits_for_the_second_main_phase() {
     assert_eq!(provider.seen().len(), 1, "the plan casts it");
 }
 
+/// An attack with nothing to declare is declared by the standing orders
+/// while a plan runs, and never reaches the mind (`wake::WakeFilter::judge`;
+/// Carbon b7, segment 3, attempt 8, q207). The plan's `attack none` is then
+/// counted as done at the next priority, in the declare attackers step, and
+/// its `pass` answers that priority without a call.
+#[tokio::test]
+async fn an_attack_none_the_orders_declared_is_done_and_the_plan_goes_on() {
+    let (base, provider) = stand_in().await;
+    provider.script(decides(json!({
+        "ask": "q12", "pick": ["p"], "plan": ["attack none", "pass"]
+    })));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let (mut view, _) = board();
+    let first = mind
+        .decide(ask(&view, offer(&[52], &[], &[(31, 0)], &[]), 12))
+        .await
+        .expect("the first answer");
+    assert_eq!(first.action, PlayerAction::PassPriority);
+
+    view.phase = baylee_view::Phase::Combat;
+    view.step = baylee_view::Step::CombatBegin;
+    let toward = mind
+        .decide(ask(&view, offer(&[], &[], &[(31, 0)], &[]), 13))
+        .await
+        .expect("a pass toward the attack");
+    assert_eq!(toward.action, PlayerAction::PassPriority);
+
+    // q14, the empty attack, is the standing orders' and not the mind's.
+    view.step = baylee_view::Step::DeclareAttackers;
+    let after = mind
+        .decide(ask(&view, offer(&[], &[], &[(31, 0)], &[]), 15))
+        .await
+        .expect("the plan's pass");
+    assert_eq!(after.action, PlayerAction::PassPriority);
+    assert_eq!(after.planned, 0, "both steps ran");
+    assert_eq!(provider.seen().len(), 1, "the model is asked once");
+}
+
 /// A land the plan plays waits for the main phase: written in the upkeep
 /// (or at the mulligan), it passes the draw step without a call and plays
 /// in the first main phase (Argon v Astra: "play #44" woke the model in

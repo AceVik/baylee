@@ -44,7 +44,10 @@
 //!   only during your upkeep"): there is no other window for it;
 //! - while a plan of the mind's runs, every question of the seat's is the
 //!   plan's ([`Verdict::Planned`]): the plan's executor sees them all, and
-//!   stops the plan at the first it cannot answer exactly;
+//!   stops the plan at the first it cannot answer exactly. An attack with
+//!   no attacker and a block with no blocker are not the plan's: they have
+//!   one answer, which is declared as at any other time, and the plan goes
+//!   on at the next question;
 //! - `until` passes the windows the rail would wake the mind in, and an
 //!   opposing spell or ability as `react` says, and nothing else: never a
 //!   question, a declaration with something to declare, a payment owed or a
@@ -370,10 +373,14 @@ impl WakeFilter {
             return Verdict::Wake(Why::NotAsked);
         }
         // A plan runs in the turn it was written in, and sees every
-        // question of it: no order answers one for it.
+        // question of it: no order answers one for it. A declaration with
+        // nothing to declare has one answer, which no step writes otherwise,
+        // and is made for it: a seat with no creature had its plan `pass,
+        // pass` stopped at an empty "creatures that can attack" (Carbon b7,
+        // segment 3, attempt 8, q207). The plan goes on at the next question.
         if let Some(turn) = self.planned {
             if turn == view.turn {
-                return Verdict::Planned;
+                return nothing_to_declare(pending).unwrap_or(Verdict::Planned);
             }
             self.planned = None;
         }
@@ -426,20 +433,11 @@ impl WakeFilter {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> Verdict {
+        if let Some(declared) = nothing_to_declare(pending) {
+            return declared;
+        }
         match pending {
             Pending::Priority { legal, .. } => self.priority(view, pending, legal, teams),
-            Pending::ChooseAttackers { attackers, .. } if attackers.is_empty() => standing(
-                PlayerAction::DeclareAttackers {
-                    attackers: Vec::new(),
-                },
-                Standing::NoAttackers,
-            ),
-            Pending::ChooseBlockers { blockers, .. } if blockers.is_empty() => standing(
-                PlayerAction::DeclareBlockers {
-                    blockers: Vec::new(),
-                },
-                Standing::NoBlockers,
-            ),
             Pending::ChooseAttackers { .. } | Pending::ChooseBlockers { .. } => {
                 Verdict::Wake(Why::Declaration)
             }
@@ -578,6 +576,27 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
 
 fn standing(action: PlayerAction, why: Standing) -> Verdict {
     Verdict::Standing { action, why }
+}
+
+/// The declaration of nothing, where `pending` asks for attackers or blockers
+/// and offers none: no creature of the seat's can attack (CR 508.1a) or
+/// block (CR 509.1a), and "none" is the one answer there is.
+fn nothing_to_declare(pending: &Pending) -> Option<Verdict> {
+    match pending {
+        Pending::ChooseAttackers { attackers, .. } if attackers.is_empty() => Some(standing(
+            PlayerAction::DeclareAttackers {
+                attackers: Vec::new(),
+            },
+            Standing::NoAttackers,
+        )),
+        Pending::ChooseBlockers { blockers, .. } if blockers.is_empty() => Some(standing(
+            PlayerAction::DeclareBlockers {
+                blockers: Vec::new(),
+            },
+            Standing::NoBlockers,
+        )),
+        _ => None,
+    }
 }
 
 /// Whether two seats play for the same side (CR 102.3): the same seat, or

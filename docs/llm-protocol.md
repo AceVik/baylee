@@ -406,7 +406,12 @@ runs the plan one step a question, without a call, each step read against
 that question's own offer exactly as an answer of the model's is
 (`Menu::plan_decision`). While a plan has steps, every question of its turn
 goes to the mind (`wake::Verdict::Planned`), so no standing order passes a
-window the plan wanted. The seat passes priority for a plan only toward
+window the plan wanted; an attack with no attacker and a block with no
+blocker are declared as at any other time, since "none" is their one answer,
+and the plan goes on at the next question (Carbon b7, attempt 8, q207: a
+seat with no creature had its `pass, pass` stopped there). An `attack none`
+step that declaration made is counted as done at the next priority. The
+seat passes priority for a plan only toward
 what its next step answers: while nothing but the seat's own spells and
 abilities is on the stack (they resolve, and ask what the step answers),
 and on its own turn before combat when the next step is the attack, and in
