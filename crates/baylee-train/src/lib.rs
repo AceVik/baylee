@@ -70,6 +70,8 @@ pub mod policy;
 #[cfg(feature = "play")]
 pub mod reactivity;
 #[cfg(feature = "play")]
+pub mod search_labels;
+#[cfg(feature = "play")]
 pub mod selfplay;
 pub mod working;
 

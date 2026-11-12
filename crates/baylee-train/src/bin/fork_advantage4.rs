@@ -36,6 +36,7 @@ use std::io::{BufRead as _, BufReader};
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use baylee_train::search_labels::{HALVES_MARGIN, Halves, advantage, choose, halves};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -46,7 +47,7 @@ struct Args {
     games: Vec<PathBuf>,
     /// The mean advantage another answer has to show over the policy's own
     /// on the worlds it is chosen on.
-    #[arg(long, default_value_t = 0.03)]
+    #[arg(long, default_value_t = HALVES_MARGIN)]
     margin: f64,
     /// Where the report goes, as JSON; it is printed either way.
     #[arg(long)]
@@ -131,34 +132,6 @@ fn class(event: &Event, at: usize) -> String {
 /// A count as a float, for means.
 fn real(n: u64) -> f64 {
     f64::from(u32::try_from(n).unwrap_or(u32::MAX))
-}
-
-/// The candidate with the best mean advantage over the policy's answer on
-/// `worlds`, if it clears `margin`; otherwise the policy's (0). Ties go to
-/// the earlier candidate.
-fn choose(worlds: &[&Vec<f64>], margin: f64) -> usize {
-    let Some(k) = worlds.first().map(|world| world.len()) else {
-        return 0;
-    };
-    let mut chosen = 0;
-    let mut best = margin;
-    for candidate in 1..k {
-        let advantage = advantage(worlds, candidate);
-        if advantage > best {
-            best = advantage;
-            chosen = candidate;
-        }
-    }
-    chosen
-}
-
-/// The mean advantage of `candidate` over the policy's answer on `worlds`.
-fn advantage(worlds: &[&Vec<f64>], candidate: usize) -> f64 {
-    if worlds.is_empty() || candidate == 0 {
-        return 0.0;
-    }
-    let sum: f64 = worlds.iter().map(|world| world[candidate] - world[0]).sum();
-    sum / real(worlds.len() as u64)
 }
 
 /// Leads over decisions: their count, how many replaced the policy's
@@ -261,18 +234,18 @@ struct Judged {
 impl Judged {
     fn add(&mut self, game: u64, event: &Event, margin: f64) {
         let worlds = &event.worlds;
-        let all: Vec<&Vec<f64>> = worlds.iter().collect();
-        let chosen = choose(&all, margin);
+        let chosen = choose(worlds, margin);
         self.in_sample
-            .add(game, chosen != 0, advantage(&all, chosen));
-        let even: Vec<&Vec<f64>> = worlds.iter().step_by(2).collect();
-        let odd: Vec<&Vec<f64>> = worlds.iter().skip(1).step_by(2).collect();
-        let on_even = choose(&even, margin);
-        let on_odd = choose(&odd, margin);
-        let judged_even = advantage(&odd, on_even);
-        let judged_odd = advantage(&even, on_odd);
-        let lead = f64::midpoint(judged_even, judged_odd);
-        self.held_out.add(game, on_even != 0 || on_odd != 0, lead);
+            .add(game, chosen != 0, advantage(worlds, chosen));
+        let halves = halves(worlds, margin);
+        let Halves {
+            on_even,
+            on_odd,
+            judged_even,
+            judged_odd,
+        } = halves;
+        self.held_out
+            .add(game, on_even != 0 || on_odd != 0, halves.lead());
         for (at, judged) in [(on_even, judged_even), (on_odd, judged_odd)] {
             if at != 0 {
                 let entry = self.chosen.entry(class(event, at)).or_default();
@@ -443,15 +416,6 @@ mod tests {
         assert_eq!(fitted.some_half_replaced, 1);
         assert_eq!(fitted.halves_agree, 0, "one half kept the policy's answer");
         assert_eq!(fitted.chosen["PlayLand"].held, 0);
-    }
-
-    #[test]
-    fn inside_the_margin_the_policys_answer_stands() {
-        let worlds = vec![vec![0.50, 0.52]; 4];
-        let all: Vec<&Vec<f64>> = worlds.iter().collect();
-        assert_eq!(choose(&all, 0.03), 0);
-        assert_eq!(choose(&all, 0.01), 1);
-        assert_eq!(advantage(&all, 0), 0.0);
     }
 
     #[test]
