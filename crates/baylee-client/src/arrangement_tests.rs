@@ -1083,3 +1083,118 @@ fn nothing_holds_the_confirm_key_for_ever() {
     world.run_system_once(settle_the_follow).unwrap();
     assert!(!world.resource::<Duel>().follow_settling);
 }
+
+/// A pictogram is the table from above, and it has to be one: exactly one
+/// board of mine, at the near edge; every board inside the picture; no board
+/// on another; and no two arrangements wearing the same picture, which is
+/// what the icons in a ring could not promise about themselves.
+#[test]
+fn every_arrangement_wears_its_own_picture_of_the_table() {
+    fn meet(a: &Mat, b: &Mat) -> bool {
+        a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
+    }
+    for arrangement in Arrangement::ALL {
+        let boards = mats(arrangement);
+        let mine: Vec<&Mat> = boards.iter().filter(|m| m.4).collect();
+        assert_eq!(mine.len(), 1, "{arrangement:?}: one board is mine");
+        assert!(
+            boards.len() >= 2,
+            "{arrangement:?}: a table has an opponent"
+        );
+        let near = mine[0].1 + mine[0].3;
+        for (i, board) in boards.iter().enumerate() {
+            let &(x, y, w, h, _) = board;
+            assert!(
+                x >= 0.0 && y >= 0.0 && w > 0.0 && h > 0.0 && x + w <= 1.0 && y + h <= 1.0,
+                "{arrangement:?}: board {i} leaves the picture"
+            );
+            assert!(
+                y + h <= near,
+                "{arrangement:?}: board {i} is nearer than mine"
+            );
+            for other in &boards[i + 1..] {
+                assert!(
+                    !meet(board, other),
+                    "{arrangement:?}: board {i} lies on another"
+                );
+            }
+        }
+    }
+    for (i, a) in Arrangement::ALL.into_iter().enumerate() {
+        for b in Arrangement::ALL.into_iter().skip(i + 1) {
+            assert_ne!(mats(a), mats(b), "{a:?} and {b:?} wear one picture");
+        }
+    }
+}
+
+/// The menu grows out of the pill's corner and then lies still: its first
+/// frame is small with the top-left corner held, a panel redrawn in the
+/// middle of the arrival carries on and does not start again, the end is the
+/// identity exactly, nothing is written after it, and a menu opened again
+/// arrives again.
+#[test]
+fn the_menu_arrives_from_its_corner_and_then_rests() {
+    use std::time::Duration;
+    fn frame(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+    }
+    fn open(app: &mut App) -> Entity {
+        app.world_mut().spawn((Node::default(), FromThePill)).id()
+    }
+    fn pose(app: &App, panel: Entity) -> UiTransform {
+        *app.world().get::<UiTransform>(panel).expect("a transform")
+    }
+
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .add_systems(Update, pop_the_menu);
+    let panel = open(&mut app);
+    frame(&mut app);
+    let first = pose(&app, panel);
+    assert!(
+        first.scale.x >= motion::ZOOM_FROM && first.scale.x < 0.95,
+        "the first frame is small: {first:?}"
+    );
+    assert_eq!(first.translation, motion::from_top_left(first.scale.x));
+
+    // An arrow key redraws the menu: the old panel goes, a new one stands.
+    frame(&mut app);
+    app.world_mut().entity_mut(panel).despawn();
+    let panel = open(&mut app);
+    frame(&mut app);
+    assert!(
+        pose(&app, panel).scale.x > first.scale.x,
+        "a redrawn panel started the arrival again"
+    );
+
+    for _ in 0..20 {
+        frame(&mut app);
+    }
+    assert_eq!(pose(&app, panel), UiTransform::default(), "arrived");
+    let tick = app.world().read_change_tick();
+    frame(&mut app);
+    let at_rest = app
+        .world()
+        .entity(panel)
+        .get_ref::<UiTransform>()
+        .expect("a transform");
+    assert!(
+        !at_rest
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "the arrival wrote a menu at rest"
+    );
+
+    // Shut for a frame, then opened again.
+    app.world_mut().entity_mut(panel).despawn();
+    frame(&mut app);
+    let panel = open(&mut app);
+    frame(&mut app);
+    assert!(
+        pose(&app, panel).scale.x < 0.95,
+        "a second opening arrives too"
+    );
+}

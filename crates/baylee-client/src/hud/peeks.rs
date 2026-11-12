@@ -242,7 +242,12 @@ pub fn sync_peeks(
 
 /// One peek: the chip stood upright.
 fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> Entity {
-    let ground = palette::DIALOG.with_alpha(0.88);
+    // Opaque, as the arrangement's pill is and for its reason
+    // (`arrangement::pill_ground`): the Focus ring frames the table between
+    // the peeks, so they stand over the sky, and at .88 the renderer's
+    // linear blend let enough of it through to grey the plate and its
+    // quiet ink.
+    let ground = palette::DIALOG;
     let ink = if facts.lost {
         palette::DIALOG_SOFT
     } else {

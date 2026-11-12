@@ -927,17 +927,38 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   wrote reads as the ring, never refusing the settings file.
 - **The switcher**: a pill at `(EDGE, EDGE)`, `CORNER_BUTTON` tall, in the
   top-left corner (`arrangement::sync_switcher`, `G_SWITCHER` 800, under the
-  report button): a letter in a ring as the placeholder pictogram, the name
-  on a wide window, a caret. Its width is set to `pill_width`, and
+  report button): the arrangement's pictogram, the name on a wide window, a
+  caret. A pictogram is the table from above at four seats
+  (`arrangement::mats`, drawn by `pictogram`): a hairline for the table's
+  edge, a rectangle per board where the arrangement puts it and as large as
+  it makes it, mine in the gold of what is live and at the near edge. It
+  replaced an icon in a ring (a magnifier, an eye), which named an
+  arrangement and showed nothing of what choosing it does;
+  `every_arrangement_wears_its_own_picture_of_the_table` holds each to one
+  board of mine, no board on another and no two arrangements alike. The
+  pill's ground is the dialog's, opaque: it was at .88, and the pill stands
+  in the table's cut corner over the sky, where the linear blend let enough
+  cloud through to grey the plate and bring its quiet ink to 1.8 : 1 (the
+  Focus ring's peeks stand over the same sky and are opaque for the same
+  reason). Pill and menu hang from the top edge, so their shadow falls
+  *down* onto the table (`hanging_shadow`), the one exception to
+  `hud::upward_shadow`. Its width is set to `pill_width`, and
   `camera_tests::the_arrangement_pill_lies_on_no_seat_s_place` holds every
   built arrangement's home seats clear of it at 2–8 seats in seven windows.
-  Below a wide window the pill shows the letter alone: at 800 × 600 the
+  Below a wide window the pill shows the pictogram alone: at 800 × 600 the
   ring's left flank reaches where a named pill would stand. A phone draws no
   pill; the game menu's row *Anordnung › …* (on every frame) opens the same
-  menu as a sheet over the window. The menu: one row per arrangement (disc,
-  name, what it does, a greyed row's reason or the *experimentell* tag, its
-  digit), then *remember for N seats* (ticked: the per-count memory;
-  unticked: this game only). A veil behind it shuts it on a press elsewhere.
+  menu as a sheet over the window. The menu: one row per arrangement
+  (pictogram, name, what it does, a greyed row's reason or the
+  *experimentell* tag, its digit), then *remember for N seats* (ticked: the
+  per-count memory; unticked: this game only). A veil behind it shuts it on
+  a press elsewhere. Off a phone it grows out of the pill's corner on the
+  HUD's one curve (`pop_the_menu`: `motion::opening` over `ZOOM_IN`, the
+  top-left corner held by `motion::from_top_left`). The menu is redrawn
+  whole when an arrow key moves its focus, so the arrival belongs to the
+  opening and not to the panel: a panel redrawn mid-way carries on, nothing
+  is written once it has arrived, and `reduce_motion` arrives at once
+  (`the_menu_arrives_from_its_corner_and_then_rests`).
   *experimentell* (`Arrangement::experimental`, WA10) stays on the arc rail
   alone, whose own promise did not hold; every other built arrangement keeps
   invariant 4 wherever it is offered. The numbers, model and live:
