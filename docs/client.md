@@ -10326,8 +10326,14 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   its container under `Bounds::PICTURE` in safe Rust, but its AV1 decoder
   (rav1d 1.1.0) aborts the process on some damaged streams and is therefore
   opened only on files the client ships, so the picture path stays shut
-  until that is solved (the crate's own docs). The header's account pill is
-  the disc, the name, and the tag quieter after it.
+  until that is solved (the crate's own docs). **Do not fill `Portraits`
+  from a gateway, from Central or from another player before one of two
+  things is true:** the AV1 decoder returns an error on a damaged stream
+  instead of aborting, or the decode runs in a process of its own whose
+  death costs one picture (the PM's review, 12.11.2026). A bound on size
+  or a check of the container does not stand in for either: the abort is
+  inside the stream. The header's account pill is the disc, the name, and
+  the tag quieter after it.
 - **A person's card.** The pointer resting 0.32 s on a name (a chat line's
   `ChatName`, a friend's or a recent player's row, the account pill; any
   node carrying `shellkit::avatar::PersonLink`) opens that person's card
