@@ -123,9 +123,9 @@ class SearchAdvantage(unittest.TestCase):
         self.assertEqual((V.SIDECAR_INDEX.itemsize, V.SIDECAR_ITEM.itemsize), (48, 12))
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            index.tofile(folder / "search-advantage.index.bin")
-            items.tofile(folder / "search-advantage.items.bin")
-            (folder / "search-advantage.json").write_text(json.dumps(dict(
+            index.tofile(folder / "index.bin")
+            items.tofile(folder / "cands.bin")
+            (folder / "header.json").write_text(json.dumps(dict(
                 contract=V.SIDECAR_CONTRACT, roots=2, root_kinds=["tap", "land", "pass"])))
             sidecar = V.SearchAdvantage.load(folder)
         np.testing.assert_array_equal(sidecar.find(np.array([7, 7, 7]), np.array([1, 1, 0]), np.array([205, 101, 101])),
@@ -148,6 +148,43 @@ class SearchAdvantage(unittest.TestCase):
                 bad["choice4_idx"] = broken["choice"]
             with self.subTest(broken=broken), self.assertRaises(ValueError):
                 V.SearchAdvantage(bad, items, {})
+
+    def test_twin_block_gives_the_root_cursor_and_refuses_a_malformed_one(self):
+        from types import SimpleNamespace
+        import dataset4 as D4
+        decode = lambda extension: D4.TrajectoryDataset4._with_distillation(SimpleNamespace(), {}, 0, 0, None,
+                                                                             extension=extension)
+        block = b"BSA1" + bytes([1, 0, 0, 0]) + (4242).to_bytes(4, "little") + bytes(4)
+        self.assertEqual(int(decode(block)["twin_root_cursor"]), 4242)
+        self.assertNotIn("twin_root_cursor", decode(b""))
+        for broken in (b"BSA1" + bytes([2, 0, 0, 0]) + bytes(8), block[:-1], block[:5] + b"\x01" + block[6:],
+                       block[:12] + b"\x01\x00\x00\x00"):
+            with self.subTest(broken=broken), self.assertRaises(ValueError):
+                decode(broken)
+
+    def test_root_pass_reads_what_the_exported_graph_exports(self):
+        import model4 as M
+        import model5 as V5
+        from export_onnx4 import EmbeddingGraph
+        from test_training_execution4 import batch_fixture
+        torch.manual_seed(4)
+        net = V5.PlayerNet5(V5.Config5(d_model=32, n_layers=1, n_heads=4, d_ff=64, structure_width=16,
+                                       relational_width=16, relational_revision=2, candidate_context_revision=2)).eval()
+        net.decision_chunk, net.prune_unused_policy_heads = 2, False
+        batch = batch_fixture(b=2, u=1)
+        batch["is_decision"][:] = True
+        batch["step_valid"][:] = True
+        batch["cand_mask"][:] = True
+        frames = [{name: value[i, 0].numpy() for name, value in batch.items() if value.dim() >= 2}
+                  for i in range(2)]
+        hidden = torch.randn(2, M.RECURRENT_SLOTS, 32)
+        state, cands = V.RootPass(net, 2, 2)(frames, hidden)
+        with torch.no_grad():
+            inputs = [batch[name][:, 0] for name in M.INPUT_NAMES[:-2]] + [hidden, torch.full((2,), 2)]
+            *_, want_state, want_cand, _ = EmbeddingGraph(net)(*inputs)
+        torch.testing.assert_close(state, want_state.float(), atol=1e-4, rtol=1e-4)
+        for i, cand in enumerate(cands):
+            torch.testing.assert_close(cand, want_cand[i, :cand.shape[0]].float(), atol=1e-4, rtol=1e-4)
 
     def test_directions_and_export_round_trip(self):
         self.assertEqual(V.direction(0, 2, False), "pass->act")
