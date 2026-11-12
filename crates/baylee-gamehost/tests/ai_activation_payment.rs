@@ -70,7 +70,12 @@ fn position(red: bool) -> Session {
 fn kessig_without_red_is_not_announced_and_reversed_forever() {
     // Actual Sharp cap: round 8, six seats, seed 4840001. The house repeated
     // Wolf Run -> X=0 -> target -> pass payment, returning to the same offer.
-    // This smaller real Session earns that offer without a fabricated view.
+    // This smaller real Session builds that position without a fabricated
+    // view. Since 208f1fd1c the engine offers an {X} ability before its mana
+    // only where that mana could pay its least cost: no source here makes
+    // {R}, so Wolf Run's `{X}{R}{G}, {T}` is not offered at all, the loop has
+    // no first step, and an activation sent anyway is refused with the game
+    // unchanged.
     let mut session = position(false);
     let me = PlayerId::new(0);
     let (pending, view) = session.view_for(me).unwrap();
@@ -84,41 +89,25 @@ fn kessig_without_red_is_not_announced_and_reversed_forever() {
         panic!("expected priority");
     };
     assert!(
-        legal.abilities.contains(&(source, 1)),
-        "X is announced before making mana"
+        !legal.abilities.contains(&(source, 1)),
+        "an {{X}}{{R}}{{G}} ability is not offered where no mana makes {{R}}"
     );
     let agent = HeuristicAgent::new(AIProfile::SHARP);
     assert_eq!(agent.act(&view, &pending), PlayerAction::PassPriority);
-    // Passing a short real payment window restores the exact original offer.
     let before = session.state().snapshot_hash();
-    let target = view
-        .battlefield
-        .iter()
-        .find(|o| o.name == "Ulvenwald Observer")
-        .unwrap()
-        .id;
-    for action in [
-        PlayerAction::ActivateAbility {
-            source,
-            ability_index: 1,
-        },
-        PlayerAction::ChooseNumber(0),
-        PlayerAction::ChooseObjects {
-            objects: vec![target],
-        },
-    ] {
-        session.act_slice(me, action, 0).unwrap();
-    }
-    let (pending, view) = session.view_for(me).unwrap();
-    assert_eq!(
-        view.owed,
-        Some(baylee_core::mana::ManaPayment::Fixed(
-            baylee_core::mana::ManaCost::parse("{R}{G}")
-        ))
+    assert!(
+        session
+            .act_slice(
+                me,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index: 1,
+                },
+                0,
+            )
+            .is_err(),
+        "an activation the offer leaves out is refused"
     );
-    let action = agent.act(&view, &pending);
-    assert_eq!(action, PlayerAction::PassPriority);
-    session.act_slice(me, action, 0).unwrap();
     assert_eq!(session.state().snapshot_hash(), before);
     let (pending, view) = session.view_for(me).unwrap();
     assert_eq!(agent.act(&view, &pending), PlayerAction::PassPriority);
