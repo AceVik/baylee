@@ -4483,8 +4483,11 @@ live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
 table filling (`strips::table_news`); each ring is a toast for fifteen
 seconds, beside the lobby's own notices (`Lobby::status`), at most four,
-top-left under the header (`header::toast_lane`), in a lane of its own
-outside the lobby's tree. Each toast's cross takes that toast away, named by
+in the bottom-right corner, under the header on a Phone
+(`header::toast_lane`), in a lane of its own outside the lobby's tree. The
+update card holds the same corner, so the lane stands on top of it, right
+edge on right edge and one gap above, and follows it as it comes, grows and
+goes (`header::LaneRest::place`, `stand_over_the_update_card`). Each toast's cross takes that toast away, named by
 the number it came with (`header::ToastId`), never by its place in the lane.
 The lane is put away when a table opens (`put_the_toasts_away`), and what it
 said does not come back after the game: it ages and answers its cross only

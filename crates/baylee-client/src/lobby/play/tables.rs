@@ -295,7 +295,14 @@ pub(super) fn tables(
         });
         let empty =
             crate::shellkit::states::empty(commands, kit, crate::hud::glyph::HOUSE, &said, action);
-        commands.entity(list).add_child(empty);
+        // With no row to start from the top, the one thing the panel says
+        // stands in its middle, not under its heading with a screen of
+        // nothing below it.
+        commands
+            .entity(list)
+            .add_child(empty)
+            .entry::<Node>()
+            .and_modify(|mut node| node.justify_content = JustifyContent::Center);
     }
     // Deck selection belongs to the room; browsing has no selected-deck warning.
     let mine_format = String::new();

@@ -759,6 +759,29 @@ fn the_logo_picks_the_cut_its_height_asks_for() {
     assert_eq!(cut_for(400.0), 2);
 }
 
+/// The lane and the update card hold the same corner of the lobby. Alone the
+/// lane rests at the corner; with a card it stands on the card, right edges
+/// in line and one gap above, wherever the card was moved to (the friends
+/// drawer pushes it left) and however tall it grew.
+#[test]
+fn the_toast_lane_stands_on_the_update_card_and_not_over_it() {
+    use super::super::header::LaneRest;
+    let rest = LaneRest {
+        edge: 16.0,
+        gap: 8.0,
+    };
+    assert_eq!(rest.place(None), (Val::Px(16.0), Val::Px(16.0)));
+    // A card 16 from the right whose top is 136 above the window's bottom.
+    assert_eq!(
+        rest.place(Some((16.0, 136.0))),
+        (Val::Px(16.0), Val::Px(144.0))
+    );
+    assert_eq!(
+        rest.place(Some((336.0, 216.0))),
+        (Val::Px(336.0), Val::Px(224.0))
+    );
+}
+
 /// The toast lanes standing.
 fn toast_lanes(app: &mut App) -> usize {
     let mut lanes = app

@@ -51,7 +51,8 @@ use look::Card;
 pub struct UpdateToast;
 
 /// Where the card stands: at a table (`true`, top centre, clear of the
-/// hand), else in the lobby's bottom-left corner above the legal footer.
+/// hand), else in the lobby's bottom-right corner; the lobby's toast lane
+/// stands on top of it there (`lobby::header::LaneRest`).
 #[derive(Component)]
 pub(super) struct ToastPlacement(pub(super) bool);
 
