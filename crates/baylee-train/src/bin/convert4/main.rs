@@ -809,7 +809,7 @@ fn main() -> anyhow::Result<()> {
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let search_roots = gref.search_roots.as_ref().map(search_advantage::GameRoots::roots);
                 let mut search_game = gref.search_roots.as_ref()
-                    .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone()))
+                    .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone(), &bytes))
                     .transpose()?;
                 let emit = |mut step: Step4| {
                     if let Some(game) = &mut search_game { game.apply(&mut step)?; }
