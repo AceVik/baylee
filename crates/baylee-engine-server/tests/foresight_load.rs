@@ -19,6 +19,9 @@
 //! - `BAYLEE_LOAD_SEAT` (default `steady`): the level the seat this test
 //!   plays answers at, from its own view, as a seat bridge's house mind does.
 //! - `BAYLEE_LOAD_SECS` (default 900): the longest one table may take.
+//! - `BAYLEE_LOAD_THINK_MS` (default 0): how long the seat thinks before each
+//!   answer. 0 plays at the machine's speed, the most a table can ask of the
+//!   house; a person takes seconds.
 //! - `BAYLEE_FORESIGHT*`: handed to every engine as an agent would.
 //!
 //! It prints one JSON line (`load: {…}`) and a summary. Every engine it starts
@@ -217,6 +220,7 @@ async fn serve<S>(
     game: String,
     preset: GamePreset,
     mind: baylee_ai::HeuristicAgent,
+    think: Duration,
     pid: u32,
 ) -> Table
 where
@@ -253,7 +257,9 @@ where
         }
     }
     let mut reader = baylee_view::ViewReader::default();
-    let mut asked_since = Instant::now();
+    // From the seat's last answer: the first question waits for the table's
+    // entrance as well, which is no house's doing.
+    let mut asked_since: Option<Instant> = None;
     while let Some(Ok(message)) = ws.next().await {
         let Message::Binary(bytes) = message else {
             continue;
@@ -278,7 +284,7 @@ where
                         let _ = reader.read(&delta.view_frame);
                     }
                     Some(v1::envelope::Msg::ChoiceRequest(request)) => {
-                        let waited = asked_since.elapsed();
+                        let waited = asked_since.map_or(Duration::ZERO, |at| at.elapsed());
                         table.longest_wait_ms = table
                             .longest_wait_ms
                             .max(u64::try_from(waited.as_millis()).unwrap_or(u64::MAX));
@@ -301,7 +307,8 @@ where
                                 action: baylee_core::wire::encode(&action),
                             })),
                         };
-                        asked_since = Instant::now();
+                        tokio::time::sleep(think).await;
+                        asked_since = Some(Instant::now());
                         if ws.send(frame(SEAT, &act)).await.is_err() {
                             break;
                         }
@@ -334,6 +341,7 @@ struct Run {
     seat: AIProfile,
     seat_level: String,
     limit: Duration,
+    think: Duration,
 }
 
 impl Run {
@@ -348,6 +356,7 @@ impl Run {
             seat: AIProfile::named(&seat_level).expect("the seat's level by its name"),
             seat_level,
             limit: Duration::from_secs(setting("BAYLEE_LOAD_SECS", 900)),
+            think: Duration::from_millis(setting("BAYLEE_LOAD_THINK_MS", 0)),
         }
     }
 }
@@ -405,16 +414,18 @@ async fn play(run: &Run, slots: &std::path::Path) -> Vec<(Table, Vec<String>)> {
             assert_eq!(hello.token, token, "the engine proves its game");
             let mind = baylee_ai::HeuristicAgent::new(run.seat)
                 .with_seed(baylee_ai::policy_seed(&hello.game_id, 1));
-            let limit = run.limit;
+            let (limit, think) = (run.limit, run.think);
             serving.spawn(async move {
                 let game = hello.game_id;
-                let mut table =
-                    tokio::time::timeout(limit, serve(ws, game.clone(), preset, mind, hello.pid))
-                        .await
-                        .unwrap_or_else(|_| Table {
-                            game,
-                            ..Table::default()
-                        });
+                let mut table = tokio::time::timeout(
+                    limit,
+                    serve(ws, game.clone(), preset, mind, think, hello.pid),
+                )
+                .await
+                .unwrap_or_else(|_| Table {
+                    game,
+                    ..Table::default()
+                });
                 table.pairing = pairing;
                 table
             });
@@ -494,6 +505,7 @@ fn report(run: &Run, played: &[Table], wall: Duration) {
         "rounds": run.rounds,
         "level": run.level,
         "seat": run.seat_level,
+        "think_ms": run.think.as_millis(),
         "cores": cores,
         "searches_setting": std::env::var("BAYLEE_FORESIGHT_SEARCHES").ok(),
         "wall_ms_setting": std::env::var("BAYLEE_FORESIGHT_WALL_MS").ok(),

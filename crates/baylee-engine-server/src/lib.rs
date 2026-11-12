@@ -1302,6 +1302,7 @@ impl EngineRunner {
                 busy = searches.busy,
                 walled = searches.walled,
                 slowest_ms = searches.slowest_micros / 1000,
+                most_work = searches.most_work,
                 "house searches"
             );
         }
