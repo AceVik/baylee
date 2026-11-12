@@ -300,6 +300,29 @@ impl<L: CardLookup> Engine<L> {
         source: baylee_core::ids::ObjectId,
         index: u32,
     ) -> bool {
+        let excluded = self.reserved_by_cost(source, index);
+        self.state.granted_colorless_capacity(player) > 0
+            || legal.mana_abilities.iter().any(|&id| id != excluded)
+            || legal.granted_actions.iter().any(|offer| {
+                matches!(
+                    offer.effect,
+                    crate::choice::GrantedActionKind::AddMana { .. }
+                )
+            })
+            || legal
+                .abilities
+                .iter()
+                .any(|&(id, index)| id != excluded && self.is_payment_mana_offer(id, index))
+    }
+
+    /// The permanent ability `index` of `source` spends by its own cost, so
+    /// that it makes no mana toward that cost: `source` where the printed
+    /// cost taps or untaps it (or the ability is gone), and nothing else.
+    pub(super) fn reserved_by_cost(
+        &self,
+        source: baylee_core::ids::ObjectId,
+        index: u32,
+    ) -> baylee_core::ids::ObjectId {
         let reserved =
             self.activation_definition(source, index)
                 .is_none_or(|ability| match ability {
@@ -316,23 +339,11 @@ impl<L: CardLookup> Engine<L> {
                     }
                     _ => true,
                 });
-        let excluded = if reserved {
+        if reserved {
             source
         } else {
             baylee_core::ids::ObjectId::NO_SOURCE
-        };
-        self.state.granted_colorless_capacity(player) > 0
-            || legal.mana_abilities.iter().any(|&id| id != excluded)
-            || legal.granted_actions.iter().any(|offer| {
-                matches!(
-                    offer.effect,
-                    crate::choice::GrantedActionKind::AddMana { .. }
-                )
-            })
-            || legal
-                .abilities
-                .iter()
-                .any(|&(id, index)| id != excluded && self.is_payment_mana_offer(id, index))
+        }
     }
 
     pub(super) fn open_activation_payment(

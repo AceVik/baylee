@@ -835,17 +835,29 @@ impl<L: CardLookup> Engine<L> {
         legal
             .unpaid_abilities
             .retain(|(source, index, _)| legal.abilities.contains(&(*source, *index)));
-        // Except an ability with {X} in its mana cost, while this seat can
-        // still make mana: its X is announced before the mana is made and
-        // the mana is made in its payment window (CR 602.2b, by 601.2b and
-        // 601.2g), so no amount made beforehand is the right one to plan.
-        // It is offered as a cast paid in its window is (`payable`), and an
-        // activation the window leaves short is reversed (CR 734.1).
+        // Except an ability with {X} in its mana cost, while the mana this
+        // seat could make reaches its cost at its least X: its X is
+        // announced before the mana is made and the mana is made in its
+        // payment window (CR 602.2b, by 601.2b and 601.2g), so no amount
+        // made beforehand is the right one to plan. It is offered as a cast
+        // paid in its window is (`payable`), and an activation the window
+        // leaves short is reversed (CR 734.1). One whose least cost no mana
+        // here could make is not offered: Ballista Squad's `{X}{W}` beside
+        // an Island alone (`activation_reach`).
         let deferred: Vec<(ObjectId, u32)> = legal
             .unpaid_abilities
             .iter()
             .filter(|(source, index, mana)| {
-                mana.has_variable() && self.makes_activation_mana(player, &legal, *source, *index)
+                mana.has_variable() && {
+                    let least = self.activation_x_minimum(player, *source, *index);
+                    self.reaches_activation_mana(
+                        player,
+                        &legal,
+                        *source,
+                        *index,
+                        &mana.with_x(least),
+                    )
+                }
             })
             .map(|&(source, index, _)| (source, index))
             .collect();

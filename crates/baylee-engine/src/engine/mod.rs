@@ -2100,6 +2100,9 @@ impl<L: CardLookup> Engine<L> {
 }
 
 mod abilities;
+mod activation_reach;
+#[cfg(test)]
+mod activation_reach_tests;
 mod ascend;
 mod attack_sacrifice;
 mod banding;
