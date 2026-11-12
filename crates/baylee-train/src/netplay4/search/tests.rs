@@ -438,6 +438,130 @@ fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
     );
 }
 
+/// The land-drop root of table 22 searched as [`land_root_search`] does
+/// with `lands` and a paired margin, never choosing an answer of
+/// `taken_back`.
+fn land_root_avoiding(taken_back: &[PlayerAction]) -> SearchedAnswer4 {
+    let mut session = table(22);
+    let (pending, view) = root(&mut session, land_playable);
+    let mut player = Mock::new(passes, lands);
+    player.observe(&view).unwrap();
+    let paired = Selection4::Paired {
+        margin: 0.05,
+        z: 0.0,
+    };
+    let config = config(SearchConfig4::MAX_CANDIDATES, 1, 0)
+        .with_selection(paired)
+        .unwrap()
+        .with_stall_guard(true);
+    let result = search_decision_avoiding(
+        &mut player,
+        &KnownDecks(&session),
+        &view,
+        &pending,
+        &[],
+        config,
+        SEED,
+        taken_back,
+    )
+    .unwrap();
+    session
+        .act_slice(ME, result.answer.action.clone(), 0)
+        .expect("the searched answer is legal at the table");
+    result
+}
+
+/// An answer the table took back from this position is not compared
+/// again; when it is the policy's own, the best of the others is played
+/// even inside the margin.
+#[test]
+fn the_stall_guard_never_chooses_an_answer_the_table_took_back() {
+    let free = land_root_avoiding(&[]);
+    let SearchOutcome4::Searched(report) = &free.outcome else {
+        panic!("searched: {:?}", free.outcome);
+    };
+    assert!(report.changed && report.taken_back.is_empty());
+    let land = free.answer.action.clone();
+    assert!(matches!(land, PlayerAction::PlayLand { .. }));
+
+    assert_eq!(report.actions.len(), 2, "a pass and one land: {report:?}");
+
+    // The land taken back: nothing is left to compare with the pass, which
+    // the policy plays unsearched.
+    let guarded = land_root_avoiding(std::slice::from_ref(&land));
+    assert_eq!(
+        guarded.outcome,
+        SearchOutcome4::Skipped(SearchSkip4::TakenBack)
+    );
+    assert_eq!(guarded.answer.action, PlayerAction::PassPriority);
+
+    // The policy's pass taken back: the land is played though the pass is
+    // still rolled out beside it.
+    let pass = land_root_avoiding(&[PlayerAction::PassPriority]);
+    let SearchOutcome4::Searched(report) = &pass.outcome else {
+        panic!("searched: {:?}", pass.outcome);
+    };
+    assert_eq!(report.taken_back, [PlayerAction::PassPriority]);
+    assert_eq!(report.actions, [PlayerAction::PassPriority, land.clone()]);
+    assert!(report.changed);
+    assert_eq!(pass.answer.action, land);
+    assert_eq!(report.ends.len(), report.rounds);
+    assert!(
+        report
+            .ends
+            .iter()
+            .all(|round| round.len() == report.candidates
+                && round.iter().all(|end| *end == LeafEnd4::Immediate)),
+        "H = 0 ends every rollout at once: {:?}",
+        report.ends
+    );
+}
+
+/// The candidates left once the answers taken back are set aside: every
+/// other one with such an answer goes (a cast tried at several targets
+/// with it), the policy's own stays first and is named.
+#[test]
+fn the_answers_taken_back_are_set_aside_but_the_policys_own() {
+    let card = |n| baylee_core::ids::ObjectId::new(n, 0);
+    let plain = |index, action| {
+        Candidate4::plain(Ranked4 {
+            index,
+            action,
+            logit: 0.0,
+        })
+    };
+    let cast = PlayerAction::CastSpell { card: card(3) };
+    let land = PlayerAction::PlayLand { card: card(4) };
+    let at = |target: u32| Candidate4 {
+        target: Some(TargetFollow4 {
+            action: PlayerAction::PassPriority,
+            prior: f64::from(target),
+        }),
+        ..plain(2, cast.clone())
+    };
+    let candidates = || {
+        vec![
+            plain(0, PlayerAction::PassPriority),
+            at(1),
+            at(2),
+            plain(3, land.clone()),
+        ]
+    };
+    let none = Avoided::drop(candidates(), &[]);
+    assert_eq!(none.candidates, candidates());
+    assert!(none.taken_back.is_empty() && !none.own);
+
+    let some = Avoided::drop(candidates(), &[cast.clone(), land.clone()]);
+    assert_eq!(some.candidates, [plain(0, PlayerAction::PassPriority)]);
+    assert_eq!(some.taken_back, [cast.clone(), land.clone()]);
+    assert!(!some.own);
+
+    let own = Avoided::drop(candidates(), &[PlayerAction::PassPriority]);
+    assert_eq!(own.candidates, candidates());
+    assert_eq!(own.taken_back, [PlayerAction::PassPriority]);
+    assert!(own.own);
+}
+
 #[test]
 fn a_gain_inside_the_margin_leaves_the_policys_answer() {
     let k = SearchConfig4::MAX_CANDIDATES;
@@ -869,6 +993,7 @@ fn a_searched_game_answers_legally_and_names_every_root_it_skips() {
                     SearchSkip4::MidChain | SearchSkip4::NoAlternative => {
                         panic!("no search here compares macro candidates")
                     }
+                    SearchSkip4::TakenBack => panic!("no search here is told of a taking back"),
                 }
                 reason.key().to_owned()
             }

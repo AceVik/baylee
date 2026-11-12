@@ -37,7 +37,7 @@ use baylee_train::features4::{
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::search::{
     KnownDecks, PriorDecks, ScriptFollow4, SearchConfig4, SearchedAnswer4, Selection4,
-    follow_decision, follow_script, search_decision, terminal_utility,
+    follow_decision, follow_script, search_decision_avoiding, terminal_utility,
 };
 use baylee_train::netplay4::{
     BatchLimits4, BatchedNet4, CatalogPolicy4, CatalogRead4, ChoiceGuard4, CriticSemantics4,

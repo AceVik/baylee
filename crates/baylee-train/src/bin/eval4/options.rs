@@ -414,6 +414,12 @@ struct Args {
     /// such answers are played and counted (`house_answers`).
     #[arg(long, requires = "search")]
     search_house_free: bool,
+    /// A stall guard at the search's roots, as the house's: an answer the
+    /// search gave that the table took back (the seat asked again from the
+    /// same position) is not chosen there again; if it was the policy's
+    /// own, the best mean of the others is played.
+    #[arg(long, requires = "search")]
+    search_stall_guard: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -456,7 +462,8 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_fair(args.search_fair)
         .with_turns(args.search_turns)?
         .with_macros(args.search_macros)
-        .with_house_free(args.search_house_free);
+        .with_house_free(args.search_house_free)
+        .with_stall_guard(args.search_stall_guard);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {

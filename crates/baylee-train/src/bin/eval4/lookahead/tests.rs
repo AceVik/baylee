@@ -19,7 +19,7 @@ use baylee_train::features4::{
 };
 use baylee_train::netplay4::search::{
     KnownDecks, PriorDecks, ScriptFollow4, SearchPlayer4, SearchedAnswer4, Selection4,
-    ViewContext4, follow_script, search_decision,
+    ViewContext4, follow_script, search_decision_avoiding,
 };
 use baylee_train::netplay4::{RootDecision4, rank_single_choice};
 use clap::Parser as _;
@@ -190,14 +190,15 @@ impl EvaluationPlayer for Fixture {
         teams: &[Option<u8>],
         config: SearchConfig4,
         seed: u64,
+        taken_back: &[PlayerAction],
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
         if config.fair() {
             let fair = PriorDecks::new(table, view);
-            return Some(search_decision(
-                self, &fair, view, pending, teams, config, seed,
+            return Some(search_decision_avoiding(
+                self, &fair, view, pending, teams, config, seed, taken_back,
             ));
         }
-        Some(search_decision(
+        Some(search_decision_avoiding(
             self,
             &KnownDecks(table),
             view,
@@ -205,6 +206,7 @@ impl EvaluationPlayer for Fixture {
             teams,
             config,
             seed,
+            taken_back,
         ))
     }
     fn follow_script(
@@ -651,4 +653,63 @@ fn search_is_refused_where_it_cannot_run() {
         false,
         "a batched search says it is not reproducible bit for bit"
     );
+}
+
+#[test]
+fn the_stall_guard_is_asked_for_and_named() {
+    let guarded = |extra: &[&str]| {
+        let mut argv = vec!["eval4", "--model", "m", "--out", "o"];
+        argv.extend_from_slice(extra);
+        search_config(&Args::try_parse_from(argv).unwrap())
+            .unwrap()
+            .unwrap()
+    };
+    assert!(!guarded(&["--search", "4,2,3"]).stall_guard());
+    let guard = guarded(&["--search", "4,2,3", "--search-stall-guard"]);
+    assert!(guard.stall_guard());
+    assert!(guard.metadata()["stall_guard"].is_string());
+    assert!(
+        guarded(&["--search", "4,2,3"]).metadata()["stall_guard"].is_null(),
+        "a search without the guard says nothing of it"
+    );
+}
+
+/// The stall guard remembers what the search gave from one position: asked
+/// again from there by a new question, those answers were taken back; the
+/// same question again, another position or another seat is not that.
+#[test]
+fn the_stall_guard_names_what_the_table_took_back_from_a_position() {
+    let me = PlayerId::new(0);
+    let other = PlayerId::new(1);
+    let cast = PlayerAction::CastSpell {
+        card: baylee_core::ids::ObjectId::new(7, 0),
+    };
+    let land = PlayerAction::PlayLand {
+        card: baylee_core::ids::ObjectId::new(9, 0),
+    };
+    let mut memory = StallMemory4::default();
+    assert!(memory.taken_back(me, 1, 10).is_empty(), "nothing given yet");
+    memory.give(me, 1, 10, &cast);
+    assert!(
+        memory.taken_back(me, 1, 10).is_empty(),
+        "the same question asked again"
+    );
+    assert_eq!(memory.taken_back(me, 1, 11), std::slice::from_ref(&cast));
+    assert!(memory.taken_back(me, 2, 11).is_empty(), "another position");
+    assert!(memory.taken_back(other, 1, 11).is_empty(), "another seat");
+
+    // Taken back again, the other answer joins it.
+    memory.give(me, 1, 11, &land);
+    assert_eq!(memory.taken_back(me, 1, 12), [cast.clone(), land.clone()]);
+    memory.give(me, 1, 12, &PlayerAction::PassPriority);
+    assert_eq!(
+        memory.taken_back(me, 1, 13),
+        [cast.clone(), land],
+        "a pass is never taken back"
+    );
+
+    // The game moved on: a new position starts afresh.
+    memory.give(me, 3, 14, &cast);
+    assert!(memory.taken_back(me, 1, 15).is_empty());
+    assert_eq!(memory.taken_back(me, 3, 15), [cast]);
 }

@@ -10,9 +10,10 @@ use crate::netplay4::tactics::is_mana_ability_entry;
 
 use super::macros::{Playing, ScriptWitness};
 use super::{
-    Answer4, Candidate4, ForkRefusal, ForkSource4, LeafCounts4, Pending, PlayerAction, PlayerId,
-    PlayerView, ROLLOUT, RootDecision4, Script4, SearchConfig4, SearchPlayer4, SearchReport4,
-    SimulationSession, SourceKind4, ViewContext4, derive, terminal_utility, world_seed,
+    Answer4, Candidate4, ForkRefusal, ForkSource4, LeafCounts4, LeafEnd4, Pending, PlayerAction,
+    PlayerId, PlayerView, ROLLOUT, RootDecision4, Script4, SearchConfig4, SearchPlayer4,
+    SearchReport4, SimulationSession, SourceKind4, ViewContext4, derive, terminal_utility,
+    world_seed,
 };
 
 /// The most actions, every chair's, one rollout takes before it stops: a
@@ -64,6 +65,30 @@ struct Leaf {
     house: u64,
     /// Whether the rollout stopped because the next answer was the house's.
     house_stop: bool,
+    /// Whether the rollout stopped because the root's cast or activation
+    /// was taken back.
+    taken_back: bool,
+}
+
+impl Leaf {
+    /// How the rollout ended, for the report's `ends`.
+    const fn end(&self) -> LeafEnd4 {
+        if self.house_stop {
+            return LeafEnd4::HouseStop;
+        }
+        if self.taken_back {
+            return LeafEnd4::TakenBack;
+        }
+        match self.kind {
+            LeafKind::Terminal => LeafEnd4::Terminal,
+            LeafKind::Immediate => LeafEnd4::Immediate,
+            LeafKind::Settled => LeafEnd4::Settled,
+            LeafKind::Horizon => LeafEnd4::Horizon,
+            LeafKind::TurnEnd => LeafEnd4::TurnEnd,
+            LeafKind::Boundary => LeafEnd4::Boundary,
+            LeafKind::Stopped => LeafEnd4::Stopped,
+        }
+    }
 }
 
 /// Whether the searching seat's question is a settled position to score:
@@ -177,6 +202,7 @@ fn rollout<P: SearchPlayer4>(
             kind,
             house: house.get(),
             house_stop: false,
+            taken_back: false,
         })
     };
     // The leaf where the next answer would be the house's and the search
@@ -210,6 +236,7 @@ fn rollout<P: SearchPlayer4>(
                 kind: LeafKind::Terminal,
                 house: house.get(),
                 house_stop: false,
+                taken_back: false,
             });
         }
         if fork.state().has_left(seat) {
@@ -221,6 +248,7 @@ fn rollout<P: SearchPlayer4>(
                 kind: LeafKind::Stopped,
                 house: house.get(),
                 house_stop: false,
+                taken_back: false,
             });
         }
         let observed = context.observe(fork, seat);
@@ -254,6 +282,7 @@ fn rollout<P: SearchPlayer4>(
                 kind: LeafKind::Stopped,
                 house: house.get(),
                 house_stop: false,
+                taken_back: true,
             });
         }
         if observed.casting.is_none()
@@ -598,6 +627,8 @@ struct Tally {
     report: SearchReport4,
     worlds: Vec<Vec<f32>>,
     scores: Vec<f32>,
+    /// How the current round's rollouts ended, beside `scores`.
+    ends: Vec<LeafEnd4>,
 }
 
 impl Tally {
@@ -629,10 +660,13 @@ impl Tally {
                 seat_decisions: 0,
                 house_answers: 0,
                 leaves: LeafCounts4::default(),
+                ends: Vec::with_capacity(particles),
+                taken_back: Vec::new(),
                 parallel,
             },
             worlds: Vec::with_capacity(particles),
             scores: Vec::with_capacity(candidates.len()),
+            ends: Vec::with_capacity(candidates.len()),
         }
     }
 
@@ -649,6 +683,7 @@ impl Tally {
         report.seat_decisions += leaf.decisions;
         report.house_answers += leaf.house;
         report.leaves.house_stop += u64::from(leaf.house_stop);
+        report.leaves.taken_back += u64::from(leaf.taken_back);
         let kind = &mut report.leaves;
         *match leaf.kind {
             LeafKind::Terminal => &mut kind.terminal,
@@ -660,8 +695,10 @@ impl Tally {
             LeafKind::Stopped => &mut kind.stopped,
         } += 1;
         self.scores.push(leaf.score);
+        self.ends.push(leaf.end());
         if self.scores.len() == self.candidates {
             self.worlds.push(std::mem::take(&mut self.scores));
+            report.ends.push(std::mem::take(&mut self.ends));
             report.rounds += 1;
         }
         true

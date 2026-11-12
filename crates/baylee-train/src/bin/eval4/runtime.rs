@@ -91,8 +91,13 @@ trait EvaluationPlayer {
     fn observed_value(&self, _seat: PlayerId) -> Option<f32> {
         None
     }
-    /// Answers with a lookahead over `table` (`--search`); `None` when this
-    /// player cannot search.
+    /// Answers with a lookahead over `table` (`--search`), never choosing an
+    /// answer of `taken_back` (the stall guard's, `search_decision_avoiding`);
+    /// `None` when this player cannot search.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "search_decision_avoiding's inputs, handed on whole"
+    )]
     fn search(
         &mut self,
         _table: &Session,
@@ -101,6 +106,7 @@ trait EvaluationPlayer {
         _teams: &[Option<u8>],
         _config: SearchConfig4,
         _seed: u64,
+        _taken_back: &[baylee_engine::choice::PlayerAction],
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
         None
     }
@@ -245,10 +251,11 @@ impl EvaluationPlayer for NetPlayer4 {
         teams: &[Option<u8>],
         config: SearchConfig4,
         seed: u64,
+        taken_back: &[baylee_engine::choice::PlayerAction],
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
         if config.fair() {
             // What the seat's own view lets it suppose, never another list.
-            return Some(search_decision(
+            return Some(search_decision_avoiding(
                 self,
                 &PriorDecks::new(table, view),
                 view,
@@ -256,11 +263,12 @@ impl EvaluationPlayer for NetPlayer4 {
                 teams,
                 config,
                 seed,
+                taken_back,
             ));
         }
         // The evaluator chose every deck at the table, so they are the
         // harness's to assert known (`docs/trained-ai.md` §"Lookahead search").
-        Some(search_decision(
+        Some(search_decision_avoiding(
             self,
             &KnownDecks(table),
             view,
@@ -268,6 +276,7 @@ impl EvaluationPlayer for NetPlayer4 {
             teams,
             config,
             seed,
+            taken_back,
         ))
     }
     fn follow_script(

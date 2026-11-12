@@ -3,11 +3,12 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
+use baylee_ai::HeuristicAgent;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::netplay4::search::{
-    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, search_seed,
+    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, SearchReport4, search_seed,
 };
 use baylee_train::netplay4::{Answer4, Script4};
 use baylee_view::PlayerView;
@@ -80,6 +81,9 @@ pub(super) struct SearchTally {
     pub scripts_done: u64,
     /// Of those, the ones that broke at the table or were cut off.
     pub scripts_broken: u64,
+    /// Answers the stall guard set aside at searched decisions: the table
+    /// had taken them back from the same position (`--search-stall-guard`).
+    pub taken_back: u64,
     /// Wall time of every searched decision, for the report only: no
     /// decision reads it.
     pub ms: Vec<f64>,
@@ -108,6 +112,7 @@ impl SearchTally {
         self.scripts += other.scripts;
         self.scripts_done += other.scripts_done;
         self.scripts_broken += other.scripts_broken;
+        self.taken_back += other.taken_back;
         self.ms.extend_from_slice(&other.ms);
     }
 
@@ -148,6 +153,7 @@ impl SearchTally {
             "scripts": self.scripts,
             "scripts_done": self.scripts_done,
             "scripts_broken": self.scripts_broken,
+            "taken_back": self.taken_back,
             "searched_ms": {
                 "total": total,
                 "mean": if ms.is_empty() { 0.0 } else { total / ms.len() as f64 },
@@ -156,6 +162,98 @@ impl SearchTally {
                 "max": ms.last().copied().unwrap_or(0.0),
             },
         })
+    }
+}
+
+/// A searched decision's event for `games.jsonl`: where its answer is in the
+/// record, the candidates in order (the policy's first), each one's score
+/// and end in every world, their means, paired improvements and standard
+/// errors, priors, selection scores, the choice and what the stall guard
+/// set aside.
+fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchReport4) -> Value {
+    json!({
+        "decision_seq": table.decision_seq(),
+        "record_byte_offset": table.record_pending(),
+        "seat": view.seat.get(),
+        "turn": view.turn,
+        "action": answer.action,
+        "accepted": true,
+        "root_value": answer.value,
+        "candidates": report.actions,
+        "targets": report.targets,
+        "scripts": report.scripts,
+        "means": report.means,
+        "diffs": report.diffs,
+        "ses": report.ses,
+        "priors": report.priors,
+        "scores": report.scores,
+        "worlds": report.worlds,
+        "house_answers": report.house_answers,
+        "chosen": report.chosen,
+        "rounds": report.rounds,
+        "leaves": report.leaves,
+        "ends": report.ends,
+        "taken_back": report.taken_back,
+    })
+}
+
+/// The search's stall guard (`--search-stall-guard`), as the house's
+/// (`baylee_ai::StallMemory`): the answers the search gave to one seat's
+/// priority questions from one position, and the last question's number.
+/// Asked again from that position by a new question, the engine took them
+/// back (a cast it could not finish leaves the game where it was), and the
+/// search is told not to choose them there. The same question asked again
+/// is not a taking back. A pass is never taken back.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(super) struct StallMemory4 {
+    given: Option<Given>,
+}
+
+/// One position's answers ([`StallMemory4`]).
+#[derive(Clone, Debug, PartialEq)]
+struct Given {
+    seat: PlayerId,
+    position: u64,
+    seq: u64,
+    actions: Vec<PlayerAction>,
+}
+
+impl StallMemory4 {
+    /// The answers the table took back from `position` before `seat`'s
+    /// question `seq`; none when the search last answered elsewhere, or
+    /// this same question.
+    pub(super) fn taken_back(&self, seat: PlayerId, position: u64, seq: u64) -> &[PlayerAction] {
+        match &self.given {
+            Some(given) if given.seat == seat && given.position == position && given.seq != seq => {
+                &given.actions
+            }
+            _ => &[],
+        }
+    }
+
+    /// Notes `action`, the search's answer to `seat`'s question `seq` from
+    /// `position`: beside the answers already given there, or in their
+    /// place when the position is another.
+    pub(super) fn give(&mut self, seat: PlayerId, position: u64, seq: u64, action: &PlayerAction) {
+        if matches!(action, PlayerAction::PassPriority) {
+            return;
+        }
+        match &mut self.given {
+            Some(given) if given.seat == seat && given.position == position => {
+                given.seq = seq;
+                if !given.actions.contains(action) {
+                    given.actions.push(action.clone());
+                }
+            }
+            _ => {
+                self.given = Some(Given {
+                    seat,
+                    position,
+                    seq,
+                    actions: vec![action.clone()],
+                });
+            }
+        }
     }
 }
 
@@ -175,6 +273,9 @@ pub(super) struct GameSearch {
     /// Whether the last answer given was a chosen target or a scripted
     /// step, not a searched decision of its own.
     answered_follow: bool,
+    /// What the search gave from the last position it answered at
+    /// (`--search-stall-guard`).
+    given: StallMemory4,
     pub tally: SearchTally,
     /// Per searched decision: where its answer is in the record, the
     /// candidates in order (the policy's first), their means, paired
@@ -193,6 +294,7 @@ impl GameSearch {
             follow: None,
             script: None,
             answered_follow: false,
+            given: StallMemory4::default(),
             tally: SearchTally::default(),
             events: Vec::new(),
         }
@@ -206,6 +308,7 @@ impl GameSearch {
         self.follow = None;
         self.script = None;
         self.answered_follow = false;
+        self.given = StallMemory4::default();
         self.tally = SearchTally::default();
         self.events.clear();
     }
@@ -334,36 +437,41 @@ impl GameSearch {
             return Ok(None);
         }
         let started = Instant::now();
-        let Some(searched) = net.search(table, view, pending, teams, self.config, self.seed) else {
+        // The stall guard: what the table took back from this position.
+        let position = (self.config.stall_guard() && matches!(pending, Pending::Priority { .. }))
+            .then(|| HeuristicAgent::position(view));
+        let taken_back = position
+            .map(|position| {
+                self.given
+                    .taken_back(view.seat, position, view.seq)
+                    .to_vec()
+            })
+            .unwrap_or_default();
+        let Some(searched) = net.search(
+            table,
+            view,
+            pending,
+            teams,
+            self.config,
+            self.seed,
+            &taken_back,
+        ) else {
             return Ok(None);
         };
         self.tally.decisions += 1;
         let searched = searched?;
+        if let Some(position) = position
+            && matches!(searched.outcome, SearchOutcome4::Searched(_))
+        {
+            self.given
+                .give(view.seat, position, view.seq, &searched.answer.action);
+        }
         match searched.outcome {
             SearchOutcome4::Searched(report) => {
+                self.tally.taken_back += report.taken_back.len() as u64;
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
-                self.events.push(json!({
-                    "decision_seq": table.decision_seq(),
-                    "record_byte_offset": table.record_pending(),
-                    "seat": view.seat.get(),
-                    "turn": view.turn,
-                    "action": searched.answer.action,
-                    "accepted": true,
-                    "root_value": searched.answer.value,
-                    "candidates": report.actions,
-                    "targets": report.targets,
-                    "scripts": report.scripts,
-                    "means": report.means,
-                    "diffs": report.diffs,
-                    "ses": report.ses,
-                    "priors": report.priors,
-                    "scores": report.scores,
-                    "worlds": report.worlds,
-                    "house_answers": report.house_answers,
-                    "chosen": report.chosen,
-                    "rounds": report.rounds,
-                    "leaves": report.leaves,
-                }));
+                self.events
+                    .push(event(table, view, &searched.answer, &report));
                 let own = report.actions.first().map(action_kind).unwrap_or_default();
                 if report.changed {
                     // The policy's own answer at another target.

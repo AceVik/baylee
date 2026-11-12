@@ -1356,6 +1356,34 @@ chose the same answer, and the same class, where either replaced the
 policy's. A lead that holds on the other half is a signal a student can
 learn; one that vanishes there is the search fitting its few worlds.
 
+Each event also says how every one of those rollouts ended, `ends[p][i]`
+beside `worlds[p][i]` (`terminal`, `boundary`, …, `stopped`, `house_stop`,
+`taken_back`; the summary's `leaves` counts `taken_back` among `stopped`
+as it does `house_stop`). A score at a stop is the value of a position the
+rollout did not play on from, which a label may leave out: a rollout whose
+root cast the engine took back is scored just under the root's own value,
+and so is a loop the net's repeated-view fallback ends before a house
+answer.
+
+*The stall guard (`--search-stall-guard`).* A cast the engine cannot
+finish (no legal target once an X is announced, a cost it cannot pay) is
+taken back and the game is where it was. Its rollouts score that frozen
+position, which in a position that only gets worse beats every answer that
+plays on, so the search chose the cast again until the table's own
+repeated-view guard handed the seat to the house (a confirmation deal, 13
+house answers). With the guard the harness remembers, as the house's
+`StallMemory` does, the search's answers to one seat's priority questions
+from one position (`HeuristicAgent::position`) and the question's number;
+asked again from that position by a new question, the engine took them
+back, and the search is told so (`search_decision_avoiding`): such an
+answer is dropped from the candidates, and if it is the policy's own, that
+one is still rolled out for the others to be compared with but the best
+mean of the others is played. A root with nothing else left is the
+policy's, skipped as `taken_back`. The event names the answers set aside
+(`taken_back`), the summary counts them, and the metadata says the guard
+was on. A pass is never taken back. Off by default, so earlier runs read
+the same.
+
 The leaf is unchanged: the value head of the model that plays. The house's
 leaf round found that a search wins by the few answers that are plainly
 wrong and finds them with any sensible leaf (`house-ai-strength.md` §6a),

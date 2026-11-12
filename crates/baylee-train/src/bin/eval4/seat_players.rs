@@ -184,6 +184,7 @@ impl EvaluationPlayer for SeatPlayers {
         teams: &[Option<u8>],
         config: baylee_train::netplay4::search::SearchConfig4,
         seed: u64,
+        taken_back: &[baylee_engine::choice::PlayerAction],
     ) -> Option<anyhow::Result<baylee_train::netplay4::search::SearchedAnswer4>> {
         let seat = usize::from(view.seat.get());
         let is_learner = self.is_learner_seat(seat);
@@ -193,7 +194,7 @@ impl EvaluationPlayer for SeatPlayers {
         self.last_was_learner = is_learner;
         let result = self
             .player_mut(seat)?
-            .search(table, view, pending, teams, config, seed)?;
+            .search(table, view, pending, teams, config, seed, taken_back)?;
         if let Ok(searched) = &result {
             self.coverage
                 .record(PendingKind4::of(pending), searched.answer.provenance.source);
