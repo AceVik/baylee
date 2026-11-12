@@ -36,9 +36,22 @@ fn option(request: &Request, label: &str) -> String {
 /// answer, from question `from` on, until `card` is on the stack; how many
 /// questions seat 0 was asked.
 async fn play_until_cast(mind: &ApiMind, session: &mut Session, card: ObjectId, from: u64) -> u64 {
+    play_until(mind, session, from, &|session| {
+        session.observe_view(ME).stack.iter().any(|o| o.id == card)
+    })
+    .await
+}
+
+/// [`play_until_cast`] until `done` says so.
+async fn play_until(
+    mind: &ApiMind,
+    session: &mut Session,
+    from: u64,
+    done: &dyn Fn(&Session) -> bool,
+) -> u64 {
     let mut question = from;
     for _ in 0..40 {
-        if session.observe_view(ME).stack.iter().any(|o| o.id == card) {
+        if done(session) {
             return question - from;
         }
         let pending = session.pending().clone();
@@ -54,7 +67,7 @@ async fn play_until_cast(mind: &ApiMind, session: &mut Session, card: ObjectId, 
             .act_slice(player, action, 0)
             .expect("the table takes what the seat sends");
     }
-    panic!("the cast never reached the stack");
+    panic!("the plan never got there");
 }
 
 /// The board of the report, smaller: the Dragon's `{R}` is only Lazotep
@@ -170,4 +183,38 @@ async fn a_cost_with_a_choice_is_asked_and_the_taps_go_on_after_it() {
             .any(|o| o.name.as_ref() == "Zebra Unicorn")
     );
     assert!(!view.battlefield.iter().any(|o| o.id == bears));
+}
+
+/// Doomskar foretold off two Plains (CR 702.143a): the option taps both and
+/// then takes the special action, in one answer. The seat dropped its
+/// `then` after the last tap, because a foretell was no action it knew the
+/// table offered, so the model had to pick the option again with the mana
+/// floating (Carbon self-play b1-2, run1/attempt-000000007 q253-q255).
+#[tokio::test]
+async fn an_option_s_taps_end_in_its_foretell() {
+    let (mut session, view, _) = position(&["Plains", "Plains"], &["Doomskar"], &[]);
+    let doomskar = view.hand[0].id;
+    let first = asked(&session, 1);
+    let pick = option(&first, "Foretell Doomskar");
+    let (base, provider) = stand_in().await;
+    provider.script(decides(json!({"ask": "q1", "pick": [pick]})));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    play_until(&mind, &mut session, 1, &|session| {
+        !session
+            .observe_view(ME)
+            .hand
+            .iter()
+            .any(|c| c.id == doomskar)
+    })
+    .await;
+    assert_eq!(
+        provider.seen().len(),
+        1,
+        "one call for the taps and the foretell"
+    );
+    let view = session.observe_view(ME);
+    assert!(
+        view.exile.iter().flatten().any(|o| o.id == doomskar),
+        "foretold into exile"
+    );
 }

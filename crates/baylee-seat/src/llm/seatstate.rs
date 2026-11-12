@@ -1049,6 +1049,15 @@ fn plan_label(queue: &Queue) -> String {
 }
 
 /// Whether `legal` offers `action` now.
+///
+/// Every action an option's taps may end in is here, the special actions
+/// with an action of their own included (CR 116.2): a foretell (116.2h), a
+/// suspend (116.2f), a land (116.2a), a granted action (116.2c). Turning a
+/// card face up and unlocking a door (116.2b, 116.2m) and a prepared cast
+/// are abilities of `abilities` at their own indices; plot (116.2k) is no
+/// action this engine offers. A foretell's taps went out and the
+/// foretell itself was dropped, because it answered `false` here (Carbon
+/// self-play b1-2).
 fn offered(legal: &LegalActions, action: &PlayerAction) -> bool {
     match action {
         PlayerAction::ActivateManaAbility { source } => legal.mana_abilities.contains(source),
@@ -1057,6 +1066,12 @@ fn offered(legal: &LegalActions, action: &PlayerAction) -> bool {
             ability_index,
         } => legal.abilities.contains(&(*source, *ability_index)),
         PlayerAction::CastSpell { card } => legal.castable.contains(card),
+        PlayerAction::Foretell { card } => legal.foretellable.contains(card),
+        PlayerAction::Suspend { card } => legal.suspendable.contains(card),
+        PlayerAction::PlayLand { card } => legal.lands.contains(card),
+        PlayerAction::TakeGrantedAction { id } => {
+            legal.granted_actions.iter().any(|offer| offer.id == *id)
+        }
         PlayerAction::PassPriority => legal.can_pass,
         _ => false,
     }
