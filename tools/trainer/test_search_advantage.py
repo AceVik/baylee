@@ -125,9 +125,22 @@ class SearchAdvantage(unittest.TestCase):
             folder = Path(temporary)
             index.tofile(folder / "index.bin")
             items.tofile(folder / "cands.bin")
-            (folder / "header.json").write_text(json.dumps(dict(
-                contract=V.SIDECAR_CONTRACT, roots=2, root_kinds=["tap", "land", "pass"])))
+            import hashlib
+            digest = lambda name: hashlib.sha256((folder / name).read_bytes()).hexdigest()
+            header = dict(contract=V.SIDECAR_CONTRACT,
+                          index=dict(rows=2, sha256=digest("index.bin"), root_kinds=["tap", "land", "pass"]),
+                          cands=dict(rows=5, sha256=digest("cands.bin"),
+                                     coarse_classes=["pass", "tap", "cast", "activate", "land", "other"]))
+            (folder / "header.json").write_text(json.dumps(header))
             sidecar = V.SearchAdvantage.load(folder)
+            for broken in (dict(index=dict(header["index"], rows=3)), dict(cands=dict(header["cands"], sha256="0" * 64)),
+                           dict(cands=dict(header["cands"], coarse_classes=["tap", "pass"]))):
+                (folder / "header.json").write_text(json.dumps(dict(header, **broken)))
+                with self.subTest(header=broken), self.assertRaises(ValueError):
+                    V.SearchAdvantage.load(folder)
+        self.assertTrue(np.array_equal(V.held_out_of("train", np.array([3, 4, 8])), [False, False, False]))
+        self.assertTrue(np.array_equal(V.held_out_of("train", np.array([3, 4, 8]), 4), [False, True, True]))
+        self.assertTrue(V.held_out_of("val", np.array([3])).all())
         np.testing.assert_array_equal(sidecar.find(np.array([7, 7, 7]), np.array([1, 1, 0]), np.array([205, 101, 101])),
                                       [1, 0, -1])
         roots, labels = sidecar.labels(np.array([1, 0]))
