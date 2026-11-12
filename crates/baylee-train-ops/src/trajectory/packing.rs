@@ -323,11 +323,14 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
         .into_iter()
         .try_fold(HEADER_SIZE as u64, |sum, n| sum.checked_add(n?).or(None))
         .context("BST4 dimensions overflow")?;
-    // A distillation dataset may append exactly one block after the payload.
+    // A distillation dataset may append exactly one block after the payload,
+    // and a search-advantage twin exactly one of its own.
     let payload = usize::try_from(length)?;
     ensure!(payload <= raw.len(), "BST4 payload shape/length mismatch");
-    crate::tactician_labels::trailing_distill_block(&raw[payload..])
-        .context("BST4 payload shape/length mismatch")?;
+    if crate::search_advantage::read_twin_block(&raw[payload..])?.is_none() {
+        crate::tactician_labels::trailing_distill_block(&raw[payload..])
+            .context("BST4 payload shape/length mismatch")?;
+    }
     let multi = usize::try_from(multi)?;
     let free = usize::try_from(free)?;
     let start = payload - multi - free;

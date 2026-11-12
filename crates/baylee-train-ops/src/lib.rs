@@ -29,6 +29,7 @@ pub mod research_attempts;
 pub mod research_cache;
 pub mod research_contract;
 pub mod research_tensor;
+pub mod search_advantage;
 pub mod self_imitation;
 pub mod session_input;
 #[cfg(target_os = "linux")]
