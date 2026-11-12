@@ -85,23 +85,12 @@ LogCountersFinality =
        *[other] finality counters
     }
 
-# Hold Shift to turn the preview.
+# The pill under a two-faced card's preview: hold Shift to turn it over.
 PreviewTurn = Turn over
 
-# Hold Alt/Option for the alternative preview.
-PreviewAlternate = Alternate view
-
-# Compact preview footer: hold Shift.
-PreviewTurnCompact = Turn
-
-# Hold Shift to rotate a flip or an Aftermath card to its other half.
+# The same pill for a flip or an Aftermath card: hold Shift to rotate it to
+# its other half.
 PreviewRotate = Other half
-
-# Compact preview footer: hold Shift to rotate to the other half.
-PreviewRotateCompact = Half
-
-# Compact preview footer: hold Alt/Option.
-PreviewAlternateCompact = View
 
 # Deck-construction choice for this physical copy.
 SpiresCircles = Circle two colors for this copy

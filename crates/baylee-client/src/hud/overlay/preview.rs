@@ -251,12 +251,14 @@ pub(in crate::hud) fn face_node(width: f32, height: f32) -> Node {
     }
 }
 
-/// Keep the whole preview, including its hints, above the playable hand ledge.
-pub(in crate::hud) fn preview_with_footer_size(want: Vec2, window: Vec2, slip: f32) -> Vec2 {
+/// Keep the whole preview above the playable hand ledge: its card and what
+/// hangs `under` it, the stack's sheet and the key hint
+/// ([`super::preview_keys::room`]).
+pub(in crate::hud) fn preview_with_footer_size(want: Vec2, window: Vec2, under: f32) -> Vec2 {
     preview_art_size(
         want,
         PREVIEW_PAD,
-        window - Vec2::new(0.0, HAND_ZONE_H + slip + super::preview_keys::HEIGHT),
+        window - Vec2::new(0.0, HAND_ZONE_H + under),
     )
 }
 

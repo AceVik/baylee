@@ -1102,13 +1102,7 @@ fn presentation_json(believed: &Believed) -> serde_json::Value {
         .settings
         .as_ref()
         .map_or(Lang::En, |s| Lang::of(&s.lang));
-    let hints = [
-        Phrase::PreviewTurn,
-        Phrase::PreviewAlternate,
-        Phrase::PreviewTurnCompact,
-        Phrase::PreviewAlternateCompact,
-    ]
-    .map(|phrase| phrase.text(lang));
+    let hints = [Phrase::PreviewTurn, Phrase::PreviewRotate].map(|phrase| phrase.text(lang));
     let preview_hints: Vec<_> = believed
         .legal_text
         .iter()

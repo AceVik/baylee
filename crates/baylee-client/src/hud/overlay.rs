@@ -159,11 +159,13 @@ pub(super) fn spawn_commander_track(
 }
 
 mod answers;
+mod pop;
 mod preview;
 mod surfaces;
 mod sync;
 
 pub(crate) use answers::*;
+pub use pop::*;
 pub(crate) use preview::*;
 pub use surfaces::*;
 pub use sync::*;

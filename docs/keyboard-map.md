@@ -386,6 +386,15 @@ Hovering a card lifts it and shows the large tooltip (cursor shared with WASD
 plays it) or selects it for the pending choice; chosen cards stay raised /
 accent-framed until the choice is answered.
 
+While the tooltip is up, two held keys show more of its card, and neither is
+in the keymap because neither is an action: **`Shift`** turns a card over to
+its other face, or rotates a flip or an Aftermath card to its other half (a
+card with neither turns to the printed back), and **`Alt`/`Option`** (or
+`Cmd`) shows the alternate view, the card's rules text set in type where the
+picture is shown and the picture where the text is. The tooltip names `Shift` in a small pill
+under a card that has another face or half, and wears no key hint otherwise
+(owner, 12.11.2026); this paragraph is where `Alt` is written down.
+
 A card in hand can be lit two ways. **Gold** is the engine offering it: the
 mana is floating and one click casts it. **Indigo** is the client offering to
 tap for it: the mana is not floating, the lands to make it are, and one click

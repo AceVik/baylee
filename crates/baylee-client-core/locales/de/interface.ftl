@@ -42,11 +42,7 @@ LogCountersFinality =
        *[other] Endgültigkeitsmarken
     }
 PreviewTurn = Umdrehen
-PreviewAlternate = Andere Ansicht
-PreviewTurnCompact = Wenden
 PreviewRotate = Andere Hälfte
-PreviewRotateCompact = Hälfte
-PreviewAlternateCompact = Ansicht
 SpiresCircles = Zwei Farben für dieses Exemplar einkreisen
 SpiresNeedsCircles = Cryptic Spires benötigt zwei eingekreiste Farben. Wähle sie in der Druckauswahl.
 SpiresOutsideIdentity = Die eingekreisten Farben von Cryptic Spires liegen außerhalb der Farbidentität des Commanders.

@@ -48,15 +48,20 @@ fn both_faces_of_the_preview_stand_in_the_same_place() {
     assert_eq!(node.height, bevy::ui::Val::Px(265.0));
 }
 
-/// The hint footer must not sit on top of Keep/Pass/Confirm on a laptop.
+/// The key hint under a two-faced card must not sit on top of
+/// Keep/Pass/Confirm on a laptop.
 #[test]
-fn the_preview_and_its_keyboard_footer_clear_the_action_ledge() {
+fn the_preview_and_its_key_hint_clear_the_action_ledge() {
     use crate::hud::{hand, overlay, preview_keys};
     use bevy::prelude::Vec2;
     for window in [Vec2::new(1280.0, 720.0), Vec2::new(1280.0, 800.0)] {
         for scale in [0.5, 1.0, 1.75] {
-            let art = overlay::preview_with_footer_size(hand::preview_want(scale), window, 0.0);
-            let panel = art + Vec2::new(12.0, 12.0 + preview_keys::HEIGHT);
+            let art = overlay::preview_with_footer_size(
+                hand::preview_want(scale),
+                window,
+                preview_keys::ROOM,
+            );
+            let panel = art + Vec2::new(12.0, 12.0 + preview_keys::ROOM);
             let place = hand::preview_place(hand::PreviewAt::Hand(640.0), panel, window, None);
             assert!(place.y >= 0.0);
             assert!(place.y + panel.y <= window.y - hand::HAND_ZONE_H);

@@ -54,6 +54,7 @@ pub struct DuelPlugin {
 pub(super) fn add_present_systems(app: &mut App) {
     app.init_resource::<hud::StackFold>()
         .init_resource::<hud::HandArrival>()
+        .init_resource::<hud::PreviewPop>()
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
@@ -136,6 +137,9 @@ pub(super) fn add_present_systems(app: &mut App) {
                 (
                     hud::wash_the_slip_in,
                     hud::keep_the_preview_scrolled,
+                    // The preview spawned this frame stands at the pose its
+                    // opening is at; this carries it on from there.
+                    hud::pop_the_preview,
                     face::show_scrollbars,
                     hud::stack_text,
                 )

@@ -2692,15 +2692,35 @@ until it landed. `board.rs` now asks `small` everywhere; the only key at the
 readable size is the one `hud::overlay` rewrites for the preview, which is also
 the only place drawing a card big enough to need it.
 
-The duel preview has a quiet, 34-pixel keyboard footer outside its card frame.
-Two equal columns explain held Shift (turn over) and Alt/Option (alternate
-view), using Shift/Option marks on Apple platforms and named keycaps elsewhere.
-The footer keeps its orientation while the card turns, participates in the
-preview's bounds above the hand's action ledge, and does not intercept the
-pointer. The complete panel fits there before its card is sized, preserving
-the card's aspect ratio rather than putting the hints over Keep/Pass/Confirm.
-Its symbols are
-simple UI geometry, so missing glyphs in the text font cannot erase the hint.
+The duel preview wears one keyboard hint, and only where it says something
+about the card (owner, 12.11.2026, replacing a 34-pixel footer under every
+preview that named Shift and Alt): a small pill under a card that has another
+face, or a half read the other way up, naming held Shift and what it shows
+(`hud::preview_keys::turn`). A card with neither wears nothing, and Alt/Option
+(the alternate view) is written in `docs/keyboard-map.md` §"Mouse". The pill
+uses the Shift mark on Apple platforms and a named keycap elsewhere, drawn as
+simple UI geometry so a missing glyph cannot erase it. It keeps its
+orientation while the card turns, is part of the preview's bounds above the
+hand's action ledge (the panel is sized with its room before the card is, so
+the card keeps its aspect ratio), casts no part of the card's shadow, and does
+not intercept the pointer.
+
+**The preview comes up and goes away** (owner, 12.11.2026; `hud::overlay::pop`).
+It rises from the card it describes: from `motion::ZOOM_FROM` to full size on
+the HUD's opening curve in `motion::ZOOM_IN`, 12 pixels short of its place
+towards the card or pointer, while the shadow under it widens from a contact
+shadow to the height it is held at, with a breath of moonlight round its
+edge. When the pointer leaves, it sinks back towards the card over
+`motion::ZOOM_OUT` and is then gone. One preview handed straight on to the
+next card (the pointer running along a hand) does not open again: that is one
+panel showing another card. The opening's clock is a resource
+(`PreviewPop`), so a preview rebuilt while it opens carries on from the pose
+it had; a leaving preview's nodes are handed over by the rebuild
+(`PreviewLeave`) instead of being swept, and give up their bounds, their
+resize handle and the pointer. Only nodes move and only the shadow changes:
+nothing is drawn on the print and the print is never faded (`docs/legal.md`
+§3). With `reduce_motion` the preview stands and goes at once, and a preview
+at rest is written by nothing (`a_preview_at_rest_is_not_written`).
 For a double-faced card, including one in hand, Shift requests the reverse of
 the selected printing. Both faces retain that printing's language and finish.
 This inspection gesture does not change the card's state on the battlefield.
