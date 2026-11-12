@@ -30,7 +30,6 @@ pub(crate) enum Press {
     Close,
     Field(usize),
     Action(Choice),
-    Lock,
 }
 
 #[derive(Resource, Default)]
@@ -90,30 +89,6 @@ fn act(press: Press, form: &mut Form, host: &mut SocialHost, ui: &mut ChatUi) {
         }
         Press::Field(at) => {
             form.focus = at;
-        }
-        Press::Lock => {
-            if host.vault.is_central() {
-                // A still-authenticated account worker can restore these keys. Account
-                // sign-out is the supported boundary; do not present a false local lock.
-                return;
-            }
-            host.flush_save();
-            host.socket.hang();
-            host.socket = super::Socket::default();
-            host.mailbox = super::Mailbox::default();
-            host.table = None;
-            host.machine = None;
-            host.store = None;
-            host.disk = None;
-            host.save = None;
-            host.toasts.clear();
-            host.copy = None;
-            host.vault.attempted = true;
-            host.vault.error = None;
-            ui.sheet = None;
-            ui.typing = false;
-            ui.vault_open = true;
-            form.clear();
         }
         Press::Action(choice) => {
             let creating = choice != Choice::Unlock;
@@ -361,10 +336,10 @@ fn draw(
     if !visible || host.vault.is_central() {
         return;
     }
-    // Unlocked, the chat is locked from its composer, which carries the
-    // lock; nothing floats. A "Lock chat" pill stood free at 42 % of the
-    // width over the lobby and over the hand at a table whenever the window
-    // was shut (observed-faults, beta.8b pictures; played again 29.10.2026).
+    // Unlocked, nothing here is drawn, and nothing locks the chat again
+    // before the account signs out or the client quits: a "Lock chat"
+    // control asked for the password a second time and gave the player
+    // nothing for it (the owner, 12.11.2026).
     if host.active() {
         return;
     }
@@ -537,7 +512,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn notice_and_preferences_survive_lock_and_edits_while_locked() {
+    fn notice_and_preferences_survive_edits_while_locked() {
         use baylee_client_core::social::{ChatPrefs, Intent, Me, Social};
         let me = Me {
             tag: "AB12".into(),
@@ -561,12 +536,9 @@ mod tests {
         host.act(Intent::NoticeSeen);
         let seen = host.machine().unwrap().prefs().clone();
         super::super::window::save_prefs(&mut host, Some(&mut prefs), seen);
-        act(
-            Press::Lock,
-            &mut Form::default(),
-            &mut host,
-            &mut ChatUi::default(),
-        );
+        // Locked is where a resumed session without its password stands:
+        // no machine, and the preferences it saved kept beside the vault.
+        host.machine = None;
         assert!(host.machine().is_none());
         assert!(host.vault.prefs.notice_seen);
         let mut edited = prefs.all().chat.clone();

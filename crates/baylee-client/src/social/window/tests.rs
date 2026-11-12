@@ -205,7 +205,6 @@ fn the_composer_puts_the_card_and_player_hint_in_its_placeholder() {
         &[],
         0,
         Frame::Lobby,
-        true,
     );
     app.world_mut().flush();
     let row = app.world().get::<Children>(kids[0]).expect("composer row");
@@ -226,13 +225,10 @@ fn the_composer_puts_the_card_and_player_hint_in_its_placeholder() {
         placeholder.contains(write.trim_end_matches('…')),
         "{placeholder:?}"
     );
+    // The composer offers nothing that locks the chat again (the owner,
+    // 12.11.2026: "Security Zeugs darf UX nicht verschlechtern").
     let mut vault = app.world_mut().query::<&crate::social::vault_ui::Press>();
-    assert!(
-        vault
-            .iter(app.world())
-            .any(|press| *press == crate::social::vault_ui::Press::Lock),
-        "the composer itself carries the lock, away from Send"
-    );
+    assert_eq!(vault.iter(app.world()).count(), 0);
 }
 
 /// The resize corner is a real target above the composer's shadowed surface.

@@ -50,9 +50,10 @@ Only one vault job runs per process, including an explicitly requested keychain
 import that is still waiting for the operating system.
 
 An existing vault opens with the login password. A resumed session without a
-password remains chat-locked until the player opens **Unlock chat**. **Lock chat**
-flushes encrypted state, disconnects chat, and drops the machine and unlocked
-store. Sign-out, account switch, and process exit likewise drop the unlocked
+password remains chat-locked until the player opens **Unlock chat**. Nothing
+in the client locks an unlocked chat again (a "Lock chat" control did until
+12.11.2026; it asked for the password a second time and bought the player
+nothing): sign-out, account switch, and process exit drop the unlocked
 keys. Key material and password buffers use zeroization; this is not a promise
 that every temporary compiler copy, OS swap page, or transport buffer is wiped.
 

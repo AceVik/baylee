@@ -1076,7 +1076,6 @@ fn sync_lobby_window(
         lang,
         machine,
         host.vault.sync_status(),
-        !host.vault.is_central(),
         &ui,
         duel.as_deref(),
         texts.as_deref(),
@@ -1496,7 +1495,6 @@ fn fill(
     lang: Lang,
     machine: &Social,
     backup: Option<super::vault_access::SyncStatus>,
-    lock_in_composer: bool,
     ui: &ChatUi,
     duel: Option<&Duel>,
     texts: Option<&crate::cardtext::CardTexts>,
@@ -1713,21 +1711,12 @@ fn fill(
             lang as u8,
             ui.hint.map(|(p, _)| p as u8),
             ui.tab,
-            lock_in_composer,
         ));
         if key != drawn.composer_key {
             drawn.composer_key = key;
             commands.entity(composer).despawn_children();
             let kids = composer_parts(
-                commands,
-                fonts,
-                lang,
-                machine,
-                ui,
-                &suggest,
-                highlight,
-                frame,
-                lock_in_composer,
+                commands, fonts, lang, machine, ui, &suggest, highlight, frame,
             );
             commands.entity(composer).add_children(&kids);
         }

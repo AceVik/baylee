@@ -10,9 +10,6 @@ VaultExplain = The account password unlocks local chat keys. After a password re
 VaultOpen = Unlock chat
 
 # Local encrypted vault.
-VaultLock = Lock chat
-
-# Local encrypted vault.
 VaultPassword = Vault password
 
 # Repeated new wrapping password prevents accidental lockout.

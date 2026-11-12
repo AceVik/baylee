@@ -10257,9 +10257,11 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   Retina, 30.10.2026), the rounds differing more than the switch.
 - **Where things stand** (played 29.10.2026). The header's chat count is a
   badge on the bubble's shoulder, out of the row (it lay over the word's
-  last letter). Unlocked, nothing floats: the composer carries the lock (a
-  "Lock chat" pill stood free at 42 % of the width, over the lobby and over
-  the hand at a table, whenever the window was shut). Locked, **Unlock chat**
+  last letter). Unlocked, nothing floats and nothing locks the chat again:
+  a "Lock chat" pill stood free at 42 % of the width, over the lobby and
+  over the hand at a table, then in the composer, and is gone since
+  12.11.2026 (the owner: security must not make the interface worse; the
+  keys go with sign-out, account switch and quitting). Locked, **Unlock chat**
   stands where the chat's pill would: the lobby's bottom-left corner, beside
   the memorial's caption where the window is short enough to share its band
   (`window::pill_left`; the pill had covered half of it), and at a table

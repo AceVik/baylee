@@ -3,7 +3,6 @@
 VaultTitle = Verschlüsselter lokaler Tresor
 VaultExplain = Das Account-Passwort entsperrt die lokalen Chat-Schlüssel. Nach einem Passwort-Reset brauchst du das bisherige Tresorpasswort. Ein optionales neues Passwort verschlüsselt dieselben Schlüssel neu. Beim Erstellen oder Importieren musst du das gewählte Passwort im letzten Feld wiederholen. Importquellen bleiben erhalten. Ein neuer Tresor erstellt ein neues Chat-Gerät; bisherige Schlüssel und Verläufe bleiben unangetastet. Gäste und Browser-Tabs halten Schlüssel nur im Arbeitsspeicher.
 VaultOpen = Chat entsperren
-VaultLock = Chat sperren
 VaultPassword = Tresorpasswort
 VaultPasswordAgain = Neues Tresorpasswort wiederholen
 VaultPasswordMismatch = Die neuen Tresorpasswörter stimmen nicht überein.
