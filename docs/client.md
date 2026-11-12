@@ -43,10 +43,22 @@ The old land-driven atmosphere renderer and its full-table blended shader have
 been removed; atmosphere intensity now controls the sky's aurora and sparks.
 The lobby backdrop remains separate from the duel.
 
-`felt.wesl` draws smoked glass above winding water and lava channels. Water
-ripples and caustics travel faster than the molten crust; their confluence
-cools into dark obsidian with a restrained steam veil. Fixed banks keep the
-motion legible as flow. Two scales of domain-warped cellular seams form
+`felt.wesl` draws polished smoked glass over a slab of midnight mineral that
+channels are cut into, with water and molten rock standing in their beds
+(`glass_at`). The cut has depth to the eye and costs no second pass: the
+eye's ray is marched through the channel's own profile (`cut_hit`, six steps
+and a secant), so a bank that faces the viewer is seen and one that faces
+away hides behind its lip; the banks are shaded by one painted light
+(`CUT_LIGHT`), lit from below by what runs in the bed, and the lip that faces
+the light carries one pale line. Away from a channel the slab is its top and
+none of this runs. Water ripples and caustics travel faster than the molten
+crust, each at **one** speed for the whole bed (a speed that differs across
+it, multiplied by the time, shears the pattern without end: after ten minutes
+every pixel of water was another cell). The crust is two octaves of noise and
+no more, because a seam is a thin band cut out of it and every further
+octave folds that band into a stipple; caustics and seams leave with the
+pixels that could draw them (`fine`). Where water and rock meet, the rock
+cools to black glass. Fixed banks keep the motion legible as flow. Two scales of domain-warped cellular seams form
 connected trunks and fine capillaries, with spatially blended water and lava.
 The pattern is vascular rather than spaced along golden-section curves. A
 client-only OS-random seed chooses domain offset, orientation, and scale once
@@ -293,7 +305,15 @@ hitboxes or projected seat shelves.
 circuits, inset colour segments and tooling around the firewheel.
 The inlay colours stay in fixed positions; only their illumination moves.
 The phase lamp remains a separate semantic light. `mat.wesl` adds recessed
-corner shoulders and terminates lane rules short of the frame. Both resolve
+corner shoulders and terminates lane rules short of the frame, and draws the
+field as a shallow tray of smoked glass let into the table (`TRAY_*`): it
+keeps back three tenths of the cloth's light over the whole field, so a
+channel under a card is quieter than one beside the mat, and the table's
+edge throws a shadow into it on the side the light comes from. That side is
+read on the screen (`dpdx`/`dpdy` of the mat's distance field), not in the
+mat's own space, so a seat drawn turned round is shaded like every other.
+The shade is folded with the mat's light into one straight-alpha colour and
+fades with the seat (`accent.w`). Both resolve
 fine details against the pixel footprint rather than assuming a resolution.
 
 The sky is graded independently: open blue daylight with warm cloud edges by

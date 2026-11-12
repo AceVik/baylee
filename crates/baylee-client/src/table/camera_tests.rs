@@ -916,6 +916,8 @@ struct VertexOutput {
 };
 struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
+struct View { world_position: vec3<f32> };
+@group(0) @binding(0) var<uniform> view: View;
 ";
     // `check_wgsl` strips `import` lines: the shared hash goes back by hand.
     let prelude = format!("{prelude}{}", include_str!("../shaders/noise.wesl"));
