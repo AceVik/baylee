@@ -813,6 +813,43 @@ now stops it with exit status 2 and the usage, where it was once ignored, and
 `--help` prints the usage and exits 0. Neither reads a setting or binds a
 port.
 
+### The house's search
+
+From the release that brings it (12.11.2026), the engine server has the
+house levels search at every table it hosts (`docs/house-ai.md` §"Foresight
+at a host"). An operator needs to do nothing for it, and can bound it on the
+agent's unit, whose environment every engine inherits
+(`docs/dev/environment.md` §"Agent", §"Engine server"):
+
+- **On by default, off with one line:** `BAYLEE_FORESIGHT=off` and every
+  level answers as its heuristics do, as before this release.
+- **Searches at once on the machine:** `BAYLEE_FORESIGHT_SEARCHES`, by
+  default half the cores the agent may use, at least one. That is the most
+  CPU the searches take together, however many tables play; a search that
+  finds no slot free is not made and the level answers as before. The
+  agent makes the slots' directory itself (in systemd's `RuntimeDirectory=`
+  when the unit names one, which no timer sweeps; else in
+  `XDG_RUNTIME_DIR` or `/tmp`) and removes it when it stops.
+- **The wall guard:** `BAYLEE_FORESIGHT_WALL_MS`, three seconds by default;
+  a search past it is given up and logged as a warning (`a house search ran
+  past the host's wall guard`). Warnings in numbers mean a host short of
+  CPU: lower `BAYLEE_FORESIGHT_SEARCHES`.
+- **A lighter search:** `BAYLEE_FORESIGHT_WORK` in percent of each level's
+  bound. The levels then play weaker than they were measured.
+- **What to read:** each game's end is one `info` line, `house searches`
+  (asked, searched, replaced, refused, busy, walled, slowest_ms, most_work),
+  with `RUST_LOG=info` as every server is run.
+
+A value out of its range stops each engine at launch, so a typo shows as
+games that do not start, never as a host bounded otherwise than meant. What
+the defaults cost was measured on a sixteen-thread notebook and on two of its
+cores standing in for a small VPS (§"What the house's search costs" of
+`docs/house-ai.md`).
+
+The profile-guided engine server (§"Profile-guided builds") still trains on
+`engine_perf`'s games, which do not search: the search's own code is built
+with the profile but without counts of its own.
+
 ### What the server builds with
 
 The server builds each release itself, as the deploy user, in its checkout
@@ -888,8 +925,8 @@ its build. Gates and everyday builds set neither, so they stay as they are.
 
 `engine_perf` is a bin of its own crate and not an example because it is built in
 the same `cargo` run as what ships, so that the two share their features, and an
-example would bring its crate's dev-dependencies in, among them `simulation`, which
-`cargo dev gate shipped-features` keeps out of a hosting build.
+example would bring its crate's dev-dependencies in, among them the engine's
+`mutate` hook, which `cargo dev gate shipped-features` keeps out of a hosting build.
 
 A deployer picks this up one deploy late: the running `baylee-deploy` is what stages,
 so the deploy that first installs this code still builds a plain engine server.

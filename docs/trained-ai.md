@@ -1184,9 +1184,10 @@ hidden zone (`MarkedHiddenCard`), …) is answered by the policy and counted
 under the engine's `ForkRefusal`, each by its own name in
 `search.counts.refused`. What the seat can see now (a hand a static reveals,
 a hand it may inspect, a library top a static reveals) is kept in a fork,
-not dealt again. The fork exists only under the engine's `simulation` feature, which
-`baylee-train/onnx` turns on (`docs/engine-internals.md` §"Forking a
-simulation"), so every `eval4` build can search.
+not dealt again. The fork exists only under the engine's `fork` feature, which
+`baylee-train/onnx` turns on through gamehost's `simulation`
+(`docs/engine-internals.md` §"Forking a simulation"), so every `eval4` build
+can search.
 
 **Candidates.** K answers: the policy's own answer first, then the other
 legal answers of the same decision by the raw candidate logit of the same

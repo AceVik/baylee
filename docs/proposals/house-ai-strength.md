@@ -1327,6 +1327,17 @@ points or more and a hard budget exists):
   (`work.rs`): the same view, seed and bound spend the same units on any
   machine.
 
+**Built (12.11.2026),** once both conditions held (BayleeAI's fair-search
+probe +7.4 points; generation 9's bound): hosted tables and the client's own
+table search, and `docs/house-ai.md` §"Foresight at a host" is what stands.
+Of the proposals above: a cap on searching chairs is a count of searches at
+once on the machine (`BAYLEE_FORESIGHT_SEARCHES`, slots shared by the
+agent's engines), one searched decision per pump slice is built, wall time
+has a guard that gives a search up for the level's own answer (the record
+holds the answer given, so replays stay exact), and a host's bound is a
+share of each level's (`BAYLEE_FORESIGHT_WORK`) under a ceiling of
+`expert`'s. A record still does not say the bound it played under.
+
 ### 7.9 Block repairs: the larger log, and what the hypotheses of §7.3 are worth
 
 **The log.** Expert at generation 8 against `expert:generation=6`, train

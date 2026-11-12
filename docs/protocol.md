@@ -2128,6 +2128,42 @@ client makes to label the same buttons. The line is *state* versus
 *printed text*: a registry answers "what does Arid Mesa say", never "what
 is in that library".
 
+## The house's search at a hosted table
+
+Since 12.11.2026 the engine server has the house levels try their options
+in copies of the game before they answer, at every table it hosts
+(`docs/house-ai.md` §"Foresight", §"Foresight at a host"). Nothing on the
+wire changes: no message, field or route is new, the protocol and view
+versions stay, and nothing new is read from a client.
+
+- **What decides what a search may spend.** A player names a level in the
+  lobby, as before (`ai` on a room's chair or a one-tap game, checked with
+  `AIProfile::named`: the six levels, nothing else). The gateway builds the
+  chair's profile from the name and sends it to the engine in
+  `GameSetup.preset_json`, with the level's foresight tier and its
+  generation-9 bound. The engine grants the operator's share of that bound
+  under a ceiling of `expert`'s, whatever the preset says. An AI profile
+  built from the protocol's numbers (`GamePresetMsg`, the dev harness's
+  `CreateGame`) has no tier and never searches. No client field raises
+  compute.
+- **What the operator sets** (the agent's environment, which its engines
+  inherit; `docs/dev/environment.md` §"Engine server"): the switch, the
+  share of each level's bound, the searches at once on the machine, the
+  wall guard. Searches at once are held across the agent's engines by locks
+  on files in a directory the agent makes (`BAYLEE_FORESIGHT_SLOTS`).
+- **What a player sees.** Each searched answer ends a pump slice, so a
+  player gets the house's frames between two searches, and the engine reads
+  clock probes, flushes and seat changes between them. A searched answer
+  takes up to about a second of a core at `expert` (most take a tenth of
+  that) and never more than the wall guard (three seconds by default) plus
+  one engine step; where no slot is free or the guard passes, the level
+  answers as its heuristics do, at once.
+- **Records and replays.** The house's answers are inputs of the record as
+  before. A replay, a projection (§"Replays") and a
+  resumed table apply the recorded answers and ask no house, so a search
+  that was given up, or never made for want of a slot, replays exactly as
+  it was played.
+
 ## Combat enumerates its own answers
 
 `Pending::ChooseAttackers` carries `attackers` beside `defenders`, and

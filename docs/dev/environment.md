@@ -139,6 +139,9 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 - `BAYLEE_AGENT_NAME`.
 - `BAYLEE_AGENT_CAPACITY` (0 = unlimited).
 - `BAYLEE_ENGINE_BIN` (default beside the agent).
+- `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory only their user may write to, which the engines check). The agent hands it to every engine it starts.
+
+Its engines inherit the agent's environment (less its token), so the house's search is set on the agent's unit: `BAYLEE_FORESIGHT`, `BAYLEE_FORESIGHT_WORK`, `BAYLEE_FORESIGHT_SEARCHES` and `BAYLEE_FORESIGHT_WALL_MS` below.
 
 ## Feedback service (`baylee-feedback`)
 
@@ -163,6 +166,16 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 
 - `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`: all three, or it refuses to start; none at all = listening dev harness (`PORT`, `0` and `BAYLEE_PORT_FILE` as on the gateway; `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
 - `BAYLEE_ENGINE_PUMP_STEPS` (attached transport only, default `128`, integer `1..=128`; invalid values refuse launch). `1` publishes each house-pump slice for local neural-seat experiments. A socket action followed by house work can still share one output batch; this does not expose internal automatic actions or guarantee training-equivalent observations for mixed house/socket tables. Two connected socket seats receive their own filtered view after every explicit answer.
+
+The house's search at the tables an attached engine hosts (`docs/house-ai.md` §"Foresight at a host"; read once at launch, a value out of its range refuses launch; the dev harness never searches):
+
+- `BAYLEE_FORESIGHT` (`on`, the default, or `off`: every level answers as its heuristics do).
+- `BAYLEE_FORESIGHT_WORK` (percent of each level's own bound one search may spend, `1..=100`, default `100`; never more than `expert`'s bound, eight million units, whatever a preset says; below 100 the levels play weaker than measured).
+- `BAYLEE_FORESIGHT_SEARCHES` (searches at once on the machine, among every engine of the agent, `1..=256`; default half the cores the process may use, at least one; a search that finds every slot taken is not made, the level answers as its heuristics do, and nothing waits).
+- `BAYLEE_FORESIGHT_WALL_MS` (`100..=60000`, default `3000`: a search still running after this much wall time is given up, the level's own answer is given and the engine logs a warning).
+- `BAYLEE_FORESIGHT_SLOTS` (the slots' directory, from the agent; unset = no search; refused at launch if others than its owner may write to it).
+
+A game's end logs `house searches` (asked, searched, replaced, refused, busy, walled, the slowest in ms, the most work one search spent) at `info`; each searched answer is a `debug` line of `baylee_gamehost` (`house search`, its µs and work).
 
 ## House AI tests (`baylee-gamehost`)
 

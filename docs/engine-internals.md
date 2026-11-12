@@ -2533,16 +2533,21 @@ comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
 ## Forking a simulation (training and evaluation)
 
 `Engine::fork_for(seat, decks, policy_seed)` (`engine/simulation.rs`) is
-the lookahead seam for a harness that already owns the real engine — the
-evaluator, `eval4`, runs its games in-process through
-`baylee_gamehost::session::Session`. It is **not** for live play: a seat
-playing over the gateway has no engine to fork, and
-`docs/proposals/lookahead-design.md` remains the design for that one. It
-needs `L: CardLookup + Clone`; the registry lookups are unit structs. It
-exists only under the engine's `simulation` feature (gamehost forwards it):
-`cargo dev gate shipped-features` fails when any crate outside the training
-crates enables it, so no hosting build can fork a live game. The training
-crates turn it on through `baylee-train/onnx`, never a default:
+the lookahead seam for whoever already owns the real engine: the host's own
+house search (`baylee-gamehost`'s `session/foresight/`, which the engine
+server and the client's own table run within each level's bound and the
+host's, `docs/house-ai.md` §"Foresight at a host") and the evaluator,
+`eval4`, which runs its games in-process through
+`baylee_gamehost::session::Session`. A seat playing over the gateway has no
+engine to fork, and `docs/proposals/lookahead-design.md` remains the design
+for that one. It needs `L: CardLookup + Clone`; the registry lookups are
+unit structs. It exists only under the engine's `fork` feature (named
+`simulation` until 12.11.2026), which gamehost's `foresight` turns on, and
+with it the hosting builds. What `cargo dev gate shipped-features` keeps
+out of every hosting build is the harness around it, gamehost's
+`simulation` (`Session::fork_for` to drive a copy by hand, probes, a
+harness's clock). The training crates turn that on through
+`baylee-train/onnx`, never a default:
 `cargo build-servers` and `build-client` select `--workspace`, so a default
 of any member, a training crate's too, unifies into every shipped binary.
 `baylee-train/play` is a default and would have leaked it there. The gate's

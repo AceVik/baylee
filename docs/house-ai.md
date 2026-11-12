@@ -1187,12 +1187,19 @@ policy input. Custom profile horizons above two are capped.
 
 From `AIProfile::FORESIGHT` (generation 7) a level has a foresight tier
 (`AIProfile::foresight`), and where its host can fork the game it tries its
-options in copies before it answers. The host is `baylee-gamehost` under
-its `simulation` feature (`session/foresight.rs`), which only the training
-crates enable, and a table has to switch it on (`Session::set_foresight`,
-`eval4 --house-foresight`). Everywhere else, in every hosted game today, a
-level answers as its heuristics do. Whether the hosts get the fork is the
-owner's decision (`docs/proposals/house-ai-strength.md` §5).
+options in copies before it answers. The search is `baylee-gamehost`'s,
+under its `foresight` feature (`session/foresight/`), and a table has to
+switch it on (`Session::set_foresight`). The hosting builds have it (the
+engine server and the client's own table, on the engine's `fork`), and since
+12.11.2026 they switch it on: every hosted table, through the gateway and
+the engine server, and every offline table a player starts, plays the house
+levels with their foresight, within each level's generation-9 bound and the
+host's (§"Foresight at a host"; the owner's conditions of
+`docs/proposals/house-ai-strength.md` §7 hold: BayleeAI's fair-search probe
+showed +7.4 points, and generation 9 bounds every search). A harness turns
+it on itself (`eval4 --house-foresight`); the measurement and study hooks
+around it (probes, kept questions, a clock of its own, `Session::fork_for`)
+are gamehost's `simulation`, which only the training crates enable.
 
 **What is searched.** Three questions, the ones the engine can fork
 (`docs/engine-internals.md` §"Forking a simulation"): priority with nothing
@@ -1322,14 +1329,151 @@ engine step is not bounded by the unit.
 **Fairness.** `session/tests/foresight.rs` deals the house the two games of
 `tests/fair_house.rs`, which differ only in the opponent's decklist, hand
 and library, with foresight on: every fair level answers both the same,
-answer for answer, and searches the same positions. The engine's own twin
-games hold the fork (`engine/simulation_tests/prior.rs`).
+answer for answer, and searches the same positions. The same twins run at a
+table hosted as an engine server hosts one (`…_at_a_host`), and through the
+engine server's own runner on the hosting build, gamehost's `foresight`
+without the harness (`baylee-engine-server`'s
+`a_fair_level_searches_alike_whatever_is_hidden_at_a_hosted_table`). The
+engine's own twin games hold the fork (`engine/simulation_tests/prior.rs`).
 
 **Guards.** A position a search replaced the level's answer at and that
 comes back unchanged means the engine took the answer back; the level's own
 answer is given there, under its own stall guard. A fork the engine refuses
 (a suspended operation, something public naming a hidden card) leaves the
 level's own answer.
+
+## Foresight at a host
+
+A level's bound is a count, so it holds a search to the same work on any
+machine; what it does not hold is said in
+`docs/proposals/house-ai-strength.md` §7.8: one engine step, the level's own
+answer before the search, and wall time on a loaded machine. A host adds its
+own bounds (`HostForesight`, `Session::set_foresight_host`,
+`session/foresight/host.rs`), and the engine server sets them from its
+operator's settings (`baylee-engine-server`'s `foresight.rs`,
+`docs/dev/environment.md` §"Engine server"):
+
+- **Who decides what a search may spend: the server alone.** A player
+  chooses a level by its name in the lobby (`AIProfile::named`, the six
+  levels and nothing else: no reference, no generation, no number); the
+  gateway builds the chair's profile from the name, with its tier and its
+  bound, and the engine grants the host's share of it. A profile read from
+  the protocol's numbers (`preset::from_proto`, the dev harness) has no tier
+  and never searches. No message from a client carries or changes a tier, a
+  bound, a share or a switch.
+- **A ceiling and a share,** counts again: no search at a host spends more
+  than `expert`'s bound (`AIProfile::EXPERT_WORK`, eight million units),
+  whatever generation a preset names, and an operator may lower every level's
+  bound to a share of it (`BAYLEE_FORESIGHT_WORK`, percent). Below 100 a
+  level plays weaker than it was measured, and its games are no longer that
+  level's numbers.
+- **Searches at once on the machine** (`BAYLEE_FORESIGHT_SEARCHES`, default
+  half its cores, at least one). One engine plays one game and searches one
+  answer at a time, so the count that matters is the machine's: the agent
+  makes a directory only its user may enter and hands it to every engine it
+  starts (`BAYLEE_FORESIGHT_SLOTS`), and a search holds a lock on one of so
+  many files there (`flock`) while it runs. A search that finds every slot
+  taken is not made: the level answers as its heuristics do, at once, and
+  the table counts it (`ForesightStats::busy`). Nothing waits for a slot, so
+  nothing queues. An engine that was given no slots searches nothing.
+- **A wall guard** (`BAYLEE_FORESIGHT_WALL_MS`, default 3,000). The meter
+  is read before each fork and after each answer in one, and so is the
+  host's clock: a search past the guard is given up where it stands and the
+  level's own answer is given, whatever the search had found
+  (`ForesightStats::walled`), and the engine says so in its log
+  (`a house search ran past the host's wall guard`). One engine step is not
+  interrupted, so a search may run past the guard by the step it was in.
+- **One searched answer a slice.** The engine's event loop pumps the house
+  in slices; a slice ends after an answer that was searched, so the engine
+  reads its socket (clock probes, a flush of the record, a seat coming back)
+  between two searches, and a player sees the house's land before it
+  thinks about its spell.
+- **A switch** (`BAYLEE_FORESIGHT=off`): every level answers as its
+  heuristics do.
+
+**Determinism and the record.** A search that runs answers as it would
+anywhere: its bound, the ceiling and the share are counts. Slots and the
+wall guard read the machine, so where they act the same position may be
+answered without the search. That is safe for the record, whose inputs are
+the answers: the house's answer is written as it was given (`Source::House`),
+and a replay, a projection and a table resumed after a restart apply the
+recorded answers and ask no house again (`session/resume.rs`,
+`record::replay`). Two tables of the same seeds can differ only where a slot
+was busy or the guard passed, and each table's log line at its end says how
+often (`house searches`: asked, searched, replaced, refused, busy, walled,
+the slowest in milliseconds and the most work one search spent).
+
+**The client's own table** (`LocalHost::into_installed`, native builds)
+searches as an engine server does by default, on its worker thread: each
+level's bound under `expert`'s, one search at a time in the program, a guard
+of three seconds and one searched answer a slice. A browser build's table
+does not search, because its host runs on the page's own thread. A
+`LocalHost` built in a test searches only where it asks
+(`LocalHost::searching`).
+
+**What a remote player can make a host spend.** A player picks levels by name
+for the chairs of their rooms (eight rooms an account; at least the host's
+chair is a person) and plays at whatever pace they like. Per searched
+answer: at most the level's bound in work (`expert` eight million units,
+about a second of a core) plus one engine step, the level's own answer
+before it (up to 262,144 nodes of its combat search, about 20 ms), and at
+most the wall guard in time. At once, on one machine: at most
+`BAYLEE_FORESIGHT_SEARCHES` searches, so at most that many cores, whatever
+the number of tables; past it the house plays by its heuristics, as every
+hosted game did before. One search holds one fork of its game at a time.
+What a player can take from other players is the slots: tables that search
+all the time keep them busy, and the other tables' house then answers
+without searching. One account plays one game at a time on a gateway, so
+holding every slot takes as many accounts as there are slots, each at a
+table it plays at the machine's speed.
+
+### What the house's search costs
+
+`baylee-engine-server`'s `tests/foresight_load.rs` (ignored; run by hand on
+the machine it measures) starts engines as an agent does, one slots
+directory and the operator's settings, and plays each table of `expert`
+against a seat it plays over the engine link at `steady`, from its own view;
+`BAYLEE_LOAD_THINK_MS` lets the seat think before each answer, 0 plays at
+the machine's speed. The times below are each searched answer's wall time
+from the engines' own log. Measured 12.11.2026 on the 24-thread workstation
+(Ryzen 9 3900X) beside other people's jobs (a load of 10 to 160 that came
+and went), with a release build; a small VPS is two of its cores
+(`taskset`), on which an engine counts two cores and so takes one slot by
+default. The decks are the house's (`allytifact`, `victory`, `maik`,
+`schwarzrand`, `weltenbaum`).
+
+| Host | Tables | Seat thinks | Games | Searched / busy / given up | ms p50 / p95 / p99 / max | Engine CPU-s a game | Seat's longest wait |
+| --- | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| 24 threads, 12 slots | 16 | 300 ms | 16 | 615 / 0 / 0 | 140 / 460 / 515 / 746 | 7.5 | 1.3 s |
+| 24 threads, 12 slots | 8 | 0 | 16 | 615 / 0 / 0 | 167 / 525 / 637 / 701 | 8.5 | 1.4 s |
+| 24 threads, 12 slots, load ≈ 160 | 24 | 0 | 48 | 1,001 / 1,946 / 0 | 482 / 1,761 / 2,111 / 2,476 | 9.4 | 7.0 s |
+| 2 cores, 1 slot | 4 | 300 ms | 4 | 189 / 60 / 0 | 267 / 612 / 666 / 738 | 14.5 (load ≈ 110) | 3.3 s |
+| 2 cores, 1 slot | 8 | 300 ms | 8 | 238 / 124 / 0 | 140 / 405 / 478 / 534 | 5.4 | 0.9 s |
+| 2 cores, 1 slot | 4 | 0 | 8 | 55 / 317 / 0 | 223 / 482 / 540 / 640 | 2.0 | 1.4 s |
+| 2 cores, 2 slots | 4 | 0 | 8 | 118 / 206 / 0 | 145 / 390 / 465 / 599 | 2.7 | 1.0 s |
+| 2 cores, search off | 4 | 0 | 8 | 0 / 0 / 0 | | 0.12 | 6 ms |
+
+- **A game against `expert` costs its engine 7.5 to 8.5 CPU-seconds** where
+  the levels answered by heuristics alone for an eighth of a second; the
+  two rows at 24 threads are the same sixteen games, answer for answer and
+  search for search, played at two paces. No search spent more than its
+  bound (8,005,708 units at most, the bound and one step), and an engine
+  peaked at 57 to 59 MiB with the search as without it.
+- **The default is safe on a small VPS.** At two cores the engines take one
+  slot, so the searches take at most one core whatever the tables do; with
+  tables played at the machine's speed six searchable questions in seven
+  found the slot taken and were answered by the heuristics at once, and the
+  other core was left to the tables, the seat and the rest of the machine.
+  Played at a person's pace, one in five to three in ten did. No search on a
+  host in these runs reached the wall guard of three seconds, not even at a
+  load of 160 on 24 threads (slowest 2.5 s); a VPS with slower cores than
+  this one would reach it first in its slowest searches, which then give
+  the level's own answer.
+- From 6 % to 29 % of the questions a search would take, by the games
+  dealt, were not searched because the engine refused the fork on these
+  decks (`refused`), against one in twenty on the train split (§5a of the
+  proposal); those get the level's own answer. Which refusals these are is
+  not logged at a host; `eval4` names them.
 
 ## The seated house
 
