@@ -127,11 +127,35 @@ Prototype and disguise are offered as named casting forms, and modal lands
 can explicitly be played as lands or cast as their spell face. Turning a
 disguised permanent face up is a named special action with its printed cost.
 
-Graveyard and exile previews show the four newest cards with shallow tilt and
-a small hover offset that keeps the card under the cursor. The library uses
-the same bounded preview with backs; authorized search/scry cards continue to
-appear through the choice interface. Command slots never fan. All movement
-uses the existing card motion system and respects reduced motion.
+A hover over a graveyard or an exile pile opens its four newest cards as a
+hand held over the pile (`SeatSlot::fan_pose`). The newest stays over the
+pile; each older one turns a little further round a point on the owner's side
+of it and opens inwards, over the strip between the pile and its seat's mat,
+so every card shows about half of itself. The hand is built in the seat's own
+frame: the seat across the table shows the same hand point-mirrored and a
+flank seat shows it a quarter round, as their boards are (the owner,
+12.11.2026). The card under the pointer rises over the rest without moving
+sideways, which keeps it under the cursor. The pile's remaining cards stay
+where they lie, as a stack under the hand. A library does not fan: it has no
+cards to show (CR 401.2), and the number beside it says what a fan of backs
+said. Authorized search/scry cards continue to appear through the choice
+interface. Command slots never fan. All movement uses the existing card
+motion system and respects reduced motion.
+
+Beside each seat's library, graveyard and exile pile lies the number of cards
+in it (`table/pile_counts.rs`, `cardplate::pile_badge_rect`; the owner,
+12.11.2026): on the felt between the pile and the mat, on no print. It is
+written for the one looking and not for its seat: it stands upright on the
+screen at every seat, also while the camera goes round, and its figures are
+9 px tall there whatever the table's size (`cardplate::PILE_FIGURE_PX`,
+`pile_badge_scale`), between one and a half and four times a merged card's
+count. Set at its card's size, as that count is, it was five pixels tall at
+a table of four and lay on its side at the flank seats (played 12.11.2026).
+A library's is always there, nought included; the others' stand from their
+first card. Each has a material of its own that is rewritten only when its
+count changes and a place that is written only when its seat, the camera or
+the window moved, so a table at rest writes none, and a camera going round
+writes transforms and never the scene's index.
 
 Proximity groups related stats; type size establishes their hierarchy. Gold
 marks the active turn, with a secondary cool accent for priority. Phase groups
@@ -335,8 +359,8 @@ reduced-motion preference govern decorative movement. Split seat bars place
 a 220px identity/life plaque beside the timeline and zone/turn status, with
 an honest 871×48px minimum footprint and unchanged compact fallbacks. The
 library uses an original resident sleeve with matching geometric inlays;
-opening a pile follows the existing motion targets, with a seven-card fan
-limit and a shallower, more widely spaced silhouette.
+opening a pile follows the existing motion targets, as a hand of at most
+four cards (`layout::FAN_MAX`).
 
 Under the cards, everything is generated rather than shipped:
 `baylee-client-core/src/tabletop.rs` computes the felt and a

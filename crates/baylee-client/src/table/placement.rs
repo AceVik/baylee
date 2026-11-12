@@ -485,13 +485,24 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
             // fan, and drawing both would put one card in two places and give
             // `index.cards` two entities for one id.
             //
-            // The pile's thickness goes on the **lowest** card of the fan,
-            // which is the one still standing over the pile's own place: it
-            // is the rest of the cards, and carrying it up with the top card
-            // instead would lift the whole deck into the air with it.
+            // Every card of the fan is one card, held over the pile. What is
+            // left of the pile stays on the table under them, and shows the
+            // card the fan uncovered (`ZonePile::rest`): the pile's thickness
+            // is that card's, so the deck does not rise into the air with
+            // the hand taken off it.
             if fanned == Some((pod.player, pile.kind)) && !pile.fan.is_empty() {
                 let len = pile.fan.len();
                 let under = usize::try_from(pile.count).unwrap_or(usize::MAX);
+                if let Some(rest) = &pile.rest {
+                    out.push(resting(
+                        duel,
+                        slot,
+                        pile.kind,
+                        rest.object,
+                        rest.art,
+                        under.saturating_sub(len).max(1),
+                    ));
+                }
                 for (i, card) in pile.fan.iter().enumerate() {
                     let pose = slot.fan_pose(pile.kind, i, len, duel.hovered == Some(card.object));
                     out.push(Placement {
@@ -505,11 +516,7 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
                         // same reason its corner is the empty one.
                         flying: false,
                         ward: shellmat::Ward::NONE,
-                        count: if i + 1 == len {
-                            under.saturating_sub(len - 1).max(1)
-                        } else {
-                            1
-                        },
+                        count: 1,
                         badge: 0,
                         art: card.art,
                         offer: pile_offer(duel, card.object),
@@ -536,42 +543,14 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
             let Some(top) = pile.top else {
                 continue;
             };
-            out.push(Placement {
-                object: top,
-                slot: *slot,
-                position: slot.pile_center(pile.kind),
-                // A pile stands beside the ground and overlaps nothing, so
-                // there is nothing here for the row's rise to separate it
-                // from.
-                lift: 0.0,
-                // A card in a graveyard is not a permanent and has no tap
-                // state to draw; the same goes for its power and toughness,
-                // which is why the corner is the empty one rather than
-                // `Corner::of`. Drawing a 4/4 on a card that is no longer a
-                // creature would be inventing a fact.
-                tapped: false,
-                flying: false,
-                ward: shellmat::Ward::NONE,
-                count: usize::try_from(pile.count).unwrap_or(usize::MAX),
-                badge: 0,
-                art: pile.art,
-                offer: pile_offer(duel, top),
-                corner: baylee_client_core::cardplate::Corner::default(),
-                selected: duel
-                    .interaction
-                    .as_ref()
-                    .is_some_and(|i| i.is_selected(top)),
-                fan: None,
-                marks: 0,
-                sick: false,
-                veil: 0,
-                crests: [None; cardcrest::MAX_CRESTS],
-                covered: false,
-                room: cardplate::PlateRoom::OPEN,
-                tucked: false,
-                shown: true,
-                rung: 0.0,
-            });
+            out.push(resting(
+                duel,
+                slot,
+                pile.kind,
+                top,
+                pile.art,
+                usize::try_from(pile.count).unwrap_or(usize::MAX),
+            ));
         }
     }
     // A parked seat's cards (DESIGN-v8 §0) stand where its slot is and are
@@ -590,6 +569,52 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
         if let Some(tear) = duel.tear.as_ref() {
             placement.lift += tear.lift(placement.slot.player);
         }
+    }
+}
+
+/// A pile lying on its place with `object` on top and `count` cards in it:
+/// a pile at rest, or what a hover fan leaves on the table.
+fn resting(
+    duel: &Duel,
+    slot: &SeatSlot,
+    kind: baylee_client_core::PileKind,
+    object: ObjectId,
+    art: Option<ImageKey>,
+    count: usize,
+) -> Placement {
+    Placement {
+        object,
+        slot: *slot,
+        position: slot.pile_center(kind),
+        // A pile stands beside the ground and overlaps nothing, so there is
+        // nothing here for the row's rise to separate it from.
+        lift: 0.0,
+        // A card in a graveyard is not a permanent and has no tap state to
+        // draw; the same goes for its power and toughness, which is why the
+        // corner is the empty one rather than `Corner::of`. Drawing a 4/4 on
+        // a card that is no longer a creature would be inventing a fact.
+        tapped: false,
+        flying: false,
+        ward: shellmat::Ward::NONE,
+        count,
+        badge: 0,
+        art,
+        offer: pile_offer(duel, object),
+        corner: baylee_client_core::cardplate::Corner::default(),
+        selected: duel
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.is_selected(object)),
+        fan: None,
+        marks: 0,
+        sick: false,
+        veil: 0,
+        crests: [None; cardcrest::MAX_CRESTS],
+        covered: false,
+        room: cardplate::PlateRoom::OPEN,
+        tucked: false,
+        shown: true,
+        rung: 0.0,
     }
 }
 

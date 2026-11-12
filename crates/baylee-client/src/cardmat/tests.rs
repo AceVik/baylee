@@ -1429,6 +1429,7 @@ fn the_plate_is_the_same_plate_in_both_languages() {
         ("COUNT_MIN", plate::COUNT_MIN),
         ("COUNT_MAX", plate::COUNT_MAX),
         ("BADGE_ATTACHED", plate::BADGE_ATTACHED),
+        ("BADGE_PILE", plate::BADGE_PILE),
         ("SWING_SET", plate::SWING_SET),
         ("TONE_SHIFT", plate::TONE_SHIFT),
         ("TONE_PLAIN", plate::TONE_PLAIN),

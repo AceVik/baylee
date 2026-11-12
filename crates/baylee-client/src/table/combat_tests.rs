@@ -273,8 +273,11 @@ fn cards_that_overlap_in_a_row_do_not_lie_at_the_same_height() {
 mod fan {
     use super::*;
 
-    /// A seat whose graveyard holds `count` cards, with a fan of at most
-    /// seven of them and nothing else on the board.
+    /// How many cards a hover takes off a pile.
+    const FAN: u32 = baylee_client_core::ZonePile::FAN_MAX as u32;
+
+    /// A seat whose graveyard holds `count` cards, with the fan a hover
+    /// takes off it, the card that uncovers, and nothing else on the board.
     fn with_graveyard(count: u32) -> BoardModel {
         let mut model = board(Vec::new());
         let pile = model.pods[0]
@@ -284,14 +287,14 @@ mod fan {
             .expect("every seat has a graveyard");
         pile.count = count;
         pile.top = Some(obj(100));
-        pile.fan = (0..count.min(7))
-            .map(|i| baylee_client_core::FannedCard {
-                // Top of the pile first, so the first is the top card.
-                object: obj(100 - i),
-                art: None,
-                name: format!("card {i}"),
-            })
-            .collect();
+        // Top of the pile first, so the first is the top card.
+        let card = |i: u32| baylee_client_core::FannedCard {
+            object: obj(100 - i),
+            art: None,
+            name: format!("card {i}"),
+        };
+        pile.fan = (0..count.min(FAN)).map(card).collect();
+        pile.rest = (count > FAN).then(|| card(FAN));
         model
     }
 
@@ -317,11 +320,18 @@ mod fan {
         assert_eq!(shut[0].object, obj(100));
 
         let open = placements(&hovering(with_graveyard(10), Some(obj(100))));
-        assert_eq!(open.len(), 7, "the fan is not seven cards");
-        assert!(
-            open.iter().all(|p| p.fan.is_some()),
-            "a card of the fan is lying on the table"
+        let held: Vec<_> = open.iter().filter(|p| p.fan.is_some()).collect();
+        assert_eq!(held.len(), FAN as usize, "the fan is not a hand of four");
+        assert_eq!(
+            held.iter().map(|p| p.object).collect::<Vec<_>>(),
+            (0..FAN).map(|i| obj(100 - i)).collect::<Vec<_>>(),
+            "the fan is not the pile's newest cards, top first"
         );
+        // What is left of the pile is one card on the table, the one the
+        // hand uncovered.
+        let lying: Vec<_> = open.iter().filter(|p| p.fan.is_none()).collect();
+        assert_eq!(lying.len(), 1, "the rest of the pile is not one card");
+        assert_eq!(lying[0].object, obj(100 - FAN));
         assert_eq!(
             open.iter().filter(|p| p.object == obj(100)).count(),
             1,
@@ -338,38 +348,48 @@ mod fan {
     /// the pile's top card would shut on the first pixel of travel.
     #[test]
     fn the_pointer_may_travel_along_the_fan() {
-        for card in [obj(100), obj(97), obj(94)] {
+        // The last of these is the card left on the table under the fan:
+        // the pointer may come down onto the pile without shutting it.
+        for card in [obj(100), obj(98), obj(97), obj(96)] {
             let open = placements(&hovering(with_graveyard(10), Some(card)));
-            assert_eq!(open.len(), 7, "the fan shut under the pointer at {card:?}");
+            assert_eq!(
+                open.iter().filter(|p| p.fan.is_some()).count(),
+                FAN as usize,
+                "the fan shut under the pointer at {card:?}"
+            );
         }
+        // A card deeper in the pile is not on the table at all.
+        let shut = placements(&hovering(with_graveyard(10), Some(obj(94))));
+        assert_eq!(shut.len(), 1);
     }
 
-    /// The pile's thickness stays on the bottom of the fan.
+    /// The pile's thickness stays on the table.
     ///
-    /// The deck hangs under the card that carries the count, so putting
-    /// the ten on the card the fan raised highest would lift the whole
-    /// graveyard a card's height into the air with it. The bottom card is
-    /// the one still standing over the pile's own place, and it is the
-    /// rest of the cards.
+    /// The deck hangs under the card that carries the count, so a count on
+    /// a card of the fan would lift the graveyard into the air with the
+    /// hand taken off it. Every held card is one card, and the card the
+    /// hand uncovered is the rest of them: ten less the four held.
     #[test]
-    fn the_deck_stays_under_the_bottom_of_the_fan() {
+    fn the_deck_stays_on_the_table_under_the_fan() {
         let open = placements(&hovering(with_graveyard(10), Some(obj(100))));
-        let counts: Vec<usize> = open.iter().map(|p| p.count).collect();
-        assert_eq!(
-            counts,
-            [1, 1, 1, 1, 1, 1, 4],
-            "the deck is on the wrong card"
-        );
+        for card in &open {
+            let want = if card.fan.is_some() { 1 } else { 10 - FAN as usize };
+            assert_eq!(card.count, want, "the deck is on the wrong card");
+        }
 
-        // And a pile with nothing under the fan still stands on one card.
-        let shallow = placements(&hovering(with_graveyard(3), Some(obj(100))));
-        assert_eq!(
-            shallow.iter().map(|p| p.count).collect::<Vec<_>>(),
-            [1, 1, 1]
-        );
+        // A pile the hand takes whole leaves nothing lying, and one card
+        // more leaves that card.
+        let whole = placements(&hovering(with_graveyard(FAN), Some(obj(100))));
+        assert!(whole.iter().all(|p| p.fan.is_some() && p.count == 1));
+        assert_eq!(whole.len(), FAN as usize);
+        let one_more = placements(&hovering(with_graveyard(FAN + 1), Some(obj(100))));
+        let lying: Vec<_> = one_more.iter().filter(|p| p.fan.is_none()).collect();
+        assert_eq!(lying.len(), 1);
+        assert_eq!(lying[0].count, 1);
     }
 
-    /// Every card of the fan is tipped towards the camera.
+    /// Every card of the fan is tipped towards the camera, and only a
+    /// little: a hand held over the table, not a card stood up on it.
     ///
     /// Measured as the quad's own normal after the rotation: world `+z`
     /// is where the camera is, so the face leans into it when the third
@@ -377,15 +397,15 @@ mod fan {
     /// what the counter-arm at the bottom holds.
     #[test]
     fn the_fan_leans_into_the_screen() {
-        let duel = hovering(with_graveyard(7), Some(obj(100)));
+        let duel = hovering(with_graveyard(FAN), Some(obj(100)));
         let placed = placements(&duel);
         let slot = placed[0].slot;
         for card in &placed {
             let (pose, _) = card.fan.expect("every card here is fanned");
             let normal = fan_rotation(&card.slot, pose) * Vec3::Z;
             assert!(
-                normal.z > 0.3,
-                "a fanned card faces {normal:?}, which is not the camera"
+                normal.z > 0.05 && normal.z < 0.2,
+                "a fanned card faces {normal:?}: not tipped a little towards the camera"
             );
         }
 

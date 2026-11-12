@@ -662,6 +662,19 @@ pub fn attached_word(cards: usize) -> u32 {
     BADGE_ATTACHED | u32::try_from(cards).unwrap_or(u32::MAX).clamp(1, COUNT_MAX)
 }
 
+/// The flag a badge word carries when it counts the cards of a pile standing
+/// beside a mat: a library, a graveyard, an exile pile (the owner,
+/// 12.11.2026: numbers beside the fields). The bare number, from nought and
+/// without the `×` a merged card's count wears: a pile is a place holding
+/// that many cards, not one card standing for several.
+pub const BADGE_PILE: u32 = 1 << 17;
+
+/// What the badge beside a pile of `cards` says, with [`BADGE_PILE`].
+#[must_use]
+pub fn pile_word(cards: u32) -> u32 {
+    BADGE_PILE | cards.min(COUNT_MAX)
+}
+
 /// How wide `×count` is at the plate's figure height, padded by the plate's
 /// padding on either side, in card widths: `×` and up to three tabular
 /// digits. An [`attached_word`]'s mark takes the `×`'s cell.
@@ -670,12 +683,18 @@ pub fn attached_word(cards: usize) -> u32 {
 /// ([`BADGE_W`]); [`badge_cap`] sets a third smaller to fit.
 #[must_use]
 pub fn count_width(count: u32) -> f32 {
-    let digits = match count & !BADGE_ATTACHED {
+    let digits = match count & !(BADGE_ATTACHED | BADGE_PILE) {
         0..=9 => 1.0,
         10..=99 => 2.0,
         _ => 3.0,
     };
-    let cells = TEXT_ADV[GLYPH_TIMES] + digits * TEXT_ADV[0];
+    // A pile's count is the bare number: nothing stands in the `×`'s cell.
+    let mark = if count & BADGE_PILE == 0 {
+        TEXT_ADV[GLYPH_TIMES]
+    } else {
+        0.0
+    };
+    let cells = mark + digits * TEXT_ADV[0];
     cells * PLATE_CAP / TEXT_CAP + 2.0 * PLATE_PAD
 }
 
@@ -824,7 +843,11 @@ pub const BADGE_RISE: f32 = -(BADGE_OVER + BADGE_DROP[1] - BADGE_BLUR);
 /// every count, and the shader lays the body out from its right end.
 #[must_use]
 pub fn badge_quad_rect(place: BadgePlace) -> [f32; 4] {
-    let [x0, y0, x1, y1] = badge_rect(COUNT_MAX, place);
+    with_its_shadow(badge_rect(COUNT_MAX, place))
+}
+
+/// A badge's body and all of its shadow.
+fn with_its_shadow([x0, y0, x1, y1]: [f32; 4]) -> [f32; 4] {
     let [dx, dy] = BADGE_DROP;
     [
         (x0 + dx - BADGE_BLUR).min(x0),
@@ -832,6 +855,84 @@ pub fn badge_quad_rect(place: BadgePlace) -> [f32; 4] {
         (x1 + dx + BADGE_BLUR).max(x1),
         (y1 + dy + BADGE_BLUR).max(y1),
     ]
+}
+
+/// How far a pile's count stands off its pile's card, in card widths: the
+/// air between the figures' shadow and the card's edge.
+pub const PILE_BADGE_GAP: f32 = 0.04;
+
+/// How much larger a pile's count is drawn than a merged card's, at the
+/// least.
+///
+/// A merged card's count is read with the card it stands on, at arm's
+/// length from the plate beside it; a pile's is read across the table, as
+/// the one thing said about a place, so it is set half as large again even
+/// where the cards are drawn large. Where they are drawn small it grows
+/// further ([`pile_badge_scale`]).
+pub const PILE_BADGE_SCALE: f32 = 1.5;
+
+/// How much larger a pile's count is drawn than a merged card's, at the
+/// most.
+///
+/// The strip it lies in is what bounds it: [`crate::layout::PILE_REACH`]
+/// leaves felt between a pile's card and its seat's mat, and the mat's own
+/// margin beyond that, where no card lies. Three figures at this size end
+/// short of the rows (`a_piles_count_lies_beside_its_pile_at_every_count`),
+/// so a table drawn too small for [`PILE_FIGURE_PX`] gets what fits.
+pub const PILE_BADGE_MOST: f32 = 4.0;
+
+/// How tall a pile's figures stand on the screen, in the interface's
+/// pixels.
+///
+/// A number set at its card's size, as a merged card's count is, was five
+/// pixels tall beside a library at a table of four (played 12.11.2026). A
+/// little over the seat plate's own counts (11 px type, capitals under
+/// 8 px), which is the size this client already asks a player to read a
+/// library's count at.
+pub const PILE_FIGURE_PX: f32 = 9.0;
+
+/// How much larger than a merged card's a pile's count of `count`
+/// ([`pile_word`]) is drawn, so that its figures stand [`PILE_FIGURE_PX`]
+/// tall: `card_px` is how long one card width is drawn beside the pile, in
+/// the interface's pixels, or `None` where there is no window to draw in.
+///
+/// Between [`PILE_BADGE_SCALE`] and [`PILE_BADGE_MOST`].
+#[must_use]
+pub fn pile_badge_scale(count: u32, card_px: Option<f32>) -> f32 {
+    card_px
+        .filter(|px| *px > 0.0)
+        .map_or(PILE_BADGE_SCALE, |px| {
+            PILE_FIGURE_PX / (badge_cap(count) * px)
+        })
+        .clamp(PILE_BADGE_SCALE, PILE_BADGE_MOST)
+}
+
+/// The air between a pile's card and the body of its count, in card widths:
+/// the gap and the shadow that falls back towards the card.
+pub const PILE_BADGE_AIR: f32 = PILE_BADGE_GAP + BADGE_DROP[0] + BADGE_BLUR;
+
+/// The body of a pile's count ([`pile_word`]): `[x0, y0, x1, y1]` in card
+/// widths from the pile card's top-left corner, `y` growing down the card.
+///
+/// Beside the pile on its seat's own side of it, in the strip between the
+/// pile and the mat: its right end stands a [`PILE_BADGE_GAP`] and its
+/// shadow off the card's left edge and it grows left with its digits, flush
+/// with the card's top as a merged card's count is beside its card. On no
+/// print: a pile's top card is one, and the number is the client's.
+#[must_use]
+pub fn pile_badge_rect(count: u32) -> [f32; 4] {
+    let w = count_width(count).clamp(BADGE_H, BADGE_W);
+    let right = -PILE_BADGE_AIR;
+    [right - w, BADGE_TOP, right, BADGE_TOP + BADGE_H]
+}
+
+/// The quad every pile's count is drawn in, the same way round as
+/// [`pile_badge_rect`] and the same size as [`badge_quad_rect`]'s: the
+/// widest body and all of its shadow, so the one mesh serves these too.
+#[must_use]
+pub fn pile_badge_quad_rect() -> [f32; 4] {
+    let [_, y0, x1, y1] = pile_badge_rect(pile_word(COUNT_MAX));
+    with_its_shadow([x1 - BADGE_W, y0, x1, y1])
 }
 
 // ------------------------------------------------------ where the plate stands
@@ -1489,6 +1590,86 @@ mod tests {
             size(badge_quad_rect(BadgePlace::Beside)),
         );
         assert!((a.0 - b.0).abs() < 1e-6 && (a.1 - b.1).abs() < 1e-6);
+    }
+
+    /// A pile's count ([`pile_word`]) is the bare number in the one quad,
+    /// beside its pile's card and never on it, shadow included. At its
+    /// least size ([`PILE_BADGE_SCALE`]) two figures stay on the felt
+    /// between the pile and its seat's mat; at its most
+    /// ([`PILE_BADGE_MOST`]) every count ends on the mat's own margin, where
+    /// no card lies, and short of the rows.
+    #[test]
+    fn a_piles_count_lies_beside_its_pile_at_every_count() {
+        let size = |[x0, y0, x1, y1]: [f32; 4]| (x1 - x0, y1 - y0);
+        let [qx0, qy0, qx1, qy1] = pile_badge_quad_rect();
+        let (pile, merged) = (
+            size(pile_badge_quad_rect()),
+            size(badge_quad_rect(BadgePlace::Beside)),
+        );
+        assert!(
+            (pile.0 - merged.0).abs() < 1e-6 && (pile.1 - merged.1).abs() < 1e-6,
+            "the one mesh does not serve a pile's count"
+        );
+        // The felt between a pile's card and its seat's mat, and the mat's
+        // own margin beyond it, in card widths.
+        let felt = crate::layout::PILE_REACH - 0.5 - crate::tabletop::MAT_MARGIN;
+        let margin = crate::tabletop::MAT_MARGIN;
+        for cards in 0..=COUNT_MAX {
+            let word = pile_word(cards);
+            let [x0, y0, x1, y1] = pile_badge_rect(word);
+            assert!(
+                x0 >= qx0 && y0 >= qy0 && x1 <= qx1 && y1 <= qy1,
+                "{cards} leaves its quad"
+            );
+            assert!(
+                x1 + BADGE_DROP[0] + BADGE_BLUR <= 1e-6,
+                "{cards} or its shadow lies on the pile's card"
+            );
+            let figures = (count_width(word) - 2.0 * PLATE_PAD) * badge_cap(word) / PLATE_CAP
+                + 2.0 * PLATE_PAD;
+            assert!(
+                figures <= x1 - x0 + 1e-5,
+                "{cards} needs {figures} and its body is {}",
+                x1 - x0
+            );
+            if cards < 100 {
+                assert!(
+                    (badge_cap(word) - PLATE_CAP).abs() < 1e-6,
+                    "{cards} is not the plate's figures"
+                );
+            }
+            assert!(badge_cap(word) >= 0.7 * PLATE_CAP);
+            // The body is grown, the air between it and the card is not
+            // (`table::pile_counts::pile_count_transform`).
+            let reach = |scale: f32| PILE_BADGE_AIR + (x1 - x0) * scale;
+            let room = if cards < 100 { felt } else { felt + margin };
+            assert!(
+                reach(PILE_BADGE_SCALE) <= room,
+                "{cards} reaches {} towards the mat and has {room}",
+                reach(PILE_BADGE_SCALE)
+            );
+            assert!(
+                reach(PILE_BADGE_MOST) < felt + margin,
+                "{cards} at its largest reaches {} and the rows begin at {}",
+                reach(PILE_BADGE_MOST),
+                felt + margin
+            );
+        }
+        // The size asked for is the size given, between the two bounds.
+        let two = pile_word(40);
+        assert!((pile_badge_scale(two, None) - PILE_BADGE_SCALE).abs() < 1e-6);
+        assert!((pile_badge_scale(two, Some(0.0)) - PILE_BADGE_SCALE).abs() < 1e-6);
+        assert!((pile_badge_scale(two, Some(500.0)) - PILE_BADGE_SCALE).abs() < 1e-6);
+        assert!((pile_badge_scale(two, Some(5.0)) - PILE_BADGE_MOST).abs() < 1e-6);
+        let asked = pile_badge_scale(two, Some(44.0));
+        assert!(
+            (asked * badge_cap(two) * 44.0 - PILE_FIGURE_PX).abs() < 1e-3,
+            "a card 44 px wide gets figures {} px tall",
+            asked * badge_cap(two) * 44.0
+        );
+        // A pile's word is its own: no merged card's count reads as one.
+        assert_eq!(pile_word(7) & !BADGE_PILE, 7);
+        assert_eq!(count_word(7) & BADGE_PILE, 0);
     }
 
     /// Beside the card, a tapped card turns its top-right corner a quarter

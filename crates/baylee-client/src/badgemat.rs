@@ -100,6 +100,26 @@ pub struct BadgeMaterial {
 }
 
 impl BadgeMaterial {
+    /// The count beside a pile of `cards` ([`cardplate::pile_word`]), its
+    /// body where [`cardplate::pile_badge_rect`] says in its quad. Never
+    /// turned: the table lays the whole badge upright for whoever is
+    /// looking (`table::pile_counts`).
+    #[must_use]
+    pub fn pile(cards: u32) -> Self {
+        let count = cardplate::pile_word(cards);
+        let [_, top, right, _] = cardplate::pile_badge_rect(count);
+        Self {
+            params: BadgeParams {
+                quad: Vec4::from_array(cardplate::pile_badge_quad_rect()),
+                count,
+                right,
+                top,
+                turned: 0,
+            },
+            marks: crate::markatlas::MARKS,
+        }
+    }
+
     /// The badge saying `count`, standing at `place`, and `turned` a half
     /// turn round for one seeing its card from the far side.
     #[must_use]

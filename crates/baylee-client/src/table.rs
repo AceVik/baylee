@@ -409,6 +409,7 @@ mod index;
 mod mats;
 mod motion;
 mod pieces;
+mod pile_counts;
 mod piles;
 mod placement;
 mod scene;
@@ -421,6 +422,7 @@ pub use index::*;
 pub use mats::*;
 pub use motion::*;
 pub use pieces::*;
+pub use pile_counts::*;
 pub use piles::*;
 pub(crate) use placement::*;
 pub use scene::*;
@@ -435,6 +437,10 @@ mod visit_tests;
 
 #[cfg(test)]
 mod zone_tests;
+
+/// The numbers beside the piles.
+#[cfg(test)]
+mod pile_count_tests;
 
 #[cfg(test)]
 mod tests;
@@ -482,15 +488,6 @@ mod combat_tests;
 /// this is the only test that takes it.
 #[cfg(test)]
 mod fan_screen_tests;
-
-/// The one fan that is not made of cards.
-///
-/// [`sync_library_fan`] is *run* here rather than called, because the thing
-/// most likely to be wrong about it is not its arithmetic but whether it is
-/// wired at all — a system that is written and never scheduled draws nothing
-/// and fails no test that only calls its parts.
-#[cfg(test)]
-mod library_fan_tests;
 
 /// The offer drawn on a card, which is the join nothing crossed: `Offer::on`
 /// is unit-tested in `cardmat` and `owed_plan` in `owed_tests`, and the line

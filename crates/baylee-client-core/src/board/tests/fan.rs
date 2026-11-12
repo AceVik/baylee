@@ -1,5 +1,5 @@
-//! What a hover spreads out of a pile, and what it may never spread out
-//! of a library.
+//! What a hover lifts off a pile, what it leaves lying there, and why a
+//! library has neither.
 
 use super::*;
 
@@ -27,7 +27,12 @@ fn a_graveyard_fans_its_newest_four_newest_first() {
     let graveyard = pile(&view, PileKind::Graveyard);
 
     assert_eq!(graveyard.count, 10);
-    assert_eq!(graveyard.fan_len(), ZonePile::FAN_MAX);
+    assert_eq!(graveyard.fan.len(), ZonePile::FAN_MAX);
+    assert_eq!(
+        graveyard.rest.as_ref().map(|c| c.name.as_str()),
+        Some("card 5"),
+        "the card the fan uncovers is the one that lay under it"
+    );
     assert_eq!(
         graveyard
             .fan
@@ -52,36 +57,34 @@ fn a_short_pile_fans_what_it_has() {
         .with_exile(0, vec![printed(1, 0, "Oblivion Ring", 4)])
         .build();
     let exile = pile(&view, PileKind::Exile);
-    assert_eq!(exile.fan_len(), 1);
     assert_eq!(exile.fan.len(), 1);
+    assert!(
+        exile.rest.is_none(),
+        "a fan that is the whole pile uncovers nothing"
+    );
 
     let empty = ZonePile::empty(PileKind::Graveyard);
-    assert_eq!(empty.fan_len(), 0);
-    assert!(empty.fan.is_empty());
+    assert!(empty.fan.is_empty() && empty.rest.is_none());
 }
 
 /// The second reading of CR 401.2, and the one this model enforces by
-/// construction: a library fans, and has nothing to fan.
+/// construction: a library has nothing to fan.
 ///
 /// [`ZonePile::fan`] is empty for a library not because a rule here
 /// empties it but because a `PlayerView` carries a library as a
-/// *count* — there are no cards in it to put in the list. What the
-/// fan draws there is [`ZonePile::fan_len`] card backs, which say how
-/// deep the pile is and nothing else. The counter-test is the
-/// graveyard above: same code, same seat, seven faces.
+/// *count* — there are no cards in it to put in the list. It fanned
+/// blank backs until 12.11.2026, which said how deep the pile was up to
+/// four and nothing else; the count standing beside the pile says it
+/// whole. The counter-test is the graveyard above: same code, same
+/// seat, four faces.
 #[test]
-fn a_library_fans_backs_and_never_faces() {
+fn a_library_fans_nothing() {
     let view = ViewBuilder::new(2).build();
     let library = pile(&view, PileKind::Library);
 
     assert_eq!(library.count, 80, "the builder deals a full library");
-    assert_eq!(
-        library.fan_len(),
-        ZonePile::FAN_MAX,
-        "a library fans like any other pile"
-    );
     assert!(
-        library.fan.is_empty(),
+        library.fan.is_empty() && library.rest.is_none(),
         "a library handed the fan a face to draw"
     );
     assert!(library.art.is_none() && library.top.is_none());
@@ -190,4 +193,23 @@ fn the_whole_fan_is_resident_before_the_hover() {
         );
     }
     assert_eq!(keys.len(), 3);
+}
+
+/// The card a fan uncovers holds the fan open as the fan's own cards do: it
+/// lies under the first of them, and a pointer that slipped onto it would
+/// otherwise shut the fan and open it again.
+#[test]
+fn the_card_under_the_fan_holds_it_open() {
+    let dead: Vec<_> = (0..6)
+        .map(|i| printed(i, 0, &format!("card {i}"), u16::try_from(i).unwrap() + 1))
+        .collect();
+    let view = ViewBuilder::new(2).with_graveyard(0, dead).build();
+    let under = pile(&view, PileKind::Graveyard)
+        .rest
+        .expect("six cards leave one under a fan of four")
+        .object;
+    assert_eq!(
+        model(&view).fanned_pile(Some(under)),
+        Some((PlayerId::new(0), PileKind::Graveyard))
+    );
 }

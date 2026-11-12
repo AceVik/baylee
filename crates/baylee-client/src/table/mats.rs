@@ -448,6 +448,8 @@ pub fn sync_zones(
             // before it — a carry composed on the last target drifted, and a
             // part that missed one frame's carry stayed off by it for good.
             let lifted = Mat4::from_translation(Vec3::Y * lift);
+            // The piles' numbers are not carried: `sync_pile_counts` lays
+            // each beside where its seat now stands, for whoever looks.
             for entity in [zone.mat, zone.glow]
                 .into_iter()
                 .chain(zone.piles.iter().copied())
@@ -476,7 +478,12 @@ pub fn sync_zones(
             zone.slot = *slot;
             zone.raised = lift;
         } else if moved && let Some(zone) = index.zones.remove(&pod.player) {
-            for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles) {
+            let counts = zone.counts.into_iter().map(|count| count.badge);
+            for entity in [zone.mat, zone.glow]
+                .into_iter()
+                .chain(zone.piles)
+                .chain(counts)
+            {
                 commands.entity(entity).despawn();
             }
         }
@@ -544,6 +551,8 @@ pub fn sync_zones(
                 mat_material,
                 glow_material,
                 piles,
+                // `sync_pile_counts` lays them, after this.
+                counts: Vec::new(),
                 // Built on its place at the table's height; a lift is the
                 // next frame's carry.
                 raised: 0.0,
@@ -559,7 +568,11 @@ pub fn sync_zones(
         if seen.contains(player) {
             return true;
         }
-        for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles.clone()) {
+        for entity in [zone.mat, zone.glow]
+            .into_iter()
+            .chain(zone.piles.iter().copied())
+            .chain(zone.counts.iter().map(|count| count.badge))
+        {
             commands.entity(entity).despawn();
         }
         false

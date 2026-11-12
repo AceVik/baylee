@@ -234,14 +234,6 @@ pub struct SceneIndex {
     /// it stands, which for seven cards in the air is seven cards blinking
     /// out of it.
     pub(super) fanned: HashMap<ObjectId, Place>,
-    /// Whose library is standing open.
-    ///
-    /// A library's fan is blank slabs rather than placements — see
-    /// [`sync_library_fan`] — so it is the one part of the scene that is not
-    /// keyed by `ObjectId` and has to be remembered by hand.
-    pub(super) library_fan: Option<PlayerId>,
-    /// The slabs of that fan, in order from the top of the deck.
-    pub(super) library_fan_cards: Vec<Entity>,
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     pub(super) face_materials: HashMap<CardLook, Handle<CardMaterial>>,
@@ -334,6 +326,10 @@ pub(super) struct Zone {
     /// The pile places beside it, and the face-down library standing on one
     /// of them. Empty when the scene index has no card mesh yet.
     pub(super) piles: Vec<Entity>,
+    /// The numbers beside its piles ([`sync_pile_counts`]), which a zone
+    /// carried somewhere else takes along and a zone taken down takes with
+    /// it.
+    pub(super) counts: Vec<PileCountBadge>,
     /// How tall the library was drawn, in cards.
     ///
     /// Capped at the height a pile is ever drawn to, so a deck that is

@@ -5,9 +5,8 @@
 //! them sat the one line that makes either of them visible to a player:
 //! [`super::placements`] passing `duel.proposing()` into the offer it builds
 //! every card with. A test per end and none across the join is how "declared
-//! but never wired" ships, which is the bug `library_fan_tests` one module
-//! down exists to prevent and the one `cue_feed_tests` says this client has
-//! shipped before.
+//! but never wired" ships, which is the bug `cue_feed_tests` says this client has shipped
+//! before.
 //!
 //! It is also the answer to a question #105 asked from the other side. The
 //! trap there is a `Duel` a struct literal built, and `owed_plan` is the

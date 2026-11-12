@@ -79,7 +79,7 @@ pub(super) fn add_present_systems(app: &mut App) {
                 .before(table::sync_scene)
                 .before(hud::sync_overlay),
             table::sync_scene,
-            (table::sync_zones, table::sync_library_fan).chain(),
+            (table::sync_zones, table::sync_pile_counts).chain(),
             (
                 table::sync_table,
                 dial::turn_the_dial,

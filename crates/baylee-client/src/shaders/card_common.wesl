@@ -1919,6 +1919,9 @@ const COUNT_MAX: u32 = 999u;
 /// `cardplate::BADGE_ATTACHED`: the word counts the cards tucked under a
 /// host (#305), from one, and the mark stands in the `×`'s cell.
 const BADGE_ATTACHED: u32 = 65536u;
+/// `cardplate::BADGE_PILE`: the word counts the cards of a pile standing
+/// beside a mat, from nought, and is written bare, without the `×`.
+const BADGE_PILE: u32 = 131072u;
 
 /// The mark of a host with cards tucked under it (#305), in a figure cell's
 /// units round the cell's middle, `y` down: a card with another peeking out
@@ -2000,11 +2003,15 @@ fn count_badge(
     marks_s: sampler,
 ) -> vec4<f32> {
     let attached = (count & BADGE_ATTACHED) != 0u;
-    let n = count & ~BADGE_ATTACHED;
-    if n < select(COUNT_MIN, 1u, attached) {
+    let pile = (count & BADGE_PILE) != 0u;
+    let n = count & ~(BADGE_ATTACHED | BADGE_PILE);
+    if !pile && n < select(COUNT_MIN, 1u, attached) {
         return vec4<f32>(0.0);
     }
-    var line = text_push(vec2<u32>(0u, 0u), GLYPH_TIMES);
+    var line = vec2<u32>(0u, 0u);
+    if !pile {
+        line = text_push(line, GLYPH_TIMES);
+    }
     line = text_number(line, min(n, COUNT_MAX));
     let wants = text_width(line) * PLATE_CAP / TEXT_CAP;
     let cap = PLATE_CAP * min((BADGE_W - 2.0 * PLATE_PAD) / wants, 1.0);

@@ -140,8 +140,7 @@ fn commanders_remain_single_cards_when_hovered() {
         .build();
     for pile in zone_piles(&view, PlayerId::new(0)) {
         if matches!(pile.kind, PileKind::Command | PileKind::Command2) {
-            assert!(pile.fan.is_empty());
-            assert_eq!(pile.fan_len(), 0);
+            assert!(pile.fan.is_empty() && pile.rest.is_none());
             assert!(pile.top.is_some());
         }
     }

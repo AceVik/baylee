@@ -596,19 +596,24 @@ pub struct ZonePile {
     /// The object the top card is, so hovering the pile previews that card
     /// through the machinery the battlefield already uses.
     pub top: Option<ObjectId>,
-    /// The cards a hover spreads out of the pile, **top of the pile first**,
+    /// The cards a hover lifts off the pile, **top of the pile first**,
     /// at most [`Self::FAN_MAX`] of them.
     ///
-    /// Empty for command slots, which never fan, and for a library. CR 401.2 in this
-    /// model: not a rule the renderer is asked to obey but a list that cannot
-    /// be filled, because `PlayerView` carries a library as a count and has
-    /// no cards in it to put here. A library still fans — [`Self::fan_len`]
-    /// says how many backs — and the backs say nothing.
+    /// Empty for command slots, which never fan, and for a library. CR 401.2
+    /// in this model: not a rule the renderer is asked to obey but a list
+    /// that cannot be filled, because `PlayerView` carries a library as a
+    /// count and has no cards in it to put here. A library fanned blank
+    /// backs until 12.11.2026, which said nothing (the owner); the number
+    /// standing beside the pile says what they tried to.
     ///
     /// Top first rather than bottom first so that a fan drawn shorter than
     /// the model offers keeps the cards that matter: the last card to die is
     /// the one a player is looking for.
     pub fan: Vec<FannedCard>,
+    /// The card the fan uncovers: the one lying under the cards a hover
+    /// lifts off, which is what the pile shows while they are held over it.
+    /// `None` where the fan is the whole pile.
+    pub rest: Option<FannedCard>,
 }
 
 impl ZonePile {
@@ -626,23 +631,8 @@ impl ZonePile {
             name: None,
             top: None,
             fan: Vec::new(),
+            rest: None,
         }
-    }
-
-    /// How many cards the fan draws — never more than the pile holds, and
-    /// never more than [`Self::FAN_MAX`].
-    ///
-    /// This is the count of *slabs*, which is why it is arithmetic on
-    /// [`Self::count`] and not `self.fan.len()`: a library has the cards and
-    /// not the faces, so the two disagree there by design.
-    #[must_use]
-    pub fn fan_len(&self) -> usize {
-        if matches!(self.kind, PileKind::Command | PileKind::Command2) {
-            return 0;
-        }
-        usize::try_from(self.count)
-            .unwrap_or(Self::FAN_MAX)
-            .min(Self::FAN_MAX)
     }
 
     /// Whether clicking this pile can open anything.
@@ -1357,16 +1347,25 @@ impl BoardModel {
     /// the pile did not have a moment ago, and a reading that knew only the
     /// top one would shut the fan the instant the pointer slid along it.
     ///
-    /// A library therefore never opens this way. It has no cards to list, so
-    /// there is nothing here to hover, and the backs it fans are raised by
-    /// something that knows a pile is a place and not a card.
+    /// The card the fan uncovers ([`ZonePile::rest`]) answers too: it lies
+    /// under the fan's first card, and a pointer that slipped onto it would
+    /// otherwise shut the fan, which puts the first card back under the
+    /// pointer and opens it again.
+    ///
+    /// A library never opens this way. It has no cards to list, so there is
+    /// nothing here to hover.
     #[must_use]
     pub fn fanned_pile(&self, hovered: Option<ObjectId>) -> Option<(PlayerId, PileKind)> {
         let hovered = hovered?;
         self.pods.iter().find_map(|pod| {
             pod.piles
                 .iter()
-                .find(|pile| pile.fan.iter().any(|card| card.object == hovered))
+                .find(|pile| {
+                    pile.fan
+                        .iter()
+                        .chain(&pile.rest)
+                        .any(|card| card.object == hovered)
+                })
                 .map(|pile| (pod.player, pile.kind))
         })
     }
@@ -1413,7 +1412,7 @@ impl BoardModel {
             keys.extend(
                 pod.piles
                     .iter()
-                    .flat_map(|p| p.fan.iter().filter_map(|c| c.art)),
+                    .flat_map(|p| p.fan.iter().chain(&p.rest).filter_map(|c| c.art)),
             );
         }
         keys.extend(self.hand.iter().map(|h| h.art));
@@ -1847,6 +1846,16 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                     .map(fanned)
                     .collect(),
             };
+            // The card under the fan, where the pile holds more than a fan.
+            let rest = match &command {
+                Some(_) => None,
+                None => list
+                    .unwrap_or_default()
+                    .iter()
+                    .rev()
+                    .nth(ZonePile::FAN_MAX)
+                    .map(fanned),
+            };
             ZonePile {
                 kind,
                 count,
@@ -1856,6 +1865,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 name: top.map(|o| o.name.to_string()),
                 top: top.map(|o| o.id),
                 fan,
+                rest,
             }
         })
         .collect()
