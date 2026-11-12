@@ -133,6 +133,7 @@ mod tests {
             llm: None,
             distill: None,
             explored: false,
+            search_roots: None,
             deck_keys: keys,
         }
     }
