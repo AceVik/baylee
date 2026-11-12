@@ -622,3 +622,130 @@ fn a_record_from_before_the_activator_boundary_is_refused_by_name() {
     let error = terminal_targets(&tampered, false).unwrap_err();
     assert!(error.starts_with("replay audit: Diverged"), "{error}");
 }
+
+/// `record` with `extra` (an input line's fields) put in after its line at
+/// input `after` (`None`: before the end line), every later line numbered
+/// one on; the line at input `at` (if any) is given other digests.
+fn with_inserted(
+    record: &[u8],
+    after: Option<u64>,
+    extra: &serde_json::Value,
+    at: Option<u64>,
+) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut push = |value: &serde_json::Value| {
+        out.extend(serde_json::to_vec(value).unwrap());
+        out.push(b'\n');
+    };
+    let mut inserted = false;
+    for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let mut value: serde_json::Value = serde_json::from_slice(line).unwrap();
+        if after.is_none() && value["kind"] == "end" && !inserted {
+            push(extra);
+            inserted = true;
+        }
+        if inserted && let Some(n) = value["n"].as_u64() {
+            value["n"] = (n + 1).into();
+        }
+        let n = value["n"].as_u64();
+        if value["kind"] == "input" && at.is_some() && n == at {
+            value["hash"] = "0123456789abcdef".into();
+            value["seen"] = "fedcba9876543210".into();
+        }
+        push(&value);
+        if value["kind"] == "input" && after.is_some() && n == after && !inserted {
+            push(extra);
+            inserted = true;
+        }
+    }
+    assert!(inserted, "{after:?} is not an input of the record");
+    out
+}
+
+/// The line at input `n` of `record`.
+fn input_line(record: &[u8], n: u64) -> serde_json::Value {
+    record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .map(|l| serde_json::from_slice::<serde_json::Value>(l).unwrap())
+        .find(|v| v["kind"] == "input" && v["n"].as_u64() == Some(n))
+        .unwrap()
+}
+
+/// A record written before the question boundary answers questions a
+/// later build no longer asks, and is refused by name: the build that wrote
+/// it, the build converting it, where, and the rule. Its exact audit stops
+/// the run (it opens with this build's hash); one of another build is named
+/// in its seen audit's reason. Two shapes, one per commit: answers to a
+/// damage-order question (c55a8c6eb), between an input whose hash this
+/// build parts from and the answer after which it carries this build's
+/// hash again, and answers after the game was decided (a5eb549ca), which
+/// this build refuses as the game is over. Departing any other way is a
+/// divergence as before.
+#[test]
+fn a_record_from_before_the_question_boundary_is_refused_by_name() {
+    let (record, from) = jace_game();
+    let k = from + 1;
+    let original = input_line(&record, k);
+    let order = serde_json::json!({
+        "kind": "input", "n": k + 1, "at": 0, "seat": original["seat"], "by": original["by"],
+        "action": {"ChooseDamageEffect": {"choice": {"batch": 0, "step": 1}, "effect": 0}},
+        "hash": original["hash"], "seen": original["seen"],
+    });
+    let orders = with_inserted(&record, Some(k), &order, Some(k));
+    let last = record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .filter_map(|l| serde_json::from_slice::<serde_json::Value>(l).ok())
+        .rfind(|v| v["kind"] == "input")
+        .unwrap();
+    let late = serde_json::json!({
+        "kind": "input", "n": last["n"].as_u64().unwrap() + 1, "at": 0, "seat": 0,
+        "by": last["by"], "action": {"Arrange": {"piles": [[1, 2]]}},
+        "hash": "0123456789abcdef", "seen": "fedcba9876543210",
+    });
+    let after_the_end = with_inserted(&record, None, &late, None);
+    for (old, first, what) in [
+        (&orders, k, "1 damage-order question(s)"),
+        (
+            &after_the_end,
+            last["n"].as_u64().unwrap() + 1,
+            "1 question(s) asked after the game was decided",
+        ),
+    ] {
+        for across_builds in [false, true] {
+            let error = terminal_targets(old, across_builds).unwrap_err();
+            assert!(error.starts_with(QUESTION_REFUSAL), "{error}");
+            for named in [
+                baylee_gamehost::record::this_build(),
+                QUESTION_RULE,
+                &format!("from input {first}"),
+                what,
+            ] {
+                assert!(error.contains(named), "{named} in: {error}");
+            }
+        }
+        let error = terminal_targets(&as_another_build(old, None), true).unwrap_err();
+        assert!(
+            error.starts_with("seen replay audit: written before question boundary c55a8c6eb"),
+            "{error}"
+        );
+        assert!(error.contains(what), "{what} in: {error}");
+    }
+
+    // An input this build parts from with no order answered after it, an
+    // answer that does not carry this build's hash again, and a pass after
+    // the end are divergences as before.
+    let parted = with_inserted(&record, None, &late, Some(k));
+    let error = terminal_targets(&parted, false).unwrap_err();
+    assert!(error.starts_with("replay audit: Diverged"), "{error}");
+    let mut wrong = order.clone();
+    wrong["hash"] = "00000000000000aa".into();
+    let error =
+        terminal_targets(&with_inserted(&record, Some(k), &wrong, Some(k)), false).unwrap_err();
+    assert!(error.starts_with("replay audit: Diverged"), "{error}");
+    let mut pass = late.clone();
+    pass["action"] = "PassPriority".into();
+    let error = terminal_targets(&with_inserted(&record, None, &pass, None), false).unwrap_err();
+    assert!(error.starts_with("replay audit: Refused"), "{error}");
+}

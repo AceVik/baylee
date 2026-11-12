@@ -284,6 +284,27 @@ as a build before the boundary wrote it, and a label that binds that question
 is one such a build wrote. Datasets already converted stay valid as converted.
 The encoded states and menus do not read the new fields, so they are unchanged.
 
+**The question boundary (c55a8c6eb and a5eb549ca, 12.11.2026).** From
+c55a8c6eb the engine asks no order between damage effects that cannot change
+the event (protection on two creatures, a redirection onto protection), and
+from a5eb549ca nothing once the game is decided. No hash a position both
+builds reach moves, but a record written before holds answers to those
+questions, and a later build no longer asks them. **Convert records written
+before c55a8c6eb with the runtime that wrote them.** `convert4` refuses one
+that opens with its own hash by name (`convert4::question_boundary`:
+`QUESTION_REFUSAL`, the builds, the first input and `QUESTION_RULE`) and stops
+the run, as at the activator boundary; a record of another build that departs
+only there is named in its seen audit's reason, which
+`--llm-bc-skip-unreplayable` may leave out like any other rule change. Over
+`~/baylee-data/v6` (12.11.2026) 287 records replayed exactly before and do not
+after: eval records of `v6d-phase-d-run`/`-run2` (241) and `v6f-v5-benchmark`
+(31), 14 of `v6t-campaign/distill/gate`, 1 of `v6s-league`. Of the LLM corpus,
+one game crosses (`run-haiku-bulk-b`, line 307: a legend-rule choice answered
+after the game was decided), from an older build that converts by its public
+table. The lists are in `~/baylee-data/v6/train/question-boundary-c55a8c6eb/`
+(`docs/engine-internals.md` §"The question boundary"). Datasets already
+converted stay valid as converted.
+
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
 same stable table half in both comparisons. Passing that same directory as

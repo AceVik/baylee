@@ -2887,6 +2887,44 @@ replays. What moves is what binds a question by its JSON: a shadow label's
 the runtime that wrote them** (`docs/trained-ai.md`); `convert4` names the
 boundary when it meets one (`convert4::shadow_bc::offer_boundary`).
 
+### The question boundary (c55a8c6eb, a5eb549ca)
+
+Two changes of 12.11.2026 take questions away. From c55a8c6eb no order is
+asked between damage effects that cannot change the event (§"Damage,
+prevention and redirection", `damage::order_matters`: protection on two
+creatures, a redirection onto protection), and from a5eb549ca nothing is
+asked once the game is decided (§"Ending the game by effect",
+`end_a_decided_game`). No position both builds reach hashes differently:
+the engine as it was, answered either way, reaches the board this one
+reaches without asking, and at a question after the decision it hashed the
+board this one ends on (`protection_flow_tests`, `game_end_tests`). But a
+record written before holds the answers. A later build parts from it at the
+input before a removed order question and meets its hash again after the
+record's answers to it, and is over where the record still answers. **Convert
+records written before c55a8c6eb with the runtime that wrote them.** A later
+`convert4` refuses such a record by name (`convert4::question_boundary`:
+`QUESTION_REFUSAL`, the builds, the first input and `QUESTION_RULE`) when it
+opens with the converting build's hash, and the run stops after
+`rejected-games.json` lists every such game, as at the activator boundary;
+`--llm-bc-skip-unreplayable` does not take it. A record of another build that
+departs only that way is named in its seen audit's reason, which stays one
+the flag may leave out. The recognition replays the record and accepts only
+those two departures: answers to damage-order questions between a hash this
+build parts from and the record's return to this build's hash, and answers
+to questions alone after this build's game is over, up to the end line.
+
+`engine::recorded_lockstep_tests` (ignored) plays recorded runs on both
+engines in lockstep, the old one through the cfg(test) switches, and lists
+the records that part. Over all 192,984 games under `~/baylee-data/v6` on
+12.11.2026: 1,406 records answer a removed order question and 5 answer after
+the decision, of which 287 replayed exactly on the build before
+(241 in `train/v6d-phase-d-run` and `-run2` eval records, 31 in
+`v6f-v5-benchmark` eval records, 14 in `v6t-campaign/distill/gate`, 1 in
+`v6s-league`); the other 1,124, the LLM-corpus game in `run-haiku-bulk-b`
+among them, were already another build's. The lists are in
+`~/baylee-data/v6/train/question-boundary-c55a8c6eb/` (`lockstep-parted.jsonl`
+with whether each replayed exactly before, `lockstep-all.jsonl`).
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to
