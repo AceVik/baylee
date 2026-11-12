@@ -1321,7 +1321,8 @@ impl GameLog {
                 face: obj.face_index,
             }),
             token: obj.token.map(baylee_cards::tokens::token_id),
-            name: state.names.get(crate::view::known_name(obj)).to_string(),
+            // A split card off the stack by both names, "Fire // Ice".
+            name: crate::view::known_text(state, obj),
         };
         self.seen.insert(
             obj.id,

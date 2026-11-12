@@ -674,10 +674,30 @@ fn hand(table: &Table<'_>, title: &str, owner: PlayerId, cards: &[HandObject], o
     }
 }
 
-/// A card in `owner`'s hand: "#50 Lightning Bolt {R} · Instant".
+/// A card in `owner`'s hand: "#50 Lightning Bolt {R} · Instant", and a
+/// split card by both halves, each castable on its own (CR 709.3): "#13
+/// Fire // Ice {1}{R} // {1}{U} · Instant // Instant".
 pub(super) fn hand_line(table: &Table<'_>, card: &HandObject, owner: PlayerId) -> String {
-    let printed = baylee_cards::by_index(card.card.index)
-        .and_then(|def| def.faces.get(usize::from(card.card.face)));
+    let def = baylee_cards::by_index(card.card.index);
+    if let Some(def) = def.filter(|def| def.is_split_spell_card())
+        && let [left, right] = def.faces
+    {
+        let mut line = format!(
+            "{} {} // {} {} // {} · {} // {}",
+            tag(card.id),
+            left.name,
+            right.name,
+            left.mana_cost,
+            right.mana_cost,
+            baylee_cards::pool::type_line(left),
+            baylee_cards::pool::type_line(right),
+        );
+        if card.commander {
+            let _ = write!(line, " · {} commander", table.whose(owner));
+        }
+        return line;
+    }
+    let printed = def.and_then(|def| def.faces.get(usize::from(card.card.face)));
     let mut line = format!("{} {}", tag(card.id), card.name);
     let type_line = printed.map_or_else(
         || words::types(card.types, baylee_core::types::SupertypeSet::EMPTY),

@@ -284,17 +284,18 @@ impl GameState {
         Ok(state)
     }
 
-    /// The shared printed face of a card, interned on first use.
+    /// The shared printed card, interned on first use: its front face, or
+    /// both halves of a split card (`Characteristics::of_card`, CR 709.4).
     ///
-    /// Front face only: an MDFC that turns over goes through
-    /// [`GameState::switch_face`], which builds a face of its own.
+    /// A face of its own (an MDFC turned over, a half cast) goes through
+    /// [`GameState::switch_face`], which builds it.
     fn card_base(&mut self, def: &'static CardDef, index: CardIndex) -> Arc<Characteristics> {
         if let Some(base) = self.bases.cards.get(&index) {
             return Arc::clone(base);
         }
         Arc::make_mut(&mut self.bases).rules.insert(index, def);
         let name = self.names.intern(def.name());
-        let base = Arc::new(Characteristics::from_face(def, 0, name));
+        let base = Arc::new(Characteristics::of_card(def, name));
         Arc::make_mut(&mut self.bases)
             .cards
             .insert(index, Arc::clone(&base));

@@ -336,6 +336,11 @@ pub(crate) fn spending_object(
         projected.set_kicked(matches!(what, SpendFor::KickedSpell(..)));
         return Some(Cow::Owned(projected));
     }
+    if matches!(what, SpendFor::Spell(_))
+        && let Some(front) = super::split_front(state, original)
+    {
+        return Some(Cow::Owned(front));
+    }
     if let Some(face) = face {
         let def = state.bases.card(original.card?.index)?;
         def.faces.get(face)?;

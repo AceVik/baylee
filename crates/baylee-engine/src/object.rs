@@ -294,6 +294,28 @@ pub fn ability_target_req(
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    /// Set, a split card is its left half off the stack, as the engine read
+    /// it before the split boundary: nothing combined, no face switched for
+    /// a left half cast, no left half projected for a probe. The engine as it
+    /// was, for `split_card_tests` and `recorded_lockstep_tests`.
+    pub(crate) static SPLIT_BY_LEFT_HALF: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
+
+/// Whether `def` is a split card this engine reads as both halves off the
+/// stack (CR 709.4, `CardDef::is_split_spell_card`): every engine site that
+/// treats such a card apart asks this, so the engine as it was before the
+/// split boundary is one switch away in tests ([`SPLIT_BY_LEFT_HALF`]).
+pub(crate) fn reads_both_halves(def: &CardDef) -> bool {
+    #[cfg(test)]
+    if SPLIT_BY_LEFT_HALF.with(std::cell::Cell::get) {
+        return false;
+    }
+    def.is_split_spell_card()
+}
+
 /// Copiable values (CR 707.2): printed or token-defined characteristics.
 ///
 /// Computed/layered characteristics are a *projection* of this base plus
@@ -607,6 +629,45 @@ impl Characteristics {
                 .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
             x_on_stack: 0,
         }
+    }
+
+    /// The card as it is in every zone but the stack and the battlefield
+    /// (CR 400.7): its front face, and for a split card whose halves are
+    /// spells (`CardDef::is_split_spell_card`) both halves combined
+    /// (CR 709.4). The mana cost is the two costs together, so the colours
+    /// are both halves' and the mana value their sum (CR 709.4b); the card
+    /// types and keywords are each half's (CR 709.4c). Fire // Ice in a hand
+    /// is a blue and red instant of mana value 4.
+    ///
+    /// The name stays the left half's: an object here has one name, and a
+    /// split card has two (CR 709.4a). A rule that asks for a name off the
+    /// stack (a search for a card by name) therefore finds such a card by
+    /// its left half only; where a half is cast, the stack object has that
+    /// half's name (`GameState::switch_face`), which is where the names the
+    /// pool's locks read are asked (Meddling Mage).
+    #[must_use]
+    pub fn of_card(def: &CardDef, name: NameRef) -> Self {
+        let mut whole = Self::from_face(def, 0, name);
+        if reads_both_halves(def) {
+            let right = &def.faces[1];
+            let devoid = def.keywords_for_face(0).contains(KeywordSet::DEVOID)
+                || def.keywords_for_face(1).contains(KeywordSet::DEVOID);
+            whole.mana_cost = whole.mana_cost.combine(&right.mana_cost);
+            whole.colors = if devoid {
+                ColorSet::EMPTY
+            } else {
+                whole
+                    .mana_cost
+                    .colors()
+                    .union(def.faces[0].color_indicator)
+                    .union(right.color_indicator)
+            };
+            whole.types = whole.types.union(right.types);
+            whole.supertypes = whole.supertypes.union(right.supertypes);
+            whole.subtypes = whole.subtypes.union(SubtypeSet::from_slice(right.subtypes));
+            whole.keywords = whole.keywords.union(def.keywords_for_face(1));
+        }
+        whole
     }
 }
 

@@ -1369,11 +1369,38 @@ impl<L: CardLookup> Engine<L> {
             .is_some_and(|resolution| resolution.subject.count_open())
     }
 
+    /// The hash a build from before the split boundary wrote for this
+    /// position, which read every split card off the stack by its left half
+    /// where this one reads both halves (CR 709.4,
+    /// `Characteristics::of_card`; `docs/engine-internals.md` §"A split card
+    /// is both of its halves").
+    ///
+    /// For a replay audit to tell a record written before that boundary,
+    /// whose hashes differ from this build's by those cards' characteristics
+    /// alone from its opening on, from a record that diverges. Nothing in a
+    /// game reads it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn snapshot_hash_reading_split_cards_by_left_half(&self) -> u64 {
+        let mut before = self.state.clone();
+        before.read_split_cards_by_left_half();
+        self.snapshot_hash_over(before.snapshot_hash(), &self.activation_target_choice)
+    }
+
     /// [`Self::snapshot_hash`], with `target_choice` folded in where the
     /// engine's own activator goes.
-    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
     fn snapshot_hash_naming(&self, target_choice: &targeting::ActivationTargetChoice) -> u64 {
-        let base = self.state.snapshot_hash();
+        self.snapshot_hash_over(self.state.snapshot_hash(), target_choice)
+    }
+
+    /// [`Self::snapshot_hash_naming`] over `base`, the state's own hash or a
+    /// past build's reading of it.
+    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
+    fn snapshot_hash_over(
+        &self,
+        base: u64,
+        target_choice: &targeting::ActivationTargetChoice,
+    ) -> u64 {
         let mut extra = self.trigger_scan_seq;
         if let Some(PlanKind::ChooseTwoBasicLandTypes { object, first }) =
             self.pending_plan.as_ref()
@@ -2415,6 +2442,8 @@ mod sickness_tests;
 mod simulation_tests;
 #[cfg(test)]
 mod speed_tests;
+#[cfg(test)]
+mod split_card_tests;
 #[cfg(test)]
 mod stack_flow_tests;
 #[cfg(test)]

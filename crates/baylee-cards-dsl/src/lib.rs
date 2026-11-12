@@ -197,6 +197,36 @@ impl CardDef {
             .unwrap_or(UseBeyondMana::Nothing)
     }
 
+    /// Whether this is a split card (CR 709.1) whose two halves are spells,
+    /// instants and sorceries both: Fire // Ice. Everywhere but the stack such
+    /// a card is its halves combined (CR 709.4): both mana costs, so both
+    /// colours and their sum for a mana value, and each half's types; the
+    /// engine builds that from the two faces (`Characteristics::of_card`).
+    ///
+    /// Read off the faces, because a card file states no layout: two faces,
+    /// each castable out of a hand, neither an Adventure, and nothing on
+    /// either but instant and sorcery. A double-faced card whose faces are
+    /// both instants or sorceries would read as one too; none is in the pool,
+    /// and a test of the pool (`baylee_cards::sides`) holds this answer against
+    /// every printing's layout, so one cannot come in unseen. A Room (CR 709.5) is
+    /// a split card with a shared type line and is not one of these: its
+    /// halves are doors on the battlefield ([`Self::has_shared_type_line`]),
+    /// and off it the engine still reads its left half.
+    #[must_use]
+    pub fn is_split_spell_card(&self) -> bool {
+        let spells =
+            baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY);
+        let [left, right] = self.faces else {
+            return false;
+        };
+        [left, right].iter().all(|half| {
+            half.castable_from_hand
+                && !half.adventure
+                && !half.types.is_empty()
+                && half.types.difference(spells).is_empty()
+        })
+    }
+
     /// Whether this is a split card with one shared type line (CR 709.5), a
     /// Room: two halves, each a door that is locked or unlocked on the
     /// battlefield.

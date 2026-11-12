@@ -173,6 +173,33 @@ pub(crate) fn known_name(obj: &GameObject) -> baylee_core::ids::NameRef {
     }
 }
 
+/// Both names of a split card off the stack, "Fire // Ice": there it has
+/// two (CR 709.4a), where the engine's object carries its left half's alone
+/// (`Characteristics::of_card`). `None` for every other object, and for a
+/// split card on the stack, which is the half cast (CR 709.3b). Read only
+/// after the caller has checked inspection rights.
+pub(crate) fn split_name(state: &GameState, obj: &GameObject) -> Option<String> {
+    if obj.zone == baylee_engine::zone::Zone::Stack {
+        return None;
+    }
+    let def = obj
+        .card
+        .and_then(|card| baylee_cards::by_index(card.index))
+        .filter(|def| def.is_split_spell_card())?;
+    let [left, right] = def.faces else {
+        return None;
+    };
+    (state.names.get(known_name(obj)) == left.name)
+        .then(|| format!("{} // {}", left.name, right.name))
+}
+
+/// The name an object is known by, its whole name for a split card off the
+/// stack ([`split_name`]). Read only after the caller has checked
+/// inspection rights.
+pub(crate) fn known_text(state: &GameState, obj: &GameObject) -> String {
+    split_name(state, obj).unwrap_or_else(|| state.names.get(known_name(obj)).to_string())
+}
+
 /// The public name of an object as `seat` may know it.
 fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> baylee_view::SharedName {
     if let Some((dungeon, room)) = state.players.iter().find_map(|player| {
@@ -188,10 +215,12 @@ fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> baylee_vi
         )
         .into();
     }
-    if may_know_card(obj, seat) {
-        state.names.shared(known_name(obj)).into()
-    } else {
-        "Face-down".into()
+    if !may_know_card(obj, seat) {
+        return "Face-down".into();
+    }
+    match split_name(state, obj) {
+        Some(whole) => whole.into(),
+        None => state.names.shared(known_name(obj)).into(),
     }
 }
 
@@ -503,7 +532,8 @@ fn hand_matching(
                     print: card.print,
                     face: obj.face_index,
                 },
-                name: state.names.get(chars.name).to_string(),
+                name: split_name(state, obj)
+                    .unwrap_or_else(|| state.names.get(chars.name).to_string()),
                 mana_value: chars.mana_value(),
                 colors: chars.colors,
                 types: chars.types,

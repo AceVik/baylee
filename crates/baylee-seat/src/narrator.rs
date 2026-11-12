@@ -411,6 +411,15 @@ impl Narrator {
             faces.push(RulesFace::from(card.card));
         }
         let mut out = Vec::new();
+        // A split card is shown by both halves, whichever the object reads
+        // as: in a graveyard after Ice resolved the seat was told Fire's
+        // text alone, and Ice's never (CR 709.4; Carbon b6, attempt 58, q41).
+        let faces = faces.into_iter().flat_map(|face| {
+            let split = baylee_cards::by_index(face.card)
+                .is_some_and(baylee_cards_dsl::CardDef::is_split_spell_card);
+            let halves = if split { 0..=1 } else { face.face..=face.face };
+            halves.map(move |half| RulesFace { face: half, ..face })
+        });
         for face in faces {
             if self.deck.contains(&face.card) || !self.shown.insert((face.card, face.face)) {
                 continue;

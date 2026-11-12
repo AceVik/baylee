@@ -812,11 +812,10 @@ impl<L: CardLookup> Engine<L> {
         }
         // "Can't be cast" binds an effect's cast too (CR 601.3), or cascade
         // would cast what Meddling Mage named.
-        if self
-            .state
-            .object(card)
-            .is_some_and(|object| casting::cast_is_forbidden(&self.state, player, object))
-        {
+        if self.state.object(card).is_some_and(|object| {
+            let front = casting::split_front(&self.state, object);
+            casting::cast_is_forbidden(&self.state, player, front.as_ref().unwrap_or(object))
+        }) {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
         // A spell whose every effect sits under a mode is cast *in* a mode
@@ -933,7 +932,13 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(card)
             .filter(|o| o.version == version)
-            .map(|o| o.characteristics().mana_cost)
+            .map(|o| {
+                // A split card's left half, where the card is both halves.
+                casting::split_front(&self.state, o)
+                    .map_or(o.characteristics().mana_cost, |front| {
+                        front.characteristics().mana_cost
+                    })
+            })
             .ok_or(EngineError::IllegalAction("the card has gone"))?;
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
@@ -1024,11 +1029,13 @@ impl<L: CardLookup> Engine<L> {
         let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
             return false;
         };
-        if obj
+        let split_front = casting::split_front(&self.state, obj);
+        let front = split_front.as_ref().unwrap_or(obj);
+        if front
             .characteristics()
             .types
             .contains(baylee_core::types::TypeSet::LAND)
-            || casting::cast_is_forbidden(&self.state, player, obj)
+            || casting::cast_is_forbidden(&self.state, player, front)
         {
             return false;
         }

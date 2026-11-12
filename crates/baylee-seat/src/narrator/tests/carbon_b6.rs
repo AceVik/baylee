@@ -1,7 +1,7 @@
 //! What the Carbon seat was offered or told wrong in block 6 (12.11.2026),
 //! on a real engine where it can be: a cast that tapped the only Mountain an
-//! `{R}` ability on the board was waiting for, and Ward Sliver's chosen
-//! colour shown nowhere.
+//! `{R}` ability on the board was waiting for, Ward Sliver's chosen colour
+//! shown nowhere, and a split card shown by one half off the stack.
 
 use super::carbon::{picked, send};
 use super::*;
@@ -176,4 +176,83 @@ fn a_permanent_s_line_says_the_opponent_and_colour_chosen_for_it() {
         .unwrap_or_else(|| panic!("Serra Angel: {text}"));
     assert!(line.contains("chosen opponent you"), "{line}");
     assert!(line.contains("chosen color green"), "{line}");
+}
+
+/// Fire // Ice is both halves everywhere but the stack (CR 709.4): in hand
+/// it is listed by both, cast as Ice it is Ice on the stack (CR 709.3b),
+/// and in the graveyard it is Fire // Ice again, with both halves' text
+/// under "New cards". The seat was shown "Fire #72" and Fire's text alone
+/// once Ice had resolved, and had to look Ice up (Carbon b6, segment 2,
+/// attempt 58, q41; attempts 62 and 71).
+#[test]
+fn a_split_card_off_the_stack_is_shown_by_both_halves() {
+    let (mut session, view, _) = position(&["Island", "Plains"], &["Fire // Ice"], &[]);
+    let card = view.hand[0].id;
+    let held = told(&asked(&session));
+    let line = held
+        .lines()
+        .find(|line| line.contains(&tag(card)))
+        .unwrap_or_else(|| panic!("the card in hand: {held}"));
+    assert!(
+        line.contains("Fire // Ice {1}{R} // {1}{U} · Instant // Instant"),
+        "{line}"
+    );
+
+    for land in mine(&session, "Island")
+        .into_iter()
+        .chain(mine(&session, "Plains"))
+    {
+        session
+            .act_slice(ME, PlayerAction::ActivateManaAbility { source: land }, 0)
+            .expect("a land's mana");
+    }
+    session
+        .act_slice(ME, PlayerAction::CastSpell { card }, 0)
+        .expect("{U}{W} pays Ice");
+    let mut seen_on_stack = false;
+    for _ in 0..16 {
+        let in_graveyard = session.observe_view(ME).graveyards[0]
+            .iter()
+            .any(|o| o.id == card);
+        let action = match session.pending().clone() {
+            Pending::ChooseCastMode { options, .. } => PlayerAction::ChooseMode(
+                options
+                    .iter()
+                    .position(|o| o.kind == baylee_engine::choice::CastModeKind::Face(1))
+                    .expect("Ice is offered"),
+            ),
+            Pending::ChooseTargets { options, .. } => PlayerAction::ChooseTargets {
+                objects: vec![options[0]],
+                players: Vec::new(),
+            },
+            Pending::Priority { .. } if in_graveyard => break,
+            Pending::Priority { player, .. } => {
+                if let Some(spell) = session.observe_view(ME).stack.iter().find(|o| o.id == card) {
+                    assert_eq!(&*spell.name, "Ice", "on the stack it is the half cast");
+                    seen_on_stack = true;
+                }
+                session
+                    .act_slice(player, PlayerAction::PassPriority, 0)
+                    .expect("a pass");
+                continue;
+            }
+            other => panic!("Ice asked {other:?}"),
+        };
+        session.act_slice(ME, action, 0).expect("Ice's answer");
+    }
+    assert!(seen_on_stack, "Ice was cast");
+    let request = asked(&session);
+    let text = told(&request);
+    assert!(
+        text.contains(&format!("Fire // Ice {}", tag(card))),
+        "the graveyard names both halves: {text}"
+    );
+    assert!(
+        text.contains("  Fire {1}{R} · Instant"),
+        "Fire's text: {text}"
+    );
+    assert!(
+        text.contains("  Ice {1}{U} · Instant"),
+        "Ice's text: {text}"
+    );
 }

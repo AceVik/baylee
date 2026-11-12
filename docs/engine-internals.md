@@ -2339,12 +2339,38 @@ Room's static effects and replacement rules so the next
 adds while a permanent stays on the battlefield, and a Room placed uncast
 had been scanned as its left half first. The printed front is stashed in
 `original_base`, which the move off the battlefield restores, and the doors
-are cleared there (CR 400.7). Off the battlefield the card is its left face,
-as every multi-face card is here; the combined characteristics of CR 709.4
-are not modelled. With both doors open the list's printed face is the left
+are cleared there (CR 400.7). Off the battlefield a Room is still its left
+face: the combined characteristics of CR 709.4, which the next paragraph
+gives every other split card, are not modelled for a Room, whose pinned
+house games (Walk-In Closet in Weltenbaum) would move with its mana value
+in hand. With both doors open the list's printed face is the left
 one, so an ability of the right half has no stack-text line in that state
 (Forgotten Cellar's trigger after an unlock from the Closet shows its card,
 not its sentence).
+
+**A split card is both of its halves everywhere but the stack** (CR 709.4).
+The pool's split cards are read off their faces
+(`CardDef::is_split_spell_card`: two faces, each castable from a hand and
+neither an Adventure, nothing on either but instant and sorcery; a pool lint
+holds that answer against every printing's layout). Their shared base
+(`GameState::card_base`, `Characteristics::of_card`) is the two mana costs
+combined, so both colours and their sum for a mana value (CR 709.4b), with
+each half's card types and keywords (CR 709.4c): Fire // Ice in a hand, a
+library, a graveyard or exile is a blue and red instant of mana value 4,
+which Force of Will may exile as a blue card. Cast as a half, the object is
+that half alone on the stack (CR 709.3b): the cast's commit switches to the
+half's face, the left one too (`cast_wizard/commit.rs`), and the move off the
+stack gives the whole card back (`GameState::rest_as_card`). Before the cast
+the card is still whole, so every probe that asks about its normal cast (a
+price, a timing, a lock, what mana may pay for it) asks the left half as
+the spell it will be (`casting::split_front`; `can_cast`, `cast_options`,
+`spending_object`, `face_is_forbidden` and the wizard's effect and paid
+casts), as a back half was always asked as itself. The object keeps one
+name, the left half's (CR 709.4a gives the card two, and an object here has
+one): a rule that asks a name off the stack finds the card by its left half
+only. The host shows both, "Fire // Ice" (`view::split_name`). Every split
+card's base is in the snapshot hash, so a record with one in any deck,
+written before this, opens with another hash (`docs/trained-ai.md`).
 
 **A copy of an ability is a clone of it** (CR 707.10,
 `resolve::copy_target_ability`). Every decision made for the original rides
