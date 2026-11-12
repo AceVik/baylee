@@ -42,6 +42,7 @@ contact production or run a release.
 | `art/music/memorial/prepare.py`, `prepare_bank.py` | `cargo tools art memorial score`, `bank` (see `art/music/memorial/README.md`) |
 | `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
 | `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
+| `scripts/perf/gpu-intervals.rs` (built by hand with `rustc`) | `cargo tools perf gpu-intervals TABLE [PROCESS]` (sums an exported Metal GPU trace; `docs/perf-client.md`) |
 | `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-reboot`, and `baylee-invite`, which since the open beta (10.11.2026) only says the closed beta's keys are gone (crate baylee-ops) |
 | `scripts/macos-runner/runner.sh` | `baylee-macos-runner` (crate baylee-runner) |
 | `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|shipped-features\|wasm]`, `land`, `ci-changes`, `deploy` |

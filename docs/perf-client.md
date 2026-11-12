@@ -1195,7 +1195,7 @@ here where one run can give both.
 One client at a duel after the mulligan, the shaders swapped by hot reload
 (`dev-reload`): the round's `felt.wesl` and `mat.wesl`, main's, the round's
 again. Five seconds of Metal System Trace each, every GPU interval of the
-process summed (`scripts/perf/gpu-intervals.rs`), frames from `/perf` over the
+process summed (`cargo tools perf gpu-intervals`), frames from `/perf` over the
 same seconds. A screenshot of each confirms which shaders drew.
 
 | Shaders | GPU busy, ms/s | Frames a second | GPU ms a frame |

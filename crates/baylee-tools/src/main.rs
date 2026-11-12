@@ -4,6 +4,7 @@ mod forge;
 mod hooks;
 mod installers;
 mod package;
+mod perf;
 mod pgo;
 mod recording;
 mod release;
@@ -80,6 +81,12 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Read what a profiler exported: sum a GPU trace per process and channel.
+    #[command(disable_help_flag = true)]
+    Perf {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Build from a profile of this checkout and prove it plays the same games.
     #[command(disable_help_flag = true)]
     Pgo {
@@ -125,6 +132,7 @@ fn main() -> anyhow::Result<()> {
         Command::Forge { args } => forge::run(root, &args),
         Command::Art { args } => art::run(root, &args),
         Command::Hooks { args } => hooks::run(root, &args),
+        Command::Perf { args } => perf::run(root, &args),
         Command::Pgo { args } => pgo::run(root, &args),
     };
     if let Err(error) = &result
