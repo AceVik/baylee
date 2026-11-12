@@ -36,7 +36,7 @@ mod control_choice;
 mod control_observers;
 mod copying;
 mod damage_returns;
-mod for_each;
+pub(crate) mod for_each;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;

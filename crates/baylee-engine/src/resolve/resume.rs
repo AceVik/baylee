@@ -1206,6 +1206,9 @@ pub(super) fn resume_inner(
                 );
             }
         }
+        AwaitingOp::HeldSacrifice { player } => {
+            super::for_each::held(state, res, player, chosen);
+        }
         AwaitingOp::SacrificeOneThen { if_it_was, then } => {
             if let Some(&victim) = chosen.first() {
                 // Asked before it moves: what it was on the battlefield

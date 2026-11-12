@@ -4701,6 +4701,18 @@ for `ExileTopFaceDownUntilYourNextEndStep` uses the registering controller's
 `Effect::ForEachTarget { effects }` runs the child instructions separately
 for each surviving exact target, binding that object as `EventObject` and
 its controller as `EventPlayer`.
+`Effect::ForEachMatching { filter, effects }` does the same for each
+permanent `filter` matches, counted once as it begins (CR 608.2h), its
+controllers taking their turns in APNAP order (CR 101.4), one player's
+permanents in battlefield order. When `effects` sacrifice through
+`SacrificeFilter` ("for each creature, its controller sacrifices a permanent
+of their choice unless they pay {1}": Fade Away), each player answers every
+payment first and then chooses each permanent owed, a permanent chosen is
+not offered again, a counted permanent that has left still counts, and
+everything chosen is sacrificed at once after the last player has chosen
+(`docs/engine-internals.md` §"For each permanent, its controller").
+Instructions that do not sacrifice act on the permanent itself and pass over
+one that has left before its turn (CR 400.7).
 `Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects }` instead
 iterates the exact still-present graveyard successors of creatures damaged
 by this source incarnation that died this turn. A card that left and returned

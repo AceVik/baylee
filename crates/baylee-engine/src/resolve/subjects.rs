@@ -40,6 +40,9 @@ pub struct SubjectContext {
     pub(super) for_each_remaining: Option<Vec<DamageSourceRef>>,
     pub(super) destruction_batches: Vec<super::destruction_receipts::Batch>,
     pub(super) payment_batches: Vec<super::choices::PaymentBatch>,
+    /// A `ForEachMatching` whose instructions sacrifice, from its count to
+    /// the sacrifices it ends with (`resolve::for_each`).
+    pub(super) counted: Option<Box<super::for_each::Count>>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -73,6 +76,7 @@ impl SubjectContext {
             for_each_remaining: None,
             destruction_batches: Vec::new(),
             payment_batches: Vec::new(),
+            counted: None,
             checkpoint: None,
         }
     }
@@ -200,6 +204,13 @@ impl SubjectContext {
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.named));
+        // Only while a count is open, so a resolution without one hashes as it
+        // did before there were counts.
+        if let Some(count) = &self.counted {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(count));
+        }
         // Checkpoints exist only during synchronous resume calls. Every
         // public resume wrapper flushes before returning a held resolution.
         debug_assert!(self.checkpoint.is_none());

@@ -1366,8 +1366,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::ForEachMatching { effects, .. } | Effect::ForEachTarget { effects } => {
-            super::for_each::step(state, res, effects, op);
-            None
+            super::for_each::step(state, res, effects, op)
         }
         Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter, effects } => {
             let after = state.journal.last_seq();

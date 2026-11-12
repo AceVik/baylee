@@ -2011,6 +2011,53 @@ when nothing changed, and it is the rule rather than the fight's: any
 sentence that reads a characteristic after an earlier sentence changed it was
 wrong the same way.
 
+### For each permanent, its controller (CR 608.2h, 101.4)
+
+`Effect::ForEachMatching` runs its instructions once per permanent its filter
+matches, with that permanent as `EventObject` and its controller as
+`EventPlayer` (`resolve/for_each.rs`). The permanents are counted once, as
+the instruction begins (CR 608.2h), and their controllers take their turns
+in APNAP order (CR 101.4): the active player's permanents first, then each
+other player's in turn order, one player's in battlefield order.
+
+When the instructions sacrifice through `SacrificeFilter` — Fade Away: "For
+each creature, its controller sacrifices a permanent of their choice unless
+they pay {1}" — the iteration is a `for_each::Count`, carried in
+`SubjectContext::counted`. A sacrifice the instructions reach is not made:
+`for_each::hold` owes it. When a player's last permanent has had its turn,
+that player chooses each permanent owed (`AwaitingOp::HeldSacrifice`, a
+`ChooseCards` of one), never one already chosen, and after the last player
+everything chosen is sacrificed at once (`sacrifice_together`), each only
+while its chooser still controls it (CR 701.21a). So each player answers all
+their payments, then chooses all their sacrifices, before the next player is
+asked anything. Fade Away's ruling of 2004-10-04 says it in these words:
+each player counts their creatures as it begins, the active player announces
+first, all sacrifices are done at the same time, and "you can't sacrifice
+one creature in order to pay for another and thereby avoid payment for the
+first". A counted creature that has left — chosen for another, or
+sacrificed for mana to pay for another (CR 605.3a) — still has its turn and
+its controller still owes for it. The payments come before the choices so
+that nothing chosen can still be sacrificed for mana afterwards. A player
+asked later is not shown what an earlier player chose, which CR 101.4b says
+they know; the chosen permanents are still on the battlefield until the end,
+as the Dungeon's tax choices are.
+
+Instructions that do not sacrifice (Heroism, Tidal Flats, Dread Wight,
+Fighting Chance) act on the permanent itself, and a permanent that has left
+before its turn is passed over: it is a new object (CR 400.7). They iterate
+as before, through `SubjectContext::for_each_remaining`, in APNAP order; at
+a table of two none of them matches permanents of both players, so their
+order and their hashes are what they were. `SubjectContext::counted` is
+hashed only while a count is open.
+
+Carbon's ladder game seg2 attempt-000000033 met the iteration as it was: on
+turn 12 the nonactive player was asked before and between the active
+player's choices, in battlefield order, and on turn 22 a player with two
+creatures and no mana chose one for the other, the second was skipped as
+gone, and one permanent was lost instead of two.
+`engine::for_each_count_tests` plays both on the engine and, through
+`for_each::ONE_AT_A_TIME`, on the engine as it was.
+
 ## Cards put into places: `Pending::Arrange`
 
 "Put them back in any order" and "the rest on the bottom in any order" are
