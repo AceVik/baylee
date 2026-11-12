@@ -47,8 +47,9 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--resume", default="", help="Resume an atomic last.pt checkpoint")
     ap.add_argument("--checkpoint-every", type=int, default=100)
     ap.add_argument("--validation-every", type=int, default=1000)
-    ap.add_argument("--checkpoint-selection", choices=("policy", "combined"), default="policy",
-                    help="Supervised snapshot criterion; match evaluation is still required for promotion")
+    ap.add_argument("--checkpoint-selection", choices=("policy", "combined", "distill_n_ne_r"), default="policy",
+                    help="Supervised snapshot criterion; match evaluation is still required for promotion. "
+                         "distill_n_ne_r (with --distill-bundle): top-1 agreement with R where N != R at distilled kinds")
     ap.add_argument("--validate-initial", action="store_true", help="Include the untouched initial policy in checkpoint selection")
     ap.add_argument("--activation-checkpointing", action="store_true")
     ap.add_argument("--offload-checkpoint-inputs", action="store_true", help="Offload CUDA checkpoint inputs to pinned CPU memory; requires activation checkpointing, preserves the full-unroll graph")
@@ -106,7 +107,13 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--think-improve-margin", type=float, default=0.0)
     ap.add_argument("--think-confidence-weight", type=float, default=0.25)
     ap.add_argument("--think-consequence-weight", type=float, default=0.1)
+    ap.add_argument("--thinking-lr", type=float, default=0.,
+                    help="Learning rate of the deliberation block alone (0 = --lr); a block attached by "
+                         "--thinking-warmstart is fresh and is also left out of --anchor-l2")
+    from .learner_options import add_learner_options, check_learner_options
+    add_learner_options(ap)
     args = ap.parse_args()
+    check_learner_options(args, ap)
     if args.depth_schedule == "fixed" and args.thinking_curriculum:
         ap.error("--depth-schedule fixed conflicts with --thinking-curriculum")
     args.depth_schedule = args.depth_schedule or ("legacy_frame_cycle" if args.thinking_curriculum else "fixed")
@@ -184,8 +191,14 @@ def parse_args(default_architecture="v4"):
                     or args.train_candidate_column is not None or args.train_rules_only):
                 ap.error("--train-thinking-only needs --init or --resume and no other partial-training flag")
             identity["train_parts"] = "thinking"
+        if args.train_thinking_only and (args.train_policy_head_only or args.adapter_on_candidate_head
+                                         or args.trainable_trunk_from_layer >= 0):
+            ap.error("--train-thinking-only trains the block alone; with the head or the upper trunk the "
+                     "block trains beside them without it")
+        if args.adapter_on_candidate_head and args.think_supervision:
+            ap.error("The candidate adapter leaves the deliberation block frozen; nothing to supervise")
     elif (args.thinking_warmstart or args.train_thinking_only or args.think_supervision
-          or args.deliberation_no_feedback):
+          or args.deliberation_no_feedback or args.thinking_lr):
         ap.error("Deliberation flags require --thinking-revision 2")
     if args.thinking_warmstart and (not args.init or args.resume or args.candidate_context_warmstart
                                     or args.encoder_warmstart_from7 or args.encoder_warmstart_to9

@@ -94,6 +94,8 @@ fn read_groups(runs: &[PathBuf]) -> Result<(Groups, Vec<String>)> {
             &std::fs::read(dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", dir.display()))?,
         )?;
+        crate::tactician_labels::refuse_imitation(&run)
+            .with_context(|| format!("{}", dir.display()))?;
         ensure!(
             run["seats"] == 2,
             "self-imitation groups support 1v1 tables only"

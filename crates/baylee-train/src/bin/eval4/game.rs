@@ -111,6 +111,7 @@ fn play_one_table(
     research_encoder: Option<u32>,
     mut search: Option<&mut lookahead::GameSearch>,
     value_log: Option<&Mutex<BufWriter<File>>>,
+    mut teacher: Option<&mut house_teacher::GameTeacher<'_>>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -386,6 +387,9 @@ fn play_one_table(
                         shadow.hear(routed);
                     }
                 });
+                if let (Some(teacher), true) = (teacher.as_deref_mut(), result.is_ok()) {
+                    teacher.played(pid, &act);
+                }
                 fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                     "reason":"outer_repeated_view","view_hash":format!("{vh:016x}"),
                     "visits":*vc,"action":act,"accepted":result.is_ok()}));
@@ -399,11 +403,21 @@ fn play_one_table(
                         free_mask: Vec::new(),
                         pick_sequence: Vec::new(),
                     });
+                    if let Some(n) = net.as_deref_mut() {
+                        n.distill_step(pid.get(), sequence, record_offset, false);
+                    }
                 }
                 break;
             }
 
             if let Some(n) = net.as_deref_mut() {
+                // `--distill-teacher`: the house answers the seat's question
+                // first; the net labels its own answer with it.
+                if let Some(teacher) = teacher.as_deref_mut()
+                    && let Some(house) = teacher.answer(&mut session, pid, &view, &pending)?
+                {
+                    n.give_distill_answer(pid.get(), house);
+                }
                 let t0 = Instant::now();
                 let searched = match search.as_deref_mut() {
                     Some(search) => search.answer(n, &session, &view, &pending, teams)?,
@@ -532,6 +546,18 @@ fn play_one_table(
                     shadow.executed(proposal, result.is_ok())?;
                 }
                 if result.is_ok() {
+                    if let Some(teacher) = teacher.as_deref_mut() {
+                        // What was played and `N` beside `H`, before the
+                        // step takes the label.
+                        teacher.observed(
+                            pid,
+                            &view,
+                            &attempted_action,
+                            n.distill_net_action(pid.get()).as_ref(),
+                            ans.provenance.source == SourceKind4::Forced,
+                        );
+                        teacher.played(pid, &attempted_action);
+                    }
                     if let Some(mut binding) = research_binding {
                         binding["post_snapshot_hash"] =
                             json!(format!("{:016x}", session.snapshot_hash()));
@@ -543,6 +569,12 @@ fn play_one_table(
                             free_mask: ans.target.free_mask,
                             pick_sequence: ans.target.pick_sequence,
                         });
+                        n.distill_step(
+                            pid.get(),
+                            sequence,
+                            record_offset,
+                            ans.provenance.source == SourceKind4::Net,
+                        );
                     }
                 } else if let Err(error) = result {
                     refused += 1;
@@ -564,8 +596,14 @@ fn play_one_table(
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;
-                    let routed = session.act_slice(pid, fb, 0);
+                    let (fb_sequence, fb_offset) =
+                        (session.decision_seq(), session.record_pending());
+                    let routed = session.act_slice(pid, fb.clone(), 0);
                     let accepted = routed.is_ok();
+                    if let (Some(teacher), true) = (teacher.as_deref_mut(), accepted) {
+                        teacher.observed(pid, &view, &fb, None, false);
+                        teacher.played(pid, &fb);
+                    }
                     if let (Some(shadow), Ok(routed)) = (shadow.as_deref_mut(), routed) {
                         shadow.hear(routed);
                     }
@@ -579,6 +617,7 @@ fn play_one_table(
                             free_mask: Vec::new(),
                             pick_sequence: Vec::new(),
                         });
+                        n.distill_step(pid.get(), fb_sequence, fb_offset, false);
                     }
                 }
             }

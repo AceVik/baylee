@@ -19,6 +19,8 @@ pub(super) struct SeatPlayers {
     last_was_learner: bool,
     search_opponent: bool,
     coverage: CoverageMatrix4,
+    /// `--distill-labels`: both seats' steps in the order the table took them.
+    distill_steps: Option<Vec<baylee_train::netplay4::distill::DistillStep4>>,
 }
 
 impl SeatPlayers {
@@ -65,6 +67,7 @@ impl SeatPlayers {
             last_was_learner: true,
             search_opponent: contract.opponent_role == super::collector::OpponentRole::SelfPlay,
             coverage: CoverageMatrix4::default(),
+            distill_steps: None,
         })
     }
 
@@ -172,6 +175,74 @@ impl EvaluationPlayer for SeatPlayers {
     }
     fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
         self.learner.take_tactic_rules_fired()
+    }
+    /// The seat under test's tactician; a self-play copy gets its own, so an
+    /// imitating collection keeps both seats' windows.
+    fn set_tactician(&mut self, tactician: baylee_train::netplay4::tactician::Tactician4) -> bool {
+        if self.search_opponent
+            && let Some(opponent) = &mut self.opponent
+        {
+            opponent.set_tactician(tactician.clone());
+        }
+        self.learner.set_tactician(tactician)
+    }
+    fn take_tactician_records(
+        &mut self,
+    ) -> Vec<baylee_train::netplay4::tactician::TacticianRecord4> {
+        let mut records = self.learner.take_tactician_records();
+        if let Some(opponent) = &mut self.opponent {
+            records.extend(opponent.take_tactician_records());
+        }
+        records
+    }
+    /// The seat under test labels its answers; a self-play copy labels its
+    /// own, and the steps of both seats are kept here in the table's order.
+    fn set_distill(&mut self, distill: &baylee_train::netplay4::distill::Distill4) -> bool {
+        if self.search_opponent
+            && let Some(opponent) = &mut self.opponent
+        {
+            opponent.set_distill(distill);
+        }
+        let ok = self.learner.set_distill(distill);
+        if ok {
+            self.distill_steps = Some(Vec::new());
+        }
+        ok
+    }
+    fn distill_step(&mut self, seat: u8, decision_seq: u64, record_offset: usize, answered: bool) {
+        let label = self
+            .player_mut(usize::from(seat))
+            .and_then(EvaluationPlayer::take_distill_label)
+            .filter(|_| answered);
+        if let Some(steps) = &mut self.distill_steps {
+            steps.push(baylee_train::netplay4::distill::DistillStep4 {
+                seat,
+                decision_seq,
+                record_byte_offset: record_offset,
+                label,
+            });
+        }
+    }
+    fn take_distill_steps(&mut self) -> Option<Vec<baylee_train::netplay4::distill::DistillStep4>> {
+        self.distill_steps.as_mut().map(std::mem::take)
+    }
+    fn give_distill_answer(
+        &mut self,
+        seat: u8,
+        answer: baylee_engine::choice::PlayerAction,
+    ) -> bool {
+        self.player_mut(usize::from(seat))
+            .is_some_and(|player| player.give_distill_answer(seat, answer))
+    }
+    fn distill_net_action(&self, seat: u8) -> Option<baylee_engine::choice::PlayerAction> {
+        self.player(usize::from(seat))?.distill_net_action(seat)
+    }
+    fn distill_unencodable(&self) -> u64 {
+        self.learner.distill_unencodable()
+            + self
+                .opponent
+                .as_deref()
+                .map_or(0, EvaluationPlayer::distill_unencodable)
     }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.player(usize::from(seat.get()))?.observed_value(seat)
@@ -373,6 +444,7 @@ mod tests {
             last_was_learner: true,
             search_opponent: false,
             coverage: CoverageMatrix4::default(),
+            distill_steps: None,
         };
         let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();
         let preset = baylee_train::selfplay::table_for(

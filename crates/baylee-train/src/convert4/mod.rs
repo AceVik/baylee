@@ -108,6 +108,34 @@ pub struct Step4 {
     /// Executed external LLM target; never neural behavior probabilities.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub llm_label: Option<llm_bc::LlmLabelProvenance4>,
+    /// The index of the record's seat input this decision frame answers (the
+    /// `rollout_sidecar` index), for a converter that binds labels to it.
+    #[serde(skip)]
+    pub seat_input: Option<u32>,
+    /// At a priority question: each candidate's coarse class
+    /// (`coarse_class::coarse_classes_of`), for a converter that writes
+    /// them beside the frames; never part of a frame.
+    #[serde(skip)]
+    pub cand_classes: Option<Vec<u8>>,
+    /// Bundle distillation (`bundle_distillation_v1`): what a labelled frame
+    /// carries beside its target `R` (`N`, whether it differs, the priority
+    /// subtype, the groups that fired).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub distill: Option<distill_labels::DistillFrame4>,
+}
+
+/// The net's own answer `N` at a distilled decision, by head.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct NetAnswer4 {
+    /// A single choice's index.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub single_idx: Option<u16>,
+    /// A subset's or pairs' mask.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub multi_mask: Option<Vec<u8>>,
+    /// A number, normalized.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scalar_norm: Option<f32>,
 }
 
 /// Summary returned by [`extract_game4`].
@@ -209,6 +237,7 @@ pub fn extract_game4_with_team_hands(
 }
 
 pub mod activator_boundary;
+pub mod distill_labels;
 mod idle_pass;
 pub mod llm_bc;
 pub mod question_boundary;

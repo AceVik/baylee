@@ -126,7 +126,7 @@ fn rows_put_state_unit_and_tail_in_place_with_the_null_row_first() {
     assert_eq!(rows[2 * width + 4], tails[2 * ROW_TAIL]);
 }
 
-mod on_a_table {
+pub(in crate::netplay4) mod on_a_table {
     use super::super::look::LookPrior4;
     use super::super::*;
     use crate::netplay4::NetPlayer4;
@@ -135,13 +135,20 @@ mod on_a_table {
     use baylee_core::preset::AIProfile;
     use baylee_gamehost::Session;
 
-    const ME: PlayerId = PlayerId::new(0);
-    const D: usize = 4;
+    pub(in crate::netplay4) const ME: PlayerId = PlayerId::new(0);
+    pub(in crate::netplay4) const D: usize = 4;
 
-    fn table(seed: u64) -> Session {
+    /// The house these tables were written against: `steady` at generation 7.
+    /// A later house plays other games, and reaches block windows where an
+    /// attacker with menace needs two blockers, which the pair sampler
+    /// (`sample_pairs_constrained`) does not know of, so its answer can be one
+    /// the engine refuses (`TooFewBlockers`); the tables keep their boards
+    /// until the sampler reads that bound.
+    const HOUSE: AIProfile = AIProfile::STEADY.at_generation(AIProfile::FORESIGHT);
+
+    pub(in crate::netplay4) fn table(seed: u64) -> Session {
         let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
-        let preset =
-            crate::selfplay::table_for(seed, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
+        let preset = crate::selfplay::table_for(seed, &[&deck, &deck], &[HOUSE; 2], &[]);
         let mut session = Session::new_recorded(&preset, "test").unwrap();
         session.describe("tactician".into(), vec!["0".into(), "1".into()]);
         assert!(session.take_over(ME));
@@ -150,7 +157,7 @@ mod on_a_table {
 
     /// Drives the table, seat 0 by the steady house, until `want` holds of
     /// seat 0's question.
-    fn drive(
+    pub(in crate::netplay4) fn drive(
         session: &mut Session,
         want: impl Fn(&PlayerView, &Pending) -> bool,
     ) -> Option<(Pending, PlayerView)> {
@@ -172,9 +179,15 @@ mod on_a_table {
         None
     }
 
-    fn prior() -> Arc<LookPrior4> {
-        let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
-        Arc::new(LookPrior4::from_decks([&deck.deck]).unwrap())
+    /// The prior of the test deck, built once: it reads the card catalog.
+    pub(in crate::netplay4) fn prior() -> Arc<LookPrior4> {
+        static PRIOR: std::sync::OnceLock<Arc<LookPrior4>> = std::sync::OnceLock::new();
+        PRIOR
+            .get_or_init(|| {
+                let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
+                Arc::new(LookPrior4::from_decks([&deck.deck]).unwrap())
+            })
+            .clone()
     }
 
     /// Plays the window `want` names on some table: the answer decodes, the

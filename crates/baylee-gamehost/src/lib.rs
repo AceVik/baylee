@@ -38,4 +38,8 @@ pub use session::{
 #[cfg(any(test, feature = "simulation"))]
 pub use session::{ProbedLeaf, SEARCH_SHARE, SearchedQuestion};
 pub use session::{RegistryLookup, SeatKind, Session};
+/// A fair house level answering a chair it does not hold
+/// (`Session::teacher_answer`), for the house-teacher labels.
+#[cfg(any(test, feature = "simulation"))]
+pub use session::{Teacher, TeacherAnswer, TeacherHow, TeacherRefusal};
 pub use view::{SeatContext, game_static, owed_payment, player_view};

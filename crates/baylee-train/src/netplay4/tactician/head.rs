@@ -47,17 +47,8 @@ impl TacticianHead4 {
             meta["row_tail"].as_u64() == Some(ROW_TAIL as u64),
             "the head reads rows of another width"
         );
-        let path = dir.join("tactician.onnx");
-        let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
-        let sha256 = super::look::hex(&<sha2::Sha256 as sha2::Digest>::digest(&bytes));
-        let session = Session::builder(crate::onnx::environment().map_err(ort_error)?)
-            .map_err(ort_error)?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(ort_error)?
-            .with_intra_threads(1)
-            .map_err(ort_error)?
-            .commit_from_memory(&bytes)
-            .map_err(ort_error)?;
+        let (bytes, sha256) = read_graph(dir)?;
+        let session = cpu_session(&bytes)?;
         Ok(Self {
             session: Mutex::new(session),
             d_model,
@@ -113,6 +104,42 @@ impl TacticianHead4 {
         );
         Ok(score.to_vec())
     }
+}
+
+/// The contract a head directory's `tactician.json` names.
+///
+/// # Errors
+/// A missing or unreadable `tactician.json`, or one naming no contract.
+pub fn contract_of(dir: &Path) -> anyhow::Result<String> {
+    let meta: Value = serde_json::from_slice(
+        &std::fs::read(dir.join("tactician.json"))
+            .with_context(|| format!("reading {}", dir.join("tactician.json").display()))?,
+    )?;
+    meta["contract"]
+        .as_str()
+        .map(str::to_owned)
+        .context("tactician.json names no contract")
+}
+
+/// `dir/tactician.onnx` and its digest.
+pub(super) fn read_graph(dir: &Path) -> anyhow::Result<(Vec<u8>, String)> {
+    let path = dir.join("tactician.onnx");
+    let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    let sha256 = super::look::hex(&<sha2::Sha256 as sha2::Digest>::digest(&bytes));
+    Ok((bytes, sha256))
+}
+
+/// A CPU session of one intra-op thread: the same answer whichever worker or
+/// batch asks.
+pub(super) fn cpu_session(bytes: &[u8]) -> anyhow::Result<Session> {
+    Session::builder(crate::onnx::environment().map_err(ort_error)?)
+        .map_err(ort_error)?
+        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .map_err(ort_error)?
+        .with_intra_threads(1)
+        .map_err(ort_error)?
+        .commit_from_memory(bytes)
+        .map_err(ort_error)
 }
 
 /// The head's input rows: `[state | unit embedding (zero for the null row) |

@@ -103,6 +103,18 @@ struct Args {
     /// are the policy targets; every run must have been searched.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights"])]
     search_targets: bool,
+    /// Bundle distillation (`bundle_distillation_v1`): the tactical layer's
+    /// answers that `eval4 --distill-labels` kept beside the games become the
+    /// policy targets of the recorded seats' decisions; the net's own answer
+    /// stays with each frame. Reads only runs that declare the contract, which
+    /// every other conversion refuses.
+    #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights", "search_targets"])]
+    bundle_distill: bool,
+    /// With `--bundle-distill`: writes here, beside the frames, every labelled
+    /// priority frame's candidate classes (`coarse_class_v1`,
+    /// `coarse_classes.rs`).
+    #[arg(long, requires = "bundle_distill")]
+    coarse_classes: Option<PathBuf>,
     /// With `--search-targets`: the policy weight of the net's own
     /// unsearched decisions (0 leaves them out).
     #[arg(long, requires = "search_targets", default_value_t = 0.0)]
@@ -133,6 +145,8 @@ struct GameRef {
     len: u64,
     sidecar: Option<Vec<RolloutStepSidecar4>>,
     search_events: Option<search_distill::GameSearchEvents>,
+    /// `--bundle-distill`: the game's labels.
+    distill: Option<bundle_distill::GameLabels>,
     validation: bool,
     shadow: Option<shadow::Source>,
     llm: Option<llm::Source>,
@@ -164,6 +178,8 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
 }
 
 mod boundary;
+mod bundle_distill;
+mod coarse_classes;
 mod llm;
 mod on_policy;
 mod output;
@@ -200,6 +216,9 @@ fn main() -> anyhow::Result<()> {
     if args.game_weights.is_some() && (!args.include_passive_obs || !args.val_runs.is_empty()) {
         bail!("--game-weights requires --include-passive-obs and weighs --runs only");
     }
+    if args.bundle_distill && !args.include_passive_obs {
+        bail!("--bundle-distill requires --include-passive-obs for complete recurrent history");
+    }
     if args.search_targets && (!args.include_passive_obs || !args.val_runs.is_empty()) {
         bail!("--search-targets requires --include-passive-obs and distills --runs only");
     }
@@ -226,6 +245,15 @@ fn main() -> anyhow::Result<()> {
             )
         })
         .transpose()?;
+    // Bundle distillation also checks every deck each run can seat (its
+    // run.json pool) against the same manifest, before any game is read.
+    let mut distill_runs = if args.bundle_distill {
+        Some(bundle_distill::Runs::new(bundle_distill::TrainDecks::load(
+            &args.train_manifest,
+        )?))
+    } else {
+        None
+    };
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
@@ -241,6 +269,11 @@ fn main() -> anyhow::Result<()> {
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
+        if let Some(runs) = &mut distill_runs {
+            runs.admit(run_dir, &run_json)?;
+        } else {
+            admit_run(run_dir, &run_json)?;
+        }
         let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
         if on_policy.is_some() {
             anyhow::ensure!(
@@ -391,6 +424,14 @@ fn main() -> anyhow::Result<()> {
                 search_events: search_targets
                     .is_some()
                     .then(|| search_distill::GameSearchEvents::from_game(&v)),
+                distill: if args.bundle_distill {
+                    Some(
+                        bundle_distill::GameLabels::from_game(&v)
+                            .with_context(|| format!("{} {}", run_dir.display(), v["game"]))?,
+                    )
+                } else {
+                    None
+                },
                 validation: if args.val_runs.is_empty() {
                     args.val_every > 0 && seed.is_multiple_of(args.val_every)
                 } else {
@@ -565,6 +606,20 @@ fn main() -> anyhow::Result<()> {
         meta["self_imitation"] = weights.metadata(games_arc.len());
         meta["ppo_eligible"] = json!(false);
     }
+    let distill_counts = Arc::new(Mutex::new(bundle_distill::Counts::default()));
+    // The JSON steps name the dataset's one contract.
+    let distill_contract = distill_runs.as_ref().map_or(
+        bundle_distill::DISTILL_CONTRACT,
+        bundle_distill::Runs::contract,
+    );
+    let coarse_rows = Arc::new(Mutex::new(Vec::<coarse_classes::Row>::new()));
+    let write_coarse = args.coarse_classes.is_some();
+    if let Some(runs) = &distill_runs {
+        meta["bundle_distillation"] = runs.metadata(&bundle_distill::Counts::default());
+        meta["bundle_distillation_status"] = json!("in_progress");
+        meta["ppo_eligible"] = json!(false);
+        meta["policy_provenance_version"] = Value::Null;
+    }
     if let Some(targets) = &search_targets {
         meta["search_distillation"] = targets.metadata(games_arc.len());
         meta["ppo_eligible"] = json!(false);
@@ -590,6 +645,8 @@ fn main() -> anyhow::Result<()> {
         let rejected = rejected.clone();
         let converted = converted.clone();
         let replay_checks = replay_checks.clone();
+        let distill_counts = distill_counts.clone();
+        let coarse_rows = coarse_rows.clone();
         let include_passive = args.include_passive_obs;
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
@@ -612,11 +669,17 @@ fn main() -> anyhow::Result<()> {
                 let mut frame_labels = gref.shadow.as_ref()
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
+                let mut distill_cursor = gref.distill.as_ref().map(bundle_distill::Cursor::new);
+                let mut distill_steps = gref.distill.as_ref().map(|_| bundle_distill::JsonSteps::new(&root, gref.game_id, distill_contract)).transpose()?;
+                let mut game_coarse = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let emit = |mut step: Step4| {
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
                     if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
+                    if let Some(cursor) = &mut distill_cursor { cursor.apply(&mut step)?; }
+                    if let Some(steps) = &mut distill_steps { steps.push(&step)?; }
+                    if write_coarse { game_coarse.extend(coarse_classes::Row::of(&step)); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
@@ -663,6 +726,11 @@ fn main() -> anyhow::Result<()> {
                     journal_worker(&journal, gref, "rejected")?;
                     continue;
                 }
+                if let Some(cursor) = &distill_cursor {
+                    distill_counts.lock().expect("distillation count lock").add(&cursor.counts);
+                }
+                if let Some(steps) = distill_steps { steps.finish()?; }
+                coarse_rows.lock().expect("coarse class lock").append(&mut game_coarse);
                 if let Some(labels) = frame_labels { labels.finish()?; }
                 if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
@@ -741,6 +809,32 @@ fn main() -> anyhow::Result<()> {
         );
         llm::finish_metadata(&args.out, &mut meta)?;
     }
+    if let Some(runs) = &distill_runs {
+        anyhow::ensure!(
+            rejected.is_empty(),
+            "bundle distillation rejected games; no completed meta.json published"
+        );
+        meta["bundle_distillation"] =
+            runs.metadata(&distill_counts.lock().expect("distillation count lock"));
+        let mut hashes = serde_json::Map::new();
+        for game in games_arc.iter() {
+            let name = bundle_distill::steps_path(game.game_id);
+            hashes.insert(
+                name.clone(),
+                json!(shadow::sha(&fs::read(args.out.join(name))?)),
+            );
+        }
+        meta["bundle_distillation_steps_sha256"] = Value::Object(hashes);
+        meta["bundle_distillation_status"] = json!("complete");
+        if let Some(dir) = &args.coarse_classes {
+            let rows = std::mem::take(&mut *coarse_rows.lock().expect("coarse class lock"));
+            let source = json!({"runs": args.runs, "dataset": args.out,
+                "steps_sha256": meta["bundle_distillation_steps_sha256"]});
+            let header = coarse_classes::write(dir, rows, &source)?;
+            meta["coarse_classes"] =
+                json!({"dir": dir, "rows": header["rows"], "rule": header["rule"]});
+        }
+    }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
         args.out.join("meta.json"),
@@ -786,6 +880,55 @@ fn write_f32_bin(path: &Path, data: &[f32]) -> anyhow::Result<()> {
     }
     f.flush()?;
     Ok(())
+}
+
+/// Refuses a run convert4 may not read: one keeping the tactical layer's
+/// answers as the tactician's imitation labels (`tactician_imitation_v1`),
+/// which teach the tactician and nothing else.
+fn admit_run(run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
+    baylee_train_ops::tactician_labels::refuse_imitation(run_json)
+        .with_context(|| format!("convert4 refuses {}", run_dir.display()))
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use super::*;
+
+    #[test]
+    fn imitation_runs_are_refused_and_ordinary_runs_read() {
+        let dir = Path::new("runs/r");
+        let ordinary = serde_json::json!({"run": "eval4-rollout", "choice_guard": "off",
+            "tactician": {"record_contract": "tactician_records_v1"}});
+        admit_run(dir, &ordinary).unwrap();
+        let imitation = serde_json::json!({"run": "eval4-rollout", "labels": "tactician_imitation_v1",
+            "tactician": {"record_contract": "tactician_imitation_v1"}});
+        let error = format!("{:#}", admit_run(dir, &imitation).unwrap_err());
+        assert!(error.contains("convert4 refuses runs/r"), "{error}");
+        assert!(
+            error.contains("train the tactician and nothing else"),
+            "{error}"
+        );
+        // Without --bundle-distill a distillation run is refused too.
+        let distill = serde_json::json!({"distill": {"contract": "bundle_distillation_v1"}});
+        let error = format!("{:#}", admit_run(dir, &distill).unwrap_err());
+        assert!(error.contains("convert4 --bundle-distill"), "{error}");
+        // The flag is its own mode: not with another BC mode.
+        assert!(
+            Args::try_parse_from(["convert4", "--out", "o", "--bundle-distill", "--shadow-bc"])
+                .is_err()
+        );
+        assert!(
+            Args::try_parse_from([
+                "convert4",
+                "--out",
+                "o",
+                "--train-manifest",
+                "m.json",
+                "--bundle-distill"
+            ])
+            .is_ok()
+        );
+    }
 }
 
 #[cfg(test)]
