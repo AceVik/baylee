@@ -1346,8 +1346,14 @@ advantage of an answer is its score less the policy's own in the same
 world. `fork_advantage4 --games <games.jsonl…> [--margin 0.03]` judges those
 choices as the house's search was judged: chosen on every second world and
 judged on the others, both ways round, beside the same choice judged in the
-worlds it was made in, for all decisions and by the kind of the policy's
-answer. A lead that holds on the other half is a signal a student can
+worlds it was made in, for all decisions, in the games no house answer
+touched, by the kind of the policy's answer, by the class of the answer a
+half chose in its place (a planned cast by its spell), and by how the
+rollouts ended (every one at its end, or some stopped before a house answer
+or otherwise). It gives the lead's standard error by decision and by game
+(one game's decisions are not independent), and how often the two halves
+chose the same answer, and the same class, where either replaced the
+policy's. A lead that holds on the other half is a signal a student can
 learn; one that vanishes there is the search fitting its few worlds.
 
 The leaf is unchanged: the value head of the model that plays. The house's
