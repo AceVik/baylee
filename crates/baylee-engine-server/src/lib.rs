@@ -37,6 +37,7 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 
 mod clocks;
+pub mod foresight;
 mod frames;
 pub mod projection;
 
@@ -152,6 +153,9 @@ pub struct EngineRunner {
     /// Maximum house steps answered per synchronous call before yielding
     /// intermediate views back to the caller's event loop.
     pump_budget: usize,
+    /// What the house's search may spend at this game's table, or `None`
+    /// where it does not search ([`Self::with_foresight`]).
+    foresight: Option<baylee_gamehost::HostForesight>,
 }
 
 impl Default for EngineRunner {
@@ -172,6 +176,7 @@ impl Default for EngineRunner {
             now: 0,
             enter_at: None,
             pump_budget: DEFAULT_PUMP_BUDGET,
+            foresight: None,
         }
     }
 }
@@ -188,6 +193,16 @@ impl EngineRunner {
     #[must_use]
     pub const fn with_pump_budget(mut self, budget: usize) -> Self {
         self.pump_budget = if budget == 0 { 1 } else { budget };
+        self
+    }
+
+    /// Has the house search at the game this runner builds, within each
+    /// level's own bound and `host`'s (`foresight::Settings::host`); `None`,
+    /// the default, plays every level as its heuristics do. An attached
+    /// engine reads it from its environment (`foresight::Settings`).
+    #[must_use]
+    pub fn with_foresight(mut self, host: Option<baylee_gamehost::HostForesight>) -> Self {
+        self.foresight = host;
         self
     }
 
@@ -643,6 +658,12 @@ impl EngineRunner {
         // These read one frame at a time; see `Session::tell_views_whole`.
         #[cfg(test)]
         session.tell_views_whole();
+        // The levels came by name from the gateway, each with its tier and
+        // bound; what this host adds is its own share of them.
+        if let Some(host) = &self.foresight {
+            session.set_foresight(true);
+            session.set_foresight_host(host.clone());
+        }
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
         session.mark_guests(setup.seat_guests.clone());
         session.tell_time(self.now);
@@ -1268,6 +1289,22 @@ impl EngineRunner {
         let result = *result;
         let data = session.take_record();
         self.ended = true;
+        // What the house's searches did here, for the operator: counts and
+        // the slowest, nothing a player said and no card.
+        let searches = session.foresight_stats();
+        if searches.asked > 0 {
+            tracing::info!(
+                game_id = self.game_id,
+                asked = searches.asked,
+                searched = searches.searched,
+                replaced = searches.replaced,
+                refused = searches.refused,
+                busy = searches.busy,
+                walled = searches.walled,
+                slowest_ms = searches.slowest_micros / 1000,
+                "house searches"
+            );
+        }
         // A draw has no winner, which is a shorter list rather than a
         // different message — and a team win is a longer one, which is why
         // the field was a list from the start.

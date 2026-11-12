@@ -2,6 +2,7 @@ use super::*;
 
 mod clocks;
 mod curtain;
+mod foresight;
 mod hostile;
 mod moderation;
 mod participation;

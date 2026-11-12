@@ -832,6 +832,9 @@ mod attached {
     /// Plays one game against the gateway and returns when it ends.
     pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let pump_budget = super::pump_config::from_env()?;
+        let runner = EngineRunner::new()
+            .with_pump_budget(pump_budget)
+            .with_foresight(foresight()?);
         // `unix:<path>` is the gateway's unix socket (`BAYLEE_UNIX_SOCKET`),
         // which an agent on the same machine hands its engines; the engine
         // plane is at the usual path on it.
@@ -844,10 +847,35 @@ mod attached {
                 Some(ws_config()),
             )
             .await?;
-            return Box::pin(play(ws, attach, pump_budget)).await;
+            return Box::pin(play(ws, attach, runner)).await;
         }
         let ws = dial(&attach.url).await?;
-        Box::pin(play(ws, attach, pump_budget)).await
+        Box::pin(play(ws, attach, runner)).await
+    }
+
+    /// What the house's search may spend here, from the operator's settings
+    /// (`baylee_engine_server::foresight`), said once in the log.
+    fn foresight()
+    -> Result<Option<baylee_gamehost::HostForesight>, Box<dyn std::error::Error + Send + Sync>>
+    {
+        let settings = baylee_engine_server::foresight::Settings::from_env()?;
+        let host = settings.host()?;
+        match (&host, settings.on) {
+            (Some(_), _) => tracing::info!(
+                searches = settings.searches,
+                work_percent = settings.percent,
+                wall_ms = settings.wall_ms,
+                "the house searches within its levels' bounds"
+            ),
+            (None, true) => tracing::warn!(
+                "BAYLEE_FORESIGHT_SLOTS is not set (the agent sets it): the house answers \
+                 without searching"
+            ),
+            (None, false) => {
+                tracing::info!("BAYLEE_FORESIGHT=off: the house answers without searching");
+            }
+        }
+        Ok(host)
     }
 
     /// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`).
@@ -873,7 +901,7 @@ mod attached {
     async fn play<S>(
         mut ws: tokio_tungstenite::WebSocketStream<S>,
         attach: Attach,
-        pump_budget: usize,
+        mut runner: EngineRunner,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -884,7 +912,6 @@ mod attached {
         send(&mut ws, &engine_hello(&attach)).await?;
         tracing::info!(game_id = attach.game_id, url = attach.url, "attached");
 
-        let mut runner = EngineRunner::new().with_pump_budget(pump_budget);
         // Each deadline is anchored to what it was armed for, so it restarts
         // when its seat is asked something new rather than every time a frame
         // from another seat wakes this task up.

@@ -19,6 +19,12 @@ pub fn check(steps: &mut Steps) {
 }
 
 /// Lines of a feature graph that name a verification hook.
+///
+/// gamehost's `simulation` is the training harness around the engine's fork
+/// (`Session::fork_for`, probes, a harness's clock), and is one. The fork
+/// itself (`baylee-engine/fork`, through `baylee-gamehost/foresight`) is not:
+/// the hosting builds search with it, within each level's bound and the
+/// host's ([`foresight_mentions`]).
 fn hook_mentions(graph: &[u8]) -> usize {
     String::from_utf8_lossy(graph)
         .lines()
@@ -26,8 +32,18 @@ fn hook_mentions(graph: &[u8]) -> usize {
             l.contains("feature \"mutate\"")
                 || l.contains("feature \"fuzz\"")
                 || l.contains("baylee-engine feature \"test-support\"")
-                || l.contains("baylee-engine feature \"simulation\"")
+                || l.contains("baylee-gamehost feature \"simulation\"")
         })
+        .count()
+}
+
+/// Lines of a feature graph that name the engine's fork, which the house's
+/// search at a hosted table needs: the shipped graph must hold it, or the
+/// hosting builds play every level without its foresight.
+fn foresight_mentions(graph: &[u8]) -> usize {
+    String::from_utf8_lossy(graph)
+        .lines()
+        .filter(|l| l.contains("baylee-engine feature \"fork\""))
         .count()
 }
 
@@ -38,8 +54,8 @@ fn hook_mentions(graph: &[u8]) -> usize {
 /// [`verification_hooks_unshipped`] leaves the training crates out and would
 /// not see one of their defaults enable `simulation`. The whole workspace's
 /// graph, inverted on the crates that own a hook, must name none. The control:
-/// the trainer's own build (`baylee-train/onnx`) turns `simulation` on, and the
-/// same inverted graph must say so.
+/// the trainer's own build (`baylee-train/onnx`) turns gamehost's `simulation`
+/// on, and the same inverted graph must say so.
 pub fn verification_hooks_not_unified(steps: &mut Steps) {
     let started = Instant::now();
     let inverted = |extra: &[&str]| {
@@ -92,9 +108,16 @@ pub fn verification_hooks_not_unified(steps: &mut Steps) {
 /// the engine's `test-support` by `baylee-card-testkit`'s `enabled`, which only
 /// the card test crates' dev-dependencies turn on,
 /// so the feature graph without dev edges names neither. The same holds for
-/// `baylee-engine`'s `simulation` (`Engine::fork_for`, a copy of a game with
-/// its hidden cards dealt again): only the training crates, which are not in
-/// the graph, may turn it on, so a hosting build can never fork a live game.
+/// `baylee-gamehost`'s `simulation`, the harness that drives a fork of a game
+/// by hand and measures the house's searches: only the training crates, which
+/// are not in the graph, may turn it on.
+///
+/// The engine's fork itself (`baylee-engine/fork`, `Engine::fork_for`) ships:
+/// the engine server and the client's own table search with it, within each
+/// level's bound and the host's (`docs/house-ai.md` §"Foresight at a host").
+/// The shipped graph must name it, or the hosting builds play every level
+/// without its foresight.
+///
 /// The engine's graph with dev edges must name `mutate`: the control that
 /// proves the pattern matches what `cargo tree` prints, without which a
 /// renamed feature would count zero leaks forever. `--target all`, so a dependency declared for one
@@ -127,21 +150,22 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
     match (shipped, engine) {
         (Some(shipped), Some(engine)) if shipped.status.success() && engine.status.success() => {
             let leaks = hook_mentions(&shipped.stdout);
+            let fork = foresight_mentions(&shipped.stdout);
             let control = String::from_utf8_lossy(&engine.stdout)
                 .lines()
                 .filter(|l| l.contains("baylee-cards feature \"mutate\""))
                 .count();
-            if leaks == 0 && control > 0 {
+            if leaks == 0 && fork > 0 && control > 0 {
                 println!(
-                    "STEP verification-hooks-shipped ok (0 in the shipped graph, {control} in the engine's dev graph, {secs}s)"
+                    "STEP verification-hooks-shipped ok (0 in the shipped graph, the fork {fork} times, {control} in the engine's dev graph, {secs}s)"
                 );
                 steps.record(true);
             } else {
                 println!(
-                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz/simulation/test-support in the graph"
+                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz/gamehost simulation/test-support in the graph"
                 );
                 println!(
-                    "  without dev edges (must be 0), {control} of mutate in baylee-engine's dev graph (must be >0)"
+                    "  without dev edges (must be 0), {fork} of the engine's fork there (must be >0), {control} of mutate in baylee-engine's dev graph (must be >0)"
                 );
                 steps.record(false);
             }
@@ -162,23 +186,31 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
 
 #[cfg(test)]
 mod tests {
-    use super::hook_mentions;
+    use super::{foresight_mentions, hook_mentions};
 
     /// Every hook the shipped graph must not name is counted, the engine's
-    /// `test-support` included, and a feature of the same name elsewhere is not:
-    /// `baylee-client-core` has its own `test-support`, which ships nothing open.
+    /// `test-support` and gamehost's `simulation` included, and a feature of
+    /// the same name elsewhere is not: `baylee-client-core` has its own
+    /// `test-support`, which ships nothing open, and the engine's fork and
+    /// gamehost's `foresight` ship.
     #[test]
     fn each_hook_is_counted_and_a_namesake_is_not() {
         let graph = b"\
 baylee-cards feature \"mutate\"
 baylee-engine feature \"fuzz\"
-baylee-engine feature \"simulation\"
+baylee-engine feature \"fork\"
 baylee-engine feature \"test-support\"
 baylee-client-core feature \"test-support\"
 baylee-gamehost feature \"simulation\"
+baylee-gamehost feature \"foresight\"
 baylee-engine feature \"default\"
 ";
         assert_eq!(hook_mentions(graph), 4);
+        assert_eq!(foresight_mentions(graph), 1);
         assert_eq!(hook_mentions(b"baylee-engine feature \"default\"\n"), 0);
+        assert_eq!(
+            foresight_mentions(b"baylee-engine feature \"default\"\n"),
+            0
+        );
     }
 }
