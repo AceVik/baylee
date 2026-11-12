@@ -561,6 +561,10 @@ pub struct Scheduler {
     numbers_only: bool,
     in_flight: BTreeMap<String, InFlight>,
     known_record_shas: BTreeSet<String>,
+    /// Other collector roots' `attempts` (`collect --balance-with`): their
+    /// admitted games count towards which decks and deck pairs are played
+    /// next, and their records towards uniqueness, and nothing else.
+    balance_with: Vec<PathBuf>,
 }
 
 fn all_attempts_dirs(root: &Path) -> Vec<PathBuf> {
@@ -712,7 +716,43 @@ impl Scheduler {
             numbers_only: false,
             in_flight: BTreeMap::new(),
             known_record_shas,
+            balance_with: Vec::new(),
         })
+    }
+
+    /// Lets the admitted games of other collector `roots` count as if they
+    /// were this root's when the next decks and deck pairs are chosen, and
+    /// their records towards the uniqueness of this root's: a later segment
+    /// of a corpus on a root of its own goes on with the pairs the earlier
+    /// one has not played. Nothing of those roots is read but their
+    /// receipts, and nothing is written there.
+    ///
+    /// # Errors
+    /// A root without `attempts`, or this root itself.
+    pub fn balanced_with(mut self, roots: &[PathBuf]) -> anyhow::Result<Self> {
+        for root in roots {
+            let attempts = root.join("attempts");
+            ensure!(
+                attempts.is_dir(),
+                "--balance-with {} has no attempts",
+                root.display()
+            );
+            ensure!(
+                attempts.canonicalize()? != self.root.join("attempts").canonicalize()?,
+                "--balance-with names this root itself"
+            );
+            self.balance_with.push(attempts);
+        }
+        for receipt in self.load_receipts() {
+            if let Some(sha) = receipt
+                .get("technical")
+                .and_then(|t| t.get("record_sha256"))
+                .and_then(Value::as_str)
+            {
+                self.known_record_shas.insert(sha.to_owned());
+            }
+        }
+        Ok(self)
     }
 
     /// With `Some(games)`, the operator's limit: only the first `games`
@@ -791,7 +831,8 @@ impl Scheduler {
 
     pub fn load_receipts(&self) -> Vec<Value> {
         let mut out = Vec::new();
-        for attempts_dir in all_attempts_dirs(&self.root) {
+        let others = self.balance_with.iter().cloned();
+        for attempts_dir in all_attempts_dirs(&self.root).into_iter().chain(others) {
             let Ok(entries) = std::fs::read_dir(&attempts_dir) else {
                 continue;
             };
@@ -1400,6 +1441,78 @@ mod tests {
         assert!(collector_room_setup(["Commander", "Constructed"]).is_err());
         assert!(collector_room_setup(["Freeform", "Freeform"]).is_err());
         assert!(collector_room_setup(["", ""]).is_err());
+    }
+
+    /// A later segment on a root of its own goes on with the deck pairs an
+    /// earlier root has not played (`--balance-with`): without it, a fresh
+    /// root starts on the same pair; with it, the earlier root's admitted
+    /// game counts and its record is known, and nothing of it is written.
+    #[test]
+    fn a_root_balanced_with_another_goes_on_with_the_pairs_that_one_left() {
+        let dir = TestDir::new("balance-with");
+        let mut deck_entries = Vec::new();
+        for i in 0..6 {
+            let p = dir.path().join(format!("d{i}.txt"));
+            std::fs::write(&p, "60 Plains\n").unwrap();
+            deck_entries.push(json!({"key": format!("d-{i}"), "name": format!("Deck {i}"),
+                "path": p, "sha256": sha256_file(&p).unwrap(), "format": "constructed"}));
+        }
+        let manifest = dir.path().join("deck-manifest.json");
+        write_atomic_json(&manifest, &json!({ "decks": deck_entries })).unwrap();
+        let config = profiles(dir.path());
+        let pairings = dir.path().join("pairings.json");
+        write_atomic_json(&pairings, &json!([["argon-low", "argon-low"]])).unwrap();
+        let open = |root: &str| {
+            std::fs::create_dir_all(dir.path().join(root)).unwrap();
+            Scheduler::new(
+                dir.path().join(root),
+                "http://127.0.0.1:28768".to_owned(),
+                config.clone(),
+                Some(pairings.clone()),
+                (&manifest, &[]),
+                90,
+                3600,
+            )
+            .unwrap()
+        };
+        let pair = |a: &Assignment| {
+            let mut keys = [a.decks[0].key.clone(), a.decks[1].key.clone()];
+            keys.sort();
+            keys
+        };
+        // The earlier root played one game, admitted.
+        let first = pair(&open("first").next_assignment(0).unwrap());
+        let played = dir.path().join("first/attempts/attempt-000000000");
+        std::fs::create_dir_all(&played).unwrap();
+        let request = json!({"decks": [{"key": first[0], "format": "Constructed"},
+            {"key": first[1], "format": "Constructed"}], "profiles": ["argon-low", "argon-low"]});
+        write_atomic_json(
+            &played.join("receipt.json"),
+            &json!({"status": "admitted", "request": request,
+                "technical": {"record_sha256": "earlier"}}),
+        )
+        .unwrap();
+        let before = std::fs::read(played.join("receipt.json")).unwrap();
+
+        assert_eq!(pair(&open("alone").next_assignment(0).unwrap()), first);
+        let keys = |s: &Scheduler| s.decks.iter().map(|d| d.key.clone()).collect::<Vec<_>>();
+        let unbalanced = keys(&open("plain"));
+        let mut later = open("later")
+            .balanced_with(&[dir.path().join("first")])
+            .unwrap();
+        // The decks it may seat, which the train guard checks, are the same:
+        // balancing chooses among them and never adds one.
+        assert_eq!(keys(&later), unbalanced);
+        assert_ne!(pair(&later.next_assignment(0).unwrap()), first);
+        assert!(!later.register_record_sha("earlier"), "its record is known");
+        assert_eq!(std::fs::read(played.join("receipt.json")).unwrap(), before);
+        assert!(
+            open("again")
+                .balanced_with(&[dir.path().join("nowhere")])
+                .is_err()
+        );
+        let own = dir.path().join("own");
+        assert!(open("own").balanced_with(&[own]).is_err(), "not itself");
     }
 
     /// `--only` seats the decks of an importer manifest whose entries say
