@@ -8,6 +8,10 @@
 //! creature, its controller sacrifices …" counts first, asks in APNAP order
 //! and sacrifices together (`resolve::for_each::ONE_AT_A_TIME`).
 //!
+//! `BAYLEE_LOCKSTEP_BEFORE=<names>` (comma-separated: `untap`, `decided`,
+//! `damage-order`, `for-each`) switches back only the fixes it names, so a
+//! report parts the records on those alone; unset, all four.
+//!
 //! Both engines take every recorded answer. After the opening and after each
 //! answer their hashes are compared, and the first answer they part on is
 //! reported: one refused it, or the hashes differ. A record the two never
@@ -20,10 +24,13 @@
 //!
 //! Ignored: it reads runs from disk, every `games.jsonl` with a `records/`
 //! beside it under each root, and writes a parted record per line to a file
-//! that must not exist yet.
+//! that must not exist yet. `BAYLEE_LOCKSTEP_EXPORTS=<dir>:<dir>` adds the
+//! records an LLM collector exported one game to a file (each
+//! `official-export/*.jsonl.gz` under them), which no `games.jsonl` lists.
 //!
 //! ```text
 //! BAYLEE_LOCKSTEP_ROOTS=<dir>:<dir> BAYLEE_LOCKSTEP_OUT=<new file> \
+//!   [BAYLEE_LOCKSTEP_EXPORTS=<dir>] [BAYLEE_LOCKSTEP_BEFORE=for-each] \
 //!   [BAYLEE_LOCKSTEP_THREADS=4] cargo test --profile ci-release -p baylee-engine \
 //!   --lib -- --ignored --exact engine::recorded_lockstep_tests::recorded_games_in_lockstep
 //! ```
@@ -42,13 +49,39 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// The record version this reads (`baylee_gamehost::record::RECORD_VERSION`).
 const RECORD_VERSION: u64 = 1;
 
-/// Runs `f` as the engine was before the four fixes.
+/// The fixes [`as_before`] can switch back, by the name
+/// `BAYLEE_LOCKSTEP_BEFORE` gives them.
+const FIXES: [&str; 4] = ["untap", "decided", "damage-order", "for-each"];
+
+/// Which of [`FIXES`] the engine as it was goes without: every one, or the
+/// ones `BAYLEE_LOCKSTEP_BEFORE` names, comma-separated, which parts the
+/// records on those fixes alone.
+fn before() -> &'static [bool; 4] {
+    static BEFORE: std::sync::OnceLock<[bool; 4]> = std::sync::OnceLock::new();
+    BEFORE.get_or_init(|| {
+        let Ok(named) = std::env::var("BAYLEE_LOCKSTEP_BEFORE") else {
+            return [true; 4];
+        };
+        let named: Vec<&str> = named.split(',').map(str::trim).collect();
+        for name in &named {
+            assert!(
+                FIXES.contains(name),
+                "BAYLEE_LOCKSTEP_BEFORE names {name:?}, not one of {FIXES:?}"
+            );
+        }
+        FIXES.map(|fix| named.contains(&fix))
+    })
+}
+
+/// Runs `f` as the engine was before the fixes (all four, or those
+/// [`before`] names).
 fn as_before<T>(f: impl FnOnce() -> T) -> T {
     let set = |on: bool| {
-        super::progress::UNTAP_BEFORE_PHASED_STATICS.with(|s| s.set(on));
-        super::progress::ASK_IN_A_DECIDED_GAME.with(|s| s.set(on));
-        crate::damage::ASK_EVERY_ORDER.with(|s| s.set(on));
-        crate::resolve::for_each::ONE_AT_A_TIME.with(|s| s.set(on));
+        let [untap, decided, order, for_each] = *before();
+        super::progress::UNTAP_BEFORE_PHASED_STATICS.with(|s| s.set(on && untap));
+        super::progress::ASK_IN_A_DECIDED_GAME.with(|s| s.set(on && decided));
+        crate::damage::ASK_EVERY_ORDER.with(|s| s.set(on && order));
+        crate::resolve::for_each::ONE_AT_A_TIME.with(|s| s.set(on && for_each));
     };
     set(true);
     let out = f();
@@ -56,11 +89,13 @@ fn as_before<T>(f: impl FnOnce() -> T) -> T {
     out
 }
 
-/// One recorded game: where its record is.
+/// One recorded game: where its record is, and where it is reported as
+/// being (its run and its line in the run's `games.jsonl`, or the attempt
+/// it was exported from and its place among the exports there).
 struct Game {
     run: PathBuf,
     line: usize,
-    shard: String,
+    file: PathBuf,
     offset: u64,
     len: u64,
 }
@@ -174,7 +209,7 @@ fn kind(pending: &Pending) -> String {
 }
 
 fn record_of(game: &Game) -> std::io::Result<Vec<u8>> {
-    let mut file = File::open(game.run.join("records").join(&game.shard))?;
+    let mut file = File::open(&game.file)?;
     file.seek(SeekFrom::Start(game.offset))?;
     let mut out = Vec::new();
     flate2::read::GzDecoder::new(file.take(game.len)).read_to_end(&mut out)?;
@@ -321,7 +356,7 @@ fn games_of(run: &Path) -> Vec<Game> {
             Some(Game {
                 run: run.to_path_buf(),
                 line,
-                shard: game["shard"].as_str()?.to_owned(),
+                file: run.join("records").join(game["shard"].as_str()?),
                 offset: game["offset"].as_u64()?,
                 len: game["len"].as_u64()?,
             })
@@ -329,10 +364,54 @@ fn games_of(run: &Path) -> Vec<Game> {
         .collect()
 }
 
+/// Every game exported under `root`, in path order: each `*.jsonl.gz` in an
+/// `official-export/` directory (an LLM collector's attempt) is one record,
+/// reported as its attempt directory and its place among that attempt's
+/// exports. A symbolic link is not followed.
+fn exports(root: &Path, games: &mut Vec<Game>) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    let mut entries: Vec<PathBuf> = entries.filter_map(Result::ok).map(|e| e.path()).collect();
+    entries.sort();
+    let exported = root
+        .file_name()
+        .is_some_and(|name| name == "official-export");
+    let mut line = 0;
+    for path in entries {
+        if path.is_symlink() {
+            continue;
+        }
+        if path.is_dir() {
+            exports(&path, games);
+        } else if exported
+            && path.to_str().is_some_and(|p| p.ends_with(".jsonl.gz"))
+            && let Ok(meta) = path.metadata()
+        {
+            games.push(Game {
+                run: root.parent().unwrap_or(root).to_path_buf(),
+                line,
+                file: path,
+                offset: 0,
+                len: meta.len(),
+            });
+            line += 1;
+        }
+    }
+}
+
 #[test]
 #[ignore = "reads recorded runs from BAYLEE_LOCKSTEP_ROOTS"]
 fn recorded_games_in_lockstep() {
-    let roots = std::env::var("BAYLEE_LOCKSTEP_ROOTS").expect("BAYLEE_LOCKSTEP_ROOTS");
+    // `BAYLEE_LOCKSTEP_EXPORTS`: directories of an LLM collector's attempts,
+    // whose records are exported one game to a file and listed in no
+    // `games.jsonl`. Either variable, or both.
+    let roots = std::env::var("BAYLEE_LOCKSTEP_ROOTS").unwrap_or_default();
+    let exported = std::env::var("BAYLEE_LOCKSTEP_EXPORTS").unwrap_or_default();
+    assert!(
+        !(roots.is_empty() && exported.is_empty()),
+        "BAYLEE_LOCKSTEP_ROOTS or BAYLEE_LOCKSTEP_EXPORTS"
+    );
     let out = PathBuf::from(std::env::var("BAYLEE_LOCKSTEP_OUT").expect("BAYLEE_LOCKSTEP_OUT"));
     let threads = std::env::var("BAYLEE_LOCKSTEP_THREADS")
         .ok()
@@ -343,6 +422,9 @@ fn recorded_games_in_lockstep() {
         runs(Path::new(root), &mut found);
     }
     let mut games: Vec<Game> = found.iter().flat_map(|run| games_of(run)).collect();
+    for root in exported.split(':').filter(|r| !r.is_empty()) {
+        exports(Path::new(root), &mut games);
+    }
     // `BAYLEE_LOCKSTEP_ONLY`: a report this wrote; only the records it
     // lists as parted are played again.
     if let Ok(only) = std::env::var("BAYLEE_LOCKSTEP_ONLY") {
