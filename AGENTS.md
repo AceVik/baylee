@@ -49,6 +49,12 @@ unofficial, non-commercial fan project.
   card images are the one exception), check the rules we depend on, and
   stop and say so when something is clearly forbidden
   (`docs/legal.md` §"Guardrails for every change").
+- **Every player handles what the engine asks (owner, 12.11.2026).** When
+  the engine or the protocol gains something the game client or a seat
+  (language-model seat, house AI, trained AI) cannot handle yet, they are
+  extended with it: the client's UI/UX shows and answers it (not merely
+  compiles against it), and every seat reads and answers it. A change that
+  leaves one of them guessing is not done.
 - **Never run full `codegen` without the corpus**: it rewrites every
   machine-owned card as a stub (`docs/cards.md`).
 - **Card work** goes in release order, fixes the reader before a card, plays
