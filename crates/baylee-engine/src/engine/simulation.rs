@@ -12,11 +12,12 @@
 //! handing it out, deals every hidden card again from a policy seed and
 //! replaces everything that still names the real ones.
 //!
-//! This is not the live-play seam: a seat playing over the gateway has no
-//! engine to copy, and `docs/proposals/lookahead-design.md` is the design
-//! for that one. It is compiled only under the `simulation` feature (and in
-//! this crate's tests), which `cargo dev gate shipped-features` keeps out of
-//! every hosting build.
+//! A seat playing over the gateway has no engine to copy, and
+//! `docs/proposals/lookahead-design.md` is the design for that one. The host
+//! that owns the game does: `baylee-gamehost`'s house search
+//! (`session/foresight.rs`) forks the table for a house chair, within the
+//! level's bound and the host's (`docs/house-ai.md` §"Foresight"). It is
+//! compiled only under the `fork` feature (and in this crate's tests).
 
 mod driver;
 mod redeal;

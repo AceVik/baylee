@@ -16,12 +16,21 @@ name = "integration"
 path = "tests/integration.rs"
 
 [features]
-# The engine's `Engine::fork_for`, for lookahead that a training or evaluation
-# harness runs through a `Session` it owns in-process. Only the training
-# crates may turn it on (through a feature `xtask` does not enable, such as
-# `baylee-train/play`): `cargo dev gate shipped-features` fails if a hosting
-# build does.
-simulation = ["baylee-engine/simulation"]
+# The house's search in copies of the game (`session/foresight/`,
+# `docs/house-ai.md` §"Foresight"): a level with a foresight tier tries its
+# options in forks of the table (`Engine::fork_for`) within its own bound and
+# the host's (`Session::set_foresight_host`). The hosting builds turn it on
+# (the engine server and the client's own table); a table still has to switch
+# it on (`Session::set_foresight`).
+foresight = ["baylee-engine/fork"]
+# The harness around it, for training and evaluation that run their games
+# in-process: `Session::fork_for` and `SimulationSession` to drive a copy by
+# hand, and the hooks that measure and study the house's searches (probes,
+# kept questions, a clock of the harness's own, a node share). Only the
+# training crates may turn it on (through a feature `xtask` does not enable,
+# such as `baylee-train/onnx`): `cargo dev gate shipped-features` fails if a
+# hosting build does.
+simulation = ["foresight"]
 
 [dependencies]
 baylee-ai.workspace = true
@@ -48,7 +57,7 @@ baylee-cards-pool.workspace = true
 # `Session::fork_for` is tested here (`session/tests/simulation.rs`) as the
 # engine tests its own fork: a dev edge, which neither a `--bin` build nor
 # `cargo dev gate shipped-features`'s graph follows.
-baylee-engine = { workspace = true, features = ["simulation"] }
+baylee-engine = { workspace = true, features = ["fork"] }
 # A report's card references (`bugreport::refs`) are held to the hidden-
 # information rule here, beside every other guarantee a view makes
 # (`view/tests/report_refs.rs`). Already linked through `baylee-ai`.

@@ -14,11 +14,13 @@ workspace = true
 # `apply` changes nothing). Off in every build that plays a game.
 fuzz = []
 # `Engine::fork_for`: a disposable copy of a game with the hidden cards dealt
-# again, for lookahead in training and evaluation (`docs/engine-internals.md`
-# §"Forking a simulation"). Never in a build that hosts a game:
-# `cargo dev gate shipped-features` fails if anything outside the training
-# crates turns it on.
-simulation = []
+# again (`docs/engine-internals.md` §"Forking a simulation"), for the house's
+# bounded search at a host (`baylee-gamehost/foresight`, which the engine
+# server and the client's own table turn on) and for lookahead in training
+# and evaluation. A fair copy holds none of the real hidden cards; the
+# harness API around it (`baylee-gamehost/simulation`) is what
+# `cargo dev gate shipped-features` keeps out of every hosting build.
+fork = []
 
 # Card test crates.
 test-support = ["fuzz"]
@@ -53,4 +55,4 @@ harness = false
 [[bench]]
 name = "fork"
 harness = false
-required-features = ["simulation"]
+required-features = ["fork"]

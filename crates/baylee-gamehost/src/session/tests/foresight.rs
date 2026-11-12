@@ -48,21 +48,91 @@ fn deal(seed: u64, house: &LoadedDeck, theirs: &LoadedDeck, profile: AIProfile) 
 }
 
 /// How a test's table is set: foresight on or off, a share of its searches
-/// probed, a bound on a search's work.
+/// probed, a bound on a search's work, and what its host adds.
 #[derive(Clone, Copy)]
 struct Setting {
     foresight: bool,
     probe: Option<u64>,
     work: Option<u64>,
+    host: Host,
 }
 
 impl Setting {
-    /// Foresight on, nothing probed, no bound.
+    /// Foresight on, nothing probed, no bound, no host.
     const ON: Self = Self {
         foresight: true,
         probe: None,
         work: None,
+        host: Host::Bare,
     };
+
+    /// Foresight on at a table hosted as an engine server hosts one by
+    /// default ([`Host::Served`]).
+    const HOSTED: Self = Self {
+        host: Host::Served,
+        ..Self::ON
+    };
+}
+
+/// What a test's host adds to its table's searches
+/// ([`Session::set_foresight_host`]).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Host {
+    /// Nothing: each level's own bound alone, as a harness plays.
+    Bare,
+    /// As an engine server hosts a table by default: each level's whole
+    /// bound under `expert`'s as a ceiling, one search at a time from a pool
+    /// of one, a wall guard of the real clock that a test never reaches, and
+    /// one searched answer a pump slice.
+    Served,
+    /// [`Self::Served`] with no search to spare.
+    Busy,
+    /// [`Self::Served`] with a wall guard that every search passes at once.
+    Walled,
+}
+
+/// A real monotonic clock, as an engine server's.
+fn monotonic() -> std::time::Duration {
+    static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    ORIGIN.get_or_init(std::time::Instant::now).elapsed()
+}
+
+/// A clock a millisecond further on at every reading: a host whose every
+/// moment is late.
+fn ticking() -> std::time::Duration {
+    static NOW: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    std::time::Duration::from_millis(NOW.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+}
+
+impl Host {
+    /// The host's bounds, or `None` for a table without one.
+    fn bounds(self) -> Option<crate::HostForesight> {
+        let served = crate::HostForesight {
+            percent: 100,
+            ceiling: AIProfile::EXPERT_WORK,
+            wall: Some(crate::WallGuard {
+                clock: monotonic,
+                limit: std::time::Duration::from_secs(3600),
+            }),
+            permits: Some(crate::Searches::new(1)),
+            yields: true,
+        };
+        match self {
+            Self::Bare => None,
+            Self::Served => Some(served),
+            Self::Busy => Some(crate::HostForesight {
+                permits: Some(crate::Searches::new(0)),
+                ..served
+            }),
+            Self::Walled => Some(crate::HostForesight {
+                wall: Some(crate::WallGuard {
+                    clock: ticking,
+                    limit: std::time::Duration::ZERO,
+                }),
+                ..served
+            }),
+        }
+    }
 }
 
 /// What a table played: every answer the house gave, with the public table
@@ -73,10 +143,11 @@ struct Played {
     leaves: Vec<crate::ProbedLeaf>,
 }
 
-/// Every answer the house gave with foresight on, with the public table
-/// after it, and how many answers it searched.
-fn house_answers(preset: &GamePreset) -> (Vec<(PlayerAction, String)>, u64) {
-    let table = played(preset, Setting::ON);
+/// Every answer the house gave with foresight on at a table set as
+/// `setting` says, with the public table after it, and how many answers it
+/// searched.
+fn house_answers(preset: &GamePreset, setting: Setting) -> (Vec<(PlayerAction, String)>, u64) {
+    let table = played(preset, setting);
     (table.answers, table.stats.searched)
 }
 
@@ -84,6 +155,9 @@ fn house_answers(preset: &GamePreset) -> (Vec<(PlayerAction, String)>, u64) {
 fn played(preset: &GamePreset, setting: Setting) -> Played {
     let mut session = Session::new_recorded(preset, "foresight").expect("the table starts");
     session.describe("foresight".into(), vec!["house".into(), "person".into()]);
+    if let Some(host) = setting.host.bounds() {
+        session.set_foresight_host(host);
+    }
     session.set_foresight(setting.foresight);
     session.set_foresight_probe(setting.probe);
     session.set_foresight_work(setting.work);
@@ -127,6 +201,20 @@ fn played(preset: &GamePreset, setting: Setting) -> Played {
 
 #[test]
 fn a_fair_house_with_foresight_answers_the_same_whatever_is_hidden() {
+    fair_twins(Setting::ON);
+}
+
+/// The same twins at a table hosted as an engine server hosts one: the
+/// host's ceiling, permits, wall guard and slices leave a fair level as fair.
+#[test]
+fn a_fair_house_with_foresight_answers_the_same_whatever_is_hidden_at_a_host() {
+    fair_twins(Setting::HOSTED);
+}
+
+/// `tests/fair_house.rs`'s twin deals, told apart only by the opponent's
+/// list, hand and library, played by every fair level at a table set as
+/// `setting` says: answer for answer the same, searches and all.
+fn fair_twins(setting: Setting) {
     let decks = [merfolk_and_counters(), goblins_and_bolts()];
     for (name, profile) in AIProfile::NAMED {
         if profile.peeks() {
@@ -135,9 +223,12 @@ fn a_fair_house_with_foresight_answers_the_same_whatever_is_hidden() {
         assert!(profile.foresight().is_some(), "{name} has a foresight tier");
         let mut searched = 0;
         for (seed, deck) in [(11, &decks[0]), (12, &decks[1]), (13, &decks[1])] {
-            let (plains, n) = house_answers(&deal(seed, deck, &opponent("Plains", 60), profile));
-            let (elves, m) =
-                house_answers(&deal(seed, deck, &opponent("Llanowar Elves", 30), profile));
+            let (plains, n) =
+                house_answers(&deal(seed, deck, &opponent("Plains", 60), profile), setting);
+            let (elves, m) = house_answers(
+                &deal(seed, deck, &opponent("Llanowar Elves", 30), profile),
+                setting,
+            );
             if let Some(at) = plains
                 .iter()
                 .zip(&elves)
@@ -155,6 +246,186 @@ fn a_fair_house_with_foresight_answers_the_same_whatever_is_hidden() {
         }
         assert!(searched > 10, "{name} searched {searched} answers only");
     }
+}
+
+/// A table hosted as an engine server hosts one answers as a bare one, answer
+/// for answer and search for search: at a generation-9 level the host's
+/// ceiling is the level's own bound, a free permit and a wall guard nobody
+/// reaches change nothing, and a slice that ends after each search only
+/// sends the frames sooner.
+#[test]
+fn a_hosted_search_answers_as_a_bare_one() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let bare = played(&preset, Setting::ON);
+    let hosted = played(&preset, Setting::HOSTED);
+    assert_eq!(bare.answers, hosted.answers, "a host changed an answer");
+    assert_eq!(counts(&bare), counts(&hosted), "a host changed a search");
+    assert!(hosted.stats.searched > 10, "too few searches");
+    assert_eq!((hosted.stats.busy, hosted.stats.walled), (0, 0));
+    assert!(hosted.stats.most_work <= AIProfile::EXPERT_WORK + STEP);
+    assert!(
+        hosted.stats.slowest_micros > 0,
+        "timed by the guard's clock"
+    );
+    assert_eq!(bare.stats.slowest_micros, 0, "a bare table reads no clock");
+}
+
+/// The most a search runs past its bound: the price of the step it was in,
+/// one fork or one house answer on a board of fewer than a hundred objects
+/// (a combat search is held to what is left).
+const STEP: u64 = super::super::simulation::FORK_WORK + super::super::simulation::answer_work(100);
+
+/// A host with no search to spare makes none: every question a search
+/// would take gets the level's own answer at once, so the table plays as one
+/// without foresight, answer for answer, and no fork is made.
+#[test]
+fn a_host_with_no_search_to_spare_gives_the_levels_own_answers() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let busy = played(
+        &preset,
+        Setting {
+            host: Host::Busy,
+            ..Setting::ON
+        },
+    );
+    let off = played(
+        &preset,
+        Setting {
+            foresight: false,
+            ..Setting::ON
+        },
+    );
+    assert_eq!(busy.answers, off.answers, "a busy host changed an answer");
+    assert!(
+        busy.stats.busy > 10,
+        "too few questions: {}",
+        busy.stats.busy
+    );
+    assert_eq!(
+        busy.stats.busy, busy.stats.asked,
+        "every one went unsearched"
+    );
+    assert_eq!((busy.stats.searched, busy.stats.rollouts), (0, 0));
+}
+
+/// A search still running when the host's wall guard says it has taken too
+/// long is given up where it stands, and the level's own answer is given:
+/// with a guard every search passes at once, the table plays as one without
+/// foresight, answer for answer, and counts every search as given up.
+#[test]
+fn a_search_past_the_wall_guard_gives_the_levels_own_answer() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let walled = played(
+        &preset,
+        Setting {
+            host: Host::Walled,
+            ..Setting::ON
+        },
+    );
+    let off = played(
+        &preset,
+        Setting {
+            foresight: false,
+            ..Setting::ON
+        },
+    );
+    assert_eq!(
+        walled.answers, off.answers,
+        "a late search changed an answer"
+    );
+    assert!(walled.stats.searched > 10, "too few searches");
+    assert_eq!(
+        walled.stats.walled, walled.stats.searched,
+        "every one given up"
+    );
+    assert_eq!(walled.stats.replaced, 0);
+    assert!(
+        walled
+            .stats
+            .costs
+            .iter()
+            .all(|cost| cost.walled && cost.cut)
+    );
+}
+
+/// A host that asks for it gets one searched answer a pump slice, so its
+/// event loop hears its sockets between two searches; a slice without a
+/// search runs on as before, and the game is the same.
+#[test]
+fn a_host_gets_one_searched_answer_a_slice() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let mut session = Session::new_recorded(&preset, "foresight").expect("the table starts");
+    session.describe("foresight".into(), vec!["house".into(), "person".into()]);
+    session.set_foresight(true);
+    session.set_foresight_host(Host::Served.bounds().expect("served"));
+    let person = PlayerId::new(1);
+    let searched = |session: &Session| session.foresight_stats().searched;
+    for _ in 0..10_000 {
+        let before = searched(&session);
+        let _ = session.pump_slice(4096);
+        assert!(
+            searched(&session) - before <= 1,
+            "two searches in one slice"
+        );
+        if matches!(session.pending(), Pending::GameOver(_))
+            || session.state().turn.number > LAST_TURN
+        {
+            break;
+        }
+        if session.needs_pump() {
+            continue;
+        }
+        let (pending, _) = session.view_for(person).expect("the person is asked");
+        let nothing = timeout_answer(&pending).unwrap_or(PlayerAction::PassPriority);
+        // An answer from a socket is followed by a slice of the house's.
+        let before = searched(&session);
+        session
+            .act(person, nothing)
+            .expect("doing nothing is an answer");
+        assert!(
+            searched(&session) - before <= 1,
+            "two searches in one slice"
+        );
+    }
+    assert!(searched(&session) > 10, "too few searches");
+    let record = String::from_utf8(session.take_record()).expect("a record is text");
+    let answers: Vec<(PlayerAction, String)> = record
+        .lines()
+        .filter_map(|line| match serde_json::from_str::<Line>(line).ok()? {
+            Line::Input {
+                by: Source::House,
+                action,
+                seen,
+                ..
+            } => Some((action, seen.unwrap_or_default())),
+            _ => None,
+        })
+        .collect();
+    // A slice may stop past the last turn before the house's run of answers
+    // there is over, where a whole pump would not: the same game, cut sooner.
+    let whole = played(&preset, Setting::ON).answers;
+    assert!(answers.len() > 20, "too short a game");
+    assert!(whole.starts_with(&answers), "slices changed the game");
 }
 
 /// A table that has not switched foresight on plays as its heuristics do,
@@ -279,13 +550,86 @@ fn a_bounded_search_is_deterministic() {
         cut < first.stats.costs.len(),
         "every search stopped at the bound"
     );
-    // A bound is hard but for the price of the step a search was in: one
-    // fork, or one house answer on a board of fewer than a hundred objects
-    // (a combat search is held to what is left).
-    let step = super::super::simulation::FORK_WORK + super::super::simulation::answer_work(100);
+    // A bound is hard but for the price of the step a search was in.
     for cost in &first.stats.costs {
-        assert!(cost.work <= TIGHT + step, "{cost:?} ran past the bound");
+        assert!(cost.work <= TIGHT + STEP, "{cost:?} ran past the bound");
     }
+    assert!(first.stats.most_work <= TIGHT + STEP);
+}
+
+/// A host's share of a level's bound is a count as the level's is: a table
+/// at half the work answers alike when played again, spends no more than
+/// half of the level's bound on any search but for the step it was in, and
+/// stops searches the level alone would have finished.
+#[test]
+fn a_host_share_of_the_bound_is_a_deterministic_bound() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Llanowar Elves", 30),
+        AIProfile::EXPERT,
+    );
+    let tightened = |session: &mut Session| {
+        session.set_foresight_host(crate::HostForesight {
+            percent: 25,
+            ..Host::Served.bounds().expect("served")
+        });
+    };
+    let play = || {
+        let mut session = Session::new_recorded(&preset, "foresight").expect("the table starts");
+        tightened(&mut session);
+        session.set_foresight(true);
+        let person = PlayerId::new(1);
+        for _ in 0..10_000 {
+            let _ = session.pump();
+            if matches!(session.pending(), Pending::GameOver(_))
+                || session.state().turn.number > LAST_TURN
+            {
+                break;
+            }
+            let Some((pending, _)) = session.view_for(person) else {
+                continue;
+            };
+            let nothing = timeout_answer(&pending).unwrap_or(PlayerAction::PassPriority);
+            session
+                .act(person, nothing)
+                .expect("doing nothing is an answer");
+        }
+        (session.take_record(), session.foresight_stats().clone())
+    };
+    let (first, stats) = play();
+    let (again, _) = play();
+    let house = |record: &[u8]| -> Vec<PlayerAction> {
+        String::from_utf8_lossy(record)
+            .lines()
+            .filter_map(|line| match serde_json::from_str::<Line>(line).ok()? {
+                Line::Input {
+                    by: Source::House,
+                    action,
+                    ..
+                } => Some(action),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(
+        house(&first),
+        house(&again),
+        "a host's share answered otherwise"
+    );
+    let quarter = AIProfile::EXPERT_WORK / 4;
+    assert!(
+        stats.most_work <= quarter + STEP,
+        "{} > {quarter}",
+        stats.most_work
+    );
+    let cut = stats.costs.iter().filter(|cost| cost.cut).count();
+    let whole = played(&preset, Setting::ON);
+    let cut_whole = whole.stats.costs.iter().filter(|cost| cost.cut).count();
+    assert!(
+        cut > cut_whole,
+        "a quarter of the bound stopped no more searches"
+    );
 }
 
 /// What one search did, in counts: its kind, forks, combat and other
@@ -593,4 +937,61 @@ fn a_host_only_ever_tightens_a_levels_bound() {
     );
     session.set_foresight_nodes(Some(100));
     assert_eq!(meter(&session, level), (4_000_000, 100));
+}
+
+/// A host's ceiling bounds a level that bounds nothing itself (a generation
+/// from before 9, which no lobby offers but a preset could name), and its
+/// share lowers every level's bound; neither ever raises one, whatever the
+/// host or the preset says.
+#[test]
+fn a_host_ceiling_and_share_bound_every_level() {
+    let preset = deal(
+        12,
+        &goblins_and_bolts(),
+        &opponent("Plains", 60),
+        AIProfile::EXPERT,
+    );
+    let mut session = Session::new(&preset).expect("the table starts");
+    let left = |session: &Session, profile: AIProfile| {
+        session
+            .search_meter(profile.foresight().expect("a tier"))
+            .left()
+    };
+    let unbounded = AIProfile::EXPERT.at_generation(AIProfile::SPELL_ROOTS);
+    // A tier past the last counts as the last.
+    let odd = AIProfile {
+        foresight: u8::MAX,
+        ..unbounded
+    };
+    assert_eq!(left(&session, unbounded), u64::MAX, "no host, no ceiling");
+    session.set_foresight_host(Host::Served.bounds().expect("served"));
+    for profile in [unbounded, odd, AIProfile::EXPERT, AIProfile::SEER] {
+        assert_eq!(
+            left(&session, profile),
+            AIProfile::EXPERT_WORK,
+            "{profile:?}"
+        );
+    }
+    assert_eq!(
+        left(&session, AIProfile::NOVICE),
+        1_333_333,
+        "its own, under the ceiling"
+    );
+    for (percent, expert) in [
+        (50, 4_000_000),
+        (1, 80_000),
+        (100, 8_000_000),
+        (200, 8_000_000),
+    ] {
+        session.set_foresight_host(crate::HostForesight {
+            percent,
+            ..Host::Served.bounds().expect("served")
+        });
+        assert_eq!(left(&session, AIProfile::EXPERT), expert, "{percent} %");
+        assert_eq!(left(&session, odd), expert, "{percent} % of the ceiling");
+        assert!(
+            left(&session, AIProfile::NOVICE) <= 1_333_333,
+            "{percent} %"
+        );
+    }
 }

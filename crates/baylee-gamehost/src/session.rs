@@ -26,19 +26,23 @@ mod answers;
 mod chairs;
 mod choice_context;
 mod clocks;
-#[cfg(any(test, feature = "simulation"))]
+#[cfg(any(test, feature = "foresight"))]
 mod foresight;
 mod frames;
 pub mod project;
 mod pump;
 mod resume;
-#[cfg(any(test, feature = "simulation"))]
+#[cfg(any(test, feature = "foresight"))]
 mod simulation;
 mod spectators;
 mod table;
 
+#[cfg(any(test, feature = "foresight"))]
+pub use foresight::{
+    ForesightStats, HostForesight, SearchCost, SearchPermit, SearchPermits, Searches, WallGuard,
+};
 #[cfg(any(test, feature = "simulation"))]
-pub use foresight::{ForesightStats, ProbedLeaf, SEARCH_SHARE, SearchCost, SearchedQuestion};
+pub use foresight::{ProbedLeaf, SEARCH_SHARE, SearchedQuestion};
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
 
@@ -299,55 +303,14 @@ pub struct Session {
     /// so a whole table is fair whatever its chairs play at. Every other level
     /// is fair anyway (`scouting::request`); evaluation and self-play set it.
     fair_scouting: bool,
+    /// Whether the house's chairs try their options in forks before they
+    /// answer, what the host lets a search spend, and what the searches have
+    /// done (`session/foresight/`).
+    #[cfg(any(test, feature = "foresight"))]
+    foresight: foresight::Desk,
     /// The action currently being applied by the engine, kept across the
     /// `engine.apply` call so a panic handler can record the exact triggering
     /// `(seat, source, action)` in a fault bundle.
-    /// Whether the house's chairs try their options in forks before they
-    /// answer ([`Session::set_foresight`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight: bool,
-    /// The most work one search may spend before it stops where it stands
-    /// ([`Session::set_foresight_work`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_work: Option<u64>,
-    /// What those searches have cost ([`Session::foresight_stats`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_stats: foresight::ForesightStats,
-    /// The cost of the search in progress, kept while its worlds are played.
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_cost: foresight::SearchCost,
-    /// The clock those costs are timed by ([`Session::set_foresight_clock`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_clock: simulation::Clock,
-    /// What the search in progress has spent on forks and answers at their
-    /// prices, the rest of its meter being combat-search nodes.
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_priced: u64,
-    /// The most nodes one combat search in a fork may visit under a bound
-    /// ([`Session::set_foresight_nodes`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_nodes: Option<u32>,
-    /// Which searched questions are kept, by kind, and whether only the
-    /// replaced ones ([`Session::set_foresight_questions`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_questions: Option<([bool; 3], bool)>,
-    /// The searched questions kept and not yet taken.
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_asked: Vec<foresight::SearchedQuestion>,
-    /// One searched question in so many is probed
-    /// ([`Session::set_foresight_probe`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_probe: Option<u64>,
-    /// The probed leaves not yet taken ([`Session::take_foresight_probe`]).
-    #[cfg(any(test, feature = "simulation"))]
-    foresight_probed: Vec<foresight::ProbedLeaf>,
-    /// Per seat, the position a search last replaced the level's own answer
-    /// at: the same position coming back means the engine took it back.
-    #[cfg(any(test, feature = "simulation"))]
-    foreseen_at: Vec<Option<u64>>,
-    /// Per seat, the target a search chose with the spell it gave.
-    #[cfg(any(test, feature = "simulation"))]
-    foreseen_then: Vec<Option<PlayerAction>>,
     last_attempt: Option<(PlayerId, Source, PlayerAction)>,
     /// Whether anybody reads this session's frames ([`Session::discard_frames`]).
     frames_read: bool,
@@ -460,32 +423,8 @@ impl Session {
                 ..spectators::Gallery::default()
             },
             fair_scouting: false,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight: false,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_work: None,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_stats: foresight::ForesightStats::default(),
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_cost: foresight::SearchCost::default(),
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_clock: simulation::Clock::default(),
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_priced: 0,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_nodes: None,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_questions: None,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_asked: Vec::new(),
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_probe: None,
-            #[cfg(any(test, feature = "simulation"))]
-            foresight_probed: Vec::new(),
-            #[cfg(any(test, feature = "simulation"))]
-            foreseen_at: vec![None; preset.seats.len()],
-            #[cfg(any(test, feature = "simulation"))]
-            foreseen_then: vec![None; preset.seats.len()],
+            #[cfg(any(test, feature = "foresight"))]
+            foresight: foresight::Desk::new(preset.seats.len()),
             last_attempt: None,
             frames_read: true,
         };

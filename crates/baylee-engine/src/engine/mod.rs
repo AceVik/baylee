@@ -2110,11 +2110,11 @@ mod player_control_tests;
 pub mod progress;
 #[cfg(not(feature = "test-support"))]
 mod progress;
-// Training and evaluation lookahead (`Engine::fork_for`); feature
-// `simulation`, never in a hosting build.
-#[cfg(any(test, feature = "simulation"))]
+// Lookahead in copies of the game (`Engine::fork_for`); feature `fork`: the
+// house's bounded search at a host, and training and evaluation.
+#[cfg(any(test, feature = "fork"))]
 mod simulation;
-#[cfg(any(test, feature = "simulation"))]
+#[cfg(any(test, feature = "fork"))]
 pub use simulation::{DeckKnowledge, ForkRefusal, PriorFault, PublicPrior};
 mod restricted_offer;
 mod spend_riders;

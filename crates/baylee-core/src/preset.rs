@@ -1673,6 +1673,42 @@ mod tests {
         }
     }
 
+    /// What a lobby request can ask a search to spend: a level by its name
+    /// (`named`, the one lookup the lobby and the gateway make), and nothing
+    /// else. Every name it takes is a level of the newest generation whose
+    /// search is bounded, at most `expert`'s bound; a reference, a
+    /// generation, a bound, another case, padding or a long string names
+    /// nothing, so a request cannot reach a level that searches unbounded.
+    #[test]
+    fn a_lobby_name_cannot_ask_for_more_search_than_experts() {
+        for (name, profile) in AIProfile::NAMED {
+            let named = AIProfile::named(name).expect("a level by its name");
+            assert_eq!(named, profile);
+            assert_eq!(named.generation, AIProfile::GENERATION, "{name}");
+            let budget = named.foresight().expect("every level searches");
+            assert!(budget.work <= AIProfile::EXPERT_WORK, "{name}");
+            assert_eq!(budget.nodes, AIProfile::FORK_NODES, "{name}");
+        }
+        let long = "expert".repeat(10_000);
+        for odd in [
+            "sharp-2026-11",
+            "expert:generation=7",
+            "expert:generation=8",
+            "expert:work=99999999999",
+            "expert:foresight=255",
+            "Expert",
+            "EXPERT",
+            " expert",
+            "expert ",
+            "expert\0",
+            "seer2",
+            "",
+            &long,
+        ] {
+            assert_eq!(AIProfile::named(odd), None, "{odd:.40} was taken");
+        }
+    }
+
     /// A room that chose no format says nothing about one on the wire, a
     /// mixed one says `"mixed"`, and a word from a newer build reads as the
     /// host's format rather than refusing the whole room.

@@ -1,13 +1,19 @@
-//! A session's game forked for one seat's lookahead, for training and
-//! evaluation harnesses that host their games in-process.
+//! A session's game forked for one seat's lookahead: the house's own search
+//! (`session/foresight/`) and the training and evaluation harnesses that host
+//! their games in-process.
 //!
-//! [`Session::fork_for`] wraps the engine's own fork (`Engine::fork_for`,
+//! [`Session::forked`] wraps the engine's own fork (`Engine::fork_for`,
 //! `docs/engine-internals.md` §"Forking a simulation") in a
 //! [`SimulationSession`]: the same chairs and the same house, answering
 //! through the same views ([`super::table`]), and nothing a hosted table
 //! keeps for the people at it — no record, no log, no envelopes, no clocks,
 //! no spectators. It is never a seat's path over the gateway, which has no
 //! engine to fork.
+//!
+//! Under the `foresight` feature, which the hosting builds enable, only the
+//! house's search makes and plays one. What a harness drives a fork with by
+//! hand (`Session::fork_for`, the context views, taking a chair over) is under
+//! `simulation`, which no hosting build enables.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -42,6 +48,7 @@ pub struct SimulationSession {
     shown_once: BTreeMap<(u8, u8), Vec<ObjectId>>,
     hand_sharing: baylee_core::preset::HandSharingRule,
     ai_hand_share_policy: baylee_core::preset::AiHandSharePolicy,
+    #[cfg(any(test, feature = "simulation"))]
     seat: PlayerId,
     /// What the house's answers and the engine's steps in this fork have
     /// taken, where a search measures its forks ([`Self::seat_model`]).
@@ -52,21 +59,21 @@ pub struct SimulationSession {
     meter: Option<Arc<baylee_ai::WorkMeter>>,
 }
 
-/// The clock a table's searches are measured by: the wall clock, or the one
-/// its harness gave it (`Session::set_foresight_clock`), such as the CPU
-/// time of the thread a game is played on, which another job on the machine
-/// does not stretch. A measurement only: no answer reads a clock.
+/// The clock a table's searches are measured by: the one its harness gave it
+/// (`Session::set_foresight_clock`), such as the CPU time of the thread a game
+/// is played on, which another job on the machine does not stretch, or its
+/// host's wall guard's (`Session::set_foresight_host`). A measurement only:
+/// no answer the bound decides reads it. None reads nothing, so a table
+/// nobody gave a clock reads none, as the session reads none anywhere
+/// (`LocalHost` runs in a browser too, where `Instant::now` panics).
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct Clock(pub(super) Option<fn() -> std::time::Duration>);
 
 impl Clock {
-    /// The time now, from an origin that is the same for every reading.
+    /// The time now, from an origin that is the same for every reading;
+    /// always zero without a clock.
     pub(super) fn now(self) -> std::time::Duration {
-        static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-        self.0.map_or_else(
-            || ORIGIN.get_or_init(std::time::Instant::now).elapsed(),
-            |clock| clock(),
-        )
+        self.0.map_or(std::time::Duration::ZERO, |clock| clock())
     }
 }
 
@@ -156,6 +163,7 @@ impl Session {
     ///
     /// # Errors
     /// The engine's [`ForkRefusal`] for a position it cannot fork faithfully.
+    #[cfg(any(test, feature = "simulation"))]
     pub fn fork_for(
         &self,
         seat: PlayerId,
@@ -245,6 +253,7 @@ impl Session {
             shown_once: self.shown_once.clone(),
             hand_sharing: self.house_rules.hand_sharing,
             ai_hand_share_policy: self.ai_hand_share_policy,
+            #[cfg(any(test, feature = "simulation"))]
             seat,
             timing: None,
             meter: None,
@@ -277,6 +286,7 @@ impl SimulationSession {
 
     /// The seat this simulation was forked for.
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub const fn seat(&self) -> PlayerId {
         self.seat
     }
@@ -289,18 +299,21 @@ impl SimulationSession {
 
     /// As [`Session::view_for_with_context`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn view_for_with_context(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
         self.table().view_for_with_context(seat)
     }
 
     /// As [`Session::view_for_with_payment_context`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn view_for_with_payment_context(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
         self.table().view_for_with_payment_context(seat)
     }
 
     /// As [`Session::view_for_with_announcement_context`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn view_for_with_announcement_context(
         &self,
         seat: PlayerId,
@@ -316,18 +329,21 @@ impl SimulationSession {
 
     /// As [`Session::observe_view_with_context`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn observe_view_with_context(&self, seat: PlayerId) -> PlayerView {
         self.table().observe_view_with_context(seat)
     }
 
     /// As [`Session::observe_view_with_payment_context`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn observe_view_with_payment_context(&self, seat: PlayerId) -> PlayerView {
         self.table().observe_view_with_payment_context(seat)
     }
 
     /// As [`Session::observe_view_with_announcement_context`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn observe_view_with_announcement_context(&self, seat: PlayerId) -> PlayerView {
         self.table().observe_view_with_announcement_context(seat)
     }
@@ -335,6 +351,7 @@ impl SimulationSession {
     /// As [`Session::decision_seq`]: continues the count of the session it
     /// was forked from.
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub const fn decision_seq(&self) -> u64 {
         self.decisions
     }
@@ -347,6 +364,7 @@ impl SimulationSession {
 
     /// Every seat that owes an answer ([`Session::awaited`]).
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn awaited(&self) -> SeatSet {
         self.engine.awaited()
     }
@@ -359,6 +377,7 @@ impl SimulationSession {
 
     /// The fork's determinism hash.
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn snapshot_hash(&self) -> u64 {
         self.engine.snapshot_hash()
     }
@@ -371,6 +390,7 @@ impl SimulationSession {
 
     /// As [`Session::house_action`].
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn house_action(&self, player: PlayerId) -> Option<PlayerAction> {
         self.table().house_action(player)
     }
@@ -383,6 +403,7 @@ impl SimulationSession {
 
     /// Takes a house chair over so the harness answers it, as
     /// [`Session::take_over`] does. Returns whether it was a house chair.
+    #[cfg(any(test, feature = "simulation"))]
     pub fn take_over(&mut self, seat: PlayerId) -> bool {
         let Some(kind) = self.seats.get_mut(usize::from(seat.get())) else {
             return false;
@@ -410,6 +431,7 @@ impl SimulationSession {
 
     /// As [`Session::needs_pump`]: whether the house owes an answer.
     #[must_use]
+    #[cfg(any(test, feature = "simulation"))]
     pub fn needs_pump(&self) -> bool {
         self.engine.awaited().iter().any(|seat| {
             !self

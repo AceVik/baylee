@@ -502,7 +502,7 @@ impl GameState {
 /// A card admitted to a game as setup admits a deck entry, less the object:
 /// what a fork dealing from a public prior prints a new card with
 /// ([`GameState::admit_printed_card`]).
-#[cfg(any(feature = "simulation", test))]
+#[cfg(any(feature = "fork", test))]
 pub(crate) struct PrintedCard {
     /// The printed front face, shared with every copy of the card.
     pub(crate) base: Arc<Characteristics>,
@@ -522,7 +522,7 @@ fn has_offboard_static(def: &CardDef) -> bool {
     })
 }
 
-#[cfg(any(feature = "simulation", test))]
+#[cfg(any(feature = "fork", test))]
 impl GameState {
     /// Admits `index` to this game through the door setup admits a deck
     /// entry by (`create_card`), without creating an object: its rules and

@@ -24,8 +24,8 @@ mod draw_offer;
 mod entry_history;
 pub use draw_offer::{DrawReplacement, FrontDraw};
 mod draw_wish;
-// What `Engine::fork_for` does with every field (feature `simulation`).
-#[cfg(any(test, feature = "simulation"))]
+// What `Engine::fork_for` does with every field (feature `fork`).
+#[cfg(any(test, feature = "fork"))]
 mod fork;
 mod hash;
 mod hidden_exile;

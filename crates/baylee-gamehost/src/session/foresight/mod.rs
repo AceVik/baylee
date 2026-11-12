@@ -26,7 +26,16 @@
 //! Budgets are counts (`AIProfile::foresight`,
 //! [`Session::set_foresight_work`]), never time; the time a searched answer
 //! took is kept for measurement only ([`ForesightStats`]) and is no input to
-//! any answer.
+//! any answer the bound decides.
+//!
+//! A host bounds the searches further (`host.rs`,
+//! [`Session::set_foresight_host`]): a share of each level's bound, a
+//! ceiling no level passes, a number of searches at once across its tables,
+//! and a guard on wall time. The last two read the host's world, not the
+//! game, so where they act the level's own answer stands, the search is
+//! counted as given up ([`ForesightStats::walled`], [`ForesightStats::busy`])
+//! and the record holds the answer that was given: a replay applies the
+//! recorded answers and asks no house again (`session/resume.rs`).
 //!
 //! A table can also be asked to judge its searches
 //! ([`Session::set_foresight_probe`]): the worlds of a share of its searched
@@ -35,7 +44,12 @@
 //! and changes no answer: a world is a copy, and what is played in it past
 //! the leaf is read by nothing.
 
-use super::{SeatKind, Session, SimulationSession};
+mod host;
+
+pub use host::{HostForesight, SearchPermit, SearchPermits, Searches, WallGuard};
+
+use super::simulation::SimulationSession;
+use super::{SeatKind, Session};
 use baylee_ai::HeuristicAgent;
 use baylee_ai::foresight::{FEATURES, Outcome, choose};
 use baylee_core::ids::PlayerId;
@@ -43,6 +57,75 @@ use baylee_core::preset::Foresight;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::{DeckKnowledge, ForkRefusal, PublicPrior};
 use baylee_view::PlayerView;
+
+/// What a table holds for its house's searches: whether they run, what the
+/// host and the harness set, and what they have done.
+pub(in crate::session) struct Desk {
+    /// Whether the house's chairs try their options in forks before they
+    /// answer ([`Session::set_foresight`]).
+    pub(super) on: bool,
+    /// The most work one search may spend before it stops where it stands
+    /// ([`Session::set_foresight_work`]).
+    work: Option<u64>,
+    /// What the host lets a search spend beyond its count
+    /// ([`Session::set_foresight_host`]).
+    host: HostForesight,
+    /// What those searches have cost ([`Session::foresight_stats`]).
+    stats: ForesightStats,
+    /// The cost of the search in progress, kept while its worlds are played.
+    cost: SearchCost,
+    /// The clock those costs are timed by: the host's wall guard's, or the
+    /// harness's ([`Session::set_foresight_clock`]); none reads nothing.
+    clock: super::simulation::Clock,
+    /// What the search in progress has spent on forks and answers at their
+    /// prices, the rest of its meter being combat-search nodes.
+    priced: u64,
+    /// The most nodes one combat search in a fork may visit under a bound
+    /// ([`Session::set_foresight_nodes`]).
+    nodes: Option<u32>,
+    /// Which searched questions are kept, by kind, and whether only the
+    /// replaced ones ([`Session::set_foresight_questions`]).
+    #[cfg(any(test, feature = "simulation"))]
+    questions: Option<([bool; 3], bool)>,
+    /// The searched questions kept and not yet taken.
+    #[cfg(any(test, feature = "simulation"))]
+    asked: Vec<SearchedQuestion>,
+    /// One searched question in so many is probed
+    /// ([`Session::set_foresight_probe`]).
+    probe: Option<u64>,
+    /// The probed leaves not yet taken ([`Session::take_foresight_probe`]).
+    probed: Vec<ProbedLeaf>,
+    /// Per seat, the position a search last replaced the level's own answer
+    /// at: the same position coming back means the engine took it back.
+    replaced_at: Vec<Option<u64>>,
+    /// Per seat, the target a search chose with the spell it gave.
+    then: Vec<Option<PlayerAction>>,
+}
+
+impl Desk {
+    /// Foresight off, nothing bounded beyond the levels, nothing done, at a
+    /// table of `seats` chairs.
+    pub(in crate::session) fn new(seats: usize) -> Self {
+        Self {
+            on: false,
+            work: None,
+            host: HostForesight::default(),
+            stats: ForesightStats::default(),
+            cost: SearchCost::default(),
+            clock: super::simulation::Clock::default(),
+            priced: 0,
+            nodes: None,
+            #[cfg(any(test, feature = "simulation"))]
+            questions: None,
+            #[cfg(any(test, feature = "simulation"))]
+            asked: Vec::new(),
+            probe: None,
+            probed: Vec::new(),
+            replaced_at: vec![None; seats],
+            then: vec![None; seats],
+        }
+    }
+}
 
 /// The mean gain over the level's own answer another answer has to show
 /// before it is given instead, in units of the leaf value (0 lost, 1 won).
@@ -123,7 +206,20 @@ pub struct ForesightStats {
     pub rollouts: u64,
     /// House answers given in those worlds.
     pub answers: u64,
+    /// Of the searched questions, those the host's wall guard gave up
+    /// ([`WallGuard`]): the level's own answer was given.
+    pub walled: u64,
+    /// Questions not searched because the host had no search to spare
+    /// ([`SearchPermits`]): the level's own answer was given.
+    pub busy: u64,
+    /// The longest searched answer by the table's clock, in microseconds.
+    pub slowest_micros: u32,
+    /// The most work one searched answer spent on its meter: never more than
+    /// its bound but for the one step it was in.
+    pub most_work: u64,
     /// What each searched answer cost, in order. Never read by a decision.
+    /// Kept by a harness's build (`simulation`) only: a hosted table keeps
+    /// the counts above and nothing that grows with the game.
     pub costs: Vec<SearchCost>,
 }
 
@@ -155,6 +251,8 @@ pub struct SearchCost {
     /// Whether the search ran out of work and stopped where it stood
     /// ([`Session::set_foresight_work`]).
     pub cut: bool,
+    /// Whether the host's wall guard gave it up ([`WallGuard`]).
+    pub walled: bool,
     /// The whole answer, in microseconds.
     pub micros: u32,
     /// Of that, making the forks.
@@ -184,6 +282,8 @@ enum World {
 /// and the one chosen.
 struct Tried {
     plans: Vec<Plan>,
+    /// Read where the question is kept for study.
+    #[cfg(any(test, feature = "simulation"))]
     outcomes: Vec<Vec<Outcome>>,
     chosen: usize,
 }
@@ -193,6 +293,7 @@ struct Tried {
 /// named after it and its value in each world (`None` where the engine
 /// refused it), and which was given. The first answer is the level's own.
 #[derive(Clone, Debug)]
+#[cfg(any(test, feature = "simulation"))]
 pub struct SearchedQuestion {
     /// What the seat saw.
     pub view: PlayerView,
@@ -237,8 +338,29 @@ struct Search<'a> {
     probe: Option<u64>,
     /// What the forks' combat searches have visited between them.
     work: std::sync::Arc<baylee_ai::WorkMeter>,
+    /// The host's clock and the reading on it past which the search is given
+    /// up ([`WallGuard`]).
+    deadline: Option<(fn() -> std::time::Duration, std::time::Duration)>,
+    /// Whether the deadline has passed.
+    walled: std::cell::Cell<bool>,
     /// The question, for the neighbours of a declaration.
     pending: &'a Pending,
+}
+
+impl Search<'_> {
+    /// Whether the search has to stop where it stands: its work is spent, or
+    /// the host's wall guard has passed, which it then remembers.
+    fn stopped(&self) -> bool {
+        if self.work.exhausted() || self.walled.get() {
+            return true;
+        }
+        let Some((clock, at)) = self.deadline else {
+            return false;
+        };
+        let passed = clock() >= at;
+        self.walled.set(passed);
+        passed
+    }
 }
 
 /// The seed of world `world` of a search by an agent seeded `agent` from
@@ -270,13 +392,13 @@ impl Session {
     /// answers. Off until it is switched on, so a harness that seats the
     /// house as an opponent or a benchmark plays it as a hosted table does.
     pub const fn set_foresight(&mut self, on: bool) {
-        self.foresight = on;
+        self.foresight.on = on;
     }
 
     /// What this table's searches have cost so far.
     #[must_use]
     pub const fn foresight_stats(&self) -> &ForesightStats {
-        &self.foresight_stats
+        &self.foresight.stats
     }
 
     /// Bounds the work of one searched answer at this table: a search
@@ -288,7 +410,7 @@ impl Session {
     /// worlds, the level's own where fewer than half its worlds were
     /// finished.
     /// One combat search in a fork may visit a [`SEARCH_SHARE`]th of the
-    /// bound and no more ([`Session::set_foresight_nodes`] sets another
+    /// bound and no more (a harness's `set_foresight_nodes` sets another
     /// share). `None`, the default, leaves a search its level's whole
     /// budget.
     ///
@@ -296,14 +418,31 @@ impl Session {
     /// machine to the next; and a hard one: a search runs past it by at most
     /// the one step it was in.
     pub const fn set_foresight_work(&mut self, work: Option<u64>) {
-        self.foresight_work = work;
+        self.foresight.work = work;
+    }
+
+    /// Sets what the host lets this table's searches spend beyond each
+    /// level's own bound ([`HostForesight`]): a share and a ceiling of the
+    /// work, permits, a wall guard, and a pump slice that ends after each
+    /// searched answer. A table without it is bounded by its levels alone.
+    ///
+    /// The searches' costs are timed by the wall guard's clock from here on,
+    /// unless a harness gave the table a clock of its own.
+    pub fn set_foresight_host(&mut self, host: HostForesight) {
+        if self.foresight.clock.0.is_none()
+            && let Some(guard) = host.wall
+        {
+            self.foresight.clock = super::simulation::Clock(Some(guard.clock));
+        }
+        self.foresight.host = host;
     }
 
     /// Under a bound on a search's work ([`Session::set_foresight_work`]),
     /// the most nodes one combat search in a fork may visit, in place of
     /// the bound's [`SEARCH_SHARE`]th.
+    #[cfg(any(test, feature = "simulation"))]
     pub const fn set_foresight_nodes(&mut self, nodes: Option<u32>) {
-        self.foresight_nodes = nodes;
+        self.foresight.nodes = nodes;
     }
 
     /// Has this table keep the questions it searches, for study: those of
@@ -312,22 +451,26 @@ impl Session {
     /// own ([`Session::take_foresight_questions`]). Each is the seat's whole
     /// view, so a table keeps what it is asked to and no more. No answer
     /// depends on it.
+    #[cfg(any(test, feature = "simulation"))]
     pub const fn set_foresight_questions(&mut self, kinds: [bool; 3], replaced: bool) {
-        self.foresight_questions = Some((kinds, replaced));
+        self.foresight.questions = Some((kinds, replaced));
     }
 
     /// The searched questions kept so far, which the table then forgets.
+    #[cfg(any(test, feature = "simulation"))]
     pub fn take_foresight_questions(&mut self) -> Vec<SearchedQuestion> {
-        std::mem::take(&mut self.foresight_asked)
+        std::mem::take(&mut self.foresight.asked)
     }
 
-    /// Has this table's searches measured by `clock` in place of the wall
-    /// clock: the time since any fixed origin, such as the CPU time of the
-    /// thread the game is played on, which a busy machine does not stretch.
-    /// The times of [`ForesightStats::costs`] are read from it and nothing
-    /// else is: no answer depends on a clock.
+    /// Has this table's searches measured by `clock`: the time since any
+    /// fixed origin, such as the CPU time of the thread the game is played
+    /// on, which a busy machine does not stretch. The times of
+    /// [`ForesightStats::costs`] are read from it and nothing else is: no
+    /// answer depends on it. A table nobody gave a clock times nothing,
+    /// unless its host's wall guard has one.
+    #[cfg(any(test, feature = "simulation"))]
     pub const fn set_foresight_clock(&mut self, clock: fn() -> std::time::Duration) {
-        self.foresight_clock = super::simulation::Clock(Some(clock));
+        self.foresight.clock = super::simulation::Clock(Some(clock));
     }
 
     /// Has this table judge its searches: of the questions it searches, one
@@ -337,22 +480,39 @@ impl Session {
     /// the game came out ([`Session::take_foresight_probe`]). `None`, the
     /// default, probes nothing. No answer depends on it: a world is a copy
     /// of the game, and nothing reads what is played in it past its leaf.
+    #[cfg(any(test, feature = "simulation"))]
     pub const fn set_foresight_probe(&mut self, every: Option<u64>) {
-        self.foresight_probe = every;
+        self.foresight.probe = every;
     }
 
     /// The probed leaves kept so far, which the table then forgets.
+    #[cfg(any(test, feature = "simulation"))]
     pub fn take_foresight_probe(&mut self) -> Vec<ProbedLeaf> {
-        std::mem::take(&mut self.foresight_probed)
+        std::mem::take(&mut self.foresight.probed)
+    }
+
+    /// [`Self::foreseen`], and whether the pump slice ends with it: after a
+    /// searched answer, where the host asks for that
+    /// ([`HostForesight::yields`]).
+    pub(super) fn foreseen_in_slice(
+        &mut self,
+        player: PlayerId,
+        pending: &Pending,
+    ) -> (Option<PlayerAction>, bool) {
+        let searched = self.foresight.stats.searched;
+        let answer = self.foreseen(player, pending);
+        let spent = self.foresight.host.yields && self.foresight.stats.searched != searched;
+        (answer, spent)
     }
 
     /// The answer `player`'s chair gives `pending` after trying its options,
     /// or `None` where it does not search: foresight is off, the chair is
     /// not the house's own, or its level has no foresight tier. The level's
     /// own answer where the question is not one a search takes, has one
-    /// candidate only, or cannot be forked.
+    /// candidate only, or cannot be forked, and where the host has no search
+    /// to spare or its wall guard gave the search up.
     pub(super) fn foreseen(&mut self, player: PlayerId, pending: &Pending) -> Option<PlayerAction> {
-        if !self.foresight {
+        if !self.foresight.on {
             return None;
         }
         let at = usize::from(player.get());
@@ -363,7 +523,7 @@ impl Session {
         // The target a search chose with its spell is given where the engine
         // then asks for it.
         if matches!(pending, Pending::ChooseTargets { .. }) {
-            let then = self.foreseen_then.get_mut(at).and_then(Option::take)?;
+            let then = self.foresight.then.get_mut(at).and_then(Option::take)?;
             return pending.answer_fault(&then).is_none().then_some(then);
         }
         if !matches!(
@@ -384,24 +544,33 @@ impl Session {
         if candidates.len() < 2 {
             return Some(own);
         }
-        self.foresight_stats.asked += 1;
+        self.foresight.stats.asked += 1;
         let position = HeuristicAgent::position(&view);
         // An answer the engine took back leaves the position as it was. The
         // level's own answer is given there, which has its own guard
         // (`baylee_ai`'s `stall`).
-        if self.foreseen_at.get(at).copied().flatten() == Some(position) {
-            self.foreseen_at[at] = None;
+        if self.foresight.replaced_at.get(at).copied().flatten() == Some(position) {
+            self.foresight.replaced_at[at] = None;
             return Some(own);
         }
-        let clock = self.foresight_clock;
-        let started = clock.now();
-        self.foresight_cost = SearchCost {
+        // Leave from the host to search, held until the answer is chosen;
+        // none to spare, and the level's own answer stands, at once.
+        let Ok(permit) = self.search_permit(player) else {
+            return Some(own);
+        };
+        let started = self.foresight.clock.now();
+        let deadline = self
+            .foresight
+            .host
+            .wall
+            .map(|guard| (guard.clock, (guard.clock)().saturating_add(guard.limit)));
+        self.foresight.cost = SearchCost {
             kind: u8::try_from(kind(pending)).unwrap_or(u8::MAX),
             battlefield: u16::try_from(view.battlefield.len()).unwrap_or(u16::MAX),
             ..SearchCost::default()
         };
-        self.foresight_priced = 0;
-        self.foreseen_then[at] = None;
+        self.foresight.priced = 0;
+        self.foresight.then[at] = None;
         // A level that peeks, at a table that lets it, deals the real lists
         // again; every other search deals what its own view lets it suppose.
         let fair = self.fair_scouting || !agent.profile().peeks();
@@ -416,27 +585,27 @@ impl Session {
                 .map(|world| world_seed(agent.seed(), position, world))
                 .collect(),
             work: std::sync::Arc::new(self.search_meter(budget)),
+            deadline,
+            walled: std::cell::Cell::new(false),
             pending,
             probe: self
-                .foresight_probe
+                .foresight
+                .probe
                 .filter(|every| *every > 0 && position.is_multiple_of(*every))
                 .map(|_| position ^ agent.seed().rotate_left(17)),
         };
         let plans = candidates.into_iter().map(Plan::of).collect();
-        let Ok(tried) = self.searched(&search, &agent, &view, plans) else {
+        let tried = self.searched(&search, &agent, &view, plans);
+        drop(permit);
+        let Ok(tried) = tried else {
             // A refusal is the position's, not the world's: no world can be
             // made here.
-            self.foresight_stats.refused += 1;
+            self.foresight.stats.refused += 1;
             return Some(own);
         };
         let kind = kind(pending);
-        self.foresight_stats.searched += 1;
-        self.foresight_stats.by_kind[kind].0 += 1;
-        let mut cost = self.foresight_cost;
-        cost.work = search.work.spent();
-        cost.nodes = cost.work.saturating_sub(self.foresight_priced);
-        cost.micros = micros(clock.now().saturating_sub(started));
-        self.foresight_stats.costs.push(cost);
+        self.count_search(&search, started);
+        #[cfg(any(test, feature = "simulation"))]
         self.keep_question(&view, pending, &tried);
         let Tried {
             mut plans, chosen, ..
@@ -444,26 +613,91 @@ impl Session {
         if chosen == 0 {
             return Some(own);
         }
-        self.foresight_stats.replaced += 1;
-        self.foresight_stats.by_kind[kind].1 += 1;
-        self.foreseen_at[at] = Some(position);
+        self.foresight.stats.replaced += 1;
+        self.foresight.stats.by_kind[kind].1 += 1;
+        self.foresight.replaced_at[at] = Some(position);
         agent.forget_given();
         let plan = plans.swap_remove(chosen);
-        self.foreseen_then[at] = plan.then;
+        self.foresight.then[at] = plan.then;
         Some(plan.first)
+    }
+
+    /// Leave from the host for one search by `player`'s chair: a permit to
+    /// hold until the answer is chosen, nothing to hold where the host counts
+    /// no searches, or `Err` where it has none to spare, which is counted and
+    /// leaves the level's own answer.
+    fn search_permit(&mut self, player: PlayerId) -> Result<Option<SearchPermit>, ()> {
+        let Some(permits) = self.foresight.host.permits.as_deref() else {
+            return Ok(None);
+        };
+        if let Some(permit) = permits.try_acquire() {
+            return Ok(Some(permit));
+        }
+        self.foresight.stats.busy += 1;
+        tracing::debug!(
+            game = %self.game_id,
+            seat = player.get(),
+            "the host has no search to spare; the level's own answer stands"
+        );
+        Err(())
+    }
+
+    /// Counts a finished `search` that began at `started` by the table's
+    /// clock into the table's stats, and says in the log where the host's
+    /// wall guard gave it up.
+    fn count_search(&mut self, search: &Search<'_>, started: std::time::Duration) {
+        let kind = kind(search.pending);
+        let mut cost = self.foresight.cost;
+        cost.work = search.work.spent();
+        cost.nodes = cost.work.saturating_sub(self.foresight.priced);
+        cost.micros = micros(self.foresight.clock.now().saturating_sub(started));
+        cost.walled = search.walled.get();
+        let stats = &mut self.foresight.stats;
+        stats.searched += 1;
+        stats.by_kind[kind].0 += 1;
+        stats.slowest_micros = stats.slowest_micros.max(cost.micros);
+        stats.most_work = stats.most_work.max(cost.work);
+        tracing::debug!(
+            game = %self.game_id,
+            seat = search.player.get(),
+            question = ["priority", "attack", "block"][kind],
+            us = cost.micros,
+            work = cost.work,
+            cut = cost.cut,
+            walled = cost.walled,
+            "house search"
+        );
+        if cost.walled {
+            stats.walled += 1;
+            tracing::warn!(
+                game = %self.game_id,
+                seat = search.player.get(),
+                question = ["priority", "attack", "block"][kind],
+                ms = cost.micros / 1000,
+                work = cost.work,
+                "a house search ran past the host's wall guard and was given up; \
+                 the level's own answer stands"
+            );
+        }
+        // A hosted table keeps counts, not a row a search.
+        if cfg!(any(test, feature = "simulation")) {
+            self.foresight.stats.costs.push(cost);
+        }
     }
 
     /// The meter of one search at this table under the level's `budget`:
     /// bounded by the level's work ([`Foresight::work`]) or the table's
-    /// ([`Session::set_foresight_work`]), whichever is the tighter, so a host
-    /// can lower a level's bound and never raise it. One combat search in a
-    /// fork may visit the table's nodes ([`Session::set_foresight_nodes`]),
-    /// else the level's ([`Foresight::nodes`]); a level that sets none has,
-    /// under a bound, the bound's [`SEARCH_SHARE`]th. Unbounded where
-    /// nothing bounds it.
+    /// ([`Session::set_foresight_work`]), whichever is the tighter, and then
+    /// by the host's ceiling and share of it ([`HostForesight::work`]), so a
+    /// host can lower a level's bound and never raise it. One combat search
+    /// in a fork may visit the table's nodes (a harness's
+    /// `set_foresight_nodes`), else the level's ([`Foresight::nodes`]); a
+    /// level that sets none has, under a bound, the bound's
+    /// [`SEARCH_SHARE`]th. Unbounded where nothing bounds it.
     pub(super) fn search_meter(&self, budget: Foresight) -> baylee_ai::WorkMeter {
-        let work = budget.work.min(self.foresight_work.unwrap_or(u64::MAX));
-        let search = self.foresight_nodes.unwrap_or_else(|| {
+        let work = budget.work.min(self.foresight.work.unwrap_or(u64::MAX));
+        let work = self.foresight.host.work(work);
+        let search = self.foresight.nodes.unwrap_or_else(|| {
             if budget.nodes < u32::MAX || work == u64::MAX {
                 budget.nodes
             } else {
@@ -475,12 +709,13 @@ impl Session {
 
     /// Keeps a searched question where the table was asked to
     /// ([`Session::set_foresight_questions`]).
+    #[cfg(any(test, feature = "simulation"))]
     fn keep_question(&mut self, view: &PlayerView, pending: &Pending, tried: &Tried) {
-        let kept = self.foresight_questions.is_some_and(|(kinds, replaced)| {
+        let kept = self.foresight.questions.is_some_and(|(kinds, replaced)| {
             kinds[kind(pending)] && (tried.chosen != 0 || !replaced)
         });
         if kept {
-            self.foresight_asked.push(SearchedQuestion {
+            self.foresight.asked.push(SearchedQuestion {
                 view: view.clone(),
                 pending: pending.clone(),
                 tried: tried
@@ -590,16 +825,20 @@ impl Session {
                 outcomes.push(tried);
             }
         }
-        self.foresight_cost.cut = cut;
+        self.foresight.cost.cut = cut;
         // A search cut before half its worlds were played compares its
-        // answers over too few deals to replace the level's own on them.
-        let chosen = if cut && worlds * 2 < search.seeds.len() {
+        // answers over too few deals to replace the level's own on them. One
+        // the host's wall guard gave up gives the level's own answer, however
+        // far it got: what it finished depends on the host's load, not on the
+        // game.
+        let chosen = if search.walled.get() || (cut && worlds * 2 < search.seeds.len()) {
             0
         } else {
             choose(&outcomes, MARGIN)
         };
         Ok(Tried {
             plans,
+            #[cfg(any(test, feature = "simulation"))]
             outcomes,
             chosen,
         })
@@ -610,7 +849,7 @@ impl Session {
     /// chair on until the turn counter has advanced by the budget's turns,
     /// the answers are spent or the game is over, and the value of where it
     /// stands, or `None` where the engine refuses the plan;
-    /// [`World::Cut`] where the search ran out of work on the way.
+    /// [`World::Cut`] where the search ran out of work or time on the way.
     fn world(
         &mut self,
         search: &Search<'_>,
@@ -619,11 +858,11 @@ impl Session {
         seed: u64,
     ) -> Result<World, ForkRefusal> {
         let player = search.player;
-        if search.work.exhausted() {
+        if search.stopped() {
             return Ok(World::Cut);
         }
         let mut fork = self.fork_modelled(search, seed)?;
-        self.foresight_stats.rollouts += 1;
+        self.foresight.stats.rollouts += 1;
         if fork.act_slice(player, plan.first.clone(), 0).is_err() {
             return Ok(World::Played(None));
         }
@@ -642,32 +881,32 @@ impl Session {
             if let Some(result) = result_for(&fork, player) {
                 break Some((result, true));
             }
-            if search.work.exhausted() {
+            if search.stopped() {
                 break None;
             }
             if fork.state().turn.number >= stop
                 || answers >= search.budget.answers
                 || fork.pump_at_most(1) == 0
             {
-                let valuing = self.foresight_clock.now();
+                let valuing = self.foresight.clock.now();
                 let value = search.model.foresight_value(&fork.observe_view(player));
-                self.foresight_cost.leaf_micros +=
-                    micros(self.foresight_clock.now().saturating_sub(valuing));
+                self.foresight.cost.leaf_micros +=
+                    micros(self.foresight.clock.now().saturating_sub(valuing));
                 break Some((value, false));
             }
             answers += 1;
         };
         let timing = fork.timing();
-        let cost = &mut self.foresight_cost;
+        let cost = &mut self.foresight.cost;
         cost.other_answers += timing.asked[0];
         cost.combat_answers += timing.asked[1];
         cost.other_micros += micros(timing.think[0]);
         cost.combat_micros += micros(timing.think[1]);
         cost.apply_micros += micros(timing.apply);
         cost.board += timing.board;
-        self.foresight_priced += timing.work;
+        self.foresight.priced += timing.work;
         cost.longest_micros = cost.longest_micros.max(micros(timing.longest));
-        self.foresight_stats.answers += u64::from(answers);
+        self.foresight.stats.answers += u64::from(answers);
         let Some((value, ended)) = played else {
             return Ok(World::Cut);
         };
@@ -688,7 +927,7 @@ impl Session {
             };
             if let Some(played) = played {
                 #[allow(clippy::cast_possible_truncation)] // a handful of plans, three kinds
-                self.foresight_probed.push(ProbedLeaf {
+                self.foresight.probed.push(ProbedLeaf {
                     root,
                     world: seed,
                     candidate: candidate as u32,
@@ -714,7 +953,7 @@ impl Session {
         answer: &PlayerAction,
     ) -> Result<Vec<PlayerAction>, ForkRefusal> {
         let player = search.player;
-        if search.work.exhausted() {
+        if search.stopped() {
             return Ok(Vec::new());
         }
         let mut fork = self.fork_modelled(search, search.seeds[0])?;
@@ -769,15 +1008,15 @@ impl Session {
             .as_ref()
             .map_or(DeckKnowledge::Known, DeckKnowledge::Prior);
         let told = std::sync::Arc::clone(&search.decks);
-        let clock = self.foresight_clock;
+        let clock = self.foresight.clock;
         let forking = clock.now();
         let forked = self.forked(search.player, decks, seed, told);
-        self.foresight_cost.forks += 1;
+        self.foresight.cost.forks += 1;
         if forked.is_ok() {
             search.work.spend(super::simulation::FORK_WORK);
-            self.foresight_priced += super::simulation::FORK_WORK;
+            self.foresight.priced += super::simulation::FORK_WORK;
         }
-        self.foresight_cost.fork_micros += micros(clock.now().saturating_sub(forking));
+        self.foresight.cost.fork_micros += micros(clock.now().saturating_sub(forking));
         match forked {
             Ok(mut fork) => {
                 fork.seat_model(
@@ -793,7 +1032,8 @@ impl Session {
             Err(refusal) => {
                 let question = ["priority", "attack", "block"][kind(search.pending)];
                 *self
-                    .foresight_stats
+                    .foresight
+                    .stats
                     .refusals
                     .entry(format!("{question}: {refusal}"))
                     .or_default() += 1;

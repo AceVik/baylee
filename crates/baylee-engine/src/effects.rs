@@ -860,7 +860,7 @@ impl EffectTable {
 
     /// Every registered effect: the active ones, then those parked while
     /// their source is phased out (CR 702.26b).
-    #[cfg(any(test, feature = "simulation"))]
+    #[cfg(any(test, feature = "fork"))]
     pub(crate) fn iter_with_parked(&self) -> impl Iterator<Item = &ContinuousEffect> {
         self.effects.iter().chain(&self.parked)
     }

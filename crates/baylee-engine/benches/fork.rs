@@ -1,7 +1,6 @@
-//! `Engine::fork_for`, the training and evaluation lookahead fork, early and
-//! late in a game. Feature `simulation` (`required-features`), so a plain
-//! `cargo bench -p baylee-engine` skips it:
-//! `cargo bench -p baylee-engine --features simulation --bench fork`.
+//! `Engine::fork_for`, the lookahead fork, early and late in a game. Feature
+//! `fork` (`required-features`), so a plain `cargo bench -p baylee-engine`
+//! skips it: `cargo bench -p baylee-engine --features fork --bench fork`.
 //! No timing budget is asserted; compare by hand (`docs/perf-baseline.md`).
 #![allow(missing_docs)] // bench target: criterion's generated fns are self-describing
 

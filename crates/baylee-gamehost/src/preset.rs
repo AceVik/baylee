@@ -409,6 +409,33 @@ mod tests {
         assert_eq!(profile.hold_up, HoldUp::Basic);
     }
 
+    /// A peer cannot ask for compute: an AI seat built from the message's
+    /// numbers, however large, has no foresight tier, so it never searches,
+    /// whatever its host lets a search spend. A level that searches is chosen
+    /// by its name, at the gateway.
+    #[test]
+    fn a_wire_ai_seat_cannot_ask_for_a_search() {
+        let greedy = v1::SeatSpec {
+            controller: Some(v1::SeatController {
+                kind: Some(v1::seat_controller::Kind::Ai(v1::AiProfile {
+                    lookahead: u32::MAX,
+                    temperature_milli: u32::MAX,
+                    mulligan_skill: u32::MAX,
+                    politics: u32::MAX,
+                    hold_up: u32::MAX,
+                })),
+            }),
+            ..seat_msg()
+        };
+        let preset = from_proto(&msg(vec![greedy, seat_msg()])).expect("two seats");
+        let SeatController::Ai(profile) = preset.seats[0].controller else {
+            panic!("the AI seat lost its profile");
+        };
+        assert_eq!(profile.foresight, 0);
+        assert_eq!(profile.foresight(), None, "no tier, no search");
+        assert!(!profile.peeks());
+    }
+
     /// An empty starting hand is **not** an empty hand: `None` is "deal the
     /// opening hand the rules say", and `Some(vec![])` is a seat that
     /// starts with no cards. A conversion collapsing the two would make

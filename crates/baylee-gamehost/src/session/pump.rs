@@ -123,10 +123,13 @@ impl Session {
             };
             // `house_seat` is a chair the house plays: one answered over a
             // socket returned above.
-            #[cfg(any(test, feature = "simulation"))]
-            let foreseen = self.foreseen(player, &pending);
-            #[cfg(not(any(test, feature = "simulation")))]
-            let foreseen = None;
+            // A host that asks for it gets one searched answer a slice, so
+            // that its event loop hears its sockets between two searches
+            // (`Session::set_foresight_host`).
+            #[cfg(any(test, feature = "foresight"))]
+            let (foreseen, slice_spent) = self.foreseen_in_slice(player, &pending);
+            #[cfg(not(any(test, feature = "foresight")))]
+            let (foreseen, slice_spent) = (None, false);
             let Some(action) = foreseen.or_else(|| self.table().house_answer(player, &pending))
             else {
                 return out;
@@ -142,6 +145,11 @@ impl Session {
                 self.house_answered[player.get() as usize] = by;
             }
             answered += 1;
+            // The slice ends as if its answers were spent: the next turn of
+            // the loop still sends a socket seat its question, if it has one.
+            if slice_spent {
+                answered = answered.max(answers);
+            }
         }
     }
 
