@@ -109,6 +109,46 @@ class SearchAdvantage(unittest.TestCase):
         out = V.report(rows, gaps, prepared.weight.numpy(), rows.held_out | ~rows.held_out, margin=0.)
         self.assertEqual(out["margins"]["0.0"]["overrides"], 0)
 
+    def test_sidecar_reads_fail_closed_and_maps_to_rows(self):
+        index = np.zeros(2, dtype=V.SIDECAR_INDEX)
+        index["game"], index["cursor"], index["root_cursor"], index["seat"] = [7, 7], [101, 205], [100, 204], 1
+        index["root_kind"], index["own_idx"], index["n_cand"], index["offset"] = [0, 2], [0, 1], [3, 2], [0, 3]
+        index["choice4_idx"], index["half_a_idx"], index["half_b_idx"] = [2, V.MISSING], [2, 0], [1, V.MISSING]
+        items = np.zeros(5, dtype=V.SIDECAR_ITEM)
+        items["A"] = [0., .1, .3, -.2, 0.]
+        items["SE"] = [0., .05, .04, np.nan, 0.]
+        items["searched"] = [1, 1, 1, 0, 1]
+        items["payable_added"] = [0, 0, 1, 0, 0]
+        items["cls"] = [0, 1, 2, 2, 1]
+        self.assertEqual((V.SIDECAR_INDEX.itemsize, V.SIDECAR_ITEM.itemsize), (48, 12))
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            index.tofile(folder / "search-advantage.index.bin")
+            items.tofile(folder / "search-advantage.items.bin")
+            (folder / "search-advantage.json").write_text(json.dumps(dict(
+                contract=V.SIDECAR_CONTRACT, roots=2, root_kinds=["tap", "land", "pass"])))
+            sidecar = V.SearchAdvantage.load(folder)
+        np.testing.assert_array_equal(sidecar.find(np.array([7, 7, 7]), np.array([1, 1, 0]), np.array([205, 101, 101])),
+                                      [1, 0, -1])
+        roots, labels = sidecar.labels(np.array([1, 0]))
+        self.assertEqual((roots["cursor"].tolist(), roots["choice4"].tolist(), roots["half_b"].tolist()),
+                         ([204, 100], [V.NONE, 2], [V.NONE, 1]))
+        self.assertEqual(roots["offset"].tolist(), [0, 2])
+        self.assertEqual((labels["searched"].tolist(), float(labels["A"][0])), ([False, True, True, True, True], 0.))
+        rows = V.AdvantageRows(roots, np.zeros((2, 4), np.float16), np.zeros((5, 4), np.float16), labels,
+                               kinds=sidecar.kinds)
+        self.assertEqual(rows.kinds, ("tap", "land", "pass"))
+        for broken in (dict(own=(1, 1)), dict(n=(3, 9)), dict(choice=(5, 0))):
+            bad = index.copy()
+            if "own" in broken:
+                bad["own_idx"] = broken["own"]      # root 0's own item would be the unsearched-baseline .1
+            if "n" in broken:
+                bad["n_cand"] = broken["n"]
+            if "choice" in broken:
+                bad["choice4_idx"] = broken["choice"]
+            with self.subTest(broken=broken), self.assertRaises(ValueError):
+                V.SearchAdvantage(bad, items, {})
+
     def test_directions_and_export_round_trip(self):
         self.assertEqual(V.direction(0, 2, False), "pass->act")
         self.assertEqual(V.direction(2, 0, False), "act->pass")

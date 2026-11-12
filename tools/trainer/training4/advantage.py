@@ -52,6 +52,86 @@ ROOT_FIELDS = ("game", "seat", "cursor", "kind", "own", "choice4", "half_a", "ha
 CAND_FIELDS = ("A", "SE", "searched", "payable", "cls")
 
 
+# The search-advantage sidecar beside a converted dataset (`search-advantage/`), one index row
+# per root keyed by its twin frame (the payable menu's extra frame) and one row per menu item.
+SIDECAR_CONTRACT = "search_advantage_v1"
+SIDECAR_INDEX = np.dtype([("game", "<u4"), ("cursor", "<u4"), ("root_cursor", "<u4"), ("seat", "u1"),
+                          ("root_kind", "u1"), ("pad0", "V2"), ("own_idx", "<u4"), ("n_cand", "<u4"),
+                          ("choice4_idx", "<u4"), ("half_a_idx", "<u4"), ("half_b_idx", "<u4"),
+                          ("offset", "<u8"), ("pad1", "V4")])
+SIDECAR_ITEM = np.dtype([("A", "<f4"), ("SE", "<f4"), ("searched", "u1"), ("payable_added", "u1"),
+                         ("cls", "u1"), ("pad", "u1")])
+MISSING = 0xFFFFFFFF
+
+
+class SearchAdvantage:
+    """The sidecar, read fail-closed: every root's items tile the item file, its own item is
+    searched with A = 0, and its indices lie on its menu."""
+
+    def __init__(self, index, items, header):
+        if index.dtype.itemsize != 48 or items.dtype.itemsize != 12:
+            raise ValueError("Search-advantage rows have another width")
+        n, offset = index["n_cand"].astype(np.int64), index["offset"].astype(np.int64)
+        if len(items) != int(n.sum()) or not (offset == np.concatenate(([0], np.cumsum(n)[:-1]))).all():
+            raise ValueError("Search-advantage items do not tile their roots")
+        own = index["own_idx"].astype(np.int64)
+        if ((own >= n) | (n < 1)).any():
+            raise ValueError("Search-advantage root without its own answer on the menu")
+        at = offset + own
+        if not (items["searched"][at].astype(bool).all() and (items["A"][at] == 0).all()):
+            raise ValueError("Search-advantage root whose own answer is not the searched baseline (A = 0)")
+        for name in ("choice4_idx", "half_a_idx", "half_b_idx"):
+            value = index[name].astype(np.int64)
+            if ((value != MISSING) & (value >= n)).any():
+                raise ValueError(f"Search-advantage {name} off the menu")
+        self.index, self.items, self.header = index, items, header
+        self.kinds = tuple(header.get("root_kinds", ()))
+        from .coarse import key
+        self.keys = key(index["game"], index["seat"], index["cursor"])
+        self.order = np.argsort(self.keys, kind="stable")
+        if (np.diff(self.keys[self.order]) == 0).any():
+            raise ValueError("Search-advantage roots repeat a twin key")
+
+    def find(self, game, seat, cursor):
+        """Sidecar rows of these twin frames; -1 where none."""
+        from .coarse import key
+        wanted = key(game, seat, cursor)
+        sorted_keys = self.keys[self.order]
+        at = np.minimum(np.searchsorted(sorted_keys, wanted), len(sorted_keys) - 1)
+        return np.where(sorted_keys[at] == wanted, self.order[at], -1) if len(sorted_keys) else np.full(len(wanted), -1)
+
+    @classmethod
+    def load(cls, directory):
+        directory = Path(directory)
+        header = json.loads((directory / "search-advantage.json").read_text())
+        if header.get("contract") != SIDECAR_CONTRACT:
+            raise ValueError(f"{directory} holds {header.get('contract')!r}, not {SIDECAR_CONTRACT}")
+        files = header.get("files", {})
+        index = np.fromfile(directory / files.get("index", "search-advantage.index.bin"), dtype=SIDECAR_INDEX)
+        items = np.fromfile(directory / files.get("items", "search-advantage.items.bin"), dtype=SIDECAR_ITEM)
+        if header.get("roots", len(index)) != len(index):
+            raise ValueError("Search-advantage header and index disagree on the root count")
+        return cls(index, items, header)
+
+    def labels(self, roots):
+        """The root fields and item labels of `AdvantageRows` for sidecar rows `roots`, in order."""
+        index = self.index[roots]
+        n = index["n_cand"].astype(np.int64)
+        items = np.concatenate([self.items[int(o):int(o) + int(k)] for o, k in zip(index["offset"], n)]) \
+            if len(roots) else self.items[:0]
+        none = lambda name: np.where(index[name] == MISSING, NONE, index[name].astype(np.int64))
+        root_fields = dict(game=index["game"].astype(np.int64), seat=index["seat"].astype(np.int64),
+                           cursor=index["root_cursor"].astype(np.int64), kind=index["root_kind"].astype(np.int64),
+                           own=index["own_idx"].astype(np.int64), choice4=none("choice4_idx"),
+                           half_a=none("half_a_idx"), half_b=none("half_b_idx"),
+                           offset=np.concatenate(([0], np.cumsum(n)[:-1])).astype(np.int64), n=n)
+        searched = items["searched"].astype(bool)
+        labels = dict(A=np.where(searched, items["A"], 0.).astype(np.float32),
+                      SE=np.where(searched, items["SE"], np.inf).astype(np.float32), searched=searched,
+                      payable=items["payable_added"].astype(bool), cls=items["cls"].astype(np.int64))
+        return root_fields, labels
+
+
 class AdvantageRows:
     """Roots and their candidates: `roots[name]` [R], `state` [R, d], `cand` [N, d] and
     `labels[name]` [N]; root r's candidates are `[offset[r], offset[r] + n[r])`.
