@@ -780,11 +780,15 @@ impl Keymap {
 /// How much the client answers on the player's behalf.
 ///
 /// Separate from the phase rail, which says *where* to stop; this says what
-/// to do about the questions that are not really questions. Three of the four
-/// default to off, because a client that answers without being asked loses
-/// games its player never agreed to lose. The fourth,
-/// [`Self::pass_when_nothing_to_do`], is on, because the window it answers has
-/// only one legal action in it and answering is therefore not a decision.
+/// to do about the questions that are not really questions.
+///
+/// What a fresh account has is the owner's own automation, read off his
+/// account on the live server on 12.11.2026 and made every player's start by
+/// his word of that day: the two empty declarations are answered, and
+/// neither pass is made. [`Self::pass_when_nothing_to_do`] was on until then;
+/// with [`RailPreset::Standard`](crate::automation::RailPreset::Standard)
+/// the rail already passes the steps where nothing is decided, and at a step
+/// it stops in, it stops.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[expect(
@@ -799,12 +803,12 @@ pub struct AutoRules {
     /// suspend. It is the common case of a player pressing pass forty times
     /// a turn for want of anything else to press.
     ///
-    /// The one rule here that is **on** by default, and the reason is that it
-    /// is not a decision: the window it answers has exactly one legal action
-    /// in it, the one being answered. Withholding the pass leaves a player
-    /// looking at a question whose only answer is the button they are being
-    /// made to press. Every field is written out whole (`AutoRules` skips
-    /// none of them), so turning it off stays turned off.
+    /// Not a decision: the window it answers has exactly one legal action in
+    /// it, the one being answered. It was on by default for that reason and
+    /// is off since the owner's word of 12.11.2026 (see the type): a stop
+    /// the rail keeps is a stop, and a player who would rather not press
+    /// pass there turns this on. Every field is written out whole
+    /// (`AutoRules` skips none of them), so either way it stays as set.
     pub pass_when_nothing_to_do: bool,
     /// Pass priority through your opponents' turns.
     ///
@@ -821,13 +825,28 @@ pub struct AutoRules {
 impl Default for AutoRules {
     fn default() -> Self {
         Self {
-            pass_when_nothing_to_do: true,
+            pass_when_nothing_to_do: false,
             skip_opponent_turns: false,
             skip_empty_attacks: true,
             skip_empty_blocks: true,
         }
     }
 }
+
+/// The round of shipped defaults an account is brought to
+/// ([`Preferences::adopt_defaults`]).
+///
+/// One: the open betas' start (`0.2.0-beta.o1`), where every account, those
+/// already playing included, starts on the owner's own stops and automation
+/// (his word of 12.11.2026: "initial soll es die settings der bestehenden
+/// Spieler auch überschreiben").
+///
+/// A number of its own and not the client's version. A version says which
+/// program is running; this says what an account has already been through,
+/// on whichever of the player's devices, and it is stored with the account
+/// ([`Preferences::defaults_epoch`]). Raise it only for a round that is to
+/// overwrite what players chose, and say here what it overwrites.
+pub const DEFAULTS_EPOCH: u32 = 1;
 
 /// One switch on the automation panel.
 ///
@@ -986,6 +1005,17 @@ pub struct Preferences {
     /// A top-level key of its own, so an old blob keeps loading and the
     /// gateway's per-key merge keeps it whole.
     pub chat: crate::social::ChatPrefs,
+    /// Which round of shipped defaults this account has taken
+    /// ([`DEFAULTS_EPOCH`]): nought for an account from before there were
+    /// rounds, and for one that has never been stored.
+    ///
+    /// With the account and not the device, which is the point of it: a
+    /// round is taken once per account, by whichever of its devices comes
+    /// first, and every device after it finds the mark and leaves the
+    /// player's own choices alone ([`Self::adopt_defaults`]). A top-level key
+    /// of its own, so the gateway's per-key merge keeps it and a client from
+    /// before it carries it in [`Self::rest`] and writes it back.
+    pub defaults_epoch: u32,
     /// Every top-level key this client does not know, kept as it came.
     ///
     /// A newer client on the player's other device may have stored a
@@ -1047,6 +1077,27 @@ impl Preferences {
             }
         }
         read(&accepted).unwrap_or_default()
+    }
+
+    /// Brings an account that has not taken the current round of shipped
+    /// defaults to it, once ([`DEFAULTS_EPOCH`]): the stops and the
+    /// automation go back to what a fresh account has, and the mark is
+    /// written. Says whether anything was done, which is whether the caller
+    /// has something to store.
+    ///
+    /// Nothing else is touched: the keys, the favourites, the decks' records,
+    /// the standing answers and every key this client does not know stay as
+    /// they are. An account already at this round, or at a later one a newer
+    /// client wrote, is left alone, so a stop the player changes afterwards
+    /// stays changed, on this device and on every other.
+    pub fn adopt_defaults(&mut self) -> bool {
+        if self.defaults_epoch >= DEFAULTS_EPOCH {
+            return false;
+        }
+        self.orders = PhaseOrders::default();
+        self.auto = AutoRules::default();
+        self.defaults_epoch = DEFAULTS_EPOCH;
+        true
     }
 
     /// The stored form. Stable for an unchanged value, so saving twice
@@ -1800,6 +1851,81 @@ mod tests {
         );
     }
 
+    /// What a fresh account answers for its player is the owner's own
+    /// automation, as his account stored it on the live server on
+    /// 12.11.2026: the blob below is that account's `auto`, value for value.
+    #[test]
+    fn a_fresh_account_starts_on_the_owners_own_automation() {
+        const LIVE: &str = r#"{"skip_empty_blocks": true, "skip_empty_attacks": true,
+            "skip_opponent_turns": false, "pass_when_nothing_to_do": false}"#;
+        let live: AutoRules = serde_json::from_str(LIVE).expect("the stored rules read");
+        assert_eq!(AutoRules::default(), live);
+    }
+
+    /// The open betas' start overwrites an existing account's stops and
+    /// automation, once: a second reading, on this device or the player's
+    /// next, finds the mark and changes nothing, and what the player set
+    /// after the round is theirs.
+    #[test]
+    fn an_account_takes_a_round_of_defaults_once() {
+        use crate::automation::RailPreset;
+        // An account from before the rounds: its own stops and automation,
+        // other preferences beside them, a newer client's key, and no mark.
+        let mut before = Preferences::default();
+        before.orders.set_to(RailPreset::EveryStep);
+        before.auto.skip_opponent_turns = true;
+        before.reduce_motion = true;
+        before.favourites = vec!["a-deck".to_string()];
+        let mut stored: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&with_unknown(&before, r#""watchlist":["a","b"]"#))
+                .expect("an object");
+        assert!(stored.remove("defaults_epoch").is_some());
+
+        let mut account = Preferences::from_json(&serde_json::Value::Object(stored).to_string());
+        assert_eq!(
+            account.defaults_epoch, 0,
+            "a blob with no mark has taken none"
+        );
+        assert!(account.adopt_defaults());
+        assert_eq!(account.orders, PhaseOrders::default());
+        assert_eq!(account.auto, AutoRules::default());
+        assert_eq!(account.defaults_epoch, DEFAULTS_EPOCH);
+        // Nothing else moved.
+        assert!(account.reduce_motion);
+        assert_eq!(account.favourites, before.favourites);
+        assert_eq!(account.keymap, before.keymap);
+        assert_eq!(
+            account.rest.get("watchlist"),
+            Some(&serde_json::json!(["a", "b"]))
+        );
+
+        // The player's own again from here: a stop they change stays changed
+        // when the next device reads what this one stored.
+        account.orders.toggle(RailSide::Mine, RailRow::Upkeep);
+        account.auto.skip_opponent_turns = true;
+        let mut next = Preferences::from_json(&account.to_json());
+        assert!(!next.adopt_defaults(), "the round was taken twice");
+        assert_eq!(next, account);
+    }
+
+    /// A newer client's later round is not this client's to take back.
+    #[test]
+    fn a_later_round_is_left_alone() {
+        use crate::automation::RailPreset;
+        let mut newer = Preferences {
+            defaults_epoch: DEFAULTS_EPOCH + 1,
+            ..Preferences::default()
+        };
+        newer.orders.set_to(RailPreset::EveryStep);
+        let before = newer.clone();
+        assert!(!newer.adopt_defaults());
+        assert_eq!(newer, before);
+        assert_eq!(
+            Preferences::from_json(&newer.to_json()).defaults_epoch,
+            DEFAULTS_EPOCH + 1
+        );
+    }
+
     #[test]
     fn a_blob_from_an_older_client_keeps_what_it_knew_and_defaults_the_rest() {
         // Forward compatibility is the whole reason every field is
@@ -1992,26 +2118,22 @@ mod tests {
     }
 
     #[test]
-    fn the_one_that_is_not_a_decision_starts_switched_on() {
-        // A window whose only legal action is "pass" is not a question, and
-        // the whole complaint this default answers is being made to press the
-        // one button that was ever available.
-        assert!(AutoRules::default().pass_when_nothing_to_do);
-    }
-
-    #[test]
-    fn switching_the_pass_off_survives_a_round_trip() {
-        // The default being `true` is the case that could go wrong: a field
-        // omitted from the blob comes back as the default, so an "off" that
-        // was not written out would silently come back on. `AutoRules` skips
-        // no fields, and this is what says so.
-        let mut prefs = Preferences::default();
-        prefs.auto.pass_when_nothing_to_do = false;
-        let back = Preferences::from_json(&prefs.to_json());
-        assert!(
-            !back.auto.pass_when_nothing_to_do,
-            "the off did not survive"
-        );
+    fn a_switch_set_against_its_default_survives_a_round_trip() {
+        // The way that could go wrong is the one against the default: a
+        // field omitted from the blob comes back as the default, so a
+        // setting that was not written out would silently come back as it
+        // started. `AutoRules` skips no fields, and this is what says so,
+        // for each switch and whichever way its default lies.
+        for rule in AutoRule::ALL {
+            let mut prefs = Preferences::default();
+            rule.toggle(&mut prefs.auto);
+            let back = Preferences::from_json(&prefs.to_json());
+            assert_eq!(
+                rule.get(&back.auto),
+                !rule.get(&AutoRules::default()),
+                "{rule:?} came back as it started"
+            );
+        }
     }
 
     #[test]

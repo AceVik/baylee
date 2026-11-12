@@ -1594,4 +1594,83 @@ mod tests {
         leave(&mut state);
         assert!(state.central_pending());
     }
+
+    /// The open betas' defaults at Central's door
+    /// (`Preferences::adopt_defaults`). An account's document from before
+    /// them takes the round when it is restored, and a save is queued at
+    /// once; the document that save carries has the mark and every key this
+    /// client does not know; and restoring *that* queues nothing and leaves
+    /// the stops as the player set them. Central keeps the document as a
+    /// `serde_json::Value` on both sides, which is what is read and written
+    /// here.
+    #[test]
+    fn a_restored_account_takes_the_defaults_once_and_central_is_told() {
+        use baylee_client_core::automation::{PhaseOrders, RailPreset, RailRow, RailSide};
+        use baylee_client_core::prefs::DEFAULTS_EPOCH;
+        use bevy::prelude::{App, Time, Update};
+        // As the restore reads the document and as a save submits it.
+        let read = |held: &serde_json::Value| {
+            serde_json::from_value::<Preferences>(held.clone()).expect("the document reads")
+        };
+        let submitted = |prefs: &crate::prefs::Prefs| {
+            serde_json::from_str::<serde_json::Value>(&prefs.all().to_json()).expect("an object")
+        };
+        let sign_in = |held: &serde_json::Value| {
+            let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+            enable(&mut state);
+            let (send, jobs) = mpsc::sync_channel::<Job>(4);
+            let mut app = App::new();
+            app.insert_resource(crate::prefs::Prefs::default())
+                .init_resource::<Time>()
+                .add_systems(Update, crate::prefs::sync);
+            let restored = Restored {
+                handle: Handle::from_sender(send),
+                gateways: Vec::new(),
+                preferences: read(held),
+                terms_pending: false,
+                profile_handle: None,
+            };
+            receive(
+                &mut state,
+                &mut app.world_mut().resource_mut::<crate::prefs::Prefs>(),
+                &Mailbox::default(),
+                Ok(Box::new(restored)),
+            );
+            app.update();
+            (app, jobs)
+        };
+
+        // An account from before the open betas: its own rail, a newer
+        // client's key, and no mark.
+        let mut before = Preferences::default();
+        before.orders.set_to(RailPreset::EveryStep);
+        let mut held =
+            serde_json::from_str::<serde_json::Value>(&before.to_json()).expect("an object");
+        let document = held.as_object_mut().expect("an object");
+        assert!(document.remove("defaults_epoch").is_some());
+        document.insert("watchlist".to_string(), serde_json::json!(["a"]));
+
+        let (app, jobs) = sign_in(&held);
+        let prefs = app.world().resource::<crate::prefs::Prefs>();
+        assert_eq!(prefs.orders(), &PhaseOrders::default());
+        assert!(
+            jobs.try_recv().is_ok(),
+            "Central was not told the round is taken"
+        );
+        let held = submitted(prefs);
+        assert_eq!(held["defaults_epoch"], DEFAULTS_EPOCH);
+        assert_eq!(held["watchlist"], serde_json::json!(["a"]));
+
+        // The player sets a stop of their own, and their next device signs in.
+        let mut theirs = read(&held);
+        theirs.orders.toggle(RailSide::Mine, RailRow::Upkeep);
+        let held = serde_json::from_str::<serde_json::Value>(&theirs.to_json()).expect("an object");
+        let (app, jobs) = sign_in(&held);
+        let prefs = app.world().resource::<crate::prefs::Prefs>();
+        assert_eq!(prefs.all(), &theirs);
+        assert!(
+            jobs.try_recv().is_err(),
+            "a second device wrote over the player's rail"
+        );
+    }
 }

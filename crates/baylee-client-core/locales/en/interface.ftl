@@ -1557,7 +1557,7 @@ SwitchOn = on
 SwitchOff = off
 
 # A red step is one the client passes for you.
-RailExplain = A red step is one the client passes for you. Nothing is red until you make it red.
+RailExplain = A red step is one the client passes for you. A preset is a place to start: every step is yours to change.
 
 # The button that writes a preset into the rail.
 UsePreset = use
@@ -1573,6 +1573,12 @@ RailPresetQuietSteps = Skip the quiet steps
 
 # Not untap, upkeep, draw, damage or cleanup — nothing is decided there.
 RailPresetQuietStepsDetail = Not untap, upkeep, draw, damage or cleanup — nothing is decided there.
+
+# Standard stops
+RailPresetStandard = Standard stops
+
+# Your main phases and every attack and block, and on their turns their main phases and end step.
+RailPresetStandardDetail = Your main phases and every attack and block, and on their turns their main phases and end step.
 
 # Competitive stops
 RailPresetCompetitive = Competitive stops
@@ -6730,7 +6736,7 @@ TourT15Body = You pick a colour as a symbol, not a word. You type a number or st
 TourT16Title = The phases
 
 # Tour step T16's words (TOURS.md §2).
-TourT16Body = On each mat's edge stand the twelve steps of a turn; the current one is lit. Green: the table asks you here. Red: it passes for you here. Nothing is red at the start. A click toggles a step, Shift+W and Shift+S walk them. Presets: Settings › Gameplay. Your own attack and block steps never go red.
+TourT16Body = On each mat's edge stand the twelve steps of a turn; the current one is lit. Green: the table asks you here. Red: it passes for you here. It starts on a preset. A click toggles a step, Shift+W and Shift+S walk them. Presets: Settings › Gameplay. Your own attack and block steps never go red.
 
 # Tour step T17's title (TOURS.md §2).
 TourT17Title = Passing

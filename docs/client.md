@@ -9223,10 +9223,25 @@ a setting that survives until the next restart and then silently reverts.
 Writes are debounced, so dragging a slider costs one request rather than
 twenty.
 
-The rail on that screen has two **presets** above it (`RailPreset`), and they
+**The shipped defaults are a round an account takes once.** A fresh account
+starts on the owner's own stops and automation, read off his account on the
+live server on 12.11.2026 (`RailPreset::Standard`, `AutoRules::default`), and
+by his word of that day the open betas' start (`0.2.0-beta.o1`) puts every
+existing account there too. `Preferences::defaults_epoch` is the mark, stored
+with the account, and `Preferences::adopt_defaults` brings an account below
+`DEFAULTS_EPOCH` to it: the stops and the `AutoRules` go back to a fresh
+account's, the mark is written, and nothing else moves. It is keyed to that
+number and not to the client's version, so it happens once per account, not
+once per device or per update. `Prefs` calls it wherever a copy becomes the
+truth (this machine's file at start, the gateway's answer, Central's restore)
+and, where it changed something, writes the account at once; a device that
+finds the mark leaves the player's rail alone, and a client from before the
+mark carries it through as a key it does not know.
+
+The rail on that screen has four **presets** above it (`RailPreset`), and they
 are buttons rather than a mode: a preset writes twenty-four buttons and then
 has nothing more to do with them. Its chip is drawn lit only while the rail
-still matches, so the first correction by hand puts both chips out and neither
+still matches, so the first correction by hand puts every chip out and none
 goes on claiming a rail the player has since edited. Which rows
 `Competitive` keeps green is a rules question rather than a taste one — see
 `docs/keyboard-map.md` §Automation for why a declaration step can never be one

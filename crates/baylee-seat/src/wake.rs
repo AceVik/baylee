@@ -236,12 +236,12 @@ impl Default for WakeFilter {
 }
 
 impl WakeFilter {
-    /// A filter that stops at `stops` and passes every other window, with
-    /// the client's default rules otherwise.
+    /// A filter that stops at `stops` and passes every other window, with a
+    /// seat's own standing rules otherwise: every answer that is no
+    /// decision, and no pass through the other players' turns.
     #[must_use]
     pub fn new(stops: &[(RailSide, RailRow)]) -> Self {
-        let mut orders = PhaseOrders::default();
-        orders.set_to(RailPreset::EveryStep);
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         for side in RailSide::BOTH {
             for row in RAIL_ROWS {
                 if row.grants_priority() && !stops.contains(&(side, row)) {
@@ -251,7 +251,18 @@ impl WakeFilter {
         }
         Self {
             orders,
-            rules: AutoRules::default(),
+            // Said out loud and not `AutoRules::default()`. That is what a
+            // fresh *account* starts with, which the owner set to his own on
+            // 12.11.2026 (the pass through an empty window went off), and a
+            // mind's filter does not move with a player's defaults: a window
+            // with nothing in it but "pass" is never worth waking a model
+            // for.
+            rules: AutoRules {
+                pass_when_nothing_to_do: true,
+                skip_opponent_turns: false,
+                skip_empty_attacks: true,
+                skip_empty_blocks: true,
+            },
             paying: None,
             until: None,
             planned: None,
@@ -328,8 +339,7 @@ impl WakeFilter {
     /// Updates the filter with the model's chosen stops.
     pub fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>) {
         if let Some(stops) = stops {
-            let mut orders = PhaseOrders::default();
-            orders.set_to(RailPreset::EveryStep);
+            let mut orders = PhaseOrders::of(RailPreset::EveryStep);
             for side in RailSide::BOTH {
                 for row in RAIL_ROWS {
                     if !row.grants_priority() {

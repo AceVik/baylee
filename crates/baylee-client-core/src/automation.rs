@@ -299,8 +299,10 @@ impl RailSide {
 /// Per-step standing orders for both rails: green means "I want priority
 /// here", red means "skip — take no action and move on".
 ///
-/// Fresh accounts stop at every priority window (#130). Quiet and competitive
-/// presets are explicit opt-ins; upkeep and draw can contain meaningful plays.
+/// A fresh account starts on [`RailPreset::Standard`]: the owner's word of
+/// 12.11.2026, that every player starts as his own account plays on the live
+/// server. It stopped at every priority window before (#130), which is
+/// [`RailPreset::EveryStep`] and one press away.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct PhaseOrders {
@@ -316,14 +318,20 @@ pub struct PhaseOrders {
 
 impl Default for PhaseOrders {
     fn default() -> Self {
-        Self {
-            skip: RailPreset::EveryStep.table(),
-            selected: None,
-        }
+        Self::of(RailPreset::Standard)
     }
 }
 
 impl PhaseOrders {
+    /// The rail as `preset` writes it, with nothing selected.
+    #[must_use]
+    pub fn of(preset: RailPreset) -> Self {
+        Self {
+            skip: preset.table(),
+            selected: None,
+        }
+    }
+
     /// Toggles a button between green (priority) and red (skip).
     ///
     /// A row the rules hand no priority in has nothing to toggle, and this
@@ -439,37 +447,58 @@ impl PhaseOrders {
     /// Which is how the chips are drawn lit: a preset is a starting point, and
     /// the moment one button is toggled by hand the rail is the player's own
     /// again and no chip should go on claiming it.
+    ///
+    /// Read row by row as the rail is drawn ([`Self::is_skipped`]), not as
+    /// the table is stored: untap and cleanup are red whatever a blob says of
+    /// them, so a stored rail that differs from a preset only there is that
+    /// preset. The owner's own stored rail is the case: it says `false` on
+    /// both, and it is [`RailPreset::Standard`].
     #[must_use]
     pub fn is(&self, preset: RailPreset) -> bool {
-        self.skip == preset.table()
+        let preset = Self::of(preset);
+        RailSide::BOTH.into_iter().all(|side| {
+            RAIL_ROWS
+                .into_iter()
+                .all(|row| self.is_skipped(side, row) == preset.is_skipped(side, row))
+        })
     }
 }
 
 /// A ready-made rail.
 ///
-/// Three of them, because a preset with no way back is a trap: competitive
+/// Four of them, because a preset with no way back is a trap: competitive
 /// stops turn seventeen of the twenty-four buttons red, and clicking them
-/// green again one at a time is not an undo. That argument is also why
-/// [`Self::QuietSteps`] exists rather than the default living only in
-/// `PhaseOrders::default`: [`PhaseOrders::is`] lights a chip on an exact table
-/// match, so a default nothing can name draws a fresh account with no chip lit
-/// and nothing to click to get back to it.
+/// green again one at a time is not an undo. That argument is also why the
+/// default is one of them ([`Self::Standard`]) rather than living only in
+/// `PhaseOrders::default`: [`PhaseOrders::is`] lights a chip on a match, so a
+/// default nothing can name draws a fresh account with no chip lit and
+/// nothing to click to get back to it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum RailPreset {
     /// Green everywhere. The safest rail there is, and slow.
     EveryStep,
     /// Green everywhere a decision is made, red in the five steps where one
-    /// is not: untap, upkeep, draw, combat damage and cleanup. The default.
+    /// is not: untap, upkeep, draw, combat damage and cleanup.
     QuietSteps,
+    /// The stops a game is played at, and no others: a player's own two main
+    /// phases and both declarations, and on another player's turn their two
+    /// main phases, both declarations and the end step. The default
+    /// ([`STANDARD_STOPS`]).
+    Standard,
     /// The windows a player used to a competitive client expects to be asked
     /// about, and no others.
     Competitive,
 }
 
 impl RailPreset {
-    /// All three, in the order a settings screen should offer them — from the
+    /// All four, in the order a settings screen should offer them — from the
     /// rail that stops most to the one that stops least.
-    pub const ALL: [Self; 3] = [Self::EveryStep, Self::QuietSteps, Self::Competitive];
+    pub const ALL: [Self; 4] = [
+        Self::EveryStep,
+        Self::QuietSteps,
+        Self::Standard,
+        Self::Competitive,
+    ];
 
     /// The button's name.
     #[must_use]
@@ -477,6 +506,7 @@ impl RailPreset {
         match self {
             Self::EveryStep => Phrase::RailPresetEveryStep,
             Self::QuietSteps => Phrase::RailPresetQuietSteps,
+            Self::Standard => Phrase::RailPresetStandard,
             Self::Competitive => Phrase::RailPresetCompetitive,
         }
     }
@@ -487,6 +517,7 @@ impl RailPreset {
         match self {
             Self::EveryStep => Phrase::RailPresetEveryStepDetail,
             Self::QuietSteps => Phrase::RailPresetQuietStepsDetail,
+            Self::Standard => Phrase::RailPresetStandardDetail,
             Self::Competitive => Phrase::RailPresetCompetitiveDetail,
         }
     }
@@ -504,16 +535,42 @@ impl RailPreset {
                 }
                 skip
             }
-            Self::Competitive => {
-                let mut skip = [[true; 12]; 2];
-                for (side, row) in COMPETITIVE_STOPS {
-                    skip[side.index()][row.index()] = false;
-                }
-                skip
-            }
+            Self::Standard => red_but_at(&STANDARD_STOPS),
+            Self::Competitive => red_but_at(&COMPETITIVE_STOPS),
         }
     }
 }
+
+/// The rail that is red everywhere but at `stops`.
+fn red_but_at(stops: &[(RailSide, RailRow)]) -> [[bool; 12]; 2] {
+    let mut skip = [[true; 12]; 2];
+    for (side, row) in stops {
+        skip[side.index()][row.index()] = false;
+    }
+    skip
+}
+
+/// The nine windows [`RailPreset::Standard`] keeps green, which is where a
+/// fresh account stops.
+///
+/// The owner's own rail, read off his account on the live server on
+/// 12.11.2026 and made every player's start by his word of that day (the
+/// stored table is in this module's tests, verbatim). It is
+/// [`COMPETITIVE_STOPS`] and two more: on another player's turn it stops in
+/// both of their main phases as well. Both declaration rows are green on both
+/// sides, for the reason given there: red is not "pass" in a declaration
+/// step.
+const STANDARD_STOPS: [(RailSide, RailRow); 9] = [
+    (RailSide::Mine, RailRow::Main1),
+    (RailSide::Mine, RailRow::Attackers),
+    (RailSide::Mine, RailRow::Blockers),
+    (RailSide::Mine, RailRow::Main2),
+    (RailSide::Theirs, RailRow::Main1),
+    (RailSide::Theirs, RailRow::Attackers),
+    (RailSide::Theirs, RailRow::Blockers),
+    (RailSide::Theirs, RailRow::Main2),
+    (RailSide::Theirs, RailRow::EndStep),
+];
 
 /// The five rows [`RailPreset::QuietSteps`] turns red, on both sides.
 ///
@@ -774,6 +831,17 @@ mod tests {
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::LegalActions;
 
+    /// The rules these tests were written against, said out loud: every
+    /// answer on but the pass through opponents' turns. What a fresh account
+    /// has is [`AutoRules::default`], which the owner's word of 12.11.2026
+    /// moved, and a test of what a rule does should not move with it.
+    const RULES: AutoRules = AutoRules {
+        pass_when_nothing_to_do: true,
+        skip_opponent_turns: false,
+        skip_empty_attacks: true,
+        skip_empty_blocks: true,
+    };
+
     /// The grouping and the list are two spellings of one turn.
     ///
     /// Written out twice on purpose — a `match` per row and a slice per phase
@@ -880,17 +948,16 @@ mod tests {
 
     #[test]
     fn a_default_client_still_asks_wherever_the_game_is_played() {
-        // The default rail is no longer green everywhere — see
-        // `the_default_rail_is_red_exactly_where_nothing_is_decided` for which
-        // rows moved and why. What must not have changed is this: in a window
-        // where the player has something to do, on a row where something is
-        // decided, a fresh account is asked.
+        // The default rail is not green everywhere (`STANDARD_STOPS`). What
+        // that must not cost is this: in a window where the player has
+        // something to do, on a row the default keeps green, a fresh account
+        // with a fresh account's rules is asked.
         let orders = PhaseOrders::default();
         for (active_is_mine, phase, step) in [
             (true, Phase::FirstMain, Step::Main),
             (true, Phase::SecondMain, Step::Main),
-            (true, Phase::Ending, Step::End),
             (false, Phase::FirstMain, Step::Main),
+            (false, Phase::SecondMain, Step::Main),
             (false, Phase::Ending, Step::End),
         ] {
             assert_eq!(
@@ -918,7 +985,7 @@ mod tests {
     #[test]
     fn no_preset_ever_declares_for_its_player() {
         for preset in RailPreset::ALL {
-            let mut orders = PhaseOrders::default();
+            let mut orders = PhaseOrders::of(RailPreset::EveryStep);
             orders.set_to(preset);
             assert_eq!(
                 auto_answer(
@@ -936,7 +1003,7 @@ mod tests {
                     &AutoRules {
                         skip_empty_attacks: false,
                         skip_empty_blocks: false,
-                        ..AutoRules::default()
+                        ..RULES
                     },
                     None,
                 ),
@@ -959,7 +1026,7 @@ mod tests {
                     &AutoRules {
                         skip_empty_attacks: false,
                         skip_empty_blocks: false,
-                        ..AutoRules::default()
+                        ..RULES
                     },
                     None,
                 ),
@@ -972,14 +1039,14 @@ mod tests {
     /// What competitive stops actually buy, and what they leave alone.
     #[test]
     fn competitive_stops_pass_the_quiet_windows_and_keep_the_loud_ones() {
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.set_to(RailPreset::Competitive);
         let answer = |active_is_mine, phase, step| {
             auto_answer(
                 &priority_pending(),
                 at(true, active_is_mine, phase, step),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             )
         };
@@ -1024,32 +1091,95 @@ mod tests {
     }
 
     /// One of the presets is the default, said twice — which is the whole
-    /// reason the default has a preset at all: `is()` lights a chip on an
-    /// exact table match, so a default no chip can name draws a fresh account
-    /// with nothing lit and nothing to click to get back to.
+    /// reason the default has a preset at all: `is()` lights a chip on a
+    /// match, so a default no chip can name draws a fresh account with
+    /// nothing lit and nothing to click to get back to.
     #[test]
-    fn the_every_step_preset_is_what_a_fresh_account_already_has() {
+    fn the_standard_preset_is_what_a_fresh_account_already_has() {
         let mut orders = PhaseOrders::default();
-        assert!(!orders.is(RailPreset::QuietSteps));
-        assert!(orders.is(RailPreset::EveryStep));
-        assert!(!orders.is(RailPreset::Competitive));
+        assert!(orders.is(RailPreset::Standard));
+        for other in RailPreset::ALL {
+            assert_eq!(
+                orders.is(other),
+                other == RailPreset::Standard,
+                "a fresh account lights {other:?}"
+            );
+        }
 
         orders.set_to(RailPreset::Competitive);
         assert!(orders.is(RailPreset::Competitive));
+        assert!(!orders.is(RailPreset::Standard));
         // One button by hand and it is nobody's preset any more, which is what
         // stops a chip claiming a rail the player has since edited.
         orders.toggle(RailSide::Mine, RailRow::Upkeep);
-        assert!(!orders.is(RailPreset::Competitive));
-        assert!(!orders.is(RailPreset::EveryStep));
-        assert!(!orders.is(RailPreset::QuietSteps));
+        for preset in RailPreset::ALL {
+            assert!(!orders.is(preset), "an edited rail still lights {preset:?}");
+        }
 
-        orders.set_to(RailPreset::EveryStep);
+        orders.set_to(RailPreset::Standard);
         assert!(orders.same_as(&PhaseOrders::default()));
     }
 
+    /// The default rail is the owner's own, as his account stored it on the
+    /// live server on 12.11.2026: the blob below is that account's `orders`
+    /// value for value, his row first and the others' second.
+    ///
+    /// Compared on the rows a player can set. The blob says `false` on untap
+    /// and on cleanup, which read red whatever is stored
+    /// ([`RailRow::grants_priority`]); the preset writes them red.
     #[test]
-    fn the_default_rail_preserves_every_priority_window() {
-        let orders = PhaseOrders::default();
+    fn a_fresh_account_starts_on_the_owners_own_rail() {
+        const LIVE: &str = r#"{"skip": [
+            [false, true, true, false, true, false, false, true, true, false, true, false],
+            [false, true, true, false, true, false, false, true, true, false, false, false]
+        ]}"#;
+        let live: PhaseOrders = serde_json::from_str(LIVE).expect("the stored rail reads");
+        assert!(
+            live.is(RailPreset::Standard),
+            "the owner's own stored rail lights no chip"
+        );
+        let fresh = PhaseOrders::default();
+        for side in RailSide::BOTH {
+            for row in RAIL_ROWS {
+                assert_eq!(
+                    fresh.is_skipped(side, row),
+                    live.is_skipped(side, row),
+                    "{side:?} {row:?} is not as the owner has it"
+                );
+            }
+        }
+        // And said as stops, so a row that moved is named by the failure:
+        // nine, and on no side a declaration among the red ones.
+        let stops = |side| {
+            RAIL_ROWS
+                .into_iter()
+                .filter(|row| !fresh.is_skipped(side, *row))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            stops(RailSide::Mine),
+            [
+                RailRow::Main1,
+                RailRow::Attackers,
+                RailRow::Blockers,
+                RailRow::Main2
+            ]
+        );
+        assert_eq!(
+            stops(RailSide::Theirs),
+            [
+                RailRow::Main1,
+                RailRow::Attackers,
+                RailRow::Blockers,
+                RailRow::Main2,
+                RailRow::EndStep
+            ]
+        );
+    }
+
+    #[test]
+    fn the_every_step_rail_preserves_every_priority_window() {
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         for side in RailSide::BOTH {
             for row in RAIL_ROWS {
                 let quiet = !row.grants_priority();
@@ -1083,7 +1213,7 @@ mod tests {
         // From the all-green preset, so a toggle here means "turn this row
         // red" — three of the twelve rows start red now, and a test that
         // toggled one of those would be turning it green.
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.set_to(RailPreset::EveryStep);
         orders.toggle(RailSide::Mine, RailRow::Attackers);
         orders.toggle(RailSide::Mine, RailRow::Blockers);
@@ -1093,7 +1223,7 @@ mod tests {
                 &priority_pending(),
                 at(true, true, Phase::Combat, Step::CombatDamage),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             ),
             AutoAnswer::Pass
@@ -1111,7 +1241,7 @@ mod tests {
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             ),
             AutoAnswer::DeclareNoAttackers
@@ -1129,7 +1259,7 @@ mod tests {
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             ),
             AutoAnswer::DeclareNoBlockers
@@ -1140,7 +1270,7 @@ mod tests {
                 &priority_pending(),
                 at(true, true, Phase::Combat, Step::CombatBegin),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             ),
             AutoAnswer::None
@@ -1152,7 +1282,7 @@ mod tests {
                 &priority_pending(),
                 at(true, false, Phase::Combat, Step::CombatDamage),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             ),
             AutoAnswer::None
@@ -1172,9 +1302,9 @@ mod tests {
     #[test]
     fn a_cleanup_window_is_always_asked() {
         let cleanup = at(true, true, Phase::Ending, Step::Cleanup);
-        let orders = PhaseOrders::default();
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         assert!(orders.is_skipped(RailSide::Mine, RailRow::Cleanup));
-        let rules = AutoRules::default();
+        let rules = RULES;
         assert_eq!(
             auto_answer(&priority_pending(), cleanup, &orders, &rules, None),
             AutoAnswer::None,
@@ -1195,7 +1325,7 @@ mod tests {
         }
         let quiet = AutoRules {
             skip_opponent_turns: true,
-            ..AutoRules::default()
+            ..RULES
         };
         assert_eq!(
             auto_answer(
@@ -1210,7 +1340,7 @@ mod tests {
         );
 
         let end = at(true, true, Phase::Ending, Step::End);
-        let mut red_end = PhaseOrders::default();
+        let mut red_end = PhaseOrders::of(RailPreset::EveryStep);
         red_end.set_to(RailPreset::EveryStep);
         red_end.toggle(RailSide::Mine, RailRow::EndStep);
         assert_eq!(
@@ -1230,7 +1360,7 @@ mod tests {
     fn nothing_automatic_passes_while_the_other_side_has_the_stack() {
         // From all-green, so the toggle below reddens a row rather than
         // greening one the new default already had red.
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.set_to(RailPreset::EveryStep);
         orders.toggle(RailSide::Mine, RailRow::Damage);
         let held = Situation {
@@ -1240,13 +1370,7 @@ mod tests {
 
         // The rail.
         assert_eq!(
-            auto_answer(
-                &priority_pending(),
-                held,
-                &orders,
-                &AutoRules::default(),
-                None
-            ),
+            auto_answer(&priority_pending(), held, &orders, &RULES, None),
             AutoAnswer::None
         );
         // The autopilot, which may fast-forward and may not decide.
@@ -1254,8 +1378,8 @@ mod tests {
             auto_answer(
                 &priority_pending(),
                 held,
-                &PhaseOrders::default(),
-                &AutoRules::default(),
+                &PhaseOrders::of(RailPreset::EveryStep),
+                &RULES,
                 Some(&AutoPilot::ToNextPhase {
                     from: Phase::Combat
                 }),
@@ -1269,13 +1393,13 @@ mod tests {
         };
         let quiet = AutoRules {
             skip_opponent_turns: true,
-            ..AutoRules::default()
+            ..RULES
         };
         assert_eq!(
             auto_answer(
                 &priority_pending(),
                 theirs,
-                &PhaseOrders::default(),
+                &PhaseOrders::of(RailPreset::EveryStep),
                 &quiet,
                 None
             ),
@@ -1287,13 +1411,13 @@ mod tests {
         // leave a window whose only legal action is the one being withheld.
         let empty_handed = AutoRules {
             pass_when_nothing_to_do: true,
-            ..AutoRules::default()
+            ..RULES
         };
         assert_eq!(
             auto_answer(
                 &nothing_pending(),
                 held,
-                &PhaseOrders::default(),
+                &PhaseOrders::of(RailPreset::EveryStep),
                 &empty_handed,
                 None
             ),
@@ -1306,7 +1430,7 @@ mod tests {
                 &priority_pending(),
                 at(true, true, Phase::Combat, Step::CombatDamage),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None
             ),
             AutoAnswer::Pass
@@ -1315,7 +1439,7 @@ mod tests {
 
     #[test]
     fn a_red_opponent_blockers_row_declines_to_block_on_their_turn() {
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.toggle(RailSide::Theirs, RailRow::Blockers);
         assert_eq!(
             auto_answer(
@@ -1333,7 +1457,7 @@ mod tests {
                 &AutoRules {
                     skip_empty_attacks: false,
                     skip_empty_blocks: false,
-                    ..AutoRules::default()
+                    ..RULES
                 },
                 None,
             ),
@@ -1356,7 +1480,7 @@ mod tests {
                 &AutoRules {
                     skip_empty_attacks: false,
                     skip_empty_blocks: false,
-                    ..AutoRules::default()
+                    ..RULES
                 },
                 None,
             ),
@@ -1369,7 +1493,7 @@ mod tests {
     /// blocks asks instead.
     #[test]
     fn a_red_blockers_row_asks_when_a_creature_must_block() {
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.toggle(RailSide::Theirs, RailRow::Blockers);
         let (blocker, lure) = (
             baylee_core::ids::ObjectId::new(7, 0),
@@ -1391,7 +1515,7 @@ mod tests {
                 },
                 at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 None,
             ),
             AutoAnswer::None
@@ -1454,7 +1578,7 @@ mod tests {
 
     #[test]
     fn autopilot_passes_but_never_makes_real_decisions() {
-        let orders = PhaseOrders::default();
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         let pilot = AutoPilot::ToNextPhase {
             from: Phase::FirstMain,
         };
@@ -1466,7 +1590,7 @@ mod tests {
                 &AutoRules {
                     skip_empty_attacks: false,
                     skip_empty_blocks: false,
-                    ..AutoRules::default()
+                    ..RULES
                 },
                 Some(&pilot)
             ),
@@ -1489,7 +1613,7 @@ mod tests {
                 &AutoRules {
                     skip_empty_attacks: false,
                     skip_empty_blocks: false,
-                    ..AutoRules::default()
+                    ..RULES
                 },
                 Some(&pilot),
             ),
@@ -1513,7 +1637,7 @@ mod tests {
                 &AutoRules {
                     skip_empty_attacks: false,
                     skip_empty_blocks: false,
-                    ..AutoRules::default()
+                    ..RULES
                 },
                 Some(&end_turn),
             ),
@@ -1531,7 +1655,7 @@ mod tests {
 
     #[test]
     fn selection_walks_both_rails_and_wraps() {
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         assert_eq!(orders.selected(), None);
         orders.move_selection(-1);
         assert_eq!(
@@ -1571,7 +1695,7 @@ mod tests {
     #[test]
     fn the_steps_nobody_can_arrange_a_stop_in_cannot_be_switched_on() {
         let dead = [RailRow::Untap, RailRow::Cleanup];
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         for side in RailSide::BOTH {
             for row in dead {
                 assert!(orders.is_skipped(side, row));
@@ -1599,7 +1723,7 @@ mod tests {
 
     #[test]
     fn nothing_is_answered_for_someone_elses_choice() {
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.toggle(RailSide::Mine, RailRow::Main1);
         let pilot = AutoPilot::ToNextPhase {
             from: Phase::FirstMain,
@@ -1609,7 +1733,7 @@ mod tests {
                 &priority_pending(),
                 at(false, true, Phase::FirstMain, Step::Main),
                 &orders,
-                &AutoRules::default(),
+                &RULES,
                 Some(&pilot)
             ),
             AutoAnswer::None
@@ -1618,12 +1742,12 @@ mod tests {
 
     #[test]
     fn a_window_offering_nothing_passes_itself_only_once_asked_to() {
-        let orders = PhaseOrders::default();
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         let empty = nothing_pending();
         // Switched off, an empty window is still the player's to pass.
         let mut rules = AutoRules {
             pass_when_nothing_to_do: false,
-            ..AutoRules::default()
+            ..RULES
         };
         assert_eq!(
             auto_answer(
@@ -1687,10 +1811,10 @@ mod tests {
     fn floating_mana_is_not_something_to_do() {
         // A seat holding an untapped land can always make mana, so counting
         // mana abilities would mean the rule never fires for anyone.
-        let orders = PhaseOrders::default();
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         let rules = AutoRules {
             pass_when_nothing_to_do: true,
-            ..AutoRules::default()
+            ..RULES
         };
         let only_mana = Pending::Priority {
             player: PlayerId::new(0),
@@ -1730,10 +1854,10 @@ mod tests {
 
     #[test]
     fn skipping_opponent_turns_never_skips_a_block() {
-        let orders = PhaseOrders::default();
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         let rules = AutoRules {
             skip_opponent_turns: true,
-            ..AutoRules::default()
+            ..RULES
         };
         // Priority on their turn: passed.
         assert_eq!(
@@ -1785,11 +1909,11 @@ mod tests {
 
     #[test]
     fn an_empty_combat_question_can_be_answered_for_you() {
-        let orders = PhaseOrders::default();
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
         let rules = AutoRules {
             skip_empty_attacks: true,
             skip_empty_blocks: true,
-            ..AutoRules::default()
+            ..RULES
         };
         let no_attackers = Pending::ChooseAttackers {
             alone: Vec::new(),
@@ -1834,7 +1958,7 @@ mod tests {
 
     /// A hand this client could pay for is not passed away.
     ///
-    /// `pass_when_nothing_to_do` is on by default and reads `LegalActions`,
+    /// `pass_when_nothing_to_do`, where it is switched on, reads `LegalActions`,
     /// which is the engine's answer *with the mana still in the lands*: a
     /// hand of spells over four untapped Forests is an empty `castable`, an
     /// empty `abilities`, and a player with plenty to do. The engine's own
@@ -1848,14 +1972,14 @@ mod tests {
     fn a_window_this_client_is_offering_something_in_is_not_passed_away() {
         let rules = AutoRules {
             pass_when_nothing_to_do: true,
-            ..AutoRules::default()
+            ..RULES
         };
         let mine = at(true, true, Phase::FirstMain, Step::Main);
         assert_eq!(
             auto_answer(
                 &nothing_pending(),
                 mine,
-                &PhaseOrders::default(),
+                &PhaseOrders::of(RailPreset::EveryStep),
                 &rules,
                 None
             ),
@@ -1869,7 +1993,7 @@ mod tests {
                     offering: true,
                     ..mine
                 },
-                &PhaseOrders::default(),
+                &PhaseOrders::of(RailPreset::EveryStep),
                 &rules,
                 None
             ),
@@ -1894,13 +2018,13 @@ mod tests {
         };
         let rules = AutoRules {
             pass_when_nothing_to_do: true,
-            ..AutoRules::default()
+            ..RULES
         };
         assert_eq!(
             auto_answer(
                 &pending,
                 at(true, true, Phase::Combat, Step::CombatBegin),
-                &PhaseOrders::default(),
+                &PhaseOrders::of(RailPreset::EveryStep),
                 &rules,
                 None,
             ),
@@ -1918,9 +2042,9 @@ mod tests {
         let rules = AutoRules {
             pass_when_nothing_to_do: true,
             skip_opponent_turns: true,
-            ..AutoRules::default()
+            ..RULES
         };
-        let mut orders = PhaseOrders::default();
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         orders.toggle(RailSide::Theirs, RailRow::Draw);
         let draw = Situation {
             owing: true,

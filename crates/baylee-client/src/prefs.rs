@@ -84,20 +84,42 @@ impl Prefs {
         self.central_save_failed = false;
         self.loading = None;
         self.account = None;
-        self.value = preferences;
         self.dirty = false;
-        self.store_locally();
+        self.deliver(preferences);
     }
     /// The preferences a client starts with: whatever this machine last saw.
+    ///
+    /// Brought to the current round of shipped defaults where this machine's
+    /// copy has not taken it ([`Preferences::adopt_defaults`]), since an
+    /// offline table is played with this copy and no account will ever say
+    /// otherwise. The first frame writes it.
     #[must_use]
     pub fn local() -> Self {
-        let prefs = crate::settings::store::read_named(LOCAL)
+        let mut prefs = crate::settings::store::read_named(LOCAL)
             .map(|text| Preferences::from_json(&text))
             .unwrap_or_default();
+        let adopted = prefs.adopt_defaults();
         Self {
             value: prefs,
+            dirty: adopted,
             ..Self::default()
         }
+    }
+
+    /// Takes the account's copy as the truth, and keeps it on this machine.
+    ///
+    /// An account that has not taken the current round of shipped defaults
+    /// takes it here, once ([`Preferences::adopt_defaults`]), and its
+    /// write-back is due at once rather than after a debounce: the mark is
+    /// what tells the player's next device to leave their stops alone, so it
+    /// should be with the account before they have changed one.
+    fn deliver(&mut self, arrived: Preferences) {
+        self.value = arrived;
+        if self.value.adopt_defaults() {
+            self.dirty = true;
+            self.save_in = 0.0;
+        }
+        self.store_locally();
     }
 
     /// The keymap, for resolving this frame's key presses.
@@ -343,10 +365,9 @@ pub fn sync(mut prefs: ResMut<Prefs>, time: Res<Time>) {
         && let Some(arrived) = slot.lock().ok().and_then(|mut s| s.take())
     {
         prefs.loading = None;
-        prefs.value = arrived;
         // The account's copy is now this machine's too, so an offline launch
         // starts where the player left off rather than at the defaults.
-        prefs.store_locally();
+        prefs.deliver(arrived);
         bevy::log::info!("preferences loaded from the gateway");
     }
     if !prefs.dirty {
@@ -413,6 +434,41 @@ mod tests {
         assert!(
             prefs.loading.is_some(),
             "signing in did not ask for the account's copy"
+        );
+    }
+
+    /// An account from before the open betas takes their defaults when its
+    /// copy arrives, and the account is told at once; the copy that comes
+    /// back with the mark is the player's own and is left as it is.
+    #[test]
+    fn an_arriving_account_takes_the_defaults_once_and_is_told() {
+        use baylee_client_core::automation::RailPreset;
+        use baylee_client_core::prefs::DEFAULTS_EPOCH;
+        let mut stored = Preferences::default();
+        stored.orders.set_to(RailPreset::EveryStep);
+        stored.auto.skip_opponent_turns = true;
+        assert_eq!(stored.defaults_epoch, 0);
+
+        let mut prefs = Prefs::default();
+        prefs.deliver(stored);
+        assert_eq!(prefs.orders(), &PhaseOrders::default());
+        assert_eq!(prefs.auto(), &AutoRules::default());
+        assert_eq!(prefs.all().defaults_epoch, DEFAULTS_EPOCH);
+        assert!(
+            prefs.dirty && prefs.save_in <= 0.0,
+            "the account was not told it has taken the round"
+        );
+
+        // What the account holds from here on is the player's: a stop set
+        // after the round comes back as it was set, and nothing is queued.
+        let mut theirs = prefs.all().clone();
+        theirs.orders.toggle(RailSide::Mine, RailRow::Upkeep);
+        let mut next = Prefs::default();
+        next.deliver(theirs.clone());
+        assert_eq!(next.all(), &theirs);
+        assert!(
+            !next.dirty,
+            "a second device queued a write over the player's rail"
         );
     }
 
