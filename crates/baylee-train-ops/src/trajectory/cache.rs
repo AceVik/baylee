@@ -29,7 +29,7 @@ pub struct Receipt {
 }
 fn paths(root: &Path, split: &str, shards: &[String]) -> Result<Vec<PathBuf>> {
     ensure!(
-        ["train", "val"].contains(&split),
+        ["train", "val", crate::search_advantage::MENUS_SPLIT].contains(&split),
         "invalid trajectory split"
     );
     shards

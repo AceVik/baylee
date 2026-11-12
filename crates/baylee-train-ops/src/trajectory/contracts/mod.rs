@@ -47,8 +47,16 @@ pub fn validate_encoder_rows(root: &Path, meta: &Value) -> Result<()> {
     if !matches!(encoder, Some(7..=10)) {
         return Ok(());
     }
-    for split in ["train", "val"] {
-        if let Some(shards) = meta[format!("{split}_shards")].as_array() {
+    // A search-advantage dataset's twins are a split of their own.
+    for (split, key) in [
+        ("train", "train_shards"),
+        ("val", "val_shards"),
+        (
+            crate::search_advantage::MENUS_SPLIT,
+            crate::search_advantage::MENUS_SHARDS_KEY,
+        ),
+    ] {
+        if let Some(shards) = meta[key].as_array() {
             for shard in shards {
                 let name = shard.as_str().context("invalid E9 shard")?;
                 ensure!(
