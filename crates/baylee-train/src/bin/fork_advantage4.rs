@@ -53,6 +53,12 @@ struct Args {
 struct Game {
     #[serde(default)]
     search_events: Vec<Event>,
+    /// House answers in the net's seat at the table (a fallback, a stall).
+    #[serde(default)]
+    fallback_answers: u64,
+    /// Answers the table refused.
+    #[serde(default)]
+    refused_answers: u64,
 }
 
 #[derive(serde::Deserialize)]
@@ -187,6 +193,10 @@ impl Judged {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let mut all = Judged::default();
+    // The same over the games with no house answer in the net's seat and no
+    // refused answer: a game the house helped play is no clean teacher.
+    let mut clean = Judged::default();
+    let mut clean_games = 0_u64;
     let mut by_kind: BTreeMap<String, Judged> = BTreeMap::new();
     let (mut games, mut events, mut thin) = (0_u64, 0_u64, 0_u64);
     for path in &args.games {
@@ -199,6 +209,8 @@ fn main() -> anyhow::Result<()> {
             let game: Game = serde_json::from_str(&line)
                 .with_context(|| format!("a game of {}", path.display()))?;
             games += 1;
+            let is_clean = game.fallback_answers == 0 && game.refused_answers == 0;
+            clean_games += u64::from(is_clean);
             for event in game.search_events {
                 events += 1;
                 let width = event.candidates.len();
@@ -213,6 +225,9 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
                 all.add(&event.worlds, args.margin);
+                if is_clean {
+                    clean.add(&event.worlds, args.margin);
+                }
                 by_kind
                     .entry(kind(&event.candidates[0]))
                     .or_default()
@@ -227,6 +242,8 @@ fn main() -> anyhow::Result<()> {
         "search_events": events,
         "left_out_fewer_than_two_worlds_or_refused": thin,
         "all": all.report(),
+        "games_without_house_or_refused_answers": clean_games,
+        "in_those_games": clean.report(),
         "by_the_policys_answer": by_kind
             .iter()
             .map(|(kind, judged)| (kind.clone(), judged.report()))
