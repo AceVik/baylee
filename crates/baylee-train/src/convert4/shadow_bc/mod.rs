@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 
 mod bindings;
 pub mod offer_boundary;
+pub mod protocol44_boundary;
 mod validation;
 
 /// Independent teacher/behavior identities retained in JSON trajectory shards.

@@ -2930,6 +2930,35 @@ among them, were already another build's. The lists are in
 `~/baylee-data/v6/train/question-boundary-c55a8c6eb/` (`lockstep-parted.jsonl`
 with whether each replayed exactly before, `lockstep-all.jsonl`).
 
+### The protocol-44 boundary
+
+Three changes of 12.11.2026, from the Carbon seats' reports, change what a
+seat is told and not what the engine does. An offer names a suspend whose mana
+is still in the lands (`LegalActions::unpaid_suspend`, beside `suspendable`,
+filled in the hand scan of `compute_legal` and kept only while a mana ability
+is on offer, as `unpaid_foretell` is), a view names the division a spell on
+the stack announced (`PlayerView::divided`, read from `GameState::divided`,
+beside the stack so a stack object keeps its shape and the house its position
+hash), and a log line names its step (`LogEntry::step`, so a combat's two damage
+steps are told apart). `queued_trigger` names a source that has ceased to exist
+from the incarnation the trigger saw (`GameState::damage_source`, which keeps
+a gone token after `ceased` is cleared). `LegalActions`, views and the log are
+in neither snapshot hash, no answer is taken or refused differently, and every
+record replays. What moves is what binds a question by its JSON: a shadow
+label's `pending_sha256` and view hash where the offer names an unpaid
+suspend. **Convert shadow labels written before protocol 44
+with the runtime that wrote them**; `convert4` names the boundary when it
+meets one (`convert4::shadow_bc::protocol44_boundary`).
+
+Two reports of the same block are answered by the seat and not here, because
+the engine's answer must not move. The question "pay {21}?" is put whether or
+not it can be paid (`resolve/choices.rs`, CR 605.3a: the mana may be made in
+the window); a seat leaves the yes out where nothing it has untapped reaches
+the price (CR 118.3, 608.2d). And a division of combat damage is asked as
+declare blockers (or the first-strike damage step) hands over to the damage
+step (`banding::ask_combat_division`), so the view stands in the step before;
+the seat heads the question with the damage step it belongs to (CR 510.1).
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to

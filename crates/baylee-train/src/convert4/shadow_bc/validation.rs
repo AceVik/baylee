@@ -1,6 +1,7 @@
 use super::{
     Context, EncodedCandidates4, EncodedState4, Pending, PlayerAction, PlayerView, ShadowBc4,
-    ShadowLabelProvenance4, StepProvenance4, TeacherTarget4, ensure, offer_boundary, sha,
+    ShadowLabelProvenance4, StepProvenance4, TeacherTarget4, ensure, offer_boundary,
+    protocol44_boundary, sha,
 };
 use crate::features4::{
     HeadKind4, SourceKind4, decode_action4, encode_teacher_action4, view_only_state_hash,
@@ -52,6 +53,7 @@ pub(super) fn target(
     };
     let game = shadow.header["game"].as_str().unwrap_or("?").to_owned();
     offer_boundary::refuse_if_written_before(view, pending, &game, input_n, &bound)?;
+    protocol44_boundary::refuse_if_written_before(pending, &game, input_n, &bound)?;
     ensure!(
         bound(pending)?
             && label.encoded_state_sha256 == sha(&serde_json::to_vec(state)?)

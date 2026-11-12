@@ -305,6 +305,21 @@ table. The lists are in `~/baylee-data/v6/train/question-boundary-c55a8c6eb/`
 (`docs/engine-internals.md` §"The question boundary"). Datasets already
 converted stay valid as converted.
 
+**The protocol-44 boundary (12.11.2026).** From protocol 44 a question names a
+suspend whose mana is still in the lands (`LegalActions::unpaid_suspend`). It
+moves neither `snapshot_hash` nor an answer the engine takes, the house does
+not read it, and the encoded states and menus do not read it, so records
+replay and convert as before; but a shadow label written before binds another
+question JSON where the offer names one. The view's division of a spell on the
+stack (`PlayerView::divided`) and a log line's step are in no observation a
+label binds (`ObservableView` leaves the division out). **Convert shadow
+labels written before protocol 44 with the runtime that wrote them.**
+`convert4` refuses such a label by name
+(`convert4::shadow_bc::protocol44_boundary`: `PROTOCOL44_REFUSAL`, the game,
+the input and `PROTOCOL44_RULE`): it rebuilds the question as a build of
+protocol 43 wrote it, and a label that binds that is one such a build wrote.
+Datasets already converted stay valid as converted.
+
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
 same stable table half in both comparisons. Passing that same directory as
