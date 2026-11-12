@@ -324,6 +324,34 @@ exactly before and do not after, each from its first Fade Away: 21 of
 `~/baylee-data/v6/train/count-boundary-445a4e276/` (`docs/engine-internals.md`
 §"The count boundary"). Datasets already converted stay valid as converted.
 
+**The split boundary (7c879ff33, 12.11.2026).** From 7c879ff33 a split card
+whose halves are instants and sorceries is both of its halves everywhere but
+the stack (CR 709.4): Fire // Ice in a hand, a library, a graveyard or exile
+is a blue and red card of mana value 4, where a build before it read Fire
+alone. Every object's characteristics are in the snapshot hash, so a record
+whose decks hold such a card opens with another hash, whether or not the game
+ever asked about it; the view shows the card's other mana value and colours,
+and the encoded states read them. **Convert records written before 7c879ff33
+whose decks hold a split card with the runtime that wrote them.** `convert4`
+refuses one held to this build's hashes by name (`convert4::split_boundary`:
+`SPLIT_REFUSAL`, the builds, the split cards and `SPLIT_RULE`) and stops the
+run: its opening hash is the one a build before the boundary wrote
+(`Engine::snapshot_hash_reading_split_cards_by_left_half`). A record of
+another build converts by its public table as before, since `seen` reads
+cards by index and no characteristic. Over `~/baylee-data/v6` (12.11.2026,
+`BAYLEE_LOCKSTEP_BEFORE=split`) 24,539 of 195,591 records part, every one at
+its opening hash; 3,960 of them replayed exactly before and do not after:
+1,853 of `v6d-phase-d-run2` and 355 of `v6d-phase-d-run` (eval records),
+820 of `v6t-campaign` (656 `distill`, 108 `s1`, 36 `q3`, 20 `mem`), 420 of
+`v6f-v5-benchmark`, 348 of `v6s-league`, 132 of `v6r-refresh`, 9 of
+`v6e-data`, and of the LLM corpus 12 of `llm-mix-20261106` and 11 of Carbon's
+seg2 (attempts 16, 27, 29, 32, 36, 40, 49, 58, 60, 62 and 71). The other
+20,579 did not replay exactly on this build before the change either. The
+report and the 3,960 (`parted-exact-before.jsonl`) are in
+`~/baylee-data/v6/train/split-boundary-7c879ff33/` (`docs/engine-internals.md`
+§"A split card is both of its halves"). Datasets already converted stay valid
+as converted.
+
 **The protocol-44 boundary (12.11.2026).** From protocol 44 a question names a
 suspend whose mana is still in the lands (`LegalActions::unpaid_suspend`). It
 moves neither `snapshot_hash` nor an answer the engine takes, the house does

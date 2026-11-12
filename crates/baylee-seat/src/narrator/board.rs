@@ -377,10 +377,11 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     {
         out.push(format!("chosen name {}", face.name));
     }
-    // The colour and the opponent chosen as it entered are as public as the
-    // type and the name (CR 614.12): Ward Sliver's colour is what every
-    // Sliver has protection from, which the projection carries as no keyword
-    // at all (Carbon b6, attempt 63, q252).
+    // The colour and the opponent chosen as it entered (an "as it enters"
+    // replacement, CR 614.1c, 614.12) are shown as the type and the name
+    // are: Ward Sliver's colour is what every Sliver has protection from
+    // (CR 702.16a), which the projection carries as no keyword at all
+    // (Carbon b6, attempt 63, q252).
     if let Some(color) = object.chosen_color {
         out.push(format!("chosen color {}", words::color_name(color)));
     }

@@ -4033,3 +4033,72 @@ seeing them; the Dungeon's tax choices (`resolve/dungeon/tax.rs`) are held
 the same way. It takes information away and leaks none. Closing it needs a
 public record of a held pick (an event the log and the view read) or a mark
 on the held permanent in the view.
+
+## Found while fixing Carbon's block 6 reports, 2026-11-12
+
+### 78. The house keeps no colour for an ability on its board — KNOWN, for the house's next generation
+
+From Carbon's block 6 reports (segment 2, attempt 57, seat 1, q262):
+Sabertooth Nishoba (`{4}{W}{G}`) in hand, seven lands and Thornscape
+Apprentice on the battlefield, whose "`{R}`, `{T}`" only the Mountain pays.
+The seat's one plan tapped the Mountain and left a Forest standing, because
+`manaplan::prioritize` valued a land by the colours of the cards in hand
+alone (CR 601.2g, 601.2h). The client and the seat now hand it the mana costs
+of the abilities the engine lists as waiting only for mana as well
+(`baylee_ai::board_claims`, mana abilities aside), through
+`baylee_ai::mana_sources` and `plan_for_spell`.
+
+The house ranks by its hand alone in every generation (`policy::sources`,
+`offers`, `full_casts::mana_sources`, and `baylee_ai::plan_for_activation`,
+which generation 10 shares with the seat), so its pins stand. The house's
+next generation can pass the board's claims behind a profile field
+(`policy::sources_keeping`). Activations the seat plans
+(`plan_for_activation`) rank by the hand too, for the same reason.
+
+### 79. A split card was its left half off the stack — FIXED in the engine (the split boundary)
+
+From Carbon's block 6 reports (attempts 58, 62 and 71): after Ice was cast,
+the graveyard said "Fire" and the seat was told Fire's text alone. The
+display was the visible half; the rules were the other. The engine gave a
+split card its left half's characteristics in every zone, so Fire // Ice in a
+hand, a library, a graveyard or exile was a red card of mana value 2, where
+CR 709.4b makes it blue and red with mana value 4: Force of Will could not
+exile it as a blue card, and a mana value check counted 2.
+
+`Characteristics::of_card` now combines both halves of a split card whose
+halves are instants and sorceries (`CardDef::is_split_spell_card`, held
+against every printing's layout by `sides::tests`); a cast half is that half
+alone on the stack (CR 709.3b), and every probe of a normal cast asks the left
+half (`casting::split_front`). The object keeps the left half's name (CR
+709.4a gives the card two); the host and the seat show both ("Fire // Ice",
+both halves' text). `docs/engine-internals.md` §"A split card is both of its
+halves". Every split card's base is in the snapshot hash, so a record with
+one in any deck written before this (the split boundary, 7c879ff33) opens
+with another hash: `convert4` refuses it by name (`convert4::split_boundary`,
+`docs/trained-ai.md`: 3,960 records of `~/baylee-data/v6` replayed exactly
+before and do not after).
+
+### 80. A Room is its left half off the battlefield and the stack — KNOWN rules gap, held for a pin
+
+CR 709.4 gives every split card its halves combined in every zone but the
+stack, and a Room is a split card (CR 709.5 adds what it is on the
+battlefield). Off the battlefield the engine still reads a Room as its left
+half: Walk-In Closet // Forgotten Cellar in a hand is a green card of mana
+value 3, where both halves make it 8 (`{2}{G}` and `{3}{G}{G}`). It is left
+out of entry 79 on purpose: Walk-In Closet is in Weltenbaum, which plays
+tables 5 and 6 of the frozen reference's and the generation pins'
+(`reference_profile.rs`, `generation_pins.rs`), and the house reads a hand
+card's mana value. The fix is `CardDef::is_split_spell_card` widened to the
+Rooms (`GameState::set_doors` keeps the battlefield; `original_base` is then
+the whole card), in a change of its own that re-records those pins and says
+why.
+
+### 81. A chosen card type, a second basic land type and a chosen number are shown nowhere — KNOWN, needs the view
+
+Ward Sliver's chosen colour is now on its line (Carbon b6, attempt 63,
+q252), with a chosen opponent beside the chosen type and name the seat
+already printed. The engine also keeps a card type chosen as a permanent
+enters (Serra's Emissary: protection from it, `Rider::ChosenCardType`), a
+second chosen basic land type and a chosen number, and the view carries none
+of them, so neither the seat nor the client can show them. Each wants a
+`PublicObject` field.

@@ -2343,8 +2343,9 @@ are cleared there (CR 400.7). Off the battlefield a Room is still its left
 face: the combined characteristics of CR 709.4, which the next paragraph
 gives every other split card, are not modelled for a Room, whose pinned
 house games (Walk-In Closet in Weltenbaum) would move with its mana value
-in hand. With both doors open the list's printed face is the left
-one, so an ability of the right half has no stack-text line in that state
+in hand (`docs/observed-faults.md` entry 80). With both doors open the
+list's printed face is the left one, so an ability of the right half has no
+stack-text line in that state
 (Forgotten Cellar's trigger after an unlock from the Closet shows its card,
 not its sentence).
 
@@ -2370,7 +2371,13 @@ name, the left half's (CR 709.4a gives the card two, and an object here has
 one): a rule that asks a name off the stack finds the card by its left half
 only. The host shows both, "Fire // Ice" (`view::split_name`). Every split
 card's base is in the snapshot hash, so a record with one in any deck,
-written before this, opens with another hash (`docs/trained-ai.md`).
+written before this, opens with another hash: the split boundary
+(7c879ff33). `Engine::snapshot_hash_reading_split_cards_by_left_half` is that
+build's hash of a position (its objects and the kept damage-source
+incarnations read by their left half), which `convert4::split_boundary`
+names such a record by, and `object::SPLIT_BY_LEFT_HALF` is that engine in
+tests (`recorded_lockstep_tests`, `BAYLEE_LOCKSTEP_BEFORE=split`;
+`docs/trained-ai.md`).
 
 **A copy of an ability is a clone of it** (CR 707.10,
 `resolve::copy_target_ability`). Every decision made for the original rides
