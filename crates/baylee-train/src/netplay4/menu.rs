@@ -299,6 +299,11 @@ impl PayableMenu4 {
         Some(first)
     }
 
+    /// Whether a plan begun with [`Self::begin`] is still being paid.
+    pub(super) const fn paying(&self) -> bool {
+        self.plan.is_some()
+    }
+
     /// The plan's next answer, when one stands and this question is its own.
     /// Any other question stays the net's.
     pub(super) fn next(&mut self, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {

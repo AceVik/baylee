@@ -1700,7 +1700,12 @@ mod rollout;
 use rollout::{Played, Rounds, Stop};
 mod combat;
 mod macros;
+/// The macro roots and their candidates, as the search student reads them
+/// at the table (`netplay4::student`).
+pub(in crate::netplay4) use macros::{candidates as macro_candidates, macro_root_skip};
 mod select;
+mod stall;
+pub use stall::StallMemory4;
 mod targets;
 
 #[cfg(test)]

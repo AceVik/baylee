@@ -8,7 +8,8 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::netplay4::search::{
-    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, SearchReport4, search_seed,
+    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, SearchReport4, StallMemory4,
+    search_seed,
 };
 use baylee_train::netplay4::{Answer4, Script4};
 use baylee_view::PlayerView;
@@ -196,66 +197,6 @@ fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchRe
         "own_intents": report.own_intents,
         "taken_back": report.taken_back,
     })
-}
-
-/// The search's stall guard (`--search-stall-guard`), as the house's
-/// (`baylee_ai::StallMemory`): the answers the search gave to one seat's
-/// priority questions from one position, and the last question's number.
-/// Asked again from that position by a new question, the engine took them
-/// back (a cast it could not finish leaves the game where it was), and the
-/// search is told not to choose them there. The same question asked again
-/// is not a taking back. A pass is never taken back.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(super) struct StallMemory4 {
-    given: Option<Given>,
-}
-
-/// One position's answers ([`StallMemory4`]).
-#[derive(Clone, Debug, PartialEq)]
-struct Given {
-    seat: PlayerId,
-    position: u64,
-    seq: u64,
-    actions: Vec<PlayerAction>,
-}
-
-impl StallMemory4 {
-    /// The answers the table took back from `position` before `seat`'s
-    /// question `seq`; none when the search last answered elsewhere, or
-    /// this same question.
-    pub(super) fn taken_back(&self, seat: PlayerId, position: u64, seq: u64) -> &[PlayerAction] {
-        match &self.given {
-            Some(given) if given.seat == seat && given.position == position && given.seq != seq => {
-                &given.actions
-            }
-            _ => &[],
-        }
-    }
-
-    /// Notes `action`, the search's answer to `seat`'s question `seq` from
-    /// `position`: beside the answers already given there, or in their
-    /// place when the position is another.
-    pub(super) fn give(&mut self, seat: PlayerId, position: u64, seq: u64, action: &PlayerAction) {
-        if matches!(action, PlayerAction::PassPriority) {
-            return;
-        }
-        match &mut self.given {
-            Some(given) if given.seat == seat && given.position == position => {
-                given.seq = seq;
-                if !given.actions.contains(action) {
-                    given.actions.push(action.clone());
-                }
-            }
-            _ => {
-                self.given = Some(Given {
-                    seat,
-                    position,
-                    seq,
-                    actions: vec![action.clone()],
-                });
-            }
-        }
-    }
 }
 
 /// One game's search: its budgets, its seed, its counts and what each

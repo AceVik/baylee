@@ -87,6 +87,20 @@ trait EvaluationPlayer {
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
     }
+    /// Sets `--search-student` on this player, which only a net can honour.
+    ///
+    /// # Errors
+    /// A head fit on another net's embeddings.
+    fn set_search_student(
+        &mut self,
+        _student: baylee_train::netplay4::student::SearchStudent4,
+    ) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+    /// What `--search-student` did since this was last asked.
+    fn take_student_stats(&mut self) -> Option<baylee_train::netplay4::student::StudentStats4> {
+        None
+    }
     /// The value head on the seat's latest observation (`--value-log`).
     fn observed_value(&self, _seat: PlayerId) -> Option<f32> {
         None
@@ -184,6 +198,16 @@ impl EvaluationPlayer for NetPlayer4 {
     fn set_payable_menu(&mut self, bias: f32) -> bool {
         Self::set_payable_menu(self, baylee_train::netplay4::PayableMenu4::new(bias));
         true
+    }
+    fn set_search_student(
+        &mut self,
+        student: baylee_train::netplay4::student::SearchStudent4,
+    ) -> anyhow::Result<bool> {
+        Self::set_search_student(self, student)?;
+        Ok(true)
+    }
+    fn take_student_stats(&mut self) -> Option<baylee_train::netplay4::student::StudentStats4> {
+        Self::take_student_stats(self)
     }
     fn set_tactician(&mut self, tactician: baylee_train::netplay4::tactician::Tactician4) -> bool {
         Self::set_tactician(self, tactician);

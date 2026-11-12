@@ -1704,6 +1704,42 @@ refuses a team game whose run does not say, so a team game of people,
 language models or a shadow seat never gives a seat's features a hand it did
 not see.
 
+### The search student (`--search-student DIR`, eval4 and seat4)
+
+The fair search above plays better than the seat it searches for, but
+costs minutes of rollouts a game, so it cannot ship. Its records teach a
+small head instead (`netplay4::student`, contract
+`search_advantage_head_v1`): at each searched macro root the search's
+worlds give every candidate a fork advantage over the seat's own answer
+with its error (`search_labels`, the labels `search_advantage_v1`), and the
+head learns to score those candidates on the net's own embeddings.
+
+At play, at a macro root (the search's root rule, `macro_root_skip`) the
+seat answers as always: its menu is never changed. Then the net reads the
+root once more with the payable menu (`PayableMenu4::extend`: each spell the
+planner pays for is one item, so a cast is one candidate, not a chain of
+equivalent taps) from the same memory, which a decision step never moves.
+The search's macro candidates at the root (up to six, the seat's own first)
+are mapped to that menu's items (`search_labels::macro_items`; a root with
+an unmapped candidate is left to the seat), and each gets a row
+`[state_emb | cand_emb[item] | coarse class one hot, payable-added, own]`.
+The head scores the rows; the best candidate is played in the seat's place
+only when its score is above the seat's answer's by more than the head's
+margin (chosen on held-out games), ties keeping the seat's. A chosen planned
+cast is paid by the planner's taps, answer by answer, as `--menu-payable`
+pays its own. An answer the table took back from a position is not offered
+there again (`StallMemory4`, the search's stall guard).
+
+The head's `advantage.json` names the checkpoint whose embeddings it was fit
+on; a net with another checkpoint or width refuses it. The net's graph must
+export embeddings (`tactician_embeddings_v1`). eval4 refuses the student with
+a search, the payable menu arm, the tactician, a shadow teacher, a random or
+v3 seat and any collection; its summary counts the roots read and scored,
+the roots left to the seat by why, the overrides by `own class -> class`,
+and the plans begun, tapped, cast and broken. seat4 takes the same flag and
+names the head in its journal, so the shipped seat plays the student exactly
+as the evaluator measured it.
+
 ### BayleeAI v5 relational pilot
 
 `model5.Config5` / `PlayerNet5` identify the new major family with

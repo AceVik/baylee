@@ -615,6 +615,7 @@ impl NetPlayer4 {
             last_menu: _,
             dirty_h_seats: _,
             tactician: _,
+            search_student: _,
             grouped_decode: _,
             // Counted over a run, not a game's state.
             grouped_use: _,

@@ -64,6 +64,7 @@ mod snapshot;
 pub use snapshot::{ColdMeta4, PlayerSnapshot4};
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
+pub mod student;
 pub mod tactician;
 mod tactics;
 mod thinking;
@@ -193,6 +194,9 @@ pub struct NetPlayer4 {
     /// `eval4 --tactician`: answers the attack, block and target questions
     /// it names; `None` everywhere else, live play included.
     tactician: Option<tactician::Tactician4>,
+    /// `--search-student`: a head that plays another answer at a macro root
+    /// where it scores it clearly above the seat's own ([`student`]).
+    search_student: Option<student::SearchStudent4>,
     /// `--grouped-decode`: priority answers decided between pass and act by
     /// summed probability ([`grouped`]); off unless asked.
     grouped_decode: bool,
@@ -499,6 +503,7 @@ impl NetPlayer4 {
             last_menu: None,
             dirty_h_seats: 0,
             tactician: None,
+            search_student: None,
             grouped_decode: false,
             grouped_use: GroupedUse4::default(),
             last_grouping: None,
@@ -693,6 +698,9 @@ impl NetPlayer4 {
         self.dirty_h_seats = 0xff;
         if let Some(menu) = &mut self.payable_menu {
             menu.reset();
+        }
+        if let Some(student) = &mut self.search_student {
+            student.reset();
         }
     }
 

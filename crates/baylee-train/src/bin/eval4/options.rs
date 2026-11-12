@@ -148,6 +148,18 @@ struct Args {
     /// The net never saw such a candidate. Never for training.
     #[arg(long)]
     menu_payable: bool,
+    /// The search student (`netplay4::student`, `search_advantage_head_v1`):
+    /// the directory of its `advantage.onnx` and `advantage.json`. At each
+    /// macro root of the seat under test it reads the payable menu in a
+    /// second pass and plays another answer where its head scores it above
+    /// the seat's own by more than the head's margin. The net must export
+    /// embeddings and be the checkpoint the head was fit on.
+    #[arg(long)]
+    search_student: Option<PathBuf>,
+    /// `--search-student`: the macro candidates a root compares, the seat's
+    /// own included (the search's `K` in the collections it learnt from).
+    #[arg(long, default_value_t = baylee_train::netplay4::student::DEFAULT_CANDIDATES, requires = "search_student")]
+    search_student_candidates: usize,
     /// At priority, decide between pass and act by the policy's summed
     /// probability per group (coarse classes `coarse_class_v1`), then take
     /// the best answer inside the winning group. Evaluation only; the
@@ -494,6 +506,8 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    /// `--search-student`: what the student did over the run.
+    student: Option<baylee_train::netplay4::student::StudentStats4>,
     /// `--grouped-decode`: what the grouping decided over the run.
     grouped: baylee_train::netplay4::GroupedUse4,
     /// `--think-adaptive`: second passes over the run.

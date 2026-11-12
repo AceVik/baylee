@@ -56,10 +56,25 @@ pub(super) fn root_skip(
     if decision.ranking.is_none() {
         return Some(SearchSkip4::NotPolicy);
     }
+    macro_root_skip(view, pending, &decision.answer.action)
+}
+
+/// Why `pending`, which the policy answers `own`, is not a macro root: the
+/// rule of the search's roots without the search's own conditions on the
+/// answer (a ranking to compare), as the search student reads it at the
+/// table.
+pub(in crate::netplay4) fn macro_root_skip(
+    view: &PlayerView,
+    pending: &Pending,
+    own: &PlayerAction,
+) -> Option<SearchSkip4> {
+    if !matches!(pending, Pending::Priority { .. }) {
+        return Some(SearchSkip4::NotPriority);
+    }
     if !chain_start(view) {
         return Some(SearchSkip4::MidChain);
     }
-    let acts = !matches!(decision.answer.action, PlayerAction::PassPriority);
+    let acts = !matches!(own, PlayerAction::PassPriority);
     let own_main = view.active == view.seat
         && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
         && view.stack.is_empty();
@@ -129,7 +144,7 @@ fn abilities(view: &PlayerView, legal: &LegalActions) -> Vec<PlayerAction> {
 
 /// The candidates of the root `pending`, the policy's own first, at most
 /// `limit` in all: see the module's head for the order.
-fn candidates(
+pub(in crate::netplay4) fn candidates(
     view: &PlayerView,
     pending: &Pending,
     decision: &RootDecision4,

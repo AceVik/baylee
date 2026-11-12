@@ -98,12 +98,16 @@ impl NetPlayer4 {
         }
         let p_kind = PendingKind4::of(pending);
 
-        // `eval4 --menu-payable`: the planner's next tap, or the spell they pay.
-        if let Some(action) = self
-            .payable_menu
-            .as_mut()
-            .and_then(|menu| menu.next(view, pending))
-        {
+        // `eval4 --menu-payable`, or a cast the search student chose: the
+        // planner's next tap, or the spell they pay.
+        let planned = match self.payable_menu.as_mut() {
+            Some(menu) => menu.next(view, pending),
+            None => self
+                .search_student
+                .as_mut()
+                .and_then(|student| student.next(view, pending)),
+        };
+        if let Some(action) = planned {
             self.coverage.record(p_kind, SourceKind4::Forced);
             return RootDecision4 {
                 answer: Answer4 {
@@ -141,19 +145,9 @@ impl NetPlayer4 {
             .clone();
 
         let (state, mut cands) = self.policy_encoding(view, pending, teams);
-        if self.payable_menu.is_some() {
-            let encoder = self.encoder_version;
-            let mut menu = self.payable_menu.take();
-            if let Some(menu) = &mut menu {
-                menu.extend(&mut cands, view, pending, |announced| {
-                    if encoder == 10 {
-                        crate::features10::encode_candidates10(&state, view, announced)
-                    } else {
-                        crate::features7::encode_candidates7_grouped(&state, view, announced)
-                    }
-                });
-            }
-            self.payable_menu = menu;
+        if let Some(mut menu) = self.payable_menu.take() {
+            self.extend_payable(&mut menu, &state, &mut cands, view, pending);
+            self.payable_menu = Some(menu);
         }
 
         // 1. Check if forced (<= 1 legal choice)
@@ -249,17 +243,34 @@ impl NetPlayer4 {
                     .as_mut()
                     .and_then(|menu| menu.begin(view, &action))
                     .unwrap_or(action);
+                // `--search-student`: another answer at a macro root where its
+                // head scores it clearly above the seat's own.
+                let student = (self.search_student.is_some()
+                    && cands.head == HeadKind4::SingleChoice)
+                    .then(|| self.student_answer(view, pending, teams, &action))
+                    .flatten();
+                let (action, target, by_student) = match student {
+                    Some(other) => {
+                        let target =
+                            crate::features4::encode_executed_action4(&cands, pending, &other)
+                                .unwrap_or_default();
+                        (other, target, true)
+                    }
+                    None => (action, target, false),
+                };
                 let provenance = self.policy_mode.provenance(
                     self.temperature,
                     self.last_depth,
                     cands.head,
                     logprob,
                 );
-                // An answer the grouping decided is not a draw from the plain
-                // policy: it never carries a behaviour probability.
-                let provenance = if self
-                    .last_grouping
-                    .is_some_and(|grouping| grouping.decides(self.temperature))
+                // An answer the grouping or the student decided is not a draw
+                // from the plain policy: it never carries a behaviour
+                // probability.
+                let provenance = if by_student
+                    || self
+                        .last_grouping
+                        .is_some_and(|grouping| grouping.decides(self.temperature))
                 {
                     StepProvenance4 {
                         behavior_logprob: 0.0,

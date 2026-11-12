@@ -256,6 +256,26 @@ fn main() -> anyhow::Result<()> {
     if args.dev_free_temperature {
         choice_guard.get_or_insert_default().free_temperature = true;
     }
+    if args.search_student.is_some()
+        && (args.legacy_v3
+            || args.random_policy
+            || args.search.is_some()
+            || args.menu_payable
+            || args.tactician_windows.is_some()
+            || args.shadow_teacher.is_some()
+            || collection.purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--search-student plays the seat under test for a measurement: no search, payable \
+             menu, tactician, shadow, random or v3 seat, and no collection"
+        );
+    }
+    let student_head = args
+        .search_student
+        .as_deref()
+        .map(baylee_train::netplay4::student::AdvantageHead4::load)
+        .transpose()?
+        .map(std::sync::Arc::new);
     let search_config = search_config(&args)?;
     let search = search_metadata(&args, search_config, model_identity.as_ref());
     let catalog = catalog_metadata(&args, &collection)?;
@@ -659,6 +679,8 @@ fn main() -> anyhow::Result<()> {
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
         let random_policy = args.random_policy;
         let tactician_setup = tactician_setup.clone();
+        let student_head = student_head.clone();
+        let student_candidates = args.search_student_candidates;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -690,6 +712,18 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(bias) = menu_payable {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
+            }
+            if let Some(head) = &student_head {
+                let head: std::sync::Arc<dyn baylee_train::netplay4::student::StudentHead4> =
+                    std::sync::Arc::<baylee_train::netplay4::student::AdvantageHead4>::clone(head);
+                let student = baylee_train::netplay4::student::SearchStudent4::new(
+                    head,
+                    student_candidates,
+                )?;
+                anyhow::ensure!(
+                    net.set_search_student(student)?,
+                    "--search-student needs a net"
+                );
             }
             let mut tactician_sink = None;
             if let Some(setup) = &tactician_setup {
@@ -933,6 +967,7 @@ fn main() -> anyhow::Result<()> {
                 let guard_fired = net.take_choice_guard_fired();
                 let rules_fired = net.take_tactic_rules_fired();
                 let menu_stats = net.take_menu_stats();
+                let student_stats = net.take_student_stats();
                 let thinking_use = net.take_thinking_use();
                 let grouped_use = net.take_grouped_use();
                 let mut st = stats_arc.lock().expect("stats lock");
@@ -941,12 +976,16 @@ fn main() -> anyhow::Result<()> {
                 if let Some(deal_menu) = &menu_stats {
                     st.menu.get_or_insert_default().add(deal_menu);
                 }
+                if let Some(deal_student) = &student_stats {
+                    st.student.get_or_insert_default().add(deal_student);
+                }
                 tactician::count(&mut st.tactician, &tactician_records);
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "choice_guard_fired": guard_fired,
                     "tactic_rules_fired": rules_fired,
                     "menu": menu_stats,
+                    "search_student": student_stats,
                     "thinking": think_adaptive.map(|_| thinking_use.report()),
                     "grouped_decode": grouped_decode.then(|| grouped_use.report()),
                     "seed": seed, "focal_seat": focal_seat,
@@ -1130,6 +1169,15 @@ fn main() -> anyhow::Result<()> {
         "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
+    summary["search_student"] = student_head.as_ref().map_or(Value::Null, |head| {
+        json!({
+            "contract": baylee_train::netplay4::student::HEAD_CONTRACT,
+            "head": head.identity(),
+            "margin": head.margin(),
+            "candidates": args.search_student_candidates,
+            "counts": st.student,
+        })
+    });
     summary["grouped_decode"] = if grouped_decode {
         st.grouped.report()
     } else {
