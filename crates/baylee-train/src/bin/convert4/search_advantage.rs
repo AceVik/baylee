@@ -246,6 +246,10 @@ pub(super) struct Row {
     choice4: u32,
     half_a: u32,
     half_b: u32,
+    /// Each half's choice judged on the other half: `half_a`'s (worlds 0 and
+    /// 2) mean advantage on worlds 1 and 3, `half_b`'s on worlds 0 and 2
+    /// (`search_labels::halves`), 0 where a half kept the policy's answer.
+    judged: [f32; 2],
     /// Where the search kept a bare tap: the spell its chain cast at the
     /// table ([`chain_spell`]), `u32::MAX` elsewhere.
     intent: u32,
@@ -394,6 +398,8 @@ impl<'a> GameLabels<'a> {
             .push_with_block(&twin, &twin_block(step.step_cursor))
             .map_err(|e| e.to_string())?;
         let intent = self.intent(event, step.seat, root.record_input_n);
+        #[allow(clippy::cast_possible_truncation, reason = "labels are f32")]
+        let judged = [halves.judged_even as f32, halves.judged_odd as f32];
         self.counts.labelled += 1;
         self.rows.push(Row {
             game: step.game_id,
@@ -408,6 +414,7 @@ impl<'a> GameLabels<'a> {
             choice4: index(event.chosen),
             half_a: index(halves.on_even),
             half_b: index(halves.on_odd),
+            judged,
             // Kept: the record follows the bundle's own chain from its tap.
             intent,
             items: rows,
@@ -571,7 +578,14 @@ pub(super) fn write(
     extra: &Value,
 ) -> anyhow::Result<Value> {
     fs::create_dir_all(dir)?;
-    let paths = ["index.bin", "cands.bin", "header.json", "intents.bin"].map(|name| dir.join(name));
+    let paths = [
+        "index.bin",
+        "cands.bin",
+        "header.json",
+        "intents.bin",
+        "halves-judged.bin",
+    ]
+    .map(|name| dir.join(name));
     for path in &paths {
         ensure!(!path.exists(), "{} exists", path.display());
     }
@@ -579,8 +593,12 @@ pub(super) fn write(
     let mut index = Vec::with_capacity(rows.len() * INDEX_ROW);
     let mut cands = Vec::new();
     let mut intents = Vec::with_capacity(rows.len() * 4);
+    let mut judged = Vec::with_capacity(rows.len() * 8);
     for row in &rows {
         intents.extend_from_slice(&row.intent.to_le_bytes());
+        for value in row.judged {
+            judged.extend_from_slice(&value.to_le_bytes());
+        }
         let offset = (cands.len() / CAND_ROW) as u64;
         index.extend_from_slice(&row.game.to_le_bytes());
         index.extend_from_slice(&row.cursor.to_le_bytes());
@@ -607,6 +625,7 @@ pub(super) fn write(
     fs::write(&paths[0], &index)?;
     fs::write(&paths[1], &cands)?;
     fs::write(&paths[3], &intents)?;
+    fs::write(&paths[4], &judged)?;
     let header = json!({
         "contract": SEARCH_ADVANTAGE_CONTRACT,
         "version": 1,
@@ -643,6 +662,13 @@ pub(super) fn write(
                         where the worlds disagree or the chain passed first. Counted by \
                         source in counts.intents. For analysis only.",
             "sha256": super::shadow::sha(&intents)},
+        "halves_judged": {"file": "halves-judged.bin", "rows": rows.len(),
+            "order": "the index's", "dtype": [["a_on_b", "<f4"], ["b_on_a", "<f4"]],
+            "meaning": "half_a's choice (worlds 0 and 2) judged on worlds 1 and 3, and \
+                        half_b's (1 and 3) on 0 and 2: its mean advantage there over the \
+                        policy's own answer, 0 where the half kept it \
+                        (search_labels::halves, margin 0.03)",
+            "sha256": super::shadow::sha(&judged)},
         "counts": counts,
         "source": extra,
     });
@@ -678,6 +704,7 @@ mod tests {
             choice4: 1,
             half_a: 1,
             half_b: u32::MAX,
+            judged: [0.25, 0.0],
             intent: if game == 1 { 29 } else { u32::MAX },
             items: (0..n)
                 .map(|at| item(f32::from(u8::try_from(at).unwrap()) * 0.1, at < 2))
@@ -694,6 +721,7 @@ mod tests {
         let index = fs::read(dir.join("index.bin")).unwrap();
         let cands = fs::read(dir.join("cands.bin")).unwrap();
         let intents = fs::read(dir.join("intents.bin")).unwrap();
+        let judged = fs::read(dir.join("halves-judged.bin")).unwrap();
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(index.len(), 2 * INDEX_ROW);
         assert_eq!(cands.len(), 5 * CAND_ROW);
@@ -722,6 +750,9 @@ mod tests {
         // The chain spells, in the index's order: game 1's first.
         assert_eq!(intents, [29, 0, 0, 0, 255, 255, 255, 255]);
         assert_eq!(header["intents"]["rows"], 2);
+        assert_eq!(judged.len(), 16);
+        assert_eq!(f32::from_le_bytes(judged[0..4].try_into().unwrap()), 0.25);
+        assert_eq!(header["halves_judged"]["rows"], 2);
     }
 
     #[test]
