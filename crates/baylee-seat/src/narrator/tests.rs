@@ -2256,6 +2256,7 @@ fn the_card_texts_a_model_was_told_are_kept_for_the_game() {
 mod carbon;
 mod carbon_b3;
 mod carbon_b4;
+mod carbon_b5;
 pub(crate) mod controlled;
 mod event_object;
 mod foretell;

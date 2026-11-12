@@ -1408,9 +1408,16 @@ impl Builder<'_, '_> {
             TargetPrompt::CopyOf => self.line(format!(
                 "QUESTION: Choose what {what} enters as a copy of (a choice, not a target), or none."
             )),
+            // Convoke, improvise and a paid waterbend all ask this, and the
+            // question does not say which (improvise may come from another
+            // card's effect), so it names none of them, as the client's
+            // `TapToHelpPay` does, and says what each lets a tap pay
+            // (CR 702.51a, 702.126a, 701.67a-b). The options are what may tap.
             TargetPrompt::Convoke => self.line(format!(
-                "QUESTION: Convoke: choose creatures to tap to help pay for {what} (each pays {{1}} \
-                 or one mana of its colour)."
+                "QUESTION: Tap permanents to help pay for {what}; each one pays for one mana \
+                 (convoke: a creature pays {{1}} or one mana of its colour; improvise: an \
+                 artifact pays {{1}}; waterbend: an artifact or creature pays {{1}} of the \
+                 waterbend cost only)."
             )),
             TargetPrompt::DistinctManaValues(_) => self.line(format!("QUESTION: Choose targets with different mana values for {what}.")),
             TargetPrompt::Targets => {
