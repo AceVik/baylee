@@ -61,12 +61,22 @@ install there. A fallback row builds no profile either (§"The client's profile"
 
 ## Version numbers
 
-Preparation on 2 November 2026 deliberately uses **`0.1.0-beta.9c`**, exactly
-as confirmed by the owner, including the dot before `9c`. It is lower than
-the previously prepared `0.1.1-beta.9b`. The updater's SemVer/downgrade checks
-remain unchanged: existing `0.1.1` installations will not be offered this
-version. A regression test records that consequence. This preparation does
-not create a tag, publish binaries or deploy any service.
+Preparation on 12 November 2026 sets **`0.2.0-beta.o1`**, the first open
+beta (the owner: "0.2.0-beta.o1 nicht beta.1, das o steht für die erste open
+beta version"). The minor rises because protocol 45 changed the frames since
+`0.1.0-beta.9c`; it sorts above every `0.1.x` prerelease, `0.1.1-beta.9b`
+included, so every earlier install is offered it
+(`baylee_update::version`'s open-beta test). This preparation does not create
+a tag, publish binaries or deploy any service. The card status is measured
+in the release commit itself (§"Cutting one"), not here, since cards may
+still land before the tag. The tag waits for the client's one-time turn
+defaults (the owner's live settings as every player's default from this
+version on).
+
+Preparation on 2 November 2026 deliberately used **`0.1.0-beta.9c`**, exactly
+as confirmed by the owner, including the dot before `9c`. It was lower than
+the previously prepared `0.1.1-beta.9b`, so existing `0.1.1` installations
+were not offered it; a regression test records that consequence.
 
 `workspace.package.version` is the one version. `baylee-build` stamps it into
 every binary together with the commit and the CI run.

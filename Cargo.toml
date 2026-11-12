@@ -13,7 +13,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
