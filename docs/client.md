@@ -10225,6 +10225,14 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   card stands beside the row, never over the next one. It is never
   pickable, any press puts it away, and nothing is written once it stands.
   Names are plain text on one line, cut at 28 characters.
+- **The window's glass.** The lobby chat window's ground is a gradient of
+  the panel's blue, denser at its head than at its foot
+  (`rows::window_ground`, α .93 to .90): glass over the painting, where the
+  flat ground before it was a slab. The alphas are measured, not chosen:
+  the window's quiet ink keeps 4.5 : 1 over the tavern's fire blended in
+  linear light at both ends (`window::tests`). The field a line is written
+  in is opaque, so nothing behind the window reads through the words being
+  typed.
 
 ## Embedding (the open-world plan)
 

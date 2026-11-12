@@ -409,3 +409,29 @@ fn a_press_in_the_composer_lands_where_it_is_across_the_box() {
     );
     assert!(composer::across(&bevy::ui::RelativeCursorPosition::default()).abs() < f32::EPSILON);
 }
+
+/// The window is glass: the room behind it comes through, so its ground is
+/// less than the kit's panel. What comes through must not take the lines:
+/// over the tavern fire's orange, blended in linear light as the UI is, the
+/// quiet ink keeps WCAG's 4.5:1 at the head and at the foot. The flat 0.66
+/// this replaced gave 2.5:1, which the last assertion holds on to.
+#[test]
+fn the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire() {
+    let fire = Color::srgb(0.90, 0.50, 0.15).to_linear();
+    let luminance = |c: LinearRgba| 0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue;
+    let reads = |glass: Color| {
+        let over = glass.to_linear();
+        let share = over.alpha;
+        let under = LinearRgba::rgb(
+            over.red * share + fire.red * (1.0 - share),
+            over.green * share + fire.green * (1.0 - share),
+            over.blue * share + fire.blue * (1.0 - share),
+        );
+        (luminance(LOBBY_INKS.soft.to_linear()) + 0.05) / (luminance(under) + 0.05)
+    };
+    for glass in rows::window_glass() {
+        assert!(reads(glass) >= 4.5, "{glass:?}: {}", reads(glass));
+        assert!(glass.alpha() < crate::shellkit::tokens::PANEL.alpha());
+    }
+    assert!(reads(LOBBY_INKS.ground) < 3.0);
+}

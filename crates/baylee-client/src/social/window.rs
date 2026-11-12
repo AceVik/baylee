@@ -941,7 +941,7 @@ fn sync_lobby_window(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(LOBBY_INKS.ground),
+                rows::window_ground(),
                 BorderColor::all(LOBBY_INKS.line),
                 elevation(),
                 stacked(0),

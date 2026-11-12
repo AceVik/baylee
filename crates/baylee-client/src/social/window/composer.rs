@@ -130,7 +130,10 @@ pub(super) fn composer_parts(
                 border_radius: BorderRadius::all(zpx(6.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.015, 0.036, 0.054, 0.50)),
+            // Opaque: what is typed is read on the field alone. At half
+            // strength the lobby's version chip, which the docked window
+            // stands over, was read through it under the caret.
+            BackgroundColor(Color::srgb(0.015, 0.036, 0.054)),
             BorderColor::all(if focused {
                 inks.accent.with_alpha(0.85)
             } else {
