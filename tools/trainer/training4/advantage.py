@@ -110,10 +110,17 @@ class SearchAdvantage:
             raise ValueError(f"{directory} holds {header.get('contract')!r}, not {SIDECAR_CONTRACT}")
         index = np.fromfile(directory / "index.bin", dtype=SIDECAR_INDEX)
         items = np.fromfile(directory / "cands.bin", dtype=SIDECAR_ITEM)
-        roots = header.get("roots", header.get("counts", {}).get("roots", len(index)))
-        if roots != len(index):
-            raise ValueError("Search-advantage header and index disagree on the root count")
-        return cls(index, items, header)
+        # The header describes each file: its row count, its digest, and the names its codes index.
+        for name, rows, part in (("index.bin", len(index), header.get("index", {})),
+                                 ("cands.bin", len(items), header.get("cands", {}))):
+            if part.get("rows", rows) != rows:
+                raise ValueError(f"Search-advantage header and {name} disagree on the row count")
+            if "sha256" in part and hashlib.sha256((directory / name).read_bytes()).hexdigest() != part["sha256"]:
+                raise ValueError(f"Search-advantage {name} does not match its header's digest")
+        if list(header.get("cands", {}).get("coarse_classes", CLASSES)) != list(CLASSES):
+            raise ValueError("Search-advantage coarse classes are named in another order")
+        kinds = header.get("index", {}).get("root_kinds", header.get("root_kinds", ()))
+        return cls(index, items, dict(header, root_kinds=list(kinds)))
 
     def labels(self, roots):
         """The root fields and item labels of `AdvantageRows` for sidecar rows `roots`, in order."""
@@ -450,6 +457,12 @@ class RootPass:
         return seen["state"][0], [seen["cand"][0][i, :width] for i, width in enumerate(widths)]
 
 
+def held_out_of(split, games, every=0):
+    """Held out: the val split's games, and with `every` > 0 the games whose id is a multiple of it."""
+    games = np.asarray(games)
+    return np.full(len(games), split == "val") | ((games % every == 0) if every > 0 else False)
+
+
 def capture(args):
     """Rows from a converted dataset: every twin frame of `search-advantage-menus` joins its sidecar
     row and its root frame (same game, seat, cursor) in train/ or val/; the root's memory is the
@@ -517,7 +530,7 @@ def capture(args):
         roots, labels = sidecar.labels(twin_rows[here])
         parts.append(AdvantageRows(roots, np.concatenate(states) if states else np.zeros((0, net.cfg.d_model), np.float16),
                                    np.concatenate(cands) if cands else np.zeros((0, net.cfg.d_model), np.float16),
-                                   labels, np.full(len(here), split == "val"), sidecar.kinds))
+                                   labels, held_out_of(split, roots["game"], args.hold_out_every), sidecar.kinds))
         counts[split] = int(len(here))
     rows = AdvantageRows.concat(parts)
     counts["twins"], counts["unplaced"] = int(len(twin_rows)), int(len(twin_rows) - sum(counts[s] for s in args.splits))
@@ -536,6 +549,8 @@ def main(argv=None):
     grabbing.add_argument("--out", required=True, help=f"The {ROWS_CONTRACT} .npz to write")
     grabbing.add_argument("--state-dir", required=True, help="Where the CPU window-state caches go")
     grabbing.add_argument("--splits", default="train,val")
+    grabbing.add_argument("--hold-out-every", type=int, default=0,
+                          help="Also hold out the games whose id is a multiple of K (0: only the val split)")
     grabbing.add_argument("--batch", type=int, default=32)
     grabbing.add_argument("--lanes", type=int, default=16)
     grabbing.add_argument("--workers", type=int, default=2)
