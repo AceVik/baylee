@@ -940,8 +940,11 @@ train, where generation 7 had 59.9 %. Generation 9 (§7.7) puts a bound in
 the level, eight million units at expert's tier, which cost nothing
 measurable on generation 8 and holds a searched answer under a second of
 CPU time; §7.8 is what that bound does and does not promise a host. The
-coordinator spends the held-out gate on generation 9. The teacher stays
-pinned at generation 7 (`tests/reference/foresight-generation-7.json`).
+held-out gate was spent on generation 9 (§7.10): expert 62.4 %, sharp
+61.8 %, steady 63.1 %, casual 59.0 %, novice 53.3 % against generation 6,
+and +10.7 and +12.8 points for expert and sharp against `sharp-2026-11`.
+Block repairs mined from the search (§7.9, §7.11) win nothing that shows.
+The teacher stays pinned at generation 7 (`tests/reference/foresight-generation-7.json`).
 
 ### 7.1 Where a search's time goes (measured)
 
@@ -1151,7 +1154,9 @@ far:
 
 - **Branch** `c42/house-g8` in `~/Projects/baylee-house-lookahead`, target
   dir `/mnt/xdata/cargo-target/house-g8`. Generations 8 and 9 and the
-  generation-7 search pin are on it (§7.6, §7.7).
+  generation-7 search pin are on it and on `c42/shared` (§7.6, §7.7); the
+  block-reads experiment is the local branch `c42/house-block-reads`
+  (§7.9, §7.11). Nothing runs on acenb now.
 - **The 2v2 gate chain** of the round before finished; its lines are in
   §5a.
 - **bigace** is for builds and tests only while the campaign collects
@@ -1170,9 +1175,11 @@ far:
   A level name in zsh is quoted (`"${l}:generation=6"`): `$l:g` is a zsh
   modifier.
 - Scratch files of this round are named `g8-*` in the session scratchpad:
-  `g8-prof-b.json` (the profile of §7.1), `g8-q-blocks-a.jsonl` (the 265
-  block questions of §7.3), `g8-t2-*.json` and `g8-t3-*.json` (the runs of
-  §7.6 and §7.7), `g8bin/` (the binaries by build).
+  `g8-prof-b.json` (the profile of §7.1), `g8-q-blocks-a.jsonl` and
+  `g8-q-blocks-b.jsonl` (the 265 and 2,181 block questions of §7.3 and
+  §7.9), `g8-t2-*.json`, `g8-t3-*.json` and `g9-*.json` (the runs of §7.6,
+  §7.7 and §7.10), `g10-*.json` (§7.11), `g8bin/` (the binaries by build).
+  The same outputs are in `~/baylee-work/house/out/` on acenb.
 
 ### 7.6 Generation 8: a search tries the spells its lands pay for (measured)
 
@@ -1427,3 +1434,27 @@ game once), generation 9 against its generation-6 self:
 No level is worse than 50 %, and no game stayed open. A 2v2 run of 128
 games moves by about four points either way, so these lines say no more
 than that the team game did not get worse.
+
+### 7.11 The block reads in games, and what to do next
+
+The block reads of §7.9 (generation 10 on the local branch
+`c42/house-block-reads`: a regenerating attacker does not die, a creature
+whose own death triggers is two mana value cheaper) played on train
+against generation 9, acenb:
+
+- *Heuristics alone* (no fork, as every hosted game plays today; 2,048
+  deals): 1,025 of 2,044 (50.1 %; 6 seeds for, 3 against). Against
+  `sharp-2026-11` the same deals go 5 games won and 3 lost against
+  generation 9's heuristics (55.6 % for both).
+- *With foresight* (1,024 deals): 508 of 1,019 (49.9 %; 5 seeds for, 6
+  against).
+
+The reads change about one game in two hundred and fifty. They are general
+and right in kind, and they win nothing that shows; generation 10 is not
+made of them. A house without a fork plays 2,048 train deals in twelve
+seconds on acenb, so a refit of the heuristics' constants against
+generation 9 (§6 (3): the block search's price of damage, the worth of a
+creature by mana value and body, the hold-up reserve) can be measured in
+tens of thousands of games an hour, heuristics alone first and with the
+fork after. That, and the analyst's cast and target findings (§7.4), which
+touch every hosted game, are where the next generation should come from.
