@@ -284,6 +284,7 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
     cls = rows.labels["cls"].astype(np.int64)
     roots = rows.roots
     per_root, kinds, overrides = [], {}, {}
+    search_gain = 0.   # the labels' own 4-world choice, in-sample to its worlds (biased upward)
     sweep = {m: [] for m in MARGINS}   # per root: (game, A of the override or 0)
     pairs = dict(rows=[], weight=[], payable=[])
     for r in np.flatnonzero(chosen):
@@ -304,6 +305,7 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         if choice4 != NONE and choice4 != own:
             cell["changed"] += 1
             cell["student_agrees"] += int(top == choice4)
+            search_gain += float(A[lo + choice4])
         if half_a != NONE and half_b != NONE and (half_a != own or half_b != own):
             cell["halves"] += 1
             cell["halves_agree"] += int(half_a == half_b)
@@ -325,7 +327,8 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         roots=int(chosen.sum()), candidates=int(idx.size),
         spearman_per_root=float(np.mean(per_root)) if per_root else None, spearman_roots=len(per_root),
         pearson_pooled=correlation(gaps[idx], A[idx], weight[idx]) if idx.size else None,
-        calibration_slope=calib(idx), by_kind={}, margins={}, items=split)
+        calibration_slope=calib(idx), by_kind={}, margins={}, items=split,
+        search_choice4_A_per_100_roots=search_gain / max(int(chosen.sum()), 1) * 100)
     for kind, cell in sorted(kinds.items()):
         out["by_kind"][kind] = dict(cell, top1_vs_choice4=cell["student_agrees"] / cell["changed"] if cell["changed"] else None,
                                     halves_same_answer=cell["halves_agree"] / cell["halves"] if cell["halves"] else None)
@@ -359,9 +362,13 @@ def direction(own_cls, chosen_cls, payable):
 
 
 def held_out_halves(rows):
-    """The held-out games split by game id parity: margin selection and report."""
-    odd = (rows.roots["game"] % 2).astype(bool)
-    return rows.held_out & ~odd, rows.held_out & odd
+    """The held-out games split in two, alternating in game id order (ids held out by a stride
+    share their parity, so parity would put every game on one side): margin selection, report."""
+    games = rows.roots["game"]
+    held = np.unique(games[rows.held_out])
+    report_games = held[1::2]
+    in_report = np.isin(games, report_games)
+    return rows.held_out & ~in_report, rows.held_out & in_report
 
 
 def fit(rows: AdvantageRows, kind="mlp", hidden=0, tau=0.02, lr=1e-3, weight_decay=1e-2, epochs=40, batch=512,
@@ -409,7 +416,10 @@ def fit(rows: AdvantageRows, kind="mlp", hidden=0, tau=0.02, lr=1e-3, weight_dec
     chooser = report(rows, gaps, weight, select)
     best_gain = max(v["gain_per_100_roots"] for v in chooser["margins"].values())
     margin = max(float(m) for m, v in chooser["margins"].items() if v["gain_per_100_roots"] == best_gain)
+    zero = torch.zeros(len(prepared.rows))
     return head, dict(history=history, margin=margin, margin_selection=chooser,
+                      zero_head_loss=dict(train=float(pairwise_loss(prepared, zero, ~held)),
+                                          held_out=float(pairwise_loss(prepared, zero, held))),
                       held_out=report(rows, gaps, weight, final, margin),
                       train=report(rows, gaps, weight, ~rows.held_out, margin))
 

@@ -99,6 +99,15 @@ class SearchAdvantage(unittest.TestCase):
         self.assertIn(result["margin"], V.MARGINS)
         self.assertTrue(held["overrides"])
 
+    def test_held_out_halves_split_strided_games(self):
+        rows = synthetic(roots=240)
+        rows.held_out = rows.roots["game"] % 4 == 0   # every held-out id is even
+        select, final = V.held_out_halves(rows)
+        self.assertTrue(select.any() and final.any())
+        self.assertFalse((select & final).any())
+        np.testing.assert_array_equal(select | final, rows.held_out)
+        self.assertFalse(set(rows.roots["game"][select]) & set(rows.roots["game"][final]))   # whole games
+
     def test_an_untrained_head_never_overrides(self):
         rows = synthetic(roots=60)
         prepared = V.Prepared(rows, tau=.02)
