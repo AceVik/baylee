@@ -810,9 +810,10 @@ impl Builder<'_, '_> {
 
     pub(super) fn reach_label(&self, reach: &Reach) -> String {
         let table = self.table;
-        let x = baylee_cards::by_index(reach.card.index)
-            .and_then(|def| def.faces.get(usize::from(reach.card.face)))
-            .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
+        let x = self.way_x_cost(reach).is_some()
+            || baylee_cards::by_index(reach.card.index)
+                .and_then(|def| def.faces.get(usize::from(reach.card.face)))
+                .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
         let mut label = match reach.from {
             _ if reach.way.is_some() => self.way_label(reach),
             ReachFrom::Hand if reach.face_down => format!(
@@ -847,11 +848,32 @@ impl Builder<'_, '_> {
         label
     }
 
+    /// The whole cost of a reach's way where it has an X the cast will ask
+    /// for (CR 107.3, 601.2b): a foretold Starnheim Unleashed's `{X}{X}{W}`,
+    /// which the reach is planned at with X = 0 and its printed `{2}{W}{W}`
+    /// does not show. Read off the engine's list of ways
+    /// (`LegalActions::cast_ways`). The option read "with foretell for
+    /// {0}{W}" and never said that X is chosen in the cast.
+    fn way_x_cost(&self, reach: &Reach) -> Option<ManaCost> {
+        let Some(Way::Mode(kind)) = reach.way else {
+            return None;
+        };
+        let Pending::Priority { legal, .. } = &self.request.pending else {
+            return None;
+        };
+        legal
+            .cast_ways
+            .iter()
+            .find(|(id, desc)| *id == reach.object && desc.kind == kind)
+            .map(|(_, desc)| desc.cost)
+            .filter(ManaCost::has_variable)
+    }
+
     /// A reach at a price of its own, which the label names whole, with the
     /// way it is cast in the mode question's own words.
     fn way_label(&self, reach: &Reach) -> String {
         let named = self.table.named(reach.object);
-        let cost = reach.plan.cost;
+        let cost = self.way_x_cost(reach).unwrap_or(reach.plan.cost);
         match reach.way {
             Some(Way::Kicker) => format!("Cast {named} with its kicker for {cost}"),
             Some(Way::Buyback) => {
@@ -1623,15 +1645,41 @@ impl Builder<'_, '_> {
         // The engine leaves a multikicker open while a land is untapped; a
         // count past what is floating has to be tapped for in a window this
         // seat answers blind, so the number is the one the mana already pays.
+        // An X is announced before it is paid (CR 601.2b), and the engine
+        // leaves its range open; the number is the one the mana pays.
         let max = match reason {
             NumberPrompt::Multikicker { cost } => self
                 .kicks_floating(cost)
                 .map_or(max, |pays| pays.clamp(min, max)),
+            NumberPrompt::X => self.payable_x().map_or(max, |pays| pays.clamp(min, max)),
             _ => max,
         };
         self.line(format!("QUESTION: {question} (from {min} to {max})."));
         self.ask = Ask::Number { min, max };
         self.answer(&format!("number=<an integer from {min} to {max}>"));
+    }
+
+    /// The greatest X the pool and the untapped sources pay for the cast or
+    /// activation being announced, its cost as the question's note names it
+    /// (`DecisionNote::cost`, the cost before X: a foretold Starnheim
+    /// Unleashed's `{X}{X}{W}`, not its printed `{2}{W}{W}`), bounded by
+    /// the targets an X needs (`x_targets`). The engine's own range is open
+    /// (CR 601.2b: any X may be announced, and one the mana cannot pay
+    /// reverses the cast, CR 601.2h), and the seat asked "from 0 to
+    /// 4294967295". `None` where no cost with X is named, or nothing plans
+    /// (sources this reading does not know): then the engine's range stands,
+    /// as the client's X question and the house's own X answer read it
+    /// (`manaplan::greatest_x`, `HeuristicAgent::largest_x`).
+    fn payable_x(&self) -> Option<u32> {
+        let note = self.request.note.as_ref()?;
+        let cost = note.cost.filter(ManaCost::has_variable)?;
+        let view = self.table.view;
+        let pool = view
+            .seat(baylee_client_core::decision::resource_player(view))?
+            .mana_pool;
+        let sources = baylee_ai::mana_sources_in_view(view);
+        let pays = manaplan::greatest_x(&cost, &pool, &sources)?;
+        Some(note.x_targets.map_or(pays, |targets| pays.min(targets)))
     }
 
     /// How many times the floating pool pays `each` beside the spell being

@@ -1107,6 +1107,15 @@ pub fn mana_sources(
     policy::sources(view, legal)
 }
 
+/// [`mana_sources`] read off the view alone, for a question that carries no
+/// offer: the permanents the deciding player could tap now (untapped, a
+/// creature not summoning sick), as the house reads them for a miracle's
+/// X. An estimate: the engine's offer is what a priority would list.
+#[must_use]
+pub fn mana_sources_in_view(view: &PlayerView) -> Vec<baylee_client_core::manaplan::Source> {
+    policy::remaining_sources(view)
+}
+
 /// The paid mana abilities the engine offers, as the planner reads them: a
 /// filter land's, a Signet's. `mana_sources` carries them on its sources, and
 /// this hands them to a planner with a reader of its own (the client's).

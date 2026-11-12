@@ -335,3 +335,175 @@ fn a_cast_s_payment_window_names_the_spell_and_what_passing_does() {
         "the Island untapped"
     );
 }
+
+/// Plays on with every question's timeout answer until seat 0 holds priority
+/// in its own first main phase of `turn`, the stack empty.
+fn to_main(session: &mut Session, turn: u32) {
+    for _ in 0..400 {
+        let pending = session.pending().clone();
+        let view = session.observe_view(ME);
+        if matches!(pending, Pending::Priority { player, .. } if player == ME)
+            && view.active == ME
+            && view.turn >= turn
+            && view.phase == baylee_view::Phase::FirstMain
+            && view.stack.is_empty()
+        {
+            return;
+        }
+        let player = pending.asked().expect("the table stays playable");
+        let action = baylee_engine::choice::timeout_answer(&pending).expect("a default answer");
+        session
+            .act_slice(player, action, 0)
+            .expect("a legal default");
+    }
+    panic!("seat 0's main phase of turn {turn} was not reached");
+}
+
+/// The option `menu` lists whose words start with `label`, as the model
+/// would pick it.
+fn picked(request: &Request, label: &str) -> Act {
+    let menu = Narrator::new(&request.context).menu(request);
+    let id = menu
+        .offered()
+        .iter()
+        .find(|o| o.text.starts_with(label))
+        .unwrap_or_else(|| panic!("no option {label:?}: {:?}", menu.offered()))
+        .id
+        .clone();
+    menu.resolve(&Decision {
+        ask: Some(format!("q{}", request.question)),
+        pick: vec![id],
+        ..Default::default()
+    })
+    .expect("the option resolves")
+    .act
+}
+
+/// Sends an option's taps and its action as the bridge does.
+fn send(session: &mut Session, act: Act) {
+    match act {
+        Act::Now(action) => {
+            session
+                .act_slice(ME, action, 0)
+                .expect("the action is taken");
+        }
+        Act::Taps { steps, then } => {
+            for step in &steps {
+                session
+                    .act_slice(ME, crate::narrator::tap(step), 0)
+                    .expect("each tap is offered");
+                if let Some(color) = step.color {
+                    session
+                        .act_slice(ME, PlayerAction::ChooseColor(color), 0)
+                        .expect("its colour");
+                }
+            }
+            session
+                .act_slice(ME, then, 0)
+                .expect("what the taps are for");
+        }
+    }
+}
+
+/// Starnheim Unleashed foretold, cast on a later turn for its foretell cost
+/// `{X}{X}{W}` (CR 702.143a, 107.3, 601.2b-f) with three Plains: offered at
+/// X = 0, which taps one Plains for `{W}` and says X is chosen in the cast;
+/// X asked from 0 to 1, the most the two Plains left pay; and at X = 1 the
+/// window owes `{2}{W}`, which the two Plains pay, and the spell is cast and
+/// makes one Angel Warrior. The coordinator's open check from the Carbon
+/// self-play triage (b1-3).
+#[test]
+fn a_foretold_x_spell_is_offered_at_x_0_and_asks_the_x_the_lands_pay() {
+    let (mut session, view, _) = position(
+        &["Plains", "Plains", "Plains"],
+        &["Starnheim Unleashed"],
+        &[],
+    );
+    let card = view.hand[0].id;
+    let plains: Vec<ObjectId> = view
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == ME)
+        .map(|o| o.id)
+        .collect();
+    for &land in &plains[..2] {
+        session
+            .act_slice(ME, PlayerAction::ActivateManaAbility { source: land }, 0)
+            .expect("a Plains for the foretell's {2}");
+    }
+    session
+        .act_slice(ME, PlayerAction::Foretell { card }, 0)
+        .expect("foretold");
+    to_main(&mut session, 3);
+
+    // Offered at X = 0: one Plains for {W}, and the X said to come.
+    let first = asked(&session);
+    let text = told(&first);
+    let offer = text
+        .lines()
+        .find(|line| line.contains("Starnheim Unleashed") && line.contains("taps"))
+        .unwrap_or_else(|| panic!("the foretold card is offered: {text}"));
+    assert!(
+        offer.contains("{X}{X}{W}") && offer.contains("you choose X"),
+        "the option says its price and that X is chosen: {offer}"
+    );
+    let label = offer.trim_start();
+    let label = label.split_once("  ").map_or(label, |(_, rest)| rest);
+    let act = picked(&first, label);
+    let Act::Taps { steps, .. } = &act else {
+        panic!("taps, then the cast: {act:?}");
+    };
+    assert_eq!(steps.len(), 1, "{{W}} alone at X = 0");
+    send(&mut session, act);
+
+    // The cast's questions: its way, then X, from 0 to what the lands pay.
+    let mut asked_x = None;
+    for _ in 0..6 {
+        let (pending, view_now) = session.view_for_with_context(ME).expect("seat 0 is asked");
+        match pending {
+            Pending::ChooseNumber { .. } => {
+                let mut number = request(view_now, pending, LogTail::default());
+                number.note = session.question_note(ME);
+                let text = told(&number);
+                asked_x = text
+                    .lines()
+                    .find(|line| line.contains("value of X"))
+                    .map(str::to_string);
+                break;
+            }
+            Pending::ChooseCastMode { options, .. } => {
+                let foretold = options
+                    .iter()
+                    .position(|o| o.kind == baylee_engine::choice::CastModeKind::Foretell)
+                    .expect("the foretell way");
+                session
+                    .act_slice(ME, PlayerAction::ChooseMode(foretold), 0)
+                    .expect("its way");
+            }
+            other => panic!("the cast asked {other:?}"),
+        }
+    }
+    let asked_x = asked_x.expect("X is asked");
+    assert!(asked_x.contains("(from 0 to 1)"), "{asked_x}");
+    session
+        .act_slice(ME, PlayerAction::ChooseNumber(1), 0)
+        .expect("X = 1");
+
+    // The window owes {2}{W}: the two Plains left pay it, and it is cast.
+    let (pending, view_now) = session.view_for_with_context(ME).expect("seat 0 is asked");
+    let window = request(view_now, pending, LogTail::default());
+    let text = told(&window);
+    assert!(text.contains("owe {2}{W}"), "{text}");
+    let act = picked(&window, "Pay {2}{W}");
+    send(&mut session, act);
+    let view = session.observe_view(ME);
+    assert!(view.stack.iter().any(|o| o.id == card), "cast for X = 1");
+    to_main(&mut session, 3);
+    let angels = session
+        .observe_view(ME)
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == ME && o.name.contains("Angel"))
+        .count();
+    assert_eq!(angels, 1, "X = 1 makes one Angel Warrior");
+}

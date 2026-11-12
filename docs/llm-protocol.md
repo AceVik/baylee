@@ -299,6 +299,14 @@ multikicker and replicate once and as often as the lands pay. A price that
 does not fit the lands is not listed, and a printed price no way stands at is
 dropped (Cyclonic Rift with nothing to bounce).
 
+A way whose cost has an X (a foretold Starnheim Unleashed's `{X}{X}{W}`) is
+planned at X = 0 and says so: "with foretell for {X}{X}{W} (taps Plains #0;
+X is 0 in this count, and you choose X when you cast it)". The X question then
+asks from 0 to the most the pool and the untapped sources pay for the cost
+the question's note names (`DecisionNote::cost`), where the engine's own range
+is open (CR 601.2b) and was told as "from 0 to 4294967295". Where the seat
+cannot read the sources, the engine's range stands.
+
 Taking one taps for that price and casts, and the question then comes as it
 always does: the model answers it, so "Cast Capsize with its buyback for
 {4}{U}{U}, and have the spell back" is followed by the buyback's yes or no,
