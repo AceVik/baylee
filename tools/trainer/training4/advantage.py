@@ -327,8 +327,8 @@ def correlation(x, y, w=None):
 
 def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
     """Held-out metrics of one head's gaps (q_i - q_own) on the `chosen` roots. Top-1 agreement
-    plays the head as the halves play: its best item where it leads by HALVES_MARGIN, else the
-    bundle's own answer."""
+    reads the head's argmax (the bundle's own answer at 0) and, beside the halves, also the head
+    played as the halves play: its best item where it leads by HALVES_MARGIN, else the own answer."""
     gaps, weight = np.asarray(gaps, dtype=np.float64), np.asarray(weight, dtype=np.float64)
     A = rows.labels["A"].astype(np.float64)
     searched = rows.labels["searched"].astype(bool)
@@ -336,7 +336,8 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
     cls = rows.labels["cls"].astype(np.int64)
     roots, games = rows.roots, rows.game_key()
     per_root, kinds, overrides = [], {}, {}
-    agree = dict(roots=0, halves_agree=0, student_vs_halves=0., student_vs_choice4=0)
+    agree = dict(roots=0, halves_agree=0, **{f"{name}_{rule}": 0. for name in ("vs_halves", "vs_choice4")
+                                              for rule in ("argmax", "at_halves_margin")})
     search_gain = 0.   # the labels' own 4-world choice, in-sample to its worlds (biased upward)
     sweep = {m: [] for m in MARGINS}   # per root: (game, A of the override or 0)
     pairs = dict(rows=[], weight=[], payable=[])
@@ -354,7 +355,7 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
         cell = kinds.setdefault(kind, dict(roots=0, changed=0, student_agrees=0, halves=0, halves_agree=0))
         cell["roots"] += 1
         choice4, half_a, half_b = int(roots["choice4"][r]), int(roots["half_a"][r]), int(roots["half_b"][r])
-        top = own if best is None or gaps[lo + best] <= HALVES_MARGIN else int(best)
+        top = own if best is None or gaps[lo + best] <= 0 else int(best)
         if choice4 != NONE and choice4 != own:
             cell["changed"] += 1
             cell["student_agrees"] += int(top == choice4)
@@ -364,8 +365,10 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
             cell["halves_agree"] += int(half_a == half_b)
             agree["roots"] += 1
             agree["halves_agree"] += int(half_a == half_b)
-            agree["student_vs_halves"] += (int(top == half_a) + int(top == half_b)) / 2
-            agree["student_vs_choice4"] += int(top == choice4)
+            played = own if best is None or gaps[lo + best] <= HALVES_MARGIN else int(best)
+            for rule, pick in (("argmax", top), ("at_halves_margin", played)):
+                agree[f"vs_halves_{rule}"] += (int(pick == half_a) + int(pick == half_b)) / 2
+                agree[f"vs_choice4_{rule}"] += int(pick == choice4)
         for m in MARGINS:
             take = best is not None and gaps[lo + best] > m
             sweep[m].append((int(games[r]), A[lo + best] if take else 0., take))
@@ -395,10 +398,9 @@ def report(rows: AdvantageRows, gaps, weight, chosen, margin=None):
     # Where a half replaced the bundle's answer: how often the two halves agree (the label's own
     # ceiling), how often the head agrees with a half, and with the 4-world choice.
     n_agree = agree["roots"]
-    out["agreement"] = dict(roots=n_agree, margin=HALVES_MARGIN,
-                            halves_same_answer=agree["halves_agree"] / n_agree if n_agree else None,
-                            student_vs_a_half=agree["student_vs_halves"] / n_agree if n_agree else None,
-                            student_vs_choice4=agree["student_vs_choice4"] / n_agree if n_agree else None)
+    share = lambda name: agree[name] / n_agree if n_agree else None
+    out["agreement"] = dict(roots=n_agree, halves_margin=HALVES_MARGIN, halves_same_answer=share("halves_agree"),
+                            **{f"student_{name}": share(name) for name in agree if name.startswith("vs_")})
     for m, picks in sweep.items():
         games = {}
         for game, a, _ in picks:
@@ -793,10 +795,10 @@ def main(argv=None):
         chooser = result["margin_selection"]
         selection.append(dict(temperature=temperature, select_margin=result["margin"],
                               select_gain_per_100_roots=best_margin(chooser)[1],
-                              select_student_vs_a_half=chooser["agreement"]["student_vs_a_half"],
+                              select_student_vs_halves=chooser["agreement"]["student_vs_halves_argmax"],
                               select_pearson=chooser["pearson_pooled"], epochs=len(result["history"])))
     pick = max(range(len(fits)), key=lambda i: (selection[i]["select_gain_per_100_roots"],
-                                                selection[i]["select_student_vs_a_half"] or 0.))
+                                                selection[i]["select_student_vs_halves"] or 0.))
     head, result = fits[pick]
     result = dict(result, temperature_selection=selection if args.objective == "ranking" else None)
     out.mkdir(parents=True)
