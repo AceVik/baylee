@@ -198,33 +198,31 @@ impl Metrics {
         let inner = self.inner.lock();
         let ring = &inner.ring;
         let now = ring.back();
-        let games: Vec<GameColumns> = now
-            .map(|latest| {
-                latest
-                    .games
-                    .iter()
-                    .map(|game| {
-                        fn same<'a>(s: &'a Sample, game: &GameSample) -> Option<&'a GameSample> {
-                            s.games
-                                .iter()
-                                .find(|g| g.game_id == game.game_id && g.pid == game.pid)
-                        }
-                        let cpu: Vec<Option<f64>> = ring
+        let games: Vec<GameColumns> = now.map_or_default(|latest| {
+            latest
+                .games
+                .iter()
+                .map(|game| {
+                    fn same<'a>(s: &'a Sample, game: &GameSample) -> Option<&'a GameSample> {
+                        s.games
                             .iter()
-                            .map(|s| same(s, game).and_then(|g| g.cpu).map(f64::from))
-                            .collect();
-                        let rss: Vec<Option<u64>> =
-                            ring.iter().map(|s| same(s, game).map(|g| g.rss)).collect();
-                        GameColumns {
-                            game_id: game.game_id.clone(),
-                            pid: game.pid,
-                            cpu,
-                            rss,
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+                            .find(|g| g.game_id == game.game_id && g.pid == game.pid)
+                    }
+                    let cpu: Vec<Option<f64>> = ring
+                        .iter()
+                        .map(|s| same(s, game).and_then(|g| g.cpu).map(f64::from))
+                        .collect();
+                    let rss: Vec<Option<u64>> =
+                        ring.iter().map(|s| same(s, game).map(|g| g.rss)).collect();
+                    GameColumns {
+                        game_id: game.game_id.clone(),
+                        pid: game.pid,
+                        cpu,
+                        rss,
+                    }
+                })
+                .collect()
+        });
         MetricsSnapshot {
             at: at.to_owned(),
             interval_secs: INTERVAL.as_secs(),

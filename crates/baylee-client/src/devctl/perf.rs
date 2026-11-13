@@ -340,8 +340,7 @@ pub(super) fn allocs(every: Option<u64>) -> String {
     SAMPLE_EVERY.store(0, Ordering::Relaxed);
     let kept = SAMPLES
         .lock()
-        .map(|mut kept| std::mem::take(&mut *kept))
-        .unwrap_or_default();
+        .map_or_default(|mut kept| std::mem::take(&mut *kept));
     let mut sites: std::collections::BTreeMap<(String, String, String), (usize, String)> =
         std::collections::BTreeMap::new();
     let mut threads: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();

@@ -268,6 +268,50 @@ pub(super) fn spawn_tab(
     tab
 }
 
+/// A number in a seat's group that is not a tab: how many cards lie in a
+/// zone nobody may look through, under the mark the seat's own bar counts
+/// it by.
+///
+/// The quieter ink and no surface, which is how this dialog writes a
+/// sentence that is not a control, and `Pickable::IGNORE` so it takes no
+/// press meant for the title bar it stands on.
+pub(super) fn spawn_tab_fact(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    icon: char,
+    count: u32,
+) -> Entity {
+    let fact = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(3),
+                padding: UiRect::left(px(4)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mark = commands
+        .spawn((
+            Text::new(icon.to_string()),
+            icon_tf(fonts, 9.5),
+            TextColor(palette::DIALOG_SOFT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let figure = dialog_label(
+        commands,
+        fonts,
+        &count.to_string(),
+        11.0,
+        palette::DIALOG_SOFT,
+    );
+    commands.entity(fact).add_children(&[mark, figure]);
+    fact
+}
+
 /// The box at the start of a zone's name.
 ///
 /// The list's own box ([`spawn_row`]) one size down and with the same four

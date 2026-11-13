@@ -8,15 +8,24 @@ use baylee_view::Phase;
 
 use crate::netplay4::tactics::is_mana_ability_entry;
 
+use super::macros::{Playing, ScriptWitness};
 use super::{
-    Answer4, Candidate4, ForkRefusal, ForkSource4, LeafCounts4, Pending, PlayerAction, PlayerId,
-    PlayerView, ROLLOUT, RootDecision4, SearchConfig4, SearchPlayer4, SearchReport4,
-    SimulationSession, SourceKind4, derive, terminal_utility, world_seed,
+    Answer4, Candidate4, ForkRefusal, ForkSource4, LeafCounts4, LeafEnd4, Pending, PlayerAction,
+    PlayerId, PlayerView, ROLLOUT, RootDecision4, Script4, SearchConfig4, SearchPlayer4,
+    SearchReport4, SimulationSession, SourceKind4, ViewContext4, derive, terminal_utility,
+    world_seed,
 };
 
 /// The most actions, every chair's, one rollout takes before it stops: a
 /// guard against a world that never settles, not a budget.
 pub(super) const MAX_ROLLOUT_ACTIONS: u64 = 4096;
+
+/// The most actions a rollout takes per turn of a turn horizon before it
+/// stops. In the first probe two roots took five minutes each, each with a
+/// rollout that ended at a guard: read as a world that never settled and
+/// ran to [`MAX_ROLLOUT_ACTIONS`], an inference a step (not confirmed from a
+/// record). A turn of that probe took about 26 actions.
+pub(super) const MAX_ACTIONS_A_TURN: u64 = 400;
 
 /// Why a rollout ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,7 +35,21 @@ enum LeafKind {
     Settled,
     Horizon,
     TurnEnd,
+    Boundary,
     Stopped,
+}
+
+/// How far a rollout plays.
+#[derive(Clone, Copy)]
+pub(super) struct Reach {
+    /// Decisions of the searching seat past the candidate (H).
+    pub(super) decisions: usize,
+    /// Turn boundaries past the root; `0` for v2's stops (the seat's first
+    /// settled pass, the end of its next own turn).
+    pub(super) turns: usize,
+    /// Whether a rollout stops where a house answer would be played in it
+    /// ([`SearchConfig4::with_house_free`]).
+    pub(super) house_free: bool,
 }
 
 /// How a rollout ended.
@@ -35,6 +58,41 @@ struct Leaf {
     steps: u64,
     decisions: u64,
     kind: LeafKind,
+    /// House answers played in the rollout: a chair's answer the player
+    /// itself gave as the house's (a question it does not support, a
+    /// repeated view, a failed decode), or the fork's house standing in
+    /// for an answer the fork refused.
+    house: u64,
+    /// Whether the rollout stopped because the next answer was the house's.
+    house_stop: bool,
+    /// Whether the rollout stopped because the root's cast or activation
+    /// was taken back.
+    taken_back: bool,
+    /// For a candidate that is a bare mana ability, the seat's first
+    /// answer at priority after it that is not one: what the taps were for
+    /// (a cast, an ability, or a pass that let the mana go).
+    intent: Option<PlayerAction>,
+}
+
+impl Leaf {
+    /// How the rollout ended, for the report's `ends`.
+    const fn end(&self) -> LeafEnd4 {
+        if self.house_stop {
+            return LeafEnd4::HouseStop;
+        }
+        if self.taken_back {
+            return LeafEnd4::TakenBack;
+        }
+        match self.kind {
+            LeafKind::Terminal => LeafEnd4::Terminal,
+            LeafKind::Immediate => LeafEnd4::Immediate,
+            LeafKind::Settled => LeafEnd4::Settled,
+            LeafKind::Horizon => LeafEnd4::Horizon,
+            LeafKind::TurnEnd => LeafEnd4::TurnEnd,
+            LeafKind::Boundary => LeafEnd4::Boundary,
+            LeafKind::Stopped => LeafEnd4::Stopped,
+        }
+    }
 }
 
 /// Whether the searching seat's question is a settled position to score:
@@ -99,6 +157,11 @@ const fn moment(view: &PlayerView) -> (u32, u8) {
 /// seat's first settled pass after the root's phase, and with what it did
 /// in between: a land drop with the spells it enables, a pass with the land
 /// played later, an attack with its damage.
+///
+/// With `reach.turns > 0` neither the settled pass nor the seat's next turn
+/// ends it: it is played to that many turn boundaries past the root and
+/// scored at the first position of the turn that then starts, so every
+/// candidate has met the other players' answers to it.
 #[allow(
     clippy::too_many_arguments,
     clippy::too_many_lines,
@@ -109,17 +172,30 @@ fn rollout<P: SearchPlayer4>(
     fork: &mut SimulationSession,
     root: &PlayerView,
     teams: &[Option<u8>],
-    horizon: usize,
+    reach: Reach,
     mut active_root_cast: Option<baylee_core::ids::ObjectId>,
     mut root_snapshot_hash: Option<u64>,
     root_journal_len: usize,
+    mut intent: Option<&mut Option<PlayerAction>>,
 ) -> anyhow::Result<Leaf> {
     let seat = root.seat;
+    let horizon = reach.decisions;
     let context = player.view_context();
     let seats = fork.state().players.len();
     let start_turn = fork.state().turn.number;
+    let last_turn = u32::try_from(reach.turns)
+        .ok()
+        .filter(|turns| *turns > 0)
+        .map(|turns| start_turn.saturating_add(turns));
+    let guard = if reach.turns > 0 {
+        MAX_ROLLOUT_ACTIONS.min(MAX_ACTIONS_A_TURN.saturating_mul(reach.turns as u64))
+    } else {
+        MAX_ROLLOUT_ACTIONS
+    };
     let mut next_own_turn: Option<u32> = None;
     let (mut steps, mut decisions) = (0_u64, 0_u64);
+    let house = std::cell::Cell::new(0_u64);
+    let from_house = |answer: &Answer4| answer.provenance.source == SourceKind4::House;
     let value = |player: &P, steps, decisions, kind| -> anyhow::Result<Leaf> {
         let score = player
             .observed_value(seat)
@@ -129,6 +205,18 @@ fn rollout<P: SearchPlayer4>(
             steps,
             decisions,
             kind,
+            house: house.get(),
+            house_stop: false,
+            taken_back: false,
+            intent: None,
+        })
+    };
+    // The leaf where the next answer would be the house's and the search
+    // plays none: the position before it, scored by the value head.
+    let house_stop = |player: &P, steps, decisions| -> anyhow::Result<Leaf> {
+        value(player, steps, decisions, LeafKind::Stopped).map(|leaf| Leaf {
+            house_stop: true,
+            ..leaf
         })
     };
     loop {
@@ -152,6 +240,10 @@ fn rollout<P: SearchPlayer4>(
                 steps,
                 decisions,
                 kind: LeafKind::Terminal,
+                house: house.get(),
+                house_stop: false,
+                taken_back: false,
+                intent: None,
             });
         }
         if fork.state().has_left(seat) {
@@ -161,6 +253,10 @@ fn rollout<P: SearchPlayer4>(
                 steps,
                 decisions,
                 kind: LeafKind::Stopped,
+                house: house.get(),
+                house_stop: false,
+                taken_back: false,
+                intent: None,
             });
         }
         let observed = context.observe(fork, seat);
@@ -192,6 +288,10 @@ fn rollout<P: SearchPlayer4>(
                 steps,
                 decisions,
                 kind: LeafKind::Stopped,
+                house: house.get(),
+                house_stop: false,
+                taken_back: true,
+                intent: None,
             });
         }
         if observed.casting.is_none()
@@ -208,13 +308,16 @@ fn rollout<P: SearchPlayer4>(
         if turn.active == seat && turn.number > start_turn {
             next_own_turn.get_or_insert(turn.number);
         }
-        if next_own_turn.is_some_and(|own| turn.number > own) {
+        if last_turn.is_some_and(|last| turn.number >= last) {
+            return value(player, steps, decisions, LeafKind::Boundary);
+        }
+        if last_turn.is_none() && next_own_turn.is_some_and(|own| turn.number > own) {
             return value(player, steps, decisions, LeafKind::TurnEnd);
         }
         if decisions >= horizon as u64 {
             return value(player, steps, decisions, LeafKind::Horizon);
         }
-        if steps >= MAX_ROLLOUT_ACTIONS {
+        if steps >= guard {
             return value(player, steps, decisions, LeafKind::Stopped);
         }
         if fork.needs_pump() {
@@ -224,16 +327,35 @@ fn rollout<P: SearchPlayer4>(
         }
         if let Some((pending, view)) = context.view_for(fork, seat) {
             let answer = player.answer(&view, &pending, teams);
+            // What a root's bare tap was for: the seat's first priority
+            // answer after it that is not a mana ability.
+            if let Some(intent) = intent.as_deref_mut()
+                && intent.is_none()
+                && matches!(pending, Pending::Priority { .. })
+                && !super::is_mana_action(&view, &answer.action)
+            {
+                *intent = Some(answer.action.clone());
+            }
             // Past the root's phase, the seat has done what it does in this main
             // phase: score the position it would pass on, before the pass.
-            if moment(&view) > moment(root)
+            if last_turn.is_none()
+                && moment(&view) > moment(root)
                 && settled(&view, &pending)
                 && answer.action == PlayerAction::PassPriority
             {
                 return value(player, steps, decisions, LeafKind::Settled);
             }
             let counts = counts_toward_horizon(&answer, &view);
+            if from_house(&answer) {
+                if reach.house_free {
+                    return house_stop(player, steps, decisions);
+                }
+                house.set(house.get() + 1);
+            }
             if fork.act_slice(seat, answer.action, 0).is_err() {
+                if reach.house_free {
+                    return house_stop(player, steps, decisions);
+                }
                 // As the evaluator does after a refused answer.
                 let accepted = fork
                     .house_action(seat)
@@ -241,6 +363,7 @@ fn rollout<P: SearchPlayer4>(
                 if !accepted {
                     return value(player, steps, decisions, LeafKind::Stopped);
                 }
+                house.set(house.get() + 1);
             }
             steps += 1;
             decisions += u64::from(counts);
@@ -254,13 +377,23 @@ fn rollout<P: SearchPlayer4>(
             return value(player, steps, decisions, LeafKind::Stopped);
         };
         let answer = player.answer(&view, &pending, teams);
+        if from_house(&answer) {
+            if reach.house_free {
+                return house_stop(player, steps, decisions);
+            }
+            house.set(house.get() + 1);
+        }
         if fork.act_slice(other, answer.action, 0).is_err() {
+            if reach.house_free {
+                return house_stop(player, steps, decisions);
+            }
             let accepted = fork
                 .house_action(other)
                 .is_some_and(|house| fork.act_slice(other, house, 0).is_ok());
             if !accepted {
                 return value(player, steps, decisions, LeafKind::Stopped);
             }
+            house.set(house.get() + 1);
         }
         steps += 1;
     }
@@ -314,6 +447,45 @@ fn answer_target<P: SearchPlayer4>(
     let decision = player.decide(&view, &pending, teams);
     player.conclude(&view, &decision, action);
     Ok(fork.act_slice(seat, action.clone(), 0).is_ok())
+}
+
+/// Plays the rest of `script` for `seat` in `fork`, whose first tap was just
+/// made: each of the seat's questions is answered from the script, `witness`
+/// observing before it and noting the answer, until the action the taps pay
+/// for is sent. `false` when another question comes first, the script
+/// breaks, or the table refuses an answer.
+///
+/// # Errors
+/// When the witness cannot observe (its model failed).
+pub(super) fn follow_script<W: ScriptWitness>(
+    mut witness: W,
+    fork: &mut SimulationSession,
+    context: ViewContext4,
+    seat: PlayerId,
+    script: &mut Script4,
+) -> anyhow::Result<bool> {
+    for _ in 0..MAX_ROLLOUT_ACTIONS {
+        if fork.needs_pump() {
+            fork.pump_at_most(1);
+            continue;
+        }
+        witness.observe(&context.observe(fork, seat))?;
+        let Some((pending, view)) = context.view_for(fork, seat) else {
+            return Ok(false);
+        };
+        let step = script.next(&view, &pending);
+        let Some(action) = step.action() else {
+            return Ok(false);
+        };
+        witness.answer(&view, &pending, action);
+        if fork.act_slice(seat, action.clone(), 0).is_err() {
+            return Ok(false);
+        }
+        if step.ends() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// World `seed`, forked from `table` for `seat`, every other chair handed
@@ -387,7 +559,7 @@ struct Start<'a> {
     view: &'a PlayerView,
     teams: &'a [Option<u8>],
     decision: &'a RootDecision4,
-    horizon: usize,
+    reach: Reach,
     neural_opponent: bool,
 }
 
@@ -409,7 +581,9 @@ impl Start<'_> {
             player.reset_other_seats_for_rollout(seat);
         }
         let action = &candidate.root.action;
-        let root_cast = match *action {
+        // The spell a planned cast's taps pay for is the root's cast too.
+        let cast = candidate.script.as_ref().map_or(action, Script4::then);
+        let root_cast = match *cast {
             PlayerAction::CastSpell { card } => Some(card),
             _ => None,
         };
@@ -433,17 +607,31 @@ impl Start<'_> {
         {
             return Ok(None);
         }
-        rollout(
+        if let Some(mut script) = candidate.script.clone() {
+            let witness = Playing {
+                player: &mut *player,
+                teams: self.teams,
+            };
+            let context = witness.player.view_context();
+            if !follow_script(witness, &mut world, context, seat, &mut script)? {
+                return Ok(None);
+            }
+        }
+        // A bare tap says nothing of what it pays for: the rollout notes it.
+        let bare_tap = candidate.script.is_none() && super::is_mana_action(self.view, action);
+        let mut intent = None;
+        let leaf = rollout(
             player,
             &mut world,
             self.view,
             self.teams,
-            self.horizon,
+            self.reach,
             root_cast,
             root_snapshot_hash,
             journal_cursor,
-        )
-        .map(Some)
+            bare_tap.then_some(&mut intent),
+        )?;
+        Ok(Some(Leaf { intent, ..leaf }))
     }
 }
 
@@ -461,6 +649,11 @@ struct Tally {
     report: SearchReport4,
     worlds: Vec<Vec<f32>>,
     scores: Vec<f32>,
+    /// How the current round's rollouts ended, beside `scores`.
+    ends: Vec<LeafEnd4>,
+    /// What the policy's own answer was for in the current round, when it
+    /// is a bare tap.
+    own_intent: Option<PlayerAction>,
 }
 
 impl Tally {
@@ -474,22 +667,33 @@ impl Tally {
                     .iter()
                     .map(|c| c.target.as_ref().map(|t| t.action.clone()))
                     .collect(),
+                scripts: candidates
+                    .iter()
+                    .map(|c| c.script.as_ref().map(|s| s.then().clone()))
+                    .collect(),
                 rounds: 0,
                 chosen: 0,
                 changed: false,
                 means: Vec::new(),
                 diffs: Vec::new(),
                 ses: Vec::new(),
+                worlds: Vec::new(),
                 priors: Vec::new(),
                 scores: Vec::new(),
                 rollouts: 0,
                 rollout_steps: 0,
                 seat_decisions: 0,
+                house_answers: 0,
                 leaves: LeafCounts4::default(),
+                ends: Vec::with_capacity(particles),
+                own_intents: Vec::with_capacity(particles),
+                taken_back: Vec::new(),
                 parallel,
             },
             worlds: Vec::with_capacity(particles),
             scores: Vec::with_capacity(candidates.len()),
+            ends: Vec::with_capacity(candidates.len()),
+            own_intent: None,
         }
     }
 
@@ -504,6 +708,9 @@ impl Tally {
         report.rollouts += 1;
         report.rollout_steps += leaf.steps;
         report.seat_decisions += leaf.decisions;
+        report.house_answers += leaf.house;
+        report.leaves.house_stop += u64::from(leaf.house_stop);
+        report.leaves.taken_back += u64::from(leaf.taken_back);
         let kind = &mut report.leaves;
         *match leaf.kind {
             LeafKind::Terminal => &mut kind.terminal,
@@ -511,11 +718,19 @@ impl Tally {
             LeafKind::Settled => &mut kind.settled,
             LeafKind::Horizon => &mut kind.horizon,
             LeafKind::TurnEnd => &mut kind.turn_end,
+            LeafKind::Boundary => &mut kind.boundary,
             LeafKind::Stopped => &mut kind.stopped,
         } += 1;
+        if self.scores.is_empty() {
+            // The policy's own answer opens each round.
+            self.own_intent.clone_from(&leaf.intent);
+        }
         self.scores.push(leaf.score);
+        self.ends.push(leaf.end());
         if self.scores.len() == self.candidates {
             self.worlds.push(std::mem::take(&mut self.scores));
+            report.ends.push(std::mem::take(&mut self.ends));
+            report.own_intents.push(self.own_intent.take());
             report.rounds += 1;
         }
         true
@@ -566,7 +781,11 @@ impl<S> Rounds<'_, S> {
             view: self.view,
             teams: self.teams,
             decision: self.decision,
-            horizon: config.horizon(),
+            reach: Reach {
+                decisions: config.horizon(),
+                turns: config.turns(),
+                house_free: config.house_free(),
+            },
             neural_opponent: config.neural_opponent(),
         };
         if parallel {

@@ -170,6 +170,79 @@ impl GameState {
         self.characteristics_generation = u64::MAX;
     }
 
+    /// Gives every split card off the stack its left half's characteristics,
+    /// as a build from before the split boundary read it, where this one
+    /// reads both halves ([`Self::rest_as_card`]). For a replay audit's hash
+    /// alone (`Engine::snapshot_hash_reading_split_cards_by_left_half`), on a
+    /// copy of the state: nothing in a game calls it.
+    #[doc(hidden)]
+    pub fn read_split_cards_by_left_half(&mut self) {
+        use crate::state::CardLookup;
+        let split: Vec<(ObjectId, &'static CardDef)> = self
+            .arena
+            .iter()
+            .filter(|(_, o)| o.zone != Zone::Stack && o.is_card())
+            .filter_map(|(id, o)| {
+                let def = self.bases.card(o.card?.index)?;
+                def.is_split_spell_card().then_some((id, def))
+            })
+            .collect();
+        for (id, def) in split {
+            if let Some(obj) = self.object_mut(id) {
+                let name = obj.base.name;
+                let left = Arc::new(crate::object::Characteristics::from_face(def, 0, name));
+                obj.base = Arc::clone(&left);
+                obj.cache.clear();
+                // The shared base too, which no hash reads, so that the copy
+                // is that build's state throughout.
+                Arc::make_mut(&mut self.bases).cards.insert(def.index, left);
+            }
+        }
+        // And the incarnations kept for a source named after it moved on
+        // (`damage_sources`), each as it was when it left.
+        for kept in &mut self.damage_sources {
+            let Some(def) = kept
+                .card
+                .filter(|_| kept.zone != Zone::Stack)
+                .and_then(|card| self.bases.card(card.index))
+                .filter(|def| def.is_split_spell_card())
+            else {
+                continue;
+            };
+            let object = Arc::make_mut(kept);
+            let name = object.base.name;
+            object.base = Arc::new(crate::object::Characteristics::from_face(def, 0, name));
+            object.cache.clear();
+        }
+    }
+
+    /// Gives a card back the characteristics it has off the stack and the
+    /// battlefield (CR 400.7): its front face, and for a split card whose
+    /// halves are spells both halves combined (CR 709.4,
+    /// `Characteristics::of_card`). The shared base the game was set up with
+    /// is the same value, and is reused when there is one.
+    pub fn rest_as_card(&mut self, id: ObjectId, def: &CardDef) {
+        if !crate::object::reads_both_halves(def) {
+            self.switch_face(id, def, 0);
+            return;
+        }
+        let shared = self
+            .object(id)
+            .and_then(|o| o.card)
+            .and_then(|card| self.bases.cards.get(&card.index))
+            .map(Arc::clone);
+        let whole = shared.unwrap_or_else(|| {
+            let name = self.names.intern(def.faces[0].name);
+            Arc::new(crate::object::Characteristics::of_card(def, name))
+        });
+        if let Some(obj) = self.object_mut(id) {
+            obj.face_index = 0;
+            obj.base = whole;
+            obj.cache.clear();
+        }
+        self.characteristics_generation = u64::MAX;
+    }
+
     /// Gives a permanent with a shared type line the unlocked designations
     /// `unlocked` names (bit 0 the left half, bit 1 the right; CR 709.5c),
     /// and the characteristics they leave it: the name, mana cost and rules

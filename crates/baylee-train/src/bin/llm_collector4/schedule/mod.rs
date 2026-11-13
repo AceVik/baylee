@@ -137,7 +137,33 @@ pub fn derive_cli_decks(
     Ok([p0, p1])
 }
 
-pub fn load_decks(manifest_path: &Path) -> anyhow::Result<Vec<DeckEntry>> {
+/// The `--only` conditions, each `FIELD=VALUE`, as `(field, value)`.
+///
+/// # Errors
+/// A condition without a field or a value.
+pub fn only_fields(only: &[String]) -> anyhow::Result<Vec<(String, String)>> {
+    only.iter()
+        .map(|condition| {
+            condition
+                .split_once('=')
+                .filter(|(field, value)| !field.is_empty() && !value.is_empty())
+                .map(|(field, value)| (field.to_owned(), value.to_owned()))
+                .with_context(|| format!("--only is FIELD=VALUE, not {condition}"))
+        })
+        .collect()
+}
+
+/// The decks of `manifest_path` whose entries say what every `only`
+/// condition asks (`split` `train`, `format` `constructed`), in the
+/// manifest's order; with none, every deck. A deck without a key keeps the
+/// name its place in the whole manifest gives it.
+///
+/// # Errors
+/// An unreadable manifest, a deck without a path or format, or no deck left.
+pub fn load_decks_where(
+    manifest_path: &Path,
+    only: &[(String, String)],
+) -> anyhow::Result<Vec<DeckEntry>> {
     let raw = std::fs::read_to_string(manifest_path)
         .with_context(|| format!("reading deck manifest {}", manifest_path.display()))?;
     let val: Value = serde_json::from_str(&raw)?;
@@ -147,6 +173,12 @@ pub fn load_decks(manifest_path: &Path) -> anyhow::Result<Vec<DeckEntry>> {
         .context("deck manifest missing `decks` array")?;
     let mut decks: Vec<DeckEntry> = Vec::with_capacity(arr.len());
     for (idx, item) in arr.iter().enumerate() {
+        if only
+            .iter()
+            .any(|(field, value)| item.get(field).and_then(Value::as_str) != Some(value.as_str()))
+        {
+            continue;
+        }
         let key = item
             .get("key")
             .or_else(|| item.get("deck_id"))
@@ -265,14 +297,10 @@ pub fn house_level(entry: &str) -> Option<&str> {
 
 /// The [`Chain`] of the house at `level`: the mind `baylee-seat join --mind
 /// house --level <level>` declares (`declare::house`), and no fallback.
-/// Refused for a level the house does not play (`AIProfile::NAMED`).
+/// Refused for a level a seat does not play (`baylee_seat::house::level`):
+/// one of `AIProfile::NAMED` or `AIProfile::REFERENCES` that does not peek.
 fn house_chain(level: &str) -> anyhow::Result<Chain> {
-    let levels = baylee_core::preset::AIProfile::NAMED.map(|(name, _)| name);
-    ensure!(
-        levels.contains(&level),
-        "No house level called {level}: the house plays {}",
-        levels.join(", ")
-    );
+    baylee_seat::house::level(level).map_err(anyhow::Error::msg)?;
     let declared = baylee_seat::declare::house(level);
     let mind = baylee_gamehost::record::Mind::from_wire(&declared).map_err(anyhow::Error::msg)?;
     Ok(Chain {
@@ -528,8 +556,15 @@ pub struct Scheduler {
     /// The operator's limit: attempts, counted over the whole root, whose
     /// seats send reports; `None`, every attempt's do.
     report_games: Option<usize>,
+    /// An evaluation (`collect --evaluation`): every request says
+    /// `numbers_only` and not `bc_only`, so no conversion trains on it.
+    numbers_only: bool,
     in_flight: BTreeMap<String, InFlight>,
     known_record_shas: BTreeSet<String>,
+    /// Other collector roots' `attempts` (`collect --balance-with`): their
+    /// admitted games count towards which decks and deck pairs are played
+    /// next, and their records towards uniqueness, and nothing else.
+    balance_with: Vec<PathBuf>,
 }
 
 fn all_attempts_dirs(root: &Path) -> Vec<PathBuf> {
@@ -598,15 +633,19 @@ pub fn attempt_closed(dir: &Path) -> anyhow::Result<()> {
 }
 
 impl Scheduler {
+    /// A collection's schedule, seating the decks of the manifest `decks.0`
+    /// whose entries say what `decks.1` asks ([`load_decks_where`]; none:
+    /// every deck).
     pub fn new(
         root: PathBuf,
         gateway: String,
         profiles_config: PathBuf,
         pairings_file: Option<PathBuf>,
-        deck_manifest: &Path,
+        decks: (&Path, &[(String, String)]),
         call_timeout_seconds: u64,
         game_timeout_seconds: u64,
     ) -> anyhow::Result<Self> {
+        let (deck_manifest, only) = decks;
         for marker in [
             "transport-blocked",
             "transport-blocked.json",
@@ -618,7 +657,7 @@ impl Scheduler {
             );
         }
         let pairing_plan = PairingPlan::load(&profiles_config, pairings_file)?;
-        let decks = load_decks(deck_manifest)?;
+        let decks = load_decks_where(deck_manifest, only)?;
         for deck in &decks {
             collector_room_setup([&deck.format, &deck.format])?;
         }
@@ -674,9 +713,46 @@ impl Scheduler {
             starting_life: None,
             next_index: max_idx.map_or(0, |m| m + 1),
             report_games: None,
+            numbers_only: false,
             in_flight: BTreeMap::new(),
             known_record_shas,
+            balance_with: Vec::new(),
         })
+    }
+
+    /// Lets the admitted games of other collector `roots` count as if they
+    /// were this root's when the next decks and deck pairs are chosen, and
+    /// their records towards the uniqueness of this root's: a later segment
+    /// of a corpus on a root of its own goes on with the pairs the earlier
+    /// one has not played. Nothing of those roots is read but their
+    /// receipts, and nothing is written there.
+    ///
+    /// # Errors
+    /// A root without `attempts`, or this root itself.
+    pub fn balanced_with(mut self, roots: &[PathBuf]) -> anyhow::Result<Self> {
+        for root in roots {
+            let attempts = root.join("attempts");
+            ensure!(
+                attempts.is_dir(),
+                "--balance-with {} has no attempts",
+                root.display()
+            );
+            ensure!(
+                attempts.canonicalize()? != self.root.join("attempts").canonicalize()?,
+                "--balance-with names this root itself"
+            );
+            self.balance_with.push(attempts);
+        }
+        for receipt in self.load_receipts() {
+            if let Some(sha) = receipt
+                .get("technical")
+                .and_then(|t| t.get("record_sha256"))
+                .and_then(Value::as_str)
+            {
+                self.known_record_shas.insert(sha.to_owned());
+            }
+        }
+        Ok(self)
     }
 
     /// With `Some(games)`, the operator's limit: only the first `games`
@@ -688,6 +764,43 @@ impl Scheduler {
     pub const fn with_report_games(mut self, games: Option<usize>) -> Self {
         self.report_games = games;
         self
+    }
+
+    /// An evaluation, numbers only (`collect --evaluation`): any deck may be
+    /// seated, and every request says `numbers_only: true` and `bc_only:
+    /// false`, which `convert4 --llm-bc` refuses.
+    #[must_use]
+    pub const fn numbers_only(mut self, yes: bool) -> Self {
+        self.numbers_only = yes;
+        self
+    }
+
+    /// The decks of the deck manifest `guard` keeps out of training, each
+    /// named with why: a teacher collection seats train decks only. A deck
+    /// is read by its key and its cards (main deck and commanders).
+    ///
+    /// # Errors
+    /// A deck whose list cannot be read.
+    pub fn train_deck_refusals(
+        &self,
+        guard: &baylee_train::decksplit::TrainOnly,
+    ) -> anyhow::Result<Vec<String>> {
+        let mut refused = Vec::new();
+        for deck in &self.decks {
+            let text = std::fs::read_to_string(&deck.path)
+                .with_context(|| format!("reading deck {} at {}", deck.key, deck.path))?;
+            let cards = baylee_train::housedeck::HouseDeck::parse_any(&deck.key, &text)
+                .map(|parsed| baylee_train::decksplit::cards_of(&parsed))
+                .with_context(|| format!("reading deck {}", deck.key))?;
+            let seat = baylee_train::decksplit::Seat {
+                key: Some(deck.key.clone()),
+                cards: Some(cards),
+            };
+            if let Some(why) = guard.refusal(std::slice::from_ref(&seat)) {
+                refused.push(format!("{} ({}): {why}", deck.key, deck.path));
+            }
+        }
+        Ok(refused)
     }
 
     /// Whether the attempt numbered `index` (over the whole root) sends its
@@ -718,7 +831,8 @@ impl Scheduler {
 
     pub fn load_receipts(&self) -> Vec<Value> {
         let mut out = Vec::new();
-        for attempts_dir in all_attempts_dirs(&self.root) {
+        let others = self.balance_with.iter().cloned();
+        for attempts_dir in all_attempts_dirs(&self.root).into_iter().chain(others) {
             let Ok(entries) = std::fs::read_dir(&attempts_dir) else {
                 continue;
             };
@@ -984,7 +1098,8 @@ impl Scheduler {
             "models": chosen_models,
             "fallback_profiles": chains.clone().map(|c| c.fallback_profiles()),
             "requested_fallbacks": chains.map(|c| c.fallback_minds()),
-            "bc_only": true,
+            "bc_only": !self.numbers_only,
+            "numbers_only": self.numbers_only,
             "ppo_eligible": false,
             "semantic_quality_gate": false,
             "seed_contract": "Actual server RNG seed must be read from complete export; schedule index is not a game seed",
@@ -1328,6 +1443,116 @@ mod tests {
         assert!(collector_room_setup(["", ""]).is_err());
     }
 
+    /// A later segment on a root of its own goes on with the deck pairs an
+    /// earlier root has not played (`--balance-with`): without it, a fresh
+    /// root starts on the same pair; with it, the earlier root's admitted
+    /// game counts and its record is known, and nothing of it is written.
+    #[test]
+    fn a_root_balanced_with_another_goes_on_with_the_pairs_that_one_left() {
+        let dir = TestDir::new("balance-with");
+        let mut deck_entries = Vec::new();
+        for i in 0..6 {
+            let p = dir.path().join(format!("d{i}.txt"));
+            std::fs::write(&p, "60 Plains\n").unwrap();
+            deck_entries.push(json!({"key": format!("d-{i}"), "name": format!("Deck {i}"),
+                "path": p, "sha256": sha256_file(&p).unwrap(), "format": "constructed"}));
+        }
+        let manifest = dir.path().join("deck-manifest.json");
+        write_atomic_json(&manifest, &json!({ "decks": deck_entries })).unwrap();
+        let config = profiles(dir.path());
+        let pairings = dir.path().join("pairings.json");
+        write_atomic_json(&pairings, &json!([["argon-low", "argon-low"]])).unwrap();
+        let open = |root: &str| {
+            std::fs::create_dir_all(dir.path().join(root)).unwrap();
+            Scheduler::new(
+                dir.path().join(root),
+                "http://127.0.0.1:28768".to_owned(),
+                config.clone(),
+                Some(pairings.clone()),
+                (&manifest, &[]),
+                90,
+                3600,
+            )
+            .unwrap()
+        };
+        let pair = |a: &Assignment| {
+            let mut keys = [a.decks[0].key.clone(), a.decks[1].key.clone()];
+            keys.sort();
+            keys
+        };
+        // The earlier root played one game, admitted.
+        let first = pair(&open("first").next_assignment(0).unwrap());
+        let played = dir.path().join("first/attempts/attempt-000000000");
+        std::fs::create_dir_all(&played).unwrap();
+        let request = json!({"decks": [{"key": first[0], "format": "Constructed"},
+            {"key": first[1], "format": "Constructed"}], "profiles": ["argon-low", "argon-low"]});
+        write_atomic_json(
+            &played.join("receipt.json"),
+            &json!({"status": "admitted", "request": request,
+                "technical": {"record_sha256": "earlier"}}),
+        )
+        .unwrap();
+        let before = std::fs::read(played.join("receipt.json")).unwrap();
+
+        assert_eq!(pair(&open("alone").next_assignment(0).unwrap()), first);
+        let keys = |s: &Scheduler| s.decks.iter().map(|d| d.key.clone()).collect::<Vec<_>>();
+        let unbalanced = keys(&open("plain"));
+        let mut later = open("later")
+            .balanced_with(&[dir.path().join("first")])
+            .unwrap();
+        // The decks it may seat, which the train guard checks, are the same:
+        // balancing chooses among them and never adds one.
+        assert_eq!(keys(&later), unbalanced);
+        assert_ne!(pair(&later.next_assignment(0).unwrap()), first);
+        assert!(!later.register_record_sha("earlier"), "its record is known");
+        assert_eq!(std::fs::read(played.join("receipt.json")).unwrap(), before);
+        assert!(
+            open("again")
+                .balanced_with(&[dir.path().join("nowhere")])
+                .is_err()
+        );
+        let own = dir.path().join("own");
+        assert!(open("own").balanced_with(&[own]).is_err(), "not itself");
+    }
+
+    /// `--only` seats the decks of an importer manifest whose entries say
+    /// what it asks (one split's constructed decks), keeps each deck's name
+    /// from its place in the whole manifest, and leaves the other formats
+    /// out before any of them is checked for a room.
+    #[test]
+    fn only_seats_the_decks_whose_fields_say_so() {
+        let dir = TestDir::new("only-decks");
+        let manifest = dir.path().join("manifest.json");
+        let deck = |id: &str, split: &str, format: &str| {
+            json!({"id": id, "name": id, "path": format!("/decks/{id}.txt"),
+                "sha256": "00", "split": split, "format": format})
+        };
+        write_atomic_json(
+            &manifest,
+            &json!({"decks": [
+                deck("a", "train", "constructed"),
+                deck("b", "holdout2", "constructed"),
+                deck("c", "train", "starter_limited"),
+                deck("d", "train", "constructed"),
+            ]}),
+        )
+        .unwrap();
+        let only =
+            only_fields(&["split=train".to_owned(), "format=constructed".to_owned()]).unwrap();
+        let decks = load_decks_where(&manifest, &only).unwrap();
+        let names: Vec<_> = decks
+            .iter()
+            .map(|d| (d.key.as_str(), d.name.as_str()))
+            .collect();
+        assert_eq!(names, [("deck-000", "a"), ("deck-003", "d")]);
+        assert!(decks.iter().all(|d| d.format == "Constructed"));
+        assert_eq!(load_decks_where(&manifest, &[]).unwrap().len(), 4);
+        let none = only_fields(&["split=test".to_owned()]).unwrap();
+        assert!(load_decks_where(&manifest, &none).is_err(), "no deck left");
+        assert!(only_fields(&["split".to_owned()]).is_err());
+        assert!(only_fields(&["=train".to_owned()]).is_err());
+    }
+
     #[test]
     fn pairing_plan_resolves_flash_selfplay_and_terra_from_actual_profiles() {
         let dir = TestDir::new("pairing-models");
@@ -1470,7 +1695,7 @@ mod tests {
             "http://127.0.0.1:28768".to_owned(),
             config,
             Some(pairings),
-            &manifest,
+            (&manifest, &[]),
             90,
             3600,
         )
@@ -1717,6 +1942,60 @@ mod tests {
         assert!(text1.contains("Sideboard\n15 Abrade"));
     }
 
+    /// A teacher collection's decks are read against the train manifest by
+    /// key and by cards: a deck it holds out of train is named, under its
+    /// own key or another, and a train deck or a stranger passes. An
+    /// evaluation's requests are numbers only, which `convert4 --llm-bc`
+    /// refuses as BC.
+    #[test]
+    fn a_teacher_collection_seats_train_decks_only() {
+        let dir = TestDir::new("sched-train");
+        let repo = baylee_train::working::repo_root();
+        let mut deck_entries = Vec::new();
+        for (key, source) in [
+            ("house-002", "data/decks/eval/azorius-control.txt"),
+            ("pool/burn", "data/decks/eval/red-burn.txt"),
+            ("corpus/stranger", "data/decks/eval/blue-fliers.txt"),
+        ] {
+            let p = dir.path().join(format!("{}.txt", key.replace('/', "-")));
+            std::fs::copy(repo.join(source), &p).unwrap();
+            deck_entries.push(json!({"key": key, "name": key, "path": p,
+                "sha256": sha256_file(&p).unwrap(), "format": "Constructed"}));
+        }
+        let manifest = dir.path().join("deck-manifest.json");
+        write_atomic_json(&manifest, &json!({ "decks": deck_entries })).unwrap();
+        write_atomic_json(&dir.path().join("profiles.json"), &json!({"profiles": {
+            "argon-low": {"provider":"cli", "model":"agy:gemini-4-argon-low", "game_tokens":100_000},
+            "flash-low": {"provider":"cli", "model":"agy:gemini-3.8-flash-low", "game_tokens":100_000}
+        }})).unwrap();
+        let train = dir.path().join("train-manifest.json");
+        write_atomic_json(&train, &json!({"decks": [
+            {"id": "pool/azorius", "path": "data/decks/eval/azorius-control.txt", "split": "holdout2"},
+            {"id": "pool/burn", "path": "data/decks/eval/red-burn.txt", "split": "train"},
+        ]}))
+        .unwrap();
+        let sched = Scheduler::new(
+            dir.path().to_path_buf(),
+            "http://127.0.0.1:28768".to_owned(),
+            dir.path().join("profiles.json"),
+            None,
+            (&manifest, &[]),
+            90,
+            3600,
+        )
+        .unwrap();
+        let guard = baylee_train::decksplit::TrainOnly::load(&train, &repo).unwrap();
+        let refused = sched.train_deck_refusals(&guard).unwrap();
+        assert_eq!(refused.len(), 1, "{refused:?}");
+        assert!(refused[0].starts_with("house-002") && refused[0].contains("pool/azorius"));
+        assert!(refused[0].contains("holdout2"));
+
+        let mut evaluation = sched.numbers_only(true);
+        let attempt = evaluation.next_assignment(0).unwrap();
+        assert_eq!(attempt.request["numbers_only"], true);
+        assert_eq!(attempt.request["bc_only"], false);
+    }
+
     #[test]
     fn scheduler_balances_concurrent_slots_across_formats_and_decks() {
         let dir = TestDir::new("sched2");
@@ -1751,7 +2030,7 @@ mod tests {
             "http://127.0.0.1:28768".to_owned(),
             dir.path().join("profiles.json"),
             None,
-            &manifest,
+            (&manifest, &[]),
             90,
             3600,
         )
@@ -1781,7 +2060,7 @@ mod tests {
             "http://127.0.0.1:28768".to_owned(),
             dir.path().join("profiles.json"),
             None,
-            &manifest,
+            (&manifest, &[]),
             90,
             3600,
         )
@@ -1795,7 +2074,7 @@ mod tests {
             "http://127.0.0.1:28768".to_owned(),
             dir.path().join("profiles.json"),
             None,
-            &manifest,
+            (&manifest, &[]),
             90,
             3600,
         )
@@ -1850,7 +2129,7 @@ mod tests {
             "http://127.0.0.1:28768".to_owned(),
             dir.path().join("profiles.json"),
             Some(pairings),
-            &manifest,
+            (&manifest, &[]),
             90,
             3600,
         )

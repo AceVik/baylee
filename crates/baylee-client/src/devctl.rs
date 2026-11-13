@@ -821,8 +821,7 @@ fn waiting(control: &mut DevControl) -> Vec<Job> {
     control
         .jobs
         .get_mut()
-        .map(|rx| rx.try_iter().collect())
-        .unwrap_or_default()
+        .map_or_default(|rx| rx.try_iter().collect())
 }
 
 /// What `/health` says, given the frame count, the window's `(width, height,

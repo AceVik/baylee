@@ -545,16 +545,13 @@ fn sync(
                     baylee_protocol::social::Conv::Dm { .. } => {
                         conv.partner(&me).map(str::to_string).into_iter().collect()
                     }
-                    _ => machine
-                        .conversation(conv)
-                        .map(|c| {
-                            c.members
-                                .iter()
-                                .filter(|p| p.tag != me)
-                                .map(|p| p.tag.clone())
-                                .collect()
-                        })
-                        .unwrap_or_default(),
+                    _ => machine.conversation(conv).map_or_default(|c| {
+                        c.members
+                            .iter()
+                            .filter(|p| p.tag != me)
+                            .map(|p| p.tag.clone())
+                            .collect()
+                    }),
                 };
                 if let [only] = partners.as_slice() {
                     let block = safety_block(&mut commands, &fonts, lang, machine, only);

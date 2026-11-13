@@ -7,12 +7,13 @@ members = [
     "crates/cards/base",
     "crates/cards/pool",
     "crates/cards/testkit",
+    "crates/cards/sets/*",
     "crates/cards/tests/*",
     "xtask",
 ]
 
 [workspace.package]
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
@@ -65,6 +66,7 @@ baylee-build = { path = "crates/baylee-build" }
 baylee-pgo = { path = "crates/baylee-pgo" }
 baylee-db = { path = "crates/baylee-db" }
 baylee-feedback = { path = "crates/baylee-feedback" }
+baylee-avif = { path = "crates/baylee-avif" }
 baylee-update = { path = "crates/baylee-update" }
 baylee-seat = { path = "crates/baylee-seat" }
 baylee-seathost = { path = "crates/baylee-seathost" }
@@ -359,6 +361,15 @@ debug = "line-tables-only"
 [profile.dev.package."*"]
 debug = false
 
+# rav1d decodes the backdrops' loops (`baylee-avif`), and an AV1 decoder
+# without optimisation is seconds a frame: `vista::loops`' four tests, which
+# decode the shipped loops, took 10.2 s alone, and one ran into its own 20 s
+# deadline beside 1400 others (12.11.2026). A dependency is built once, so
+# this costs a developer's rebuild nothing.
+[profile.dev.package.rav1d]
+opt-level = 3
+debug = false
+
 # The gate's test run (`cargo dev gate`'s `test` step, nextest
 # `--cargo-profile gate`): the dev profile, with the crates the slowest tests
 # spend their time in at opt-level 1. Measured 10.11.2026 on the MacBook: three
@@ -366,8 +377,16 @@ debug = false
 # setting in the dev profile made every rebuild 30 to 35 s slower. So it is
 # the gate's alone, in a target directory of its own, and a developer's
 # rebuild stays quick.
+#
+# Without debug info (owner, 13.11.2026). On macOS every test binary passed
+# `dsymutil` (`.cargo/config.toml`), and the client's two took about ten
+# minutes each of a build that had changed no source. A failing test still
+# says its file and line, which a panic message carries by itself; what goes
+# is the line numbers inside a backtrace, and `cargo nextest run -p <crate>
+# <test>` in the dev profile brings them back.
 [profile.gate]
 inherits = "dev"
+debug = false
 
 [profile.gate.package.baylee-engine]
 opt-level = 1

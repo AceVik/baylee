@@ -184,3 +184,158 @@ fn a_million_made_up_frames_are_survived() {
     }
     assert!(reader.read(&whole).is_ok());
 }
+
+/// The sample view with a spell on the stack that divides its damage
+/// (`PlayerView::divided`, protocol 44) among two objects and a player.
+fn with_a_division(shares: Vec<(baylee_view::TargetRef, u32)>) -> PlayerView {
+    let mut view: PlayerView =
+        serde_json::from_str(include_str!("hostile_view.json")).expect("the sample view reads");
+    let spell = view.stack.first_mut().expect("the sample has a stack");
+    // The same targets whatever the division, so a frame differs only there.
+    spell.targets = three_shares().iter().map(|(target, _)| *target).collect();
+    let object = spell.id;
+    view.divided = if shares.is_empty() {
+        Vec::new()
+    } else {
+        vec![baylee_view::Division { object, shares }]
+    };
+    view
+}
+
+fn three_shares() -> Vec<(baylee_view::TargetRef, u32)> {
+    use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
+    use baylee_view::TargetRef;
+    let object = |slot| {
+        TargetRef::Object(DamageSourceRef {
+            object: ObjectId::new(slot, 0),
+            version: 0,
+        })
+    };
+    vec![
+        (object(124), 1),
+        (object(125), 1),
+        (TargetRef::Player(PlayerId::new(1)), 3),
+    ]
+}
+
+/// A divided spell goes whole and as a patch, and reads as it was written;
+/// every cut and every flipped byte of either is refused or read, never a
+/// panic, and a refusal leaves the view held.
+#[test]
+fn a_division_on_the_stack_survives_the_wire_and_every_damage() {
+    let view = with_a_division(three_shares());
+    let whole = ViewFrame::snapshot_of(&view);
+    let mut reader = ViewReader::default();
+    reader.read(&whole).expect("a whole view reads");
+    assert_eq!(reader.view().map(|v| &v.divided), Some(&view.divided));
+    let mut next = view.clone();
+    next.seq += 1;
+    next.divided[0].shares[2].1 = 4;
+    let patch = wire::encode(&ViewFrame::Patch(Box::new(baylee_view::diff(&view, &next))));
+    reader.read(&patch).expect("the patch reads");
+    assert_eq!(reader.view(), Some(&next));
+    for frame in [&whole, &patch] {
+        for cut in 0..frame.len() {
+            let mut reader = ViewReader::default();
+            let _ = reader.read(&frame[..cut]);
+        }
+        for at in 0..frame.len() {
+            for flip in [0x01, 0x80, 0xff] {
+                let mut damaged = frame.clone();
+                damaged[at] ^= flip;
+                let mut reader = ViewReader::default();
+                let _ = reader.read(&whole);
+                if reader.read(&damaged).is_err() {
+                    assert_eq!(reader.view(), Some(&view), "a refusal keeps the view held");
+                }
+            }
+        }
+    }
+}
+
+/// A list of divisions, or one division's shares, that claims more than the
+/// frame holds allocates nothing for the claim. Where each list stands is
+/// found by writing it empty and with one entry: the first byte that differs
+/// is its length.
+#[test]
+fn a_claimed_division_allocates_nothing_for_the_claim() {
+    let share = (
+        baylee_view::TargetRef::Player(baylee_core::ids::PlayerId::new(1)),
+        3,
+    );
+    let none = ViewFrame::snapshot_of(&with_a_division(Vec::new()));
+    let one = ViewFrame::snapshot_of(&with_a_division(vec![share]));
+    let mut no_shares = with_a_division(vec![share]);
+    no_shares.divided[0].shares.clear();
+    let no_shares = ViewFrame::snapshot_of(&no_shares);
+    let first_difference = |a: &[u8], b: &[u8]| {
+        a.iter()
+            .zip(b)
+            .position(|(x, y)| x != y)
+            .expect("the two frames differ")
+    };
+    let list = first_difference(&none, &one);
+    assert_eq!((none[list], one[list]), (0, 1), "the divisions' length");
+    let shares = first_difference(&no_shares, &one);
+    assert_eq!(
+        (no_shares[shares], one[shares]),
+        (0, 1),
+        "the shares' length"
+    );
+    for head in [&none[..list], &no_shares[..shares]] {
+        for claim in [1 << 20, 1 << 40, u64::MAX] {
+            let mut frame = head.to_vec();
+            frame.extend(varint(claim));
+            frame.resize(60 * 1024, 0x01);
+            let held = peak_of(|| assert!(ViewFrame::decode(&frame).is_err()));
+            assert!(held < 16 * BOUND, "a claim of {claim} held {held} bytes");
+        }
+    }
+}
+
+/// A log line's step (`LogEntry::step`, protocol 44) goes and reads as it was
+/// written, and every cut and flipped byte of a log frame that carries one is
+/// refused or read, never a panic. A step is one of twelve: a byte that names
+/// no step is refused.
+#[test]
+fn a_log_line_s_step_survives_the_wire_and_every_damage() {
+    use baylee_core::ids::PlayerId;
+    use baylee_view::{LogEntry, LogEvent, LogTail, Phase, Step};
+    let entry = |step: Step| LogEntry {
+        turn: 25,
+        repeat: 1,
+        at: 0,
+        event: LogEvent::Shuffled {
+            player: PlayerId::new(0),
+        },
+        phase: Some(Phase::Combat),
+        step: Some(step),
+    };
+    let tail = LogTail {
+        from: 40,
+        entries: vec![entry(Step::CombatDamageFirst), entry(Step::CombatDamage)],
+    };
+    let frame = wire::encode(&tail);
+    let read: LogTail = wire::decode(&frame).expect("the tail reads");
+    assert_eq!(read, tail);
+    for cut in 0..frame.len() {
+        assert!(
+            wire::decode::<LogTail>(&frame[..cut]).is_err(),
+            "a cut at {cut} read"
+        );
+    }
+    for at in 0..frame.len() {
+        for flip in [0x01, 0x80, 0xff] {
+            let mut damaged = frame.clone();
+            damaged[at] ^= flip;
+            let _ = wire::decode::<LogTail>(&damaged);
+        }
+    }
+    let mut unnamed = frame.clone();
+    let last_step = unnamed.len() - 1;
+    unnamed[last_step] = 12;
+    assert!(
+        wire::decode::<LogTail>(&unnamed).is_err(),
+        "the thirteenth step does not exist"
+    );
+}

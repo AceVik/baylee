@@ -28,7 +28,7 @@ pub mod native;
 mod settings;
 mod words;
 
-pub(crate) use card::menu_line;
+pub(crate) use card::{UpdateToast, menu_line};
 pub(crate) use settings::controls;
 
 use baylee_client_core::i18n::{Lang, Phrase};

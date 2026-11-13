@@ -469,23 +469,46 @@ pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundl
     hit(commands, kit, face, action)
 }
 
-/// The account pill on a narrow header: the handle's first letter in a disc.
-pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bundle) -> Entity {
-    let letter: String = handle
-        .chars()
-        .next()
-        .map(char::to_uppercase)
-        .into_iter()
-        .flatten()
-        .collect();
-    let disc = commands
+/// The account pill: the player's avatar (their picture, or their monogram)
+/// in a disc, and on a header wide enough for it their name and tag beside
+/// it and a caret. The disc is the same one the contacts list and a chat
+/// draw for this person (`shellkit::avatar`).
+pub fn account(
+    commands: &mut Commands,
+    kit: Kit,
+    handle: &str,
+    wide: bool,
+    action: impl Bundle,
+) -> Entity {
+    let size = kit.m.scaled(if wide { 26.0 } else { 30.0 });
+    let disc = super::avatar::disc(commands, kit.fonts, handle, size);
+    if !wide {
+        // The disc is the whole control: its own ground warms under the
+        // pointer as a pill's does.
+        let ground = super::avatar::palette(baylee_client_core::avatar::monogram(handle).tint).0;
+        commands.entity(disc).insert((
+            Role::Pill,
+            UiTransform::default(),
+            crate::ambience::Feel::new(ground),
+        ));
+        let control = hit(commands, kit, disc, action);
+        commands
+            .entity(control)
+            .insert(super::avatar::PersonLink::named(handle, false));
+        return control;
+    }
+    let face = commands
         .spawn((
             Role::Pill,
             Node {
-                width: kit.m.px(30.0),
-                height: kit.m.px(30.0),
+                min_height: kit.m.px(36.0),
+                padding: UiRect {
+                    left: kit.m.px(5.0),
+                    right: kit.m.px(12.0),
+                    ..default()
+                },
+                column_gap: kit.m.px(8.0),
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
@@ -496,9 +519,44 @@ pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bund
             crate::ambience::Feel::new(tokens::CONTROL),
         ))
         .id();
-    let words = label(commands, kit, &letter, kit.m.small, tokens::INK);
-    commands.entity(disc).add_child(words);
-    hit(commands, kit, disc, action)
+    // The name in the interface's ink and the tag quieter after it: the tag
+    // tells two Alices apart and is otherwise not what anyone reads.
+    let (name, tag) = match handle.rsplit_once('#') {
+        Some((name, tag)) => (name, Some(tag)),
+        None => (handle, None),
+    };
+    let words = label(commands, kit, name, kit.m.small, tokens::INK);
+    commands.entity(face).add_children(&[disc, words]);
+    if let Some(tag) = tag {
+        let tag = label(
+            commands,
+            kit,
+            &format!("#{tag}"),
+            kit.m.small * 0.86,
+            tokens::MUTED,
+        );
+        commands.entity(face).add_child(tag);
+        // The tag reads as the name's suffix, not as a third thing.
+        commands.entity(tag).insert(Node {
+            margin: UiRect::left(kit.m.px(-5.0)),
+            ..default()
+        });
+    }
+    let caret = commands
+        .spawn((
+            Text::new("\u{f078}"),
+            icon_tf(kit.fonts, kit.m.small * 0.7),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_child(caret);
+    // The pointer resting on the account opens its own card (`social::card`).
+    let control = hit(commands, kit, face, action);
+    commands
+        .entity(control)
+        .insert(super::avatar::PersonLink::named(handle, false));
+    control
 }
 
 /// A contextual strip below the header: a distinct bar with a status badge,

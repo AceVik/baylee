@@ -135,6 +135,7 @@ impl ViewBuilder {
         let n = seats as usize;
         Self {
             view: PlayerView {
+                divided: Vec::new(),
                 decision_player: None,
                 controlled_hands: Vec::new(),
                 damage_sources: Vec::new(),
@@ -376,6 +377,7 @@ pub fn statics(count: u16) -> GameStatic {
 #[must_use]
 pub fn revealed_line(player: u8, slot: u32, print: u16) -> baylee_view::LogEntry {
     baylee_view::LogEntry {
+        step: None,
         turn: 3,
         repeat: 1,
         at: 0,
@@ -407,6 +409,7 @@ pub fn hear_live(
     let mut view = ViewBuilder::new(2).build();
     if book.is_empty() {
         let first = baylee_view::LogEntry {
+            step: None,
             turn: 1,
             repeat: 1,
             at: 0,

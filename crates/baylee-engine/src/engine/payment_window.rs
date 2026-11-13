@@ -86,10 +86,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             suspended: PaymentContinuation::Tax(Box::new(suspended)),
         });
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
     }
 

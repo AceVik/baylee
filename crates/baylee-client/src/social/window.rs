@@ -577,17 +577,7 @@ fn stamp_arrivals(
 
 /// Whether the client window is focused (or driven passively by `dev-control`).
 pub(super) fn window_focused(windows: &Query<&Window>) -> bool {
-    if windows.iter().any(|w| w.focused) {
-        return true;
-    }
-    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-    {
-        crate::devctl::passive()
-    }
-    #[cfg(not(all(feature = "dev-control", not(target_arch = "wasm32"))))]
-    {
-        false
-    }
+    windows.iter().any(|w| w.focused)
 }
 
 /// Reading marks read (§3.3): while the panel shows a tab, the
@@ -941,7 +931,7 @@ fn sync_lobby_window(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(LOBBY_INKS.ground),
+                rows::window_ground(),
                 BorderColor::all(LOBBY_INKS.line),
                 elevation(),
                 stacked(0),
@@ -1076,7 +1066,6 @@ fn sync_lobby_window(
         lang,
         machine,
         host.vault.sync_status(),
-        !host.vault.is_central(),
         &ui,
         duel.as_deref(),
         texts.as_deref(),
@@ -1496,7 +1485,6 @@ fn fill(
     lang: Lang,
     machine: &Social,
     backup: Option<super::vault_access::SyncStatus>,
-    lock_in_composer: bool,
     ui: &ChatUi,
     duel: Option<&Duel>,
     texts: Option<&crate::cardtext::CardTexts>,
@@ -1690,15 +1678,12 @@ fn fill(
     // The composer.
     if let Some(composer) = drawn.composer {
         let c = machine.composer();
-        let suggest: Vec<String> = c
-            .suggestions()
-            .map(|s| {
-                s.items
-                    .iter()
-                    .filter_map(|i| c.suggestion_label(i).map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let suggest: Vec<String> = c.suggestions().map_or_default(|s| {
+            s.items
+                .iter()
+                .filter_map(|i| c.suggestion_label(i).map(str::to_string))
+                .collect()
+        });
         let highlight = c.suggestions().map_or(0, |s| s.highlight);
         let caret = c.buffer().cursor();
         let selection = c.buffer().selection();
@@ -1713,21 +1698,12 @@ fn fill(
             lang as u8,
             ui.hint.map(|(p, _)| p as u8),
             ui.tab,
-            lock_in_composer,
         ));
         if key != drawn.composer_key {
             drawn.composer_key = key;
             commands.entity(composer).despawn_children();
             let kids = composer_parts(
-                commands,
-                fonts,
-                lang,
-                machine,
-                ui,
-                &suggest,
-                highlight,
-                frame,
-                lock_in_composer,
+                commands, fonts, lang, machine, ui, &suggest, highlight, frame,
             );
             commands.entity(composer).add_children(&kids);
         }

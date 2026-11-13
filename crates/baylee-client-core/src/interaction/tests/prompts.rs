@@ -52,6 +52,9 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
             suspendable: vec![],
             foretellable: vec![],
             unpaid_foretell: vec![],
+            unpaid_suspend: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             granted_actions: vec![],
         }),
     });
@@ -920,6 +923,9 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
             suspendable: vec![],
             foretellable: vec![],
             unpaid_foretell: vec![],
+            unpaid_suspend: vec![],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             granted_actions: vec![],
         }),
     });
@@ -1048,12 +1054,150 @@ fn arrangement_headlines_describe_the_destinations_without_mislabeling_explore()
     }
 }
 
+/// A roster in which seat 1 is called Mira, and a view in which this seat
+/// looks at two cards `owner` owns.
+fn looking_at_cards_of(owner: u8) -> (GameStatic, PlayerView) {
+    let mut roster = crate::test_support::statics(0);
+    roster.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "Mira".to_string(),
+        is_ai: false,
+        away: false,
+        team: None,
+        guest: false,
+    });
+    let view = crate::test_support::ViewBuilder::new(2)
+        .with_looking_at(vec![
+            crate::test_support::token(1, owner, "Mountain", 0, 0),
+            crate::test_support::token(2, owner, "Island", 0, 0),
+        ])
+        .build();
+    (roster, view)
+}
+
+/// Architects of Will aimed at an opponent puts the cards back on top of
+/// *their* library: the line and the pile's heading name that player, in
+/// both languages, and the player's own library reads as it always did. A
+/// line that named no library read as the player's own (hc-smoke,
+/// game-0002, question 278). The question carries no owner; the cards the
+/// view shows do (CR 400.3).
+#[test]
+fn ordering_another_players_library_names_that_player() {
+    let i = interaction(put_back(vec![obj(1), obj(2)]));
+    let (roster, theirs) = looking_at_cards_of(1);
+    assert_eq!(i.library_in(&theirs), Some(PlayerId::new(1)));
+    let line = |lang| {
+        i.prompt_in(&theirs)
+            .headline(lang, Turn::Mine, Some(&roster), false)
+    };
+    assert_eq!(
+        line(Lang::En),
+        "Put these back on top of Mira's library: the first is the new top card"
+    );
+    assert_eq!(
+        line(Lang::De),
+        "Lege diese oben auf die Bibliothek von Mira zurück: die erste ist die neue oberste Karte"
+    );
+    let arrangement = i.arrangement().expect("an arrangement");
+    let mira = Some("Mira");
+    assert_eq!(
+        arrangement.label_text(Row::Pile(0), Lang::En, mira),
+        "On top of Mira's library"
+    );
+    assert_eq!(
+        arrangement.label_text(Row::Pile(0), Lang::De, mira),
+        "Oben auf die Bibliothek von Mira"
+    );
+
+    let (roster, mine) = looking_at_cards_of(0);
+    assert_eq!(i.library_in(&mine), None);
+    assert_eq!(
+        i.prompt_in(&mine)
+            .headline(Lang::En, Turn::Mine, Some(&roster), false),
+        "Put these back on top: the first is the new top card"
+    );
+    assert_eq!(
+        arrangement.label_text(Row::Pile(0), Lang::En, None),
+        "On top of the library"
+    );
+}
+
+/// Jace, the Mind Sculptor's +2 asks in a scry's shape about the top of an
+/// opponent's library, and Bribery searches one: neither is said as the
+/// player's own library, and the look is no scry (CR 701.22a).
+#[test]
+fn a_look_or_a_search_through_another_players_library_names_that_player() {
+    let (roster, theirs) = looking_at_cards_of(1);
+    let look = interaction(Pending::Arrange {
+        player: me(),
+        cards: vec![obj(1)],
+        piles: vec![
+            ArrangePile::up_to(ArrangePlace::LibraryTop, 1),
+            ArrangePile::up_to(ArrangePlace::LibraryBottom, 1),
+        ],
+        prompt: ArrangePrompt::Scry,
+    });
+    let line = look
+        .prompt_in(&theirs)
+        .headline(Lang::En, Turn::Mine, Some(&roster), false);
+    assert_eq!(
+        line,
+        "Mira's library: keep cards on top or put them on the bottom"
+    );
+    let arrangement = look.arrangement().expect("an arrangement");
+    assert_eq!(
+        arrangement.label_text(Row::Pile(1), Lang::En, Some("Mira")),
+        "Under Mira's library"
+    );
+
+    let search = |options| {
+        interaction(Pending::ChooseCards {
+            player: me(),
+            options,
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::SearchLibrary,
+            total: None,
+        })
+    };
+    // From what it offers, or from the library it went through.
+    for offered in [vec![obj(2)], Vec::new()] {
+        let line = |lang| {
+            search(offered.clone()).prompt_in(&theirs).headline(
+                lang,
+                Turn::Mine,
+                Some(&roster),
+                false,
+            )
+        };
+        assert!(
+            line(Lang::En).contains("card from Mira's library"),
+            "{}",
+            line(Lang::En)
+        );
+        assert!(
+            line(Lang::De).contains("Karte aus der Bibliothek von Mira"),
+            "{}",
+            line(Lang::De)
+        );
+    }
+    let (roster, mine) = looking_at_cards_of(0);
+    let line =
+        search(vec![obj(2)])
+            .prompt_in(&mine)
+            .headline(Lang::En, Turn::Mine, Some(&roster), false);
+    assert!(line.contains("card from your library"), "{line}");
+}
+
 #[test]
 fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     let payer = PlayerId::new(1);
     let pending = Pending::YesNo {
         player: payer,
-        prompt: YesNoPrompt::PayLife { amount: 7 },
+        prompt: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
         source: None,
     };
     // Use the wire decoder so the new enum must survive serialization too.
@@ -1064,7 +1208,11 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     let other = Interaction::new(pending, PlayerId::new(0));
     assert_eq!(other.answer_yes_no(true), None);
     let prompt = Prompt::YesNo {
-        question: YesNoPrompt::PayLife { amount: 7 },
+        question: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
+        whose: None,
     };
     assert_eq!(
         prompt.headline(Lang::En, Turn::Theirs, None, false),
@@ -1074,7 +1222,120 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
         prompt.headline(Lang::De, Turn::Theirs, None, false),
         "7 Lebenspunkte zahlen?"
     );
-    assert!(!YesNoPrompt::PayLife { amount: 7 }.automatable());
+    assert!(
+        !YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None
+        }
+        .automatable()
+    );
+}
+
+/// Cleansing asks land by land whether to pay 1 life for that land (CR
+/// 608.2d), and a seat told only "Pay 1 life?" paid for ten lands it could
+/// not tell apart (Carbon b8, segment 3, attempt 27, q163-q173). The line
+/// names the land where the renderer can, and reads as before where it
+/// cannot.
+#[test]
+fn a_life_payment_for_a_land_names_the_land() {
+    let land = obj(25);
+    let prompt = Prompt::YesNo {
+        question: YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: Some(land),
+        },
+        whose: None,
+    };
+    let names = |id: ObjectId| (id == land).then(|| "Plains".to_string());
+    assert_eq!(
+        prompt.headline_naming(Lang::En, Turn::Theirs, None, false, &names),
+        "Pay 1 life for Plains?"
+    );
+    assert_eq!(
+        prompt.headline_naming(Lang::De, Turn::Theirs, None, false, &names),
+        "1 Lebenspunkt für Plains zahlen?"
+    );
+    assert_eq!(
+        prompt.headline(Lang::En, Turn::Theirs, None, false),
+        "Pay 1 life?",
+        "a land the renderer cannot name"
+    );
+}
+
+/// Cleansing asks every player for every land, so the line says whose land
+/// it is where it is another player's: its controller off the view, its
+/// name off the roster (`Interaction::prompt_in`). The deciding player's own
+/// land is named alone. While it is asked the table lights that land and
+/// dims every other (`asked_about`, `leaves_out`), the other Plains of the
+/// same player too, and another seat's question lights nothing here.
+#[test]
+fn a_life_payment_for_another_players_land_says_whose_and_lights_that_land() {
+    let (roster, _) = looking_at_cards_of(1);
+    let view = crate::test_support::ViewBuilder::new(2)
+        .with_battlefield(0, [crate::test_support::token(30, 0, "Plains", 0, 0)])
+        .with_battlefield(
+            1,
+            [
+                crate::test_support::token(25, 1, "Plains", 0, 0),
+                crate::test_support::token(26, 1, "Plains", 0, 0),
+            ],
+        )
+        .build();
+    let pending = |player, land| Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: Some(land),
+        },
+        source: None,
+    };
+    let names = |id: ObjectId| view.object(id).map(|o| o.name.to_string());
+    let line = |i: &Interaction, lang| {
+        i.prompt_in(&view)
+            .headline_naming(lang, Turn::Theirs, Some(&roster), false, &names)
+    };
+
+    let theirs = interaction(pending(me(), obj(25)));
+    assert_eq!(theirs.permanent_in(&view), Some(PlayerId::new(1)));
+    assert_eq!(line(&theirs, Lang::En), "Pay 1 life for Mira's Plains?");
+    assert_eq!(
+        line(&theirs, Lang::De),
+        "1 Lebenspunkt für Plains von Mira zahlen?"
+    );
+
+    let mine = interaction(pending(me(), obj(30)));
+    assert_eq!(mine.permanent_in(&view), None, "the deciding player's own");
+    assert_eq!(line(&mine, Lang::En), "Pay 1 life for Plains?");
+    assert_eq!(line(&mine, Lang::De), "1 Lebenspunkt für Plains zahlen?");
+
+    assert_eq!(theirs.asked_about(), Some(obj(25)));
+    assert!(!theirs.leaves_out(obj(25)), "the land it is asked about");
+    assert!(
+        theirs.leaves_out(obj(26)),
+        "the other Plains of the same player"
+    );
+    assert!(
+        theirs.leaves_out(obj(30)),
+        "the deciding player's own Plains"
+    );
+
+    let elsewhere = Interaction::new(pending(PlayerId::new(1), obj(30)), me());
+    assert_eq!(elsewhere.asked_about(), None, "another seat's question");
+    assert!(!elsewhere.leaves_out(obj(25)));
+
+    let unnamed = interaction(Pending::YesNo {
+        player: me(),
+        prompt: YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
+        source: None,
+    });
+    assert_eq!(unnamed.asked_about(), None);
+    assert!(
+        !unnamed.leaves_out(obj(30)),
+        "a ward's payment is about no land"
+    );
 }
 
 #[test]
@@ -1721,7 +1982,10 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
         let payer = PlayerId::new(1);
         let pending = Pending::YesNo {
             player: payer,
-            prompt: YesNoPrompt::PayLife { amount },
+            prompt: YesNoPrompt::PayLife {
+                amount,
+                permanent: None,
+            },
             source: None,
         };
         let decoded: Pending =
@@ -1733,7 +1997,11 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
             None
         );
         let prompt = Prompt::YesNo {
-            question: YesNoPrompt::PayLife { amount },
+            question: YesNoPrompt::PayLife {
+                amount,
+                permanent: None,
+            },
+            whose: None,
         };
         assert_eq!(
             prompt.headline(Lang::En, Turn::Mine, None, false),
@@ -1791,6 +2059,7 @@ fn mixed_payment_and_untap_replacement_questions_explain_the_complete_choice() {
     let cost = baylee_core::mana::ManaCost::from_symbol_generic(2);
     let prompt = Prompt::YesNo {
         question: YesNoPrompt::PayManaAndLife { cost, life: 65_536 },
+        whose: None,
     };
     assert_eq!(
         prompt.headline(Lang::En, Turn::Mine, None, false),

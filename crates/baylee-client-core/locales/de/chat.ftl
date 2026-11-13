@@ -3,7 +3,6 @@
 VaultTitle = Verschlüsselter lokaler Tresor
 VaultExplain = Das Account-Passwort entsperrt die lokalen Chat-Schlüssel. Nach einem Passwort-Reset brauchst du das bisherige Tresorpasswort. Ein optionales neues Passwort verschlüsselt dieselben Schlüssel neu. Beim Erstellen oder Importieren musst du das gewählte Passwort im letzten Feld wiederholen. Importquellen bleiben erhalten. Ein neuer Tresor erstellt ein neues Chat-Gerät; bisherige Schlüssel und Verläufe bleiben unangetastet. Gäste und Browser-Tabs halten Schlüssel nur im Arbeitsspeicher.
 VaultOpen = Chat entsperren
-VaultLock = Chat sperren
 VaultPassword = Tresorpasswort
 VaultPasswordAgain = Neues Tresorpasswort wiederholen
 VaultPasswordMismatch = Die neuen Tresorpasswörter stimmen nicht überein.
@@ -287,3 +286,36 @@ NoticeUnread =
        *[other] { $count } ungelesene Chat-Nachrichten
     }
 NoticeFriendRequest = Freundschaftsanfrage von { $player }
+CardYou = Das bist du
+CardFriendToday = Seit heute befreundet
+CardFriendDays =
+    { $count ->
+        [one] Seit { $count } Tag befreundet
+       *[other] Seit { $count } Tagen befreundet
+    }
+CardFriendMonths =
+    { $count ->
+        [one] Seit { $count } Monat befreundet
+       *[other] Seit { $count } Monaten befreundet
+    }
+CardFriendYears =
+    { $count ->
+        [one] Seit { $count } Jahr befreundet
+       *[other] Seit { $count } Jahren befreundet
+    }
+CardAskedYou = Möchte mit dir befreundet sein
+CardAsked = Freundschaftsanfrage gesendet
+CardBlocked = Blockiert
+CardGuest = Gast · kann nicht hinzugefügt werden
+CardPlayedToday = Heute zusammen gespielt
+CardPlayedDays =
+    { $count ->
+        [one] Vor { $count } Tag zusammen gespielt
+       *[other] Vor { $count } Tagen zusammen gespielt
+    }
+CardOwnGames =
+    { $count ->
+        [one] { $count } Spiel · { $wins } gewonnen
+       *[other] { $count } Spiele · { $wins } gewonnen
+    }
+CardNoGames = Noch kein Spiel gespielt

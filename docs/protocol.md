@@ -201,6 +201,23 @@ priority and yes-or-no questions. `PROTOCOL_VERSION` does not move, as it did no
 for views 84 and 85: the question rides as JSON in the envelope, and view 86 is
 the refusal.
 
+## Whose library a question is about (no wire change)
+
+`Pending::Arrange` names no library, and neither does `ChooseCards` with
+`SearchLibrary`, `PutBackOnTop` or `PutOnBottom`; the library may be another
+player's (Architects of Will aimed at an opponent, Jace, the Mind Sculptor's
++2, Bribery). The cards say whose it is: a card goes only into its owner's
+library or graveyard (CR 400.3), so a library pile goes into the library of
+the cards' owner, and a search's options, or the searched library the asked
+seat is shown, are that library's owner's. A reader takes the owner from the
+objects it is already shown (`looking_at`, a zone, a hand:
+`baylee_client_core::decision::cards_owner`) and says "your" only when that is
+the deciding seat; the desktop client (`Interaction::prompt_in`) and the
+language-model narrator (`Table::whose_cards`) both do. The owner is nothing
+the seat was not already shown, so nothing was added to the question or the
+view: the frame, `VIEW_VERSION`, `PROTOCOL_VERSION` and `snapshot_hash` are as
+they were.
+
 ## Composed ability origins (compatible addition)
 
 `PublicObject.ability_sources` maps runtime indices in composed ability lists
@@ -390,7 +407,7 @@ is no account yet:
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
  "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
- "registration":"invite","guests":true,"auth_mode":"mixed","impressum":"https://example.org/impressum"}
+ "registration":"open","guests":true,"auth_mode":"mixed","impressum":"https://example.org/impressum"}
 ```
 
 - `auth_mode` is who comes in: `guests`, `central` (Baylee Central's
@@ -437,11 +454,12 @@ is no account yet:
   door's About, the terms sheet and Settings → Network; it opens only on
   the player's click, in the system browser, and only that address. Absent
   from a gateway older than the field.
-- `registration` is who may make an account: `open`, `invite` (a closed
-  beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
-  guests. Both are absent from a gateway older than #317. They are here so a
-  gateway list can say what a gateway takes before anything is saved;
-  `GET /auth/config` says the same for the form.
+- `registration` is who may come in new: `open` or `off`
+  (§"Who may come in new"); a gateway from the closed beta may still say
+  `invite`. `guests` is whether it takes guests. Both are absent from a
+  gateway older than #317. They are here so a gateway list can say what a
+  gateway takes before anything is saved; `GET /auth/config` says the same
+  for the form.
 - `replays` is `{"version": 1}` (the tape's version) where the gateway
   replays the hosted games an account sat at (§"Replays"), `null` where
   `BAYLEE_REPLAY_JOBS=0`. Absent from a gateway older than replays.
@@ -1003,11 +1021,23 @@ engine moves it to the stack as the cost is paid, not first (CR 601.2a).
 `cast_ways` lists, for a card of either list that prints a price of its own
 (entwine, overload and any other mode with its own cost, a kicker with its own
 targets, an alternative cost with mana in it, dash, mutate, a prototype, a back
-face), every way it may be cast with every rule asked but the mana, each at its
-whole price. It is a planning hint, as `unpaid_abilities` is: the mode question
-lists what the *pool* pays, so a planner that taps first and wants a dearer way
-has to tap for it before it casts. The field is additive and defaulted when
-absent, and empty for every other card.
+face), and for every card of either list that lies anywhere but the hand or
+the command zone (a graveyard, exile, the top of a library), every way it may
+be cast with every rule asked but the mana, each at its whole price. A card
+cast from a graveyard or from exile is as often as not cast at a price that
+is not its mana cost, and which price is a fact of the game: its flashback
+(CR 702.34a), escape (CR 702.138a), a disturb face's cost (CR 702.146a,
+`Face(i)`), a foretell cost after the turn it was foretold (CR 702.143a), a
+permission's. A planner prices such a card from this list, never from the
+card: a foretold Doomskar is `{1}{W}{W}`, not its printed `{3}{W}{W}`. The
+whole price holds every increase and reduction the engine applies, the
+commander tax included, and leaves out what delve and convoke pay, as
+`spell_price` does. It is a planning hint, as `unpaid_abilities` is: the mode
+question lists what the *pool* pays, so a planner that taps first and wants a
+dearer way has to tap for it before it casts. The field is additive and
+defaulted when absent, and empty for every other card; a client facing an
+engine that names no way for a graveyard card falls back to
+`PublicObject::flashback`.
 
 A card in `castable` may cost more than what floats once its X is announced
 (CR 601.2b). While the seat still has a mana source to tap, its X question
@@ -1018,6 +1048,183 @@ reversed when passed short, exactly as a `payable` cast. With nothing left
 to tap, `max` is the greatest X the floating mana pays for the whole cost,
 so an X the question offers is always one the cast can complete. A client
 bounds its X entry by `max`, never by its own count of the pool.
+
+## What restricted mana may pay for (protocol 43)
+
+Mana that may be spent only on some payments (CR 106.6: Cavern of Souls'
+coloured mana on a creature spell of the chosen type, Ancient Ziggurat's on
+a creature spell, Eldrazi Temple's on colourless Eldrazi) is a rules question
+about the payment: the spell's types, the face it is cast as (CR 601.3e), the
+source's chosen type. A view says what a land makes and, for mana already
+floating, how much of each colour is restricted, and never what it may pay
+for. So the offer says it, for the asked seat's own sources and own pool
+only, server to client:
+
+```text
+LegalActions.restricted_taps:     [RestrictedTaps]
+RestrictedTaps = { taps: [(source ObjectId, ability index u32)], spends: [Spend] }
+LegalActions.restricted_floating: [(Spend, [u32; 6])]   // by ManaColor::index
+Spend = Cast(ObjectId, CastModeKind) | Activate(ObjectId) | Owed
+```
+
+- `restricted_taps` names the restricted mana abilities of `abilities` in
+  classes: the abilities of one class make mana that is admitted alike (the
+  same restriction, read through the same text, with the same captured
+  choice and controller; every Powerstone is one class, each Cavern of Souls
+  naming a different type another), and `spends` is every spend that mana
+  may pay. A seat asks `LegalActions::restricted_taps_for(spend)`.
+  `restricted_floating` names each spend the restricted mana floating may
+  pay, with how much of each colour. A spend no such mana pays is left out,
+  and so is a class whose mana pays none.
+- The lists grow with the board and not with its square: the engine asks
+  each class once per spend, with the spend's object built once
+  (`engine::restricted_offer`), so a thousand Powerstones beside a thousand
+  Clues are one class of a thousand taps and a thousand spends. A backstop,
+  `choice::RESTRICTED_ENTRIES` (4,096), bounds the taps and spends of
+  `restricted_taps` together and the entries of `restricted_floating`, and
+  sixteen times as many asks bound the work (sources whose restriction
+  reads the source itself are a class each); past either the offer names
+  less and never something else, and the payment asks again.
+- `Cast(card, kind)` is a way of casting a card of `castable` or `payable`:
+  a face other than the front or a form (`Face`, `Prototype`, `Disguise`,
+  `Foretell`) is named as itself, every other way as `Normal`, which casts
+  the front as it is (`Spend::cast` folds a kind the same way for a reader).
+  `Activate(source)` is an ability of a source of `unpaid_abilities`. `Owed`
+  is the payment the CR 605.3a window the offer is made in is open for.
+- Both are planning hints, as `unpaid_abilities` is: the payment asks
+  again, with the same reader (`casting::provenance_allows`). The engine
+  computes them only while the seat has a restricted mana ability on offer
+  or restricted mana floating, so they are empty in most offers. Only the
+  asked seat's own abilities and own pool are named; an opponent's
+  restricted land or floating mana never is.
+- Every planner but the frozen house reads them through one module,
+  `baylee_ai::spend`: the client's reach and its payment window,
+  the language-model seat, BayleeAI's menu. A restricted tap is then a source
+  like any other, and as many as a price needs are tapped; restricted mana
+  floating is counted as ordinary mana for the spend it may pay.
+- **Protocol 43.** A frame writes every field by position
+  (`baylee_core::wire`), so a peer of 42 refuses a frame of 43 and the
+  reverse (`version_refusal`), and engine, gateway, agent, seat and clients
+  are deployed together. In JSON (records, tapes, shadow labels) both fields
+  are left out when empty and default when absent. A client decodes them as
+  it decodes every frame: a list grows as its elements arrive, so a claimed
+  length allocates nothing for the claim (a class's own lists included), a
+  truncated or overlong frame is refused, `Spend` cannot nest
+  (`crates/baylee-engine/tests/hostile_actions.rs`, module `offers`).
+  Nothing a client sends changed.
+
+What changed in protocol 43: the two fields above, `RestrictedTaps` and
+`Spend`, and nothing else.
+
+## A suspend still to be paid for, a division on the stack, a log line's step (protocol 44)
+
+Three facts a seat could not read before, all from the Carbon seats' reports
+of 12.11.2026, all server to client only:
+
+```text
+LegalActions.unpaid_suspend: [(ObjectId, ManaCost)]   // the asked seat's own hand
+PlayerView.divided:          [Division]               // public, beside the stack
+SpectatorView.divided:       [Division]               // the same
+Division = { object: ObjectId, shares: [(TargetRef, u32)] }
+LogEntry.step:               Option<Step>             // public, beside LogEntry.phase
+```
+
+- **`unpaid_suspend`** names the cards in the asked seat's hand that it could
+  suspend (CR 116.2f, 702.62a) once the suspend cost is made, with that cost
+  in the protocol-8 notation: every rule `suspendable` asks holds but the mana,
+  and the seat has a mana ability to activate (CR 605.3a). It is a planning
+  hint, as `unpaid_foretell` is, and never authorizes `PlayerAction::Suspend`:
+  only membership in `suspendable` does, so a client makes the mana first and
+  rechecks the offer. Without it no seat that plans its taps could suspend at
+  all, and a card that prints no mana cost (Ancestral Vision, CR 202.1b) has
+  no other way out of the hand. A card is in one of the two lists, never both.
+  A payment window and split second narrow it as they narrow `suspendable`.
+  The language-model seat and BayleeAI's menu (`eval4 --menu-payable`) plan
+  it through `baylee_ai::suspend_plans`, the client through its own sources
+  (`mana_run::suspend_mana_for`), each as an activation's cost, so mana that
+  may be spent only on spells never pays it. The house never suspends
+  (`docs/observed-faults.md` 74).
+- **`divided`** is how each spell or ability on the stack that divides its
+  damage among its targets divides it, as announced when it was cast or put on
+  the stack (CR 601.2d, 603.3d): the stack object, and each target, by the same
+  handle its `targets` names it, with its share, in the order announced. The
+  division is announced to the table, so every seat and every spectator is
+  told it, not only the caster in the question it answered
+  (`PlayerView::division(object)` reads one). It stands beside the stack and
+  not on its objects, so a `PublicObject` keeps its shape: what the house
+  hashes a position by (`stall::position`, which seeds its foresight) is the
+  same bytes as before. An entry goes with its object off the stack.
+- **`step`** is the step of `phase` a log line happened in. A combat with a
+  first or double striker deals damage in two steps of one phase (CR 510.4),
+  and a reader that groups by phase told both as one run: a seat read a
+  Frostburn Weird as hitting in the first-strike step. Two lines alike in two
+  steps no longer fold into one. `None` where `phase` is.
+- **Bounds.** `unpaid_suspend` is no longer than the asked seat's hand,
+  `divided` than the stack and a division's shares than its object's targets;
+  a step is one of twelve. A client decodes them as it decodes every frame: a
+  list grows as its elements arrive and a cost's notation is checked against
+  the bytes left, so a claimed length allocates nothing for the claim, a step
+  past the twelfth is refused, and a cut or damaged frame is refused with the
+  view held (`crates/baylee-engine/tests/hostile_actions.rs`, module
+  `unpaid_suspend`; `crates/baylee-view/tests/hostile_frames.rs`,
+  `a_division_on_the_stack_survives_the_wire_and_every_damage`,
+  `a_claimed_division_allocates_nothing_for_the_claim`,
+  `a_log_line_s_step_survives_the_wire_and_every_damage`). A patch carries
+  `divided` whole as the field it is (`ViewField::Divided`). Nothing a client
+  sends changed.
+- **Protocol 44.** A frame writes every field by position, so a peer of 43
+  refuses a frame of 44 and the reverse, and engine, gateway, agent, seat and
+  clients are deployed together. In JSON (records, tapes, shadow labels) all
+  three are left out when empty and default when absent, so `VIEW_VERSION`
+  stays 90. `LegalActions`, views and the log are in neither snapshot hash,
+  and none moves an answer the engine takes. A shadow label written before
+  binds another question where the offer names an unpaid suspend
+  (`docs/engine-internals.md` §"The protocol-44 boundary"); the division and
+  the step are in no observation a label binds.
+
+What changed in protocol 44: the three fields above and `Division`, and
+nothing else.
+
+## The permanent a life payment is for (protocol 45)
+
+From the Carbon seats' reports of 12.11.2026 (block 8, segment 3, attempt
+27): Cleansing ("For each land, destroy that land unless any player pays 1
+life") asks each player, land by land, whether to pay 1 life, and the
+question named no land. A seat declined the first and paid for the next ten
+without knowing whose each was. Server to client only:
+
+```text
+YesNoPrompt::PayLife { amount: u32, permanent: Option<ObjectId> }
+```
+
+- **`permanent`** is the permanent the payment is for, where it is for one:
+  Cleansing names the land it asks about. The choice is made as the effect
+  is applied (CR 608.2d), and "that land" is what it is about. A permanent
+  on the battlefield, so public: every seat already sees it and its name.
+  `None` for every other life payment the engine asks, which is about no one
+  permanent: ward's (CR 702.21a), a resolving "you may pay N life", a
+  Phyrexian symbol's 2 life (CR 107.4f), and another player's life for a
+  revealed draw to go to its owner's graveyard instead.
+- The language-model seat says it with whose it is and its handle ("Pay 1
+  life for P2's Plains #25?", and the answers "pay 1 life for Plains #25" or
+  "don't pay for Plains #25"), the client's headline with the name it draws
+  ("Pay 1 life for Plains?", `Phrase::PayLifeFor`; without a name, the line
+  it read before).
+- **Bounds.** One `Option<ObjectId>`: a tag and, where it names one, a
+  handle. A cut frame is refused and a damaged one is read or refused,
+  never panicked on (`crates/baylee-engine/tests/hostile_actions.rs`, module
+  `pay_life`). Nothing a client sends changed.
+- **Protocol 45.** A frame writes every field by position, so a peer of 44
+  refuses a frame of 45 and the reverse, and engine, gateway, agent, seat and
+  clients are deployed together. In JSON (records, tapes, shadow labels) the
+  field is left out at `None` and defaults when absent, so `VIEW_VERSION`
+  stays 90 and a record written before reads as it was. A `Pending` is in
+  no snapshot hash, and no answer the engine takes moves. A shadow label
+  written before at a Cleansing question binds another question JSON (the
+  question names the land now): convert such labels with the runtime that
+  wrote them.
+
+What changed in protocol 45: the field above, and nothing else.
 
 ## Taking back a cast (`PlayerAction::CancelCast`)
 
@@ -1620,7 +1827,12 @@ before. Its play is now written when it moves, with where from, instead of
 "played a card" while it was still in a hand followed by a move line. And
 the journal records a player's life loss before the damage that caused it:
 where the two are the same player and amount, in one action, the damage
-line now comes first (`GameLog::cause_before_effect`).
+line now comes first (`GameLog::cause_before_effect`). Each damage keeps its
+own life line: when several creatures deal combat damage to one player at
+once (CR 510.2), the log reads damage, life, damage, life, …, and a life line
+told after damage to that player never folds the next creature's loss into
+it. The same damage again and again (a loop) still folds into one counted
+pair. Only the order and folding of lines changed; no field did.
 
 ### What a line cannot name
 
@@ -1989,13 +2201,19 @@ one.
 
 `HeuristicAgent::act(&PlayerView, &Pending)` uses the same filtered view as a
 networked player. The host can additionally provide borrowed selected-effect
-context and a private scouting report to an active house AI. This is an
-intentional AI privilege: current hands, submitted decks, sideboards and
-requested library depth. None is added to `Pending`, `PlayerView`,
-`GameStatic`, or a protocol envelope, so this does not change the view version.
+context and a private scouting report to an active house AI. A fair level
+(every level but `seer`, `docs/house-ai.md` §"Fair by default, and the one
+level that peeks") is told its own submitted deck and nothing hidden; only
+`seer` is given the privilege of current hands, opponents' submitted decks
+and library depth, and every list of levels labels it unfair. No scouting
+report is added to `Pending`, `PlayerView`, `GameStatic`, or a protocol
+envelope, so this does not change the view version. The decision context's
+public part does ride beside a seat's question, for the seat it asks
+(§"What a question is about").
 
 The authorization lives in `gamehost::scouting::request`, which checks the
-current controller for every call. Only `SeatKind::Ai` qualifies. A `Driven`
+current controller and its level for every call. Only `SeatKind::Ai`
+qualifies, and only at a level that peeks for anything past its own deck. A `Driven`
 AI chair is being played by a human and is refused; `StandIn` belongs to a
 human and is also refused. No network request can invoke this private module.
 Reports have no serialization and are consumed for one decision without
@@ -2019,6 +2237,56 @@ public card data, identical for every seat, and exactly the lookup the
 client makes to label the same buttons. The line is *state* versus
 *printed text*: a registry answers "what does Arid Mesa say", never "what
 is in that library".
+
+## The house's search at a hosted table
+
+Since 12.11.2026 the engine server has the house levels try their options
+in copies of the game before they answer, at every table it hosts
+(`docs/house-ai.md` §"Foresight", §"Foresight at a host"). Nothing a
+client sends or is sent changes, the protocol and view versions stay, and
+nothing new is read from a client. The engine link gains one field the
+gateway fills: `GameSetup.seat_accounts`, whether an account sits in each
+chair (a seat bridge its host handed a chair to has none).
+
+- **What decides what a search may spend.** A player names a level in the
+  lobby, as before (`ai` on a room's chair or a one-tap game, checked with
+  `AIProfile::named`: the six levels, nothing else). The gateway builds the
+  chair's profile from the name and sends it to the engine in
+  `GameSetup.preset_json`, with the level's foresight tier and its
+  generation-9 bound. The engine grants the operator's share of that bound
+  under a ceiling of `expert`'s, whatever the preset says. An AI profile
+  built from the protocol's numbers (`GamePresetMsg`, the dev harness's
+  `CreateGame`) has no tier and never searches. No client field raises
+  compute.
+- **What the operator sets** (the agent's environment, which its engines
+  inherit; `docs/dev/environment.md` §"Engine server"): the switch, the
+  share of each level's bound, the searches at once on the machine, the
+  wall guard. Searches at once are held across the agent's engines by locks
+  on files in a directory the agent makes (`BAYLEE_FORESIGHT_SLOTS`).
+- **What a player sees.** Each searched answer ends a pump slice, so a
+  player gets the house's frames between two searches, and the engine reads
+  clock probes, flushes and seat changes between them. A searched answer
+  takes up to about a second of a core at `expert` (most take a tenth of
+  that) and never more than the wall guard (three seconds by default) plus
+  one engine step; where no slot is free or the guard passes, the level
+  answers as its heuristics do, at once.
+- **Records and replays.** The house's answers are inputs of the record as
+  before. A replay, a projection (§"Replays") and a
+  resumed table apply the recorded answers and ask no house, so a search
+  that was given up, or never made for want of a slot, replays exactly as
+  it was played.
+- **Only while a person plays.** The house searches only while a chair an
+  account sits in (`GameSetup.seat_accounts`) still plays: answers over a
+  socket and has not conceded, lost or left. When the last person concedes
+  the gateway frees their account at once (`SeatParticipationEnded`), and
+  the rest of that game holds no search.
+- **A game nobody plays any more.** Once no seat answers over a socket (no
+  person and no seat bridge), the house plays the game out alone, by its
+  heuristics, so that its result and its record stand, within 5,000 of its
+  answers and 20 seconds (`REMAINDER_ANSWERS`, `REMAINDER_MS`). Past either,
+  the engine closes it as an admin closes one: `GameClosed` to whoever is
+  watching, the record's last piece, and `GameEnded` with no winners and
+  the reason `nobody is left`.
 
 ## Combat enumerates its own answers
 
@@ -2268,8 +2536,10 @@ BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent
 The agent finds `baylee-engine-server` beside itself (`BAYLEE_ENGINE_BIN`
 overrides), reconnects with backoff, and takes `BAYLEE_GATEWAY`,
 `BAYLEE_AGENT_NAME` and `BAYLEE_AGENT_CAPACITY` (0 = no limit). The gateway
+listens on `127.0.0.1:{PORT}` unless `BAYLEE_BIND` names another address, and
 tells an engine to dial `BAYLEE_ENGINE_URL`, which defaults to
-`ws://127.0.0.1:{PORT}/engine/ws` — right for a single box, wrong the moment an
+`ws://{the bound address}:{PORT}/engine/ws` (loopback when bound to every
+interface) — right for a single box, wrong the moment an
 agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.
@@ -2933,7 +3203,8 @@ so a guest is `Guest#1a2b` to the other players.
   `mixed` open it, `central`, the default, keeps it shut (`403` `this gateway
   takes no guests`); `GET /auth/config` says `guests_enabled`, so a client
   offers what the gateway takes. It replaces `BAYLEE_GUESTS`, which is read
-  no more. `BAYLEE_REGISTRATION` is a switch of its own.
+  no more. `BAYLEE_REGISTRATION` is a switch of its own (§"Who may come in
+  new").
 - **`central`** in `GET /auth/config` says whether the gateway takes Baylee
   Central sign-ins (`POST /auth/central/login`): it is connected
   (`BAYLEE_CENTRAL_CONFIG_FILE`) and its mode is `central` or `mixed`
@@ -2950,61 +3221,57 @@ so a guest is `Guest#1a2b` to the other players.
 Turning a guest into an account, keeping its decks, is not part of this
 (#269 leaves it to an issue of its own).
 
-## A closed beta: keys (#317)
+## Who may come in new (`BAYLEE_REGISTRATION`)
 
-`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new guest
-needs a key** (accounts are Baylee Central's, §"Accounts are Baylee
-Central's"). A guest coming back with its session needs none (the session is
-the guest). `off` and unset are as before; a mode without guests
-(`BAYLEE_AUTH_MODE`) still closes the guest door, key or no key.
+`BAYLEE_REGISTRATION` says whether anybody new comes in: `open` (unset, and
+any value but the three below) or `off` (`off`, `0` or `false`). `off` shuts
+the door to a Baylee Central account new at this gateway unless an admin's
+session brings it (`docs/central-login.md` §"Who a gateway lets in"); the
+guest door is the auth mode's alone (`BAYLEE_AUTH_MODE`). `GET /info` and
+`GET /auth/config` carry `"registration": "open" | "off"`. The open beta
+runs `open`.
 
-- **Where it goes.** `POST /auth/guest` takes an optional `invite_key`
-  beside its other fields. A gateway that is not a closed beta ignores it; a
-  client sends it only where the gateway said `invite`, so an older gateway
-  is sent exactly what it always was.
-- **What the gateway says.** `GET /info` and `GET /auth/config` carry
-  `"registration": "open" | "invite" | "off"`.
-- **Its shape.** `BAYLEE-XXXX-XXXX-XXXX-XXXX`: sixteen characters of
-  Crockford base32, 80 random bits, the prefix and dashes only for the eye.
-  The gateway reads a key the way a person copies one: case, spaces, dashes
-  (also typographic ones) and the prefix do not matter, `O` is `0`, and `I`
-  and `L` are `1`.
-- **Refusals**, all `403`:
-  - no key, or a blank one: `this gateway is a closed beta: a new account
-    or guest needs a closed beta key. If there is no field for one, update
-    Baylee`. That last sentence is for a beta.1 client, which shows a
-    gateway's refusal as it is and has no field for a key;
-  - a key that is malformed, unknown, used up, expired or revoked, all in
-    one sentence so a guess learns nothing: `this closed beta key is not
-    valid`.
-  Every key offered (a missing or blank one is not a try) counts against the
-  sign-in limiter under the caller's address: eight in five minutes, then
-  `429` `too many attempts` before the key is even read. A key that admits
-  somebody clears that count, as a right password does. The ordinary per-address limit of registration and guests
-  still applies too.
-- **Kept as a hash.** The table `invite` holds SHA-256 of the key's
-  canonical sixteen characters, never the key, with a note, the uses left
-  (default one), an optional expiry and a revocation time. Redeeming is one
-  `UPDATE … WHERE uses_left > 0 AND revoked_at IS NULL AND (expires_at IS
-  NULL OR expires_at > now) RETURNING id` in the transaction that inserts
-  the account: two players racing for the last use make one account, and a
-  registration refused after the key (a username taken meanwhile) rolls the
-  use back. The account keeps which key let it in (`account.invite_id`,
-  `ON DELETE SET NULL`). No key is ever logged.
-- **Made on the server.** `baylee-gateway invite` needs only
-  `DATABASE_URL`, and `baylee-invite` (installed by `baylee-deploy stage`)
-  runs it with the gateway's settings:
-  `create [--uses N] [--expires 30d|12h] [--note "…"] [--count K]` prints
-  one key per line on stdout, and nothing else, so it pipes; `list` shows
-  every key's id, note, uses left, accounts admitted, expiry and state,
-  never a key; `revoke <id>` closes one. A key is shown once, when made.
-  The admin console below makes, lists and revokes keys the same way.
+**The closed beta's keys are gone** (#317; owner, 10.11.2026). Until then
+`BAYLEE_REGISTRATION=invite` made a gateway a closed beta, where a new guest
+needed a key its operator had made. Since then:
+
+- `BAYLEE_REGISTRATION=invite` stops the gateway's start, before the
+  database, and names `open` and `off`. Neither is guessed for the operator:
+  read as `open` it would let in the strangers the key kept out, read as
+  `off` it would keep out the players the open beta is for.
+- `POST /auth/guest` reads no `invite_key`. A client from the closed beta
+  that still sends one is let in as any guest is: the field is unknown there,
+  and unknown fields are ignored.
+- A gateway from the closed beta may still say `"registration": "invite"`.
+  A client reads it as any word it does not know (by the older
+  `registration_enabled`), sends no key, and shows that gateway's refusal as
+  it is.
+- `baylee-gateway invite …` and `baylee-invite …` say the keys are gone and
+  exit `2`, starting nothing. `baylee-deploy stage` still installs
+  `baylee-invite`, for one release: the deploy already on a server stages it
+  by name, and this way it replaces the old wrapper instead of failing.
+- The admin console's `/admin/invites` routes are `404`, as any unknown path
+  is, and its numbers count no key.
+- Migration `m20261110_000030_drop_invites` drops the table `invite` (the
+  keys' hashes and notes) and `account.invite_id` (which key let an account
+  in); the accounts and the rest of their rows stay. A gateway built before
+  it refuses to start on a database migrated past it: its migrator finds a
+  row in `seaql_migrations` it has no file for, as with any newer migration.
+  Nothing in the repository runs a migration's `down`, so going back to an
+  older build means restoring the backup taken before the deploy, or, with
+  the gateway stopped, making the table, the column and its index again
+  empty as the migration's `down` does and deleting its row
+  (`m20261110_000030_drop_invites`) from `seaql_migrations`.
+- The guest door's limits per address (ten in five minutes, thirty a day)
+  and `BAYLEE_GUEST_CAP` are as they were. Only the key tries' own budget on
+  the sign-in limiter (eight in five minutes per address) went with the
+  keys.
 
 ## The admin console
 
 What a gateway's operator asks of it without a shell: how busy it is, in
-counts and by day, who is online and at which table, its accounts, and its
-closed-beta keys and its blocked cards. Meant for one caller, the feedback
+counts and by day, who is online and at which table, its accounts and its
+blocked cards. Meant for one caller, the feedback
 service's Overview on the same machine (`docs/feedback.md` §"The admin
 console"), which signs its admins in itself; the gateway takes no player's
 session here and knows no admin.
@@ -3057,9 +3324,6 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
 | `PUT /admin/accounts/{id}/ban` | `{"reason", "until"?}`: bans it; `DELETE` the same path lifts the ban; §"Acting on an account" |
 | `POST /admin/games/{id}/close` | `{"reason"}`: ends a running game through its engine; `202`; §"Acting on a game" |
-| `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
-| `POST /admin/invites` | `{"count"?, "uses"?, "expires"?, "note"?}`, `invite create`'s flags as fields, read by the command's own parser (the same defaults, bounds and refusals, word for word, as `400 {"error"}`); unknown fields are `400`. `201 {"keys": [{"id", "key"}], "uses", "expires_at", "note"}`: the one time the keys exist outside the hand they are given to. Made in one transaction by the function `invite create` uses |
-| `DELETE /admin/invites/{id}` | revokes as `invite revoke` does: `204`; `404 {"error":"no key <id> that is not revoked already"}`; `400` for an id that is not a UUID. The row stays, revoked, as it does there |
 | `GET /admin/cards/search?q=` | `{"cards": [{"index", "name", "type_line", "mana_cost", "coverage", "scryfall_id", "blocked"}]}`: the pool's cards whose English name holds `q` (any case) or whose index is `q`, those starting with it first, then by name, at most 25; `blocked` is `null` or the block in force (§"Blocked cards"); an empty `q` finds nothing, one over 100 characters is `400` |
 | `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
 | `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
@@ -3088,11 +3352,10 @@ are `action=central.link` with the gateway's id and `action=central.unlink`.
 
 **Audit.** Every change is a log line on the target `baylee_gateway::audit`
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
-`action=invite.create` with `count`, `uses`, `expires` and the key `ids`,
-`action=invite.revoke` with the `id`, `action=card.block` with the block's
-`id`, the card's `index` and name and `until`, `action=card.unblock` with
-the `id`, `index` and name, or `action=auth_mode.set` with the `mode`. Never a key, the token, a key's note or a block's
-reason, either of which may name a person. Reads are not audited.
+`action=card.block` with the block's `id`, the card's `index` and name and
+`until`, `action=card.unblock` with the `id`, `index` and name, or
+`action=auth_mode.set` with the `mode`. Never the token or a block's
+reason, which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
 statement (`baylee_db::stats`), one for the days (`baylee_db::console::daily`)
@@ -3102,9 +3365,9 @@ anything per person:
 ```json
 {
   "at": "2026-10-08T12:00:00Z",
-  "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
+  "gateway": { "name": "Baylee EU", "registration": "open", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
                "uptime_secs": 86400, "terms": true, "central": true, "auth_mode": "central", "auth_mode_source": "default" },
-  "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
+  "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2,
                 "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 }, "decks": 77 },
   "guests": { "enabled": true, "live": 7, "cap": 1000, "created": { "today_utc": 2, "last_7d": 5, "last_30d": 7 } },
   "online": { "players": 9, "in_lobby": 6, "seated": 4, "sessions_live": 52, "accounts_signed_in": 44 },
@@ -3113,7 +3376,6 @@ anything per person:
              "finished": 301, "finished_since": { "today_utc": 3, "last_7d": 29, "last_30d": 301 },
              "record_bytes": 52428800, "avg_secs_30d": 1260 },
   "agents": { "connected": 1, "local": 1, "capacity": null, "games": 2 },
-  "invites": { "total": 50, "active": 9, "used_up": 30, "expired": 6, "revoked": 5, "uses_left": 11, "admitted": 40 },
   "daily": [ { "day": "2026-09-10", "registered": 1, "guests": 0, "started": 12, "finished": 11, "players": 5 }, … ]
 }
 ```
@@ -3133,8 +3395,6 @@ anything per person:
   and 30 × 24 hours.
 - `agents.capacity` is the sum of the agents' capacities, `null` when one
   of them has none.
-- `invites.uses_left` sums the uses of the keys that still admit somebody;
-  `admitted` counts the existing accounts a key let in.
 - `daily` is the last 30 UTC days, oldest first, today last: accounts and
   guests made that day that still exist, records started and finished, and
   the accounts that sat in a game started that day. `guests.created` counts
@@ -3211,14 +3471,13 @@ confirmed), a deck's cards or a record's bytes (`baylee_db::console`).
   password, never what.
 - `GET /admin/accounts`: `{"total", "online", "accounts": [{"id",
   "username", "display_name", "tag", "handle", "guest", "created_at",
-  "has_email", "confirmed", "lang", "by_key", "key_note", "terms_version",
+  "has_email", "confirmed", "lang", "terms_version",
   "decks", "games", "sessions", "active_at", "in_lobby", "playing",
   "online"}]}`. `games` counts the records the account sat in; `sessions`
   its live sessions; `active_at` its latest session's expiry less the
   session's lifetime, the last renewal: the account was active then, or
   up to a renewal interval (6 hours, a guest's a day) later. No
   sign-in time is stored, so this is the closest the store can say.
-  `key_note` is the note of the key that admitted it.
 - `GET /admin/accounts/{id}`: the same row, `in_lobby`, `online` and
   `table` (`{"id", "name", "state"}` of the table it sits at, or `null`),
   with `confirmed_at`, `terms_accepted_at`, `deck_list` (`[{"id", "name",
@@ -4125,7 +4384,7 @@ from a curl recipe into a contract:
 | --- | --- | --- |
 | which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version, source, registration, guests}` |
 | sign in | `POST /auth/central/login` `{ticket}`: an `admit` ticket Baylee Central issued for this gateway (`docs/central-login.md`) | `{token, expires_at, username, display_name, terms_stale?}`; `403` with `ban` for a banned account |
-| play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
+| play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
 | leave for good | `DELETE /account` `{}` | `204`; `403` for a banned account |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
@@ -4804,7 +5063,8 @@ writes it beside "playing" in whole minutes (`12 min`, `1 h 5 min`).
 Never an account id — a `player` is a handle (`Alice#af03`), and `you` / `yours` answer
 "is that me" without the listing having to carry anyone's account. `kind` is
 `"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
-(`novice`, `casual`, `steady`, `sharp`, `expert`); one that does not exist is a `400` rather than a
+(`novice`, `casual`, `steady`, `sharp`, `expert`, `seer`; the last reads the other chairs' hidden
+cards and a client labels it unfair); one that does not exist is a `400` rather than a
 quiet default, because a table that plays at another level than it advertises
 is worse than one that says no.
 
@@ -4877,7 +5137,7 @@ A language model at a table is a seat bridge (`baylee-seat join`) the
 host's client starts (`docs/llm-seat.md` §"A language model at your
 table"). It used to sit down as a guest, so a gateway with
 `BAYLEE_GUESTS=off`, one whose guest cap was reached and a closed beta
-(`BAYLEE_REGISTRATION=invite`) seated none. Now the host hands the bridge
+(#317, gone since) seated none. Now the host hands the bridge
 one chair of its room on its own word (owner, 06.10.2026), and the bridge
 needs no account at all (`crates/baylee-gateway/src/chair.rs`):
 
@@ -5623,6 +5883,55 @@ still charges the right price. No protocol or view version moves.
 Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
 linked counters will be removed. The German/English client and seat narrator
 explain the consequence before confirmation. No view schema change is needed.
+
+### What a question is about
+
+`ChoiceRequest.context` (field 4, additive: absent or empty reads as no
+note, and an old client ignores it) is a `baylee_core::wire`-encoded
+`baylee_engine::engine::DecisionNote`: the public part of the engine's
+`DecisionContext` for the question it rides with, owned. Which printed
+ability or mode asks (`printed` as card and face, or a registry `token`,
+`ability` as its place in that printed list, `mode`), how far a resolving
+ability has run (`done`), the cast route (`cast_mode`, `alternative_cost`,
+`cost`), the X (`x`, `life_x`, `x_targets`), the second instance of
+"target" and what the first chose (`second_instance`, `first_targets`),
+and whether the question is what a clone enters as a copy of (`copying`,
+`copy_mods`). A seat that answers as the house does rebuilds the context
+from the card registry (`baylee_ai::noted`), so `baylee-seat --mind house`
+and its house fallback answer from the context the table's own house reads
+(`docs/house-ai.md` §"The seated house").
+
+It tells the seat nothing its view does not:
+
+- **Who is told.** Only the seat that answers the question
+  (`decision_actor`), never a spectator or a replay, and only about its
+  own announcement: the context names the player whose cast, activation,
+  trigger or entering permanent it explains (`DecisionContext::actor`), and
+  the note goes to the seat that answers for that player (itself, or its
+  controller under CR 724) or to none (`Engine::decision_note_for`). A
+  question another seat answers in the middle of someone's announcement (an
+  opponent naming the targets) carries no note. A resolving spell or
+  ability is on the stack for everyone, so its note goes to whichever seat
+  it asks.
+- **Which card it names.** The asking card only where the seat may name the
+  source: in a zone its view shows, read as the player entitled to look
+  (its own hand, a controlled player's hand, the public zones), and not
+  face down to it (`view::may_name`). And only where the seat is shown every
+  card the note points into (`view::card_shown`): a granted ability's text
+  is printed on its grantor, a copy's modifications on the copy's card, so
+  a grantor in an opponent's hand is never named through the ability it
+  granted. Otherwise the note keeps the route, the X and the targets the
+  seat named itself and drops which card asks
+  (`DecisionNote::without_identity`). The targeting context of the view
+  (`targeting`) follows the same two rules.
+- **What a reader accepts.** A note that does not read is no note; the
+  question stands as before. `first_targets` reads at most
+  `DecisionNote::MAX_FIRST_TARGETS` (64) and a frame that names more does
+  not read; the house reads an X or a target count past `u16::MAX` as that,
+  and an index past its list, a card or token the registry does not hold or
+  a card with no face as nothing (`baylee_ai::noted::Noted`).
+
+The gateway forwards it as every seat frame, without decoding it.
 
 ## Mutate and dungeon resolution choices (protocol 35, view 82)
 

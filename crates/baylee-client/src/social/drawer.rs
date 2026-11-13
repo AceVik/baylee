@@ -882,70 +882,43 @@ fn sync_door(
     }
 }
 
-/// A contact's circular avatar disc (`28×28`) with their initial and a
-/// presence-coloured status ring + indicator dot.
+/// A contact's avatar (`28×28`): the disc every place draws for this person
+/// (`shellkit::avatar`: their picture, or their monogram on their tint),
+/// held back while they are offline, with their presence as a dot at its
+/// foot.
 fn person_avatar(commands: &mut Commands, fonts: &UiFonts, name: &str, shown: Shown) -> Entity {
-    let (ring, dot_fill) = match shown {
-        Shown::Online => (
-            Color::srgb(0.420, 0.816, 0.541),
-            Color::srgb(0.420, 0.816, 0.541),
-        ),
-        Shown::Away => (palette::CANDLE, palette::CANDLE),
-        Shown::Dnd => (palette::DANGER, palette::DANGER),
-        Shown::Offline => (tokens::BORDER, tokens::MUTED),
-    };
-    let initial = name
-        .chars()
-        .find(|c| c.is_alphanumeric())
-        .map_or_else(|| "?".to_string(), |c| c.to_uppercase().to_string());
-    let disc_bg = if shown == Shown::Offline {
-        Color::srgba(0.08, 0.12, 0.16, 0.75)
-    } else {
-        Color::srgba(0.11, 0.19, 0.25, 0.95)
-    };
+    let dot_fill = super::card::presence_ink(shown);
+    let disc =
+        crate::shellkit::avatar::disc_as(commands, fonts, name, z(28.0), shown == Shown::Offline);
+    // The dot hangs past the disc's rim, so it is the disc's sibling in a
+    // holder and not its child: the disc clips what it holds to its circle.
     commands
         .spawn((
             Node {
                 width: zpx(28.0),
                 height: zpx(28.0),
-                border: UiRect::all(zpx(1.5)),
-                border_radius: BorderRadius::all(zpx(14.0)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(disc_bg),
-            BorderColor::all(ring),
             Pickable::IGNORE,
-            children![
-                (
-                    Text::new(initial),
-                    tf_bold(fonts, z(12.0)),
-                    TextColor(if shown == Shown::Offline {
-                        tokens::MUTED
-                    } else {
-                        tokens::INK
-                    }),
-                    Pickable::IGNORE,
-                ),
-                (
-                    Node {
-                        position_type: PositionType::Absolute,
-                        right: zpx(-2.0),
-                        bottom: zpx(-2.0),
-                        width: zpx(9.0),
-                        height: zpx(9.0),
-                        border: UiRect::all(zpx(1.5)),
-                        border_radius: BorderRadius::all(zpx(5.0)),
-                        ..default()
-                    },
-                    BackgroundColor(dot_fill),
-                    BorderColor::all(super::rows::LOBBY_GROUND),
-                    Pickable::IGNORE,
-                ),
-            ],
+            children![(
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: zpx(-2.0),
+                    bottom: zpx(-2.0),
+                    width: zpx(9.0),
+                    height: zpx(9.0),
+                    border: UiRect::all(zpx(1.5)),
+                    border_radius: BorderRadius::all(zpx(5.0)),
+                    ..default()
+                },
+                BackgroundColor(dot_fill),
+                BorderColor::all(super::rows::LOBBY_GROUND),
+                ZIndex(1),
+                Pickable::IGNORE,
+            )],
         ))
+        .add_child(disc)
         .id()
 }
 
@@ -1063,17 +1036,46 @@ fn close_button(commands: &mut Commands, fonts: &UiFonts) -> Entity {
         .id()
 }
 
+/// A person's or a group's row at rest: a wash of the drawer's ground, so a
+/// list reads as a list and not as a stack of boxes (owner, 12.11.2026:
+/// "verschönere die Optik vom Chat und Kontakte"). Under the pointer it is
+/// the card it was, with the accent's rim.
+const ROW_REST: Color = Color::srgba(0.06, 0.11, 0.15, 0.40);
+const ROW_HOT: Color = Color::srgba(0.11, 0.20, 0.28, 0.96);
+/// How strongly a row's rim is drawn at rest.
+const ROW_RIM: f32 = 0.20;
+
+/// A section's heading: its words, and a hairline running out to the
+/// drawer's edge. Exactly as high as the words alone, which the windowed
+/// friends list counts on.
 fn heading(commands: &mut Commands, fonts: &UiFonts, text: String) -> Entity {
     commands
         .spawn((
-            Text::new(text.to_uppercase()),
-            tf_bold(fonts, z(10.5)),
-            TextColor(tokens::MUTED),
             Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: zpx(8.0),
                 margin: UiRect::new(zpx(0.0), zpx(0.0), zpx(10.0), zpx(4.0)),
                 ..default()
             },
             Pickable::IGNORE,
+            children![
+                (
+                    Text::new(text.to_uppercase()),
+                    tf_bold(fonts, z(10.5)),
+                    TextColor(tokens::MUTED),
+                    Pickable::IGNORE,
+                ),
+                (
+                    Node {
+                        flex_grow: 1.0,
+                        height: zpx(1.0),
+                        ..default()
+                    },
+                    BackgroundColor(tokens::BORDER.with_alpha(0.30)),
+                    Pickable::IGNORE,
+                ),
+            ],
         ))
         .id()
 }
@@ -1208,8 +1210,7 @@ fn sync_drawer(
     let entry_text = ui
         .entry
         .as_ref()
-        .map(|(e, b)| format!("{e:?}{}{}", b.text(), b.cursor()))
-        .unwrap_or_default();
+        .map_or_default(|(e, b)| format!("{e:?}{}{}", b.text(), b.cursor()));
     let pitch = ROW_PITCH * zoom.0;
     let chunk = window_chunk(scrolls.iter().next().map_or(0.0, |s| s.y), pitch);
     let group_unreads: Vec<u32> = machine
@@ -1416,6 +1417,10 @@ fn sync_drawer(
         ));
         for person in view.incoming {
             let line = row(&mut commands);
+            commands.entity(line).insert((
+                Pickable::default(),
+                crate::shellkit::avatar::PersonLink::row(person.handle.clone(), person.guest),
+            ));
             let avatar = person_avatar(&mut commands, &fonts, &person.handle, Shown::Online);
             let name = label(
                 &mut commands,
@@ -1441,6 +1446,10 @@ fn sync_drawer(
         }
         for person in view.outgoing {
             let line = row(&mut commands);
+            commands.entity(line).insert((
+                Pickable::default(),
+                crate::shellkit::avatar::PersonLink::row(person.handle.clone(), person.guest),
+            ));
             let avatar = person_avatar(&mut commands, &fonts, &person.handle, Shown::Offline);
             let name = label(
                 &mut commands,
@@ -1552,22 +1561,23 @@ fn sync_drawer(
             }
             let tag = friend.person.tag.clone();
             let line = row(commands);
-            let card_bg = Color::srgba(0.06, 0.11, 0.15, 0.85);
-            let card_hot = Color::srgba(0.11, 0.20, 0.28, 0.96);
+            let card_bg = ROW_REST;
+            let card_hot = ROW_HOT;
             // The row lights under the pointer; right-clicking anywhere on it
             // or pressing its `...` button opens the context menu.
             commands.entity(line).insert((
                 Pickable::default(),
                 bevy::picking::hover::PickingInteraction::None,
                 DrawerRowTarget(tag.clone()),
+                crate::shellkit::avatar::PersonLink::row(friend.person.handle.clone(), false),
                 Feel::tinting_to(card_bg, card_hot),
                 crate::ambience::FeelBorder {
-                    rest: tokens::BORDER.with_alpha(0.65),
+                    rest: tokens::BORDER.with_alpha(ROW_RIM),
                     hot: tokens::ACCENT.with_alpha(0.75),
                     press: tokens::ACCENT.with_alpha(0.90),
                 },
                 BackgroundColor(card_bg),
-                BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+                BorderColor::all(tokens::BORDER.with_alpha(ROW_RIM)),
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
@@ -1586,7 +1596,14 @@ fn sync_drawer(
             } else {
                 format!("{name} ({})", friend.person.handle)
             };
-            let presence = person_avatar(commands, &fonts, &shown_name, friend.presence.status);
+            // By the handle, whatever the row calls them: a nickname is this
+            // player's own word and the disc is the person's.
+            let presence = person_avatar(
+                commands,
+                &fonts,
+                &friend.person.handle,
+                friend.presence.status,
+            );
             let words = commands
                 .spawn((
                     UiButton,
@@ -1692,20 +1709,20 @@ fn sync_drawer(
             };
             let unread = machine.conversation(&conv).map_or(0, |c| c.unread);
             let line = row(&mut commands);
-            let card_bg = Color::srgba(0.06, 0.11, 0.15, 0.85);
-            let card_hot = Color::srgba(0.11, 0.20, 0.28, 0.96);
+            let card_bg = ROW_REST;
+            let card_hot = ROW_HOT;
             commands.entity(line).insert((
                 Pickable::default(),
                 bevy::picking::hover::PickingInteraction::None,
                 DrawerRowTarget(format!("grp:{}", group.id)),
                 Feel::tinting_to(card_bg, card_hot),
                 crate::ambience::FeelBorder {
-                    rest: tokens::BORDER.with_alpha(0.65),
+                    rest: tokens::BORDER.with_alpha(ROW_RIM),
                     hot: tokens::ACCENT.with_alpha(0.75),
                     press: tokens::ACCENT.with_alpha(0.90),
                 },
                 BackgroundColor(card_bg),
-                BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+                BorderColor::all(tokens::BORDER.with_alpha(ROW_RIM)),
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
@@ -1834,6 +1851,11 @@ fn sync_drawer(
         ));
         for player in recent {
             let line = row(&mut commands);
+            // The row answers the pointer only so that their card can open.
+            commands.entity(line).insert((
+                Pickable::default(),
+                crate::shellkit::avatar::PersonLink::row(player.handle.clone(), player.guest),
+            ));
             let avatar = person_avatar(&mut commands, &fonts, &player.handle, Shown::Offline);
             let name = label(
                 &mut commands,
@@ -1871,6 +1893,10 @@ fn sync_drawer(
         ));
         for person in view.blocked {
             let line = row(&mut commands);
+            commands.entity(line).insert((
+                Pickable::default(),
+                crate::shellkit::avatar::PersonLink::row(person.handle.clone(), person.guest),
+            ));
             let name = label(
                 &mut commands,
                 &fonts,

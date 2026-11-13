@@ -281,8 +281,7 @@ fn assert_indistinguishable(a: &Engine<RegistryLookup>, b: &Engine<RegistryLooku
             let print = |f: &crate::engine::Fingerprint| {
                 f.0.iter()
                     .find(|(name, _)| *name == field)
-                    .map(|(_, value)| value.clone())
-                    .unwrap_or_default()
+                    .map_or_default(|(_, value)| value.clone())
             };
             let (x, y) = (print(&fa), print(&fb));
             let at = x
@@ -1645,3 +1644,6 @@ fn assert_names_none(engine: &Engine<RegistryLookup>, ids: &[ObjectId]) {
         assert!(!journal.contains(&name), "the journal still names {name}");
     }
 }
+
+// Forks dealt from a public prior (`DeckKnowledge::Prior`).
+mod prior;

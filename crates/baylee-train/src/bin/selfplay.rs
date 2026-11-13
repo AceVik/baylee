@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! cargo run --profile selfplay -p baylee-train --bin selfplay -- \
-//!     --decks allytifact,victory --games 10000 --out ~/baylee-data/runs/r001
+//!     --decks breya,kenrith --games 10000 --out ~/baylee-data/runs/r001
 //! ```
 //!
 //! Writes into `--out`:
@@ -54,7 +54,7 @@ use serde_json::{Value, json};
 struct Args {
     /// House decks (`data/decks/<key>.txt`), comma-separated. Every ordered
     /// pair of two different decks is a matchup; games cycle through them.
-    #[arg(long, value_delimiter = ',', default_value = "allytifact,victory")]
+    #[arg(long, value_delimiter = ',', default_value = "breya,kenrith")]
     decks: Vec<String>,
     /// House profiles the chairs are drawn from, per seat and game.
     #[arg(
@@ -149,9 +149,9 @@ struct Args {
     /// --teams`); none = every seat for itself. Needs three seats or more.
     #[arg(long, value_delimiter = ',')]
     teams: Vec<u8>,
-    /// Clamp AI scouting requests so `sharp` and `expert` teachers only see
-    /// their own submitted decklist and never peek at opponent decks, opponent
-    /// hands, or library order.
+    /// Hold every house chair to its own submitted decklist, the level that
+    /// peeks (`seer`) too. Every other level never sees an opponent's deck,
+    /// hand or library order at any table (owner, 10.11.2026).
     #[arg(long)]
     fair_scouting: bool,
     /// Optional path to `data/decks/manifest.v4.json` to load real-world decks.
@@ -338,9 +338,15 @@ fn main() -> anyhow::Result<()> {
     let mut decks: Vec<HouseDeck> = if args.decks_manifest.is_some() {
         Vec::new()
     } else {
+        // Self-play games are training data: no house deck held out of train.
+        let held_out = baylee_train::decksplit::house_files_outside_train()?;
         args.decks
             .iter()
-            .map(|key| HouseDeck::named(key))
+            .map(|key| {
+                let path = baylee_train::housedeck::dir().join(format!("{key}.txt"));
+                baylee_train::decksplit::ensure_train_house_deck(key, &path, &held_out)?;
+                HouseDeck::named(key)
+            })
             .collect::<anyhow::Result<_>>()?
     };
     if let Some(manifest_path) = &args.decks_manifest {
@@ -521,13 +527,7 @@ fn main() -> anyhow::Result<()> {
     let profiles: Vec<(&'static str, AIProfile)> = args
         .profiles
         .iter()
-        .map(|key| {
-            AIProfile::NAMED
-                .iter()
-                .find(|(name, _)| name == key)
-                .copied()
-                .with_context(|| format!("unknown profile {key}"))
-        })
+        .map(|key| AIProfile::lookup(key).with_context(|| format!("unknown profile {key}")))
         .collect::<anyhow::Result<_>>()?;
     let pairs: Vec<(usize, usize)> = (0..decks.len())
         .flat_map(|a| (0..decks.len()).map(move |b| (a, b)))

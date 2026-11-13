@@ -19,6 +19,7 @@
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_cards_pool as _;
 
+use baylee_seathost::cli::{Asked, USAGE, asked};
 use baylee_seathost::launch::ProcessLauncher;
 use baylee_seathost::{Config, Host};
 use std::path::PathBuf;
@@ -36,6 +37,22 @@ fn fail(why: &str) -> ! {
 
 #[tokio::main]
 async fn main() {
+    // The command line first: before a setting is read, the bridge run or a
+    // gateway dialled.
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .unwrap_or_else(|_| fail(&format!("an argument is not UTF-8\n\n{USAGE}")))
+        })
+        .collect();
+    match asked(&args).unwrap_or_else(|why| fail(&format!("{why}\n\n{USAGE}"))) {
+        Asked::Help => {
+            println!("{USAGE}");
+            return;
+        }
+        Asked::Run => {}
+    }
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();

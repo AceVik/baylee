@@ -43,6 +43,7 @@ pub(super) fn rows(
             mana_value: card.mana_value,
             types: card.types,
             token: false,
+            time: None,
         });
     }
     out

@@ -112,7 +112,7 @@ fn a_piece_is_due_at_exactly_its_bound() {
 }
 
 /// The gateway's ask for the record as it stands (#323).
-fn flush(runner: &mut EngineRunner, nonce: u64) -> Vec<Envelope> {
+pub(super) fn flush(runner: &mut EngineRunner, nonce: u64) -> Vec<Envelope> {
     runner.handle(
         Envelope {
             msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
@@ -125,7 +125,7 @@ fn flush(runner: &mut EngineRunner, nonce: u64) -> Vec<Envelope> {
 }
 
 /// The record pieces among `out`, in order.
-fn pieces(out: &[Envelope]) -> Vec<v1::GameRecordChunk> {
+pub(super) fn pieces(out: &[Envelope]) -> Vec<v1::GameRecordChunk> {
     out.iter()
         .filter_map(|e| match &e.msg {
             Some(v1::envelope::Msg::GameRecordChunk(c)) => Some(c.clone()),
@@ -145,7 +145,7 @@ fn member(data: &[u8]) -> Vec<u8> {
 }
 
 /// The record the pieces make, each unpacked on its own.
-fn unpacked(pieces: &[v1::GameRecordChunk]) -> Vec<u8> {
+pub(super) fn unpacked(pieces: &[v1::GameRecordChunk]) -> Vec<u8> {
     pieces.iter().flat_map(|p| member(&p.data)).collect()
 }
 
@@ -595,6 +595,7 @@ fn a_game_that_cannot_start_says_so_rather_than_hanging() {
                 preset_json: b"not a preset".to_vec(),
                 seat_names: Vec::new(),
                 seat_guests: Vec::new(),
+                seat_accounts: Vec::new(),
             })),
         },
         &[],

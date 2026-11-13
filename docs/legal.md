@@ -904,7 +904,7 @@ was found in AGENTS.md, CLAUDE.md, NOTICE or this document. This records a confl
 with the project's claimed policy basis, not a conclusion about copyright law.
 
 A concrete existing example is the triggered land-tap/damage implementation in
-`crates/cards/src/cards/enchantments/mv_4/manabarbs.rs:25`; completing
+`crates/cards/sets/1993/src/lea/manabarbs.rs:25`; completing
 Power Surge would add another rules implementation. The legal guardrail (§"Guardrails for every change")
 requires stopping and telling the owner when a requested change conflicts with
 an explicit prohibition. Further card implementation is therefore held pending
@@ -1462,3 +1462,27 @@ a Scryfall request, card image, symbol or font. This entry re-reads no
 policy page: the Fan Content Policy quotation in §5 ("Don't use Wizards'
 Video or Music in your Fan Content.") is from 10.10.2026, and no Wizards
 video or music is used.
+
+### The vista loops as AVIF, and their decoder · 12 November 2026
+
+The two loops now ship as AVIF image sequences inside the client's binary
+(`crates/baylee-client/src/vista/loops/world.avif`, `tavern.avif`:
+1280 × 720, 30 frames a second, about a megabyte each). They are the
+owner's same two loops and nothing else: each was made from its 3840 × 2160
+master with one `ffmpeg` call (SVT-AV1; `art/baylee/README.md` has the
+command), and the masters moved from `assets/scenes/` to `art/baylee/loops/`,
+so the 114 MB of `.mp4` no longer go into a package. No frame was drawn,
+generated or borrowed for this; they show no Wizards artwork and no other
+game's art, as the entry above records. The client no longer starts a
+player's `ffmpeg`.
+
+The decoder is `rav1d` 1.1.0 (the Rust port of dav1d; BSD-2-Clause, as
+dav1d is), built without its assembly and for 8-bit pictures only, behind
+`crates/baylee-avif`. It is one of "the Rust crates, under their own"
+licences that `NOTICE` and the client's About name; `deny.toml` allows
+BSD-2-Clause already. AV1 and AVIF are the Alliance for Open Media's
+royalty-free formats. The files it reads are ours: nothing from a gateway,
+from Central or from another player reaches it (`crates/baylee-avif`'s own
+docs say why it must stay so for now). Neither change adds a Scryfall
+request, a card image, a symbol or a font. This entry re-reads no policy
+page.

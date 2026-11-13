@@ -976,7 +976,7 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
             .targets
             .first()
             .and_then(|id| state.object(*id))
-            .map(|obj| {
+            .map_or_default(|obj| {
                 vec![assignment(
                     state,
                     res,
@@ -984,8 +984,7 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                     DamageTarget::Player(obj.controller),
                     amount2(&amount, state, you, res),
                 )]
-            })
-            .unwrap_or_default(),
+            }),
         Effect::DealDamageToMatchingTargets { amount, filter } => {
             let amount = amount2(&amount, state, you, res);
             res.targets

@@ -54,7 +54,7 @@ impl Session {
             .map(|env| (seat, env))
             .collect();
         if let Some(pending) = self.engine.pending_for(seat) {
-            out.push((seat, choice_envelope(self.seq, pending)));
+            out.push((seat, self.question(seat, pending)));
         }
         out
     }
@@ -109,7 +109,7 @@ impl Session {
                 }
                 for seat in awaited.iter() {
                     if let Some(pending) = self.engine.pending_for(seat) {
-                        out.push((seat, choice_envelope(self.seq, pending)));
+                        out.push((seat, self.question(seat, pending)));
                     }
                 }
                 self.tell_spectators(&mut out);
@@ -123,7 +123,15 @@ impl Session {
             };
             // `house_seat` is a chair the house plays: one answered over a
             // socket returned above.
-            let Some(action) = self.table().house_answer(player, &pending) else {
+            // A host that asks for it gets one searched answer a slice, so
+            // that its event loop hears its sockets between two searches
+            // (`Session::set_foresight_host`).
+            #[cfg(any(test, feature = "foresight"))]
+            let (foreseen, slice_spent) = self.foreseen_in_slice(player, &pending);
+            #[cfg(not(any(test, feature = "foresight")))]
+            let (foreseen, slice_spent) = (None, false);
+            let Some(action) = foreseen.or_else(|| self.table().house_answer(player, &pending))
+            else {
                 return out;
             };
             let by = self.seats[player.get() as usize]
@@ -137,6 +145,11 @@ impl Session {
                 self.house_answered[player.get() as usize] = by;
             }
             answered += 1;
+            // The slice ends as if its answers were spent: the next turn of
+            // the loop still sends a socket seat its question, if it has one.
+            if slice_spent {
+                answered = answered.max(answers);
+            }
         }
     }
 

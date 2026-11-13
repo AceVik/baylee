@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { Admin, useVisibleInterval } from "./Admin";
-import type { Invite, Stats } from "./api";
+import type { ConsoleChange, Stats } from "./api";
 import { App } from "./App";
 import { pickLang, t } from "./i18n";
 import { serve, type Call } from "./test-utils";
@@ -13,8 +13,8 @@ const since = (n: number) => ({ today_utc: n, last_7d: n * 2, last_30d: n * 3 })
 function stats(over: Partial<Stats> = {}): Stats {
   return {
     at: "2026-10-08T12:00:00Z",
-    gateway: { name: "Baylee EU", version: "0.1.0-beta.5", registration: "invite" },
-    accounts: { registered: 1234, with_email: 3, confirmed_email: 2, admitted_by_key: 40, created: since(1) },
+    gateway: { name: "Baylee EU", version: "0.1.0-beta.5", registration: "open" },
+    accounts: { registered: 1234, with_email: 3, confirmed_email: 2, created: since(1) },
     guests: { enabled: true, live: 7, cap: 1000 },
     online: { players: 17, in_lobby: 12, seated: 6, sessions_live: 30, accounts_signed_in: 25 },
     games: {
@@ -28,44 +28,15 @@ function stats(over: Partial<Stats> = {}): Stats {
       finished_since: since(4),
     },
     agents: { connected: 1, local: 1, capacity: null, games: 3 },
-    invites: { total: 50, active: 9, used_up: 30, expired: 6, revoked: 5, uses_left: 11, admitted: 40 },
     ...over,
   };
 }
 
-function invite(over: Partial<Invite> = {}): Invite {
-  return {
-    id: "0199aaaa-0000-7000-8000-0000000000aa",
-    created_at: "2026-10-01T10:00:00Z",
-    note: "for Max",
-    uses_left: 1,
-    expires_at: null,
-    revoked_at: null,
-    admitted: 0,
-    state: "active",
-    ...over,
-  };
-}
-
-/** A console that makes keys and revokes them as the gateway would. */
-function start(): Call[] {
-  let keys: Invite[] = [invite()];
+/** A console with the gateway's numbers and the changes made through it. */
+function start(over: Partial<Stats> = {}, audit: ConsoleChange[] = []): Call[] {
   return serve((call) => {
-    if (call.url === "/ui/api/admin/stats") return { body: stats() };
-    if (call.url === "/ui/api/admin/audit") return { body: [] };
-    if (call.url === "/ui/api/admin/invites" && call.method === "GET") return { body: keys };
-    if (call.url === "/ui/api/admin/invites" && call.method === "POST") {
-      const made = [
-        { id: "0199bbbb-0000-7000-8000-000000000001", key: "BAYLEE-AAAA-BBBB-CCCC-DDDD" },
-        { id: "0199bbbb-0000-7000-8000-000000000002", key: "BAYLEE-EEEE-FFFF-GGGG-HHHH" },
-      ];
-      keys = [...made.map((m) => invite({ id: m.id, note: "for Ana" })), ...keys];
-      return { status: 201, body: { keys: made, uses: 1, expires_at: null, note: "for Ana" } };
-    }
-    if (call.method === "DELETE") {
-      keys = keys.map((k) => (call.url.endsWith(k.id) ? { ...k, state: "revoked" as const } : k));
-      return { status: 204 };
-    }
+    if (call.url === "/ui/api/admin/stats") return { body: stats(over) };
+    if (call.url === "/ui/api/admin/audit") return { body: audit };
     return undefined;
   });
 }
@@ -112,61 +83,37 @@ describe("the overview", () => {
     expect(screen.getByRole("region", { name: "Jetzt online" })).toBeTruthy();
   });
 
-  test("makes keys, shows them once, and forgets them when done", async () => {
-    const calls = start();
-    render(<Admin lang="en" section="keys" />);
-    await screen.findAllByTestId("invite");
-    await userEvent.clear(screen.getByLabelText("How many"));
-    await userEvent.type(screen.getByLabelText("How many"), "2");
-    await userEvent.selectOptions(screen.getByLabelText("Expires"), "7d");
-    await userEvent.type(screen.getByLabelText("Note (who it is for)"), "  for Ana ");
-    await userEvent.click(screen.getByRole("button", { name: "Make keys" }));
-
-    const made = await screen.findByRole("region", { name: "2 new keys: shown only now" });
-    expect(within(made).getByDisplayValue("BAYLEE-AAAA-BBBB-CCCC-DDDD")).toBeTruthy();
-    expect(within(made).getByDisplayValue("BAYLEE-EEEE-FFFF-GGGG-HHHH")).toBeTruthy();
-    const post = calls.find((c) => c.method === "POST");
-    expect(post?.body).toEqual({ count: 2, uses: 1, expires: "7d", note: "for Ana" });
-    expect(post?.headers["x-baylee-csrf"]).toBe("1");
-    // The list is asked again, and never holds a key.
-    await waitFor(() => {
-      expect(screen.getAllByTestId("invite")).toHaveLength(3);
-    });
-    for (const item of screen.getAllByTestId("invite")) expect(item.textContent).not.toContain("BAYLEE-");
-
-    await userEvent.click(within(made).getByRole("button", { name: "Done" }));
-    expect(screen.queryByDisplayValue("BAYLEE-AAAA-BBBB-CCCC-DDDD")).toBeNull();
-    expect(screen.getByRole("button", { name: "Make keys" })).toBeTruthy();
+  test("lists every change made through the console, the closed beta's keys' too, as audited", async () => {
+    const calls = start({ gateway: { name: "Baylee EU", version: "0.1.0-beta.8b", registration: "invite" } }, [
+      { at: "2026-10-08T11:00:00Z", actor: "viktor", action: "gateway.account.ban", detail: "0199cccc, 7 days" },
+      { at: "2026-10-01T10:05:00Z", actor: "viktor", action: "gateway.invite.revoke", detail: "key 0199aaaa" },
+      {
+        at: "2026-10-01T10:00:00Z",
+        actor: "viktor",
+        action: "gateway.invite.create",
+        detail: "1 key(s), 1 use(s) each, never expiring; ids 0199aaaa",
+      },
+    ]);
+    render(<Admin lang="en" />);
+    const log = within(await screen.findByRole("region", { name: "Recent changes" }));
+    // The keys are gone, their audit rows are not: each reads as the service wrote it.
+    expect(await log.findByText("gateway.invite.create")).toBeTruthy();
+    expect(log.getByText("gateway.invite.revoke")).toBeTruthy();
+    expect(log.getByText("gateway.account.ban")).toBeTruthy();
+    expect(log.getAllByRole("listitem")).toHaveLength(3);
+    // A gateway from before the open beta may still say `invite`: shown as it says it.
+    expect(within(screen.getByRole("region", { name: "Server" })).getByText("invite")).toBeTruthy();
+    // Nothing asks for keys, and no section offers them.
+    expect(calls.filter((c) => c.url.includes("invites"))).toEqual([]);
+    const sections = within(screen.getByRole("navigation", { name: "Admin sections" }));
+    expect(sections.getAllByRole("link").map((a) => a.getAttribute("href"))).not.toContain("/admin/keys");
   });
 
-  test("a gateway's refusal is said in its words", async () => {
-    serve((call) => {
-      if (call.method === "POST") return { status: 400, body: { error: '--uses takes 1 to 1000, not "0"' } };
-      if (call.url === "/ui/api/admin/invites") return { body: [] };
-      if (call.url === "/ui/api/admin/audit") return { body: [] };
-      return { body: stats() };
-    });
-    render(<Admin lang="en" section="keys" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Make keys" }));
-    expect((await screen.findByRole("alert")).textContent).toBe('--uses takes 1 to 1000, not "0"');
-  });
-
-  test("revoking asks once more", async () => {
-    const calls = start();
-    render(<Admin lang="en" section="keys" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Revoke… for Max" }));
-    await userEvent.click(screen.getByRole("button", { name: "Keep it" }));
-    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
-    await userEvent.click(screen.getByRole("button", { name: "Revoke… for Max" }));
-    await userEvent.click(screen.getByRole("button", { name: "Revoke for good" }));
-    expect(await screen.findByText("Key revoked.")).toBeTruthy();
-    const del = calls.find((c) => c.method === "DELETE");
-    expect(del?.url).toBe("/ui/api/admin/invites/0199aaaa-0000-7000-8000-0000000000aa");
-    expect(del?.headers["x-baylee-csrf"]).toBe("1");
-    await waitFor(() => {
-      expect(screen.getByTestId("invite").textContent).toContain("revoked");
-    });
-    expect(screen.queryByRole("button", { name: /Revoke/ })).toBeNull();
+  test("without a change made yet, the log says so", async () => {
+    start();
+    render(<Admin lang="de" />);
+    const log = within(await screen.findByRole("region", { name: "Letzte Änderungen" }));
+    expect(log.getByText("Hier wurde noch nichts geändert.")).toBeTruthy();
   });
 });
 
@@ -182,8 +129,6 @@ describe("the people pages", () => {
     has_email: false,
     confirmed: false,
     lang: "de",
-    by_key: true,
-    key_note: "for Alice",
     terms_version: null,
     decks: 2,
     games: 7,
@@ -205,7 +150,6 @@ describe("the people pages", () => {
     const item = await screen.findByTestId("account");
     expect(item.textContent).toContain("Alice#0001");
     expect(item.textContent).toContain("in a game");
-    expect(item.textContent).toContain("beta key");
     expect(calls[0]?.url).toBe("/ui/api/admin/accounts?limit=50&kind=registered");
     expect(screen.getByRole("button", { name: "Registered" }).getAttribute("aria-pressed")).toBe("true");
     await userEvent.type(screen.getByRole("searchbox", { name: "Search accounts" }), "ali");
@@ -280,7 +224,6 @@ describe("the people pages", () => {
     expect(screen.getByText("Kitchen table")).toBeTruthy();
     expect(screen.getByText("House AI or no account")).toBeTruthy();
     expect(screen.getByText(/lasted 42/)).toBeTruthy();
-    expect(screen.getByText("for Alice")).toBeTruthy();
   });
 
   test("a gone account says so", async () => {
@@ -410,6 +353,6 @@ test("the language is the browser's when it is German, English otherwise", () =>
   expect(pickLang(["en-US", "de"])).toBe("en");
   expect(pickLang(["fr"])).toBe("en");
   expect(pickLang([])).toBe("en");
-  expect(t("de", "invites.made", { n: 1 })).toBe("1 neuer Schlüssel: nur jetzt sichtbar");
-  expect(t("de", "invites.made", { n: 3 })).toBe("3 neue Schlüssel: nur jetzt sichtbar");
+  expect(t("de", "rep.arrived", { n: 1 })).toBe("1 neuer Bericht seit dem letzten Blick");
+  expect(t("de", "rep.arrived", { n: 3 })).toBe("3 neue Berichte seit dem letzten Blick");
 });

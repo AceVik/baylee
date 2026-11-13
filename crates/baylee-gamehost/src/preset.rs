@@ -50,44 +50,40 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         3 => FormatId::Custom,
         other => return Err(format!("unknown format id {other}")),
     };
-    let house_rules = msg
-        .house_rules
-        .as_ref()
-        .map(|h| HouseRules {
-            mulligan_free_first: h.mulligan_free_first,
-            free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
-            starting_counters: h
-                .starting_counters
-                .iter()
-                .map(|p| baylee_core::preset::StartingCounters {
-                    seat: p.seat as usize,
-                    permanent: p.permanent as usize,
-                    counters: p
-                        .counters
-                        .iter()
-                        .map(|c| baylee_core::preset::StartingCounter {
-                            kind: c.kind.clone(),
-                            amount: u16::try_from(c.amount).unwrap_or(u16::MAX),
-                        })
-                        .collect(),
-                })
-                .collect(),
-            loop_policy: match h.loop_policy {
-                1 => LoopPolicy::CompRulesDraw,
-                _ => LoopPolicy::RunOnceThenBreak,
-            },
-            starting_player: None,
-            auto_discard_empty_optional_triggers: true,
-            order_triggers: true,
-            divide_trample: true,
-            hand_sharing: baylee_core::preset::HandSharingRule::default(),
-            decision_timeout_secs: h.decision_timeout_secs,
-            reconnect_window_secs: h.reconnect_window_secs,
-            timing_normalization: h.timing_normalization,
-            takebacks: h.takebacks,
-            time_extension_votes: h.time_extension_votes,
-        })
-        .unwrap_or_default();
+    let house_rules = msg.house_rules.as_ref().map_or_default(|h| HouseRules {
+        mulligan_free_first: h.mulligan_free_first,
+        free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
+        starting_counters: h
+            .starting_counters
+            .iter()
+            .map(|p| baylee_core::preset::StartingCounters {
+                seat: p.seat as usize,
+                permanent: p.permanent as usize,
+                counters: p
+                    .counters
+                    .iter()
+                    .map(|c| baylee_core::preset::StartingCounter {
+                        kind: c.kind.clone(),
+                        amount: u16::try_from(c.amount).unwrap_or(u16::MAX),
+                    })
+                    .collect(),
+            })
+            .collect(),
+        loop_policy: match h.loop_policy {
+            1 => LoopPolicy::CompRulesDraw,
+            _ => LoopPolicy::RunOnceThenBreak,
+        },
+        starting_player: None,
+        auto_discard_empty_optional_triggers: true,
+        order_triggers: true,
+        divide_trample: true,
+        hand_sharing: baylee_core::preset::HandSharingRule::default(),
+        decision_timeout_secs: h.decision_timeout_secs,
+        reconnect_window_secs: h.reconnect_window_secs,
+        timing_normalization: h.timing_normalization,
+        takebacks: h.takebacks,
+        time_extension_votes: h.time_extension_votes,
+    });
     let seats = msg
         .seats
         .iter()
@@ -107,6 +103,17 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                         2 => HoldUp::ThreatAware,
                         _ => HoldUp::None,
                     },
+                    // The message has no field for it, and none is added: a
+                    // profile that peeks is chosen by its name, never built
+                    // from numbers a peer sends.
+                    sight: baylee_core::preset::Sight::Fair,
+                    // The newest house code; a frozen reference is chosen by
+                    // its name, as a peeking level is.
+                    generation: AIProfile::GENERATION,
+                    // No field for it either: what a level may spend trying its
+                    // options is the host's to grant, never a number a peer
+                    // sends.
+                    foresight: 0,
                 }),
                 Some(
                     v1::seat_controller::Kind::HumanUserId(_) | v1::seat_controller::Kind::Open(_),
@@ -396,6 +403,33 @@ mod tests {
         assert_eq!(profile.mulligan_skill, 3);
         assert_eq!(profile.politics, Politics::Archenemy);
         assert_eq!(profile.hold_up, HoldUp::Basic);
+    }
+
+    /// A peer cannot ask for compute: an AI seat built from the message's
+    /// numbers, however large, has no foresight tier, so it never searches,
+    /// whatever its host lets a search spend. A level that searches is chosen
+    /// by its name, at the gateway.
+    #[test]
+    fn a_wire_ai_seat_cannot_ask_for_a_search() {
+        let greedy = v1::SeatSpec {
+            controller: Some(v1::SeatController {
+                kind: Some(v1::seat_controller::Kind::Ai(v1::AiProfile {
+                    lookahead: u32::MAX,
+                    temperature_milli: u32::MAX,
+                    mulligan_skill: u32::MAX,
+                    politics: u32::MAX,
+                    hold_up: u32::MAX,
+                })),
+            }),
+            ..seat_msg()
+        };
+        let preset = from_proto(&msg(vec![greedy, seat_msg()])).expect("two seats");
+        let SeatController::Ai(profile) = preset.seats[0].controller else {
+            panic!("the AI seat lost its profile");
+        };
+        assert_eq!(profile.foresight, 0);
+        assert_eq!(profile.foresight(), None, "no tier, no search");
+        assert!(!profile.peeks());
     }
 
     /// An empty starting hand is **not** an empty hand: `None` is "deal the

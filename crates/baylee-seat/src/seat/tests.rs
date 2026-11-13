@@ -70,6 +70,7 @@ fn asked(seq: u64, pending: &Pending) -> Vec<u8> {
         game_id: "test-game".into(),
         seq,
         pending: baylee_core::wire::encode(pending),
+        context: Vec::new(),
     }))
 }
 
@@ -232,6 +233,48 @@ fn the_orders_answer_what_is_no_decision_and_the_mind_the_rest() {
     assert_eq!(answer(&steps), Some((&GREEN, By::Mind, true)));
     assert_eq!(core.stats().wakes, 1);
     assert_eq!(core.stats().questions, 2);
+}
+
+/// While a plan of the mind's runs, an attack with nothing to declare is
+/// declared by the orders and the mind is not asked; the plan's next
+/// question still goes to the mind. A seat with no creature had its plan
+/// `pass, pass` stopped there (Carbon b7, segment 3, attempt 8, q207).
+#[test]
+fn an_empty_attack_in_a_plan_is_declared_and_the_plan_goes_on() {
+    let mut core = seated(BridgeConfig::default());
+    let question = ask_mind(&mut core, 2, &colour());
+    let planned = Answer {
+        planned: 2,
+        ..Answer::new(GREEN)
+    };
+    core.answered(question, Ok(planned));
+    let nobody = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
+        player: ME,
+        attackers: Vec::new(),
+        defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
+    };
+    core.hear(&view(3));
+    let steps = core.hear(&asked(3, &nobody));
+    assert!(
+        request(&steps).is_none(),
+        "the mind is not asked: {steps:?}"
+    );
+    assert_eq!(
+        answer(&steps),
+        Some((
+            &PlayerAction::DeclareAttackers {
+                attackers: Vec::new()
+            },
+            By::Standing,
+            false
+        ))
+    );
+    ask_mind(&mut core, 4, &nothing());
+    assert_eq!(core.stats().planned, 1, "the plan's next question");
 }
 
 /// Every `AiLog` the steps send: its note and its reasoning.
@@ -826,6 +869,7 @@ fn named_table() -> (v1::GameStaticMsg, baylee_view::GameStatic) {
 
 fn log_line(turn: u32, event: baylee_view::LogEvent) -> baylee_view::LogEntry {
     baylee_view::LogEntry {
+        step: None,
         turn,
         repeat: 1,
         at: 0,

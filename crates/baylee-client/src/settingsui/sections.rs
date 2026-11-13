@@ -247,7 +247,7 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
     out.row(Row::Ambient, control);
     // The table's shot (DESIGN-v7 D20, D21): this device's, beside the
     // other knobs that are about the screen.
-    let table = view.settings.map(|s| s.table).unwrap_or_default();
+    let table = view.settings.map_or_default(|s| s.table);
     let names = labels(lang, &[Phrase::LeanSteep, Phrase::LeanGentle]);
     let control = out.seg(
         "table-lean",
@@ -548,12 +548,7 @@ pub(crate) fn display(out: &mut Out, view: &View) {
 /// Account: the handle, signing out, deleting the account.
 pub(crate) fn account(out: &mut Out, view: &View) {
     let lang = out.lang;
-    let handle = view
-        .state
-        .lobby
-        .me()
-        .map(|me| me.handle.clone())
-        .unwrap_or_default();
+    let handle = view.state.lobby.me().map_or_default(|me| me.handle.clone());
     let copy = out.button(
         "copy-handle",
         Phrase::CopyHandle.text(lang),
@@ -633,7 +628,7 @@ pub(crate) fn privacy(out: &mut Out, view: &View) {
     let lang = out.lang;
     let empty = out.commands.spawn((Node::default(), Pickable::IGNORE)).id();
     out.row(Row::WhatIsKept, empty);
-    let consent = view.settings.map(|s| s.reports.clone()).unwrap_or_default();
+    let consent = view.settings.map_or_default(|s| s.reports.clone());
     let mut lines = Vec::new();
     for (i, category) in Category::ALL.into_iter().enumerate() {
         let toggle = crate::shellkit::controls::toggle(

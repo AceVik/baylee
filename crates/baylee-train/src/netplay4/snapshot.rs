@@ -615,6 +615,16 @@ impl NetPlayer4 {
             last_menu: _,
             dirty_h_seats: _,
             tactician: _,
+            search_student: _,
+            grouped_decode: _,
+            // Counted over a run, not a game's state.
+            grouped_use: _,
+            last_grouping: _,
+            states_confidence: _,
+            adaptive: _,
+            // Counted over a run, not a game's state.
+            thinking_use: _,
+            last_depth: _,
         } = self;
         PlayerSnapshot4 {
             teams: teams.clone(),
@@ -833,6 +843,8 @@ impl NetPlayer4 {
         twin.temperature = self.temperature;
         twin.policy_mode = self.policy_mode;
         twin.thinking_steps = self.thinking_steps;
+        twin.adaptive = self.adaptive;
+        twin.grouped_decode = self.grouped_decode;
         twin.restore(snapshot);
         Some(twin)
     }

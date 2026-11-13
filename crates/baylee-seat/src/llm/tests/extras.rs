@@ -12,7 +12,8 @@ use prompt::Extras;
 /// (`tests/prompt_before.json`, written by the build before them), with the
 /// edits to the common prompt made since (3 Nov 2026: what a zone change
 /// does to an id; the stops and their default; 4 Nov 2026: a decision for
-/// a player whose turn the seat controls): every edit of
+/// a player whose turn the seat controls; 12 Nov 2026: `until` passes the
+/// seat's own stops too): every edit of
 /// [`prompt::SYSTEM`] is made here too, by
 /// hand, so that nothing changes it by accident.
 fn before() -> Value {

@@ -149,8 +149,7 @@ fn departed_matches(
         .ltb_counters
         .iter()
         .find(|(id, _)| *id == object)
-        .map(|(_, counters)| counters.clone())
-        .unwrap_or_default();
+        .map_or_default(|(_, counters)| counters.clone());
     eval::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
 }
 

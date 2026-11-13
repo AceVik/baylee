@@ -117,15 +117,15 @@ use std::path::{Path, PathBuf};
 // ---------------------------------------------------------------------------
 
 /// The card tree, absolute and fixed when this file is compiled.
-const CARD_TREE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../cards/src/cards");
+const CARD_TREE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../cards/sets");
 
-/// Every `.rs` under `dir`, recursively and in a fixed order.
+/// Every card file under `dir`, recursively and in a fixed order.
 ///
-/// Recursive because `cards/` is a taxonomy — `<type>/<subtype>/mv_N/` —
-/// and the one non-recursive walk this repo ever had reported an empty
-/// worklist as a successful answer. Sorted because a sweep that reads the
-/// pool in the filesystem's order is a sweep whose skip counts move between
-/// machines.
+/// Recursive because the cards lie in `<group>/src/<set>/` folders, and the
+/// one non-recursive walk this repo ever had reported an empty worklist as a
+/// successful answer. Sorted because a sweep that reads the pool in the
+/// filesystem's order is a sweep whose skip counts move between machines. A
+/// group's own `src/lib.rs` declares its cards and is none.
 fn card_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -133,9 +133,14 @@ fn card_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let mut found: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
     found.sort();
     for path in found {
+        let group_root = path.file_name().is_some_and(|n| n == "lib.rs")
+            && path
+                .parent()
+                .and_then(Path::file_name)
+                .is_some_and(|d| d == "src");
         if path.is_dir() {
             card_files(&path, out);
-        } else if path.extension().is_some_and(|e| e == "rs") {
+        } else if path.extension().is_some_and(|e| e == "rs") && !group_root {
             out.push(path);
         }
     }

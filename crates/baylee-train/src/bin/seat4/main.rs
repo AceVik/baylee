@@ -68,6 +68,29 @@ struct Args {
         value_parser = clap::value_parser!(u8).range(1..=8)
     )]
     thinking_steps: u8,
+    /// At priority, decide between pass and act by the policy's summed
+    /// probability per group, then take the best answer inside the winning
+    /// group (`netplay4::grouped`). Off unless asked.
+    #[arg(long)]
+    grouped_decode: bool,
+    /// The search student (`netplay4::student`): the directory of its
+    /// `advantage.onnx` and `advantage.json`. At each macro root it reads the
+    /// payable menu in a second pass and plays another answer where its head
+    /// scores it above the seat's own by more than the head's margin; a
+    /// chosen cast is paid by the planner's taps. The model must export
+    /// embeddings and be the checkpoint the head was fit on. Off unless asked.
+    #[arg(long)]
+    search_student: Option<std::path::PathBuf>,
+    /// `--search-student`: the macro candidates a root compares, the seat's
+    /// own included.
+    #[arg(long, default_value_t = baylee_train::netplay4::student::DEFAULT_CANDIDATES, requires = "search_student")]
+    search_student_candidates: usize,
+    /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
+    /// states a confidence below THRESHOLD is thought through again at DEEP
+    /// deliberation steps. Needs a model with the deliberation block; off
+    /// unless asked (`docs/proposals/baylee-ai-thinking.md`).
+    #[arg(long)]
+    think_adaptive: Option<String>,
     /// Completed games before exiting; zero keeps hosting new rooms.
     #[arg(long, default_value_t = 1)]
     games: u32,
@@ -135,7 +158,6 @@ async fn main() -> anyhow::Result<()> {
     let session = lobby
         .guest(&GuestSignIn {
             display_name: name.clone(),
-            invite_key: None,
         })
         .await?;
     let mut presence = presence::Presence::start(lobby.connect_lobby(&session).await?);
@@ -345,6 +367,9 @@ fn prepare_audit(
                     "producer_binary_sha256":audit::producer_sha256()?,
                     "policy_contract":brain.policy_mode().contract(),
                     "temperature":args.temperature,"thinking_steps":args.thinking_steps,
+                    "think_adaptive":brain.adaptive_thinking(),
+                    "grouped_decode":brain.grouped_decode().then_some(baylee_train::netplay4::GROUPED_DECODE_CONTRACT),
+                    "search_student":brain.search_student_identity(),
                     "base_policy_seed":args.policy_seed,"effective_policy_seed":policy_seed,
                     "game_index":game,"seat":seat,
                     "seat_rng_rule":"base_xor_game_rotation17_xor_physical_seat_v1",
@@ -463,7 +488,19 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
         })
         .with_temperature(args.temperature)
         .with_thinking_steps(args.thinking_steps);
+    if let Some(text) = &args.think_adaptive {
+        let adaptive = baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps)?;
+        brain.set_adaptive_thinking(adaptive.deep, adaptive.threshold)?;
+    }
+    brain.set_grouped_decode(args.grouped_decode);
     brain.set_tactic_rules(TacticRules4::parse(&args.tactics_rules)?);
+    if let Some(dir) = &args.search_student {
+        let head = baylee_train::netplay4::student::AdvantageHead4::load(dir)?;
+        brain.set_search_student(baylee_train::netplay4::student::SearchStudent4::new(
+            std::sync::Arc::new(head),
+            args.search_student_candidates,
+        )?)?;
+    }
     Ok(brain)
 }
 

@@ -18,7 +18,7 @@ fn upkeep_price(e: &mut Engine<RegistryLookup>, turn: u32) -> u32 {
     });
     let Pending::YesNo {
         player,
-        prompt: YesNoPrompt::PayLife { amount },
+        prompt: YesNoPrompt::PayLife { amount, .. },
         ..
     } = e.pending().clone()
     else {

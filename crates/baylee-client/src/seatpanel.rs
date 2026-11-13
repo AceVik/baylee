@@ -1248,8 +1248,7 @@ impl Drawn<'_, '_, '_> {
             let chosen_effort = self
                 .panel
                 .buffer(spot(Slot::Effort))
-                .map(|b| b.text().trim().to_string())
-                .unwrap_or_default();
+                .map_or_default(|b| b.text().trim().to_string());
             let line = row(self.commands, self.metrics, true);
             self.commands
                 .entity(line)

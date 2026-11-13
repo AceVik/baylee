@@ -1045,6 +1045,7 @@ mod tests {
             from: 0,
             entries: (0..lines)
                 .map(|i| LogEntry {
+                    step: None,
                     at: 0,
                     turn: i / 3,
                     repeat: 1,

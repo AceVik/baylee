@@ -253,3 +253,263 @@ fn a_million_made_up_actions_are_survived() {
     }
     assert!(read > 0, "some of them were actions");
 }
+
+/// An offer as the engine sends it (a priority that names what restricted
+/// mana may pay for, protocol 43), and the same offer cut and damaged: a
+/// client reads it whole or refuses it, never panics, and never holds memory
+/// for a list it only claims.
+mod offers {
+    use super::{FRAME_LIMIT, peak_of, varint};
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::wire::{decode, encode};
+    use baylee_engine::choice::{CastModeKind, LegalActions, Pending, RestrictedTaps, Spend};
+
+    fn offer() -> Pending {
+        let card = ObjectId::new(50, 0);
+        let mut green = [0; 6];
+        green[4] = 1;
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                payable: vec![card],
+                restricted_taps: vec![
+                    RestrictedTaps {
+                        taps: vec![(ObjectId::new(1, 0), 1), (ObjectId::new(4, 0), 1)],
+                        spends: vec![Spend::Cast(card, CastModeKind::Normal), Spend::Owed],
+                    },
+                    RestrictedTaps {
+                        taps: vec![(ObjectId::new(2, 0), 0)],
+                        spends: vec![Spend::Cast(card, CastModeKind::Face(1))],
+                    },
+                    RestrictedTaps {
+                        taps: vec![(ObjectId::new(3, 0), 1)],
+                        spends: vec![Spend::Activate(ObjectId::new(9, 0))],
+                    },
+                ],
+                restricted_floating: vec![(Spend::Cast(card, CastModeKind::Normal), green)],
+                unpaid_suspend: vec![(
+                    ObjectId::new(61, 0),
+                    baylee_core::mana::ManaCost::parse("{1}{U}"),
+                )],
+                ..LegalActions::default()
+            }),
+        }
+    }
+
+    #[test]
+    fn an_offer_naming_restricted_mana_survives_the_wire() {
+        let frame = encode(&offer());
+        let read = decode::<Pending>(&frame).expect("the offer reads");
+        assert_eq!(encode(&read), frame, "and reads as it was written");
+        let Pending::Priority { legal, .. } = read else {
+            panic!("a priority");
+        };
+        assert_eq!(legal.restricted_taps.len(), 3);
+        assert_eq!(legal.restricted_floating.len(), 1);
+        assert_eq!(
+            legal.unpaid_suspend,
+            vec![(
+                ObjectId::new(61, 0),
+                baylee_core::mana::ManaCost::parse("{1}{U}")
+            )]
+        );
+        assert_eq!(
+            legal.restricted_taps_for(Spend::Owed),
+            vec![(ObjectId::new(1, 0), 1), (ObjectId::new(4, 0), 1)]
+        );
+    }
+
+    #[test]
+    fn every_cut_and_every_flipped_byte_of_an_offer_is_survived() {
+        let frame = encode(&offer());
+        for cut in 0..frame.len() {
+            assert!(
+                decode::<Pending>(&frame[..cut]).is_err(),
+                "a cut at {cut} read"
+            );
+        }
+        for at in 0..frame.len() {
+            for flip in [0x01, 0x80, 0xff] {
+                let mut damaged = frame.clone();
+                damaged[at] ^= flip;
+                let _ = decode::<Pending>(&damaged);
+            }
+        }
+    }
+
+    /// The two lists are the offer's last fields: each claims more than the
+    /// frame holds, and so does a class's list of taps, and the reader holds
+    /// what arrives and not what is claimed.
+    #[test]
+    fn a_claimed_restricted_list_allocates_nothing_for_the_claim() {
+        let quiet = Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions::default()),
+        };
+        let empty = encode(&quiet);
+        assert_eq!(
+            &empty[empty.len() - 2..],
+            &[0, 0],
+            "both lists close the offer"
+        );
+        let lists = &empty[..empty.len() - 2];
+        let floating = &empty[..empty.len() - 1];
+        let mut one_class = lists.to_vec();
+        one_class.extend(varint(1));
+        for head in [lists, floating, &one_class[..]] {
+            for claim in [1 << 20, 1 << 40, u64::MAX] {
+                let mut frame = head.to_vec();
+                frame.extend(varint(claim));
+                frame.resize(FRAME_LIMIT, 0x01);
+                let held = peak_of(|| {
+                    assert!(decode::<Pending>(&frame).is_err());
+                });
+                assert!(held < 4 << 20, "a claim of {claim} held {held} bytes");
+            }
+        }
+    }
+}
+
+/// `LegalActions::unpaid_suspend` (protocol 44): a list of cards with their
+/// suspend costs, as a client reads it from a hostile host.
+mod unpaid_suspend {
+    use super::{FRAME_LIMIT, peak_of, varint};
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::mana::ManaCost;
+    use baylee_core::wire::{decode, encode};
+    use baylee_engine::choice::{LegalActions, Pending};
+
+    fn offer(unpaid_suspend: Vec<(ObjectId, ManaCost)>) -> Pending {
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                mana_abilities: vec![ObjectId::new(1, 0)],
+                unpaid_suspend,
+                ..LegalActions::default()
+            }),
+        }
+    }
+
+    /// Where a list of the offer stands: the first byte at which the offer
+    /// written with `a` and with `b` differ.
+    fn first_difference(a: &[u8], b: &[u8]) -> usize {
+        a.iter()
+            .zip(b)
+            .position(|(x, y)| x != y)
+            .expect("the two frames differ")
+    }
+
+    #[test]
+    fn an_unpaid_suspend_survives_the_wire_and_every_damage() {
+        let frame = encode(&offer(vec![
+            (ObjectId::new(61, 0), ManaCost::parse("{U}")),
+            (ObjectId::new(62, 0), ManaCost::parse("{1}{B}")),
+        ]));
+        let read = decode::<Pending>(&frame).expect("the offer reads");
+        assert_eq!(encode(&read), frame, "and reads as it was written");
+        for cut in 0..frame.len() {
+            assert!(
+                decode::<Pending>(&frame[..cut]).is_err(),
+                "a cut at {cut} read"
+            );
+        }
+        for at in 0..frame.len() {
+            for flip in [0x01, 0x80, 0xff] {
+                let mut damaged = frame.clone();
+                damaged[at] ^= flip;
+                let _ = decode::<Pending>(&damaged);
+            }
+        }
+    }
+
+    /// The list claims more cards than the frame holds, and then one card's
+    /// cost claims a longer notation than is left: the reader holds what
+    /// arrives and not what is claimed.
+    #[test]
+    fn a_claimed_list_or_cost_allocates_nothing_for_the_claim() {
+        let none = encode(&offer(Vec::new()));
+        let blank = encode(&offer(vec![(ObjectId::new(61, 0), ManaCost::parse(""))]));
+        let list = first_difference(&none, &blank);
+        assert_eq!((none[list], blank[list]), (0, 1), "the list's length");
+        let priced = encode(&offer(vec![(ObjectId::new(61, 0), ManaCost::parse("{U}"))]));
+        let cost = first_difference(&blank, &priced);
+        assert_eq!(blank[cost], 0, "the cost's length");
+        for head in [&none[..list], &blank[..cost]] {
+            for claim in [1 << 20, 1 << 40, u64::MAX] {
+                let mut frame = head.to_vec();
+                frame.extend(varint(claim));
+                frame.resize(FRAME_LIMIT, 0x01);
+                let held = peak_of(|| {
+                    assert!(decode::<Pending>(&frame).is_err());
+                });
+                assert!(held < 4 << 20, "a claim of {claim} held {held} bytes");
+            }
+        }
+    }
+}
+
+/// Protocol 45: a life payment names the permanent it is for, where it is for
+/// one (`YesNoPrompt::PayLife::permanent`, Cleansing's land, CR 608.2d). A
+/// frame writes the field whether or not it names one; JSON (records, tapes,
+/// shadow labels) leaves it out when it names none, as before.
+mod pay_life {
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::wire::{decode, encode};
+    use baylee_engine::choice::{Pending, YesNoPrompt};
+
+    fn question(permanent: Option<ObjectId>) -> Pending {
+        Pending::YesNo {
+            player: PlayerId::new(1),
+            prompt: YesNoPrompt::PayLife {
+                amount: 1,
+                permanent,
+            },
+            source: None,
+        }
+    }
+
+    fn prompt(pending: &Pending) -> YesNoPrompt {
+        let Pending::YesNo { prompt, .. } = pending else {
+            panic!("a yes or no: {pending:?}");
+        };
+        *prompt
+    }
+
+    #[test]
+    fn a_life_payment_survives_the_wire_and_every_damage() {
+        for permanent in [None, Some(ObjectId::new(25, 3))] {
+            let frame = encode(&question(permanent));
+            let read = decode::<Pending>(&frame).expect("the question reads");
+            assert_eq!(prompt(&read), prompt(&question(permanent)));
+            assert_eq!(encode(&read), frame, "and reads as it was written");
+            for cut in 0..frame.len() {
+                assert!(
+                    decode::<Pending>(&frame[..cut]).is_err(),
+                    "a cut at {cut} read"
+                );
+            }
+            for at in 0..frame.len() {
+                for flip in [0x01, 0x80, 0xff] {
+                    let mut damaged = frame.clone();
+                    damaged[at] ^= flip;
+                    let _ = decode::<Pending>(&damaged);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn json_leaves_out_a_permanent_it_does_not_name() {
+        let none = serde_json::to_string(&question(None)).expect("writes");
+        assert!(!none.contains("permanent"), "as before protocol 45: {none}");
+        let read: Pending = serde_json::from_str(&none).expect("reads");
+        assert_eq!(prompt(&read), prompt(&question(None)));
+        let land = Some(ObjectId::new(25, 3));
+        let named = serde_json::to_string(&question(land)).expect("writes");
+        assert!(named.contains("permanent"), "{named}");
+        let read: Pending = serde_json::from_str(&named).expect("reads");
+        assert_eq!(prompt(&read), prompt(&question(land)));
+    }
+}

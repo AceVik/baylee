@@ -13,6 +13,11 @@ struct Fixture {
 }
 impl Fixture {
     fn new(origin: &str, declared_model: &str) -> Self {
+        Self::counted(origin, declared_model, [Some((1, 0)), Some((1, 0))])
+    }
+    /// A game whose seats say they were answered (mind, house) times, or
+    /// say nothing (`None`).
+    fn counted(origin: &str, declared_model: &str, counts: [Option<(u64, u64)>; 2]) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let root = std::env::temp_dir().join(format!(
             "baylee-llm-bc-test-{}-{}",
@@ -36,9 +41,23 @@ impl Fixture {
         }
         let record = record_str.into_bytes();
         let request = json!({"attempt_id":"attempt-3","models":models,"bc_only":true,"ppo_eligible":false,"semantic_quality_gate":false});
-        let mut technical = json!({"schema_version":1,"status":"complete","record_sha256":"gzip-hash","actual_seed":33,"terminal":{"draw":false,"winner_seat":0},"seats":[{"seat":0,"model":models[0],"declared_mind_verified":true},{"seat":1,"model":models[1],"declared_mind_verified":true}],
+        let mut technical = json!({"schema_version":1,"status":"complete","record_sha256":"gzip-hash","actual_seed":33,"terminal":{"draw":false,"winner_seat":0},"seats":[{"seat":0,"model":models[0],"declared_mind_verified":true,"transcript_answer_counts":{"llm":1,"house":0,"standing":0,"other":0}},{"seat":1,"model":models[1],"declared_mind_verified":true,"transcript_answer_counts":{"llm":1,"house":0,"standing":0,"other":0}}],
           "checks":{"connection":true,"view_boundary":true,"full_record":true,"replay":true,"provenance":true},
           "artifacts":[{"role":"anonymized_record","sha256":"gzip-hash"}]});
+        for (seat, counts) in counts.iter().enumerate() {
+            let row = technical["seats"][seat].as_object_mut().unwrap();
+            match counts {
+                Some((mind, house)) => {
+                    row.insert(
+                        "transcript_answer_counts".into(),
+                        json!({"llm": mind, "house": house, "standing": 0, "other": 0}),
+                    );
+                }
+                None => {
+                    row.remove("transcript_answer_counts");
+                }
+            }
+        }
         let mut seats = Vec::new();
         for (seat, model) in models.iter().enumerate() {
             let action = if seat == 0 {
@@ -372,4 +391,52 @@ fn codex_provider_model_effort_kind_spoofs_are_rejected() {
         f.manifest["record_sha256"] = json!(sha(&f.record));
         assert!(f.load().is_err(), "{field}={spoof}");
     }
+}
+
+/// A game of `llm_collector4 collect --evaluation` may have seated any deck:
+/// numbers only, never BC.
+#[test]
+fn an_evaluation_game_is_numbers_only_never_bc() {
+    let mut f = Fixture::new("llm", "gemini-4-argon-low");
+    let read = |name: &str| -> Value {
+        serde_json::from_slice(&std::fs::read(f.root.join(name)).unwrap()).unwrap()
+    };
+    let mut request = read("request.json");
+    let technical = read("technical.json");
+    request["numbers_only"] = json!(true);
+    let receipt = json!({"status":"admitted","request":request,"technical":technical});
+    f.manifest["request"] = pin(&f.root, "request.json", &request);
+    f.manifest["admitted_receipt"] = pin(&f.root, "receipt.json", &receipt);
+    let error = f.load().err().unwrap();
+    assert!(error.contains("numbers only"), "{error}");
+}
+
+/// The corpus rule at admission: a game the house answered more than 5 % of
+/// a seat's questions of is refused with its reason, exactly 5 % is kept, a
+/// game that does not say who answered is refused, and a clean game converts
+/// as before (`house_share`).
+#[test]
+fn a_game_the_house_answered_over_five_percent_of_a_seat_of_is_refused() {
+    let over = Fixture::counted("llm", "gemini-4-argon-low", [Some((120, 0)), Some((94, 6))]);
+    let Err(reason) = over.load() else {
+        panic!("a 6 % house seat was admitted");
+    };
+    assert_eq!(
+        reason,
+        "LLM game attempt-3 refused: house answered 6 of 100 (6.0 %) of seat 1's questions, \
+         over 5 %"
+    );
+    let edge = Fixture::counted("llm", "gemini-4-argon-low", [Some((95, 5)), Some((19, 1))]);
+    assert!(edge.load().is_ok(), "exactly 5 % is kept");
+    let silent = Fixture::counted("llm", "gemini-4-argon-low", [Some((1, 0)), None]);
+    assert!(
+        silent
+            .load()
+            .err()
+            .is_some_and(|reason| reason.contains("seat 1 does not say who answered")),
+        "a game without its counts was admitted"
+    );
+    // A clean game is admitted as before the rule (every other test here is
+    // one, its seats answered by their minds alone).
+    assert!(Fixture::new("llm", "gemini-4-argon-low").load().is_ok());
 }

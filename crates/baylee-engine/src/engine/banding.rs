@@ -25,6 +25,14 @@ impl<L: CardLookup> Engine<L> {
             .is_some_and(|o| o.characteristics().keywords.contains(KeywordSet::BANDING))
     }
 
+    /// Whether `member` would join `leader`'s band as the one creature
+    /// without banding a band may hold (CR 702.22c): it has no banding, and
+    /// no "bands with other" of `leader`'s names it.
+    fn joins_unbanded(&self, leader: ObjectId, member: ObjectId) -> bool {
+        !self.has_banding(member)
+            && !crate::combat::can_band_with_other(&self.state, leader, member)
+    }
+
     /// Asks the band of the next attacker with banding after `after` in
     /// declaration order (from the first when `None`) that is in no band
     /// and has a creature to band with. Returns whether it asked.
@@ -68,7 +76,18 @@ impl<L: CardLookup> Engine<L> {
             if options.is_empty() {
                 continue;
             }
-            let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+            // CR 702.22c: any number of creatures with banding and up to
+            // one without, so the question's bound is what a band may hold
+            // and not the number offered: Skycaptain beside two Ashen Ghouls
+            // was asked "up to 2", and the second Ghoul was refused (Carbon
+            // b8, segment 3, attempt 37, q408). Which one may join is still
+            // the answer's, checked in `answer_band`.
+            let without = options
+                .iter()
+                .filter(|&&member| self.joins_unbanded(leader.creature, member))
+                .count();
+            let may_hold = options.len() - without + without.min(1);
+            let max = u8::try_from(may_hold).unwrap_or(u8::MAX);
             self.pending_plan = Some(PlanKind::Band {
                 leader: leader.creature,
             });
@@ -92,9 +111,10 @@ impl<L: CardLookup> Engine<L> {
     /// unless `members` is empty; then the next attacker with banding is
     /// asked.
     ///
-    /// The menu has already been checked against the offer. What it cannot
-    /// say is CR 702.22c's "up to one attacking creature without banding",
-    /// so that is refused here, with the question left standing.
+    /// The menu has already been checked against the offer, whose bound is
+    /// how many a band may hold. What it cannot say is which: CR 702.22c's
+    /// "up to one attacking creature without banding", so two without are
+    /// refused here, with the question left standing.
     pub(super) fn answer_band(
         &mut self,
         player: PlayerId,
@@ -103,10 +123,7 @@ impl<L: CardLookup> Engine<L> {
     ) -> Result<(), EngineError> {
         let without = members
             .iter()
-            .filter(|m| {
-                !self.has_banding(**m)
-                    && !crate::combat::can_band_with_other(&self.state, leader, **m)
-            })
+            .filter(|&&member| self.joins_unbanded(leader, member))
             .count();
         if without > 1 || (!self.has_banding(leader) && without > 0) {
             self.pending_plan = Some(PlanKind::Band { leader });

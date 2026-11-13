@@ -1299,7 +1299,7 @@ enum Reply {
     /// Public catalog completion; never starts a second fallback lookup.
     PrintingCatalog(LobbyEvent),
     PoolLanguage(Lang, LobbyEvent),
-    /// `GET /auth/config` said who may register (#317: with a key, too).
+    /// `GET /auth/config` said who may register.
     Registration {
         registration: Registration,
         art_cache: bool,

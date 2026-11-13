@@ -79,6 +79,35 @@ fn worth(f: Fighter) -> i64 {
     100 + i64::from(f.worth) * 120 + i64::from(f.power.max(0) + f.toughness.max(0)) * 30
 }
 
+/// Whether `profile` prices damage by the life it leaves: a level that
+/// prices the retaliation (lookahead 2, `expert`), from `AIProfile::RACE`.
+///
+/// Measured on 10.11.2026 (eval4, train split, 2048 duel rows): `expert`
+/// over itself without them and without `ABILITY_MANA`, 51.6 %, 59 seeds
+/// for and 26 against (ability mana alone moved sharp by 22 seeds); the same
+/// prices on `sharp`, whose search has no swing-back to weigh them against,
+/// 49.7 %. The gain is in the two prices together.
+fn races(profile: AIProfile) -> bool {
+    profile.lookahead >= 2 && profile.plays(AIProfile::RACE)
+}
+
+/// What `damage` to a player at `life` is worth on the material scale, a
+/// point at a time: 90 while the point taken leaves more than fourteen, 160
+/// down to eight, 300 below. The flat 45 of the search before priced the
+/// last points of a race as the first, so a creature traded for the damage
+/// that leaves an opponent at two was weighed as if they stood at twenty;
+/// and the swing-back, priced the same way, keeps more home the lower this
+/// seat's own life.
+fn race_damage(life: i32, damage: i32) -> i64 {
+    (0..damage.max(0))
+        .map(|i| match life - i {
+            l if l > 14 => 90,
+            l if l > 7 => 160,
+            _ => 300,
+        })
+        .sum()
+}
+
 fn has(f: Fighter, keyword: KeywordSet) -> bool {
     f.keywords & keyword.bits() != 0
 }
@@ -292,6 +321,9 @@ struct Position {
     life: i32,
     enemy_life: i32,
     horizon: u8,
+    /// Whether damage to a player is priced by the life it leaves
+    /// ([`race_damage`], `AIProfile::RACE`) rather than flat.
+    race: bool,
 }
 
 impl Position {
@@ -344,10 +376,13 @@ impl Position {
         } else {
             self.walker_losses(outcomes)
         };
-        let mut value = balance.material
-            + walkers
-            + i64::from(balance.damage) * 45
-            + i64::from(balance.gain - balance.enemy_gain) * 35;
+        let damage = if self.race {
+            race_damage(self.enemy_life + balance.enemy_gain, balance.damage)
+        } else {
+            i64::from(balance.damage) * 45
+        };
+        let mut value =
+            balance.material + walkers + damage + i64::from(balance.gain - balance.enemy_gain) * 35;
         if self.horizon < 2 {
             return value;
         }
@@ -355,7 +390,12 @@ impl Position {
         if commander_lethal || incoming >= self.life + balance.gain {
             return -WIN + value;
         }
-        value -= i64::from(incoming) * 50 + losses / 2;
+        let incoming = if self.race {
+            race_damage(self.life + balance.gain, incoming) * 3 / 4
+        } else {
+            i64::from(incoming) * 50
+        };
+        value -= incoming + losses / 2;
         value
     }
 
@@ -605,6 +645,7 @@ fn attack_position(
             life: view.seat(view.seat).map_or(20, |s| s.life),
             enemy_life: view.seat(victim).map_or(20, |s| s.life),
             horizon: profile.lookahead.min(2),
+            race: races(profile),
         }
         .cached(),
     )
@@ -618,16 +659,26 @@ pub fn attackers(
     victim: PlayerId,
     profile: AIProfile,
 ) -> AttackSearch {
-    attackers_on(&Board::new(view), squad, victim, profile)
+    attackers_on(
+        &Board::new(view),
+        squad,
+        victim,
+        profile,
+        profile.node_budget(),
+    )
 }
 
 /// [`attackers`] on a table whose objects are already indexed, so that one
-/// decision indexes them once.
+/// decision indexes them once, visiting at most `allow` nodes: the level's
+/// budget, or what its agent's meter has left of it ([`crate::WorkMeter`]).
+/// With none left the greedy declaration stands, as it does wherever the
+/// search proves nothing better.
 pub(crate) fn attackers_on(
     board: &Board,
     squad: &[ObjectId],
     victim: PlayerId,
     profile: AIProfile,
+    allow: u32,
 ) -> AttackSearch {
     let fallback = crate::combat::choose_attackers(board, squad, victim);
     let mut result = AttackSearch {
@@ -636,6 +687,9 @@ pub(crate) fn attackers_on(
         completed: 0,
         lethal: false,
     };
+    if allow == 0 {
+        return result;
+    }
     let Some(position) = attack_position(board, squad, victim, profile) else {
         return result;
     };
@@ -658,7 +712,7 @@ pub(crate) fn attackers_on(
         .chain(std::iter::once(all).filter(|&m| m != greedy))
         .chain((1..all).filter(|&m| m != greedy));
     for going in candidates {
-        if result.nodes >= profile.node_budget() {
+        if result.nodes >= allow {
             break;
         }
         let mut reply = Reply {
@@ -670,7 +724,7 @@ pub(crate) fn attackers_on(
             cutoff: best,
             best_groups: [0; MAX],
             nodes: 0,
-            limit: (profile.node_budget() - result.nodes).min(if profile.lookahead >= 2 {
+            limit: (allow - result.nodes).min(if profile.lookahead >= 2 {
                 profile.node_budget() * 3 / 4
             } else {
                 profile.node_budget() / 4
@@ -679,10 +733,11 @@ pub(crate) fn attackers_on(
             all_lethal: true,
         };
         let mut balance = Balance::default();
-        for i in 0..position.attackers.len() {
+        let attackers = position.attackers.len();
+        for (i, outcome) in reply.outcomes.iter_mut().enumerate().take(attackers) {
             if going & (1 << i) != 0 {
-                reply.outcomes[i] = position.exchange(i, 0);
-                balance = balance.replacing(Result::default(), reply.outcomes[i]);
+                *outcome = position.exchange(i, 0);
+                balance = balance.replacing(Result::default(), *outcome);
             }
         }
         reply.visit(0, balance);
@@ -776,9 +831,23 @@ pub fn blockers(
     life: i32,
     profile: AIProfile,
 ) -> Vec<(ObjectId, ObjectId)> {
+    blockers_within(view, options, life, profile, profile.node_budget()).0
+}
+
+/// [`blockers`] visiting at most `allow` nodes, and how many it visited: the
+/// level's budget, or what its agent's meter has left of it
+/// ([`crate::WorkMeter`]). With none left the blocks are the greedy ones, as
+/// they are for a level that does not search.
+pub(crate) fn blockers_within(
+    view: &PlayerView,
+    options: &[baylee_engine::choice::BlockOption],
+    life: i32,
+    profile: AIProfile,
+    allow: u32,
+) -> (Vec<(ObjectId, ObjectId)>, u32) {
     let board = Board::new(view);
-    if profile.lookahead == 0 || options.len() > MAX {
-        return crate::combat::choose_blocks(&board, options, life);
+    if profile.lookahead == 0 || allow == 0 || options.len() > MAX {
+        return (crate::combat::choose_blocks(&board, options, life), 0);
     }
     // Out of the engine's own pairings, not out of the view's combat block:
     // the offer is the authority on what is attacking this seat, and it is
@@ -786,7 +855,7 @@ pub fn blockers(
     // out of. In a healthy game the two name the same creatures.
     let ids = crate::combat::deduped(options.iter().flat_map(|o| o.attackers.iter().copied()));
     if ids.len() > MAX {
-        return crate::combat::choose_blocks(&board, options, life);
+        return (crate::combat::choose_blocks(&board, options, life), 0);
     }
     let attackers: Vec<_> = ids.iter().filter_map(|&id| board.fighter(id)).collect();
     let mut ordered_options: Vec<_> = options
@@ -801,7 +870,7 @@ pub fn blockers(
     // function's blind spot.
     let described = ids.iter().all(|id| board.aim(*id).is_some());
     if !described || attackers.len() != ids.len() || ordered_options.len() != options.len() {
-        return crate::combat::choose_blocks(&board, options, life);
+        return (crate::combat::choose_blocks(&board, options, life), 0);
     }
     // Sort blockers most valuable first, as `fight` and `attack_position`
     // require: the attacker assigns gang-block damage to kill our most
@@ -842,6 +911,10 @@ pub fn blockers(
         life: i32::MAX,
         enemy_life: life,
         horizon: 0,
+        // A block keeps the flat price: priced by the life it leaves, the
+        // damage a chump block saves outweighed the creature at ten life
+        // and the seat threw blockers away while nothing threatened it.
+        race: false,
     }
     .cached();
     let mut reply = Reply {
@@ -853,14 +926,15 @@ pub fn blockers(
         cutoff: i64::MIN,
         best_groups: [0; MAX],
         nodes: 0,
-        limit: profile.node_budget(),
+        limit: allow,
         complete: true,
         all_lethal: true,
     };
     let mut balance = unblockable;
-    for i in 0..position.attackers.len() {
-        reply.outcomes[i] = position.exchange(i, 0);
-        balance = balance.replacing(Result::default(), reply.outcomes[i]);
+    let attackers = position.attackers.len();
+    for (i, outcome) in reply.outcomes.iter_mut().enumerate().take(attackers) {
+        *outcome = position.exchange(i, 0);
+        balance = balance.replacing(Result::default(), *outcome);
     }
     reply.visit(0, balance);
     let mut result = Vec::new();
@@ -875,12 +949,37 @@ pub fn blockers(
             }
         }
     }
-    result
+    (result, reply.nodes)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A point of damage is priced by the life it leaves, so the same three
+    /// points are worth more the nearer the end, and nothing below zero.
+    #[test]
+    fn damage_near_the_end_of_a_race_is_worth_more() {
+        assert_eq!(race_damage(20, 3), 3 * 90);
+        assert_eq!(race_damage(15, 3), 90 + 2 * 160, "15 → 14 → 13");
+        assert_eq!(race_damage(8, 3), 160 + 2 * 300, "8 → 7 → 6");
+        assert!(race_damage(4, 3) > race_damage(10, 3));
+        assert_eq!(race_damage(20, 0), 0);
+        assert_eq!(race_damage(20, -2), 0, "no damage is worth nothing");
+        assert!(races(AIProfile::EXPERT) && races(AIProfile::SEER));
+        for profile in [
+            AIProfile::SHARP,
+            AIProfile::SHARP_2026_11,
+            AIProfile::STEADY,
+        ] {
+            assert!(!races(profile), "{profile:?}");
+        }
+        assert!(!races(AIProfile {
+            generation: AIProfile::INSTANT_TIMING,
+            ..AIProfile::EXPERT
+        }));
+    }
+
     fn fighter(p: i32, t: i32, k: KeywordSet) -> Fighter {
         Fighter {
             power: p,

@@ -156,39 +156,12 @@ impl Prompt {
                 Phrase::DiscardCards.fill_count(lang, usize::from(*count), &[])
             }
             Self::LegendRule => Phrase::LegendRule.text(lang).to_string(),
-            // Delve and convoke are not selections of cards or of targets:
-            // both are "spend what you have to help pay", and a line saying
-            // so is the difference between a question and a puzzle.
             Self::ChooseCards {
-                reason: ChoicePrompt::Delve,
-                ..
-            } => Phrase::DelveToHelpPay.text(lang).to_string(),
-            // Crew is not "choose between one and three": the number that
-            // decides is the creatures' total power, and the engine refuses
-            // an answer short of it, so the line says the total.
-            Self::ChooseCards {
-                reason: ChoicePrompt::CostCrew { power },
-                ..
-            } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
-            Self::ChooseCards {
-                reason: ChoicePrompt::CostSaddle { power },
-                ..
-            } => Phrase::SaddleWithPower.fill(lang, &[&power.to_string()]),
-            // One card type at a time, and the type is the whole question:
-            // the menu is that type's cards, and the next question is the
-            // next type's.
-            Self::ChooseCards {
-                reason: ChoicePrompt::OneOfType { card_type },
-                ..
-            } => Phrase::TakeOneOfType.fill(lang, &[card_type_name(*card_type).text(lang)]),
-            // Every other reason is said by the noun that is counted, which is
-            // the one place in this sentence where it fits: "Wähle bis zu 2
-            // Karten, die nach unten gehen". Without it a tutor, a scry, a
-            // put-back and a wish all read "Wähle 1 Karte", and two of those
-            // four decide the turn.
-            Self::ChooseCards { reason, min, max } => {
-                cards_line(lang, *reason, *min, *max, statics, &name)
-            }
+                reason,
+                min,
+                max,
+                library,
+            } => choose_cards_line(lang, *reason, *min, *max, *library, statics, &name),
             Self::ChooseTargets { reason, min, max } => {
                 targets_line(lang, reason, *min, *max, statics, target_name)
             }
@@ -231,16 +204,104 @@ impl Prompt {
                 || Phrase::ChooseRiverLabel.text(lang).to_string(),
                 |attacker| Phrase::ChooseRiverLabelFor.fill(lang, &[&attacker]),
             ),
-            Self::Arrange { reason, onto } => arrange_line(lang, *reason, *onto),
-            Self::YesNo { question } => yes_no_line(lang, *question, statics),
+            Self::Arrange {
+                reason,
+                onto,
+                library,
+            } => arrange_line(lang, *reason, *onto, *library, statics),
+            Self::YesNo { question, whose } => yes_no_line(lang, *question, *whose, statics, &name),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
         }
     }
 }
 
+/// The line a choice of cards gets: the few reasons whose line is no count
+/// of cards, another player's library named, and every other reason said by
+/// the noun it counts ([`cards_line`]).
+fn choose_cards_line(
+    lang: Lang,
+    reason: ChoicePrompt,
+    min: u8,
+    max: u8,
+    library: Option<PlayerId>,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    match reason {
+        // Delve and convoke are not selections of cards or of targets:
+        // both are "spend what you have to help pay", and a line saying
+        // so is the difference between a question and a puzzle.
+        ChoicePrompt::Delve => Phrase::DelveToHelpPay.text(lang).to_string(),
+        // Crew is not "choose between one and three": the number that
+        // decides is the creatures' total power, and the engine refuses
+        // an answer short of it, so the line says the total.
+        ChoicePrompt::CostCrew { power } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
+        ChoicePrompt::CostSaddle { power } => {
+            Phrase::SaddleWithPower.fill(lang, &[&power.to_string()])
+        }
+        // One card type at a time, and the type is the whole question:
+        // the menu is that type's cards, and the next question is the
+        // next type's.
+        ChoicePrompt::OneOfType { card_type } => {
+            Phrase::TakeOneOfType.fill(lang, &[card_type_name(card_type).text(lang)])
+        }
+        // Every other reason is said by the noun that is counted, which is
+        // the one place in this sentence where it fits: "Wähle bis zu 2
+        // Karten, die nach unten gehen". Without it a tutor, a scry, a
+        // put-back and a wish all read "Wähle 1 Karte", and two of those
+        // four decide the turn.
+        _ => foreign_library_line(lang, reason, min, max, library, statics)
+            .unwrap_or_else(|| cards_line(lang, reason, min, max, statics, name)),
+    }
+}
+
+/// A choice of cards from or onto another player's library, said with whose
+/// it is: Bribery searches an opponent's. `None` for every other choice, and
+/// for the deciding player's own library, which the plain noun says.
+fn foreign_library_line(
+    lang: Lang,
+    reason: ChoicePrompt,
+    min: u8,
+    max: u8,
+    library: Option<PlayerId>,
+    statics: Option<&GameStatic>,
+) -> Option<String> {
+    let noun = match reason {
+        ChoicePrompt::SearchLibrary => Phrase::NounCardsFromLibraryOf,
+        ChoicePrompt::PutBackOnTop => Phrase::NounCardsToTopOf,
+        ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottomOf,
+        _ => return None,
+    };
+    let owner = seat_name(lang, statics, library?);
+    let noun = noun.fill_count(lang, usize::from(max), &[&owner]);
+    Some(choose_line_of(lang, &noun, u32::from(min), u32::from(max)))
+}
+
 /// The headline of an arrangement: why the cards are being placed, and for
-/// a plain order, where.
-fn arrange_line(lang: Lang, reason: ArrangePrompt, onto: Option<ArrangePlace>) -> String {
+/// a plain order, where. `library` is the owner of the library they go
+/// back into when it is another player's (Architects of Will aimed at
+/// them, Jace's +2), whom the line then names.
+fn arrange_line(
+    lang: Lang,
+    reason: ArrangePrompt,
+    onto: Option<ArrangePlace>,
+    library: Option<PlayerId>,
+    statics: Option<&GameStatic>,
+) -> String {
+    if let Some(owner) = library.map(|owner| seat_name(lang, statics, owner)) {
+        let theirs = match (reason, onto) {
+            (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => Some(Phrase::OrderOnTopOf),
+            (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => {
+                Some(Phrase::OrderOnBottomOf)
+            }
+            // The scry's shape about another player's library is no scry.
+            (ArrangePrompt::Scry, _) => Some(Phrase::LookAtTopOf),
+            _ => None,
+        };
+        if let Some(phrase) = theirs {
+            return phrase.fill(lang, &[&owner]);
+        }
+    }
     let phrase = match (reason, onto) {
         (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => Phrase::OrderOnTop,
         (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => Phrase::OrderOnBottom,
@@ -735,8 +796,17 @@ pub fn buyback_price(
     pieces.into_iter().flatten().collect::<Vec<_>>().join(", ")
 }
 
-/// The roster is taken for the one question that is about another player.
-fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
+/// The roster is taken for the questions that are about another player, and
+/// `name` for a life payment that is for one permanent; `whose` is that
+/// permanent's player where it is not the deciding one
+/// ([`Interaction::prompt_in`]).
+fn yes_no_line(
+    lang: Lang,
+    question: YesNoPrompt,
+    whose: Option<PlayerId>,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
     match question {
         YesNoPrompt::SacrificeToEnter { count } => {
             Phrase::SacrificeToEnter.fill(lang, &[&count.to_string()])
@@ -761,7 +831,20 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::Buyback { cost, parts } => {
             Phrase::BuybackAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }
-        YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
+        // Cleansing asks land by land whether to pay for that land (CR
+        // 608.2d): the question names it, and whose it is where it is
+        // another player's, or it cannot be answered.
+        YesNoPrompt::PayLife { amount, permanent } => {
+            let amount = amount.to_string();
+            match (permanent.and_then(name), whose) {
+                (None, _) => Phrase::PayLife.fill(lang, &[&amount]),
+                (Some(permanent), None) => Phrase::PayLifeFor.fill(lang, &[&amount, &permanent]),
+                (Some(permanent), Some(player)) => Phrase::PayLifeForTheirs.fill(
+                    lang,
+                    &[&amount, &permanent, &seat_name(lang, statics, player)],
+                ),
+            }
+        }
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::PayManaAndLife { cost, life } => {
@@ -893,11 +976,11 @@ mod tests {
             card: ObjectId::new(41, 0),
         };
         assert_eq!(
-            yes_no_line(Lang::En, question, None),
+            yes_no_line(Lang::En, question, None, None, &|_| None),
             "Cast it for its madness cost, or put it into your graveyard?"
         );
         assert_eq!(
-            yes_no_line(Lang::De, question, None),
+            yes_no_line(Lang::De, question, None, None, &|_| None),
             "Für die Wahnsinn-Kosten wirken oder auf deinen Friedhof legen?"
         );
     }

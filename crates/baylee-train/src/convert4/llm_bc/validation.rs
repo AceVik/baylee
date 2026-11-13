@@ -56,6 +56,12 @@ pub(super) fn load(
             && request["semantic_quality_gate"] == false,
         "LLM run must be technical BC-only"
     );
+    // An evaluation (`llm_collector4 collect --evaluation`) may have seated
+    // any deck: its games are numbers only, never BC.
+    ensure!(
+        request["numbers_only"] != true,
+        "LLM game {game} is an evaluation's, numbers only"
+    );
     for check in [
         "connection",
         "view_boundary",
@@ -118,6 +124,13 @@ pub(super) fn load(
     } else {
         None
     };
+    // Beside who the teacher is, who answered: a game the house answered
+    // more than 5 % of a seat's questions of is no teacher data
+    // (`house_share`). convert4 leaves such a game out before it converts;
+    // here it can only fail.
+    if let Some(reason) = super::house_share::refusal(&technical) {
+        anyhow::bail!("LLM game {game} refused: {reason}");
+    }
     let mut remaining = BTreeMap::new();
     for (seat, evidence) in manifest.seats.iter().enumerate() {
         ensure!(

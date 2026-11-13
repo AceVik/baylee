@@ -6,7 +6,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-use baylee_client_core::lobby::KeptGuest;
+use baylee_client_core::lobby::{Face, KeptGuest};
 
 /// The guest a gateway handed out, as it is kept.
 fn kept() -> KeptGuest {
@@ -63,6 +63,131 @@ fn kept_in_the_file(app: &App) -> Option<KeptGuest> {
         .guests
         .get(&gateway)
         .cloned()
+}
+
+/// The sign-in face of a gateway that answered `/auth/config` with `body`.
+fn answered(body: &str) -> App {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    let reply = auth_config(body).expect("an /auth/config body");
+    post(&mut app, Reply::Remote(0, Box::new(reply)));
+    settle(&mut app);
+    app
+}
+
+/// What a front door draws: its presses and its words, in a fixed order.
+fn drawn_door(app: &mut App) -> (Vec<Press>, Vec<String>) {
+    let mut words = labels(app);
+    words.sort();
+    (presses(app), words)
+}
+
+/// A gateway that lets in guests alone has neither a sign-in nor a sign-up
+/// to offer: both would only fail, so the face is its doors. So has any gateway
+/// that does not take Central's accounts, whatever else it says.
+#[test]
+fn a_gateway_of_guests_alone_offers_no_form() {
+    let guests = r#"{"registration_enabled":false,"registration":"open",
+        "guests_enabled":true,"central":false,"auth_mode":"guests"}"#;
+    let mut app = answered(guests);
+    let found = presses(&mut app);
+    assert!(
+        found.contains(&Press::Front(FrontPress::GuestFace)),
+        "{found:?}"
+    );
+    assert!(
+        !found.contains(&Press::Front(FrontPress::ToggleRegistering)),
+        "{found:?}"
+    );
+    assert!(
+        !found.contains(&Press::Front(FrontPress::Submit)),
+        "{found:?}"
+    );
+    let lobby = &mut app.world_mut().resource_mut::<LobbyState>().lobby;
+    assert_eq!(lobby.submit(), None, "Enter sends nothing");
+
+    // Nothing a gateway says draws the form: a hostile one that left out its
+    // mode, or says it takes sign-ups, would be asking for a password.
+    for hostile in [
+        r#"{"registration_enabled":true,"guests_enabled":true}"#,
+        r#"{"registration_enabled":true,"guests_enabled":false}"#,
+        r#"{"registration_enabled":true,"central":false,"auth_mode":"central"}"#,
+    ] {
+        let found = presses(&mut answered(hostile));
+        assert!(
+            !found.contains(&Press::Front(FrontPress::Submit)),
+            "{hostile}: {found:?}"
+        );
+        assert!(
+            !found.contains(&Press::Front(FrontPress::ToggleRegistering)),
+            "{hostile}: {found:?}"
+        );
+    }
+
+    let central = r#"{"registration_enabled":false,"guests_enabled":true,
+        "central":true,"auth_mode":"mixed"}"#;
+    let read = auth_config(central);
+    assert!(matches!(
+        read,
+        Some(Reply::Registration {
+            guests_only: false,
+            ..
+        })
+    ));
+}
+
+/// An older gateway that still says `invite` is drawn the front door its
+/// other fields ask for, as if it had said `open`: on the sign-in face, the
+/// guest's and the create-account face, the same controls and the same
+/// words, and a new guest is asked for with nothing but its name.
+#[test]
+fn an_older_gateways_invite_draws_the_door_an_open_one_does() {
+    for central in [false, true] {
+        let body = |word: &str| {
+            format!(
+                r#"{{"registration_enabled":true,"registration":"{word}","guests_enabled":true,"central":{central}}}"#
+            )
+        };
+        let mut invite = answered(&body("invite"));
+        let mut open = answered(&body("open"));
+        assert_eq!(
+            drawn_door(&mut invite),
+            drawn_door(&mut open),
+            "the sign-in face, central {central}"
+        );
+
+        for app in [&mut invite, &mut open] {
+            app.world_mut()
+                .resource_mut::<LobbyState>()
+                .lobby
+                .open_guest_face();
+            settle(app);
+        }
+        assert_eq!(
+            drawn_door(&mut invite),
+            drawn_door(&mut open),
+            "the guest's face, central {central}"
+        );
+        let lobby = &mut invite.world_mut().resource_mut::<LobbyState>().lobby;
+        assert_eq!(lobby.face(), Face::Guest);
+        assert_eq!(
+            lobby.play_as_guest(),
+            Some(LobbyRequest::PlayAsGuest { display_name: None })
+        );
+
+        let mut invite = answered(&body("invite"));
+        for app in [&mut invite, &mut open] {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            state.lobby.back_to_sign_in();
+            state.lobby.toggle_registering();
+            settle(app);
+        }
+        assert_eq!(
+            drawn_door(&mut invite),
+            drawn_door(&mut open),
+            "the create-account face, central {central}"
+        );
+    }
 }
 
 #[test]
@@ -221,7 +346,6 @@ fn the_guest_routes_carry_what_the_gateway_reads() {
         "de",
         LobbyRequest::PlayAsGuest {
             display_name: Some("Casper".to_string()),
-            invite_key: None,
         },
     );
     assert_eq!(request.url, "http://gw/auth/guest");
@@ -229,16 +353,17 @@ fn the_guest_routes_carry_what_the_gateway_reads() {
         body(&request),
         serde_json::json!({ "display_name": "Casper", "lang": "de" })
     );
+    // The name and the language are the whole body: nothing else goes out.
     let (request, _) = build(
         "http://gw",
         None,
         "en",
-        LobbyRequest::PlayAsGuest {
-            display_name: None,
-            invite_key: None,
-        },
+        LobbyRequest::PlayAsGuest { display_name: None },
     );
-    assert_eq!(body(&request)["display_name"], serde_json::Value::Null);
+    assert_eq!(
+        body(&request),
+        serde_json::json!({ "display_name": null, "lang": "en" })
+    );
 
     // Signed with the token it ends, which the lobby has already let go of.
     let (request, _) = build(

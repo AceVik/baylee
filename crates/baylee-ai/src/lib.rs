@@ -23,19 +23,28 @@ mod damage;
 mod endings;
 mod fight;
 mod filter;
+pub mod foresight;
 mod granted;
 mod held;
 pub mod intelligence;
 mod land;
+pub mod noted;
 mod optional;
 mod policy;
 mod proliferate;
 mod redirect;
 mod restricted;
 pub mod search;
+mod sides;
+pub mod spend;
+mod stall;
 mod tactics;
+mod timing;
+mod work;
 mod worth;
 pub use restricted::only_for as mana_restriction;
+pub use stall::StallMemory;
+pub use work::WorkMeter;
 pub use worth::mana_poured;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -61,6 +70,13 @@ pub struct HeuristicAgent {
     /// so the agent a host seats and the copies it answers through count
     /// into the one number the host reads. It changes no answer.
     fallbacks: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// The last priority action given and where from ([`stall`]), shared
+    /// by every clone.
+    stall: StallMemory,
+    /// What this agent's combat searches have cost and may still cost
+    /// ([`WorkMeter`]). Its own and unbounded unless a host that seats many
+    /// copies gives them one between them ([`Self::metered`]).
+    work: std::sync::Arc<WorkMeter>,
 }
 
 impl HeuristicAgent {
@@ -73,7 +89,15 @@ impl HeuristicAgent {
             seed: 0,
             strategy: intelligence::Strategy::default(),
             fallbacks: std::sync::Arc::default(),
+            stall: StallMemory::default(),
+            work: std::sync::Arc::default(),
         }
+    }
+
+    /// The level this agent plays at.
+    #[must_use]
+    pub const fn profile(&self) -> AIProfile {
+        self.profile
     }
 
     /// How many answers this agent and its clones built that broke the
@@ -220,7 +244,8 @@ impl HeuristicAgent {
         if let Some(subject) = controlled::subject(view, pending)
             && let Some(action) = self.decide_against(view, pending, context, subject)
         {
-            return self.held_to(view, pending, action);
+            let action = self.held_to(view, pending, action);
+            return self.unstalled(view, pending, action);
         }
         // Most questions are priority. Borrow its potentially large offer
         // instead of allocating a duplicate box and every legal-action list.
@@ -229,7 +254,10 @@ impl HeuristicAgent {
         } else {
             self.choice(view, pending.clone(), context)
         };
-        self.held_to(view, pending, proposal)
+        let action = self.held_to(view, pending, proposal);
+        // An action the engine took back is not given again from the same
+        // position (`stall`).
+        self.unstalled(view, pending, action)
     }
 
     /// The attack this seat would like to make, before the rules have their
@@ -255,7 +283,14 @@ impl HeuristicAgent {
         // Indexed once for the whole decision: every step below
         // looks creatures up by handle, one per creature.
         let board = board::Board::new(view);
-        let report = search::attackers_on(&board, squad, victim, self.profile);
+        let report = search::attackers_on(
+            &board,
+            squad,
+            victim,
+            self.profile,
+            self.work.nodes(self.profile.node_budget()),
+        );
+        self.work.spend(u64::from(report.nodes));
         // An attack that wins goes at the player, whatever walker is
         // standing there. The search's proof is one way to know, but
         // it gives up above sixteen creatures a side and never runs
@@ -304,7 +339,7 @@ impl HeuristicAgent {
         //    spell is on the stack and waiting for the price, and every step
         //    below this one is about developing a board. An agent that
         //    played a land here would be answering a different question.
-        if let Some(action) = policy::pay_owed(view, legal) {
+        if let Some(action) = self.owed_tap(view, legal) {
             return action;
         }
         if view.owed.is_some() && view.awaiting == Some(view.seat) {
@@ -339,6 +374,20 @@ impl HeuristicAgent {
                     ability_index,
                 };
             }
+            return PlayerAction::PassPriority;
+        }
+        // 0c. Nothing begun in this seat's own draw step with nothing on the
+        //     stack (from `AIProfile::QUIET_DRAW_STEP`). What can be done
+        //     there can be done as well in the main phase that follows, and a
+        //     level that does not time its instants cast them there on sight:
+        //     a pump with no combat to turn, a spell its search could not weigh
+        //     (the engine forks nothing while the turn's first draw waits for
+        //     its miracle check, which a draw step's first round always does).
+        if self.profile.plays(AIProfile::QUIET_DRAW_STEP)
+            && view.active == view.seat
+            && view.step == baylee_view::Step::Draw
+            && view.stack.is_empty()
+        {
             return PlayerAction::PassPriority;
         }
         // 1. Play a land, unless playing it costs more life than the seat
@@ -381,6 +430,13 @@ impl HeuristicAgent {
                 source,
                 ability_index,
             };
+        }
+        // 6. Mana toward an ability worth its price that waits for the mana
+        //    to float before the engine offers it (`activate::floating`).
+        if self.taps_for_abilities()
+            && let Some(action) = activate::float_for(view, legal, self)
+        {
+            return action;
         }
         PlayerAction::PassPriority
     }
@@ -448,20 +504,19 @@ impl HeuristicAgent {
                 bounds,
                 ..
             } => {
-                let mut pairs = combat::obey_block_rules(
-                    search::blockers(
-                        view,
-                        &blockers,
-                        view.seat(player).map_or(0, |s| s.life),
-                        self.profile,
-                    ),
-                    &obeying,
-                    |attacker| {
-                        view.object(attacker).is_some_and(|o| {
-                            o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
-                        })
-                    },
+                let (searched, nodes) = search::blockers_within(
+                    view,
+                    &blockers,
+                    view.seat(player).map_or(0, |s| s.life),
+                    self.profile,
+                    self.work.nodes(self.profile.node_budget()),
                 );
+                self.work.spend(u64::from(nodes));
+                let mut pairs = combat::obey_block_rules(searched, &obeying, |attacker| {
+                    view.object(attacker).is_some_and(|o| {
+                        o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
+                    })
+                });
                 // Whatever chose them, the blocks are held to the counts the
                 // question states (menace, CR 702.111b), which are the ones
                 // the engine holds the declaration to.
@@ -878,7 +933,20 @@ impl HeuristicAgent {
                             .is_some_and(|s| s.life > i32::from(amount) + 5),
                     )
                 }
-                YesNoPrompt::PayLife { amount } => PlayerAction::YesNo(
+                // A Phyrexian symbol of this seat's own cast (CR 107.4f):
+                // from generation 10 paid with the mana the planner made for
+                // it where that mana pays (`policy::pays_phyrexian_with_life`).
+                YesNoPrompt::PayLife { amount, .. }
+                    if self.profile.plays(AIProfile::FULL_CASTS)
+                        && amount == 2
+                        && context.actor == Some(player)
+                        && context.cost.is_some_and(|cost| cost.phyrexian_count() > 0) =>
+                {
+                    PlayerAction::YesNo(context.cost.is_some_and(|cost| {
+                        policy::pays_phyrexian_with_life(view, &cost, amount)
+                    }))
+                }
+                YesNoPrompt::PayLife { amount, .. } => PlayerAction::YesNo(
                     view.seat(player)
                         .is_some_and(|seat| i64::from(seat.life) > i64::from(amount) + 5),
                 ),
@@ -1059,12 +1127,84 @@ pub fn policy_seed(game: &str, seat: u8) -> u64 {
 /// leaves out is left out for every caller alike: restricted mana, which
 /// can pay only for some spells, and any ability whose price is more than a
 /// tap it cannot plan.
+///
+/// Ranked for keeping by the colours the hand and the abilities on the board
+/// still want ([`board_claims`]); the house itself ranks by its hand alone.
 #[must_use]
 pub fn mana_sources(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
 ) -> Vec<baylee_client_core::manaplan::Source> {
-    policy::sources(view, legal)
+    policy::sources_keeping(view, legal, &board_claims(view, legal))
+}
+
+/// The mana costs of the abilities the seat could activate on the
+/// battlefield once their mana is made (`LegalActions::unpaid_abilities`),
+/// mana abilities aside: what a land is kept back for beside the cards in
+/// hand (`manaplan::prioritize`).
+///
+/// A plan that ranks lands by the hand alone keeps nothing for them: with
+/// Sabertooth Nishoba (`{4}{W}{G}`) in hand, seven lands and Thornscape
+/// Apprentice on the battlefield, the one plan the seat was offered tapped
+/// the only Mountain, which alone pays the Apprentice's "`{R}`, `{T}`:
+/// Target creature gains first strike", and left a Forest standing (Carbon
+/// b6, segment 2, attempt 57, q262). The player chooses what pays (CR
+/// 601.2g, 601.2h), and keeps the red.
+///
+/// A paid mana ability (a filter land's `{W/U}`, a Signet's `{1}`) is a
+/// trade the planner makes itself (`manaplan/convert.rs`), not a use kept
+/// for later, so it claims nothing.
+#[must_use]
+pub fn board_claims(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<baylee_core::mana::ManaCost> {
+    legal
+        .unpaid_abilities
+        .iter()
+        .filter(|&&(source, index, _)| !is_mana_ability(view, source, index))
+        .map(|&(_, _, cost)| cost)
+        .collect()
+}
+
+/// [`mana_sources`] read off the view alone, for a question that carries no
+/// offer: the permanents the deciding player could tap now (untapped, a
+/// creature not summoning sick), as the house reads them for a miracle's
+/// X. An estimate: the engine's offer is what a priority would list.
+#[must_use]
+pub fn mana_sources_in_view(view: &PlayerView) -> Vec<baylee_client_core::manaplan::Source> {
+    policy::remaining_sources(view)
+}
+
+/// [`mana_sources_in_view`] for casting `spell`, with the restricted mana
+/// abilities whose mana may pay for it beside them (CR 106.6), and those
+/// restricted taps apart, for a planner to earmark for this cast
+/// (`manaplan::Earmarked`: their mana pays the spell's own symbols, never a
+/// paid mana ability's `{1}` on the way).
+///
+/// For the X of a cast being announced (CR 601.2b), a question that carries
+/// no offer, so the engine's statement of what restricted mana may pay for
+/// (`LegalActions::restricted_taps`) is not at hand, and the view is read
+/// instead, as the house reads it (`HeuristicAgent::admits`): Vodalian
+/// Arcanist's `{C}` ("spend this mana only to cast an instant or sorcery
+/// spell") counts for Invoke the Firemind, and Ancient Ziggurat's (creature
+/// spells only) does not. A restriction the view cannot read admits nothing,
+/// which under-counts. Without its Arcanist the seat was asked X "from 0 to
+/// 2" where 3 is paid (Carbon b7, segment 3, attempt 22, q214).
+#[must_use]
+pub fn mana_sources_in_view_for(
+    view: &PlayerView,
+    spell: ObjectId,
+) -> (
+    Vec<baylee_client_core::manaplan::Source>,
+    Vec<(ObjectId, baylee_client_core::manaplan::Tap)>,
+) {
+    let (plain, restricted) = policy::remaining_sources_for(view, spell);
+    let taps = restricted
+        .iter()
+        .map(|source| (source.id, source.tap))
+        .collect();
+    (spend::beside(&plain, restricted), taps)
 }
 
 /// The paid mana abilities the engine offers, as the planner reads them: a
@@ -1095,11 +1235,16 @@ pub fn apply_triggered_mana_bonus(
     policy::apply_triggered_mana_bonus(view, object, source);
 }
 
-/// Plans mana taps for casting `spell` at `cost`, including restricted mana
-/// sources (CR 106.6) whose filters admit `spell` when unrestricted sources
-/// alone are short: one if one is enough, and as many as it takes otherwise.
-/// A plan with several is for a caller that sends every tap and then casts,
-/// without planning again in between.
+/// Plans mana taps for casting `spell` the way `way` says at `cost`, with
+/// every restricted mana source and every restricted mana floating the
+/// engine says may pay for that cast (CR 106.6; [`spend::plan_for`]), and
+/// 2 life for a Phyrexian symbol the mana cannot pay while the seat has it
+/// (CR 107.4f). A plan with several restricted taps is for a caller that
+/// sends every tap and then casts, or casts first and pays in the window.
+/// A counter-paid mana ability counts once per activation its counters pay
+/// ([`spend::repeat_counter_sources`]). A land an ability on the board alone
+/// pays for is kept as a scarce colour of the hand is ([`mana_sources`],
+/// [`board_claims`]); the house never casts through here.
 #[must_use]
 pub fn plan_for_spell(
     cost: &baylee_core::mana::ManaCost,
@@ -1107,16 +1252,38 @@ pub fn plan_for_spell(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     spell: ObjectId,
+    way: baylee_engine::choice::CastModeKind,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    policy::plan_for_spell(cost, pool, view, legal, spell)
+    let mut plain = mana_sources(view, legal);
+    spend::repeat_counter_sources(view, &mut plain);
+    let restricted = policy::restricted_sources(view, legal);
+    spend::plan_for(
+        baylee_engine::choice::Spend::cast(spell, way),
+        cost,
+        spend::Mana {
+            pool,
+            plain: &plain,
+            restricted: &restricted,
+        },
+        legal,
+        // A Phyrexian symbol the mana cannot pay is paid with 2 life where
+        // the seat has it (CR 107.4f, 119.4), as the engine takes it, and
+        // never its last: Dismember at 20 life beside a Mountain was never
+        // offered.
+        view.seat(baylee_client_core::decision::resource_player(view))
+            .map(|seat| seat.life.saturating_sub(1)),
+        None,
+    )
 }
 
-/// Plans mana taps for activating an ability on `source` at `cost`, tapping
-/// `source` last, only where nothing else pays and never when `taps_self` is
-/// true, and including a restricted mana source whose restriction admits an
-/// ability of `source` when unrestricted sources alone are short: mana that
-/// pays for abilities (CR 106.6), and never mana that may be spent only to
-/// cast a spell.
+/// Plans mana taps for activating an ability on `source` at `cost`: the
+/// other sources first, `source` itself only where nothing else pays and
+/// never when `taps_self` is true, with every restricted mana the engine
+/// says may pay for an ability of `source` (CR 106.6; [`spend::plan_for`]).
+/// Another permanent whose own tapping ability waits for mana is tapped
+/// only where the rest cannot pay both ([`spend::plan_keeping`]: the second
+/// Rishadan Port), and a counter-paid mana ability counts once per
+/// activation its counters pay ([`spend::repeat_counter_sources`]).
 #[must_use]
 pub fn plan_for_activation(
     cost: &baylee_core::mana::ManaCost,
@@ -1126,7 +1293,73 @@ pub fn plan_for_activation(
     source: ObjectId,
     taps_self: bool,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    policy::plan_for_activation(cost, pool, view, legal, source, taps_self)
+    let mut pool = *pool;
+    pool.spending = view
+        .object(source)
+        .map_or(pool.spending, |o| o.ability_mana_spending);
+    let spend = baylee_engine::choice::Spend::Activate(source);
+    let mut all = policy::sources(view, legal);
+    spend::repeat_counter_sources(view, &mut all);
+    let others: Vec<baylee_client_core::manaplan::Source> =
+        all.iter().filter(|s| s.id != source).cloned().collect();
+    let restricted = policy::restricted_sources(view, legal);
+    let mana = |plain| spend::Mana {
+        pool: &pool,
+        plain,
+        restricted: &restricted,
+    };
+    let keep = spend::keepers(view, legal, Some(source));
+    spend::plan_keeping(spend, cost, mana(&others), legal, None, Some(source), &keep).or_else(
+        || {
+            if taps_self {
+                return None;
+            }
+            spend::plan_keeping(spend, cost, mana(&all), legal, None, None, &keep)
+        },
+    )
+}
+
+/// Every card of `legal.unpaid_suspend` whose suspend cost the seat's
+/// untapped sources pay, with that cost and the taps (CR 116.2f, 702.62a).
+/// Suspend is a special action and no spell, so the cost is planned as an
+/// activation's is ([`plan_for_activation`] of the card): mana that may be
+/// spent only on spells never pays it. None while a payment is owed, and
+/// none whose plan taps nothing: that card's mana already floats, and the
+/// engine offers it in `suspendable` instead.
+///
+/// The one reading of the hint for the language-model seat's reach and
+/// `BayleeAI`'s menu; the client plans the same hint with its own sources.
+#[must_use]
+pub fn suspend_plans(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<(
+    ObjectId,
+    baylee_core::mana::ManaCost,
+    baylee_client_core::manaplan::Plan,
+)> {
+    if view.owed.is_some()
+        || legal.unpaid_suspend.is_empty()
+        || !spend::has_mana_to_plan(view, legal)
+    {
+        return Vec::new();
+    }
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|seat| seat.mana_pool)
+    else {
+        return Vec::new();
+    };
+    legal
+        .unpaid_suspend
+        .iter()
+        .filter(|(card, _)| !legal.suspendable.contains(card))
+        .filter_map(|&(card, cost)| {
+            let plan = plan_for_activation(&cost, &pool, view, legal, card, false)
+                .filter(|plan| !plan.steps.is_empty())?;
+            Some((card, cost, plan))
+        })
+        .collect()
 }
 
 /// What casting `id` (`card`) under `mode` costs, from the `cost` the caller
@@ -1228,6 +1461,54 @@ pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool 
                 ..
             },
         ) => !policy::priced(cost) && cost.mana == baylee_core::mana::ManaCost::ZERO,
+        _ => false,
+    }
+}
+
+/// Whether ability `index` of `source` is a mana ability (CR 605.1a), as its
+/// card or its grant says; `false` where the view cannot say.
+#[must_use]
+pub fn is_mana_ability(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        return view
+            .object(source)
+            .and_then(|object| object.grant(slot))
+            .is_some_and(|grant| grant.mana_ability);
+    }
+    matches!(
+        activate::printed(view, source, index),
+        Some(
+            AbilityDef::Activated {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ModalActivated {
+                mana_ability: true,
+                ..
+            }
+        )
+    )
+}
+
+/// Whether ability `index` of `source` taps `source` as part of its cost,
+/// whose mana then pays none of it. A granted ability's cost is on no card
+/// it has, so the view says ([`baylee_view::GrantSource::taps`]).
+#[must_use]
+pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        return view
+            .object(source)
+            .and_then(|object| object.grant(slot))
+            .is_some_and(|grant| grant.taps);
+    }
+    match activate::printed(view, source, index) {
+        Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
         _ => false,
     }
 }

@@ -8,7 +8,7 @@ use crate::{
 
 /// Transfers one unfinished stub through codegen without changing coverage.
 pub(crate) fn adopt_stub_card(root: &Path, name: &str) -> anyhow::Result<()> {
-    let cards_dir = root.join("crates/cards/src/cards");
+    let cards_dir = root.join(crate::layout::SETS_DIR);
     let files = card_files(&cards_dir)?;
     let slug = front_face_slug(name);
     let path = files
@@ -31,7 +31,7 @@ pub(crate) fn adopt_stub_card(root: &Path, name: &str) -> anyhow::Result<()> {
 /// in a card nobody has implemented, and taking a stub off the machine would
 /// freeze it as an `Unimplemented` card codegen can never finish.
 pub(crate) fn adopt(root: &Path, name: &str) -> anyhow::Result<()> {
-    let cards_dir = root.join("crates/cards/src/cards");
+    let cards_dir = root.join(crate::layout::SETS_DIR);
     let slug = front_face_slug(name);
     let files = card_files(&cards_dir)?;
     let path = files
@@ -46,8 +46,7 @@ pub(crate) fn adopt(root: &Path, name: &str) -> anyhow::Result<()> {
     };
     let summary = line
         .strip_prefix(stubgen::OWNED_MARKER)
-        .map(|rest| rest.trim_start_matches(':'))
-        .unwrap_or_default()
+        .map_or_default(|rest| rest.trim_start_matches(':'))
         .trim()
         .trim_end_matches('.');
     let adopted = format!("// IMPLEMENTED \u{2014} {summary}, adopted from `xtask codegen`.");
@@ -80,7 +79,7 @@ pub(crate) fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
     let rows = acceptance::parse_decks(&decks_text)?;
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
     let names = acceptance::all_names(&rows, &pool_text);
-    let cards_dir = root.join("crates/cards/src/cards");
+    let cards_dir = root.join(crate::layout::SETS_DIR);
     let files = card_files(&cards_dir)?;
     let mut changed = 0usize;
     for name in &names {

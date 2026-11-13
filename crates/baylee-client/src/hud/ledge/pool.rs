@@ -318,8 +318,7 @@ mod tests {
         let kids: Vec<Entity> = world
             .entity(group)
             .get::<Children>()
-            .map(|c| c.iter().collect())
-            .unwrap_or_default();
+            .map_or_default(|c| c.iter().collect());
         // The words are `PoolWord`s; what follows the last of them is what is
         // still open, each a pip's disc whose own text (or its two halves'
         // texts) is the glyph.

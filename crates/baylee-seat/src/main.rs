@@ -15,8 +15,7 @@
 //! --chair <n>` instead reuses a chair an account already holds (the host's,
 //! or one it joined) and its session from first-line stdin JSON; it creates
 //! no account or deck. The gateway is `--gateway`, else
-//! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
-//! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
+//! `BAYLEE_GATEWAY`, else the local default; a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
 //! bridge is doing; `--transcripts <dir>` keeps every question and answer as
 //! JSON lines, and a language model's every message and reply beside them.
@@ -264,9 +263,6 @@ struct Join {
     /// The room's password [default: `BAYLEE_ROOM_PASSWORD`].
     #[arg(long)]
     password: Option<String>,
-    /// A closed beta's key [default: `BAYLEE_INVITE_KEY`].
-    #[arg(long)]
-    invite_key: Option<String>,
     /// The longest one answer may take, whatever the table's clock allows
     /// [default: 60].
     #[arg(long)]
@@ -570,7 +566,7 @@ fn reach(
     plan.settings.transcripts.clone_from(&join.transcripts);
     plan.settings.reports = paths.reports(join.reports_dir.as_deref(), join.transcripts.as_deref());
     Ok(Some(Reachable {
-        caps: file.as_ref().map(|file| file.caps).unwrap_or_default(),
+        caps: file.as_ref().map_or_default(|file| file.caps),
         book: paths.book(file.is_some()),
         plan,
         access,
@@ -1435,8 +1431,7 @@ async fn sit_down(
     unstarted: &Unstarted,
     fallen: &Fallen,
 ) -> anyhow::Result<Seated> {
-    let profile = AIProfile::named(&join.level)
-        .with_context(|| format!("no house level called «{}»", join.level))?;
+    let profile = baylee_seat::house::level(&join.level).map_err(anyhow::Error::msg)?;
     if let Some(why) = join.fallback_files_fault() {
         bail!(why);
     }
@@ -1599,14 +1594,9 @@ async fn sit_as_guest(
         .password
         .clone()
         .or_else(|| std::env::var("BAYLEE_ROOM_PASSWORD").ok());
-    let invite_key = join
-        .invite_key
-        .clone()
-        .or_else(|| std::env::var("BAYLEE_INVITE_KEY").ok());
     let session = lobby
         .guest(&GuestSignIn {
             display_name: display_name.to_string(),
-            invite_key,
         })
         .await?;
     let Some(room) = lobby.room(&session, &join.room).await? else {
@@ -1785,8 +1775,7 @@ impl OrderReader {
             self.disclosure.prefix()
         );
         let join = self.ordered(&order, env)?;
-        let level = AIProfile::named(&join.level)
-            .with_context(|| format!("no house level called «{}»", join.level))?;
+        let level = baylee_seat::house::level(&join.level).map_err(anyhow::Error::msg)?;
         let chosen = choose(
             &join,
             &[line.to_string()],

@@ -95,7 +95,9 @@ guessed wrong:
 | iOS simulator | `http://127.0.0.1:28766` |
 
 `cargo dev serve-lan` starts the gateway (it needs `DATABASE_URL`, like any
-gateway) and one agent and prints all four; `cargo apk run` applies the `reverse_port_forward` table in the shim's
+gateway) on every interface (`BAYLEE_BIND=0.0.0.0`, where a gateway started
+any other way listens on loopback alone) and one agent, and prints all four;
+`cargo apk run` applies the `reverse_port_forward` table in the shim's
 manifest, so over a cable there is nothing to bake at all.
 
 ### dev-control over the cable

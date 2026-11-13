@@ -1,3 +1,12 @@
+/// A chair answered as a seat would answer it (`--house-as-seat`): its seat,
+/// its house and its own deck list, from which it answers what a seat holds
+/// (`baylee_ai::noted::answer_as_seated`).
+type Seated = (
+    PlayerId,
+    baylee_ai::HeuristicAgent,
+    baylee_ai::intelligence::DeckIntel,
+);
+
 fn is_net_seat(seat: usize, focal_seat: usize, teams: &[Option<u8>]) -> bool {
     if seat == focal_seat {
         return true;
@@ -8,6 +17,16 @@ fn is_net_seat(seat: usize, focal_seat: usize, teams: &[Option<u8>]) -> bool {
         return tf == ts;
     }
     false
+}
+
+/// Whether `focal_seat` is the first seat of its team (`--one-deal-per-game`):
+/// the focal seats of one team replay one game, and this one plays it. A seat
+/// without a team is a side of its own.
+fn leads_its_side(focal_seat: usize, teams: &[Option<u8>]) -> bool {
+    match teams.get(focal_seat).copied().flatten() {
+        Some(team) => !teams[..focal_seat].contains(&Some(team)),
+        None => true,
+    }
 }
 
 /// One line of `--value-log`: the value heads at a decision of the seat under
@@ -107,11 +126,12 @@ fn play_one_table(
         }
     }
 
-    let mut session = if record_steps {
+    let session = if record_steps {
         Session::new_recorded(&preset, baylee_build::short()).context("new_recorded")?
     } else {
         Session::new(&preset).context("Session::new")?
     };
+    let mut session = foresight::Table::new(session, net.is_some());
     session.describe(
         game_id.to_owned(),
         (0..n_seats).map(|s| s.to_string()).collect(),
@@ -131,13 +151,22 @@ fn play_one_table(
         // `run.json` says so (`TeamHands::RUN_KEY`), for convert4's replay.
         session.apply_team_hand_sharing();
     }
-    let seated_houses: Vec<(PlayerId, baylee_ai::HeuristicAgent)> = match net.as_deref() {
+    let seated_houses: Vec<Seated> = match net.as_deref() {
         Some(n) if house_as_seat => (0..n_seats)
             .filter(|&s| !n.controls_seat(s, focal_seat, teams))
             .map(|s| {
                 let pid = PlayerId::new(u8::try_from(s)?);
                 session.take_over(pid);
-                Ok((pid, house_seat::agent(game_id, pid, profiles[s], teams)))
+                let spec = &preset.seats[s];
+                let deck = baylee_ai::intelligence::DeckIntel::new(
+                    spec.deck.iter().map(|e| e.card).collect(),
+                    spec.commanders.iter().map(|e| e.card).collect(),
+                );
+                Ok((
+                    pid,
+                    house_seat::agent(game_id, pid, profiles[s], teams),
+                    deck,
+                ))
             })
             .collect::<anyhow::Result<_>>()?,
         _ => Vec::new(),
@@ -190,6 +219,7 @@ fn play_one_table(
         }};
     }
 
+    let mut leaf_trace = foresight::LeafTrace::default();
     loop {
         if let Pending::GameOver(result) = session.pending() {
             let winners: Vec<u8> = session
@@ -197,6 +227,9 @@ fn play_one_table(
                 .into_iter()
                 .map(PlayerId::get)
                 .collect();
+            if net.is_none() {
+                leaf_trace.finish(&winners);
+            }
             // One scale with the search's terminal leaves.
             let util = terminal_utility(focal_seat as u8, teams, &winners, n_seats);
             let mut outcome_json = match winners.as_slice() {
@@ -279,19 +312,30 @@ fn play_one_table(
         // Observe every pre-action root. A multi-answer pump would skip states
         // that the record converter subsequently replays, breaking recurrent PPO.
         if session.needs_pump() {
+            if net.is_none() {
+                leaf_trace.note(&session, n_seats);
+            }
             let routed = session.pump_at_most(1);
             if let Some(shadow) = shadow.as_deref_mut() {
                 shadow.hear(routed);
             }
             continue;
         }
-        // A seated house answers from the view a socket is sent, without the
-        // decision context or the scouting report an in-process chair gets.
-        if let Some((pid, (pending, view), agent)) = seated_houses
-            .iter()
-            .find_map(|(pid, agent)| Some((*pid, session.view_for_with_context(*pid)?, agent)))
+        // A seated house answers from what a seat holds: the view a socket is
+        // sent, the note beside its question and its own deck list.
+        if let Some((pid, (pending, view), agent, deck)) =
+            seated_houses.iter().find_map(|(pid, agent, deck)| {
+                Some((*pid, session.view_for_with_context(*pid)?, agent, deck))
+            })
         {
-            let action = agent.act(&view, &pending);
+            let note = session.question_note(pid);
+            let action = baylee_ai::noted::answer_as_seated(
+                agent,
+                view,
+                &pending,
+                note.as_ref(),
+                Some(deck),
+            );
             session
                 .act_slice(pid, action, 0)
                 .map_err(|error| anyhow::anyhow!("seated house {pid:?} refused: {error:?}"))?;
@@ -540,5 +584,29 @@ fn play_one_table(
             }
             break;
         }
+    }
+}
+
+#[cfg(test)]
+mod one_deal_per_game_tests {
+    use super::leads_its_side;
+
+    #[test]
+    fn a_team_plays_its_game_from_its_first_seat_only() {
+        let teams = |t: &[u8]| t.iter().map(|&team| Some(team)).collect::<Vec<_>>();
+        let leading = |teams: &[Option<u8>]| {
+            (0..teams.len())
+                .filter(|&seat| leads_its_side(seat, teams))
+                .collect::<Vec<_>>()
+        };
+        // 2v2, 3v3 and 4v4 as eval4 seats them: two games a table.
+        assert_eq!(leading(&teams(&[1, 2, 1, 2])), [0, 1]);
+        assert_eq!(leading(&teams(&[1, 2, 1, 2, 1, 2])), [0, 1]);
+        assert_eq!(leading(&teams(&[1, 2, 1, 2, 1, 2, 1, 2])), [0, 1]);
+        assert_eq!(leading(&teams(&[1, 1, 2, 2])), [0, 2]);
+        // Without teams every focal seat is a game of its own.
+        assert_eq!(leading(&[None, None]), [0, 1]);
+        assert_eq!(leading(&[None, None, None, None]), [0, 1, 2, 3]);
+        assert_eq!(leading(&[]), Vec::<usize>::new());
     }
 }

@@ -79,10 +79,7 @@ impl<L: CardLookup> Engine<L> {
                 opened: Box::new(self.window_start(player)),
             },
         });
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
         true
     }

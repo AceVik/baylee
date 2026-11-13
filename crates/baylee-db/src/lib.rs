@@ -72,7 +72,6 @@ pub mod console;
 pub mod entity;
 pub mod guests;
 pub mod import;
-pub mod invites;
 pub mod llm_access;
 pub mod migration;
 pub mod pictures;

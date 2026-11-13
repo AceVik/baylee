@@ -443,6 +443,9 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::Disguise
                     | baylee_engine::choice::CastModeKind::Dash
                     | baylee_engine::choice::CastModeKind::Mutate
+                    // An Adventure or a back face alone in reach: the row
+                    // names which spell the click casts.
+                    | baylee_engine::choice::CastModeKind::Face(_)
             )
         }))
     .then_some(crate::CastMenu {

@@ -16,9 +16,12 @@ use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
 
+mod full_casts;
 mod mana_effects;
 mod x_exact;
 mod x_targets;
+
+pub(crate) use full_casts::{pay_owed_full, pays_phyrexian_with_life};
 
 #[cfg(test)]
 use mana_effects::spell_mana_increase;
@@ -40,6 +43,64 @@ pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
     baylee_cards::by_index(card.index)?
         .faces
         .get(usize::from(card.face))
+}
+
+/// The mana value of the cheapest instant of at most three mana in `hand`,
+/// the interaction a main phase keeps up; nought for none.
+fn cheapest_answer(hand: &[baylee_view::HandObject]) -> u32 {
+    hand.iter()
+        .filter(|c| c.types.contains(TypeSet::INSTANT))
+        .filter(|c| face(c.card).is_some_and(|f| f.mana_cost.cmc() <= 3))
+        .map(|c| c.mana_value)
+        .filter(|&v| v > 0)
+        .min()
+        .unwrap_or(0)
+}
+
+/// The mana value of the cheapest counterspell of at most three mana in
+/// `hand`, a modal one included; nought for none. What a level that times
+/// its instants keeps up ([`crate::AIProfile::INSTANT_TIMING`]).
+fn cheapest_counter(hand: &[baylee_view::HandObject]) -> u32 {
+    cheapest_held(hand, |spells| {
+        spells.iter().any(|ability| match ability {
+            AbilityDef::Spell { effects, .. } => {
+                crate::timing::purpose(effects, 0) == crate::timing::Purpose::Counter
+            }
+            AbilityDef::ModalSpell { modes, .. } => {
+                modes.iter().any(|m| m.effects.iter().any(counter))
+            }
+            _ => false,
+        })
+    })
+}
+
+/// The mana value of the cheapest combat trick of at most three mana in
+/// `hand` ([`crate::timing::Purpose::Trick`]); nought for none.
+fn cheapest_trick(hand: &[baylee_view::HandObject]) -> u32 {
+    cheapest_held(hand, |spells| {
+        crate::timing::cast_effects(spells).is_some_and(|effects| {
+            matches!(
+                crate::timing::purpose(effects, 0),
+                crate::timing::Purpose::Trick(_)
+            )
+        })
+    })
+}
+
+/// The mana value of the cheapest instant of at most three mana in `hand`
+/// whose printed spell abilities `is` says yes to.
+fn cheapest_held(hand: &[baylee_view::HandObject], is: impl Fn(&[AbilityDef]) -> bool) -> u32 {
+    hand.iter()
+        .filter(|c| c.types.contains(TypeSet::INSTANT))
+        .filter(|c| face(c.card).is_some_and(|f| f.mana_cost.cmc() <= 3))
+        .filter(|c| {
+            baylee_cards::by_index(c.card.index)
+                .is_some_and(|def| is(def.abilities_for_face(usize::from(c.card.face))))
+        })
+        .map(|c| c.mana_value)
+        .filter(|&v| v > 0)
+        .min()
+        .unwrap_or(0)
 }
 
 fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
@@ -331,7 +392,9 @@ impl HeuristicAgent {
             .min(u32::try_from(reachable).unwrap_or(u32::MAX));
         while lower < upper {
             let x = lower + (upper - lower).div_ceil(2);
-            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some() && allowed(x) {
+            if manaplan::plan_frozen(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
+                && allowed(x)
+            {
                 lower = x;
             } else {
                 upper = x - 1;
@@ -361,7 +424,7 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn noise(&self, view: &PlayerView, id: ObjectId) -> i64 {
-        let width = u64::from(self.profile.temperature_milli.min(10_000));
+        let width = u64::from(self.profile.noise_milli().min(10_000));
         if width == 0 {
             return 0;
         }
@@ -369,8 +432,40 @@ impl HeuristicAgent {
         i64::try_from(mix(seed) % (2 * width + 1)).unwrap_or(0) - i64::try_from(width).unwrap_or(0)
     }
 
+    /// Whether a level that peeks keeps this hand, reading the draws it is
+    /// told (`Strategy::own_draws`, [`crate::AIProfile::SEER_DRAWS`]):
+    /// `None` for every other level, or when nothing was told.
+    ///
+    /// A hand with `lands` lands is kept when its land drops are made by the
+    /// draws it will see: two lands by its second turn, three by its third
+    /// (a seat on the play draws first in its second turn, CR 103.8a), at
+    /// least one land in hand, two spells or more, and no more than six lands
+    /// among the hand and the three draws. A two-lander whose next draws are
+    /// spells is thrown back, and a one-lander whose next draws are lands is
+    /// kept.
+    fn keep_with_known_draws(&self, view: &PlayerView, lands: usize) -> Option<bool> {
+        if !self.profile.peeks() || !self.profile.plays(crate::AIProfile::SEER_DRAWS) {
+            return None;
+        }
+        let draws = self.strategy.own_draws;
+        if draws.iter().any(Option::is_none) {
+            return None;
+        }
+        let drawn = |n: usize| draws.iter().take(n).filter(|d| **d == Some(true)).count();
+        let on_the_play = view.active == view.seat;
+        let by_turn = |turn: usize| lands + drawn(if on_the_play { turn - 1 } else { turn });
+        let spells = view.hand.len() - lands;
+        Some(
+            lands >= 1
+                && by_turn(2) >= 2
+                && by_turn(3) >= 3
+                && spells >= 2
+                && lands + drawn(3) <= 6,
+        )
+    }
+
     pub(crate) fn mulligan(&self, view: &PlayerView, taken: u8, free: bool) -> PlayerAction {
-        let skill = self.profile.mulligan_skill;
+        let skill = self.profile.card_skill();
         // Four cards can still play; repeatedly demanding an ideal seven
         // would mulligan a land-light deck to zero.
         let limit = if free { 4 } else { 3 };
@@ -378,6 +473,13 @@ impl HeuristicAgent {
             return PlayerAction::MulliganKeep;
         }
         let lands = view.hand.iter().filter(|c| plays_as_land(c.card)).count();
+        if let Some(keep) = self.keep_with_known_draws(view, lands) {
+            return if keep {
+                PlayerAction::MulliganKeep
+            } else {
+                PlayerAction::MulliganTake
+            };
+        }
         let balance = (2..=5).contains(&lands);
         let curve = skill < 2
             || view.hand.iter().any(|card| {
@@ -413,7 +515,7 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn discard(&self, view: &PlayerView, count: usize) -> Vec<ObjectId> {
-        if self.profile.mulligan_skill == 0 {
+        if self.profile.card_skill() == 0 {
             return crate::costliest(view, count);
         }
         let mut hand: Vec<_> = hand(view).iter().collect();
@@ -448,7 +550,7 @@ impl HeuristicAgent {
         max: u8,
     ) -> Vec<ObjectId> {
         let mut ranked = options.to_vec();
-        if self.profile.mulligan_skill >= 2 {
+        if self.profile.card_skill() >= 2 {
             let value = Self::card_value(view);
             ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
         } else {
@@ -560,7 +662,7 @@ impl HeuristicAgent {
         ) {
             return Some(self.keep_permanents(view, options, max));
         }
-        if self.profile.mulligan_skill < 2 {
+        if self.profile.card_skill() < 2 {
             return None;
         }
         let value = Self::card_value(view);
@@ -710,7 +812,7 @@ impl HeuristicAgent {
     /// is the answer with nothing else to go on. Ties keep the first pile.
     pub(crate) fn pile(&self, view: &PlayerView, piles: &[Vec<ObjectId>]) -> usize {
         let value = Self::card_value(view);
-        let reads = self.profile.mulligan_skill >= 2;
+        let reads = self.profile.card_skill() >= 2;
         let worth = |pile: &Vec<ObjectId>| -> (i64, usize) {
             let sum: i64 = if reads {
                 pile.iter().map(|id| value(id).max(0)).sum()
@@ -735,7 +837,7 @@ impl HeuristicAgent {
     /// Only a card worth less than nothing goes: unknown cards are kept,
     /// because an id alone is not information about the top of a library.
     pub(crate) fn send_away(&self, view: &PlayerView, cards: &[ObjectId]) -> Option<Vec<ObjectId>> {
-        if self.profile.mulligan_skill < 2 {
+        if self.profile.card_skill() < 2 {
             return None;
         }
         let value = Self::card_value(view);
@@ -796,7 +898,7 @@ impl HeuristicAgent {
         let may_pay = |id: ObjectId| {
             only_for.is_none_or(|restriction| self.admits(view, &restriction, context.source, id))
         };
-        if self.profile.mulligan_skill >= 2
+        if self.profile.card_skill() >= 2
             && let Some(color) = self.planned_color(view, options, &may_pay)
         {
             return color;
@@ -859,7 +961,7 @@ impl HeuristicAgent {
                     continue;
                 }
                 let cost = spell_cost(view, id, f);
-                let Some(plan) = manaplan::plan(&cost, &pool, &sources) else {
+                let Some(plan) = manaplan::plan_frozen(&cost, &pool, &sources) else {
                     continue;
                 };
                 let quality = (
@@ -917,35 +1019,6 @@ impl HeuristicAgent {
         Some((sources, best.source.clone()))
     }
 
-    /// [`Self::paying_for`] with every restricted tap the spell admits, one
-    /// per permanent, for a plan sent whole. The agent plans tap by tap, and
-    /// the next plan cannot see a restricted mana floating; a plan sent whole
-    /// is not asked again (the seat's `Act::Taps`). They still come last.
-    fn paying_with_all(
-        &self,
-        view: &PlayerView,
-        restricted: &[Offer],
-        plain: &[Source],
-        spell: ObjectId,
-    ) -> Vec<Source> {
-        let mut admitted: Vec<Source> = Vec::new();
-        for offer in restricted {
-            if offer.only_for.as_ref().is_some_and(|restriction| {
-                self.admits(view, restriction, Some(offer.source.id), spell)
-            }) && admitted.iter().all(|s| s.id != offer.source.id)
-            {
-                admitted.push(offer.source.clone());
-            }
-        }
-        let mut sources: Vec<Source> = plain
-            .iter()
-            .filter(|s| admitted.iter().all(|a| a.id != s.id))
-            .cloned()
-            .collect();
-        sources.append(&mut admitted);
-        sources
-    }
-
     /// Every candidate is paid for before a tap is committed. A five-mana
     /// card beside two lands used to make the agent tap both, then pass.
     pub(crate) fn spell_or_mana(
@@ -955,8 +1028,74 @@ impl HeuristicAgent {
     ) -> Option<PlayerAction> {
         let reserve = self.reserve(view, own_main_phase(view));
         self.spend_on(view, legal, reserve, |view, id, card, _| {
+            if self.times_instants() && !self.instant_moment(view, card) {
+                return None;
+            }
             Some(self.spell_score(view, card) + self.noise(view, id))
         })
+    }
+
+    /// The next tap toward a price this seat owes in a payment window
+    /// ([`pay_owed`]), planned as this level's generation plans it: from
+    /// [`crate::AIProfile::FULL_CASTS`] through the shared planner
+    /// ([`pay_owed_full`]).
+    pub(crate) fn owed_tap(&self, view: &PlayerView, legal: &LegalActions) -> Option<PlayerAction> {
+        if self.profile.plays(crate::AIProfile::FULL_CASTS) {
+            pay_owed_full(view, legal)
+        } else {
+            pay_owed(view, legal)
+        }
+    }
+
+    /// Whether the planner pays for `card` from what the seat has, holding
+    /// nothing back: the card is one the offer lets it cast and pay for
+    /// while it is cast (`legal.payable`), it prints no X (an X is announced
+    /// from the mana the planner means to make, which a cast paid afterwards
+    /// has not made), and [`Self::spend_on`] finds the taps for it. What a
+    /// search tries as a spell at a root ([`crate::AIProfile::SPELL_ROOTS`]),
+    /// whatever this level's own scoring makes of it.
+    pub(crate) fn pays_for(&self, view: &PlayerView, legal: &LegalActions, card: ObjectId) -> bool {
+        legal.payable.contains(&card)
+            && identity(view, card)
+                .and_then(face)
+                .is_some_and(|f| !f.mana_cost.has_variable())
+            && self
+                .spend_on(view, legal, 0, |_, id, _, _| (id == card).then_some(1))
+                .is_some()
+    }
+
+    /// Whether now is `card`'s moment ([`crate::timing`]): always for a
+    /// card the engine offers at sorcery speed alone, and for an
+    /// instant-speed one when what it is for can happen now.
+    fn instant_moment(&self, view: &PlayerView, card: CardIdentity) -> bool {
+        let Some(f) = face(card) else {
+            return true;
+        };
+        if !has_instant_speed(card, f) {
+            return true;
+        }
+        let spells = baylee_cards::by_index(card.index).map_or(&[][..], |def| {
+            def.abilities_for_face(usize::from(card.face))
+        });
+        // A modal spell that can counter is held as a counter is; its other
+        // modes read as lasting. A spell that prints its own moment (a
+        // casting condition, Camouflage's piles) keeps it: `spell_score`
+        // asks `optional::not_now` of it.
+        let own_moment = spells.iter().any(|ability| match ability {
+            AbilityDef::ModalSpell { modes, .. } => {
+                modes.iter().any(|m| m.effects.iter().any(counter))
+            }
+            AbilityDef::Spell {
+                condition, effects, ..
+            } => {
+                condition.is_some()
+                    || effects
+                        .iter()
+                        .any(|e| matches!(e, Effect::BlockInPilesAtRandomThisTurn))
+            }
+            _ => false,
+        });
+        own_moment || self.its_moment(view, crate::timing::cast_effects(spells).unwrap_or(&[]), 0)
     }
 
     /// The spell worth casting most by `score`, or the next mana ability
@@ -976,6 +1115,9 @@ impl HeuristicAgent {
         reserve: u32,
         score: impl Fn(&PlayerView, ObjectId, CardIdentity, u64) -> Option<i64>,
     ) -> Option<PlayerAction> {
+        if self.profile.plays(crate::AIProfile::FULL_CASTS) {
+            return self.spend_on_full(view, legal, reserve, score);
+        }
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
@@ -1056,11 +1198,11 @@ impl HeuristicAgent {
             }
             let spell_harm = self.spell_total_harm(view, Some(id), card, f);
             let action = if legal.castable.contains(&id)
-                && (!floats_first || manaplan::plan(&cost, pool, &[]).is_some())
+                && (!floats_first || manaplan::plan_frozen(&cost, pool, &[]).is_some())
             {
                 PlayerAction::CastSpell { card: id }
             } else {
-                let Some(plan) = manaplan::plan(&cost, pool, sources) else {
+                let Some(plan) = manaplan::plan_frozen(&cost, pool, sources) else {
                     continue;
                 };
                 if !plan_survives(view, &plan.steps, spell_harm) {
@@ -1096,12 +1238,16 @@ impl HeuristicAgent {
         best.map(|(_, action)| action)
     }
 
-    fn reserve(&self, view: &PlayerView, main: bool) -> u32 {
-        if !main
-            || self.profile.hold_up == HoldUp::None
-            || !view
-                .battlefield_of(view.seat)
-                .any(|o| o.types.contains(TypeSet::CREATURE))
+    pub(crate) fn reserve(&self, view: &PlayerView, main: bool) -> u32 {
+        if !main || self.profile.hold_up == HoldUp::None {
+            return 0;
+        }
+        if self.times_instants() {
+            return self.timed_reserve(view);
+        }
+        if !view
+            .battlefield_of(view.seat)
+            .any(|o| o.types.contains(TypeSet::CREATURE))
         {
             return 0;
         }
@@ -1121,14 +1267,80 @@ impl HeuristicAgent {
         {
             return 0;
         }
-        view.hand
+        let held = cheapest_answer(&view.hand);
+        if held > 0
+            && self.profile.plays(crate::AIProfile::TEAM_PLAY)
+            && self.an_ally_holds_the_answer(view, cheapest_answer)
+        {
+            return 0;
+        }
+        held
+    }
+
+    /// What a level that times its instants keeps up in its own main phase
+    /// ([`crate::timing`]). Before combat, a combat trick's mana while a
+    /// creature of its own can attack: what it would develop goes down
+    /// after combat, where the trick has had its chance. And once it has a
+    /// creature, a counterspell's mana while an opponent holds a card to
+    /// cast. Never mana for an instant that could as well be cast now, nor
+    /// for one whose moment is the opponents' end step.
+    fn timed_reserve(&self, view: &PlayerView) -> u32 {
+        let mut creatures = view
+            .battlefield_of(view.seat)
+            .filter(|o| o.types.contains(TypeSet::CREATURE));
+        let mut can_attack = false;
+        let mut any = false;
+        for o in &mut creatures {
+            any = true;
+            can_attack |= crate::combat::ready(o) && !o.summoning_sick;
+        }
+        let trick = if view.phase == baylee_view::Phase::FirstMain && can_attack {
+            cheapest_trick(&view.hand)
+        } else {
+            0
+        };
+        let threat = view
+            .seats
             .iter()
-            .filter(|c| c.types.contains(TypeSet::INSTANT))
-            .filter(|c| face(c.card).is_some_and(|f| f.mana_cost.cmc() <= 3))
-            .map(|c| c.mana_value)
-            .filter(|&v| v > 0)
-            .min()
-            .unwrap_or(0)
+            .any(|s| self.hostile(s.player, view.seat) && s.hand_count > 0);
+        let quiet = self.strategy.scouted_opponents && !self.strategy.known_threat;
+        let mut counter = if any && threat && !quiet {
+            cheapest_counter(&view.hand)
+        } else {
+            0
+        };
+        if counter > 0 && self.an_ally_holds_the_answer(view, cheapest_counter) {
+            counter = 0;
+        }
+        trick.max(counter)
+    }
+
+    /// Whether a teammate this seat is shown the hand of holds a cheap
+    /// answer (`held` measures a hand: [`cheapest_answer`], or
+    /// [`cheapest_counter`] from [`crate::AIProfile::INSTANT_TIMING`]) and
+    /// the untapped lands to cast it, and is the one of the two who keeps it
+    /// up: the lower seat. Then this seat develops instead of holding mana
+    /// up beside it, and the side still has its answer. The lower seat keeps
+    /// its own up, so two allies who see each other's hands never both tap
+    /// out on the strength of the other.
+    fn an_ally_holds_the_answer(
+        &self,
+        view: &PlayerView,
+        held: fn(&[baylee_view::HandObject]) -> u32,
+    ) -> bool {
+        view.shared_hands.iter().any(|hand| {
+            let ally = hand.player;
+            if ally >= view.seat || self.hostile(ally, view.seat) {
+                return false;
+            }
+            let held = held(&hand.cards);
+            let open = view
+                .battlefield_of(ally)
+                .filter(|o| o.types.contains(TypeSet::LAND))
+                .filter(|o| !o.status.contains(baylee_view::ObjectStatus::TAPPED))
+                .count();
+            held > 0 && usize::try_from(held).is_ok_and(|held| open >= held)
+        })
     }
 
     fn bad_removal_exchange(
@@ -1149,6 +1361,11 @@ impl HeuristicAgent {
             return true;
         }
         let id = own_casts(view).find(|&id| identity(view, id) == Some(card));
+        // From generation 11, no spell whose every target is on the wrong
+        // side (`sides`).
+        if self.aims_only_wrong(view, id, card, spells) {
+            return true;
+        }
         // Decide whether the spell has a useful legal-shaped target before
         // spending mana. Merely seeing an enemy permanent is insufficient
         // for colour/type restrictions or a symmetric same-name sweep.
@@ -1285,9 +1502,15 @@ impl HeuristicAgent {
                     continue;
                 }
                 let worth = Self::permanent_worth(view, o);
+                // An ally's board is its side's where its level plays as a
+                // team: a Wrath that takes a teammate's creatures with the
+                // opponents' is no free trade.
+                let ours = o.controller == view.seat
+                    || (self.profile.plays(crate::AIProfile::TEAM_PLAY)
+                        && !self.hostile(o.controller, view.seat));
                 if self.hostile(o.controller, view.seat) {
                     net += worth;
-                } else if !opponents_only && o.controller == view.seat {
+                } else if !opponents_only && ours {
                     net -= worth;
                 }
             }
@@ -2139,7 +2362,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
     }
     let seat = view.seat(resource_player(view))?;
     let sources = sources(view, legal);
-    let normal = manaplan::plan(&owed, &seat.mana_pool, &sources);
+    let normal = manaplan::plan_frozen(&owed, &seat.mana_pool, &sources);
     if normal.is_none() && matches!(view.owed, Some(ManaPayment::Fixed(_))) {
         return crate::granted::pay_fixed(view, legal, &owed, &sources);
     }
@@ -2147,7 +2370,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
         // Partial prevention still helps when the full amount is unreachable.
         if matches!(view.owed, Some(ManaPayment::AnyAmount { .. })) {
             let one_more = seat.mana_pool.total() - seat.mana_pool.restricted_total() + 1;
-            manaplan::plan(
+            manaplan::plan_frozen(
                 &ManaCost::from_symbol_generic(u32::try_from(one_more).ok()?),
                 &seat.mana_pool,
                 &sources,
@@ -2199,7 +2422,7 @@ fn owed_color(view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
         .copied()
         .filter(|&color| {
             one_more(seat.mana_pool, color)
-                .is_some_and(|pool| manaplan::plan(&owed, &pool, &sources).is_some())
+                .is_some_and(|pool| manaplan::plan_frozen(&owed, &pool, &sources).is_some())
         })
         .collect();
     if keeps.len() == options.len() {
@@ -2273,6 +2496,36 @@ pub(crate) fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     usable(view, legal, split_restricted(offers(view, legal)).1)
 }
 
+/// [`sources`], ranked by the colours `claims` want as well as the hand's:
+/// the mana costs of what else the seat may spend mana on
+/// ([`crate::board_claims`]), so a land that alone pays one of them is kept
+/// as a scarce colour of the hand is (`manaplan::prioritize`). The house
+/// ranks by its hand alone, as it always has; the planners every other
+/// caller reads (the seat, the client, the trained AI's menu) pass the board.
+pub(crate) fn sources_keeping(
+    view: &PlayerView,
+    legal: &LegalActions,
+    claims: &[ManaCost],
+) -> Vec<Source> {
+    usable(
+        view,
+        legal,
+        split_restricted(offers_claimed(view, legal, claims)).1,
+    )
+}
+
+/// The restricted taps on offer as the planner reads what they make, one
+/// source each, and nothing of what they may pay for: that is the engine's
+/// statement (`LegalActions::restricted_taps`), which [`crate::spend`]
+/// reads.
+pub(crate) fn restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
+    split_restricted(offers(view, legal))
+        .0
+        .into_iter()
+        .map(|offer| offer.source)
+        .collect()
+}
+
 /// The restricted taps and the rest. Moved out only when there are any: this
 /// runs at every priority, and a board without restricted mana is the usual
 /// one.
@@ -2291,9 +2544,16 @@ struct Offer {
     only_for: Option<baylee_cards_dsl::ManaRestriction>,
 }
 
-/// Every offered simple mana tap, restricted ones with their filter.
-#[allow(clippy::too_many_lines)]
+/// Every offered simple mana tap, restricted ones with their filter, ranked
+/// by the colours the hand wants: the house's reading.
 fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
+    offers_claimed(view, legal, &[])
+}
+
+/// [`offers`], ranked by the colours `claims` want beside the hand's
+/// ([`sources_keeping`]).
+#[allow(clippy::too_many_lines)]
+fn offers_claimed(view: &PlayerView, legal: &LegalActions, claims: &[ManaCost]) -> Vec<Offer> {
     // The price rides on `manaplan::Source` itself. It used to be paired
     // with the source only until the dedup had run, because the solver asked
     // nothing but what comes out; since #165's second half the solver ranks
@@ -2405,6 +2665,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 }
             })
         })
+        .chain(claims.iter().copied())
         .collect();
     let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
     // The registry's answer, as the client's: a land used for more than
@@ -2664,29 +2925,6 @@ fn usable(view: &PlayerView, legal: &LegalActions, offers: Vec<Offer>) -> Vec<So
     result
 }
 
-pub(crate) fn plan_for_spell(
-    cost: &ManaCost,
-    pool: &baylee_view::ManaPoolView,
-    view: &PlayerView,
-    legal: &LegalActions,
-    spell: ObjectId,
-) -> Option<manaplan::Plan> {
-    let (restricted, plain) = split_restricted(offers(view, legal));
-    let plain = usable(view, legal, plain);
-    if let Some(plan) = manaplan::plan(cost, pool, &plain) {
-        return Some(plan);
-    }
-    if restricted.is_empty() {
-        return None;
-    }
-    let agent = HeuristicAgent::new(crate::AIProfile::default());
-    let (one, _) = agent.paying_for(view, &restricted, &plain, spell)?;
-    manaplan::plan(cost, pool, &one).or_else(|| {
-        let all = agent.paying_with_all(view, &restricted, &plain, spell);
-        manaplan::plan(cost, pool, &all)
-    })
-}
-
 pub(crate) fn plan_for_activation(
     cost: &ManaCost,
     pool: &baylee_view::ManaPoolView,
@@ -2727,7 +2965,7 @@ fn activation_plan(
     source: ObjectId,
     reserved: bool,
 ) -> Option<manaplan::Plan> {
-    if let Some(plan) = manaplan::plan(cost, pool, plain) {
+    if let Some(plan) = manaplan::plan_frozen(cost, pool, plain) {
         return Some(plan);
     }
     if restricted.is_empty() {
@@ -2757,7 +2995,7 @@ fn activation_plan(
         .cloned()
         .collect();
     all.push(best.source.clone());
-    manaplan::plan(cost, pool, &all)
+    manaplan::plan_frozen(cost, pool, &all)
 }
 
 /// Whether `id` may be tapped for: the engine lists it as castable once paid
@@ -2917,7 +3155,7 @@ fn aim(
                     return None;
                 }
                 let cost = cost.with_x(x);
-                manaplan::plan(&cost, pool, sources)
+                manaplan::plan_frozen(&cost, pool, sources)
                     .is_some()
                     .then_some(cost)
             })
@@ -2925,7 +3163,7 @@ fn aim(
         return (x, true);
     }
     let fits = |net: &baylee_core::mana::ManaCost| {
-        net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some()
+        net.cmc() <= budget && manaplan::plan_frozen(net, pool, sources).is_some()
     };
     if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
         return (net, true);
@@ -3070,7 +3308,8 @@ pub(crate) fn buys_back(
     face(card)
         .and_then(|f| f.buyback)
         .is_some_and(|buyback| buyback_parts_worth(view, buyback.parts, card))
-        && manaplan::plan(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[]).is_some()
+        && manaplan::plan_frozen(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[])
+            .is_some()
 }
 
 /// The answer to `NumberPrompt::Multikicker`: as far as the floating pool
@@ -3094,7 +3333,8 @@ pub(crate) fn multikicks(
         .rev()
         .find(|n| {
             kicks_safely(view, context.effects, *n, seat.library_count)
-                && manaplan::plan(&spell.combine_n(&each, *n), &seat.mana_pool, &[]).is_some()
+                && manaplan::plan_frozen(&spell.combine_n(&each, *n), &seat.mana_pool, &[])
+                    .is_some()
         })
         .unwrap_or(min)
 }
@@ -3215,7 +3455,7 @@ pub(crate) fn kicks(
     identity(view, id)
         .and_then(face)
         .and_then(|f| kicked_price(view, f, context.effects, cost.with_x(context.x), &[]))
-        .is_some_and(|net| manaplan::plan(&net, &seat.mana_pool, &[]).is_some())
+        .is_some_and(|net| manaplan::plan_frozen(&net, &seat.mana_pool, &[]).is_some())
 }
 
 /// The permanents to tap for a convoke or waterbend question: as few as the
@@ -3296,7 +3536,7 @@ fn taps_needed(
     (0..=taps.len()).find(|&n| {
         let (rest, colored) = total.convoked_colored(&colors[..n]);
         let generic = u32::try_from(n).unwrap_or(u32::MAX).saturating_sub(colored);
-        manaplan::plan(&rest.with_less_generic(generic), pool, &[]).is_some()
+        manaplan::plan_frozen(&rest.with_less_generic(generic), pool, &[]).is_some()
     })
 }
 
@@ -3481,7 +3721,7 @@ fn refusing_costs_a_card(effect: &Effect) -> bool {
 /// exists yet.
 pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
     view.seat(resource_player(view)).is_some_and(|seat| {
-        manaplan::plan(cost, &seat.mana_pool, &remaining_sources(view)).is_some()
+        manaplan::plan_frozen(cost, &seat.mana_pool, &remaining_sources(view)).is_some()
     })
 }
 
@@ -3491,8 +3731,32 @@ pub(crate) fn remaining_sources(view: &PlayerView) -> Vec<Source> {
     own_sources(view, true)
 }
 
-/// Whether this seat's mana sources, all untapped again, make `cost`: what
-/// it can pay in its next upkeep (CR 502.3), with nothing floating.
+/// [`remaining_sources`], and beside them the restricted taps of the same
+/// estimate whose mana may pay for casting `spell` as far as the view can
+/// tell ([`HeuristicAgent::admits`], CR 106.6): Vodalian Arcanist's `{C}`
+/// for an instant or a sorcery, never Ancient Ziggurat's for one. For a
+/// question that carries no offer, where the engine's own statement
+/// (`LegalActions::restricted_taps`) is not at hand; a restriction the view
+/// cannot read admits nothing.
+pub(crate) fn remaining_sources_for(
+    view: &PlayerView,
+    spell: ObjectId,
+) -> (Vec<Source>, Vec<Source>) {
+    let estimate = own_offer(view, true);
+    let (restricted, plain) = split_restricted(offers(view, &estimate));
+    let reader = HeuristicAgent::new(crate::AIProfile::default());
+    let restricted = restricted
+        .into_iter()
+        .filter(|offer| {
+            offer.only_for.as_ref().is_some_and(|restriction| {
+                reader.admits(view, restriction, Some(offer.source.id), spell)
+            })
+        })
+        .map(|offer| offer.source)
+        .collect();
+    (usable(view, &estimate, plain), restricted)
+}
+
 /// The price `effect` puts off to the next upkeep: what the delayed ability it
 /// creates asks for, read off the card's list, where that ability is printed.
 fn deferred_price(
@@ -3511,8 +3775,10 @@ fn deferred_price(
     })
 }
 
+/// Whether this seat's mana sources, all untapped again, make `cost`: what
+/// it can pay in its next upkeep (CR 502.3), with nothing floating.
 pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
-    manaplan::plan(
+    manaplan::plan_frozen(
         cost,
         &baylee_view::ManaPoolView::default(),
         &own_sources(view, false),
@@ -3524,6 +3790,12 @@ pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCo
 /// as they stand once its untap step has untapped them and its creatures
 /// have been under its control since the turn began.
 fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
+    sources(view, &own_offer(view, now))
+}
+
+/// The mana abilities [`own_sources`] reads, as an offer would list them:
+/// an estimate off the view, never actions to send.
+fn own_offer(view: &PlayerView, now: bool) -> LegalActions {
     let mut estimate = LegalActions::default();
     for object in view.battlefield_of(resource_player(view)) {
         if object
@@ -3586,7 +3858,7 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
             }
         }
     }
-    sources(view, &estimate)
+    estimate
 }
 
 /// The cards that keep a total the question states (crew's "total power N

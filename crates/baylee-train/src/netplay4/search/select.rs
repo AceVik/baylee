@@ -90,6 +90,23 @@ pub(super) fn choose(selection: Selection4, worlds: &[Vec<f32>], priors: &[f64])
     }
 }
 
+/// [`choose`], except that with `own_eligible` false the policy's answer
+/// (0) is not played: the one of the others with the best mean is,
+/// whatever the selection (which still gives the scores). The stall guard's
+/// choice where the table took the policy's answer back from this position.
+pub(super) fn choose_with(
+    selection: Selection4,
+    worlds: &[Vec<f32>],
+    priors: &[f64],
+    own_eligible: bool,
+) -> Choice {
+    let mut choice = choose(selection, worlds, priors);
+    if !own_eligible && choice.means.len() > 1 {
+        choice.chosen = 1 + first_best(&choice.means[1..]);
+    }
+    choice
+}
+
 /// Each candidate's prior: the policy's probability of its answer at the
 /// root, times that of its target at the target question when it is tried
 /// at one ([`probabilities`]).
@@ -197,6 +214,28 @@ mod tests {
         );
     }
 
+    /// A policy's answer the table took back is not played, however far
+    /// ahead its worlds score it (a cast taken back keeps the game where it
+    /// was): the best of the others is, even below the margin.
+    #[test]
+    fn an_answer_taken_back_gives_way_to_the_best_of_the_others() {
+        let paired = Selection4::Paired {
+            margin: 0.05,
+            z: 1.0,
+        };
+        let frozen = worlds(&[&[0.8, 0.3, 0.4], &[0.8, 0.5, 0.45], &[0.8, 0.2, 0.42]]);
+        assert_eq!(choose_with(paired, &frozen, &[], true).chosen, 0);
+        let guarded = choose_with(paired, &frozen, &[], false);
+        assert_eq!(guarded.chosen, 2, "0.42 is the others' best mean");
+        assert_eq!(guarded.scores, choose(paired, &frozen, &[]).scores);
+        let alone = worlds(&[&[0.8], &[0.8]]);
+        assert_eq!(
+            choose_with(paired, &alone, &[], false).chosen,
+            0,
+            "nothing else to play"
+        );
+    }
+
     #[test]
     fn priors_are_the_policys_probabilities() {
         use baylee_engine::choice::PlayerAction;
@@ -232,6 +271,7 @@ mod tests {
                 action: PlayerAction::PassPriority,
                 prior,
             }),
+            script: None,
         };
         let p = priors(
             &decision,

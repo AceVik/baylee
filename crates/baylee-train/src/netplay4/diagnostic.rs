@@ -66,6 +66,14 @@ mod tests {
         let hash = view_only_state_hash(&view, &pending);
         let mut net = NetPlayer4 {
             tactician: None,
+            search_student: None,
+            grouped_decode: false,
+            grouped_use: crate::netplay4::GroupedUse4::default(),
+            last_grouping: None,
+            states_confidence: false,
+            adaptive: None,
+            thinking_use: crate::netplay4::ThinkingUse4::default(),
+            last_depth: 2,
             backend: crate::netplay4::Backend::Owned(BTreeMap::new()),
             model_dir: std::path::PathBuf::new(),
             rule_roots: None,

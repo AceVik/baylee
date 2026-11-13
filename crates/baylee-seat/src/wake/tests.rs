@@ -12,8 +12,10 @@ use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 mod combat;
 mod controlled;
 mod foretell;
+mod payments;
 mod phasing;
 pub(crate) mod played;
+mod routes;
 mod upkeep;
 
 const ME: PlayerId = PlayerId::new(0);
@@ -615,6 +617,70 @@ fn a_plan_is_asked_every_question_of_its_turn_and_none_after() {
     assert_eq!(
         filter.judge(&view, &priority(legal), &[]),
         passes(Standing::NothingToDo)
+    );
+}
+
+/// Carbon b7, segment 3, attempt 8, seat 1, q205-q207: a seat with no
+/// creature planned `pass, pass` in its first main phase and was then asked
+/// for attackers with none to choose. The question went to the plan, whose
+/// `pass` answers no declaration, so the plan stopped and the model was
+/// asked to declare nothing. A declaration with nothing to declare is made
+/// as at any other time (CR 508.1a, 509.1a); one with something in it, and
+/// every other question of the turn, is still the plan's.
+#[test]
+fn a_plan_leaves_a_declaration_with_nothing_to_declare_to_the_orders() {
+    let (mut view, legal) = table(&[], &[]);
+    view.turn = 16;
+    view.active = ME;
+    view.phase = Phase::Combat;
+    view.step = Step::DeclareAttackers;
+    let mut filter = WakeFilter::default();
+    filter.apply_orders(None, None, 2, &view, &[]);
+    let attack = |attackers| Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
+        player: ME,
+        attackers,
+        defenders: vec![Defender::Player(THEM)],
+        required: Vec::new(),
+        limits: Vec::new(),
+    };
+    assert_eq!(
+        filter.judge(&view, &attack(Vec::new()), &[]),
+        standing(
+            PlayerAction::DeclareAttackers {
+                attackers: Vec::new()
+            },
+            Standing::NoAttackers
+        )
+    );
+    assert_eq!(
+        filter.judge(&view, &attack(vec![o(5)]), &[]),
+        Verdict::Planned,
+        "an attack with a creature to declare is the plan's"
+    );
+    let block = |blockers| Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: ME,
+        attacker: THEM,
+        blockers,
+        bounds: Vec::new(),
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+    };
+    assert_eq!(
+        filter.judge(&view, &block(Vec::new()), &[]),
+        standing(
+            PlayerAction::DeclareBlockers {
+                blockers: Vec::new()
+            },
+            Standing::NoBlockers
+        )
+    );
+    assert_eq!(
+        filter.judge(&view, &priority(legal), &[]),
+        Verdict::Planned,
+        "the plan goes on at the next question"
     );
 }
 

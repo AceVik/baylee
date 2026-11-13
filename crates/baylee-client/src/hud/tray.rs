@@ -451,6 +451,11 @@ const TRAY_PANEL_W: f32 = 2.0 * TRAY_SIDE
 const TRAY_TITLE_H: f32 = 24.0;
 /// One zone tab.
 const TRAY_TAB_H: f32 = 22.0;
+
+/// The air between two seats' groups of tabs, and between the tabs no seat
+/// owns and the first group: wider than the gap inside a group, which is what
+/// makes a group one thing.
+const TRAY_SEAT_GAP: f32 = 14.0;
 /// The search field, the sort key and the arrow beside it.
 const TRAY_CTRL_H: f32 = 28.0;
 /// A footer button.
@@ -685,8 +690,7 @@ pub fn sync_tray(
     let selected: Vec<ObjectId> = duel
         .interaction
         .as_ref()
-        .map(|i| i.selected().collect())
-        .unwrap_or_default();
+        .map_or_default(|i| i.selected().collect());
     let aim = duel
         .interaction
         .as_ref()

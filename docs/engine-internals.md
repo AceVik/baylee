@@ -943,6 +943,43 @@ start into the window its wizard opens for the rest
 (`CastWizard::window_start`), so both are given back together
 (`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
 
+### "Can this seat make mana?" is asked of the window's list
+
+Whether a payment window would have anything in it is
+`LegalActions::has_mana_source` of the finished offer narrowed as a window
+narrows it (`narrow_to_mana`): there `abilities` holds mana abilities
+alone. Of any other list it answers a different question, because an
+entry in `abilities` is any activation at all. Four offers asked it of
+another list until 10 November 2026:
+
+- **A granted action with a mana cost** the pool cannot pay (Nafs Asp's
+  and Guardian Angel's "pay {1}") was offered while `compute_legal` was
+  still building the offer, when `abilities` held every activation, also
+  one no mana paid. A seat with no land untapped was offered the action,
+  and `start_granted_action`'s window found nothing to pay with and refused
+  it (deal 359 of the v6 priority probe). `settle_granted_offers` now
+  decides at the end of `compute_legal`, on the finished offer narrowed and
+  without the unpaid grants themselves, so a grant cannot vouch for itself.
+- **The free-cast offers** (a linked or immediate free play, a transformed
+  back face, a cast an effect commands) asked it of the finished,
+  un-narrowed offer, where a Prodigal Sorcerer's tap reads as mana to come.
+  They ask `free_cast_makes_mana`, which is `can_make_mana_for_cast`.
+
+Neither the legal list nor this question is in `Engine::snapshot_hash`, so
+no hash moves. A granted action that left the offer was one `apply`
+refused, so no record replays differently for it; what a seat is offered
+moves at exactly those positions, and a policy that reads the list (the
+net's candidates) sees one answer fewer there.
+`engine/granted_offer_tests.rs` plays the change in lockstep against the
+engine as it was (`ASK_MANA_AS_BEFORE`): over a debt deck built to reach
+it and the house decks, the hashes and answers are equal throughout, and
+the questions differ only by granted actions the engine as it was offered
+and then refused. Those games never reach a free cast with mana left to
+pay and no land to make it; `granted_tests::a_free_cast_counts_on_mana_
+only_a_window_could_make` holds the question there. A free-cast option
+that left the offer was one whose payment found no mana, and a record
+that chose one would no longer replay at that answer.
+
 ### Madness is a discard replacement, a trigger and an ordinary cast (CR 702.35)
 
 `FaceDef::madness` holds the complete alternative `Cost`, not merely its mana.
@@ -1528,7 +1565,23 @@ Fight collects both creatures' power before either result changes counters.
 controller, which applicable effect to apply. After each answer the engine
 recomputes applicability and the chooser. Different players decide in APNAP
 order, restarting that order when redirection makes an earlier player's
-choice applicable (CR 101.4d). One effect alone needs no ordering question.
+choice applicable (CR 101.4d). One effect alone needs no ordering question,
+and neither do several whose order cannot change the event
+(`damage::order_matters`): each only prevents (protection, Fog, a shield,
+bought prevention), no two modify the same damage part, and no effect is
+offered for two recipients, so each applies to its own damage whichever
+comes first. Protection from black on two creatures under Plague Spitter is
+an effect on each creature and nothing to choose between (CR 616.1 has the
+controller choose among the effects on one object). One redirection may be
+among them when nothing at its destination has a budget, every option there
+being prevention that is never spent (protection, Fog): Pariah sending a
+player's Pestilence damage to a Paladin en-Vec beside the Paladin's own
+meets the protection in every order. A second redirection, a redirection
+onto a shield, a reflection, an amount replacement, a face-up turn or a
+counter removal keeps the question, as does a shared shield. Until 11
+November 2026 every
+chooser offered two different effects was asked, so a record from before
+holds that answer where a build after it asks nothing.
 An infinite shield such as Fog remains in force; a finite shield spends only
 its actual prevention. A chosen-source shield that prevents or redirects
 nothing remains available (CR 609.7b).
@@ -1727,6 +1780,19 @@ in rules terms. A win names the controller's team when they play for one.
 player-driven removal now records (effects: the resolving controller; costs:
 the payer; a counter move: the mover). Rules removals (stun, damage to a
 planeswalker, SBAs) record nobody.
+
+**A decided game asks nothing.** The machine's own game-over check comes
+after the questions a pass may raise first (a counter order, a graveyard
+order, an entry's choice), so a state-based check that decided the game
+went on to ask, for one, the owner of the cards that died beside the loss to
+put them in order (CR 404.3). `Engine::end_a_decided_game` runs after the
+machine stops on a question, and after a resolution leaves one standing: once
+`game_result` has an answer, the game is over instead, on the board the
+question would have been asked on, so that board hashes as it did. A
+concession already ended the game whatever was being asked; this is the same
+rule for every other ending (CR 104.1). A record from before 11 November 2026
+may end with an answer to such a question, which a build after it refuses
+because the game is over.
 
 ### The defending player of an attacking source (CR 508.5)
 
@@ -1945,6 +2011,53 @@ when nothing changed, and it is the rule rather than the fight's: any
 sentence that reads a characteristic after an earlier sentence changed it was
 wrong the same way.
 
+### For each permanent, its controller (CR 608.2h, 101.4)
+
+`Effect::ForEachMatching` runs its instructions once per permanent its filter
+matches, with that permanent as `EventObject` and its controller as
+`EventPlayer` (`resolve/for_each.rs`). The permanents are counted once, as
+the instruction begins (CR 608.2h), and their controllers take their turns
+in APNAP order (CR 101.4): the active player's permanents first, then each
+other player's in turn order, one player's in battlefield order.
+
+When the instructions sacrifice through `SacrificeFilter` — Fade Away: "For
+each creature, its controller sacrifices a permanent of their choice unless
+they pay {1}" — the iteration is a `for_each::Count`, carried in
+`SubjectContext::counted`. A sacrifice the instructions reach is not made:
+`for_each::hold` owes it. When a player's last permanent has had its turn,
+that player chooses each permanent owed (`AwaitingOp::HeldSacrifice`, a
+`ChooseCards` of one), never one already chosen, and after the last player
+everything chosen is sacrificed at once (`sacrifice_together`), each only
+while its chooser still controls it (CR 701.21a). So each player answers all
+their payments, then chooses all their sacrifices, before the next player is
+asked anything. Fade Away's ruling of 2004-10-04 says it in these words:
+each player counts their creatures as it begins, the active player announces
+first, all sacrifices are done at the same time, and "you can't sacrifice
+one creature in order to pay for another and thereby avoid payment for the
+first". A counted creature that has left — chosen for another, or
+sacrificed for mana to pay for another (CR 605.3a) — still has its turn and
+its controller still owes for it. The payments come before the choices so
+that nothing chosen can still be sacrificed for mana afterwards. A player
+asked later is not shown what an earlier player chose, which CR 101.4b says
+they know; the chosen permanents are still on the battlefield until the end,
+as the Dungeon's tax choices are.
+
+Instructions that do not sacrifice (Heroism, Tidal Flats, Dread Wight,
+Fighting Chance) act on the permanent itself, and a permanent that has left
+before its turn is passed over: it is a new object (CR 400.7). They iterate
+as before, through `SubjectContext::for_each_remaining`, in APNAP order; at
+a table of two none of them matches permanents of both players, so their
+order and their hashes are what they were. `SubjectContext::counted` is
+hashed only while a count is open.
+
+Carbon's ladder game seg2 attempt-000000033 met the iteration as it was: on
+turn 12 the nonactive player was asked before and between the active
+player's choices, in battlefield order, and on turn 22 a player with two
+creatures and no mana chose one for the other, the second was skipped as
+gone, and one permanent was lost instead of two.
+`engine::for_each_count_tests` plays both on the engine and, through
+`for_each::ONE_AT_A_TIME`, on the engine as it was.
+
 ## Cards put into places: `Pending::Arrange`
 
 "Put them back in any order" and "the rest on the bottom in any order" are
@@ -2026,6 +2139,16 @@ Its replacement rules are dropped by `sync_replacement_rules` and scanned
 back from its abilities when it phases in. Effects a resolution made are
 not parked. The leave probe (`docs/verification-hooks.md` §"L4: the leave
 probe") checks all of this per card.
+
+The untap step syncs the table itself, right after it phases permanents in
+and out and before the active player untaps (CR 502.1, then 502.3): the
+progress loop's next pass would come after the untap. So a Sleep Paralysis
+that phased in with its creature keeps it tapped in that very step, and a
+permanent with phasing that phased out no longer holds anything tapped. An
+untap step in which nothing phased does not sync. Until 11 November 2026
+the parked statics came back only after the untap, so a record from before
+in which an Aura or another static that keeps permanents tapped phased in
+plays differently from that untap step on.
 
 **Phasing out and in** is `GameState::phase_out` and `phase_in`
 (`phasing.rs`), which `Effect::PhaseOut` and the untap step share.
@@ -2216,12 +2339,45 @@ Room's static effects and replacement rules so the next
 adds while a permanent stays on the battlefield, and a Room placed uncast
 had been scanned as its left half first. The printed front is stashed in
 `original_base`, which the move off the battlefield restores, and the doors
-are cleared there (CR 400.7). Off the battlefield the card is its left face,
-as every multi-face card is here; the combined characteristics of CR 709.4
-are not modelled. With both doors open the list's printed face is the left
-one, so an ability of the right half has no stack-text line in that state
+are cleared there (CR 400.7). Off the battlefield a Room is still its left
+face: the combined characteristics of CR 709.4, which the next paragraph
+gives every other split card, are not modelled for a Room, whose pinned
+house games (Walk-In Closet in Weltenbaum) would move with its mana value
+in hand (`docs/observed-faults.md` entry 80). With both doors open the
+list's printed face is the left one, so an ability of the right half has no
+stack-text line in that state
 (Forgotten Cellar's trigger after an unlock from the Closet shows its card,
 not its sentence).
+
+**A split card is both of its halves everywhere but the stack** (CR 709.4).
+The pool's split cards are read off their faces
+(`CardDef::is_split_spell_card`: two faces, each castable from a hand and
+neither an Adventure, nothing on either but instant and sorcery; a pool lint
+holds that answer against every printing's layout). Their shared base
+(`GameState::card_base`, `Characteristics::of_card`) is the two mana costs
+combined, so both colours and their sum for a mana value (CR 709.4b), with
+each half's card types and keywords (CR 709.4c): Fire // Ice in a hand, a
+library, a graveyard or exile is a blue and red instant of mana value 4,
+which Force of Will may exile as a blue card. Cast as a half, the object is
+that half alone on the stack (CR 709.3b): the cast's commit switches to the
+half's face, the left one too (`cast_wizard/commit.rs`), and the move off the
+stack gives the whole card back (`GameState::rest_as_card`). Before the cast
+the card is still whole, so every probe that asks about its normal cast (a
+price, a timing, a lock, what mana may pay for it) asks the left half as
+the spell it will be (`casting::split_front`; `can_cast`, `cast_options`,
+`spending_object`, `face_is_forbidden` and the wizard's effect and paid
+casts), as a back half was always asked as itself. The object keeps one
+name, the left half's (CR 709.4a gives the card two, and an object here has
+one): a rule that asks a name off the stack finds the card by its left half
+only. The host shows both, "Fire // Ice" (`view::split_name`). Every split
+card's base is in the snapshot hash, so a record with one in any deck,
+written before this, opens with another hash: the split boundary
+(7c879ff33). `Engine::snapshot_hash_reading_split_cards_by_left_half` is that
+build's hash of a position (its objects and the kept damage-source
+incarnations read by their left half), which `convert4::split_boundary`
+names such a record by, and `object::SPLIT_BY_LEFT_HALF` is that engine in
+tests (`recorded_lockstep_tests`, `BAYLEE_LOCKSTEP_BEFORE=split`;
+`docs/trained-ai.md`).
 
 **A copy of an ability is a clone of it** (CR 707.10,
 `resolve::copy_target_ability`). Every decision made for the original rides
@@ -2457,16 +2613,21 @@ comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
 ## Forking a simulation (training and evaluation)
 
 `Engine::fork_for(seat, decks, policy_seed)` (`engine/simulation.rs`) is
-the lookahead seam for a harness that already owns the real engine — the
-evaluator, `eval4`, runs its games in-process through
-`baylee_gamehost::session::Session`. It is **not** for live play: a seat
-playing over the gateway has no engine to fork, and
-`docs/proposals/lookahead-design.md` remains the design for that one. It
-needs `L: CardLookup + Clone`; the registry lookups are unit structs. It
-exists only under the engine's `simulation` feature (gamehost forwards it):
-`cargo dev gate shipped-features` fails when any crate outside the training
-crates enables it, so no hosting build can fork a live game. The training
-crates turn it on through `baylee-train/onnx`, never a default:
+the lookahead seam for whoever already owns the real engine: the host's own
+house search (`baylee-gamehost`'s `session/foresight/`, which the engine
+server and the client's own table run within each level's bound and the
+host's, `docs/house-ai.md` §"Foresight at a host") and the evaluator,
+`eval4`, which runs its games in-process through
+`baylee_gamehost::session::Session`. A seat playing over the gateway has no
+engine to fork, and `docs/proposals/lookahead-design.md` remains the design
+for that one. It needs `L: CardLookup + Clone`; the registry lookups are
+unit structs. It exists only under the engine's `fork` feature (named
+`simulation` until 12.11.2026), which gamehost's `foresight` turns on, and
+with it the hosting builds. What `cargo dev gate shipped-features` keeps
+out of every hosting build is the harness around it, gamehost's
+`simulation` (`Session::fork_for` to drive a copy by hand, probes, a
+harness's clock). The training crates turn that on through
+`baylee-train/onnx`, never a default:
 `cargo build-servers` and `build-client` select `--workspace`, so a default
 of any member, a training crate's too, unifies into every shipped binary.
 `baylee-train/play` is a default and would have leaked it there. The gate's
@@ -2475,7 +2636,8 @@ on the engine and fails on exactly that; it was checked red with
 `simulation` in `play`.
 
 A harness that plays through a session forks the session instead:
-`Session::fork_for(seat, decks, policy_seed)` (`baylee-gamehost`,
+`Session::fork_for(seat, decks, policy_seed)` (`decks` passed through;
+`baylee-gamehost`,
 `session/simulation.rs`, under gamehost's `simulation` feature and in its own
 tests through a dev edge) wraps the engine's fork in a `SimulationSession`.
 Every chair keeps its kind — a driven chair stays driven, and `release`
@@ -2548,12 +2710,14 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   registers the dealt cards' off-battlefield statics), the projection is
   invalidated and refreshed, and the priority offer is computed again.
 
-`DeckKnowledge::Known` is required. The multiset dealt is read off the real
-game, which is the opponent's submitted deck less what has been seen; that
-is the seat's to read only when every deck list is public to it (a
-published precon, a deck the harness chose). `Unknown` is refused until a
-public prior over decks exists. The interned names and the base cache are
-functions of the submitted lists and public play, so a fork keeps them.
+`DeckKnowledge` says where the hidden cards are dealt from. Under `Known`
+the multiset dealt is read off the real game, which is the opponent's
+submitted deck less what has been seen; that is the seat's to read only
+when every deck list is public to it (a published precon, a deck the harness
+chose). The interned names and the base cache are functions of the submitted
+lists and public play, so such a fork keeps them. `Unknown` is refused.
+`Prior(&PublicPrior)` is for a seat that knows its own list and no other,
+which is every fair level of the house; it is described below.
 
 Every field of `GameState` is classified in one place,
 `GameState::audit_fork` (`state/fork.rs`), which destructures the state
@@ -2574,6 +2738,94 @@ state, hash and RNG unchanged. `engine/simulation_tests.rs` pins both
 halves against twin games, together with continuation (the same actions
 take source and fork to the same board; a pass already made is kept) and
 every refusal below.
+
+**Dealing from a public prior.** A `PublicPrior` holds, for each other
+player, a weighted list of cards (`PublicPrior::new().with_player(player,
+cards)`; a card listed twice is one entry with the weights added, and the
+order of the list does not matter). The caller builds it from what the seat
+can see — its own view and its own deck list — and asserts that nothing
+else went into it; the engine cannot check that, and a prior computed from
+an opponent's list is that list dealt back into the fork. Under
+`DeckKnowledge::Prior` the seat's own library is dealt as under `Known`,
+from its own hidden cards. Every pool of another owner — a hand the seat
+does not see, a library below a revealed top, the cards outside the game —
+keeps its zones' sizes, which are public, and has each slot drawn from that
+owner's list, with replacement and with probability proportional to weight,
+on the policy seed's `belief` stream. A drawn card is a card as a deck entry
+with no printing of its own would make it: `PrintRef::UNKNOWN`, no physical
+rules print, the default deck choices, and its rules and printed face
+admitted through the door setup admits a deck entry by
+(`GameState::admit_printed_card`: linked rules, the interned face, its own
+power and toughness, its off-battlefield statics), since no deck at the
+table need hold it. So the fork takes the engine's `CardLookup`.
+
+The real cards of such a pool are removed unread. `redeal` marks the pool
+`Source::Prior`, takes from the game its zones' sizes and its ids — the ids
+name what the fork removes and what the journal rewrite forgets — and never
+asks an object of it what it is, what it carries or how often it has moved.
+Whatever a card there carried (a rider from a reveal, counters, a stale
+status) goes with it, where under `Known` it refuses the fork: the mark
+belonged to a card the fork does not hold. `SimulationSession` follows:
+under a prior the house in every chair but the seat's is told the prior's
+cards as its deck, not the real list.
+
+One fact about every deck list is decided again: setup turns graveyard
+ordering on (CR 404.3) when any list holds a card that reads the order of a
+graveyard, and from then on owners are asked to order simultaneous
+arrivals. A fork on a prior asks that of its own cards after the deal
+(`GameState::decide_graveyard_order_from_cards`), so a card in a list the
+seat has never seen turns nothing on and one the prior deals does.
+
+**The invariant under a prior:** for fixed seat-visible facts, prior and
+policy seed, the fork is the same whatever the real hidden cards, **deck
+lists** and RNG: the same card under the same id in every slot of every
+zone, the same offer, the same journal, the same stream, and the same game
+as both are played on with the same answers.
+`engine/simulation_tests/prior.rs` pins it against twins whose lists share
+no card, with the missing, empty, weightless and unknown-card priors
+(`ForkRefusal::UnusablePrior`, each a fact about the prior and the zone
+sizes), the seat's own library, determinism and the untouched source.
+
+What remains of the real lists in such a fork is in three places, none of
+which a rule can read, each of which a reader of the raw engine can, and
+each of which is in the snapshot hash and the fingerprint — so a fork's hash
+must not steer a fair seat's play. The **name table** keeps every name the
+game interned and the **base cache** every card's rules and printed face,
+the other decks' included. Rules reach them only through a card or a name
+the fork itself holds: a name's number is compared for equality and never
+ordered or iterated by (the legend rule groups by it, "N different names"
+sorts and counts), `Names::find` and the cache's lookup are asked about a
+card in the fork or a face of one, and a name the real list interned
+compares equal to no object once its cards are gone. But the numbers the
+dealt cards' names take count the names interned before them, so two forks
+of twins print the same game under different numbers unless the lists
+interned as many names and the prior lists cards of neither.
+The **effect table** keeps its count of registrations, which is the id the
+next effect takes, and its generation, which keys the projection: a hidden
+card with a static that works in a hand or a library (Grist, the Hunger
+Tide) has moved both. Its effect and its text overrides are dropped by the
+settle; the two counters stay, and no rule reads them but to tell two
+effects apart or to know a cache is stale. The table's monotone hints are
+the same kind of record.
+
+**Refusals under a prior** are the refusals below, sorted by what they are
+a function of. Kept as they are, because the seat saw the thing happen: no
+such seat, the game being over, the opening hands, every suspended
+operation and idle continuation, the loop watch, anything but priority or a
+declaration (what the engine is in the middle of, and whom it is asking
+what, is taken as visible to every seat); a face-down object or card in a
+public zone; a commander in a hidden zone, and everything public that
+points at a hidden card, each judged by the id alone. A continuous effect
+about a hidden card of another owner is refused whichever incarnation it
+names, where under `Known` only the current one is: which incarnation the
+card is in counts its hidden moves. Not asked at all of another owner's
+hidden cards, because the answer is that owner's secret: rules state of
+their own (`MarkedHiddenCard`, every mark `plain` lists) and a static that
+works where the card hides. The seat's own library is asked both, as under
+`Known`. Neither kind: `PrivatePolicy`, another seat's standing answer in
+the journal, is a function of that seat's private setting and not of a
+card; it is refused under a prior as under `Known`, and tells the seat that
+such an answer has been given once.
 
 The invariant is about the hidden **arrangement**, not about **history**.
 A public object carries how it got where it is: a card's `version` counts
@@ -2621,6 +2873,79 @@ whose seats send no automation settings); an unknown deck. Every refusal
 depends on what the seat can see — when draws happened, what is public,
 what the pool's multiset is — never on where a hidden card is.
 
+**An activation is in progress from its press until it ends**, and what it
+captured for its push is part of it: `activating_abilities` (the source's
+ability list, read before a cost can move the source — the Glasspool Mimic
+case) and `activating_grant` (a granted ability's definition). Each way an
+activation ends empties both: the push takes them, and a mana ability, which
+goes on no stack and resolves at once (CR 605.3b), and a reversal after an
+answer (`reverse_activation`) release them
+(`Engine::release_activation_capture`). So the fork's refusal on these two
+fields names an activation still being made. Until 10 November 2026 a mana
+ability and a reversal left the capture standing, keyed by its source, until
+the next push or activation took or overwrote it, and the settled priority
+after any mana ability but a basic land type's (which taps without the
+activation checklist) was refused as `Continuation("activating_abilities")`:
+2,901 of 6,859 roots one `eval4 --search` run attempted. In play the release
+changes nothing: the only later readers of a stale capture were the next push
+from the same source (a trigger) and what is read of that source's activated
+abilities before its next activation captures afresh (the offer's
+conditions, words and target walls, a mode question). Each of them now reads
+the source itself, which gives the same list unless the source's abilities
+or words changed in between, where the stale list was the wrong one. The
+capture is in neither snapshot hash (it is in `Engine::fingerprint` and the
+decision checkpoint). The lockstep games in
+`engine/activation_capture_tests.rs` hold that: every house deck plays its
+neighbour with the release and without it (a test-only switch), the two take
+the same answers to the same snapshot hashes and differ in the two capture
+fields alone, and four in five of the forks taken in them were refused
+before.
+
+**The activator** (`activation_target_choice`: who is activating, for a
+target question another seat may answer, and the seats it named) is held
+the same way, and its release does move hashes, because it is in
+`Engine::snapshot_hash`. `start_activation` used to name it before three
+returns that are no activation — turning a permanent face up (CR 116.2b) and
+unlocking a door (CR 116.2m), special actions taken through the activation
+door, and a prepared cast — and a loyalty activation, which finishes in
+`finish_loyalty_activation`, pushed its ability and kept it. Each left the
+activator standing with nothing in flight until the next activation was
+pressed, and every position in between hashed it in and was refused as
+`Continuation("activation_target_choice")`. From commit eb40dc593 (the
+**activator boundary**) it is named after those returns and released where
+a loyalty ability is pushed, as every other activation releases it. Nothing
+reads it but its own target question, the hash, the fork and the prints, so
+play is unchanged; the hashes of exactly those positions move.
+`engine/activation_choice_tests.rs` plays the change in lockstep against the
+engine as it was, on a deck built to reach every path and on the house
+decks: the same answers, the same hashes everywhere but at those positions,
+and there the activator is the whole difference, and the hash the old engine
+wrote is `Engine::snapshot_hash_naming_stale_activator` of the new one.
+
+A record written before the boundary carries the old hash at every input
+after a loyalty ability, a face-up, a door unlock or a prepared cast (during
+the cast too), up to the next activation pressed (or the next granted mana
+ability), and no other. **Convert records written before eb40dc593 with the
+runtime that wrote them.** A later `convert4` holds to that: its exact audit
+(`record::replay_exact`) diverges at those inputs, and where every
+divergence is that activator (`convert4::activator_boundary::refusal`) the
+game is refused by name — the build that wrote it, the build converting
+it, the boundary and the rule — and the run stops after
+`rejected-games.json` lists every such game; it never leaves the game out
+as an ordinary divergence, and `--llm-bc-skip-unreplayable` does not take
+it. The header's build string (`version+build.N (commit)`) names a commit
+but not where it stands to the boundary, so the hashes decide. Only a record
+that opens with the converting build's hash meets this refusal; one that
+opens otherwise is another build's to `convert4` already (checked by `seen`
+in an LLM-BC conversion, an opening divergence in every other).
+`record::replay` on a later build accepts such a record through `seen`, as it
+does every hash a change moves. Datasets already converted stay valid as
+converted. `boundary_scan4 --root <dir> | --run <run> | --dataset
+<meta.json> --out <jsonl>` (`baylee-train`) lists, per run, the games that
+cross the boundary (read from their actions alone), the games that open with
+its own build's hash, and the games a `convert4` of that build refuses
+(both).
+
 The twin-game test compares the two forks with `Engine::fingerprint` (every
 field) and their whole journals, so a new field or note that carries a real
 hidden card into a fork fails it as soon as the fixture exercises it — that
@@ -2630,6 +2955,126 @@ a card defining its own power and toughness and one with a graveyard
 static; mechanics it does not reach (searches, wishes, cards put back into
 a library) are covered by the refusals and the field-by-field rules above,
 not by a twin comparison yet.
+
+### The offer boundary (e1d85f5d0)
+
+Three changes of 11.11.2026 change what a seat is *offered* and not what the
+engine does. From e1d85f5d0 `LegalActions::cast_ways` names every way of
+casting a castable or payable card that lies outside the hand and the command
+zone (its flashback, escape, disturb face, foretell cost), from protocol 43
+`restricted_taps` and `restricted_floating` name what restricted mana may pay
+for (CR 106.6), and from 1e29094fb the planners, the house's included, read
+each `{2/C}` of a cost on its own (CR 107.4e). `LegalActions` is in neither
+snapshot hash, no answer is taken or refused differently, and every record
+replays. What moves is what binds a question by its JSON: a shadow label's
+`pending_sha256` and view hash, and a house answer asked again where a mixed
+`{2/C}` cost now plans. **Convert shadow labels written before e1d85f5d0 with
+the runtime that wrote them** (`docs/trained-ai.md`); `convert4` names the
+boundary when it meets one (`convert4::shadow_bc::offer_boundary`).
+
+### The question boundary (c55a8c6eb, a5eb549ca)
+
+Two changes of 12.11.2026 take questions away. From c55a8c6eb no order is
+asked between damage effects that cannot change the event (§"Damage,
+prevention and redirection", `damage::order_matters`: protection on two
+creatures, a redirection onto protection), and from a5eb549ca nothing is
+asked once the game is decided (§"Ending the game by effect",
+`end_a_decided_game`). No position both builds reach hashes differently:
+the engine as it was, answered either way, reaches the board this one
+reaches without asking, and at a question after the decision it hashed the
+board this one ends on (`protection_flow_tests`, `game_end_tests`). But a
+record written before holds the answers. A later build parts from it at the
+input before a removed order question and meets its hash again after the
+record's answers to it, and is over where the record still answers. **Convert
+records written before c55a8c6eb with the runtime that wrote them.** A later
+`convert4` refuses such a record by name (`convert4::question_boundary`:
+`QUESTION_REFUSAL`, the builds, the first input and `QUESTION_RULE`) when it
+opens with the converting build's hash, and the run stops after
+`rejected-games.json` lists every such game, as at the activator boundary;
+`--llm-bc-skip-unreplayable` does not take it. A record of another build that
+departs only that way is named in its seen audit's reason, which stays one
+the flag may leave out. The recognition replays the record and accepts only
+those two departures: answers to damage-order questions between a hash this
+build parts from and the record's return to this build's hash, and answers
+to questions alone after this build's game is over, up to the end line.
+
+`engine::recorded_lockstep_tests` (ignored) plays recorded runs on both
+engines in lockstep, the old one through the cfg(test) switches, and lists
+the records that part. Over all 192,984 games under `~/baylee-data/v6` on
+12.11.2026: 1,406 records answer a removed order question and 5 answer after
+the decision, of which 287 replayed exactly on the build before
+(241 in `train/v6d-phase-d-run` and `-run2` eval records, 31 in
+`v6f-v5-benchmark` eval records, 14 in `v6t-campaign/distill/gate`, 1 in
+`v6s-league`); the other 1,124, the LLM-corpus game in `run-haiku-bulk-b`
+among them, were already another build's. The lists are in
+`~/baylee-data/v6/train/question-boundary-c55a8c6eb/` (`lockstep-parted.jsonl`
+with whether each replayed exactly before, `lockstep-all.jsonl`).
+
+### The count boundary (445a4e276)
+
+From 445a4e276 "for each creature, its controller sacrifices a permanent of
+their choice unless they pay {1}" counts first, asks the active player's
+payments and sacrifices before any other player's and sacrifices everything
+chosen at once (§"For each permanent, its controller"). Unlike the question
+boundary, the game itself goes another way: the count is in the snapshot
+hash while it is open, so a record written before parts from a later build
+at the input on which Fade Away begins to resolve, and from there the two
+builds ask different players different questions and can sacrifice
+different permanents. **Convert records written before 445a4e276 with the
+runtime that wrote them.** A later `convert4` refuses such a record by name
+(`convert4::count_boundary`: `COUNT_REFUSAL`, the builds, the first input and
+`COUNT_RULE`) when it opens with the converting build's hash and parts from
+it first where that build holds a count open (`Engine::count_open`), before
+the input or after it, and the run stops after `rejected-games.json` lists
+every such game, as at the other two boundaries; `--llm-bc-skip-unreplayable`
+does not take it. A record of another build that parts there by its public
+table is named in its seen audit's reason.
+
+`engine::recorded_lockstep_tests` with `BAYLEE_LOCKSTEP_BEFORE=for-each`
+switches back this fix alone, and `BAYLEE_LOCKSTEP_EXPORTS` reads an LLM
+collector's attempts, which export one game to a file. Over all 195,578
+games under `~/baylee-data/v6` on 12.11.2026 (the 316 runs with a
+`games.jsonl`, and the collectors' exports) 24 records part, every one at
+the input on which a Fade Away begins to resolve and every one a record that
+replayed exactly before: 21 in `train/v6t-campaign/distill/gate`
+(`records-r1b-raw-1v1-r0h2` 11, `records-a1-raw-1v1-r0h2` 5,
+`records-b1-raw-1v1-r0h2` 5), 2 in `train/v6s-league/gen4` and Carbon's
+seg2 `attempt-000000033` (input 258, turn 12). `convert4` refuses them by
+name (checked on the Carbon game and on one record each of the gate and the
+league). 157,950 are alike, and 37,604, older builds' records, are refused
+by both builds at the same input, as they were before this fix. The lists are
+in `~/baylee-data/v6/train/count-boundary-445a4e276/` (`parted-only.jsonl`,
+the parted records and the summary; `lockstep-parted.jsonl`, every record
+not alike).
+
+### The protocol-44 boundary
+
+Three changes of 12.11.2026, from the Carbon seats' reports, change what a
+seat is told and not what the engine does. An offer names a suspend whose mana
+is still in the lands (`LegalActions::unpaid_suspend`, beside `suspendable`,
+filled in the hand scan of `compute_legal` and kept only while a mana ability
+is on offer, as `unpaid_foretell` is), a view names the division a spell on
+the stack announced (`PlayerView::divided`, read from `GameState::divided`,
+beside the stack so a stack object keeps its shape and the house its position
+hash), and a log line names its step (`LogEntry::step`, so a combat's two damage
+steps are told apart). `queued_trigger` names a source that has ceased to exist
+from the incarnation the trigger saw (`GameState::damage_source`, which keeps
+a gone token after `ceased` is cleared). `LegalActions`, views and the log are
+in neither snapshot hash, no answer is taken or refused differently, and every
+record replays. What moves is what binds a question by its JSON: a shadow
+label's `pending_sha256` and view hash where the offer names an unpaid
+suspend. **Convert shadow labels written before protocol 44
+with the runtime that wrote them**; `convert4` names the boundary when it
+meets one (`convert4::shadow_bc::protocol44_boundary`).
+
+Two reports of the same block are answered by the seat and not here, because
+the engine's answer must not move. The question "pay {21}?" is put whether or
+not it can be paid (`resolve/choices.rs`, CR 605.3a: the mana may be made in
+the window); a seat leaves the yes out where nothing it has untapped reaches
+the price (CR 118.3, 608.2d). And a division of combat damage is asked as
+declare blockers (or the first-strike damage step) hands over to the damage
+step (`banding::ask_combat_division`), so the view stands in the step before;
+the seat heads the question with the damage step it belongs to (CR 510.1).
 
 ## Control rotation at a multiplayer table
 

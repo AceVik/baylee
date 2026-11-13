@@ -704,6 +704,9 @@ fn seat_card(
             Pickable::IGNORE,
         ))
         .id();
+    // A person in the chair: their name opens their card (`social::card`).
+    // The house and a language model have none.
+    let mut person = None;
     let (name, under): (String, Option<(String, Color)>) = if seat.kind == SeatKind::Ai {
         (
             super::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string(),
@@ -729,6 +732,7 @@ fn seat_card(
         (Phrase::RoomEmptySeat.text(lang).to_string(), None)
     } else {
         let player = seat.player.clone().unwrap_or_default();
+        person.clone_from(&seat.player);
         let guest = (seat.guest && !seat.you).then(|| ChatPhrase::GuestTag.text(lang));
         let under = if seat.host {
             let host = Phrase::RoomHost.text(lang);
@@ -753,6 +757,12 @@ fn seat_card(
         ))
         .id();
     commands.entity(who).add_child(title);
+    if let Some(handle) = person {
+        commands.entity(title).insert((
+            Pickable::default(),
+            crate::shellkit::avatar::PersonLink::named(handle, seat.guest),
+        ));
+    }
     if let Some((said, ink)) = under {
         let l = super::parts::line(commands, kit, &said, kit.m.small, ink);
         if seat.guest && !seat.you {

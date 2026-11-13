@@ -5,7 +5,6 @@ use super::{
     BOLT, BOLT_PRINT, BOUNCE, BOUNCE_PRINT, Cli, Cmd, Fixture, Parser, ledger, scryfall, stubgen,
     write,
 };
-use baylee_cards_codegen::layout;
 use std::{fs, path::PathBuf};
 
 /// Keep the shared fixture's identities, cache, scripts and canonical tests;
@@ -17,13 +16,11 @@ fn add_stub(fixture: &Fixture, name: &str, explicit_coverage: bool) -> PathBuf {
     let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS).unwrap();
     let row = ledger.entry_named(name).unwrap();
     let cats = crate::hold_back::compiled_catalogs();
-    let cycles = layout::LandCycles::parse("");
     let (_, mut source) = stubgen::render_unimplemented(
         &printing,
         row,
         &ledger,
         &cats,
-        &cycles,
         "synthetic fixture: the sentence is not yet read",
     )
     .unwrap();
@@ -71,7 +68,8 @@ fn completion_writes_only_the_selected_unfinished_source() {
     let sibling = add_stub(&fixture, BOUNCE, false);
     let sibling_before = fs::read(&sibling).unwrap();
     let sentinels = [
-        "crates/cards/src/cards/mod.rs",
+        "crates/cards/sets/1993/src/lib.rs",
+        "crates/cards/pool/src/generated.rs",
         "crates/cards/src/generated_lines.rs",
         "crates/cards/src/generated_names.rs",
         "crates/baylee-core/src/generated/index/mod.rs",
@@ -156,7 +154,7 @@ fn an_unrelated_test_file_does_not_promote_an_untested_stub() {
     let wrong = fixture
         .dir
         .path()
-        .join("crates/cards/testkit/card_tests/instants/mv_2/lightning_bolt.rs");
+        .join("crates/cards/testkit/card_tests/instants/lightning_helix.rs");
     write(&wrong, fs::read(&original).unwrap());
     fs::remove_file(original).unwrap();
     complete(&fixture, &[BOLT], false).unwrap();
@@ -300,7 +298,7 @@ fn completion_refuses_a_stub_outside_its_canonical_path() {
     let wrong = fixture
         .dir
         .path()
-        .join("crates/cards/src/cards/instants/mv_2/lightning_bolt.rs");
+        .join("crates/cards/sets/1993/src/wrong/lightning_bolt.rs");
     write(&wrong, fs::read(&original).unwrap());
     fs::remove_file(&original).unwrap();
     let before = fs::read(&wrong).unwrap();
@@ -539,7 +537,6 @@ fn a_full_run_keeps_a_held_stub_and_its_finding() {
     let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS).unwrap();
     let row = ledger.entry_named(BOLT).unwrap();
     let cats = crate::hold_back::compiled_catalogs();
-    let cycles = layout::LandCycles::parse("");
     let lookup = crate::scriptgen::ScriptLookup::new(
         fixture.scripts.clone(),
         crate::scripts::build_index(&fixture.scripts).unwrap(),
@@ -553,7 +550,6 @@ fn a_full_run_keeps_a_held_stub_and_its_finding() {
             &cats,
             Some(&lookup),
             None,
-            &cycles,
             &|_| false,
         )
         .unwrap()

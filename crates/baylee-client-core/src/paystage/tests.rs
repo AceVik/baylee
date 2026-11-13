@@ -630,3 +630,73 @@ fn clear_and_is_empty_include_granted_actions() {
     assert!(staging.is_empty());
     assert!(staging.granted().is_empty());
 }
+
+/// `{1}, {T}: Add one mana of any color` beside a free `{C}` (Study Hall).
+fn study_hall(n: u32) -> Source {
+    Source {
+        converter: Some(manaplan::Converter {
+            tap: Tap::Ability(1),
+            cost: cost("{1}"),
+            colors: ManaColor::ALL[..5].to_vec(),
+            bundle: false,
+            picks: 1,
+        }),
+        ..Source::fixed(id(n), Tap::Ability(0), ManaColor::Colorless)
+    }
+}
+
+/// Hymn to Tourach's window with Great Hall of the Biblioplex's `{B}`
+/// floating for it: the floating black is earmarked for the window, and
+/// "Pay now" stages the Island and Study Hall's black, which the reach had
+/// lit (Carbon b9). A pool holding restricted mana planned no Study Hall.
+#[test]
+fn a_window_plans_a_conversion_beside_its_earmarked_mana() {
+    let mut black = [0; 6];
+    black[ManaColor::Black.index()] = 1;
+    let window = WindowMana {
+        pool: ManaPoolView::default(),
+        sources: vec![land(1, ManaColor::Blue), study_hall(2)],
+        floating: black,
+        taps: Vec::new(),
+    };
+    let mut staging = Staging::default();
+    assert_eq!(staging.remaining_in(&cost("{B}{B}"), &window).len(), 1);
+    assert!(!staging.covers_in(&cost("{B}{B}"), &window));
+    let plan = staging
+        .suggest_in(&cost("{B}{B}"), &window)
+        .expect("the Island pays Study Hall, which makes the second {B}");
+    staging.extend(&plan);
+    assert_eq!(sources_of(&staging), [id(1), id(2)]);
+    assert!(staging.covers_in(&cost("{B}{B}"), &window));
+    // Earmarked, the black never pays Study Hall's {1}.
+    let alone = WindowMana {
+        sources: vec![study_hall(2)],
+        ..window
+    };
+    assert_eq!(Staging::default().suggest_in(&cost("{U}"), &alone), None);
+}
+
+/// Druids' Repository with two charge counters is two sources of one
+/// permanent (`baylee_ai::spend::repeat_counter_sources`): "Pay now" stages
+/// both activations, not one, so the window is paid (Carbon c1).
+#[test]
+fn a_plan_that_uses_a_permanent_twice_is_staged_twice() {
+    let repository = Source {
+        colors: ManaColor::ALL[..5].to_vec(),
+        ..Source::fixed(id(7), Tap::Ability(1), ManaColor::Black)
+    };
+    let window = WindowMana {
+        pool: ManaPoolView::default(),
+        sources: vec![repository.clone(), repository, land(1, ManaColor::Black)],
+        floating: [0; 6],
+        taps: Vec::new(),
+    };
+    let mut staging = Staging::default();
+    let plan = staging
+        .suggest_in(&cost("{2}{B}"), &window)
+        .expect("two counters and a Swamp");
+    assert_eq!(plan.steps.len(), 3);
+    staging.extend(&plan);
+    assert_eq!(staging.steps().len(), 3, "{staging:?}");
+    assert!(staging.covers_in(&cost("{2}{B}"), &window));
+}

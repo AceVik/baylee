@@ -25,6 +25,54 @@ use std::path::PathBuf;
 /// Where the control socket is on the gateway.
 pub const CONTROL_PATH: &str = "/agent/ws";
 
+/// What `baylee-agent --help` prints, and a refused command line after its
+/// reason.
+pub const USAGE: &str = "\
+usage: baylee-agent                 dial the gateway and start one engine per game it orders
+       baylee-agent --help | -h     this text
+
+It takes no argument and opens no port; its settings are environment
+variables: BAYLEE_GATEWAY (default http://127.0.0.1:28766; unix:<path> for
+the gateway's unix socket), BAYLEE_AGENT_TOKEN (required), BAYLEE_AGENT_NAME,
+BAYLEE_AGENT_CAPACITY (0 = no limit), BAYLEE_ENGINE_BIN (default: the
+engine server beside this program) and BAYLEE_FORESIGHT_SLOTS (a directory
+the engines share their search slots in; default: one this agent makes for
+its own engines). Its engines read the rest of the BAYLEE_FORESIGHT_*
+settings from the environment they inherit.";
+
+/// What a command line asks the agent for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Asked {
+    /// Nothing: run.
+    Run,
+    /// `--help` or `-h`: print [`USAGE`], start nothing.
+    Help,
+}
+
+/// Reads a command line, without the program's name. The agent takes no
+/// argument but a request for help, so anything else stops it before it
+/// reads a setting or dials a gateway.
+///
+/// # Errors
+/// Any other argument. The refusal names a flag up to its `=` and repeats no
+/// value: a value may be a secret.
+pub fn asked(args: &[String]) -> Result<Asked, String> {
+    match args.first().map(String::as_str) {
+        None => Ok(Asked::Run),
+        Some("--help" | "-h") => Ok(Asked::Help),
+        Some(flag) if flag.starts_with('-') => {
+            let name = flag.split_once('=').map_or(flag, |(name, _)| name);
+            Err(format!(
+                "{name:?} is not a flag this program takes; its settings are environment \
+                 variables"
+            ))
+        }
+        Some(_) => Err(
+            "this program takes no argument; its settings are environment variables".to_string(),
+        ),
+    }
+}
+
 /// How this agent was configured.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentConfig {
@@ -40,6 +88,31 @@ pub struct AgentConfig {
     pub capacity: u32,
     /// The engine binary to spawn.
     pub engine_bin: PathBuf,
+    /// Where the engines take their search slots
+    /// (`BAYLEE_FORESIGHT_SLOTS`, `baylee-engine-server`'s `foresight`): the
+    /// operator's directory, shared with whatever else they start there, or
+    /// `None` for one this agent makes for its own engines
+    /// ([`slots_parent`]).
+    pub foresight_slots: Option<PathBuf>,
+}
+
+/// The variable an engine reads its search slots' directory from.
+pub const SLOTS_VAR: &str = "BAYLEE_FORESIGHT_SLOTS";
+
+/// Where an agent makes its own slots' directory: the service's runtime
+/// directory where systemd gave it one (`RUNTIME_DIRECTORY`, the first of
+/// several), else the user's (`XDG_RUNTIME_DIR`), else the system's temporary
+/// directory. The first two are not swept by age, as `/tmp` may be.
+#[must_use]
+pub fn slots_parent(env: impl Fn(&str) -> Option<String>) -> PathBuf {
+    let dir = |name: &str| {
+        env(name)
+            .and_then(|dirs| dirs.split(':').next().map(PathBuf::from))
+            .filter(|dir| dir.is_absolute())
+    };
+    dir("RUNTIME_DIRECTORY")
+        .or_else(|| dir("XDG_RUNTIME_DIR"))
+        .unwrap_or_else(std::env::temp_dir)
 }
 
 impl AgentConfig {
@@ -87,6 +160,7 @@ impl AgentConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0),
             engine_bin,
+            foresight_slots: var(SLOTS_VAR).map(PathBuf::from),
         })
     }
 
@@ -273,6 +347,34 @@ pub fn heartbeat(millis: u64) -> Envelope {
 mod tests {
     use super::*;
 
+    fn line(args: &[&str]) -> Vec<String> {
+        args.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn it_runs_on_nothing_and_helps_on_help() {
+        assert_eq!(asked(&[]), Ok(Asked::Run));
+        assert_eq!(asked(&line(&["--help"])), Ok(Asked::Help));
+        assert_eq!(asked(&line(&["-h"])), Ok(Asked::Help));
+    }
+
+    /// Every other argument stops it, and the refusal repeats no value.
+    #[test]
+    fn any_other_argument_is_refused_without_its_value() {
+        for (args, said) in [
+            (&["--version"][..], "\"--version\""),
+            (&["--gateway", "http://10.0.0.2:28766"][..], "\"--gateway\""),
+            (&["--token=s3cret"][..], "\"--token\""),
+            (&["run"][..], "takes no argument"),
+            (&["s3cret"][..], "takes no argument"),
+            (&["--bogus", "--help"][..], "\"--bogus\""),
+        ] {
+            let refused = asked(&line(args)).expect_err(said);
+            assert!(refused.contains(said), "{args:?}: {refused}");
+            assert!(!refused.contains("s3cret"), "{args:?}: {refused}");
+        }
+    }
+
     fn config() -> AgentConfig {
         AgentConfig {
             gateway: "http://127.0.0.1:28766".to_string(),
@@ -280,6 +382,7 @@ mod tests {
             name: "test".to_string(),
             capacity: 2,
             engine_bin: PathBuf::from("/bin/true"),
+            foresight_slots: None,
         }
     }
 
@@ -563,6 +666,52 @@ mod tests {
         assert_eq!(
             empty.engine_bin,
             PathBuf::from("/opt/baylee/baylee-engine-server")
+        );
+    }
+
+    /// The engines' search slots are the operator's directory where one is
+    /// named, else one the agent makes, under the service's runtime directory
+    /// first, then the user's, then the temporary one; a relative or empty
+    /// runtime directory is passed over.
+    #[test]
+    fn the_search_slots_are_the_operators_or_the_agents_own() {
+        let named = configured(&[
+            ("BAYLEE_AGENT_TOKEN", "s3cret"),
+            ("BAYLEE_FORESIGHT_SLOTS", "/run/baylee/foresight"),
+        ])
+        .expect("a token");
+        assert_eq!(
+            named.foresight_slots,
+            Some(PathBuf::from("/run/baylee/foresight"))
+        );
+        let own = configured(&[
+            ("BAYLEE_AGENT_TOKEN", "s3cret"),
+            ("BAYLEE_FORESIGHT_SLOTS", ""),
+        ])
+        .expect("a token");
+        assert_eq!(own.foresight_slots, None, "empty is unset");
+        let parent = |pairs: &[(&str, &str)]| {
+            let env: std::collections::BTreeMap<String, String> = pairs
+                .iter()
+                .map(|(name, value)| ((*name).to_string(), (*value).to_string()))
+                .collect();
+            slots_parent(|name| env.get(name).cloned())
+        };
+        assert_eq!(
+            parent(&[
+                ("RUNTIME_DIRECTORY", "/run/baylee-agent:/run/other"),
+                ("XDG_RUNTIME_DIR", "/run/user/1000"),
+            ]),
+            PathBuf::from("/run/baylee-agent")
+        );
+        assert_eq!(
+            parent(&[("XDG_RUNTIME_DIR", "/run/user/1000")]),
+            PathBuf::from("/run/user/1000")
+        );
+        assert_eq!(parent(&[]), std::env::temp_dir());
+        assert_eq!(
+            parent(&[("RUNTIME_DIRECTORY", "relative"), ("XDG_RUNTIME_DIR", "")]),
+            std::env::temp_dir()
         );
     }
 

@@ -9,8 +9,8 @@
 //! | `baylee-client` | `dev-control`, `dev-reload`, `dev-dylink` |
 //! | `baylee-gateway` | `dev-table` |
 //! | `baylee-client-core` | `test-support` |
-//! | `baylee-engine` | `fuzz`, `simulation`, `test-support` |
-//! | `baylee-gamehost` | `simulation` |
+//! | `baylee-engine` | `fuzz`, `fork`, `test-support` |
+//! | `baylee-gamehost` | `simulation`, and `foresight` switched off |
 //! | `baylee-cards` | `mutate` |
 //! | `baylee-train` | `llm-collector` |
 //!
@@ -58,10 +58,14 @@ const CLIENT_FEATURES: &str = "dev-control,dev-reload";
 ///   the shape every consumer builds: the feature on, `cfg(test)` off.
 /// - `baylee-train` without `play` is how every `cargo run -p xtask` links it,
 ///   which the workspace build never does.
-/// - `simulation` is `cfg(any(test, feature = …))` like `fuzz`, and its
+/// - The engine's `fork` is `cfg(any(test, feature = …))` like `fuzz`, and its
 ///   bench (`benches/fork.rs`) has it as a required feature, so nothing else
-///   compiles that bench; `--lib --benches` checks both. Through gamehost it
-///   only forwards, so resolving the graph is the whole check.
+///   compiles that bench; `--lib --benches` checks both.
+/// - gamehost's `foresight` is on in every `--workspace` build (the engine
+///   server and the client turn it on), so the shape nobody else compiles is
+///   gamehost without it, as a crate that links gamehost alone builds it; and
+///   its `simulation`, the training harness, whose items are
+///   `cfg(any(test, feature = …))` as well.
 /// - `llm-collector` builds the language-model replay collector, a binary
 ///   no default feature reaches; it needs no ONNX Runtime, so it is checked
 ///   whole, tests included, in [`LINUX_CHECKS`].
@@ -134,13 +138,13 @@ const CHECKS: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "simulation",
+        "fork",
         &[
             "clippy",
             "-p",
             "baylee-engine",
             "--features",
-            "simulation",
+            "fork",
             "--lib",
             "--benches",
             "--",
@@ -149,15 +153,29 @@ const CHECKS: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "simulation-through-gamehost",
+        "gamehost-without-foresight",
         &[
-            "tree",
+            "clippy",
+            "-p",
+            "baylee-gamehost",
+            "--lib",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    ),
+    (
+        "simulation",
+        &[
+            "clippy",
             "-p",
             "baylee-gamehost",
             "--features",
             "simulation",
-            "-e",
-            "features",
+            "--lib",
+            "--",
+            "-D",
+            "warnings",
         ],
     ),
     (
@@ -225,6 +243,7 @@ const DEV_TABLE: &[(&str, &[&str])] = &[
 ];
 
 pub fn run() -> i32 {
+    run::cache_builds();
     let mut steps = Steps::default();
     quiet_step(
         &mut steps,

@@ -207,18 +207,23 @@ pub(super) fn hero(
             commands.entity(name_row).add_child(more);
         } else {
             let links = parts::row(commands, kit, true);
-            let change = controls::button(
+            // Text-only buttons read as two more words under the deck's
+            // name; a glyph in front says they are things to press without
+            // giving the least of the card's actions a face of their own.
+            let change = controls::button_with_icon(
                 commands,
                 kit,
+                '\u{f0ec}',
                 Phrase::PlayChangeDeck.text(lang),
                 Weight::Ghost,
                 Live::Yes,
                 None,
                 Press::Play(PlayPress::ChangeDeck),
             );
-            let edit = controls::button(
+            let edit = controls::button_with_icon(
                 commands,
                 kit,
+                '\u{f304}',
                 Phrase::ShellEdit.text(lang),
                 Weight::Ghost,
                 Live::Yes,

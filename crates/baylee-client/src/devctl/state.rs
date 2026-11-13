@@ -1102,13 +1102,7 @@ fn presentation_json(believed: &Believed) -> serde_json::Value {
         .settings
         .as_ref()
         .map_or(Lang::En, |s| Lang::of(&s.lang));
-    let hints = [
-        Phrase::PreviewTurn,
-        Phrase::PreviewAlternate,
-        Phrase::PreviewTurnCompact,
-        Phrase::PreviewAlternateCompact,
-    ]
-    .map(|phrase| phrase.text(lang));
+    let hints = [Phrase::PreviewTurn, Phrase::PreviewRotate].map(|phrase| phrase.text(lang));
     let preview_hints: Vec<_> = believed
         .legal_text
         .iter()
@@ -1189,9 +1183,17 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
             // Without `aim`, a `Mode::Objects` focus is invisible here, and
             // proving that a key moved it takes a photograph and a pixel
             // diff — which is what it took once.
+            // The one permanent a yes-or-no question is about, which the
+            // table lights while every other dims (Cleansing's land): the
+            // slot, so a driver can follow the light land by land without
+            // a photograph.
+            let asked_about = i
+                .asked_about()
+                .map_or_else(|| "null".to_string(), |id| id.slot().to_string());
             format!(
                 "{{\"pending\":{pending},\"selected\":{selected},\"selected_players\":{seats},\
-                 \"assignments\":[{pairs}],\"focus\":{focus},\"aim\":{aim}}}",
+                 \"assignments\":[{pairs}],\"focus\":{focus},\"aim\":{aim},\
+                 \"asked_about\":{asked_about}}}",
                 selected = i.selected().count(),
                 seats = i.selected_players().count(),
                 pairs = pairs.join(","),
@@ -1449,11 +1451,7 @@ fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
         .settings
         .as_deref()
         .map_or(Lang::En, |s| Lang::of(&s.lang));
-    let table = believed
-        .settings
-        .as_deref()
-        .map(|s| s.table)
-        .unwrap_or_default();
+    let table = believed.settings.as_deref().map_or_default(|s| s.table);
     let class = measured.class();
     let offered: Vec<&str> = Arrangement::offered_at(measured.seats, class)
         .into_iter()

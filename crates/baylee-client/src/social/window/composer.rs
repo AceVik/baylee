@@ -52,7 +52,6 @@ pub(super) fn composer_parts(
     suggest: &[String],
     highlight: usize,
     frame: Frame,
-    show_lock: bool,
 ) -> Vec<Entity> {
     let inks = frame.inks();
     let c = machine.composer();
@@ -130,7 +129,10 @@ pub(super) fn composer_parts(
                 border_radius: BorderRadius::all(zpx(6.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.015, 0.036, 0.054, 0.50)),
+            // Opaque: what is typed is read on the field alone. At half
+            // strength the lobby's version chip, which the docked window
+            // stands over, was read through it under the caret.
+            BackgroundColor(Color::srgb(0.015, 0.036, 0.054)),
             BorderColor::all(if focused {
                 inks.accent.with_alpha(0.85)
             } else {
@@ -337,31 +339,6 @@ pub(super) fn composer_parts(
             )],
         ))
         .id();
-    let lock = show_lock.then(|| {
-        commands
-            .spawn((
-                UiButton,
-                crate::social::vault_ui::Press::Lock,
-                Node {
-                    height: zpx(22.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::axes(zpx(8.0), zpx(2.0)),
-                    border_radius: BorderRadius::all(zpx(4.0)),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                BackgroundColor(inks.ground),
-                Feel::new(inks.ground),
-                children![(
-                    Text::new(ChatPhrase::VaultLock.text(lang)),
-                    tf(fonts, z(10.5)),
-                    TextColor(inks.soft),
-                    Pickable::IGNORE,
-                )],
-            ))
-            .id()
-    });
     let light = commands
         .spawn(crate::social::glass::layer(
             crate::social::glass::Glass::Field,
@@ -373,9 +350,7 @@ pub(super) fn composer_parts(
     inner.push(send);
     inner.push(light);
     commands.entity(frame).add_children(&inner);
-    let mut kids = vec![frame];
-    kids.extend(lock);
-    commands.entity(row).add_children(&kids);
+    commands.entity(row).add_child(frame);
     let mut out = vec![row];
     if !suggest.is_empty() {
         let pop = commands

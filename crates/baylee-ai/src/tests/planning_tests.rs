@@ -72,6 +72,9 @@ fn a_policy_seed_is_recorded_and_belongs_to_one_seat_at_one_table() {
 #[test]
 fn third_iteration_seeded_variation_is_repeatable_and_breaks_equal_spell_ties() {
     let mut v = view(0, &[20, 20], vec![]);
+    // A main phase, where a draw is cast at every level (`timing`).
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
     v.hand = vec![hand_card(1, "Brainstorm"), hand_card(2, "Brainstorm")];
     let pending = Pending::Priority {
         player: v.seat,
@@ -106,6 +109,8 @@ fn third_iteration_scouted_sweeper_changes_deployment_but_not_the_base_agent() {
             permanent(obj(2), PlayerId::new(0), 2),
         ],
     );
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
     v.hand = vec![hand_card(3, "Baleful Strix"), hand_card(4, "Brainstorm")];
     let own = DeckIntel::new(vec![v.hand[0].card.index; 20], vec![]);
     let enemy = DeckIntel::new(
@@ -582,5 +587,71 @@ fn mana_color_follows_the_spell_in_hand() {
     assert_eq!(
         HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
         PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue)
+    );
+}
+
+/// **`seer` keeps or throws back an opening hand by the draws it is told**
+/// (`AIProfile::SEER_DRAWS`). Two Islands and five spells look like a keep,
+/// and `expert` keeps them; `seer`, told that the next three cards are
+/// spells, throws the hand back. One Island and six spells look like a
+/// mulligan; told that the next two cards are Islands, `seer` keeps it.
+#[test]
+fn seer_keeps_or_throws_back_a_hand_by_the_draws_it_is_told() {
+    use intelligence::{DeckIntel, ScoutedSeat, ScoutingReport};
+    let island = baylee_cards::decks::by_name("Island").unwrap();
+    let spell = baylee_cards::decks::by_name("Counterspell").unwrap();
+    let hand = |lands: u32| -> Vec<baylee_view::HandObject> {
+        (0..7)
+            .map(|i| hand_card(i + 1, if i < lands { "Island" } else { "Counterspell" }))
+            .collect()
+    };
+    let own = DeckIntel::new(vec![island, spell], vec![]);
+    let told = |library: Vec<baylee_core::ids::CardIndex>| ScoutingReport {
+        seats: vec![ScoutedSeat {
+            player: PlayerId::new(0),
+            deck: &own,
+            hand: None,
+            library: Some(library),
+            sideboard: None,
+        }],
+    };
+    let mulligan = Pending::Mulligan {
+        player: PlayerId::new(0),
+        taken: 0,
+        next_is_free: false,
+        can_take: true,
+    };
+    let context = baylee_engine::engine::DecisionContext::default();
+    let mut v = view(0, &[20, 20], vec![]);
+
+    v.hand = hand(2);
+    let dry = told(vec![spell, spell, spell]);
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_scouting(&v, &mulligan, &context, &dry),
+        PlayerAction::MulliganKeep
+    );
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SEER).act_with_scouting(&v, &mulligan, &context, &dry),
+        PlayerAction::MulliganTake
+    );
+
+    v.hand = hand(1);
+    let lands = told(vec![island, island, spell]);
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_scouting(&v, &mulligan, &context, &lands),
+        PlayerAction::MulliganTake
+    );
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SEER).act_with_scouting(&v, &mulligan, &context, &lands),
+        PlayerAction::MulliganKeep
+    );
+    let before = AIProfile {
+        generation: AIProfile::ABILITY_MANA,
+        ..AIProfile::SEER
+    };
+    assert_eq!(
+        HeuristicAgent::new(before).act_with_scouting(&v, &mulligan, &context, &lands),
+        PlayerAction::MulliganTake,
+        "before the generation, seer mulliganed as expert does"
     );
 }

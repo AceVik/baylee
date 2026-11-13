@@ -1184,8 +1184,8 @@ holds the processes).
   never a log. The bridge redeems it with its name (`LLM-…`) and its deck
   and sits in the chair as the host's delegate, with no account of its
   own, so it gets in where the gateway takes no guests
-  (`BAYLEE_AUTH_MODE=central`, the default), its guest cap is reached, or it is a closed beta
-  (`BAYLEE_REGISTRATION=invite`). The room lists the chair under the
+  (`BAYLEE_AUTH_MODE=central`, the default) or its guest cap is reached.
+  The room lists the chair under the
   bridge's name with the host's handle (`delegated_by`), and the game's
   record names the host as the one who answers for it
   (`game_record_seat.delegated_by`), never as the one who played it. A
@@ -1416,7 +1416,13 @@ its seat, so the record says which model made which action
 (`docs/protocol.md` §"Who answers a seat, as it says"). It is the mind as
 chosen above, flags over profile over build (`baylee_seat::declare`):
 
-- `--mind house` (or nothing named): `house` and its `--level`;
+- `--mind house` (or nothing named): `house` and its `--level`, a fair
+  level or a frozen reference (`sharp-2026-11`); `seer` reads hidden cards,
+  which a seat is never sent, and is refused in a sentence naming `expert`
+  (`baylee_seat::house::level`, `docs/house-ai.md`);
+  it answers as the table's own house chair does, from the view, the note
+  beside the question and the deck it brought (`docs/house-ai.md`
+  §"The seated house"), and so does every house fallback;
 - `--mind scripted`: `scripted`;
 - a model behind an API: `llm_api`, the provider (`anthropic`, `openai`),
   the exact model id and the effort, as sent to the provider;

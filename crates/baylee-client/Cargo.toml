@@ -38,7 +38,10 @@ baylee-cardtext.workspace = true
 baylee-client-core.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
-baylee-gamehost.workspace = true
+# `foresight`: an offline table's house searches within its levels' bounds
+# (`host.rs`, `LocalHost::into_installed`). Not `simulation`, the training
+# harness, which no shipped build may hold (`cargo dev gate shipped-features`).
+baylee-gamehost = { workspace = true, features = ["foresight"] }
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 # The header logo's accessible name (`shellkit::header::brand_mark`); bevy_a11y
@@ -185,6 +188,9 @@ sha2.workspace = true
 # a phone, whose store is (`docs/client.md` §"Updating").
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))'.dependencies]
 baylee-update.workspace = true
+# The front door's two loops (`src/vista/loops.rs`): AVIF sequences the
+# client ships and decodes itself. Desktop only; elsewhere the stills stand.
+baylee-avif.workspace = true
 # The cache fill stops before the disk is full (`src/cachefill.rs`): how much
 # room the cache's disk has left, on every desktop.
 sysinfo = { workspace = true, features = ["disk"] }

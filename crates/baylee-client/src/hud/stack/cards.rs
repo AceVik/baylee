@@ -388,6 +388,14 @@ pub(in crate::hud) fn spawn_stack_targets(
             cards.as_deref_mut(),
         );
         commands.entity(row).add_child(chip);
+        // The target's share of a division, announced as the spell was cast
+        // (CR 601.2d): the one thing that says which target dies.
+        if let Some(share) = target.share {
+            let size = if full { 12.0 } else { 11.0 };
+            let label = Phrase::StackDividedDamage.fill(lang, &[&share.to_string()]);
+            let chip = spawn_choice_chip(commands, fonts, key, size, None, label);
+            commands.entity(row).add_child(chip);
+        }
     }
 
     if item.copy_original.is_some()

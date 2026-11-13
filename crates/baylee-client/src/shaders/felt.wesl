@@ -35,7 +35,7 @@
 // rail runs without the CPU touching a material asset per frame.
 
 import bevy_pbr::render::forward_io::VertexOutput;
-import bevy_pbr::render::mesh_view_bindings::globals;
+import bevy_pbr::render::mesh_view_bindings::{globals, view};
 import baylee_client::shaders::noise::{hash_cell};
 
 struct FeltParams {
@@ -81,6 +81,9 @@ struct FeltParams {
     thickness: f32,
     /// How many seats stand on the dial (0 to 8).
     seats: f32,
+    /// 1 where the channels are drawn from straight above and without their
+    /// caustics (effects `Low`); 0 is the carved table.
+    flat: f32,
     pattern: vec4<f32>,
     /// The texel offset of each cellular field's cells in `vein_points`:
     /// trunk in `xy`, capillary in `zw`.
@@ -489,9 +492,10 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
     return 1.0 - smoothstep(width, width + pixel, abs(distance));
 }
 
-/// The cloth at a point of table, in display-referred colour.
-// Polished smoked glass over slow elemental strata. Bounded noise work,
-// no refraction buffer and no additional full-screen pass.
+// The cloth at a point of table, in display-referred colour, is `glass_at`
+// below: bounded noise work, no refraction buffer and no additional
+// full-screen pass.
+//
 // Distance to a cellular seam. Two scales form connected trunks and finer
 // capillaries; domain warping removes the straight polygon edges. Fixed loops
 // and scalar noise keep the network in the existing opaque material pass.
@@ -515,15 +519,35 @@ fn vein_distance(p: vec2<f32>, texel_offset: vec2<f32>, last: vec2<i32>) -> f32 
     return (sqrt(second) - sqrt(nearest)) * 0.5;
 }
 
-/// Where the water and the molten veins run at a point of the glass: the
-/// warped domain, each river's distance and how much of it is there.
+/// How deep the channels are cut into the slab, in table units: a tenth of
+/// a card's width, which is enough for a bank to be seen as a bank from a
+/// player's chair and too little for a card's edge to seem to hang over one.
+const CUT_DEPTH: f32 = 0.11;
+/// Where a channel's flat bed ends, in channel widths from its middle line.
+const CUT_BED: f32 = 0.42;
+/// Where its bank meets the slab's top.
+const CUT_BANK: f32 = 1.30;
+/// How full a channel stands: the fluid's surface, as a share of the depth.
+const CUT_FILL: f32 = 0.64;
+/// The painted light every bank is shaded by, in (table x, table y, up):
+/// from the far left, the side the sky's own light is drawn on.
+const CUT_LIGHT: vec3<f32> = vec3<f32>(-0.42, 0.50, 0.757);
+
+/// Where the channels run at a point of the slab.
 struct Veins {
+    /// The warped domain the fluids' currents are drawn in.
     warp: vec2<f32>,
-    water_d: f32,
-    lava_d: f32,
+    /// How far the point is from the nearest channel's middle line, in
+    /// channel widths: the bed ends at `CUT_BED`, the bank at `CUT_BANK`.
+    cut: f32,
+    /// Which fluid the channel carries: 0 water, 1 molten rock.
+    hot: f32,
+    /// The stone's own slow variation.
+    silt: f32,
+    /// How much water, and how much molten rock, a point shows from
+    /// straight above, 0 to 1: what the tear's cut faces draw as streaks.
     water: f32,
     lava: f32,
-    silt: f32,
 }
 
 /// The slow fields, baked once per cut on the CPU with this file's own
@@ -547,11 +571,17 @@ fn baked_at(p: vec2<f32>) -> vec4<f32> {
     return textureSampleLevel(warp_field, warp_sampler, uv, 0.0);
 }
 
-fn veins_at(p: vec2<f32>) -> Veins {
+/// A step across the table, in the pattern's own domain: turned and scaled
+/// as `veins_at` turns and scales a point, without the offset or the warp.
+fn domain_step(step: vec2<f32>) -> vec2<f32> {
     let angle = params.pattern.z * (6.2831853 / 256.0);
     let axis = vec2<f32>(cos(angle), sin(angle));
-    let domain = vec2<f32>(dot(p, axis), dot(p, vec2<f32>(-axis.y, axis.x)))
-        * (0.85 + params.pattern.w * (0.30 / 256.0)) + params.pattern.xy;
+    return vec2<f32>(dot(step, axis), dot(step, vec2<f32>(-axis.y, axis.x)))
+        * (0.85 + params.pattern.w * (0.30 / 256.0));
+}
+
+fn veins_at(p: vec2<f32>) -> Veins {
+    let domain = domain_step(p) + params.pattern.xy;
     // The warp, the heat and the silt are smooth and still: read them off
     // the baked grid where there is one, and work them out where not.
     let baked = baked_at(p);
@@ -571,38 +601,91 @@ fn veins_at(p: vec2<f32>) -> Veins {
     let trunk = vein_distance(warp * 0.28, params.veins.xy, last_vein);
     let capillary = vein_distance(warp * 0.73 + 8.3, params.veins.zw, last_vein);
     // Fine branches fade between the larger vessels instead of filling every
-    // cell with equally bright cracks. Water and molten rock share junctions.
+    // cell with equally deep cuts: away from a trunk a capillary never
+    // reaches the bed, so it thins to a dry crack and then to nothing.
     let branch = min(trunk, capillary * 3.2 + 0.012 + smoothstep(0.04, 0.20, trunk) * 0.065);
-    let water_d = branch * 18.0 + smoothstep(0.44, 0.64, heat) * 1.05;
-    let lava_d = branch * 24.0 + (1.0 - smoothstep(0.36, 0.56, heat)) * 0.95;
-    let water = 1.0 - smoothstep(0.42, 1.25, water_d);
-    let lava = 1.0 - smoothstep(0.30, 0.98, lava_d);
-    return Veins(warp, water_d, lava_d, water, lava, silt);
+    let hot = smoothstep(0.42, 0.58, heat);
+    // Molten rock runs in a narrower cut than water does.
+    let cut = branch * mix(21.0, 27.0, hot);
+    let bed = cut_profile(cut);
+    return Veins(warp, cut, hot, silt, bed * (1.0 - hot), bed * hot);
 }
 
-fn glass_at(p: vec2<f32>) -> vec3<f32> {
-    let t = globals.time * params.motion;
-    let field = veins_at(p);
-    let warp = field.warp;
-    let water_d = field.water_d;
-    let lava_d = field.lava_d;
-    let water = field.water;
-    let lava = field.lava;
-    let silt = field.silt;
-    var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
+/// How a value that changes across the table changes per table unit, from
+/// how it and the table point change across the screen. Called before the
+/// fragment's first return, where derivatives are still defined.
+fn table_gradient(table: vec2<f32>, value: f32) -> vec2<f32> {
+    let px = dpdx(table);
+    let py = dpdy(table);
+    let vx = dpdx(value);
+    let vy = dpdy(value);
+    let det = px.x * py.y - px.y * py.x;
+    if (abs(det) < 1e-12) {
+        return vec2<f32>(0.0);
+    }
+    return vec2<f32>(vx * py.y - px.y * vy, px.x * vy - vx * py.x) / det;
+}
 
-    // Each moving layer is drawn only where its seam shows: away from the
-    // veins `water` and `lava` are exactly zero, the mixes below would keep
-    // `colour` as it is, and most of the cloth is away from the veins
-    // (`docs/perf-client.md`).
-    // Domain-warped fractal streamlines, bifurcated caustic ridges, and bank eddies.
-    if water > 0.0 {
-        let depth = 1.0 - smoothstep(0.0, 1.3, water_d);
-        let speed = 0.26 + 0.14 * depth;
-        let flow_base = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * speed);
-        let eddy = vnoise(flow_base * 0.55 + vec2<f32>(t * 0.11, -t * 0.08)) - 0.5;
-        let flow = flow_base + vec2<f32>(eddy * 0.38, -eddy * 0.24);
-        let current = fbm_rot(flow);
+/// How deep the slab is cut `cut` channel widths from a channel's middle,
+/// as a share of `CUT_DEPTH`: a flat bed, and a bank that leaves it steeply
+/// and rounds over into the top.
+fn cut_profile(cut: f32) -> f32 {
+    return 1.0 - smoothstep(CUT_BED, CUT_BANK, cut);
+}
+
+/// What the eye's ray meets below the glass: how far down (`x`, as a share
+/// of `CUT_DEPTH`) and where across the channel (`y`, signed: negative once
+/// the ray has passed the middle line).
+///
+/// The channel is taken as straight where the ray crosses it, so the whole
+/// march is arithmetic on one number, the distance from the middle line,
+/// and reads no texture: `cut` is that distance where the ray enters the
+/// glass and `lean` is how much it changes for a ray gone the full depth.
+fn cut_hit(cut: f32, lean: f32) -> vec2<f32> {
+    let top = min(cut_profile(cut), CUT_FILL);
+    if (top <= 0.0005) {
+        return vec2<f32>(0.0, cut);
+    }
+    var before = -top;
+    var s_before = 0.0;
+    var s = 0.0;
+    for (var i = 1; i <= 6; i += 1) {
+        s = f32(i) * (1.0 / 6.0);
+        let over = s - min(cut_profile(abs(cut + lean * s)), CUT_FILL);
+        if (over >= 0.0) {
+            // One step of the secant between the last point above the
+            // ground and this one under it.
+            s = mix(s_before, s, before / (before - over));
+            break;
+        }
+        before = over;
+        s_before = s;
+    }
+    return vec2<f32>(s, cut + lean * s);
+}
+
+/// The stone the slab is made of: midnight mineral, a little lighter where
+/// the silt lies.
+fn stone_at(silt: f32) -> vec3<f32> {
+    return mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
+}
+
+/// The water in a channel's bed at warped point `warp`, `mid` of the way in
+/// from its shore, `fine` how much of the fine work a pixel can still show
+/// (none on the flat table).
+fn water_at(warp: vec2<f32>, mid: f32, fine: f32, t: f32) -> vec3<f32> {
+    // One speed for the whole bed. A speed that differs across the channel
+    // and is multiplied by the time shears the pattern without end: after
+    // ten minutes at a table the middle had run 80 cells past the shore and
+    // every pixel of water was a different cell (seen as a stipple).
+    let flow_base = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * 0.31);
+    let eddy = vnoise(flow_base * 0.55 + vec2<f32>(t * 0.11, -t * 0.08)) - 0.5;
+    let flow = flow_base + vec2<f32>(eddy * 0.38, -eddy * 0.24);
+    let current = fbm_rot(flow);
+    // The caustics are two more noises and fine work: not worked out where
+    // no pixel could show them, which is far away and on the flat table.
+    var caustic = 0.0;
+    if (fine > 0.0) {
         let c_a = abs(vnoise(flow * 2.1 + vec2<f32>(t * 0.28, -t * 0.19)) - 0.5);
         let c_b = abs(
             vnoise(
@@ -610,56 +693,147 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
                     - vec2<f32>(t * 0.21, t * 0.31),
             ) - 0.5,
         );
-        let caustic = (1.0 - smoothstep(0.015, 0.22, c_a * 0.6 + c_b * 0.4)) * (0.45 + 0.55 * depth);
-        let ripple = max(sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8), 0.0);
-        let r2 = ripple * ripple;
-        let r4 = r2 * r2;
-        let r8 = r4 * r4;
-        let crest = r8 * r4 * r2;
-        var river = mix(vec3<f32>(0.018, 0.12, 0.16), vec3<f32>(0.010, 0.045, 0.078), depth);
-        river += vec3<f32>(0.08, 0.27, 0.31) * current * 0.26;
-        river += vec3<f32>(0.11, 0.36, 0.42) * caustic * 0.22;
-        river += vec3<f32>(0.32, 0.52, 0.55) * crest * 0.065;
-        let foam = smoothstep(0.52, 0.76, current) * (1.0 - depth) * 0.20;
-        river += vec3<f32>(0.38, 0.49, 0.46) * foam;
-        colour = mix(colour, river, water);
+        caustic = (1.0 - smoothstep(0.02, 0.24, c_a * 0.6 + c_b * 0.4)) * (0.45 + 0.55 * mid);
     }
+    // Deep and dark in the middle, clear over the shallows at the shore.
+    var river = mix(vec3<f32>(0.020, 0.135, 0.170), vec3<f32>(0.008, 0.040, 0.072), mid);
+    // The current's own light is broad enough to be seen from any chair;
+    // the caustics below are fine work and leave with the pixels.
+    river += vec3<f32>(0.08, 0.27, 0.31) * current * current * 0.38;
+    river += vec3<f32>(0.11, 0.36, 0.42) * caustic * 0.24 * fine;
+    let foam = smoothstep(0.52, 0.76, current) * (1.0 - mid) * 0.18;
+    return river + vec3<f32>(0.38, 0.49, 0.46) * foam;
+}
 
-    // Poiseuille-sheared molten flow carries cooled basalt plates over dual-scale glowing fissures.
-    if lava > 0.0 {
-        let core = 1.0 - smoothstep(0.08, 1.0, lava_d);
-        let shear = 0.17 + 0.11 * core;
-        let molten_base = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * shear);
-        let plume = vnoise(molten_base * 0.42 + vec2<f32>(11.3, -t * 0.09)) - 0.5;
-        let molten_uv = molten_base + vec2<f32>(plume * 0.42, plume * 0.28);
-        let crust = fbm_rot(molten_uv);
-        let crack_main = 1.0 - smoothstep(0.007, 0.088, abs(crust - 0.49));
-        let sub_crust = vnoise(
-            vec2<f32>(
-                molten_uv.x * 2.1 - molten_uv.y * 1.4,
-                molten_uv.x * 1.4 + molten_uv.y * 2.1,
-            ) + vec2<f32>(t * 0.14, -t * 0.18),
-        );
-        let crack_fine = (1.0 - smoothstep(0.010, 0.105, abs(sub_crust - 0.50)))
-            * smoothstep(0.28, 0.62, crust)
-            * 0.52;
-        let crack = clamp(crack_main + crack_fine, 0.0, 1.0);
-        var molten = mix(vec3<f32>(0.085, 0.019, 0.005), vec3<f32>(0.31, 0.078, 0.012), crack);
-        molten += vec3<f32>(0.21, 0.12, 0.028) * crack * core;
-        molten += vec3<f32>(0.09, 0.024, 0.004) * core * smoothstep(0.46, 0.78, crust);
-        // Cooling at the confluence forms black obsidian glass and a thin pale steam veil.
-        let contact = water * lava;
-        molten = mix(molten, vec3<f32>(0.018, 0.026, 0.031), contact * (0.65 + crust * 0.25));
-        colour = mix(colour, molten, lava);
-        if contact > 0.0 {
-            let steam = fbm_rot(vec2<f32>(p.x * 1.8 + t * 0.05, p.y * 1.2 - t * 0.16));
-            colour += vec3<f32>(0.11, 0.15, 0.16) * contact * smoothstep(0.40, 0.78, steam) * 0.26;
+/// The molten rock in a channel's bed: a bright core under plates of cooled
+/// crust that drift with it, and the glowing seams between the plates.
+fn molten_at(warp: vec2<f32>, mid: f32, fine: f32, t: f32) -> vec3<f32> {
+    // One speed, as the water's and for its reason.
+    let molten_base = vec2<f32>(warp.x * 3.1, warp.y * 1.9 - t * 0.21);
+    let plume = vnoise(molten_base * 0.42 + vec2<f32>(11.3, -t * 0.09)) - 0.5;
+    let molten_uv = molten_base + vec2<f32>(plume * 0.42, plume * 0.28);
+    // Two octaves and no more. A seam is a thin band cut out of this noise,
+    // and every further octave folds that band on itself: with four it was
+    // a line one pixel wide that turned every seven, which a screen shows
+    // as a stipple over the whole bed and not as plates.
+    let turned = vec2<f32>(
+        molten_uv.x * 1.62 - molten_uv.y * 1.21,
+        molten_uv.x * 1.21 + molten_uv.y * 1.62,
+    ) + vec2<f32>(3.17, 7.41);
+    let crust = vnoise(molten_uv) * 0.68 + vnoise(turned) * 0.32;
+    // The seams: wide enough to be drawn as lines and not as sparks, and
+    // let go of where a pixel is too coarse to draw them at all.
+    let seam = (1.0 - smoothstep(0.012, 0.11, abs(crust - 0.49))) * fine;
+    let plate = smoothstep(0.50, 0.74, crust) * (1.0 - 0.6 * mid);
+    var molten = mix(vec3<f32>(0.120, 0.030, 0.006), vec3<f32>(0.034, 0.011, 0.006), plate);
+    molten += vec3<f32>(0.30, 0.105, 0.018) * seam * (0.55 + 0.45 * mid);
+    molten += vec3<f32>(0.22, 0.068, 0.008) * mid * mid * (1.0 - plate);
+    return molten;
+}
+
+/// The light a channel's fluid throws on the stone beside it.
+fn cut_glow(hot: f32) -> vec3<f32> {
+    return mix(vec3<f32>(0.020, 0.105, 0.125), vec3<f32>(0.200, 0.058, 0.010), hot);
+}
+
+// Polished smoked glass over a slab of midnight mineral that channels are
+// cut into, with water and molten rock standing in their beds.
+//
+// The depth is real to the eye and costs no second pass: `slope` is how the
+// channel distance changes across the table (`table_gradient`) and `slant`
+// how far the eye's ray travels across it for each unit it goes down, so
+// the ray is marched through the cut's own profile (`cut_hit`) in plain
+// arithmetic. A bank facing the eye is seen, one facing away is hidden by
+// its own lip, the banks are shaded by one painted light and lit from below
+// by what runs in the bed, and the glass over all of it reflects more the
+// flatter it is looked along. `pixel` is a pixel's size in table units.
+fn glass_at(field: Veins, slope: vec2<f32>, slant: vec2<f32>, pixel: f32, sheen: f32) -> vec3<f32> {
+    let t = globals.time * params.motion;
+    let stone = stone_at(field.silt);
+    let glow = cut_glow(field.hot);
+    // The light of a channel lies on the top beside it too: a breath of it,
+    // gone within a channel's width.
+    let spill = 1.0 - smoothstep(CUT_BANK * 0.7, CUT_BANK + 1.9, field.cut);
+    var colour = stone + glow * spill * spill * 0.085;
+    // How fast the channel distance changes per table unit, and the way
+    // out of the channel. A pixel on the middle line has no slope worth
+    // the name; it is on the bed, where none is needed.
+    let steep = min(length(slope), 60.0);
+    let outward = slope / max(steep, 1e-4);
+    // The lip, where the polished top rounds over into a bank: it catches
+    // the painted light on the side of a channel that faces it and nothing
+    // on the other, and that one pale line is what says "cut" from a chair.
+    let facing = dot(-outward, normalize(CUT_LIGHT.xy));
+    let lip = 1.0 - smoothstep(0.0, 0.34, abs(field.cut - CUT_BANK * 0.96));
+    colour += CUT_RIM * (0.085 * lip * max(facing, 0.0));
+
+    // Everything below is drawn only where a cut shows: away from the
+    // channels the slab is its top, and most of the table is away from them
+    // (`docs/perf-client.md`).
+    if (field.cut < CUT_BANK) {
+        // The flat table (`params.flat`, effects `Low`) is the cut seen
+        // from straight above: where a ray that does not lean ends, which
+        // needs no march, and without the water's caustics.
+        let carved = params.flat < 0.5;
+        var hit = vec2<f32>(min(cut_profile(field.cut), CUT_FILL), field.cut);
+        if (carved) {
+            let lean = clamp(dot(slope, slant) * CUT_DEPTH, -3.0, 3.0);
+            hit = cut_hit(field.cut, lean);
         }
+        let across = abs(hit.y);
+        let down = cut_profile(across);
+        // How much fine work a pixel can show: all of it up close, none
+        // from across an eight-seat table.
+        let fine = 1.0 - smoothstep(0.004, 0.014, pixel);
+        // The shoreline is a short blend and not a threshold: a threshold
+        // on a marched ray is a jagged dark line round every channel.
+        let wet = smoothstep(CUT_FILL - 0.10, CUT_FILL - 0.004, down);
+        var fluid_colour = vec3<f32>(0.0);
+        var bank_colour = vec3<f32>(0.0);
+        if (wet > 0.0) {
+            // The fluid's surface, read where the ray meets it and not
+            // where it entered the glass.
+            let under = field.warp + domain_step(slant * (hit.x * CUT_DEPTH));
+            let mid = 1.0 - smoothstep(0.0, 1.0, across / CUT_BED);
+            var fluid = vec3<f32>(0.0);
+            if (field.hot < 0.999) {
+                fluid = water_at(under, mid, select(0.0, fine, carved), t);
+            }
+            if (field.hot > 0.001) {
+                var molten = molten_at(under, mid, fine, t);
+                // Where the two meet the rock cools to black glass.
+                let contact = 4.0 * field.hot * (1.0 - field.hot);
+                molten = mix(molten, vec3<f32>(0.018, 0.026, 0.031), contact * 0.7);
+                fluid = mix(fluid, molten, field.hot);
+            }
+            // The bank's own shadow lies on the fluid along its shore.
+            let shore = smoothstep(CUT_BED * 0.55, CUT_BANK * 0.62, across);
+            fluid_colour = fluid * (1.0 - 0.45 * shore);
+        }
+        if (wet < 1.0) {
+            // The bank: stone falling from the top to the fluid, turned
+            // towards the channel's middle. Which side of the middle the
+            // ray ended on decides which way that is.
+            let side = select(-1.0, 1.0, hit.y >= 0.0);
+            let ramp = clamp((across - CUT_BED) / (CUT_BANK - CUT_BED), 0.0, 1.0);
+            let fall = 6.0 * ramp * (1.0 - ramp) / (CUT_BANK - CUT_BED) * CUT_DEPTH * steep;
+            let normal = normalize(vec3<f32>(-outward * side * fall, 1.0));
+            let lit = max(dot(normal, CUT_LIGHT), 0.0) / CUT_LIGHT.z;
+            // Darker the further down, where the sky no longer reaches, and
+            // warmer or cooler there with the light from the bed.
+            let deep = down / CUT_FILL;
+            let wall = stone * (0.55 + 1.35 * lit) * (1.0 - 0.62 * deep);
+            // Polished stone: the lit bank shows the light itself, high up.
+            let shine = CUT_RIM * (0.045 * lit * lit * (1.0 - deep) * (1.0 - deep));
+            bank_colour = wall + shine + glow * deep * deep * (0.30 + 0.25 * fine);
+        }
+        colour = mix(bank_colour, fluid_colour, wet);
+        // Smoked glass takes a little of whatever lies deeper under it.
+        colour *= 1.0 - 0.16 * hit.x;
     }
-    // The broad reflection belongs to the glass above both rivers.
-    let refl_arg = (p.y + p.x * 0.28 + 2.5) * 0.23;
-    let reflection = exp(-refl_arg * refl_arg);
-    return colour + vec3<f32>(0.035, 0.052, 0.06) * reflection;
+    // The broad reflection belongs to the glass above everything, and so
+    // does the sky in it: more of both the flatter the glass is seen.
+    return colour + vec3<f32>(0.035, 0.052, 0.06) * sheen;
 }
 
 // Five enamel stones set into the compass. Mana still controls their light,
@@ -1045,6 +1219,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // (the piece's uv below) leaves the rest in non-uniform control flow,
     // where WebGPU refuses `fwidth` and the whole pipeline with it.
     let footprint = fwidth(table);
+    // The channels' field and its slope across the table, here for the same
+    // reason: the slope is a derivative, and the banks are shaded by it.
+    let veins = veins_at(table);
+    let cut_slope = table_gradient(table, veins.cut);
     let piece = params.rift.w > 0.5 && params.rift.w < 1.5;
     if (piece && in.uv.x > 1.5) {
         if (in.uv.x > 5.5) {
@@ -1087,7 +1265,16 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // shadow the middle of a big table falls into — that is the lamp
         // below — and no longer a ring painted round the play area.
         let crest = 1.0 - smoothstep(0.0, ROLL, inset);
-        colour = glass_at(table) + vec3<f32>(crest * ROLL_LIGHT);
+        // The eye's ray, for what lies under the glass: how far it travels
+        // across the table for each unit it goes down, held short where the
+        // glass is looked along almost flat.
+        let to_eye = normalize(view.world_position - in.world_position.xyz);
+        let slant = vec2<f32>(-to_eye.x, to_eye.z) / max(to_eye.y, 0.35);
+        // The glass's own reflection: one broad band, and more of the sky
+        // the flatter the glass is seen, which is the far side of the table.
+        let band = (table.y + table.x * 0.28 + 2.5) * 0.23;
+        let sheen = exp(-band * band) + 0.9 * pow(1.0 - clamp(to_eye.y, 0.0, 1.0), 1.5);
+        colour = glass_at(veins, cut_slope, slant, pixel, sheen) + vec3<f32>(crest * ROLL_LIGHT);
         // A hair of the lamp spills off the rail onto the cloth beside it,
         // and no further. Without it the rail reads as a sticker.
         lamp_here = crest * 0.35;

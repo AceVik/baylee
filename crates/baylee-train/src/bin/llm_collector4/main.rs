@@ -40,6 +40,10 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the command line, parsed once at startup and moved into its run"
+)]
 enum Commands {
     /// Run a single high-capacity baylee-gateway + single baylee-agent serving many concurrent tables.
     Serve {
@@ -89,14 +93,39 @@ enum Commands {
         #[arg(long)]
         profiles_config: PathBuf,
         /// JSON array of `[seat0_profile, seat1_profile]` pairs, frozen at startup.
-        /// An entry `house:<level>` (novice, casual, steady, sharp, expert)
-        /// seats the house at that level instead of a profile, to measure a
+        /// An entry `house:<level>` (a fair level or a frozen reference; the
+        /// `seer` peeks, which a seat cannot) seats the house at that level
+        /// instead of a profile, to measure a
         /// teacher against it; it reserves nothing and is never a teacher's
         /// answer. The house against the house is refused.
         #[arg(long)]
         pairings_file: Option<PathBuf>,
         #[arg(long)]
         deck_manifest: PathBuf,
+        /// `FIELD=VALUE`: seats only the decks of `--deck-manifest` whose
+        /// entry says VALUE for FIELD (`split=train`, `format=constructed`);
+        /// given again, every one holds. The train guard then checks every
+        /// deck that is left.
+        #[arg(long)]
+        only: Vec<String>,
+        /// Another collector root whose admitted games count, with this
+        /// root's, towards which decks and deck pairs are played next (and
+        /// whose records count towards uniqueness): a corpus's later
+        /// segment on a root of its own goes on with the pairs the earlier
+        /// root has not played. Only its receipts are read. Repeatable.
+        #[arg(long)]
+        balance_with: Vec<PathBuf>,
+        /// The deck manifest whose train split teacher games may seat
+        /// (`manifest.v4.holdout2.json`): every deck of `--deck-manifest`
+        /// must be a train deck of it, read by key, cards or near, or the
+        /// run does not start. Required unless `--evaluation`.
+        #[arg(long, required_unless_present = "evaluation")]
+        train_manifest: Option<PathBuf>,
+        /// An evaluation, numbers only: any deck may be seated, and every
+        /// attempt's request says `numbers_only` and not `bc_only`, so no
+        /// conversion takes its games as training data.
+        #[arg(long, conflicts_with = "train_manifest")]
+        evaluation: bool,
         #[arg(long, default_value_t = 50)]
         concurrency: usize,
         /// Maximum assigned attempts for this controller run, including failures.
@@ -171,6 +200,10 @@ async fn main() -> anyhow::Result<()> {
             profiles_config,
             pairings_file,
             deck_manifest,
+            only,
+            balance_with,
+            train_manifest,
+            evaluation,
             concurrency,
             max_attempts,
             call_timeout_seconds,
@@ -188,7 +221,9 @@ async fn main() -> anyhow::Result<()> {
                 gateway_bin,
                 profiles_config,
                 pairings_file,
-                deck_manifest,
+                (deck_manifest, schedule::only_fields(&only)?, balance_with),
+                train_manifest,
+                evaluation,
                 concurrency,
                 max_attempts,
                 call_timeout_seconds,
@@ -611,7 +646,9 @@ async fn run_collect(
     gateway_bin: PathBuf,
     profiles_config: PathBuf,
     pairings_file: Option<PathBuf>,
-    deck_manifest: PathBuf,
+    decks: (PathBuf, Vec<(String, String)>, Vec<PathBuf>),
+    train_manifest: Option<PathBuf>,
+    evaluation: bool,
     concurrency: usize,
     max_attempts: Option<usize>,
     call_timeout_seconds: u64,
@@ -639,17 +676,37 @@ async fn run_collect(
     )
     .await?;
     let own = Arc::new(teacher::OwnDatabase::prove(&admin_cleanup, db.clone()).await?);
+    let (deck_manifest, only, balance_with) = decks;
     let sched = Scheduler::new(
         root.clone(),
         gateway.clone(),
         profiles_config,
         pairings_file,
-        &deck_manifest,
+        (&deck_manifest, &only),
         call_timeout_seconds,
         game_timeout_seconds,
     )?
+    .balanced_with(&balance_with)?
     .with_report_games(report_games)
-    .with_starting_life(starting_life)?;
+    .with_starting_life(starting_life)?
+    .numbers_only(evaluation);
+    // Teacher games are training data: they seat the train decks alone.
+    if let Some(manifest) = &train_manifest {
+        let guard = baylee_train::decksplit::TrainOnly::load(
+            manifest,
+            &baylee_train::working::repo_root(),
+        )?;
+        let refused = sched.train_deck_refusals(&guard)?;
+        ensure!(
+            refused.is_empty(),
+            "{} decks of {} are not train decks of {}; a teacher collection seats train \
+             decks only (an evaluation says --evaluation):\n{}",
+            refused.len(),
+            deck_manifest.display(),
+            manifest.display(),
+            refused.join("\n")
+        );
+    }
     let initial_summary = sched.summarize()?;
     let seats_the_house = sched.seats_the_house();
     let sched = Arc::new(Mutex::new(sched));

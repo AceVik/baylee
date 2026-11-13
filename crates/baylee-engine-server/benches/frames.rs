@@ -38,6 +38,7 @@ fn setup_envelope(preset: &GamePreset) -> Envelope {
             preset_json: serde_json::to_vec(preset).expect("preset serializes"),
             seat_names: vec!["A".to_string(), "B".to_string()],
             seat_guests: Vec::new(),
+            seat_accounts: Vec::new(),
         })),
     }
 }

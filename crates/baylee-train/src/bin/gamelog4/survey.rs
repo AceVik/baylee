@@ -83,6 +83,7 @@ impl Survey {
         }
     }
 
+    #[allow(clippy::cast_precision_loss, reason = "counts of a few thousand games")]
     fn print(&self) {
         println!(
             "{} games ({} lost), {} turns, {} own turns, {} decisions not forced",
@@ -155,7 +156,7 @@ fn power(object: &PublicObject) -> i32 {
 
 /// Toughness left after the damage already marked.
 fn staying(object: &PublicObject) -> i32 {
-    i32::from(object.toughness.unwrap_or(0)) - i32::try_from(object.damage).unwrap_or(0)
+    i32::from(object.toughness.unwrap_or(0)) - i32::from(object.damage)
 }
 
 /// Combat damage it deals: twice with double strike.
@@ -457,6 +458,7 @@ impl Reader {
         }
     }
 
+    #[allow(clippy::too_many_lines, reason = "One class of block after another")]
     fn block(
         &mut self,
         view: &PlayerView,
@@ -581,6 +583,7 @@ impl Reader {
         }
     }
 
+    #[allow(clippy::too_many_lines, reason = "One arm per kind of question")]
     fn decide(&mut self, decision: &Decision<'_>) {
         if decision.source == "Forced" {
             return;

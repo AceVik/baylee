@@ -1176,3 +1176,106 @@ hand shows no difference between the four at 2× zoom; a tilted edge on the boar
 not compared. Compressed textures would need an encoder at run time or prepared
 images, and nothing here asks for them. A GPU that is not tile-based may pay for MSAA
 in bandwidth, so that is where to measure next.
+
+## The polish round (12 November 2026)
+
+The backdrops as AVIF loops, the table's carved felt and its tray mats, and
+the HUD and lobby polish around them. M1 Max, the built-in display, window
+1708×1032 logical (3416×2064 pixels), `ci-release` with `dev-control`, effects
+Medium, vsync on, frame limit 60, a passive client, which never rests. Other
+sessions compiled throughout: the load average stood between 21 and 95 on 10
+cores.
+
+That load decides what can be said. One binary's table read 5.3 and 10.5 ms of
+GPU time a frame on two occasions, so numbers from two runs are not compared
+here where one run can give both.
+
+### The table's shaders
+
+One client at a duel after the mulligan, the shaders swapped by hot reload
+(`dev-reload`): the round's `felt.wesl` and `mat.wesl`, main's, the round's
+again. Five seconds of Metal System Trace each, every GPU interval of the
+process summed (`cargo tools perf gpu-intervals`), frames from `/perf` over the
+same seconds. A screenshot of each confirms which shaders drew.
+
+| Shaders | GPU busy, ms/s | Frames a second | GPU ms a frame |
+| --- | ---: | ---: | ---: |
+| the round's | 434 | 53.5 | 8.1 |
+| main's | 388 | 55.3 | 7.0 |
+| the round's | 430 | 56.8 | 7.6 |
+
+The carved channels and the trays cost 0.5 to 1.1 ms of GPU time a frame at
+this size, 11 % more GPU time than before, on a GPU that is 43 % busy at 60
+frames. It is not split between the felt and the mats: a mat now lays smoke
+over its whole face where it drew lines, which is the first place to look. No
+effects level takes the relief away, and no weaker GPU was measured; both are
+open.
+
+### The flat path at effects Low
+
+The PM's note on the above: give `Low` the flat path or fewer march steps, and
+measure it. `Effects::carved` is false at `Low` only; `felt.wesl` then takes
+the channel as seen from straight above (no six-step march and secant down
+the bank, `cut_hit`) and skips the water's two caustic layers
+(`FeltParams::flat`, 0 being the carved table so that a material nobody wrote
+is the table everybody knows).
+
+Measured the same way as the table above, but on a **debug** build
+(`dev-control`, `dev-reload`), a four-seat Commander table after the
+mulligans, effects Medium, the branch forced by hot reload in one client and
+alternated, load average 11 to 25:
+
+| Felt | GPU busy, ms/s (each run) | Frames a second (each run) |
+| --- | --- | --- |
+| carved | 440.9, 453.1, 455.7, 450.7, 454.6, 457.3 | 52.1, 40.6, 53.7, 55.3, 55.3, 54.4 |
+| flat | 433.1, 434.8, 429.2, 450.2 | 51.7, 53.2, 35.6, 53.2 |
+| mats hidden (`/hide`) | 450.2 | 54.8 |
+| felt hidden (`/hide`) | 438.5 | 54.2 |
+
+The flat branch reads about 3 % less GPU time (means 452 against 437), which
+is the size of the spread between runs of one shader (4 %). The last row says
+why nothing better can be read here: with the whole felt not drawn the figure
+moves by the same 3 %. GPU busy time summed over the process does not resolve
+one material on this GPU, which clocks itself to the work; a frame-time
+reading on a GPU that is the limit would, and none was at hand. No weak GPU
+was measured, so the saving where it matters is still an assumption.
+
+What was decided on that: `Low` draws flat, because `Low` is where a software
+rasteriser starts (`Graphics::auto_preset`) and there every march step is CPU
+time, and because the two looks differ by little at a table's distance.
+`Medium` and `High` stay carved: every laptop and phone starts on `Medium`,
+and the carved table is the table. One trace also showed about 31 ms/s of
+compute intervals, which is Bevy's GPU preprocessing and not ours; it is the
+next thing to look at (`NoIndirectDrawing`, `use_gpu_instance_buffer_builder`).
+
+### The backdrops
+
+Before: two 4K `.mp4` files played through the player's own `ffmpeg`, a
+process of its own. After: two 1280×720 AVIF loops decoded on a parked thread
+in the client. The rows were taken hours apart under different load (before at
+the round's start on d8b98be1d, after at its end), so they compare roughly.
+
+| Screen | | Frames a second | CPU, client + ffmpeg | RSS, client + ffmpeg |
+| --- | --- | ---: | ---: | ---: |
+| Login | before | 52 | 46 % + 14 % | 652 + 926 MB |
+| | after | 60 | 67 % | 694 MB |
+| Lobby | before | 58 | 63 % + 28 % | 606 + 885 MB |
+| | after | 60 | 69 % | 668 MB |
+
+A second run after, in a load spike, drew 37 and 28 frames at 52 % and 44 %:
+the frame rate in this table is the machine's hour more than the build's. What
+holds is the process that is gone, with its 0.9 GB, and the files: 115 MB of
+`.mp4` left the package for 2.2 MB of AVIF in the binary.
+
+`rav1d` unoptimised is seconds a frame, so the dev profile builds it at
+`opt-level = 3`: the four `vista::loops` tests went from 10.2 s to 1.9 s.
+
+### At rest
+
+`/changed` over 120 frames at the duel counts 22 461 writes with the round and
+22 327 without. A passive client never rests, so this says only that the round
+added no writer that runs every frame. What the round added that could write
+at rest compares first and has a test: the menu's arrival
+(`the_menu_arrives_from_its_corner_and_then_rests`), the toast lane over the
+update card (`the_toast_lane_stands_on_the_update_card_and_not_over_it`), the
+preview's rise (`hud::overlay::pop`).

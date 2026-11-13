@@ -26,12 +26,43 @@ use baylee_view::ManaPoolView;
 
 use crate::manaplan::{self, Plan, Source, Step, Tap};
 
+/// The mana a payment window may be paid with, as `baylee_ai::spend` reads
+/// it for the window (`Spend::Owed`): the unrestricted pool, every source
+/// (each restricted tap the engine names for the window among them), and the
+/// restricted mana the engine names for it, earmarked for the window
+/// ([`manaplan::Earmarked`]): it pays what is owed and never a paid mana
+/// ability's cost on the way.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WindowMana {
+    /// What floats, its restricted mana left out.
+    pub pool: ManaPoolView,
+    /// What could be tapped.
+    pub sources: Vec<Source>,
+    /// The restricted mana floating that may pay the window, by colour
+    /// (`ManaColor::index`).
+    pub floating: [u32; 6],
+    /// The restricted taps among `sources`, by permanent and action.
+    pub taps: Vec<(ObjectId, Tap)>,
+}
+
+impl WindowMana {
+    /// Its restricted mana, as the planner takes it.
+    #[must_use]
+    pub fn earmarked(&self) -> manaplan::Earmarked<'_> {
+        manaplan::Earmarked {
+            floating: self.floating,
+            taps: &self.taps,
+        }
+    }
+}
+
 /// The taps staged in one payment window, in the order they were staged.
 ///
 /// The order is the order they are sent in: a painland's damage and a mana
 /// ability's trigger happen in it, so it is the player's and never sorted.
 /// One step per permanent — a permanent taps once, and staging it again
-/// takes it back.
+/// takes it back — but for a plan's repeated activations of one permanent
+/// ([`Self::extend`]: a mana ability paid by its own counters).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Staging {
     steps: Vec<Step>,
@@ -136,10 +167,14 @@ impl Staging {
     }
 
     /// Appends a plan's taps behind what is staged, skipping any permanent
-    /// already staged (the plan was made without them, so none should be).
+    /// staged before (the plan was made without them, so none should be).
+    /// A permanent the plan itself uses twice is staged twice: a mana
+    /// ability paid by its own counters is activated once per counter
+    /// (Druids' Repository, `baylee_ai::spend::repeat_counter_sources`).
     pub fn extend(&mut self, plan: &Plan) {
+        let staged = self.steps.len();
         for step in &plan.steps {
-            if !self.holds(step.source) {
+            if !self.steps[..staged].iter().any(|s| s.source == step.source) {
                 self.steps.push(*step);
             }
         }
@@ -212,6 +247,46 @@ impl Staging {
             .cloned()
             .collect();
         manaplan::plan(cost, &self.pool_with(pool, sources), &free)
+    }
+
+    /// The pool with every staged tap made and `window`'s earmarked mana
+    /// floating beside it: what pays `cost` once the staging is sent.
+    fn pool_in(&self, window: &WindowMana) -> ManaPoolView {
+        manaplan::with_floating(
+            &self.pool_with(&window.pool, &window.sources),
+            &window.floating,
+        )
+    }
+
+    /// [`Self::remaining`] for a window's mana ([`WindowMana`]).
+    #[must_use]
+    pub fn remaining_in(&self, cost: &ManaCost, window: &WindowMana) -> Vec<ManaSymbol> {
+        manaplan::remainder(cost, &self.pool_in(window))
+    }
+
+    /// [`Self::covers`] for a window's mana ([`WindowMana`]).
+    #[must_use]
+    pub fn covers_in(&self, cost: &ManaCost, window: &WindowMana) -> bool {
+        manaplan::plan(cost, &self.pool_in(window), &[]).is_some()
+    }
+
+    /// [`Self::suggest`] for a window's mana ([`WindowMana`]): its restricted
+    /// mana earmarked for what is owed (`manaplan::plan_earmarked`), so a
+    /// paid mana ability is planned beside it and never paid with it.
+    #[must_use]
+    pub fn suggest_in(&self, cost: &ManaCost, window: &WindowMana) -> Option<Plan> {
+        let free: Vec<Source> = window
+            .sources
+            .iter()
+            .filter(|s| !self.holds(s.id))
+            .cloned()
+            .collect();
+        manaplan::plan_earmarked(
+            cost,
+            &self.pool_with(&window.pool, &window.sources),
+            window.earmarked(),
+            &free,
+        )
     }
 
     /// The `PlayerAction::PayWindow` steps: each tap as the engine offers it,

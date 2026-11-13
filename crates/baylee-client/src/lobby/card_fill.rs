@@ -489,7 +489,7 @@ fn choice<T: Copy + PartialEq>(
 /// The Network section's rows of the fill.
 pub(crate) fn rows(out: &mut Out, view: &crate::settingsui::View) {
     let lang = out.lang;
-    let choices = view.settings.map(|s| s.card_fill).unwrap_or_default();
+    let choices = view.settings.map_or_default(|s| s.card_fill);
     let toggle = out.toggle(
         "card-fill",
         choices.on,

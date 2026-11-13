@@ -44,28 +44,210 @@ fn a_request_to_a_chair_the_house_plays_is_accepted_at_once() {
     );
 }
 
-/// A chair the house plays is shown nobody's hand, so no agent is ever
-/// handed one, and it says nothing about itself: it has no socket to say
-/// it over.
+/// A person may show the house on their side their hand, and the house
+/// reads it, where its level plays as a team; the frozen reference is shown
+/// none, so a benchmark table plays as it was frozen. Either way the house
+/// says nothing about itself: it has no socket to say it over.
 #[test]
-fn a_chair_the_house_plays_is_shown_no_hand_and_sets_nothing() {
+fn a_chair_the_house_plays_may_be_shown_a_hand_and_sets_nothing() {
     let mut session = a_kept_table(
         [Some(1), Some(1), Some(2), Some(2)],
         [false, true, false, true],
     );
-    assert!(
-        show_to(&mut session, 0, &[1]).is_err(),
-        "no hand for the house"
+    show_to(&mut session, 0, &[1]).expect("a person may show the house their hand");
+    assert_eq!(
+        seat_view(&session, PlayerId::new(0)).hand_shared_with,
+        seats(&[1])
     );
-    assert!(
-        seat_view(&session, PlayerId::new(0))
-            .hand_shared_with
-            .is_empty()
-    );
+    let pending = session.pending().clone();
+    let house = session.table().house_view(PlayerId::new(1), &pending);
+    assert_eq!(hands_shown(&house), vec![PlayerId::new(0)]);
     assert!(
         show_to(&mut session, 1, &[0]).is_err(),
         "an AI chair has no socket to say anything over"
     );
+
+    let mut preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    preset.seats[1].controller = SeatController::Ai(AIProfile::SHARP_2026_11);
+    preset.seats[3].controller = SeatController::Ai(AIProfile::SHARP_2026_11);
+    let mut frozen = Session::new(&preset).expect("a four-seat game");
+    frozen.pump();
+    for person in [0, 2] {
+        frozen
+            .act(PlayerId::new(person), PlayerAction::MulliganKeep)
+            .expect("a keep");
+    }
+    assert!(
+        seat_view(&frozen, PlayerId::new(0))
+            .hand_requests
+            .is_empty(),
+        "the frozen reference asks nobody"
+    );
+    assert!(
+        show_to(&mut frozen, 0, &[1]).is_err(),
+        "no hand for the frozen reference"
+    );
+}
+
+/// A house table seated `profiles` on sides `teams` under `rule`, every
+/// chair the house's, past the opening hands.
+fn a_house_table(
+    profiles: [AIProfile; 4],
+    teams: [Option<u8>; 4],
+    rule: baylee_core::preset::HandSharingRule,
+) -> Session {
+    let mut preset = teamed_preset(teams);
+    preset.house_rules.hand_sharing = rule;
+    for (spec, profile) in preset.seats.iter_mut().zip(profiles) {
+        spec.controller = SeatController::Ai(profile);
+    }
+    let mut session = Session::new(&preset).expect("a four-seat game");
+    session.pump_at_most(8);
+    session
+}
+
+/// What the house in `seat`'s chair answers from now.
+fn house_view(session: &Session, seat: u8) -> PlayerView {
+    let pending = session.pending().clone();
+    session.table().house_view(PlayerId::new(seat), &pending)
+}
+
+/// **House teammates show each other their hands** (owner, 10.11.2026),
+/// and nothing else: each house chair is shown its teammate's hand as that
+/// teammate holds it, and never an opponent's.
+#[test]
+fn house_teammates_show_each_other_their_hands_and_never_an_opponents() {
+    let session = a_house_table(
+        [AIProfile::STEADY; 4],
+        [Some(1), Some(1), Some(2), Some(2)],
+        baylee_core::preset::HandSharingRule::Allowed,
+    );
+    for (seat, mate) in [(0, 1), (1, 0), (2, 3), (3, 2)] {
+        let view = house_view(&session, seat);
+        assert_eq!(
+            hands_shown(&view),
+            vec![PlayerId::new(mate)],
+            "seat {seat} is shown its teammate alone"
+        );
+        let owner = house_view(&session, mate);
+        assert_eq!(
+            view.shared_hands[0].cards, owner.hand,
+            "as its owner holds it"
+        );
+    }
+}
+
+/// No hand at all where the table disables sharing, and no continuous
+/// share where it allows only a snapshot: the house's chairs follow the
+/// rule a person's do.
+#[test]
+fn the_tables_rule_holds_for_the_house_too() {
+    for rule in [
+        baylee_core::preset::HandSharingRule::Disabled,
+        baylee_core::preset::HandSharingRule::OnceOnly,
+    ] {
+        let session = a_house_table(
+            [AIProfile::STEADY; 4],
+            [Some(1), Some(1), Some(2), Some(2)],
+            rule,
+        );
+        for seat in 0..4 {
+            assert!(
+                hands_shown(&house_view(&session, seat)).is_empty(),
+                "{rule:?}: seat {seat} was shown a hand"
+            );
+        }
+    }
+}
+
+/// A share ends when its owner leaves the game: a teammate who has
+/// conceded shows nobody anything any more.
+#[test]
+fn a_teammate_who_has_left_shows_no_hand() {
+    let mut session = a_house_table(
+        [AIProfile::STEADY; 4],
+        [Some(1), Some(1), Some(2), Some(2)],
+        baylee_core::preset::HandSharingRule::Allowed,
+    );
+    assert_eq!(
+        hands_shown(&house_view(&session, 0)),
+        vec![PlayerId::new(1)]
+    );
+    assert!(session.take_over(PlayerId::new(1)));
+    session
+        .act(PlayerId::new(1), PlayerAction::Concede)
+        .expect("a seat may concede");
+    assert!(session.state().has_left(PlayerId::new(1)));
+    assert!(hands_shown(&house_view(&session, 0)).is_empty());
+}
+
+/// The frozen reference neither reads a teammate's hand nor shows its own
+/// to a house teammate, so the trained AI's benchmark tables play as they did; a
+/// level that plays as a team sitting beside it is shown nothing either.
+#[test]
+fn the_frozen_reference_shares_no_hand_with_the_house() {
+    let session = a_house_table(
+        [
+            AIProfile::SHARP_2026_11,
+            AIProfile::SHARP,
+            AIProfile::SHARP_2026_11,
+            AIProfile::SHARP_2026_11,
+        ],
+        [Some(1), Some(1), Some(2), Some(2)],
+        baylee_core::preset::HandSharingRule::Allowed,
+    );
+    for seat in 0..4 {
+        assert!(
+            hands_shown(&house_view(&session, seat)).is_empty(),
+            "seat {seat} was shown a hand"
+        );
+    }
+}
+
+/// The house asks a person on its side once, at the start, and is shown
+/// their hand only if the person shows it; a person who turns it down
+/// keeps it. It never asks an opponent, and never where the rule forbids.
+#[test]
+fn the_house_asks_a_person_on_its_side_and_reads_only_what_it_is_shown() {
+    let mut session = a_kept_table(
+        [Some(1), Some(1), Some(2), Some(2)],
+        [false, true, false, true],
+    );
+    assert_eq!(
+        seat_view(&session, PlayerId::new(0)).hand_requests,
+        seats(&[1]),
+        "asked by its house teammate"
+    );
+    assert!(
+        seat_view(&session, PlayerId::new(2)).hand_requests == seats(&[3]),
+        "and each person by their own, never by an opponent"
+    );
+    assert!(
+        hands_shown(&house_view(&session, 1)).is_empty(),
+        "not yet shown"
+    );
+    session
+        .seat_setting(PlayerId::new(0), SeatSetting::DeclineHand(PlayerId::new(1)))
+        .expect("a person may turn it down");
+    assert!(
+        seat_view(&session, PlayerId::new(0))
+            .hand_requests
+            .is_empty()
+    );
+    assert!(
+        hands_shown(&house_view(&session, 1)).is_empty(),
+        "turned down"
+    );
+    show_to(&mut session, 2, &[3]).expect("the other person shows theirs");
+    assert_eq!(
+        hands_shown(&house_view(&session, 3)),
+        vec![PlayerId::new(2)]
+    );
+
+    let mut preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    preset.house_rules.hand_sharing = baylee_core::preset::HandSharingRule::Disabled;
+    let quiet = a_kept_table_from(preset, [false, true, false, true]);
+    assert!(seat_view(&quiet, PlayerId::new(0)).hand_requests.is_empty());
 }
 
 /// A chair the house holds for an absent player keeps what the player

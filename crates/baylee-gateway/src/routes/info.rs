@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{
     Json, Shared, State, StatusCode, admission::Admission, authmode::AuthMode, clock,
-    invite::Registration,
+    registration::Registration,
 };
 
 /// What this gateway is, and where the source for exactly this build lives.
@@ -574,9 +574,9 @@ pub(crate) struct AuthConfig {
     /// true.
     registration_enabled: bool,
     /// @description Who may come in new (`BAYLEE_REGISTRATION`): `open`
-    /// lets anybody in, `invite` a guest only with a closed beta's key, and
-    /// `off` nobody new; a Central account new here follows
-    /// `docs/central-login.md`.
+    /// lets anybody in and `off` nobody new; a Central account new here
+    /// follows `docs/central-login.md`. A gateway from the closed beta may
+    /// still say `invite`.
     registration: Registration,
     /// @description Whether "play as a guest" is offered: the mode is
     /// `guests` or `mixed`.

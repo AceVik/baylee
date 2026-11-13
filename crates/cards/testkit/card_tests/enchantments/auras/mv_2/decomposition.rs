@@ -90,7 +90,10 @@ fn decomposition_gives_cumulative_upkeep_pay_life_and_sacrifices_when_unpaid() {
     assert_eq!(player, P1);
     assert_eq!(
         prompt,
-        baylee_engine::choice::YesNoPrompt::PayLife { amount: 1 }
+        baylee_engine::choice::YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: None
+        }
     );
     engine.apply(P1, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.state().players[1].life, 19);
@@ -106,7 +109,10 @@ fn decomposition_gives_cumulative_upkeep_pay_life_and_sacrifices_when_unpaid() {
     assert_eq!(player, P1);
     assert_eq!(
         prompt,
-        baylee_engine::choice::YesNoPrompt::PayLife { amount: 2 }
+        baylee_engine::choice::YesNoPrompt::PayLife {
+            amount: 2,
+            permanent: None
+        }
     );
     engine.apply(P1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);

@@ -44,7 +44,10 @@
 //!   only during your upkeep"): there is no other window for it;
 //! - while a plan of the mind's runs, every question of the seat's is the
 //!   plan's ([`Verdict::Planned`]): the plan's executor sees them all, and
-//!   stops the plan at the first it cannot answer exactly;
+//!   stops the plan at the first it cannot answer exactly. An attack with
+//!   no attacker and a block with no blocker are not the plan's: they have
+//!   one answer, which is declared as at any other time, and the plan goes
+//!   on at the next question;
 //! - `until` passes the windows the rail would wake the mind in, and an
 //!   opposing spell or ability as `react` says, and nothing else: never a
 //!   question, a declaration with something to declare, a payment owed or a
@@ -233,12 +236,12 @@ impl Default for WakeFilter {
 }
 
 impl WakeFilter {
-    /// A filter that stops at `stops` and passes every other window, with
-    /// the client's default rules otherwise.
+    /// A filter that stops at `stops` and passes every other window, with a
+    /// seat's own standing rules otherwise: every answer that is no
+    /// decision, and no pass through the other players' turns.
     #[must_use]
     pub fn new(stops: &[(RailSide, RailRow)]) -> Self {
-        let mut orders = PhaseOrders::default();
-        orders.set_to(RailPreset::EveryStep);
+        let mut orders = PhaseOrders::of(RailPreset::EveryStep);
         for side in RailSide::BOTH {
             for row in RAIL_ROWS {
                 if row.grants_priority() && !stops.contains(&(side, row)) {
@@ -248,7 +251,18 @@ impl WakeFilter {
         }
         Self {
             orders,
-            rules: AutoRules::default(),
+            // Said out loud and not `AutoRules::default()`. That is what a
+            // fresh *account* starts with, which the owner set to his own on
+            // 12.11.2026 (the pass through an empty window went off), and a
+            // mind's filter does not move with a player's defaults: a window
+            // with nothing in it but "pass" is never worth waking a model
+            // for.
+            rules: AutoRules {
+                pass_when_nothing_to_do: true,
+                skip_opponent_turns: false,
+                skip_empty_attacks: true,
+                skip_empty_blocks: true,
+            },
             paying: None,
             until: None,
             planned: None,
@@ -325,8 +339,7 @@ impl WakeFilter {
     /// Updates the filter with the model's chosen stops.
     pub fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>) {
         if let Some(stops) = stops {
-            let mut orders = PhaseOrders::default();
-            orders.set_to(RailPreset::EveryStep);
+            let mut orders = PhaseOrders::of(RailPreset::EveryStep);
             for side in RailSide::BOTH {
                 for row in RAIL_ROWS {
                     if !row.grants_priority() {
@@ -370,10 +383,14 @@ impl WakeFilter {
             return Verdict::Wake(Why::NotAsked);
         }
         // A plan runs in the turn it was written in, and sees every
-        // question of it: no order answers one for it.
+        // question of it: no order answers one for it. A declaration with
+        // nothing to declare has one answer, which no step writes otherwise,
+        // and is made for it: a seat with no creature had its plan `pass,
+        // pass` stopped at an empty "creatures that can attack" (Carbon b7,
+        // segment 3, attempt 8, q207). The plan goes on at the next question.
         if let Some(turn) = self.planned {
             if turn == view.turn {
-                return Verdict::Planned;
+                return nothing_to_declare(pending).unwrap_or(Verdict::Planned);
             }
             self.planned = None;
         }
@@ -426,20 +443,11 @@ impl WakeFilter {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> Verdict {
+        if let Some(declared) = nothing_to_declare(pending) {
+            return declared;
+        }
         match pending {
             Pending::Priority { legal, .. } => self.priority(view, pending, legal, teams),
-            Pending::ChooseAttackers { attackers, .. } if attackers.is_empty() => standing(
-                PlayerAction::DeclareAttackers {
-                    attackers: Vec::new(),
-                },
-                Standing::NoAttackers,
-            ),
-            Pending::ChooseBlockers { blockers, .. } if blockers.is_empty() => standing(
-                PlayerAction::DeclareBlockers {
-                    blockers: Vec::new(),
-                },
-                Standing::NoBlockers,
-            ),
             Pending::ChooseAttackers { .. } | Pending::ChooseBlockers { .. } => {
                 Verdict::Wake(Why::Declaration)
             }
@@ -569,6 +577,7 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
         && legal.foretellable.is_empty()
         && reachable_abilities(view, legal).is_empty()
         && reachable_foretell(view, legal).is_empty()
+        && reachable_suspend(view, legal).is_empty()
         && legal
             .abilities
             .iter()
@@ -577,6 +586,27 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
 
 fn standing(action: PlayerAction, why: Standing) -> Verdict {
     Verdict::Standing { action, why }
+}
+
+/// The declaration of nothing, where `pending` asks for attackers or blockers
+/// and offers none: no creature of the seat's can attack (CR 508.1a) or
+/// block (CR 509.1a), and "none" is the one answer there is.
+fn nothing_to_declare(pending: &Pending) -> Option<Verdict> {
+    match pending {
+        Pending::ChooseAttackers { attackers, .. } if attackers.is_empty() => Some(standing(
+            PlayerAction::DeclareAttackers {
+                attackers: Vec::new(),
+            },
+            Standing::NoAttackers,
+        )),
+        Pending::ChooseBlockers { blockers, .. } if blockers.is_empty() => Some(standing(
+            PlayerAction::DeclareBlockers {
+                blockers: Vec::new(),
+            },
+            Standing::NoBlockers,
+        )),
+        _ => None,
+    }
 }
 
 /// Whether two seats play for the same side (CR 102.3): the same seat, or
@@ -610,8 +640,7 @@ fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
     let me = decision::resource_player(view);
     let commanders: Vec<ObjectId> = view
         .seat(me)
-        .map(|seat| seat.commanders.iter().map(|c| c.object).collect())
-        .unwrap_or_default();
+        .map_or_default(|seat| seat.commanders.iter().map(|c| c.object).collect());
     view.stack
         .iter()
         .filter(|object| decision::opposes(view, object, me, |a, b| same_side(teams, a, b)))
@@ -735,7 +764,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         return Vec::new();
     }
     let sources = baylee_ai::mana_sources(view, legal);
-    if sources.is_empty() {
+    if !baylee_ai::spend::has_mana_to_plan(view, legal) {
         return Vec::new();
     }
     let me = decision::resource_player(view);
@@ -749,19 +778,20 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     // A plan with nothing to tap is no reach: the mana is in the pool
     // already, so what keeps the engine from listing the card is not mana
     // (a target, an additional cost, a raised cost), and no tap gives it.
-    let whole_price = |id: ObjectId, card: baylee_view::CardIdentity, mut total: ManaCost| {
-        if has_convoke(card) && !convoke_creatures.is_empty() {
-            total = reduce_for_convoke(total, &convoke_creatures);
-        }
-        baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
-            .filter(|plan| !plan.steps.is_empty())
-    };
+    let whole_price =
+        |id: ObjectId, card: baylee_view::CardIdentity, mut total: ManaCost, way: CastModeKind| {
+            if has_convoke(card) && !convoke_creatures.is_empty() {
+                total = reduce_for_convoke(total, &convoke_creatures);
+            }
+            baylee_ai::plan_for_spell(&total, &pool, view, legal, id, way)
+                .filter(|plan| !plan.steps.is_empty())
+        };
     let payable =
         |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
             cost.symbols().next()?;
             // The price the engine charges, its reductions included (CR 601.2f).
             let total = baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
-            whole_price(id, card, baylee_ai::less_delve(view, id, card, total))
+            whole_price(id, card, baylee_ai::less_delve(view, id, card, total), mode)
         };
     let mut reach: Vec<Reach> = hand
         .iter()
@@ -865,7 +895,7 @@ fn convoke_creatures(
 pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<AbilityReach> {
     if owes(view)
         || legal.unpaid_abilities.is_empty()
-        || baylee_ai::mana_sources(view, legal).is_empty()
+        || !baylee_ai::spend::has_mana_to_plan(view, legal)
     {
         return Vec::new();
     }
@@ -880,7 +910,7 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
         .iter()
         .filter_map(|&(source, ability_index, cost)| {
             cost.symbols().next()?;
-            let taps_self = ability_taps_self(view, source, ability_index);
+            let taps_self = baylee_ai::ability_taps_its_source(view, source, ability_index);
             let plan = baylee_ai::plan_for_activation(
                 &cost.with_x(0),
                 &pool,
@@ -918,7 +948,7 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
 pub fn reachable_foretell(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Plan)> {
     if owes(view)
         || legal.unpaid_foretell.is_empty()
-        || baylee_ai::mana_sources(view, legal).is_empty()
+        || !baylee_ai::spend::has_mana_to_plan(view, legal)
     {
         return Vec::new();
     }
@@ -938,6 +968,23 @@ pub fn reachable_foretell(view: &PlayerView, legal: &LegalActions) -> Vec<(Objec
             Some((card, plan))
         })
         .collect()
+}
+
+/// Every card in `legal.unpaid_suspend` whose suspend cost the seat's
+/// untapped sources pay now, with that cost and the taps; none while a
+/// payment is owed ([`owes`]). Suspend is a special action, not a spell
+/// (CR 116.2f, 702.62a), so its cost is planned as an activation's is
+/// (`baylee_ai::suspend_plans`). Without it a seat with every land untapped
+/// could never suspend (Carbon block 3: Ancestral Vision beside ten Islands).
+#[must_use]
+pub fn reachable_suspend(
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Vec<(ObjectId, ManaCost, Plan)> {
+    if owes(view) {
+        return Vec::new();
+    }
+    baylee_ai::suspend_plans(view, legal)
 }
 
 /// The printed ability `index` of `source`, on the battlefield, in a
@@ -963,24 +1010,6 @@ fn printed_ability(
     baylee_cards::by_index(rules.card)?
         .abilities_for_face(usize::from(rules.face))
         .get(usize::try_from(index).ok()?)
-}
-
-/// Whether the ability's cost taps `source`, whose mana then pays none of it.
-/// A granted ability's cost is on no card it has, so the view says.
-fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
-    use baylee_cards_dsl::AbilityDef;
-    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-        return view
-            .object(source)
-            .and_then(|object| object.grant(slot))
-            .is_some_and(|grant| grant.taps);
-    }
-    match printed_ability(view, source, index) {
-        Some(
-            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
-        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
-        _ => false,
-    }
 }
 
 /// Whether the seat could activate something now that its card allows in
@@ -1016,14 +1045,15 @@ fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
         })
 }
 
-/// Whether the seat could cast, activate or foretell something by tapping
-/// what it has untapped ([`reachable`], [`reachable_abilities`],
-/// [`reachable_foretell`]).
+/// Whether the seat could cast, activate, foretell or suspend something by
+/// tapping what it has untapped ([`reachable`], [`reachable_abilities`],
+/// [`reachable_foretell`], [`reachable_suspend`]).
 #[must_use]
 pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
     !reachable(view, legal).is_empty()
         || !reachable_abilities(view, legal).is_empty()
         || !reachable_foretell(view, legal).is_empty()
+        || !reachable_suspend(view, legal).is_empty()
 }
 
 /// Commanders standing in their owner's command zone, not yet castable,

@@ -234,11 +234,7 @@ fn perform(feed: &mut Feed, state: &LobbyState, mailbox: &Mailbox, mut step: Ste
     loop {
         match step {
             Step::Dial(ticket) => {
-                let query = feed
-                    .asked
-                    .as_ref()
-                    .map(|(_, q)| q.clone())
-                    .unwrap_or_default();
+                let query = feed.asked.as_ref().map_or_default(|(_, q)| q.clone());
                 match open(&feed_url(&state.gateway, &ticket, &query)) {
                     Ok(link) => {
                         feed.set_link(Some(link));

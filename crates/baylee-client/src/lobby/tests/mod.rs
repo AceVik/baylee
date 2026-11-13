@@ -27,7 +27,6 @@ mod front_terms;
 mod gateway;
 mod guests;
 mod header;
-mod invites;
 mod legality;
 mod perf;
 mod printings;
@@ -402,8 +401,7 @@ fn drawn_field(app: &mut App, field: Field) -> Vec<String> {
     let kids: Vec<Entity> = boxes
         .iter(app.world())
         .find(|(press, _)| **press == Press::Shared(SharedPress::Focus(field)))
-        .map(|(_, children)| children.iter().collect())
-        .unwrap_or_default();
+        .map_or_default(|(_, children)| children.iter().collect());
     kids.into_iter()
         .filter_map(|kid| {
             if app.world().get::<Caret>(kid).is_some() {

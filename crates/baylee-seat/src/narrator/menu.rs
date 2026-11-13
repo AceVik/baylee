@@ -10,7 +10,9 @@
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::reports::Report;
-use crate::wake::{Reach, ReachFrom, Way, reachable, reachable_abilities, reachable_foretell};
+use crate::wake::{
+    Reach, ReachFrom, Way, reachable, reachable_abilities, reachable_foretell, reachable_suspend,
+};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};
@@ -288,7 +290,7 @@ impl Decision {
         let pairs = |key: &str, a: &str, b: &str| -> Vec<(String, String)> {
             map.get(key)
                 .and_then(Value::as_array)
-                .map(|items| {
+                .map_or_default(|items| {
                     items
                         .iter()
                         .map(|item| {
@@ -299,11 +301,10 @@ impl Decision {
                         })
                         .collect()
                 })
-                .unwrap_or_default()
         };
         Ok(Self {
             ask: text("ask"),
-            pick: map.get("pick").map(list).unwrap_or_default(),
+            pick: map.get("pick").map_or_default(list),
             attacks: pairs("attacks", "attacker", "at"),
             blocks: pairs("blocks", "blocker", "attacker"),
             prevention: pairs("prevention", "part", "amount"),
@@ -311,28 +312,24 @@ impl Decision {
             piles: map
                 .get("piles")
                 .and_then(Value::as_array)
-                .map(|piles| piles.iter().map(list).collect())
-                .unwrap_or_default(),
+                .map_or_default(|piles| piles.iter().map(list).collect()),
             name: text("name"),
             then_targets: map
                 .get("then")
                 .and_then(|then| then.get("targets"))
-                .map(list)
-                .unwrap_or_default(),
+                .map_or_default(list),
             say: text("say"),
             stops: map.get("stops").and_then(Value::as_object).map(|s| Stops {
                 mine: s
                     .get("mine")
                     .map(list)
-                    .map(|names| Stops::named(&names))
-                    .unwrap_or_default(),
+                    .map_or_default(|names| Stops::named(&names)),
                 theirs: s
                     .get("theirs")
                     .map(list)
-                    .map(|names| Stops::named(&names))
-                    .unwrap_or_default(),
+                    .map_or_default(|names| Stops::named(&names)),
             }),
-            plan: map.get("plan").map(list).unwrap_or_default(),
+            plan: map.get("plan").map_or_default(list),
             until: text("until").or_else(|| text("hold")),
             react: text("react"),
             board: text("board"),
@@ -779,8 +776,7 @@ impl Menu {
             let may = options
                 .iter()
                 .find(|o| o.blocker == creature)
-                .map(|o| o.attackers.as_slice())
-                .unwrap_or_default();
+                .map_or_default(|o| o.attackers.as_slice());
             let target =
                 object(attacker, may).map_err(|_| format!("{blocker} cannot block {attacker}"))?;
             declared.push((creature, target));
@@ -1144,11 +1140,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "do not pay".into(),
         ),
         YesNoPrompt::ProliferatePlayer { player } => proliferate_words(*player),
-        YesNoPrompt::PayLife { amount } => (
-            format!("Pay {amount} life?"),
-            format!("pay {amount} life"),
-            "don't pay".into(),
-        ),
+        YesNoPrompt::PayLife { amount, permanent } => pay_life_words(table, *amount, *permanent),
         YesNoPrompt::Miracle { card } => miracle_words(table, *card),
         YesNoPrompt::Madness { card } => madness_words(table, *card),
         YesNoPrompt::DrawOffer { proposer } => (
@@ -1324,9 +1316,7 @@ fn madness_cost_words(table: &Table<'_>, card: ObjectId) -> Option<String> {
 }
 
 fn madness_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
-    let price = madness_cost_words(table, card)
-        .map(|price| format!(" {price}"))
-        .unwrap_or_default();
+    let price = madness_cost_words(table, card).map_or_default(|price| format!(" {price}"));
     (
         format!(
             "Cast {} for its madness cost{price}? If you don't, it goes into your graveyard.",
@@ -1334,6 +1324,37 @@ fn madness_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) 
         ),
         format!("cast it for its madness cost{price}"),
         table.for_decider("put it into your graveyard"),
+    )
+}
+
+/// "Pay N life?", and for which permanent where the payment is for one,
+/// with whose it is: Cleansing asks each player, land by land, whether to
+/// pay 1 life so that land is not destroyed (CR 608.2d), and a seat told
+/// only "Pay 1 life?" paid for ten lands it could not tell apart (Carbon b8,
+/// segment 3, attempt 27, q163-q173).
+fn pay_life_words(
+    table: &Table<'_>,
+    amount: u32,
+    permanent: Option<ObjectId>,
+) -> (String, String, String) {
+    let Some(permanent) = permanent else {
+        return (
+            format!("Pay {amount} life?"),
+            format!("pay {amount} life"),
+            "don't pay".into(),
+        );
+    };
+    let named = table.named(permanent);
+    let whose = table
+        .view
+        .object(permanent)
+        .map_or_else(String::new, |object| {
+            format!("{} ", table.whose(object.controller))
+        });
+    (
+        format!("Pay {amount} life for {whose}{named}?"),
+        format!("pay {amount} life for {named}"),
+        format!("don't pay for {named}"),
     )
 }
 
@@ -1473,17 +1494,24 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
 }
 
 /// The printed sentence of an offered ability, where the line table knows
-/// it.
+/// it. A granted ability's is its own words: the printed ability it
+/// inherits, or the one ability its grant quotes ([`granted_words`]), never
+/// the sentence that granted it.
 fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static str> {
     let view = table.view;
     if let Some(slot) = baylee_engine::choice::granted_slot(index) {
         let grant = view.object(source)?.grant(slot)?;
         let rules = grant.rules?;
-        return baylee_cards::oracle::sentence(
-            rules.card,
-            usize::from(rules.face),
-            grant.text?.line,
-        );
+        let face = usize::from(rules.face);
+        if let Some(at) = grant
+            .ability
+            .and_then(|ability| baylee_cards::lines::ability_line(rules.card, face, ability))
+            && let Some(own) = baylee_cards::oracle::sentence(rules.card, face, at.line)
+            && !own.contains(['"', '“'])
+        {
+            return Some(own);
+        }
+        return granted_words(granting_sentence(table, source, index)?);
     }
     let rules = view
         .object(source)
@@ -1504,6 +1532,34 @@ fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&
     let face = usize::from(rules.face);
     let at = baylee_cards::lines::ability_line(rules.card, face, index)?;
     baylee_cards::oracle::sentence(rules.card, face, at.line)
+}
+
+/// The sentence that granted an offered granted ability, where the line
+/// table knows it: Wandering Fumarole's whole `{2}{U}{R}` animation for the
+/// `{0}` switch it grants.
+fn granting_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static str> {
+    let slot = baylee_engine::choice::granted_slot(index)?;
+    let grant = table.view.object(source)?.grant(slot)?;
+    let rules = grant.rules?;
+    baylee_cards::oracle::sentence(rules.card, usize::from(rules.face), grant.text?.line)
+}
+
+/// The one ability a granting sentence quotes, as the card words it (CR
+/// 113.1a, 602.1): `{0}: Switch this creature's power and toughness until
+/// end of turn.` out of Wandering Fumarole's animation. `None` where the
+/// sentence quotes none, or several and the grant does not say which: the
+/// granting sentence is then told as that, never as the ability's own
+/// (Carbon b7, 11.11.2026: the `{0}` switch was offered as "{2}{U}{R}: Until
+/// end of turn…" with two Islands untapped).
+fn granted_words(sentence: &'static str) -> Option<&'static str> {
+    let mut quotes = sentence.match_indices(['"', '“', '”']);
+    let (open, mark) = quotes.next()?;
+    let (close, _) = quotes.next()?;
+    if quotes.next().is_some() {
+        return None;
+    }
+    let inner = sentence.get(open + mark.len()..close)?.trim();
+    (!inner.is_empty()).then_some(inner)
 }
 
 /// The sentence of the ability a yes/no question comes from.

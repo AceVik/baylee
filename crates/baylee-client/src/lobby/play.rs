@@ -1002,26 +1002,21 @@ pub(super) fn remember(
     };
     let names: Vec<String> = duel
         .and_then(|d| d.statics.as_ref())
-        .map(|statics| {
+        .map_or_default(|statics| {
             statics
                 .seats
                 .iter()
                 .filter(|s| s.player != seat)
                 .map(|s| s.display_name.clone())
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     let listed = state
         .lobby
         .games()
         .iter()
         .find(|g| g.id == handover.game_id)
         .cloned();
-    let deck = state
-        .lobby
-        .played_deck()
-        .map(|d| d.name.clone())
-        .unwrap_or_default();
+    let deck = state.lobby.played_deck().map_or_default(|d| d.name.clone());
     let house = handover.local
         || listed.as_ref().is_some_and(|g| {
             g.seats
@@ -1040,7 +1035,7 @@ pub(super) fn remember(
         outcome,
         deck,
         chairs: listed.as_ref().map_or(2, |g| g.seats.len()),
-        name: listed.map(|g| g.name).unwrap_or_default(),
+        name: listed.map_or_default(|g| g.name),
         house,
     });
 }

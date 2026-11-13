@@ -17,7 +17,6 @@ fn requests_events_and_nested_state_redact_authentication_secrets() {
             username: SECRET.into(),
             display_name: SECRET.into(),
             password: SECRET.into(),
-            invite_key: Some(SECRET.into()),
         },
         LobbyRequest::LogIn {
             username: SECRET.into(),
@@ -29,8 +28,7 @@ fn requests_events_and_nested_state_redact_authentication_secrets() {
             new_password: SECRET.into(),
         },
         LobbyRequest::PlayAsGuest {
-            display_name: None,
-            invite_key: Some(SECRET.into()),
+            display_name: Some(SECRET.into()),
         },
         LobbyRequest::DeleteAccount {
             password: Some(SECRET.into()),

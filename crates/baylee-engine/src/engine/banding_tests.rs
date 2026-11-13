@@ -177,6 +177,7 @@ fn a_band_holds_at_most_one_creature_without_banding() {
         player,
         options,
         min,
+        max,
         prompt,
         ..
     } = engine.pending().clone()
@@ -191,6 +192,7 @@ fn a_band_holds_at_most_one_creature_without_banding() {
         vec![brute, bear],
         "every other attacker on the same player"
     );
+    assert_eq!(max, 1, "one of the two without banding, at most");
 
     let refused = engine.apply(
         ME,
@@ -220,6 +222,135 @@ fn a_band_holds_at_most_one_creature_without_banding() {
     assert_eq!(c.band_of(hero), c.band_of(brute), "with the brute");
     assert_eq!(c.band_of(bear), None, "the bear was named by nobody");
     assert_eq!(c.band_mates(hero), vec![brute]);
+}
+
+/// The bound is what a band may hold, every creature with banding and one
+/// without (CR 702.22c): of a second hero, the brute and the bear it is two,
+/// and which two is still the answer's: both without banding are refused
+/// within the bound, the hero and one of them form the band.
+#[test]
+fn the_band_question_is_bounded_by_what_a_band_may_hold() {
+    let mut engine = combat(&[HERO, HERO, BRUTE, BEAR], &[]);
+    let heroes = permanents(&engine, HERO);
+    let (brute, bear) = (one(&engine, BRUTE, ME), one(&engine, BEAR, ME));
+    attack(&mut engine, &[heroes[0], heroes[1], brute, bear]);
+    let Pending::ChooseCards {
+        options,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the band question, got {:?}", engine.pending());
+    };
+    let crate::choice::ChoicePrompt::Band { with: leader } = prompt else {
+        panic!("a band question: {prompt:?}");
+    };
+    assert_eq!(options.len(), 3);
+    assert_eq!(
+        max, 2,
+        "the other hero and one without banding: {options:?}"
+    );
+    let other = heroes
+        .iter()
+        .copied()
+        .find(|&hero| hero != leader)
+        .expect("the other hero");
+    assert!(
+        engine
+            .apply(
+                ME,
+                PlayerAction::ChooseObjects {
+                    objects: vec![brute, bear],
+                },
+            )
+            .is_err(),
+        "two without banding, within the bound"
+    );
+    engine
+        .apply(
+            ME,
+            PlayerAction::ChooseObjects {
+                objects: vec![other, bear],
+            },
+        )
+        .expect("a hero and one without banding");
+    assert_eq!(engine.state().combat.band_mates(leader), vec![other, bear]);
+}
+
+/// Carbon b8, segment 3, attempt 37, seat 1, q408, with the record's cards:
+/// Kjeldoran Skycaptain (banding) attacking beside two Ashen Ghouls (no
+/// banding) was asked to band "up to 2", and the second Ghoul was refused
+/// (CR 702.22c). The question is up to one, and either Ghoul joins.
+#[test]
+fn the_records_band_question_is_up_to_one_ghoul() {
+    use super::testkit;
+    use baylee_core::generated::index;
+    let mut engine = testkit::Duel::new(3701, index::PLAINS)
+        .battlefield(
+            0,
+            &[
+                index::KJELDORAN_SKYCAPTAIN,
+                index::ASHEN_GHOUL,
+                index::ASHEN_GHOUL,
+            ],
+        )
+        .start();
+    testkit::keep_mulligans(&mut engine);
+    testkit::reach_main_phase(&mut engine, ME);
+    testkit::pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == ME),
+    );
+    let mine = |card: CardIndex| -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                engine
+                    .state()
+                    .object(id)
+                    .is_some_and(|o| o.controller == ME && o.card.is_some_and(|c| c.index == card))
+            })
+            .collect()
+    };
+    let captain = mine(index::KJELDORAN_SKYCAPTAIN)[0];
+    let ghouls = mine(index::ASHEN_GHOUL);
+    engine
+        .apply(
+            ME,
+            PlayerAction::DeclareAttackers {
+                attackers: [captain, ghouls[0], ghouls[1]]
+                    .iter()
+                    .map(|&a| (a, Defender::Player(THEM)))
+                    .collect(),
+            },
+        )
+        .expect("the three attack");
+    let Pending::ChooseCards {
+        options,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the band question, got {:?}", engine.pending());
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::Band { with: captain });
+    assert_eq!(options, ghouls);
+    assert_eq!(max, 1, "one Ghoul at most");
+    engine
+        .apply(
+            ME,
+            PlayerAction::ChooseObjects {
+                objects: vec![ghouls[1]],
+            },
+        )
+        .expect("either Ghoul joins");
+    assert_eq!(engine.state().combat.band_mates(captain), vec![ghouls[1]]);
 }
 
 /// With no creature with banding attacking, nothing is asked: the attack

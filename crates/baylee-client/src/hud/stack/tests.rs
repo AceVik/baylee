@@ -1144,73 +1144,17 @@ fn queued_stack_entries_always_show_controller_targets_choices_and_group_badge()
     board.stack[1].face_down = true;
     board.stack[1].flashed_back = true;
     board.stack[1].times_kicked = 1;
-    let texts = sheoldred_in_german();
-    let mode = crate::face::FaceMode::default();
-    let settings = crate::settings::ClientSettings::default();
-    let faces = FaceCtx {
-        texts: &texts,
-        mode: &mode,
-        settings: &settings,
-        view: Some(&view),
-        widths: crate::face::Widths::of(None),
-    };
-    let mut statics = baylee_client_core::test_support::statics(2);
-    statics.seats[0].display_name = "Argon".into();
-    statics.seats.push(baylee_view::SeatIdentity {
-        player: PlayerId::new(1),
-        display_name: "QaTester".into(),
-        is_ai: false,
-        away: false,
-        team: None,
-        guest: false,
-    });
-    bevy::tasks::IoTaskPool::get_or_init(Default::default);
-    let mut app = App::new();
-    app.add_plugins(AssetPlugin::default())
-        .init_asset::<Image>();
-    let mut textures = {
-        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-        CardTextures::new(&mut images, 1 << 20)
-    };
-    let assets = app.world().resource::<AssetServer>().clone();
-    let fonts = empty_test_fonts();
-    let room = PanelRoom {
-        top: TOP_CLEAR,
-        right: EDGE,
-        width: STACK_PANEL_W,
-        max_height: 600.0,
-        phone: false,
-    };
-    spawn_stack_entry(
-        &mut app.world_mut().commands(),
-        Lang::De,
-        &board.stack[1],
-        false,
-        false,
-        Some((board.stack[1].id, 2)),
-        &view,
-        &statics,
-        Some(PlayerId::new(0)),
-        &Picks {
-            hovered: None,
-            selected: &[],
-            selectable: &[],
-        },
-        &mut textures,
-        &assets,
-        &fonts,
-        &faces,
-        None,
-        (STACK_SENTENCE_LINES, room),
-    );
-    app.world_mut().flush();
-    let world = app.world_mut();
-    let mut all_text: Vec<String> = world
-        .query::<&Text>()
-        .iter(world)
-        .map(|t| t.0.clone())
-        .collect();
-    all_text.extend(world.query::<&TextSpan>().iter(world).map(|s| s.0.clone()));
+    // A target's share of a division stands beside it (CR 601.2d).
+    board.stack[1]
+        .targets
+        .push(baylee_client_core::board::StackTarget {
+            what: baylee_view::TargetRef::Player(PlayerId::new(1)),
+            is_current: false,
+            name: None,
+            art: None,
+            share: Some(2),
+        });
+    let all_text = queued_texts(&board, &view);
     for expected in [
         "Du",
         "→",
@@ -1220,6 +1164,7 @@ fn queued_stack_entries_always_show_controller_targets_choices_and_group_badge()
         "Blau",
         "Elf",
         "QaTester",
+        "2 Schaden",
     ] {
         assert!(
             all_text.iter().any(|t| t.contains(expected)),
@@ -1283,4 +1228,77 @@ fn hidden_stack_card_draws_card_back() {
         images.contains(&card_back),
         "hidden stack card draws the card back: {images:?}"
     );
+}
+
+/// Every text the second entry of `board`'s stack draws as a queued row, in
+/// German, with seat 1 named `QaTester`.
+fn queued_texts(board: &baylee_client_core::BoardModel, view: &PlayerView) -> Vec<String> {
+    let texts = sheoldred_in_german();
+    let mode = crate::face::FaceMode::default();
+    let settings = crate::settings::ClientSettings::default();
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+        view: Some(view),
+        widths: crate::face::Widths::of(None),
+    };
+    let mut statics = baylee_client_core::test_support::statics(2);
+    statics.seats[0].display_name = "Argon".into();
+    statics.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "QaTester".into(),
+        is_ai: false,
+        away: false,
+        team: None,
+        guest: false,
+    });
+    bevy::tasks::IoTaskPool::get_or_init(Default::default);
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default())
+        .init_asset::<Image>();
+    let mut textures = {
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        CardTextures::new(&mut images, 1 << 20)
+    };
+    let assets = app.world().resource::<AssetServer>().clone();
+    let fonts = empty_test_fonts();
+    let room = PanelRoom {
+        top: TOP_CLEAR,
+        right: EDGE,
+        width: STACK_PANEL_W,
+        max_height: 600.0,
+        phone: false,
+    };
+    spawn_stack_entry(
+        &mut app.world_mut().commands(),
+        Lang::De,
+        &board.stack[1],
+        false,
+        false,
+        Some((board.stack[1].id, 2)),
+        view,
+        &statics,
+        Some(PlayerId::new(0)),
+        &Picks {
+            hovered: None,
+            selected: &[],
+            selectable: &[],
+        },
+        &mut textures,
+        &assets,
+        &fonts,
+        &faces,
+        None,
+        (STACK_SENTENCE_LINES, room),
+    );
+    app.world_mut().flush();
+    let world = app.world_mut();
+    let mut all_text: Vec<String> = world
+        .query::<&Text>()
+        .iter(world)
+        .map(|t| t.0.clone())
+        .collect();
+    all_text.extend(world.query::<&TextSpan>().iter(world).map(|s| s.0.clone()));
+    all_text
 }

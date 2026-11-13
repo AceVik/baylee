@@ -148,6 +148,7 @@ fn compare(
         }
         rows.push(
             json!({"table": row["table"], "seed": row["seed"], "decks": row["decks"],
+            "focal_seat": row["focal_seat"],
             "net_utility": score, "base_utility": reference_score,
             "net_capped": capped, "base_capped": flag(reference_row, "net_capped")?}),
         );
@@ -175,6 +176,7 @@ fn compare(
 
 /// Several reports of one arm on different deals as one: dev and fresh are
 /// independent tables, so the pooled interval is one bootstrap over all of them.
+/// The pooled rows stay, for a breakdown by deck.
 ///
 /// # Errors
 /// Rejects an empty list or reports without their rows.
@@ -196,6 +198,7 @@ pub fn pool_arms(reports: &[Value], resamples: usize) -> Result<Value> {
         "arm_wins_mean": total("arm_wins_mean"), "reference_wins": total("reference_wins"),
         "better": total("better"), "equal": total("equal"), "worse": total("worse"),
         "paired": summarize(&json!({"deal_details": rows}), resamples)?,
+        "rows": rows,
     }))
 }
 
@@ -220,6 +223,10 @@ mod tests {
         assert_eq!(pooled["deals"], 8);
         assert_eq!(pooled["better"], 3.0);
         assert_eq!(pooled["paired"]["paired_utility_difference"], 0.375);
+        // The rows stay, each with the seat the net played, for `by_deck`.
+        let rows = pooled["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 8);
+        assert_eq!(rows[1]["focal_seat"], 1);
     }
 
     fn run(seed: u64, scores: &[f64]) -> Value {

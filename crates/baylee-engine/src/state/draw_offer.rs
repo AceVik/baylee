@@ -809,6 +809,7 @@ impl GameState {
                 player: payer,
                 prompt: YesNoPrompt::PayLife {
                     amount: u32::from(life),
+                    permanent: None,
                 },
                 source: None,
             },

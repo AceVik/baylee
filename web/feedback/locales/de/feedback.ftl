@@ -74,59 +74,6 @@ stats-unlimited = unbegrenzt
 stats-agentGames = Partien auf Agenten
 stats-version = Build
 stats-registration = Registrierung
-stats-keys = Beta-Schlüssel
-stats-activeKeys = Gültige Schlüssel
-stats-usesLeft = Einlösungen übrig
-stats-admitted = Freigeschaltete Accounts
-stats-usedUp = aufgebraucht
-stats-expired = abgelaufen
-stats-revoked = widerrufen
-
-invites-title = Schlüssel für die geschlossene Beta
-invites-create = Schlüssel erzeugen
-invites-count = Anzahl
-invites-uses = Accounts pro Schlüssel
-invites-expires = Läuft ab
-invites-never = Nie
-invites-hours12 = In 12 Stunden
-invites-day1 = In 1 Tag
-invites-days7 = In 7 Tagen
-invites-days30 = In 30 Tagen
-invites-days90 = In 90 Tagen
-invites-note = Notiz (für wen)
-invites-notePlaceholder = z. B. Max
-invites-making = Wird erzeugt…
-invites-made =
-    { $n ->
-        [one] { $n } neuer Schlüssel: nur jetzt sichtbar
-       *[other] { $n } neue Schlüssel: nur jetzt sichtbar
-    }
-invites-madeHint = Gespeichert wird von jedem Schlüssel nur ein Hash. Kopiere sie, bevor du die Seite verlässt.
-invites-copy = Kopieren
-invites-copyAll = Alle kopieren
-invites-copied = Kopiert
-invites-share = Teilen
-invites-done = Fertig
-invites-list = Alle Schlüssel
-invites-none = Noch keine Schlüssel.
-invites-created = Erzeugt
-invites-state = Status
-invites-usesLeft = Übrig
-invites-admitted = Freigeschaltet
-invites-expiresAt = Läuft ab
-invites-noteColumn = Notiz
-invites-revoke = Widerrufen…
-invites-revokeConfirm = Diesen Schlüssel widerrufen? Danach kann ihn niemand mehr nutzen.
-invites-revokeYes = Endgültig widerrufen
-invites-revokeNo = Behalten
-invites-revoked = Schlüssel widerrufen.
-invites-neverExpires = nie
-invites-noKeyShown = Schlüssel werden nicht aufgelistet: Gespeichert ist nur ihr Hash.
-
-state-active = gültig
-state-used_up = aufgebraucht
-state-expired = abgelaufen
-state-revoked = widerrufen
 
 audit-title = Letzte Änderungen
 audit-none = Hier wurde noch nichts geändert.
@@ -135,7 +82,6 @@ sec-label = Admin-Bereiche
 sec-overview = Übersicht
 sec-live = Live
 sec-accounts = Accounts
-sec-keys = Beta-Schlüssel
 
 admin-auto = Automatisch aktualisieren
 admin-retry = Erneut versuchen
@@ -186,7 +132,6 @@ stats-avgGame = Durchschnittliche Partie (30 Tage)
 stats-data = Daten
 stats-guestsNew = Neue Gäste
 stats-withEmail = mit Adresse
-stats-byKey = per Schlüssel freigeschaltet
 stats-awaitingEngine = Plätze warten auf eine Engine
 stats-reports = Berichte
 
@@ -263,7 +208,6 @@ acc-prev = Zurück
 acc-next = Weiter
 acc-never = —
 acc-activeHint = Aus der letzten Verlängerung der Sitzung: auf 6 Stunden genau bei Accounts, auf einen Tag bei Gästen.
-acc-byKey = Beta-Schlüssel
 acc-clear = Zurücksetzen
 acc-tagFilter = Nur der Account mit dem Tag #{ $tag }
 
@@ -312,9 +256,6 @@ det-emailConfirmed = bestätigt am { $when }
 det-terms = Nutzungsbedingungen
 det-termsNone = nicht angenommen
 det-termsAccepted = { $version }, { $when }
-det-key = Beta-Schlüssel
-det-keyNone = keiner
-det-keyUsed = ja
 det-now = Jetzt
 det-offline = offline
 det-openTable = In Live zeigen
@@ -332,8 +273,6 @@ det-houseShort = Haus-KI
 det-notFound = Diesen Account gibt es nicht (mehr).
 det-lasted = dauerte { $d }
 det-updated = geändert { $when }
-
-keys-summary = { $active } gültig · { $left } Einlösungen übrig · { $admitted } freigeschaltet
 
 status-new = Neu
 status-triaged = Gesichtet

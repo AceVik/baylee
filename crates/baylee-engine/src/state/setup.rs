@@ -284,17 +284,18 @@ impl GameState {
         Ok(state)
     }
 
-    /// The shared printed face of a card, interned on first use.
+    /// The shared printed card, interned on first use: its front face, or
+    /// both halves of a split card (`Characteristics::of_card`, CR 709.4).
     ///
-    /// Front face only: an MDFC that turns over goes through
-    /// [`GameState::switch_face`], which builds a face of its own.
+    /// A face of its own (an MDFC turned over, a half cast) goes through
+    /// [`GameState::switch_face`], which builds it.
     fn card_base(&mut self, def: &'static CardDef, index: CardIndex) -> Arc<Characteristics> {
         if let Some(base) = self.bases.cards.get(&index) {
             return Arc::clone(base);
         }
         Arc::make_mut(&mut self.bases).rules.insert(index, def);
         let name = self.names.intern(def.name());
-        let base = Arc::new(Characteristics::from_face(def, 0, name));
+        let base = Arc::new(Characteristics::of_card(def, name));
         Arc::make_mut(&mut self.bases)
             .cards
             .insert(index, Arc::clone(&base));
@@ -448,9 +449,7 @@ impl GameState {
             obj.controlled_since = ts;
             obj
         });
-        if (0..def.faces.len()).any(|face| def.abilities_for_face(face).iter().any(|ability| {
-            matches!(ability, baylee_cards_dsl::AbilityDef::Static(sa) if sa.source_zone != baylee_cards_dsl::ZoneRef::Battlefield)
-        })) {
+        if has_offboard_static(def) {
             self.offboard_static_candidates.push(id);
         }
         if let Some(modifier) = printed_pt_cda(def) {
@@ -498,5 +497,55 @@ impl GameState {
             self.watch_token_cleanup(id);
         }
         id
+    }
+}
+
+/// A card admitted to a game as setup admits a deck entry, less the object:
+/// what a fork dealing from a public prior prints a new card with
+/// ([`GameState::admit_printed_card`]).
+#[cfg(any(feature = "fork", test))]
+pub(crate) struct PrintedCard {
+    /// The printed front face, shared with every copy of the card.
+    pub(crate) base: Arc<Characteristics>,
+    /// Its own power and toughness, if it defines them (CR 604.3).
+    pub(crate) cda: Option<baylee_cards_dsl::Modifier>,
+    /// Whether a static ability of it works outside the battlefield.
+    pub(crate) offboard: bool,
+}
+
+/// Whether some face of `def` has a static ability that works outside the
+/// battlefield, which the static sync has to look for wherever the card is.
+fn has_offboard_static(def: &CardDef) -> bool {
+    (0..def.faces.len()).any(|face| {
+        def.abilities_for_face(face).iter().any(|ability| {
+            matches!(ability, baylee_cards_dsl::AbilityDef::Static(sa) if sa.source_zone != baylee_cards_dsl::ZoneRef::Battlefield)
+        })
+    })
+}
+
+#[cfg(any(feature = "fork", test))]
+impl GameState {
+    /// Admits `index` to this game through the door setup admits a deck
+    /// entry by (`create_card`), without creating an object: its rules and
+    /// those it links to, whether graveyard order can now be read, and its
+    /// interned printed face. For a card that may be new to the game, as one
+    /// dealt from a public prior is.
+    ///
+    /// # Errors
+    /// [`SetupError::UnknownCard`] when the lookup lacks the card or one it
+    /// links to.
+    pub(crate) fn admit_printed_card(
+        &mut self,
+        index: CardIndex,
+        lookup: &impl CardLookup,
+    ) -> Result<PrintedCard, SetupError> {
+        let def = lookup.card(index).ok_or(SetupError::UnknownCard(index))?;
+        self.admit_linked_rules(def, lookup)?;
+        self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
+        Ok(PrintedCard {
+            base: self.card_base(def, index),
+            cda: printed_pt_cda(def),
+            offboard: has_offboard_static(def),
+        })
     }
 }

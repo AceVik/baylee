@@ -31,6 +31,8 @@ pub struct Slab {
     pub(super) tail: Vec4,
     /// The motion setting the pulse was last running at.
     pub(super) motion: f32,
+    /// Whether the channels were last drawn flat (`FeltParams::flat`).
+    pub(super) flat: f32,
 }
 
 /// A card's corner radius.
@@ -467,7 +469,16 @@ const RECESS_PX: u32 = 128;
 /// How far below a real card a pile's empty place lies.
 const RECESS_LIFT: f32 = -CARD_LIFT * 0.5;
 
-/// One seat's four pile places, and the face-down library standing on one.
+/// Which piles a seat has a place for, a bit each in [`PileKind::ALL`]'s
+/// order: what its places are drawn again for when it changes.
+pub(super) fn places_of(piles: &[baylee_client_core::ZonePile]) -> u8 {
+    piles.iter().fold(0, |bits, pile| {
+        let at = PileKind::ALL.iter().position(|kind| *kind == pile.kind);
+        bits | at.map_or(0, |at| 1 << at)
+    })
+}
+
+/// One seat's pile places, and the face-down library standing on one.
 ///
 /// Drawn here rather than as placements because neither has an object behind
 /// it: a library is face down to everybody, its owner included (CR 401.2),

@@ -123,8 +123,7 @@ fn a_fold_leaves_the_table_to_pick_on_and_the_question_standing() {
         .expect("the pill");
     let kids: Vec<Entity> = world
         .get::<Children>(root)
-        .map(|c| c.iter().collect())
-        .unwrap_or_default();
+        .map_or_default(|c| c.iter().collect());
     assert_eq!(kids, [pill], "the root holds the pill and nothing else");
     let duel = app.world().resource::<Duel>();
     assert!(
@@ -299,8 +298,7 @@ fn a_folded_pill_whose_reading_changes_keeps_its_words() {
             .expect("one pill");
         let kids: Vec<Entity> = world
             .get::<Children>(pill)
-            .map(|c| c.iter().collect())
-            .unwrap_or_default();
+            .map_or_default(|c| c.iter().collect());
         kids.into_iter()
             .filter_map(|kid| world.get::<Text>(kid).map(|t| t.0.clone()))
             .collect()

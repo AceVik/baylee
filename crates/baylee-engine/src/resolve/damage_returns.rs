@@ -18,8 +18,7 @@ pub(super) fn for_each(
                 version,
             })
             .or_else(|| state.source_identity(res.source))
-            .map(|source| state.damaged_creature_cards_in_graveyard(source))
-            .unwrap_or_default();
+            .map_or_default(|source| state.damaged_creature_cards_in_graveyard(source));
         cards.reverse();
         cards
     });

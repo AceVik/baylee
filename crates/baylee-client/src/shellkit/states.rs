@@ -30,8 +30,26 @@ pub fn empty(
             Pickable::IGNORE,
         ))
         .id();
+    // The glyph on a round plate: alone it was one more grey character
+    // above the sentence, and a place with nothing in it had no picture.
+    let plate = kit.m.h1 * 2.4;
     let mark = commands
         .spawn((
+            Node {
+                width: px_fixed(plate),
+                height: px_fixed(plate),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(plate * 0.5)),
+                ..default()
+            },
+            BackgroundColor(tokens::SKELETON),
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .with_child((
             Text::new(glyph.to_string()),
             icon_tf(kit.fonts, kit.m.h1),
             TextColor(tokens::MUTED),

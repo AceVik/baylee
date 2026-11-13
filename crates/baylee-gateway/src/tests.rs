@@ -249,8 +249,8 @@ fn a_proxy_entry_that_is_not_an_address_is_a_proxy_nobody_vouched_for() {
 /// `BAYLEE_REGISTRATION=no` leaves it open. So does `OFF`, so does a variable
 /// exported empty, and none of them says anything at the moment it is set —
 /// the operator finds out when somebody new comes in. `BAYLEE_CHAIR_TICKETS` reads the same way, through
-/// `switched_on`; `BAYLEE_REGISTRATION` has had a reader of its own since it
-/// learnt `invite` (#317), which answers these words as the switch did.
+/// `switched_on`; `BAYLEE_REGISTRATION` has a reader of its own, which refuses
+/// the closed beta's `invite` (#317) and answers these words as the switch did.
 ///
 /// Pinned as it is rather than as it should be, because widening the list
 /// and refusing what is not on it are different decisions and neither is
@@ -265,8 +265,8 @@ fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
             "{closed:?} is one of the three that shut it"
         );
         assert_eq!(
-            invite::Registration::from_env(Some(closed)),
-            invite::Registration::Off
+            registration::Registration::from_env(Some(closed)),
+            Ok(registration::Registration::Off)
         );
     }
     for open in [
@@ -286,8 +286,8 @@ fn an_unknown_value_leaves_registration_open_and_only_three_words_close_it() {
              meant the opposite"
         );
         assert_eq!(
-            invite::Registration::from_env(open),
-            invite::Registration::Open,
+            registration::Registration::from_env(open),
+            Ok(registration::Registration::Open),
             "{open:?}"
         );
     }
@@ -314,13 +314,13 @@ fn the_port_file_says_the_port_and_nothing_else() {
 }
 
 /// A connection the gateway accepts sends with Nagle's algorithm off: the
-/// listener `main` serves from is the one asked here.
+/// listener `main` serves from is the one asked here, on the address it
+/// binds when `BAYLEE_BIND` names none, which is this machine alone.
 #[tokio::test]
 async fn every_connection_the_gateway_accepts_sends_at_once() {
-    let (mut listener, port) = listen(0).await;
-    let _peer = tokio::net::TcpStream::connect(("127.0.0.1", port))
-        .await
-        .unwrap();
+    let (mut listener, address) = listen(launch::bind_address(None).unwrap(), 0).await;
+    assert!(address.ip().is_loopback(), "{address}");
+    let _peer = tokio::net::TcpStream::connect(address).await.unwrap();
     let (accepted, _) = axum::serve::Listener::accept(&mut listener).await;
     assert!(accepted.nodelay().unwrap());
 }

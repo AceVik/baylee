@@ -335,19 +335,16 @@ fn main() -> anyhow::Result<()> {
                     break;
                 };
                 let record = read_record(&runs[game.run], &game.line)?;
-                let profiles: Vec<i64> = game.line["profiles"]
-                    .as_array()
-                    .map(|ps| {
-                        ps.iter()
-                            .map(|p| {
-                                PROFILES
-                                    .iter()
-                                    .position(|n| Some(*n) == p.as_str())
-                                    .map_or(-1, |i| i as i64)
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                let profiles: Vec<i64> = game.line["profiles"].as_array().map_or_default(|ps| {
+                    ps.iter()
+                        .map(|p| {
+                            PROFILES
+                                .iter()
+                                .position(|n| Some(*n) == p.as_str())
+                                .map_or(-1, |i| i as i64)
+                        })
+                        .collect()
+                });
                 let report = match convert(&record, keep) {
                     Ok(converted) => {
                         shard.write(game.id, &profiles, &converted)?;

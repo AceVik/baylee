@@ -3,7 +3,7 @@
 use super::super::attack_sacrifice::{AttackSacrificeCost, AttackSacrificePayment};
 use super::{
     AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent, ObjectId,
-    ObjectKind, Pending, PlayerId, combat,
+    ObjectKind, PlayerId, combat,
 };
 
 /// What a legal declaration of attackers costs, determined and not yet paid
@@ -320,10 +320,7 @@ impl<L: CardLookup> Engine<L> {
                 opened: Box::new(self.window_start(player)),
             },
         });
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
     }
 
@@ -514,10 +511,7 @@ impl<L: CardLookup> Engine<L> {
                 opened: Box::new(self.window_start(defending)),
             },
         });
-        self.pending = Pending::Priority {
-            player: defending,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(defending, legal);
         self.awaiting_answer = true;
     }
 

@@ -371,7 +371,7 @@ impl HeuristicAgent {
                 best = Some((score, id));
             }
         }
-        best.map(|(_, id)| vec![id]).unwrap_or_default()
+        best.map_or_default(|(_, id)| vec![id])
     }
 }
 

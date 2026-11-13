@@ -1,80 +1,66 @@
-//! Public cards waiting on suspend, independent of the camera's current seat.
-use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_view::{CounterKind, PlayerView};
+//! Which exiled cards are suspended, and how long they still wait (CR
+//! 702.62): public knowledge, the same from every seat.
+//!
+//! What a player meets it as is on the table: the waiting place
+//! ([`crate::layout::PileKind::Waiting`]) and the number beside it. Until
+//! 13.11.2026 this was a list of sentences in a panel over the table's top
+//! left corner.
+use baylee_view::{CounterKind, PublicObject};
 
-/// One face-up suspended card and its remaining time counters.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SuspendedCard {
-    /// Card to inspect.
-    pub object: ObjectId,
-    /// Whose exile pile contains it.
-    pub owner: PlayerId,
-    /// Remaining time counters; this is not a promise about the number of turns.
-    pub counters: u16,
-}
-
-/// All seats' suspended cards, in seat and exile order.
+/// The time counters on `card`, where it is a suspended card every seat may
+/// name: suspended, face up for this view, and with a counter left. Counters
+/// and not turns: nothing here promises when the last one comes off.
+///
+/// The one test of "is this a waiting card" in the client: the table's
+/// waiting place and the zone dialog's badge both ask here. A card whose
+/// identity this view withholds is never one, whatever its flag says.
 #[must_use]
-pub fn read(view: &PlayerView) -> Vec<SuspendedCard> {
-    view.exile
+pub fn time_of(card: &PublicObject) -> Option<u16> {
+    let counters = card
+        .counters
         .iter()
-        .flatten()
-        .filter_map(|card| {
-            let counters = card
-                .counters
-                .iter()
-                .find(|c| c.kind == CounterKind::Time)?
-                .count;
-            (card.suspended && card.card.is_some() && counters > 0).then_some(SuspendedCard {
-                object: card.id,
-                owner: card.owner,
-                counters,
-            })
-        })
-        .collect()
+        .find(|c| c.kind == CounterKind::Time)?
+        .count;
+    (card.suspended && card.card.is_some() && counters > 0).then_some(counters)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{ViewBuilder, printed};
+    use crate::test_support::printed;
     use baylee_view::CounterEntry;
 
+    /// A suspended card says its counters; time counters on a card that is
+    /// not suspended, a suspended card with none left and one whose identity
+    /// is withheld say nothing.
     #[test]
-    fn every_seat_sees_the_queue_and_counter_updates_but_not_other_exiled_cards() {
-        let mut view = ViewBuilder::new(3).build();
-        for seat in 0..3 {
-            let mut card = printed(10 + seat, seat as u8, "Ancestral Vision", 1);
-            card.suspended = true;
-            card.counters.push(CounterEntry {
-                kind: CounterKind::Time,
-                count: 4,
-            });
-            view.exile[seat as usize].push(card);
-        }
-        let mut ordinary = printed(20, 1, "Other", 1);
-        ordinary.counters.push(CounterEntry {
+    fn only_a_named_suspended_card_with_time_left_waits() {
+        let time = |count| CounterEntry {
             kind: CounterKind::Time,
-            count: 2,
-        });
-        view.exile[1].push(ordinary);
-        for seat in 0..3 {
-            view.seat = PlayerId::new(seat);
-            let rows = read(&view);
-            assert_eq!(rows.len(), 3);
-            assert_eq!(rows[2].owner, PlayerId::new(2));
-        }
-        view.exile[1][0].counters[0].count = 1;
-        assert_eq!(read(&view)[1].counters, 1);
-        view.exile[1][0].counters[0].count = 0;
-        assert_eq!(read(&view).len(), 2);
-        view.exile[2][0].card = None;
+            count,
+        };
+        let mut card = printed(10, 0, "Ancestral Vision", 1);
+        card.suspended = true;
+        assert_eq!(time_of(&card), None, "no counter, nothing to wait for");
+        card.counters.push(time(4));
+        assert_eq!(time_of(&card), Some(4));
+        card.counters[0].count = 1;
+        assert_eq!(time_of(&card), Some(1), "the count follows the view");
+        card.counters[0].count = 0;
+        assert_eq!(time_of(&card), None, "the last counter is off");
+        card.counters[0].count = 2;
+        card.card = None;
         assert_eq!(
-            read(&view).len(),
-            1,
-            "unknown identities never become queue entries"
+            time_of(&card),
+            None,
+            "an unknown identity never waits in public"
         );
-        view.exile[0].clear();
-        assert!(read(&view).is_empty());
+        let mut ordinary = printed(20, 1, "Other", 1);
+        ordinary.counters.push(time(2));
+        assert_eq!(
+            time_of(&ordinary),
+            None,
+            "time counters alone are not suspend"
+        );
     }
 }

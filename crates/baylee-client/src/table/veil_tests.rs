@@ -298,6 +298,33 @@ fn a_group_with_one_member_on_offer_is_not_dimmed() {
     assert_eq!(super::veil_of(&duel, &group), veil::DIM);
 }
 
+/// A life payment for one land (Cleansing, protocol 45) lights that land and
+/// dims every other permanent while it is asked: the light walks from land
+/// to land as the questions come.
+#[test]
+fn a_life_payment_for_one_land_lights_it_and_dims_the_rest() {
+    let mut duel = table();
+    duel.receive_choice(Pending::YesNo {
+        player: PlayerId::new(0),
+        prompt: baylee_engine::choice::YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: Some(id(3)),
+        },
+        source: None,
+    });
+    assert_eq!(
+        super::veil_of(&duel, &group_of(&duel, id(3))),
+        0,
+        "asked about"
+    );
+    assert_eq!(super::veil_of(&duel, &group_of(&duel, id(1))), veil::DIM);
+    assert!(
+        super::choosable(&duel, &[id(3)]),
+        "the land wears the light"
+    );
+    assert!(!super::choosable(&duel, &[id(1)]));
+}
+
 /// Another seat's question dims nothing at this seat's table.
 #[test]
 fn another_seats_question_dims_nothing() {

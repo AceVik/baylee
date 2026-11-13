@@ -106,14 +106,35 @@ fn shuffle_slice<T>(items: &mut [T], rng: &mut baylee_train::deckgen::Rng) {
     }
 }
 
-/// Expands training deck variance across all train-safe manifest decks (`constructed`,
-/// `commander`, `highlander`, `starter_limited`), all working house deck templates
-/// (`data/decks/*.txt`), and procedural `deckgen` decks across all 6 archetypes and
-/// 3 formats (`Constructed`, `Highlander`, `Commander`), then groups and shuffles
-/// them into `seats`-sized format-homogeneous table pods seeded by `first_seed`.
+/// The house templates (`data/decks/*.txt`) `manifest` lists in another split
+/// than `split` (`baylee_train::decksplit::files_outside`, which `league` and
+/// `selfplay --decks` read too).
+fn templates_of_other_splits(
+    manifest: &Value,
+    root: &std::path::Path,
+    split: &str,
+) -> BTreeSet<PathBuf> {
+    baylee_train::decksplit::files_outside(manifest, root, split)
+}
+
+/// Expands training deck variance across the manifest decks of `split` in
+/// every shape (`constructed`, `commander`, `highlander`, `starter_limited`),
+/// the working house deck templates (`data/decks/*.txt`) the manifest does not
+/// hold in another split, and procedural `deckgen` decks across all 6
+/// archetypes and 3 formats (`Constructed`, `Highlander`, `Commander`), then
+/// groups and shuffles them into `seats`-sized format-homogeneous table pods
+/// seeded by `first_seed`.
+///
+/// `split` is the run's `--deck-split`, which an on-policy collection must
+/// name `train`. Until 10.11.2026 this read every split: a collection seated
+/// the val and test decks without held-out cards too.
+///
+/// Without a manifest, the repository's own (`data/decks/manifest.v4.json`)
+/// still says which templates are held out of `split`.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn load_expanded_training_decks(
     manifest_path: Option<&PathBuf>,
+    split: &str,
     working: &Working,
     held: &BTreeSet<baylee_core::ids::CardIndex>,
     pool: &deckgen::Pool,
@@ -125,12 +146,22 @@ fn load_expanded_training_decks(
     let mut raw_decks = Vec::new();
     let mut skipped = Vec::new();
     let mut seen_keys = BTreeSet::new();
+    let mut held_templates = BTreeSet::new();
+
+    let repo_manifest = repo_root().join("data/decks/manifest.v4.json");
+    let template_manifest = manifest_path.unwrap_or(&repo_manifest);
+    if let Ok(raw) = fs::read(template_manifest) {
+        let val: Value = serde_json::from_slice(&raw)
+            .with_context(|| format!("reading manifest {}", template_manifest.display()))?;
+        held_templates = templates_of_other_splits(&val, &repo_root(), split);
+    }
 
     if let Some(mpath) = manifest_path {
         let raw =
             fs::read(mpath).with_context(|| format!("reading manifest {}", mpath.display()))?;
         let val: Value = serde_json::from_slice(&raw)?;
-        let (loaded, m_skipped) = select_manifest_decks(&val, &repo_root(), "all", "all", "", false);
+        let (loaded, m_skipped) =
+            select_manifest_decks(&val, &repo_root(), split, "all", "", false);
         skipped = m_skipped;
         for deck in loaded {
             let usable = if deck.failing(working).is_empty() {
@@ -155,6 +186,9 @@ fn load_expanded_training_decks(
             .collect();
         paths.sort();
         for path in paths {
+            if fs::canonicalize(&path).is_ok_and(|path| held_templates.contains(&path)) {
+                continue;
+            }
             let Ok(house) = HouseDeck::load(&path) else {
                 continue;
             };
@@ -240,6 +274,7 @@ fn load_expanded_training_decks(
 #[cfg(test)]
 mod manifest_deck_tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     /// A selected deck that is missing is reported; one the split filters
     /// out is not a skip.
@@ -259,8 +294,167 @@ mod manifest_deck_tests {
         assert!(decks.is_empty());
         assert_eq!(skipped.len(), 1);
         assert_eq!(skipped[0]["id"], "gone");
-        assert!(skipped[0]["reason"].as_str().unwrap().starts_with("unreadable"));
+        assert!(
+            skipped[0]["reason"]
+                .as_str()
+                .unwrap()
+                .starts_with("unreadable")
+        );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The manifest's ids by split.
+    fn splits(manifest: &Value) -> BTreeMap<String, String> {
+        manifest["decks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entry| {
+                (
+                    entry["id"].as_str().unwrap().to_owned(),
+                    entry["split"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect()
+    }
+
+    /// The house templates the manifest lists outside the train split, by
+    /// the key a template is loaded under (`victory` for `data/decks/victory.txt`).
+    fn held_template_keys(manifest: &Value) -> BTreeSet<String> {
+        manifest["decks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry["split"] != "train")
+            .filter_map(|entry| entry["path"].as_str())
+            .filter(|path| path.starts_with("data/decks/") && path.matches('/').count() == 2)
+            .map(|path| {
+                path["data/decks/".len()..]
+                    .trim_end_matches(".txt")
+                    .to_owned()
+            })
+            .collect()
+    }
+
+    /// Every deck an on-policy collection can seat is of the train split:
+    /// no val or test deck of the manifest, and no house template the
+    /// manifest holds out of train (`victory` among them).
+    fn assert_train_only(decks: &[HouseDeck], manifest: &Value) {
+        let splits = splits(manifest);
+        let held_templates = held_template_keys(manifest);
+        assert!(!held_templates.is_empty());
+        for deck in decks {
+            if let Some(split) = splits.get(&deck.key) {
+                assert_eq!(
+                    split, "train",
+                    "{} of the {split} split was seated",
+                    deck.key
+                );
+            }
+            assert!(
+                !held_templates.contains(&deck.key),
+                "the house template {} the manifest holds out was seated",
+                deck.key
+            );
+        }
+    }
+
+    /// A train collection, by either path a run takes to its decks, never
+    /// seats a val or test deck: the expanded pool of an on-policy
+    /// collection or of `--shape all`, and the plain selection of every other
+    /// run that records (`--shadow-teacher`, `--tactician-explore`).
+    #[test]
+    fn a_train_collection_never_seats_a_test_or_val_deck() {
+        let working = Working::scan(&repo_root()).unwrap();
+        let held = deckgen::held_out(&working, 20);
+        let pool = deckgen::pool_for_working(&working, &held);
+        let manifest_path = repo_root().join("data/decks/manifest.v4.json");
+        let manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        for seats in [2, 4] {
+            let (decks, _, _) = load_expanded_training_decks(
+                Some(&manifest_path),
+                "train",
+                &working,
+                &held,
+                &pool,
+                seats,
+                1_130_301,
+                7_777,
+                64,
+            )
+            .unwrap();
+            assert_train_only(&decks, &manifest);
+        }
+        // Without a manifest, the repository's still keeps its held-out templates out.
+        let (decks, _, _) = load_expanded_training_decks(
+            None, "train", &working, &held, &pool, 2, 1_130_301, 7_777, 64,
+        )
+        .unwrap();
+        assert_train_only(&decks, &manifest);
+        for shape in ["all", "constructed", "commander"] {
+            let (decks, _) =
+                select_manifest_decks(&manifest, &repo_root(), "train", shape, "", false);
+            assert!(!decks.is_empty(), "{shape}");
+            assert_train_only(&decks, &manifest);
+        }
+    }
+
+    /// A split carved out of train (`holdout2`) is selected by its name and
+    /// is in no train pool, the plain one or the expanded one.
+    #[test]
+    fn a_carved_out_split_is_selected_by_name_and_never_as_train() {
+        let manifest = json!({"decks": [
+            {"id": "eval/azorius-control", "path": "data/decks/eval/azorius-control.txt",
+             "split": "holdout2", "format": "constructed"},
+            {"id": "eval/red-burn", "path": "data/decks/eval/red-burn.txt",
+             "split": "train", "format": "constructed"},
+        ]});
+        let root = repo_root();
+        let keys =
+            |decks: Vec<HouseDeck>| decks.into_iter().map(|deck| deck.key).collect::<Vec<_>>();
+        let (holdout, _) =
+            select_manifest_decks(&manifest, &root, "holdout2", "constructed", "", false);
+        assert_eq!(keys(holdout), ["eval/azorius-control"]);
+        let (train, _) = select_manifest_decks(&manifest, &root, "train", "all", "", false);
+        assert_eq!(keys(train), ["eval/red-burn"]);
+        let path = std::env::temp_dir().join(format!("holdout2-{}.json", std::process::id()));
+        fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let working = Working::scan(&root).unwrap();
+        let held = deckgen::held_out(&working, 20);
+        let pool = deckgen::pool_for_working(&working, &held);
+        let (expanded, _, _) = load_expanded_training_decks(
+            Some(&path),
+            "train",
+            &working,
+            &held,
+            &pool,
+            2,
+            7,
+            7_777,
+            64,
+        )
+        .unwrap();
+        assert!(
+            expanded
+                .iter()
+                .all(|deck| deck.key != "eval/azorius-control")
+        );
+        assert!(expanded.iter().any(|deck| deck.key == "eval/red-burn"));
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn a_template_is_held_out_where_its_manifest_entry_is() {
+        let manifest = json!({"decks": [
+            {"id": "house/victory", "path": "data/decks/victory.txt", "split": "test"},
+            {"id": "house/breya", "path": "data/decks/breya.txt", "split": "train"},
+        ]});
+        let root = repo_root();
+        let victory = fs::canonicalize(root.join("data/decks/victory.txt")).unwrap();
+        let held = templates_of_other_splits(&manifest, &root, "train");
+        assert_eq!(held, BTreeSet::from([victory.clone()]));
+        assert!(templates_of_other_splits(&manifest, &root, "all").is_empty());
+        assert!(!templates_of_other_splits(&manifest, &root, "test").contains(&victory));
     }
 
     #[test]
@@ -271,6 +465,7 @@ mod manifest_deck_tests {
         let manifest_path = repo_root().join("data/decks/manifest.v4.json");
         let (decks, manifest_count, _skipped) = load_expanded_training_decks(
             Some(&manifest_path),
+            "train",
             &working,
             &held,
             &pool,
@@ -281,9 +476,26 @@ mod manifest_deck_tests {
         )
         .unwrap();
         assert!(
-            manifest_count >= 1_120,
-            "expected >= 1120 manifest+house decks, got {manifest_count}"
+            manifest_count >= 900,
+            "expected >= 900 train manifest and house decks, got {manifest_count}"
         );
+        for format in ["commander", "highlander", "starter_limited"] {
+            let manifest: Value =
+                serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+            let of_format: BTreeSet<&str> = manifest["decks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|entry| entry["split"] == "train" && entry["format"] == format)
+                .filter_map(|entry| entry["id"].as_str())
+                .collect();
+            assert!(
+                decks
+                    .iter()
+                    .any(|deck| of_format.contains(deck.key.as_str())),
+                "no {format} deck of the train split"
+            );
+        }
         assert!(
             decks.len() >= manifest_count + 64,
             "expected procedural decks to be added, got total {}",

@@ -265,6 +265,17 @@ impl Effects {
         !matches!(self, Self::Low)
     }
 
+    /// Whether the table's channels are drawn cut into the slab, with the
+    /// eye's ray followed down their banks; without it they are drawn from
+    /// straight above, at every angle, and without their caustics.
+    ///
+    /// Only `Low` goes without. `Medium` is where every laptop and phone
+    /// starts (`Graphics::auto_preset`), and the carved table is the table.
+    #[must_use]
+    pub const fn carved(self) -> bool {
+        !matches!(self, Self::Low)
+    }
+
     /// The detail flag the ambient shaders branch on: 1 for the full,
     /// 0 for the lighter versions.
     #[must_use]
@@ -678,6 +689,10 @@ pub struct Showing {
     /// Nothing ambient moves (effects `Low`, or reduced motion): an idle
     /// menu then has nothing to draw until something happens.
     pub still: bool,
+    /// A picture that moves by itself is being shown (the front door's and
+    /// the lobby's loops): a menu left alone then goes on drawing, slowly,
+    /// because a film that stops after half a minute reads as broken.
+    pub picture: bool,
 }
 
 /// How often frames are drawn: as fast as allowed, or one every so often.
@@ -706,13 +721,14 @@ impl Graphics {
     /// with ambient effects below `High`. A resting menu holds its ambient
     /// world still where it stands (the next input moves it on from there)
     /// and draws one frame a second, so an idle front door costs next to
-    /// nothing; at `High` it keeps moving, at the background limit and at
-    /// most [`IDLE_MOVING_FPS`].
+    /// nothing; at `High`, and wherever a moving picture is shown
+    /// ([`Showing::picture`]), it keeps moving, at the background limit and
+    /// at most [`IDLE_MOVING_FPS`].
     #[must_use]
     pub fn rests(&self, showing: Showing) -> bool {
         showing.menu
             && showing.untouched_secs >= IDLE_AFTER_SECS
-            && (showing.still || self.effects != Effects::High)
+            && (showing.still || (self.effects != Effects::High && !showing.picture))
     }
 
     /// The pace for a window in this state, and whether input should wake a
@@ -768,6 +784,7 @@ mod tests {
         menu: false,
         untouched_secs: 0.0,
         still: false,
+        picture: false,
     };
 
     /// Each named preset is its own: setting one and asking which preset
@@ -1071,6 +1088,32 @@ mod tests {
         assert_eq!(Pace::Unlimited.interval_secs(), None);
     }
 
+    /// A moving picture keeps an idle menu drawing at any preset, at the
+    /// idle rate and no faster; with nothing ambient moving there is no
+    /// picture to keep up, and the menu rests.
+    #[test]
+    fn a_moving_picture_keeps_an_idle_menu_drawing() {
+        let medium = Graphics::of(Preset::Medium);
+        let high = Graphics::of(Preset::High);
+        let idle = Showing {
+            menu: true,
+            untouched_secs: IDLE_AFTER_SECS,
+            ..AT_DESK
+        };
+        assert!(medium.rests(idle));
+        let idle_film = Showing {
+            picture: true,
+            ..idle
+        };
+        assert!(!medium.rests(idle_film));
+        assert_eq!(medium.pace(idle_film), (Pace::Fps(IDLE_MOVING_FPS), true));
+        assert_eq!(high.pace(idle_film), high.pace(idle));
+        assert!(medium.rests(Showing {
+            still: true,
+            ..idle_film
+        }));
+    }
+
     /// The device's GPU picks the starting preset, quiet side first.
     #[test]
     fn the_starting_preset_is_picked_from_the_gpu_quiet_first() {
@@ -1123,5 +1166,25 @@ mod tests {
         assert_eq!(samples, [1, 1, 2, 4]);
         assert!(!Effects::Low.ambient_motion());
         assert!(Effects::Medium.ambient_motion() && Effects::High.ambient_motion());
+    }
+
+    /// The carved table is what a device shows before its player chose
+    /// anything: every level but `Low` draws it, and so does every preset a
+    /// GPU can start on except the software rasteriser's.
+    #[test]
+    fn only_low_effects_draw_the_table_flat() {
+        assert!(!Effects::Low.carved());
+        assert!(Effects::Medium.carved() && Effects::High.carved());
+        for adapter in ["Apple M1", "Apple M1 Max", "NVIDIA GeForce RTX 4070", ""] {
+            for mobile in [false, true] {
+                let start = Graphics::of(Graphics::auto_preset(adapter, mobile));
+                assert!(start.effects.carved(), "{adapter:?}, mobile {mobile}");
+            }
+        }
+        assert!(
+            !Graphics::of(Graphics::auto_preset("llvmpipe", false))
+                .effects
+                .carved()
+        );
     }
 }

@@ -530,9 +530,8 @@ pub(super) fn choose_gateway(
 /// would answer for free, written out for a canvas that has none: a caret
 /// that moves by character, word and line, a selection that shift extends,
 /// Delete as well as Backspace, and select-all.
-/// ⌘V in a sign-in field: a closed-beta key (#317) is pasted far more often
-/// than typed. A clipboard that answers later lands its text in the same
-/// field through `land_form_paste`, if the caret is still there.
+/// ⌘V in a sign-in field. A clipboard that answers later lands its text in
+/// the same field through `land_form_paste`, if the caret is still there.
 fn paste_into_form(
     state: &mut LobbyState,
     clipboard: &mut bevy::clipboard::Clipboard,
@@ -540,7 +539,7 @@ fn paste_into_form(
 ) {
     let mut read = clipboard.fetch_text();
     match read.poll_result() {
-        // `insert` drops the line breaks a copied key brings along.
+        // `insert` drops the line breaks a copied line brings along.
         Some(Ok(text)) => state.lobby.insert(&text),
         Some(Err(_)) => {}
         None => {
@@ -703,7 +702,6 @@ fn text_field_keys(
                 | Field::DisplayName
                 | Field::Password
                 | Field::PasswordAgain
-                | Field::InviteKey
                 | Field::GuestName
                 | Field::Gateway
                 | Field::RoomName

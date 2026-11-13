@@ -318,6 +318,9 @@ impl Narrator {
         if entries.is_empty() && !gap {
             return Vec::new();
         }
+        // The step of each entry, by its place in the book, for the marks
+        // below ([`step_marks`]).
+        let steps: Vec<Option<baylee_view::Step>> = entries.iter().map(|e| e.step).collect();
         let mut book = LogBook::new();
         book.append(&LogTail { from: 0, entries }, table.view);
         let statics = table.statics();
@@ -331,10 +334,15 @@ impl Narrator {
         // four Treasures that left the battlefield have no handle left to
         // tell them apart by, and four lines would say nothing a count
         // does not.
+        // A mark ("-- combat --") is a line of its own, counted 0 times, and
+        // nothing folds into it.
         let mut folded: Vec<(String, u32)> = Vec::new();
         // Whole sentences: a line the panel indents under the one above
         // ("now at 17 life") would lose its subject here.
-        for line in book.lines_whole(&wording) {
+        let written = book.lines_whole(&wording);
+        let marks = step_marks(&written, &steps);
+        for (line, marks) in written.iter().zip(marks) {
+            folded.extend(marks.into_iter().map(|mark| (mark, 0)));
             let mut text = line.text.clone();
             // Name spans in reverse, so earlier ranges stay put.
             for span in line.names.iter().rev() {
@@ -344,13 +352,16 @@ impl Narrator {
             }
             let times = line.times.max(1);
             match folded.last_mut() {
-                Some((last, n)) if *last == text => *n += times,
+                Some((last, n)) if *n > 0 && *last == text => *n += times,
                 _ => folded.push((text, times)),
             }
         }
         let mut lines: Vec<String> = folded
             .into_iter()
             .map(|(mut text, times)| {
+                if times == 0 {
+                    return text;
+                }
                 if times > 1 {
                     let _ = write!(text, " ({times} times)");
                 }
@@ -400,6 +411,15 @@ impl Narrator {
             faces.push(RulesFace::from(card.card));
         }
         let mut out = Vec::new();
+        // A split card is shown by both halves, whichever the object reads
+        // as: in a graveyard after Ice resolved the seat was told Fire's
+        // text alone, and Ice's never (CR 709.4; Carbon b6, attempt 58, q41).
+        let faces = faces.into_iter().flat_map(|face| {
+            let split = baylee_cards::by_index(face.card)
+                .is_some_and(baylee_cards_dsl::CardDef::is_split_spell_card);
+            let halves = if split { 0..=1 } else { face.face..=face.face };
+            halves.map(move |half| RulesFace { face: half, ..face })
+        });
         for face in faces {
             if self.deck.contains(&face.card) || !self.shown.insert((face.card, face.face)) {
                 continue;
@@ -748,6 +768,24 @@ impl<'a> Table<'a> {
         }
     }
 
+    /// Whose library or graveyard `cards` go into, as a possessive: their
+    /// owner's (CR 400.3), "your" only when that is the seat. Architects of
+    /// Will targeting P2 orders the top of "P2's library", not "your".
+    ///
+    /// The owner is what the view shows ([`decision::cards_owner`]); cards
+    /// of more than one owner go each into "each card's owner's", and cards
+    /// the view does not show are the decider's, whose cards a question is
+    /// about when nothing says otherwise.
+    ///
+    /// [`decision::cards_owner`]: baylee_client_core::decision::cards_owner
+    pub fn whose_cards(&self, cards: &[ObjectId]) -> String {
+        match baylee_client_core::decision::cards_owner(self.view, cards) {
+            Some(owner) => self.whose(owner),
+            None if cards.iter().any(|&card| self.visible(card)) => "each card's owner's".into(),
+            None => self.whose(self.decider()),
+        }
+    }
+
     /// Whether `p` plays on this seat's side.
     pub fn ally(&self, p: PlayerId) -> bool {
         self.same_side(p, self.me())
@@ -768,9 +806,23 @@ impl<'a> Table<'a> {
         matches!((side(a), side(b)), (Some(x), Some(y)) if x == y)
     }
 
-    /// An object's name as the view shows it, wherever it is.
+    /// An object's name as the view shows it, wherever it is. An ability
+    /// on the stack with no name of its own is named for its source
+    /// ([`Self::ability_source`]): "Pest's ability", never "an unnamed
+    /// object" (Carbon b2; d2 game-0005 q136, "woke because P2's an unnamed
+    /// object #123 is on the stack").
     pub fn name(&self, id: ObjectId) -> Option<String> {
         if let Some(object) = self.view.object(id) {
+            if object.name.is_empty()
+                && let Some(item @ baylee_view::StackItem::Ability { source, .. }) =
+                    object.stack_item
+                && source != id
+            {
+                return Some(self.ability_source(object, item).map_or_else(
+                    || "an ability".to_string(),
+                    |name| format!("{name}'s ability"),
+                ));
+            }
             return Some(object_name(object));
         }
         self.view
@@ -780,6 +832,46 @@ impl<'a> Table<'a> {
             .chain(self.view.controlled_hands.iter().flat_map(|h| &h.cards))
             .find(|card| card.id == id)
             .map(|card| card.name.clone())
+    }
+
+    /// What a stack ability's source is called (CR 113.7a: the ability
+    /// exists apart from it): its name while the view shows it, else as the
+    /// ability still knows it, the ability object's own name, a registry
+    /// token's name or the card it is printed on. `None` where nothing says.
+    pub fn ability_source(
+        &self,
+        object: &PublicObject,
+        item: baylee_view::StackItem,
+    ) -> Option<String> {
+        let baylee_view::StackItem::Ability {
+            source,
+            token,
+            rules,
+            ..
+        } = item
+        else {
+            return None;
+        };
+        if source != object.id
+            && let Some(name) = self.name(source)
+        {
+            return Some(name);
+        }
+        Some(object.name.to_string())
+            .filter(|name| !name.is_empty())
+            .or_else(|| {
+                token.and_then(|token| {
+                    baylee_cards::tokens::by_token_id(token.token).map(|t| t.name.to_string())
+                })
+            })
+            .or_else(|| {
+                rules.and_then(|rules| {
+                    baylee_cards::by_index(rules.card)?
+                        .faces
+                        .get(usize::from(rules.face))
+                        .map(|face| face.name.to_string())
+                })
+            })
     }
 
     /// An object named with its handle: "Serra Angel #45", or "#45" when
@@ -874,7 +966,7 @@ impl<'a> Table<'a> {
             "DECISION q{} · {} · {} · {} s",
             request.question,
             self.turn_short(),
-            words::step_id(self.view.phase, self.view.step),
+            words::step_id(self.view.phase, shown_step(self.view, &request.pending)),
             request.budget.as_secs(),
         );
         if let Some(stops) = stops_summary {
@@ -889,13 +981,100 @@ impl<'a> Table<'a> {
             "q{} · {} · {} · {}",
             request.question,
             self.turn(),
-            words::step_name(self.view.phase, self.view.step),
+            words::step_name(self.view.phase, shown_step(self.view, &request.pending)),
             crate::scripted::kind(&request.pending),
         );
         if let Some(p) = self.controlled() {
             let _ = write!(line, " for {}", Self::player_id(p));
         }
         line
+    }
+}
+
+/// The marks put before each line of the list since the last decision: the
+/// phase it happened in, where that is not the line before's ("-- combat
+/// --"), and in combat each damage step ("-- first-strike combat damage
+/// step --", "-- combat damage step --"). A combat with a double striker
+/// deals damage in two steps of one phase (CR 510.4, 702.4b), and told as
+/// one run the second step's damage read as the first's: a Frostburn Weird
+/// seemed to hit in the first-strike step (Carbon block 3, attempt 28,
+/// q331). `steps` is each entry's step by its place in the book; a line
+/// whose host never said its phase is marked with nothing.
+fn step_marks(
+    lines: &[baylee_client_core::gamelog::LogLine],
+    steps: &[Option<baylee_view::Step>],
+) -> Vec<Vec<String>> {
+    use baylee_view::Step;
+    let mut was: Option<(u32, baylee_view::Phase, Option<Step>)> = None;
+    lines
+        .iter()
+        .map(|line| {
+            let mut marks = Vec::new();
+            let Some(phase) = line.phase.filter(|_| !line.header) else {
+                was = None;
+                return marks;
+            };
+            let step = steps.get(line.index).copied().flatten();
+            let same_phase = was.is_some_and(|(turn, p, _)| turn == line.turn && p == phase);
+            if !same_phase {
+                marks.push(format!("-- {} --", words::phase_name(phase)));
+            }
+            let damage = matches!(step, Some(Step::CombatDamageFirst | Step::CombatDamage));
+            if damage && !(same_phase && was.is_some_and(|(_, _, s)| s == step)) {
+                let step = step.unwrap_or(Step::CombatDamage);
+                marks.push(format!("-- {} --", words::step_name(phase, step)));
+            }
+            was = Some((line.turn, phase, step));
+            marks
+        })
+        .collect()
+}
+
+/// The step a question belongs to, as the header says it: the view's,
+/// but for a division of combat damage. The engine asks that as the step
+/// before the damage step hands over to it (declare blockers, or the
+/// first-strike damage step; nobody holds priority between, so no board can
+/// change), and the damage is the damage step's to assign (CR 510.1): the
+/// header said "blockers" over Wild Mongrel's division (Carbon block 3,
+/// attempt 32, q105).
+fn shown_step(view: &PlayerView, pending: &baylee_engine::choice::Pending) -> baylee_view::Step {
+    let division = matches!(
+        pending,
+        baylee_engine::choice::Pending::ChooseNumber {
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
+            ..
+        }
+    );
+    if division {
+        damage_step_ahead(view)
+    } else {
+        view.step
+    }
+}
+
+/// The combat damage step a division asked now is for: the first-strike
+/// step when declare blockers hands over to one (a creature in combat has
+/// first strike or double strike, CR 510.4), the regular one otherwise.
+pub(crate) fn damage_step_ahead(view: &PlayerView) -> baylee_view::Step {
+    use baylee_cards_dsl::KeywordSet;
+    let strikes_first = |id: ObjectId| {
+        view.object(id).is_some_and(|o| {
+            o.keywords & (KeywordSet::FIRST_STRIKE.bits() | KeywordSet::DOUBLE_STRIKE.bits()) != 0
+        })
+    };
+    match view.step {
+        baylee_view::Step::DeclareBlockers
+            if view
+                .combat
+                .attackers
+                .iter()
+                .map(|a| a.creature)
+                .chain(view.combat.blockers.iter().map(|b| b.blocker))
+                .any(strikes_first) =>
+        {
+            baylee_view::Step::CombatDamageFirst
+        }
+        _ => baylee_view::Step::CombatDamage,
     }
 }
 

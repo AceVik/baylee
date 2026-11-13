@@ -34,16 +34,26 @@
 //! is `manaplan`'s third rule. Nothing here is random and nothing is iterated
 //! out of a hash: the same board plans the same taps.
 //!
-//! Restricted mana is left alone: what the engine may spend it on is a rules
-//! question (`manaplan`'s second rule), so a pool holding any plans no
-//! conversion.
+//! Restricted mana is a rules question (`manaplan`'s second rule). Without
+//! the engine's word on it ([`plan`]) a pool holding any plans no conversion.
+//! With it ([`earmarked`]) the mana the engine names for this payment pays
+//! the cost's own symbols and never a converter's: a chain's demands for a
+//! converter are matched to plain mana alone, and the walk spends plain mana
+//! on them, as the engine's payment of an activation that the restriction
+//! does not admit does.
 
 use std::collections::BTreeSet;
 
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_view::ManaPoolView;
 
-use super::{ColorMask, Plan, Source, Step, Unit, augment, mask_of, needs, permitted, slot};
+use super::{
+    ColorMask, Earmarked, Plan, Source, Step, Twobrid, Unit, augment, mask_of, needs, permitted,
+    slot, twobrid_readings, with_floating,
+};
+
+/// The owner of a demand of the cost itself, past every place in a chain.
+const THE_COST: usize = usize::MAX;
 
 /// How many permanents' conversions one plan reads.
 const MAX_CONVERTERS: usize = 3;
@@ -88,28 +98,48 @@ impl Converter {
     /// What one activation leaves the pool with beyond what it spent, at its
     /// best: no more can be asked of this permanent.
     fn gain(&self) -> usize {
-        needs(&self.cost, false).map_or(0, |cost| self.mana().saturating_sub(cost.len()))
+        needs(&self.cost, Twobrid::COLOURED)
+            .map_or(0, |cost| self.mana().saturating_sub(cost.len()))
     }
 }
 
 /// The taps and activations that pay `cost` through at least one converter,
-/// or `None` when no chain of them does. See the module header.
+/// or `None` when no chain of them does. See the module header: a pool
+/// holding restricted mana plans none.
 pub(super) fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+    if pool.restricted_total() > 0 {
+        return None;
+    }
+    earmarked(cost, pool, Earmarked::default(), sources)
+}
+
+/// [`plan`] with `earmarked` beside the unrestricted `pool`: its mana pays
+/// `cost`'s symbols and no converter's. `pool`'s own restricted counts are
+/// not read.
+pub(super) fn earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+) -> Option<Plan> {
     let mut converters: Vec<usize> = sources
         .iter()
         .enumerate()
         .filter(|(_, source)| source.converter.is_some())
         .map(|(index, _)| index)
         .collect();
-    if converters.is_empty() || pool.restricted_total() > 0 || !enough(cost, pool, sources) {
+    let mut pool = *pool;
+    pool.restricted = [0; 6];
+    if converters.is_empty() || !enough(cost, &with_floating(&pool, &earmarked.floating), sources) {
         return None;
     }
     converters.sort_by_key(|&index| (sources[index].priced, sources[index].preserve, index));
     converters.truncate(MAX_CONVERTERS);
+    let readings = twobrid_readings(cost);
     for size in 1..=converters.len() {
         for chain in chains(&converters, size) {
-            for generic_twobrid in [false, true] {
-                let found = attempt(cost, pool, sources, &chain, generic_twobrid);
+            for &reading in &readings {
+                let found = attempt(cost, &pool, earmarked, sources, &chain, reading);
                 if found.is_some() {
                     return found;
                 }
@@ -123,7 +153,7 @@ pub(super) fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> 
 /// all: what floats, and each permanent at its best. Most costs a chain is
 /// asked about are simply too dear, and this answers those without a matching.
 fn enough(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> bool {
-    let Some(asked) = needs(cost, false) else {
+    let Some(asked) = needs(cost, Twobrid::COLOURED) else {
         return false;
     };
     let made: usize = sources
@@ -165,19 +195,20 @@ fn chains(converters: &[usize], size: usize) -> Vec<Vec<usize>> {
 fn attempt(
     cost: &ManaCost,
     pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
     sources: &[Source],
     chain: &[usize],
-    generic_twobrid: bool,
+    reading: Twobrid,
 ) -> Option<Plan> {
     // The spell's demands and then each converter's; `owner` is the place in
     // the chain a demand pays for, past every place for the spell's own.
-    let mut demands: Vec<ColorMask> = needs(cost, generic_twobrid)?
+    let mut demands: Vec<ColorMask> = needs(cost, reading)?
         .into_iter()
         .map(|need| permitted(need, pool))
         .collect();
-    let mut owner = vec![usize::MAX; demands.len()];
+    let mut owner = vec![THE_COST; demands.len()];
     for (at, &index) in chain.iter().enumerate() {
-        for need in needs(&sources[index].converter.as_ref()?.cost, false)? {
+        for need in needs(&sources[index].converter.as_ref()?.cost, Twobrid::COLOURED)? {
             demands.push(permitted(need, pool));
             owner.push(at);
         }
@@ -188,6 +219,25 @@ fn attempt(
         rest[index].dear = None;
     }
     let mut units = super::units(pool, &rest, demands.len(), false);
+    // Whether a unit's mana pays the cost alone: a restricted tap's, or
+    // restricted mana floating for it.
+    let mut earmark: Vec<bool> = units
+        .iter()
+        .map(|unit| {
+            unit.from
+                .is_some_and(|index| earmarked.taps.contains(&(rest[index].id, rest[index].tap)))
+        })
+        .collect();
+    for color in ManaColor::ALL {
+        let count = usize::try_from(earmarked.floating[color.index()]).unwrap_or(usize::MAX);
+        for _ in 0..count.min(demands.len()) {
+            units.push(Unit {
+                colors: ColorMask::of(color),
+                from: None,
+            });
+            earmark.push(true);
+        }
+    }
     // The place in the chain a unit was made at; `None` for plain mana.
     let mut made_at: Vec<Option<usize>> = vec![None; units.len()];
     for (at, &index) in chain.iter().enumerate() {
@@ -197,14 +247,28 @@ fn attempt(
                 from: Some(index),
             });
             made_at.push(Some(at));
+            earmark.push(false);
         }
     }
     if demands.len() > units.len() {
         return None;
     }
-    let taken = matching(&demands, &owner, &units, &made_at, sources)?;
+    let made = Made {
+        at: &made_at,
+        earmark: &earmark,
+    };
+    let taken = matching(&demands, &owner, &units, made, sources)?;
     let steps = ordered(&demands, &owner, &units, &taken, &rest, sources, chain);
-    holds(cost, pool, &steps, sources).then_some(Plan { steps, cost: *cost })
+    holds(cost, pool, &earmarked.floating, &steps, sources).then_some(Plan { steps, cost: *cost })
+}
+
+/// What the matching knows of each unit beside its colours.
+#[derive(Clone, Copy)]
+struct Made<'a> {
+    /// The place in the chain a unit was made at; `None` for plain mana.
+    at: &'a [Option<usize>],
+    /// Whether a unit pays the cost alone ([`Earmarked`]).
+    earmark: &'a [bool],
 }
 
 /// Every demand matched to a unit it may take: `taken[unit]` is the demand.
@@ -212,9 +276,10 @@ fn matching(
     demands: &[ColorMask],
     owner: &[usize],
     units: &[Unit],
-    made_at: &[Option<usize>],
+    made: Made<'_>,
     sources: &[Source],
 ) -> Option<Vec<Option<usize>>> {
+    let made_at = made.at;
     // What floats, then clean taps, then what a conversion makes, so a
     // converter's mana is spent on what nothing else can pay.
     let mut order: Vec<usize> = (0..units.len()).collect();
@@ -233,7 +298,8 @@ fn matching(
     asked.sort_by_key(|&demand| demands[demand].count());
     let fits = |demand: usize, unit: usize| {
         demands[demand].overlaps(units[unit].colors)
-            && made_at[unit].is_none_or(|made| made < owner[demand])
+            && made_at[unit].is_none_or(|place| place < owner[demand])
+            && (!made.earmark[unit] || owner[demand] == THE_COST)
     };
     let mut taken: Vec<Option<usize>> = vec![None; units.len()];
     for &demand in &asked {
@@ -329,8 +395,16 @@ fn conversion(
 }
 
 /// Whether `steps` leave `cost` payable, the pool spent as the engine spends
-/// it: the matching chose what pays, the engine chooses what is spent.
-fn holds(cost: &ManaCost, pool: &ManaPoolView, steps: &[Step], sources: &[Source]) -> bool {
+/// it: the matching chose what pays, the engine chooses what is spent. The
+/// `earmarked` mana floating pays the cost alone, so it joins the pool only
+/// once every converter is paid.
+fn holds(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: &[u32; 6],
+    steps: &[Step],
+    sources: &[Source],
+) -> bool {
     let mut floating = *pool;
     for step in steps {
         let Some(after) = after_step(&floating, step, sources) else {
@@ -338,7 +412,13 @@ fn holds(cost: &ManaCost, pool: &ManaPoolView, steps: &[Step], sources: &[Source
         };
         floating = after;
     }
-    super::plain_plan(cost, &floating, &[]).is_some()
+    super::plain_plan(
+        cost,
+        &with_floating(&floating, earmarked),
+        &[],
+        super::Settle::Spare,
+    )
+    .is_some()
 }
 
 /// The pool once `step` is made: what a converter spends taken out, and what
@@ -368,7 +448,7 @@ pub fn after_step(pool: &ManaPoolView, step: &Step, sources: &[Source]) -> Optio
 /// is wrong there stops the taps, it spends nothing that was not asked for.
 fn spent(pool: &ManaPoolView, cost: &ManaCost) -> Option<ManaPoolView> {
     let mut out = *pool;
-    let mut demands: Vec<ColorMask> = needs(cost, false)?
+    let mut demands: Vec<ColorMask> = needs(cost, Twobrid::COLOURED)?
         .into_iter()
         .map(|need| permitted(need, pool))
         .collect();
@@ -428,7 +508,7 @@ pub fn made_by(step: &Step, sources: &[Source]) -> Vec<(ManaColor, u32)> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Tap, plan};
+    use super::super::{Earmarked, Tap, plan, plan_earmarked};
     use super::*;
     use baylee_core::ids::ObjectId;
 
@@ -637,6 +717,89 @@ mod tests {
         pool.restricted[ManaColor::White.index()] = 1;
         let sources = [swamp_mountain(1), land(2, ManaColor::Green), grotto(3)];
         assert_eq!(plan(&cost("{W}{U}{R}"), &pool, &sources), None);
+    }
+
+    /// With the engine's statement in hand ([`super::super::plan_earmarked`])
+    /// restricted mana it does not name for this payment is left alone, and
+    /// the chain is planned from the rest: Study Hall's black while Great
+    /// Hall of the Biblioplex's mana floated for instants and sorceries only
+    /// (Carbon b9, 11.11.2026).
+    #[test]
+    fn restricted_mana_not_named_leaves_a_chain_plannable() {
+        let mut pool = none();
+        pool.restricted[ManaColor::White.index()] = 1;
+        let sources = [swamp_mountain(1), land(2, ManaColor::Green), grotto(3)];
+        let found = plan_earmarked(&cost("{U}{R}"), &pool, Earmarked::default(), &sources)
+            .expect("the Forest pays the Grotto's {1}, the Grotto makes {U}");
+        assert_eq!(order(&found), [2, 3, 1]);
+    }
+
+    /// Earmarked mana floating pays the cost's own symbols: Hymn to Tourach's
+    /// first `{B}` floats for sorceries only, the second is the Grotto's,
+    /// paid by an Island.
+    #[test]
+    fn earmarked_floating_mana_pays_the_cost_beside_a_chain() {
+        let mut black = [0; 6];
+        black[ManaColor::Black.index()] = 1;
+        let earmarked = Earmarked {
+            floating: black,
+            taps: &[],
+        };
+        let sources = [land(1, ManaColor::Blue), grotto(2)];
+        let found = plan_earmarked(&cost("{B}{B}"), &none(), earmarked, &sources)
+            .expect("the floating {B} and the Grotto's");
+        assert_eq!(order(&found), [1, 2]);
+        assert_eq!(found.steps[1].color, Some(ManaColor::Black));
+    }
+
+    /// Earmarked mana pays the cost and never a converter's on the way: the
+    /// restriction admits a spell, not an ability's cost (CR 106.6). The same
+    /// `{B}` unrestricted pays the Grotto's `{1}`.
+    #[test]
+    fn earmarked_floating_mana_never_pays_a_converter() {
+        let mut black = [0; 6];
+        black[ManaColor::Black.index()] = 1;
+        let earmarked = Earmarked {
+            floating: black,
+            taps: &[],
+        };
+        let sources = [grotto(2)];
+        assert_eq!(
+            plan_earmarked(&cost("{U}"), &none(), earmarked, &sources),
+            None
+        );
+        let mut pool = none();
+        pool.black = 1;
+        let found = plan_earmarked(&cost("{U}"), &pool, Earmarked::default(), &sources)
+            .expect("plain {B} pays the Grotto's {1}");
+        assert_eq!(order(&found), [2]);
+    }
+
+    /// A restricted tap's mana is earmarked too: it pays the spell, and the
+    /// Grotto's `{1}` waits for a land whose mana is plain. Read as plain, the
+    /// Hall's `{B}` paid the Grotto for a `{G}` the engine then refused.
+    #[test]
+    fn an_earmarked_tap_never_pays_a_converter() {
+        let hall = Source::fixed(id(1), Tap::Ability(1), ManaColor::Black);
+        let taps = [(id(1), Tap::Ability(1))];
+        let earmarked = Earmarked {
+            floating: [0; 6],
+            taps: &taps,
+        };
+        let short = [hall.clone(), grotto(2)];
+        assert_eq!(
+            plan_earmarked(&cost("{G}"), &none(), earmarked, &short),
+            None,
+            "the Hall's mana may not pay the Grotto's {{1}}"
+        );
+        assert!(
+            plan_earmarked(&cost("{G}"), &none(), Earmarked::default(), &short).is_some(),
+            "plain, it may"
+        );
+        let sources = [hall, grotto(2), land(3, ManaColor::Blue)];
+        let found = plan_earmarked(&cost("{B}{G}"), &none(), earmarked, &sources)
+            .expect("the Island pays the Grotto, the Hall the {B}");
+        assert_eq!(order(&found), [3, 2, 1]);
     }
 
     /// Plain lands plan what they planned: a converter is asked only when

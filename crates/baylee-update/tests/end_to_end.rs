@@ -225,13 +225,11 @@ fn refused(how: Publish, keys: Vec<VerifyingKey>) -> Manual {
     assert_eq!(page, format!("{}/page/v{NEWER}", stub.base));
     assert_eq!(snapshot(&base), expected(&old));
     assert_eq!(apply::staged(&install), None);
-    let left: Vec<_> = std::fs::read_dir(install.stage())
-        .map(|d| {
-            d.flatten()
-                .map(|e| e.file_name().to_string_lossy().into_owned())
-                .collect()
-        })
-        .unwrap_or_default();
+    let left: Vec<_> = std::fs::read_dir(install.stage()).map_or_default(|d| {
+        d.flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect()
+    });
     assert!(
         left.iter().all(|n| !n.ends_with(".tar.gz") && n != NEW),
         "left behind: {left:?}"
@@ -610,13 +608,11 @@ fn a_download_nobody_waits_for_stops() {
     );
     assert_eq!(said.len(), 2, "found and one reading: {said:?}");
     assert_eq!(apply::staged(&install), None);
-    let left: Vec<_> = std::fs::read_dir(install.stage())
-        .map(|d| {
-            d.flatten()
-                .map(|e| e.file_name().to_string_lossy().into_owned())
-                .collect()
-        })
-        .unwrap_or_default();
+    let left: Vec<_> = std::fs::read_dir(install.stage()).map_or_default(|d| {
+        d.flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect()
+    });
     assert!(
         left.iter().all(|n| {
             std::path::Path::new(n)

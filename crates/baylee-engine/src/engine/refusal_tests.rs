@@ -34,7 +34,7 @@ use crate::choice::{AttackerBound, BlockOption, CardTotal, PlayerAction, default
 use baylee_core::ids::Defender;
 
 /// A seeded stream for the driver: splitmix64, small and dependency-free.
-struct Dice(u64);
+pub(super) struct Dice(pub(super) u64);
 
 impl Dice {
     fn next(&mut self) -> u64 {
@@ -90,7 +90,7 @@ const BOUNDS_BLOCKS_FLOOR: usize = 34;
 const WHOLE_PERCENT: u64 = 20;
 
 /// The house decks, by file and by the name their header gives them.
-const DECKS: [(&str, &str); 9] = [
+pub(super) const DECKS: [(&str, &str); 9] = [
     ("allytifact.txt", "Allytifact"),
     ("victory.txt", "Victory"),
     ("maik.txt", "Euro-Highlander"),
@@ -102,7 +102,7 @@ const DECKS: [(&str, &str); 9] = [
     ("tayam.txt", "Tayam, Luminous Enigma"),
 ];
 
-fn house_deck(file: &str, name: &str) -> baylee_cards::decks::LoadedDeck {
+pub(super) fn house_deck(file: &str, name: &str) -> baylee_cards::decks::LoadedDeck {
     let path = format!("{}/../../data/decks/{file}", env!("CARGO_MANIFEST_DIR"));
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
     // The house lists name a printing after each card ("1 Arid Mesa (MH2)
@@ -131,7 +131,7 @@ fn house_deck(file: &str, name: &str) -> baylee_cards::decks::LoadedDeck {
 // One arm per kind of question, and a kind left out is a question the
 // sweep cannot answer.
 #[allow(clippy::too_many_lines)]
-fn offered(
+pub(super) fn offered(
     engine: &Engine<RegistryLookup>,
     pending: &Pending,
     dice: &mut Dice,

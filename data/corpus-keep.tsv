@@ -6,8 +6,8 @@
 # and wrote a `CardDef` for needs an index whatever Scryfall says about it,
 # because codegen cannot build a card that has no row in the ledger.
 #
-# So this is the hand-kept, additive half, like `data/land-cycles.tsv`: every
-# line names a card the rule drops and says why it stays. Adding one here and
+# So this is the hand-kept, additive half: every line names a card the rule
+# drops and says why it stays. Adding one here and
 # rerunning `baylee-catalog corpus` is the documented answer when
 # `cargo xtask ledger` reports a card with no row. Removing a line is only
 # safe while the ledger has no row for that card yet — an assignment is frozen,

@@ -606,8 +606,7 @@ impl Deploy {
         // state, say) keeps its owner and mode.
         let parent = Path::new(hold)
             .parent()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default();
+            .map_or_default(|p| p.display().to_string());
         if !Path::new(&parent).is_dir() {
             must(&mut self.sudo(&[
                 "install", "-d", "-m755", "-o", "root", "-g", "root", &parent,
@@ -954,11 +953,7 @@ impl Deploy {
         if !self.p.staged("run-deploy-hooks").is_file() {
             return Ok(());
         }
-        let parent = |p: &Path| {
-            p.parent()
-                .map(|d| d.display().to_string())
-                .unwrap_or_default()
-        };
+        let parent = |p: &Path| p.parent().map_or_default(|d| d.display().to_string());
         must(&mut self.sudo(&[
             "install",
             "-d",
@@ -1243,8 +1238,7 @@ impl Deploy {
         // trunk runs cargo from PATH, which a systemd unit's PATH may not have.
         let cargo_dir = Path::new(&self.p.cargo)
             .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_default();
+            .map_or_default(Path::to_path_buf);
         let path = std::env::join_paths(std::iter::once(cargo_dir).chain(std::env::split_paths(
             &std::env::var_os("PATH").unwrap_or_default(),
         )))
@@ -1291,10 +1285,7 @@ impl Deploy {
 
     fn swap_in(&self, from: &Path, to: &Path) -> Run {
         let next = format!("{}.new", to.display());
-        let parent = to
-            .parent()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default();
+        let parent = to.parent().map_or_default(|p| p.display().to_string());
         must(&mut self.sudo(&["mkdir", "-p", &parent]))?;
         must(&mut self.sudo(&["rm", "-rf", &next]))?;
         must(self.sudo(&["cp", "-R"]).arg(from).arg(&next))?;
@@ -1561,8 +1552,7 @@ impl Deploy {
             .arg("is-active")
             .args(&units)
             .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-            .unwrap_or_default();
+            .map_or_default(|o| String::from_utf8_lossy(&o.stdout).into_owned());
         println!(
             "          {}",
             active.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -1646,9 +1636,7 @@ fn dir(path: &Path) -> String {
 }
 
 fn read_trim(path: &Path) -> String {
-    fs::read_to_string(path)
-        .map(|s| s.trim().to_owned())
-        .unwrap_or_default()
+    fs::read_to_string(path).map_or_default(|s| s.trim().to_owned())
 }
 
 fn short(rev: &str) -> &str {

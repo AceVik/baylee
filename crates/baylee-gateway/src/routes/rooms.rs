@@ -106,11 +106,12 @@ pub(crate) struct CreateGameBody {
     #[serde(default)]
     reconnect_window_secs: Option<u32>,
     /// @description The house AI's difficulty for `mode: ai`; `steady`
-    /// when absent, and an unknown one is refused.
+    /// when absent, and an unknown one is refused. `seer` alone reads the
+    /// opponent's hidden cards, which makes it unfair by design.
     /// @internal
     /// The house AI's difficulty for `mode: "ai"`, by its name
     /// (`AIProfile::NAMED`); `steady` when absent, refused when unknown.
-    /// @openapi enum: [novice, casual, steady, sharp, expert, null]
+    /// @openapi enum: [novice, casual, steady, sharp, expert, seer, null]
     #[serde(default)]
     ai: Option<String>,
     /// @description Whether signed-in players who hold no chair may watch
@@ -527,9 +528,10 @@ pub(crate) struct SeatBody {
     #[serde(default)]
     kind: Option<String>,
     /// @description The difficulty an AI chair plays at. The host's.
+    /// `seer` alone reads the other chairs' hidden cards.
     /// @internal
     /// Which difficulty an AI chair plays at.
-    /// @openapi enum: [novice, casual, steady, sharp, expert, null]
+    /// @openapi enum: [novice, casual, steady, sharp, expert, seer, null]
     #[serde(default)]
     ai: Option<String>,
     /// @description The deck the chair plays, one of the caller's own

@@ -23,6 +23,8 @@ pub(super) enum Event<'a> {
     Turn { views: &'a [PlayerView], turn: u32 },
     /// The evaluated seat answers a question.
     Decision(Decision<'a>),
+    /// Another seat answers one; one view per seat before its answer.
+    Other { views: &'a [PlayerView] },
     /// A line of the game's log, as the evaluated seat was told it.
     Log { turn: u32, text: &'a str },
     /// The game is over.
@@ -62,23 +64,36 @@ pub(super) struct Game {
 impl Game {
     /// Reads deal `game` of the record directory `run`.
     pub(super) fn load(run: &Path, game: u64) -> anyhow::Result<Self> {
+        Self::load_as(run, game, None)
+    }
+
+    /// [`Self::load`], read from `seat`'s chair when given. A `selfplay`
+    /// run, the house against the house, names no focal seat and keeps no
+    /// rollout sidecar: every answer in it is the house's, and which chair
+    /// to follow is the reader's choice.
+    pub(super) fn load_as(run: &Path, game: u64, seat: Option<u8>) -> anyhow::Result<Self> {
         let row = row(run, game)?;
-        let seat = PlayerId::new(u8::try_from(
-            row["focal_seat"]
-                .as_u64()
-                .context("the game has no focal seat")?,
-        )?);
-        let sources = row["rollout_sidecar"]
-            .as_array()
-            .context("the game has no rollout sidecar")?
-            .iter()
-            .map(|step| {
-                step["provenance"]["source"]
-                    .as_str()
-                    .unwrap_or("?")
-                    .to_owned()
-            })
-            .collect();
+        let seat = PlayerId::new(match seat {
+            Some(seat) => seat,
+            None => u8::try_from(
+                row["focal_seat"]
+                    .as_u64()
+                    .context("the game has no focal seat (name one with --seat)")?,
+            )?,
+        });
+        let sources = match row["rollout_sidecar"].as_array() {
+            Some(steps) => steps
+                .iter()
+                .map(|step| {
+                    step["provenance"]["source"]
+                        .as_str()
+                        .unwrap_or("?")
+                        .to_owned()
+                })
+                .collect(),
+            None if row["focal_seat"].is_null() => Vec::new(),
+            None => bail!("the game has no rollout sidecar"),
+        };
         let lines = record(run, &row)?;
         Ok(Self {
             row,
@@ -86,6 +101,27 @@ impl Game {
             sources,
             lines,
         })
+    }
+
+    /// The seats on the evaluated seat's side: itself and its teammates.
+    pub(super) fn side(&self) -> Vec<PlayerId> {
+        let Some(Line::Header { preset, .. }) = self.lines.first() else {
+            return vec![self.seat];
+        };
+        let team = preset
+            .seats
+            .get(usize::from(self.seat.get()))
+            .and_then(|seat| seat.team);
+        (0..preset.seats.len())
+            .filter_map(|index| u8::try_from(index).ok())
+            .map(PlayerId::new)
+            .filter(|player| {
+                *player == self.seat
+                    || team.is_some_and(|team| {
+                        preset.seats[usize::from(player.get())].team == Some(team)
+                    })
+            })
+            .collect()
     }
 
     /// Replays the game and shows `visit` what happens; with `log`, the
@@ -137,8 +173,17 @@ impl Game {
                             asked: asked.as_ref().map(|(_, view)| view),
                             pending: session.pending(),
                             action,
-                            source: sources.next().map_or("?", String::as_str),
+                            source: sources.next().map_or(
+                                if self.sources.is_empty() {
+                                    "house"
+                                } else {
+                                    "?"
+                                },
+                                String::as_str,
+                            ),
                         }))?;
+                    } else {
+                        visit(Event::Other { views: &views })?;
                     }
                     let routed = session
                         .act(PlayerId::new(*actor), action.clone())

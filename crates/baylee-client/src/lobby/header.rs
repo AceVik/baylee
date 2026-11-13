@@ -1842,7 +1842,9 @@ fn animate_toasts(
     }
 }
 
-/// The unified toast lane at the top-left: lobby status/error notices and
+/// The unified toast lane in the bottom-right corner (under the header on a
+/// phone), above the update card when one stands there
+/// ([`LaneRest::place`]): lobby status/error notices and
 /// the bell's newest items for 15 seconds each, dismissible via `×`, narrow
 /// (290 px) with word-wrapping, gradient background, and `Sheen` animation.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system; one lane, read in order
@@ -1852,7 +1854,7 @@ pub(super) fn toast_lane(
     state: Res<LobbyState>,
     mut toasts: ResMut<Toasts>,
     fonts: Option<Res<UiFonts>>,
-    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
+    (windows, ui, cards): (Query<&Window>, Option<Res<UiScale>>, UpdateCards),
     input: Res<crate::shellkit::InputClass>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     lanes: Query<Entity, With<ToastLane>>,
@@ -1935,23 +1937,29 @@ pub(super) fn toast_lane(
         german: lang == Lang::De,
     };
     let phone = kit.m.frame == Frame::Phone;
+    let rest = LaneRest {
+        edge: kit.m.body,
+        gap: kit.m.gap,
+    };
+    // A phone's lane hangs under the header, clear of the card's corner.
+    let (right, bottom) = if phone {
+        (px_fixed(rest.edge), Val::Auto)
+    } else {
+        rest.place(update_card_corner(&cards))
+    };
     let lane = commands
         .spawn((
             ToastLane,
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Auto,
-                right: px_fixed(kit.m.body),
+                right,
                 top: if phone {
                     px_fixed(kit.m.header + kit.m.gap)
                 } else {
                     Val::Auto
                 },
-                bottom: if phone {
-                    Val::Auto
-                } else {
-                    px_fixed(kit.m.body)
-                },
+                bottom,
                 width: kit.m.px(290.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px_fixed(kit.m.gap),
@@ -1961,6 +1969,9 @@ pub(super) fn toast_lane(
             Pickable::IGNORE,
         ))
         .id();
+    if !phone {
+        commands.entity(lane).insert(rest);
+    }
     for (id, kind, text) in &now {
         let action = (*id == ToastId::Undo).then(|| {
             controls::button_compact(
@@ -2014,6 +2025,70 @@ pub(super) fn toast_lane(
 /// The toast lane's root.
 #[derive(Component)]
 pub(crate) struct ToastLane;
+
+/// Where a desktop lane rests in the bottom-right corner with nothing under
+/// it: `edge` from the window's right and bottom, its toasts `gap` apart.
+#[derive(Component, Clone, Copy, PartialEq, Debug)]
+pub(super) struct LaneRest {
+    pub(super) edge: f32,
+    pub(super) gap: f32,
+}
+
+impl LaneRest {
+    /// The lane's `right` and `bottom`. The update card holds the same
+    /// corner (`update::card`), and the lane, drawn later, lay over the
+    /// card's title and its buttons; with a card there (its right edge's
+    /// distance from the window's, and its top's from the bottom) the lane
+    /// stands on top of it, edge on edge, one gap above.
+    pub(super) fn place(self, card: Option<(f32, f32)>) -> (Val, Val) {
+        match card {
+            Some((right, top)) => (px_fixed(right), px_fixed(top + self.gap)),
+            None => (px_fixed(self.edge), px_fixed(self.edge)),
+        }
+    }
+}
+
+/// The update card as the lane reads it.
+type UpdateCards<'w, 's> =
+    Query<'w, 's, (&'static ComputedNode, &'static Node), With<crate::update::UpdateToast>>;
+
+/// The lobby's update card: how far its right edge is from the window's and
+/// its top from the window's bottom, in UI units. `None` at a table, where
+/// the card stands top centre, and while it has not been laid out.
+fn update_card_corner(cards: &UpdateCards<'_, '_>) -> Option<(f32, f32)> {
+    cards.iter().find_map(|(drawn, node)| {
+        let (Val::Px(right), Val::Px(bottom)) = (node.right, node.bottom) else {
+            return None;
+        };
+        let height = drawn.size().y * drawn.inverse_scale_factor();
+        (height > 0.0).then_some((right, bottom + height))
+    })
+}
+
+/// The lanes that stand on the update card, told apart from the card, which
+/// is a `Node` as they are.
+type StandingLanes<'w, 's> = Query<
+    'w,
+    's,
+    (&'static LaneRest, &'static mut Node),
+    (With<ToastLane>, Without<crate::update::UpdateToast>),
+>;
+
+/// Keeps a standing lane clear of the update card as the card comes, grows
+/// (a download's bar, an error's line) and goes. Compares before it writes.
+fn stand_over_the_update_card(cards: UpdateCards, mut lanes: StandingLanes) {
+    if lanes.is_empty() {
+        return;
+    }
+    let card = update_card_corner(&cards);
+    for (rest, mut node) in &mut lanes {
+        let (right, bottom) = rest.place(card);
+        if node.right != right || node.bottom != bottom {
+            node.right = right;
+            node.bottom = bottom;
+        }
+    }
+}
 
 /// Takes the lobby's toasts away as a table opens (owner, 22.10.2026: "they
 /// don't go away, and their X doesn't close them").
@@ -2109,6 +2184,7 @@ pub(super) fn install(app: &mut App) {
                     follow_the_account,
                     ring_the_bell,
                     toast_lane,
+                    stand_over_the_update_card.after(toast_lane),
                     animate_toasts,
                     super::front::faces::animate_status_banners,
                     super::feed::follow_the_feed.after(super::feed::feed),

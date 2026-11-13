@@ -17,7 +17,9 @@
 //
 // `baylee_client_core::tabletop::seat_mat` is the base-layout reference:
 // only the rim carries seat colour, and seams sit between the same lanes.
-// The shader adds recessed tooling and resolves grain to the pixel footprint.
+// The shader adds recessed tooling and the tray's shade (`TRAY_*`), which
+// darkens the cloth under the field, and resolves grain to the pixel
+// footprint.
 // `table::camera_tests` checks the shared `tabletop::MAT_*` constants.
 //
 // # The browser's budget
@@ -169,6 +171,27 @@ const BREATH_LOW: f32 = 0.55;
 /// border is a glow, and in one pixel it is an outline.
 const TURN_REACH: f32 = 0.85;
 
+/// The field as a shallow tray of smoked glass let into the table.
+///
+/// The mat was a veil of light and nothing else, so it lay on the cloth like
+/// a drawing of a mat: the carved channels ran under it as bright as beside
+/// it, and under a card they were the loudest thing on the board. A tray
+/// takes light instead. `TRAY_SMOKE` is how much of the cloth's light the
+/// glass keeps back over the whole field; `TRAY_WALL` is the shadow the
+/// table's edge throws into it on the side the light comes from, `TRAY_AO`
+/// the little every wall holds back, and `TRAY_REACH` how far in either
+/// runs, in table units.
+///
+/// `TRAY_LIGHT` is where the light stands **on the screen** (up and to the
+/// left, as the cloth's `CUT_LIGHT` has it), not in the mat's own space: a
+/// seat across the table is drawn turned round, and its shadow must still
+/// fall the way every other shadow on the board does.
+const TRAY_SMOKE: f32 = 0.30;
+const TRAY_WALL: f32 = 0.30;
+const TRAY_AO: f32 = 0.10;
+const TRAY_REACH: f32 = 0.50;
+const TRAY_LIGHT: vec2<f32> = vec2<f32>(-0.5, -0.866);
+
 // Brushed champagne in the frame, not in the playing lanes. Linear colour.
 const FRAME_INK: vec3<f32> = vec3<f32>(0.31, 0.245, 0.15);
 
@@ -198,6 +221,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // One pixel of edge, whatever the mat's size and wherever the camera is.
     let aa = max(fwidth(d), 1e-5);
     let footprint = fwidth(p);
+    // Which way the nearest edge faces on the screen, for the tray's shadow.
+    let slope = vec2<f32>(dpdx(d), dpdy(d));
+    let facing = dot(slope / max(length(slope), 1e-6), TRAY_LIGHT);
     let coverage = clamp(0.5 - d / aa, 0.0, 1.0);
     if coverage <= 0.0 {
         discard;
@@ -310,5 +336,17 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let base_colour = mix(vec3<f32>(1.0), params.accent.rgb, hue);
     let signal_colour = mix(params.accent.rgb, vec3<f32>(0.25, 0.72, 0.82), params.awaited * 0.20);
     let colour = mix(mix(base_colour, signal_colour, clamp(running * 12.0, 0.0, 1.0)), FRAME_INK, tooling * 0.5);
-    return vec4<f32>(colour, clamp(value, 0.0, 1.0) * coverage);
+    // The tray's shade lies under the mat's light: the cloth is darkened
+    // first and the veil, the seams and the rim are laid over what is left,
+    // which is one straight-alpha colour again once the two are folded.
+    // It fades with the seat, as everything else of the mat does.
+    let wall = 1.0 - smoothstep(0.0, TRAY_REACH, inset);
+    let shade = clamp(
+        (TRAY_SMOKE + wall * wall * (TRAY_AO + TRAY_WALL * max(facing, 0.0))) * params.accent.w,
+        0.0,
+        0.9
+    );
+    let light = clamp(value, 0.0, 1.0);
+    let alpha = 1.0 - (1.0 - shade) * (1.0 - light);
+    return vec4<f32>(colour * light / max(alpha, 1e-4), alpha * coverage);
 }

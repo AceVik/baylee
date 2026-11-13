@@ -271,3 +271,192 @@ fn a_fork_shows_its_seat_what_the_table_shows_it() {
         session.observe_view(SEARCHER).turn
     );
 }
+
+/// A fork on a public prior deals the house's hidden cards from the prior
+/// and tells no chair of the fork a real list it does not own: the
+/// searcher's chair keeps its deck, the house's chair is told the prior's
+/// cards as its deck. The fork plays on as any other, and the table is as
+/// it was.
+#[test]
+fn a_fork_on_a_prior_knows_no_list_but_the_searchers() {
+    use baylee_engine::engine::PublicPrior;
+    use baylee_engine::zone::ZoneLocation;
+
+    let house = PlayerId::new(1);
+    let forest = baylee_cards::decks::by_name("Forest").expect("the registry holds Forest");
+    let bears = baylee_cards::decks::by_name("Grizzly Bears").expect("and Grizzly Bears");
+    let mut session = table(38);
+    to_forkable_main(&mut session, 3);
+    let before = session.snapshot_hash();
+    let prior = PublicPrior::new().with_player(house, vec![(forest, 2), (bears, 1)]);
+    let mut fork = session
+        .fork_for(SEARCHER, DeckKnowledge::Prior(&prior), POLICY_SEED)
+        .expect("the root forks on a prior");
+
+    assert_eq!(
+        fork.told_deck(SEARCHER),
+        session.scouting_decks[0].cards,
+        "the searcher's own list"
+    );
+    let mut listed = vec![forest, bears];
+    listed.sort_unstable();
+    assert_eq!(fork.told_deck(house), listed, "the prior's cards");
+    assert_ne!(fork.told_deck(house), session.scouting_decks[1].cards);
+    let state = fork.state();
+    for zone in [ZoneLocation::Hand(house), ZoneLocation::Library(house)] {
+        assert!(!state.zones.list(zone).is_empty());
+        for &id in state.zones.list(zone) {
+            let card = state.object(id).and_then(|o| o.card).expect("a card");
+            assert!(listed.contains(&card.index), "dealt from the prior");
+        }
+    }
+
+    assert_eq!(play_fork(&mut fork, 60).len(), 60, "the fork plays on");
+    assert_eq!(session.snapshot_hash(), before, "the table is untouched");
+    assert_eq!(
+        session
+            .fork_for(
+                SEARCHER,
+                DeckKnowledge::Prior(&PublicPrior::new()),
+                POLICY_SEED
+            )
+            .err(),
+        Some(ForkRefusal::UnusablePrior(
+            baylee_engine::engine::PriorFault::NoCards(house)
+        ))
+    );
+}
+
+/// Every spell a search tries at a root because the seat's lands pay for it
+/// while it is cast (`AIProfile::SPELL_ROOTS`: in `legal.payable`, and among
+/// the candidates) is paid by the house once the chair is released in a
+/// fork, so it goes on the stack and is not taken back. The offer's other
+/// payable cards, which the planner does not pay for, are no candidates.
+#[test]
+fn a_spell_cast_in_a_fork_is_paid_by_the_house_that_plays_on() {
+    let mut session = table(31);
+    let mut tried = 0;
+    for turn in 3..9 {
+        to_forkable_main(&mut session, turn);
+        let (pending, view) = session.view_for(SEARCHER).expect("the searcher is asked");
+        let Pending::Priority { legal, .. } = &pending else {
+            unreachable!("a forkable main phase is a priority");
+        };
+        let searcher = baylee_ai::HeuristicAgent::new(baylee_core::preset::AIProfile::EXPERT);
+        let own = session.house_action(SEARCHER).expect("an answer");
+        let tried_here: Vec<ObjectId> = searcher
+            .foresight_candidates(&view, &pending, &own, usize::MAX)
+            .answers
+            .into_iter()
+            .filter_map(|answer| match answer {
+                PlayerAction::CastSpell { card } if legal.payable.contains(&card) => Some(card),
+                _ => None,
+            })
+            .collect();
+        for card in tried_here {
+            let mut fork = session
+                .fork_for(SEARCHER, DeckKnowledge::Known, POLICY_SEED)
+                .expect("the root forks");
+            let index = |view: &baylee_view::PlayerView| {
+                view.hand
+                    .iter()
+                    .find(|held| held.id == card)
+                    .map(|held| held.card.index)
+                    .or_else(|| {
+                        view.command
+                            .iter()
+                            .flatten()
+                            .find(|object| object.id == card)
+                            .and_then(|object| object.card.map(|card| card.index))
+                    })
+            };
+            let (_, view) = fork.view_for(SEARCHER).expect("asked");
+            let printed = index(&view).expect("a payable card is in the hand or the command zone");
+            if fork
+                .act_slice(SEARCHER, PlayerAction::CastSpell { card }, 0)
+                .is_err()
+            {
+                continue;
+            }
+            assert!(fork.release(SEARCHER));
+            let mut cast = false;
+            for _ in 0..40 {
+                let view = fork.observe_view(SEARCHER);
+                if view.casting.is_none()
+                    && view.owed.is_none()
+                    && view.stack.iter().any(|spell| {
+                        spell.controller == SEARCHER
+                            && spell.card.is_some_and(|on| on.index == printed)
+                    })
+                {
+                    cast = true;
+                    break;
+                }
+                if fork.pump_at_most(1) == 0 {
+                    break;
+                }
+            }
+            assert!(
+                cast,
+                "the house did not pay for card {card:?} cast in a fork"
+            );
+            tried += 1;
+        }
+    }
+    assert!(tried > 0, "no spell was offered to be paid while cast");
+}
+
+/// A fork from the real lists deals each other player's hand again from
+/// what that player hides; told that hand (`seen`, a level that peeks from
+/// `AIProfile::SEER_HANDS`), it keeps it card for card, and still deals the
+/// library.
+#[test]
+fn a_fork_keeps_the_hands_its_seat_is_told() {
+    let mut session = table(32);
+    to_forkable_main(&mut session, 3);
+    let other = PlayerId::new(1);
+    let cards = |state: &baylee_engine::state::GameState, zone| -> Vec<_> {
+        state
+            .zones
+            .list(zone)
+            .iter()
+            .filter_map(|id| state.object(*id).and_then(|o| o.card))
+            .map(|card| card.index)
+            .collect()
+    };
+    let hand = baylee_engine::zone::ZoneLocation::Hand(other);
+    let library = baylee_engine::zone::ZoneLocation::Library(other);
+    let real = cards(session.state(), hand);
+    assert!(!real.is_empty(), "the opponent holds cards");
+    let decks = std::sync::Arc::clone(&session.scouting_decks);
+    let mut told = baylee_core::ids::SeatSet::new();
+    told.insert(other);
+    let mut redealt = 0;
+    for seed in 0..8 {
+        let kept = session
+            .forked(
+                SEARCHER,
+                DeckKnowledge::Known,
+                POLICY_SEED + seed,
+                std::sync::Arc::clone(&decks),
+                told,
+            )
+            .expect("the root forks");
+        assert_eq!(cards(kept.state(), hand), real, "the hand it is told stays");
+        let dealt = session
+            .forked(
+                SEARCHER,
+                DeckKnowledge::Known,
+                POLICY_SEED + seed,
+                std::sync::Arc::clone(&decks),
+                baylee_core::ids::SeatSet::new(),
+            )
+            .expect("the root forks");
+        redealt += usize::from(cards(dealt.state(), hand) != real);
+        assert_eq!(
+            cards(kept.state(), library).len(),
+            cards(session.state(), library).len()
+        );
+    }
+    assert!(redealt > 0, "a hand it is not told is dealt again");
+}

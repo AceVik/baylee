@@ -9,15 +9,13 @@ use super::*;
 /// (CR 702.22h). Unbanded, the same declared block never touches the Hero.
 ///
 /// A third attacker (no banding of its own) rides along so the "up to one"
-/// cap (CR 702.22c) is a live board fact: naming both non-banding attackers
-/// as the band is refused and the question stands, while naming just one
-/// of them is accepted. The question's own `max` is asserted too — it
-/// offers both, uncapped — so that refusal is shown to be CR 702.22c's
-/// count of non-banding members, not this question's ordinary limit. A
-/// second scenario is the stronger proof: a second banding creature
-/// (Timber Wolves) rides in the same band as the Hero and one non-banding
-/// ally, and is accepted outright, since only the ally counts against the
-/// cap.
+/// cap (CR 702.22c) is a live board fact: the question's `max` is what a
+/// band may hold, one of the two, naming both is refused and the question
+/// stands, while naming just one of them is accepted. A second scenario
+/// shows the cap counts non-banding members and not band size: a second
+/// banding creature (Timber Wolves) and one non-banding ally are both on
+/// offer (`max` 2) and accepted outright, since only the ally counts against
+/// the cap.
 #[test]
 #[allow(clippy::too_many_lines)] // the banded/unbanded loop plus the stronger-proof scenario, in full
 fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
@@ -56,10 +54,9 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
             "both other attackers are on offer, neither of them banding"
         );
         assert_eq!(
-            max, 2,
-            "the menu itself offers both — it is not capped at one pick, so \
-             the refusal below is CR 702.22c's own count of non-banding \
-             members, not this question's ordinary maximum"
+            max, 1,
+            "a band holds one of the two at most (CR 702.22c): the bound is \
+             what a band may hold, not the number on offer"
         );
 
         let refused = engine.apply(
@@ -126,13 +123,17 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
     let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
 
     declare_band_attack(&mut engine, p0, p1, &[hero, wolves, lions]);
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards { options, max, .. } = engine.pending().clone() else {
         panic!("expected the band question, got {:?}", engine.pending())
     };
     assert_eq!(
         options,
         vec![wolves, lions],
         "both other attackers on offer, one of them also banding"
+    );
+    assert_eq!(
+        max, 2,
+        "the Wolves count against no cap, and the Lions are the one"
     );
     engine
         .apply(

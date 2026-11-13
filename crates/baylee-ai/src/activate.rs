@@ -40,7 +40,10 @@ use baylee_view::{PlayerView, PublicObject, StackItem};
 
 use crate::worth::{Origin, THRESHOLD};
 
+mod floating;
 mod payment;
+
+pub(crate) use floating::float_for;
 
 /// The ability to activate now, as one of the offered `(source, index)`
 /// handles — or `None`, which is most of the time.

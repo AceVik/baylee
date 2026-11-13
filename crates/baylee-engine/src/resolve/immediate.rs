@@ -1366,56 +1366,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::ForEachMatching { effects, .. } | Effect::ForEachTarget { effects } => {
-            let mut remaining = res.subject.for_each_remaining.take().unwrap_or_else(|| {
-                let context = res.rule_context();
-                if matches!(op, Effect::ForEachTarget { .. }) {
-                    let mut targets: Vec<_> = res
-                        .targets
-                        .iter()
-                        .filter_map(|id| subjects::target(state, res, *id))
-                        .collect();
-                    targets.reverse();
-                    return targets;
-                }
-                let Effect::ForEachMatching { filter, .. } = op else {
-                    unreachable!("iteration instruction");
-                };
-                let mut matched: Vec<baylee_core::ids::DamageSourceRef> = state
-                    .battlefield_seen()
-                    .filter_map(|id| {
-                        let o = state.object(id)?;
-                        eval::matches_with_context(filter, state, o, you, context).then_some(
-                            baylee_core::ids::DamageSourceRef {
-                                object: id,
-                                version: o.version,
-                            },
-                        )
-                    })
-                    .collect();
-                matched.reverse();
-                matched
-            });
-            while let Some(next_ref) = remaining.pop() {
-                let Some(obj) = state.object(next_ref.object).filter(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == next_ref.version
-                }) else {
-                    continue;
-                };
-                let controller = obj.controller;
-                let power = obj.characteristics().power.unwrap_or(0);
-                res.event_object = Some(next_ref.object);
-                res.subject.set_event_identity(Some((next_ref, power)));
-                res.subject.set_event_player(Some(controller));
-                let mut spliced = flatten(effects);
-                if !remaining.is_empty() {
-                    res.subject.for_each_remaining = Some(remaining);
-                    spliced.push(op);
-                }
-                let at = res.pc + 1;
-                res.effects.splice(at..at, spliced);
-                return None;
-            }
-            None
+            super::for_each::step(state, res, effects, op)
         }
         Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter, effects } => {
             let after = state.journal.last_seq();
@@ -1490,8 +1441,7 @@ pub(super) fn exec_immediate(
             let host = state.object(aura).and_then(|o| o.attached_to)?;
             let host_types = state
                 .object(host)
-                .map(|o| o.characteristics().types.intersection(types))
-                .unwrap_or_default();
+                .map_or_default(|o| o.characteristics().types.intersection(types));
             if host_types.is_empty() {
                 return None;
             }
@@ -3552,10 +3502,15 @@ pub(super) fn cleansing_advance(
                     to_destroy,
                     life,
                 });
+                // The land the payment keeps, named: a seat that paid for
+                // ten lands was told "Pay 1 life?" ten times and could not
+                // tell its own from its opponent's (Carbon b8, segment 3,
+                // attempt 27, q163-q173; CR 608.2d).
                 return Some(Pending::YesNo {
                     player: asked,
                     prompt: crate::choice::YesNoPrompt::PayLife {
                         amount: u32::from(life),
+                        permanent: Some(perm),
                     },
                     source: resolving_ability(state, res),
                 });

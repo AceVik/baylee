@@ -274,7 +274,7 @@ impl From<deck::Model> for Deck {
             // what "nobody" reads as on this side — every route that cares
             // compares it against the account asking, and no account has an
             // empty id.
-            account_id: row.account_id.map(id).unwrap_or_default(),
+            account_id: row.account_id.map_or_default(id),
             kind: row.kind,
             name: row.name,
             format: row.format,
@@ -407,9 +407,7 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
 ///
 /// Together, in one transaction: the session is the only way into a guest,
 /// so a guest written without one would be an account nobody can reach —
-/// which is exactly what [`purge_guests`] deletes. With `invite`, the
-/// closed-beta key's use too (#317), first; `None` when it admits nobody,
-/// and then nothing is written.
+/// which is exactly what [`purge_guests`] deletes.
 ///
 /// # Errors
 ///
@@ -419,20 +417,8 @@ pub async fn create_guest(
     new: NewGuest,
     token_hash: Vec<u8>,
     expires_at: u64,
-    invite: Option<&[u8]>,
-) -> Result<Option<Account>> {
+) -> Result<Account> {
     let txn = db.begin().await?;
-    let invite_id = match invite {
-        None => None,
-        Some(key_hash) => {
-            let Some(id) = baylee_db::invites::redeem(&txn, key_hash, at(new.created_at)).await?
-            else {
-                txn.rollback().await?;
-                return Ok(None);
-            };
-            Some(id)
-        }
-    };
     let made = Accounts::insert(account::ActiveModel {
         id: NotSet,
         email: Set(None),
@@ -445,7 +431,6 @@ pub async fn create_guest(
         confirmed_at: Set(None),
         lang: Set(new.lang),
         guest: Set(true),
-        invite_id: Set(invite_id),
         terms_version: Set(None),
         terms_accepted_at: Set(None),
         must_change_password: Set(false),
@@ -464,7 +449,7 @@ pub async fn create_guest(
     .exec(&txn)
     .await?;
     txn.commit().await?;
-    Ok(Some(made.into()))
+    Ok(made.into())
 }
 
 /// How many guests there are, which is how many a session still leads to,

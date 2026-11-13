@@ -29,14 +29,15 @@ use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::convert4::RolloutStepSidecar4;
+use baylee_train::deals4::{Deal, DeckSchedule};
 use baylee_train::deckgen::{self, Archetype};
 use baylee_train::features4::{
     CoverageMatrix4, SourceKind4, StepProvenance4, view_only_state_hash,
 };
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchConfig4, SearchedAnswer4, Selection4, follow_decision, search_decision,
-    terminal_utility,
+    KnownDecks, PriorDecks, ScriptFollow4, SearchConfig4, SearchedAnswer4, Selection4,
+    follow_decision, follow_script, search_decision_avoiding, terminal_utility,
 };
 use baylee_train::netplay4::{
     BatchLimits4, BatchedNet4, CatalogPolicy4, CatalogRead4, ChoiceGuard4, CriticSemantics4,
@@ -55,11 +56,14 @@ mod attempts;
 mod collector;
 mod diagnostics;
 mod failure_terminal;
+mod foresight;
 mod house_seat;
 mod lookahead;
 mod precision;
+mod profile_spec;
 mod random_seat;
 mod seat_players;
+mod select;
 mod shadow;
 mod tactician;
 
@@ -131,6 +135,33 @@ fn main() -> anyhow::Result<()> {
     if args.thinking_steps == 0 && args.legacy_v3 {
         bail!("--legacy-v3 has no thinking steps to leave out");
     }
+    let think_adaptive = args
+        .think_adaptive
+        .as_deref()
+        .map(|text| baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps))
+        .transpose()?;
+    let grouped_decode = args.grouped_decode;
+    if grouped_decode
+        && (args.legacy_v3
+            || args.random_policy
+            || args.collection_purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--grouped-decode is an evaluation of a v4/v5 net: no legacy model, random policy \
+             or collection (a recorded behaviour probability is the plain policy's)"
+        );
+    }
+    if think_adaptive.is_some()
+        && (args.legacy_v3
+            || args.random_policy
+            || args.search.is_some()
+            || args.collection_purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--think-adaptive is an evaluation of a v5 net: no legacy model, random policy, \
+             search or collection (a recorded behaviour policy plays one depth)"
+        );
+    }
     let policy_mode = if args.raw_policy {
         PolicyMode4::Raw
     } else {
@@ -156,13 +187,14 @@ fn main() -> anyhow::Result<()> {
         && (!args.raw_policy
             || (args.temperature != 0.0 && !args.dev_free_temperature)
             || args.legacy_v3
-            || args.search.is_some()
+            || (args.search.is_some() && !args.search_fair)
             || args.shadow_teacher.is_some()
             || collection.purpose != collector::Purpose::Evaluation)
     {
         bail!(
             "--choice-guard is a measurement: it needs --raw-policy at temperature 0 \
-             and no search, shadow or collection, and its records are no training data"
+             and no search (but a fair one, --search-fair), shadow or collection, and its \
+             records are no training data"
         );
     }
     let tactic_rules = if args.tactics_shadow {
@@ -224,6 +256,26 @@ fn main() -> anyhow::Result<()> {
     if args.dev_free_temperature {
         choice_guard.get_or_insert_default().free_temperature = true;
     }
+    if args.search_student.is_some()
+        && (args.legacy_v3
+            || args.random_policy
+            || args.search.is_some()
+            || args.menu_payable
+            || args.tactician_windows.is_some()
+            || args.shadow_teacher.is_some()
+            || collection.purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--search-student plays the seat under test for a measurement: no search, payable \
+             menu, tactician, shadow, random or v3 seat, and no collection"
+        );
+    }
+    let student_head = args
+        .search_student
+        .as_deref()
+        .map(baylee_train::netplay4::student::AdvantageHead4::load)
+        .transpose()?
+        .map(std::sync::Arc::new);
     let search_config = search_config(&args)?;
     let search = search_metadata(&args, search_config, model_identity.as_ref());
     let catalog = catalog_metadata(&args, &collection)?;
@@ -313,6 +365,7 @@ fn main() -> anyhow::Result<()> {
         if use_expanded_training_variance {
             load_expanded_training_decks(
                 args.decks_manifest.as_ref(),
+                &args.deck_split,
                 &working,
                 &held,
                 &pool,
@@ -370,6 +423,20 @@ fn main() -> anyhow::Result<()> {
             args.seats
         );
     }
+    args.deck_schedule.check(args.seats, decks.len())?;
+    if let (Some(path), Some(pilots)) = (&args.write_deals, &args.pilot_decks) {
+        let pilots = select::pilot_keys(pilots)?;
+        let selection = select::select(
+            &decks,
+            args.deck_schedule,
+            args.seats,
+            args.deal_offset,
+            args.deals,
+            &pilots,
+        )?;
+        return select::write(path, &selection, decks.len());
+    }
+    let out = args.out.clone().context("--out names the summary")?;
 
     let accepted_deck_keys: Vec<_> = decks.iter().map(|deck| deck.key.clone()).collect();
     let accepted_deck_count = decks.len();
@@ -444,6 +511,10 @@ fn main() -> anyhow::Result<()> {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);
         }
+        if args.deck_schedule != DeckSchedule::Fixed {
+            // Only another seating names it, so the records of every run before stay as they were.
+            run["deck_schedule"] = json!(args.deck_schedule.name());
+        }
         if let Some(search) = &search {
             // Only searched runs name it; convert4 certifies no policy-gradient
             // dataset from a run that does.
@@ -511,6 +582,23 @@ fn main() -> anyhow::Result<()> {
             .map(|dir| File::create(dir.join("games.jsonl")).map(BufWriter::new))
             .transpose()?,
     ));
+    let baseline_lines = Arc::new(Mutex::new(
+        args.record_baseline
+            .as_ref()
+            .map(|dir| -> anyhow::Result<_> {
+                anyhow::ensure!(
+                    !dir.exists() || fs::read_dir(dir)?.next().is_none(),
+                    "--record-baseline must be new or empty"
+                );
+                anyhow::ensure!(
+                    !args.no_baseline,
+                    "--record-baseline needs the baseline game"
+                );
+                fs::create_dir_all(dir.join("records"))?;
+                Ok(BufWriter::new(File::create(dir.join("games.jsonl"))?))
+            })
+            .transpose()?,
+    ));
     let value_log = args
         .value_log
         .as_ref()
@@ -537,18 +625,43 @@ fn main() -> anyhow::Result<()> {
         let teams_arc = teams_arc.clone();
         let next_deal = next_deal.clone();
         let only_deals = only_deals.clone();
+        let one_deal_per_game = args.one_deal_per_game;
         let stats_arc = stats_arc.clone();
         let games_lines = games_lines.clone();
+        let baseline_lines = baseline_lines.clone();
+        let baseline_out = args.record_baseline.clone();
+        let baseline_name = args.baseline.clone();
+        let against_name = args.against.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
         let shadow_spec = shadow_spec.clone();
         let deals = end_deal;
         let seats = args.seats;
+        let deck_schedule = args.deck_schedule;
         let first_seed = args.first_seed;
         let policy_seed = args.policy_seed;
         let k_steps = args.thinking_steps;
         let temp = args.temperature;
-        let fair = args.fair_scouting;
+        foresight::configure(
+            args.house_foresight,
+            args.random_policy,
+            args.foresight_work,
+            args.foresight_nodes,
+        );
+        if let Some(path) = &args.leaf_log {
+            foresight::open_leaf_log(path)?;
+        }
+        if let Some(path) = &args.foresight_questions {
+            foresight::open_question_log(
+                path,
+                &args.foresight_question_kinds,
+                !args.foresight_questions_all,
+            )?;
+        }
+        if let Some(path) = &args.foresight_probe {
+            foresight::open_probe_log(path, args.foresight_probe_every)?;
+        }
+        let fair = args.fair_scouting && !args.seer_peeks;
         let house_as_seat = args.house_as_seat;
         let no_base = args.no_baseline;
         let catalog = catalog_read(&args);
@@ -566,6 +679,8 @@ fn main() -> anyhow::Result<()> {
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
         let random_policy = args.random_policy;
         let tactician_setup = tactician_setup.clone();
+        let student_head = student_head.clone();
+        let student_candidates = args.search_student_candidates;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -583,11 +698,32 @@ fn main() -> anyhow::Result<()> {
             if let Some(guard) = choice_guard {
                 anyhow::ensure!(net.set_choice_guard(&guard), "--choice-guard needs a net");
             }
+            if grouped_decode {
+                anyhow::ensure!(net.set_grouped_decode(), "--grouped-decode needs a net");
+            }
+            if let Some(adaptive) = think_adaptive {
+                anyhow::ensure!(
+                    net.set_adaptive_thinking(adaptive)?,
+                    "--think-adaptive needs a net"
+                );
+            }
             if tactic_rules.any() {
                 anyhow::ensure!(net.set_tactic_rules(tactic_rules), "--tactics-rules needs a net");
             }
             if let Some(bias) = menu_payable {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
+            }
+            if let Some(head) = &student_head {
+                let head: std::sync::Arc<dyn baylee_train::netplay4::student::StudentHead4> =
+                    std::sync::Arc::<baylee_train::netplay4::student::AdvantageHead4>::clone(head);
+                let student = baylee_train::netplay4::student::SearchStudent4::new(
+                    head,
+                    student_candidates,
+                )?;
+                anyhow::ensure!(
+                    net.set_search_student(student)?,
+                    "--search-student needs a net"
+                );
             }
             let mut tactician_sink = None;
             if let Some(setup) = &tactician_setup {
@@ -605,6 +741,13 @@ fn main() -> anyhow::Result<()> {
                 )),
                 None => None,
             };
+            let mut baseline_shard = match &baseline_out {
+                Some(dir) => Some((
+                    BufWriter::new(File::create(dir.join("records").join(&shard_name))?),
+                    0_u64,
+                )),
+                None => None,
+            };
 
             loop {
                 let d = next_deal.fetch_add(1, Ordering::Relaxed);
@@ -614,19 +757,19 @@ fn main() -> anyhow::Result<()> {
                 if only_deals.as_ref().is_some_and(|only| !only.contains(&d)) {
                     continue;
                 }
+                if one_deal_per_game && !leads_its_side((d as usize) % seats, &teams_arc) {
+                    continue;
+                }
                 // A watching model that said a limit teaches no further game.
                 if shadow_spec.as_ref().is_some_and(|spec| spec.spent()) {
                     break;
                 }
                 if let Some(ledger) = &attempts { ledger.claim(d, worker_id)?; }
-                let table_idx = (d as usize) / seats;
-                let focal_seat = (d as usize) % seats;
+                let deal = Deal::of(deck_schedule, d, seats, decks_arc.len());
+                let (table_idx, focal_seat) = (deal.table, deal.focal_seat);
                 let seed = first_seed + (table_idx as u64);
-                let mut table_decks = Vec::with_capacity(seats);
-                for s in 0..seats {
-                    let idx = (table_idx * seats + s) % decks_arc.len();
-                    table_decks.push(&decks_arc[idx]);
-                }
+                let table_decks: Vec<&HouseDeck> =
+                    deal.decks.iter().map(|&index| &decks_arc[index]).collect();
                 let mut profiles = vec![opp_profile; seats];
                 for (s, profile) in profiles.iter_mut().enumerate() {
                     if is_net_seat(s, focal_seat, &teams_arc) {
@@ -750,7 +893,7 @@ fn main() -> anyhow::Result<()> {
                 let (base_u, base_capped) = if no_base {
                     (0.0, false)
                 } else {
-                    let (bu, bc, _, _, _, _, _, _, _, _, _) = play_one_table(
+                    let (bu, bc, _, _, _, _, _, base_bytes, base_outcome, _, _) = play_one_table(
                         &deal_game_id,
                         d,
                         focal_seat,
@@ -764,12 +907,45 @@ fn main() -> anyhow::Result<()> {
                         fair,
                         false,
                         max_decisions,
-                        false,
+                        baseline_shard.is_some(),
                         None,
                         None,
                         None,
                         None,
                     )?;
+                    // The house against the house, laid out as a `selfplay`
+                    // run: no focal seat and no sidecar, so `gamelog4 show`
+                    // follows the chair its `--seat` names.
+                    if let Some((f, offset)) = &mut baseline_shard {
+                        let mut gz = GzEncoder::new(Vec::new(), Compression::fast());
+                        gz.write_all(&base_bytes)?;
+                        let compressed = gz.finish()?;
+                        f.write_all(&compressed)?;
+                        f.flush()?;
+                        let line = json!({
+                            "game": deal_game_id,
+                            "i": d,
+                            "seed": seed,
+                            "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>(),
+                            "profiles": (0..seats).map(|s| if is_net_seat(s, focal_seat, &teams_arc) {
+                                &baseline_name
+                            } else {
+                                &against_name
+                            }).collect::<Vec<_>>(),
+                            "baseline_seat": focal_seat,
+                            "outcome": base_outcome,
+                            "baseline_utility": bu,
+                            "capped": bc,
+                            "shard": shard_name,
+                            "offset": *offset,
+                            "len": compressed.len(),
+                        });
+                        *offset += compressed.len() as u64;
+                        if let Some(index) = baseline_lines.lock().expect("baseline lock").as_mut() {
+                            writeln!(index, "{}", serde_json::to_string(&line)?)?;
+                            index.flush()?;
+                        }
+                    }
                     (bu, bc)
                 };
 
@@ -791,9 +967,17 @@ fn main() -> anyhow::Result<()> {
                 let guard_fired = net.take_choice_guard_fired();
                 let rules_fired = net.take_tactic_rules_fired();
                 let menu_stats = net.take_menu_stats();
+                let student_stats = net.take_student_stats();
+                let thinking_use = net.take_thinking_use();
+                let grouped_use = net.take_grouped_use();
                 let mut st = stats_arc.lock().expect("stats lock");
+                st.thinking.add(&thinking_use);
+                st.grouped.add(&grouped_use);
                 if let Some(deal_menu) = &menu_stats {
                     st.menu.get_or_insert_default().add(deal_menu);
+                }
+                if let Some(deal_student) = &student_stats {
+                    st.student.get_or_insert_default().add(deal_student);
                 }
                 tactician::count(&mut st.tactician, &tactician_records);
                 st.deals_completed += 1;
@@ -801,6 +985,9 @@ fn main() -> anyhow::Result<()> {
                     "choice_guard_fired": guard_fired,
                     "tactic_rules_fired": rules_fired,
                     "menu": menu_stats,
+                    "search_student": student_stats,
+                    "thinking": think_adaptive.map(|_| thinking_use.report()),
+                    "grouped_decode": grouped_decode.then(|| grouped_use.report()),
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
                     "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
@@ -969,6 +1156,7 @@ fn main() -> anyhow::Result<()> {
     summary["house_counts_include_tactical_demonstrations"] =
         json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
     summary["sampling_version"] = json!(2);
+    summary["one_deal_per_game"] = json!(args.one_deal_per_game);
     summary["deal_details"] = json!(st.deal_details);
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
@@ -981,7 +1169,32 @@ fn main() -> anyhow::Result<()> {
         "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
         "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
+    summary["search_student"] = student_head.as_ref().map_or(Value::Null, |head| {
+        json!({
+            "contract": baylee_train::netplay4::student::HEAD_CONTRACT,
+            "head": head.identity(),
+            "margin": head.margin(),
+            "candidates": args.search_student_candidates,
+            "counts": st.student,
+        })
+    });
+    summary["grouped_decode"] = if grouped_decode {
+        st.grouped.report()
+    } else {
+        Value::Null
+    };
+    summary["think_adaptive"] = json!(think_adaptive);
+    summary["thinking"] = match think_adaptive {
+        Some(_) => st.thinking.report(),
+        None => Value::Null,
+    };
     summary["random_policy"] = json!(args.random_policy);
+    summary["seer_peeks"] = json!(args.seer_peeks);
+    summary["house_foresight"] = json!(args.house_foresight);
+    summary["foresight_work"] = json!(args.foresight_work);
+    summary["foresight_nodes"] = json!(args.foresight_nodes);
+    foresight::close_logs();
+    summary["foresight"] = foresight::summary(args.deals);
     summary["tactician"] = tactician_setup.as_ref().map_or(
         Value::Null,
         |setup| json!({"setup": setup.metadata(), "decisions": st.tactician}),
@@ -1000,6 +1213,10 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
+    if args.deck_schedule != DeckSchedule::Fixed {
+        // Only another seating names it, so every summary before reads as it did.
+        summary["deck_schedule"] = json!(args.deck_schedule.name());
+    }
     if let Some(catalog) = &catalog {
         summary["catalog"] = catalog.clone();
         summary["catalog"]["rule_refs_left_out"] = json!(st.rule_refs_left_out);
@@ -1018,10 +1235,10 @@ fn main() -> anyhow::Result<()> {
             "status":"unadmitted_native_collection_only"});
     }
 
-    if let Some(parent) = args.out.parent() {
+    if let Some(parent) = out.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(&args.out, serde_json::to_vec_pretty(&summary)?)?;
+    fs::write(&out, serde_json::to_vec_pretty(&summary)?)?;
     if collection.purpose != collector::Purpose::Evaluation {
         let directory = args.record_out.as_ref().context("collection output")?;
         baylee_train_ops::files::atomic_json(
@@ -1037,7 +1254,7 @@ fn main() -> anyhow::Result<()> {
         eprintln!(
             "[eval4] unadmitted failure-terminal research: {} attempts, summary={}",
             st.deals_completed,
-            args.out.display()
+            out.display()
         );
         return Ok(());
     }

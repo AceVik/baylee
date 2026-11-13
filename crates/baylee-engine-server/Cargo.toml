@@ -17,7 +17,11 @@ baylee-cards.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
-baylee-gamehost.workspace = true
+# The house's bounded search in copies of the game (`foresight`), which this
+# engine switches on at every table it hosts within the operator's bounds
+# (`src/foresight.rs`). Not `simulation`: the harness around the fork stays out
+# of every hosting build (`cargo dev gate shipped-features`).
+baylee-gamehost = { workspace = true, features = ["foresight"] }
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 bytes.workspace = true
@@ -32,6 +36,12 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+# The search slots (`src/foresight.rs`): the engine's own user, to hold the
+# slots' directory to, and a slot file opened without following a link.
+# Already in the tree (the gateway's metrics, the deploy hooks).
+rustix = { workspace = true, features = ["fs", "process"] }
+
 [dev-dependencies]
 # The other end of the command line this binary is started with. The agent
 # writes the three flags and this reads them, and nothing in the build links
@@ -39,6 +49,8 @@ uuid.workspace = true
 # themselves. It points the way a test may: the reader depends on the writer.
 baylee-agent.workspace = true
 criterion.workspace = true
+# The search slots are files in a directory the agent makes (`src/foresight.rs`).
+tempfile.workspace = true
 
 [[bench]]
 name = "frames"

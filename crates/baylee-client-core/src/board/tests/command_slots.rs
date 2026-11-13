@@ -106,6 +106,43 @@ fn a_commander_on_the_battlefield_leaves_its_slot_standing_and_empty() {
     assert_eq!(command.top, None);
 }
 
+/// A commander's slot says what it costs more to cast from there: `{2}`
+/// for each time it has been cast from the command zone (CR 903.8, as the
+/// view counts them), each partner's its own, and also while the commander
+/// is on the battlefield and its slot empty. A slot only an emblem made
+/// says nothing, and neither does any other pile.
+#[test]
+fn a_command_slot_says_its_commanders_tax() {
+    let first = printed(1, 0, "Sidar Kondo", 11);
+    let second = printed(2, 0, "Tana", 12);
+    // The first is out, cast twice; the second at home and never cast.
+    let mut view = ViewBuilder::new(2)
+        .with_commanders(0, &[&first, &second])
+        .with_command(0, vec![second.clone()])
+        .build();
+    view.seats[0].commanders[0].casts = 2;
+    let piles = zone_piles(&view, PlayerId::new(0));
+    let tax = |kind| {
+        piles
+            .iter()
+            .find(|p| p.kind == kind)
+            .expect("the pile is drawn")
+            .tax
+    };
+    assert_eq!(tax(PileKind::Command), Some(4), "cast twice, and out");
+    assert_eq!(tax(PileKind::Command2), Some(0), "each partner's own");
+    assert_eq!(tax(PileKind::Library), None);
+    assert_eq!(tax(PileKind::Exile), None);
+
+    let emblem = token(3, 0, "Emblem", 0, 0);
+    let bare = ViewBuilder::new(2).with_command(0, vec![emblem]).build();
+    let slot = zone_piles(&bare, PlayerId::new(0))
+        .into_iter()
+        .find(|p| p.kind == PileKind::Command)
+        .expect("an emblem's slot is drawn");
+    assert_eq!(slot.tax, None, "no commander, no tax");
+}
+
 /// An emblem belongs to the first slot. It is in the command zone and
 /// it is not a commander, so it goes where a seat with one commander
 /// already looks.
@@ -140,8 +177,7 @@ fn commanders_remain_single_cards_when_hovered() {
         .build();
     for pile in zone_piles(&view, PlayerId::new(0)) {
         if matches!(pile.kind, PileKind::Command | PileKind::Command2) {
-            assert!(pile.fan.is_empty());
-            assert_eq!(pile.fan_len(), 0);
+            assert!(pile.fan.is_empty() && pile.rest.is_none());
             assert!(pile.top.is_some());
         }
     }

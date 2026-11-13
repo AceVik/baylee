@@ -143,17 +143,21 @@ Two independent things, both stored per account:
   edge of the mat that reads as *above* the board from where the local player
   is sitting (`hud::seatbar`, `client-core/src/seatbar.rs`).
   Green means "ask me here", red means "skip"; the untap row is grey and
-  answers nothing, because no player receives priority there (CR 502.4). Nothing is red by default: a
-  client that auto-passes without being asked loses games its player never
-  agreed to lose. Two **presets** write the whole rail at once —
-  `Stop everywhere`, which is that default said out loud, and
-  `Competitive stops`, which keeps both of your own main phases, the whole of
-  combat on both turns, and the end step of an opponent's. Neither ever reds a
-  row where *this* seat is the one declaring: red is `DeclareNoAttackers` /
-  `DeclareNoBlockers` there, not a pass, and a preset that skipped a
-  declaration step would be answering it.
+  answers nothing, because no player receives priority there (CR 502.4). A
+  fresh account starts on `Standard stops`, the owner's own rail on the live
+  server (his word of 12.11.2026): green in its own two main phases and at
+  both declarations, and on another player's turn in their two main phases,
+  at both declarations and in the end step. Nothing was red by default
+  before that (#130). Four **presets** write the whole rail at once —
+  `Stop everywhere`; `Skip the quiet steps`; `Standard stops`, which is that
+  default said out loud; and `Competitive stops`, which keeps both of your
+  own main phases, both declarations on both turns, and the end step of an
+  opponent's. None ever reds a row where *this* seat is the one declaring:
+  red is `DeclareNoAttackers` / `DeclareNoBlockers` there, not a pass, and a
+  preset that skipped a declaration step would be answering it.
 - **`AutoRules`** — four switches (`prefs::AutoRules`): pass a window that
-  offers nothing at all (on by default); pass through opponents' turns
+  offers nothing at all (off by default since 12.11.2026, as the owner's own
+  account has it; on before); pass through opponents' turns
   (priority only, never a block; off by default); answer "no attackers" when
   nothing can attack (on); the same for blocks (on).
 - **Priority holds** — `F6` and `F7`, and the only automation that lives in
@@ -385,6 +389,15 @@ Hovering a card lifts it and shows the large tooltip (cursor shared with WASD
 — one highlight, never two); clicking arms a playable card (a second click
 plays it) or selects it for the pending choice; chosen cards stay raised /
 accent-framed until the choice is answered.
+
+While the tooltip is up, two held keys show more of its card, and neither is
+in the keymap because neither is an action: **`Shift`** turns a card over to
+its other face, or rotates a flip or an Aftermath card to its other half (a
+card with neither turns to the printed back), and **`Alt`/`Option`** (or
+`Cmd`) shows the alternate view, the card's rules text set in type where the
+picture is shown and the picture where the text is. The tooltip names `Shift` in a small pill
+under a card that has another face or half, and wears no key hint otherwise
+(owner, 12.11.2026); this paragraph is where `Alt` is written down.
 
 A card in hand can be lit two ways. **Gold** is the engine offering it: the
 mana is floating and one click casts it. **Indigo** is the client offering to

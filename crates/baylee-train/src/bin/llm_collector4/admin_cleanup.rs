@@ -10,6 +10,10 @@ use serde_json::{Value, json};
 use crate::audit::write_atomic_json;
 use crate::table::GatewayClient;
 
+/// The hosted-model profile id [`AdminCleanup::mark_probe`] sets a policy
+/// for: one no seat agent serves, so its policy decides nothing.
+pub const PROBE_PROFILE: &str = "llm-collector-probe";
+
 pub struct AdminCleanup {
     base: String,
     token: String,
@@ -107,64 +111,29 @@ impl AdminCleanup {
         .context("Collector admin preflight worker failed")?
     }
 
-    /// A one-use closed-beta key made by the gateway, for
-    /// [`crate::teacher::OwnDatabase::prove`]. Only its id is kept: the key
-    /// itself is never taken out of the answer.
-    pub async fn make_probe_key(&self) -> anyhow::Result<uuid::Uuid> {
-        let url = format!("{}/admin/invites", self.base);
+    /// Has the gateway write `actor` into its own database, for
+    /// [`crate::teacher::OwnDatabase::prove`]: the policy `nobody` for the
+    /// hosted-model profile [`PROBE_PROFILE`], which no seat agent serves,
+    /// set by `actor`. The row's `updated_by` is then `actor`, and nothing
+    /// changes for anybody: no seat agent offers that profile, so nobody can
+    /// order it whatever its policy says.
+    pub async fn mark_probe(&self, actor: &str) -> anyhow::Result<()> {
+        let url = format!("{}/admin/llm/access/{PROBE_PROFILE}", self.base);
         let token = self.token.clone();
-        tokio::task::spawn_blocking(move || {
-            let payload =
-                br#"{"uses":1,"expires":"1h","note":"llm-collector database probe","count":1}"#;
-            let mut response = agent()
-                .post(&url)
-                .header("Authorization", &format!("Bearer {token}"))
-                .header("X-Baylee-Admin", "llm-collector")
-                .header("Content-Type", "application/json")
-                .send(payload.as_slice())
-                .map_err(|_| anyhow::anyhow!("Database probe key transport failed"))?;
-            ensure!(
-                response.status().as_u16() == 201,
-                "Database probe key refused"
-            );
-            let body = response
-                .body_mut()
-                .read_to_string()
-                .map_err(|_| anyhow::anyhow!("Database probe key body failed"))?;
-            let value: Value = serde_json::from_str(&body)
-                .map_err(|_| anyhow::anyhow!("Invalid database probe key response"))?;
-            value
-                .get("keys")
-                .and_then(Value::as_array)
-                .filter(|keys| keys.len() == 1)
-                .and_then(|keys| keys[0].get("id"))
-                .and_then(Value::as_str)
-                .and_then(|id| uuid::Uuid::parse_str(id).ok())
-                .context("Invalid database probe key response")
-        })
-        .await
-        .context("Database probe key worker failed")?
-    }
-
-    /// Revokes the probe key `id` made by [`Self::make_probe_key`].
-    pub async fn revoke_probe_key(&self, id: uuid::Uuid) -> anyhow::Result<()> {
-        let url = format!("{}/admin/invites/{id}", self.base);
-        let token = self.token.clone();
+        let actor = actor.to_owned();
         tokio::task::spawn_blocking(move || {
             let response = agent()
-                .delete(&url)
+                .put(&url)
                 .header("Authorization", &format!("Bearer {token}"))
-                .header("X-Baylee-Admin", "llm-collector")
-                .call()
-                .map_err(|_| anyhow::anyhow!("Database probe key revocation transport failed"))?;
-            ensure!(
-                response.status().as_u16() == 204,
-                "Database probe key revocation refused"
-            );
+                .header("X-Baylee-Admin", &actor)
+                .header("Content-Type", "application/json")
+                .send(br#"{"policy":"nobody"}"#.as_slice())
+                .map_err(|_| anyhow::anyhow!("Database probe transport failed"))?;
+            ensure!(response.status().as_u16() == 200, "Database probe refused");
             Ok(())
         })
         .await
-        .context("Database probe key revocation worker failed")?
+        .context("Database probe worker failed")?
     }
 
     async fn request_close(&self, game_id: &str) -> anyhow::Result<u16> {

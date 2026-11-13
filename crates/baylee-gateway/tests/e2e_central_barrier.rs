@@ -25,6 +25,25 @@ const SLOW: u8 = 9;
 /// How long a request is held up: past the barrier's five seconds.
 const SLOW_BY_SECS: u32 = 7;
 
+/// Waits until Postgres holds the `deck` table locked for the session that
+/// began locking it, at most ten seconds. Slept for 300 ms instead, the
+/// session was not yet connected under load and a request meant to wait ran
+/// past a lock nobody held ("the request took 201ms", a land at load 30).
+fn until_the_decks_are_locked(gw: &common::Gateway) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while gw.scalar(
+        "SELECT count(*) FROM pg_locks l \
+         JOIN pg_class c ON c.oid = l.relation \
+         JOIN pg_namespace n ON n.oid = c.relnamespace \
+         WHERE c.relname = 'deck' AND n.nspname = current_schema() \
+         AND l.mode = 'AccessExclusiveLock' AND l.granted",
+    ) == 0
+    {
+        assert!(Instant::now() < deadline, "the deck table was never locked");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 /// A fresh sign-in as [`SIGNING_IN`]: its status and how long it took.
 fn sign_in(stub: &Stub, port: u16) -> (u16, Duration) {
     let started = Instant::now();
@@ -84,7 +103,7 @@ fn a_slow_request_holds_up_no_sign_in_of_a_linked_account() {
         );
         let gw = &gw;
         scope.spawn(move || gw.sql(&locked));
-        std::thread::sleep(Duration::from_millis(300));
+        until_the_decks_are_locked(gw);
         let slow = scope.spawn(move || {
             let started = Instant::now();
             let (status, _) = http(port, "GET", "/decks", Some(&bearer), "");
@@ -132,7 +151,7 @@ fn a_sign_in_that_opens_no_account_stalls_no_route() {
         );
         let gw = &gw;
         scope.spawn(move || gw.sql(&locked));
-        std::thread::sleep(Duration::from_millis(300));
+        until_the_decks_are_locked(gw);
         let slow = scope.spawn(move || {
             let started = Instant::now();
             let _ = http(port, "GET", "/decks", Some(&bearer), "");

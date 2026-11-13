@@ -159,7 +159,6 @@ fn registering_needs_the_password_typed_the_same_twice() {
             username: "alice".to_string(),
             display_name: "V".to_string(),
             password: "hunter22".to_string(),
-            invite_key: None,
         })
     );
 }
@@ -273,7 +272,6 @@ fn a_username_is_sent_in_the_form_the_rule_keeps() {
             username: "Alice".to_string(),
             display_name: "V".to_string(),
             password: "hunter22".to_string(),
-            invite_key: None,
         })
     );
 }
@@ -364,6 +362,99 @@ fn signing_in_asks_for_decks_and_then_for_games() {
 fn the_password_is_dropped_once_it_has_been_spent() {
     let lobby = seated_lobby();
     assert_eq!(lobby.field(Field::Password), "");
+}
+
+/// `registration` is read when it says `open` or `off`; without it, or with
+/// a word this client does not know, the older `registration_enabled`
+/// decides.
+#[test]
+fn what_a_gateway_says_about_registration_is_read_two_ways() {
+    for (enabled, said, read) in [
+        (true, None, Registration::Open),
+        (false, None, Registration::Off),
+        (true, Some("open"), Registration::Open),
+        (false, Some("open"), Registration::Open),
+        (true, Some("off"), Registration::Off),
+        (false, Some("off"), Registration::Off),
+        // A word from a gateway newer than this client: the old flag decides.
+        (true, Some("waitlist"), Registration::Open),
+        (false, Some("waitlist"), Registration::Off),
+    ] {
+        assert_eq!(
+            Registration::read(enabled, said),
+            read,
+            "{enabled} {said:?}"
+        );
+    }
+}
+
+/// An older gateway's `invite` is a word this client no longer knows: read
+/// exactly as any other, by the flag beside it, so nothing is offered the
+/// gateway's other fields do not offer and no key is asked for or sent.
+#[test]
+fn an_older_gateways_invite_is_read_like_a_word_this_client_does_not_know() {
+    for enabled in [true, false] {
+        assert_eq!(
+            Registration::read(enabled, Some("invite")),
+            Registration::read(enabled, Some("waitlist")),
+            "{enabled}"
+        );
+        assert_eq!(
+            Registration::read(enabled, Some("invite")),
+            Registration::read(enabled, None),
+            "{enabled}"
+        );
+    }
+    assert_eq!(Registration::read(true, Some("invite")), Registration::Open);
+    assert_eq!(Registration::read(false, Some("invite")), Registration::Off);
+
+    // Read so, the sign-up form and the guest's request are what an open
+    // gateway gets: no key in either.
+    let mut lobby = Lobby::new();
+    lobby.set_registration(Registration::read(true, Some("invite")));
+    lobby.set_guests_enabled(true);
+    assert_eq!(
+        lobby.play_as_guest(),
+        Some(LobbyRequest::PlayAsGuest { display_name: None })
+    );
+    let mut lobby = Lobby::new();
+    lobby.set_registration(Registration::read(true, Some("invite")));
+    lobby.toggle_registering();
+    assert_eq!(lobby.face(), Face::Create);
+    lobby.set_field(Field::Username, "alice");
+    lobby.set_field(Field::DisplayName, "Alice");
+    lobby.set_field(Field::Password, "hunter22");
+    lobby.set_field(Field::PasswordAgain, "hunter22");
+    let mut ring = vec![lobby.focus()];
+    for _ in 0..4 {
+        lobby.cycle_focus(Tab::Next);
+        ring.push(lobby.focus());
+    }
+    assert_eq!(
+        ring,
+        [
+            Field::Username,
+            Field::DisplayName,
+            Field::Password,
+            Field::PasswordAgain,
+            Field::Username,
+        ],
+        "the form's own four, and round"
+    );
+    assert_eq!(
+        lobby.submit(),
+        Some(LobbyRequest::Register {
+            username: "alice".to_string(),
+            display_name: "Alice".to_string(),
+            password: "hunter22".to_string(),
+        })
+    );
+
+    // Saying `invite` without the flag closes the sign-up form as `off`.
+    let mut lobby = Lobby::new();
+    lobby.toggle_registering();
+    lobby.set_registration(Registration::read(false, Some("invite")));
+    assert_eq!(lobby.screen(), &Screen::SignIn { registering: false });
 }
 
 #[test]

@@ -166,27 +166,24 @@ impl ReportDesk {
 impl ReportDesk {
     pub(crate) fn state_json(&self, lang: Lang) -> serde_json::Value {
         let suggestions = self.form.suggestions(&self.gathered.refs);
-        let rows: Vec<serde_json::Value> = suggestions
-            .as_ref()
-            .map(|list| {
-                list.rows
-                    .iter()
-                    .map(|row| match *row {
-                        bugreport::Suggestion::Card(i) => {
-                            let card = &self.gathered.refs.cards[i];
-                            serde_json::json!({
-                                "name": card.name,
-                                "meta": form::meta_of(card, self, lang),
-                                "card": card.card.get(),
-                            })
-                        }
-                        bugreport::Suggestion::Player(i) => {
-                            serde_json::json!({ "name": self.gathered.refs.players[i].name })
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+        let rows: Vec<serde_json::Value> = suggestions.as_ref().map_or_default(|list| {
+            list.rows
+                .iter()
+                .map(|row| match *row {
+                    bugreport::Suggestion::Card(i) => {
+                        let card = &self.gathered.refs.cards[i];
+                        serde_json::json!({
+                            "name": card.name,
+                            "meta": form::meta_of(card, self, lang),
+                            "card": card.card.get(),
+                        })
+                    }
+                    bugreport::Suggestion::Player(i) => {
+                        serde_json::json!({ "name": self.gathered.refs.players[i].name })
+                    }
+                })
+                .collect()
+        });
         let refs = bugreport::refs::refs_for(
             self.form.text.text(),
             &self.gathered.refs,
@@ -457,15 +454,12 @@ fn open_when_asked(
     );
     desk.at_table = at_table;
     desk.me = duel.and_then(|d| d.view.as_ref()).map(|v| v.seat);
-    desk.seat_names = duel
-        .and_then(|d| d.statics.as_ref())
-        .map(|s| {
-            s.seats
-                .iter()
-                .map(|seat| (seat.player.get(), seat.display_name.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
+    desk.seat_names = duel.and_then(|d| d.statics.as_ref()).map_or_default(|s| {
+        s.seats
+            .iter()
+            .map(|seat| (seat.player.get(), seat.display_name.clone()))
+            .collect()
+    });
     desk.gathered.refs = references(duel, texts.as_deref(), lobby.as_deref());
     let record = host
         .as_deref()
@@ -531,14 +525,12 @@ pub(crate) fn references(
         bugreport::refs::logged(&duel.log, statics, &lookup, &mut cards);
         return bugreport::Candidates {
             cards,
-            players: statics
-                .map(|s| bugreport::refs::table_players(s, view.seat))
-                .unwrap_or_default(),
+            players: statics.map_or_default(|s| bugreport::refs::table_players(s, view.seat)),
         };
     }
     let players = lobby
         .and_then(|l| baylee_client_core::lobby::strips::my_waiting_table(&l.lobby))
-        .map(|room| {
+        .map_or_default(|room| {
             room.seats
                 .iter()
                 .filter(|seat| !seat.you)
@@ -550,8 +542,7 @@ pub(crate) fn references(
                     })
                 })
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     bugreport::Candidates {
         cards: Vec::new(),
         players,
@@ -1004,8 +995,7 @@ fn answers(answers: Res<Answers>, mut desk: ResMut<ReportDesk>) {
     let drained: Vec<Answer> = answers
         .0
         .lock()
-        .map(|mut slot| slot.drain(..).collect())
-        .unwrap_or_default();
+        .map_or_default(|mut slot| slot.drain(..).collect());
     for answer in drained {
         match answer {
             Answer::Form(status, body) => desk.form.answered(status, &body),

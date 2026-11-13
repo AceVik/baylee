@@ -180,6 +180,13 @@ pub fn sync_table(
     } else {
         crate::cardmat::MOVING
     };
+    // Effects `Low` draws the channels from straight above. Without a
+    // device's choice the table is the carved one.
+    let flat = if quality.as_deref().is_some_and(|q| !q.0.effects.carved()) {
+        1.0
+    } else {
+        0.0
+    };
 
     // Where the light enters: the active seat's own shore, running inward
     // round the rail. At two seats that is the reference photograph —
@@ -229,6 +236,7 @@ pub fn sync_table(
                     flames: Vec4::ZERO,
                     tail: Vec4::new(0.0, up.x, up.y, 0.0),
                     motion,
+                    flat,
                 },
                 // The floor of the scene answers no clicks: a pointer on bare
                 // cloth means the table, not the thing under it.
@@ -251,6 +259,7 @@ pub fn sync_table(
                         gain: crate::feltmat::WASH_GAIN,
                         thickness: TABLE_THICKNESS,
                         seats: 0.0,
+                        flat,
                         pattern: duel.table_pattern.0,
                         veins: vein_offsets,
                         // The dial is written by `dial::turn_the_dial` once a
@@ -300,7 +309,8 @@ pub fn sync_table(
         && (next_flames - slab.flames).abs().max_element() <= 1e-4
         && (next_tail - slab.tail).abs().max_element() <= 1e-4
         && (slab.source - source).abs().max_element() <= 1e-4
-        && (slab.motion - motion).abs() <= f32::EPSILON;
+        && (slab.motion - motion).abs() <= f32::EPSILON
+        && (slab.flat - flat).abs() <= f32::EPSILON;
     if still && !recut && !repattern {
         return;
     }
@@ -309,6 +319,7 @@ pub fn sync_table(
     slab.tail = next_tail;
     slab.source = source;
     slab.motion = motion;
+    slab.flat = flat;
 
     if recut {
         slab.cut = span;
@@ -340,6 +351,7 @@ pub fn sync_table(
         material.params.flames_tail = next_tail;
         material.params.source = source;
         material.params.motion = motion;
+        material.params.flat = flat;
     }
 }
 
@@ -423,6 +435,9 @@ pub fn sync_zones(
         // showing a stack there — which is worth a rebuild; how many cards
         // are in a library that still has some is not, and is on the tab.
         let library_shown = pod.library_count.min(SHOWN_LIBRARY);
+        // And which places there are at all: a waiting place is there only
+        // while a card waits on it.
+        let places = places_of(&pod.piles);
         // A seat that has moved or changed size is rebuilt rather than
         // updated: its mat is a mesh cut to a width, its glow is a quad and
         // its piles stand at fixed points, and not one of those is something
@@ -448,6 +463,8 @@ pub fn sync_zones(
             // before it — a carry composed on the last target drifted, and a
             // part that missed one frame's carry stayed off by it for good.
             let lifted = Mat4::from_translation(Vec3::Y * lift);
+            // The piles' numbers are not carried: `sync_pile_counts` lays
+            // each beside where its seat now stands, for whoever looks.
             for entity in [zone.mat, zone.glow]
                 .into_iter()
                 .chain(zone.piles.iter().copied())
@@ -476,12 +493,17 @@ pub fn sync_zones(
             zone.slot = *slot;
             zone.raised = lift;
         } else if moved && let Some(zone) = index.zones.remove(&pod.player) {
-            for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles) {
+            let counts = zone.counts.into_iter().map(|count| count.badge);
+            for entity in [zone.mat, zone.glow]
+                .into_iter()
+                .chain(zone.piles)
+                .chain(counts)
+            {
                 commands.entity(entity).despawn();
             }
         }
         if let Some(zone) = index.zones.get(&pod.player) {
-            let stale_piles = zone.library_shown != library_shown;
+            let stale_piles = zone.library_shown != library_shown || zone.places != places;
             if zone.mood == mood && zone.accent == accent && !stale_piles {
                 continue;
             }
@@ -505,6 +527,7 @@ pub fn sync_zones(
                 zone.mood = mood;
                 zone.accent = accent;
                 zone.library_shown = library_shown;
+                zone.places = places;
                 if let Some(fresh) = fresh {
                     zone.piles = fresh;
                 }
@@ -544,10 +567,13 @@ pub fn sync_zones(
                 mat_material,
                 glow_material,
                 piles,
+                // `sync_pile_counts` lays them, after this.
+                counts: Vec::new(),
                 // Built on its place at the table's height; a lift is the
                 // next frame's carry.
                 raised: 0.0,
                 library_shown,
+                places,
                 mood,
                 accent,
             },
@@ -559,7 +585,11 @@ pub fn sync_zones(
         if seen.contains(player) {
             return true;
         }
-        for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles.clone()) {
+        for entity in [zone.mat, zone.glow]
+            .into_iter()
+            .chain(zone.piles.iter().copied())
+            .chain(zone.counts.iter().map(|count| count.badge))
+        {
             commands.entity(entity).despawn();
         }
         false

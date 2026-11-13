@@ -364,6 +364,8 @@ struct Current {
     raw: Vec<u8>,
     pending: Pending,
     view: PlayerView,
+    /// What the question is about, as the table sent it.
+    note: Option<baylee_engine::engine::DecisionNote>,
     /// The player it is decided for, when that is a player whose turn the
     /// seat controls rather than the seat itself (module docs).
     controlled: Option<PlayerId>,
@@ -524,7 +526,12 @@ impl SeatCore {
         }
         match self.memory.hear(bytes) {
             Heard::Statics | Heard::View => self.settle(),
-            Heard::Question { seq, pending, raw } => self.question(seq, *pending, raw),
+            Heard::Question {
+                seq,
+                pending,
+                raw,
+                note,
+            } => self.question(seq, *pending, raw, note.map(|note| *note)),
             Heard::Refused(message) => {
                 if matches!(
                     self.current.as_ref().map(|c| &c.state),
@@ -938,7 +945,13 @@ impl SeatCore {
         self.thinking().map(Step::Cancel).into_iter().collect()
     }
 
-    fn question(&mut self, seq: u64, pending: Pending, raw: Vec<u8>) -> Vec<Step> {
+    fn question(
+        &mut self,
+        seq: u64,
+        pending: Pending,
+        raw: Vec<u8>,
+        note: Option<baylee_engine::engine::DecisionNote>,
+    ) -> Vec<Step> {
         if self.life != Life::Playing {
             return Vec::new();
         }
@@ -987,6 +1000,7 @@ impl SeatCore {
             raw,
             pending,
             view,
+            note,
             controlled,
             tries: 0,
             wake: false,
@@ -1140,6 +1154,7 @@ impl SeatCore {
             retry,
             continuing: current.continuing,
             held: filter_of(&mut self.wake, &mut self.controlled, controlled).take_held(),
+            note: current.note.clone(),
         };
         self.stats.asked += 1;
         if request.retry.is_some() {
@@ -1206,8 +1221,11 @@ impl SeatCore {
             self.asking = Asking::Housed;
             self.stats.housed = true;
             self.note(self.questions, Event::Housed);
+            // A frozen reference is a level a seat may play too, and is no
+            // longer equal to the level it froze (`AIProfile::generation`).
             let level = AIProfile::NAMED
                 .iter()
+                .chain(&AIProfile::REFERENCES)
                 .find(|(_, profile)| *profile == self.config.house)
                 .map_or("", |(name, _)| name);
             steps.extend(self.declare(crate::declare::house(level)));
@@ -1268,7 +1286,12 @@ impl SeatCore {
         };
         for &by in authors {
             let action = match by {
-                By::House => Some(self.house.answer(&context, &current.view, &current.pending)),
+                By::House => Some(self.house.answer_noted(
+                    &context,
+                    &current.view,
+                    &current.pending,
+                    current.note.as_ref(),
+                )),
                 _ => least_answer(&context, &current.view, &current.pending),
             };
             let Some(action) = action else {
@@ -1485,7 +1508,7 @@ fn cut(text: &str, max: usize) -> &str {
 fn action_envelope(context: Option<&GameContext>, action: &PlayerAction) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
-            game_id: context.map(|c| c.game_id.clone()).unwrap_or_default(),
+            game_id: context.map_or_default(|c| c.game_id.clone()),
             // The socket is bound to one seat of one game already.
             seat_token: String::new(),
             action: baylee_core::wire::encode(action),

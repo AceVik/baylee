@@ -652,7 +652,7 @@ impl TableSeats {
                 crate::transport::fetch(request, move |result| {
                     let answer = result
                         .ok()
-                        .map(|r| (r.status, r.text().map(str::to_string).unwrap_or_default()));
+                        .map(|r| (r.status, r.text().map_or_default(str::to_string)));
                     tickets
                         .lock()
                         .unwrap_or_else(PoisonError::into_inner)

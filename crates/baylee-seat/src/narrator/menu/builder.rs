@@ -255,6 +255,30 @@ impl Builder<'_, '_> {
                     baylee_engine::choice::ChoicePrompt::LookAtHand => {
                         self.table.for_decider(words::hand_choice_prompt(*max))
                     }
+                    // Whose library a search or a put-back is about: the
+                    // cards' owner's (Bribery searches an opponent's). A
+                    // search that offers nothing still shows the library
+                    // it went through.
+                    library @ (baylee_engine::choice::ChoicePrompt::SearchLibrary
+                    | baylee_engine::choice::ChoicePrompt::PutBackOnTop
+                    | baylee_engine::choice::ChoicePrompt::PutOnBottom) => {
+                        let shown: Vec<ObjectId> = options
+                            .iter()
+                            .copied()
+                            .chain(self.table.view.looking_at.iter().map(|o| o.id))
+                            .collect();
+                        words::library_choice_prompt(*library, &self.table.whose_cards(&shown))
+                    }
+                    // A band holds any number with banding and one without
+                    // (CR 702.22c): said where both kinds are offered, which
+                    // the bound alone cannot say.
+                    baylee_engine::choice::ChoicePrompt::Band { with }
+                        if self.has_banding(*with)
+                            && options.iter().any(|&option| !self.has_banding(option)) =>
+                    {
+                        self.table
+                            .for_decider(&words::band_prompt_with_one_unbanded())
+                    }
                     _ => self.table.for_decider(&words::choice_prompt(*prompt)),
                 };
                 self.line(format!("QUESTION: {question}."));
@@ -508,8 +532,33 @@ impl Builder<'_, '_> {
             self.offer(label, act, Some(reach.card.index));
         }
         for &card in &legal.suspendable {
-            let label = format!("Suspend {}", table.named(card));
+            let label = match self.suspend_terms(card) {
+                Some((counters, cost)) => format!(
+                    "Suspend {} for {cost} (exile it with {} on it; paid from {} pool)",
+                    table.named(card),
+                    time_counters(counters),
+                    table.whose(table.decider())
+                ),
+                None => format!("Suspend {}", table.named(card)),
+            };
             self.offer(label, Act::Now(PlayerAction::Suspend { card }), None);
+        }
+        // The suspend cost still in the lands (`LegalActions::unpaid_suspend`):
+        // tapped first, then suspended (CR 116.2f, 702.62a).
+        for (card, cost, plan) in reachable_suspend(view, legal) {
+            let counters = self
+                .suspend_terms(card)
+                .map_or_else(|| "time counters".to_string(), |(n, _)| time_counters(n));
+            let label = format!(
+                "Suspend {} for {cost} (exile it with {counters} on it) ({})",
+                table.named(card),
+                self.taps(&plan.steps)
+            );
+            let act = Act::Taps {
+                steps: plan.steps,
+                then: PlayerAction::Suspend { card },
+            };
+            self.offer(label, act, None);
         }
         for &card in &legal.foretellable {
             let label = format!("Foretell {} for {{2}} (exile face down)", table.named(card));
@@ -597,32 +646,32 @@ impl Builder<'_, '_> {
     pub(super) fn priority(&mut self, legal: &LegalActions) {
         let table = self.table;
         let view = table.view;
-        let mut intro = match table.controlled() {
+        // A priority the seat is woken for because the mana it made this
+        // step still floats (`wake::Verdict::Continue`) pays for nothing yet:
+        // the pool's line says what floats, and a payment owed says itself.
+        // "You are in the middle of paying for something" stood here, at
+        // windows after the pump or the Egg had resolved (Carbon b1, b6).
+        let intro = match table.controlled() {
             Some(p) => {
                 let p = Table::player_id(p);
                 format!("QUESTION: {p} has priority, and you decide for {p}.")
             }
             None => String::from("QUESTION: You have priority."),
         };
-        if self.request.continuing {
-            intro.push_str(" You are in the middle of paying for something.");
-        }
         self.line(intro);
-        let pool = view
-            .seat(table.decider())
-            .map(|s| s.mana_pool)
-            .unwrap_or_default();
+        let pool = view.seat(table.decider()).map_or_default(|s| s.mana_pool);
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
         if let Some(payment) = owed {
             match payment {
                 ManaPayment::Fixed(cost) => {
-                    let mut line = match table.controlled() {
-                        Some(p) => format!(
+                    let mut line = match (view.casting, table.controlled()) {
+                        (Some(card), _) => self.cast_owed(card, &cost, legal),
+                        (None, Some(p)) => format!(
                             "{} owes {cost}: a payment you agreed to for that player. Pay it, or \
                              pass and leave it unpaid (what it was for is lost).",
                             Table::player_id(p)
                         ),
-                        None => format!(
+                        (None, None) => format!(
                             "You owe {cost}: a payment you agreed to. Pay it, or pass and leave \
                              it unpaid (what it was for is lost)."
                         ),
@@ -658,10 +707,14 @@ impl Builder<'_, '_> {
             self.tap_against_untapped_counts(legal);
         }
         if legal.can_pass {
-            let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {
-                "Finish generating mana and choose the payment amount".into()
-            } else {
-                self.pass_label(owed.is_some())
+            let label = match (owed, view.casting) {
+                (Some(ManaPayment::AnyAmount { .. }), _) => {
+                    "Finish generating mana and choose the payment amount".into()
+                }
+                (Some(ManaPayment::Fixed(cost)), Some(card)) => {
+                    self.cast_pass_label(card, &cost, &pool, legal)
+                }
+                _ => self.pass_label(owed.is_some()),
             };
             self.option("p", label, Act::Now(PlayerAction::PassPriority));
             self.options.last_mut().expect("just pushed").alias = Some("pass".into());
@@ -741,7 +794,11 @@ impl Builder<'_, '_> {
         }
     }
 
-    /// The taps of a plan: "taps Forest #22, Mountain #23".
+    /// The taps of a plan: "taps Forest #22, Mountain #23", and what a tap
+    /// costs beyond the tap where it costs more: "Lazotep Quarry #34 for {R}
+    /// (its cost: {T}, Sacrifice a creature)". The sacrifice was never said,
+    /// so a model that took the option was asked for it as if out of nowhere
+    /// (Carbon c2, 11.11.2026).
     pub(super) fn taps(&self, steps: &[manaplan::Step]) -> String {
         let named: Vec<String> = steps
             .iter()
@@ -750,17 +807,45 @@ impl Builder<'_, '_> {
                 if let Some(color) = step.color {
                     let _ = write!(name, " for {{{}}}", words::color_letter(color));
                 }
+                if let Some(cost) = self.dear_tap(step) {
+                    let _ = write!(name, " (its cost: {cost})");
+                }
                 name
             })
             .collect();
         format!("taps {}", named.join(", "))
     }
 
+    /// The printed cost of a step's mana ability where it is more than the
+    /// tap (a sacrifice, life, mana, a counter), as the card words it.
+    fn dear_tap(&self, step: &manaplan::Step) -> Option<&'static str> {
+        let manaplan::Tap::Ability(index) = step.tap else {
+            return None;
+        };
+        let (AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }) =
+            ability_def(self.table, step.source, index)?
+        else {
+            return None;
+        };
+        if cost.mana.is_empty()
+            && cost
+                .parts
+                .iter()
+                .all(|part| *part == baylee_cards_dsl::CostPart::TapSelf)
+        {
+            return None;
+        }
+        let sentence = ability_sentence(self.table, step.source, index)?;
+        let (cost, _) = sentence.split_once(':')?;
+        Some(cost.trim())
+    }
+
     pub(super) fn reach_label(&self, reach: &Reach) -> String {
         let table = self.table;
-        let x = baylee_cards::by_index(reach.card.index)
-            .and_then(|def| def.faces.get(usize::from(reach.card.face)))
-            .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
+        let x = self.way_x_cost(reach).is_some()
+            || baylee_cards::by_index(reach.card.index)
+                .and_then(|def| def.faces.get(usize::from(reach.card.face)))
+                .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
         let mut label = match reach.from {
             _ if reach.way.is_some() => self.way_label(reach),
             ReachFrom::Hand if reach.face_down => format!(
@@ -795,11 +880,32 @@ impl Builder<'_, '_> {
         label
     }
 
+    /// The whole cost of a reach's way where it has an X the cast will ask
+    /// for (CR 107.3, 601.2b): a foretold Starnheim Unleashed's `{X}{X}{W}`,
+    /// which the reach is planned at with X = 0 and its printed `{2}{W}{W}`
+    /// does not show. Read off the engine's list of ways
+    /// (`LegalActions::cast_ways`). The option read "with foretell for
+    /// {0}{W}" and never said that X is chosen in the cast.
+    fn way_x_cost(&self, reach: &Reach) -> Option<ManaCost> {
+        let Some(Way::Mode(kind)) = reach.way else {
+            return None;
+        };
+        let Pending::Priority { legal, .. } = &self.request.pending else {
+            return None;
+        };
+        legal
+            .cast_ways
+            .iter()
+            .find(|(id, desc)| *id == reach.object && desc.kind == kind)
+            .map(|(_, desc)| desc.cost)
+            .filter(ManaCost::has_variable)
+    }
+
     /// A reach at a price of its own, which the label names whole, with the
     /// way it is cast in the mode question's own words.
     fn way_label(&self, reach: &Reach) -> String {
         let named = self.table.named(reach.object);
-        let cost = reach.plan.cost;
+        let cost = self.way_x_cost(reach).unwrap_or(reach.plan.cost);
         match reach.way {
             Some(Way::Kicker) => format!("Cast {named} with its kicker for {cost}"),
             Some(Way::Buyback) => {
@@ -829,6 +935,22 @@ impl Builder<'_, '_> {
         }
     }
 
+    /// A hand card's "Suspend N—[cost]" as its card prints it (CR 702.62a):
+    /// the time counters and the cost. `None` for a card the seat cannot
+    /// name or one without suspend.
+    pub(super) fn suspend_terms(&self, card: ObjectId) -> Option<(u8, ManaCost)> {
+        let identity = baylee_client_core::decision::known_cards(self.table.view)
+            .find(|c| c.id == card)?
+            .card;
+        baylee_cards::by_index(identity.index)?
+            .abilities_for_face(usize::from(identity.face))
+            .iter()
+            .find_map(|ability| match ability {
+                AbilityDef::Suspend { counters, cost } => Some((*counters, *cost)),
+                _ => None,
+            })
+    }
+
     /// Where a castable card is cast from, when not from the hand of the
     /// player decided for.
     pub(super) fn from(&self, card: ObjectId) -> String {
@@ -843,8 +965,7 @@ impl Builder<'_, '_> {
             let flashback = view
                 .object(card)
                 .and_then(|o| o.flashback)
-                .map(|cost| format!(", flashback {cost}"))
-                .unwrap_or_default();
+                .map_or_default(|cost| format!(", flashback {cost}"));
             return format!(" from a graveyard{flashback}");
         }
         if view.exile.iter().flatten().any(|o| o.id == card) {
@@ -882,10 +1003,16 @@ impl Builder<'_, '_> {
                 .object(source)
                 .and_then(|o| o.grant(slot))
                 .is_some_and(|grant| grant.mana_ability);
-            return if makes_mana {
-                format!("Activate {named}: a mana ability it was granted")
+            let what = if makes_mana {
+                "a mana ability"
             } else {
-                format!("Activate {named}: an ability it was granted")
+                "an ability"
+            };
+            return match granting_sentence(table, source, index) {
+                Some(granting) => {
+                    format!("Activate {named}: {what} it was granted by \"{granting}\"")
+                }
+                None => format!("Activate {named}: {what} it was granted"),
             };
         }
         if index == PREPARED_CAST {
@@ -932,6 +1059,99 @@ impl Builder<'_, '_> {
             "its ability"
         };
         format!("Activate {named}{place}: {what}")
+    }
+
+    /// The payment window of a cast (`PlayerView::casting`): the spell, its
+    /// X where the price says it, what is owed, and what passing does. The
+    /// card is not on the stack yet and nothing in the window named it, and
+    /// "pass and leave it unpaid (what it was for is lost)" read as a payment
+    /// forfeited, where the engine reverses the cast (CR 601.2h, 734.1): the
+    /// card stays where it was, and what the window tapped for it untaps
+    /// (`Engine::give_back_window`, which gives back nothing when a mana
+    /// ability did more than tap). Carbon d1 game-0008 q164, d2 game-0007
+    /// q114.
+    fn cast_owed(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> String {
+        let table = self.table;
+        let spell = self.cast_named(card, cost, legal);
+        let subject = match table.controlled() {
+            Some(p) => format!("{} is casting {spell} and owes", Table::player_id(p)),
+            None => format!("You are casting {spell} and owe"),
+        };
+        let stays = if baylee_client_core::decision::hand(table.view)
+            .iter()
+            .any(|c| c.id == card)
+        {
+            format!("in {} hand", table.whose(table.decider()))
+        } else {
+            "where it was".into()
+        };
+        format!(
+            "{subject} {cost} for it: make the mana and pass, and it is cast. Passing without all \
+             of it cancels the cast (CR 601.2h, 734.1): the card stays {stays}, and what you \
+             tapped for it in this window untaps (unless a mana ability did more than tap)."
+        )
+    }
+
+    /// The pass of a cast's payment window, as what it does: casts the spell
+    /// when the pool pays it (the restricted mana the engine names for the
+    /// window counted), else cancels the cast.
+    fn cast_pass_label(
+        &self,
+        card: ObjectId,
+        cost: &ManaCost,
+        pool: &baylee_view::ManaPoolView,
+        legal: &LegalActions,
+    ) -> String {
+        let spell = self.cast_named(card, cost, legal);
+        let pool = baylee_ai::spend::pool_for(pool, legal, baylee_engine::choice::Spend::Owed);
+        if manaplan::plan(cost, &pool, &[]).is_some() {
+            format!("Pass priority: the mana in your pool pays {cost}, and {spell} is cast")
+        } else {
+            format!(
+                "Pass priority without the rest of {cost}: cancel the cast of {spell}; what you \
+                 tapped for it here untaps"
+            )
+        }
+    }
+
+    /// The spell a payment window is for, with its X: "Sphinx's Revelation
+    /// #50 (X is 2)".
+    fn cast_named(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> String {
+        let named = self.table.named(card);
+        match self.window_x(card, cost, legal) {
+            Some(x) => format!("{named} (X is {x})"),
+            None => named,
+        }
+    }
+
+    /// The X a cast's payment window is for. The view carries no X while
+    /// the card waits for its mana (it is not on the stack yet), so it is
+    /// read back from the price: the X at which the card's printed cost,
+    /// priced as every planner prices it (`baylee_ai::spell_price`), is what
+    /// is owed. `None` where no X, or more than the plain cast, explains the
+    /// price (a kicker, an alternative cost): then no X is said.
+    fn window_x(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> Option<u32> {
+        let view = self.table.view;
+        let identity = baylee_client_core::decision::known_cards(view)
+            .find(|c| c.id == card)?
+            .card;
+        let printed = baylee_cards::by_index(identity.index)?
+            .faces
+            .get(usize::from(identity.face))?
+            .mana_cost;
+        if !printed.has_variable() {
+            return None;
+        }
+        (0..=cost.cmc()).find(|&x| {
+            baylee_ai::spell_price(
+                view,
+                card,
+                Some(identity),
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+                printed.with_x(x),
+            ) == *cost
+        })
     }
 
     pub(super) fn pass_label(&self, owed: bool) -> String {
@@ -1107,8 +1327,35 @@ impl Builder<'_, '_> {
             );
         }
         match view.object(id) {
-            Some(object) => format!("{} {} ({})", tag(id), plain(object), board::zone(table, id)),
+            Some(object) => format!(
+                "{} {} ({})",
+                tag(id),
+                plain(object),
+                board::zone(table, id, self.shown_from(object.owner))
+            ),
             None => format!("{} a card you cannot see", tag(id)),
+        }
+    }
+
+    /// Where a card this question shows the seat out of a hidden zone is,
+    /// when the question says: the library a search or a look goes through
+    /// (CR 701.23a), the hand it looks at, each the card's owner's
+    /// (CR 400.3), or outside the game for a wish. A search's candidates
+    /// read "(somewhere you cannot see)" before (hc-expert-a, game-0023,
+    /// question 90).
+    fn shown_from(&self, owner: PlayerId) -> Option<String> {
+        let Pending::ChooseCards { prompt, .. } = &self.request.pending else {
+            return None;
+        };
+        let whose = || self.table.whose(owner);
+        match prompt {
+            baylee_engine::choice::ChoicePrompt::SearchLibrary
+            | baylee_engine::choice::ChoicePrompt::LookAtLibrary => {
+                Some(format!("in {} library", whose()))
+            }
+            baylee_engine::choice::ChoicePrompt::LookAtHand => Some(format!("in {} hand", whose())),
+            baylee_engine::choice::ChoicePrompt::Wish => Some("outside the game".into()),
+            _ => None,
         }
     }
 
@@ -1167,9 +1414,16 @@ impl Builder<'_, '_> {
             TargetPrompt::CopyOf => self.line(format!(
                 "QUESTION: Choose what {what} enters as a copy of (a choice, not a target), or none."
             )),
+            // Convoke, improvise and a paid waterbend all ask this, and the
+            // question does not say which (improvise may come from another
+            // card's effect), so it names none of them, as the client's
+            // `TapToHelpPay` does, and says what each lets a tap pay
+            // (CR 702.51a, 702.126a, 701.67a-b). The options are what may tap.
             TargetPrompt::Convoke => self.line(format!(
-                "QUESTION: Convoke: choose creatures to tap to help pay for {what} (each pays {{1}} \
-                 or one mana of its colour)."
+                "QUESTION: Tap permanents to help pay for {what}; each one pays for one mana \
+                 (convoke: a creature pays {{1}} or one mana of its colour; improvise: an \
+                 artifact pays {{1}}; waterbend: an artifact or creature pays {{1}} of the \
+                 waterbend cost only)."
             )),
             TargetPrompt::DistinctManaValues(_) => self.line(format!("QUESTION: Choose targets with different mana values for {what}.")),
             TargetPrompt::Targets => {
@@ -1278,12 +1532,38 @@ impl Builder<'_, '_> {
                  734.2).",
             );
         }
-        self.option(
-            "y",
-            format!("Yes: {yes}"),
-            Act::Now(PlayerAction::YesNo(true)),
-        );
-        self.options.last_mut().expect("just pushed").alias = Some("yes".into());
+        // A price no untapped source can reach is no option: a cost cannot
+        // be paid without the resources to pay it fully (CR 118.3), and an
+        // impossible option cannot be chosen (CR 608.2d). The engine asks
+        // either way, so the seat leaves the yes out. Circular Logic's
+        // {21} beside seven Swamps was offered (Carbon block 3).
+        let unreachable = match prompt {
+            YesNoPrompt::PayTax { mana } => {
+                let cost = ManaCost::parse(&format!("{{{mana}}}"));
+                out_of_reach(table.view, &cost).map(|most| (cost, most))
+            }
+            YesNoPrompt::PayMana { cost } | YesNoPrompt::PayManaAndLife { cost, .. } => {
+                out_of_reach(table.view, cost).map(|most| (*cost, most))
+            }
+            _ => None,
+        };
+        if let Some((cost, most)) = unreachable {
+            let whose = match table.controlled() {
+                Some(p) => format!("{} has", Table::player_id(p)),
+                None => "you have".to_string(),
+            };
+            self.line(format!(
+                "You cannot pay {cost}: what floats and what {whose} untapped make at most \
+                 {most} mana (CR 118.3), so the only answer is not to pay."
+            ));
+        } else {
+            self.option(
+                "y",
+                format!("Yes: {yes}"),
+                Act::Now(PlayerAction::YesNo(true)),
+            );
+            self.options.last_mut().expect("just pushed").alias = Some("yes".into());
+        }
         self.option(
             "n",
             format!("No: {no}"),
@@ -1297,7 +1577,45 @@ impl Builder<'_, '_> {
 }
 
 impl Builder<'_, '_> {
+    /// A colour (or a combination of colours) chosen as an ability resolves
+    /// (CR 608.2d, 105.1): Wild Mongrel's "becomes the color of your
+    /// choice". The engine asks it through the cast-mode question; it was
+    /// worded "How do you cast Wild Mongrel?", and a plan's `color B` step
+    /// stopped on it (Carbon block 3, attempt 32, q136). Each option is
+    /// named by its colours, as a colour question's are, so the plan's
+    /// colour step and a model's `B` both answer it.
+    fn colour_choice(&mut self, object: ObjectId, options: &[CastModeDesc]) {
+        let table = self.table;
+        let single = options
+            .iter()
+            .all(|option| matches!(option.kind, CastModeKind::Colors(c) if c.len() == 1));
+        self.line(format!(
+            "QUESTION: Choose {} for {} (its ability is resolving):",
+            if single { "a colour" } else { "colours" },
+            table.named(object)
+        ));
+        for (at, option) in options.iter().enumerate() {
+            let CastModeKind::Colors(colors) = option.kind else {
+                continue;
+            };
+            let (letters, names) = colour_words(colors);
+            self.option(
+                letters,
+                names.clone(),
+                Act::Now(PlayerAction::ChooseMode(at)),
+            );
+            self.options.last_mut().expect("just pushed").alias = Some(names);
+        }
+        self.line("Options:");
+        self.list_options();
+        self.answer_pick("pick=[one option id]");
+    }
+
     pub(super) fn cast_mode(&mut self, object: ObjectId, options: &[CastModeDesc]) {
+        if super::plan::colours_only(options) {
+            self.colour_choice(object, options);
+            return;
+        }
         let table = self.table;
         let card = table.view.object(object).and_then(|o| o.card).or_else(|| {
             baylee_client_core::decision::known_cards(table.view)
@@ -1405,29 +1723,7 @@ impl Builder<'_, '_> {
                 "How many times do you pay its multikicker? Each time costs {cost} more, and \
                  zero is not kicked at all. Fewer than the mana you floated is a legal answer"
             ),
-            NumberPrompt::CombatDamage {
-                source,
-                recipient,
-                index,
-                of,
-                left,
-                lethal,
-            } => {
-                let trample = lethal.map_or_else(String::new, |lethal| {
-                    format!(
-                        ". It has trample: {lethal} is lethal damage to {}, and once every \
-                         blocker has been assigned lethal damage, whatever you leave after the \
-                         last blocker tramples over to what it is attacking",
-                        table.named(*recipient),
-                    )
-                });
-                format!(
-                    "Divide {}'s combat damage: how much goes to {} (creature {} of {of})? {left} is left to divide{trample}",
-                    table.named(*source),
-                    table.named(*recipient),
-                    u16::from(*index) + 1
-                )
-            }
+            NumberPrompt::CombatDamage { .. } => combat_division_words(table, reason),
             NumberPrompt::DivideDamage {
                 target,
                 index,
@@ -1445,10 +1741,13 @@ impl Builder<'_, '_> {
         // The engine leaves a multikicker open while a land is untapped; a
         // count past what is floating has to be tapped for in a window this
         // seat answers blind, so the number is the one the mana already pays.
+        // An X is announced before it is paid (CR 601.2b), and the engine
+        // leaves its range open; the number is the one the mana pays.
         let max = match reason {
             NumberPrompt::Multikicker { cost } => self
                 .kicks_floating(cost)
                 .map_or(max, |pays| pays.clamp(min, max)),
+            NumberPrompt::X => self.payable_x().map_or(max, |pays| pays.clamp(min, max)),
             _ => max,
         };
         self.line(format!("QUESTION: {question} (from {min} to {max})."));
@@ -1456,10 +1755,76 @@ impl Builder<'_, '_> {
         self.answer(&format!("number=<an integer from {min} to {max}>"));
     }
 
-    /// How many times the floating pool pays `each` beside the spell being
-    /// cast, read off the printed cost; `None` when the pool does not reach
-    /// that, which is the engine's range to answer.
-    fn kicks_floating(&self, each: &ManaCost) -> Option<u32> {
+    /// The greatest X the pool and the untapped sources pay for the cast or
+    /// activation being announced, its cost as the question's note names it
+    /// (`DecisionNote::cost`, the cost before X: a foretold Starnheim
+    /// Unleashed's `{X}{X}{W}`, not its printed `{2}{W}{W}`), bounded by
+    /// the targets an X needs (`x_targets`). The engine's own range is open
+    /// (CR 601.2b: any X may be announced, and one the mana cannot pay
+    /// reverses the cast, CR 601.2h), and the seat asked "from 0 to
+    /// 4294967295". `None` where no cost with X is named, or nothing plans
+    /// (sources this reading does not know): then the engine's range stands,
+    /// as the client's X question and the house's own X answer read it
+    /// (`manaplan::greatest_x`, `HeuristicAgent::largest_x`).
+    ///
+    /// A spell with convoke, improvise or delve is paid by its creatures,
+    /// artifacts and graveyard as well (`manaplan::Assist`): Chord of Calling
+    /// beside five Forests and three green creatures was asked "from 0 to
+    /// 3", what the Forests and Leaf Gilder's mana pay alone, where X = 5 is
+    /// paid (Carbon b4, attempt 8, q158; CR 702.51a).
+    ///
+    /// A restricted mana ability counts where its restriction admits the
+    /// spell, as the view reads it (`baylee_ai::mana_sources_in_view_for`,
+    /// CR 106.6), its mana earmarked for the spell (`manaplan::Earmarked`):
+    /// Invoke the Firemind (`{X}{U}{U}{R}`) over a floating `{U}{U}{R}`, two
+    /// untapped lands and Vodalian Arcanist ("spend this mana only to cast
+    /// an instant or sorcery spell") was asked "from 0 to 2" where X = 3 is
+    /// paid (Carbon b7, segment 3, attempt 22, q214).
+    ///
+    /// Restricted mana already floating counts as mana that may pay the
+    /// spell. The view says its colour and not what it may pay for, which
+    /// only an offer states (`LegalActions::restricted_floating`), and an X
+    /// question carries none. X is announced before mana abilities are
+    /// activated (CR 601.2b, 601.2g), so what floats was made before the cast
+    /// began, nearly always by the seat's own taps for this spell. Mana that
+    /// may not pay it makes the bound too high, which risks no more than a
+    /// cast reversed for want of mana (CR 601.2h, 734.1); the engine's open
+    /// range ("from 0 to 4294967295") risked that for any number.
+    fn payable_x(&self) -> Option<u32> {
+        let note = self.request.note.as_ref()?;
+        let cost = note.cost.filter(ManaCost::has_variable)?;
+        let view = self.table.view;
+        let caster = baylee_client_core::decision::resource_player(view);
+        let pool = view.seat(caster)?.mana_pool;
+        let (sources, taps) = view.casting.map_or_else(
+            || (baylee_ai::mana_sources_in_view(view), Vec::new()),
+            |spell| baylee_ai::mana_sources_in_view_for(view, spell),
+        );
+        let assist = self
+            .casting_face()
+            .map_or_else(manaplan::Assist::default, |face| {
+                manaplan::Assist::read(view, caster, face, &sources)
+            });
+        let earmarked = manaplan::Earmarked {
+            floating: pool
+                .restricted
+                .map(|amount| u32::try_from(amount).unwrap_or(u32::MAX)),
+            taps: &taps,
+        };
+        let pays = manaplan::greatest_x_earmarked(&cost, &pool, earmarked, &sources, &assist)?;
+        Some(note.x_targets.map_or(pays, |targets| pays.min(targets)))
+    }
+
+    /// Whether the view shows `id` with banding (CR 702.22).
+    fn has_banding(&self, id: ObjectId) -> bool {
+        self.table.view.object(id).is_some_and(|object| {
+            object.keywords & baylee_cards_dsl::KeywordSet::BANDING.bits() != 0
+        })
+    }
+
+    /// The printed face of the spell being cast (`PlayerView::casting`): in
+    /// the hand it was cast from, or wherever the view shows it now.
+    fn casting_face(&self) -> Option<&'static baylee_cards_dsl::FaceDef> {
         let view = self.table.view;
         let casting = view.casting?;
         let card = baylee_client_core::decision::hand(view)
@@ -1467,9 +1832,17 @@ impl Builder<'_, '_> {
             .find(|held| held.id == casting)
             .map(|held| held.card)
             .or_else(|| view.object(casting).and_then(|object| object.card))?;
-        let face = baylee_cards::by_index(card.index)?
+        baylee_cards::by_index(card.index)?
             .faces
-            .get(usize::from(card.face))?;
+            .get(usize::from(card.face))
+    }
+
+    /// How many times the floating pool pays `each` beside the spell being
+    /// cast, read off the printed cost; `None` when the pool does not reach
+    /// that, which is the engine's range to answer.
+    fn kicks_floating(&self, each: &ManaCost) -> Option<u32> {
+        let view = self.table.view;
+        let face = self.casting_face()?;
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
@@ -1484,23 +1857,42 @@ impl Builder<'_, '_> {
     ) {
         let table = self.table;
         let n = cards.len();
+        // Whose library and graveyard the piles are: the cards' owner's
+        // (CR 400.3), which is not the decider's when the cards came from
+        // another player's library (Architects of Will, Jace's +2). Said
+        // as it is, and not through `for_decider`, which would make the
+        // seat's own library the controlled player's.
+        let whose = table.whose_cards(cards);
+        let theirs = baylee_client_core::decision::cards_owner(table.view, cards)
+            .is_some_and(|owner| owner != table.decider());
         let intro = match prompt {
+            // A look at another player's library is no scry (CR 701.22a
+            // is "your library"); Jace's +2 asks it in the scry's shape.
+            ArrangePrompt::Scry if theirs && n == 1 => format!(
+                "QUESTION: This is the top card of {whose} library: put it on the bottom of \
+                 {whose} library, or leave it on top."
+            ),
+            ArrangePrompt::Scry if theirs => format!(
+                "QUESTION: These are the top {n} cards of {whose} library: put any number of \
+                 them on the bottom of {whose} library and the rest on top, in any order."
+            ),
             ArrangePrompt::Scry => format!(
                 "QUESTION: Scry {n} (CR 701.22a): put any number of these cards on the bottom \
-                 of your library and the rest on top, in any order."
+                 of {whose} library and the rest on top, in any order."
             ),
-            ArrangePrompt::Surveil => "QUESTION: Put any number of these cards into your \
-                 graveyard and the rest on top of your library, in any order."
-                .into(),
+            ArrangePrompt::Surveil => format!(
+                "QUESTION: Put any number of these cards into {whose} graveyard and the rest \
+                 on top of {whose} library, in any order."
+            ),
             ArrangePrompt::Order => "QUESTION: Put these cards in order.".into(),
             ArrangePrompt::DiscardToLibrary => format!(
                 "QUESTION: You are discarding {n} card(s). Library of Leng lets you put any \
-                 of them on top of your library instead of into your graveyard, in any order; \
-                 each is still discarded."
+                 of them on top of {whose} library instead of into {whose} graveyard, in any \
+                 order; each is still discarded."
             ),
             ArrangePrompt::TriggerOrder => return self.trigger_order(cards, piles),
         };
-        self.line(table.for_decider(&intro));
+        self.line(intro);
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
         self.line(format!("Cards: {}", named.join(", ")));
         for &card in cards {
@@ -1508,12 +1900,12 @@ impl Builder<'_, '_> {
         }
         self.line("Piles:");
         for (i, pile) in piles.iter().enumerate() {
-            let place = table.for_decider(match pile.place {
-                ArrangePlace::LibraryTop => "the top of your library",
-                ArrangePlace::LibraryBottom => "the bottom of your library",
-                ArrangePlace::Graveyard => "your graveyard",
-                ArrangePlace::Stack => "the stack",
-            });
+            let place = match pile.place {
+                ArrangePlace::LibraryTop => format!("the top of {whose} library"),
+                ArrangePlace::LibraryBottom => format!("the bottom of {whose} library"),
+                ArrangePlace::Graveyard => format!("{whose} graveyard"),
+                ArrangePlace::Stack => "the stack".into(),
+            };
             let order = if pile.ordered {
                 "; list them from the top down"
             } else {
@@ -1684,7 +2076,7 @@ impl Builder<'_, '_> {
             let head = blocker.map_or_else(
                 || tag(option.blocker),
                 |o| {
-                    let stats = board::stats(o).map(|s| format!(" {s}")).unwrap_or_default();
+                    let stats = board::stats(o).map_or_default(|s| format!(" {s}"));
                     format!("{} {}{stats}", tag(o.id), super::super::object_name(o))
                 },
             );
@@ -1807,4 +2199,105 @@ fn counts_untapped_lands(object: &PublicObject) -> bool {
                 counts
             })
     })
+}
+
+/// "4 time counters", "1 time counter": what a suspend exiles a card with
+/// (CR 702.62a).
+fn time_counters(counters: u8) -> String {
+    if counters == 1 {
+        "1 time counter".to_string()
+    } else {
+        format!("{counters} time counters")
+    }
+}
+
+/// The most mana the decider could make now, when that is less than `cost`
+/// (its mana value) and the planner cannot pay it either: what floats and
+/// every source the view shows untapped (`baylee_ai::mana_sources_in_view`,
+/// with the mana a Mana Flare adds), the count the house reads a price
+/// against. `None` while the price may be within reach, and whenever an
+/// untapped permanent shows mana the count does not know (a creature
+/// still summoning sick, a granted ability): then the question stays the
+/// player's.
+fn out_of_reach(view: &baylee_view::PlayerView, cost: &ManaCost) -> Option<u64> {
+    let decider = baylee_client_core::decision::resource_player(view);
+    let pool = view.seat(decider)?.mana_pool;
+    let sources = baylee_ai::mana_sources_in_view(view);
+    let unknown = view.battlefield_of(decider).any(|o| {
+        !o.status.is_tapped()
+            && !o.status.is_phased_out()
+            && (o.board_mana.is_some() || o.granted_mana.is_some())
+            && !sources.iter().any(|s| s.id == o.id)
+    });
+    if unknown {
+        return None;
+    }
+    let most = pool.total() + sources.iter().map(|s| u64::from(s.amount)).sum::<u64>();
+    (most < u64::from(cost.cmc()) && manaplan::plan(cost, &pool, &sources).is_none())
+        .then_some(most)
+}
+
+/// A combination of colours as an option says it: its letters in WUBRG
+/// order (`B`, `WU`), the id a colour question uses, and its names
+/// (`black`, `white + blue`).
+fn colour_words(colors: baylee_core::color::ColorSet) -> (String, String) {
+    use baylee_core::color::Color;
+    let named: Vec<(&str, &str)> = [
+        (Color::White, "W", "white"),
+        (Color::Blue, "U", "blue"),
+        (Color::Black, "B", "black"),
+        (Color::Red, "R", "red"),
+        (Color::Green, "G", "green"),
+    ]
+    .into_iter()
+    .filter(|(color, _, _)| colors.contains(*color))
+    .map(|(_, letter, name)| (letter, name))
+    .collect();
+    (
+        named.iter().map(|(letter, _)| *letter).collect(),
+        named
+            .iter()
+            .map(|(_, name)| *name)
+            .collect::<Vec<_>>()
+            .join(" + "),
+    )
+}
+
+/// A division of combat damage in words (`NumberPrompt::CombatDamage`): whose
+/// damage, which creature this share goes to, what is left, and a trampler's
+/// lethal mark. Said as the damage step it belongs to (CR 510.1): the engine
+/// asks it before that step begins, so the step the view still stands in
+/// ("blockers") does not read as the step the damage is dealt in (Carbon
+/// block 3, attempt 32, q105).
+fn combat_division_words(table: &Table<'_>, reason: &NumberPrompt) -> String {
+    let NumberPrompt::CombatDamage {
+        source,
+        recipient,
+        index,
+        of,
+        left,
+        lethal,
+    } = reason
+    else {
+        return String::new();
+    };
+    let trample = lethal.map_or_else(String::new, |lethal| {
+        format!(
+            ". It has trample: {lethal} is lethal damage to {}, and once every blocker has \
+             been assigned lethal damage, whatever you leave after the last blocker tramples \
+             over to what it is attacking",
+            table.named(*recipient),
+        )
+    });
+    format!(
+        "As the {} begins, before any damage is dealt (CR 510.1): divide {}'s combat damage: \
+         how much goes to {} (creature {} of {of})? {left} is left to divide{trample}",
+        words::step_name(
+            table.view.phase,
+            super::super::damage_step_ahead(table.view)
+        ),
+        table.named(*source),
+        table.named(*recipient),
+        u16::from(*index) + 1
+    )
 }

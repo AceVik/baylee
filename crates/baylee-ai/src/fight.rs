@@ -119,7 +119,7 @@ impl HeuristicAgent {
             .unwrap_or(0)
             .saturating_add(brawl.pump.1);
         let kills = !indestructible(foe)
-            && !Self::answered(view, foe)
+            && !self.answered(view, foe)
             && power > 0
             && (deathtouch(fighter) || left(foe).is_some_and(|l| power >= l));
         let hits_back = foe.power.unwrap_or(0);

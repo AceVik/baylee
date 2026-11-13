@@ -297,6 +297,7 @@ fn base_view() -> super::PlayerView {
         commander_damage: Vec::new(),
     };
     super::PlayerView {
+        divided: Vec::new(),
         ballots: Vec::new(),
         damage_sources: Vec::new(),
         target_objects: Vec::new(),

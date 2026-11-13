@@ -15,6 +15,12 @@
 //! Several specs (`--spec A --spec B`) make one plan: their runs in that
 //! order, each on its own runtime, under the first spec's execution root and
 //! working directory. Two runtimes of one change are planned that way.
+//!
+//! A block with `pilots` plays only the deals whose net pilots one of those
+//! decks: a stage before its runs of each table and seed set writes them with
+//! the runtime's own `eval4 --write-deals`, and the runs read them with
+//! `--only-deals`. A recorded block with `react` ends in one stage that counts
+//! the reactive play of all its runs side by side (`gamelog4 react`).
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::atomic_json;
 use clap::{Parser, Subcommand};
@@ -98,6 +104,22 @@ struct Block {
     /// Keep the games (`--record-out ROOT/records-NAME`).
     #[serde(default)]
     record: bool,
+    /// Play only the deals of `deals` whose net pilots one of these decks
+    /// (deck keys). Before the block's runs of a table and seed set, a stage
+    /// writes them (`eval4 --write-deals`, `ROOT/deals-TABLE-SEEDS-bINDEX.json`)
+    /// with the block's first model and the spec's common flags, so the list
+    /// holds what the runs seat; each run plays only them (`--only-deals`).
+    #[serde(default)]
+    pilots: Vec<String>,
+    /// With `pilots`: how many deals the selection holds, which a run's time
+    /// limit is measured on. Without, `deals`.
+    #[serde(default)]
+    played: Option<u64>,
+    /// After the block's runs, one stage counts their reactive play side by
+    /// side (`gamelog4 react` over every run's records, `ROOT/react-bINDEX.json`).
+    /// Needs `record`.
+    #[serde(default)]
+    react: bool,
 }
 
 /// How much longer than measured a stage may take before the guard stops it.
@@ -105,6 +127,10 @@ const TIMEOUT_FACTOR: f64 = 3.0;
 /// The least time a stage gets: start-up and a slow first batch.
 const TIMEOUT_FLOOR: f64 = 600.0;
 const MEMORY_GIB: f64 = 36.0;
+/// What a deal selection or a count of records takes: no net, no GPU.
+const LIGHT_MEMORY_GIB: f64 = 16.0;
+/// Games a count of records replays at once.
+const REACT_THREADS: u32 = 8;
 
 fn word(name: &str) -> Result<()> {
     ensure!(
@@ -156,7 +182,7 @@ fn validate(spec: &Spec) -> Result<()> {
             "table {name}: a positive time per deal"
         );
     }
-    for flag in &spec.common {
+    for flag in spec.common.iter().chain(spec.arms.values().flatten()) {
         if [
             "--model",
             "--seats",
@@ -164,26 +190,155 @@ fn validate(spec: &Spec) -> Result<()> {
             "--first-seed",
             "--deals",
             "--out",
+            "--record-out",
+            "--only-deals",
+            "--write-deals",
+            "--pilot-decks",
         ]
         .contains(&flag.as_str())
         {
-            bail!("{flag} is the matrix's to set, not a common flag");
+            bail!("{flag} is the matrix's to set, not a common or an arm's flag");
         }
     }
     ensure!(!spec.blocks.is_empty(), "a spec plans at least one block");
+    for block in &spec.blocks {
+        ensure!(block.deals > 0, "a block plays at least one deal");
+        ensure!(
+            block
+                .pilots
+                .iter()
+                .all(|key| !key.is_empty() && !key.contains(',')),
+            "a pilot is one deck key"
+        );
+        ensure!(
+            block
+                .played
+                .is_none_or(|played| !block.pilots.is_empty() && played <= block.deals),
+            "`played` counts the deals a selection of pilots holds, at most `deals`"
+        );
+        ensure!(
+            !block.react || block.record,
+            "a count of reactive play reads records"
+        );
+    }
     Ok(())
+}
+
+/// `eval4` with what every stage of a block's table and seed set shares:
+/// the model, the deals, the decks and the table.
+fn eval4(spec: &Spec, model: &Path, block: &Block, table: &Table) -> Vec<String> {
+    let mut command = vec![
+        spec.runtime.join("eval4").display().to_string(),
+        "--model".into(),
+        model.display().to_string(),
+        "--deals".into(),
+        block.deals.to_string(),
+        "--decks-manifest".into(),
+        spec.manifest.display().to_string(),
+        "--seats".into(),
+        table.seats.to_string(),
+    ];
+    if !table.teams.is_empty() {
+        command.extend(["--teams".into(), table.teams.clone()]);
+    }
+    command.extend(spec.common.iter().cloned());
+    command
+}
+
+/// The stage writing the deals of a block's table and seed set whose net
+/// pilots the block's `pilots`, and the file it writes.
+fn selection(
+    spec: &Spec,
+    (index, block): (usize, &Block),
+    (table_name, table): (&str, &Table),
+    (seeds_name, first_seed): (&str, u64),
+) -> Result<(Value, PathBuf)> {
+    let model_name = block.models.first().context("a block names a model")?;
+    let model = lookup(&spec.models, model_name, "model")?;
+    let out = spec
+        .root
+        .join(format!("deals-{table_name}-{seeds_name}-b{index}.json"));
+    let mut command = eval4(spec, model, block, table);
+    command.extend([
+        "--first-seed".into(),
+        first_seed.to_string(),
+        "--pilot-decks".into(),
+        block.pilots.join(","),
+        "--write-deals".into(),
+        out.display().to_string(),
+    ]);
+    let stage = json!({
+        "name": format!("deals-{table_name}-{seeds_name}-b{index}"),
+        "timeout_seconds": TIMEOUT_FLOOR,
+        "memory_gib": LIGHT_MEMORY_GIB,
+        "inputs": [spec.manifest, model.join("model.onnx.json")],
+        "command": command,
+        "required_outputs": [out],
+    });
+    Ok((stage, out))
+}
+
+/// The stage counting the reactive play of a block's runs, side by side.
+fn react(spec: &Spec, index: usize, runs: &[String]) -> Value {
+    let out = spec.root.join(format!("react-b{index}.json"));
+    let mut command = vec![
+        spec.runtime.join("gamelog4").display().to_string(),
+        "react".into(),
+    ];
+    let mut inputs = Vec::new();
+    for name in runs {
+        let summary = spec.root.join(format!("eval-{name}.json"));
+        command.extend([
+            "--run".into(),
+            spec.root
+                .join(format!("records-{name}"))
+                .display()
+                .to_string(),
+            "--summary".into(),
+            summary.display().to_string(),
+        ]);
+        inputs.push(summary);
+    }
+    command.extend([
+        "--threads".into(),
+        REACT_THREADS.to_string(),
+        "--out".into(),
+        out.display().to_string(),
+    ]);
+    json!({
+        "name": format!("react-b{index}"),
+        "timeout_seconds": TIMEOUT_FLOOR * 3.0,
+        "memory_gib": LIGHT_MEMORY_GIB,
+        "inputs": inputs,
+        "command": command,
+        "required_outputs": [out],
+    })
 }
 
 /// The stages of `spec`, without the runs whose output exists.
 fn stages(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Vec<Value>> {
     let mut stages = Vec::new();
     let mut names = BTreeSet::new();
-    for block in &spec.blocks {
-        ensure!(block.deals > 0, "a block plays at least one deal");
+    for (index, block) in spec.blocks.iter().enumerate() {
+        let mut runs = Vec::new();
         for table_name in &block.tables {
             let table = lookup(&spec.tables, table_name, "table")?;
             for seeds_name in &block.seeds {
-                let first_seed = lookup(&spec.seeds, seeds_name, "seed set")?;
+                let first_seed = *lookup(&spec.seeds, seeds_name, "seed set")?;
+                let only = if block.pilots.is_empty() {
+                    None
+                } else {
+                    let (stage, out) = selection(
+                        spec,
+                        (index, block),
+                        (table_name, table),
+                        (seeds_name, first_seed),
+                    )?;
+                    if !done(&out) {
+                        stages.push(stage);
+                    }
+                    Some(out)
+                };
                 for arm_name in &block.arms {
                     let arm = lookup(&spec.arms, arm_name, "arm")?;
                     for model_name in &block.models {
@@ -192,25 +347,12 @@ fn stages(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Vec<Value>> {
                         if !names.insert(name.clone()) {
                             continue;
                         }
+                        runs.push(name.clone());
                         let out = spec.root.join(format!("eval-{name}.json"));
                         if done(&out) {
                             continue;
                         }
-                        let mut command = vec![
-                            spec.runtime.join("eval4").display().to_string(),
-                            "--model".into(),
-                            model.display().to_string(),
-                            "--deals".into(),
-                            block.deals.to_string(),
-                            "--decks-manifest".into(),
-                            spec.manifest.display().to_string(),
-                            "--seats".into(),
-                            table.seats.to_string(),
-                        ];
-                        if !table.teams.is_empty() {
-                            command.extend(["--teams".into(), table.teams.clone()]);
-                        }
-                        command.extend(spec.common.iter().cloned());
+                        let mut command = eval4(spec, model, block, table);
                         command.extend(arm.iter().cloned());
                         command.extend([
                             "--threads".into(),
@@ -220,6 +362,11 @@ fn stages(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Vec<Value>> {
                             "--first-seed".into(),
                             first_seed.to_string(),
                         ]);
+                        let mut inputs = vec![spec.manifest.clone(), model.join("model.onnx.json")];
+                        if let Some(only) = &only {
+                            command.extend(["--only-deals".into(), only.display().to_string()]);
+                            inputs.push(only.clone());
+                        }
                         if block.record {
                             command.extend([
                                 "--record-out".into(),
@@ -231,12 +378,13 @@ fn stages(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Vec<Value>> {
                         }
                         command.extend(["--out".into(), out.display().to_string()]);
                         #[allow(clippy::cast_precision_loss, reason = "deal counts are small")]
-                        let measured = block.deals as f64 * table.seconds_per_deal;
+                        let measured =
+                            block.played.unwrap_or(block.deals) as f64 * table.seconds_per_deal;
                         let mut stage = json!({
                             "name": name,
                             "timeout_seconds": (measured * TIMEOUT_FACTOR).max(TIMEOUT_FLOOR).ceil(),
                             "memory_gib": MEMORY_GIB,
-                            "inputs": [spec.manifest, model.join("model.onnx.json")],
+                            "inputs": inputs,
                             "command": command,
                             "required_outputs": [out],
                         });
@@ -247,6 +395,9 @@ fn stages(spec: &Spec, done: &dyn Fn(&Path) -> bool) -> Result<Vec<Value>> {
                     }
                 }
             }
+        }
+        if block.react && !done(&spec.root.join(format!("react-b{index}.json"))) {
+            stages.push(react(spec, index, &runs));
         }
     }
     Ok(stages)
@@ -415,6 +566,99 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("search"), "{error}");
+    }
+
+    fn piloted() -> Spec {
+        let mut spec = spec();
+        spec.blocks = vec![
+            serde_json::from_value(json!({"models": ["r1"], "arms": ["raw", "tac"],
+                "tables": ["1v1"], "seeds": ["test"], "deals": 3900, "played": 150,
+                "pilots": ["house/victory"], "record": true, "react": true}))
+            .unwrap(),
+        ];
+        spec
+    }
+
+    fn command(stage: &Value) -> Vec<&str> {
+        stage["command"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|flag| flag.as_str().unwrap())
+            .collect()
+    }
+
+    fn after<'a>(command: &[&'a str], flag: &str) -> &'a str {
+        let at = command.iter().position(|f| *f == flag).unwrap();
+        command[at + 1]
+    }
+
+    /// The deals are chosen with the runs' own flags before the runs, which
+    /// play only them; the count of reactive play reads every run after.
+    #[test]
+    fn pilots_select_the_deals_first_and_react_counts_the_runs_last() {
+        let plan = plan(&[piloted()], &|_| false).unwrap();
+        assert_eq!(
+            names(&plan),
+            [
+                "deals-1v1-test-b0",
+                "r1-raw-1v1-test",
+                "r1-tac-1v1-test",
+                "react-b0"
+            ]
+        );
+        let selection = command(&plan["stages"][0]);
+        assert_eq!(after(&selection, "--pilot-decks"), "house/victory");
+        assert_eq!(
+            after(&selection, "--write-deals"),
+            "/out/deals-1v1-test-b0.json"
+        );
+        assert_eq!(after(&selection, "--first-seed"), "11");
+        assert_eq!(after(&selection, "--deals"), "3900");
+        assert!(plan["stages"][0].get("gpu_lock").is_none());
+        let run = command(&plan["stages"][2]);
+        assert_eq!(after(&run, "--only-deals"), "/out/deals-1v1-test-b0.json");
+        assert_eq!(after(&run, "--record-out"), "/out/records-r1-tac-1v1-test");
+        assert!(
+            plan["stages"][2]["inputs"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("/out/deals-1v1-test-b0.json"))
+        );
+        // 150 deals at 0.3 s, three times over, is under the floor.
+        assert_eq!(plan["stages"][2]["timeout_seconds"], 600.0);
+        let react = command(&plan["stages"][3]);
+        assert_eq!(react[..2], ["/rt/gamelog4", "react"]);
+        assert_eq!(after(&react, "--run"), "/out/records-r1-raw-1v1-test");
+        assert_eq!(after(&react, "--out"), "/out/react-b0.json");
+        assert_eq!(react.iter().filter(|flag| **flag == "--summary").count(), 2);
+    }
+
+    /// A stopped plan resumes: done runs leave the plan and the count reads
+    /// their summaries as they are.
+    #[test]
+    fn a_done_selection_and_done_runs_leave_only_what_is_missing() {
+        let done = |path: &Path| {
+            path.ends_with("deals-1v1-test-b0.json") || path.ends_with("eval-r1-raw-1v1-test.json")
+        };
+        let plan = plan(&[piloted()], &done).unwrap();
+        assert_eq!(names(&plan), ["r1-tac-1v1-test", "react-b0"]);
+    }
+
+    #[test]
+    fn react_without_records_and_the_matrix_flags_in_an_arm_are_refused() {
+        let mut spec = piloted();
+        spec.blocks[0].record = false;
+        assert!(plan(std::slice::from_ref(&spec), &|_| false).is_err());
+        let mut spec = piloted();
+        spec.arms
+            .get_mut("tac")
+            .unwrap()
+            .extend(["--only-deals".to_owned(), "/x.json".to_owned()]);
+        assert!(plan(std::slice::from_ref(&spec), &|_| false).is_err());
+        let mut spec = piloted();
+        spec.blocks[0].played = Some(4000);
+        assert!(plan(std::slice::from_ref(&spec), &|_| false).is_err());
     }
 
     /// Two runtimes of one change: the second spec's runs follow the first's,

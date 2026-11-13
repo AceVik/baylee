@@ -528,6 +528,14 @@ pub(super) fn pile_stand(duel: &Duel, place: Option<Place>) -> Option<Transform>
         Place::Command(player) => (player, PileKind::Command),
         Place::Battlefield | Place::Stack | Place::Hand => return None,
     };
+    pile_home(duel, player, kind)
+}
+
+/// Where the cards of `player`'s `kind` pile stand: [`pile_stand`] for a
+/// pile named itself and not by the zone it is. Exile's two places need
+/// that: a card lifted off the waiting place goes back to it and not to the
+/// exile pile across the mat.
+pub(super) fn pile_home(duel: &Duel, player: PlayerId, kind: PileKind) -> Option<Transform> {
     let slot = duel.layout.as_ref()?.slot(player)?;
     Some(card_transform(slot, slot.pile_center(kind), false, 0.0))
 }

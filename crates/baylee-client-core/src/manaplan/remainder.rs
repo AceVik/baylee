@@ -13,7 +13,7 @@
 use baylee_core::mana::{ManaCost, ManaSymbol};
 use baylee_view::ManaPoolView;
 
-use super::{ColorMask, augment, permitted, push_needs, units};
+use super::{ColorMask, Twobrid, augment, permitted, push_needs, twobrid_readings, units};
 
 /// What `cost` still asks for with `pool` floating: the symbols the pool
 /// cannot pay, the generic ones gathered into one `{n}` in front and every
@@ -25,17 +25,15 @@ use super::{ColorMask, augment, permitted, push_needs, units};
 #[must_use]
 pub fn remainder(cost: &ManaCost, pool: &ManaPoolView) -> Vec<ManaSymbol> {
     let symbols: Vec<ManaSymbol> = cost.symbols().collect();
-    // `{2/C}` reads two ways, as in `plan`: whichever leaves less to add is
-    // what the player still owes, and on a tie the generic reading, which
-    // says "one more mana of any kind" where the other would say "a green
-    // or two more" about the same pool.
-    let coloured = owed(&symbols, pool, false);
-    let generic = owed(&symbols, pool, true);
-    if still_to_add(&generic) <= still_to_add(&coloured) {
-        generic
-    } else {
-        coloured
-    }
+    // Each `{2/C}` reads two ways, as in `plan` (CR 107.4e): whichever reading
+    // leaves less to add is what the player still owes, and on a tie the one
+    // with more generic readings, which says "one more mana of any kind"
+    // where the other would say "a green or two more" about the same pool.
+    twobrid_readings(cost)
+        .into_iter()
+        .map(|reading| (reading, owed(&symbols, pool, reading)))
+        .min_by_key(|(reading, rest)| (still_to_add(rest), std::cmp::Reverse(reading.generics())))
+        .map_or_else(Vec::new, |(_, rest)| rest)
 }
 
 /// How many mana a remainder still needs added, the cheapest way.
@@ -49,14 +47,25 @@ fn still_to_add(symbols: &[ManaSymbol]) -> u32 {
         .sum()
 }
 
-/// The remainder under one reading of `{2/C}`.
-fn owed(symbols: &[ManaSymbol], pool: &ManaPoolView, generic_twobrid: bool) -> Vec<ManaSymbol> {
+/// The remainder under one reading of the `{2/C}` symbols.
+fn owed(symbols: &[ManaSymbol], pool: &ManaPoolView, reading: Twobrid) -> Vec<ManaSymbol> {
+    // Whether each symbol is a `{2/C}` read as two generic mana.
+    let mut twobrids = 0;
+    let generic_at: Vec<bool> = symbols
+        .iter()
+        .map(|symbol| {
+            matches!(symbol, ManaSymbol::TwoOrColor(_)) && {
+                twobrids += 1;
+                reading.generic(twobrids - 1)
+            }
+        })
+        .collect();
     // One entry per mana demanded, and which symbol each was printed as.
     let mut needs: Vec<ColorMask> = Vec::new();
     let mut printed_as: Vec<usize> = Vec::new();
     let mut read = vec![true; symbols.len()];
     for (at, &symbol) in symbols.iter().enumerate() {
-        if push_needs(symbol, generic_twobrid, &mut needs) {
+        if push_needs(symbol, generic_at[at], &mut needs) {
             printed_as.resize(needs.len(), at);
         } else {
             read[at] = false;
@@ -101,7 +110,7 @@ fn owed(symbols: &[ManaSymbol], pool: &ManaPoolView, generic_twobrid: bool) -> V
             ManaSymbol::Generic(_) => generic += unpaid,
             // Read as two generic: paid by half is one generic still owed;
             // paid by none is the symbol itself, which a green still pays.
-            ManaSymbol::TwoOrColor(_) if generic_twobrid && unpaid < mine => generic += unpaid,
+            ManaSymbol::TwoOrColor(_) if generic_at[at] && unpaid < mine => generic += unpaid,
             _ if unpaid > 0 => rest.push(symbol),
             _ => {}
         }
@@ -204,6 +213,19 @@ mod tests {
         assert_eq!(owed_text("{2/G}", &pool(&[(ManaColor::Green, 1)])), "");
         assert_eq!(owed_text("{2/G}", &pool(&[(ManaColor::Red, 1)])), "{1}");
         assert_eq!(owed_text("{2/G}", &pool(&[(ManaColor::Red, 2)])), "");
+    }
+
+    /// Each `{2/C}` is read on its own (CR 107.4e): a blue and two whites
+    /// floating pay `{2/G}{2/U}`, the blue for `{2/U}` and the whites for
+    /// `{2/G}`, which neither reading of both at once says.
+    #[test]
+    fn several_twobrids_are_each_owed_their_own_way() {
+        let floating = pool(&[(ManaColor::Blue, 1), (ManaColor::White, 2)]);
+        assert_eq!(owed_text("{2/G}{2/U}", &floating), "");
+        assert_eq!(
+            owed_text("{2/G}{2/U}", &pool(&[(ManaColor::Blue, 1)])),
+            "{2/G}"
+        );
     }
 
     /// Restricted mana is not counted (the planner's rule 2), and a

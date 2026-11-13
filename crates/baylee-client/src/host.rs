@@ -342,6 +342,19 @@ pub(crate) fn log_tail(bytes: &[u8]) -> Option<LogTail> {
         .ok()
 }
 
+/// How long one house search at a table of this program may take before it
+/// is given up and the level's own answer stands: as long as an engine
+/// server gives one by default (`baylee_engine_server::foresight::WALL_MS`).
+#[cfg(not(target_arch = "wasm32"))]
+const LOCAL_WALL: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// The wall guard's clock: the time since this program first asked.
+#[cfg(not(target_arch = "wasm32"))]
+fn monotonic() -> std::time::Duration {
+    static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    ORIGIN.get_or_init(std::time::Instant::now).elapsed()
+}
+
 /// A duel hosted inside this process.
 ///
 /// Used for solo play against the house AI, for the open world's embedded
@@ -376,13 +389,48 @@ impl LocalHost {
     /// Installs the local rules engine behind the renderer's non-blocking seam.
     /// Native clients run it on one dedicated worker; browser builds retain
     /// the synchronous host until a worker transport is available there.
+    ///
+    /// On the worker the house searches as at a hosted table
+    /// ([`Self::searching`]). A browser build's house does not: its host
+    /// runs on the frame's own thread, where a searched answer would hold
+    /// the page for up to a second.
     #[must_use]
     pub fn into_installed(self) -> crate::InstalledHost {
         #[cfg(not(target_arch = "wasm32"))]
-        let host: Box<dyn DuelHost> = Box::new(background::BackgroundHost::new(self));
+        let host: Box<dyn DuelHost> = Box::new(background::BackgroundHost::new(self.searching()));
         #[cfg(target_arch = "wasm32")]
         let host: Box<dyn DuelHost> = Box::new(self);
         crate::InstalledHost(host)
+    }
+
+    /// This table with the house trying its options in copies of the game
+    /// before it answers, within each level's own bound (`docs/house-ai.md`
+    /// §"Foresight at a host"): no search past `expert`'s bound, one search
+    /// at a time in this program, given up after [`LOCAL_WALL`] of wall time
+    /// for the level's own answer, and one searched answer per slice so the
+    /// table moves while the house thinks. A table built for a test plays
+    /// without it unless it asks.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[must_use]
+    pub fn searching(mut self) -> Self {
+        static SEARCHES: std::sync::OnceLock<std::sync::Arc<baylee_gamehost::Searches>> =
+            std::sync::OnceLock::new();
+        let permits =
+            std::sync::Arc::clone(SEARCHES.get_or_init(|| baylee_gamehost::Searches::new(1)));
+        self.session.set_foresight(true);
+        self.session
+            .set_foresight_host(baylee_gamehost::HostForesight {
+                percent: 100,
+                ceiling: baylee_core::preset::AIProfile::EXPERT_WORK,
+                wall: Some(baylee_gamehost::WallGuard {
+                    clock: monotonic,
+                    limit: LOCAL_WALL,
+                }),
+                permits: Some(permits),
+                yields: true,
+                needs_a_person: true,
+            });
+        self
     }
 
     /// Sets the maximum number of house AI steps answered per slice before
@@ -484,8 +532,7 @@ fn own_deck(preset: &GamePreset, seat: PlayerId) -> Vec<baylee_core::ids::CardIn
     preset
         .seats
         .get(seat.get() as usize)
-        .map(|spec| spec.deck.iter().map(|entry| entry.card).collect())
-        .unwrap_or_default()
+        .map_or_default(|spec| spec.deck.iter().map(|entry| entry.card).collect())
 }
 
 impl LocalHost {
@@ -983,6 +1030,45 @@ pub(crate) mod tests {
         );
     }
 
+    /// The table a player is given ([`LocalHost::into_installed`]) has the
+    /// house search, as a hosted table's does; a table built for a test plays
+    /// the level as its heuristics do unless it asks.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn a_players_table_searches_and_a_tests_table_does_not() {
+        let mut preset = demo_duel(DECK_FILE, 42).expect("the shipped decks parse");
+        preset.seats[1].controller = SeatController::Ai(AIProfile::EXPERT);
+        let names = ["You", "House AI"];
+        let me = PlayerId::new(0);
+        let played = |mut host: LocalHost| {
+            for _ in 0..2_000 {
+                let _ = host.poll();
+                if host.session.needs_pump() {
+                    continue;
+                }
+                if host.session.state().turn.number > 6
+                    || matches!(host.session.pending(), Pending::GameOver(_))
+                {
+                    break;
+                }
+                let Some(action) = host.session.house_action(me) else {
+                    break;
+                };
+                host.submit(action);
+            }
+            host.session.foresight_stats().clone()
+        };
+        let plain = played(LocalHost::new(&preset, me, &names).expect("it starts"));
+        assert_eq!(plain.asked, 0, "a test's table searched");
+        let searching = played(
+            LocalHost::new(&preset, me, &names)
+                .expect("it starts")
+                .searching(),
+        );
+        assert!(searching.searched > 0, "the player's table never searched");
+        assert!(searching.most_work <= AIProfile::EXPERT_WORK + 10_000);
+    }
+
     #[test]
     fn the_demo_duel_that_the_binary_launches_actually_builds() {
         let preset = demo_duel(DECK_FILE, 42).expect("the shipped decks parse");
@@ -1042,6 +1128,7 @@ pub(crate) mod tests {
         let told = LogTail {
             from: 3,
             entries: vec![LogEntry {
+                step: None,
                 at: 0,
                 turn: 2,
                 repeat: 1,
@@ -1159,6 +1246,7 @@ pub(crate) mod tests {
         view.seq = 7;
         let view_frame = baylee_view::ViewFrame::snapshot_of(&view);
         let entry = |turn| LogEntry {
+            step: None,
             at: 0,
             turn,
             repeat: 1,

@@ -9,6 +9,7 @@
 //! gamelog4 deals --summary eval-s1r.json
 //! gamelog4 show --run eval-s1r-records --game 17
 //! gamelog4 patterns --run eval-s1r-records --summary eval-s1r.json
+//! gamelog4 react --run eval-a-records --summary eval-a.json --out react.json
 //! ```
 //!
 //! A record is omniscient, so both hands are shown: this is for studying
@@ -27,6 +28,7 @@ mod game;
 mod losses;
 mod names;
 mod patterns;
+mod react;
 mod show;
 mod survey;
 
@@ -48,7 +50,8 @@ enum Command {
         #[arg(long, value_enum, default_value_t = losses::Which::Lost)]
         which: losses::Which,
     },
-    /// Prints one game of an eval4 `--record-out` directory.
+    /// Prints one game of an eval4 `--record-out` directory, or of a
+    /// `selfplay` run (the house against the house) from `--seat`'s chair.
     Show {
         /// The run's record directory (`games.jsonl` and `records/`).
         #[arg(long)]
@@ -65,6 +68,10 @@ enum Command {
         /// Also print the evaluated seat's forced answers.
         #[arg(long)]
         forced: bool,
+        /// The chair whose answers to print: needed for a `selfplay` run,
+        /// which has no evaluated seat; for an eval4 run, its focal seat.
+        #[arg(long)]
+        seat: Option<u8>,
     },
     /// Counts recurring mistakes over deals of a summary.
     Patterns {
@@ -124,6 +131,31 @@ enum Command {
         #[arg(long)]
         cases: Option<PathBuf>,
     },
+    /// Counts, game by game, what the evaluated seat did with its
+    /// instant-speed answers: counterspells held or cast while a spell of
+    /// the other side was on the stack and at what, instants passed through
+    /// their attack and end step, cast at their end step or discarded
+    /// (`react.rs`). Several runs print side by side.
+    React {
+        /// Record directories, each read with the `--summary` in its place.
+        #[arg(long, required = true)]
+        run: Vec<PathBuf>,
+        /// eval4's summary of each run, in the same order.
+        #[arg(long, required = true)]
+        summary: Vec<PathBuf>,
+        /// Only the deals the net piloted with this deck.
+        #[arg(long)]
+        pilot_deck: Option<String>,
+        /// A counter at a spell of at most this mana value counts as poor.
+        #[arg(long, default_value_t = 1)]
+        cheap: u32,
+        /// Games replayed at once.
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// Write each run's games and totals here as JSON.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -135,6 +167,7 @@ fn main() -> anyhow::Result<()> {
             from_turn,
             to_turn,
             forced,
+            seat,
         } => show::show(
             &run,
             game,
@@ -142,6 +175,7 @@ fn main() -> anyhow::Result<()> {
                 from_turn,
                 to_turn: to_turn.unwrap_or(u32::MAX),
                 forced,
+                seat,
             },
         ),
         Command::Patterns {
@@ -165,5 +199,17 @@ fn main() -> anyhow::Result<()> {
             seed,
             out,
         } => audit::audit(&run, &summary, threads, seed, out.as_deref()),
+        Command::React {
+            run,
+            summary,
+            pilot_deck,
+            cheap,
+            threads,
+            out,
+        } => {
+            anyhow::ensure!(run.len() == summary.len(), "one --summary for each --run");
+            let runs: Vec<_> = run.into_iter().zip(summary).collect();
+            react::count(&runs, pilot_deck.as_deref(), cheap, threads, out.as_deref())
+        }
     }
 }

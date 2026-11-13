@@ -1706,7 +1706,7 @@ pub fn rebuild_board(duel: &mut Duel) {
         .interaction
         .as_ref()
         .and_then(Interaction::legal_actions)
-        .map(|legal| {
+        .map_or_default(|legal| {
             legal
                 .lands
                 .iter()
@@ -1715,8 +1715,7 @@ pub fn rebuild_board(duel: &mut Duel) {
                 .chain(legal.foretellable.iter())
                 .copied()
                 .collect()
-        })
-        .unwrap_or_default();
+        });
 
     // The client's payable offers stay separate for action dispatch; only
     // their presentation shares the indigo reach highlight.
@@ -1847,11 +1846,16 @@ pub(crate) mod flashback_reach_tests;
 mod owed_tests;
 
 #[cfg(test)]
+mod library_owner_tests;
+
+#[cfg(test)]
 mod activation_payment_tests;
 #[cfg(test)]
 mod controlled_turn_tests;
 #[cfg(test)]
 mod reachable_tests;
+#[cfg(test)]
+mod x_cap_tests;
 
 #[cfg(test)]
 mod schedule_order_tests;

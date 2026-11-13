@@ -85,23 +85,12 @@ LogCountersFinality =
        *[other] finality counters
     }
 
-# Hold Shift to turn the preview.
+# The pill under a two-faced card's preview: hold Shift to turn it over.
 PreviewTurn = Turn over
 
-# Hold Alt/Option for the alternative preview.
-PreviewAlternate = Alternate view
-
-# Compact preview footer: hold Shift.
-PreviewTurnCompact = Turn
-
-# Hold Shift to rotate a flip or an Aftermath card to its other half.
+# The same pill for a flip or an Aftermath card: hold Shift to rotate it to
+# its other half.
 PreviewRotate = Other half
-
-# Compact preview footer: hold Shift to rotate to the other half.
-PreviewRotateCompact = Half
-
-# Compact preview footer: hold Alt/Option.
-PreviewAlternateCompact = View
 
 # Deck-construction choice for this physical copy.
 SpiresCircles = Circle two colors for this copy
@@ -1278,6 +1267,11 @@ AiSharp = Sharp
 # The deepest house AI combat search.
 AiExpert = Expert
 
+# The one house AI that is unfair on purpose: it sees hidden cards (opponents'
+# hands and decklists, the next cards of every library). The label says so
+# wherever levels are listed.
+AiSeer = Seer (unfair)
+
 # One page back through the table list.
 PageBack = ‹ Back
 
@@ -1420,25 +1414,6 @@ GuestEnded = that guest has ended — play as a new one, or sign in
 
 # The gateway takes no guests (its `/auth/config` said so).
 NoGuests = this gateway takes no guests
-
-# Caption of the box for a closed-beta key (#317).
-InviteKey = CLOSED BETA KEY
-
-# What that box says while empty: the shape of a key.
-InviteKeyShape = BAYLEE-XXXX-XXXX-XXXX-XXXX
-
-# Under the box: what the key is for, and that pasting it is fine.
-InviteKeyHint = This gateway is a closed beta: a new account or a new guest needs a key. Paste it as you got it.
-
-# A new account or guest was asked for with the box empty.
-NeedInviteKey = your closed beta key, please
-
-# The gateway refused the key, for whichever reason: mistyped, used,
-# expired or revoked. It does not say which, and neither does this.
-InviteKeyInvalid = this closed beta key is not valid — check it, or ask for a new one
-
-# The gateway wanted a key and none reached it.
-InviteKeyNeeded = this gateway is a closed beta: a new account or guest needs a closed beta key
 
 # Asked before a guest signs out. `$name` is its handle.
 # Arguments: name
@@ -1633,8 +1608,8 @@ SwitchOn = on
 # off
 SwitchOff = off
 
-# A red step is one the client passes for you.
-RailExplain = A red step is one the client passes for you. Nothing is red until you make it red.
+# A lit step is one the table stops at; the client passes the others.
+RailExplain = At a lit step the table stops and asks you; the client passes the others for you. A preset is a place to start: every step is yours to change.
 
 # The button that writes a preset into the rail.
 UsePreset = use
@@ -1650,6 +1625,12 @@ RailPresetQuietSteps = Skip the quiet steps
 
 # Not untap, upkeep, draw, damage or cleanup — nothing is decided there.
 RailPresetQuietStepsDetail = Not untap, upkeep, draw, damage or cleanup — nothing is decided there.
+
+# Standard stops
+RailPresetStandard = Standard stops
+
+# Your main phases and every attack and block, and on their turns their main phases and end step.
+RailPresetStandardDetail = Your main phases and every attack and block, and on their turns their main phases and end step.
 
 # Competitive stops
 RailPresetCompetitive = Competitive stops
@@ -3050,6 +3031,31 @@ NounCardsToBottom =
        *[other] cards to put on the bottom of your library
     }
 
+# card from $player's library: a search through another player's library
+# (Bribery), whose owner is named
+# Arguments: player, count
+NounCardsFromLibraryOf =
+    { $count ->
+        [one] card from { $player }'s library
+       *[other] cards from { $player }'s library
+    }
+
+# card to put on top of $player's library, another player's
+# Arguments: player, count
+NounCardsToTopOf =
+    { $count ->
+        [one] card to put on top of { $player }'s library
+       *[other] cards to put on top of { $player }'s library
+    }
+
+# card to put on the bottom of $player's library, another player's
+# Arguments: player, count
+NounCardsToBottomOf =
+    { $count ->
+        [one] card to put on the bottom of { $player }'s library
+       *[other] cards to put on the bottom of { $player }'s library
+    }
+
 # card you may play this turn
 # Arguments: count
 NounCardsToPlay =
@@ -3595,13 +3601,31 @@ OrderOnTop = Put these back on top: the first is the new top card
 # Put these on the bottom: the last is the bottom card
 OrderOnBottom = Put these on the bottom: the last is the bottom card
 
-# A scry (CR 701.22a): the looked-at cards go back on top or under the
-# library, each pile in an order.
+# Put these back on top of another player's library (Architects of Will
+# aimed at them): the first is the new top card. `$player` is whose
+# library it is, named as every other seat is named.
+# Arguments: player
+OrderOnTopOf = Put these back on top of { $player }'s library: the first is the new top card
+
+# Put these on the bottom of another player's library: the last is the
+# bottom card. `$player` is whose library it is.
+# Arguments: player
+OrderOnBottomOf = Put these on the bottom of { $player }'s library: the last is the bottom card
+
 # CR 603.3b: several triggered abilities go on the stack at once, and their
 # controller chooses the order. The first in the row resolves first.
 TriggerOrderPrompt = Order your triggers: the first resolves first
 
+# A scry (CR 701.22a): the looked-at cards go back on top or under the
+# library, each pile in an order.
 ScryPrompt = Scry: keep cards on top or put them on the bottom
+
+# The top of another player's library, asked the way a scry is asked
+# (Jace, the Mind Sculptor's +2) but no scry, which is of one's own
+# library (CR 701.22a): the cards stay on top of it or go under it.
+# `$player` is whose library it is.
+# Arguments: player
+LookAtTopOf = { $player }'s library: keep cards on top or put them on the bottom
 
 # The shared surveil/explore choice: keep cards on top or put them into
 # the graveyard, without labeling either operation as the other mechanic.
@@ -3627,6 +3651,16 @@ PayAdditionalCost = Pay the additional cost?
 # Optional life payment for a resolving ability.
 # Arguments: amount
 PayLife = Pay { $amount } life?
+
+# Optional life payment for the one permanent named $permanent (Cleansing:
+# "destroy that land unless any player pays 1 life", asked land by land).
+# Arguments: amount, permanent
+PayLifeFor = Pay { $amount } life for { $permanent }?
+
+# The same life payment for another player's permanent, named with whose it is
+# ($player, the seat's name): Cleansing asks every player for every land.
+# Arguments: amount, permanent, player
+PayLifeForTheirs = Pay { $amount } life for { $player }'s { $permanent }?
 
 # Pay {$mana}?
 # Arguments: mana
@@ -3856,16 +3890,11 @@ ArmedPayAndActivate = Pay { $cost } and activate
 # Arguments: cost
 ArmedSuspend = Pay { $cost } and suspend
 
-# Heading of the public suspend queue.
-SuspendedCards = Suspended cards
-
-# Card name, owner and remaining time counters.
-# Arguments: card, owner, count
-SuspendedCard =
-    { $card } · { $owner }{"\u000A"}{ $count } { $count ->
-        [one] time counter
-       *[other] time counters
-    } · inspect
+# The zone dialog's badge on a suspended card in exile, in the zone's
+# place: how many time counters it still has. As long as the longest zone
+# name at most, the badge is that wide.
+# Arguments: count
+TraySuspended = Suspended { $count }
 
 # Confirm a suspend action with no outstanding mana payment.
 ArmedSuspendNow = Suspend this card
@@ -4914,6 +4943,17 @@ ArrangeLibraryBottom = Under the library
 # An arrangement's pile that goes into the graveyard.
 ArrangeGraveyard = Into the graveyard
 
+# An arrangement's pile that goes back on top of another player's library
+# (Architects of Will aimed at them), its first card the new top card.
+# `$player` is whose library it is.
+# Arguments: player
+ArrangeLibraryTopOf = On top of { $player }'s library
+
+# An arrangement's pile that goes under another player's library, its last
+# card the new bottom card. `$player` is whose library it is.
+# Arguments: player
+ArrangeLibraryBottomOf = Under { $player }'s library
+
 # The cards of an arrangement not yet put in any pile.
 ArrangeUnplaced = Not placed yet
 
@@ -4957,6 +4997,11 @@ BattleProtectedBy = Protected by { $player }
 # Current defense, including zero while its defeat trigger is pending.
 # Arguments: defense
 BattleDefense = Defense { $defense }
+
+# A target's share of the damage a spell on the stack divides, announced as
+# it was cast (CR 601.2d), drawn beside that target.
+# Arguments: amount
+StackDividedDamage = { $amount } damage
 
 # The last two names of a list, joined.
 # Arguments: list, last
@@ -6470,7 +6515,7 @@ TourL1Body = A gateway is the server that keeps your decks and tables. The colou
 TourL2Title = Account or guest
 
 # Tour step L2's words (TOURS.md §2).
-TourL2Body = As a guest you only need a name. In return you can't upload pictures, and about 30 days after your last visit the guest and its decks are deleted. With an account your decks and settings stay on the gateway. In a closed beta, the button you pick asks for your key.
+TourL2Body = As a guest you only need a name. In return you can't upload pictures, and about 30 days after your last visit the guest and its decks are deleted. With an account your decks and settings stay on the gateway.
 
 # Tour step L3's title (TOURS.md §2).
 TourL3Title = Play offline
@@ -6738,7 +6783,7 @@ TourT15Body = You pick a colour as a symbol, not a word. You type a number or st
 TourT16Title = The phases
 
 # Tour step T16's words (TOURS.md §2).
-TourT16Body = On each mat's edge stand the twelve steps of a turn; the current one is lit. Green: the table asks you here. Red: it passes for you here. Nothing is red at the start. A click toggles a step, Shift+W and Shift+S walk them. Presets: Settings › Gameplay. Your own attack and block steps never go red.
+TourT16Body = On each mat's edge stand the twelve steps of a turn; the current one is gold. Lit: the table asks you here. Dim: it passes for you here. It starts on a preset. A click toggles a step, Shift+W and Shift+S walk them. Presets: Settings › Gameplay. Your own attack and block steps always stay lit.
 
 # Tour step T17's title (TOURS.md §2).
 TourT17Title = Passing
@@ -7121,18 +7166,12 @@ RefusalOther = This server refused. An update of this client may say more.
 # Arguments: own, text
 RefusalServerSaid = { $own } The server says: “{ $text }”
 
-# The badge beside a closed-beta gateway's name on the front door.
-FrontClosedBeta = closed beta
-
 # The front door's version verdict when nothing is wrong.
 FrontCompatible = compatible
 
 # The front door's line naming this client's own version. `$version`.
 # Arguments: version
 FrontThisClient = this client { $version }
-
-# Under Create account and Play as guest on a closed beta.
-FrontKeyHint = This gateway needs a beta key — the key box opens under the button you choose.
 
 # Under the username when an account is made.
 FrontUsernameHint = Signs you in; nobody else sees it

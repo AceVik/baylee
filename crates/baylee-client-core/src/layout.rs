@@ -158,16 +158,32 @@ pub enum PileKind {
     /// Hidden for every seat that has fewer than two commanders, which is
     /// almost all of them.
     Command2,
+    /// The waiting place: this seat's suspended cards (CR 702.62), the one
+    /// with the fewest time counters on top.
+    ///
+    /// Exile drawn as two places, which is a drawing decision as the second
+    /// command slot is: a suspended card is in exile, counts there and is
+    /// listed there. It lies apart because it is the one exiled card on its
+    /// way back, and what comes back and when is read off the table and not
+    /// out of a list (the owner, 13.11.2026: the display of suspended cards
+    /// reworked from the ground up; until then a text panel over the table's
+    /// top left corner). Across the mat from the exile pile, level with it:
+    /// the one cell of the two columns that held nothing.
+    ///
+    /// Hidden for every seat with nothing suspended, which is almost all of
+    /// them.
+    Waiting,
 }
 
 impl PileKind {
-    /// All five, in the order they are laid out.
-    pub const ALL: [Self; 5] = [
+    /// All six, in the order they are laid out.
+    pub const ALL: [Self; 6] = [
         Self::Library,
         Self::Graveyard,
         Self::Exile,
         Self::Command,
         Self::Command2,
+        Self::Waiting,
     ];
 
     /// Which side of the mat this pile stands on: `1.0` the seat's right
@@ -181,7 +197,7 @@ impl PileKind {
     pub const fn side(self) -> f32 {
         match self {
             Self::Library | Self::Graveyard | Self::Exile => 1.0,
-            Self::Command | Self::Command2 => -1.0,
+            Self::Command | Self::Command2 | Self::Waiting => -1.0,
         }
     }
 
@@ -191,7 +207,8 @@ impl PileKind {
     /// hand: the library it is drawn from nearest the seat, the graveyard it
     /// dies into next, and exile — the pile touched least often — furthest
     /// away. The left-hand column is the command zone, one slot per
-    /// commander.
+    /// commander, and past them the waiting place, level with the exile
+    /// pile its cards are counted in.
     ///
     /// Exile is level with [`LaneKind::Creatures`], and the doc that used to
     /// stand here said no pile ever would: that row is where attackers step
@@ -207,7 +224,7 @@ impl PileKind {
         match self {
             Self::Library | Self::Command => LaneKind::Lands,
             Self::Graveyard | Self::Command2 => LaneKind::Support,
-            Self::Exile => LaneKind::Creatures,
+            Self::Exile | Self::Waiting => LaneKind::Creatures,
         }
     }
 
@@ -223,6 +240,7 @@ impl PileKind {
             Self::Graveyard => ZoneMark::Graveyard,
             Self::Exile => ZoneMark::Exile,
             Self::Command | Self::Command2 => ZoneMark::Command,
+            Self::Waiting => ZoneMark::Waiting,
         }
     }
 
@@ -235,6 +253,7 @@ impl PileKind {
             Self::Exile => "Exile",
             Self::Command => "Command",
             Self::Command2 => "Command 2",
+            Self::Waiting => "Suspended",
         }
     }
 }
@@ -259,24 +278,31 @@ pub const PILE_REACH: f32 = 1.45;
 /// through, and the camera pays for it by drawing every card smaller.
 const PILE_STRIP: f32 = PILE_REACH + CARD_WIDTH * 0.5;
 
-/// How many cards a hover spreads out of a pile at most.
+/// How many cards a hover lifts off a pile at most.
 ///
-/// Four recent cards keep the preview inside a compact column. The zone
+/// Four recent cards fill the strip between the pile and the mat. The zone
 /// browser provides access to the rest. Shared as [`crate::ZonePile::FAN_MAX`].
 pub const FAN_MAX: usize = 4;
 
-/// Small lift above the stack; cards remain visually attached to their zone.
-pub const FAN_FLOAT: f32 = 0.10;
-/// Staircase spacing keeps adjacent card planes separate.
-pub const FAN_RISE: f32 = 0.035;
-/// Expose a useful strip of each of the four most recent cards.
-pub const FAN_STEP: f32 = 0.34;
-/// A gentle tilt distinguishes a browsing fan from cards on the battlefield.
-pub const FAN_TILT: f32 = 0.35;
-/// Restrained rotation keeps the exposed strips easy to point at.
-pub const FAN_YAW: f32 = 0.012;
-/// Hover feedback must remain smaller than the exposed hit area.
-pub const FAN_POP: f32 = 0.035;
+/// How high the lowest card of a fan floats over its pile: the cards are
+/// taken off the pile and held over it, and what is left of the pile stays
+/// on the table.
+pub const FAN_FLOAT: f32 = 0.12;
+/// The height between two neighbours of a fan, the newer card the higher.
+pub const FAN_RISE: f32 = 0.03;
+/// The turn between two neighbours of a fan, radians: a hand of cards opened
+/// about a point on its owner's side of the pile.
+pub const FAN_SPREAD: f32 = 0.14;
+/// How far that point lies from the pile, card widths. With [`FAN_SPREAD`]
+/// it is what a neighbour shows of itself: half a card's width, which is the
+/// start of its name and half of its picture.
+pub const FAN_RADIUS: f32 = 3.6;
+/// A small tip towards the one looking; the cards stay parallel, and their
+/// order in height is [`FAN_RISE`]'s and not the tilt's.
+pub const FAN_TILT: f32 = 0.08;
+/// How high the card under the pointer stands over the lowest card of its
+/// fan: above every other, so the one being read is the one lying on top.
+pub const FAN_POP: f32 = FAN_RISE * FAN_MAX as f32;
 
 /// Where one card of a pile's hover fan stands, in table space.
 ///
@@ -292,8 +318,8 @@ pub struct FanPose {
     /// for the *viewer*, so a seat across the table leans towards the one
     /// screen there is rather than away from it.
     pub tilt: f32,
-    /// Turn in the card's own plane: one way at one end of the fan and the
-    /// other way at the other.
+    /// Turn in the card's own plane: none for the card over the pile, and
+    /// one [`FAN_SPREAD`] more for each card after it.
     pub yaw: f32,
 }
 
@@ -612,15 +638,27 @@ impl SeatSlot {
 
     /// Where one card of a pile's hover fan stands.
     ///
-    /// `index` counts from the **top of the pile** — it is the index into
-    /// [`crate::ZonePile::fan`] — and it is also the rung, because the fan
-    /// opens *backwards*: the top card stands on the pile and does not move,
-    /// and each older card steps one [`FAN_STEP`] further from the camera and
-    /// one [`FAN_RISE`] higher. So the pointer that opened the pile is still
-    /// on the card it opened it to see, and the rest emerge from behind it.
+    /// A fan is a hand of cards taken off the pile and opened over it, and
+    /// it is built in the **seat's own frame**: the newest card over the
+    /// pile, each older one a [`FAN_SPREAD`] further round a point on the
+    /// owner's side of the pile, towards the seat's own ground. So every
+    /// seat's fan is the same hand, turned as its board is turned — the seat
+    /// across the table shows mine point-mirrored, a seat on the flank shows
+    /// it a quarter round — and it opens over the strip between the pile and
+    /// the mat, off the piles standing beside it in their column (the owner,
+    /// 12.11.2026; the fan it replaces stepped up the column in the viewer's
+    /// direction, over its neighbours, and read as a staircase).
     ///
-    /// `under_the_pointer` slides this one card out of the line by
-    /// [`FAN_POP`], which is the walk's own feedback.
+    /// `index` counts from the **top of the pile** — it is the index into
+    /// [`crate::ZonePile::fan`]. The top card stays over the pile, so the
+    /// pointer that opened the pile is still on the card it opened it to
+    /// see, and it lies highest: each older card lies one [`FAN_RISE`] lower
+    /// and shows the half of itself its newer neighbour leaves.
+    ///
+    /// `under_the_pointer` raises this one card over all the others
+    /// ([`FAN_POP`]) and moves it nowhere: the card being read is the card
+    /// on top, and a card that stepped aside would step out from under the
+    /// pointer that chose it.
     ///
     /// An `index` at or past `len` is clamped rather than refused; a fan is a
     /// drawing and the worst a clamp does is stack two cards. The length is
@@ -636,28 +674,33 @@ impl SeatSlot {
     ) -> FanPose {
         let last = len.min(FAN_MAX).saturating_sub(1);
         let rung = index.min(last) as f32;
-        let toward = self.camera_lies();
         // The seat's own depth axis, pointing at the table centre — the same
         // vector `lane_center` measures the lanes along — and the sideways
         // one `pile_center` stands the pile out along.
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         let side = Vec2::new(self.facing.cos(), -self.facing.sin());
-        let pop = if under_the_pointer { FAN_POP } else { 0.0 };
+        // Back towards the seat's own ground: a pile stands outside its mat.
+        let inward = -pile.side();
+        let turn = FAN_SPREAD * rung;
+        let (sin, cos) = turn.sin_cos();
+        let radius = FAN_RADIUS * self.scale;
+        let hinge = self.pile_center(pile) - away * radius;
         FanPose {
-            // Away from the camera, hence the minus, and outwards for the one
-            // card the pointer is on — outwards being further from the mat,
-            // which is the only direction that is neither the board nor
-            // another card of the fan.
-            at: self.pile_center(pile) - away * (toward * FAN_STEP * rung * self.scale)
-                + side * (pile.side() * pop * self.scale),
-            lift: FAN_FLOAT + FAN_RISE * rung,
+            at: hinge + (away * cos + side * (inward * sin)) * radius,
+            lift: FAN_FLOAT
+                + if under_the_pointer {
+                    FAN_POP
+                } else {
+                    FAN_RISE * (last as f32 - rung)
+                },
             // A card lies flat facing its owner, and tipping it about that
             // axis raises the edge furthest from the owner. That is towards
             // the camera for the near half of the ring and away from it for
             // the far half, which is why the sign is the viewer's and not the
             // seat's.
-            tilt: -toward * FAN_TILT,
-            yaw: FAN_YAW * (last as f32 / 2.0 - rung),
+            tilt: -self.camera_lies() * FAN_TILT,
+            // The card's head keeps pointing away from the hinge.
+            yaw: -inward * turn,
         }
     }
 

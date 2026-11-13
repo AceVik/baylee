@@ -783,21 +783,27 @@ impl<L: CardLookup> Engine<L> {
                         // the cost — then refused it. An offer the answer
                         // disagrees with is worse than no offer, because the
                         // client draws it as something to click.
+                        //
+                        // A suspend whose mana the pool does not hold yet is
+                        // the planner's (`unpaid_suspend`), as an unpaid
+                        // foretell is: without it no seat that taps first
+                        // could ever suspend a card that prints no mana cost
+                        // (Carbon block 3, Ancestral Vision).
                         AbilityDef::Suspend { cost, .. }
-                            if from == ActivationZone::Hand
-                                && sorcery_timing
-                                && self.can_pay_mana(
-                                    player,
-                                    casting::SpendFor::OtherFrom(
-                                        baylee_core::ids::DamageSourceRef {
-                                            object: card,
-                                            version: obj.version,
-                                        },
-                                    ),
-                                    cost,
-                                ) =>
+                            if from == ActivationZone::Hand && sorcery_timing =>
                         {
-                            legal.suspendable.push(card);
+                            if self.can_pay_mana(
+                                player,
+                                casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
+                                    object: card,
+                                    version: obj.version,
+                                }),
+                                cost,
+                            ) {
+                                legal.suspendable.push(card);
+                            } else {
+                                legal.unpaid_suspend.push((card, *cost));
+                            }
                         }
                         _ => {}
                     }
@@ -805,8 +811,13 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.offer_granted_actions(player, &mut legal);
-        // After every mana offer, which `unpaid_foretell` asks after.
+        // After every mana offer, which `unpaid_foretell` asks after, and
+        // `unpaid_suspend` too: a hint only while there is mana to make it
+        // with (CR 605.3a).
         self.offer_foretell(player, &mut legal);
+        if !legal.unpaid_suspend.is_empty() && !self.offers_mana(&legal) {
+            legal.unpaid_suspend.clear();
+        }
         self.settle_payable(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
@@ -824,17 +835,29 @@ impl<L: CardLookup> Engine<L> {
         legal
             .unpaid_abilities
             .retain(|(source, index, _)| legal.abilities.contains(&(*source, *index)));
-        // Except an ability with {X} in its mana cost, while this seat can
-        // still make mana: its X is announced before the mana is made and
-        // the mana is made in its payment window (CR 602.2b, by 601.2b and
-        // 601.2g), so no amount made beforehand is the right one to plan.
-        // It is offered as a cast paid in its window is (`payable`), and an
-        // activation the window leaves short is reversed (CR 734.1).
+        // Except an ability with {X} in its mana cost, while the mana this
+        // seat could make reaches its cost at its least X: its X is
+        // announced before the mana is made and the mana is made in its
+        // payment window (CR 602.2b, by 601.2b and 601.2g), so no amount
+        // made beforehand is the right one to plan. It is offered as a cast
+        // paid in its window is (`payable`), and an activation the window
+        // leaves short is reversed (CR 734.1). One whose least cost no mana
+        // here could make is not offered: Ballista Squad's `{X}{W}` beside
+        // an Island alone (`activation_reach`).
         let deferred: Vec<(ObjectId, u32)> = legal
             .unpaid_abilities
             .iter()
             .filter(|(source, index, mana)| {
-                mana.has_variable() && self.makes_activation_mana(player, &legal, *source, *index)
+                mana.has_variable() && {
+                    let least = self.activation_x_minimum(player, *source, *index);
+                    self.reaches_activation_mana(
+                        player,
+                        &legal,
+                        *source,
+                        *index,
+                        &mana.with_x(least),
+                    )
+                }
             })
             .map(|&(source, index, _)| (source, index))
             .collect();
@@ -847,22 +870,43 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|(s, i, _)| s == source && i == index)
         });
+        // Only now is `abilities` the list a payment window narrows.
+        self.settle_granted_offers(player, &mut legal);
         self.offer_cast_ways(player, &mut legal);
+        self.offer_restricted_mana(player, &mut legal);
         legal
     }
 
     /// `LegalActions::cast_ways`: the wizard's own list with the mana left
     /// out, so the hint and the question cannot disagree about what is legal.
-    /// Asked of a card that prints such a way and of no other, which is most
-    /// cards at most priorities: this runs on every offer.
+    /// Asked of a card that prints such a way, and of every card cast from
+    /// anywhere but the hand or the command zone, and of no other: this runs
+    /// on every offer.
+    ///
+    /// A card cast from a graveyard or from exile is as often as not cast at
+    /// a price that is not its mana cost — its flashback (CR 702.34a), its
+    /// escape (CR 702.138a), its disturb face's (CR 702.146a), its foretell
+    /// cost (CR 702.143a) — and which of them reaches it is a fact of the
+    /// game: the grant, the permission, the turn it was foretold on. So the
+    /// engine names each way at its whole price, and a planner taps for that
+    /// rather than for a cost it read off the card. A foretold Doomskar was
+    /// priced at its printed {3}{W}{W} and stayed dark beside the three
+    /// Plains that pay {1}{W}{W}; a Benevolent Geist was lit at its front's
+    /// {1}{U} beside two Islands that do not pay {2}{U}.
     fn offer_cast_ways(&self, player: PlayerId, legal: &mut LegalActions) {
         for &card in legal.castable.iter().chain(&legal.payable) {
-            let priced = self
-                .state
-                .object(card)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .is_some_and(casting::has_priced_ways);
+            let Some(object) = self.state.object(card) else {
+                continue;
+            };
+            let elsewhere = !matches!(
+                object.zone,
+                crate::zone::Zone::Hand | crate::zone::Zone::Command
+            );
+            let priced = elsewhere
+                || object
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .is_some_and(casting::has_priced_ways);
             if !priced || self.commanded_card(card) {
                 continue;
             }

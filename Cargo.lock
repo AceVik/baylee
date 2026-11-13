@@ -120,7 +120,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "version_check",
- "zerocopy",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -563,6 +563,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_matches"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
+
+[[package]]
 name = "assert_type_match"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -731,6 +737,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomig"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd0f41f4bb89f5c6450325e283fb78c4a3d042181b54f3855ee2f872919f9863"
+dependencies = [
+ "atomig-macro",
+]
+
+[[package]]
+name = "atomig-macro"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49c98dba06b920588de7d63f6acc23f1e6a9fade5fd6198e564506334fb5a4f5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -817,7 +843,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "baylee-account"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "central-api",
  "central-client",
@@ -832,7 +858,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-agent"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-protocol",
  "futures-util",
@@ -846,7 +872,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-ai"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
@@ -860,12 +886,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-avif"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "libc",
+ "rav1d",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "baylee-build"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 
 [[package]]
 name = "baylee-card-testkit"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
@@ -879,7 +914,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-artifacts-1"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -894,7 +929,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-artifacts-2"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -909,7 +944,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-1"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -924,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-2"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -939,7 +974,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-3"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -954,7 +989,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-4"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -969,7 +1004,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-5"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -984,7 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-6"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -999,7 +1034,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-creatures-7"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1014,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-enchantments-1"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1029,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-enchantments-2"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1044,7 +1079,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-instants-1"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1059,7 +1094,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-instants-2"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1074,7 +1109,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-lands-1"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1089,7 +1124,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-lands-2"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1104,7 +1139,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-misc"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1119,7 +1154,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-sorceries"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1134,7 +1169,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-card-tests-verification"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-card-testkit",
  "baylee-cards",
@@ -1149,7 +1184,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-cards"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards-base",
  "baylee-cards-dsl",
@@ -1161,8 +1196,476 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-cards-1993"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1994"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1995"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1996"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1997"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1998"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-1999"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2000"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2001"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2002"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2003"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2004"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2005"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2006"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2007"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2008"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2009"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2010"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2011"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2012"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2013"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2014"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2015"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2016"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2017"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2018"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2019"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2020"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q3"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2021-q4"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q3"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2022-q4"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q3"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2023-q4"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q3"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2024-q4"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q3"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2025-q4"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q3"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2026-q4"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
 name = "baylee-cards-base"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards-dsl",
  "baylee-core",
@@ -1171,7 +1674,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-cards-codegen"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards-dsl",
  "baylee-cards-index",
@@ -1180,13 +1683,14 @@ dependencies = [
  "heck 0.5.0",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "ureq",
 ]
 
 [[package]]
 name = "baylee-cards-dsl"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-core",
  "serde",
@@ -1194,15 +1698,67 @@ dependencies = [
 
 [[package]]
 name = "baylee-cards-index"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-core",
 ]
 
 [[package]]
 name = "baylee-cards-pool"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
+ "baylee-cards-1993",
+ "baylee-cards-1994",
+ "baylee-cards-1995",
+ "baylee-cards-1996",
+ "baylee-cards-1997",
+ "baylee-cards-1998",
+ "baylee-cards-1999",
+ "baylee-cards-2000",
+ "baylee-cards-2001",
+ "baylee-cards-2002",
+ "baylee-cards-2003",
+ "baylee-cards-2004",
+ "baylee-cards-2005",
+ "baylee-cards-2006",
+ "baylee-cards-2007",
+ "baylee-cards-2008",
+ "baylee-cards-2009",
+ "baylee-cards-2010",
+ "baylee-cards-2011",
+ "baylee-cards-2012",
+ "baylee-cards-2013",
+ "baylee-cards-2014",
+ "baylee-cards-2015",
+ "baylee-cards-2016",
+ "baylee-cards-2017",
+ "baylee-cards-2018",
+ "baylee-cards-2019",
+ "baylee-cards-2020",
+ "baylee-cards-2021-q1",
+ "baylee-cards-2021-q2",
+ "baylee-cards-2021-q3",
+ "baylee-cards-2021-q4",
+ "baylee-cards-2022-q1",
+ "baylee-cards-2022-q2",
+ "baylee-cards-2022-q3",
+ "baylee-cards-2022-q4",
+ "baylee-cards-2023-q1",
+ "baylee-cards-2023-q2",
+ "baylee-cards-2023-q3",
+ "baylee-cards-2023-q4",
+ "baylee-cards-2024-q1",
+ "baylee-cards-2024-q2",
+ "baylee-cards-2024-q3",
+ "baylee-cards-2024-q4",
+ "baylee-cards-2025-q1",
+ "baylee-cards-2025-q2",
+ "baylee-cards-2025-q3",
+ "baylee-cards-2025-q4",
+ "baylee-cards-2026-q1",
+ "baylee-cards-2026-q2",
+ "baylee-cards-2026-q3",
+ "baylee-cards-2026-q4",
  "baylee-cards-base",
  "baylee-cards-dsl",
  "baylee-core",
@@ -1210,7 +1766,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-cardtext"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1218,7 +1774,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-catalog"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-cardtext",
@@ -1236,11 +1792,12 @@ dependencies = [
 
 [[package]]
 name = "baylee-client"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "accesskit",
  "baylee-account",
  "baylee-ai",
+ "baylee-avif",
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
@@ -1298,7 +1855,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-client-android"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards-pool",
  "baylee-client",
@@ -1307,7 +1864,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-client-core"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "argon2",
  "baylee-cards",
@@ -1343,7 +1900,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-client-e2e"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -1351,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-core"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cardtext",
  "postcard",
@@ -1363,7 +1920,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-db"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-cardtext",
@@ -1382,7 +1939,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-deckio"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-core",
  "serde",
@@ -1393,14 +1950,14 @@ dependencies = [
 
 [[package]]
 name = "baylee-deploy-hooks"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "rustix 1.1.6",
 ]
 
 [[package]]
 name = "baylee-dev"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-client-e2e",
@@ -1411,7 +1968,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-driver"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-core",
@@ -1429,13 +1986,14 @@ dependencies = [
 
 [[package]]
 name = "baylee-engine"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-cards-pool",
  "baylee-core",
  "criterion",
+ "flate2",
  "rand_chacha 0.10.0",
  "rand_core 0.10.1",
  "rustc-hash 2.1.3",
@@ -1449,7 +2007,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-engine-server"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-agent",
  "baylee-ai",
@@ -1467,8 +2025,10 @@ dependencies = [
  "flate2",
  "futures-util",
  "prost",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-tungstenite 0.30.0",
  "tracing",
@@ -1478,7 +2038,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-feedback"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "argon2",
@@ -1504,7 +2064,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-gamehost"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-ai",
  "baylee-build",
@@ -1525,7 +2085,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-gateway"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "argon2",
@@ -1586,7 +2146,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-keyring"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "apple-native-keyring-store",
  "futures-util",
@@ -1599,7 +2159,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-monitor"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "axum",
@@ -1616,7 +2176,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-ops"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-pgo",
  "getrandom 0.4.3",
@@ -1626,7 +2186,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-perf"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-cards",
@@ -1643,14 +2203,14 @@ dependencies = [
 
 [[package]]
 name = "baylee-pgo"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "tempfile",
 ]
 
 [[package]]
 name = "baylee-protocol"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "bytes",
  "prost",
@@ -1663,7 +2223,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-runner"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1674,7 +2234,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-seal"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "chacha20poly1305",
  "ed25519-dalek",
@@ -1690,7 +2250,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-seat"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "axum",
@@ -1726,7 +2286,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-seathost"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards-pool",
  "baylee-client-core",
@@ -1743,7 +2303,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-tools"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "ab_glyph",
  "alias_record",
@@ -1776,7 +2336,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-train"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-ai",
@@ -1816,7 +2376,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-train-ops"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1837,7 +2397,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-update"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
@@ -1858,7 +2418,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-view"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-core",
  "proptest",
@@ -5398,7 +5958,7 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "num-traits",
- "zerocopy",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -6604,6 +7164,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nasm-rs"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "706bf8a5e8c8ddb99128c3291d31bd21f4bcde17f0f4c20ec678d85c74faa149"
+dependencies = [
+ "jobserver",
+ "log",
+]
+
+[[package]]
 name = "ndarray"
 version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7500,6 +8070,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7725,7 +8301,7 @@ version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
- "zerocopy",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -8101,6 +8677,36 @@ name = "range-alloc"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca45419789ae5a7899559e9512e58ca889e41f04f1f2445e9f4b290ceccd1d08"
+
+[[package]]
+name = "rav1d"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1932f060d5e7bd49dc9f8b272c1dc5e9ce0ffe141c28be900265d3989b36c9ed"
+dependencies = [
+ "assert_matches",
+ "atomig",
+ "bitflags 2.13.2",
+ "cc",
+ "cfg-if",
+ "libc",
+ "nasm-rs",
+ "parking_lot 0.12.5",
+ "paste",
+ "raw-cpuid",
+ "strum 0.26.3",
+ "to_method",
+ "zerocopy 0.7.35",
+]
+
+[[package]]
+name = "raw-cpuid"
+version = "11.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "498cd0dc59d73224351ee52a95fee0f1a617a2eae0e7d9d720cc622c73a54186"
+dependencies = [
+ "bitflags 2.13.2",
+]
 
 [[package]]
 name = "raw-window-handle"
@@ -9242,6 +9848,15 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros 0.26.4",
+]
+
+[[package]]
+name = "strum"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
@@ -9256,6 +9871,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
 dependencies = [
  "strum_macros 0.28.0",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -9585,6 +10213,12 @@ name = "tinyvec"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+
+[[package]]
+name = "to_method"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7c4ceeeca15c8384bbc3e011dbd8fccb7f068a440b752b7d9b32ceb0ca0e2e8"
 
 [[package]]
 name = "tokio"
@@ -11321,7 +11955,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.1.0-beta.9c"
+version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-cards",
@@ -11391,11 +12025,32 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zerocopy"
+version = "0.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
+dependencies = [
+ "byteorder",
+ "zerocopy-derive 0.7.35",
+]
+
+[[package]]
+name = "zerocopy"
 version = "0.8.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5fe1f8f1b06191a00962174c61aa5005e0bb391a6d80d07e24d115c01a92ed8"
 dependencies = [
- "zerocopy-derive",
+ "zerocopy-derive 0.8.63",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

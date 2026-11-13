@@ -73,6 +73,10 @@ pub struct FeltParams {
     pub thickness: f32,
     /// How many seats stand on the dial (0 to 8): the jewels drawn.
     pub seats: f32,
+    /// 1 where the channels are drawn from straight above and without their
+    /// caustics (`Effects::carved` is off, which is effects `Low`); 0, and
+    /// so every material nothing has written yet, is the carved table.
+    pub flat: f32,
     /// Per-duel domain offset, orientation, and scale of the vascular pattern.
     pub pattern: Vec4,
     /// Where each cellular field's cells sit in [`FeltMaterial::veins`]: the

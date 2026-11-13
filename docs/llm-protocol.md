@@ -55,6 +55,31 @@ must not classify a window containing `LegalActions::foretellable` as
 "nothing to do". Taking the action also ends the preceding mana-tapping
 sequence. The later cast uses its separate foretell casting mode.
 
+Suspend is offered the same way (CR 116.2f, 702.62a): `Suspend X for {U}
+(exile it with 4 time counters on it; paid from your pool)` when the cost
+floats, and with its taps first when the engine names it in
+`LegalActions::unpaid_suspend` (`wake::reachable_suspend`): Ancestral Vision
+beside untapped Islands was never offered (Carbon block 3). A window whose only
+play is such a suspend is not one with nothing but mana in it.
+
+A question the engine asks while the view stands in another step says the
+step it belongs to: a division of combat damage is headed `damage` and says
+"As the first-strike combat damage step begins, before any damage is dealt"
+(CR 510.1), though declare blockers has not yet handed over. A colour chosen
+as an ability resolves (Wild Mongrel) is "Choose a colour for ..." with the
+colours' letters for ids, and a plan's `color B` answers it. A price that
+nothing untapped reaches ("Pay {21}?" beside seven Swamps) offers only the
+no, and says why (CR 118.3, 608.2d).
+
+The list since the last decision marks the phase each run of lines happened
+in (`-- combat --`) and, in combat, each damage step
+(`-- first-strike combat damage step --`, `-- combat damage step --`), from
+the step the host writes on each log line (`LogEntry::step`, protocol 44): a
+double striker's two hits read as one step's otherwise (CR 510.4). A spell on
+the stack that divides its damage says each target's share
+(`targets Grizzly Bears #64 (1 damage), Hill Giant #65 (2 damage)`, CR
+601.2d).
+
 The state stays prose. On 602 captured boards, re-encoding the same state
 (header, log and question unchanged) costs, per whole wake:
 
@@ -163,6 +188,18 @@ booked. Lifecycle and inactivity heartbeats are specified in `docs/llm-seat.md`
   under a schema or a tool (the schema says it); under plain JSON it does.
   The shapes a question itself carries (piles, blocks, attacks, how many
   ids) are said to every model.
+- A library or graveyard a question puts cards into, or a search goes
+  through, is named by the cards' owner (CR 400.3; `Table::whose_cards`):
+  "your" only for the seat's own. Architects of Will aimed at P2 reads
+  `pile 1: the top of P2's library`, a Bribery `QUESTION: Search P2's
+  library`, and Jace's +2 is `This is the top card of P2's library`, never a
+  scry. A seat was told "your library" there before 11 Nov 2026.
+- A card the seat is shown out of a hidden zone says where it is, as far as
+  the question knows: a search's candidates `(in your library)` or `(in P2's
+  library)`, a hand looked at `(in P2's hand)`, a wish's `(outside the
+  game)`, any other `(shown to you)`; a library's public top card `(on top of
+  P2's library)`. Before 11 Nov 2026 every one read `(somewhere you cannot
+  see)`.
 - An empty mana pool is not said.
 - Log lines that read the same once written are folded into one with a
   count (`(4 times)`).
@@ -287,6 +324,24 @@ multikicker and replicate once and as often as the lands pay. A price that
 does not fit the lands is not listed, and a printed price no way stands at is
 dropped (Cyclonic Rift with nothing to bounce).
 
+A way whose cost has an X (a foretold Starnheim Unleashed's `{X}{X}{W}`) is
+planned at X = 0 and says so: "with foretell for {X}{X}{W} (taps Plains #0;
+X is 0 in this count, and you choose X when you cast it)". The X question then
+asks from 0 to the most the pool and the untapped sources pay for the cost
+the question's note names (`DecisionNote::cost`), where the engine's own range
+is open (CR 601.2b) and was told as "from 0 to 4294967295". Where the seat
+cannot read the sources, the engine's range stands. A restricted mana ability
+counts where its restriction admits the spell, read off the view since the
+question carries no offer (`baylee_ai::mana_sources_in_view_for`, CR 106.6):
+Vodalian Arcanist's `{C}` for an instant or a sorcery, never Ancient
+Ziggurat's for one (Carbon b7, attempt 22, q214: Invoke the Firemind was
+asked "from 0 to 2" beside an Arcanist, where 3 is paid). Restricted mana
+already floating is the view's by colour alone and counts as if it may pay:
+X is announced before mana abilities (CR 601.2b, 601.2g), so it was made
+before the cast began, nearly always by the seat's own taps for this spell.
+Where it may not pay, the bound is too high and the cast is reversed for want
+of mana (CR 601.2h, 734.1), as any X past the mana was under the open range.
+
 Taking one taps for that price and casts, and the question then comes as it
 always does: the model answers it, so "Cast Capsize with its buyback for
 {4}{U}{U}, and have the spell back" is followed by the buyback's yes or no,
@@ -297,7 +352,21 @@ up to what is floating, so a model that took "kicked up to 3 times" may answer
 fewer out of the same taps; zero is not kicked. While a land is left untapped
 the question's top reads the engine's ceiling of 50 instead, and a count the
 mana cannot pay reverses the cast (`docs/protocol.md`). A spell on the stack
-says how it was kicked and that its buyback was paid.
+says how it was kicked, that its buyback was paid, and the X announced for
+it ("X is 3", CR 601.2b, 107.3a); an ability on the stack says its X too.
+The view carried the X and the seat never read it, so Gaze of Granite
+resolved over a model that could not tell what it destroyed (Carbon b3,
+11 Nov 2026). An ability whose source is gone (a token that died) is named
+as the ability knows it, the token's name or the card it is printed on, never
+"an unnamed object".
+
+A cast paid in its payment window (the card cast first, its mana made after,
+CR 601.2g) is told as that: "You are casting Sphinx's Revelation #50 (X is 2)
+and owe {2}{W}{U}{U} for it", and that passing short cancels the cast, the card
+staying where it was and what the window tapped for it untapping, as the
+engine does (CR 601.2h, 734.1). The card is not on the stack yet, so the X is
+read back from the price. Until 12 Nov 2026 the window said "pass and leave
+it unpaid (what it was for is lost)" and named neither (Carbon d1, d2).
 
 A resolved spell that more than one effect wants instead of the graveyard asks
 its controller which applies (`docs/protocol.md`, "Where a resolved spell
@@ -347,7 +416,12 @@ runs the plan one step a question, without a call, each step read against
 that question's own offer exactly as an answer of the model's is
 (`Menu::plan_decision`). While a plan has steps, every question of its turn
 goes to the mind (`wake::Verdict::Planned`), so no standing order passes a
-window the plan wanted. The seat passes priority for a plan only toward
+window the plan wanted; an attack with no attacker and a block with no
+blocker are declared as at any other time, since "none" is their one answer,
+and the plan goes on at the next question (Carbon b7, attempt 8, q207: a
+seat with no creature had its `pass, pass` stopped there). An `attack none`
+step that declaration made is counted as done at the next priority. The
+seat passes priority for a plan only toward
 what its next step answers: while nothing but the seat's own spells and
 abilities is on the stack (they resolve, and ask what the step answers),
 and on its own turn before combat when the next step is the attack, and in
@@ -375,7 +449,15 @@ exactly; nothing of a plan is ever guessed (`narrator::Stop`):
   (`Stop::OtherPlayer`: "the plan was for P2's decisions, and this
   question is your own");
 - the table refused what a step sent (the step is not counted as done);
-- the taps of a cast were interrupted by another question;
+- the taps of a cast were interrupted by another question. What a tap's own
+  cost asks is not an interruption (CR 605.3a, 601.2h): Lazotep Quarry's
+  "Sacrifice a creature" with one creature is answered with it; with two,
+  the question is the model's, told that the option's taps are under way,
+  and the colour, the rest of the taps and the cast follow its answer
+  without a call (`seatstate::follow_plan`). An option says what such a tap
+  costs: "Lazotep Quarry #34 for {R} (its cost: {T}, Sacrifice a
+  creature)". Until 12 Nov 2026 the sacrifice dropped the taps, and the
+  cast never came (Carbon c3);
 - the targets named ahead are not legal now;
 - the attack step passed without the attack the plan names.
 
@@ -409,6 +491,14 @@ question, a declaration with something to declare, a payment owed or a
 cleanup window. It ends at its point (`my_main2` written in the second main
 phase means the next one), at any wake, and at the model's next answer of
 its own, which sets it again or not at all.
+
+The windows it passes are the model's own stops as well, and the prompt
+says so ("until passes priority at your stops too: to be asked at a stop
+before then, leave until out"). A model holding up Disharmony for the
+other side's combat answered `until: my_turn` and was next woken at the
+block declaration, its stop in the declare attackers step passed (Carbon
+b4, attempt 21, q104 and q116; CR 508.2, 117.3d): the seat did what it
+was told, and the prompt had not said it.
 
 `react`, while `until` holds, for something of the other side's on the
 stack: `all` (the model is woken; the default), `targets_me` (woken only

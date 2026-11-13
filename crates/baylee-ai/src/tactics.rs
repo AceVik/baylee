@@ -755,6 +755,13 @@ impl HeuristicAgent {
         if let Some(action) = self.fight_targets(view, objects, min, max, context) {
             return Some(action);
         }
+        // This seat's own Aura goes where its statics help this seat's side
+        // (`sides`, from generation 11).
+        if players.is_empty()
+            && let Some(action) = self.aura_target(view, objects, min, context)
+        {
+            return Some(action);
+        }
         let offer = Offer {
             objects,
             players,
@@ -769,6 +776,10 @@ impl HeuristicAgent {
         // An activation's target is the one it was taken for: the question
         // is answered by the measure `activate::choose` valued it with.
         if let Some(action) = self.ability_targets(view, offer, context) {
+            return Some(action);
+        }
+        // A combat trick goes to the creature whose exchange it turns.
+        if let Some(action) = self.trick_answer(view, objects, (min, max), context) {
             return Some(action);
         }
         // A flicker is worth what the flicker does to the one it names —
@@ -868,7 +879,7 @@ impl HeuristicAgent {
         let mut hostile: Vec<&PublicObject> = objects
             .iter()
             .filter_map(|id| view.object(*id))
-            .filter(|o| self.hostile(o.controller, view.seat) && !Self::answered(view, o))
+            .filter(|o| self.hostile(o.controller, view.seat) && !self.answered(view, o))
             .collect();
         hostile.sort_by_key(|o| (std::cmp::Reverse(material(o)), o.id));
         let mut left = i64::from(total);
@@ -982,7 +993,7 @@ impl HeuristicAgent {
                     if friendly != beneficial {
                         return -score - 10_000;
                     }
-                    if !beneficial && (spent.contains(id) || Self::answered(view, o)) {
+                    if !beneficial && (spent.contains(id) || self.answered(view, o)) {
                         return 0;
                     }
                     if friendly {

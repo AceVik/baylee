@@ -159,7 +159,9 @@ pub(super) struct Placement {
 pub(super) fn place_of(kind: PileKind, player: PlayerId) -> Option<Place> {
     match kind {
         PileKind::Graveyard => Some(Place::Graveyard(player)),
-        PileKind::Exile => Some(Place::Exile(player)),
+        // The waiting place is exile, drawn apart (`motion::pile_home` keeps
+        // the two places apart where a card flies).
+        PileKind::Exile | PileKind::Waiting => Some(Place::Exile(player)),
         PileKind::Command | PileKind::Command2 => Some(Place::Command(player)),
         PileKind::Library => None,
     }
@@ -485,13 +487,24 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
             // fan, and drawing both would put one card in two places and give
             // `index.cards` two entities for one id.
             //
-            // The pile's thickness goes on the **lowest** card of the fan,
-            // which is the one still standing over the pile's own place: it
-            // is the rest of the cards, and carrying it up with the top card
-            // instead would lift the whole deck into the air with it.
+            // Every card of the fan is one card, held over the pile. What is
+            // left of the pile stays on the table under them, and shows the
+            // card the fan uncovered (`ZonePile::rest`): the pile's thickness
+            // is that card's, so the deck does not rise into the air with
+            // the hand taken off it.
             if fanned == Some((pod.player, pile.kind)) && !pile.fan.is_empty() {
                 let len = pile.fan.len();
                 let under = usize::try_from(pile.count).unwrap_or(usize::MAX);
+                if let Some(rest) = &pile.rest {
+                    out.push(resting(
+                        duel,
+                        slot,
+                        pile.kind,
+                        rest.object,
+                        rest.art,
+                        under.saturating_sub(len).max(1),
+                    ));
+                }
                 for (i, card) in pile.fan.iter().enumerate() {
                     let pose = slot.fan_pose(pile.kind, i, len, duel.hovered == Some(card.object));
                     out.push(Placement {
@@ -505,11 +518,7 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
                         // same reason its corner is the empty one.
                         flying: false,
                         ward: shellmat::Ward::NONE,
-                        count: if i + 1 == len {
-                            under.saturating_sub(len - 1).max(1)
-                        } else {
-                            1
-                        },
+                        count: 1,
                         badge: 0,
                         art: card.art,
                         offer: pile_offer(duel, card.object),
@@ -536,42 +545,14 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
             let Some(top) = pile.top else {
                 continue;
             };
-            out.push(Placement {
-                object: top,
-                slot: *slot,
-                position: slot.pile_center(pile.kind),
-                // A pile stands beside the ground and overlaps nothing, so
-                // there is nothing here for the row's rise to separate it
-                // from.
-                lift: 0.0,
-                // A card in a graveyard is not a permanent and has no tap
-                // state to draw; the same goes for its power and toughness,
-                // which is why the corner is the empty one rather than
-                // `Corner::of`. Drawing a 4/4 on a card that is no longer a
-                // creature would be inventing a fact.
-                tapped: false,
-                flying: false,
-                ward: shellmat::Ward::NONE,
-                count: usize::try_from(pile.count).unwrap_or(usize::MAX),
-                badge: 0,
-                art: pile.art,
-                offer: pile_offer(duel, top),
-                corner: baylee_client_core::cardplate::Corner::default(),
-                selected: duel
-                    .interaction
-                    .as_ref()
-                    .is_some_and(|i| i.is_selected(top)),
-                fan: None,
-                marks: 0,
-                sick: false,
-                veil: 0,
-                crests: [None; cardcrest::MAX_CRESTS],
-                covered: false,
-                room: cardplate::PlateRoom::OPEN,
-                tucked: false,
-                shown: true,
-                rung: 0.0,
-            });
+            out.push(resting(
+                duel,
+                slot,
+                pile.kind,
+                top,
+                pile.art,
+                usize::try_from(pile.count).unwrap_or(usize::MAX),
+            ));
         }
     }
     // A parked seat's cards (DESIGN-v8 §0) stand where its slot is and are
@@ -593,17 +574,71 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
     }
 }
 
+/// A pile lying on its place with `object` on top and `count` cards in it:
+/// a pile at rest, or what a hover fan leaves on the table.
+fn resting(
+    duel: &Duel,
+    slot: &SeatSlot,
+    kind: baylee_client_core::PileKind,
+    object: ObjectId,
+    art: Option<ImageKey>,
+    count: usize,
+) -> Placement {
+    Placement {
+        object,
+        slot: *slot,
+        position: slot.pile_center(kind),
+        // A pile stands beside the ground and overlaps nothing, so there is
+        // nothing here for the row's rise to separate it from.
+        lift: 0.0,
+        // A card in a graveyard is not a permanent and has no tap state to
+        // draw; the same goes for its power and toughness, which is why the
+        // corner is the empty one rather than `Corner::of`. Drawing a 4/4 on
+        // a card that is no longer a creature would be inventing a fact.
+        tapped: false,
+        flying: false,
+        ward: shellmat::Ward::NONE,
+        count,
+        badge: 0,
+        art,
+        offer: pile_offer(duel, object),
+        corner: baylee_client_core::cardplate::Corner::default(),
+        selected: duel
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.is_selected(object)),
+        fan: None,
+        marks: 0,
+        sick: false,
+        veil: 0,
+        crests: [None; cardcrest::MAX_CRESTS],
+        covered: false,
+        room: cardplate::PlateRoom::OPEN,
+        tucked: false,
+        shown: true,
+        rung: 0.0,
+    }
+}
+
 /// Whether the question this seat is answering will take one of `members`
 /// that it has not taken yet: a legal target, a card it may choose, a card
 /// to order (report 09). Combat's declarations are their own picture
 /// (`combatlines`), and a choice that names nothing (a discard from the
 /// hand, which the engine leaves implicit) lights nothing on the table.
+///
+/// A yes-or-no question about one permanent lights that permanent the same
+/// way ([`Interaction::asked_about`](baylee_client_core::interaction::Interaction::asked_about)):
+/// Cleansing's land, while its life payment is asked, the one card left
+/// bright among the dimmed. The light is all it gets; a press on it answers
+/// nothing, since nothing on the table is selectable in a yes-or-no question.
 pub(crate) fn choosable(duel: &Duel, members: &[ObjectId]) -> bool {
     duel.interaction.as_ref().is_some_and(|i| {
-        i.bounds().is_some()
+        (i.bounds().is_some()
             && !i.selectable().is_empty()
             && members.iter().any(|id| i.is_selectable(*id))
-            && !members.iter().any(|id| i.is_selected(*id))
+            && !members.iter().any(|id| i.is_selected(*id)))
+            || i.asked_about()
+                .is_some_and(|about| members.contains(&about))
     })
 }
 

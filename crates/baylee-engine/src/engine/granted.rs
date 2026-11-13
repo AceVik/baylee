@@ -1,26 +1,95 @@
 //! Dispatch for temporary special actions and their mana-payment windows.
-use super::{
-    CardLookup, Engine, EngineError, PaymentContinuation, PaymentWindow, Pending, PlayerId,
-};
-use crate::choice::LegalActions;
+use super::{CardLookup, Engine, EngineError, PaymentContinuation, PaymentWindow, PlayerId};
+use crate::choice::{GrantedActionOffer, LegalActions};
 use baylee_cards_dsl::{SpecialActionCost, SpecialActionTiming};
 use baylee_core::ids::GrantedActionId;
 
+#[cfg(test)]
+thread_local! {
+    /// Set, "can this seat make mana?" is asked as it was before
+    /// [`Engine::settle_granted_offers`] and
+    /// [`Engine::free_cast_makes_mana`]: of a list no payment window
+    /// narrowed, where any activation reads as a mana source. A granted
+    /// action the pool cannot pay is offered whenever the unfinished offer
+    /// holds an activation, and a free cast's options count any activation
+    /// as mana to come. The engine as it was, for `granted_offer_tests`'
+    /// lockstep games.
+    pub(in crate::engine) static ASK_MANA_AS_BEFORE: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
+
 impl<L: CardLookup> Engine<L> {
+    /// Every granted action of `player` the pool pays now, and every one
+    /// with a mana cost besides: whether a payment window would have
+    /// anything in it to make that mana with is asked of the finished
+    /// offer, in [`Self::settle_granted_offers`].
     pub(super) fn offer_granted_actions(&self, player: PlayerId, legal: &mut LegalActions) {
-        let can_make_mana =
-            legal.has_mana_source() || self.state.granted_colorless_capacity(player) > 0;
+        #[cfg(test)]
+        if ASK_MANA_AS_BEFORE.with(std::cell::Cell::get) {
+            let can_make_mana =
+                legal.has_mana_source() || self.state.granted_colorless_capacity(player) > 0;
+            legal.granted_actions = self
+                .state
+                .granted_actions
+                .iter()
+                .filter(|g| {
+                    g.player == player
+                        && (self.state.granted_action_payable(g)
+                            || (matches!(g.offer.cost, SpecialActionCost::Mana(_))
+                                && can_make_mana))
+                })
+                .map(|g| g.offer.clone())
+                .collect();
+            return;
+        }
         legal.granted_actions = self
             .state
             .granted_actions
             .iter()
             .filter(|g| {
                 g.player == player
-                    && (self.state.granted_action_payable(g)
-                        || (matches!(g.offer.cost, SpecialActionCost::Mana(_)) && can_make_mana))
+                    && (matches!(g.offer.cost, SpecialActionCost::Mana(_))
+                        || self.state.granted_action_payable(g))
             })
             .map(|g| g.offer.clone())
             .collect();
+    }
+
+    /// Keeps a granted action the pool cannot pay only while the payment
+    /// window [`Self::start_granted_action`] would open for it has
+    /// something in it to make mana with (CR 605.3a): the finished offer,
+    /// narrowed as that window narrows it, without the unpaid grants
+    /// themselves.
+    ///
+    /// Asked of the finished offer because the unfinished one is the wrong
+    /// list to ask. Until `compute_legal` ends, `abilities` still holds
+    /// every activation, also one whose mana nothing pays (it moves to
+    /// `unpaid_abilities` last), and `LegalActions::has_mana_source` reads
+    /// any entry there as a mana source. A seat with all its lands tapped
+    /// and a `{3}` ability it could not pay was offered Nafs Asp's "pay
+    /// {1}", and the window found nothing to make the {1} with and refused
+    /// it (the v6 bug harvest, deal 359 of the priority probe).
+    pub(super) fn settle_granted_offers(&self, player: PlayerId, legal: &mut LegalActions) {
+        #[cfg(test)]
+        if ASK_MANA_AS_BEFORE.with(std::cell::Cell::get) {
+            return;
+        }
+        let unpaid = |offer: &GrantedActionOffer| {
+            self.state
+                .granted_actions
+                .iter()
+                .find(|g| g.player == player && g.offer.id == offer.id)
+                .is_some_and(|g| !self.state.granted_action_payable(g))
+        };
+        if !legal.granted_actions.iter().any(unpaid) {
+            return;
+        }
+        let mut window = legal.clone();
+        window.granted_actions.retain(|offer| !unpaid(offer));
+        self.narrow_to_mana(&mut window);
+        if !window.has_mana_source() {
+            legal.granted_actions.retain(|offer| !unpaid(offer));
+        }
     }
 
     pub(super) fn start_granted_action(
@@ -63,10 +132,7 @@ impl<L: CardLookup> Engine<L> {
             self.mana_window = None;
             return Err(EngineError::IllegalAction("cannot make payment mana"));
         }
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
         Ok(())
     }
@@ -103,6 +169,11 @@ pub(super) struct ActivationPayment {
     opened: Box<super::WindowStart>,
 }
 impl ActivationPayment {
+    /// The permanent whose ability this payment activates.
+    pub(super) const fn source(&self) -> baylee_core::ids::ObjectId {
+        self.source.object
+    }
+
     pub(super) fn fingerprint(&self) -> u64 {
         // Keep the historical field order for every payment that predates
         // imposed non-mana costs; only that new suffix extends the digest.
@@ -229,6 +300,29 @@ impl<L: CardLookup> Engine<L> {
         source: baylee_core::ids::ObjectId,
         index: u32,
     ) -> bool {
+        let excluded = self.reserved_by_cost(source, index);
+        self.state.granted_colorless_capacity(player) > 0
+            || legal.mana_abilities.iter().any(|&id| id != excluded)
+            || legal.granted_actions.iter().any(|offer| {
+                matches!(
+                    offer.effect,
+                    crate::choice::GrantedActionKind::AddMana { .. }
+                )
+            })
+            || legal
+                .abilities
+                .iter()
+                .any(|&(id, index)| id != excluded && self.is_payment_mana_offer(id, index))
+    }
+
+    /// The permanent ability `index` of `source` spends by its own cost, so
+    /// that it makes no mana toward that cost: `source` where the printed
+    /// cost taps or untaps it (or the ability is gone), and nothing else.
+    pub(super) fn reserved_by_cost(
+        &self,
+        source: baylee_core::ids::ObjectId,
+        index: u32,
+    ) -> baylee_core::ids::ObjectId {
         let reserved =
             self.activation_definition(source, index)
                 .is_none_or(|ability| match ability {
@@ -245,23 +339,11 @@ impl<L: CardLookup> Engine<L> {
                     }
                     _ => true,
                 });
-        let excluded = if reserved {
+        if reserved {
             source
         } else {
             baylee_core::ids::ObjectId::NO_SOURCE
-        };
-        self.state.granted_colorless_capacity(player) > 0
-            || legal.mana_abilities.iter().any(|&id| id != excluded)
-            || legal.granted_actions.iter().any(|offer| {
-                matches!(
-                    offer.effect,
-                    crate::choice::GrantedActionKind::AddMana { .. }
-                )
-            })
-            || legal
-                .abilities
-                .iter()
-                .any(|&(id, index)| id != excluded && self.is_payment_mana_offer(id, index))
+        }
     }
 
     pub(super) fn open_activation_payment(
@@ -310,10 +392,7 @@ impl<L: CardLookup> Engine<L> {
         });
         let mut legal = self.compute_legal(player);
         self.narrow_to_mana(&mut legal);
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(legal),
-        };
+        self.pending = self.window_priority(player, legal);
         self.awaiting_answer = true;
         Ok(())
     }

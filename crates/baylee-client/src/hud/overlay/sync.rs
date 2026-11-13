@@ -28,7 +28,7 @@ pub fn sync_overlay(
     prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
-    motion: super::CardMotion,
+    mut motion: super::CardMotion,
     // Both come from the render plugins. A headless app has neither, and
     // every card below falls back to a plain image rather than growing a
     // second code path for it.
@@ -100,8 +100,7 @@ pub fn sync_overlay(
     let selected: Vec<ObjectId> = duel
         .interaction
         .as_ref()
-        .map(|i| i.selected().collect::<Vec<_>>())
-        .unwrap_or_default();
+        .map_or_default(|i| i.selected().collect::<Vec<_>>());
     let orders = prefs.orders().clone();
     let autopilot = duel.autopilot;
     let combat = duel.interaction.as_ref().and_then(|i| {
@@ -231,19 +230,15 @@ pub fn sync_overlay(
     // The stack joined it by the same road. Every card in the game that says
     // "target spell" points at a row of that panel, and until those rows
     // became clickable there was nothing there to light.
-    let selectable: Vec<ObjectId> = duel
-        .interaction
-        .as_ref()
-        .map(|i| {
-            board
-                .hand
-                .iter()
-                .map(|c| c.id)
-                .chain(board.stack.iter().map(|item| item.id))
-                .filter(|id| i.is_selectable(*id))
-                .collect()
-        })
-        .unwrap_or_default();
+    let selectable: Vec<ObjectId> = duel.interaction.as_ref().map_or_default(|i| {
+        board
+            .hand
+            .iter()
+            .map(|c| c.id)
+            .chain(board.stack.iter().map(|item| item.id))
+            .filter(|id| i.is_selectable(*id))
+            .collect()
+    });
 
     // The rebuild, which is no longer a clean sweep: the root and the shelf
     // stand, everything else is torn down and written again.
@@ -262,9 +257,21 @@ pub fn sync_overlay(
     // is the smaller of the two ways out — the other moves four `ZIndex`
     // layers to `GlobalZIndex` to make room for a ledge root between the veil
     // and the preview.
+    //
+    // The hover preview is the other exception, and only half of one: its
+    // nodes are replaced like everything else when a preview is drawn again,
+    // but when the pointer has left they are handed over to their leaving
+    // instead of being swept, and a preview already leaving is left alone
+    // (`pop`).
+    let mut stood: Vec<(Entity, PreviewRise)> = Vec::new();
     let root = if let Ok((root, children)) = tree.root.single() {
         for child in children.into_iter().flatten() {
-            if !tree.shelf.contains(*child)
+            if let Ok((node, rise)) = tree.rising.get(*child) {
+                stood.push((node, *rise));
+                continue;
+            }
+            if !tree.leaving.contains(*child)
+                && !tree.shelf.contains(*child)
                 && !tree.drawer.contains(*child)
                 && !tree.veil.contains(*child)
                 && !tree.panel.contains(*child)
@@ -356,6 +363,10 @@ pub fn sync_overlay(
     // aim and its threat, the number stepper, the subtype filter and the
     // indexed chooser. The slip that carried them is gone with them; what
     // still uses this sheet is the hover preview, further down.
+
+    // Whether this rebuild drew a preview, which decides what becomes of the
+    // one that stood before it.
+    let mut previewed = false;
 
     // ---- bottom: the hand zone (always on top) ---------------------------
     if let Some(statics) = duel.statics.as_ref() {
@@ -491,8 +502,16 @@ pub fn sync_overlay(
             // has to be resolved before the picture is: a card sized to the
             // window and a sheet hung under it would put the sheet off the
             // bottom of the screen. See `super::slip`.
+            // The one hint a preview wears, and only where it says something
+            // about this card: the key that shows its other side. Part of the
+            // bubble's size, like the sheet. See `super::preview_keys`.
+            let turn = super::preview_keys::turn(
+                reading,
+                far_face(key, has_back_image(view, hovered)).is_some(),
+            );
+            let keys_h = super::preview_keys::room(turn);
             let slip = super::slip::says(board, view, statics, lang, &faces, hovered);
-            let runs = slip.as_ref().map(super::slip::runs).unwrap_or_default();
+            let runs = slip.as_ref().map_or_default(super::slip::runs);
             // Twice, at two widths, and the first one is the estimate that
             // decides how much room the picture may take. The second is at
             // the width the sheet will actually be drawn at, which is the one
@@ -500,7 +519,7 @@ pub fn sync_overlay(
             let asked = slip.as_ref().map_or(0.0, |s| {
                 super::slip::height(&runs, want.x, s.kind.is_some())
             });
-            let art_size = preview_with_footer_size(want, window, asked);
+            let art_size = preview_with_footer_size(want, window, asked + keys_h);
             let (img_w, img_h) = (art_size.x, art_size.y);
             // The box the card stands in: landscape for one that lies across
             // it, which is the card's own size turned.
@@ -513,9 +532,9 @@ pub fn sync_overlay(
                 super::slip::height(&runs, card_box.x, s.kind.is_some())
             });
             // The panel is the picture plus its six pixels of padding on
-            // every side, and the sheet under it when there is one.
-            let panel =
-                card_box + Vec2::splat(12.0) + Vec2::new(0.0, slip_h + super::preview_keys::HEIGHT);
+            // every side, the sheet under it when there is one, and the
+            // hint's room when it wears one.
+            let panel = card_box + Vec2::splat(12.0) + Vec2::new(0.0, slip_h + keys_h);
             // And the same count: the ×12 on the table is the one thing the
             // art under it cannot say. A badge over the card's top-right
             // corner, as it stands over it on a duel's felt (#261), so the
@@ -555,8 +574,7 @@ pub fn sync_overlay(
             // them out as far.
             let shells = hovered
                 .and_then(|id| board.group(id))
-                .map(crate::shellmat::Shells::of)
-                .unwrap_or_default();
+                .map_or_default(crate::shellmat::Shells::of);
             let shell = shell_reach(img_w, shells);
             let [shell_side, shell_top] = shell;
             let place = place_around(anchor, panel, window, keep_out, [reach, plate_over], shell);
@@ -639,13 +657,49 @@ pub fn sync_overlay(
                     .id();
                 commands.entity(visual).add_child(node);
             }
+            // The preview comes up from what it describes and is the same
+            // preview across a rebuild (`pop`): spawned at the pose its
+            // opening has reached, never at full size for a frame first.
+            let rise = PreviewRise {
+                toward: toward(anchor, place, panel),
+                lean: Vec2::ZERO,
+            };
+            let still = prefs.all().reduce_motion;
+            let open = motion.preview.as_deref_mut().map_or(1.0, |pop| {
+                pop.stand(
+                    PreviewSubject {
+                        object: hovered,
+                        art: key,
+                    },
+                    !stood.is_empty(),
+                    still,
+                )
+            });
+            previewed = true;
+            // Two nodes, since the hint stands under the card and is no part
+            // of what casts the shadow: the preview's place and movement are
+            // the outer one's, the bubble inside it is the card held up.
             let tooltip = commands
                 .spawn((
                     PreviewBounds,
+                    rise,
+                    rising(open, rise),
                     Node {
                         position_type: PositionType::Absolute,
                         top: px(place.y),
                         left: px(place.x),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    ZIndex(Z_PREVIEW),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let bubble = commands
+                .spawn((
+                    PreviewShade,
+                    Node {
                         padding: UiRect::all(px(PREVIEW_PAD)),
                         // A column, because the bubble is a card and — when
                         // the pointer is on the stack — a sheet under it.
@@ -664,8 +718,7 @@ pub fn sync_overlay(
                     // shadow rather than as a rim — and the card's own alpha
                     // cut keeps the scan's white corners off the screen.
                     BackgroundColor(Color::NONE),
-                    upward_shadow(),
-                    ZIndex(Z_PREVIEW),
+                    shade(height(open)),
                     Pickable::IGNORE,
                     children![(
                         // Resize handle, bottom right — of the *card*, which
@@ -677,7 +730,7 @@ pub fn sync_overlay(
                         Node {
                             position_type: PositionType::Absolute,
                             right: px(4),
-                            bottom: px(4.0 + slip_h + super::preview_keys::HEIGHT),
+                            bottom: px(4.0 + slip_h),
                             padding: UiRect::all(px(4)),
                             border_radius: btn_radius(),
                             ..default()
@@ -691,6 +744,7 @@ pub fn sync_overlay(
                     ),],
                 ))
                 .id();
+            commands.entity(tooltip).add_child(bubble);
             // Every card can be turned over with shift. The frame holds both
             // sides and the turn, so the shape of the tree does not depend on
             // the card — what differs is only what is *on* the far side: the
@@ -835,9 +889,9 @@ pub fn sync_overlay(
                     ))
                     .id();
                 commands.entity(holder).add_child(frame);
-                commands.entity(tooltip).add_child(holder);
+                commands.entity(bubble).add_child(holder);
             } else {
-                commands.entity(tooltip).add_child(frame);
+                commands.entity(bubble).add_child(frame);
             }
             // The preview is a *description of* the hovered card, so it must
             // never take the pointer from it. The frame above already ignores
@@ -879,11 +933,13 @@ pub fn sync_overlay(
                     &fonts,
                     surfaces.sheets.as_deref(),
                 );
-                commands.entity(tooltip).add_child(sheet);
+                commands.entity(bubble).add_child(sheet);
             }
-            let legend =
-                super::preview_keys::spawn(&mut commands, &fonts, lang, card_box.x, reading);
-            commands.entity(tooltip).add_child(legend);
+            if let Some(turn) = turn {
+                let hint =
+                    super::preview_keys::spawn(&mut commands, &fonts, lang, card_box.x, turn);
+                commands.entity(tooltip).add_child(hint);
+            }
             commands.entity(root).add_child(tooltip);
             // Over the end screen once it stands: its log's links open this
             // preview, and one drawn at the overlay's own rung is behind the
@@ -975,6 +1031,8 @@ pub fn sync_overlay(
                         BackgroundColor(Color::NONE),
                         ZIndex(Z_PREVIEW),
                         Pickable::IGNORE,
+                        rise.beside(at, size, place, panel),
+                        rising(open, rise.beside(at, size, place, panel)),
                         children![(
                             Text::new(Phrase::CardUnderneath.text(lang).to_string()),
                             tf(&fonts, 9.0),
@@ -1091,6 +1149,8 @@ pub fn sync_overlay(
                         BackgroundColor(Color::NONE),
                         ZIndex(Z_PREVIEW),
                         PreviewAttached,
+                        rise.beside(at, size, place, panel),
+                        rising(open, rise.beside(at, size, place, panel)),
                         children![(
                             Text::new(Phrase::CardAttached.text(lang).to_string()),
                             tf(&fonts, 9.0),
@@ -1134,6 +1194,20 @@ pub fn sync_overlay(
                 lift(&mut commands, tail);
             }
         }
+    }
+
+    // The preview that stood before this rebuild: replaced by the one just
+    // drawn, or, where the pointer has left, sent on its way (`pop::leave`).
+    if previewed {
+        for (node, _) in stood {
+            commands.entity(node).despawn();
+        }
+    } else {
+        let animated = motion.preview.is_some() && !prefs.all().reduce_motion;
+        if let Some(pop) = motion.preview.as_deref_mut() {
+            pop.fall();
+        }
+        leave(&mut commands, stood, &tree.resize, animated);
     }
 
     // ---- the stack (left of the rail, when non-empty) --------------------

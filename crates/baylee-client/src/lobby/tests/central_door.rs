@@ -587,7 +587,10 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
     assert!(found.contains(&Press::Header(HeaderPress::Nav(1))));
     assert!(found.contains(&Press::Header(HeaderPress::Account)));
     assert!(found.contains(&Press::Front(FrontPress::SelectGateway(0))));
-    assert!(labels(&mut app).iter().any(|l| l == "AceVik#0007"));
+    // The account pill: the name, and the tag after it as a text of its own.
+    let drawn = labels(&mut app);
+    assert!(drawn.iter().any(|l| l == "AceVik"), "{drawn:?}");
+    assert!(drawn.iter().any(|l| l == "#0007"), "{drawn:?}");
 
     // Switching to Decks in the Lobby header works before any gateway is chosen.
     press(&mut app, Press::Header(HeaderPress::Nav(1)));

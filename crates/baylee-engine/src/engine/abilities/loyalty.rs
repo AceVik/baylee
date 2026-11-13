@@ -54,6 +54,7 @@ impl<L: CardLookup> Engine<L> {
         }
         self.apply_ability_spend_riders(player, id);
         self.activating_grant = None;
+        self.release_target_choice();
         self.state
             .bind_target_references(id, &self.activation_target_references);
         self.activation_target_references = crate::sources::TargetReferences::default();

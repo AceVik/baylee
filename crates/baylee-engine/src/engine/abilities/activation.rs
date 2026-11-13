@@ -100,9 +100,19 @@ impl<L: CardLookup> Engine<L> {
         // so that an activation refused further down cannot leave it
         // standing for the next one to inherit.
         let chosen_players = std::mem::take(&mut self.activation_target_players);
-        self.activation_target_choice.controller = Some(player);
+        // Turning a permanent face up and unlocking a door are special
+        // actions (CR 116.2b, 116.2m), and a prepared cast is a cast: none
+        // of the three is an activation, so none names an activator below.
+        // Named before them, the activator outlived each (nothing here lets
+        // go of it), and the snapshot hash and the fork read it as an
+        // activation in progress.
+        //
         // Prepared cast (`choice::PREPARED_CAST`): pay the linked
         // spell's cost, put a copy on the stack, unprepare the source.
+        #[cfg(test)] // the engine as it was, for `activation_choice_tests`
+        if super::KEEP_STALE_TARGET_CHOICE.with(std::cell::Cell::get) {
+            self.activation_target_choice.controller = Some(player);
+        }
         if ability_index == crate::choice::TURN_FACE_UP {
             return self.turn_face_up(player, source);
         }
@@ -112,6 +122,10 @@ impl<L: CardLookup> Engine<L> {
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
         }
+        // Who is activating, for a target question someone else may answer
+        // (`activation_target_chooser`) and for its answer; let go of where
+        // the ability reaches the stack or the activation is reversed.
+        self.activation_target_choice.controller = Some(player);
         // Karn's lock, ahead of every route below it. It used to sit inside
         // the printed-ability branch, which the granted and loyalty branches
         // return before reaching — so a locked artifact's *granted* ability
@@ -376,7 +390,10 @@ impl<L: CardLookup> Engine<L> {
                     });
                     self.pending = Pending::YesNo {
                         player,
-                        prompt: crate::choice::YesNoPrompt::PayLife { amount: 2 },
+                        prompt: crate::choice::YesNoPrompt::PayLife {
+                            amount: 2,
+                            permanent: None,
+                        },
                         // The ability being activated, which is what the
                         // question is about.
                         source: self
@@ -851,6 +868,47 @@ impl<L: CardLookup> Engine<L> {
         self.complete_paid_activation(completion, work.paid);
         Ok(())
     }
+
+    /// Lets go of what an activation captured for its push: the source's
+    /// ability list ([`Engine::activating_abilities`]) and a granted
+    /// ability's definition (`activating_grant`).
+    ///
+    /// The push takes them; this is for the two other ways an activation
+    /// ends. A mana ability goes on no stack and resolves at once
+    /// (CR 605.3b), and an activation refused after an answer is reversed
+    /// (`reverse_activation`). Left standing, the capture outlived its
+    /// activation: the settled priority after it was refused a fork as an
+    /// activation in progress, and the next reads of the same source (a
+    /// trigger's push, the offer's words and walls for its activated
+    /// abilities) took the list as it was then rather than as it is.
+    ///
+    /// [`Engine::activating_abilities`]: crate::engine::Engine
+    pub(in crate::engine) fn release_activation_capture(&mut self) {
+        #[cfg(test)]
+        if super::KEEP_STALE_CAPTURE.with(std::cell::Cell::get) {
+            return;
+        }
+        self.activating_abilities = None;
+        self.activating_grant = None;
+    }
+
+    /// Lets go of the activator and the seats its target question named
+    /// (`activation_target_choice`), once a loyalty ability is on the stack.
+    ///
+    /// `complete_paid_activation` does the same at its end for every other
+    /// activation. The loyalty path finishes in its own function, which
+    /// pushed the ability and kept the activator: the field is in the
+    /// snapshot hash, so every hash after a planeswalker's ability carried
+    /// it until the next activation was pressed, and the fork refused every
+    /// position in between as an activation in progress.
+    pub(in crate::engine) fn release_target_choice(&mut self) {
+        #[cfg(test)]
+        if super::KEEP_STALE_TARGET_CHOICE.with(std::cell::Cell::get) {
+            return;
+        }
+        self.activation_target_choice = super::super::targeting::ActivationTargetChoice::default();
+    }
+
     pub(super) fn record_activation(
         &mut self,
         player: PlayerId,

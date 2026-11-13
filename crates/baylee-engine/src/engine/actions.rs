@@ -1720,10 +1720,7 @@ impl<L: CardLookup> Engine<L> {
                                 player,
                                 suspended: PaymentContinuation::Tax(Box::new(suspended)),
                             });
-                            self.pending = Pending::Priority {
-                                player,
-                                legal: Box::new(legal),
-                            };
+                            self.pending = self.window_priority(player, legal);
                             self.awaiting_answer = true;
                             return Ok(());
                         }
@@ -2391,6 +2388,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.activation_targets_answered = false;
         self.activation_target_players.clear();
+        self.release_activation_capture();
         self.pending_plan = None;
         self.regrant_priority = Some(player);
     }

@@ -24,7 +24,8 @@ unofficial, non-commercial fan project.
   shell pipelines or interpreter one-liners.
 - **Gate before you push.** `cargo dev gate` and `cargo dev gate features`
   (with `DATABASE_URL`); `cargo dev land` runs both desktop gates and
-  fast-forwards `main`. Wasm is an optional experimental check until browser
+  fast-forwards `main`. On a branch the gate tests the crates its diff
+  reaches; `land` and `cargo dev gate --workspace` test every crate. Wasm is an optional experimental check until browser
   support ships. A change lands after the local gates, not
   after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
 - **Development features are local-only.** CI runs no dev-feature matrix;
@@ -49,6 +50,12 @@ unofficial, non-commercial fan project.
   card images are the one exception), check the rules we depend on, and
   stop and say so when something is clearly forbidden
   (`docs/legal.md` §"Guardrails for every change").
+- **Every player handles what the engine asks (owner, 12.11.2026).** When
+  the engine or the protocol gains something the game client or a seat
+  (language-model seat, house AI, trained AI) cannot handle yet, they are
+  extended with it: the client's UI/UX shows and answers it (not merely
+  compiles against it), and every seat reads and answers it. A change that
+  leaves one of them guessing is not done.
 - **Never run full `codegen` without the corpus**: it rewrites every
   machine-owned card as a stub (`docs/cards.md`).
 - **Card work** goes in release order, fixes the reader before a card, plays

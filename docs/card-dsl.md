@@ -7,10 +7,10 @@ Never hack around the DSL; extend the DSL instead (in a new milestone).
 
 ## File standard (one file per card)
 
-Location: under `crates/cards/src/cards/`, in the branch the card's own
-type line puts it in — `instants/mv_1/swords_to_plowshares.rs`. The next section is
-the whole rule; `cargo xtask codegen` computes it, so never place or move a
-card file by hand. Header is mandatory and must be kept truthful (it's the
+Location: under `crates/cards/sets/`, in the group and set folder of the
+card's first printing — `1993/src/lea/swords_to_plowshares.rs`. The next
+section is the whole rule; `cargo xtask codegen` computes it, so never place
+or move a card file by hand. Header is mandatory and must be kept truthful (it's the
 human-verification surface):
 
 ```rust
@@ -63,101 +63,88 @@ Rules:
    what the card prints — see *Only state what the card prints* below.
 3. Declare layers + durations explicitly for continuous effects. The engine
    deregisters effects structurally — never hand-roll removal.
-4. Card behaviour is tested in `crates/baylee-engine/src/engine/*_tests.rs`,
-   where a card can be *played*. A card file carries no `#[cfg(test)]` module
+4. Card behaviour is tested in `crates/cards/testkit/card_tests/`, where a
+   card can be *played*. A card file carries no `#[cfg(test)]` module
    and none in the pool has ever had one — a test beside a `CardDef` literal
    can only re-read the literal.
 
 ## Where a card's file lives
 
-`cards/` is a taxonomy a person can browse, not a flat list of slugs, and
-every part of it is computed from what the card prints:
+A card lies with the cards first printed when it was, in the folder of the
+set it was first printed in:
 
 ```text
-<card type>/<second type or defining subtype>/mv_<mana value>/<slug>.rs
+crates/cards/sets/<group>/src/<set>/<slug>.rs
 ```
 
 ```text
-creatures/artifacts/mv_2/baleful_strix.rs      Artifact Creature, {U}{B}
-creatures/mv_2/orcish_bowmasters.rs            a tribe is not a kind of card
-artifacts/equipment/mv_2/dowsing_dagger.rs     no second type, so the subtype
-enchantments/sagas/mv_3/welcome_to.rs
-instants/kindred/mv_3/crib_swap.rs             Kindred Instant
-sorceries/mv_2/curse_of_the_swine.rs           {X}{U}{U} — X counts 0
-planeswalkers/mv_4/jace_the_mind_sculptor.rs
-lands/fetch/arid_mesa.rs                       from data/land-cycles.tsv
-lands/check/glacial_fortress.rs                read off "unless you control a Plains"
-lands/manlands/celestial_colonnade.rs          "becomes a … creature until end of turn"
-lands/utility/bojuka_bog.rs                    does something other than make mana
-lands/dual/taiga.rs                            two basic land types, and no text
-lands/enchantments/urza_s_saga.rs              Enchantment Land
-lands/wasteland.rs                             nothing to say about it yet
+1993/src/lea/swords_to_plowshares.rs     Limited Edition Alpha, August 1993
+1994/src/drk/brainwash.rs                The Dark, 1994
+2002/src/ons/flooded_strand.rs           Onslaught, October 2002
+2018/src/c18/aminatou_the_fateshifter.rs Commander 2018
+2021-q1/src/khm/…                        from 2021 a group is a quarter
 ```
 
-Four rules, all of them in `baylee-cards-codegen/src/layout.rs`:
+Everything in the path is frozen data, and `cargo xtask codegen` computes it
+(`baylee-cards-codegen/src/layout.rs`), so never place or move a card file by
+hand:
 
-- **One card, one home.** A total order over card types picks the door —
-  Land > Planeswalker > Creature > Artifact > Enchantment > Battle > Instant
-  > Sorcery > Kindred — and the next type the card has is the room inside, so
-  an Artifact Creature is a creature that happens to be an artifact and is
-  never in two places. Land leads because a land prints no mana cost, which
-  keeps every mana-less card in the one branch that has no `mv_` level;
-  Kindred trails so Crib Swap is an instant. CR 205.2a lists the types and
-  states no order — this one is ours.
-- **The front face decides**, whatever the layout. A transforming back is not
-  a card anyone holds and a modal back is the same card from the other side
-  (CR 712.2), so filing by either would give Westvale Abbey two homes.
-- **A `mv_` level ends every branch but lands**, `{X}` counting 0 (CR 202.3).
-- **Lands take a semantic level instead**, because a land's type line says
-  almost nothing — 888 of the 1124 in the pool print no subtype at all. Six
-  sources are asked in order and the first that answers wins: the `Basic`
-  supertype, a second card type, the hand-kept cycle map, a printed nonbasic
-  land subtype (CR 305.6), what the printed text *does*, and finally how many
-  basic land types it prints.
+- **`<set>`** is the set the `CardIndex` ledger froze for the card when it
+  was assigned (`Row::set`): its first appearance over the whole corpus. A
+  reprint never moves it, and nor does a printing codegen happens to read.
+- **`<group>`** is that set's release year, and from 2021 on its quarter
+  (`2021-q1`), read from `baylee_cards_index::SETS`. Up to 2020 Wizards
+  printed at most 1,276 new cards a year; since 2021 about two thousand, so a
+  year would be one slow crate. The rule reads no count: a group never splits
+  after the fact, and a card never moves because others were added.
+- **`<slug>`** is the front face's name (`stubgen::slug`), whatever the
+  layout.
+- A `<set>` or `<slug>` that Windows reserves for a device (`CON`, `PRN`,
+  `AUX`, `NUL`, `COM1`–`9`, `LPT1`–`9`, any case) gains a trailing `_`
+  (`layout::windows_safe`): Conflux's cards lie in `2009/src/con_/`. Git for
+  Windows refuses to check out a path with such a name, so one of them kept
+  every Windows runner from cloning the repository (10.–13.11.2026).
 
-  The two middle sources are the two halves of "semantic", and they are
-  opposites. `data/land-cycles.tsv` is an **assertion no card prints** —
-  nothing about Scalding Tarn's text says "fetchland" — so it is kept by hand
-  and is **additive**: a land missing from it is filed one level shallower,
-  never misfiled, so a stale map costs browsing and never correctness. Add to
-  it freely. `layout::land_role` is the opposite: it **reads the card**,
-  because "enters tapped unless you control two or fewer other lands" is a
-  fastland whoever printed it. It knows about thirty cycles by their printed
-  sentence — fast, slow, check, crowd, unlucky, legendary, saddle, battle,
-  reveal, scry, surveil, gain, refuge, filter, pain, shock, bounce, storage,
-  horizon, cycling, fetch, manlands, no_untap, restricted — and ends in the
-  two shapes that are left: `utility` for a land that does something other
-  than make mana, `tapland` for one whose only text is that it comes in
-  tapped. A land whose whole text is a mana ability stays flat in `lands/`,
-  which is the honest place for it. That reader is what took `lands/` from
-  872 files in one directory to 73.
+A set with no release day in `SETS` stops codegen with `UnknownSet`. Run
+`cargo xtask sets` (it reads Scryfall's set list, cached under
+`data/scryfall-cache`) and commit the table it writes; the ledger's own test
+`every_ledger_set_has_a_release_day` asks the same question.
 
-  The map's own failure mode is silent, so it is made loud: an entry naming a
-  card the pool does not have is a **bail**, because the land it meant to file
-  would otherwise just sit one level shallower with nobody the wiser — ten
-  pathways did exactly that for a commit, the map holding their front-face
-  names while Scryfall hands over `A // B`.
+Each group is a crate, `baylee-cards-<group>`, and three things keep the tree
+honest, all of them `codegen`'s:
 
-Two things keep the tree honest, and both are `codegen`'s:
-
-- **The file moves; the module path never does.** `cards/mod.rs` declares
-  every card with `#[path = …]`, so `cards::lightning_bolt` resolves exactly
-  as it did when the directory was flat. `generated.rs`, the ledger and every
-  path in the workspace are untouched by a re-filing, which costs one
-  `git mv` and one generated line.
+- **The group's `src/lib.rs` is generated.** It declares every card with
+  `#[path = "<set>/<slug>.rs"]`, so `baylee_cards_1993::lightning_bolt`
+  resolves whichever set folder the file is in, and it re-exports what a card
+  file names as `crate::…` (`filters`, `generated_tokens`, `tokens`). A new
+  group gets its `Cargo.toml` and its line in the pool's manifest from the
+  same run; a group no card lies in any more is removed.
 - **Placement is a reconciliation, not a write.** `codegen` finds every card
-  file wherever it is, **fails on any `.rs` under `cards/` that no card in the
-  registry claims**, and only then moves the misplaced ones. The refusal comes
-  first because the slug a card claims is known without fetching anything, and
-  a bail halfway through a re-filing would leave every card moved and `mod.rs`
-  still naming the old paths — a tree that does not build, over a stray file
-  someone could have deleted in a second. It is checked again after the moves,
-  against the slugs the reader actually produced. An orphan left
-  behind by a move would still compile, be declared by nothing and be read by
-  nobody — which is exactly how an empty `lightning_bolt.rs` sat in the tree
-  unnoticed. Two files claiming one slug fails for the same reason: `mod.rs`
-  could only declare one of them, and which one would depend on directory
-  order.
+  file wherever it is, **fails on any `.rs` under `crates/cards/sets` that no
+  card in the registry claims**, and only then moves the misplaced ones. The
+  refusal comes first because the slug a card claims is known without
+  fetching anything, and a bail halfway through a re-filing would leave every
+  card moved and a `lib.rs` still naming the old paths — a tree that does not
+  build, over a stray file someone could have deleted in a second. It is
+  checked again after the moves, against the slugs the reader actually
+  produced. An orphan left behind by a move would still compile nowhere, be
+  declared by nothing and be read by nobody — which is exactly how an empty
+  `lightning_bolt.rs` once sat in the tree unnoticed. Two files claiming one
+  slug fails for the same reason: a `lib.rs` could only declare one of them,
+  and which one would depend on directory order.
+- **A card's test is found by its slug.** The card tests did not move with
+  the cards: they stay filed by subject under
+  `crates/cards/testkit/card_tests/` (`instants/mv_1/lightning_bolt.rs`), and
+  a card read in full is `Implemented` once a file named after it exists
+  anywhere there (`layout::tested_slugs`; a module root such as `lands/pain.rs`
+  beside `lands/pain/` counts only when it holds a `#[test]` itself) or a test
+  names its oracle id.
+
+Until 10.11.2026 the cards were filed by type line instead
+(`creatures/artifacts/mv_2/baleful_strix.rs`, lands by a semantic level and
+the hand-kept `data/land-cycles.tsv`). That tree browsed well and compiled as
+one crate of twelve thousand files; `docs/cards.md` §"Where a card compiles"
+has the measurements that retired it.
 
 ## Only state what the card prints
 
@@ -3532,7 +3519,10 @@ mere presentation references eligible damage sources.
 
 The wire offers `LegalActions::granted_actions`, each with a never-reused
 `GrantedActionId`, source/provenance, timing, cost and already-bound result.
-`TakeGrantedAction { id }` validates against the current offer. No client selects
+`TakeGrantedAction { id }` validates against the current offer. A grant whose
+mana cost the pool cannot pay is offered only while the payment window it would
+open has a way to make mana (`docs/engine-internals.md`, "Can this seat make
+mana?"). No client selects
 new recipients or implicitly pays life. Numeric limitation: plain and snow pool counters now use `u32`, with an exact
 `u64` total across colors. One recorded payment is bounded by `u32` total units;
 individual restricted/rider entries and the existing single mana-production
@@ -4716,6 +4706,18 @@ for `ExileTopFaceDownUntilYourNextEndStep` uses the registering controller's
 `Effect::ForEachTarget { effects }` runs the child instructions separately
 for each surviving exact target, binding that object as `EventObject` and
 its controller as `EventPlayer`.
+`Effect::ForEachMatching { filter, effects }` does the same for each
+permanent `filter` matches, counted once as it begins (CR 608.2h), its
+controllers taking their turns in APNAP order (CR 101.4), one player's
+permanents in battlefield order. When `effects` sacrifice through
+`SacrificeFilter` ("for each creature, its controller sacrifices a permanent
+of their choice unless they pay {1}": Fade Away), each player answers every
+payment first and then chooses each permanent owed, a permanent chosen is
+not offered again, a counted permanent that has left still counts, and
+everything chosen is sacrificed at once after the last player has chosen
+(`docs/engine-internals.md` §"For each permanent, its controller").
+Instructions that do not sacrifice act on the permanent itself and pass over
+one that has left before its turn (CR 400.7).
 `Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects }` instead
 iterates the exact still-present graveyard successors of creatures damaged
 by this source incarnation that died this turn. A card that left and returned

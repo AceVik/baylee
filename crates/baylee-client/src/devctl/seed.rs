@@ -92,12 +92,24 @@ fn friend(n: usize) -> Friend {
     }
 }
 
+/// A seeded line's id: a v7 UUID of the seed's own time, the same on every
+/// run. The machine drops a lobby line whose id is no v7 UUID
+/// (`sealing::uuid_ms`), which is what `seed-00000000` was: every seeded
+/// line was dropped unseen.
+fn line_id(n: usize) -> String {
+    let mut rest = [0u8; 10];
+    rest[2..].copy_from_slice(&(n as u64).to_be_bytes());
+    uuid::Builder::from_unix_timestamp_millis(SEEDED_AT_MS + n as u64, &rest)
+        .into_uuid()
+        .to_string()
+}
+
 /// A line of the lobby's chat, the one conversation not sealed end to end.
 fn line(n: usize) -> Down {
     let tag = format!("{:04x}", 0x1000 + n % 7);
     let text = format!("Line {n}: a sentence long enough to wrap once in the chat's window.");
     Down::Global {
-        id: format!("seed-{n:08}"),
+        id: line_id(n),
         at: SEEDED_AT_MS + n as u64,
         from: Sender {
             handle: format!("Speaker#{tag}"),
@@ -134,4 +146,47 @@ fn pile_the_stack(duel: &mut Duel, count: usize) -> usize {
         .collect();
     duel.receive_view(view);
     count
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::social::{ChatPrefs, Me};
+    use baylee_protocol::social::Conv;
+
+    /// What a seed asks for is what the chat then holds: the machine keeps
+    /// every seeded line (it drops one whose id is no v7 UUID), and the
+    /// seeded friends stand in the list.
+    #[test]
+    fn a_seeded_line_and_friend_are_kept_by_the_machine() {
+        let (mut machine, _) = Social::start(
+            Me {
+                tag: "0001".into(),
+                handle: "Seeded#0001".into(),
+                guest: true,
+                gateway: "http://127.0.0.1:1".into(),
+            },
+            None,
+            None,
+            ChatPrefs::default(),
+            SEEDED_AT_MS,
+            &mut crate::social::OsEntropy,
+        );
+        let seed = Seed {
+            friends: 5,
+            lines: 9,
+            stack: 0,
+        };
+        assert_eq!(seed_the_machine(&mut machine, &seed), 11);
+        let lobby = machine
+            .conversation(&Conv::Global)
+            .expect("the lobby's conversation");
+        assert_eq!(lobby.lines.len(), 9);
+        for n in 0..5 {
+            let tag = format!("{:04x}", 0x1000 + n);
+            assert!(machine.contacts().friend(&tag).is_some(), "{tag}");
+        }
+        assert_ne!(line_id(1), line_id(2));
+        assert_eq!(line_id(3), line_id(3));
+    }
 }

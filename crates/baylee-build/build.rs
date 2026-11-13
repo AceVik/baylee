@@ -11,6 +11,55 @@
 use std::process::Command;
 
 fn main() {
+    let profile = std::env::var("PROFILE").unwrap_or_else(|_| "unknown".into());
+    println!("cargo:rerun-if-env-changed={UNSTAMPED}");
+    if profile == "debug" && std::env::var(UNSTAMPED).as_deref() == Ok("none") {
+        unstamped();
+    } else {
+        stamped();
+    }
+    // A fallback build goes by its triple and its variant, `...-v2`. That name is what
+    // its updater asks for, so it can never take the main line's archive
+    // (`docs/releasing.md` §"The fallback build").
+    println!("cargo:rerun-if-env-changed=BAYLEE_TARGET_VARIANT");
+    let triple = std::env::var("TARGET").unwrap_or_else(|_| "unknown".into());
+    let target = match std::env::var("BAYLEE_TARGET_VARIANT").as_deref() {
+        Ok("") | Err(_) => triple,
+        Ok(variant) => format!("{triple}-{variant}"),
+    };
+    emit("BAYLEE_TARGET", &target);
+    emit("BAYLEE_PROFILE", &profile);
+}
+
+/// `BAYLEE_BUILD_STAMP=none` asks a build not to say which commit it is.
+///
+/// The stamp is this crate's input, and cargo compiles a crate again when an
+/// input changes, with every crate above it: the client, the gateway, the
+/// game host, the engine server and their test binaries, on every commit,
+/// for a string no test reads. A test build that asks is given the answers
+/// a tarball gets and watches nothing of git's, so a commit is no news to
+/// it. `cargo dev gate` asks, for its test step and its `target/gate`.
+///
+/// Only a debug build may ask. A build that ships (`release`, `dist`) says
+/// what it is whatever the environment holds: the AGPL's offer of source
+/// names a version (`src/lib.rs`), and a variable left set in a shell must
+/// not be able to take that out of a release.
+const UNSTAMPED: &str = "BAYLEE_BUILD_STAMP";
+
+fn unstamped() {
+    for key in [
+        "BAYLEE_COMMIT",
+        "BAYLEE_COMMIT_SHORT",
+        "BAYLEE_BRANCH",
+        "BAYLEE_BUILT_AT",
+    ] {
+        emit(key, "unknown");
+    }
+    emit("BAYLEE_DIRTY", "0");
+    emit("BAYLEE_BUILD_NUMBER", "0");
+}
+
+fn stamped() {
     // A commit is only news when `HEAD` moves. Naming both the file and the
     // ref it points at covers the two shapes: a checkout on a branch, where
     // `HEAD` is a symref and the branch file is what changes on a commit,
@@ -42,20 +91,6 @@ fn main() {
 
     emit("BAYLEE_BUILD_NUMBER", &build_number());
     emit("BAYLEE_BUILT_AT", &built_at());
-    // A fallback build goes by its triple and its variant, `...-v2`. That name is what
-    // its updater asks for, so it can never take the main line's archive
-    // (`docs/releasing.md` §"The fallback build").
-    println!("cargo:rerun-if-env-changed=BAYLEE_TARGET_VARIANT");
-    let triple = std::env::var("TARGET").unwrap_or_else(|_| "unknown".into());
-    let target = match std::env::var("BAYLEE_TARGET_VARIANT").as_deref() {
-        Ok("") | Err(_) => triple,
-        Ok(variant) => format!("{triple}-{variant}"),
-    };
-    emit("BAYLEE_TARGET", &target);
-    emit(
-        "BAYLEE_PROFILE",
-        &std::env::var("PROFILE").unwrap_or_else(|_| "unknown".into()),
-    );
 }
 
 /// The build number, which is deliberately **not** the commit count.

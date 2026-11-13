@@ -66,7 +66,7 @@ pub use patch::{
     ViewSender, Zone, ZoneEdit, apply, diff, digest,
 };
 pub use player_view::{
-    Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
+    Ballot, Division, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
 };
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};

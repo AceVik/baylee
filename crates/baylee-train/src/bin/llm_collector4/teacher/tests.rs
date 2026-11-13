@@ -5,7 +5,7 @@
 //!
 //! Against PostgreSQL, a fresh schema per database: without `DATABASE_URL`
 //! these tests fail rather than skip, as `baylee-db`'s do. The gateway is a
-//! stand-in that keeps its closed-beta keys in one of those schemas.
+//! stand-in that keeps its hosted-model policies in one of those schemas.
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -17,7 +17,7 @@ use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 
 use super::{OwnDatabase, Sits, b64};
-use crate::admin_cleanup::AdminCleanup;
+use crate::admin_cleanup::{AdminCleanup, PROBE_PROFILE};
 use crate::table::{SlotAccount, account_init_retry_safe};
 
 const ADMIN_TOKEN: &str = "collector-admin-token-for-the-teacher-tests-0001";
@@ -86,23 +86,23 @@ struct Door {
 /// A request the stand-in saw: method, path, bearer, body.
 type Seen = Arc<Mutex<Vec<(String, String, Option<String>, String)>>>;
 
-/// A gateway on 127.0.0.1 whose admin listener keeps its closed-beta keys
-/// in `keys` and whose player door is `door`. Answers its base URL.
-async fn gateway(keys: DatabaseConnection, door: Door, seen: Seen) -> String {
+/// A gateway on 127.0.0.1 whose admin listener keeps its hosted-model
+/// policies in `own` and whose player door is `door`. Answers its base URL.
+async fn gateway(own: DatabaseConnection, door: Door, seen: Seen) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move {
         loop {
             let (stream, _) = listener.accept().await.unwrap();
-            let keys = keys.clone();
+            let own = own.clone();
             let seen = Arc::clone(&seen);
-            tokio::spawn(async move { serve(stream, keys, door, seen).await });
+            tokio::spawn(async move { serve(stream, own, door, seen).await });
         }
     });
     base
 }
 
-async fn serve(mut stream: TcpStream, keys: DatabaseConnection, door: Door, seen: Seen) {
+async fn serve(mut stream: TcpStream, own: DatabaseConnection, door: Door, seen: Seen) {
     let mut peek = [0_u8; 32];
     let n = stream.peek(&mut peek).await.unwrap_or(0);
     if peek[..n].starts_with(b"GET /lobby/ws") {
@@ -152,38 +152,21 @@ async fn serve(mut stream: TcpStream, keys: DatabaseConnection, door: Door, seen
     ));
     let admin = bearer.as_deref() == Some(ADMIN_TOKEN);
     let (status, answer) = match (method.as_str(), path.as_str()) {
-        ("POST", "/admin/invites") if admin => {
-            let id = baylee_db::invites::create(
-                &keys,
-                &baylee_db::invites::NewInvite {
-                    // A fresh key each time, as the gateway makes one.
-                    key_hash: Sha256::digest(uuid::Uuid::now_v7().as_bytes()).to_vec(),
-                    note: Some("probe".into()),
-                    uses: 1,
-                    expires_at: None,
-                },
+        ("PUT", p) if admin && p == format!("/admin/llm/access/{PROBE_PROFILE}") => {
+            // As the console does: the policy, set by the admin the header
+            // names (`baylee_gateway::llmaccess`).
+            assert_eq!(body, br#"{"policy":"nobody"}"#);
+            let by = header("x-baylee-admin").expect("an admin's name");
+            baylee_db::llm_access::set_policy(
+                &own,
+                PROBE_PROFILE,
+                baylee_db::llm_access::Policy::Nobody,
+                None,
+                &by,
             )
             .await
             .unwrap();
-            (
-                "201 Created",
-                format!(
-                    r#"{{"keys":[{{"id":"{id}","key":"never-kept"}}],"uses":1,"expires_at":null}}"#
-                ),
-            )
-        }
-        ("DELETE", p) if admin && p.starts_with("/admin/invites/") => {
-            let id = uuid::Uuid::parse_str(&p["/admin/invites/".len()..]).unwrap();
-            let now = time::OffsetDateTime::now_utc();
-            let revoked = baylee_db::invites::revoke(&keys, id, now).await.unwrap();
-            (
-                if revoked {
-                    "204 No Content"
-                } else {
-                    "404 Not Found"
-                },
-                String::new(),
-            )
+            ("200 OK", "{}".into())
         }
         ("POST", "/ws-ticket") if door.knows => {
             tokio::time::sleep(door.delay).await;
@@ -210,6 +193,11 @@ const OPEN: Door = Door {
 
 const TEACHERS: &str = "SELECT count(*) AS n FROM account WHERE username LIKE 'llmt%'";
 
+/// The probe's one row, as the collector leaves it.
+const PROBES: &str = "SELECT count(*) AS n FROM llm_profile_access \
+     WHERE profile_id = 'llm-collector-probe' AND policy = 'nobody' \
+       AND NOT default_for_registered AND updated_by LIKE 'llm-collector-%'";
+
 #[tokio::test]
 async fn proves_its_own_gateways_database_and_writes_nothing_into_another() {
     let own = Sandbox::open("own").await;
@@ -219,13 +207,14 @@ async fn proves_its_own_gateways_database_and_writes_nothing_into_another() {
 
     let proved = OwnDatabase::prove(&admin(&base), own.db.clone()).await;
     assert!(proved.is_ok(), "{:?}", proved.err());
-    // The probe key is the gateway's own write, revoked again.
+    // The probe is the gateway's own write: one policy, for a profile no
+    // seat agent serves, open to nobody, last set by the collector.
+    assert_eq!(own.count(PROBES).await, 1);
     assert_eq!(
-        own.count("SELECT count(*) AS n FROM invite WHERE revoked_at IS NULL")
+        own.count("SELECT count(*) AS n FROM llm_profile_access")
             .await,
-        0
+        1
     );
-    assert_eq!(own.count("SELECT count(*) AS n FROM invite").await, 1);
 
     // Another gateway's database: refused before anything is written there.
     let accounts = other.count("SELECT count(*) AS n FROM account").await;
@@ -236,18 +225,18 @@ async fn proves_its_own_gateways_database_and_writes_nothing_into_another() {
         other.count("SELECT count(*) AS n FROM account").await,
         accounts
     );
-    assert_eq!(other.count("SELECT count(*) AS n FROM invite").await, 0);
+    assert_eq!(
+        other
+            .count("SELECT count(*) AS n FROM llm_profile_access")
+            .await,
+        0
+    );
     assert_eq!(
         other.count("SELECT count(*) AS n FROM session_token").await,
         0
     );
-    // Its probe key went to the gateway's own database, and is revoked.
-    assert_eq!(own.count("SELECT count(*) AS n FROM invite").await, 2);
-    assert_eq!(
-        own.count("SELECT count(*) AS n FROM invite WHERE revoked_at IS NULL")
-            .await,
-        0
-    );
+    // Its probe went to the gateway's own database, the same one row.
+    assert_eq!(own.count(PROBES).await, 1);
 
     // A gateway that refuses the collector's token proves nothing either.
     let stranger =
@@ -270,8 +259,7 @@ async fn a_teacher_is_what_registration_made() {
         .db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT username, username_key, display_name, email, invite_id::text AS invite,
-                    lang, guest, central_only, tag, password_hash,
+            "SELECT username, username_key, display_name, email, lang, guest, central_only, tag, password_hash,
                     created_at = date_trunc('second', created_at) AS whole
              FROM account WHERE id = $1",
             [teacher.account.into()],
@@ -294,7 +282,6 @@ async fn a_teacher_is_what_registration_made() {
     assert_eq!(text("username_key"), Some(username.to_lowercase()));
     assert_eq!(text("display_name").as_deref(), Some("LLM-teacher-3"));
     assert_eq!(text("email"), None);
-    assert_eq!(text("invite"), None);
     assert_eq!(text("lang").as_deref(), Some("en"));
     assert!(!row.try_get::<bool>("", "guest").unwrap());
     assert!(!row.try_get::<bool>("", "central_only").unwrap());

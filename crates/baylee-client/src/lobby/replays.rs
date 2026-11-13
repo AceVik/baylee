@@ -567,7 +567,7 @@ pub(super) fn open_replay(
                 viewer: entry.as_ref().map_or(handover.perspective.seat(), |e| {
                     baylee_core::ids::PlayerId::new(e.seat)
                 }),
-                unshared: entry.as_ref().map(unshared_seats).unwrap_or_default(),
+                unshared: entry.as_ref().map_or_default(unshared_seats),
             };
             let host = crate::replay::ReplayHost::new(
                 source,
@@ -1583,8 +1583,7 @@ fn entry_row(
 ) -> Entity {
     use baylee_client_core::replay::library::EntryCheck;
     let clock = local_time(entry.started, offset)
-        .map(|at| format!("{:02}:{:02}", at.hour(), at.minute()))
-        .unwrap_or_default();
+        .map_or_default(|at| format!("{:02}:{:02}", at.hour(), at.minute()));
     let (source_icon, place) = match &entry.source {
         EntrySource::Local { .. } => {
             let house = entry
@@ -1889,8 +1888,7 @@ fn row_menu(
 /// (`offline::seat_names`, from the record's own preset).
 fn record_names(record: &[u8], lang: Lang) -> Vec<String> {
     crate::replay::local::preset(record)
-        .map(|preset| super::offline::seat_names(&preset, lang))
-        .unwrap_or_default()
+        .map_or_default(|preset| super::offline::seat_names(&preset, lang))
 }
 
 /// A way off an end sheet that opens a replay once the table is down

@@ -383,44 +383,125 @@ pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
 pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    // A hand card, a card in the seat's own graveyard it may flash back, or a
-    // commander standing in the command zone. The three are the only places
-    // this client offers to tap lands *for*, and they have to be the same
-    // three [`reachable`] admits — a card in one set and not the other is a
-    // card that lights up and then does nothing when it is clicked. The
-    // graveyard's price is the flashback cost, for the reason given there.
-    if let Some(hand_card) = baylee_client_core::decision::hand(view)
+    // A hand card, a card in the seat's own graveyard or in exile it may cast
+    // from there, or a commander standing in the command zone. These are the
+    // only places this client offers to tap lands *for*, and they have to be
+    // the ones [`reachable`] admits — a card in one set and not the other is
+    // a card that lights up and then does nothing when it is clicked.
+    let hand_card = baylee_client_core::decision::hand(view)
         .iter()
-        .find(|c| c.id == card)
-        && baylee_cards::by_index(hand_card.card.index)
+        .find(|c| c.id == card);
+    if hand_card.is_some_and(|c| {
+        baylee_cards::by_index(c.card.index)
             .is_some_and(|def| def.faces[0].kicked_targets.is_some())
-    {
+    }) {
         return castmodes::reachable_modes(view, legal, card)
             .first()
             .map(|mode| mode.plan.clone());
     }
-    let cost = reach::least_x(spell_cost(view, legal, card)?);
     let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
-    if legal.castable.contains(&card) {
-        manasources::plan_for_spell(&cost, &seat.mana_pool, view, legal, card)
-    } else {
-        manasources::plan_with_life_for_spell(&cost, &seat.mana_pool, view, legal, card, seat.life)
+    let plan = |cost: baylee_core::mana::ManaCost, way: baylee_engine::choice::CastModeKind| {
+        let cost = reach::least_x(cost);
+        if legal.castable.contains(&card) {
+            manasources::plan_for_spell(&cost, &seat.mana_pool, view, legal, card, way)
+        } else {
+            manasources::plan_with_life_for_spell(
+                &cost,
+                &seat.mana_pool,
+                view,
+                legal,
+                card,
+                way,
+                seat.life,
+            )
+        }
+    };
+    // Out of a graveyard or exile the price is the one the engine names for
+    // each way it may be cast there (`LegalActions::cast_ways`), less what
+    // the graveyard pays for a delve card (CR 702.66a, which the named price
+    // leaves out, as `spell_price` does), and the run taps for the cheapest
+    // the lands pay.
+    if from_a_pile(view, card) {
+        let named = named_ways(legal, card);
+        if !named.is_empty() {
+            let identity = view.object(card).and_then(|o| o.card);
+            return named
+                .into_iter()
+                .filter_map(|(way, cost)| {
+                    plan(
+                        identity.map_or(cost, |c| baylee_ai::less_delve(view, card, c, cost)),
+                        way,
+                    )
+                })
+                .min_by_key(baylee_client_core::manaplan::Plan::taps);
+        }
     }
+    plan(
+        spell_cost(view, legal, card)?,
+        baylee_engine::choice::CastModeKind::Normal,
+    )
+    .or_else(|| {
+        // A hand card whose own cost is out of reach may still be cast as
+        // its other face (an Adventure, CR 716.3), at the price the engine
+        // names for that face.
+        hand_card?;
+        castmodes::reachable_modes(view, legal, card)
+            .into_iter()
+            .find(|mode| matches!(mode.kind, baylee_engine::choice::CastModeKind::Face(_)))
+            .map(|mode| mode.plan)
+    })
+}
+
+/// Whether `card` lies in the deciding player's graveyard or in an exile
+/// zone: where a card is cast at a price the engine names rather than one
+/// printed on it.
+pub(super) fn from_a_pile(view: &PlayerView, card: ObjectId) -> bool {
+    let caster = baylee_client_core::decision::resource_player(view);
+    view.graveyards
+        .get(caster.get() as usize)
+        .is_some_and(|zone| zone.iter().any(|o| o.id == card))
+        || view.exile.iter().flatten().any(|o| o.id == card)
+}
+
+/// The ways the engine names for casting `card`, each at its whole price
+/// (`LegalActions::cast_ways`): every increase and reduction the engine
+/// applies is in it, so nothing here prices it again.
+pub(super) fn named_ways(
+    legal: &baylee_engine::choice::LegalActions,
+    card: ObjectId,
+) -> Vec<(
+    baylee_engine::choice::CastModeKind,
+    baylee_core::mana::ManaCost,
+)> {
+    legal
+        .cast_ways
+        .iter()
+        .filter(|(id, way)| *id == card && way.cost.symbols().next().is_some())
+        .map(|(_, way)| (way.kind, way.cost))
+        .collect()
 }
 
 /// What casting `card` the ordinary way costs this seat: a hand card's
-/// printed cost, a graveyard card's flashback cost, an exiled card's printed
-/// cost, or a commander's cost plus its tax, each priced as the engine
-/// charges it: what effects add, less what they take off
-/// (`baylee_ai::spell_price`, CR 601.2f). The hand, graveyard and command
-/// zone are the deciding player's: the controlled player's while this seat
-/// casts for them (CR 724.5a).
+/// printed cost, a graveyard or exiled card's price as the engine names it
+/// (the cheapest of its ways; before an engine named them, a graveyard
+/// card's flashback cost and an exiled card's printed cost), or a
+/// commander's cost plus its tax, each priced as the engine charges it: what
+/// effects add, less what they take off (`baylee_ai::spell_price`, CR
+/// 601.2f). The hand, graveyard and command zone are the deciding player's:
+/// the controlled player's while this seat casts for them (CR 724.5a).
 pub(super) fn spell_cost(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     card: ObjectId,
 ) -> Option<baylee_core::mana::ManaCost> {
     let caster = baylee_client_core::decision::resource_player(view);
+    if from_a_pile(view, card)
+        && let Some((_, cost)) = named_ways(legal, card)
+            .into_iter()
+            .min_by_key(|(_, cost)| cost.cmc())
+    {
+        return Some(cost);
+    }
     let (cost, identity) = if let Some(hand_card) = baylee_client_core::decision::hand(view)
         .iter()
         .find(|c| c.id == card)
@@ -473,18 +554,22 @@ pub(super) fn spell_cost(
 /// because the two costs are different numbers on the same card — Ancestral
 /// Vision prints no mana cost at all and suspends for `{U}` — and a caller
 /// that took the wrong one would tap the wrong lands.
+///
+/// The cost is the one the engine names with the card
+/// (`LegalActions::unpaid_suspend`), and it is planned as an activation's:
+/// suspend is a special action, no spell (CR 116.2f), so mana that may be
+/// spent only on spells never pays it. `None` for a card the engine names no
+/// such cost for, and for a plan with nothing to tap.
 #[must_use]
 pub fn suspend_mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    let hand_card = baylee_client_core::decision::hand(view)
-        .iter()
-        .find(|c| c.id == card)?;
-    let cost = suspend_cost(hand_card.card)?;
+    let (_, cost) = legal.unpaid_suspend.iter().find(|(id, _)| *id == card)?;
     let pool = view
         .seat(baylee_client_core::decision::resource_player(view))?
         .mana_pool;
-    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+    manasources::plan_for_activation(cost, &pool, view, legal, card)
+        .filter(|plan| !plan.steps.is_empty())
 }
 
 /// The taps for foretell's fixed {2} special action, never its later cast cost.

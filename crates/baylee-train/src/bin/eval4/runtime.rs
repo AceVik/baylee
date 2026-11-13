@@ -34,6 +34,25 @@ trait EvaluationPlayer {
     fn rule_refs_left_out(&self) -> u64 {
         0
     }
+    /// Sets `--grouped-decode` on this player; `false` when it is no net.
+    fn set_grouped_decode(&mut self) -> bool {
+        false
+    }
+    /// What the grouping decided since this was last asked.
+    fn take_grouped_use(&mut self) -> baylee_train::netplay4::GroupedUse4 {
+        baylee_train::netplay4::GroupedUse4::default()
+    }
+    /// Sets `--think-adaptive` on this player; `false` when it is no net.
+    fn set_adaptive_thinking(
+        &mut self,
+        _adaptive: baylee_train::netplay4::AdaptiveThinking4,
+    ) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+    /// Second passes since this was last asked.
+    fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
+        baylee_train::netplay4::ThinkingUse4::default()
+    }
     /// Sets `--choice-guard` on this player, which only a net can honour.
     fn set_choice_guard(&mut self, _guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         false
@@ -68,12 +87,31 @@ trait EvaluationPlayer {
     fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
         None
     }
+    /// Sets `--search-student` on this player, which only a net can honour.
+    ///
+    /// # Errors
+    /// A head fit on another net's embeddings.
+    fn set_search_student(
+        &mut self,
+        _student: baylee_train::netplay4::student::SearchStudent4,
+    ) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+    /// What `--search-student` did since this was last asked.
+    fn take_student_stats(&mut self) -> Option<baylee_train::netplay4::student::StudentStats4> {
+        None
+    }
     /// The value head on the seat's latest observation (`--value-log`).
     fn observed_value(&self, _seat: PlayerId) -> Option<f32> {
         None
     }
-    /// Answers with a lookahead over `table` (`--search`); `None` when this
-    /// player cannot search.
+    /// Answers with a lookahead over `table` (`--search`), never choosing an
+    /// answer of `taken_back` (the stall guard's, `search_decision_avoiding`);
+    /// `None` when this player cannot search.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "search_decision_avoiding's inputs, handed on whole"
+    )]
     fn search(
         &mut self,
         _table: &Session,
@@ -82,6 +120,7 @@ trait EvaluationPlayer {
         _teams: &[Option<u8>],
         _config: SearchConfig4,
         _seed: u64,
+        _taken_back: &[baylee_engine::choice::PlayerAction],
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
         None
     }
@@ -95,6 +134,17 @@ trait EvaluationPlayer {
         _teams: &[Option<u8>],
         _target: &PlayerAction,
     ) -> Option<(baylee_train::netplay4::Answer4, bool)> {
+        None
+    }
+    /// Answers a question from the planned cast or activation a search
+    /// chose (`follow_script`); `None` when this player cannot search.
+    fn follow_script(
+        &mut self,
+        _view: &baylee_view::PlayerView,
+        _pending: &Pending,
+        _teams: &[Option<u8>],
+        _script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<ScriptFollow4> {
         None
     }
     fn policy_encoding(
@@ -114,6 +164,23 @@ impl EvaluationPlayer for NetPlayer4 {
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         self.last_fallback()
     }
+    fn set_adaptive_thinking(
+        &mut self,
+        adaptive: baylee_train::netplay4::AdaptiveThinking4,
+    ) -> anyhow::Result<bool> {
+        Self::set_adaptive_thinking(self, adaptive.deep, adaptive.threshold)?;
+        Ok(true)
+    }
+    fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
+        Self::take_thinking_use(self)
+    }
+    fn set_grouped_decode(&mut self) -> bool {
+        Self::set_grouped_decode(self, true);
+        true
+    }
+    fn take_grouped_use(&mut self) -> baylee_train::netplay4::GroupedUse4 {
+        Self::take_grouped_use(self)
+    }
     fn set_choice_guard(&mut self, guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         Self::set_choice_guard(self, *guard);
         true
@@ -131,6 +198,16 @@ impl EvaluationPlayer for NetPlayer4 {
     fn set_payable_menu(&mut self, bias: f32) -> bool {
         Self::set_payable_menu(self, baylee_train::netplay4::PayableMenu4::new(bias));
         true
+    }
+    fn set_search_student(
+        &mut self,
+        student: baylee_train::netplay4::student::SearchStudent4,
+    ) -> anyhow::Result<bool> {
+        Self::set_search_student(self, student)?;
+        Ok(true)
+    }
+    fn take_student_stats(&mut self) -> Option<baylee_train::netplay4::student::StudentStats4> {
+        Self::take_student_stats(self)
     }
     fn set_tactician(&mut self, tactician: baylee_train::netplay4::tactician::Tactician4) -> bool {
         Self::set_tactician(self, tactician);
@@ -198,10 +275,24 @@ impl EvaluationPlayer for NetPlayer4 {
         teams: &[Option<u8>],
         config: SearchConfig4,
         seed: u64,
+        taken_back: &[baylee_engine::choice::PlayerAction],
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
+        if config.fair() {
+            // What the seat's own view lets it suppose, never another list.
+            return Some(search_decision_avoiding(
+                self,
+                &PriorDecks::new(table, view),
+                view,
+                pending,
+                teams,
+                config,
+                seed,
+                taken_back,
+            ));
+        }
         // The evaluator chose every deck at the table, so they are the
         // harness's to assert known (`docs/trained-ai.md` §"Lookahead search").
-        Some(search_decision(
+        Some(search_decision_avoiding(
             self,
             &KnownDecks(table),
             view,
@@ -209,7 +300,17 @@ impl EvaluationPlayer for NetPlayer4 {
             teams,
             config,
             seed,
+            taken_back,
         ))
+    }
+    fn follow_script(
+        &mut self,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<ScriptFollow4> {
+        Some(follow_script(self, view, pending, teams, script))
     }
     fn follow(
         &mut self,

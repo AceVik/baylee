@@ -194,8 +194,7 @@ fn a_hovered_host_shows_what_is_attached_to_it_beside_its_preview() {
         let children = |app: &App, of: Entity| -> Vec<Entity> {
             app.world()
                 .get::<Children>(of)
-                .map(|c| c.iter().collect())
-                .unwrap_or_default()
+                .map_or_default(|c| c.iter().collect())
         };
         // The caption, then the grid: columns of cards.
         let cards: usize = panels
@@ -554,8 +553,7 @@ fn attached_beside_preview(host: ObjectId, view: &PlayerView) -> (f32, Vec<f32>)
     let children = |app: &App, of: Entity| -> Vec<Entity> {
         app.world()
             .get::<Children>(of)
-            .map(|c| c.iter().collect())
-            .unwrap_or_default()
+            .map_or_default(|c| c.iter().collect())
     };
     let mut panels = app
         .world_mut()

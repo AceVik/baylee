@@ -42,11 +42,7 @@ LogCountersFinality =
        *[other] Endgültigkeitsmarken
     }
 PreviewTurn = Umdrehen
-PreviewAlternate = Andere Ansicht
-PreviewTurnCompact = Wenden
 PreviewRotate = Andere Hälfte
-PreviewRotateCompact = Hälfte
-PreviewAlternateCompact = Ansicht
 SpiresCircles = Zwei Farben für dieses Exemplar einkreisen
 SpiresNeedsCircles = Cryptic Spires benötigt zwei eingekreiste Farben. Wähle sie in der Druckauswahl.
 SpiresOutsideIdentity = Die eingekreisten Farben von Cryptic Spires liegen außerhalb der Farbidentität des Commanders.
@@ -412,6 +408,7 @@ AiCasual = Locker
 AiSteady = Solide
 AiSharp = Scharf
 AiExpert = Experte
+AiSeer = Seher (unfair)
 PageBack = ‹ Zurück
 PageMore = Mehr ›
 PageOf = { $first }–{ $last } von { $total }
@@ -451,12 +448,6 @@ PlayingAsGuest = du spielst als Gast
 GuestNotice = Du spielst als Gast. Dieser Account und seine Decks werden etwa 30 Tage nach deinem letzten Besuch gelöscht.
 GuestEnded = Dieser Gast-Account ist abgelaufen. Bitte melde dich an oder starte als neuer Gast.
 NoGuests = Dieses Gateway lässt derzeit keine Gäste zu.
-InviteKey = BETA-SCHLÜSSEL
-InviteKeyShape = BAYLEE-XXXX-XXXX-XXXX-XXXX
-InviteKeyHint = Dieses Gateway ist eine geschlossene Beta: Ein neuer Account oder ein neuer Gast braucht einen Schlüssel. Füg ihn einfach so ein, wie du ihn bekommen hast.
-NeedInviteKey = Bitte gib deinen Beta-Schlüssel ein.
-InviteKeyInvalid = Dieser Beta-Schlüssel ist ungültig. Bitte überprüfe deine Eingabe.
-InviteKeyNeeded = Für dieses Gateway wird ein Beta-Schlüssel benötigt.
 GuestSignOutQuestion = { $name } abmelden?
 GuestSignOutHint = Ein Gast kann sich nicht wieder anmelden. Abmelden löscht diesen Gast und seine Decks sofort.
 GuestSwitchGatewayQuestion = Gateway wechseln?
@@ -518,12 +509,14 @@ ResetAll = Alles zurücksetzen
 Reset = zurücksetzen
 SwitchOn = an
 SwitchOff = aus
-RailExplain = Ein roter Schritt ist einer, den der Client für dich abgibt. Nichts ist rot, bis du es rot machst.
+RailExplain = An einem hellen Schritt hält der Tisch an und fragt dich; die anderen gibt der Client für dich ab. Eine Voreinstellung ist ein Anfang: Jeden Schritt kannst du selbst umstellen.
 UsePreset = nutzen
 RailPresetEveryStep = Überall anhalten
 RailPresetEveryStepDetail = Frag mich in jedem Schritt beider Züge.
 RailPresetQuietSteps = Stille Schritte überspringen
 RailPresetQuietStepsDetail = Nicht Enttappen, Versorgung, Ziehen, Schaden oder Aufräumen – dort wird nichts entschieden.
+RailPresetStandard = Standard-Stopps
+RailPresetStandardDetail = Deine Hauptphasen und jede Angriffs- und Blockansage, in fremden Zügen dazu deren Hauptphasen und das Endsegment.
 RailPresetCompetitive = Turnier-Stopps
 RailPresetCompetitiveDetail = Deine beiden Hauptphasen, beide Kampfansagen und das gegnerische Endsegment.
 YourTurns = Deine Züge
@@ -985,6 +978,21 @@ NounCardsToBottom =
         [one] Karte, die unter deine Bibliothek kommt
        *[other] Karten, die unter deine Bibliothek kommen
     }
+NounCardsFromLibraryOf =
+    { $count ->
+        [one] Karte aus der Bibliothek von { $player }
+       *[other] Karten aus der Bibliothek von { $player }
+    }
+NounCardsToTopOf =
+    { $count ->
+        [one] Karte, die oben auf die Bibliothek von { $player } kommt
+       *[other] Karten, die oben auf die Bibliothek von { $player } kommen
+    }
+NounCardsToBottomOf =
+    { $count ->
+        [one] Karte, die unter die Bibliothek von { $player } kommt
+       *[other] Karten, die unter die Bibliothek von { $player } kommen
+    }
 NounCardsToPlay =
     { $count ->
         [one] Karte, die du in diesem Zug spielen darfst
@@ -1231,8 +1239,11 @@ PutInOrder = Bringe diese in eine Reihenfolge
 OrderGraveyard = Friedhof ordnen: erste Karte oben
 OrderOnTop = Lege diese oben zurück: die erste ist die neue oberste Karte
 OrderOnBottom = Lege diese unter die Bibliothek: die letzte ist die unterste Karte
+OrderOnTopOf = Lege diese oben auf die Bibliothek von { $player } zurück: die erste ist die neue oberste Karte
+OrderOnBottomOf = Lege diese unter die Bibliothek von { $player }: die letzte ist die unterste Karte
 TriggerOrderPrompt = Bringe deine ausgelösten Fähigkeiten in eine Reihenfolge: die erste wird zuerst verrechnet
 ScryPrompt = Hellsicht: Karten oben lassen oder unter die Bibliothek legen
+LookAtTopOf = Bibliothek von { $player }: Karten oben lassen oder darunter legen
 SurveilPrompt = Karten oben lassen oder auf deinen Friedhof legen
 DiscardToLibraryPrompt = Abwerfen: auf deinen Friedhof oder stattdessen oben auf deine Bibliothek
 TheGameIsOver = Das Spiel ist vorbei
@@ -1247,6 +1258,16 @@ PayLife =
     { $amount ->
         [one] { $amount } Lebenspunkt zahlen?
        *[other] { $amount } Lebenspunkte zahlen?
+    }
+PayLifeFor =
+    { $amount ->
+        [one] { $amount } Lebenspunkt für { $permanent } zahlen?
+       *[other] { $amount } Lebenspunkte für { $permanent } zahlen?
+    }
+PayLifeForTheirs =
+    { $amount ->
+        [one] { $amount } Lebenspunkt für { $permanent } von { $player } zahlen?
+       *[other] { $amount } Lebenspunkte für { $permanent } von { $player } zahlen?
     }
 PayTax = {"{"}{ $mana }{"}"} zahlen?
 PayMana = { $cost } zahlen?
@@ -1317,12 +1338,7 @@ ArmedActivate = Fähigkeit aktivieren
 ArmedPayAndCast = { $cost } zahlen und wirken
 ArmedPayAndActivate = { $cost } zahlen und aktivieren
 ArmedSuspend = { $cost } zahlen und aussetzen
-SuspendedCards = Ausgesetzte Karten
-SuspendedCard =
-    { $card } · { $owner }{"\u000A"}{ $count } { $count ->
-        [one] Zeitmarke
-       *[other] Zeitmarken
-    } · ansehen
+TraySuspended = Ausgesetzt { $count }
 ArmedSuspendNow = Diese Karte aussetzen
 ArmedForetell = { $cost } zahlen und Vorhersage nutzen
 ArmedForetellNow = Vorhersage für diese Karte nutzen
@@ -1628,6 +1644,8 @@ ArrangeLibraryTop = Oben auf die Bibliothek
 ArrangeStack = Auf den Stapel
 ArrangeLibraryBottom = Unter die Bibliothek
 ArrangeGraveyard = Auf den Friedhof
+ArrangeLibraryTopOf = Oben auf die Bibliothek von { $player }
+ArrangeLibraryBottomOf = Unter die Bibliothek von { $player }
 ArrangeUnplaced = Noch nicht gelegt
 ArrangePutHere = Hierher legen
 ArrangeEmptyPile = Leer
@@ -1639,6 +1657,7 @@ LogAPlaneswalker = einen Planeswalker
 LogABattle = eine Schlacht
 BattleProtectedBy = Beschützt von { $player }
 BattleDefense = Verteidigung { $defense }
+StackDividedDamage = { $amount } Schaden
 LogAnd = { $list } und { $last }
 LogYouInList = du
 LogRepeated = { $line } (×{ $count })
@@ -2151,7 +2170,7 @@ TourChapterReporting = Ein Problem melden
 TourL1Title = Das Gateway
 TourL1Body = Ein Gateway ist der Server, auf dem deine Decks und Tische liegen. Der farbige Punkt zeigt, ob es erreichbar ist, die Zeile darunter, ob deine Version zu ihm passt. Mit ‹ kommst du zur Liste der Gateways; dort kannst du auch eine eigene Adresse eingeben.
 TourL2Title = Account oder Gast
-TourL2Body = Als Gast brauchst du nur einen Namen. Dafür kannst du keine Bilder hochladen, und rund 30 Tage nach deinem letzten Besuch wird der Gast samt Decks gelöscht. Mit einem Account bleiben deine Decks und Einstellungen auf dem Gateway. In einer geschlossenen Beta fragt der Button, den du wählst, nach deinem Schlüssel.
+TourL2Body = Als Gast brauchst du nur einen Namen. Dafür kannst du keine Bilder hochladen, und rund 30 Tage nach deinem letzten Besuch wird der Gast samt Decks gelöscht. Mit einem Account bleiben deine Decks und Einstellungen auf dem Gateway.
 TourL3Title = Offline spielen
 TourL3Body = Offline spielen braucht kein Gateway: Du spielst dann direkt hier auf deinem Rechner gegen die Haus-KI. Daneben stehen Einstellungen und Über, wo du Lizenzen und Quellcode findest.
 TourL4Title = Drei Bereiche
@@ -2240,7 +2259,7 @@ TourT14Body = Das Fenster verdeckt den Tisch. Mit X oder dem Button oben rechts 
 TourT15Title = Andere Fragen
 TourT15Body = Eine Farbe wählst du als Symbol, nicht als Wort. Eine Zahl tippst du ein oder stellst sie mit den Pfeiltasten; Rücktaste löscht. Bei einem Kreaturentyp stehen zuerst die Typen aus deinem Deck, dann alle alphabetisch; tippen filtert. Ein Kartenname kommt aus demselben Feld, über alle Karten.
 TourT16Title = Die Phasen
-TourT16Body = Am Rand jeder Matte stehen die zwölf Schritte eines Zugs, der aktuelle leuchtet. Grün: Hier fragt dich der Tisch. Rot: Hier passt er für dich. Am Anfang ist nichts rot. Ein Klick schaltet um, Shift+W und Shift+S wandern. Vorlagen: Einstellungen › Spielablauf. Deine eigenen Angriffs- und Blockschritte werden nie rot.
+TourT16Body = Am Rand jeder Matte stehen die zwölf Schritte eines Zugs, der aktuelle in Gold. Hell: Hier fragt dich der Tisch. Blass: Hier passt er für dich. Am Anfang gilt eine Vorlage. Ein Klick schaltet um, Shift+W und Shift+S wandern. Vorlagen: Einstellungen › Spielablauf. Deine eigenen Angriffs- und Blockschritte bleiben hell.
 TourT17Title = Passen
 TourT17Body = Leertaste passt. Tab läuft bis zur nächsten Phase, Shift+Tab bis zum nächsten Zug; jede Frage dazwischen bekommst du trotzdem. Hast du einen möglichen Angreifer, heißt Leertaste nicht „kein Angriff“; dafür ist O da. Am Gateway steht deine Uhr im Button: ab 60 Sekunden rot und hörbar; läuft sie ab, drückt sie für dich.
 TourT18Title = Angreifen und blocken
@@ -2372,10 +2391,8 @@ RefusalSessionEnded = Deine Sitzung ist beendet. Melde dich erneut an, um weiter
 RefusalBusy = Dieser Server ist gerade ausgelastet. Versuche es gleich noch einmal.
 RefusalOther = Dieser Server hat abgelehnt. Ein Update dieses Clients sagt vielleicht mehr.
 RefusalServerSaid = { $own } Der Server sagt: „{ $text }“
-FrontClosedBeta = geschlossene Beta
 FrontCompatible = kompatibel
 FrontThisClient = dieser Client { $version }
-FrontKeyHint = Dieses Gateway braucht einen Beta-Schlüssel – das Feld öffnet sich unter dem Button, den du wählst.
 FrontUsernameHint = Zum Anmelden; niemand sonst sieht ihn
 FrontCapsLock = Feststelltaste ist an
 FrontUnreachable = { $gateway } ist nicht erreichbar

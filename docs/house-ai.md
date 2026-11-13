@@ -1,15 +1,20 @@
 # House AI
 
-The five names in `AIProfile::NAMED` drive both the offline picker and the
+The six names in `AIProfile::NAMED` drive both the offline picker and the
 network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
+Every level but `seer` is fair: it plays from its seat's view and its own
+decklist, at any table (§"Fair by default, and the one level that peeks").
+Measurements name `sharp-2026-11`, a frozen copy of `sharp` that no player
+is offered (§"The frozen reference").
 
 | Profile | Opening hand | Spell selection and mana | Combat |
 | --- | --- | --- | --- |
-| novice | Keeps every hand | ±800 deterministic score noise; taps out | Individual trades |
-| casual | Rejects fewer than two or more than five lands | ±400 noise; taps out | Individual trades |
-| steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; reserves cheap interaction after establishing a creature | Individual trades |
-| sharp | Same opening policy as steady | ±30 seeded score noise; releases the reserve when opponents have no visible threat or cards | Searches whole attack sets and blocking assignments, including gang blocks |
-| expert | Same opening policy as sharp | ±12 seeded noise; sees the next three library cards | Also simulates retaliation by surviving opponents |
+| novice | Keeps every hand | ±400 deterministic score noise (±800 before generation 16); taps out, and casts an instant at its moment (§"When an instant is cast", from generation 14) | Individual trades |
+| casual | Also checks early plays and colour access, as steady (rejected only fewer than two or more than five lands before generation 17) | ±400 noise; taps out, and casts an instant at its moment (from generation 14) | Individual trades |
+| steady | Also checks early plays and colour access; bottoms excess lands | ±100 noise; casts an instant at its moment and keeps mana up for a counterspell or, before combat, a trick (§"When an instant is cast") | Individual trades; a trick once blocks are declared |
+| sharp | Same opening policy as steady | ±30 seeded score noise; also makes mana for an ability worth its price (§"Mana for an ability") | Searches whole attack sets and blocking assignments, including gang blocks |
+| expert | Same opening policy as sharp | ±12 seeded noise | Also simulates retaliation by surviving opponents, and prices the damage of an attack by the life it leaves |
+| seer (unfair) | As expert | As expert, and is told every opponent's decklist and hand and the next three cards of every library | As expert |
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
@@ -91,7 +96,10 @@ second time: `manaplan::Source` carries `priced`, and the matcher reaches for
 a priced tap only where no clean one fits the pip (#210). Among clean taps
 it keeps, as the client does, a creature first, then a permanent used for
 more than mana at no mana of its own (Karakas: `CardDef::use_beyond_mana`,
-handed to `manaplan::prioritize`), then the colours its hand needs.
+handed to `manaplan::prioritize`), then the colours its hand needs. The
+client and the language-model seat also count what the abilities on their
+board wait for (`baylee_ai::board_claims`); the house does not, in every
+generation (`docs/observed-faults.md` entry 78).
 Command-zone commanders participate in these plans, including their public
 cast-count tax, and so does a graveyard card the view says the seat may
 flash back, at the price it names (`PublicObject::flashback`, #242): the
@@ -123,10 +131,10 @@ card its caster was replacing anyway (#226). Among the rest, a counter names
 the spell worth most: its own material plus the material of what of this
 seat's it is aimed at, so Path to Exile on this seat's creature outranks
 Ancestral Recall at the same cost. Everything but a cantrip is still
-countered on sight: the worth ranks what is up at once, and nothing holds a
-counter back for a threat that has not been cast. So a Counterspell is
-traded for a lone Dark Ritual whose caster has nothing left to spend the
-mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
+countered on sight: the worth ranks what is up at once, and
+nothing holds a counter back for a threat that has not been cast. So a
+Counterspell is traded for a lone Dark Ritual whose caster has nothing left
+to spend the mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
 pins that as a limitation.
 Removal needs something opposing on the battlefield, and a permanent this
 seat's own spell or ability on the stack already removes — by destruction,
@@ -299,14 +307,80 @@ holds for an absent player
 (`session::tests::a_seat_the_house_answers_is_never_told_the_log`). What an
 agent knows of the past is what its view shows now.
 
-An agent is never handed a teammate's hand either (#265). Every view an
-agent answers from is built by `Session::agent_view`, which leaves
-`shared_hands` and the three sets beside it empty; only a view on its way to
-a socket carries them. A chair the house AI plays is never shown a hand, and
-shows its own at once to a teammate who asks: showing it changes nothing its
-agent sees. A chair the house holds for an absent player keeps the shares
-its player was given, is played without them, and leaves requests to the
-player (`view::tests::no_agent_is_handed_a_teammates_hand`).
+**The house plays as a team, and teammates show each other their hands**
+(owner, 10.11.2026). This replaced #265's rule that no agent is handed a
+teammate's hand. What a house chair is shown is still only what a player in
+its chair could be shown, by a share the table's `HandSharingRule` permits,
+and `Table::show_shared_hands` reads the rule, the sides and `has_left`
+again for every view it builds (`Table::house_view`, which `house_answer`
+answers from):
+
+- *House with house.* Two house chairs on one side show each other their
+  hands without asking, where the rule is `Allowed` and
+  `AiHandSharePolicy` shares continuously (`Table::house_shows_house`).
+  Under `OnceOnly`, `Never` or `OnRequestOnce` they show none.
+- *House with a person.* The person decides. The house asks each person on
+  its side once, when the table is made (`Session::house_asks_its_teammates`,
+  their `hand_requests`), and reads their hand only if they show it; it
+  shows its own to a person who asks, as before.
+- *A chair the house holds for an absent player* plays with the hands its
+  player was shown, since the shares are its player's; it neither asks nor
+  answers a request, which wait for the player
+  (`view::tests::a_stand_in_plays_with_the_hands_its_player_was_shown`).
+- Never an opponent's hand, nothing under `Disabled`, and a share ends when
+  its owner leaves the game or loses (`session::tests::shared_hand`:
+  `house_teammates_show_each_other_their_hands_and_never_an_opponents`,
+  `the_tables_rule_holds_for_the_house_too`,
+  `a_teammate_who_has_left_shows_no_hand`,
+  `the_house_asks_a_person_on_its_side_and_reads_only_what_it_is_shown`).
+- The frozen reference `sharp-2026-11` is shown no hand, shows none to a
+  house teammate and asks nobody, so BayleeAI's benchmark tables play as
+  they did (`the_frozen_reference_shares_no_hand_with_the_house`); `seer`
+  peeks anyway.
+
+What the house does with it, and with its side, at `AIProfile::TEAM_PLAY`
+(`src/tests/team_tests.rs`, each test asking the frozen reference too):
+
+- An ally's removal or counter on the stack is the side's: nothing is aimed
+  at what it is already taking (`worth::answered`).
+- An ally's board is the side's: a sweeper that takes an ally's creatures is
+  priced with them as losses (`sweeper_net_worth`).
+- An ally in a lower seat who holds a cheap instant (a counterspell, from
+  `AIProfile::INSTANT_TIMING`) and the untapped lands for it holds the answer
+  up for the side, and this seat develops instead of keeping its own mana up
+  (`an_ally_holds_the_answer`); the lower seat keeps its own, so two allies
+  who see each other never both tap out.
+
+The audit found the rest already playing as a team: targets are chosen as
+friendly or hostile by side (`HeuristicAgent::hostile`, and a counter weighs
+what a spell is aimed at of the whole side), and the engine offers an attack
+at opponents and their planeswalkers alone (`combat::defender_options`),
+which `tests/team_play.rs` holds every level to on a two-against-two table.
+The engine asks each defending player for the blocks of what attacks it
+(`Engine::ask_blockers`), so in the formats it plays no block protects an
+ally; a shared-life format would change that.
+
+Measured on 10.11.2026 (commit a83eca936's selfplay build, CPU):
+
+- *Exercised.* Over 40 two-against-two tables on the five house decks,
+  every chair `sharp` (`session::tests::team_exercise`, run by hand), a
+  teammate's hand was in view at 122,379 of 125,453 house decisions
+  (97.5 %), and the answer differed from the frozen reference's in the same
+  chair at 39 of them (0.03 %), every one with a hand in view. Per deck the
+  share in view was 95.8–99.2 % (Victory 95.8 %), and the answers changed
+  2 (Victory, maik) to 23 (schwarzrand) times.
+- *Worth.* eval4 `--random-policy`, house against house on the campaign's
+  test decks (`decks-20261107c`, constructed), 512 deals per format and run,
+  `sharp` against `sharp-2026-11` and swapped, read by `house_duplicate`,
+  which counts each game once: eval4 rotates the focal seat over a deal's
+  seats with one seed, so a run repeats each game once per seat of a side.
+  Two against two: 133 of 252 decided games (52.8 %, Wilson 95 % 46.6–58.9);
+  team play turned 7 seeds (won from both sides) and lost none. Three against
+  three: 85 of 168 (50.6 %, 43.1–58.1); 3 seeds turned for it, 2 against.
+  Small, as the 0.03 % says it must be, and in its favour where it shows. No
+  deck stands out; the constructed test decks hold no Victory (a Commander
+  deck), so Victory's team play is measured above only by how often it is
+  exercised.
 
 **A mode is chosen by what it reaches, not by where it is printed.** A modal
 spell whose every effect sits under a mode is offered no normal cast
@@ -441,19 +515,28 @@ ultimate when affordable, else the largest plus), and a scry, surveil or
 reorder is valued only at `mulligan_skill >= 2` (STEADY and up); both are designed
 differences, not gaps.
 
-**Open: an ability with a mana cost is taken only when the mana already
-floats.** The engine offers such an ability only once the pool covers it
-(`Engine::can_afford`), and nothing in the agent floats mana for an ability
-the way `policy::aim` floats it for a spell. So these rows stay at or near
-nought whatever `worth` makes of them: Riptide Laboratory (worth using only
-to save a doomed Wizard, which is at instant speed in answer to removal),
-Sensei's Divining Top (a reorder, worth something from STEADY up),
-General Tazri's five-colour pump, and the equip costs of Sword of Hearth and
-Home and Helm of the Host (taken the few times the mana floated). Two rows
-have no reader either: nothing in the agent answers the engine's suspend
-offer (`LegalActions::suspendable`: Ancestral Vision, Profane Tutor), and
-Raffine's Tower's cycling is a card in hand, which `activate::printed` does
-not reach. The planner is the next slice.
+**Mana for an ability.** The engine offers an ability with a mana cost only
+once the pool covers it (`Engine::can_afford`), and until
+`AIProfile::ABILITY_MANA` nothing in the agent made mana for one the way
+`policy::aim` floats it for a spell. So these rows stayed at or near nought
+whatever `worth` made of them: Riptide Laboratory (worth using only to save
+a doomed Wizard, which is at instant speed in answer to removal), Sensei's
+Divining Top (a reorder, worth something from STEADY up), General Tazri's
+five-colour pump, and the equip costs of Sword of Hearth and Home and Helm
+of the Host (taken the few times the mana floated). `sharp` and `expert`
+(`HoldUp::ThreatAware`) now tap toward the ability worth most
+by the same measure (`activate::floating`), one source at a time, within
+the mana a main phase keeps up: one printed on a permanent of theirs, used
+from the battlefield, with no limit or condition, a fixed mana cost and at
+most a tap of itself besides, at a moment its timing allows. Once the mana
+floats the engine offers it and `activate::choose` takes it. The levels
+below and the frozen reference leave such an ability as before. It changed
+22 of 1,024 seeds against `sharp` without it (train split, 15 for, 7 against):
+few decks print such an ability that `worth` prices above its cost. Two
+rows have no reader either: nothing in the agent answers the engine's
+suspend offer (`LegalActions::suspendable`: Ancestral Vision, Profane
+Tutor), and Raffine's Tower's cycling is a card in hand, which
+`activate::printed` does not reach.
 
 **Inspirit, Flagship Vessel was a card finding, not an agent one.** Station
 is "tap another untapped creature you control" as a cost (CR 702.184a). The
@@ -875,31 +958,78 @@ run a controlled turn yet. `crates/baylee-ai/src/tests/controlled_tests.rs`
 pins each behaviour, and `crates/baylee-gamehost/tests/ai_mindslaver.rs`
 plays a Mindslaver turn through the real engine with no house fallbacks.
 
-### Authorized AI scouting
+### Fair by default, and the one level that peeks
 
-House AIs now have an intentional advantage. The host's private
-`scouting::request` can supply main-deck lists, every commander, current hands,
-current sideboards and either bounded or complete library order, top first.
-The current built-in policies request their own deck at every level, opposing
-decks and hands at sharp, and three upcoming library cards at expert. Sideboards
-are requested during wishes. Full-library access is supported and tested but is
-not the default: the tactical policy does not benefit from copying it every move.
+Every level a player is offered plays from what its seat may see: its own
+view, and its own submitted decklist, which a player knows too (owner,
+10.11.2026). The one exception is `seer`, `expert` with its eyes open
+(`AIProfile::SEER`, `Sight::Peeking`): the host tells it every opponent's
+decklist and hand and the next three cards of every library. It is unfair
+on purpose, it is listed last, every list of levels labels it so ("Seer
+(unfair)", "Seher (unfair)": `i18n::ai_name`, which the lobby, the room
+sheet, the offline picker and the seat roster all draw through), and no
+table defaults to it. Before this, a hosted `sharp` read the opponents'
+decklists and hands and a hosted `expert` the next three library cards as
+well; a game the gateway or the engine server hosts no longer does, and
+neither does an offline one.
 
-Every request checks the **current** `SeatKind::Ai`. Human seats, human-driven
-AI chairs, disconnected humans' stand-ins and invalid seats are denied. There
-is no public Session getter or network message, the reports have no serialization,
-and neither human views nor print disclosure changes. Scouting is consumed for
-one decision and never retained in the agent kept during a human takeover.
-The ordinary view-only tests still prove independence from hidden cards; the
-privileged path deliberately behaves differently. A weakened access guard was
-injected and the security test failed before the guard was restored.
+Two places decide, one behind the other. The agent asks
+(`HeuristicAgent::scouting_request`): every level its own deck, and its own
+sideboard while it makes a wish; only a level that peeks asks for the rest.
+The host answers (`scouting::request`): it checks the **current**
+`SeatKind::Ai` and that chair's level, and a fair chair is told its own deck
+alone whatever it asked (`own_deck_only`). `Session::set_fair_scouting`
+holds even `seer` to its own deck, which is what evaluation and self-play
+set, so a measurement never depends on hidden cards whatever it seats; a
+hosted table never calls it, because its fair levels are fair without it.
+To measure `seer` itself, eval4 takes `--seer-peeks`, which lets the level
+that peeks be told what it peeks at and holds every other chair fair as
+before; its summary says so (`seer_peeks`). A
+profile built from the protobuf `AiProfile` message is fair, since the
+message has no field for sight; a peeking profile is chosen by its name.
+`Sight` reads as `Fair` from a preset or record written before it.
+
+Human seats, human-driven AI chairs, disconnected humans' stand-ins and
+invalid seats are denied outright. There is no public Session getter or
+network message, the reports have no serialization, and neither human views
+nor print disclosure change. Scouting is consumed for one decision and never
+retained in the agent kept during a human takeover.
+
+What proves it: `scouting::tests::a_fair_chair_asking_for_everything_is_told_its_own_deck`
+(the host's check alone), `a_fair_level_is_never_handed_hidden_zones` (every
+level's own request through the host), and
+`tests/fair_house.rs`, where a hosted table deals the house two games that
+differ only in what it may not see: the opponent's decklist, hand and
+library (all Plains against half Llanowar Elves), with the opponent keeping
+an empty hand and passing, so the public table is the same for ten turns.
+Every fair level, and the frozen reference, answers both deals answer for
+answer the same. `seer` does not (the control), and with the old rule
+injected back (hands and decklists from `sharp` up, the host's check off)
+the test fails at `sharp`'s 43rd answer, which is what the old hosted
+`sharp` did.
+
+A seat bridge plays from its socket's view, which carries nothing hidden, so
+it cannot play `seer`: `baylee-seat --level seer`, a collector's
+`house:seer` and the LLM seat's house fallback at that level are refused in
+one sentence that names `expert` (`baylee_seat::house::level`). The LLM
+seat's house fallback never peeked and plays as before.
 
 Deck lists are analysed once at setup, by printed properties and DSL effects.
-Cheap creature density, interaction, draw and artifacts influence deployment
-and resource priorities; a known opposing sweeper discourages committing a third
-creature, and known empty threats release reserved mana. These are heuristic
-adjustments, not a learned classifier or a complete combo planner. Reports carry
-card identities without actionable hidden object handles.
+A level's own list sets its creature, draw and artifact priorities and its
+tribe. `seer` alone also reads its opponents' lists, hands and library tops:
+cheap creature density and interaction set its interaction priority, a known
+opposing sweeper discourages committing a third creature, and known empty
+threats release reserved mana. From `AIProfile::SEER_DRAWS` it keeps or
+throws back an opening hand by the next three cards of its own library
+(`keep_with_known_draws`): kept when those draws make two lands by its
+second turn and three by its third, with a land and two spells in hand and
+no more than six lands among the hand and the draws. Measured against itself
+without it on the train split (2048 duel rows, 10.11.2026): 50.9 %, 67
+seeds for and 50 against. A combat searched with the opponent's known trick
+on the worst creature for it was tried and dropped: it changed 22 of 1,024
+seeds, 11 each way. These are heuristic adjustments, not a
+learned classifier or a complete combo planner. Reports carry card
+identities without actionable hidden object handles.
 
 Randomness is keyed by a **policy seed**, seat, choice sequence and object.
 The same complete input replays identically. Sharp and expert use narrow
@@ -931,6 +1061,59 @@ chairs to differ says so with `with_seed`.
 See [the coverage TODO ledger](ai-coverage-todo.md) for concrete tests to add as
 new rules and complete deck families become available. Unsupported cards are
 not counted as successful end-to-end coverage.
+
+## When an instant is cast
+
+The house used to cast every instant at the first priority it held one it
+could pay for: a Titanic Growth in the opponent's upkeep on whatever ranked
+first, a Plummet in its own draw step. And `steady` kept the mana up for
+any cheap instant once it had a creature, so a green deck holding a Titanic
+Growth left two lands open instead of casting a creature, then threw the
+Growth away in the next upkeep. Measured against `casual` on 10.11.2026,
+`steady` with that hold-up switched off won more than with it (50.4 % to
+48.4 %, test split, 512 duel rows).
+
+From `AIProfile::INSTANT_TIMING`, a level that manages its open mana
+(`HoldUp` other than `None`: `steady`, `sharp`, `expert`; `timing.rs`) reads
+what an instant-speed card is for (`timing::purpose`) and casts it when that
+can happen:
+
+- a **counter** when something worth countering is on the stack, as before;
+- a **combat trick**, a boon to one creature until the turn or the combat
+  ends (a pump, a keyword) with nothing lasting beside it but a card drawn,
+  once blocks are declared and only where it turns an exchange by at least
+  a one-drop's worth: a creature of its side that would die survives, one
+  of the other side's that would live dies, or an unblocked attack becomes
+  lethal. Its target is the creature it turns (`trick_target`), not the one
+  `tactics::rank` would name first;
+- anything **lasting** (removal, damage, a draw, a token, a flash creature)
+  in its own main phase, or in an opponent's turn once they attack or in
+  their end step; never in an upkeep or a draw step.
+
+A sorcery-speed card is not timed: the engine offers it in a main phase
+alone. And what such a level keeps up in its own main phase
+(`timed_reserve`) is a counterspell's mana while it has a creature and an
+opponent holds a card, and, before combat while a creature of its own can
+attack, a trick's: what it would develop goes down after combat, where the
+trick has had its chance. Never mana for an instant that could as well be
+cast now. The frozen reference keeps casting at the first chance
+(`timing_tests.rs` pins both sides), and so did `novice` and `casual` until
+generation 14 (`AIProfile::TIMED_INSTANTS`): from it they time their instants
+too, and keep nothing up, so they tap out as before for what they cast at
+sorcery speed and cast an instant where the mana is there at its moment.
+
+Measured with eval4 (`--random-policy`, house against house, each game
+counted once by `house_duplicate`, train split, 2048 duel rows, 10.11.2026):
+`steady` against `casual` went from 48.2 % (generation 2) to 52.1 %, and
+50.5 % with the old hold-up switched off.
+
+Control piloting for `expert` (counter mana kept up with no creature of its
+own, a small creature spell let through while the opponent holds cards) was
+built and measured, and dropped: 49.8 % against `expert` without it in
+constructed duels, and 48.7 % in Victory's commander duels (228 games on
+round-robin pairings, the deck turned 5 seeds for it and 8 against). So a
+counter is still cast on the first spell worth one, and a level keeps
+counter mana up only once it has a creature.
 
 ## The order of its triggers
 
@@ -976,6 +1159,20 @@ are observed. A full-game searching successor would need a view-derived belief
 state and a determinization adapter; no live host `GameState` belongs in that
 API.
 
+A leaf prices combat damage to the defending player at 45 a point. From
+`AIProfile::RACE`, expert's attack search prices it by the life it leaves
+(`search::race_damage`: 90 a point while more than fourteen are left, 160
+down to eight, 300 below), and the swing-back at three quarters of the same
+price by this seat's own life, so the last points of a race are worth more
+than the first and a low life keeps more at home. Its block search keeps
+the flat price: priced by the life it leaves, a chump block outweighed the
+creature at ten life while nothing threatened the seat. On the train split
+(2048 duel rows, 10.11.2026) expert won 51.6 % against itself without these prices
+and without `ABILITY_MANA` (59 seeds for, 26 against; with the prices in
+both searches and no ability mana, 52.1 %, 65 for and 22 against); the
+same prices on sharp, which has no
+swing-back to set against them, 49.7 % against sharp without them.
+
 Sharp gets 16,384 reply-tree nodes per decision, expert 262,144. A sharp
 candidate gets at most 4,096; an expert candidate gets at most 196,608, enough
 to finish a six-versus-six reply tree before considering its score. The budget
@@ -991,6 +1188,525 @@ answer out would violate the stronger requirement that the same complete input
 always produce the same action. Latency is measured externally with
 `cargo bench -p baylee-ai --bench decisions -- --quick`; time is never a
 policy input. Custom profile horizons above two are capped.
+
+## Foresight
+
+From `AIProfile::FORESIGHT` (generation 7) a level has a foresight tier
+(`AIProfile::foresight`), and where its host can fork the game it tries its
+options in copies before it answers. The search is `baylee-gamehost`'s,
+under its `foresight` feature (`session/foresight/`), and a table has to
+switch it on (`Session::set_foresight`). The hosting builds have it (the
+engine server and the client's own table, on the engine's `fork`), and since
+12.11.2026 they switch it on: every hosted table, through the gateway and
+the engine server, and every offline table a player starts, plays the house
+levels with their foresight, within each level's generation-9 bound and the
+host's (§"Foresight at a host"; the owner's conditions of
+`docs/proposals/house-ai-strength.md` §7 hold: BayleeAI's fair-search probe
+showed +7.4 points, and generation 9 bounds every search). A harness turns
+it on itself (`eval4 --house-foresight`); the measurement and study hooks
+around it (probes, kept questions, a clock of its own, `Session::fork_for`)
+are gamehost's `simulation`, which only the training crates enable.
+
+**What is searched.** Three questions, the ones the engine can fork
+(`docs/engine-internals.md` §"Forking a simulation"): priority with nothing
+begun (in the seat's own main phase with an empty stack; elsewhere only
+where the level means to act, or an opponent's spell or ability is on top
+of the stack), an attack, and a block. The candidates come from the
+question's own offer (`HeuristicAgent::foresight_candidates`): the level's
+own answer first, then passing, each spell (the dearest first), each land
+and each ability, one per card; for an attack the level's declaration
+beside all, none, and itself with one creature more or fewer, and for a
+block the same around the level's blocks. With nothing floating at a
+root, a spell with a cost is not castable but offered to be paid while it
+is cast (`legal.payable`, CR 601.2g-h); from generation 8
+(`AIProfile::SPELL_ROOTS`) each such spell the planner pays for from the
+seat's sources (`HeuristicAgent::pays_for`: no X, and the taps found as the
+level would find them, nothing held back) is a spell of the list too, cast
+in the fork and paid there by the house that plays the chair on. Before
+it, a priority search set the level's own plan, which begins with a tap,
+only beside passing, lands and abilities, never one spell or one target
+against another. A spell or ability that asks for exactly one target is
+also tried at each of its first four targets, and the target chosen with
+it is given when the engine asks. A declaration that beats the level's
+own is tried against its own neighbours for two more rounds. Every
+candidate is an answer the question takes (`Pending::answer_fault`).
+
+**A world.** Each candidate is given in a fork of the game and the house
+plays every chair on until the turn counter has advanced four turns, the
+game ends, or 400 answers are spent. All candidates are tried in the same
+worlds: the same deal of the hidden cards and the same future randomness,
+from seeds derived from the chair's policy seed, a hash of what its view
+shows, and the world's number. The level's own answer stands unless
+another's mean value over the same worlds is more than 0.02 higher; then
+the best is given.
+
+**Who plays in a fork.** One model in every chair
+(`HeuristicAgent::simulated`): `expert`'s heuristics at the searching
+level's generation, with the searching chair's sides and sight, seeded
+from the world. Not the real opponent: its level, its agent, its seed and
+the analysis of its deck are not in a fork, so a search asks what a good house player would do in each seat and cannot
+be fitted to the player who sits there. Not the searching level either: a
+level's own heuristics give its own answer and every answer no search
+takes (mulligans, payments, most choices); its tier says how hard the
+search looks.
+
+**What is hidden in a fork.** A fair level forks with
+`DeckKnowledge::Prior`: the engine deals every other player's hand, library
+and sideboard from a weighted list built from the seat's own view
+(`baylee_ai::foresight::prior::public_prior`) and never reads the real
+ones. The list supposes that a deck goes on as it began: the cards the
+player has shown weigh most (twelve to the six that all the pool's other
+castable cards share), two cards in five are lands (the lands shown, and
+basic lands for the colours of the spells shown), and a player who has
+shown nothing is supposed to play a deck like the seat's own. The seat's
+own library is dealt from its own cards, which it knows. No chair but the
+seat's is told a deck. `seer`, at a table that lets it peek, forks with
+`Known` and keeps the table's deck analyses; from generation 15
+(`AIProfile::SEER_HANDS`) its forks also keep every other player's hand as
+it is, since it is told those hands, and deal only the libraries (with
+`Known` alone each hand was dealt again from what its player hides, and
+`seer` searched as `expert` does).
+
+**The leaf.** The game's result where the fork ended; otherwise the
+logistic of fourteen weighted counts read from the seat's view of the fork
+(`foresight_features`, `LEAF`): each side's life in three bands, cards in
+hand, creatures with their power, toughness and keywords, the mana value of
+what is on the table, whose turn it is, and the race (how much of the other
+side's life each side's creatures take in one attack). The weights are
+fitted by `fit_leaf` (`baylee-train`) on positions the house played against
+itself on the train split (`eval4 --leaf-log`), a logistic regression
+without an intercept and with no weight below zero but the turn's, so that
+a correlation (a flooded hand has many lands) is never a reason to hold
+something back. The fit reports its log loss on whole games held out. The
+value says who is ahead between two house players; nothing in it knows an
+opponent.
+
+A richer value was measured and does not stand (11.11.2026,
+`docs/proposals/house-ai-strength.md` §6a). Forty-nine features in place of
+the fourteen, the same weights fitted on the searching house's own games or
+on pairs of worlds played to their end, boosted trees over the features, and
+a leaf read at another point of the turn each call a game's result better or
+no worse, and each leaves the level's share against its predecessor within
+the noise of where the fourteen counts have it. What limits a search is not
+what its leaf can tell apart.
+
+**Judging a search.** A table can play the worlds of its searches on
+(`Session::set_foresight_probe`, `eval4 --foresight-probe <file>`): of the
+questions it searches, one in so many has every world of every answer tried
+played on past the leaf until the game ends, and each world is written with
+what the leaf showed, what the leaf value made of it and how the game came
+out. No answer depends on it. `foresight_probe` (`baylee-train`) reads the
+file and says what the search's choices won in those games over the level's
+own answers, by question kind and by how far ahead the leaf put the answer
+chosen, and what another set of weights would have chosen from the same
+leaves; `fit_leaf --pairs` fits weights on the pairs of answers whose games
+came out differently.
+
+**Budgets** are counts, so the same view, policy seed and budget give the
+same answer on any machine:
+
+| Tier | Level | Candidates | Worlds | Work, from generation 9 |
+| ---: | --- | ---: | ---: | ---: |
+| 1 | novice | 4 | 2 | 1,333,333 |
+| 2 | casual | 5 | 3 | 2,500,000 |
+| 3 | steady | 6 | 4 | 4,000,000 |
+| 4 | sharp | 8 | 5 | 6,666,666 |
+| 5 | expert, seer | 8 | 6 | 8,000,000 |
+
+**The bound.** From generation 9 (`AIProfile::BOUNDED_SEARCH`) a level
+bounds its own search: `Foresight::work`, eight million units at
+expert's tier and as much less below it as the tier tries fewer
+candidates in fewer worlds, and `Foresight::nodes`, the 16,384 nodes one
+combat search in a fork may visit whatever the bound. A host may lower
+the bound of one searched answer (`Session::set_foresight_work`, `eval4
+--foresight-work`) and never raise it: the meter takes the tighter of the
+two, so a level plays alike in a measurement, as a teacher and at a host
+that leaves the bound as it is. A search counts what it does on a meter
+(`baylee_ai::WorkMeter`): each node the forks' combat searches visit is
+one unit, and each fork and each house answer in a fork has a price in
+the same unit (`session/simulation.rs`: an answer 375 units and 40 a
+permanent or stack object, a fork 2,500, fitted to thread CPU time at
+about 0.07 µs a unit). Once the bound is spent the search
+stops where it stands, drops the world it was in and the round of worlds
+that belongs to, and chooses among the answers it tried in the same
+worlds; the level's own where fewer than half its worlds were finished.
+A level from before generation 9 is bounded only by a host, and under a
+host's bound one combat search in a fork may visit a 256th of it
+(`SEARCH_SHARE`; `set_foresight_nodes` sets another count). What it cost
+and what it bounds is in `docs/proposals/house-ai-strength.md` §7.7; one
+engine step is not bounded by the unit.
+
+**Fairness.** `session/tests/foresight.rs` deals the house the two games of
+`tests/fair_house.rs`, which differ only in the opponent's decklist, hand
+and library, with foresight on: every fair level answers both the same,
+answer for answer, and searches the same positions. The same twins run at a
+table hosted as an engine server hosts one (`…_at_a_host`), and through the
+engine server's own runner on the hosting build, gamehost's `foresight`
+without the harness (`baylee-engine-server`'s
+`a_fair_level_searches_alike_whatever_is_hidden_at_a_hosted_table`). The
+engine's own twin games hold the fork (`engine/simulation_tests/prior.rs`).
+
+**Guards.** A position a search replaced the level's answer at and that
+comes back unchanged means the engine took the answer back; the level's own
+answer is given there, under its own stall guard. A fork the engine refuses
+(a suspended operation, something public naming a hidden card) leaves the
+level's own answer.
+
+## Foresight at a host
+
+A level's bound is a count, so it holds a search to the same work on any
+machine; what it does not hold is said in
+`docs/proposals/house-ai-strength.md` §7.8: one engine step, the level's own
+answer before the search, and wall time on a loaded machine. A host adds its
+own bounds (`HostForesight`, `Session::set_foresight_host`,
+`session/foresight/host.rs`), and the engine server sets them from its
+operator's settings (`baylee-engine-server`'s `foresight.rs`,
+`docs/dev/environment.md` §"Engine server"):
+
+- **Who decides what a search may spend: the server alone.** A player
+  chooses a level by its name in the lobby (`AIProfile::named`, the six
+  levels and nothing else: no reference, no generation, no number); the
+  gateway builds the chair's profile from the name, with its tier and its
+  bound, and the engine grants the host's share of it. A profile read from
+  the protocol's numbers (`preset::from_proto`, the dev harness) has no tier
+  and never searches. No message from a client carries or changes a tier, a
+  bound, a share or a switch.
+- **A ceiling and a share,** counts again: no search at a host spends more
+  than `expert`'s bound (`AIProfile::EXPERT_WORK`, eight million units),
+  whatever generation a preset names, and an operator may lower every level's
+  bound to a share of it (`BAYLEE_FORESIGHT_WORK`, percent). Below 100 a
+  level plays weaker than it was measured, and its games are no longer that
+  level's numbers.
+- **Searches at once on the machine** (`BAYLEE_FORESIGHT_SEARCHES`, default
+  half its cores, at least one). One engine plays one game and searches one
+  answer at a time, so the count that matters is the machine's: the agent
+  makes a directory only its user may enter and hands it to every engine it
+  starts (`BAYLEE_FORESIGHT_SLOTS`), and a search holds a lock on one of so
+  many files there (`flock`) while it runs. A search that finds every slot
+  taken is not made: the level answers as its heuristics do, at once, and
+  the table counts it (`ForesightStats::busy`). Nothing waits for a slot, so
+  nothing queues. An engine that was given no slots, or whose slots' directory
+  is gone, searches nothing (and says so); one whose directory is not its
+  user's own and 0700 refuses to start. Slot files are made 0600 and never
+  opened through a symbolic link, and the agent makes its directory again
+  before it starts an engine if something swept it away.
+- **A wall guard** (`BAYLEE_FORESIGHT_WALL_MS`, default 3,000). The meter
+  is read before each fork and after each answer in one, and so is the
+  host's clock: a search past the guard is given up where it stands and the
+  level's own answer is given, whatever the search had found
+  (`ForesightStats::walled`), and the engine says so in its log
+  (`a house search ran past the host's wall guard`). One engine step is not
+  interrupted, so a search may run past the guard by the step it was in.
+- **One searched answer a slice.** The engine's event loop pumps the house
+  in slices; a slice ends after an answer a search was begun for (a slot
+  taken, whether the search then ran, was given up or was refused by the
+  engine), so the engine reads its socket (clock probes, a flush of the
+  record, a seat coming back) between two searches, and a player sees the
+  house's land before it thinks about its spell.
+- **Only while a person plays** (`HostForesight::needs_a_person`). The house
+  searches only while a chair an account sits in still plays: it answers
+  over a socket and has not conceded, lost or left
+  (`Session::a_person_plays`). The gateway tells the engine which chairs
+  those are (`GameSetup.seat_accounts`): not a seat bridge its host handed a
+  chair to, which has no account and plays on when its host has gone. When
+  the last person concedes, the gateway frees their account at once, and
+  the rest of the game is played by the levels' heuristics.
+- **A house-only remainder is bounded.** Once no seat answers over a socket
+  any more (no person and no seat bridge), the house plays the game out
+  alone, so that its result stands (a player who conceded lost; one whose
+  house teammate goes on to win won) and its record is whole. It does so by
+  its heuristics and within 5,000 of its answers and 20 seconds
+  (`REMAINDER_ANSWERS`, `REMAINDER_MS`; measured: two houses finish in
+  about 1,000 answers, three in about 4,000, seven take 15,000 to 25,000);
+  past either the engine closes the game as an admin closes one, no winners
+  (`GameEnded` reason `nobody is left`), the record ending where it stopped.
+- **A switch** (`BAYLEE_FORESIGHT=off`): every level answers as its
+  heuristics do.
+
+**Determinism and the record.** A search that runs answers as it would
+anywhere: its bound, the ceiling and the share are counts. Slots and the
+wall guard read the machine, so where they act the same position may be
+answered without the search. That is safe for the record, whose inputs are
+the answers: the house's answer is written as it was given (`Source::House`),
+and a replay, a projection and a table resumed after a restart apply the
+recorded answers and ask no house again (`session/resume.rs`,
+`record::replay`). Two tables of the same seeds can differ only where a slot
+was busy or the guard passed, and each table's log line at its end says how
+often (`house searches`: asked, searched, replaced, refused, busy, walled,
+the slowest in milliseconds and the most work one search spent).
+
+**The client's own table** (`LocalHost::into_installed`, native builds)
+searches as an engine server does by default, on its worker thread: each
+level's bound under `expert`'s, one search at a time in the program, a guard
+of three seconds and one searched answer a slice. A browser build's table
+does not search, because its host runs on the page's own thread. A
+`LocalHost` built in a test searches only where it asks
+(`LocalHost::searching`).
+
+**What a remote player can make a host spend.** A player picks levels by name
+for the chairs of their rooms (eight rooms an account; at least the host's
+chair is a person) and plays at whatever pace they like. Per searched
+answer: at most the level's bound in work (`expert` eight million units,
+about a second of a core) plus one engine step, the level's own answer
+before it (up to 262,144 nodes of its combat search, about 20 ms), and at
+most the wall guard in time. At once, on one machine: at most
+`BAYLEE_FORESIGHT_SEARCHES` searches, so at most that many cores, whatever
+the number of tables; past it the house plays by its heuristics, as every
+hosted game did before. One search holds one fork of its game at a time.
+What a player can take from other players is the slots: tables that search
+all the time keep them busy, and the other tables' house then answers
+without searching. A table searches only while its person plays it, and an
+account plays one game at a time on a gateway (conceding frees it at once,
+and the game it leaves searches no more; a seat bridge left behind counts
+for nobody), so holding every slot takes as many accounts as there are
+slots, each playing its table at the machine's speed. A game in which no
+seat answers over a socket any more (no person and no seat bridge) costs at
+most 5,000 heuristic answers or 20 seconds more. A seat bridge left alone
+with the house is not bounded so: its game runs on without search and
+without that cap, as every hosted game did before foresight, paced by the
+bridge's own answers.
+
+### What the house's search costs
+
+`baylee-engine-server`'s `tests/foresight_load.rs` (ignored; run by hand on
+the machine it measures) starts engines as an agent does, one slots
+directory and the operator's settings, and plays each table of `expert`
+against a seat it plays over the engine link at `steady`, from its own view;
+`BAYLEE_LOAD_THINK_MS` lets the seat think before each answer, 0 plays at
+the machine's speed. The times below are each searched answer's wall time
+from the engines' own log. Measured 12.11.2026 on the 24-thread workstation
+(Ryzen 9 3900X) beside other people's jobs (a load of 10 to 160 that came
+and went), with a release build; a small VPS is two of its cores
+(`taskset`), on which an engine counts two cores and so takes one slot by
+default. The decks are the house's (`allytifact`, `victory`, `maik`,
+`schwarzrand`, `weltenbaum`).
+
+| Host | Tables | Seat thinks | Games | Searched / busy / given up | ms p50 / p95 / p99 / max | Engine CPU-s a game | Seat's longest wait |
+| --- | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| 24 threads, 12 slots | 16 | 300 ms | 16 | 615 / 0 / 0 | 140 / 460 / 515 / 746 | 7.5 | 1.3 s |
+| 24 threads, 12 slots | 8 | 0 | 16 | 615 / 0 / 0 | 167 / 525 / 637 / 701 | 8.5 | 1.4 s |
+| 24 threads, 12 slots, load ≈ 160 | 24 | 0 | 48 | 1,001 / 1,946 / 0 | 482 / 1,761 / 2,111 / 2,476 | 9.4 | 7.0 s |
+| 2 cores, 1 slot | 4 | 300 ms | 4 | 189 / 60 / 0 | 267 / 612 / 666 / 738 | 14.5 (load ≈ 110) | 3.3 s |
+| 2 cores, 1 slot | 8 | 300 ms | 8 | 238 / 124 / 0 | 140 / 405 / 478 / 534 | 5.4 | 0.9 s |
+| 2 cores, 1 slot | 4 | 0 | 8 | 55 / 317 / 0 | 223 / 482 / 540 / 640 | 2.0 | 1.4 s |
+| 2 cores, 2 slots | 4 | 0 | 8 | 118 / 206 / 0 | 145 / 390 / 465 / 599 | 2.7 | 1.0 s |
+| 2 cores, search off | 4 | 0 | 8 | 0 / 0 / 0 | | 0.12 | 6 ms |
+
+- **A game against `expert` costs its engine 7.5 to 8.5 CPU-seconds** where
+  the levels answered by heuristics alone for an eighth of a second; the
+  two rows at 24 threads are the same sixteen games, answer for answer and
+  search for search, played at two paces. No search spent more than its
+  bound (8,005,708 units at most, the bound and one step), and an engine
+  peaked at 57 to 59 MiB with the search as without it.
+- **The default is safe on a small VPS.** At two cores the engines take one
+  slot, so the searches take at most one core whatever the tables do; with
+  tables played at the machine's speed six searchable questions in seven
+  found the slot taken and were answered by the heuristics at once, and the
+  other core was left to the tables, the seat and the rest of the machine.
+  Played at a person's pace, one in five to three in ten did. No search on a
+  host in these runs reached the wall guard of three seconds, not even at a
+  load of 160 on 24 threads (slowest 2.5 s); a VPS with slower cores than
+  this one would reach it first in its slowest searches, which then give
+  the level's own answer.
+- From 6 % to 29 % of the questions a search would take, by the games
+  dealt, were not searched because the engine refused the fork on these
+  decks (`refused`), against one in twenty on the train split (§5a of the
+  proposal); those get the level's own answer. Which refusals these are is
+  not logged at a host; `eval4` names them.
+
+## The seated house
+
+`baylee-seat --mind house` (the ladder's and the collector's `house:<level>`)
+and the LLM seat's house fallback answer as the table's own house chair
+does (owner, 10.11.2026). An in-process chair answers from the engine's
+`DecisionContext` and the report of its own deck; a seat used to answer
+from its socket's view alone, which measured about 8 points weaker than the
+benchmark's in-process `sharp` (v6t campaign, L1s).
+
+Now the seat is given both, from what a player at the table is given:
+
+- **The decision context.** The table sends the asked seat a
+  `DecisionNote` beside its question (`ChoiceRequest.context`,
+  `docs/protocol.md` §"What a question is about"): which printed ability or
+  mode asks, how far a resolving ability has run, the cast route, the X,
+  the second instance of "target" and what the first chose, a clone's
+  copy question. `baylee_ai::noted::Noted` rebuilds the context from the
+  card registry. What the registry cannot give back (an ability a
+  continuous effect grants, a reflexive trigger's body, a resolution's
+  spliced operations) stays empty, as the in-process house leaves an
+  ability it cannot read.
+- **Its own deck.** The seat knows the deck it brought
+  (`GameContext::deck`); `HouseMind` analyses it as the host analyses a
+  submitted list and answers through `HeuristicAgent::act_with_own_deck`,
+  the report a fair chair is handed in-process, built from the seat's own
+  list. A seat that knows no deck answers without it.
+
+Both `HouseMind` and eval4 `--house-as-seat` answer through one function,
+`baylee_ai::noted::answer_as_seated`, which also strips the socket view as
+`Session::agent_view` builds a house chair's (`seated_view`).
+
+`baylee-seat/tests/seated_house.rs` holds the two to each other: at every
+question of four hosted duels on the house decks, the seated house's answer
+(from `view_for_with_context`, the question's note and the deck list) is set
+beside the answer the table's own chair gave.
+On 10.11.2026, over four duels (allytifact–victory, victory–maik,
+schwarzrand–weltenbaum, maik–schwarzrand), the seated house gave the
+table's answer at all 3,070 of its questions; with the view alone it had
+given it at 3,028. The difference was all in questions a context explains:
+target choices (68 of 68, from 30), numbers (2 of 2, from 0) and players
+(2 of 2, from 0). Its own deck changed no answer the view alone missed in
+these games. The test asserts at least 99 %, and more than before. At the
+same questions it also answers a hostile note in place of the table's (a
+card or token the registry does not hold, every index past its list, the
+largest X, first targets that name nothing) without panicking: a note is
+read within bounds (`Noted`, `docs/protocol.md` §"What a question is
+about").
+`tests/question_note.rs` holds the note to its rule over two duels and a
+game of two teams: told to the asked seat alone, read back off the wire as
+built, and naming no card outside the zones the seat sees. The view's own
+tests (`view/tests/notes.rs`) cover a face-down source, a grantor and a
+copy's card the seat is not shown, a token, a cast and a granted ability;
+`tests/ai_mindslaver.rs` covers a controlled turn, whose notes go to the
+controller; and the card sweep (`harness::play_report`) builds every
+seat's note at every question.
+
+## The frozen reference: `sharp-2026-11`
+
+Training measures BayleeAI against `sharp`, and the house is meant to get
+better, so the benchmark is frozen apart from the level (owner, 10.11.2026).
+`AIProfile::SHARP_2026_11` is `sharp` as it played on 10.11.2026, its
+constants written out rather than borrowed from `SHARP`, and
+`AIProfile::REFERENCES` names it `sharp-2026-11`. A player never sees it:
+`AIProfile::named`, which the lobby, the gateway and the client ask, knows
+only the levels of `NAMED`. The tools that measure take both lists through
+`AIProfile::lookup` and `resolve`: `eval4 --against`/`--baseline`, `arena`,
+`league` (`house:sharp-2026-11`), `selfplay --profiles`, the collector's
+`house:<level>`, `ai_match` and `baylee-seat --level`. Today it plays exactly
+as `sharp`; a run that is to stay comparable after the house moves names it.
+
+The constants are half of a profile; the other half is the code they drive,
+and `crates/baylee-gamehost/tests/reference_profile.rs` pins that. Six
+tables (the scoreboard's duels on the house decks, and one two-against-two
+table, whose answers read teams) are played from the start with the
+reference in every chair, seated as the benchmark seats it: `Session::new`,
+`describe`, fair scouting, the house answering through `pump`. Every answer
+is in `tests/reference/sharp-2026-11.json` with the public table after it
+(the record's `seen`, the same on every build), and the fixture's FNV-1a
+answer hash is over all of them. The test reports the first difference as
+one of two things: the reference answered differently with the same table
+before it, or the same answer led to a different table (the engine moved).
+
+So a change that means to make the house play better goes behind a profile
+field the reference does not set, and the test stays green. That field is
+`AIProfile::generation`: every level plays `AIProfile::GENERATION`, the
+reference `FROZEN_2026_11` (0, which is also what a profile written before
+the field reads as), and a change says the generation it arrived in and
+asks `profile.plays(...)`. The generations so far:
+
+1. `TEAM_PLAY` ("The house plays as a team, and teammates show each other
+   their hands", above).
+2. `EXACT_SPELL_X`: an X that must equal a target's mana value is planned
+   for a spell on the stack as for a permanent (Spell Blast announces an X
+   some spell has, or is not cast).
+3. `INSTANT_TIMING`: a level that manages its open mana casts an instant
+   at its moment and keeps mana up for a counterspell (§"When an instant
+   is cast").
+4. `RACE`: `expert`'s attack search prices damage by the life it leaves
+   (§"What the search means").
+5. `ABILITY_MANA`: `sharp` and `expert` make mana for an ability worth its
+   price (§"Mana for an ability", above).
+6. `SEER_DRAWS`: `seer` mulligans by the draws it is told (§"Fair by
+   default, and the one level that peeks").
+7. `FORESIGHT`: a level tries its options in forks of the game before it
+   answers, where its host can fork and the table switches it on
+   (§"Foresight"). A level at an earlier generation has no tier
+   (`AIProfile::at_generation`), and every level's answers at generation 6
+   are pinned beside the reference (`tests/generation_pins.rs`,
+   `tests/reference/generation-6.json`), so a measurement against
+   `<level>:generation=6` plays the level as it was.
+8. `SPELL_ROOTS`: a priority search also tries each spell the seat's mana
+   pays for while it is cast (§"Foresight").
+9. `BOUNDED_SEARCH`: a level bounds its own search (§"Foresight", "The
+   bound"). The searched answers of `expert` at generation 7, the
+   trained AI's house teacher, are pinned
+   (`tests/reference/foresight-generation-7.json`).
+10. `FULL_CASTS`: the house pays through the planner the client, the seat
+    and the trained AI's menu share (`baylee_ai::spend`; `policy/full_casts.rs`):
+    restricted mana where the engine names it for the payment (CR 106.6), a
+    Phyrexian symbol with 2 life where no mana pays it and the seat keeps
+    more than six life (CR 107.4f; the question whether to pay one with life
+    is answered no where the mana floating and the untapped sources pay the
+    whole cost), every counter of a counter-paid mana ability, a permanent
+    whose own tapping ability waits for mana kept untapped (the second
+    Rishadan Port), a conversion beside restricted mana. And it taps for a
+    card it may cast from exile or a graveyard at the price the engine names
+    for each way (`LegalActions::cast_ways`): an Adventure's creature, a
+    foretold card, a permission's card, a disturb face, each scored as the
+    face the way puts on the stack. Before it such a card was cast only
+    where its mana already floated (`docs/observed-faults.md` 70, 72, 73).
+11. `TARGET_SIDES`: a spell is aimed at the side it helps or hurts
+    (`sides.rs`). This seat's own Aura goes on the creature its statics do
+    the most for (a Holy Strength on its own creature, a Pacifism on an
+    opponent's); before it an Aura's attach read no side and went on an
+    opponent's creature first. And a spell is not cast where every target it
+    could name is on the wrong side: an Aura no creature gains from, a spell
+    that helps what it targets with no target of this side, one that hurts
+    with none of another side (a Broadside Barrage with only this seat's
+    creatures to hit).
+12. `EQUIPMENT_AND_X`: an Equipment's statics are read inside the
+    `And(creature, attached to the source)` most of them are written with,
+    so an equip is worth what it gives (it read as nothing, and was never
+    paid for); and an instant or sorcery with X in its cost is not cast at
+    X = 0.
+13. `QUIET_DRAW_STEP`: nothing is begun in the seat's own draw step with
+    nothing on the stack. A level that keeps no mana up cast its instants
+    there on sight, and no search could weigh them: the engine forks nothing
+    while the turn's first draw waits for its miracle check, which is the
+    whole of that round (8 % of novice's searched questions were refused
+    so).
+14. `TIMED_INSTANTS`: every level casts an instant at its moment
+    (§"When an instant is cast"), not only one that keeps mana up. `novice`
+    and `casual` still keep nothing up and tap out for what they cast at
+    sorcery speed; a combat trick is no longer cast on sight.
+15. `SEER_HANDS`: `seer`'s forks keep the hands it is told (§"Foresight",
+    "What is hidden in a fork").
+16. `NOISE_BAND`: a level's noise is at most ±400 milli-units
+    (`AIProfile::noise_milli`). Noise is there so that players cannot learn
+    to exploit a level, never to weaken one, and `novice`'s ±800 was twice
+    any other level's.
+17. `CARD_SKILL`: `casual` reads its cards as `steady` does
+    (`AIProfile::card_skill`): it plans its colours, checks its opening hand
+    for an early play, and reads what it scries, surveils and keeps.
+    `novice` keeps every opening hand, the ladder's lowest card skill; a
+    step for it too lifted it to 67 % against its generation-6 self and left
+    it level with `casual` (51 %, `docs/proposals/house-ai-strength.md` §8).
+
+Only a change
+that has to move the reference, such as an engine or card fix that changes
+these games, re-records it, in a commit of its own that says why:
+`BAYLEE_REFERENCE_RERECORD=1 cargo nextest run -p baylee-gamehost --test
+integration reference_profile`. A frozen runtime (`--builds`) stays the way
+to compare numbers across builds; the fixture is what keeps the reference
+from drifting by accident between them.
+
+One change reaches the reference on purpose: **the stall guard**
+(`baylee_ai`'s `stall`, owner 10.11.2026). A cast or activation the engine
+cannot finish (an X that leaves no legal target, a cost that cannot be
+paid) is taken back, and the game is where it was. A deterministic house
+asked again from there gave the same answer, and the game went round until
+eval4's 5,000-answer cap ended it: the campaign's capped pairings were
+these loops (Spell Blast at an X no spell had, a seat's Kaervek's Purge at
+X 0). Each agent now remembers its last priority action and the position
+it gave it from (`StallMemory`, shared by its clones and kept by
+`HouseMind` across the agents it builds). Asked again from the same
+position, it would give the same action only because the engine took it
+back, and it passes instead. A position the house acted from does not
+come back once the action stands, so the guard changes no game that ends,
+and it is a loop guard at every level rather than a strength change. The
+pinned answers are unchanged. `tests/stall_guard.rs` replays the start of
+one capped game (`stall/purge-x0.jsonl`) and asks the house as the seat
+was asked then; without the guard it casts and is taken back until the
+test's cap.
 
 ## Evidence
 

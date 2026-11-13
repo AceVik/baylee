@@ -167,4 +167,18 @@ mod tests {
         );
         assert_eq!(line.contains("-dirty"), DIRTY);
     }
+
+    /// A debug build that asked not to be stamped (`BAYLEE_BUILD_STAMP=none`,
+    /// as the gate's test step does) names no commit, so a commit is no
+    /// reason to compile it again. Run with and without it to see both sides.
+    #[test]
+    fn a_debug_build_that_asks_goes_unstamped() {
+        if option_env!("BAYLEE_BUILD_STAMP") == Some("none") && PROFILE == "debug" {
+            assert_eq!(
+                [COMMIT, COMMIT_SHORT, BRANCH, BUILT_AT, BUILD_NUMBER],
+                ["unknown", "unknown", "unknown", "unknown", "0"]
+            );
+            assert!(!short().contains("-dirty"));
+        }
+    }
 }

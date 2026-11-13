@@ -424,8 +424,7 @@ fn rustix_free_euid() -> u32 {
 /// Where a real program is, before the stand-ins shadow it.
 pub fn which(program: &str) -> PathBuf {
     std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .unwrap_or_default()
+        .map_or_default(|path| std::env::split_paths(&path).collect::<Vec<_>>())
         .into_iter()
         .map(|dir| dir.join(program))
         .find(|candidate| candidate.is_file())

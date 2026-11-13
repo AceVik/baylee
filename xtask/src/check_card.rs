@@ -324,14 +324,13 @@ pub(crate) fn check_color_indicator_matches_the_printing(
             &printed
                 .get("colors")
                 .and_then(serde_json::Value::as_array)
-                .map(|letters| {
+                .map_or_default(|letters| {
                     letters
                         .iter()
                         .filter_map(serde_json::Value::as_str)
                         .filter_map(color_of_letter)
                         .collect::<Vec<_>>()
-                })
-                .unwrap_or_default(),
+                }),
         );
         let effective = face.color_indicator.union(face.mana_cost.colors());
         let wrong = if costless {

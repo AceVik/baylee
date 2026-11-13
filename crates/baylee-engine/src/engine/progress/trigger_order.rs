@@ -280,7 +280,13 @@ impl<L: CardLookup> Engine<L> {
             Some(effects) if t.source == ObjectId::NO_SOURCE => {
                 sourceless_trigger_name(effects).to_owned()
             }
+            // A source that has ceased to exist (a token that died, CR
+            // 704.5d) is named by what it last was (CR 113.7a): the
+            // incarnation the trigger saw, which the engine keeps as a
+            // damage source after the token is gone. A Pest's row was
+            // nameless (Carbon block 3, attempt 20, q140).
             _ => object
+                .or_else(|| self.state.damage_source(t.source, t.source_version))
                 .map(|o| self.state.names.get(o.base.name).to_owned())
                 .or_else(|| {
                     let printed = list.printed?;

@@ -30,7 +30,6 @@ old gateway data is preserved during the transition. See
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
 | Baylee Central session | the gateway's memory only: the account, its `sid` and the digest of its bearer | until it ends, an hour at most without a later token | its end, or a restart |
 | A revoked `sid` | the gateway's memory only, with no account beside it | 1 h 30 s from when it was learned | that time, or a restart |
-| Closed beta key (#317) | Postgres `invite` (hash only), and which key admitted an account (`account.invite_id`) | until the operator removes the row | SQL by the operator; revoking only closes it |
 | Admin console numbers, and its lists of accounts and who is online | nowhere: read per request from the rows and memory above | — | — |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
@@ -256,8 +255,6 @@ account, only the accounts on the profile's list, or nobody.
     imported from the legacy file carry one.
   - `confirmed_at`, `created_at`, `lang` (the language a mail is sent in),
     `guest`.
-  - `invite_id`: on a closed beta (#317), which key let the account in
-    (below); empty otherwise.
   - `terms_version` and `terms_accepted_at`: for a local (legacy) account
     on a gateway with terms of use (WG-1), which version the account last
     accepted and when (`POST /account/terms`); empty until it does, on a
@@ -330,32 +327,18 @@ account, only the accounts on the profile's list, or nobody.
   (`lobby::LobbySeat`, `lobby::LobbyGame`), and a room password as an
   unsalted SHA-256. They go with the lobby table.
 
-## Closed beta keys (#317)
+## Closed beta keys (#317), gone
 
-`crates/baylee-db/src/invites.rs`, the migration
-`m20260927_000010_invites`, and the command `baylee-gateway invite`
-(`crates/baylee-gateway/src/invite.rs`).
+The closed beta ended on 10.11.2026 and its keys went with it. While it
+ran, the table `invite` held the SHA-256 of each key, a note naming whom
+the operator made it for (at most 100 characters), its uses, expiry and
+revocation, and `account.invite_id` said which key let an account in.
 
-- **Stored:** `invite(id, key_hash, created_at, note, uses_left,
-  expires_at, revoked_at)`. `key_hash` is SHA-256 of the key's canonical
-  form; the key itself is printed once, by the command that makes it, and
-  never stored or logged. `note` is the operator's own word on whom a key
-  was for, at most 100 characters: it may name a person, so write what you
-  need and no more.
-- **Linked:** an account made with a key keeps its id (`account.invite_id`),
-  so `invite list` can say how many accounts each key admitted. Nothing
-  about the player is written to the key's row.
-- **Seen by:** the operator, through `invite list`, SQL, or the admin
-  console (`GET /admin/invites` on its loopback listener, shown to the
-  feedback service's signed-in admins, below). No public route shows a
-  key's row, and no player sees another's `invite_id`. The console shows a
-  key only in the answer that made it, as the command prints it once.
-- **Kept:** until the operator removes the row. `invite revoke` only closes
-  a key; there is no delete command, so removal is SQL
-  (`DELETE FROM invite WHERE id = …`). Removing a key leaves its accounts
-  (`ON DELETE SET NULL`), and deleting an account leaves its key's row.
-- **Key tries** count in `AppState.sign_in_limiter` under the caller's
-  address (below).
+The migration `m20261110_000030_drop_invites` drops both: the table with
+every note in it, and the column. Nothing else about an account is
+touched. No key and no admission is written any more, no route shows one,
+and the sign-in limiter counts no key tries. Backups taken before that
+migration still hold the table until they age out.
 
 ## The admin console's numbers
 
@@ -579,11 +562,9 @@ own.
 - `AppState.limiter` (10 per 300 s) is keyed by the client's IP address,
   for registration, guest sign-in and resend. `X-Forwarded-For` is read only
   from a peer listed in `BAYLEE_TRUSTED_PROXIES` (`rate_limit_ip`).
-- `AppState.sign_in_limiter` (8 per 300 s) is keyed by the account, or by
-  what was typed when no account matches, which can be an e-mail address.
-  A successful sign-in forgets the key, and so does an account's deletion.
-  On a closed beta it also counts key tries, keyed `invite:{ip}`, forgotten
-  when a key admits somebody.
+- `AppState.sign_in_limiter` (8 per 300 s) counts a locked room's wrong
+  passwords, keyed `room:{account}:{room}`: nobody signs in with a password
+  at a gateway since the cutover, and no key is tried since the open beta.
 - The art mirror's limiter is keyed by account id (`art::OUTBOUND_PER_ACCOUNT`).
 - `auth::RateLimiter` prunes a key's old hits when the key is used, and drops
   idle keys in a sweep that runs inside the next check made after a window
@@ -846,7 +827,7 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   address as `unnamed`; names each file by a count over a random order
   (`000001.jsonl.gz`), with no index of ids or times beside it; refuses a
   record with a line of a kind it does not know; and refuses a record in
-  which the id, email, username, display name or invite key of an account
+  which the id, email, username or display name of an account
   seated at the game (or whose seat bridge played there) occurs, counting
   refusals without naming them. What stays is the game: the build, the
   preset (format, seed, seats by number with their teams, decks and

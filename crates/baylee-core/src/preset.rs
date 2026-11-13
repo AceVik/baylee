@@ -493,6 +493,51 @@ pub enum HoldUp {
     ThreatAware,
 }
 
+/// What a house AI plays from: its seat's view, or also what is hidden.
+///
+/// A player at the table knows their own view and their own decklist, and
+/// every level a player is offered by default knows exactly that
+/// (owner, 10.11.2026). Peeking is a level of its own, `seer`, chosen on
+/// purpose and listed as unfair wherever levels are listed.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Sight {
+    /// The seat's own view and its own submitted decklist.
+    #[default]
+    Fair,
+    /// Also every opponent's decklist and hand, and the next cards of every
+    /// library, which the host discloses to it (`baylee-gamehost`'s
+    /// `scouting::request`). Only the in-process host can: a seat over a
+    /// socket is sent none of it, so a seat bridge refuses a peeking level.
+    Peeking,
+}
+
+/// What a level may spend on one answer it tries in copies of the game
+/// ([`AIProfile::foresight`]): counts, never time.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Foresight {
+    /// Answers compared, the level's own first.
+    pub candidates: u8,
+    /// Worlds each answer is tried in: deals of the hidden cards.
+    pub worlds: u8,
+    /// Turns a world is played on: it stops where the turn counter has
+    /// advanced this far.
+    pub turns: u8,
+    /// The most answers the house gives in one world before it is scored
+    /// where it stands.
+    pub answers: u16,
+    /// The most work one searched answer may spend, in units of the
+    /// search's meter (`baylee_ai::WorkMeter`: a node of the forks' combat
+    /// searches, and a fork and a house answer in a fork at their prices).
+    /// A search that has spent it stops where it stands. `u64::MAX` for
+    /// none.
+    pub work: u64,
+    /// The most nodes one combat search in a fork may visit: how hard the
+    /// forks' model thinks about one attack or block, whatever the bound.
+    /// `u32::MAX` leaves the model its own budget.
+    pub nodes: u32,
+}
+
 /// Difficulty profile of an AI seat (one code path, parameterized).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
@@ -508,6 +553,23 @@ pub struct AIProfile {
     pub politics: Politics,
     /// Open-mana discipline.
     pub hold_up: HoldUp,
+    /// Whether it plays from its seat's view or also from what is hidden.
+    /// Absent on the wire and in a record from before it: fair.
+    #[serde(default)]
+    pub sight: Sight,
+    /// Which house code it plays ([`Self::GENERATION`]): a change that makes
+    /// the house play differently says the generation it arrived in, and a
+    /// profile frozen before it never meets it. Absent on the wire and in a
+    /// record from before it: 0, the house as it was frozen on 10.11.2026.
+    #[serde(default)]
+    pub generation: u16,
+    /// How much it tries its options in copies of the game before it
+    /// answers ([`Self::foresight`]): a tier, 0 for none. It takes a host
+    /// that can fork the game and a generation that plays
+    /// [`Self::FORESIGHT`]. Absent on the wire and in a record from before
+    /// it: 0.
+    #[serde(default)]
+    pub foresight: u8,
 }
 
 impl Default for AIProfile {
@@ -517,18 +579,24 @@ impl Default for AIProfile {
 }
 
 impl AIProfile {
-    /// Keeps every opening hand, taps out, and makes noisy spell choices.
+    /// Keeps every opening hand (the lowest card skill,
+    /// [`Self::card_skill`]), taps out, and searches least.
     pub const NOVICE: Self = Self {
         lookahead: 0,
         temperature_milli: 800,
         mulligan_skill: 0,
         politics: Politics::Random,
         hold_up: HoldUp::None,
+        sight: Sight::Fair,
+        generation: Self::GENERATION,
+        foresight: 1,
     };
-    /// Fixes land-starved hands, but still taps out with loose evaluation.
+    /// Reads its cards as `steady` does from generation 17 (it fixed only
+    /// land-starved hands before), but still taps out with loose evaluation.
     pub const CASUAL: Self = Self {
         temperature_milli: 400,
         mulligan_skill: 1,
+        foresight: 2,
         ..Self::NOVICE
     };
     /// Plans coloured payments and keeps basic interaction available.
@@ -538,20 +606,254 @@ impl AIProfile {
         mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
+        sight: Sight::Fair,
+        generation: Self::GENERATION,
+        foresight: 3,
     };
     /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
         lookahead: 1,
         temperature_milli: 30,
         hold_up: HoldUp::ThreatAware,
+        foresight: 4,
         ..Self::STEADY
     };
     /// Also prices the opponent's retaliation when committing attackers.
     pub const EXPERT: Self = Self {
         lookahead: 2,
         temperature_milli: 12,
+        foresight: 5,
         ..Self::SHARP
     };
+    /// `expert` that peeks: it is told every opponent's decklist and hand
+    /// and the next three cards of every library. Unfair by design, listed
+    /// as unfair, and never a default.
+    pub const SEER: Self = Self {
+        sight: Sight::Peeking,
+        ..Self::EXPERT
+    };
+
+    /// Whether this level plays from hidden information
+    /// ([`Sight::Peeking`]).
+    #[must_use]
+    pub const fn peeks(self) -> bool {
+        matches!(self.sight, Sight::Peeking)
+    }
+
+    /// The house as it was frozen on 10.11.2026 ([`Self::SHARP_2026_11`]).
+    pub const FROZEN_2026_11: u16 = 0;
+    /// The house plays as a team: house teammates show each other their
+    /// hands and read what they are shown, and an ally's board and spells
+    /// count as its side's (owner, 10.11.2026).
+    pub const TEAM_PLAY: u16 = 1;
+    /// An X that must equal a target's mana value is planned for a spell on
+    /// the stack as for a permanent (Spell Blast): the house announces an X
+    /// some spell has, or does not cast it.
+    pub const EXACT_SPELL_X: u16 = 2;
+    /// A level that manages its open mana ([`HoldUp`] other than `None`)
+    /// casts an instant at its moment: a combat trick once blocks are
+    /// declared and only where it turns an exchange, anything lasting in its
+    /// own main phase or the opponents' combat or end step, never in an
+    /// upkeep or a draw step; and it keeps mana up for a counterspell, not
+    /// for any cheap instant.
+    pub const INSTANT_TIMING: u16 = 3;
+    /// A level that prices the retaliation (lookahead 2, `expert`) prices
+    /// combat damage to a player by the life it leaves: a point near the
+    /// end of a race is worth more than one at twenty.
+    pub const RACE: u16 = 4;
+    /// A level that manages its open mana with care ([`HoldUp::ThreatAware`]:
+    /// `sharp` and `expert`) makes mana for an ability worth its price,
+    /// which the engine offers only once the mana floats: an equip, a pump,
+    /// a draw it pays for.
+    pub const ABILITY_MANA: u16 = 5;
+    /// The level that peeks (`seer`) keeps or throws back an opening hand by
+    /// the next three cards of its own library, which it is told.
+    pub const SEER_DRAWS: u16 = 6;
+    /// A level with a [`foresight`](Self::foresight) tier tries its options
+    /// in copies of the game before it answers, where its host can fork one
+    /// (`baylee-gamehost`'s `simulation` feature): its own answer, the
+    /// offer's other sensible answers, each played on by the house in the
+    /// same dealt worlds and scored where the game then stands.
+    pub const FORESIGHT: u16 = 7;
+    /// A search at priority also tries each spell the seat's mana would pay
+    /// for, cast and paid for while it is cast (CR 601.2g-h), beside the
+    /// spells the floating pool already pays for: with nothing floating at
+    /// a root, that is every spell with a cost, so before it a search never
+    /// set one spell or one target against another.
+    pub const SPELL_ROOTS: u16 = 8;
+    /// A level's search is bounded by the level itself
+    /// ([`Foresight::work`], [`Foresight::nodes`]), so the same level plays
+    /// the same wherever it searches: in a measurement, as a teacher and at
+    /// a host, which can lower the bound and never raise it. The work grows
+    /// with the tier's candidates and worlds ([`Self::EXPERT_WORK`]), so
+    /// each tier is cut about as rarely; the forks' model thinks about one
+    /// attack or block within [`Self::FORK_NODES`], whatever the bound.
+    pub const BOUNDED_SEARCH: u16 = 9;
+    /// The house pays as the client, the seat and the trained AI's menu pay
+    /// (`baylee_ai::spend`): restricted mana where the engine says it may
+    /// pay (CR 106.6), a Phyrexian symbol with 2 life where no mana pays it
+    /// (CR 107.4f), every counter of a counter-paid mana ability, a second
+    /// permanent whose own tapping ability waits for mana kept untapped,
+    /// and a conversion beside restricted mana. And it taps for a card it
+    /// may cast from exile or a graveyard at the price the engine names for
+    /// each way (an Adventure's creature, a foretold card, a disturb face).
+    pub const FULL_CASTS: u16 = 10;
+    /// The house aims a spell at the side it helps or hurts: its own Aura
+    /// on the creature the Aura's statics help (or the opponent's it
+    /// hurts), and none cast where nothing gains from it; a spell that
+    /// helps what it targets not cast with no target of its own side, and
+    /// one that hurts not cast with no target of the other side.
+    pub const TARGET_SIDES: u16 = 11;
+    /// An Equipment is worth what its statics do to the equipped creature
+    /// however its filter is written ("equipped creature" is mostly
+    /// `And(creature, attached to the source)`, which read as nothing, so an
+    /// equip was never worth its price), and an instant or sorcery with X in
+    /// its cost is not cast at X = 0.
+    pub const EQUIPMENT_AND_X: u16 = 12;
+    /// Nothing is begun in the seat's own draw step with nothing on the
+    /// stack: what is done there can be done as well in the main phase, and
+    /// a level that does not time its instants cast them there on sight,
+    /// where a search cannot weigh them (the turn's first draw waits for its
+    /// miracle check through that round, and the engine forks nothing
+    /// while it does).
+    pub const QUIET_DRAW_STEP: u16 = 13;
+    /// Every level casts an instant at its moment ([`Self::INSTANT_TIMING`]),
+    /// not only one that keeps mana up: a combat trick once blocks are
+    /// declared where it turns an exchange, anything lasting in its own main
+    /// phase or the opponents' combat or end step. A level that keeps no mana
+    /// up ([`HoldUp::None`]: `novice`, `casual`) still taps out for what it
+    /// casts at sorcery speed; it no longer casts a trick on sight.
+    pub const TIMED_INSTANTS: u16 = 14;
+    /// The level that peeks (`seer`), at a table that lets it, searches in
+    /// forks that keep every other player's hand as it is: it is told those
+    /// hands, and a fork from the real lists dealt them again from what
+    /// each player hides. The libraries are still dealt.
+    pub const SEER_HANDS: u16 = 15;
+    /// A level's noise ([`Self::temperature_milli`]) is at most
+    /// [`Self::NOISE_CEILING`] wide: noise exists so that players cannot learn
+    /// to exploit a level, never to weaken one (owner, 10.11.2026), and
+    /// `novice`'s ±800 was twice any other level's ([`Self::noise_milli`]).
+    pub const NOISE_BAND: u16 = 16;
+    /// `casual` reads its cards as `steady` does ([`Self::card_skill`]): it
+    /// plans its colours, checks its opening hand for an early play and
+    /// reads what it scries, surveils and keeps. `novice` keeps every
+    /// opening hand: the card skill of the ladder's lowest step, and with
+    /// the noise of [`Self::NOISE_BAND`] what keeps `casual` above it (one
+    /// step more for `novice` too left the two level, 51 % on train).
+    pub const CARD_SKILL: u16 = 17;
+    /// What every level a player is offered plays: the newest generation.
+    pub const GENERATION: u16 = Self::CARD_SKILL;
+
+    /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the
+    /// band of every level but `novice` before it.
+    pub const NOISE_CEILING: u32 = 400;
+
+    /// The work a bounded search ([`Self::BOUNDED_SEARCH`]) may spend at
+    /// expert's tier, in the units of the search's meter; a lower tier may
+    /// spend as much less as it tries fewer candidates in fewer worlds.
+    /// Expert at generation 8 ran past eight million in one search in ten
+    /// and lost nothing measurable when stopped there; at four million it
+    /// lost 2.6 points (`docs/proposals/house-ai-strength.md` §7.7).
+    pub const EXPERT_WORK: u64 = 8_000_000;
+
+    /// The highest foresight tier ([`Self::foresight`]): the named levels
+    /// use one to five, and the tiers above them are there for a
+    /// measurement to try a wider search on a level (`eval4`'s `foresight`
+    /// knob).
+    pub const TIERS: u8 = 8;
+
+    /// The most nodes one combat search in a fork of a bounded search
+    /// ([`Self::BOUNDED_SEARCH`]) may visit: a sixteenth of what `expert`
+    /// itself searches for one attack or block, which is what the slowest
+    /// searches spent their time on.
+    pub const FORK_NODES: u32 = 16_384;
+
+    /// Whether this profile plays the house code of `generation` and later,
+    /// as every level does and a frozen reference before it does not.
+    #[must_use]
+    pub const fn plays(self, generation: u16) -> bool {
+        self.generation >= generation
+    }
+
+    /// How well this level reads its cards (the mulligan, a scry, a
+    /// surveil, what it keeps and discards, the colour it makes), as its
+    /// generation plays it: [`Self::mulligan_skill`], and two for a level of
+    /// skill one (`casual`) from [`Self::CARD_SKILL`].
+    #[must_use]
+    pub const fn card_skill(self) -> u8 {
+        if self.plays(Self::CARD_SKILL) && self.mulligan_skill == 1 {
+            2
+        } else {
+            self.mulligan_skill
+        }
+    }
+
+    /// The width of this level's noise in milli-units, as its generation
+    /// plays it: [`Self::temperature_milli`], at most [`Self::NOISE_CEILING`]
+    /// from [`Self::NOISE_BAND`].
+    #[must_use]
+    pub const fn noise_milli(self) -> u32 {
+        if self.plays(Self::NOISE_BAND) && self.temperature_milli > Self::NOISE_CEILING {
+            Self::NOISE_CEILING
+        } else {
+            self.temperature_milli
+        }
+    }
+
+    /// This level as it played at `generation`: the same constants on the
+    /// house code of that generation, without what came after it. What a
+    /// measurement names `<level>:generation=N`, and what a generation's
+    /// pinned answers (`baylee-gamehost`'s `generation_pins`) are played by.
+    #[must_use]
+    pub const fn at_generation(self, generation: u16) -> Self {
+        Self {
+            generation,
+            foresight: if generation >= Self::FORESIGHT {
+                self.foresight
+            } else {
+                0
+            },
+            ..self
+        }
+    }
+
+    /// What this level may spend trying its options in copies of the game
+    /// ([`Self::FORESIGHT`]), or `None` where it does not: a tier of 0, or a
+    /// generation from before it. Counts, never time, so the same view,
+    /// policy seed and budget give the same answer on any machine.
+    #[must_use]
+    pub const fn foresight(self) -> Option<Foresight> {
+        if !self.plays(Self::FORESIGHT) {
+            return None;
+        }
+        let (candidates, worlds) = match self.foresight {
+            0 => return None,
+            1 => (4, 2),
+            2 => (5, 3),
+            3 => (6, 4),
+            4 => (8, 5),
+            5 => (8, 6),
+            6 => (10, 6),
+            7 => (10, 8),
+            _ => (12, 8),
+        };
+        let (work, nodes) = if self.plays(Self::BOUNDED_SEARCH) {
+            (
+                Self::EXPERT_WORK * (candidates as u64 * worlds as u64) / 48,
+                Self::FORK_NODES,
+            )
+        } else {
+            (u64::MAX, u32::MAX)
+        };
+        Some(Foresight {
+            candidates,
+            worlds,
+            turns: 4,
+            answers: 400,
+            work,
+            nodes,
+        })
+    }
 
     /// Deterministic search work per decision. A clock cutoff would make the
     /// same view choose differently on different machines; benchmarks measure
@@ -565,22 +867,67 @@ impl AIProfile {
         }
     }
 
-    /// The profiles a player can choose between, weakest first.
-    pub const NAMED: [(&'static str, Self); 5] = [
+    /// `sharp` as it played on 10.11.2026, frozen as the benchmark that
+    /// training measures against (owner, 10.11.2026).
+    ///
+    /// Written out rather than `Self::SHARP`, so a change to `sharp` does
+    /// not move it. The constants are half of it; the other half is the
+    /// code they drive, which `baylee-gamehost`'s `reference_profile` test
+    /// pins: the answers this profile gives over a fixed set of games, at a
+    /// fair table, as the benchmark plays it. A change to the house that is
+    /// meant to make `sharp` play differently goes behind a field this
+    /// profile does not set, so this one keeps answering as it did.
+    pub const SHARP_2026_11: Self = Self {
+        lookahead: 1,
+        temperature_milli: 30,
+        mulligan_skill: 2,
+        politics: Politics::AttackLeader,
+        hold_up: HoldUp::ThreatAware,
+        sight: Sight::Fair,
+        generation: Self::FROZEN_2026_11,
+        foresight: 0,
+    };
+
+    /// The profiles a player can choose between, weakest first. The last,
+    /// `seer`, is the one that peeks ([`Self::peeks`]); a list that shows
+    /// these says so beside it.
+    pub const NAMED: [(&'static str, Self); 6] = [
         ("novice", Self::NOVICE),
         ("casual", Self::CASUAL),
         ("steady", Self::STEADY),
         ("sharp", Self::SHARP),
         ("expert", Self::EXPERT),
+        ("seer", Self::SEER),
     ];
 
-    /// Looks a profile up by the key a client sends.
+    /// Frozen profiles that measurements name, never offered to a player.
+    pub const REFERENCES: [(&'static str, Self); 1] = [("sharp-2026-11", Self::SHARP_2026_11)];
+
+    /// Looks a profile up by the key a client sends: one of [`Self::NAMED`].
     #[must_use]
     pub fn named(key: &str) -> Option<Self> {
         Self::NAMED
             .iter()
             .find(|(name, _)| *name == key)
             .map(|(_, profile)| *profile)
+    }
+
+    /// A level a player may choose ([`Self::NAMED`]) or a frozen reference
+    /// ([`Self::REFERENCES`]), with its name as the lists spell it: what a
+    /// tool that measures against the house takes on its command line.
+    #[must_use]
+    pub fn lookup(key: &str) -> Option<(&'static str, Self)> {
+        Self::NAMED
+            .iter()
+            .chain(&Self::REFERENCES)
+            .find(|(name, _)| *name == key)
+            .copied()
+    }
+
+    /// [`Self::lookup`] without the name.
+    #[must_use]
+    pub fn resolve(key: &str) -> Option<Self> {
+        Self::lookup(key).map(|(_, profile)| profile)
     }
 }
 
@@ -1303,6 +1650,186 @@ mod tests {
         assert_eq!(AIProfile::NOVICE.node_budget(), 0);
         assert_eq!(AIProfile::SHARP.node_budget(), 16_384);
         assert_eq!(AIProfile::EXPERT.node_budget(), 262_144);
+    }
+
+    /// A frozen reference is found by the tools that measure against it and
+    /// never by a client choosing a level: it is not one, and a lobby that
+    /// took its name would offer a benchmark as a difficulty.
+    #[test]
+    fn a_reference_is_found_by_the_tools_and_never_offered_to_a_player() {
+        for (key, profile) in AIProfile::REFERENCES {
+            assert_eq!(AIProfile::named(key), None, "{key} reached a lobby");
+            assert_eq!(AIProfile::lookup(key), Some((key, profile)));
+            assert_eq!(AIProfile::resolve(key), Some(profile));
+            assert!(
+                AIProfile::NAMED.iter().all(|(name, _)| *name != key),
+                "{key} is both a level and a reference"
+            );
+        }
+        for (key, profile) in AIProfile::NAMED {
+            assert_eq!(AIProfile::lookup(key), Some((key, profile)));
+        }
+        assert_eq!(AIProfile::resolve("sharp-2026-12"), None);
+        // The constants the reference was frozen with: the profile's half of
+        // the freeze. The code's half is `baylee-gamehost`'s pinned answers.
+        assert_eq!(
+            AIProfile::SHARP_2026_11,
+            AIProfile {
+                lookahead: 1,
+                temperature_milli: 30,
+                mulligan_skill: 2,
+                politics: Politics::AttackLeader,
+                hold_up: HoldUp::ThreatAware,
+                sight: Sight::Fair,
+                generation: 0,
+                foresight: 0,
+            }
+        );
+    }
+
+    /// Exactly one level peeks, it is the last a list shows, it is no
+    /// default, and the reference is fair (owner, 10.11.2026). A profile
+    /// written before `sight` existed reads as fair: nothing on the wire or
+    /// in a record can make an old profile start peeking.
+    #[test]
+    fn only_the_seer_peeks_and_nothing_peeks_by_default() {
+        let peeking: Vec<&str> = AIProfile::NAMED
+            .iter()
+            .filter(|(_, profile)| profile.peeks())
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(peeking, ["seer"]);
+        assert_eq!(AIProfile::NAMED.last().map(|(name, _)| *name), Some("seer"));
+        assert!(!AIProfile::default().peeks());
+        assert_eq!(Sight::default(), Sight::Fair);
+        assert!(AIProfile::REFERENCES.iter().all(|(_, p)| !p.peeks()));
+        assert_eq!(
+            AIProfile::SEER,
+            AIProfile {
+                sight: Sight::Peeking,
+                ..AIProfile::EXPERT
+            },
+            "the seer is expert with its eyes open, nothing else"
+        );
+        let old = r#"{"lookahead":2,"temperature_milli":12,"mulligan_skill":2,
+            "politics":"AttackLeader","hold_up":"ThreatAware"}"#;
+        let read: AIProfile = serde_json::from_str(old).expect("an old profile reads");
+        assert_eq!(
+            read,
+            AIProfile::EXPERT.at_generation(AIProfile::FROZEN_2026_11),
+            "a profile from before foresight has no tier"
+        );
+        let said = serde_json::to_value(AIProfile::SEER).expect("a profile writes");
+        assert_eq!(said["sight"], "peeking");
+    }
+
+    /// Every level a player is offered plays the newest house code, and the
+    /// frozen reference the code of the day it was frozen, so a change behind
+    /// a generation reaches the levels and never the benchmark.
+    #[test]
+    fn every_level_plays_the_newest_generation_and_the_reference_its_own() {
+        for (name, profile) in AIProfile::NAMED {
+            assert_eq!(profile.generation, AIProfile::GENERATION, "{name}");
+            assert!(profile.plays(AIProfile::TEAM_PLAY), "{name}");
+        }
+        assert_eq!(
+            AIProfile::SHARP_2026_11.generation,
+            AIProfile::FROZEN_2026_11
+        );
+        assert!(!AIProfile::SHARP_2026_11.plays(AIProfile::TEAM_PLAY));
+        assert!(AIProfile::SHARP_2026_11.plays(AIProfile::FROZEN_2026_11));
+        assert!(AIProfile::default().plays(AIProfile::GENERATION));
+    }
+
+    /// From generation 16 no level's noise is wider than the ceiling, and
+    /// below it every level keeps the band it was given.
+    #[test]
+    fn a_level_plays_its_noise_within_the_ceiling_from_generation_16() {
+        for (name, profile) in AIProfile::NAMED {
+            assert!(profile.noise_milli() <= AIProfile::NOISE_CEILING, "{name}");
+            let before = profile.at_generation(AIProfile::SEER_HANDS);
+            assert_eq!(before.noise_milli(), profile.temperature_milli, "{name}");
+        }
+        assert_eq!(AIProfile::NOVICE.temperature_milli, 800);
+        assert_eq!(AIProfile::NOVICE.noise_milli(), AIProfile::NOISE_CEILING);
+        assert_eq!(AIProfile::CASUAL.noise_milli(), 400);
+        assert_eq!(AIProfile::SHARP_2026_11.noise_milli(), 30);
+    }
+
+    /// From generation 17 `casual` reads its cards as `steady` does, and
+    /// `novice` keeps the lowest step.
+    #[test]
+    fn casual_reads_its_cards_as_steady_from_generation_17() {
+        let skill = |profile: AIProfile| profile.card_skill();
+        assert_eq!(skill(AIProfile::NOVICE), 0);
+        assert_eq!(skill(AIProfile::CASUAL), 2);
+        assert_eq!(skill(AIProfile::STEADY), 2);
+        assert_eq!(skill(AIProfile::EXPERT), 2);
+        for (name, profile) in AIProfile::NAMED {
+            let before = profile.at_generation(AIProfile::NOISE_BAND);
+            assert_eq!(skill(before), profile.mulligan_skill, "{name}");
+        }
+        assert_eq!(skill(AIProfile::SHARP_2026_11), 2);
+    }
+
+    /// From generation 9 a level bounds its own search, by the cells of its
+    /// tier, and its forks' combat searches by a fixed count of nodes;
+    /// before it, nothing of the level bounds a search.
+    #[test]
+    fn a_level_bounds_its_own_search_from_generation_9() {
+        let budget = |profile: AIProfile| profile.foresight().expect("a tier");
+        assert_eq!(budget(AIProfile::EXPERT).work, AIProfile::EXPERT_WORK);
+        assert_eq!(budget(AIProfile::STEADY).work, AIProfile::EXPERT_WORK / 2);
+        assert_eq!(budget(AIProfile::EXPERT).nodes, AIProfile::FORK_NODES);
+        let mut last = 0;
+        for (name, profile) in AIProfile::NAMED {
+            let bounded = budget(profile);
+            assert!(bounded.work >= last, "{name}: a higher tier may spend more");
+            last = bounded.work;
+            let before = budget(profile.at_generation(AIProfile::SPELL_ROOTS));
+            assert_eq!((before.work, before.nodes), (u64::MAX, u32::MAX), "{name}");
+            assert_eq!(
+                (before.candidates, before.worlds),
+                (bounded.candidates, bounded.worlds),
+                "{name}: the bound changes no count"
+            );
+        }
+    }
+
+    /// What a lobby request can ask a search to spend: a level by its name
+    /// (`named`, the one lookup the lobby and the gateway make), and nothing
+    /// else. Every name it takes is a level of the newest generation whose
+    /// search is bounded, at most `expert`'s bound; a reference, a
+    /// generation, a bound, another case, padding or a long string names
+    /// nothing, so a request cannot reach a level that searches unbounded.
+    #[test]
+    fn a_lobby_name_cannot_ask_for_more_search_than_experts() {
+        for (name, profile) in AIProfile::NAMED {
+            let named = AIProfile::named(name).expect("a level by its name");
+            assert_eq!(named, profile);
+            assert_eq!(named.generation, AIProfile::GENERATION, "{name}");
+            let budget = named.foresight().expect("every level searches");
+            assert!(budget.work <= AIProfile::EXPERT_WORK, "{name}");
+            assert_eq!(budget.nodes, AIProfile::FORK_NODES, "{name}");
+        }
+        let long = "expert".repeat(10_000);
+        for odd in [
+            "sharp-2026-11",
+            "expert:generation=7",
+            "expert:generation=8",
+            "expert:work=99999999999",
+            "expert:foresight=255",
+            "Expert",
+            "EXPERT",
+            " expert",
+            "expert ",
+            "expert\0",
+            "seer2",
+            "",
+            &long,
+        ] {
+            assert_eq!(AIProfile::named(odd), None, "{odd:.40} was taken");
+        }
     }
 
     /// A room that chose no format says nothing about one on the wire, a

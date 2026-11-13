@@ -35,6 +35,7 @@ fn known(slot: u32, print: u16) -> LogObject {
 
 fn entry(event: LogEvent) -> LogEntry {
     LogEntry {
+        step: None,
         turn: 3,
         repeat: 1,
         at: 0,

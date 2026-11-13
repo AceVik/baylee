@@ -562,8 +562,7 @@ fn option(question: &str) -> String {
         .or_else(|| first(&|(_, label)| label.starts_with("Cast ")))
         .or_else(|| first(&|(id, _)| ["keep", "p", "n"].contains(&id.as_str())))
         .or(options.first())
-        .map(|(id, _)| id.clone())
-        .unwrap_or_default()
+        .map_or_default(|(id, _)| id.clone())
 }
 
 /// As few ids as the question allows, from the top of its list.
@@ -650,7 +649,6 @@ async fn guest(lobby: &Lobby, name: &str) -> Session {
     lobby
         .guest(&GuestSignIn {
             display_name: name.into(),
-            invite_key: None,
         })
         .await
         .unwrap_or_else(|e| panic!("{name} signs in: {e:#}"))

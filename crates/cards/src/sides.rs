@@ -99,6 +99,33 @@ mod tests {
         BACK_IMAGE, BONUS, DOUBLE_FACED, MYTHIC, RARE, SPECIAL, TURNS, UNCOMMON,
     };
 
+    /// The engine reads a split card off its faces
+    /// (`CardDef::is_split_spell_card`), because a card file states no
+    /// layout, and gives it both halves' characteristics off the stack (CR
+    /// 709.4). The printing does state it: Scryfall's `split` layout is
+    /// printed sideways, `[1, 1]` here, or `[0, 3]` for an Aftermath card
+    /// (`ScryfallCard::quarter_turns`). So the two answers are held together
+    /// over the whole pool, a Room aside (CR 709.5: it is read by its doors).
+    /// A double-faced card with two instant faces would be read as split and
+    /// fail here, and so would a split card the reading misses.
+    #[test]
+    fn a_split_card_is_read_off_its_faces_as_its_printing_is_laid_out() {
+        let mut split = 0;
+        for def in crate::all() {
+            let printed_split =
+                matches!(quarter_turns(def.index), [1, 1] | [0, 3]) && !def.has_shared_type_line();
+            assert_eq!(
+                def.is_split_spell_card(),
+                printed_split,
+                "{} reads as a split card {} and its printing says {printed_split}",
+                def.name(),
+                def.is_split_spell_card(),
+            );
+            split += usize::from(printed_split);
+        }
+        assert!(split >= 10, "only {split} split cards: Fire // Ice is one");
+    }
+
     /// Both tables are sorted, which is what the reader's binary search
     /// assumes and nothing else would notice being wrong: an unsorted table
     /// answers `false` for some of its own rows and never errors.

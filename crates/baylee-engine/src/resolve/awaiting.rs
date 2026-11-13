@@ -1141,6 +1141,12 @@ pub enum AwaitingOp {
         /// Its identity in exile (CR 400.7).
         version: u32,
     },
+    /// A permanent `player` owes in a `ForEachMatching` count, chosen now
+    /// and sacrificed once every player has chosen (`resolve::for_each`).
+    HeldSacrifice {
+        /// Who gives the chosen permanent up.
+        player: PlayerId,
+    },
 }
 
 /// Work to resume after a resolution-time mana payment.

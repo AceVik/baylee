@@ -133,7 +133,13 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             }),
             None,
         ),
-        (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
+        (
+            yes_no(YesNoPrompt::PayLife {
+                amount: 7,
+                permanent: None,
+            }),
+            no.clone(),
+        ),
         (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
         (yes_no(YesNoPrompt::Madness { card: object() }), None),
         (
@@ -735,7 +741,10 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::PayMana {
             cost: baylee_core::mana!("{G}{G}"),
         },
-        YesNoPrompt::PayLife { amount: 7 },
+        YesNoPrompt::PayLife {
+            amount: 7,
+            permanent: None,
+        },
         YesNoPrompt::Miracle { card: object() },
         YesNoPrompt::Madness { card: object() },
         YesNoPrompt::CastWithoutPaying { card: object() },

@@ -34,6 +34,19 @@ pub const fn step_name(phase: Phase, step: Step) -> &'static str {
     }
 }
 
+/// A phase in words, for the marks the list since the last decision puts
+/// where the phase changes (CR 500.1).
+#[must_use]
+pub const fn phase_name(phase: Phase) -> &'static str {
+    match phase {
+        Phase::Beginning => "beginning phase",
+        Phase::FirstMain => "precombat main phase",
+        Phase::Combat => "combat",
+        Phase::SecondMain => "postcombat main phase",
+        Phase::Ending => "ending phase",
+    }
+}
+
 /// A step or phase by the short name a model writes in `stops` and
 /// `until` (`main1`, `attackers`, `end_step`): the header says the step
 /// in the words the model answers with.
@@ -216,6 +229,35 @@ fn replacement_prompt(event: &str) -> String {
     format!("Choose the source whose replacement applies to this {event}")
 }
 
+/// What a choice of cards from or onto a library asks, saying whose library
+/// it is: `whose` is "your" or "P2's", the cards' owner's (CR 400.3), since a
+/// search may go through another player's (Bribery). Any other prompt is
+/// said as [`choice_prompt`] says it.
+#[must_use]
+pub fn library_choice_prompt(prompt: ChoicePrompt, whose: &str) -> String {
+    match prompt {
+        ChoicePrompt::SearchLibrary => format!("Search {whose} library: choose the cards to find"),
+        ChoicePrompt::PutBackOnTop => {
+            format!("Choose the cards to put back on top of {whose} library")
+        }
+        ChoicePrompt::PutOnBottom => {
+            format!("Choose the cards to put on the bottom of {whose} library")
+        }
+        other => choice_prompt(other),
+    }
+}
+
+/// The band question of an attacker with banding, where some attacker
+/// offered has none: a band holds any number with banding and at most one
+/// without (CR 702.22c), which the question's bound alone cannot say once
+/// both kinds are offered.
+#[must_use]
+pub fn band_prompt_with_one_unbanded() -> String {
+    "Choose the attackers to join the band: any number with banding and at most one without \
+     (choose none and it attacks alone)"
+        .into()
+}
+
 /// What a [`ChoicePrompt`] asks, as an instruction.
 #[must_use]
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
@@ -242,8 +284,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::TappedForCounters { kind } => format!("Choose permanents tapped this way to receive one {} each (not targets)", baylee_client_core::interaction::counter_label(kind, baylee_client_core::Lang::En)),
         ChoicePrompt::Proliferate => "Choose permanents to give one additional counter of each kind already present".into(),
         ChoicePrompt::RevealDiscard => "Choose discards to reveal with Nephalia Academy; unselected cards use Library of Leng and stay hidden".into(),
-        ChoicePrompt::SearchLibrary => "Search your library: choose the cards to find".into(),
-        ChoicePrompt::PutBackOnTop => "Choose the cards to put back on top of your library".into(),
+        ChoicePrompt::SearchLibrary | ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {
+            library_choice_prompt(prompt, "your")
+        }
         ChoicePrompt::Wish => "Choose a card from outside the game".into(),
         ChoicePrompt::Delve => "Choose cards to exile from your graveyard for delve".into(),
         ChoicePrompt::CostSacrifice => "Choose what to sacrifice to pay the cost".into(),
@@ -286,7 +329,6 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Choose a card to reveal (choose none and it enters tapped)".into()
         }
         ChoicePrompt::PutIntoHand => "Choose the cards to put into your hand".into(),
-        ChoicePrompt::PutOnBottom => "Choose the cards to put on the bottom of your library".into(),
         ChoicePrompt::PlayFromExile => "Choose a card to play from exile".into(),
         ChoicePrompt::PutOntoBattlefield => "Choose the cards to put onto the battlefield".into(),
         ChoicePrompt::FromGraveyard => "Choose cards from the graveyard".into(),

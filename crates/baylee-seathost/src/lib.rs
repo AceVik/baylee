@@ -33,6 +33,7 @@
 #[cfg(test)]
 use baylee_cards_pool as _;
 
+pub mod cli;
 pub mod launch;
 pub mod state;
 
@@ -538,10 +539,7 @@ impl Host {
                         Some(Provider::Cli) => "cli".into(),
                         _ => "api".into(),
                     },
-                    model: profile
-                        .as_ref()
-                        .map(|p| p.model.clone())
-                        .unwrap_or_default(),
+                    model: profile.as_ref().map_or_default(|p| p.model.clone()),
                     state,
                     until_unix: until,
                     games: rt.games,

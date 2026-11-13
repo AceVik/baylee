@@ -232,7 +232,7 @@ pub(crate) fn fill_pinned_printings(
     agent: &ureq::Agent,
     cache: &Path,
 ) -> anyhow::Result<()> {
-    let files = card_files(&root.join("crates/cards/src/cards"))?;
+    let files = card_files(&root.join(crate::layout::SETS_DIR))?;
     let mut drifted = 0usize;
     let mut fetched = 0usize;
     for name in names {

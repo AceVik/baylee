@@ -260,15 +260,23 @@ jobs:
       # them (owner, 24.10. and 30.10.2026). xtask still links baylee-train
       # without `play`, so its library compiles as a dependency. Engine,
       # house-AI and gamehost coverage stays in CI.
+      # In the profile `gate` (`Cargo.toml`), as the local gate: the dev
+      # profile with the crates the slowest tests spend their time in at
+      # opt-level 1, and no debug info. Until 13.11.2026 this ran in the plain
+      # `test` profile: 7.4 min of compiling and then 31.7 and 19.4 min of
+      # running (run 43386609388), while the optimized suite ran all of it in
+      # 11.4 min. The timings above and the timeout are from before the
+      # change and are due a new measurement.
       - run: >-
-          cargo nextest run --locked --workspace --lib --bins --tests --examples --no-fail-fast
+          cargo nextest run --locked --cargo-profile gate
+          --workspace --lib --bins --tests --examples --no-fail-fast
           --exclude baylee-train --exclude baylee-train-ops
           --partition count:${{ matrix.partition }}/2
       # A bench under nextest measures in full (`--bench`); `cargo test` runs
       # each one once, which is all a test needs (`docs/dev/commands.md`).
       - name: Benches run once
         if: matrix.partition == 2
-        run: cargo test --locked --workspace --bench decisions --bench client --bench frames --bench basics
+        run: cargo test --locked --profile gate --workspace --bench decisions --bench client --bench frames --bench basics
       - name: Isolated Linux credential-store round trip
         if: matrix.partition == 1
         run: cargo dev keyring-linux
@@ -559,13 +567,21 @@ jobs:
     if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # `audit-check` reports through a **check run**, which is a write, and
-    # this workflow's `GITHUB_TOKEN` is read-only. Named on the job rather
-    # than raised repository-wide; `contents: read` is restated because a
-    # `permissions` block replaces the defaults rather than adding to them.
+    # `audit-check` reports an advisory through a **check run** on a push
+    # and through an **issue** on the nightly (one per advisory, found again
+    # by its id in the title rather than opened twice); both are writes, and
+    # this workflow's `GITHUB_TOKEN` is read-only. Without `issues` every
+    # nightly that met a warning failed on "Resource not accessible by
+    # integration" (run 43354219394) instead of saying which advisory it
+    # was. On a push a vulnerability fails the job (a warning is only
+    # reported); on the nightly the issue is the whole signal, and the job
+    # stays green. Named on the job rather than raised repository-wide;
+    # `contents: read` is restated because a `permissions` block replaces
+    # the defaults rather than adding to them.
     permissions:
       contents: read
       checks: write
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -575,8 +591,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           # The same advisories deny.toml ignores, with their reasons there:
           # `ttf-parser` unmaintained, reached only through winit's Wayland
-          # titlebar, no safe upgrade. audit-check reads no deny.toml, and on a
-          # warning it opens an issue this read-only token may not write, so
-          # the job went red on a notice that is not a vulnerability.
+          # titlebar, no safe upgrade. audit-check reads no deny.toml, so an
+          # advisory deny.toml has weighed would otherwise be reported again.
+          # RUSTSEC-2026-0387: crypto-bigint, scope in docs/central-login.md.
           # RUSTSEC-2026-0459: SQLite, in the lockfile only, linked by nothing.
-          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2026-0459
+          # RUSTSEC-2024-0436: `paste` unmaintained, a proc-macro only rav1d
+          # (the client's AVIF decoder) pulls, no release without it.
+          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2026-0459,RUSTSEC-2024-0436

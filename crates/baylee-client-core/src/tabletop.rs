@@ -892,9 +892,9 @@ pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture
 /// it.
 ///
 /// Arithmetic, like everything else on this table — `docs/legal.md` §2. A
-/// crown, a headstone, a stack of leaves and a barred ring are about as far
-/// from anyone's trade dress as a shape gets, and none of them is a glyph out
-/// of a font: the table is 3D and there is no text on it.
+/// crown, a headstone, a stack of leaves, a barred ring and an hourglass are
+/// about as far from anyone's trade dress as a shape gets, and none of them is
+/// a glyph out of a font: the table is 3D and there is no text on it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ZoneMark {
     /// The library: three leaves seen edge on.
@@ -905,6 +905,8 @@ pub enum ZoneMark {
     Exile,
     /// The command zone: a crown.
     Command,
+    /// The waiting place of suspended cards: an hourglass.
+    Waiting,
 }
 
 /// How much of the well's short side the mark spans, from the middle out.
@@ -967,6 +969,13 @@ fn in_mark(mark: ZoneMark, x: f32, y: f32) -> bool {
             let step = (x + 0.75) / 0.375;
             let wave = 1.0 - (step.rem_euclid(2.0) - 1.0).abs();
             y >= 0.55f32.mul_add(wave, -0.72)
+        }
+        // An hourglass: two plates, and between them two bulbs narrowing to
+        // a waist. Time running, which is what a card lying here does.
+        ZoneMark::Waiting => {
+            let plates = x.abs() <= 0.56 && (0.62..=0.80).contains(&y.abs());
+            let glass = y.abs() < 0.62 && x.abs() <= 0.10 + 0.56 * y.abs();
+            plates || glass
         }
     }
 }

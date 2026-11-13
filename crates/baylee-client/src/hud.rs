@@ -1720,6 +1720,10 @@ pub struct CardMotion<'w> {
     pub(crate) sheen: Res<'w, crate::sheen::Sheen>,
     /// Which card is under the finger, and where that has put it.
     pub(crate) touch: Res<'w, crate::touch::Touched>,
+    /// The hover preview's opening ([`overlay::PreviewPop`]). Optional for
+    /// the reason the render resources are: a headless harness that does not
+    /// animate has none, and its preview simply stands and goes.
+    pub(crate) preview: Option<ResMut<'w, overlay::PreviewPop>>,
 }
 
 /// The overlay's retained tree, as the two things a rebuild has to tell
@@ -1802,6 +1806,15 @@ pub struct OverlayTree<'w, 's> {
     /// rebuilt, which a sweep on every pointer move would undo.
     pub(crate) log: Query<'w, 's, Entity, With<ledge::log::LogPanel>>,
     pub(crate) ai_log: Query<'w, 's, Entity, With<ledge::ai_log::AiLogPanel>>,
+    /// The standing hover preview's nodes, which a rebuild does not sweep
+    /// blindly: it replaces them with the new preview's, or hands them over
+    /// to their leaving ([`overlay::leave`]) when the pointer has left.
+    pub(crate) rising: Query<'w, 's, (Entity, &'static overlay::PreviewRise)>,
+    /// A preview already leaving, kept through the sweep until it has sunk
+    /// ([`overlay::pop_the_preview`] despawns it).
+    pub(crate) leaving: Query<'w, 's, Entity, With<overlay::PreviewLeave>>,
+    /// The preview's resize handle, which a leaving preview gives up.
+    pub(crate) resize: Query<'w, 's, Entity, With<PreviewResize>>,
     /// The sheet holding up another seat's reveal ([`revealed`]), on the
     /// log's argument and with a louder symptom: it is drawn on a gate of its
     /// own (`revealed::RevealRevision`), and a sweep took it on every rebuild
@@ -1912,7 +1925,6 @@ pub(crate) use sheet::granted::{
 mod slip;
 pub(crate) mod spectators;
 pub(crate) mod stack;
-pub(crate) mod suspended;
 pub(crate) mod tray;
 
 #[cfg(test)]
@@ -1967,7 +1979,7 @@ pub use ledge::{
 pub(crate) use ledge::{Weight as ButtonWeight, answer_sized};
 pub use lostbanner::{spawn_lost_banner, tick_lost_banner};
 pub(crate) use overlay::answer_button;
-pub use overlay::{despawn_overlay, sync_overlay};
+pub use overlay::{PreviewPop, despawn_overlay, pop_the_preview, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, flash_the_designation, glow_the_steps, pace_the_steps};
 pub(crate) use scroll::scrolled;

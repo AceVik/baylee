@@ -28,6 +28,7 @@
 //! - `gallery` (dev-control builds only): every component in every state,
 //!   the screen WP0b-1 is accepted on.
 
+pub mod avatar;
 pub mod controls;
 pub mod focus;
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
@@ -79,8 +80,15 @@ impl Plugin for ShellKitPlugin {
             .add_message::<KeyboardInput>()
             .init_resource::<InputClass>()
             .init_resource::<KitHolds>()
+            .init_resource::<avatar::Portraits>()
             .add_systems(PreUpdate, size::follow_the_input)
-            .add_systems(Update, (face_follows_the_text_size, hold_the_keyboard));
+            .add_systems(Update, (face_follows_the_text_size, hold_the_keyboard))
+            // After every builder of the frame and before the interface is
+            // laid out: a disc drawn this frame wears its picture on it.
+            .add_systems(
+                PostUpdate,
+                avatar::wear_portraits.before(bevy::ui::UiSystems::Prepare),
+            );
         controls::install(app);
         header::install(app);
         focus::install(app);

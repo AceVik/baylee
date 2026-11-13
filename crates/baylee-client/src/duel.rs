@@ -56,9 +56,13 @@ impl Duel {
             .as_ref()
             .map(CastMenu::prompt)
             .or_else(|| {
-                self.interaction
-                    .as_ref()
-                    .map(baylee_client_core::Interaction::prompt)
+                // Read against the view, which shows whose library a
+                // question is about when it is another player's.
+                self.interaction.as_ref().map(|i| {
+                    self.view
+                        .as_ref()
+                        .map_or_else(|| i.prompt(), |v| i.prompt_in(v))
+                })
             })
             .or_else(|| {
                 self.view
@@ -427,8 +431,25 @@ impl Duel {
     /// ([`manaplan::greatest_repeat`]): the number the player is shown is the
     /// most their lands pay on top of the spell.
     ///
+    /// A spell with convoke, improvise or delve counts its creatures,
+    /// artifacts and graveyard beside the mana ([`manaplan::Assist`]): capped
+    /// by the mana alone, Chord of Calling beside five Forests and three
+    /// green creatures was offered X up to 3 where 5 is paid (Carbon b4,
+    /// attempt 8, q158, the seat's same reading; CR 702.51a).
+    ///
+    /// Restricted mana counts where the offer names it for this cast (CR
+    /// 106.6), earmarked for the spell's own symbols
+    /// ([`manaplan::greatest_x_earmarked`]): Invoke the Firemind
+    /// (`{X}{U}{U}{R}`) over a floating `{U}{U}{R}`, two Islands and Vodalian
+    /// Arcanist's `{C}` for instants and sorceries pays X = 3 where the
+    /// Islands alone pay 2 (Carbon b7, attempt 22, q214, which the seat
+    /// answers the same way). Mana the offer does not name for the cast pays
+    /// nothing here, as it pays nothing at the payment.
+    ///
     /// [`manaplan::greatest_x`]: baylee_client_core::manaplan::greatest_x
     /// [`manaplan::greatest_repeat`]: baylee_client_core::manaplan::greatest_repeat
+    /// [`manaplan::Assist`]: baylee_client_core::manaplan::Assist
+    /// [`manaplan::greatest_x_earmarked`]: baylee_client_core::manaplan::greatest_x_earmarked
     fn cap_x(&mut self) {
         let Some(cap) = self.x_cap() else {
             return;
@@ -461,19 +482,35 @@ impl Duel {
             .filter(|(of, _)| of == player)
             .map(|(_, legal)| legal)?;
         let cost = spell_cost(view, legal, card)?;
-        let pool = view
-            .seat(baylee_client_core::decision::resource_player(view))?
-            .mana_pool;
-        let sources = manasources::sources(view, legal);
-        match kick {
-            Some(each) => baylee_client_core::manaplan::greatest_repeat(
+        let caster = baylee_client_core::decision::resource_player(view);
+        let pool = view.seat(caster)?.mana_pool;
+        if let Some(each) = kick {
+            return baylee_client_core::manaplan::greatest_repeat(
                 &cost.with_x(view.announced_x.unwrap_or(0)),
                 &each,
                 &pool,
-                &sources,
-            ),
-            None => baylee_client_core::manaplan::greatest_x(&cost, &pool, &sources),
+                &manasources::sources(view, legal),
+            );
         }
+        // The cast's own mana, as its payment will be planned: restricted
+        // mana the offer names for this cast is earmarked for it (CR 106.6).
+        let mana = manasources::spend_inputs(
+            view,
+            legal,
+            &pool,
+            baylee_engine::choice::Spend::cast(card, baylee_engine::choice::CastModeKind::Normal),
+        );
+        let assist = casting_face(view, card)
+            .map_or_else(baylee_client_core::manaplan::Assist::default, |face| {
+                baylee_client_core::manaplan::Assist::read(view, caster, face, &mana.sources)
+            });
+        baylee_client_core::manaplan::greatest_x_earmarked(
+            &cost,
+            &mana.pool,
+            mana.earmarked(),
+            &mana.sources,
+            &assist,
+        )
     }
 
     /// Works out afresh which lands would settle an open payment window.
@@ -532,34 +569,42 @@ impl Duel {
         }
     }
 
-    /// The pool, and what this seat could tap, for the payment it owes.
+    /// What this seat owes, and the mana it could pay with.
     fn payment_inputs(
         &self,
     ) -> Option<(
         baylee_core::mana::ManaCost,
-        baylee_view::ManaPoolView,
-        Vec<baylee_client_core::manaplan::Source>,
+        baylee_client_core::paystage::WindowMana,
     )> {
         let cost = self.owed_cost()?;
         let view = self.view.as_ref()?;
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
-        let sources = self
+        // The restricted mana the engine says may pay what the window owes
+        // (CR 106.6), still in a land or floating, is planned like any other,
+        // earmarked for the window: a Cavern of Souls' green for the Elf whose
+        // cast opened it, Great Hall's black for the Hymn beside Study Hall.
+        let Some(legal) = self
             .interaction
             .as_ref()
             .and_then(Interaction::legal_actions)
-            .map(|legal| manasources::sources(view, legal))
-            .unwrap_or_default();
-        Some((cost, pool, sources))
+        else {
+            let window = baylee_client_core::paystage::WindowMana {
+                pool,
+                ..Default::default()
+            };
+            return Some((cost, window));
+        };
+        Some((cost, manasources::window_inputs(view, legal, &pool)))
     }
 
     /// What "Pay now" would stage: the taps that pay what the pool and the
     /// staged taps leave owing, over the sources not staged yet.
     fn compute_owed_plan(&self) -> Option<baylee_client_core::manaplan::Plan> {
         self.interaction.as_ref()?.legal_actions()?;
-        let (cost, pool, sources) = self.payment_inputs()?;
-        self.pay_staged.suggest(&cost, &pool, &sources)
+        let (cost, window) = self.payment_inputs()?;
+        self.pay_staged.suggest_in(&cost, &window)
     }
 
     /// What the window still owes once the pool and the staged taps have
@@ -567,8 +612,8 @@ impl Duel {
     /// seat's own fixed-cost window.
     #[must_use]
     pub fn payment_remaining(&self) -> Option<Vec<baylee_core::mana::ManaSymbol>> {
-        let (cost, pool, sources) = self.payment_inputs()?;
-        Some(self.pay_staged.remaining(&cost, &pool, &sources))
+        let (cost, window) = self.payment_inputs()?;
+        Some(self.pay_staged.remaining_in(&cost, &window))
     }
 
     /// Whether the pool and the staged taps pay what is owed, so that Go is
@@ -576,7 +621,7 @@ impl Duel {
     #[must_use]
     pub fn staged_covers(&self) -> bool {
         self.payment_inputs()
-            .is_some_and(|(cost, pool, sources)| self.pay_staged.covers(&cost, &pool, &sources))
+            .is_some_and(|(cost, window)| self.pay_staged.covers_in(&cost, &window))
     }
 
     /// Stages a tap in the open window, or takes it back when its permanent
@@ -1413,4 +1458,15 @@ impl Duel {
             .iter()
             .any(|card| legal.castable.contains(&card.id))
     }
+}
+
+/// The printed face of `card`, the spell being cast: in the hand it was cast
+/// from, or wherever the view shows it now.
+fn casting_face(view: &PlayerView, card: ObjectId) -> Option<&'static baylee_cards_dsl::FaceDef> {
+    let identity = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|held| held.id == card)
+        .map(|held| held.card)
+        .or_else(|| view.object(card).and_then(|object| object.card))?;
+    reach::printed_face(identity)
 }

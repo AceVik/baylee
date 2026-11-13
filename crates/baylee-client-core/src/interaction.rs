@@ -215,6 +215,10 @@ pub enum Prompt {
         max: u8,
         /// Why.
         reason: ChoicePrompt,
+        /// Another player's library a search or a put-back goes through
+        /// (Bribery), named by the line; `None` for the deciding player's
+        /// own, and wherever [`Interaction::prompt_in`] was not asked.
+        library: Option<PlayerId>,
     },
     /// Choose targets.
     ChooseTargets {
@@ -301,11 +305,22 @@ pub enum Prompt {
         /// The one place they all go, when there is only one — which is
         /// what says whether the first card named is the top card or not.
         onto: Option<ArrangePlace>,
+        /// Another player's library the cards go back into (Architects of
+        /// Will aimed at them), named by the line; `None` for the deciding
+        /// player's own, and wherever [`Interaction::prompt_in`] was not
+        /// asked.
+        library: Option<PlayerId>,
     },
     /// A yes-or-no question.
     YesNo {
         /// What is being decided.
         question: YesNoPrompt,
+        /// Another player's permanent the question is about (Cleansing's
+        /// land, `YesNoPrompt::PayLife::permanent`), named by the line by
+        /// whose it is; `None` for the deciding player's own, for a question
+        /// about no permanent, and wherever [`Interaction::prompt_in`] was
+        /// not asked.
+        whose: Option<PlayerId>,
     },
     /// The game is over.
     GameOver,
@@ -765,6 +780,7 @@ impl Interaction {
                 min: *min,
                 max: *max,
                 reason: *prompt,
+                library: None,
             },
             Pending::ChooseTargets {
                 min, max, reason, ..
@@ -816,10 +832,112 @@ impl Interaction {
                     [pile] => Some(pile.place),
                     _ => None,
                 },
+                library: None,
             },
-            Pending::YesNo { prompt, .. } => Prompt::YesNo { question: *prompt },
+            Pending::YesNo { prompt, .. } => Prompt::YesNo {
+                question: *prompt,
+                whose: None,
+            },
             Pending::GameOver(_) => Prompt::GameOver,
         }
+    }
+
+    /// [`Self::prompt`], with whose library the question is about where
+    /// `view` shows it is another player's than the one deciding.
+    ///
+    /// The question names no library. The cards it is about do: a card goes
+    /// only into its owner's library (CR 400.3), so the cards an arrangement
+    /// puts back, and the cards a search or a put-back offers (or, for a
+    /// search that offers none, the library it went through, which the view
+    /// shows as `looking_at`), are that library's owner's
+    /// ([`crate::decision::cards_owner`]). Architects of Will aimed at an
+    /// opponent puts the cards back on top of *their* library, and a line
+    /// that did not say so read as the player's own.
+    ///
+    /// A yes-or-no question about one permanent says whose it is the same
+    /// way, where it is another player's ([`Self::permanent_in`]): Cleansing
+    /// asks land by land, and "Pay 1 life for Plains?" ten times over a
+    /// table of Plains said neither which land nor whose.
+    #[must_use]
+    pub fn prompt_in(&self, view: &PlayerView) -> Prompt {
+        let mut prompt = self.prompt();
+        match &mut prompt {
+            Prompt::Arrange { library, .. } | Prompt::ChooseCards { library, .. } => {
+                *library = self.library_in(view);
+            }
+            Prompt::YesNo { whose, .. } => *whose = self.permanent_in(view),
+            _ => {}
+        }
+        prompt
+    }
+
+    /// The one permanent this question is about, where it names one: the
+    /// land a Cleansing life payment is for (CR 608.2d,
+    /// `YesNoPrompt::PayLife::permanent`). The table lights it and dims the
+    /// rest while the question is open ([`Self::leaves_out`]). Only this
+    /// seat's own question, as every light on the table is.
+    #[must_use]
+    pub fn asked_about(&self) -> Option<ObjectId> {
+        if !self.is_mine() {
+            return None;
+        }
+        match &self.pending {
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayLife { permanent, .. },
+                ..
+            } => *permanent,
+            _ => None,
+        }
+    }
+
+    /// Whose the permanent this question is about is, when `view` shows it
+    /// is another player's than the one deciding ([`Self::prompt_in`]): its
+    /// controller, the player across whose side of the table it lies. `None`
+    /// for the deciding player's own, for a question about no permanent, and
+    /// for one the view does not show.
+    #[must_use]
+    pub fn permanent_in(&self, view: &PlayerView) -> Option<PlayerId> {
+        let Pending::YesNo {
+            prompt:
+                YesNoPrompt::PayLife {
+                    permanent: Some(permanent),
+                    ..
+                },
+            ..
+        } = &self.pending
+        else {
+            return None;
+        };
+        view.object(*permanent)
+            .map(|object| object.controller)
+            .filter(|controller| *controller != self.seat)
+    }
+
+    /// Whose library this question is about, when `view` shows it is
+    /// another player's than the one deciding ([`Self::prompt_in`]): an
+    /// arrangement's, or a search's or a put-back's. `None` for the deciding
+    /// player's own, for a question about no library, and for cards the view
+    /// does not show.
+    #[must_use]
+    pub fn library_in(&self, view: &PlayerView) -> Option<PlayerId> {
+        let owner = match &self.pending {
+            Pending::Arrange { cards, .. } => crate::decision::cards_owner(view, cards),
+            Pending::ChooseCards {
+                options,
+                prompt:
+                    ChoicePrompt::SearchLibrary | ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom,
+                ..
+            } => {
+                let shown: Vec<ObjectId> = options
+                    .iter()
+                    .copied()
+                    .chain(view.looking_at.iter().map(|object| object.id))
+                    .collect();
+                crate::decision::cards_owner(view, &shown)
+            }
+            _ => None,
+        };
+        owner.filter(|owner| *owner != self.seat)
     }
 
     /// The prompt for a mana-payment, damage or prevention choice.
@@ -958,11 +1076,16 @@ impl Interaction {
     /// does not go dark and light again as the aim walks. A question whose
     /// options are left implicit (a discard from the hand) or that names no
     /// object at all leaves nothing out; nor does an ordering, whose cards
-    /// lie in the zone dialog.
+    /// lie in the zone dialog. A yes-or-no question about one permanent
+    /// ([`Self::asked_about`]) leaves out every other: Cleansing's land is
+    /// the one card left bright while its payment is asked.
     #[must_use]
     pub fn leaves_out(&self, id: ObjectId) -> bool {
         if !self.is_mine() || self.is_selected(id) {
             return false;
+        }
+        if let Some(about) = self.asked_about() {
+            return id != about;
         }
         match &self.mode {
             Mode::Objects { options, max, .. } => {

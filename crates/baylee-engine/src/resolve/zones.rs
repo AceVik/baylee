@@ -1349,6 +1349,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::SacrificeFilter { who, filter } => {
+            // "For each creature, its controller sacrifices …": owed now,
+            // chosen at the end of its player's turn, sacrificed with the rest.
+            if super::for_each::hold(state, res, who, filter) {
+                return None;
+            }
             let mut players = players_of(who, state, you, res);
             let (player, options) =
                 chosen::next_asked(state, &mut players, filter, you, res.source)?;

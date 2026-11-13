@@ -1,5 +1,5 @@
 //! The decision actor and the owner of the resources are separate identities.
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::{HandObject, PlayerView, PublicObject, TargetRef};
 
 /// Resource owner only during an entitled local decision; otherwise the viewer.
@@ -66,6 +66,42 @@ pub fn known_cards(view: &PlayerView) -> impl Iterator<Item = &HandObject> {
         .chain(view.shared_hands.iter().flat_map(|h| &h.cards))
 }
 
+/// The one player who owns every card of `cards` the view shows, which is
+/// whose library a question about them means: a card goes only into its
+/// owner's library or graveyard (CR 400.3), so the cards an arrangement puts
+/// back, or a search or a put-back offers, name the library they go into.
+///
+/// Architects of Will looks at the top of *target player's* library and puts
+/// the cards back there; the question carries no owner of its own, and a
+/// line that said "your library" was wrong whenever the target was someone
+/// else. Read off what the seat is already shown (`looking_at`, a zone, a
+/// hand), so it tells nothing new.
+///
+/// `None` when the view shows none of the cards (a trigger's handle, a
+/// search that found nothing), or when they are more than one player's.
+#[must_use]
+pub fn cards_owner(view: &PlayerView, cards: &[ObjectId]) -> Option<PlayerId> {
+    let mut owners = cards.iter().filter_map(|&id| shown_owner(view, id));
+    let first = owners.next()?;
+    owners.all(|owner| owner == first).then_some(first)
+}
+
+/// Who owns `id`, as the view shows it: an object's owner, or the player
+/// whose hand it is in (a card in a hand is its owner's, CR 400.3).
+fn shown_owner(view: &PlayerView, id: ObjectId) -> Option<PlayerId> {
+    if let Some(object) = view.object(id) {
+        return Some(object.owner);
+    }
+    if view.hand.iter().any(|card| card.id == id) {
+        return Some(view.seat);
+    }
+    view.controlled_hands
+        .iter()
+        .chain(&view.shared_hands)
+        .find(|hand| hand.cards.iter().any(|card| card.id == id))
+        .map(|hand| hand.player)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,6 +129,31 @@ mod tests {
         assert_eq!(hand_of(&view, view.seat)[0].name, "Mine");
         assert_eq!(hand_of(&view, PlayerId::new(1))[0].name, "Theirs");
         assert!(hand_of(&view, PlayerId::new(2)).is_empty());
+    }
+
+    /// The owner of the cards a question is about is read off what the view
+    /// shows: a card looked at in another player's library is theirs, a
+    /// card in this seat's hand its own, and a mixed or unseen set no one's.
+    #[test]
+    fn the_cards_owner_is_the_one_player_who_owns_every_card_shown() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let looked = vec![
+            token(101, 1, "Mountain", 0, 0),
+            token(82, 1, "Island", 0, 0),
+        ];
+        let view = ViewBuilder::new(2)
+            .with_hand(vec![("Shock", 1, 7)])
+            .with_looking_at(looked.clone())
+            .build();
+        let looked: Vec<ObjectId> = looked.iter().map(|o| o.id).collect();
+        let held = view.hand[0].id;
+        let unseen = ObjectId::new(400, 0);
+        assert_eq!(cards_owner(&view, &looked), Some(them));
+        assert_eq!(cards_owner(&view, &[held]), Some(me));
+        assert_eq!(cards_owner(&view, &[unseen, looked[0]]), Some(them));
+        assert_eq!(cards_owner(&view, &[held, looked[0]]), None, "two owners");
+        assert_eq!(cards_owner(&view, &[unseen]), None, "nothing shown");
+        assert_eq!(cards_owner(&view, &[]), None);
     }
 
     fn aimed_at(object: ObjectId) -> TargetRef {

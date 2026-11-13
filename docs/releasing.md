@@ -61,12 +61,22 @@ install there. A fallback row builds no profile either (§"The client's profile"
 
 ## Version numbers
 
-Preparation on 2 November 2026 deliberately uses **`0.1.0-beta.9c`**, exactly
-as confirmed by the owner, including the dot before `9c`. It is lower than
-the previously prepared `0.1.1-beta.9b`. The updater's SemVer/downgrade checks
-remain unchanged: existing `0.1.1` installations will not be offered this
-version. A regression test records that consequence. This preparation does
-not create a tag, publish binaries or deploy any service.
+Preparation on 12 November 2026 sets **`0.2.0-beta.o1`**, the first open
+beta (the owner: "0.2.0-beta.o1 nicht beta.1, das o steht für die erste open
+beta version"). The minor rises because protocol 45 changed the frames since
+`0.1.0-beta.9c`; it sorts above every `0.1.x` prerelease, `0.1.1-beta.9b`
+included, so every earlier install is offered it
+(`baylee_update::version`'s open-beta test). This preparation does not create
+a tag, publish binaries or deploy any service. The card status is measured
+in the release commit itself (§"Cutting one"), not here, since cards may
+still land before the tag. The tag waits for the client's one-time turn
+defaults (the owner's live settings as every player's default from this
+version on).
+
+Preparation on 2 November 2026 deliberately used **`0.1.0-beta.9c`**, exactly
+as confirmed by the owner, including the dot before `9c`. It was lower than
+the previously prepared `0.1.1-beta.9b`, so existing `0.1.1` installations
+were not offered it; a regression test records that consequence.
 
 `workspace.package.version` is the one version. `baylee-build` stamps it into
 every binary together with the commit and the CI run.
@@ -251,7 +261,9 @@ The same job validates the exact dependency scope of the reviewed
 `cargo dev ci-changes` decides what a diff touches (try it with
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
 `timeout-minutes` of about 1.5× its measured p95. The debug suite runs in two
-nextest partitions (`--partition count:i/2`), each compiling for itself.
+nextest partitions (`--partition count:i/2`), each compiling for itself, in
+the profile `gate` since 13.11.2026 (the local gate's: hot crates at
+opt-level 1, no debug info).
 The training crates are not CI's. The owner on 30.10.2026: „Der ganze train
 Bereich gehört nicht in die CI, das ist nur um lokal die Tests etc. aus zu
 führen" (on 24.10.2026 it was `baylee-train`'s tests alone). Every CI cargo
@@ -784,6 +796,81 @@ through the drain, verifies a fresh held-admission health response before
 rebooting, and releases only its own hold when the night window closes.
 An existing hold from another operation is never adopted or removed.
 
+### Where the gateway listens
+
+The gateway binds `127.0.0.1:28766` unless `/etc/baylee/gateway.env` names
+another address (`BAYLEE_BIND`, `docs/dev/environment.md`); before
+11.11.2026 the default was every interface. Everything on the server that
+dials it already uses loopback or the unix socket, so the server's
+`gateway.env` needs no `BAYLEE_BIND`:
+
+- Caddy proxies the public name to `127.0.0.1:28766`
+  (`scripts/server/play.caddy`, `scripts/server/site.caddy`).
+- The agent and its engines dial `BAYLEE_UNIX_SOCKET`
+  (`/run/baylee/gateway.sock`); a seat agent's bridges dial
+  `http://127.0.0.1:28766` (`scripts/server/baylee-seathost@.service`).
+- `baylee-deploy` reads `/health` and `/info` at `http://127.0.0.1:28766`
+  (`crates/baylee-ops/src/gateway.rs`), and the feedback service reaches the
+  admin console on its own loopback port (`BAYLEE_ADMIN_BIND`).
+
+A server where something else dials the gateway's TCP port from another
+machine (an agent elsewhere without a proxy in between, for instance) sets
+`BAYLEE_BIND=0.0.0.0`, or that one interface's address, in `gateway.env`
+before the release that brings this default is deployed, and keeps the port
+closed to everybody else in its firewall.
+
+The gateway's unit starts it with no argument, as `baylee-feedback.service`
+and `baylee-seathost@.service` start theirs: an argument it does not take
+now stops it with exit status 2 and the usage, where it was once ignored, and
+`--help` prints the usage and exits 0. Neither reads a setting or binds a
+port.
+
+### The house's search
+
+From the release that brings it (12.11.2026), the engine server has the
+house levels search at every table it hosts (`docs/house-ai.md` §"Foresight
+at a host"). An operator needs to do nothing for it, and can bound it on the
+agent's unit, whose environment every engine inherits
+(`docs/dev/environment.md` §"Agent", §"Engine server"):
+
+- **On by default, off with one line:** `BAYLEE_FORESIGHT=off` and every
+  level answers as its heuristics do, as before this release.
+- **Searches at once on the machine:** `BAYLEE_FORESIGHT_SEARCHES`, by
+  default half the cores the agent may use, at least one. That is the most
+  CPU the searches take together, however many tables play; a search that
+  finds no slot free is not made and the level answers as before. The
+  agent makes the slots' directory itself (in systemd's `RuntimeDirectory=`
+  when the unit names one, which no timer sweeps; else in
+  `XDG_RUNTIME_DIR` or `/tmp`) and removes it when it stops. Give the
+  agent's unit `RuntimeDirectory=baylee-agent` (recommended). Should the
+  directory be swept away anyway, the agent makes it again before the next
+  engine, and an engine that finds none starts, logs a warning and plays
+  without searching; one whose directory is not its user's own and `0700`
+  refuses to start.
+- **Games nobody plays any more** are played out by the heuristics, without
+  search, within 5,000 house answers and 20 seconds, then closed with no
+  winners (`nobody is left`); the house searches only while a person
+  (an account, not a seat bridge) still plays.
+- **The wall guard:** `BAYLEE_FORESIGHT_WALL_MS`, three seconds by default;
+  a search past it is given up and logged as a warning (`a house search ran
+  past the host's wall guard`). Warnings in numbers mean a host short of
+  CPU: lower `BAYLEE_FORESIGHT_SEARCHES`.
+- **A lighter search:** `BAYLEE_FORESIGHT_WORK` in percent of each level's
+  bound. The levels then play weaker than they were measured.
+- **What to read:** each game's end is one `info` line, `house searches`
+  (asked, searched, replaced, refused, busy, walled, slowest_ms, most_work),
+  with `RUST_LOG=info` as every server is run.
+
+A value out of its range stops each engine at launch, so a typo shows as
+games that do not start, never as a host bounded otherwise than meant. What
+the defaults cost was measured on a sixteen-thread notebook and on two of its
+cores standing in for a small VPS (§"What the house's search costs" of
+`docs/house-ai.md`).
+
+The profile-guided engine server (§"Profile-guided builds") still trains on
+`engine_perf`'s games, which do not search: the search's own code is built
+with the profile but without counts of its own.
+
 ### What the server builds with
 
 The server builds each release itself, as the deploy user, in its checkout
@@ -859,8 +946,8 @@ its build. Gates and everyday builds set neither, so they stay as they are.
 
 `engine_perf` is a bin of its own crate and not an example because it is built in
 the same `cargo` run as what ships, so that the two share their features, and an
-example would bring its crate's dev-dependencies in, among them `simulation`, which
-`cargo dev gate shipped-features` keeps out of a hosting build.
+example would bring its crate's dev-dependencies in, among them the engine's
+`mutate` hook, which `cargo dev gate shipped-features` keeps out of a hosting build.
 
 A deployer picks this up one deploy late: the running `baylee-deploy` is what stages,
 so the deploy that first installs this code still builds a plain engine server.

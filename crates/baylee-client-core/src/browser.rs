@@ -95,7 +95,9 @@ impl BrowseZone {
         match pile {
             PileKind::Library => None,
             PileKind::Graveyard => Some(Self::Graveyard(player)),
-            PileKind::Exile => Some(Self::Exile(player)),
+            // The waiting place is exile, drawn apart: its cards are listed
+            // where they are.
+            PileKind::Exile | PileKind::Waiting => Some(Self::Exile(player)),
             PileKind::Command | PileKind::Command2 => Some(Self::Command(player)),
         }
     }
@@ -185,6 +187,10 @@ pub struct BrowseRow {
     /// 111.7), so a row that looked like a card there would be inviting a
     /// player to plan around something that is about to be gone.
     pub token: bool,
+    /// The time counters on it, where it is a suspended card in exile
+    /// ([`crate::suspended::time_of`]): the row's badge says them in place of
+    /// the zone, since the dialog is where every waiting card is listed.
+    pub time: Option<u16>,
 }
 
 /// How the pending question stands towards one row.
@@ -1538,6 +1544,7 @@ impl Browser {
                 mana_value: 0,
                 types: baylee_core::types::TypeSet::EMPTY,
                 token: false,
+                time: None,
             })
             .collect()
     }
@@ -1688,6 +1695,7 @@ impl Browser {
                     mana_value: object.mana_value,
                     types: object.types,
                     token: object.token.is_some(),
+                    time: crate::suspended::time_of(object),
                 });
             }
         }
@@ -1721,6 +1729,7 @@ impl Browser {
                     mana_value: card.mana_value,
                     types: card.types,
                     token: false,
+                    time: None,
                 });
             }
             out.extend(Self::trigger_rows(view, it));

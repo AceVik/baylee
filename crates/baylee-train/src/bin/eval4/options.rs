@@ -87,7 +87,9 @@ struct Args {
     /// Team assignment per seat (e.g. `1,2,1,2` for 2v2); empty = FFA.
     #[arg(long, value_delimiter = ',')]
     teams: Vec<u8>,
-    /// Opponent house profile (`novice`, `casual`, `steady`, `sharp`, `expert`).
+    /// Opponent house profile (`novice`, `casual`, `steady`, `sharp`, `expert`),
+    /// with knobs for an ablation after a colon (`steady:hold_up=none`,
+    /// `profile_spec.rs`).
     #[arg(long, default_value = "steady")]
     against: String,
     /// Dev-only ceilings (`netplay4::tactics::guard`), comma separated: `cast`,
@@ -108,6 +110,35 @@ struct Args {
     /// reaches. The rest of `--deals` are skipped, and the same deal is the same game.
     #[arg(long)]
     only_deals: Option<std::path::PathBuf>,
+    /// In a team format, plays one deal per game: the deal whose focal seat is
+    /// its team's first seat. The other focal seats of a team replay the same
+    /// game (same seed, decks and seats under the net), so a team run otherwise
+    /// plays each game once per seat of the net's team. Without teams every
+    /// focal seat is a game of its own and nothing is skipped.
+    #[arg(long)]
+    one_deal_per_game: bool,
+    /// How the decks sit at the tables (`baylee_train::deals4`). `fixed` seats
+    /// deck `(table · seats + seat) mod n`, so with two seats and an even
+    /// number of decks a deck only ever meets one opponent; `round-robin` (two
+    /// seats) moves the opponent on every `n` tables, so that over `2n(n−1)`
+    /// deals every deck pilots against every other once from each seat.
+    #[arg(long, value_enum, default_value_t = DeckSchedule::Fixed)]
+    deck_schedule: DeckSchedule,
+    /// Writes the deals of `--deal-offset`.. `+ --deals` whose net pilots one
+    /// of `--pilot-decks`, as the JSON list `--only-deals` reads, out of the
+    /// decks these same flags select and seat, and exits without playing.
+    #[arg(long, requires = "pilot_decks")]
+    write_deals: Option<PathBuf>,
+    /// `--write-deals`: the decks the net pilots, as their keys separated by
+    /// commas, or `@FILE` holding a JSON list of keys.
+    #[arg(long, requires = "write_deals")]
+    pilot_decks: Option<String>,
+    /// Also records every baseline game, the house against the house, into
+    /// this new directory, laid out as a `selfplay` run is (`games.jsonl`,
+    /// `records/`), for `gamelog4 show --seat`: how to read the deals one
+    /// house level lost from both sides. Numbers only; never training data.
+    #[arg(long)]
+    record_baseline: Option<std::path::PathBuf>,
     /// Dev only: a raw net may sample at any temperature, below sampler 2's
     /// boundary too, and `--choice-guard` may run above zero. Never for training.
     #[arg(long)]
@@ -117,6 +148,30 @@ struct Args {
     /// The net never saw such a candidate. Never for training.
     #[arg(long)]
     menu_payable: bool,
+    /// The search student (`netplay4::student`, `search_advantage_head_v1`):
+    /// the directory of its `advantage.onnx` and `advantage.json`. At each
+    /// macro root of the seat under test it reads the payable menu in a
+    /// second pass and plays another answer where its head scores it above
+    /// the seat's own by more than the head's margin. The net must export
+    /// embeddings and be the checkpoint the head was fit on.
+    #[arg(long)]
+    search_student: Option<PathBuf>,
+    /// `--search-student`: the macro candidates a root compares, the seat's
+    /// own included (the search's `K` in the collections it learnt from).
+    #[arg(long, default_value_t = baylee_train::netplay4::student::DEFAULT_CANDIDATES, requires = "search_student")]
+    search_student_candidates: usize,
+    /// At priority, decide between pass and act by the policy's summed
+    /// probability per group (coarse classes `coarse_class_v1`), then take
+    /// the best answer inside the winning group. Evaluation only; the
+    /// summary counts the answers it changed.
+    #[arg(long)]
+    grouped_decode: bool,
+    /// `DEEP,THRESHOLD`: a decision whose first pass (at `--thinking-steps`)
+    /// states a confidence below THRESHOLD is thought through again at DEEP
+    /// deliberation steps. Needs a model with the deliberation block
+    /// (`docs/proposals/baylee-ai-thinking.md`). Evaluation only.
+    #[arg(long)]
+    think_adaptive: Option<String>,
     /// `--menu-payable`: added to each added option's logit.
     #[arg(long, default_value_t = 0.0, requires = "menu_payable")]
     menu_payable_bias: f32,
@@ -136,7 +191,8 @@ struct Args {
     /// enter training, a league or a dataset.
     #[arg(long)]
     numbers_only: bool,
-    /// Baseline house profile for duplicate comparison (`steady`, `sharp`, `expert`).
+    /// Baseline house profile for duplicate comparison (`steady`, `sharp`, `expert`),
+    /// with knobs as `--against` takes them.
     #[arg(long, default_value = "steady")]
     baseline: String,
     /// Latent thinking steps `K` (`1..=8`).
@@ -182,16 +238,79 @@ struct Args {
     /// Build/filter decks including the held-out cards excluded from training.
     #[arg(long)]
     held_out_cards: bool,
-    /// Clamp AI scouting so House opponents have no omniscient hand/deck peek.
+    /// Hold every house chair to its own decklist, the level that peeks
+    /// (`seer`) too; every other level is fair at any table.
     #[arg(long, default_value_t = true)]
     fair_scouting: bool,
+    /// Let a level that peeks (`seer`) be told what it peeks at, despite
+    /// `--fair-scouting`: for measuring `seer` against the fair levels, never
+    /// for a benchmark of the net. Every other level stays fair either way.
+    #[arg(long)]
+    seer_peeks: bool,
+    /// The house's chairs try their options in forks of the game before
+    /// they answer, where their level has a foresight tier
+    /// (`AIProfile::FORESIGHT`). With `--random-policy` only the
+    /// house-against-house game searches. The summary's `foresight` holds
+    /// what it cost.
+    #[arg(long)]
+    house_foresight: bool,
+    /// `--house-foresight`: bounds one searched answer at this much work on
+    /// its meter (`Session::set_foresight_work`: a node of the forks' combat
+    /// searches is one unit, a fork and a house answer in a fork are priced
+    /// in the same unit), after which the search stops where it stands; `0`
+    /// leaves the level's whole budget.
+    #[arg(long, default_value_t = 0, requires = "house_foresight")]
+    foresight_work: u64,
+    /// `--foresight-work`: the most nodes one combat search in a fork may
+    /// visit (`Session::set_foresight_nodes`); `0` leaves it the bound's
+    /// usual share.
+    #[arg(long, default_value_t = 0, requires = "foresight_work")]
+    foresight_nodes: u32,
+    /// `--house-foresight`: writes the searched questions here, a JSON line
+    /// each: the seat's view and question, every answer tried with its
+    /// value in each world, and the one given
+    /// (`Session::set_foresight_questions`). `foresight_mine` reads the file.
+    #[arg(long, requires = "house_foresight")]
+    foresight_questions: Option<PathBuf>,
+    /// `--foresight-questions`: the kinds of question written, of
+    /// `priority`, `attack` and `block`.
+    #[arg(
+        long,
+        value_delimiter = ',',
+        default_value = "block",
+        requires = "foresight_questions"
+    )]
+    foresight_question_kinds: Vec<String>,
+    /// `--foresight-questions`: also the questions where the level's own
+    /// answer stood, not only those the search answered otherwise.
+    #[arg(long, requires = "foresight_questions")]
+    foresight_questions_all: bool,
+    /// Writes, for every house-against-house game, each house chair's
+    /// position at the start of every turn (`HeuristicAgent::foresight_features`)
+    /// with the game's result, a JSON line each: what `fit_leaf` fits the
+    /// search's leaf value on.
+    #[arg(long)]
+    leaf_log: Option<PathBuf>,
+    /// `--house-foresight`: judges the searches by the games played on from
+    /// them. Of the questions searched, one in `--foresight-probe-every`
+    /// has every world played on past its leaf to the end of the game, and
+    /// each such world is written here as a JSON line: the question and the
+    /// world, the answer tried, what the seat's view showed at the leaf,
+    /// the leaf's value and how the game came out
+    /// (`Session::set_foresight_probe`). Slower, and no answer changes.
+    /// `foresight_probe` reads the file; `fit_leaf --pairs` fits on it.
+    #[arg(long, requires = "house_foresight")]
+    foresight_probe: Option<PathBuf>,
+    /// `--foresight-probe`: one searched question in this many is probed.
+    #[arg(long, default_value_t = 8, requires = "foresight_probe")]
+    foresight_probe_every: u64,
     /// Skip running the House baseline duplicate game (useful for pure RL rollouts).
     #[arg(long)]
     no_baseline: bool,
     /// The house chairs answer as a seat's `--mind house` does over the
     /// gateway (`baylee_seat::HouseMind`, the ladder's `house:<level>`): from
-    /// the socket's view, with no decision context and no scouting report,
-    /// not as an in-process house chair. Compares the seat path's opponent
+    /// the socket's view, the note beside its question and its own deck list
+    /// (`baylee_ai::noted::answer_as_seated`), not as an in-process chair. Compares the seat path's opponent
     /// with the benchmark's; the summary's `against` reads `seat:<level>`.
     #[arg(long)]
     house_as_seat: bool,
@@ -199,8 +318,8 @@ struct Args {
     #[arg(long)]
     record_out: Option<PathBuf>,
     /// Output JSON summary file path.
-    #[arg(long)]
-    out: PathBuf,
+    #[arg(long, required_unless_present = "write_deals")]
+    out: Option<PathBuf>,
     /// Worker threads (`0` = all cores).
     #[arg(long, default_value_t = 0)]
     threads: usize,
@@ -283,6 +402,36 @@ struct Args {
     /// priority decisions are answered by the policy (skipped as `roots`).
     #[arg(long, requires = "search_combat")]
     search_combat_only: bool,
+    /// Fair worlds: every card the searching seat cannot see is dealt from the
+    /// public prior its own view and deck list give (the house foresight's
+    /// builder), never from another player's list (contract
+    /// `belief_lookahead_v5`). A measurement of what a seat could do: it may
+    /// run with `--choice-guard` and `--tactics-rules`.
+    #[arg(long, requires = "search")]
+    search_fair: bool,
+    /// Rollouts are played to this many turn boundaries past the root (2:
+    /// through the next player's turn in a duel) instead of to the seat's
+    /// first settled pass; H still caps the seat's decisions. `0` (the
+    /// default) keeps the settled stop.
+    #[arg(long, default_value_t = 0, requires = "search")]
+    search_turns: usize,
+    /// Macro candidates at priority: the policy's answer, a pass, each spell
+    /// the planner can pay for (its taps and the cast as one candidate),
+    /// each ability and each land, read off the engine's offer, K in all.
+    #[arg(long, requires = "search")]
+    search_macros: bool,
+    /// No house answer in a world: a rollout stops where its next answer
+    /// would be the house's (a fallback of the net, or the fork's house for
+    /// a refused answer) and the position before it is scored. Without it
+    /// such answers are played and counted (`house_answers`).
+    #[arg(long, requires = "search")]
+    search_house_free: bool,
+    /// A stall guard at the search's roots, as the house's: an answer the
+    /// search gave that the table took back (the seat asked again from the
+    /// same position) is not chosen there again; if it was the policy's
+    /// own, the best mean of the others is played.
+    #[arg(long, requires = "search")]
+    search_stall_guard: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -321,7 +470,12 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_targets(args.search_targets)?
         .with_combat(args.search_combat)?
         .with_combat_only(args.search_combat_only)
-        .with_neural_opponent(args.search_neural_opponent);
+        .with_neural_opponent(args.search_neural_opponent)
+        .with_fair(args.search_fair)
+        .with_turns(args.search_turns)?
+        .with_macros(args.search_macros)
+        .with_house_free(args.search_house_free)
+        .with_stall_guard(args.search_stall_guard);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {
@@ -352,6 +506,12 @@ struct EvalStats {
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
     menu: Option<baylee_train::netplay4::MenuStats4>,
+    /// `--search-student`: what the student did over the run.
+    student: Option<baylee_train::netplay4::student::StudentStats4>,
+    /// `--grouped-decode`: what the grouping decided over the run.
+    grouped: baylee_train::netplay4::GroupedUse4,
+    /// `--think-adaptive`: second passes over the run.
+    thinking: baylee_train::netplay4::ThinkingUse4,
     tactician:
         std::collections::BTreeMap<String, baylee_train::netplay4::tactician::TacticianStats4>,
 }
@@ -541,6 +701,6 @@ fn parse_choice_guard(text: &str) -> anyhow::Result<Option<ChoiceGuard4>> {
     Ok(Some(guard))
 }
 
-fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {
-    AIProfile::named(name).with_context(|| format!("unknown AIProfile {name}"))
+fn parse_profile(spec: &str) -> anyhow::Result<AIProfile> {
+    profile_spec::parse(spec)
 }

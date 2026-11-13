@@ -79,7 +79,7 @@ pub(crate) fn seen_by(view: &PlayerView, subject: PlayerId) -> PlayerView {
 
 /// The abilities printed on `face` of `card` when that face is an Aura,
 /// whose spell "attaches itself" to what it targets (CR 303.4a).
-fn aura(card: CardIndex, face: u8) -> Option<&'static [AbilityDef]> {
+pub(crate) fn aura(card: CardIndex, face: u8) -> Option<&'static [AbilityDef]> {
     let def = baylee_cards::by_index(card)?;
     def.faces
         .get(usize::from(face))?
@@ -169,7 +169,7 @@ impl HeuristicAgent {
         // A payment this seat took on for them is finished like any other
         // (Word of Command's card): the payment readers spend only their
         // mana (CR 724.5a).
-        if let Some(action) = crate::policy::pay_owed(view, legal) {
+        if let Some(action) = self.owed_tap(view, legal) {
             return action;
         }
         if view.owed.is_some() {
@@ -347,7 +347,12 @@ impl HeuristicAgent {
     /// to them when the creature is an opponent's. `None` for a static this
     /// reading has no row for, so Claustrophobia is not cast at all rather
     /// than cast on a guess.
-    fn enchanting(&self, theirs: &PlayerView, abilities: &[AbilityDef], aim: Aim) -> Option<i64> {
+    pub(crate) fn enchanting(
+        &self,
+        theirs: &PlayerView,
+        abilities: &[AbilityDef],
+        aim: Aim,
+    ) -> Option<i64> {
         let Aim::Object(id) = aim else {
             return Some(0);
         };

@@ -33,6 +33,22 @@ mod turn;
 mod untap;
 pub(super) mod untap_replacements;
 
+#[cfg(test)]
+thread_local! {
+    /// Set, the untap step untaps without first bringing the effect table in
+    /// step with what it phased in and out: the engine as it was, for
+    /// `phasing_tests`' control and `recorded_lockstep_tests`, which plays
+    /// recorded games against it.
+    pub(in crate::engine) static UNTAP_BEFORE_PHASED_STATICS: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+    /// Set, a question the machine stops on is asked although the game is
+    /// already decided: the engine as it was, for `game_end_tests`, which
+    /// holds the change to removing that question and nothing else, and
+    /// `recorded_lockstep_tests`.
+    pub(in crate::engine) static ASK_IN_A_DECIDED_GAME: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
+
 /// What a permanent that has just entered still has to ask as it enters,
 /// queued in [`Engine::entry_questions`] until every co-arrival's other
 /// replacements are on the board.
@@ -455,8 +471,53 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
-    #[allow(clippy::too_many_lines)] // Ordered rules machine: payment, SBA, triggers and priority must remain visible together.
+    /// Runs the machine to its next question, and asks it only while the
+    /// game is still being played.
     fn run_machine(&mut self) {
+        self.run_machine_to_a_question();
+        self.end_a_decided_game();
+    }
+
+    /// A game ends immediately when a player wins or it is a draw
+    /// (CR 104.1): the question the machine stopped on, or the one a
+    /// resolution left standing, is not asked once the game is decided, and
+    /// the game is over instead, on the board the question would have been
+    /// asked on. The machine's own game-over check comes after the questions
+    /// a pass may raise first, so a state-based check that decided the game
+    /// went on to ask the owner of the cards that died beside the loss for
+    /// their order (CR 404.3; Carbon's ladder game hc-expert-b/game-0023).
+    /// A concession already ends the game whatever was being asked
+    /// (`Engine::concede`); this is the same rule for every other ending.
+    fn end_a_decided_game(&mut self) {
+        #[cfg(test)]
+        if ASK_IN_A_DECIDED_GAME.with(std::cell::Cell::get) {
+            return;
+        }
+        if !self.awaiting_answer
+            || self.mulligans.is_some()
+            || matches!(self.pending, Pending::GameOver(_))
+        {
+            return;
+        }
+        // Nothing is decided while nobody has left and no effect or
+        // agreement ended the game: the common case reads three fields.
+        if !self.agreed_draw
+            && self.state.game_end.is_none()
+            && !self
+                .state
+                .players
+                .iter()
+                .any(crate::state::Player::has_lost)
+        {
+            return;
+        }
+        if let Some(result) = self.game_result() {
+            self.end_game(result);
+        }
+    }
+
+    #[allow(clippy::too_many_lines)] // Ordered rules machine: payment, SBA, triggers and priority must remain visible together.
+    fn run_machine_to_a_question(&mut self) {
         // Nothing happens before turn 1, whatever the flag says: a
         // concession during the mulligans once cleared it and ran the game
         // on past every seat still deciding (#267).

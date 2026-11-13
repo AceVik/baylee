@@ -627,7 +627,11 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | `train_ops run` | One bounded owned process-group job; has no `--gpu-lock`, so use a pipeline for a CUDA stage |
 | `train_ops collect-research`, `finalize-research` | CPU research collector supervision and durable planned/assigned/recorded/unknown counts after verified owned-group cleanup |
 | `eval4` | Native CPU/CUDA actor, complete game records and sidecars; ordinary evaluation and on-policy collection are distinct purposes. An evaluation on the GPU runs `MODEL/fp16` when it exists (`--precision float32` keeps FP32); a collection always keeps FP32 |
-| `convert4` | Deterministic full replay, versioned observation/target conversion and dataset publication |
+| `convert4` | Deterministic full replay, versioned observation/target conversion and dataset publication. A record written before the activator boundary (eb40dc593) or the question boundary (c55a8c6eb) is refused by name and stops the run: convert it with the runtime that wrote it (`docs/engine-internals.md` §"Forking a simulation", §"The question boundary"). Every mode needs `--train-manifest`: before any replay, a game that seated a deck the manifest puts outside `train` (test, val, holdout2), read by key, cards or near (`baylee_train::decksplit::TrainOnly`), stops the run by name; `meta.json` `train_decks` names the manifest and its hash. The research subcommand is not guarded |
+| `manifest_split4` | A read-only copy of a deck manifest with the decks of a list moved to another split and nothing else changed, checked against the original (`decks-20261107c/manifest.v4.holdout2.json`: the 289 train decks r1's lineage never seated, as `holdout2`). eval4 selects any split by name; collections read the copy with `--deck-split train` |
+| `llm_collector4 collect --train-manifest`, `--evaluation` | A teacher collection seats only decks the manifest keeps in `train` (by key or cards), or refuses to start, naming them. `--evaluation` seats any deck and marks every request `numbers_only`, which `convert4 --llm-bc` refuses. `league` and `selfplay --decks` refuse a house deck `data/decks/manifest.v4.json` holds out of train |
+| `boundary_scan4` | Read-only: per run under `--root`, the games that cross the activator boundary (a loyalty ability, a face-up, a door unlock or a prepared cast), read from their actions |
+| `seated_decks4` | Read-only: which decks recorded games seated, by the split a `--manifest` gives them, read from each game's record header and row (eval4, converted language-model and v5 teacher runs; `--summary` for runs that kept only a summary), matched by key, by cards, or `near` by shared distinct cards. `--clean-out` lists the decks no game seated; `--pools-dir` writes manifest copies of them for `eval4 --decks-manifest`. Audit a dataset's lineage with it before calling a split held out |
 | `convert4 research` | Separate failure-terminal research features/returns; conversion-only output, rejected by ordinary training/cache/admission |
 | `trajectory_cache4` | Native packed trajectory cache, source identities, seals and tensor I/O boundaries; no Python fallback |
 | `trajectory_cache4 research-build/research-verify/research-read` | Separate lossless research JSON-frame storage and diagnostic reads; not a tensor cache or PPO admission |
@@ -641,11 +645,14 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | `diagnose_recurrent_chunk4.py` | Source-only PyTorch localization of chunk4 numerical differences; successful diagnosis explicitly does not accept the rejected execution variant |
 | `export_onnx4.py` | PyTorch export and actual numerical parity for bounded-depth native graphs |
 | `paired_eval4`, `summarize_eval4`, `report_experiment4` | Native verified gameplay comparison and reports |
-| `phase_a4 table` | Pairs runs on the same deals: arms of one build and model, `--exports` (only the model differs, seeds pooled per deal), `--builds` (only the evaluator build differs, e.g. a view change) |
-| `matrix4 plan` | A pipeline plan of evaluation runs from a spec of models × arms × tables × seed sets (`MODEL-ARM-TABLE-SEEDS`); several specs make one plan; runs whose output exists are left out, so a stopped matrix resumes |
+| `phase_a4 table` | Pairs runs on the same deals: arms of one build and model, `--exports` (only the model differs, seeds pooled per deal), `--builds` (only the evaluator build differs, e.g. a view change). `--by-deck` adds per pilot deck and per opponent deck the deals, both arms' wins and the difference, largest first, small decks marked (`--small`); `--pilot-deck`/`--opponent-deck` keep one deck's deals |
+| `matrix4 plan` | A pipeline plan of evaluation runs from a spec of models × arms × tables × seed sets (`MODEL-ARM-TABLE-SEEDS`); several specs make one plan; runs whose output exists are left out, so a stopped matrix resumes. A block's `pilots` (deck keys) plans an `eval4 --write-deals` stage before its runs, which then play `--only-deals` (`played` sets their time limit); `react` (with `record`) ends the block in one `gamelog4 react` stage |
+| `eval4 --deck-schedule`, `--write-deals` | `round-robin` (two seats) seats every deck against every other once per seat over `2n(n−1)` deals; `fixed`, the default and every earlier run's, gives a deck one opponent at an even deck count. `--write-deals FILE --pilot-decks KEYS\|@FILE` writes the deals whose net pilots those decks, from the decks and schedule the same flags select, and exits without playing (`baylee_train::deals4`) |
+| `gamelog4 react` | Per game of recorded runs (`--run`/`--summary` pairs, side by side): counter windows, their objects countered or let resolve, what the seat's counters named and how poorly, passes through their attack and end step with a usable instant, instants cast at their end step, discarded or held to the end. A count, not a rule |
+| `deck_reactivity4` | Ranks a manifest split's decks by counterspells, instant removal and flash per 60 cards, read from the card DSL (`baylee_train::reactivity`); `--keys-out` (train split only) writes the top keys for oversampling or `--pilot-decks @FILE` |
 | `generation4 plan` | A pipeline plan of one expert-iteration generation from a spec: teacher collections, `convert4`, student seeds, exports; stages whose outputs exist are left out |
 | `ladder4 --keep-decks`, `--deck-root` | The ladder seat on the decks an `eval4` summary accepted, read from a `manifest.v4.json`: the seat path checked against the evaluator on one deck pool. A gateway admits 30 new guests per address a day and a ladder game signs in two: run more than 15 games as chunks on fresh gateway processes. An arm's mode `measured` plays what `seat4` plays by default (`baylee_train_ops::measured`: K=2, the 18-group bundle); `tactical` is the layer with no group |
-| `eval4 --house-as-seat` | The house chairs answer as the ladder's `house:<level>` does (`baylee-seat --mind house`): from a socket's view, without the decision context and the scouting report of its own deck that an in-process chair answers with. The opponent of a `ladder4` house rung, in the evaluator; the summary's `against` reads `seat:<level>`, so it never pairs with the in-process house. Numbers only, `--no-baseline` |
+| `eval4 --house-as-seat` | The house chairs answer as the ladder's `house:<level>` does (`baylee-seat --mind house`): from a socket's view, the note beside the question and the seat's own deck list (`baylee_ai::noted::answer_as_seated`), which since 10.11.2026 gives the in-process chair's answers; before, from the view alone. The opponent of a `ladder4` house rung, in the evaluator; the summary's `against` reads `seat:<level>`, so it never pairs with the in-process house. Numbers only, `--no-baseline` |
 | `watch_run4`, `monitor_ops4` | Durable terminal-event observation and delivery; neither starts a controller |
 | `stop_job4` | Identity-bound stop of a native guard supervisor and verification that owned descendants exited |
 | `seat4`, `publish_live_model4`, `live_play_maintenance4` | Live preview, verified development-model selection and completed official-record import; separate from training |
@@ -863,7 +870,7 @@ when that provider is intended; export parity does not exercise it.
 Convert complete original records with the matching producer/converter build:
 
 ```text
-/absolute/pinned/convert4 --runs /absolute/collection/records --out /absolute/NEW/dataset --encoder-version 7 --include-passive-obs --val-every 0 --threads 2
+/absolute/pinned/convert4 --runs /absolute/collection/records --train-manifest /absolute/decks/manifest.v4.holdout2.json --out /absolute/NEW/dataset --encoder-version 7 --include-passive-obs --val-every 0 --threads 2
 /absolute/pinned/trajectory_cache4 build --data-dir /absolute/NEW/dataset --split train
 /absolute/pinned/train_ops admit-policy --data /absolute/NEW/dataset --source-checkpoint /absolute/r6/net.pt --collection-manifest /absolute/NEW/dataset/collection.json --out /absolute/NEW/admission.json
 /absolute/pinned/train_ops verify-admission --data /absolute/NEW/dataset --source-checkpoint /absolute/r6/net.pt --admission /absolute/NEW/admission.json
@@ -1301,6 +1308,21 @@ establish unseen-card/deck generalization; require separate data lineage.
 Do not turn evaluation fixtures, branch counterfactuals or held-out diagnostics
 into training labels. Compare current source and candidate with the same
 validator/runtime before attributing a metric difference to learning.
+
+A fresh seed set is fresh shuffles, not fresh pairings. `eval4` seats deck
+`(table · seats + seat) mod n` whatever `--first-seed` is, so the test and the
+fresh runs of one protocol meet the same pairs of decks: at two seats and an
+even `n` a deck only ever meets one opponent. A 512-deal 1v1 run of the 78
+constructed test decks covers 39 pairings, each deck piloted six or seven times
+against the same partner. Read a fresh-seed result as a second sample of those
+39 pairings, not of the deck pool.
+
+On-policy collection (`--collection-purpose on-policy-training`, and any run
+with `--shape all`) seats the expanded pool of its `--deck-split`, which a
+collection must name `train`. Until 10.11.2026 that pool read every split of
+the manifest: such collections seated the 85 test and 80 val decks of
+`decks-20261107c` that hold no held-out card. Check a dataset's lineage by the
+decks its games seated (`run.json` and the records), not by its flags.
 
 ```text
 /absolute/pinned/paired_eval4 /absolute/candidate/eval.json /absolute/reference/eval.json --candidate-job /absolute/candidate/job.json --reference-job /absolute/reference/job.json --out /absolute/NEW/paired.json

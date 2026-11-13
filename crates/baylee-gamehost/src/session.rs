@@ -26,15 +26,23 @@ mod answers;
 mod chairs;
 mod choice_context;
 mod clocks;
+#[cfg(any(test, feature = "foresight"))]
+mod foresight;
 mod frames;
 pub mod project;
 mod pump;
 mod resume;
-#[cfg(any(test, feature = "simulation"))]
+#[cfg(any(test, feature = "foresight"))]
 mod simulation;
 mod spectators;
 mod table;
 
+#[cfg(any(test, feature = "foresight"))]
+pub use foresight::{
+    ForesightStats, HostForesight, SearchCost, SearchPermit, SearchPermits, Searches, WallGuard,
+};
+#[cfg(any(test, feature = "simulation"))]
+pub use foresight::{ProbedLeaf, SEARCH_SHARE, SearchedQuestion};
 #[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
 
@@ -290,10 +298,16 @@ pub struct Session {
     retold: Vec<(u64, u8)>,
     /// What the spectators have been told, together (`spectators.rs`).
     gallery: spectators::Gallery,
-    /// When true, clamp AI scouting requests so even `sharp` and `expert`
-    /// teachers only see their own decklist and never peek at opponent decks,
-    /// opponent hands, or library order (used for fair imitation learning).
+    /// When true, even a level that peeks (`seer`) is told only its own
+    /// decklist, never an opponent's decklist or hand or any library order,
+    /// so a whole table is fair whatever its chairs play at. Every other level
+    /// is fair anyway (`scouting::request`); evaluation and self-play set it.
     fair_scouting: bool,
+    /// Whether the house's chairs try their options in forks before they
+    /// answer, what the host lets a search spend, and what the searches have
+    /// done (`session/foresight/`).
+    #[cfg(any(test, feature = "foresight"))]
+    foresight: foresight::Desk,
     /// The action currently being applied by the engine, kept across the
     /// `engine.apply` call so a panic handler can record the exact triggering
     /// `(seat, source, action)` in a fault bundle.
@@ -409,25 +423,28 @@ impl Session {
                 ..spectators::Gallery::default()
             },
             fair_scouting: false,
+            #[cfg(any(test, feature = "foresight"))]
+            foresight: foresight::Desk::new(preset.seats.len()),
             last_attempt: None,
             frames_read: true,
         };
         // A unit test reads a frame on its own, so it is sent whole views; a
         // debug build goes on proving each patch beside them. The tests that
         // read a stream are `tests/view_patches.rs` and the end-to-end suites.
+        session.house_asks_its_teammates();
         if cfg!(test) {
             session.tell_views_whole();
         }
         Some(session)
     }
 
-    /// Enables or disables fair-scouting mode for AI seats.
+    /// Makes the whole table fair, or lets a level that peeks peek.
     ///
-    /// When `fair` is `true`, [`HeuristicAgent`] seats still receive their own
-    /// decklist intelligence and full combat/heuristic search (`sharp`,
-    /// `expert`), but requests for opponent decklists, opponent hands, and
-    /// upcoming library order are clamped off so teacher trajectories never
-    /// depend on hidden information.
+    /// Every level but `seer` is fair at any table: it is told its own
+    /// decklist and nothing hidden (owner, 10.11.2026), so a hosted game,
+    /// which never calls this, is fair unless a player chose `seer`. With
+    /// `fair` set even `seer` is told only its own decklist, so a measurement
+    /// never depends on hidden information whatever it seats.
     pub fn set_fair_scouting(&mut self, fair: bool) {
         self.fair_scouting = fair;
     }
@@ -454,6 +471,22 @@ impl Session {
         self.frames_read = false;
     }
 
+    /// What `seat` is told its question is about, beside the question
+    /// (`ChoiceRequest::context`, `view::decision_note`): `None` where the
+    /// question explains itself or is not `seat`'s. For a harness that
+    /// answers a chair as a seat over a socket would (`eval4 --house-as-seat`).
+    #[must_use]
+    pub fn question_note(&self, seat: PlayerId) -> Option<baylee_engine::engine::DecisionNote> {
+        crate::view::decision_note(&self.engine, seat)
+    }
+
+    /// `pending`, as the question `seat` is asked: with what it is about
+    /// (`view::decision_note`), which only the seat it asks is told.
+    fn question(&self, seat: PlayerId, pending: &Pending) -> Envelope {
+        let note = crate::view::decision_note(&self.engine, seat);
+        question_envelope(self.seq, pending, note.as_ref())
+    }
+
     /// The table as the house and its agents read it ([`table::Table`]).
     fn table(&self) -> table::Table<'_> {
         table::Table {
@@ -466,6 +499,8 @@ impl Session {
             house_answered: &self.house_answered,
             showing: &self.showing,
             shown_once: &self.shown_once,
+            hand_sharing: self.house_rules.hand_sharing,
+            ai_hand_share_policy: self.ai_hand_share_policy,
         }
     }
 
@@ -489,7 +524,7 @@ impl Session {
     /// The record written since the last take, whole lines only; empty when
     /// nothing was written or the session keeps no record.
     pub fn take_record(&mut self) -> Vec<u8> {
-        self.record.as_mut().map(Recorder::take).unwrap_or_default()
+        self.record.as_mut().map_or_default(Recorder::take)
     }
 
     /// How many bytes of record are waiting to be taken.
@@ -647,11 +682,22 @@ fn state_delta(seq: u64, view_frame: Vec<u8>, log: Vec<u8>) -> Envelope {
 }
 
 fn choice_envelope(seq: u64, pending: &Pending) -> Envelope {
+    question_envelope(seq, pending, None)
+}
+
+/// A question and what it is about (`view::decision_note`), for the seat it
+/// asks.
+fn question_envelope(
+    seq: u64,
+    pending: &Pending,
+    note: Option<&baylee_engine::engine::DecisionNote>,
+) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
             game_id: String::new(),
             seq,
             pending: baylee_core::wire::encode(pending),
+            context: note.map_or_default(baylee_core::wire::encode),
         })),
     }
 }

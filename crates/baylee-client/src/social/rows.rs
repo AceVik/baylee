@@ -67,6 +67,33 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
     pt: crate::hud::logpanel::LOG_LINE_PT,
 };
 
+/// The chat window's ground: the panel navy as a glass that lets the room
+/// behind it through as a glow and no more, a shade lighter at its head than
+/// at its foot. Until 12.11.2026 it was [`LOBBY_INKS`]'s flat 0.66: the
+/// tavern's fire then stood behind the lines at a third of its light, and
+/// the quiet ink (times, notices, the empty line) read 2.5:1 on it.
+/// [`WINDOW_GLASS`] is the least that keeps that ink at 4.5:1 there, in the
+/// linear light the UI is blended in
+/// (`the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire`).
+pub(crate) fn window_ground() -> BackgroundGradient {
+    let [head, foot] = window_glass();
+    BackgroundGradient::from(LinearGradient::new(
+        std::f32::consts::PI,
+        vec![ColorStop::auto(head), ColorStop::auto(foot)],
+    ))
+}
+
+/// The glass at the window's head and at its foot.
+pub(crate) fn window_glass() -> [Color; 2] {
+    [
+        Color::srgba(0.050, 0.100, 0.140, WINDOW_GLASS.0),
+        Color::srgba(0.030, 0.066, 0.094, WINDOW_GLASS.1),
+    ]
+}
+
+/// How opaque the chat window's ground is at its head and at its foot.
+pub(crate) const WINDOW_GLASS: (f32, f32) = (0.93, 0.90);
+
 /// The ink a conversation's lines are drawn in (the channel's colour).
 pub(crate) fn channel_ink(conv: &ConvId, inks: &Inks) -> Color {
     match conv {

@@ -43,10 +43,27 @@ The old land-driven atmosphere renderer and its full-table blended shader have
 been removed; atmosphere intensity now controls the sky's aurora and sparks.
 The lobby backdrop remains separate from the duel.
 
-`felt.wesl` draws smoked glass above winding water and lava channels. Water
-ripples and caustics travel faster than the molten crust; their confluence
-cools into dark obsidian with a restrained steam veil. Fixed banks keep the
-motion legible as flow. Two scales of domain-warped cellular seams form
+`felt.wesl` draws polished smoked glass over a slab of midnight mineral that
+channels are cut into, with water and molten rock standing in their beds
+(`glass_at`). The cut has depth to the eye and costs no second pass: the
+eye's ray is marched through the channel's own profile (`cut_hit`, six steps
+and a secant), so a bank that faces the viewer is seen and one that faces
+away hides behind its lip; the banks are shaded by one painted light
+(`CUT_LIGHT`), lit from below by what runs in the bed, and the lip that faces
+the light carries one pale line. Away from a channel the slab is its top and
+none of this runs. At effects `Low` (`Effects::carved`, `FeltParams::flat`)
+the march and the water's caustics are left out and the channels are drawn as
+from straight above at every angle: `Low` is where a software rasteriser
+starts, and `Medium` and `High` keep the carved table
+(`docs/perf-client.md` §"The flat path at effects Low").
+Water ripples and caustics travel faster than the molten
+crust, each at **one** speed for the whole bed (a speed that differs across
+it, multiplied by the time, shears the pattern without end: after ten minutes
+every pixel of water was another cell). The crust is two octaves of noise and
+no more, because a seam is a thin band cut out of it and every further
+octave folds that band into a stipple; caustics and seams leave with the
+pixels that could draw them (`fine`). Where water and rock meet, the rock
+cools to black glass. Fixed banks keep the motion legible as flow. Two scales of domain-warped cellular seams form
 connected trunks and fine capillaries, with spatially blended water and lava.
 The pattern is vascular rather than spaced along golden-section curves. A
 client-only OS-random seed chooses domain offset, orientation, and scale once
@@ -115,11 +132,117 @@ Prototype and disguise are offered as named casting forms, and modal lands
 can explicitly be played as lands or cast as their spell face. Turning a
 disguised permanent face up is a named special action with its printed cost.
 
-Graveyard and exile previews show the four newest cards with shallow tilt and
-a small hover offset that keeps the card under the cursor. The library uses
-the same bounded preview with backs; authorized search/scry cards continue to
-appear through the choice interface. Command slots never fan. All movement
-uses the existing card motion system and respects reduced motion.
+A hover over a graveyard or an exile pile opens its four newest cards as a
+hand held over the pile (`SeatSlot::fan_pose`). The newest stays over the
+pile; each older one turns a little further round a point on the owner's side
+of it and opens inwards, over the strip between the pile and its seat's mat,
+so every card shows about half of itself. The hand is built in the seat's own
+frame: the seat across the table shows the same hand point-mirrored and a
+flank seat shows it a quarter round, as their boards are (the owner,
+12.11.2026). The card under the pointer rises over the rest without moving
+sideways, which keeps it under the cursor. The pile's remaining cards stay
+where they lie, as a stack under the hand. A library does not fan: it has no
+cards to show (CR 401.2), and the number beside it says what a fan of backs
+said. Authorized search/scry cards continue to appear through the choice
+interface. Command slots never fan. All movement uses the existing card
+motion system and respects reduced motion.
+
+Beside each seat's piles lie the numbers a table is counted by
+(`table/pile_counts.rs`, `cardplate::Tally`; the owner, 12. and 13.11.2026):
+the cards in its library, its graveyard, its exile and its hand, the time
+counters of its suspended cards, and what a commander costs more to cast
+from its slot. Each is a small dark plate of its own with
+its shadow, on the felt and on no print, and wears a mark of this client's
+own before its figures: a deck, a headstone, a barred ring, a hand of three
+cards, an hourglass, a plus (`card_common.wesl`'s `pile_mark`; the headstone, the
+ring and the hourglass are the marks those places wear when empty). A pile's
+number lies beside its card, level with the card's middle. Where a seat's
+piles stand beside its mat on the screen, at the reader's own seat and at
+the seat across, it lies outside its pile on the open felt: to the right of
+the library, the graveyard and exile as that seat has right (the owner,
+12.11.2026: „rechts vom Stapel“), and to the left of the waiting place and
+the command slots (the owner, 13.11.2026: „die Zahlen eher links statt
+rechts“; for a day they lay between place and mat), so the seat across is
+the mirror image. The left-hand column's lie there only where that felt is
+open (`pile_counts::open_left`): two seats abreast, as a ring has them from
+five, share the felt between them, the one on the left writes its piles'
+numbers into it, and the one on the right keeps its own between place and
+mat. At every table of two to four it is open at every such seat
+(`the_felt_left_of_a_seat_is_open_at_every_table_of_up_to_four`). At a seat seen from the side or
+turned part of the way, where that right is the window's edge or a
+neighbour's piles, it lies between pile and mat (`pile_counts::beside`).
+The hand's lies past the library's end on its owner's side: the pile a hand
+is drawn from, at the edge its owner sits at. Each is written for the one
+looking and not for its seat: it stands upright on the screen at every seat,
+also while the camera goes round. Its figures are meant 9 px tall on the
+screen (`cardplate::PILE_FIGURE_PX`, `pile_badge_scale`), between one and a
+half and four times a merged card's count, and are that where a seat has
+the felt for it: a plate with its mark is some three and a half times as
+long as its figures are tall, and the felt beside a pile is nine tenths of
+a card wide, to the mat on one side and to the cloth's edge or a
+neighbour's piles on the other (`pile_counts::ROOM`). The hand's number
+has the open felt past its seat's edge and is not held to that room, so it
+is up to a pixel and a half larger than its library's. In a 1708 × 1032
+window the figures are 9 px at a duel and in Spotlight; at a table of four
+in a ring 7 to 9 px at one's own seat and the flanks and 6 px at the seat
+across; at a table of three in a ring 7 px at one's own seat and about
+6 px at the other two (5.6 at the least). A Turntable of four reads at
+4.7 px at its smallest seat, and from five seats in a ring the smallest
+are under 4 px. In a 1280 × 720 window a duel reads at 5.6 px
+and a ring of three or four at 3.4 to 3.7 px at its smallest seat. The
+seat plates and the strip say the same numbers at every size
+(`the_figures_have_a_floor_at_every_table` measures the floors). No number lies
+on a card, a row, another number or off the cloth at any table of two to
+eight in any arrangement. A pile is a
+block of cardboard, and a tall one covers the felt just behind it from
+where the reader looks; a number lying that way begins past what its pile
+covers (`Reader::hidden`), so none stands half behind its own pile (played
+13.11.2026: a library of ninety-two covered the lower third of its hand's
+number at the seat across). Set at its
+card's size, as that count is, it was five pixels tall at a table of four
+and lay on its side at the flank seats (played 12.11.2026). A library's and
+a hand's are always there, nought included; a graveyard's and exile's stand
+from their first card, and exile's is the zone's count, its suspended cards
+among it, as on the seat plate and the zone dialog's tab. A command slot's
+is its commander's tax, written `+4` (the owner, 13.11.2026: „wie oft wurde
+der Commander gespielt und somit wie viel extra Mana kostet er für den
+nächsten Aufruf“): CR 903.8's `{2}` for each time it has been cast from the
+command zone, twice `CommanderView::casts`, carried on the slot
+(`ZonePile::tax`). It stands from the first cast and for the rest of the
+game, also while the commander is on the battlefield and its slot empty,
+because it is what the next cast from there costs more; each partner's is
+its own, and before the first cast a slot wears nothing. Each has a
+material of its own that is rewritten only when its number changes and a
+place that is written only when its seat, the camera or the window moved, so
+a table at rest writes none, and a camera going round writes transforms;
+it writes the scene's index only where a seat turning past the line between
+beside and not gains or loses the lower numbers of its waiting column.
+
+**Suspended cards wait on the table** (the owner, 13.11.2026; until then a
+panel of sentences over the table's top left corner). Exile is drawn as two
+places, as the command zone is: the pile, and across the mat from it and
+level with it the *waiting place* (`PileKind::Waiting`, marked with an
+hourglass), where a seat's suspended cards lie face up (CR 702.62), the one
+with the fewest time counters on top. Beside it stand their
+time counters (`Tally::Waiting`): the top three cards', the next to come
+back uppermost, at the reader's seat and the seat across, outside the place
+to the seat's left where that felt is open and between place and mat where
+it is not; and between it and the mat the top card's alone at a seat seen
+from the side. So what comes back next and in how many counters is read
+off the table with no pointer on it. A hover fans the place as it fans a
+pile, soonest first; a press opens the zone dialog on that seat's exile,
+where every suspended card's row says its counters in the zone badge's place
+(`BrowseRow::time`). A fan opens over the felt between its pile and the
+mat: wherever a number lies there (`pile_counts::outside` says where it does
+not), a fanned pile's number steps aside while its fan is open, a graveyard's and
+exile's as well as the waiting place's
+(`a_fanned_piles_numbers_step_aside_where_they_lie_under_its_fan`). The place is there only while a card waits and stands
+in the one cell of the pile columns nothing else uses, so its coming and
+going moves nothing. One test decides what waits
+(`client-core::suspended::time_of`): suspended, named for this view, and
+with a counter left. The card is in exile throughout: it is listed there,
+counted there, and flies to and from the place it is drawn on
+(`table::motion::pile_home`).
 
 Proximity groups related stats; type size establishes their hierarchy. Gold
 marks the active turn, with a secondary cool accent for priority. Phase groups
@@ -293,7 +416,15 @@ hitboxes or projected seat shelves.
 circuits, inset colour segments and tooling around the firewheel.
 The inlay colours stay in fixed positions; only their illumination moves.
 The phase lamp remains a separate semantic light. `mat.wesl` adds recessed
-corner shoulders and terminates lane rules short of the frame. Both resolve
+corner shoulders and terminates lane rules short of the frame, and draws the
+field as a shallow tray of smoked glass let into the table (`TRAY_*`): it
+keeps back three tenths of the cloth's light over the whole field, so a
+channel under a card is quieter than one beside the mat, and the table's
+edge throws a shadow into it on the side the light comes from. That side is
+read on the screen (`dpdx`/`dpdy` of the mat's distance field), not in the
+mat's own space, so a seat drawn turned round is shaded like every other.
+The shade is folded with the mat's light into one straight-alpha colour and
+fades with the seat (`accent.w`). Both resolve
 fine details against the pixel footprint rather than assuming a resolution.
 
 The sky is graded independently: open blue daylight with warm cloud edges by
@@ -315,8 +446,8 @@ reduced-motion preference govern decorative movement. Split seat bars place
 a 220px identity/life plaque beside the timeline and zone/turn status, with
 an honest 871×48px minimum footprint and unchanged compact fallbacks. The
 library uses an original resident sleeve with matching geometric inlays;
-opening a pile follows the existing motion targets, with a seven-card fan
-limit and a shallower, more widely spaced silhouette.
+opening a pile follows the existing motion targets, as a hand of at most
+four cards (`layout::FAN_MAX`).
 
 Under the cards, everything is generated rather than shipped:
 `baylee-client-core/src/tabletop.rs` computes the felt and a
@@ -907,17 +1038,38 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   wrote reads as the ring, never refusing the settings file.
 - **The switcher**: a pill at `(EDGE, EDGE)`, `CORNER_BUTTON` tall, in the
   top-left corner (`arrangement::sync_switcher`, `G_SWITCHER` 800, under the
-  report button): a letter in a ring as the placeholder pictogram, the name
-  on a wide window, a caret. Its width is set to `pill_width`, and
+  report button): the arrangement's pictogram, the name on a wide window, a
+  caret. A pictogram is the table from above at four seats
+  (`arrangement::mats`, drawn by `pictogram`): a hairline for the table's
+  edge, a rectangle per board where the arrangement puts it and as large as
+  it makes it, mine in the gold of what is live and at the near edge. It
+  replaced an icon in a ring (a magnifier, an eye), which named an
+  arrangement and showed nothing of what choosing it does;
+  `every_arrangement_wears_its_own_picture_of_the_table` holds each to one
+  board of mine, no board on another and no two arrangements alike. The
+  pill's ground is the dialog's, opaque: it was at .88, and the pill stands
+  in the table's cut corner over the sky, where the linear blend let enough
+  cloud through to grey the plate and bring its quiet ink to 1.8 : 1 (the
+  Focus ring's peeks stand over the same sky and are opaque for the same
+  reason). Pill and menu hang from the top edge, so their shadow falls
+  *down* onto the table (`hanging_shadow`), the one exception to
+  `hud::upward_shadow`. Its width is set to `pill_width`, and
   `camera_tests::the_arrangement_pill_lies_on_no_seat_s_place` holds every
   built arrangement's home seats clear of it at 2–8 seats in seven windows.
-  Below a wide window the pill shows the letter alone: at 800 × 600 the
+  Below a wide window the pill shows the pictogram alone: at 800 × 600 the
   ring's left flank reaches where a named pill would stand. A phone draws no
   pill; the game menu's row *Anordnung › …* (on every frame) opens the same
-  menu as a sheet over the window. The menu: one row per arrangement (disc,
-  name, what it does, a greyed row's reason or the *experimentell* tag, its
-  digit), then *remember for N seats* (ticked: the per-count memory;
-  unticked: this game only). A veil behind it shuts it on a press elsewhere.
+  menu as a sheet over the window. The menu: one row per arrangement
+  (pictogram, name, what it does, a greyed row's reason or the
+  *experimentell* tag, its digit), then *remember for N seats* (ticked: the
+  per-count memory; unticked: this game only). A veil behind it shuts it on
+  a press elsewhere. Off a phone it grows out of the pill's corner on the
+  HUD's one curve (`pop_the_menu`: `motion::opening` over `ZOOM_IN`, the
+  top-left corner held by `motion::from_top_left`). The menu is redrawn
+  whole when an arrow key moves its focus, so the arrival belongs to the
+  opening and not to the panel: a panel redrawn mid-way carries on, nothing
+  is written once it has arrived, and `reduce_motion` arrives at once
+  (`the_menu_arrives_from_its_corner_and_then_rests`).
   *experimentell* (`Arrangement::experimental`, WA10) stays on the arc rail
   alone, whose own promise did not hold; every other built arrangement keeps
   invariant 4 wherever it is offered. The numbers, model and live:
@@ -2692,15 +2844,35 @@ until it landed. `board.rs` now asks `small` everywhere; the only key at the
 readable size is the one `hud::overlay` rewrites for the preview, which is also
 the only place drawing a card big enough to need it.
 
-The duel preview has a quiet, 34-pixel keyboard footer outside its card frame.
-Two equal columns explain held Shift (turn over) and Alt/Option (alternate
-view), using Shift/Option marks on Apple platforms and named keycaps elsewhere.
-The footer keeps its orientation while the card turns, participates in the
-preview's bounds above the hand's action ledge, and does not intercept the
-pointer. The complete panel fits there before its card is sized, preserving
-the card's aspect ratio rather than putting the hints over Keep/Pass/Confirm.
-Its symbols are
-simple UI geometry, so missing glyphs in the text font cannot erase the hint.
+The duel preview wears one keyboard hint, and only where it says something
+about the card (owner, 12.11.2026, replacing a 34-pixel footer under every
+preview that named Shift and Alt): a small pill under a card that has another
+face, or a half read the other way up, naming held Shift and what it shows
+(`hud::preview_keys::turn`). A card with neither wears nothing, and Alt/Option
+(the alternate view) is written in `docs/keyboard-map.md` §"Mouse". The pill
+uses the Shift mark on Apple platforms and a named keycap elsewhere, drawn as
+simple UI geometry so a missing glyph cannot erase it. It keeps its
+orientation while the card turns, is part of the preview's bounds above the
+hand's action ledge (the panel is sized with its room before the card is, so
+the card keeps its aspect ratio), casts no part of the card's shadow, and does
+not intercept the pointer.
+
+**The preview comes up and goes away** (owner, 12.11.2026; `hud::overlay::pop`).
+It rises from the card it describes: from `motion::ZOOM_FROM` to full size on
+the HUD's opening curve in `motion::ZOOM_IN`, 12 pixels short of its place
+towards the card or pointer, while the shadow under it widens from a contact
+shadow to the height it is held at, with a breath of moonlight round its
+edge. When the pointer leaves, it sinks back towards the card over
+`motion::ZOOM_OUT` and is then gone. One preview handed straight on to the
+next card (the pointer running along a hand) does not open again: that is one
+panel showing another card. The opening's clock is a resource
+(`PreviewPop`), so a preview rebuilt while it opens carries on from the pose
+it had; a leaving preview's nodes are handed over by the rebuild
+(`PreviewLeave`) instead of being swept, and give up their bounds, their
+resize handle and the pointer. Only nodes move and only the shadow changes:
+nothing is drawn on the print and the print is never faded (`docs/legal.md`
+§3). With `reduce_motion` the preview stands and goes at once, and a preview
+at rest is written by nothing (`a_preview_at_rest_is_not_written`).
 For a double-faced card, including one in hand, Shift requests the reverse of
 the selected printing. Both faces retain that printing's language and finish.
 This inspection gesture does not change the card's state on the battlefield.
@@ -4443,8 +4615,11 @@ live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
 table filling (`strips::table_news`); each ring is a toast for fifteen
 seconds, beside the lobby's own notices (`Lobby::status`), at most four,
-top-left under the header (`header::toast_lane`), in a lane of its own
-outside the lobby's tree. Each toast's cross takes that toast away, named by
+in the bottom-right corner, under the header on a Phone
+(`header::toast_lane`), in a lane of its own outside the lobby's tree. The
+update card holds the same corner, so the lane stands on top of it, right
+edge on right edge and one gap above, and follows it as it comes, grows and
+goes (`header::LaneRest::place`, `stand_over_the_update_card`). Each toast's cross takes that toast away, named by
 the number it came with (`header::ToastId`), never by its place in the lane.
 The lane is put away when a table opens (`put_the_toasts_away`), and what it
 said does not come back after the game: it ages and answers its cross only
@@ -4484,6 +4659,27 @@ background artwork, not a playable world. The approved portrait of petite,
 curled-up Baylee sleeps on a separate cloud with garden birds, pigeons and flowers.
 Both wordmark and icon include her. Asset provenance, exact generation calls
 and photo mapping are in `art/baylee/README.md`.
+
+Each scene moves (`vista::loops`, since 12.11.2026): the world and the
+tavern are AVIF image sequences of our own (1280 × 720, 30 fps, about a
+megabyte each, embedded in the binary), decoded by `baylee-avif` on one
+parked thread per loop and copied as three 8-bit planes into three `R8`
+textures that `vista.wesl` turns into colour. A loop plays by the scene's
+own clock, not by the renderer's frames, so it runs at its true speed at any
+frame rate, decodes nothing under `reduce_motion` or at ambient `Low`, and
+asks for no cadence of its own (the lobby is no longer pinned at 60 fps).
+What it asks is not to be stopped: a menu whose loop is seen does not come
+to rest (`graphics::Showing::picture`, `vista::Moving`); it eases to 30
+frames after 2 s as every menu does and to the idle rate, at most 15, after
+30 s, and the film runs on. The loop is a third of the still's width; wherever its
+running frame agrees with its first, the shader draws the 3840 × 2160
+still's own detail over it, so the picture is as sharp as the painting
+except where it moves. A surface shows its still until the first frame is on
+the GPU, then the loop comes in over 0.6 s; an unseen loop parks at once and
+drops its decoder after 4 s. Desktop only; a browser and a phone show the
+stills. Before, the client piped 3840 × 2160 RGBA from a player's own
+`ffmpeg`, which players do not have (`docs/perf-client.md` has both
+measurements).
 
 `vista.rs` retains two full-screen `UiMaterial` surfaces for front/interior.
 `shaders/vista.wesl` fits the world with cover coordinates and supplies subtle
@@ -4539,13 +4735,22 @@ The city is a generated raster with shader layers, not geometrically modelled.
 The account card shows **one face at a time** (`lobby/front/faces.rs`;
 `client-core::lobby::Face`): **sign in** (username, password, Sign in, then
 Create account and Play as guest under a rule), **create an account**
-(username and display name, the password twice, the beta key on a closed
-beta, Create account) and **play as a guest** (a display name, the key,
-Play as guest). The beta key opens under the button chosen and never on the
-sign-in face; a guest this device keeps plays at once from the sign-in face
-("Continue as Guest#0013"). `‹ Back` and Esc go back a face, and from the
-sign-in face back to the gateway picker. The faces ride the existing
-carousel (the guest's is the create face's other side) and the passage.
+(username and display name, the password twice, Create account) and **play
+as a guest** (a display name, Play as guest); a guest this device keeps
+plays at once from the sign-in face ("Continue as Guest#0013"). `‹ Back` and
+Esc go back a face, and from the sign-in face back to the gateway picker.
+The faces ride the existing carousel (the guest's is the create face's other
+side) and the passage.
+
+Who may make an account is the gateway's `registration`, which the client
+reads from `GET /auth/config`: `open` or `off`, read by
+`Registration::read`. A gateway from
+before the word sends only `registration_enabled`, and that flag also
+decides for a word this client does not know. An older gateway's `invite`,
+from the time a key was needed, is such a word: the client offers what the
+flag and the gateway's other fields say, sends no key with a new account or
+guest, and says a refusal from that gateway as the gateway's own sentence
+(`a_gateway_s_own_sentence_is_said_as_the_gateway_s`).
 
 **One input per line, a wider card** (owner, 09.10.2026). The card is
 720 × the text step wide on a desktop (it was 600), and the create and
@@ -5511,7 +5716,17 @@ activation's, a tax, a pact, ward.
   asks nothing (`staging_step`), and anything else is sent one action at a
   time as before, which the window still accepts. A click on a staged land,
   `Esc` (above the cast's own rung) or the shelf's "Untap all" takes taps
-  back; nothing was sent, so nothing else changes.
+  back; nothing was sent, so nothing else changes. A plan that activates one
+  permanent twice (Druids' Repository, a counter each) stages both
+  (`Staging::extend`).
+- **What it is planned from** is the shared planner's reading of the window
+  (`baylee_ai::spend::inputs_for`, `paystage::WindowMana`): the unrestricted
+  pool, every source (each restricted tap the engine names for the window),
+  and the restricted mana floating that it names, earmarked for what is owed
+  (`Staging::suggest_in`, `covers_in`, `remaining_in`). So the window pays
+  what the reach lit: Hymn to Tourach beside Great Hall's black and Study
+  Hall, which lit and then stopped (`CardCostsUnavailable`) while the window
+  planned no conversion beside restricted mana (Carbon b9, c1).
 - **Drawn** as `Proposal::Staged`: the permanent splits from its pile and
   lies turned (`board::card_group` sets the tapped bit on the group, never on
   the view) with `WILL_TAP` on the felt; the suggestion "Pay now" would add
@@ -5584,6 +5799,30 @@ unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
 
+An order ranks units and a plan is the permanents it taps, and an augmenting
+path frees a unit by moving the pip that holds it on to the next unit in the
+order, whatever that unit is worth. With `{U}{G}` floating and `{3}{U}{G}`
+owed, the floating mana went to the generic pips and the `{U}` moved onto the
+only Island, where three Forests paid the `{3}` and a `{G}{U}` card in hand
+needed the blue (Carbon b4, 12.11.2026). So each consolidation is followed by
+`spare`, which offers the dearest tapped permanent the cheapest untapped one
+ranked below it (clean before priced, then `Source::preserve`, then fewer
+colours), matches its pips again over the floating mana, what the plan taps
+anyway and the one offered, and keeps a trade that pays every pip and spends
+no less of the floating mana. The taps never grow and payability does not
+move. The frozen house plans without it (`manaplan::plan_frozen`,
+`docs/observed-faults.md` entry 75).
+
+The X question is capped by the same planner (`manaplan::greatest_x`), and a
+spell with convoke, improvise or delve is paid by its creatures, artifacts
+and graveyard as well: `manaplan::Assist` reads them off the view (a
+permanent already counted as a mana source taps once), a coloured creature
+as one more source of its colours and the rest as generic help, and
+`greatest_x_assisted` counts them (CR 702.51a, 702.126a, 702.66a). Capped by
+mana alone, Chord of Calling beside five Forests and three green creatures
+was offered X up to 3 where 5 is paid. Improvise an effect grants for the
+next spell is not in the view, and is not counted.
+
 A paid mana ability (a filter land's or a Signet's `{1}, {T}`) is a trade and
 not a source, and the matcher above never sees one. `manaplan/convert.rs` is
 asked only when it has said no, so a board that planned before plans the same
@@ -5611,6 +5850,28 @@ An ability that costs mana of its own (Mind Stone's draw, a creature land's
 animation) only breaks a tie: kept up with nothing left to pay for it, Mind
 Stone cost a hand its `{U}` (report 5.11.2026;
 `a_rock_with_a_paid_ability_gives_way_to_a_colour_the_hand_wants`).
+What such an ability costs is a colour wanted, beside the hand's: the client
+and the seat hand `prioritize` the mana costs of the abilities the engine
+lists as waiting only for mana (`LegalActions::unpaid_abilities`, mana
+abilities aside; `baylee_ai::board_claims`), so the only Mountain
+Thornscape Apprentice's "`{R}`, `{T}`" needs is kept as a scarce colour of
+the hand is. Ranked by the hand alone, Sabertooth Nishoba's one plan tapped
+that Mountain and left a Forest standing (Carbon b6, 12.11.2026). The house
+ranks by its hand alone (`docs/observed-faults.md` entry 78).
+
+An activation's payment goes one step further, because there the paid
+ability is not a guess about later: another permanent whose own ability taps
+it and waits only for mana (`LegalActions::unpaid_abilities`; the second
+Rishadan Port) is left untapped wherever the rest pays the activation and,
+after it, that permanent's own price, from untapped sources alone; the
+dearest is given up first, and with none kept the plan is the one above, so
+nothing payable stops being so (`baylee_ai::spend::plan_keeping`; Carbon b4,
+11.11.2026: two Ports paid each other's `{1}`, and both could never be used).
+A mana ability paid by removing its own counters and no tap (Druids'
+Repository) is read once per activation its counters pay, each its own step
+(`baylee_ai::spend::repeat_counter_sources`, at most eight). Both are the
+shared planner's, for the client and the seat; the frozen house keeps its
+reading.
 
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
@@ -5624,9 +5885,16 @@ changing it:
 2. **It never spends what a player would want to decide.** Phyrexian mana is
    read as its colour and never as two life; `{X}` is refused
    outright; `{S}` is paid only by a source marked `snow` (CR 107.4h). Restricted mana (Cavern of Souls) is not counted in the generic
-   matcher. `manasources` first tries the unrestricted plan, then adds at most
-   one restricted tap whose filter provably admits this spell or activation,
-   always last, so the engine's own payment check remains authoritative.
+   matcher. A payment's plan first tries the unrestricted sources, then adds
+   every restricted tap the engine names for that payment
+   (`LegalActions::restricted_taps`) and counts the restricted mana floating
+   it names (`restricted_floating`), through `baylee_ai::spend` (protocol 43,
+   §"What restricted mana may pay for"); the engine's own payment check
+   remains authoritative. That mana is earmarked for the payment
+   (`manaplan::Earmarked`, `plan_earmarked`): it pays the cost's symbols and
+   never a paid mana ability's cost on the way, so Study Hall's black is
+   planned while Great Hall of the Biblioplex's mana floats for instants, and
+   that mana never pays Study Hall's `{1}`.
 3. **It under-counts rather than over-counts.** A source that makes two mana
    *of one chosen colour* is worth one mana here, because two units that must
    match are not two independent units, and pretending otherwise builds a plan
@@ -5773,14 +6041,25 @@ second. The third is the seat's **own graveyard**, for a card it may flash
 back: the engine offers such a card in `castable` only once its cost is
 floating, exactly as it does a hand card, so Snapcaster Mage's Opt ended the
 turn in the graveyard beside the untapped Island that could have paid for it.
-The view says which cards and at what price, `PublicObject::flashback`, and
-the price is that and never the card's own — the two agree for a grant
-(Snapcaster, Past in Flames) and differ for a card that prints flashback
-(Think Twice: `{1}{U}` from the hand, `{2}{U}` from the graveyard).
-`mana_for` reads the same three places, since a card in one and not the other
-lights up and then does nothing when it is clicked. Timing and targets are
-asked exactly as for a hand card; `targeting::provably_targetless` takes the
-card's identity rather than a hand object for that reason.
+The fourth is **exile**, for a card the engine offers to cast from there (an
+Adventure's creature, a foretold card, a permission's card).
+
+The price of a pile card is the engine's, never the card's own: for each way
+it may be cast from where it lies, `LegalActions::cast_ways` names the way and
+its whole price (11.11.2026), and the client taps for the cheapest its lands
+pay (`mana_run::named_ways`). The two differ more often than not: Think Twice
+is `{1}{U}` from the hand and `{2}{U}` from the graveyard, Malevolent Hermit
+is `{1}{U}` in hand and `{2}{U}` disturbed from the graveyard as Benevolent
+Geist, and a foretold Doomskar is `{1}{W}{W}` against its printed `{3}{W}{W}`.
+Read off the card, the Geist was lit beside two Islands that do not pay it,
+and the Doomskar was dark beside three Plains that do. Against an engine that
+names no way, a graveyard card falls back to `PublicObject::flashback` (the
+view's price for a flashback, an escape and a graveyard permission) and an
+exiled one to its printed cost. `reachable` asks `mana_for` itself whether a
+pile card is in reach, so a card lit is a card the click taps for. Timing and
+targets are asked exactly as for a hand card;
+`targeting::provably_targetless` takes the card's identity rather than a hand
+object for that reason.
 
 A pile card is lit wherever it is drawn, by one predicate,
 `Duel::reach_of`: `Reach::Offered` when the engine will play, cast or activate
@@ -5870,6 +6149,17 @@ finds one. That is a hole in *this* list and not in the chooser: a modal spell
 the engine asks about — Sheoldred's Edict, which is affordable at three
 different modes — opens `Pending::ChooseCastMode` and is answered through the
 same rows.
+
+A face other than the front, cast from the hand (an Adventure, CR 716.3; the
+other side of a modal double-faced card, CR 712.8b), is the one way the list
+reads off the engine rather than the card: whether that face may be cast now
+is a question about it alone (CR 601.3e), and `LegalActions::cast_ways` asks
+it and names its whole price, and what restricted mana may pay for that face
+(`Spend::cast`): an Ancient Ziggurat pays for the Borrower and never for
+Petty Theft. Brazen Borrower beside two Islands was dark
+until it was listed (11.11.2026): the creature's `{1}{U}{U}` is out of
+reach, Petty Theft's `{1}{U}` is not. Alone in reach it is a chooser of one
+row, as a kicker is, so the row says which spell the click casts.
 
 One way is not a question, and the click then does exactly what it always did.
 `fire_armed` had to learn one thing for this: a chosen way with taps left to
@@ -6193,12 +6483,15 @@ colour alone must not carry meaning, and five discs is a number the player has
 to stop and count. `baylee-client-core/src/manapool.rs` decides the row and is
 tested without a renderer, like everything else in that crate.
 
-The generic matcher still refuses restricted mana, and that is the point —
-the player can do by hand the thing it is right to refuse. A purpose-specific
-plan now tries the ordinary sources first and then, only when the filter
-provably admits this exact spell or activation, adds one restricted tap last.
-The engine still makes the final payment check, so no plan depends on reading
-restricted mana already floating in the pool.
+The generic matcher still refuses restricted mana: what it may pay for is a
+rules question about one payment. A payment's plan tries the ordinary sources
+first and then every restricted tap the engine names for that payment, as
+many as the price needs, with the restricted mana floating the engine says it
+may spend counted as mana (`baylee_ai::spend`, protocol 43). It used to add
+one restricted tap, judged off the view, and count nothing that floated: two
+Ancient Ziggurats never lit Grizzly Bears, and a Cavern of Souls' green
+tapped by hand left the Elf it was tapped for dark. The engine still makes the
+final payment check.
 
 `BoardMana::colors` is a choice for an ordinary ability, but repeated entries in
 a host-projected fixed mixture are one bundle produced together, not independent
@@ -7108,8 +7401,13 @@ the left side."*
 - **Three edges for three states**, so they can all show at once: whose turn
   it is is an ivory line along the top (wiped in from the left in 240 ms,
   faded in 120), who the table is waiting on breathes in the border (1.6 s),
-  and the seat the camera is on has a bar along the bottom (grown from the
-  middle in 160 ms). `glow_the_players` runs them; under `reduce_motion` each
+  and the seat the reader is shown has a bar along the bottom (grown from the
+  middle in 160 ms): the seat the camera is on, which at home is the reader's
+  own, or, where an arrangement brings a seat's cards across and the camera
+  stays home (Spotlight, Turntable, Focus ring), the seat across
+  (`players::framed`; the owner asked for the Spotlight's polish on
+  12.11.2026, and nothing had said which opponent the far board was).
+  `glow_the_players` runs them; under `reduce_motion` each
   stands at its end. A changed life is lit green or red for 300 ms.
 - **No ☀ or ⌛** (the owner, 08.10.2026): the two states a colour must not
   carry alone are two lines along the **top** edge of chip, plate and peek.
@@ -8721,6 +9019,21 @@ dialog keeps the rule in its own two inks (`dialog_text`), rather than
 borrowing `slip_text`, whose aside grey and warm letter-shadow are both about
 lifting ink off parchment.
 
+**The tabs are grouped by seat, and they wrap.** The row was one line cut at
+the sheet's edge: at four seats the last seat's piles were tabs nobody could
+reach, and a pile's name said whose it was only by a word in front of it
+(played 12.11.2026; the owner asked the same day for a dialog that is
+"thought through and complete"). "All" and what no seat owns (a reveal, the
+stack, a battlefield a question asks about) come first. Then every seat is a
+group, the viewer's first and the others in turn order: its name once, a tab
+for each of its piles that holds a card, and two numbers, the cards in its
+library and in its hand. Those two are numbers and not tabs because nobody
+may look through them (CR 401.2, CR 402.3), and a seat whose piles are all
+empty is still there with them, so the sheet says where every card at the
+table is. A group never breaks: it goes to the next line whole
+(`TRAY_SEAT_GAP` between groups), the title row grows by that line and the
+list gives it up, and the minimise button stays on the first line.
+
 **The sheet moves and resizes, and remembers where it was put.**
 `browser::Placement` is a rectangle inside the *band* — everything between the
 window's top edge and the hand bar; it used to start under the phase rail, a
@@ -9041,10 +9354,25 @@ a setting that survives until the next restart and then silently reverts.
 Writes are debounced, so dragging a slider costs one request rather than
 twenty.
 
-The rail on that screen has two **presets** above it (`RailPreset`), and they
+**The shipped defaults are a round an account takes once.** A fresh account
+starts on the owner's own stops and automation, read off his account on the
+live server on 12.11.2026 (`RailPreset::Standard`, `AutoRules::default`), and
+by his word of that day the open betas' start (`0.2.0-beta.o1`) puts every
+existing account there too. `Preferences::defaults_epoch` is the mark, stored
+with the account, and `Preferences::adopt_defaults` brings an account below
+`DEFAULTS_EPOCH` to it: the stops and the `AutoRules` go back to a fresh
+account's, the mark is written, and nothing else moves. It is keyed to that
+number and not to the client's version, so it happens once per account, not
+once per device or per update. `Prefs` calls it wherever a copy becomes the
+truth (this machine's file at start, the gateway's answer, Central's restore)
+and, where it changed something, writes the account at once; a device that
+finds the mark leaves the player's rail alone, and a client from before the
+mark carries it through as a key it does not know.
+
+The rail on that screen has four **presets** above it (`RailPreset`), and they
 are buttons rather than a mode: a preset writes twenty-four buttons and then
 has nothing more to do with them. Its chip is drawn lit only while the rail
-still matches, so the first correction by hand puts both chips out and neither
+still matches, so the first correction by hand puts every chip out and none
 goes on claiming a rail the player has since edited. Which rows
 `Competitive` keeps green is a rules question rather than a taste one — see
 `docs/keyboard-map.md` §Automation for why a declaration step can never be one
@@ -9285,6 +9613,20 @@ That is also what finally put the proposer into a draw offer.
 `YesNoPrompt::DrawOffer` carries `proposer` and the line dropped it in a `..`,
 so the question read "Ein Remis wurde angeboten. Annehmen?" — obvious at a
 duel, and not a question anybody can answer at a table of four.
+
+**Another player's library** is named the same way. An ordering, a look in
+a scry's shape, a search or a put-back can be about an opponent's library
+(Architects of Will, Jace's +2, Bribery), and a line that names no library,
+or says "deine Bibliothek", reads as the player's own. The question names no
+library; the cards do, since a card goes only into its owner's (CR 400.3), so
+`Interaction::prompt_in(view)` fills `Prompt::{Arrange, ChooseCards}::library`
+from the cards the view shows (`Interaction::library_in`,
+`decision::cards_owner`) when that owner is not the deciding player. The
+shelf then says `OrderOnTopOf`, `OrderOnBottomOf`, `LookAtTopOf` or a
+`Noun…Of` noun, and the tray's pile headings `ArrangeLibraryTopOf` /
+`ArrangeLibraryBottomOf` (`Arrangement::label_text`). The player's own
+library keeps the words it had. `prompt()` alone leaves `library` empty,
+which is the own library's wording, so only a reader with the view names it.
 
 Who says what:
 
@@ -10046,9 +10388,11 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   Retina, 30.10.2026), the rounds differing more than the switch.
 - **Where things stand** (played 29.10.2026). The header's chat count is a
   badge on the bubble's shoulder, out of the row (it lay over the word's
-  last letter). Unlocked, nothing floats: the composer carries the lock (a
-  "Lock chat" pill stood free at 42 % of the width, over the lobby and over
-  the hand at a table, whenever the window was shut). Locked, **Unlock chat**
+  last letter). Unlocked, nothing floats and nothing locks the chat again:
+  a "Lock chat" pill stood free at 42 % of the width, over the lobby and
+  over the hand at a table, then in the composer, and is gone since
+  12.11.2026 (the owner: security must not make the interface worse; the
+  keys go with sign-out, account switch and quitting). Locked, **Unlock chat**
   stands where the chat's pill would: the lobby's bottom-left corner, beside
   the memorial's caption where the window is short enough to share its band
   (`window::pill_left`; the pill had covered half of it), and at a table
@@ -10059,6 +10403,55 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   at the interface level and the device's effects volume.
 - `/state.chat` reports the machine and the window and every chat control
   where a pointer would press it (`controls[].press`).
+- **A person's disc.** Wherever a person is shown they wear one disc
+  (`shellkit::avatar::disc`): their picture where the client holds one
+  (`avatar::Portraits`, keyed by the account's tag), else a monogram on a
+  tinted ground. Letters and tint are Baylee Central's own rule
+  (`client-core::avatar`: the first letter of the name, or of its first two
+  words; one of six tints by Central's hash over the tag in decimal), so one
+  person has one colour in the client and on the website. A friend who is
+  offline keeps theirs at half strength. `avatar::wear_portraits` gives a
+  disc its face when it is spawned and again only when `Portraits` changes.
+  Nothing fills `Portraits` from the network yet: the native Central
+  listener refuses picture requests until its M6, so every disc shows its
+  monogram. A picture, once it comes, is outside input: `baylee-avif` reads
+  its container under `Bounds::PICTURE` in safe Rust, but its AV1 decoder
+  (rav1d 1.1.0) aborts the process on some damaged streams and is therefore
+  opened only on files the client ships, so the picture path stays shut
+  until that is solved (the crate's own docs). **Do not fill `Portraits`
+  from a gateway, from Central or from another player before one of two
+  things is true:** the AV1 decoder returns an error on a damaged stream
+  instead of aborting, or the decode runs in a process of its own whose
+  death costs one picture (the PM's review, 12.11.2026). A bound on size
+  or a check of the container does not stand in for either: the abort is
+  inside the stream. The header's account pill is the disc, the name, and
+  the tag quieter after it.
+- **A person's card.** The pointer resting 0.32 s on a name (a chat line's
+  `ChatName`, a friend's or a recent player's row, the account pill; any
+  node carrying `shellkit::avatar::PersonLink`) opens that person's card
+  (`social::card`): the disc on a band of their tint, the name and tag (a
+  nickname first, the handle under it), a friend's presence and place, how
+  the account stands to them ("Friends for 3 months", a request either
+  way, blocked, a guest) and when it last played with them (the recent
+  players list). `client-core::social::card` decides every line from what
+  the client already holds. The gateway tells nobody another player's games
+  or wins, so the one statistic is on the account's own card: its decks'
+  games and wins on this device. One node outside every retained tree, as
+  `lobby::hint` is; once a card stands the next name is handed it at once,
+  and a gap of 0.12 s between two rows does not take it down. It opens and
+  leaves on the HUD's curves (`hud::motion`) about the corner it hangs
+  from, the disc a beat after the card; `reduce_motion` cuts both. A row's
+  card stands beside the row, never over the next one. It is never
+  pickable, any press puts it away, and nothing is written once it stands.
+  Names are plain text on one line, cut at 28 characters.
+- **The window's glass.** The lobby chat window's ground is a gradient of
+  the panel's blue, denser at its head than at its foot
+  (`rows::window_ground`, α .93 to .90): glass over the painting, where the
+  flat ground before it was a slab. The alphas are measured, not chosen:
+  the window's quiet ink keeps 4.5 : 1 over the tavern's fire blended in
+  linear light at both ends (`window::tests`). The field a line is written
+  in is opaque, so nothing behind the window reads through the words being
+  typed.
 
 ## Embedding (the open-world plan)
 
@@ -11882,6 +12275,21 @@ chosen").
   now dimmed too, for as long as the question is open ("A passing state lies
   on the print", below). A press on one the choice will not take answers
   nothing, as it did (`activate_card` falls through to `Answer::Refused`).
+- **A question about one permanent lights it (protocol 45, the owner,
+  12.11.2026).** Cleansing ("for each land, destroy that land unless any
+  player pays 1 life") asks land by land (CR 608.2d), and since protocol 45
+  `YesNoPrompt::PayLife` names the land (`permanent`). While this seat's
+  question is open that land wears `CHOOSABLE`'s light and every other
+  permanent is dimmed (`Interaction::asked_about`, `leaves_out`), so the
+  light walks from land to land as the questions come; a press on it
+  answers nothing, the question is answered on the shelf. The line names the
+  land and, where it is another player's, whose: its controller off the
+  view (`Interaction::prompt_in`, `Prompt::YesNo::whose`), named by
+  `i18n::seat_name` — "Pay 1 life for Mira's Plains?" / "1 Lebenspunkt für
+  Plains von Mira zahlen?", the seat's own land by its name alone
+  (`PayLifeFor`, `PayLifeForTheirs`). `/state` gives the land as
+  `interaction.asked_about`. A life payment about no permanent (ward, a
+  resolving "you may pay N life") lights and dims nothing, as before.
 - **A passing state lies on the print (the owner, 13.10.2026).** A state
   that comes and goes with the game is one term in each card shader after
   the finish (`card_common.wesl`'s `veiled`), weighed by the card's

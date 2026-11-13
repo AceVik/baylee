@@ -47,6 +47,7 @@ pub mod arrange;
 pub mod atmosphere;
 pub mod audiomix;
 pub mod automation;
+pub mod avatar;
 pub mod banlist;
 pub mod board;
 pub mod browser;
@@ -169,7 +170,7 @@ pub mod tableicons;
 /// Explicit targeting shortcuts and selectable identities.
 pub mod targeting;
 
-/// All players' publicly suspended cards and countdowns.
+/// Which exiled cards are suspended and how long they still wait.
 pub mod suspended;
 
 /// Explicit old/new word choices for resolving text changes.

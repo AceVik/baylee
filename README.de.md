@@ -28,14 +28,13 @@
 </p>
 
 > [!NOTE]
-> **Baylee ist in der geschlossenen Beta.** Diese Seite beschreibt Version
+> **Baylee ist in der offenen Beta.** Diese Seite beschreibt Version
 > **0.1.0-beta.8b**, eine Vorabversion für **Windows-, macOS- und
 > Linux-Rechner**. Auf dem öffentlichen Server **Baylee Sanctuary** unter
-> `https://gateway.baylee.app` spielst du mit einem Baylee-Account, und den
-> legst du auf [baylee.app](https://baylee.app/register) mit einem
-> Beta-Schlüssel an. Ohne Schlüssel kannst du trotzdem offline gegen die
-> Haus-KI spielen, Decks bauen oder für deine Runde einen eigenen Server
-> betreiben.
+> `https://gateway.baylee.app` spielst du mit einem Baylee-Account, den jeder
+> auf [baylee.app](https://baylee.app/register) anlegen kann. Ohne Account
+> kannst du trotzdem offline gegen die Haus-KI spielen, Decks bauen oder für
+> deine Runde einen eigenen Server betreiben.
 
 ## Inhalt
 
@@ -438,16 +437,14 @@ du dich dort zum ersten Mal anmeldest, und wieder, wenn sie sich ändern.
 Nennt der Betreiber ein Impressum, verlinkt der Client es unter *Über* am
 Eingang, bei den Bedingungen und unter *Einstellungen → Netzwerk*.
 
-### Zugang: Beta-Schlüssel
+### Zugang
 
-Baylee Sanctuary ist eine geschlossene Beta: **Ein neuer Baylee-Account
-braucht einen Schlüssel** der Form `CENTRAL-XXXX-XXXX-XXXX-XXXX`, den du im
-Anmeldeformular der Website eingibst. Schlüssel vergibt der Projektinhaber
-([@AceVik](https://github.com/AceVik)). Mit einem Account meldest du dich
-danach mit Benutzername und Passwort an und brauchst keinen Schlüssel mehr.
-Ein Gateway, das jemand für seine eigene Runde betreibt, kann ebenfalls
-eine geschlossene Beta sein, mit eigenen Schlüsseln
-(`BAYLEE-XXXX-XXXX-XXXX-XXXX`, [unten](#4-beta-schlüssel)).
+Baylee Sanctuary ist eine offene Beta: **Einen Baylee-Account kann jeder**
+im Anmeldeformular der Website anlegen und meldet sich danach mit
+Benutzername und Passwort an. Die Schlüssel der geschlossenen Beta gibt es
+nicht mehr. Ein Gateway, das jemand für seine eigene Runde betreibt,
+entscheidet selbst, ob es Neue hereinlässt
+([unten](#4-wer-neu-hereinkommt)).
 
 ## Mit Freunden spielen
 
@@ -638,7 +635,7 @@ Wie es hineinkommt: Dein Client holt sich beim Gateway ein kurzlebiges
 Sitz-Brücke weiter (`baylee-seat`, die mit dem Client ausgeliefert wird).
 Das Modell sitzt dann als *dein* Vertreter auf dem Platz, mit einem Namen
 `LLM-…` und ohne eigenen Account; bist du mit einem Account angemeldet, klappt
-das also auch auf einem Gateway der geschlossenen Beta. Scheitert das
+das also auch auf einem Gateway ohne Gäste. Scheitert das
 Modell, läuft ihm die Zeit davon oder antwortet es etwas Unzulässiges,
 beantwortet das Haus diese eine Frage für es.
 
@@ -766,12 +763,19 @@ legt das Gateway selbst an und migriert sie.
 cargo build --release -p baylee-gateway -p baylee-agent -p baylee-engine-server
 
 export BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32)   # gemeinsam für Gateway und Agent
-RUST_LOG=info BAYLEE_GATEWAY_NAME="Mein Tisch" ./target/release/baylee-gateway   # lauscht auf 0.0.0.0:28766
+RUST_LOG=info BAYLEE_GATEWAY_NAME="Mein Tisch" ./target/release/baylee-gateway   # lauscht auf 127.0.0.1:28766
 RUST_LOG=info ./target/release/baylee-agent        # findet baylee-engine-server neben sich
 ```
 
 Ohne `RUST_LOG=info` protokollieren die Server nichts. Ohne verbundenen
 Agenten kann das Gateway Räume anzeigen, aber kein Spiel starten (`503`).
+
+Das Gateway lauscht nur auf diesem Rechner (`127.0.0.1`), bis du etwas
+anderes sagst. Hinter dem HTTPS-Proxy aus Schritt 6 genügt das. Sollen
+andere Rechner es direkt erreichen, etwa im LAN, setze `BAYLEE_BIND=0.0.0.0`
+(oder eine Adresse dieses Rechners). Die Server lesen jede Einstellung aus
+der Umgebung: `--help` zeigt, wie man sie startet, und jedes andere Argument
+hält sie vor dem Start an.
 
 Laufen Gateway und Agent auf demselben Rechner, können sie statt über TCP
 über einen **Unix-Socket** sprechen: `BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock`
@@ -788,9 +792,10 @@ Gateways ist es ein Entwicklungswerkzeug ohne Anmeldung.
 | --- | --- |
 | `DATABASE_URL` | Pflicht. |
 | `PORT` | Port, auf dem es lauscht (Standard `28766`). |
+| `BAYLEE_BIND` | Adresse, auf der es lauscht (Standard `127.0.0.1`, nur dieser Rechner; `0.0.0.0` für alle Schnittstellen). |
 | `BAYLEE_AGENT_TOKEN` | Das Geheimnis des Agenten. Ohne es kann sich kein Agent verbinden. |
 | `BAYLEE_GATEWAY_NAME` | Der Name, den Clients für das Gateway zeigen. |
-| `BAYLEE_REGISTRATION` | Nicht gesetzt: offene Anmeldung. `invite`: geschlossene Beta, Schlüssel nötig. `off`: keine Anmeldung. |
+| `BAYLEE_REGISTRATION` | Ob ein Baylee-Account, der neu auf diesem Gateway ist, hereinkommt. Nicht gesetzt oder `open`: jeder (die Einstellung der offenen Beta). `off`: niemand Neues. `invite`, die Einstellung der geschlossenen Beta, lässt das Gateway jetzt nicht mehr starten. |
 | `BAYLEE_GUESTS=off` | Keine Gast-Accounts. `BAYLEE_GUEST_CAP` begrenzt die gleichzeitigen Gäste (Standard 1000). |
 | `BAYLEE_TRUSTED_PROXIES` | Adresse deines Reverse Proxys, damit die Ratenbegrenzung die echte Client-IP sieht. |
 | `BAYLEE_ART_PATH` / `BAYLEE_DECK_IMAGE_PATH` | Wo Kartenbilder zwischengespeichert und hochgeladene Hüllen/Matten abgelegt werden (`off` schaltet sie ab). |
@@ -806,21 +811,14 @@ Das Gateway beantwortet `GET /source` mit Lizenz, Version und Commit, ohne
 Anmeldung. Die AGPL verlangt, dass du den Nutzern deines Servers den
 Quellcode anbietest, und diese Route erledigt das für dich.
 
-### 4. Beta-Schlüssel
+### 4. Wer neu hereinkommt
 
-Mit `BAYLEE_REGISTRATION=invite` erzeugst du Schlüssel auf dem Server:
-
-```bash
-baylee-gateway invite create --uses 1 --expires 30d --note "Max"
-baylee-gateway invite list
-baylee-gateway invite revoke <id>
-```
-
-Der Befehl braucht nur `DATABASE_URL`; das Gateway muss dafür nicht laufen.
-Jeder Schlüssel wird einmal ausgegeben, gespeichert wird nur sein Hash. Auf
-einem mit `baylee-deploy` (Crate baylee-ops) eingerichteten Server liest der
-Wrapper `sudo baylee-invite …` die Einstellungen des Gateways für dich. Die
-Admin-Konsole unten kann dasselbe im Browser.
+`BAYLEE_REGISTRATION=open`, oder die Variable nicht zu setzen, lässt jeden
+Neuen herein; `off` lässt keinen Baylee-Account herein, der neu auf deinem
+Gateway ist, und über Gäste entscheidet allein `BAYLEE_AUTH_MODE`. Die
+Schlüssel der geschlossenen Beta und der Befehl `baylee-gateway invite` sind
+weg: Ein Gateway, das noch auf `BAYLEE_REGISTRATION=invite` steht, startet
+nicht, bis du `open` oder `off` wählst.
 
 ### 5. Kartentext (optional)
 
@@ -859,7 +857,7 @@ Oberfläche ist die **Admin-Konsole** für ein Gateway, für Admins, die du mit
 `baylee-feedback admin add` anlegst: eine Übersicht mit der Serverlast, wer
 online ist und an welchem Tisch, Accounts (Passwort zurücksetzen, sperren,
 löschen), ein laufendes Spiel beenden, eine Karte für eine Zeit oder auf
-Dauer sperren (die Spieler erfahren den Grund), Beta-Schlüssel und die
+Dauer sperren (die Spieler erfahren den Grund) und die
 Gateway-Modelle (welcher Sitz-Agent welches Modell betreibt, ihre Schlüssel
 und welche Spieler welches Modell setzen dürfen). Die Seite des Gateways
 dafür lauscht nur auf dem eigenen Rechner (`BAYLEE_ADMIN_TOKEN`,
@@ -939,7 +937,7 @@ ohne Darstellung und enthält die meisten Client-Tests; der 3D-Tisch ist mit
 [Bevy](https://bevyengine.org/) gebaut. **seal** ist die Verschlüsselung des
 Chats. **Gateway** und **Agent** enthalten überhaupt keine Regeln. Karten
 sind Rust-Code in einer kleinen DSL, eine Datei pro Karte unter
-`crates/cards/src/cards/`.
+`crates/cards/sets/`, gruppiert nach dem Jahr ihres ersten Drucks.
 
 Zum Weiterlesen (englisch):
 

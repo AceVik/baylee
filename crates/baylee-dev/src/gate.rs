@@ -2,6 +2,7 @@
 //! never builds the client, `touched` a working filter over changed files,
 //! `wasm` the browser crates, and [`features`](crate::features) the
 //! non-default features `--workspace` never builds.
+use crate::reach::{self, Reach};
 use crate::run::{self, Steps, cargo_with, command};
 use anyhow::Result;
 use std::{collections::BTreeSet, fs, path::Path};
@@ -11,19 +12,55 @@ use std::{collections::BTreeSet, fs, path::Path};
 /// out loud rather than skipped in silence.
 const SCRYFALL_CACHE: &str = "data/scryfall-cache";
 
-/// fmt, clippy, every test through nextest, `validate` and the API
-/// documents (`api`), as CI runs them.
-/// Every phase runs even when an earlier one failed. Needs Postgres for the
-/// catalog and gateway tests (`DATABASE_URL`).
+/// Which tests the full gate runs. Everything else in it (fmt, clippy over
+/// every crate and target, the benches, `validate`, the API documents) is
+/// the same at every scope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scope {
+    /// The crates the diff against `origin/main` reaches
+    /// ([`crate::reach`]): what a branch is gated with while it is worked on
+    /// (owner, 13.11.2026).
+    Reached,
+    /// Every crate, less the slow tests whose place is untouched
+    /// ([`LOCAL_TO_THEIR_PATH`]): what `cargo dev land` runs.
+    Workspace,
+    /// Every test.
+    All,
+}
+
+impl Scope {
+    /// The scope the command line asks for; `BAYLEE_GATE_ALL` is `--all`.
+    pub fn asked(workspace: bool, all: bool) -> Self {
+        if all {
+            Self::All
+        } else if workspace {
+            Self::Workspace
+        } else {
+            Self::Reached
+        }
+    }
+}
+
+/// The stamp a test build is given: none. `baylee-build` reads the commit,
+/// and a crate whose input changed is compiled again with everything above
+/// it, so every commit rebuilt and relinked the client, the gateway, the
+/// game host and their test binaries for a string no test reads. The `test`
+/// step has `target/gate` to itself, so nothing else is re-stamped by this
+/// (`crates/baylee-build/build.rs`).
+const UNSTAMPED: (&str, &str) = ("BAYLEE_BUILD_STAMP", "none");
+
+/// fmt, clippy, the tests through nextest, `validate` and the API documents
+/// (`api`). Every phase runs even when an earlier one failed. Needs Postgres
+/// for the catalog and gateway tests (`DATABASE_URL`).
 ///
-/// `all` also runs the tests the gate leaves out when their crate is
-/// untouched ([`LOCAL_TO_THEIR_PATH`]).
-pub fn full(all: bool) -> Result<i32> {
+/// `scope` says which tests: CI runs them all.
+pub fn full(scope: Scope) -> Result<i32> {
     run::require_env(
         "DATABASE_URL",
         "the catalog and gateway tests need Postgres",
     )?;
     warn_on_deps_directory();
+    run::cache_builds();
     let mut steps = Steps::default();
     steps.run("fmt", &mut cargo_with(["fmt", "--all", "--check"]));
     steps.run(
@@ -53,7 +90,8 @@ pub fn full(all: bool) -> Result<i32> {
         "--examples",
         "--no-fail-fast",
     ]);
-    test.args(test_filter(all));
+    test.args(test_filter(scope));
+    test.env(UNSTAMPED.0, UNSTAMPED.1);
     steps.run("test", &mut test);
     // The benches still build (clippy) and run: once each, as criterion's
     // test mode does when libtest's runner starts them without `--bench`.
@@ -236,7 +274,9 @@ fn changed_since_main() -> Option<Vec<String>> {
             .flatten()
     };
     let base = git(&["merge-base", "origin/main", "HEAD"])?;
-    let mut files: Vec<String> = git(&["diff", "--name-only", base.trim()])?
+    // Without renames: a file moved out of a crate still names the crate it
+    // left, as a deletion there.
+    let mut files: Vec<String> = git(&["diff", "--name-only", "--no-renames", base.trim()])?
         .lines()
         .map(str::to_owned)
         .collect();
@@ -248,28 +288,70 @@ fn changed_since_main() -> Option<Vec<String>> {
     Some(files)
 }
 
-/// The nextest arguments that leave out the tests above, with one line saying so.
-fn test_filter(all: bool) -> Vec<String> {
-    if all || std::env::var_os("BAYLEE_GATE_ALL").is_some() {
+/// The nextest arguments that select the scope's tests, with a line for
+/// each thing they leave out.
+fn test_filter(scope: Scope) -> Vec<String> {
+    if scope == Scope::All || std::env::var_os("BAYLEE_GATE_ALL").is_some() {
         return Vec::new();
     }
     let Some(changed) = changed_since_main() else {
         println!("gate: cannot diff against origin/main - running every test");
         return Vec::new();
     };
+    let reached = (scope == Scope::Reached)
+        .then(|| reached(&changed))
+        .flatten();
     let skipped = left_out(&changed, LOCAL_TO_THEIR_PATH);
-    if skipped.is_empty() {
-        return Vec::new();
+    let slow = (!skipped.is_empty()).then(|| {
+        let names: Vec<&str> = skipped.iter().map(|(_, t)| *t).collect();
+        let places: BTreeSet<&str> = skipped.iter().map(|(p, _)| *p).collect();
+        println!(
+            "gate: left out, nothing changed under {} (`cargo dev gate --all` runs them): {}",
+            places.into_iter().collect::<Vec<_>>().join(" "),
+            names.join(", ")
+        );
+        let tests: Vec<String> = names.iter().map(|t| format!("test({t})")).collect();
+        format!("not ({})", tests.join(" | "))
+    });
+    filterset(reached, slow).map_or_else(Vec::new, |set| vec!["-E".into(), set])
+}
+
+/// One filterset out of the crates to test and the tests to leave out: one
+/// expression, because nextest reads several `-E` as either-or.
+fn filterset(reached: Option<String>, slow: Option<String>) -> Option<String> {
+    match (reached, slow) {
+        (Some(reached), Some(slow)) => Some(format!("({reached}) & {slow}")),
+        (reached, slow) => reached.or(slow),
     }
-    let names: Vec<&str> = skipped.iter().map(|(_, t)| *t).collect();
-    let places: BTreeSet<&str> = skipped.iter().map(|(p, _)| *p).collect();
-    println!(
-        "gate: left out, nothing changed under {} (`cargo dev gate --all` runs them): {}",
-        places.into_iter().collect::<Vec<_>>().join(" "),
-        names.join(", ")
-    );
-    let tests: Vec<String> = names.iter().map(|t| format!("test({t})")).collect();
-    vec!["-E".into(), format!("not ({})", tests.join(" | "))]
+}
+
+/// The filterset of the crates `changed` reaches, with one line saying what
+/// is tested; `None` where that is every crate.
+fn reached(changed: &[String]) -> Option<String> {
+    let reach = match reach::Workspace::load(Path::new(".")) {
+        Ok(workspace) => workspace.reach(changed),
+        Err(error) => Reach::Everything(format!("the workspace could not be read ({error:#})")),
+    };
+    match &reach {
+        Reach::Everything(why) => println!("gate: testing every crate - {why}"),
+        Reach::Crates(crates, of) => println!(
+            "gate: the diff against origin/main reaches {} of {of} crates; testing those \
+             (`cargo dev gate reach` names them, `--workspace` and `cargo dev land` test every crate)",
+            crates.len()
+        ),
+    }
+    reach.filterset()
+}
+
+/// `cargo dev gate reach`: the crates the full gate would test and why, for
+/// the diff against `origin/main` or for the paths named instead of it.
+pub fn reach(paths: Vec<String>) -> Result<i32> {
+    let changed = if paths.is_empty() {
+        changed_since_main()
+    } else {
+        Some(paths)
+    };
+    reach::print(changed.as_deref())
 }
 
 fn xtask(task: &str) -> std::process::Command {
@@ -390,6 +472,28 @@ mod tests {
         );
         let own = vec!["crates/b/x.rs".to_owned(), "crates/a/src/x.rs".to_owned()];
         assert!(left_out(&own, list).is_empty());
+    }
+
+    #[test]
+    fn the_crates_to_test_and_the_tests_to_leave_out_are_one_filterset() {
+        let crates = || Some("package(=a) | package(=b)".to_owned());
+        let slow = || Some("not (test(slow))".to_owned());
+        assert_eq!(
+            filterset(crates(), slow()).as_deref(),
+            Some("(package(=a) | package(=b)) & not (test(slow))"),
+            "in brackets: `&` binds tighter than `|`"
+        );
+        assert_eq!(filterset(crates(), None), crates());
+        assert_eq!(filterset(None, slow()), slow());
+        assert_eq!(filterset(None, None), None);
+    }
+
+    #[test]
+    fn the_command_line_asks_for_a_scope() {
+        assert_eq!(Scope::asked(false, false), Scope::Reached);
+        assert_eq!(Scope::asked(true, false), Scope::Workspace);
+        assert_eq!(Scope::asked(true, true), Scope::All);
+        assert_eq!(Scope::asked(false, true), Scope::All);
     }
 
     #[test]

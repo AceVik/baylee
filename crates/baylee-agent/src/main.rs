@@ -14,7 +14,8 @@
 #![deny(unsafe_code)]
 
 use baylee_agent::{
-    AGENT_TOKEN_VAR, AgentConfig, ENGINE_TOKEN_VAR, Order, engine_argv, heartbeat, order, status,
+    AGENT_TOKEN_VAR, AgentConfig, Asked, ENGINE_TOKEN_VAR, Order, USAGE, asked, engine_argv,
+    heartbeat, order, status,
 };
 use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt, StreamExt};
@@ -91,23 +92,106 @@ async fn shutdown_signal() -> std::io::Result<()> {
     tokio::signal::ctrl_c().await
 }
 
+/// Stops on a command line the agent does not take: the reason and
+/// [`USAGE`] on standard error, exit status 2, nothing dialled.
+fn refuse(why: &str) -> ! {
+    eprintln!("baylee-agent: {why}\n\n{USAGE}");
+    std::process::exit(2);
+}
+
+/// Makes the slots' directory again where something swept it away while the
+/// agent ran (a timer clearing `/tmp`, say): mode 0700, and only where
+/// nothing is at that path, so nothing there is taken over. One that cannot
+/// be made leaves the next engine without slots, which says so and answers
+/// without searching.
+fn remake_slots(slots: &std::path::Path) {
+    if std::fs::symlink_metadata(slots).is_ok() {
+        return;
+    }
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    match builder.create(slots) {
+        Ok(()) => tracing::warn!(
+            dir = %slots.display(),
+            "the search slots' directory was gone: made again"
+        ),
+        Err(e) => tracing::warn!(dir = %slots.display(), %e, "the search slots' directory is gone"),
+    }
+}
+
+/// Makes this agent's own directory for its engines' search slots where the
+/// operator named none (`baylee_agent::slots_parent`), and names it in
+/// `config`. The directory is removed when what this returns is dropped. One
+/// that cannot be made leaves the engines without slots, and the house
+/// answers without searching.
+fn own_slots(config: &mut AgentConfig) -> Option<tempfile::TempDir> {
+    if config.foresight_slots.is_some() {
+        return None;
+    }
+    let parent = baylee_agent::slots_parent(|name| std::env::var(name).ok());
+    // A random name, made with `mkdir`: nothing that was there before is
+    // taken over. Mode 0700 on unix, named here: `mkdir`'s own default is
+    // what the umask leaves, which may let the group write, and an engine
+    // refuses a directory others may write to.
+    let mut builder = tempfile::Builder::new();
+    builder.prefix("baylee-foresight-");
+    #[cfg(unix)]
+    let private = <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o700);
+    #[cfg(unix)]
+    builder.permissions(private);
+    match builder.tempdir_in(&parent) {
+        Ok(dir) => {
+            config.foresight_slots = Some(dir.path().to_path_buf());
+            Some(dir)
+        }
+        Err(e) => {
+            tracing::warn!(
+                parent = %parent.display(),
+                %e,
+                "no directory for the search slots: the house answers without searching"
+            );
+            None
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
+    // The command line first: before a setting is read or a gateway dialled.
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .unwrap_or_else(|_| refuse("an argument is not UTF-8"))
+        })
+        .collect();
+    match asked(&args).unwrap_or_else(|why| refuse(&why)) {
+        Asked::Help => {
+            println!("{USAGE}");
+            return;
+        }
+        Asked::Run => {}
+    }
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
-    let config = match AgentConfig::from_env() {
+    let mut config = match AgentConfig::from_env() {
         Ok(config) => config,
         Err(reason) => {
             tracing::error!(%reason, "agent not configured");
             std::process::exit(2);
         }
     };
+    // The engines' search slots: the operator's directory, or one made here
+    // that only this user may enter (0700) and that goes when the agent does.
+    let _own_slots = own_slots(&mut config);
     tracing::info!(
         gateway = config.gateway,
         name = config.name,
         capacity = config.capacity,
         engine = %config.engine_bin.display(),
+        slots = ?config.foresight_slots,
         "baylee-agent starting"
     );
 
@@ -362,14 +446,24 @@ fn start(
         running.insert(game_id.to_string(), Some(stop_tx));
     }
 
-    let child = tokio::process::Command::new(&config.engine_bin)
+    let mut engine = tokio::process::Command::new(&config.engine_bin);
+    engine
         .args(engine_argv(config.engine_address(gateway_url), game_id))
         .env(ENGINE_TOKEN_VAR, engine_token)
         .env_remove(AGENT_TOKEN_VAR)
         // A dropped agent must not leave engines behind holding games nobody
         // is routing any more.
-        .kill_on_drop(true)
-        .spawn();
+        .kill_on_drop(true);
+    // Every engine of this agent takes its search slots in one directory,
+    // so the operator's count holds across them (`BAYLEE_FORESIGHT_SEARCHES`).
+    match &config.foresight_slots {
+        Some(slots) => {
+            remake_slots(slots);
+            engine.env(baylee_agent::SLOTS_VAR, slots)
+        }
+        None => engine.env_remove(baylee_agent::SLOTS_VAR),
+    };
+    let child = engine.spawn();
     let child = match child {
         Ok(child) => child,
         Err(err) => {
@@ -514,6 +608,7 @@ mod tests {
             name: "test".into(),
             capacity: 1,
             engine_bin: "/bin/cat".into(),
+            foresight_slots: None,
         };
         let pid = owned_child(&running, "game");
         let (a, b) = tokio::io::duplex(4096);

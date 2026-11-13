@@ -64,7 +64,7 @@ fn fleshgorger_offers_life_payment_to_the_spell_controller_and_payment_works() {
     let (mut engine, flesh) = targeted_fleshgorger(20);
     wait_for_payment(&mut engine);
     assert!(matches!(engine.pending(), Pending::YesNo {
-        player, prompt: YesNoPrompt::PayLife { amount: 7 }, ..
+        player, prompt: YesNoPrompt::PayLife { amount: 7, .. }, ..
     } if *player == seat(1)));
     engine.apply(seat(1), PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
@@ -350,7 +350,7 @@ fn life_ward_reads_power_at_resolution_and_keeps_last_known_power_across_a_blink
         wait_for_payment(&mut engine);
         assert!(
             matches!(engine.pending(), Pending::YesNo {
-            player, prompt: YesNoPrompt::PayLife { amount: 10 }, ..
+            player, prompt: YesNoPrompt::PayLife { amount: 10, .. }, ..
         } if *player == seat(1)),
             "blink={blink}: {:?}",
             engine.pending()
@@ -428,7 +428,7 @@ fn prototype_is_castable_for_three_and_ward_uses_its_actual_power() {
     assert!(matches!(
         engine.pending(),
         Pending::YesNo {
-            prompt: YesNoPrompt::PayLife { amount: 3 },
+            prompt: YesNoPrompt::PayLife { amount: 3, .. },
             ..
         }
     ));

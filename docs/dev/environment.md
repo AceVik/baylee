@@ -8,6 +8,15 @@ Every variable a Baylee process reads, by process. A value outside its range
 refuses startup where this says so; the normative behaviour behind each is in
 the document it names.
 
+The servers take their settings from these variables and nothing from the
+command line but `--help`/`-h` (and the gateway's `records`, `legacy` and
+`help` subcommands; the engine server's `--attach`/`--game`/`--token`).
+`--help` prints the usage and exits 0; any other argument prints the reason
+and the usage and exits 2. Either way the process reads no setting, dials
+nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
+`baylee-engine-server`, `baylee-seathost`; `baylee-feedback` takes its
+`admin` and `export-reports` subcommands the same way).
+
 ## Neural player and offline evaluation (`baylee-train`)
 
 - `BAYLEE_EP=cuda` selects the v4 ONNX CUDA provider; unset or `cpu` uses CPU.
@@ -43,18 +52,19 @@ the document it names.
   `llm_collector4 serve --admin-bind 127.0.0.1:<port>` reuses an explicitly
   supplied `BAYLEE_COLLECTOR_ADMIN_TOKEN`, or generates a random token in memory
   when unset, and passes it only to its gateway child. No token is
-  written to status files, logs or command arguments; the admin listener is
+  written to status files, logs or command arguments; the admin unset = no admin console: `GET /admin/stats` (counts only), the accounts, card blocks, hosted models, terms and who comes in; `docs/protocol.md` §"The admin console").ener is
   off unless this bind is supplied.
 
 ## Gateway (`baylee-gateway`)
 
-- `PORT` (`0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
+- `PORT` (default 28766; `0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
+- `BAYLEE_BIND` (the address the TCP port listens on, a numeric IP; unset or empty = `127.0.0.1`, this machine only; `0.0.0.0` or `::` = every interface, which only an operator who means it sets, never a default; anything else refuses startup). A public gateway needs no value: its TLS proxy dials `127.0.0.1:28766` and its agent the unix socket (`docs/releasing.md` §"Where the gateway listens"). With `BAYLEE_ENGINE_URL` unset, engines are told to dial the bound address, or loopback when it is every interface.
 - `DATABASE_URL` (required).
 - `BAYLEE_DB_POOL` (8).
 - `STORE_PATH` (import-only, not gitignored).
 - `BAYLEE_ART_PATH`/`BAYLEE_DECK_IMAGE_PATH` (`off` disables; empty also refuses uploads; `/art` answers signed-in players only and the wasm client takes art straight from Scryfall, `docs/protocol.md` §"Card art").
-- `BAYLEE_REGISTRATION` (`off`: nobody new; `invite`: a closed beta, where a new guest needs a key, a returning guest none; `docs/protocol.md` §"A closed beta: keys (#317)"; who a Central account new here may be, `docs/central-login.md`).
-- `BAYLEE_AUTH_MODE` (whom the gateway lets in: `guests`, `central` or `mixed`; set, it wins over the console's choice and locks it, unset the console's choice or the default `central` holds; any other value stops it; a mode without guests wins over a key; replaces `BAYLEE_GUESTS`, which is read no more; `docs/central-login.md` §"Who a gateway lets in").
+- `BAYLEE_REGISTRATION` (`open`, the open beta's setting and what unset means: anybody new; `off`: no Central account new here but an admin's; `invite`, the closed beta's, stops the start since its keys are gone (10.11.2026); `docs/protocol.md` §"Who may come in new"; who a Central account new here may be, `docs/central-login.md`).
+- `BAYLEE_AUTH_MODE` (whom the gateway lets in: `guests`, `central` or `mixed`; set, it wins over the console's choice and locks it, unset the console's choice or the default `central` holds; any other value stops it; replaces `BAYLEE_GUESTS`, which is read no more; `docs/central-login.md` §"Who a gateway lets in").
 - `BAYLEE_GUEST_CAP` (live guests, default 1000, `0` = no cap; guests sign in with a display name only, are purged when their last session lapses, 30-day sliding, and may not upload images).
 - `BAYLEE_TRUSTED_PROXIES` (comma-separated proxy addresses whose `X-Forwarded-For` the per-address limiters believe; a proxy not on the list makes every client its one address, so on the official gateway all direct reports then share one address's 10 an hour, and every client counts as this machine, which the bound on sockets that have said no hello leaves out).
 - `BAYLEE_AGENT_TOKEN` (none = no agent).
@@ -75,11 +85,11 @@ the document it names.
 - `BAYLEE_ROOM_GRACE_SECS` (how long a waiting room keeps the chair of a player whose sockets all closed, default 60, `1..=600`).
 - `BAYLEE_WS_TICKET_SECS` (a socket ticket's life, default 45, `1..=600`, anything else refuses startup).
 - `BAYLEE_CHAIR_TICKETS=off` (no host may hand a chair to a seat bridge: ticket and redemption `403`).
-- `BAYLEE_CHAIR_TICKET_SECS` (a host's chair ticket for its seat bridge, default 120, `1..=600`; the delegate must be named `LLM-…`; the bridge sits on it with no account, so guests off or a closed beta still seat it; `docs/protocol.md` §"A host's chair for a seat bridge").
+- `BAYLEE_CHAIR_TICKET_SECS` (a host's chair ticket for its seat bridge, default 120, `1..=600`; the delegate must be named `LLM-…`; the bridge sits on it with no account, so guests off still seat it; `docs/protocol.md` §"A host's chair for a seat bridge").
 - `BAYLEE_WS_LEGACY_TOKENS=off` (refuse the old `?token=` on sockets before its end, 2026-10-31; `docs/protocol.md` §"Opening a socket: tickets").
 - `BAYLEE_TERMS_PATH` (a UTF-8 Markdown file ≤ 64 KiB for every language, or a directory of at most four `terms.<lang>.md` such files, `terms.en.md` required as the fallback, all naming one `<!-- version: … -->`; unset = the default terms every gateway ships, `docs/gateway-legal/`; `off` = none and nothing changes; a version an admin publishes in the console, `POST /admin/terms`, wins over both; `GET /terms?lang=` carries the version's `digest`; a Central account's acceptance lives on Central and a Central-bound session that has not accepted gets `403` `terms_required` on all but `GET /terms`, sign-out and `DELETE /account`; e2e helpers set `off`; unreadable, oversize, empty, no `en`, two versions, `draft` or a control character refuses startup; `docs/protocol.md` §"Terms of use (WG-1)"; `docs/terms-placeholder.md` and `docs/terms-placeholder/` are not legal text).
-- `BAYLEE_ADMIN_TOKEN` (≥ 32 characters, none of the gateway's other secrets; unset = no admin console: `GET /admin/stats` (counts only), `GET/POST /admin/invites`, `DELETE /admin/invites/{id}`, as `invite create|list|revoke`).
-- `BAYLEE_ADMIN_BIND` (`127.0.0.1:28767`; loopback only, else startup refuses; never on the public port or the unix socket; `BAYLEE_ADMIN_PORT_FILE` as `BAYLEE_PORT_FILE`). The console refuses `Origin`/`Sec-Fetch-*` and a non-loopback `Host` before the token, compares it in constant time, shuts for 5 min after ten wrong ones, wants `X-Baylee-Admin` on a change and logs each change on `baylee_gateway::audit` without a key; `docs/protocol.md` §"The admin console".
+- `BAYLEE_ADMIN_TOKEN` (≥ 32 characters, none of the gateway's other secrets; unset = no admin console: `GET /admin/stats` (counts only), the accounts, card blocks, hosted models, terms and who comes in; `docs/protocol.md` §"The admin console").
+- `BAYLEE_ADMIN_BIND` (`127.0.0.1:28767`; loopback only, else startup refuses; never on the public port or the unix socket; `BAYLEE_ADMIN_PORT_FILE` as `BAYLEE_PORT_FILE`). The console refuses `Origin`/`Sec-Fetch-*` and a non-loopback `Host` before the token, compares it in constant time, shuts for 5 min after ten wrong ones, wants `X-Baylee-Admin` on a change and logs each change on `baylee_gateway::audit` without a token or a reason; `docs/protocol.md` §"The admin console".
 - `BAYLEE_CENTRAL_CONFIG_FILE` (the operator's file linking the gateway to Baylee Central: the official gateway's `bridge`, or a registered gateway's `origin`, `credential`, `heartbeat` and `metadata`; read once at start, never logged; it takes precedence over a pasted token; `docs/central-login.md`).
 - `BAYLEE_CENTRAL_ENDPOINT` (where a gateway token pasted into the console talks to: `live` by default, or an explicit numeric-loopback development origin such as `http://127.0.0.1:28790`; anything else refuses startup; `docs/central-login.md` §"Linking a gateway with a token").
 
@@ -129,6 +139,9 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 - `BAYLEE_AGENT_NAME`.
 - `BAYLEE_AGENT_CAPACITY` (0 = unlimited).
 - `BAYLEE_ENGINE_BIN` (default beside the agent).
+- `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory of their user's own with mode `0700`, which the engines check). The agent hands it to every engine it starts, and makes it again (`0700`) first if something swept it away.
+
+Its engines inherit the agent's environment (less its token), so the house's search is set on the agent's unit: `BAYLEE_FORESIGHT`, `BAYLEE_FORESIGHT_WORK`, `BAYLEE_FORESIGHT_SEARCHES` and `BAYLEE_FORESIGHT_WALL_MS` below.
 
 ## Feedback service (`baylee-feedback`)
 
@@ -153,6 +166,20 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 
 - `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`: all three, or it refuses to start; none at all = listening dev harness (`PORT`, `0` and `BAYLEE_PORT_FILE` as on the gateway; `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
 - `BAYLEE_ENGINE_PUMP_STEPS` (attached transport only, default `128`, integer `1..=128`; invalid values refuse launch). `1` publishes each house-pump slice for local neural-seat experiments. A socket action followed by house work can still share one output batch; this does not expose internal automatic actions or guarantee training-equivalent observations for mixed house/socket tables. Two connected socket seats receive their own filtered view after every explicit answer.
+
+The house's search at the tables an attached engine hosts (`docs/house-ai.md` §"Foresight at a host"; read once at launch, a value out of its range refuses launch; the dev harness never searches):
+
+- `BAYLEE_FORESIGHT` (`on`, the default, or `off`: every level answers as its heuristics do).
+- `BAYLEE_FORESIGHT_WORK` (percent of each level's own bound one search may spend, `1..=100`, default `100`; never more than `expert`'s bound, eight million units, whatever a preset says; below 100 the levels play weaker than measured).
+- `BAYLEE_FORESIGHT_SEARCHES` (searches at once on the machine, among every engine of the agent, `1..=256`; default half the cores the process may use, at least one; a search that finds every slot taken is not made, the level answers as its heuristics do, and nothing waits).
+- `BAYLEE_FORESIGHT_WALL_MS` (`100..=60000`, default `3000`: a search still running after this much wall time is given up, the level's own answer is given and the engine logs a warning).
+- `BAYLEE_FORESIGHT_SLOTS` (the slots' directory, from the agent; unset or not there = no search, said in the log, and the engine plays on; one that is not a directory, not the engine's user's own, or not `0700` (`mode & 0o077` set) refuses launch; slot files are made `0600` and never opened through a symbolic link).
+
+A game's end logs `house searches` (asked, searched, replaced, refused, busy, walled, the slowest in ms, the most work one search spent) at `info`; each searched answer is a `debug` line of `baylee_gamehost` (`house search`, its µs and work).
+
+## House AI tests (`baylee-gamehost`)
+
+- `BAYLEE_REFERENCE_RERECORD` (set: `reference_profile`'s test plays the frozen `sharp-2026-11` tables and writes their answers to its fixture instead of checking them; only in a commit of its own that says why the reference had to move, `docs/house-ai.md` §"The frozen reference").
 
 ## Client (`baylee-client`)
 
@@ -179,3 +206,9 @@ Keys only from the variable a profile names (`key_env`) or the OS credential sto
 
 The fine-grained token is never a variable: it is read from the login
 keychain (service `baylee-macos-runner`) and handed to each `gh` child alone.
+
+## Builds and the local gate (`baylee-build`, `cargo dev`)
+
+- `BAYLEE_BUILD_STAMP`: `none` builds a debug profile without its stamp (commit, branch, build number and date say `unknown` or `0`), so that a commit is no reason to compile `baylee-build` and everything above it again. `cargo dev gate` sets it for its test step (`target/gate`); a release profile ignores it. Anything else, or unset: the build says what it is.
+- `BAYLEE_SCCACHE`: `0` keeps `cargo dev gate`, `gate features` and `land` from compiling through sccache where it is installed.
+- `BAYLEE_GATE_ALL`: set, `cargo dev gate` and `cargo dev land` run every test, also the slow ones left out while their crate is untouched (`--all`).

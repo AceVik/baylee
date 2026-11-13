@@ -190,15 +190,6 @@ pub struct Account {
     /// @internal
     /// The language it registered in.
     pub lang: String,
-    /// @description Whether a closed-beta key admitted it.
-    /// @internal
-    /// Whether a closed-beta key admitted it.
-    pub by_key: bool,
-    /// @description The note of the key that admitted it; `null` when no
-    /// key did, or the key is gone or has no note.
-    /// @internal
-    /// The note of that key, if it still exists and has one.
-    pub key_note: Option<String>,
     /// @description The version of the terms it last accepted, `null` for
     /// none.
     /// @internal
@@ -460,9 +451,7 @@ const ACCOUNT_COLUMNS: &str = concat!(
     " AS created_at, \
      a.email IS NOT NULL AS has_email, \
      a.email IS NOT NULL AND a.confirmed_at IS NOT NULL AS confirmed, \
-     a.lang, a.invite_id IS NOT NULL AS by_key, \
-     (SELECT i.note FROM invite i WHERE i.id = a.invite_id) AS key_note, \
-     a.terms_version, \
+     a.lang, a.terms_version, \
      (SELECT count(*) FROM deck d WHERE d.account_id = a.id) AS decks, \
      (SELECT count(*) FROM game_record_seat s WHERE s.account_id = a.id) AS games, \
      (SELECT count(*) FROM session_token t \
@@ -521,8 +510,6 @@ fn account_row(row: &QueryResult) -> Result<Account, DbErr> {
         has_email: row.try_get("", "has_email")?,
         confirmed: row.try_get("", "confirmed")?,
         lang: row.try_get("", "lang")?,
-        by_key: row.try_get("", "by_key")?,
-        key_note: row.try_get("", "key_note")?,
         terms_version: row.try_get("", "terms_version")?,
         decks: row.try_get("", "decks")?,
         games: row.try_get("", "games")?,

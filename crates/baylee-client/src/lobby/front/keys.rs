@@ -98,7 +98,6 @@ const CREATE_STOPS: &[&str] = &[
     "eye",
     "again",
     "eye-again",
-    "key",
     "submit",
     "lang",
     "music",
@@ -117,7 +116,6 @@ const CREATE_STOPS: &[&str] = &[
 const GUEST_STOPS: &[&str] = &[
     "back",
     "guest-name",
-    "key",
     "submit",
     "lang",
     "music",
@@ -237,7 +235,6 @@ pub(crate) fn field_stop(state: &LobbyState, field: Field) -> Option<Stop> {
         Field::Password => "password",
         Field::DisplayName => "display",
         Field::PasswordAgain => "again",
-        Field::InviteKey => "key",
         Field::GuestName => "guest-name",
         _ => return None,
     };

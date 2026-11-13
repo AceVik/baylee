@@ -56,10 +56,42 @@ fn seat_names() -> Vec<String> {
 /// explicitly says so (`BAYLEE_BIND=0.0.0.0`).
 const DEFAULT_BIND: &str = "127.0.0.1";
 
+/// What `baylee-engine-server --help` prints, and a refused command line
+/// after its reason.
+const USAGE: &str = "\
+usage: baylee-engine-server --attach <url> --game <id>
+           play one game for a gateway, as an agent starts it; the game's
+           token is in BAYLEE_ENGINE_TOKEN (--token <token> is read too, but
+           an argument is in the process list for every user of the machine)
+       baylee-engine-server
+           the dev harness on 127.0.0.1:28765 (PORT, BAYLEE_BIND): no
+           authentication, every hand to whoever asks; never bind it publicly
+       baylee-engine-server --help | -h
+           this text
+
+BAYLEE_ATTACH_URL, BAYLEE_GAME and BAYLEE_ENGINE_TOKEN stand in for the
+three flags; an attachment takes all three or none.";
+
 #[tokio::main]
 async fn main() {
+    // The command line's shape first, before the environment is read or a
+    // socket opened: only a launch that says nothing is the harness.
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .unwrap_or_else(|_| refuse("an argument is not UTF-8"))
+        })
+        .collect();
+    match Asked::read(&args).unwrap_or_else(|why| refuse(&why)) {
+        Asked::Help => {
+            println!("{USAGE}");
+            return;
+        }
+        Asked::Start => {}
+    }
     tracing_subscriber_init();
-    let attach = Attach::discover().unwrap_or_else(|partial| {
+    let attach = Attach::discover(&args).unwrap_or_else(|partial| {
         tracing::error!(%partial, "refusing to start");
         std::process::exit(2);
     });
@@ -75,6 +107,62 @@ async fn main() {
         return;
     }
     listen().await;
+}
+
+/// Stops on a command line this program does not take: the reason and
+/// [`USAGE`] on standard error, exit status 2, nothing opened.
+fn refuse(why: &str) -> ! {
+    eprintln!("baylee-engine-server: {why}\n\n{USAGE}");
+    std::process::exit(2);
+}
+
+/// What a command line asks for, read before anything else is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Asked {
+    /// `-h` or `--help`: print [`USAGE`], start nothing.
+    Help,
+    /// Start: attached when [`Attach::read`] finds an attachment, the dev
+    /// harness when the launch names none.
+    Start,
+}
+
+impl Asked {
+    /// The flags an attachment is named with, each followed by its value.
+    const FLAGS: [&'static str; 3] = ["--attach", "--game", "--token"];
+
+    /// Reads a command line's shape: the three flags, each at most once and
+    /// each with a value, or a request for help.
+    ///
+    /// A refusal names a flag and never a value: a value may be a token.
+    ///
+    /// # Errors
+    /// Any other argument, a flag given twice, or a flag with no value.
+    fn read(args: &[String]) -> Result<Self, String> {
+        let mut seen: Vec<&str> = Vec::new();
+        let mut rest = args.iter();
+        while let Some(arg) = rest.next() {
+            let arg = arg.as_str();
+            if arg == "-h" || arg == "--help" {
+                return Ok(Self::Help);
+            }
+            let Some(flag) = Self::FLAGS.into_iter().find(|flag| *flag == arg) else {
+                return Err(if arg.starts_with('-') {
+                    let name = arg.split_once('=').map_or(arg, |(name, _)| name);
+                    format!("{name:?} is not a flag this program takes")
+                } else {
+                    "a value with no flag before it".to_string()
+                });
+            };
+            if seen.contains(&flag) {
+                return Err(format!("{flag} is given twice"));
+            }
+            seen.push(flag);
+            if rest.next().is_none_or(|value| value.starts_with('-')) {
+                return Err(format!("{flag} takes a value"));
+            }
+        }
+        Ok(Self::Start)
+    }
 }
 
 /// Where an attached engine dials, and what it proves it is.
@@ -116,9 +204,8 @@ impl Attach {
     ///
     /// # Errors
     /// [`PartialAttach`], as [`Attach::read`].
-    fn discover() -> Result<Option<Self>, PartialAttach> {
-        let args: Vec<String> = std::env::args().skip(1).collect();
-        Self::read(&args, |name| std::env::var(name).ok())
+    fn discover(args: &[String]) -> Result<Option<Self>, PartialAttach> {
+        Self::read(args, |name| std::env::var(name).ok())
     }
 
     /// The attachment a given command line and environment describe.
@@ -745,6 +832,9 @@ mod attached {
     /// Plays one game against the gateway and returns when it ends.
     pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let pump_budget = super::pump_config::from_env()?;
+        let runner = EngineRunner::new()
+            .with_pump_budget(pump_budget)
+            .with_foresight(foresight()?);
         // `unix:<path>` is the gateway's unix socket (`BAYLEE_UNIX_SOCKET`),
         // which an agent on the same machine hands its engines; the engine
         // plane is at the usual path on it.
@@ -757,10 +847,37 @@ mod attached {
                 Some(ws_config()),
             )
             .await?;
-            return Box::pin(play(ws, attach, pump_budget)).await;
+            return Box::pin(play(ws, attach, runner)).await;
         }
         let ws = dial(&attach.url).await?;
-        Box::pin(play(ws, attach, pump_budget)).await
+        Box::pin(play(ws, attach, runner)).await
+    }
+
+    /// What the house's search may spend here, from the operator's settings
+    /// (`baylee_engine_server::foresight`), said once in the log.
+    fn foresight()
+    -> Result<Option<baylee_gamehost::HostForesight>, Box<dyn std::error::Error + Send + Sync>>
+    {
+        let settings = baylee_engine_server::foresight::Settings::from_env()?;
+        let host = settings.host()?;
+        match (&host, settings.on) {
+            (Some(_), _) => tracing::info!(
+                searches = settings.searches,
+                work_percent = settings.percent,
+                wall_ms = settings.wall_ms,
+                "the house searches within its levels' bounds"
+            ),
+            (None, true) if settings.slots.is_none() => tracing::warn!(
+                "BAYLEE_FORESIGHT_SLOTS is not set (the agent sets it): the house answers \
+                 without searching"
+            ),
+            // A slots directory that is not there said so itself.
+            (None, true) => {}
+            (None, false) => {
+                tracing::info!("BAYLEE_FORESIGHT=off: the house answers without searching");
+            }
+        }
+        Ok(host)
     }
 
     /// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`).
@@ -786,7 +903,7 @@ mod attached {
     async fn play<S>(
         mut ws: tokio_tungstenite::WebSocketStream<S>,
         attach: Attach,
-        pump_budget: usize,
+        mut runner: EngineRunner,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -797,7 +914,6 @@ mod attached {
         send(&mut ws, &engine_hello(&attach)).await?;
         tracing::info!(game_id = attach.game_id, url = attach.url, "attached");
 
-        let mut runner = EngineRunner::new().with_pump_budget(pump_budget);
         // Each deadline is anchored to what it was armed for, so it restarts
         // when its seat is asked something new rather than every time a frame
         // from another seat wakes this task up.
@@ -1034,6 +1150,63 @@ mod tests {
             // Seat 0 is a person's chair, seat 1 is the house's.
             seats: vec![seat(false), seat(true)],
         }
+    }
+
+    fn line(args: &[&str]) -> Vec<String> {
+        args.iter().map(ToString::to_string).collect()
+    }
+
+    /// Help is asked for anywhere a flag may stand, and starts nothing.
+    #[test]
+    fn help_starts_nothing() {
+        for args in [
+            &["--help"][..],
+            &["-h"][..],
+            &["--attach", "ws://gw/engine/ws", "--help"][..],
+        ] {
+            assert_eq!(Asked::read(&line(args)), Ok(Asked::Help), "{args:?}");
+        }
+        assert_eq!(Asked::read(&[]), Ok(Asked::Start), "the dev harness");
+        let argv = baylee_agent::engine_argv("unix:/run/baylee/gateway.sock", "g-7");
+        assert_eq!(
+            Asked::read(&argv),
+            Ok(Asked::Start),
+            "what the agent writes"
+        );
+        let with_token = line(&["--attach", "ws://gw", "--game", "g", "--token", "t"]);
+        assert_eq!(Asked::read(&with_token), Ok(Asked::Start));
+    }
+
+    /// Anything else on the command line stops the start, and the refusal
+    /// names a flag, never a value: a value may be a token.
+    #[test]
+    fn an_argument_it_does_not_take_is_refused_and_no_value_is_repeated() {
+        for (args, said) in [
+            (&["--version"][..], "\"--version\""),
+            (&["--port", "28765"][..], "\"--port\""),
+            (&["--token=s3cret"][..], "\"--token\""),
+            (&["--bind=0.0.0.0"][..], "\"--bind\""),
+            (&["-H"][..], "\"-H\""),
+            (&["s3cret"][..], "no flag"),
+            (&["--bogus", "--help"][..], "\"--bogus\""),
+            (&["--attach"][..], "--attach takes a value"),
+            (
+                &["--game", "--attach", "ws://gw"][..],
+                "--game takes a value",
+            ),
+            (&["--game", "a", "--game", "b"][..], "--game is given twice"),
+            (
+                &["--attach", "ws://gw", "--game", "g", "s3cret"][..],
+                "no flag",
+            ),
+        ] {
+            let refused = Asked::read(&line(args)).expect_err(said);
+            assert!(refused.contains(said), "{args:?}: {refused}");
+            assert!(!refused.contains("s3cret"), "{args:?}: {refused}");
+        }
+        assert!(USAGE.contains("127.0.0.1:28765"));
+        assert_eq!(DEFAULT_BIND, "127.0.0.1");
+        assert_eq!(DEFAULT_PORT, 28765);
     }
 
     /// Every launch is one of two programs, and three strings decide which.

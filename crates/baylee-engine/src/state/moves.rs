@@ -873,14 +873,18 @@ impl GameState {
                 )
             });
         }
+        // Off the stack and the battlefield a card is its front face again,
+        // and a split card both of its halves (CR 709.4): Fire // Ice cast as
+        // Fire was Fire alone on the stack (CR 709.3b) at face 0, so the
+        // move from the stack is asked as well as the face.
         if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
-            && let Some(def) = self
-                .object(id)
-                .filter(|o| o.is_card() && o.face_index != 0)
-                .and_then(|o| o.card)
-                .and_then(|card| self.bases.card(card.index))
+            && let Some(object) = self.object(id).filter(|o| o.is_card())
+            && let Some(def) = object.card.and_then(|card| self.bases.card(card.index))
+            && (object.face_index != 0
+                || crate::object::reads_both_halves(def)
+                    && matches!(from_zone, Zone::Stack | Zone::Battlefield))
         {
-            self.switch_face(id, def, 0);
+            self.rest_as_card(id, def);
         }
         // CR 400.7a, the exception to the new object above: what a spell or
         // ability did to a permanent spell, it goes on doing to the

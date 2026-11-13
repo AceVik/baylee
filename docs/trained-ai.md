@@ -153,12 +153,14 @@ A collector pairing (`llm_collector4 collect --pairings-file`) may name
 `house:<level>` for a seat instead of a profile: the house plays it at that
 level (`baylee-seat join --mind house`), so each teacher can be measured
 against the opponent the trained net is benchmarked against (`house:sharp`).
-A seated house is not quite the evaluator's: it answers from its socket's
-view with `HeuristicAgent::act`, without the decision context and the
-scouting report of its own deck that an in-process chair answers with
-(`Session::house_answer`). `eval4 --house-as-seat` plays the net against
-the seated kind, so a ladder's house rung and the evaluator can be compared
-on the same opponent.
+A seated house answers as the evaluator's in-process chair does since
+10.11.2026: from its socket's view, the note the table sends beside each
+question (the decision context's public part) and the deck it brought
+(`baylee_ai::noted::answer_as_seated`, `docs/house-ai.md` §"The seated
+house"). Before that it answered from the view alone and was about eight
+points weaker. `eval4 --house-as-seat` plays the net against the seated
+kind, so a ladder's house rung and the evaluator can be compared on the
+same opponent.
 It sits in the chair of the slot's second account, `HOUSE-bench-<slot>`
 (hosting where it plays seat 0, joining chair 1 otherwise): a chair ticket
 seats only a language model, and a chair must be called what plays it.
@@ -223,7 +225,7 @@ initial weights, seeds, update budgets and unchanged validation definitions.
 `eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
 can collect separate, view-only teacher labels on states visited by the neural
 actor. The original executed-action record and rollout probabilities remain
-separate from the teacher labels. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+separate from the teacher labels. `convert4 --runs DIR --train-manifest MANIFEST --out NEW_DIR --include-passive-obs --shadow-bc`
 replays complete records, verifies source/view/menu identities and reconstructs
 each teacher target. Unlabelled decisions retain their chronological position
 with zero policy weight; actual outcomes remain available for value/auxiliary
@@ -263,6 +265,107 @@ own answers do. A model that says a limit ends the run: no further deal
 starts. The fixture test plays one game with and without a watching
 `ScriptedMind`. It shows the same record, behavior probabilities and
 observations, and labels on 73 of 245 neural decisions.
+
+**The offer boundary (e1d85f5d0, 11.11.2026).** A shadow label binds the
+question it was given by the SHA-256 of its JSON and by the view hash
+(`view_only_state_hash`, which hashes the question too), and a house label is
+asked again. From e1d85f5d0 the question names the ways of casting a card from
+a graveyard or from exile (`LegalActions::cast_ways`), from protocol 43 what
+restricted mana may pay for (`restricted_taps`, `restricted_floating`), and
+from 1e29094fb the house plans each `{2/C}` of a cost on its own. None moves
+`snapshot_hash` or an answer the engine takes, so records replay; but a label
+written before the boundary and converted by a later build no longer binds
+where the question names one of them, or where the house answers a mixed
+`{2/C}` cost otherwise. **Convert shadow labels written before e1d85f5d0 with
+the runtime that wrote them.** `convert4` refuses such a label by name
+(`convert4::shadow_bc::offer_boundary`: `OFFER_REFUSAL`, the game, the input
+and `OFFER_RULE`) rather than as a generic mismatch: it rebuilds the question
+as a build before the boundary wrote it, and a label that binds that question
+is one such a build wrote. Datasets already converted stay valid as converted.
+The encoded states and menus do not read the new fields, so they are unchanged.
+
+**The question boundary (c55a8c6eb and a5eb549ca, 12.11.2026).** From
+c55a8c6eb the engine asks no order between damage effects that cannot change
+the event (protection on two creatures, a redirection onto protection), and
+from a5eb549ca nothing once the game is decided. No hash a position both
+builds reach moves, but a record written before holds answers to those
+questions, and a later build no longer asks them. **Convert records written
+before c55a8c6eb with the runtime that wrote them.** `convert4` refuses one
+that opens with its own hash by name (`convert4::question_boundary`:
+`QUESTION_REFUSAL`, the builds, the first input and `QUESTION_RULE`) and stops
+the run, as at the activator boundary; a record of another build that departs
+only there is named in its seen audit's reason, which
+`--llm-bc-skip-unreplayable` may leave out like any other rule change. Over
+`~/baylee-data/v6` (12.11.2026) 287 records replayed exactly before and do not
+after: eval records of `v6d-phase-d-run`/`-run2` (241) and `v6f-v5-benchmark`
+(31), 14 of `v6t-campaign/distill/gate`, 1 of `v6s-league`. Of the LLM corpus,
+one game crosses (`run-haiku-bulk-b`, line 307: a legend-rule choice answered
+after the game was decided), from an older build that converts by its public
+table. The lists are in `~/baylee-data/v6/train/question-boundary-c55a8c6eb/`
+(`docs/engine-internals.md` §"The question boundary"). Datasets already
+converted stay valid as converted.
+
+**The count boundary (445a4e276, 12.11.2026).** From 445a4e276 "for each
+creature, its controller sacrifices a permanent of their choice unless they
+pay {1}" (Fade Away) counts first, asks the active player's payments and
+sacrifices before any other player's, and sacrifices everything chosen at
+once; a build before it asked creature by creature in battlefield order and
+sacrificed each choice at once. Every Fade Away resolution plays differently
+from its first question, and the count is in the snapshot hash while it is
+open. **Convert records written before 445a4e276 with the runtime that wrote
+them.** `convert4` refuses one that opens with its own hash by name
+(`convert4::count_boundary`: `COUNT_REFUSAL`, the builds, the first input and
+`COUNT_RULE`) and stops the run, as at the other boundaries; a record of
+another build that parts there by its public table is named in its seen
+audit's reason. Over `~/baylee-data/v6` (12.11.2026) 24 records replayed
+exactly before and do not after, each from its first Fade Away: 21 of
+`v6t-campaign/distill/gate`, 2 of `v6s-league/gen4` and Carbon's seg2
+`attempt-000000033` (from input 258). The list is in
+`~/baylee-data/v6/train/count-boundary-445a4e276/` (`docs/engine-internals.md`
+§"The count boundary"). Datasets already converted stay valid as converted.
+
+**The split boundary (7c879ff33, 12.11.2026).** From 7c879ff33 a split card
+whose halves are instants and sorceries is both of its halves everywhere but
+the stack (CR 709.4): Fire // Ice in a hand, a library, a graveyard or exile
+is a blue and red card of mana value 4, where a build before it read Fire
+alone. Every object's characteristics are in the snapshot hash, so a record
+whose decks hold such a card opens with another hash, whether or not the game
+ever asked about it; the view shows the card's other mana value and colours,
+and the encoded states read them. **Convert records written before 7c879ff33
+whose decks hold a split card with the runtime that wrote them.** `convert4`
+refuses one held to this build's hashes by name (`convert4::split_boundary`:
+`SPLIT_REFUSAL`, the builds, the split cards and `SPLIT_RULE`) and stops the
+run: its opening hash is the one a build before the boundary wrote
+(`Engine::snapshot_hash_reading_split_cards_by_left_half`). A record of
+another build converts by its public table as before, since `seen` reads
+cards by index and no characteristic. Over `~/baylee-data/v6` (12.11.2026,
+`BAYLEE_LOCKSTEP_BEFORE=split`) 24,539 of 195,591 records part, every one at
+its opening hash; 3,960 of them replayed exactly before and do not after:
+1,853 of `v6d-phase-d-run2` and 355 of `v6d-phase-d-run` (eval records),
+820 of `v6t-campaign` (656 `distill`, 108 `s1`, 36 `q3`, 20 `mem`), 420 of
+`v6f-v5-benchmark`, 348 of `v6s-league`, 132 of `v6r-refresh`, 9 of
+`v6e-data`, and of the LLM corpus 12 of `llm-mix-20261106` and 11 of Carbon's
+seg2 (attempts 16, 27, 29, 32, 36, 40, 49, 58, 60, 62 and 71). The other
+20,579 did not replay exactly on this build before the change either. The
+report and the 3,960 (`parted-exact-before.jsonl`) are in
+`~/baylee-data/v6/train/split-boundary-7c879ff33/` (`docs/engine-internals.md`
+§"A split card is both of its halves"). Datasets already converted stay valid
+as converted.
+
+**The protocol-44 boundary (12.11.2026).** From protocol 44 a question names a
+suspend whose mana is still in the lands (`LegalActions::unpaid_suspend`). It
+moves neither `snapshot_hash` nor an answer the engine takes, the house does
+not read it, and the encoded states and menus do not read it, so records
+replay and convert as before; but a shadow label written before binds another
+question JSON where the offer names one. The view's division of a spell on the
+stack (`PlayerView::divided`) and a log line's step are in no observation a
+label binds (`ObservableView` leaves the division out). **Convert shadow
+labels written before protocol 44 with the runtime that wrote them.**
+`convert4` refuses such a label by name
+(`convert4::shadow_bc::protocol44_boundary`: `PROTOCOL44_REFUSAL`, the game,
+the input and `PROTOCOL44_RULE`): it rebuilds the question as a build of
+protocol 43 wrote it, and a label that binds that is one such a build wrote.
+Datasets already converted stay valid as converted.
 
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
@@ -858,6 +961,23 @@ games out and records them, with their reasons and the list's digest, as
 may be listed, and a list naming a game the runs lack is refused, so the
 selection never depends on an outcome or goes stale silently.
 
+Who answered decides too (the corpus rule, the ladder's clean rule; owner
+and coordinator, 12 November). The collector admits a game on technical
+grounds only, so a game whose model session broke is admitted with the
+house answering that seat in its place (two Carbon games of segment 2, the
+house at 82 % and 98 % of a seat). `convert4 --llm-bc` therefore leaves out
+every game whose technical result says the house answered more than 5 %
+(`llm_bc::house_share::MAX_HOUSE_SHARE_PERCENT`; exactly 5 % is kept) of
+either seat's questions, house / (house + llm) of
+`seats[s].transcript_answer_counts`, both seats with it, and every game that
+does not say: before any game converts, by name and reason ("house answered
+49 of 60 (81.7 %) of seat 1's questions, over 5 %"), in
+`llm-refused-house-share.json` and in `meta.json` as
+`llm_bc_refused_house_share` (the rule, the threshold, the games considered
+and refused). The selection never reads an outcome, and no excluded list has
+to be kept by hand; the admission check of each game (`LlmBc4::load`) holds
+the same rule beside the teacher's identity.
+
 #### Bringing a model onto a new catalog, step by step
 
 New cards keep arriving; this is the repeatable procedure, as run on
@@ -1073,6 +1193,56 @@ part passes the test for dropping it, but the raw net's own targeting passes it
 as well and the heads add nothing to it (+0.0 pp [−0.7, +0.7] on the fresh
 deals): the layer earns nothing there, the head is not why.
 
+### Deliberation over the answers (thinking revision 2)
+
+Off by default; design, cost and the measurement plan are in
+`docs/proposals/baylee-ai-thinking.md`. The legacy thinking steps move no
+answer (K = 0, 1, 4, 8 against K = 2 change the top answer in 1-2 % of r1's
+decisions): they never see a candidate and were never supervised per step.
+`Config5.thinking_revision = 2` adds a block that runs after the heads' first
+scores, over the 16 best answers: each step reads its previous proposal,
+compares the answers, looks at the board again and corrects the logits, and
+states a confidence in its top answer. Its correction starts at zero, so a net
+with the block attached plays as its source until trained.
+
+- Train: `train5.py --thinking-revision 2 --thinking-warmstart --init SOURCE
+  --train-thinking-only --think-supervision --decision-chunk N` (N > 1; the
+  per-step terms read the trace of deferred readouts). `--thinking-steps` is
+  then the trunk's scratchpad depth and must be the source's; the block runs
+  `--deliberation-steps`. `[think] right_by_step` in the log is the share of
+  decisions each step answers as the target (step 0: the first proposal).
+- Export: `export_onnx4.py` as before; a depth graph `model.kK.onnx` runs K
+  deliberation steps and outputs `think_confidence` beside the five outputs.
+- Play: `--thinking-steps K` picks the depth as before. `seat4` and `eval4`
+  `--think-adaptive DEEP,THRESHOLD` think a decision through again at DEEP
+  steps when the first pass states a confidence below THRESHOLD; a step costs
+  under a millisecond on the CPU, so this is a measurement of the confidence,
+  not a saving.
+- Measure: `thinking_probe5.py` (what each step corrects and breaks,
+  confidence calibration), `bench_thinking5.py` (latency per depth graph).
+
+### Grouped decode at priority (`--grouped-decode`)
+
+Off by default, in `seat4` and `eval4` (`netplay4::grouped`, contract
+`grouped_decode_v1`). At the first tap of a cast the net often puts most of
+its probability on acting, split across near-equal taps, while the single pass
+stays its top answer. With the flag, a priority question that offers both is
+read as two groups by the coarse classes of `crate::coarse_class`
+(`coarse_class_v1`, the one definition the converter's class files use too):
+pass (`PassPriority`, `CancelCast`) and act (tap, cast, activate, land,
+other). The group with the larger summed probability wins (softmax at the
+sampling temperature; at temperature 0 the plain softmax; a tie keeps the top
+answer's group) and the answer is the best candidate inside it. The losing
+group leaves the menu's logits where that decides the answer: when the greedy
+answer changes, and always when the answer is sampled. The tactical layer, if
+on, then reads those logits. Every other question is untouched.
+
+An answer the grouping decided carries no behaviour probability
+(`has_logprob = false`), and `eval4` refuses the flag for collection. The run
+summary's `grouped_decode` (and each deal's) counts the priority questions with
+both groups, the answers changed, and of those pass to act and act to pass; a
+journal's menu carries the two masses. Whether it helps play is unmeasured.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
@@ -1093,9 +1263,10 @@ hidden zone (`MarkedHiddenCard`), …) is answered by the policy and counted
 under the engine's `ForkRefusal`, each by its own name in
 `search.counts.refused`. What the seat can see now (a hand a static reveals,
 a hand it may inspect, a library top a static reveals) is kept in a fork,
-not dealt again. The fork exists only under the engine's `simulation` feature, which
-`baylee-train/onnx` turns on (`docs/engine-internals.md` §"Forking a
-simulation"), so every `eval4` build can search.
+not dealt again. The fork exists only under the engine's `fork` feature, which
+`baylee-train/onnx` turns on through gamehost's `simulation`
+(`docs/engine-internals.md` §"Forking a simulation"), so every `eval4` build
+can search.
 
 **Candidates.** K answers: the policy's own answer first, then the other
 legal answers of the same decision by the raw candidate logit of the same
@@ -1156,6 +1327,121 @@ The contract is `belief_lookahead_v4`. Its worlds are dealt from the real
 decks like every search's, so it is an offline teacher only (owner, 6
 November: hidden cards as an offline target, never an input or in the
 shipped path).
+
+**Fair worlds, turn horizons, macro candidates (v5, `--search-fair`,
+`--search-turns N`, `--search-macros`).** Three switches, each off by
+default, any of which names the contract `belief_lookahead_v5`. Together
+they are the search a seat could run from what it sees, measured here in
+the evaluator; nothing of it ships.
+
+- *Fair worlds.* With `--search-fair` a world is forked with
+  `DeckKnowledge::Prior` (`search::PriorDecks`): every card the seat cannot
+  see is dealt from the public prior its own view and its own list give
+  (`Session::public_prior`, the one builder the house's foresight uses,
+  `baylee_ai::foresight::prior`), never from another player's list. Two
+  deals that differ only in what the seat cannot see are searched alike,
+  answer for answer and report for report
+  (`a_fair_search_answers_the_same_whatever_is_hidden`; the same deals
+  under known decks fork into other worlds,
+  `known_decks_tell_the_twin_deals_apart`). A fair search is a measurement
+  of the seat, so it is the one search `--choice-guard` and
+  `--tactics-rules` run with: the net with its tactical bundle then plays
+  the seat at the root and in every world, and with
+  `--search-neural-opponent` every other chair of a world too, from that
+  chair's view of the world, so no house plays in a world.
+- *Turn horizons.* With `--search-turns N` a rollout is not stopped at the
+  seat's first settled pass or at the end of its next turn. It is played to
+  the N-th turn boundary past the root and scored at the first position of
+  the turn that starts there (`leaves.boundary`): with 2 in a duel, a
+  question of the seat's own turn is scored after the other player's whole
+  turn. H still caps the seat's decisions, so give it room (`K,P,64`). The
+  settled stop scored 77 % of the leaves of the s1 probe inside the seat's
+  own turn, 2.6 of its decisions past the root, before any reply.
+- *Macro candidates.* At priority a spell is on the engine's offer only
+  with its mana floating, so a cast starts at one of several equivalent
+  taps, and the next K − 1 answers by raw logit are mostly those taps. With
+  `--search-macros` the candidates are read off the offer
+  (`search/macros.rs`): the policy's answer, a pass, each spell the planner
+  can pay for (`baylee_ai::plan_for_spell`; its taps and the cast are one
+  candidate, a `netplay4::Script4`, the same chain `--menu-payable`
+  follows), each spell castable as things stand, each land and each ability
+  that is not a mana ability, one per card, K in all. A planned cast the
+  first world refuses is dropped before the rounds. The policy's answer has
+  the whole prior, as a declaration has. A root is the seat's priority at
+  the start of a chain (nothing floating, no spell being cast, no payment
+  owed) where the policy acts, or in the seat's own main phase with an
+  empty stack, or with another player's object on top of the stack; other
+  priority is skipped as `mid_chain` or `phase`, and a root with nothing to
+  compare as `no_alternative`. When a planned cast is chosen, the answer at
+  the root is its first tap and `SearchedAnswer4::script` carries the rest:
+  the harness answers the seat's next questions from it
+  (`search::follow_script`, recorded as `Search`) until the spell is sent or
+  the plan breaks; the summary counts `scripts`, `scripts_done` and
+  `scripts_broken`, and a change to a planned cast as `Planned<kind>`.
+
+*No house in a world, and the records a teacher is read from.* A rollout
+can still meet a house answer: the net's own fallback (a question it does
+not support, a repeated view, a failed decode) or the fork's house standing
+in for an answer the fork refused, as the evaluator does at the table. They
+are counted (`house_answers`, per event and in the summary). With
+`--search-house-free` a rollout stops before the first of them and the
+position before it is scored (`leaves.house_stop`), so no house answer is
+in a world whose scores become labels: the house is no label source. Every
+searched decision's event in `games.jsonl` holds each candidate's score in
+each world (`worlds[p][i]`, the same worlds for every candidate); the fork
+advantage of an answer is its score less the policy's own in the same
+world. `fork_advantage4 --games <games.jsonl…> [--margin 0.03]` judges those
+choices as the house's search was judged: chosen on every second world and
+judged on the others, both ways round, beside the same choice judged in the
+worlds it was made in, for all decisions, in the games no house answer
+touched, by the kind of the policy's answer, by the class of the answer a
+half chose in its place (a planned cast by its spell), and by how the
+rollouts ended (every one at its end, or some stopped before a house answer
+or otherwise). It gives the lead's standard error by decision and by game
+(one game's decisions are not independent), and how often the two halves
+chose the same answer, and the same class, where either replaced the
+policy's. A lead that holds on the other half is a signal a student can
+learn; one that vanishes there is the search fitting its few worlds.
+
+Each event also says how every one of those rollouts ended, `ends[p][i]`
+beside `worlds[p][i]` (`terminal`, `boundary`, …, `stopped`, `house_stop`,
+`taken_back`; the summary's `leaves` counts `taken_back` among `stopped`
+as it does `house_stop`). A score at a stop is the value of a position the
+rollout did not play on from, which a label may leave out: a rollout whose
+root cast the engine took back is scored just under the root's own value,
+and so is a loop the net's repeated-view fallback ends before a house
+answer. Where the policy's own answer is a bare tap (the first of a chain,
+not a planned cast), `own_intents[p]` says what it was for in world `p`:
+the seat's first answer at priority after it that is not a mana ability (a
+cast, an ability, or a pass that let the mana go), `null` where the rollout
+ended first and for any other answer. A switch from that tap to a planned
+cast of the same spell is then the same spell paid for otherwise.
+
+*The stall guard (`--search-stall-guard`).* A cast the engine cannot
+finish (no legal target once an X is announced, a cost it cannot pay) is
+taken back and the game is where it was. Its rollouts score that frozen
+position, which in a position that only gets worse beats every answer that
+plays on, so the search chose the cast again until the table's own
+repeated-view guard handed the seat to the house (a confirmation deal, 13
+house answers). With the guard the harness remembers, as the house's
+`StallMemory` does, the search's answers to one seat's priority questions
+from one position (`HeuristicAgent::position`) and the question's number;
+asked again from that position by a new question, the engine took them
+back, and the search is told so (`search_decision_avoiding`): such an
+answer is dropped from the candidates, and if it is the policy's own, that
+one is still rolled out for the others to be compared with but the best
+mean of the others is played. A root with nothing else left is the
+policy's, skipped as `taken_back`. The event names the answers set aside
+(`taken_back`), the summary counts them, and the metadata says the guard
+was on. A pass is never taken back. Off by default, so earlier runs read
+the same.
+
+The leaf is unchanged: the value head of the model that plays. The house's
+leaf round found that a search wins by the few answers that are plainly
+wrong and finds them with any sensible leaf (`house-ai-strength.md` §6a),
+and candidates are compared in the same worlds, where a head's constant
+optimism cancels; a counts leaf fitted on BayleeAI's own self-play
+(`fit_leaf`) is the fallback if a probe shows the leaf to be the limit.
 
 **Worlds.** For each world p of P, the table is forked for the deciding seat
 with the policy seed `derive(search_seed, "world", decision_seq, p)`, where
@@ -1445,6 +1731,42 @@ only when the run says it shared them, none when it says `false`, and
 refuses a team game whose run does not say, so a team game of people,
 language models or a shadow seat never gives a seat's features a hand it did
 not see.
+
+### The search student (`--search-student DIR`, eval4 and seat4)
+
+The fair search above plays better than the seat it searches for, but
+costs minutes of rollouts a game, so it cannot ship. Its records teach a
+small head instead (`netplay4::student`, contract
+`search_advantage_head_v1`): at each searched macro root the search's
+worlds give every candidate a fork advantage over the seat's own answer
+with its error (`search_labels`, the labels `search_advantage_v1`), and the
+head learns to score those candidates on the net's own embeddings.
+
+At play, at a macro root (the search's root rule, `macro_root_skip`) the
+seat answers as always: its menu is never changed. Then the net reads the
+root once more with the payable menu (`PayableMenu4::extend`: each spell the
+planner pays for is one item, so a cast is one candidate, not a chain of
+equivalent taps) from the same memory, which a decision step never moves.
+The search's macro candidates at the root (up to six, the seat's own first)
+are mapped to that menu's items (`search_labels::macro_items`; a root with
+an unmapped candidate is left to the seat), and each gets a row
+`[state_emb | cand_emb[item] | coarse class one hot, payable-added, own]`.
+The head scores the rows; the best candidate is played in the seat's place
+only when its score is above the seat's answer's by more than the head's
+margin (chosen on held-out games), ties keeping the seat's. A chosen planned
+cast is paid by the planner's taps, answer by answer, as `--menu-payable`
+pays its own. An answer the table took back from a position is not offered
+there again (`StallMemory4`, the search's stall guard).
+
+The head's `advantage.json` names the checkpoint whose embeddings it was fit
+on; a net with another checkpoint or width refuses it. The net's graph must
+export embeddings (`tactician_embeddings_v1`). eval4 refuses the student with
+a search, the payable menu arm, the tactician, a shadow teacher, a random or
+v3 seat and any collection; its summary counts the roots read and scored,
+the roots left to the seat by why, the overrides by `own class -> class`,
+and the plans begun, tapped, cast and broken. seat4 takes the same flag and
+names the head in its journal, so the shipped seat plays the student exactly
+as the evaluator measured it.
 
 ### BayleeAI v5 relational pilot
 
@@ -2237,6 +2559,11 @@ layer plays and counts per deal what each group alone would have changed. A deal
 `phase_a4 group-plan` replays only the deals a group reaches (`eval4 --only-deals`) and `phase_a4 group-table` reads the whole paired
 comparison from the shadow run and those replays.
 
+A team run replays its games: deal `d` is table `d / seats` with focal seat `d % seats`, and the focal seats of one team play one game
+(the same seed, decks and seats under the net). `eval4 --one-deal-per-game` plays only the deal whose focal seat is its team's first
+seat: at `--teams 1,2,…` two games a table, so `--deals` = seats × tables plays 2 × tables, and the summary says `one_deal_per_game`.
+Without teams it skips nothing.
+
 Measured on 2026-11-06 for B-refresh against `sharp`, each group alone on 1024 dev and 1024 fresh deals against plain tactics (500 and 503 of 1024
 won; raw plays 364 and 378). `mass` gives +3.5 pp [+2.7, +4.4] and `react` +2.4 [+1.4, +3.4], pooled over both splits; no other group's interval
 lies above zero. A group with a negative estimate entered only if readers found its class deciding at least three ladder games: `keep` (-0.3 [-0.8, +0.2])
@@ -2246,6 +2573,29 @@ It is what every number since is measured with, at K=2, and what `seat4` plays b
 --tactics-rules ''` plays the layer with no group). A change to that default is a change of the champion's play and comes with its
 paired measurement.
 It wins 571 and 579 of 1024, +7.2 pp [+5.4, +9.0], and on 1024 new deals 576 against 512, +6.2 pp [+3.9, +8.6]. Numbers are for that one runtime.
+
+### Reactive play, deck by deck
+
+Which decks an `eval4` deal seats is `baylee_train::deals4`, for the evaluator, its research ledger and `--write-deals` alike: deal `d`
+is table `d / seats` with the net in seat `d mod seats`. The `fixed` schedule (every run before it had a name) seats deck
+`(table · seats + seat) mod n`, so at two seats and an even number of decks a deck only ever meets one opponent, whatever the seed.
+`--deck-schedule round-robin` (two seats) moves the opponent on by one every `n` tables: over `2n(n−1)` deals each deck pilots against
+every other once from each seat. `eval4 --write-deals FILE --pilot-decks KEYS` writes the deals of `--deals` whose net pilots one of
+those decks (keys, or `@FILE` with a JSON list), out of the decks the same flags select, and plays nothing; `--only-deals FILE` then
+plays just them. `matrix4` plans that as a block's `pilots`.
+
+`phase_a4 table --by-deck` breaks each pair down by the deck the net piloted and by each deck it met, the largest difference first and
+small decks marked; `--pilot-deck` and `--opponent-deck` keep the deals of one deck. `gamelog4 react` counts, per game of a recorded
+run, the seat's counter windows (their object on top of the stack, a counterspell it can pay for in hand), which objects it countered
+and which it let resolve, what its counters named (kind, mana value, whose; poor when its own side's, a mana source, or cheap), passes
+through their attack and end step with a usable instant, and instants cast at their end step against those discarded or still in hand.
+The `React` group's own window reads a spell's single effect list; the count's counter reading (`reactivity::face_counters`) also sees a
+counter behind a payment or a mode, and says how many windows the group itself would see. `deck_reactivity4` ranks a split's decks by
+counterspells, instant removal and flash read from the cards' rules, per 60 cards; only a train ranking writes the key list
+(`--keys-out`) that collection may oversample.
+
+`house/victory`, the owner's counter deck, is a test deck of the commander shape with two held-out cards (tier `unseen_cards`): the
+constructed test protocol never seats it. It plays with `--shape commander --deck-split test --held-out-cards`, among 26 decks.
 
 ## The ladder against language models
 

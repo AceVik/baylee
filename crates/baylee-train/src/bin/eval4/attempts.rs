@@ -23,17 +23,21 @@ pub(super) fn prepare(args: &Args, decks: &[HouseDeck]) -> anyhow::Result<Option
             .context("research denominator overflow")?;
         let mut attempts = Vec::new();
         for deal in args.deal_offset..end {
-            let table = usize::try_from(deal)? / args.seats;
+            usize::try_from(deal)?;
+            let seated =
+                baylee_train::deals4::Deal::of(args.deck_schedule, deal, args.seats, decks.len());
             attempts.push(baylee_train_ops::research_attempts::Attempt {
                 deal,
                 seed: args
                     .first_seed
-                    .checked_add(u64::try_from(table)?)
+                    .checked_add(u64::try_from(seated.table)?)
                     .context("research seed overflow")?,
-                focal_seat: usize::try_from(deal)? % args.seats,
+                focal_seat: seated.focal_seat,
                 policy_seed: args.policy_seed,
-                deck_keys: (0..args.seats)
-                    .map(|seat| decks[(table * args.seats + seat) % decks.len()].key.clone())
+                deck_keys: seated
+                    .decks
+                    .iter()
+                    .map(|&index| decks[index].key.clone())
                     .collect(),
             });
         }

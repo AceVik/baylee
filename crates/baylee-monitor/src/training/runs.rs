@@ -362,20 +362,17 @@ fn run_name(roots: &[PathBuf], dir: &Path) -> String {
 /// Reads one `ladder.json`: the summary of each arm and the phase of each
 /// game. A broken file is the card's problem.
 pub(super) fn read_ladder(path: &Path) -> Ladder {
-    let name = path
-        .parent()
-        .map(|dir| {
-            let mut parts: Vec<_> = dir
-                .components()
-                .rev()
-                .filter_map(|c| c.as_os_str().to_str())
-                .filter(|n| valid_name(n))
-                .take(2)
-                .collect();
-            parts.reverse();
-            parts.join("/")
-        })
-        .unwrap_or_default();
+    let name = path.parent().map_or_default(|dir| {
+        let mut parts: Vec<_> = dir
+            .components()
+            .rev()
+            .filter_map(|c| c.as_os_str().to_str())
+            .filter(|n| valid_name(n))
+            .take(2)
+            .collect();
+        parts.reverse();
+        parts.join("/")
+    });
     let mut ladder = Ladder {
         name,
         ..Ladder::default()

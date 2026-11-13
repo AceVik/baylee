@@ -239,7 +239,7 @@ pub fn plan(
             .map(str::to_string),
         base_url: profile.and_then(|p| p.base_url.clone()),
         command: profile.and_then(|p| p.command.clone()),
-        fallback: profile.map(|p| p.fallback.clone()).unwrap_or_default(),
+        fallback: profile.map_or_default(|p| p.fallback.clone()),
         profile: chosen.map(|c| c.name.to_string()),
         spec,
         settings,

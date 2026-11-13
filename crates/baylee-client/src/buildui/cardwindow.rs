@@ -62,8 +62,7 @@ pub(crate) fn rules_text(card: &PoolCard, lang: Lang) -> (String, bool) {
     }
     let compiled = baylee_cards::generated_oracle::ORACLE
         .get(card.index as usize)
-        .map(|faces| faces.join("\n\n"))
-        .unwrap_or_default();
+        .map_or_default(|faces| faces.join("\n\n"));
     if compiled.trim().is_empty() {
         return (Phrase::NoRulesText.text(lang).to_string(), false);
     }

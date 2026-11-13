@@ -433,6 +433,18 @@ pub struct LobbyGame {
 }
 
 impl LobbyGame {
+    /// Whether an account sits in each chair, in seat order: what the engine
+    /// is told as `GameSetup.seat_accounts`. A seat bridge its host handed a
+    /// chair to has none (its `Delegate` names the host), and plays on when
+    /// that account is free again, so the house searches only while a chair
+    /// of an account still plays (`docs/house-ai.md` §"Foresight at a host").
+    pub(crate) fn seat_accounts(&self) -> Vec<bool> {
+        self.seats
+            .iter()
+            .map(|chair| chair.account_id.is_some())
+            .collect()
+    }
+
     /// Applies terminal-seat evidence from this game's authenticated engine.
     /// Validate the entire bounded report before releasing any admission hold.
     pub(crate) fn end_participation(&mut self, seats: &[u32]) -> bool {
@@ -1349,8 +1361,8 @@ impl TableRules {
 pub struct LobbyChair {
     // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
     /// @description The AI's difficulty, for an AI chair; `null` for a
-    /// person's.
-    /// @openapi enum: [novice, casual, steady, sharp, expert, null]
+    /// person's. `seer` alone reads the other chairs' hidden cards.
+    /// @openapi enum: [novice, casual, steady, sharp, expert, seer, null]
     ai: Option<String>,
     /// @description The name of the deck the chair plays; empty while it
     /// has none.
@@ -1453,6 +1465,28 @@ mod tests {
             delegate: None,
             hosted: None,
         }
+    }
+
+    /// The engine is told which chairs an account sits in: a person's, and
+    /// neither a seat bridge its host handed a chair to (no account of its
+    /// own, so it plays on when the host is free to start another game) nor
+    /// the house's, nor a chair nobody took.
+    #[test]
+    fn the_engine_is_told_which_chairs_an_account_sits_in() {
+        let mut game = LobbyGame::blank("g".into(), 0);
+        let person = occupied(0, "host", 1);
+        let mut bridge = LobbySeat::open(1);
+        bridge.delegate = Some(Delegate {
+            by: "host".into(),
+            name: "LLM-bridge".into(),
+            ready: true,
+            reported: false,
+        });
+        let mut house = LobbySeat::open(2);
+        house.kind = SeatKind::Ai;
+        house.ai = Some("expert".into());
+        game.seats = vec![person, bridge, house, LobbySeat::open(3)];
+        assert_eq!(game.seat_accounts(), [true, false, false, false]);
     }
 
     /// Four things have to be true before a chair may start a game, and the

@@ -41,7 +41,7 @@ mod permissions;
 pub(crate) use landwalk::subtype_choice;
 
 /// Match engine counter identities to their public representation.
-fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
+pub(crate) fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
     use baylee_view::CounterKind as V;
     match kind {
         CounterKind::Plus { power, toughness } => V::Plus { power, toughness },
@@ -849,7 +849,7 @@ impl HeuristicAgent {
         let worth = Self::permanent_worth(view, o);
         if !self.hostile(o.controller, view.seat) {
             -worth
-        } else if Self::answered(view, o) {
+        } else if self.answered(view, o) {
             0
         } else {
             worth
@@ -865,9 +865,18 @@ impl HeuristicAgent {
     /// Swords resolved first, and Path had no target left (CR 608.2b), a
     /// card thrown away (22.10.2026). Once the first has left the stack,
     /// countered or fizzled, the second is worth its card again.
-    pub(crate) fn answered(view: &PlayerView, o: &PublicObject) -> bool {
+    ///
+    /// An ally's answer counts as this seat's where its level plays as a
+    /// team (`AIProfile::TEAM_PLAY`): a teammate's Path on its way to a
+    /// creature is that creature dealt with for the whole side.
+    pub(crate) fn answered(&self, view: &PlayerView, o: &PublicObject) -> bool {
+        let ours = |seat| {
+            seat == view.seat
+                || (self.profile.plays(crate::AIProfile::TEAM_PLAY)
+                    && !self.hostile(seat, view.seat))
+        };
         view.stack.iter().any(|s| {
-            s.controller == view.seat
+            ours(s.controller)
                 && crate::tactics::stack_removes(view, s, o)
                 && s.targets.iter().any(|target| match target {
                     TargetRef::Object(source) => {
@@ -985,7 +994,7 @@ impl HeuristicAgent {
     fn bounce(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         let tempo = i64::from(o.mana_value) * 60 + 50;
         if self.hostile(o.controller, view.seat) {
-            if Self::answered(view, o) {
+            if self.answered(view, o) {
                 return 0;
             }
             // A token does not come back (CR 111.7).
@@ -1093,17 +1102,29 @@ impl HeuristicAgent {
     /// What an equipment is worth on `c`: its statics on the equipped
     /// creature, and its triggers — a token copy of `c` each combat is `c`
     /// once more.
+    ///
+    /// "Equipped creature" is written `And(creature, attached to the
+    /// source)` on most Equipment (Bonesplitter), which the bare match read
+    /// as no static at all, so an equip was worth nothing and never paid
+    /// for; from [`crate::AIProfile::EQUIPMENT_AND_X`] it is read inside the
+    /// conjunction (`target_side::enchants`).
     fn equipped(&self, view: &PlayerView, equipment: &PublicObject, c: &PublicObject) -> i64 {
+        let whole = self.profile.plays(crate::AIProfile::EQUIPMENT_AND_X);
+        let on_it = |filter: &Filter| {
+            if whole {
+                baylee_engine::target_side::enchants(filter)
+            } else {
+                matches!(filter, Filter::AttachedToBySource)
+            }
+        };
         printed_list(equipment)
             .iter()
             .map(|a| match a {
-                AbilityDef::Static(s) if matches!(s.filter, Filter::AttachedToBySource) => {
-                    match s.modifier {
-                        Modifier::ModifyPT(p, t) => i64::from(p) * 110 + i64::from(t) * 30,
-                        Modifier::AddKeyword(k) => 60 * i64::from(k.bits().count_ones()),
-                        _ => 40,
-                    }
-                }
+                AbilityDef::Static(s) if on_it(&s.filter) => match s.modifier {
+                    Modifier::ModifyPT(p, t) => i64::from(p) * 110 + i64::from(t) * 30,
+                    Modifier::AddKeyword(k) => 60 * i64::from(k.bits().count_ones()),
+                    _ => 40,
+                },
                 AbilityDef::Triggered { effects, .. } => {
                     if effects
                         .iter()
@@ -1339,7 +1360,7 @@ impl HeuristicAgent {
                 total += if lethal {
                     self.removal(view, o)
                 } else if pure_debuff {
-                    if Self::answered(view, o) {
+                    if self.answered(view, o) {
                         0
                     } else {
                         -i64::from(power) * 20 - i64::from(toughness) * 15
@@ -1541,14 +1562,14 @@ impl HeuristicAgent {
             Effect::Scry { amount }
             | Effect::Surveil { amount }
             | Effect::ScryFor { amount, .. } => {
-                if self.profile.mulligan_skill >= 2 {
+                if self.profile.card_skill() >= 2 {
                     count(*amount)? * 40
                 } else {
                     0
                 }
             }
             Effect::ReorderTopLibrary { count } => {
-                if self.profile.mulligan_skill >= 2 {
+                if self.profile.card_skill() >= 2 {
                     i64::from(*count) * 20
                 } else {
                     0

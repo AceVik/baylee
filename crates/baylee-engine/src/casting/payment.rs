@@ -314,7 +314,7 @@ impl SpendFor {
 }
 
 /// Borrow the ordinary spell; clone only an alternative projection needed by mana rules.
-pub(super) fn spending_object(
+pub(crate) fn spending_object(
     state: &GameState,
     what: SpendFor,
 ) -> Option<std::borrow::Cow<'_, crate::object::GameObject>> {
@@ -335,6 +335,11 @@ pub(super) fn spending_object(
         let mut projected = form.project(original);
         projected.set_kicked(matches!(what, SpendFor::KickedSpell(..)));
         return Some(Cow::Owned(projected));
+    }
+    if matches!(what, SpendFor::Spell(_))
+        && let Some(front) = super::split_front(state, original)
+    {
+        return Some(Cow::Owned(front));
     }
     if let Some(face) = face {
         let def = state.bases.card(original.card?.index)?;
@@ -380,7 +385,6 @@ pub(super) fn admitted_from_pool(
         return SmallVec::new();
     }
     let spell = spending_object(state, what);
-    let ability = matches!(what, SpendFor::Ability(_));
     pool.restricted()
         .iter()
         .filter_map(|mana| {
@@ -390,26 +394,85 @@ pub(super) fn admitted_from_pool(
             if super::source_cost::is_source_credit(state, *mana) {
                 return None;
             }
-            let allows = if what.is_other() {
-                provenance.restriction.uses
-                    == baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells
-                    || spell
-                        .as_ref()
-                        .is_some_and(|source| provenance.admits_source_cost(state, source))
-                    || (matches!(what, SpendFor::CumulativeUpkeep(_))
-                        && provenance.admits_cumulative_upkeep(state, spell.as_deref()))
-            } else {
-                spell
-                    .as_ref()
-                    .is_some_and(|spell| provenance.admits(state, spell, ability))
-            };
-            allows.then_some((
+            provenance_allows(state, provenance, what, spell.as_deref()).then_some((
                 *mana,
                 provenance.context.source,
                 provenance.restriction.rider,
             ))
         })
         .collect()
+}
+
+/// Whether mana made under `provenance` may pay for `what` (CR 106.6), with
+/// `spell` the object that payment is for ([`spending_object`]). The one
+/// reading of a restriction, for mana in the pool and for mana a restricted
+/// mana ability would make.
+pub(crate) fn provenance_allows(
+    state: &GameState,
+    provenance: &crate::mana_provenance::ManaProvenance,
+    what: SpendFor,
+    spell: Option<&crate::object::GameObject>,
+) -> bool {
+    if what.is_other() {
+        provenance.restriction.uses == baylee_cards_dsl::ManaUse::NonSpellPaymentsOrMatchingSpells
+            || spell.is_some_and(|source| provenance.admits_source_cost(state, source))
+            || (matches!(what, SpendFor::CumulativeUpkeep(_))
+                && provenance.admits_cumulative_upkeep(state, spell))
+    } else {
+        spell.is_some_and(|spell| {
+            provenance.admits(state, spell, matches!(what, SpendFor::Ability(_)))
+        })
+    }
+}
+
+/// The provenance the mana `player`'s mana ability of `source` would carry
+/// under `restriction`, made now: the restriction captured as the ability's
+/// resolution would capture it (its source's chosen type, watermark and
+/// linked exile). What `LegalActions::restricted_taps` asks payments of, so
+/// a planner taps a Cavern of Souls for the spells its mana may pay for and
+/// no other.
+pub(crate) fn restricted_provenance(
+    state: &GameState,
+    player: PlayerId,
+    source: ObjectId,
+    restriction: baylee_cards_dsl::ManaRestriction,
+) -> crate::mana_provenance::ManaProvenance {
+    crate::mana_provenance::ManaProvenance::capture(
+        state,
+        crate::eval::live_context(state, source),
+        None,
+        player,
+        Some(restriction),
+    )
+}
+
+/// The restricted mana floating in `player`'s pool, by provenance class
+/// (`mana_provenance::ProvenanceClass`): one provenance of each class with
+/// the units of each colour its mana floats in, source credits apart. What
+/// `LegalActions::restricted_floating` asks payments of, a class once.
+pub(crate) fn floating_classes(
+    state: &GameState,
+    player: PlayerId,
+) -> Vec<(crate::mana_provenance::ManaProvenance, [u32; 6])> {
+    let pool = &state.players[usize::from(player.get())].mana_pool;
+    let mut classes: Vec<(crate::mana_provenance::ManaProvenance, [u32; 6])> = Vec::new();
+    let mut index: std::collections::HashMap<crate::mana_provenance::ProvenanceClass, usize> =
+        std::collections::HashMap::new();
+    for mana in pool.restricted() {
+        if super::source_cost::is_source_credit(state, *mana) {
+            continue;
+        }
+        let Some(provenance) = state.restriction_info.get(&mana.restriction.0) else {
+            continue;
+        };
+        let at = *index.entry(provenance.class()).or_insert_with(|| {
+            classes.push((*provenance, [0; 6]));
+            classes.len() - 1
+        });
+        let slot = &mut classes[at].1[mana.color.index()];
+        *slot = slot.saturating_add(u32::from(mana.amount));
+    }
+    classes
 }
 
 /// The mana in `player`'s pool that carries a rider for `what` and restricts

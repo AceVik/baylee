@@ -63,7 +63,13 @@ fn season_of_the_witch_upkeep_paid_costs_two_life_and_stays() {
         unreachable!("pass_until stopped on the question")
     };
     assert_eq!(player, P0);
-    assert_eq!(prompt, YesNoPrompt::PayLife { amount: 2 });
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayLife {
+            amount: 2,
+            permanent: None
+        }
+    );
     e.apply(P0, PlayerAction::YesNo(true)).expect("pay");
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[0].life, life_before - 2);

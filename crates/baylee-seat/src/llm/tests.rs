@@ -1064,6 +1064,7 @@ async fn a_cast_the_table_took_back_is_said() {
     cast_and_back.log = LogTail {
         from,
         entries: vec![baylee_view::LogEntry {
+            step: None,
             turn: 7,
             repeat: 1,
             at: 0,
@@ -1511,6 +1512,8 @@ fn a_limit_says_it_is_one_and_when_it_lifts() {
 }
 
 mod plan;
+
+mod taps;
 
 mod draw;
 

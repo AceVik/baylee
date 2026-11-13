@@ -4,6 +4,7 @@ use baylee_view::{GameStatic, LogEvent, PolicyAnswer, SeatSetting};
 
 mod chairs;
 mod clocks;
+mod foresight;
 mod frames;
 mod holds;
 mod log;
@@ -15,6 +16,7 @@ mod refusals;
 mod scouting;
 mod shared_hand;
 mod simulation;
+mod team_exercise;
 mod trample_division;
 mod trigger_order;
 

@@ -144,6 +144,23 @@ impl EvaluationPlayer for SeatPlayers {
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         self.learner.take_choice_guard_fired()
     }
+    fn set_adaptive_thinking(
+        &mut self,
+        adaptive: baylee_train::netplay4::AdaptiveThinking4,
+    ) -> anyhow::Result<bool> {
+        // Only the seat under test thinks again; its opponents play as given.
+        self.learner.set_adaptive_thinking(adaptive)
+    }
+    fn take_thinking_use(&mut self) -> baylee_train::netplay4::ThinkingUse4 {
+        self.learner.take_thinking_use()
+    }
+    fn set_grouped_decode(&mut self) -> bool {
+        // Only the seat under test decodes by group; its opponents play as given.
+        self.learner.set_grouped_decode()
+    }
+    fn take_grouped_use(&mut self) -> baylee_train::netplay4::GroupedUse4 {
+        self.learner.take_grouped_use()
+    }
     fn set_tactic_rules(&mut self, rules: baylee_train::netplay4::TacticRules4) -> bool {
         let ok = self.learner.set_tactic_rules(rules);
         if self.search_opponent
@@ -167,6 +184,7 @@ impl EvaluationPlayer for SeatPlayers {
         teams: &[Option<u8>],
         config: baylee_train::netplay4::search::SearchConfig4,
         seed: u64,
+        taken_back: &[baylee_engine::choice::PlayerAction],
     ) -> Option<anyhow::Result<baylee_train::netplay4::search::SearchedAnswer4>> {
         let seat = usize::from(view.seat.get());
         let is_learner = self.is_learner_seat(seat);
@@ -176,7 +194,7 @@ impl EvaluationPlayer for SeatPlayers {
         self.last_was_learner = is_learner;
         let result = self
             .player_mut(seat)?
-            .search(table, view, pending, teams, config, seed)?;
+            .search(table, view, pending, teams, config, seed, taken_back)?;
         if let Ok(searched) = &result {
             self.coverage
                 .record(PendingKind4::of(pending), searched.answer.provenance.source);
@@ -202,6 +220,28 @@ impl EvaluationPlayer for SeatPlayers {
         self.coverage
             .record(PendingKind4::of(pending), answer.provenance.source);
         Some((answer, followed))
+    }
+    fn follow_script(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<baylee_train::netplay4::search::ScriptFollow4> {
+        let seat = usize::from(view.seat.get());
+        let is_learner = self.is_learner_seat(seat);
+        if !is_learner && !self.search_opponent {
+            return None;
+        }
+        self.last_was_learner = is_learner;
+        let followed = self
+            .player_mut(seat)?
+            .follow_script(view, pending, teams, script)?;
+        if let baylee_train::netplay4::search::ScriptFollow4::Answered { answer, .. } = &followed {
+            self.coverage
+                .record(PendingKind4::of(pending), answer.provenance.source);
+        }
+        Some(followed)
     }
     fn uses_payment_context(&self) -> bool {
         self.learner.uses_payment_context()

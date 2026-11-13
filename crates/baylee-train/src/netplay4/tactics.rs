@@ -19,6 +19,8 @@ use crate::deckgen::Rng;
 use crate::features4::{
     EncodedCandidates4, public_object_matches_basic_filter, untapped_mana_production,
 };
+// One reading of a counterspell for the layer, `gamelog4 react` and the deck scan.
+use crate::reactivity::counters as is_counterspell_effects;
 
 use std::cell::Cell;
 
@@ -3844,18 +3846,6 @@ fn is_hostile_target_action(view: &PlayerView, actor: PlayerId, action: &PlayerA
     }
 }
 
-fn is_counterspell_effects(effects: &[Effect]) -> bool {
-    effects.iter().any(|e| {
-        matches!(
-            e,
-            Effect::CounterTargetSpell
-                | Effect::CounterTargetSpellToExile
-                | Effect::CounterTargetSpellOrAbility
-                | Effect::CounterTargetAbility
-        )
-    })
-}
-
 fn is_pure_pump_effects(effects: &[Effect]) -> bool {
     !effects.is_empty()
         && effects.iter().any(|e| match e {
@@ -5418,6 +5408,29 @@ pub mod reading {
     #[must_use]
     pub fn spell_cost(view: &PlayerView, id: ObjectId) -> Option<u32> {
         lookup_spell_cost(view, id).map(|(cost, tax)| cost.with_x(0).cmc().saturating_add(tax))
+    }
+
+    /// The other seat's window a decision stands in, as the `React` group and
+    /// the guard read it: 0 their spell on the stack, where only a
+    /// counterspell fits; 1 their attack and 2 their end step, where only an
+    /// instant that does not counter fits; with the usable instants that fit.
+    /// `None` on the seat's own turn, in a payment, or with nothing usable.
+    #[must_use]
+    pub fn react_window(view: &PlayerView, legal: &LegalActions) -> Option<(usize, Vec<ObjectId>)> {
+        super::guard::react_window(view, legal)
+    }
+
+    /// Whether the card `id` (in a hand, on the stack, in a graveyard)
+    /// counters, by any of its spell's modes or, with flash, as it enters
+    /// ([`crate::reactivity::face_counters`]). Broader than the window above,
+    /// which reads only a spell's single effect list.
+    #[must_use]
+    pub fn counters(view: &PlayerView, id: ObjectId) -> bool {
+        super::lookup_card_identity(view, id).is_some_and(|identity| {
+            baylee_cards::by_index(identity.index).is_some_and(|def| {
+                crate::reactivity::face_counters(def, usize::from(identity.face))
+            })
+        })
     }
 }
 

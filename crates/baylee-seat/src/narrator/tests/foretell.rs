@@ -47,6 +47,8 @@ fn a_foretell_the_lands_can_pay_is_offered_with_its_taps() {
             can_pass: true,
             mana_abilities: vec![id(70), id(71)],
             unpaid_foretell: vec![id(90)],
+            restricted_taps: vec![],
+            restricted_floating: vec![],
             ..Default::default()
         }),
     };

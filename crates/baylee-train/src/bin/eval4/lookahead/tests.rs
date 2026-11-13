@@ -18,7 +18,8 @@ use baylee_train::features4::{
     HeadKind4, PendingKind4, SourceKind4, StepProvenance4, TeacherTarget4,
 };
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchPlayer4, SearchedAnswer4, Selection4, ViewContext4, search_decision,
+    KnownDecks, PriorDecks, ScriptFollow4, SearchPlayer4, SearchedAnswer4, Selection4,
+    ViewContext4, follow_script, search_decision_avoiding,
 };
 use baylee_train::netplay4::{RootDecision4, rank_single_choice};
 use clap::Parser as _;
@@ -189,8 +190,15 @@ impl EvaluationPlayer for Fixture {
         teams: &[Option<u8>],
         config: SearchConfig4,
         seed: u64,
+        taken_back: &[PlayerAction],
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
-        Some(search_decision(
+        if config.fair() {
+            let fair = PriorDecks::new(table, view);
+            return Some(search_decision_avoiding(
+                self, &fair, view, pending, teams, config, seed, taken_back,
+            ));
+        }
+        Some(search_decision_avoiding(
             self,
             &KnownDecks(table),
             view,
@@ -198,7 +206,17 @@ impl EvaluationPlayer for Fixture {
             teams,
             config,
             seed,
+            taken_back,
         ))
+    }
+    fn follow_script(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        script: &mut baylee_train::netplay4::Script4,
+    ) -> Option<ScriptFollow4> {
+        Some(follow_script(self, view, pending, teams, script))
     }
 }
 
@@ -395,7 +413,21 @@ fn passive_land_game(selection: Selection4) -> SearchTally {
     let played = play(&mut player, Some(&mut search));
     assert_eq!(played.1, 0, "no searched answer refused");
     assert_eq!(search.tally.rollout_steps, 0, "H = 0");
-    assert_eq!(search.tally.leaves.immediate, search.tally.rollouts);
+    // Nothing plays on at H = 0: every leaf is the candidate's own
+    // position, scored at once, or one the candidate itself ended (the
+    // game over, the cast taken back). Which of those a game meets is the
+    // house opponent's to decide, and it moves with the house.
+    let leaves = search.tally.leaves;
+    assert_eq!(
+        leaves.settled + leaves.horizon + leaves.turn_end,
+        0,
+        "{leaves:?}"
+    );
+    assert_eq!(
+        leaves.immediate + leaves.terminal + leaves.stopped,
+        search.tally.rollouts
+    );
+    assert!(leaves.immediate > 0);
     search.tally
 }
 
@@ -437,6 +469,50 @@ fn a_critic_that_likes_lands_changes_answers_and_the_game_still_plays() {
         0,
         "one world clears no standard error"
     );
+}
+
+/// Likes what the seat has on the battlefield, whatever it is.
+fn permanents(view: &PlayerView) -> f32 {
+    let mine = view
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == view.seat)
+        .count();
+    (0.1 + 0.05 * f32::from(u16::try_from(mine).unwrap_or(u16::MAX))).min(1.0)
+}
+
+/// The fair search through the evaluator's loop: a passive fixture whose
+/// critic likes permanents is given lands and planned casts by the search,
+/// a chosen planned cast is followed tap by tap until the spell is sent,
+/// the table refuses none of it, and every world ends at its turn boundary
+/// or with the game.
+#[test]
+fn a_fair_search_follows_its_planned_casts_through_the_game_loop() {
+    let mut player = Fixture::new(true, permanents);
+    let config = config(6, 2, 64)
+        .with_fair(true)
+        .with_macros(true)
+        .with_neural_opponent(true)
+        .with_turns(2)
+        .unwrap()
+        .with_selection(Selection4::Mean)
+        .unwrap();
+    let mut search = GameSearch::new(config, 40);
+    let played = play(&mut player, Some(&mut search));
+    let tally = &search.tally;
+    assert_eq!(played.1, 0, "no searched or scripted answer refused");
+    assert!(tally.scripts > 0, "{tally:?}");
+    assert!(tally.scripts_done > 0, "{tally:?}");
+    assert!(tally.scripts_done + tally.scripts_broken <= tally.scripts);
+    assert!(
+        tally.changes.contains_key("PassPriority->PlannedCastSpell"),
+        "{:?}",
+        tally.changes
+    );
+    let leaves = tally.leaves;
+    assert!(leaves.boundary > 0, "{leaves:?}");
+    assert_eq!(leaves.settled + leaves.turn_end + leaves.immediate, 0);
+    assert_eq!(config.contract(), "belief_lookahead_v5");
 }
 
 /// A game whose searches run their worlds at once, on rollout players of
@@ -576,5 +652,24 @@ fn search_is_refused_where_it_cannot_run() {
         reproducible(&["--search", "4,2,3", "--inference-batch", "64"]),
         false,
         "a batched search says it is not reproducible bit for bit"
+    );
+}
+
+#[test]
+fn the_stall_guard_is_asked_for_and_named() {
+    let guarded = |extra: &[&str]| {
+        let mut argv = vec!["eval4", "--model", "m", "--out", "o"];
+        argv.extend_from_slice(extra);
+        search_config(&Args::try_parse_from(argv).unwrap())
+            .unwrap()
+            .unwrap()
+    };
+    assert!(!guarded(&["--search", "4,2,3"]).stall_guard());
+    let guard = guarded(&["--search", "4,2,3", "--search-stall-guard"]);
+    assert!(guard.stall_guard());
+    assert!(guard.metadata()["stall_guard"].is_string());
+    assert!(
+        guarded(&["--search", "4,2,3"]).metadata()["stall_guard"].is_null(),
+        "a search without the guard says nothing of it"
     );
 }

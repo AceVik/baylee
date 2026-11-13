@@ -35,6 +35,7 @@ pub struct ScoutingRequest {
 }
 
 /// Immutable submitted deck, analysed once at game setup.
+#[derive(Clone)]
 pub struct DeckIntel {
     /// Main deck, preserving duplicate card counts but not shuffled order.
     pub cards: Vec<CardIndex>,
@@ -129,6 +130,10 @@ pub(crate) struct Strategy {
     pub known_threat: bool,
     pub scouted_opponents: bool,
     pub tribe: Option<SubtypeId>,
+    /// The next cards of this seat's own library, top first: whether each
+    /// is played as a land. Told only to a level that peeks; `None` where
+    /// nothing was told.
+    pub own_draws: [Option<bool>; 3],
 }
 
 /// Whether a card's effects contain a board sweeper.
@@ -158,10 +163,16 @@ fn sweeper(effects: &'static [Effect]) -> bool {
 }
 
 impl HeuristicAgent {
-    /// The stronger levels scout current hands; expert additionally looks
-    /// three draws ahead. Other levels request only their own submitted deck.
+    /// What this agent asks its host for: every level its own submitted
+    /// deck, and its own sideboard for a wish. Only a level that peeks
+    /// (`seer`, [`AIProfile::peeks`](baylee_core::preset::AIProfile::peeks))
+    /// also asks for every opponent's decklist and hand and the next three
+    /// cards of every library; a fair level never does, whatever its
+    /// search depth (owner, 10.11.2026). The host checks the chair's level
+    /// again before it answers (`baylee-gamehost`'s `scouting::request`).
     #[must_use]
     pub fn scouting_request(&self, pending: &Pending) -> Option<ScoutingRequest> {
+        let peeks = self.profile.peeks();
         matches!(
             pending,
             Pending::Priority { .. }
@@ -171,9 +182,9 @@ impl HeuristicAgent {
                 | Pending::ChooseCards { .. }
         )
         .then_some(ScoutingRequest {
-            opponents: self.profile.lookahead > 0,
-            hands: self.profile.lookahead > 0,
-            library: if self.profile.lookahead > 1 {
+            opponents: peeks,
+            hands: peeks,
+            library: if peeks {
                 LibraryAccess::Top(3)
             } else {
                 LibraryAccess::None
@@ -186,6 +197,38 @@ impl HeuristicAgent {
                 }
             ),
         })
+    }
+
+    /// Answer as the house answers at a fair table, from the seat's own deck
+    /// and nothing hidden: the report a fair chair is given in-process
+    /// (`baylee-gamehost`'s `scouting::request`, own deck only), built here
+    /// from `deck`, which the seat brought and so knows.
+    ///
+    /// One path for both hosts of the house: an in-process chair is handed
+    /// the same report by the host, and a seat over a socket builds it from
+    /// its own list (`baylee_seat::HouseMind`), so the two answer alike
+    /// wherever their views and contexts agree.
+    #[must_use]
+    pub fn act_with_own_deck(
+        &self,
+        view: &PlayerView,
+        pending: &Pending,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+        deck: &DeckIntel,
+    ) -> baylee_engine::choice::PlayerAction {
+        if self.scouting_request(pending).is_none() {
+            return self.act_with_context(view, pending, context);
+        }
+        let report = ScoutingReport {
+            seats: vec![ScoutedSeat {
+                player: view.seat,
+                deck,
+                hand: None,
+                library: None,
+                sideboard: None,
+            }],
+        };
+        self.act_with_scouting(view, pending, context, &report)
     }
 
     /// Answer with a host-authorized scouting report. Only numerical tactical
@@ -217,6 +260,10 @@ impl HeuristicAgent {
                 }
                 if deck.artifacts > deck.creatures {
                     plan.artifact_bonus += 120;
+                }
+                for (draw, index) in plan.own_draws.iter_mut().zip(seat.library.iter().flatten()) {
+                    *draw = baylee_cards::by_index(*index)
+                        .map(|def| def.land_faces_from_hand().next().is_some());
                 }
             } else if self.hostile(seat.player, view.seat) {
                 plan.scouted_opponents |= seat.hand.is_some();
@@ -250,9 +297,43 @@ impl HeuristicAgent {
 
 #[cfg(test)]
 mod tests {
-    use super::{DeckIntel, sweeper};
+    use super::{DeckIntel, LibraryAccess, sweeper};
+    use crate::HeuristicAgent;
     use baylee_cards_dsl::{Amount, Effect, Filter};
-    use baylee_core::ids::{CardIndex, SubtypeId};
+    use baylee_core::ids::{CardIndex, PlayerId, SubtypeId};
+    use baylee_core::preset::AIProfile;
+    use baylee_engine::choice::Pending;
+
+    /// **A fair level asks for its own deck and nothing hidden**, whatever
+    /// its search depth: no opponent, no hand, no library (owner,
+    /// 10.11.2026). Only the level that peeks asks for those, and it asks
+    /// for all three. Every level and every reference is asked, so a level
+    /// added later is held to it.
+    #[test]
+    fn only_a_level_that_peeks_asks_for_what_is_hidden() {
+        let pending = Pending::Mulligan {
+            player: PlayerId::new(0),
+            taken: 0,
+            next_is_free: true,
+            can_take: true,
+        };
+        for (name, profile) in AIProfile::NAMED.iter().chain(&AIProfile::REFERENCES) {
+            let ask = HeuristicAgent::new(*profile)
+                .scouting_request(&pending)
+                .expect("an opening hand asks for the deck");
+            let library = !matches!(ask.library, LibraryAccess::None);
+            if profile.peeks() {
+                assert!(ask.opponents && ask.hands && library, "{name} peeks");
+                assert!(matches!(ask.library, LibraryAccess::Top(3)), "{name}");
+            } else {
+                assert!(
+                    !ask.opponents && !ask.hands && !library,
+                    "{name} asked for what its seat cannot see"
+                );
+            }
+            assert!(!ask.sideboards, "{name}: no wish is being made");
+        }
+    }
 
     /// A card by the name it prints, which is the only handle a test should
     /// use for one — an index would pin this test to a ledger row rather

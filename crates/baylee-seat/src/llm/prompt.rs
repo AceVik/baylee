@@ -83,7 +83,8 @@ opponent's spell or ability on the stack, a payment, the end of the turn. The ne
 what ran and why it stopped.
 To go on passing afterwards, add until: my_turn, my_main2, my_end, or end_of_turn (this turn's); an \
 answer without until ends it. You are still asked every other question, every attack or block \
-with something to declare, and every payment. Add react for an opponent's spell or ability on the \
+with something to declare, and every payment. until passes priority at your stops too: to be asked \
+at a stop before then, leave until out. Add react for an opponent's spell or ability on the \
 stack meanwhile: all (you are asked; the default), targets_me (only when it targets you, a \
 permanent you control or your commander), none.
 Example, a fetchland main phase: {\"ask\": \"q38\", \"pick\": [\"a2\"], \"plan\": \

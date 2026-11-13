@@ -14,6 +14,7 @@
 //! device's vault key, and the device's secrets leave only as
 //! [`Effect::StoreSecrets`] for the OS credential store.
 
+pub mod card;
 pub mod commands;
 pub mod compose;
 pub mod contacts;

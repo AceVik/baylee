@@ -51,7 +51,8 @@ use look::Card;
 pub struct UpdateToast;
 
 /// Where the card stands: at a table (`true`, top centre, clear of the
-/// hand), else in the lobby's bottom-left corner above the legal footer.
+/// hand), else in the lobby's bottom-right corner; the lobby's toast lane
+/// stands on top of it there (`lobby::header::LaneRest`).
 #[derive(Component)]
 pub(super) struct ToastPlacement(pub(super) bool);
 
@@ -230,9 +231,9 @@ pub(super) fn meter(
         Fetch::Verifying => (
             1.0,
             String::new(),
-            progress
-                .map(|p| Phrase::UpdateDownloaded.fill(lang, &[&words::size(lang, p.total)]))
-                .unwrap_or_default(),
+            progress.map_or_default(|p| {
+                Phrase::UpdateDownloaded.fill(lang, &[&words::size(lang, p.total)])
+            }),
         ),
         Fetch::Unpacking => (
             1.0,

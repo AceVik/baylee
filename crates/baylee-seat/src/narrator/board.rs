@@ -2,6 +2,7 @@
 
 use super::{Table, object_name, tag, words};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
+use baylee_core::mana::ManaColor;
 use baylee_core::types::{SubtypeSet, TypeSet};
 use baylee_view::{
     DayNight, HandObject, ManaPoolView, ObjectStatus, OrderedTrigger, PublicObject, StackItem,
@@ -60,7 +61,7 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
                 "commander {} {} ({}, cast {} from the command zone",
                 commander.name,
                 tag(commander.object),
-                zone(table, commander.object),
+                zone(table, commander.object, None),
                 words::count(commander.casts as usize, "time"),
             );
             if tax > 0 {
@@ -91,30 +92,47 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
     }
 }
 
-/// A mana pool that holds something: "pool {R}{R}{G}".
+/// A mana pool that holds something: "pool {R}{R}{G}", and its restricted
+/// mana by colour, which the view counts so (CR 106.6): "pool {W} (+{B}
+/// restricted to some spells)". It was a bare count, so a model that had
+/// named black off Great Hall of the Biblioplex could not read its black
+/// back (Carbon b9).
 fn pool(pool: &ManaPoolView) -> String {
-    let mut out = String::from("pool ");
-    for (count, symbol) in [
-        (pool.white, "W"),
-        (pool.blue, "U"),
-        (pool.black, "B"),
-        (pool.red, "R"),
-        (pool.green, "G"),
-        (pool.colorless, "C"),
-    ] {
-        for _ in 0..count {
-            let _ = write!(out, "{{{symbol}}}");
+    let symbols = |count: &dyn Fn(ManaColor) -> u64| {
+        let mut out = String::new();
+        for color in ManaColor::ALL {
+            for _ in 0..count(color) {
+                let _ = write!(out, "{{{}}}", words::color_letter(color));
+            }
         }
+        out
+    };
+    let plain = symbols(&|color| {
+        u64::from(match color {
+            ManaColor::White => pool.white,
+            ManaColor::Blue => pool.blue,
+            ManaColor::Black => pool.black,
+            ManaColor::Red => pool.red,
+            ManaColor::Green => pool.green,
+            ManaColor::Colorless => pool.colorless,
+        })
+    });
+    let restricted = symbols(&|color| pool.restricted[color.index()]);
+    match (plain.is_empty(), restricted.is_empty()) {
+        (_, true) => format!("pool {plain}"),
+        (true, false) => format!("pool {restricted} (restricted to some spells)"),
+        (false, false) => format!("pool {plain} (+{restricted} restricted to some spells)"),
     }
-    let restricted = pool.restricted_total();
-    if restricted > 0 {
-        let _ = write!(out, " (+{restricted} restricted to some spells)");
-    }
-    out
 }
 
 /// Which zone an object is in, in words.
-pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> String {
+///
+/// A card the seat is being shown out of a hidden zone (`looking_at`) is
+/// where `shown` says, which is what the question knows of it (a library it
+/// searches, a hand it looks at); without that it is one "shown to you",
+/// never "somewhere you cannot see", since the seat is looking at it. A
+/// library's public top card is on top of its owner's library.
+pub(super) fn zone(table: &Table<'_>, id: ObjectId, shown: Option<String>) -> String {
     let view = table.view;
     if view.battlefield.iter().any(|o| o.id == id) {
         "on the battlefield".into()
@@ -128,6 +146,10 @@ pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> String {
         "in exile".into()
     } else if let Some(owner) = hand_owner(table, id) {
         format!("in {} hand", table.whose(owner))
+    } else if view.looking_at.iter().any(|o| o.id == id) {
+        shown.unwrap_or_else(|| "shown to you".into())
+    } else if let Some(top) = view.library_tops.iter().find(|o| o.id == id) {
+        format!("on top of {} library", table.whose(top.owner))
     } else {
         "somewhere you cannot see".into()
     }
@@ -355,6 +377,17 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     {
         out.push(format!("chosen name {}", face.name));
     }
+    // The colour and the opponent chosen as it entered (an "as it enters"
+    // replacement, CR 614.1c, 614.12) are shown as the type and the name
+    // are: Ward Sliver's colour is what every Sliver has protection from
+    // (CR 702.16a), which the projection carries as no keyword at all
+    // (Carbon b6, attempt 63, q252).
+    if let Some(color) = object.chosen_color {
+        out.push(format!("chosen color {}", words::color_name(color)));
+    }
+    if let Some(opponent) = object.chosen_opponent {
+        out.push(format!("chosen opponent {}", table.player(opponent)));
+    }
     if let Some([left, right]) = object.unlocked_doors {
         let open: Vec<&str> = [(left, "left"), (right, "right")]
             .into_iter()
@@ -388,18 +421,23 @@ fn stack(table: &Table<'_>, out: &mut String) {
 }
 
 /// The printed sentence of an ability on the stack or going there, where a
-/// card prints one.
+/// card prints one, or a token's verified text says it
+/// (`baylee_cards::tokens::ability_text`).
 fn ability_sentence(item: StackItem) -> Option<&'static str> {
     let StackItem::Ability {
         ability,
         text,
         rules,
+        token,
         ..
     } = item
     else {
         return None;
     };
-    let rules = rules?;
+    let Some(rules) = rules else {
+        return token
+            .and_then(|token| baylee_cards::tokens::ability_text(token.token, token.index));
+    };
     text.and_then(|t| baylee_cards::oracle::sentence(rules.card, usize::from(t.face), t.line))
         .or_else(|| {
             let index = ability?.index;
@@ -416,7 +454,24 @@ pub(super) fn trigger_line(
     row: &OrderedTrigger,
     rows: &[OrderedTrigger],
 ) -> String {
-    let mut line = format!("{} {}", tag(row.handle), row.name);
+    // A row the host could not name is named by what the ability came from:
+    // the token's own name (CR 111.4), or the card it is printed on. A Pest
+    // that died read "#T6  · about you" (Carbon block 3, attempt 20, q140).
+    let name = Some(row.name.clone())
+        .filter(|name| !name.is_empty())
+        .or_else(|| match row.item {
+            StackItem::Ability { token, rules, .. } => token
+                .and_then(|token| baylee_cards::tokens::by_token_id(token.token))
+                .map(|token| token.name.to_string())
+                .or_else(|| {
+                    let rules = rules?;
+                    let def = baylee_cards::by_index(rules.card)?;
+                    Some(def.faces.get(usize::from(rules.face))?.name.to_string())
+                }),
+            StackItem::Spell => None,
+        })
+        .unwrap_or_else(|| "an ability whose source is gone".to_string());
+    let mut line = format!("{} {name}", tag(row.handle));
     if let Some(sentence) = ability_sentence(row.item) {
         let _ = write!(line, ": \"{sentence}\"");
     }
@@ -449,18 +504,30 @@ pub(super) fn trigger_line(
     line
 }
 
-/// A stack object: a spell with its targets, or an ability with its text.
+/// A stack object: a spell with its targets, or an ability with its text,
+/// and the X announced for either (CR 601.2b, 107.3a: the value stands
+/// while it is on the stack, and every player may know it).
 pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
     let owner = table.whose(object.controller);
     let mut line = if let Some(item @ StackItem::Ability { source, .. }) = object.stack_item {
+        // A source the view no longer shows (a token that died, a card gone
+        // to a hidden zone) is named as the ability knows it, with the handle
+        // the seat was shown it by (`Table::ability_source`). A Pest's "When
+        // this token dies" read "an unnamed object" (Carbon b2).
         let from = if table.visible(source) {
             table.named(source)
         } else {
-            object_name(object)
+            table.ability_source(object, item).map_or_else(
+                || format!("{} (no longer in view)", tag(source)),
+                |name| format!("{name} {}", tag(source)),
+            )
         };
         let mut line = format!("{} {owner} ability of {from}", tag(object.id));
         if let Some(sentence) = ability_sentence(item) {
             let _ = write!(line, ": \"{sentence}\"");
+        }
+        if let Some(x) = object.chosen_x {
+            let _ = write!(line, " · X is {x}");
         }
         line
     } else {
@@ -477,18 +544,41 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
                 let _ = write!(line, ", kicked {times} times");
             }
         }
+        if let Some(x) = object.chosen_x {
+            let _ = write!(line, ", X is {x}");
+        }
+        // A colour chosen as the spell was cast is announced with it, as
+        // its X is.
+        if let Some(color) = object.chosen_color {
+            let _ = write!(line, ", chosen color {}", words::color_name(color));
+        }
         if object.bought_back {
             line.push_str(", buyback paid: it returns to its owner's hand as it resolves");
         }
         line
     };
+    let name = |target: TargetRef| match target {
+        TargetRef::Object(source) => table.named_target(source),
+        TargetRef::Player(p) => table.player(p),
+    };
+    // Each target's share of a division, announced as the spell was cast
+    // (CR 601.2d): public, and the one thing that says which target dies.
+    // Fire Covenant's 5 among two Zombies and a Bloodflow Connoisseur read
+    // as three names (Carbon block 3, attempt 18, q210).
+    let division = table.view.division(object.id);
+    let share = |target: &TargetRef| {
+        division
+            .iter()
+            .find(|(divided, _)| divided == target)
+            .map(|(_, share)| *share)
+    };
     if !object.targets.is_empty() {
         let targets: Vec<String> = object
             .targets
             .iter()
-            .map(|target| match *target {
-                TargetRef::Object(source) => table.named_target(source),
-                TargetRef::Player(p) => table.player(p),
+            .map(|target| match share(target) {
+                Some(share) => format!("{} ({share} damage)", name(*target)),
+                None => name(*target),
             })
             .collect();
         if names_without_targeting(object) {
@@ -496,6 +586,15 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         } else {
             let _ = write!(line, " · targets {}", targets.join(", "));
         }
+    }
+    // A share the targets do not name (none does today) is still said.
+    let unnamed: Vec<String> = division
+        .iter()
+        .filter(|(target, _)| !object.targets.contains(target))
+        .map(|(target, share)| format!("{share} to {}", name(*target)))
+        .collect();
+    if !unnamed.is_empty() {
+        let _ = write!(line, " · divides its damage: {}", unnamed.join(", "));
     }
     line
 }
@@ -576,10 +675,30 @@ fn hand(table: &Table<'_>, title: &str, owner: PlayerId, cards: &[HandObject], o
     }
 }
 
-/// A card in `owner`'s hand: "#50 Lightning Bolt {R} · Instant".
+/// A card in `owner`'s hand: "#50 Lightning Bolt {R} · Instant", and a
+/// split card by both halves, each castable on its own (CR 709.3): "#13
+/// Fire // Ice {1}{R} // {1}{U} · Instant // Instant".
 pub(super) fn hand_line(table: &Table<'_>, card: &HandObject, owner: PlayerId) -> String {
-    let printed = baylee_cards::by_index(card.card.index)
-        .and_then(|def| def.faces.get(usize::from(card.card.face)));
+    let def = baylee_cards::by_index(card.card.index);
+    if let Some(def) = def.filter(|def| def.is_split_spell_card())
+        && let [left, right] = def.faces
+    {
+        let mut line = format!(
+            "{} {} // {} {} // {} · {} // {}",
+            tag(card.id),
+            left.name,
+            right.name,
+            left.mana_cost,
+            right.mana_cost,
+            baylee_cards::pool::type_line(left),
+            baylee_cards::pool::type_line(right),
+        );
+        if card.commander {
+            let _ = write!(line, " · {} commander", table.whose(owner));
+        }
+        return line;
+    }
+    let printed = def.and_then(|def| def.faces.get(usize::from(card.card.face)));
     let mut line = format!("{} {}", tag(card.id), card.name);
     let type_line = printed.map_or_else(
         || words::types(card.types, baylee_core::types::SupertypeSet::EMPTY),

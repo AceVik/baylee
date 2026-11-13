@@ -557,8 +557,9 @@ fn without_npm_or_with_a_failed_build_the_service_is_still_deployed() {
     }
 }
 
-/// `stage` installs the closed-beta key command (#317) beside itself, so a
-/// release that changes it reaches the owner's terminal.
+/// `stage` installs `baylee-invite` beside itself. It only says the closed
+/// beta's keys are gone now, and is installed so that it replaces the
+/// wrapper an earlier release put there (`baylee_ops::invite`).
 #[test]
 fn finish_installs_the_staged_invite_command() {
     let (root, ran, _) = stage_on(Server::with_trunk(Trunk::Absent, false));
@@ -569,62 +570,47 @@ fn finish_installs_the_staged_invite_command() {
     assert!(ran.lines().any(|l| l == expected), "{ran}");
 }
 
-/// `baylee-invite` reads the gateway's two settings files and hands its
-/// arguments to `baylee-gateway invite` with them; with no database named
-/// in either it says so and runs nothing.
+/// `baylee-invite` made the closed beta's keys; they are gone with the
+/// beta (10.11.2026). Asked anything, it says so and runs nothing, not
+/// even the gateway, with a database named and a gateway in place.
 #[test]
-fn the_invite_command_runs_the_gateway_with_its_settings() {
+fn the_invite_command_says_the_keys_are_gone_and_runs_nothing() {
     let scratch = std::env::temp_dir().join(format!("baylee-invite-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&scratch);
     let etc = scratch.join("etc");
     std::fs::create_dir_all(&etc).unwrap();
+    let ran = scratch.join("ran");
     let gateway = scratch.join("baylee-gateway");
     std::fs::write(
         &gateway,
-        "#!/usr/bin/env bash\necho \"args: $*\"\necho \"db: $DATABASE_URL\"\n\
-         echo \"reg: $BAYLEE_REGISTRATION\"\n",
+        format!("#!/usr/bin/env bash\ntouch {}\n", ran.display()),
     )
     .unwrap();
     std::fs::set_permissions(&gateway, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let run = || {
-        std::process::Command::new(env!("CARGO_BIN_EXE_baylee-invite"))
-            .args(["create", "--note", "Max und Moritz"])
-            .env("BAYLEE_INVITE_ETC", &etc)
-            .env("BAYLEE_INVITE_BIN", &gateway)
-            .env_remove("DATABASE_URL")
-            .env_remove("BAYLEE_REGISTRATION")
-            .output()
-            .expect("baylee-invite runs")
-    };
-
-    let out = run();
-    assert_eq!(out.status.code(), Some(1), "no database named");
-    assert!(
-        String::from_utf8_lossy(&out.stderr).contains("DATABASE_URL"),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert!(out.stdout.is_empty(), "the gateway was not run");
-
     std::fs::write(
         etc.join("secrets.env"),
         "DATABASE_URL=postgres://baylee:secret@127.0.0.1/baylee\n",
     )
     .unwrap();
-    std::fs::write(etc.join("gateway.env"), "BAYLEE_REGISTRATION=invite\n").unwrap();
-    let out = run();
-    let said = String::from_utf8_lossy(&out.stdout);
-    assert!(
-        out.status.success(),
-        "{said}{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(
-        said,
-        "args: invite create --note Max und Moritz\n\
-         db: postgres://baylee:secret@127.0.0.1/baylee\n\
-         reg: invite\n"
-    );
+    std::fs::write(etc.join("gateway.env"), "BAYLEE_REGISTRATION=open\n").unwrap();
+    for args in [
+        &[][..],
+        &["list"][..],
+        &["create", "--note", "Max und Moritz"][..],
+    ] {
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-invite"))
+            .args(args)
+            .env("BAYLEE_INVITE_ETC", &etc)
+            .env("BAYLEE_INVITE_BIN", &gateway)
+            .output()
+            .expect("baylee-invite runs");
+        let said = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {said}");
+        assert!(said.contains("the closed beta's keys are gone"), "{said}");
+        assert!(said.contains("BAYLEE_REGISTRATION=open"), "{said}");
+        assert!(out.stdout.is_empty(), "{args:?}");
+        assert!(!ran.exists(), "{args:?}: the gateway was run");
+    }
     let _ = std::fs::remove_dir_all(&scratch);
 }
 
@@ -640,7 +626,7 @@ fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
     let _ = std::fs::remove_dir_all(&etc);
     std::fs::create_dir_all(&etc).unwrap();
     let (gw, fb) = (etc.join("gateway.env"), etc.join("feedback.env"));
-    std::fs::write(&gw, "BAYLEE_REGISTRATION=invite\n").unwrap();
+    std::fs::write(&gw, "BAYLEE_REGISTRATION=open\n").unwrap();
     std::fs::write(&fb, "FEEDBACK_DATABASE_URL=postgres://f@127.0.0.1/f\n").unwrap();
     let server = Server::with_feedback(true, Npm::Absent);
 
@@ -659,7 +645,7 @@ fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
     );
     assert_eq!(
         gateway,
-        format!("BAYLEE_REGISTRATION=invite\nBAYLEE_ADMIN_TOKEN={token}\n")
+        format!("BAYLEE_REGISTRATION=open\nBAYLEE_ADMIN_TOKEN={token}\n")
     );
     assert_eq!(
         feedback,
@@ -719,7 +705,7 @@ fn a_token_that_cannot_be_set_up_does_not_stop_the_deploy() {
         ));
         let _ = std::fs::remove_dir_all(&etc);
         std::fs::create_dir_all(&etc).unwrap();
-        std::fs::write(etc.join("gateway.env"), "BAYLEE_REGISTRATION=invite\n").unwrap();
+        std::fs::write(etc.join("gateway.env"), "BAYLEE_REGISTRATION=open\n").unwrap();
         std::fs::write(etc.join("feedback.env"), "FEEDBACK_DATABASE_URL=x\n").unwrap();
         let server = Server::with_feedback(true, Npm::Absent);
         let (_, ran, said) = stage_refusing(server, Some(&etc), refused);

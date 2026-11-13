@@ -2,12 +2,11 @@
 // a real baylee-gateway's console (harness.ts): the reports, a report and
 // the overview render at the narrowest phone, a phone held upright, a phone
 // on its side and a desktop, with nothing wider than the screen, targets a
-// finger can hit and no text under 12 px; keys are made, shown once, let a
-// player in, and are revoked.
+// finger can hit and no text under 12 px.
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { ADMIN, PASSWORD, admitGuest } from "./harness.ts";
+import { ADMIN, PASSWORD } from "./harness.ts";
 
 interface Size {
   name: string;
@@ -64,7 +63,7 @@ async function noSideways(page: Page) {
   // Nor is anything wider than its own card: a card's overflow hides under
   // its neighbour and never shows as a page that scrolls.
   const spilled = await page.evaluate(() =>
-    [...document.querySelectorAll(".admin-page .card, .admin-page .invite, .admin-page .panel, .admin-page .kpi")]
+    [...document.querySelectorAll(".admin-page .card, .admin-page .block, .admin-page .panel, .admin-page .kpi")]
       .filter((el) => el.scrollWidth > el.clientWidth + 1)
       .map((el) => el.textContent?.slice(0, 40)),
   );
@@ -192,61 +191,3 @@ for (const size of SIZES) {
     });
   });
 }
-
-test.describe("keys", () => {
-  test.use({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, locale: "en-GB" });
-
-  test("are made, shown once, let a player in, and are revoked", async ({ page }) => {
-    const problems = watch(page);
-    await signIn(page);
-    await page.getByRole("link", { name: "Admin" }).click();
-    await expect(page.getByTestId("keys-active")).toBeVisible();
-    await page.getByRole("link", { name: "Beta keys" }).first().click();
-    await expect(page).toHaveURL(/\/admin\/keys$/);
-
-    await page.getByLabel("How many").fill("2");
-    await page.getByLabel("Expires").selectOption("7d");
-    await page.getByLabel("Note (who it is for)").fill("for the e2e");
-    await page.getByRole("button", { name: "Make keys" }).click();
-
-    const made = page.getByRole("region", { name: "2 new keys: shown only now" });
-    await expect(made).toBeVisible();
-    await expect(made.getByRole("heading")).toBeFocused();
-    const keys = await made.locator("input.key").evaluateAll((inputs) =>
-      inputs.map((i) => (i as HTMLInputElement).value),
-    );
-    expect(keys).toHaveLength(2);
-    for (const key of keys) expect(key).toMatch(/^BAYLEE(-[0-9A-Z]{4}){4}$/);
-    await noSideways(page);
-    await fingerSized(page);
-    const dir = process.env["SCREENSHOTS_DIR"];
-    if (dir) await page.screenshot({ path: `${dir}/keys-made-phone-portrait.png`, fullPage: true });
-
-    // The list never shows a key, and has the two new ones.
-    const items = page.getByTestId("invite").filter({ hasText: "for the e2e" });
-    await expect(items).toHaveCount(2);
-    expect(await page.locator(".invite-list").textContent()).not.toContain("BAYLEE-");
-    await made.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByText(keys[0] ?? "no key")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Make keys" })).toBeVisible();
-
-    // A key the console made lets a guest in.
-    expect(await admitGuest("e2e-first", keys[0] ?? "")).toBe(200);
-
-    // Revoking asks once more, and the gateway then refuses the key.
-    const second = items.nth(0);
-    await second.getByRole("button", { name: /^Revoke…/ }).click();
-    await second.getByRole("button", { name: "Keep it" }).click();
-    await second.getByRole("button", { name: /^Revoke…/ }).click();
-    await second.getByRole("button", { name: "Revoke for good" }).click();
-    await expect(page.getByText("Key revoked.")).toBeVisible();
-    await expect(page.getByTestId("invite").filter({ hasText: "revoked" })).toHaveCount(1);
-    const statuses = [await admitGuest("e2e-second", keys[0] ?? ""), await admitGuest("e2e-third", keys[1] ?? "")];
-    // keys[0] is used up; whichever of the two was revoked, neither admits now.
-    expect(statuses).toEqual([403, 403]);
-    await expect(page.getByText(/gateway\.invite\.revoke/)).toBeVisible();
-    await expect(page.getByText(/gateway\.invite\.create/)).toBeVisible();
-    if (dir) await page.screenshot({ path: `${dir}/keys-list-phone-portrait.png`, fullPage: true });
-    expect(problems).toEqual([]);
-  });
-});

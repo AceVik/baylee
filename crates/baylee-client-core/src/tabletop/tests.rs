@@ -116,6 +116,7 @@ fn each_zone_wears_its_own_mark_and_wears_it_in_the_middle() {
         ZoneMark::Graveyard,
         ZoneMark::Exile,
         ZoneMark::Command,
+        ZoneMark::Waiting,
     ];
     let wells: Vec<Texture> = marks
         .iter()

@@ -32,12 +32,16 @@ fn cast(mine: &[CardIndex], theirs: &[CardIndex]) -> Engine<RegistryLookup> {
 }
 
 /// Answers every "pay 1 life?" question with `answer(position, asked)` until
-/// the spell is done; returns who was asked, in order.
+/// the spell is done; returns who was asked, in order, and the land each
+/// question named. "That land" is the one the payment keeps (CR 608.2d), so
+/// the question names it, and it is on the battlefield when asked: a seat
+/// told only "Pay 1 life?" paid for ten lands it could not tell apart
+/// (Carbon b8, segment 3, attempt 27, q163-q173).
 #[track_caller]
 fn answer_all(
     engine: &mut Engine<RegistryLookup>,
     mut answer: impl FnMut(usize, PlayerId) -> bool,
-) -> Vec<PlayerId> {
+) -> Vec<(PlayerId, ObjectId)> {
     let mut asked = Vec::new();
     for _ in 0..40 {
         pass_until(engine, |e| {
@@ -46,17 +50,34 @@ fn answer_all(
         let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
             return asked;
         };
+        let YesNoPrompt::PayLife {
+            amount: 1,
+            permanent: Some(land),
+        } = prompt
+        else {
+            panic!("the question is whether to pay 1 life for a land, got {prompt:?}");
+        };
         assert!(
-            matches!(prompt, YesNoPrompt::PayLife { amount: 1 }),
-            "the question is whether to pay 1 life, got {prompt:?}"
+            engine.state().object(land).is_some_and(|o| {
+                o.zone == baylee_engine::zone::Zone::Battlefield
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::LAND)
+            }),
+            "the land named is a land on the battlefield"
         );
         let yes = answer(asked.len(), player);
-        asked.push(player);
+        asked.push((player, land));
         engine
             .apply(player, PlayerAction::YesNo(yes))
             .expect("the question takes a yes or a no");
     }
     panic!("Cleansing never stopped asking");
+}
+
+/// Who was asked, in order.
+fn players(asked: &[(PlayerId, ObjectId)]) -> Vec<PlayerId> {
+    asked.iter().map(|&(player, _)| player).collect()
 }
 
 /// Cleansing (46b83657-1699-4162-a4bb-b792da396fe6) — "For each land,
@@ -72,7 +93,7 @@ fn cleansing_destroys_every_land_when_nobody_pays() {
     let asked = answer_all(&mut engine, |_, _| false);
 
     assert_eq!(
-        asked,
+        players(&asked),
         vec![P0, P1, P0, P1, P0, P1, P0, P1],
         "four lands, two players each"
     );
@@ -109,7 +130,7 @@ fn cleansing_lands_survive_when_any_player_pays() {
     let asked = answer_all(&mut engine, |_, who| who == P1);
 
     assert_eq!(
-        asked,
+        players(&asked),
         vec![P0, P1, P0, P1, P0, P1, P0, P1],
         "you decline, they pay, per land"
     );
@@ -129,15 +150,18 @@ fn cleansing_lands_survive_when_any_player_pays() {
 }
 
 /// Cleansing — one payment saves one land: I pay for my Forest (19 life),
-/// nobody pays for the opponent's Plains, which is destroyed.
+/// nobody pays for the opponent's Plains, which is destroyed. Each question
+/// named the land it was about.
 #[test]
 fn cleansing_a_payment_saves_only_its_own_land() {
     let mut engine = cast(&[forest()], &[plains()]);
+    let my_forest = on_battlefield(&engine, P0, forest()).expect("my Forest");
+    let their_plains = on_battlefield(&engine, P1, plains()).expect("their Plains");
     let asked = answer_all(&mut engine, |position, _| position == 0);
 
     assert_eq!(
         asked,
-        vec![P0, P0, P1],
+        vec![(P0, my_forest), (P0, their_plains), (P1, their_plains)],
         "the Forest asks me and is paid for; the Plains asks both"
     );
     assert!(on_battlefield(&engine, P0, forest()).is_some());

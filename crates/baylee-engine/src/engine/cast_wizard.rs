@@ -812,11 +812,10 @@ impl<L: CardLookup> Engine<L> {
         }
         // "Can't be cast" binds an effect's cast too (CR 601.3), or cascade
         // would cast what Meddling Mage named.
-        if self
-            .state
-            .object(card)
-            .is_some_and(|object| casting::cast_is_forbidden(&self.state, player, object))
-        {
+        if self.state.object(card).is_some_and(|object| {
+            let front = casting::split_front(&self.state, object);
+            casting::cast_is_forbidden(&self.state, player, front.as_ref().unwrap_or(object))
+        }) {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
         // A spell whose every effect sits under a mode is cast *in* a mode
@@ -933,7 +932,13 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(card)
             .filter(|o| o.version == version)
-            .map(|o| o.characteristics().mana_cost)
+            .map(|o| {
+                // A split card's left half, where the card is both halves.
+                casting::split_front(&self.state, o)
+                    .map_or(o.characteristics().mana_cost, |front| {
+                        front.characteristics().mana_cost
+                    })
+            })
             .ok_or(EngineError::IllegalAction("the card has gone"))?;
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
@@ -1024,11 +1029,13 @@ impl<L: CardLookup> Engine<L> {
         let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
             return false;
         };
-        if obj
+        let split_front = casting::split_front(&self.state, obj);
+        let front = split_front.as_ref().unwrap_or(obj);
+        if front
             .characteristics()
             .types
             .contains(baylee_core::types::TypeSet::LAND)
-            || casting::cast_is_forbidden(&self.state, player, obj)
+            || casting::cast_is_forbidden(&self.state, player, front)
         {
             return false;
         }
@@ -1300,7 +1307,10 @@ impl<L: CardLookup> Engine<L> {
             let card = self.state.object(wizard.card).and_then(|o| o.card);
             self.pending = Pending::YesNo {
                 player: wizard.player,
-                prompt: YesNoPrompt::PayLife { amount: 2 },
+                prompt: YesNoPrompt::PayLife {
+                    amount: 2,
+                    permanent: None,
+                },
                 source: card.map(|c| {
                     baylee_core::ids::AbilityRef::new(c.index, baylee_core::ids::AbilityRef::SPELL)
                 }),
@@ -1359,10 +1369,7 @@ impl<L: CardLookup> Engine<L> {
                         opened,
                     },
                 });
-                self.pending = Pending::Priority {
-                    player,
-                    legal: Box::new(legal),
-                };
+                self.pending = self.window_priority(player, legal);
                 self.awaiting_answer = true;
                 // A commanded card is played only "if able" (Word of
                 // Command). A price its player's lands cannot pay at all is
@@ -1642,6 +1649,23 @@ impl<L: CardLookup> Engine<L> {
         let mut legal = self.compute_legal(player);
         self.narrow_to_mana(&mut legal);
         legal.has_mana_source()
+    }
+
+    /// Whether a free cast's options may count on mana `player` makes
+    /// while paying (CR 601.2g): [`Self::can_make_mana_for_cast`].
+    ///
+    /// The free-cast offers (a linked or immediate free play, a
+    /// transformed back face, a cast an effect commands) used to ask
+    /// `has_mana_source` of the offer as priority would list it, where an
+    /// entry in `abilities` is any activation at all: a seat with a
+    /// Prodigal Sorcerer and every land tapped was offered a mode whose
+    /// mana nothing could make.
+    pub(super) fn free_cast_makes_mana(&self, player: PlayerId) -> bool {
+        #[cfg(test)]
+        if super::granted::ASK_MANA_AS_BEFORE.with(std::cell::Cell::get) {
+            return self.compute_legal(player).has_mana_source();
+        }
+        self.can_make_mana_for_cast(player)
     }
 
     /// Whether the floating mana is all that pays this cast's total once no
@@ -2004,6 +2028,9 @@ mod restricted_x_tests;
 
 #[cfg(test)]
 mod pool_x_tests;
+
+#[cfg(test)]
+mod convoke_x_tests;
 
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.

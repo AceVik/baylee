@@ -9,12 +9,12 @@ use baylee_ai::HeuristicAgent;
 use baylee_core::preset::AIProfile;
 use baylee_core::types::TypeSet;
 
-const ME: PlayerId = PlayerId::new(0);
-const SEED: u64 = 0x0b5e_55ed_5eed_0001;
+pub(super) const ME: PlayerId = PlayerId::new(0);
+pub(super) const SEED: u64 = 0x0b5e_55ed_5eed_0001;
 
 /// What the stand-in changes while it plays, all of it.
 #[derive(Clone, Debug, Default, PartialEq)]
-struct MockState {
+pub(super) struct MockState {
     observed: BTreeMap<u8, f32>,
     observations: u64,
     answers: u64,
@@ -27,16 +27,19 @@ struct MockState {
 /// `value`, its rollout answers are the steady house's, and its ranking is
 /// the real encoder's menu, in menu order, its own answer's logit raised by
 /// `confidence`. When it `lends`, its rollout players are copies of it.
-struct Mock {
-    state: MockState,
+pub(super) struct Mock {
+    pub(super) state: MockState,
     own: fn(&PlayerView, &Pending) -> Option<PlayerAction>,
     value: fn(&PlayerView) -> f32,
     confidence: f32,
     lends: bool,
+    /// Rollout answers past this many are given as the house's, as a net
+    /// gives its fallbacks.
+    pub(super) fallback_after: Option<u64>,
 }
 
 impl Mock {
-    fn new(
+    pub(super) fn new(
         own: fn(&PlayerView, &Pending) -> Option<PlayerAction>,
         value: fn(&PlayerView) -> f32,
     ) -> Self {
@@ -49,6 +52,7 @@ impl Mock {
             value,
             confidence: 0.0,
             lends: false,
+            fallback_after: None,
         }
     }
 
@@ -153,10 +157,21 @@ impl SearchPlayer4 for Mock {
             .with_seed(self.state.sampling)
             .act(view, pending);
         self.record(pending, SourceKind4::Net);
+        let source = if self
+            .fallback_after
+            .is_some_and(|after| self.state.answers > after)
+        {
+            SourceKind4::House
+        } else {
+            SourceKind4::Net
+        };
         Answer4 {
             action,
             value: 0.5,
-            provenance: StepProvenance4::default(),
+            provenance: StepProvenance4 {
+                source,
+                ..StepProvenance4::default()
+            },
             target: TeacherTarget4::default(),
         }
     }
@@ -180,7 +195,7 @@ impl SearchPlayer4 for Mock {
 }
 
 /// Passes whenever it may.
-fn passes(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
+pub(super) fn passes(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
     matches!(pending, Pending::Priority { .. }).then_some(PlayerAction::PassPriority)
 }
 
@@ -189,7 +204,7 @@ fn passes(_: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
     clippy::unnecessary_wraps,
     reason = "One signature for every stand-in policy"
 )]
-fn steady(view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
+pub(super) fn steady(view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
     Some(HeuristicAgent::new(AIProfile::STEADY).act(view, pending))
 }
 
@@ -209,7 +224,7 @@ fn counting(view: &PlayerView, types: TypeSet) -> f32 {
 }
 
 /// A critic that likes the seat's creatures.
-fn creatures(view: &PlayerView) -> f32 {
+pub(super) fn creatures(view: &PlayerView) -> f32 {
     counting(view, TypeSet::CREATURE)
 }
 
@@ -272,7 +287,7 @@ fn any_root(view: &PlayerView, _: &Pending) -> bool {
     view.turn >= 3
 }
 
-fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {
+pub(super) fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {
     SearchConfig4::new(k, p, h).unwrap()
 }
 
@@ -421,6 +436,130 @@ fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
         Some(&result.answer.action),
         "the player notes the searched answer as its own"
     );
+}
+
+/// The land-drop root of table 22 searched as [`land_root_search`] does
+/// with `lands` and a paired margin, never choosing an answer of
+/// `taken_back`.
+fn land_root_avoiding(taken_back: &[PlayerAction]) -> SearchedAnswer4 {
+    let mut session = table(22);
+    let (pending, view) = root(&mut session, land_playable);
+    let mut player = Mock::new(passes, lands);
+    player.observe(&view).unwrap();
+    let paired = Selection4::Paired {
+        margin: 0.05,
+        z: 0.0,
+    };
+    let config = config(SearchConfig4::MAX_CANDIDATES, 1, 0)
+        .with_selection(paired)
+        .unwrap()
+        .with_stall_guard(true);
+    let result = search_decision_avoiding(
+        &mut player,
+        &KnownDecks(&session),
+        &view,
+        &pending,
+        &[],
+        config,
+        SEED,
+        taken_back,
+    )
+    .unwrap();
+    session
+        .act_slice(ME, result.answer.action.clone(), 0)
+        .expect("the searched answer is legal at the table");
+    result
+}
+
+/// An answer the table took back from this position is not compared
+/// again; when it is the policy's own, the best of the others is played
+/// even inside the margin.
+#[test]
+fn the_stall_guard_never_chooses_an_answer_the_table_took_back() {
+    let free = land_root_avoiding(&[]);
+    let SearchOutcome4::Searched(report) = &free.outcome else {
+        panic!("searched: {:?}", free.outcome);
+    };
+    assert!(report.changed && report.taken_back.is_empty());
+    let land = free.answer.action.clone();
+    assert!(matches!(land, PlayerAction::PlayLand { .. }));
+
+    assert_eq!(report.actions.len(), 2, "a pass and one land: {report:?}");
+
+    // The land taken back: nothing is left to compare with the pass, which
+    // the policy plays unsearched.
+    let guarded = land_root_avoiding(std::slice::from_ref(&land));
+    assert_eq!(
+        guarded.outcome,
+        SearchOutcome4::Skipped(SearchSkip4::TakenBack)
+    );
+    assert_eq!(guarded.answer.action, PlayerAction::PassPriority);
+
+    // The policy's pass taken back: the land is played though the pass is
+    // still rolled out beside it.
+    let pass = land_root_avoiding(&[PlayerAction::PassPriority]);
+    let SearchOutcome4::Searched(report) = &pass.outcome else {
+        panic!("searched: {:?}", pass.outcome);
+    };
+    assert_eq!(report.taken_back, [PlayerAction::PassPriority]);
+    assert_eq!(report.actions, [PlayerAction::PassPriority, land.clone()]);
+    assert!(report.changed);
+    assert_eq!(pass.answer.action, land);
+    assert_eq!(report.ends.len(), report.rounds);
+    assert!(
+        report
+            .ends
+            .iter()
+            .all(|round| round.len() == report.candidates
+                && round.iter().all(|end| *end == LeafEnd4::Immediate)),
+        "H = 0 ends every rollout at once: {:?}",
+        report.ends
+    );
+}
+
+/// The candidates left once the answers taken back are set aside: every
+/// other one with such an answer goes (a cast tried at several targets
+/// with it), the policy's own stays first and is named.
+#[test]
+fn the_answers_taken_back_are_set_aside_but_the_policys_own() {
+    let card = |n| baylee_core::ids::ObjectId::new(n, 0);
+    let plain = |index, action| {
+        Candidate4::plain(Ranked4 {
+            index,
+            action,
+            logit: 0.0,
+        })
+    };
+    let cast = PlayerAction::CastSpell { card: card(3) };
+    let land = PlayerAction::PlayLand { card: card(4) };
+    let at = |target: u32| Candidate4 {
+        target: Some(TargetFollow4 {
+            action: PlayerAction::PassPriority,
+            prior: f64::from(target),
+        }),
+        ..plain(2, cast.clone())
+    };
+    let candidates = || {
+        vec![
+            plain(0, PlayerAction::PassPriority),
+            at(1),
+            at(2),
+            plain(3, land.clone()),
+        ]
+    };
+    let none = Avoided::drop(candidates(), &[]);
+    assert_eq!(none.candidates, candidates());
+    assert!(none.taken_back.is_empty() && !none.own);
+
+    let some = Avoided::drop(candidates(), &[cast.clone(), land.clone()]);
+    assert_eq!(some.candidates, [plain(0, PlayerAction::PassPriority)]);
+    assert_eq!(some.taken_back, [cast.clone(), land.clone()]);
+    assert!(!some.own);
+
+    let own = Avoided::drop(candidates(), &[PlayerAction::PassPriority]);
+    assert_eq!(own.candidates, candidates());
+    assert_eq!(own.taken_back, [PlayerAction::PassPriority]);
+    assert!(own.own);
 }
 
 #[test]
@@ -851,6 +990,10 @@ fn a_searched_game_answers_legally_and_names_every_root_it_skips() {
                     }
                     SearchSkip4::NotPolicy | SearchSkip4::CandidateRefused => {}
                     SearchSkip4::Roots => panic!("no search here takes combat alone"),
+                    SearchSkip4::MidChain | SearchSkip4::NoAlternative => {
+                        panic!("no search here compares macro candidates")
+                    }
+                    SearchSkip4::TakenBack => panic!("no search here is told of a taking back"),
                 }
                 reason.key().to_owned()
             }

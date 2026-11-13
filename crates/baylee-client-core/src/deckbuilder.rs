@@ -823,7 +823,7 @@ impl Picker {
                 Finish::Galaxy,
             ];
         }
-        self.current().map(Printing::offered).unwrap_or_default()
+        self.current().map_or_default(Printing::offered)
     }
 
     /// Whether `p` is the printing a row's choice names.
@@ -868,12 +868,12 @@ impl Picker {
         let like = self.printings.first();
         let own = Printing {
             scryfall_id: print.scryfall_id.clone().unwrap_or_default(),
-            oracle_id: like.map(|p| p.oracle_id.clone()).unwrap_or_default(),
+            oracle_id: like.map_or_default(|p| p.oracle_id.clone()),
             lang: print.lang.clone().unwrap_or_else(|| "en".to_string()),
             set: print.set.clone().unwrap_or_default(),
             collector_number: print.collector_number.clone().unwrap_or_default(),
-            name: like.map(|p| p.name.clone()).unwrap_or_default(),
-            layout: like.map(|p| p.layout.clone()).unwrap_or_default(),
+            name: like.map_or_default(|p| p.name.clone()),
+            layout: like.map_or_default(|p| p.layout.clone()),
             finishes: vec!["nonfoil".to_string()],
             ..Printing::default()
         };

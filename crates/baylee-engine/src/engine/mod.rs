@@ -520,6 +520,13 @@ pub struct Engine<L: CardLookup> {
     /// taken where the ability reaches the stack, so an activation refused
     /// in between cannot hand it to the next one.
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    /// Who is activating, for a target question another seat may answer,
+    /// and the seats that question named. Named as an activation starts,
+    /// after the special actions and the prepared cast `start_activation`
+    /// also carries (none of them an activation), and let go of where the
+    /// ability reaches the stack, the loyalty path's included, or the
+    /// activation is reversed. It is in the snapshot hash, so an activator
+    /// left standing moved every hash after it.
     activation_target_choice: targeting::ActivationTargetChoice,
     /// Incarnations fixed at target announcement, before cost payment.
     activation_target_references: crate::sources::TargetReferences,
@@ -581,11 +588,22 @@ pub struct Engine<L: CardLookup> {
     /// after setting it cannot lend its list to the next ability anything
     /// pushes.
     ///
+    /// And emptied wherever an activation ends: the push takes it, and a
+    /// mana ability (which resolves without the stack, CR 605.3b) and a
+    /// reversal release it (`Engine::release_activation_capture`). So it is
+    /// `Some` only while an activation is being made, which is how
+    /// `Engine::fork_for` reads it. It used to outlive both, and the settled
+    /// priority after any mana ability but a basic land type's (which taps
+    /// without this checklist) was refused a fork.
+    ///
     /// [`Engine::hand_over_trigger_abilities`]: crate::engine::Engine
     #[cfg(feature = "test-support")]
     pub activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
     #[cfg(not(feature = "test-support"))]
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    /// The granted ability an activation is making, read before paying can
+    /// remove its grantor; held and released with
+    /// [`Engine::activating_abilities`].
     activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     /// What each seat may do beyond answering its own choices.
     ///
@@ -1312,9 +1330,77 @@ impl<L: CardLookup> Engine<L> {
 
     /// Determinism hash (state + suspended resolution + machine fields).
     #[must_use]
-    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
     pub fn snapshot_hash(&self) -> u64 {
-        let base = self.state.snapshot_hash();
+        self.snapshot_hash_naming(&self.activation_target_choice)
+    }
+
+    /// The hash a build from before the activator boundary (commit
+    /// eb40dc593) wrote for this position, had it still named `seat` as
+    /// the activator, which it did after `seat`'s loyalty ability, a
+    /// permanent `seat` turned face up, a door `seat` unlocked or a cast
+    /// `seat` prepared, until the next activation was pressed
+    /// (`docs/engine-internals.md` §"Forking a simulation").
+    ///
+    /// For a replay audit to tell a record written before that boundary,
+    /// whose hashes differ from this build's by that field alone, from a
+    /// record that diverges. Nothing in a game reads it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn snapshot_hash_naming_stale_activator(&self, seat: PlayerId) -> u64 {
+        self.snapshot_hash_naming(&targeting::ActivationTargetChoice {
+            controller: Some(seat),
+            ..self.activation_target_choice.clone()
+        })
+    }
+
+    /// Whether a resolution stands between the count of a "for each
+    /// permanent, its controller sacrifices …" instruction and the
+    /// sacrifices it ends with (`resolve::for_each`): the positions where a
+    /// record written before that count (the count boundary,
+    /// `docs/engine-internals.md`) parts from this build.
+    ///
+    /// For a replay audit to tell such a record from one that diverges.
+    /// Nothing in a game reads it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn count_open(&self) -> bool {
+        self.resolution
+            .as_ref()
+            .is_some_and(|resolution| resolution.subject.count_open())
+    }
+
+    /// The hash a build from before the split boundary wrote for this
+    /// position, which read every split card off the stack by its left half
+    /// where this one reads both halves (CR 709.4,
+    /// `Characteristics::of_card`; `docs/engine-internals.md` §"A split card
+    /// is both of its halves").
+    ///
+    /// For a replay audit to tell a record written before that boundary,
+    /// whose hashes differ from this build's by those cards' characteristics
+    /// alone from its opening on, from a record that diverges. Nothing in a
+    /// game reads it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn snapshot_hash_reading_split_cards_by_left_half(&self) -> u64 {
+        let mut before = self.state.clone();
+        before.read_split_cards_by_left_half();
+        self.snapshot_hash_over(before.snapshot_hash(), &self.activation_target_choice)
+    }
+
+    /// [`Self::snapshot_hash`], with `target_choice` folded in where the
+    /// engine's own activator goes.
+    fn snapshot_hash_naming(&self, target_choice: &targeting::ActivationTargetChoice) -> u64 {
+        self.snapshot_hash_over(self.state.snapshot_hash(), target_choice)
+    }
+
+    /// [`Self::snapshot_hash_naming`] over `base`, the state's own hash or a
+    /// past build's reading of it.
+    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
+    fn snapshot_hash_over(
+        &self,
+        base: u64,
+        target_choice: &targeting::ActivationTargetChoice,
+    ) -> u64 {
         let mut extra = self.trigger_scan_seq;
         if let Some(PlanKind::ChooseTwoBasicLandTypes { object, first }) =
             self.pending_plan.as_ref()
@@ -1435,7 +1521,7 @@ impl<L: CardLookup> Engine<L> {
         extra = extra
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&(
-                &self.activation_target_choice,
+                target_choice,
                 &self.activation_payment,
                 &self.activation_mode,
             )));
@@ -2014,6 +2100,9 @@ impl<L: CardLookup> Engine<L> {
 }
 
 mod abilities;
+mod activation_reach;
+#[cfg(test)]
+mod activation_reach_tests;
 mod ascend;
 mod attack_sacrifice;
 mod banding;
@@ -2022,12 +2111,14 @@ mod camouflage;
 pub mod decision;
 #[cfg(not(feature = "test-support"))]
 mod decision;
+mod decision_note;
 pub(crate) mod disguise;
 mod division;
 mod room;
 mod storied;
 mod targeting;
-pub use decision::DecisionContext;
+pub use decision::{DecisionContext, ability_effects};
+pub use decision_note::DecisionNote;
 pub use progress::QueuedTrigger;
 mod actions;
 mod announcement_context;
@@ -2065,17 +2156,22 @@ mod player_control_tests;
 pub mod progress;
 #[cfg(not(feature = "test-support"))]
 mod progress;
-// Training and evaluation lookahead (`Engine::fork_for`); feature
-// `simulation`, never in a hosting build.
-#[cfg(any(test, feature = "simulation"))]
+// Lookahead in copies of the game (`Engine::fork_for`); feature `fork`: the
+// house's bounded search at a host, and training and evaluation.
+#[cfg(any(test, feature = "fork"))]
 mod simulation;
-#[cfg(any(test, feature = "simulation"))]
-pub use simulation::{DeckKnowledge, ForkRefusal};
+#[cfg(any(test, feature = "fork"))]
+pub use simulation::{DeckKnowledge, ForkRefusal, PriorFault, PublicPrior};
+mod restricted_offer;
 mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]
 mod invariants;
 
+#[cfg(test)]
+mod activation_capture_tests;
+#[cfg(test)]
+mod activation_choice_tests;
 #[cfg(test)]
 mod activation_flow_tests;
 #[cfg(test)]
@@ -2110,6 +2206,8 @@ mod capability_tests;
 mod cast_face_tests;
 #[cfg(test)]
 mod cast_trigger_flow_tests;
+#[cfg(test)]
+mod cast_ways_tests;
 #[cfg(test)]
 mod chosen_tests;
 #[cfg(test)]
@@ -2169,6 +2267,8 @@ mod flashback_tests;
 #[cfg(test)]
 mod fog_disenchant_flow_tests;
 #[cfg(test)]
+mod for_each_count_tests;
+#[cfg(test)]
 mod graveyard_order_tests;
 #[cfg(test)]
 mod pile_block_tests;
@@ -2209,6 +2309,8 @@ mod extra_turn_tests;
 mod foretell_tests;
 #[cfg(test)]
 mod game_end_tests;
+#[cfg(test)]
+mod granted_offer_tests;
 #[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]
@@ -2294,6 +2396,8 @@ mod protection_flow_tests;
 #[cfg(test)]
 mod pump_flow_tests;
 #[cfg(test)]
+mod recorded_lockstep_tests;
+#[cfg(test)]
 mod redirection_tests;
 #[cfg(test)]
 mod reflexive_tests;
@@ -2309,6 +2413,8 @@ mod removal_flow_tests;
 mod replay_basics_tests;
 #[cfg(test)]
 mod resolution_tests;
+#[cfg(test)]
+mod restricted_offer_tests;
 #[cfg(test)]
 mod reveal_tests;
 #[cfg(test)]
@@ -2339,6 +2445,8 @@ mod sickness_tests;
 mod simulation_tests;
 #[cfg(test)]
 mod speed_tests;
+#[cfg(test)]
+mod split_card_tests;
 #[cfg(test)]
 mod stack_flow_tests;
 #[cfg(test)]

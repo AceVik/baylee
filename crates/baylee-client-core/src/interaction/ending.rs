@@ -185,8 +185,7 @@ pub fn table_losses(
 ) -> Vec<String> {
     let own = view
         .seat(reader)
-        .map(|seat| loss_lines(lang, seat, None))
-        .unwrap_or_default();
+        .map_or_default(|seat| loss_lines(lang, seat, None));
     let others = view
         .seats
         .iter()

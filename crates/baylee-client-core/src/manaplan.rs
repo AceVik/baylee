@@ -24,8 +24,10 @@
 //! 2. **It never spends what a player would want to decide.** Phyrexian mana
 //!    is read as its colour and never as two life; restricted mana (Cavern of
 //!    Souls) is not counted here, because its purpose is a rules question.
-//!    `manasources` may add one restricted tap only after proving that purpose
-//!    against the view, always last, with the engine checking the payment.
+//!    `baylee_ai::spend` adds the restricted taps and the restricted mana
+//!    floating the engine names for one payment (protocol 43) as
+//!    [`Earmarked`] mana ([`plan_earmarked`]), which pays that cost and never
+//!    a paid mana ability's on the way, and the engine checks the payment.
 //! 3. **It under-counts rather than over-counts.** A source that makes two
 //!    mana *of one chosen colour* is worth one mana here, because two units
 //!    that must share a colour are not two independent units and pretending
@@ -240,7 +242,8 @@ pub fn add_converters(
     }
 }
 
-/// Rank taps by the board and colours still needed by cards in hand.
+/// Rank taps by the board and colours still needed by `wanted`: the cards in
+/// hand, and the abilities waiting for mana where the caller passes them.
 /// Creatures retain their combat and tap-ability value; a permanent with an
 /// ability that costs no mana (`beyond_mana`, asked of the rules it has:
 /// Karakas) is kept next; scarce hand colours are held back ahead of
@@ -258,10 +261,17 @@ pub fn add_converters(
 /// for its `{1}`, `{T}` draw with nothing left to pay the `{1}` cost two
 /// Islands their place, and the `{U}` in hand went uncast (report 5.11.2026).
 /// It only breaks a tie, ahead of a land nothing in hand is waiting for.
+///
+/// What such an ability *costs* is another matter, and `wanted` carries it
+/// beside the hand: the costs whose colours a source is valued by. The house
+/// hands in its hand alone; the client and the seat add the abilities on the
+/// board that wait only for mana (`baylee_ai::board_claims`), so the only
+/// Mountain Thornscape Apprentice's `{R}` needs is kept as a scarce colour of
+/// the hand is (Carbon b6, attempt 57, q262).
 pub fn prioritize(
     sources: &mut [Source],
     view: &baylee_view::PlayerView,
-    hand: &[ManaCost],
+    wanted: &[ManaCost],
     beyond_mana: &dyn Fn(baylee_view::RulesFace) -> baylee_cards_dsl::UseBeyondMana,
 ) {
     let mut supply = [0_u32; 6];
@@ -270,7 +280,8 @@ pub fn prioritize(
         supply[index] = u32::try_from(sources.iter().filter(|s| s.colors.contains(&color)).count())
             .unwrap_or(u32::MAX);
         demand[index] = u32::try_from(
-            hand.iter()
+            wanted
+                .iter()
                 .flat_map(ManaCost::symbols)
                 .filter(|symbol| mask_of_set(symbol.colors()).holds(color))
                 .count(),
@@ -464,13 +475,90 @@ impl Plan {
 /// one ([`Source::converter`]); its plan's steps are in the order they must
 /// be sent, and one that spends a floating mana planned for the spell is not
 /// answered.
+///
+/// Floating mana pays the pips of its own colour where lands can pay the
+/// rest, and of the permanents that could pay, the ones least worth keeping
+/// are tapped ([`spare`]): `{3}{U}{G}` over a floating `{U}{G}` taps three
+/// Forests and keeps the Island the hand's blue needs.
 #[must_use]
 pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
-    plain_plan(cost, pool, sources).or_else(|| convert::plan(cost, pool, sources))
+    plain_plan(cost, pool, sources, Settle::Spare).or_else(|| convert::plan(cost, pool, sources))
+}
+
+/// [`plan`] as the frozen house reads it (`docs/house-ai.md` §"The frozen
+/// reference"; every pinned generation): the matching and its
+/// consolidation, with no tapped permanent traded for one worth less
+/// ([`spare`], Carbon b4, 12.11.2026). Whether a cost plans at all is the
+/// same answer as [`plan`]'s; only which permanents it taps may differ, and
+/// the house taps what it tapped when it was frozen.
+#[must_use]
+pub fn plan_frozen(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+    plain_plan(cost, pool, sources, Settle::Frozen).or_else(|| convert::plan(cost, pool, sources))
+}
+
+/// Mana that may pay the cost being planned and nothing else on the way:
+/// restricted mana (CR 106.6) the engine names for this one payment
+/// (`LegalActions::restricted_taps`, `restricted_floating`, read by
+/// `baylee_ai::spend`).
+///
+/// It pays the cost's own symbols as any mana does, and never a paid mana
+/// ability's cost on the way to them: Great Hall of the Biblioplex's mana may
+/// be spent "only to cast an instant or sorcery spell", so it pays Esper
+/// Charm and not Study Hall's `{1}`. Some restricted mana could pay that
+/// `{1}` (a Powerstone's), and is under-counted here, which is this module's
+/// third rule.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Earmarked<'a> {
+    /// Restricted mana floating that may pay this cost, by colour
+    /// (`ManaColor::index`).
+    pub floating: [u32; 6],
+    /// The taps among the sources whose mana is restricted, by permanent and
+    /// action.
+    pub taps: &'a [(ObjectId, Tap)],
+}
+
+/// [`plan`] with what the engine said restricted mana may pay for: `pool`'s
+/// unrestricted mana, `earmarked`'s for this cost alone, and `pool`'s other
+/// restricted mana left alone. Unlike [`plan`], restricted mana floating
+/// does not keep a paid mana ability out of the plan: what may spend it is
+/// known here (Carbon b9: Study Hall's black was never planned while Great
+/// Hall's mana floated for instants and sorceries).
+#[must_use]
+pub fn plan_earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+) -> Option<Plan> {
+    let mut plain = *pool;
+    plain.restricted = [0; 6];
+    plain_plan(
+        cost,
+        &with_floating(&plain, &earmarked.floating),
+        sources,
+        Settle::Spare,
+    )
+    .or_else(|| convert::earmarked(cost, &plain, earmarked, sources))
+}
+
+/// `pool` with `floating` added to its unrestricted counts.
+#[must_use]
+pub fn with_floating(pool: &ManaPoolView, floating: &[u32; 6]) -> ManaPoolView {
+    let mut out = *pool;
+    for color in ManaColor::ALL {
+        let at = slot(&mut out, color);
+        *at = at.saturating_add(floating[color.index()]);
+    }
+    out
 }
 
 /// [`plan`] with no paid mana ability among its answers.
-fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+fn plain_plan(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    settle: Settle,
+) -> Option<Plan> {
     let pours: Vec<usize> = sources
         .iter()
         .enumerate()
@@ -478,7 +566,7 @@ fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Optio
         .map(|(index, _)| index)
         .collect();
     if pours.is_empty() || pours.len() > MAX_POURS {
-        return plan_once(cost, pool, sources);
+        return plan_once(cost, pool, sources, settle);
     }
     // Every reading at once: `None` keeps a permanent's one-mana reading,
     // `Some(c)` names the colour all of its mana is poured in.
@@ -523,7 +611,7 @@ fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Optio
                 narrowed[index].dear = None;
             }
         }
-        let Some(mut found) = plan_once(cost, pool, &narrowed) else {
+        let Some(mut found) = plan_once(cost, pool, &narrowed, settle) else {
             continue;
         };
         // The engine still asks such a permanent its colour: narrowing it
@@ -560,7 +648,26 @@ pub fn plan_with_life(
     sources: &[Source],
     life: i32,
 ) -> Option<Plan> {
-    if let Some(found) = plan(cost, pool, sources) {
+    with_life(cost, life, |cost| plan(cost, pool, sources))
+}
+
+/// [`plan_with_life`] with [`plan_earmarked`]'s reading of restricted mana.
+#[must_use]
+pub fn plan_with_life_earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+    life: i32,
+) -> Option<Plan> {
+    with_life(cost, life, |cost| {
+        plan_earmarked(cost, pool, earmarked, sources)
+    })
+}
+
+/// [`plan_with_life`] over any planner of mana alone.
+fn with_life(cost: &ManaCost, life: i32, plan: impl Fn(&ManaCost) -> Option<Plan>) -> Option<Plan> {
+    if let Some(found) = plan(cost) {
         return Some(found);
     }
     let symbols = cost.phyrexian_count();
@@ -578,7 +685,7 @@ pub fn plan_with_life(
                 continue;
             }
             let settled = cost.with_phyrexian_settled(mask);
-            let Some(mut found) = plan(&settled, pool, sources) else {
+            let Some(mut found) = plan(&settled) else {
                 continue;
             };
             found.cost = *cost;
@@ -624,9 +731,143 @@ pub fn greatest_repeat(
 /// and capping would forbid an X the engine would take.
 #[must_use]
 pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<u32> {
+    greatest_x_assisted(cost, pool, sources, &Assist::default())
+}
+
+/// What pays a spell's mana cost beside mana, read off the board: the
+/// creatures convoke taps (CR 702.51a), the artifacts improvise taps
+/// (CR 702.126a) and the cards delve exiles (CR 702.66a). The engine counts
+/// them for the spell; a planner that counts only mana caps the spell's X
+/// short of what the board pays. Chord of Calling beside five Forests, Leaf
+/// Gilder and two more green creatures pays X = 5, and the seat was asked
+/// X "from 0 to 3", what the Forests and the Gilder's mana pay alone (Carbon
+/// b4, attempt 8, q158).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Assist {
+    /// A creature convoke may tap, as a source of one mana of one of its
+    /// colours, which pays `{1}` as well (CR 702.51a).
+    pub convoke: Vec<Source>,
+    /// The generic mana paid otherwise, one each: a colourless creature
+    /// convoked, an artifact improvised, a card delved.
+    pub generic: u32,
+}
+
+impl Assist {
+    /// What `face`'s convoke, improvise and delve take from `caster`'s board
+    /// as `view` shows it: untapped creatures and artifacts that are not
+    /// among `sources` (a permanent taps once, for mana or to help), and the
+    /// cards in `caster`'s graveyard. Improvise an effect grants for the next
+    /// spell is not in the view and is not counted, which under-counts.
+    #[must_use]
+    pub fn read(
+        view: &baylee_view::PlayerView,
+        caster: baylee_core::ids::PlayerId,
+        face: &baylee_cards_dsl::FaceDef,
+        sources: &[Source],
+    ) -> Self {
+        use baylee_core::types::TypeSet;
+        use baylee_view::ObjectStatus;
+        let mut out = Self::default();
+        if face.convoke || face.improvise {
+            for object in view.battlefield_of(caster) {
+                if object.status.contains(ObjectStatus::TAPPED)
+                    || object.status.contains(ObjectStatus::PHASED_OUT)
+                    || sources.iter().any(|source| source.id == object.id)
+                {
+                    continue;
+                }
+                if face.convoke && object.types.contains(TypeSet::CREATURE) {
+                    if object.colors.is_empty() {
+                        out.generic = out.generic.saturating_add(1);
+                    } else {
+                        out.convoke.push(Source {
+                            colors: colors_of(object.colors),
+                            ..Source::fixed(object.id, Tap::Intrinsic, ManaColor::Colorless)
+                        });
+                    }
+                } else if face.improvise && object.types.contains(TypeSet::ARTIFACT) {
+                    out.generic = out.generic.saturating_add(1);
+                }
+            }
+        }
+        if face.delve {
+            let buried = view
+                .graveyards
+                .get(usize::from(caster.get()))
+                .map_or(0, Vec::len);
+            out.generic = out
+                .generic
+                .saturating_add(u32::try_from(buried).unwrap_or(u32::MAX));
+        }
+        out
+    }
+}
+
+/// [`greatest_x`] with what `assist` pays beside the mana: each convoking
+/// creature as one more source, and the rest of the help off the generic
+/// part, X's included.
+#[must_use]
+pub fn greatest_x_assisted(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    assist: &Assist,
+) -> Option<u32> {
+    greatest_x_by(cost, pool, sources, assist, |total, all| {
+        plan(total, pool, all).is_some()
+    })
+}
+
+/// [`greatest_x_assisted`] with restricted mana that may pay this cast
+/// (CR 106.6), as [`plan_earmarked`] reads it: `earmarked`'s floating mana
+/// and the restricted taps among `sources` pay the cost's own symbols, X's
+/// included, and never a paid mana ability's `{1}`; `pool`'s other
+/// restricted mana pays nothing. Vodalian Arcanist's `{C}` for Invoke the
+/// Firemind (`{X}{U}{U}{R}`) over a floating `{U}{U}{R}` and two Islands
+/// is X = 3, where the Islands alone pay 2 (Carbon b7, attempt 22, q214).
+#[must_use]
+pub fn greatest_x_earmarked(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    earmarked: Earmarked<'_>,
+    sources: &[Source],
+    assist: &Assist,
+) -> Option<u32> {
+    let counted = with_floating(pool, &earmarked.floating);
+    greatest_x_by(cost, &counted, sources, assist, |total, all| {
+        plan_earmarked(total, pool, earmarked, all).is_some()
+    })
+}
+
+/// The greatest X `pays` pays `cost` at, with what `assist` pays beside the
+/// mana, below the ceiling of `counted` (the mana that may pay) and
+/// `sources`.
+fn greatest_x_by(
+    cost: &ManaCost,
+    counted: &ManaPoolView,
+    sources: &[Source],
+    assist: &Assist,
+    pays: impl Fn(&ManaCost, &[Source]) -> bool,
+) -> Option<u32> {
     if !cost.has_variable() {
         return None;
     }
+    let mut all = sources.to_vec();
+    all.extend(assist.convoke.iter().cloned());
+    let pays_at = |x: u32| {
+        let total = cost.with_x(x);
+        let help = assist.generic.min(total.generic_total());
+        pays(&total.with_less_generic(help), &all)
+    };
+    let ceiling = mana_ceiling(counted, &all).saturating_add(assist.generic);
+    // Affordability only shrinks as X grows, so the first X that plans from
+    // the top is the greatest. The ceiling is a few dozen at most.
+    (0..=ceiling).rev().find(|&x| pays_at(x))
+}
+
+/// Every mana `pool` and `sources` hold, poured as one colour where a source
+/// may: no X past this can be paid, however the pips fall.
+fn mana_ceiling(pool: &ManaPoolView, sources: &[Source]) -> u32 {
     let floating = [
         pool.white,
         pool.blue,
@@ -637,8 +878,6 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
     ]
     .into_iter()
     .fold(0_u32, u32::saturating_add);
-    // Every mana there is, poured as one colour where a source may: no X past
-    // this can be paid, however the pips fall.
     let poured = sources
         .iter()
         .map(|s| {
@@ -650,12 +889,7 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
             free.max(s.converter.as_ref().map_or(0, Converter::mana))
         })
         .fold(0_usize, usize::saturating_add);
-    let ceiling = floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX));
-    // Affordability only shrinks as X grows, so the first X that plans from
-    // the top is the greatest. The ceiling is a few dozen at most.
-    (0..=ceiling)
-        .rev()
-        .find(|&x| plan(&cost.with_x(x), pool, sources).is_some())
+    floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX))
 }
 
 /// How many permanents pouring several mana of one chosen colour [`plan`]
@@ -663,17 +897,79 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
 /// this many every one is read as one mana, which under-counts and is safe.
 const MAX_POURS: usize = 3;
 
+/// How many `{2/C}` symbols of one cost are read every way they can be: past
+/// this many, only the all-coloured and the all-generic readings are tried,
+/// which under-counts and is safe. No card prints more than three.
+const MAX_TWOBRIDS: u32 = 6;
+
+/// One reading of a cost's `{2/C}` symbols (CR 107.4e): bit `i` reads the
+/// `i`-th of them, in printed order, as two generic mana, and a clear bit as
+/// one mana of its colour.
+///
+/// Each symbol is paid on its own, so a reading is per symbol and never one
+/// answer for the whole cost: Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an
+/// Island and four Plains is `{U}` from the Island and two `{2}`s from the
+/// Plains, which neither "all coloured" nor "all generic" pays, and the card
+/// was never offered (LLM-seat report, 11.11.2026).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Twobrid(u32);
+
+impl Twobrid {
+    /// Every `{2/C}` as one mana of its colour.
+    const COLOURED: Self = Self(0);
+
+    /// Whether the `i`-th `{2/C}` is read as two generic mana.
+    const fn generic(self, i: u32) -> bool {
+        i < u32::BITS && self.0 & (1 << i) != 0
+    }
+
+    /// How many of them are read as two generic mana.
+    const fn generics(self) -> u32 {
+        self.0.count_ones()
+    }
+}
+
+/// The readings of `cost`'s `{2/C}` symbols to try, the coloured halves
+/// first: fewer generic readings is fewer mana (one, not two), so the first
+/// reading that pays taps the least. A cost without one has one reading.
+fn twobrid_readings(cost: &ManaCost) -> Vec<Twobrid> {
+    let count = u32::try_from(
+        cost.symbols()
+            .filter(|s| matches!(s, ManaSymbol::TwoOrColor(_)))
+            .count(),
+    )
+    .unwrap_or(u32::MAX);
+    if count == 0 {
+        return vec![Twobrid::COLOURED];
+    }
+    if count > MAX_TWOBRIDS {
+        return vec![
+            Twobrid::COLOURED,
+            Twobrid(u32::MAX >> (u32::BITS - count.min(u32::BITS))),
+        ];
+    }
+    let mut readings: Vec<Twobrid> = (0..1u32 << count).map(Twobrid).collect();
+    readings.sort_by_key(|reading| (reading.generics(), reading.0));
+    readings
+}
+
 /// [`plan`] for one reading of every source.
-fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+fn plan_once(
+    cost: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+    settle: Settle,
+) -> Option<Plan> {
     // `{2/C}` reads two ways and only the player knows which they meant, so
-    // both are tried: the coloured half first (it is one mana, not two), then
-    // the generic one. Everything else has a single reading.
-    for generic_twobrid in [false, true] {
-        let needs = needs(cost, generic_twobrid)?
+    // each symbol is tried both ways, the coloured halves first (one mana,
+    // not two). Everything else has a single reading.
+    let readings = twobrid_readings(cost);
+    for &reading in &readings {
+        let needs = needs(cost, reading)?
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
-        if let Some(found) = assign(&needs, pool, sources, false) {
+        if let Some(found) = assign(&needs, pool, sources, false, settle) {
             return Some(Plan {
                 cost: *cost,
                 ..found
@@ -686,12 +982,12 @@ fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option
     if !sources.iter().any(|s| s.widened().is_some()) {
         return None;
     }
-    for generic_twobrid in [false, true] {
-        let needs = needs(cost, generic_twobrid)?
+    for &reading in &readings {
+        let needs = needs(cost, reading)?
             .into_iter()
             .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
-        if let Some(found) = assign(&needs, pool, sources, true) {
+        if let Some(found) = assign(&needs, pool, sources, true, settle) {
             return Some(Plan {
                 cost: *cost,
                 ..found
@@ -778,11 +1074,17 @@ fn mask_of_set(set: ColorSet) -> ColorMask {
 ///
 /// `None` for a cost this side of the wire must not guess at: `{X}` is a
 /// number the player chooses, `{S}` is a property of the *source* rather than
-/// of the mana, and the silver-bordered symbols are not mana at all.
-fn needs(cost: &ManaCost, generic_twobrid: bool) -> Option<Vec<ColorMask>> {
+/// of the mana, and the silver-bordered symbols are not mana at all. Each
+/// `{2/C}` is read as `reading` says.
+fn needs(cost: &ManaCost, reading: Twobrid) -> Option<Vec<ColorMask>> {
     let mut out = Vec::new();
+    let mut twobrids = 0;
     for symbol in cost.symbols() {
-        if !push_needs(symbol, generic_twobrid, &mut out) {
+        let generic = matches!(symbol, ManaSymbol::TwoOrColor(_)) && {
+            twobrids += 1;
+            reading.generic(twobrids - 1)
+        };
+        if !push_needs(symbol, generic, &mut out) {
             return None;
         }
     }
@@ -792,7 +1094,8 @@ fn needs(cost: &ManaCost, generic_twobrid: bool) -> Option<Vec<ColorMask>> {
 /// Pushes one entry per mana `symbol` demands, and `false` (pushing nothing)
 /// for a symbol this side of the wire must not guess at — [`needs`]'s
 /// reasons, one symbol at a time, so [`remainder`] can tell which symbol
-/// each entry was printed as.
+/// each entry was printed as. `generic_twobrid` reads a `{2/C}` as two
+/// generic mana, and anything else as it is.
 fn push_needs(symbol: ManaSymbol, generic_twobrid: bool, out: &mut Vec<ColorMask>) -> bool {
     match symbol {
         ManaSymbol::Generic(n) => {
@@ -912,12 +1215,16 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
 /// An order is per pip, though, and a plan is per permanent, so the matching
 /// is followed by [`consolidate`]: price first would otherwise tap the Tower
 /// *and* the Tomb for `{2}`, where the Tomb alone pays it and costs the same
-/// two damage.
+/// two damage. And an augmenting path moves a pip to the next unit in that
+/// order whatever it is worth, so with [`Settle::Spare`] each consolidation
+/// is followed by [`spare`], which trades a tapped permanent for an untapped
+/// one worth less wherever the rest still pays.
 fn assign(
     needs: &[ColorMask],
     pool: &ManaPoolView,
     sources: &[Source],
     widen: bool,
+    settle: Settle,
 ) -> Option<Plan> {
     let units = units(pool, sources, needs.len(), widen);
     // A widened permanent is priced for every pip: the matcher cannot price
@@ -954,8 +1261,136 @@ fn assign(
         }
     }
 
-    consolidate(needs, &units, &mut taken, sources, &priced);
+    let rank = |source: usize| {
+        (
+            priced(source),
+            sources[source].preserve,
+            mask_of(&sources[source].colors).count(),
+        )
+    };
+    loop {
+        consolidate(needs, &units, &mut taken, sources, &priced);
+        if settle == Settle::Frozen || !spare(needs, &units, &mut taken, &order, &rank) {
+            break;
+        }
+    }
     Some(steps(needs, &units, &taken, sources, widen))
+}
+
+/// How a matching settles which of the permanents that could pay a pip is
+/// tapped, once every pip has a unit.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Settle {
+    /// [`consolidate`] and then [`spare`], until neither changes the plan.
+    Spare,
+    /// [`consolidate`] alone: the matching as the frozen house reads it
+    /// ([`plan_frozen`]).
+    Frozen,
+}
+
+/// What a permanent is worth keeping untapped, in the matcher's terms:
+/// clean before priced, then [`Source::preserve`], then the colours it makes.
+type Rank = (bool, u32, u32);
+
+/// Trades one tapped permanent for an untapped one ranked below it, where
+/// the rest of the plan still pays: `true` when it made a trade.
+///
+/// The matching reaches for floating mana first, pip by pip, and an
+/// augmenting path frees a unit by moving the pip that holds it on to the
+/// next unit in the order, whatever that unit is worth. With `{U}{G}`
+/// floating and `{3}{U}{G}` owed, the floating blue and green went to the
+/// generic pips, the `{U}` moved onto the only Island and the `{G}` onto a
+/// Forest, and two Forests stayed untapped where three paid the `{3}` and
+/// the Island was the one blue source a `{U}{G}` card in hand needed (Carbon
+/// b4, attempt 4, q247). The order ranks units, and the plan is the
+/// permanents it taps.
+///
+/// So the dearest tapped permanent is offered the cheapest untapped one
+/// ranked below it ([`Rank`]): its pips are taken off it and matched again
+/// over the floating mana, the permanents the plan taps anyway and the one
+/// offered, and nothing else. A trade that pays every pip, and spends no
+/// less of the floating mana, is kept. Each one puts a lower-ranked
+/// permanent in a higher-ranked one's place, or none in it, so the rounds
+/// end; every pip is matched to a unit whose colours fit it, so the plan
+/// stays a plan, and the taps never grow.
+fn spare(
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &mut [Option<usize>],
+    order: &[usize],
+    rank: &dyn Fn(usize) -> Rank,
+) -> bool {
+    let tapped: BTreeSet<usize> = units
+        .iter()
+        .zip(taken.iter())
+        .filter_map(|(unit, holder)| holder.and(unit.from))
+        .collect();
+    let mut dear: Vec<usize> = tapped.iter().copied().collect();
+    dear.sort_by_key(|&source| std::cmp::Reverse((rank(source), source)));
+    let mut cheap: Vec<usize> = units
+        .iter()
+        .filter_map(|unit| unit.from)
+        .filter(|source| !tapped.contains(source))
+        .collect::<BTreeSet<usize>>()
+        .into_iter()
+        .collect();
+    cheap.sort_by_key(|&source| (rank(source), source));
+    let floating = |taken: &[Option<usize>]| {
+        units
+            .iter()
+            .zip(taken)
+            .filter(|(unit, holder)| unit.from.is_none() && holder.is_some())
+            .count()
+    };
+    let spent = floating(taken);
+    for &given in &dear {
+        for &offered in cheap.iter().take_while(|&&c| rank(c) < rank(given)) {
+            let Some(trial) = trade(given, offered, needs, units, taken, order, &tapped) else {
+                continue;
+            };
+            if floating(&trial) >= spent {
+                taken.copy_from_slice(&trial);
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// The matching with `given`'s pips matched again over the floating mana,
+/// the permanents in `tapped` but `given`, and `offered`; `None` when one of
+/// them finds no place there.
+fn trade(
+    given: usize,
+    offered: usize,
+    needs: &[ColorMask],
+    units: &[Unit],
+    taken: &[Option<usize>],
+    order: &[usize],
+    tapped: &BTreeSet<usize>,
+) -> Option<Vec<Option<usize>>> {
+    let open = |unit: usize| {
+        units[unit]
+            .from
+            .is_none_or(|source| source == offered || (source != given && tapped.contains(&source)))
+    };
+    let fits =
+        |demand: usize, unit: usize| open(unit) && needs[demand].overlaps(units[unit].colors);
+    let mut trial = taken.to_vec();
+    let mut freed: Vec<usize> = units
+        .iter()
+        .zip(trial.iter_mut())
+        .filter(|(unit, _)| unit.from == Some(given))
+        .filter_map(|(_, holder)| holder.take())
+        .collect();
+    freed.sort_by_key(|&demand| needs[demand].count());
+    for demand in freed {
+        let mut seen = vec![false; units.len()];
+        if !augment(demand, &fits, order, &mut trial, &mut seen) {
+            return None;
+        }
+    }
+    Some(trial)
 }
 
 /// Gives back every tap whose mana the rest of the plan already makes.
@@ -1053,8 +1488,8 @@ fn augment<F: Fn(usize, usize) -> bool>(
     demand: usize,
     fits: &F,
     order: &[usize],
-    taken: &mut Vec<Option<usize>>,
-    seen: &mut Vec<bool>,
+    taken: &mut [Option<usize>],
+    seen: &mut [bool],
 ) -> bool {
     for &unit in order {
         if seen[unit] || !fits(demand, unit) {
@@ -1382,6 +1817,192 @@ mod tests {
         }
     }
 
+    /// Carbon b4, attempt 4, q247: Nimbus Swimmer at X = 3 owed `{3}{U}{G}`
+    /// over a floating `{U}{G}`, beside Forests #87, #85, #81, #82 and Island
+    /// #100, with Double Major (`{G}{U}`) in hand. The pool pays its own
+    /// colours and three Forests the `{3}` (CR 601.2g, 601.2h, 107.3a); the
+    /// one plan the seat was offered tapped two Forests and the Island,
+    /// because the matching gave the floating mana to the generic pips and
+    /// moved `{U}` onto the Island. The frozen house's reading still does,
+    /// and taps what it tapped when it was frozen.
+    #[test]
+    fn floating_mana_pays_its_own_colours_and_the_scarce_land_stays_untapped() {
+        use crate::test_support::{ViewBuilder, token};
+        let land_object = |id: u32, name: &str| {
+            let mut object = token(id, 0, name, 0, 0);
+            object.types = baylee_core::types::TypeSet::LAND;
+            object
+        };
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    land_object(87, "Forest"),
+                    land_object(85, "Forest"),
+                    land_object(81, "Forest"),
+                    land_object(82, "Forest"),
+                    land_object(100, "Island"),
+                ],
+            )
+            .build();
+        let mut sources = vec![
+            land(87, ManaColor::Green),
+            land(85, ManaColor::Green),
+            land(81, ManaColor::Green),
+            land(82, ManaColor::Green),
+            land(100, ManaColor::Blue),
+        ];
+        prioritize(&mut sources, &view, &[cost("{G}{U}")], &|_| {
+            baylee_cards_dsl::UseBeyondMana::Nothing
+        });
+        let pool = ManaPoolView {
+            blue: 1,
+            green: 1,
+            ..empty()
+        };
+        let owed = cost("{3}{U}{G}");
+        let found = plan(&owed, &pool, &sources).expect("three Forests and the pool pay it");
+        assert_eq!(found.taps(), 3);
+        assert!(
+            !tapped(&found).contains(&100),
+            "the Island stays untapped: {:?}",
+            tapped(&found)
+        );
+        let frozen = plan_frozen(&owed, &pool, &sources).expect("the same cost plans");
+        assert_eq!(frozen.taps(), 3);
+        assert!(
+            tapped(&frozen).contains(&100),
+            "the frozen reading is the record's plan, two Forests and the Island: {:?}",
+            tapped(&frozen)
+        );
+        // Whatever order the lands come in.
+        sources.reverse();
+        let found = plan(&owed, &pool, &sources).expect("payable");
+        assert_eq!(found.taps(), 3);
+        assert!(!tapped(&found).contains(&100), "{:?}", tapped(&found));
+    }
+
+    /// The trade never makes a plan dearer: a floating `{U}` with nothing in
+    /// hand asking for blue and an Island beside two Forests paying `{2}{U}`
+    /// spends the pool on the `{U}` and two Forests on the `{2}`; with a
+    /// priced land the only other source, the clean one is kept tapped
+    /// rather than traded for it; and nothing is traded away from a cost
+    /// only the scarce land pays.
+    #[test]
+    fn the_trade_keeps_the_pool_spent_and_never_reaches_for_a_priced_land() {
+        let pool = ManaPoolView { blue: 1, ..empty() };
+        let mut island = land(3, ManaColor::Blue);
+        island.preserve = 50;
+        let sources = [land(1, ManaColor::Green), land(2, ManaColor::Green), island];
+        let found = plan(&cost("{2}{U}"), &pool, &sources).expect("payable");
+        assert_eq!(tapped(&found), [1, 2]);
+        assert_eq!(
+            tapped(&plan(&cost("{2}{U}{U}"), &pool, &sources).expect("payable")),
+            [1, 2, 3],
+            "the second blue needs the Island"
+        );
+        let tomb = Source {
+            priced: true,
+            ..land(4, ManaColor::Colorless)
+        };
+        let sources = [land(1, ManaColor::Green), tomb];
+        assert_eq!(
+            tapped(&plan(&cost("{1}{U}"), &pool, &sources).expect("payable")),
+            [1],
+            "the Forest pays the {{1}}, not the priced land"
+        );
+    }
+
+    /// What convoke, improvise and delve read off the board, and the X it
+    /// lets a cost reach: a delve face (Treasure Cruise's) paying `{X}{U}{U}`
+    /// over two Islands and three cards in the graveyard reaches X = 3
+    /// (CR 702.66a), where the Islands alone pay X = 0.
+    /// A green creature convokes as a source of green, a colourless one and
+    /// an artifact as `{1}` (CR 702.51a, 702.126a); a tapped one helps with
+    /// nothing, and a creature that is a mana source already is counted once.
+    #[test]
+    fn convoke_improvise_and_delve_raise_the_x_a_board_pays() {
+        use crate::test_support::{ViewBuilder, token};
+        use baylee_core::types::TypeSet;
+        let body = |id: u32, types: TypeSet, colors: ColorSet| {
+            let mut object = token(id, 0, "Helper", 1, 1);
+            object.types = types;
+            object.colors = colors;
+            object
+        };
+        let mut tapped_elf = body(13, TypeSet::CREATURE, ColorSet::of(Color::Green));
+        tapped_elf.status = baylee_view::ObjectStatus::TAPPED;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    body(10, TypeSet::CREATURE, ColorSet::of(Color::Green)),
+                    body(
+                        11,
+                        TypeSet::CREATURE.union(TypeSet::ARTIFACT),
+                        ColorSet::EMPTY,
+                    ),
+                    body(12, TypeSet::ARTIFACT, ColorSet::EMPTY),
+                    tapped_elf,
+                    body(14, TypeSet::CREATURE, ColorSet::of(Color::Green)),
+                ],
+            )
+            .with_graveyard(
+                0,
+                vec![
+                    token(20, 0, "a", 0, 0),
+                    token(21, 0, "b", 0, 0),
+                    token(22, 0, "c", 0, 0),
+                ],
+            )
+            .build();
+        let card = |name: &str| {
+            let index = baylee_cards::decks::by_name(name).expect("in the pool");
+            &baylee_cards::by_index(index).expect("a card").faces[0]
+        };
+        let me = baylee_core::ids::PlayerId::new(0);
+        // #14 taps for mana already: a source, and no convoke beside it.
+        let elf_mana = land(14, ManaColor::Green);
+        let islands = [land(1, ManaColor::Blue), land(2, ManaColor::Blue)];
+        let mut sources = islands.to_vec();
+        sources.push(elf_mana);
+
+        let knot = Assist::read(&view, me, card("Treasure Cruise"), &islands);
+        assert_eq!(
+            knot,
+            Assist {
+                convoke: Vec::new(),
+                generic: 3
+            }
+        );
+        let pool = empty();
+        assert_eq!(greatest_x(&cost("{X}{U}{U}"), &pool, &islands), Some(0));
+        assert_eq!(
+            greatest_x_assisted(&cost("{X}{U}{U}"), &pool, &islands, &knot),
+            Some(3)
+        );
+
+        let chord = Assist::read(&view, me, card("Chord of Calling"), &sources);
+        let convoked: Vec<u32> = chord.convoke.iter().map(|s| s.id.slot()).collect();
+        assert_eq!(
+            convoked,
+            [10],
+            "the untapped green creature not already a source"
+        );
+        assert_eq!(chord.convoke[0].colors, [ManaColor::Green]);
+        assert_eq!(chord.generic, 1, "the colourless artifact creature");
+
+        let whir = Assist::read(&view, me, card("Whir of Invention"), &sources);
+        assert_eq!(
+            whir,
+            Assist {
+                convoke: Vec::new(),
+                generic: 2
+            },
+            "both artifacts"
+        );
+    }
+
     #[test]
     fn a_cost_already_floating_needs_no_taps() {
         let pool = ManaPoolView {
@@ -1617,6 +2238,56 @@ mod tests {
         assert_eq!(found.taps(), 2);
 
         assert!(plan(&cost("{2/W}"), &empty(), &islands[..1]).is_none());
+    }
+
+    /// Each `{2/C}` is paid on its own (CR 107.4e), so a cost of several is
+    /// paid by a mix: Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an Island
+    /// and four Plains is the Island's blue and two Plains for each of the
+    /// other two. Read all coloured or all generic, it was paid by neither
+    /// and never offered (LLM-seat report, 11.11.2026).
+    #[test]
+    fn several_twobrids_are_each_read_their_own_way() {
+        let board = [
+            land(1, ManaColor::Blue),
+            land(2, ManaColor::White),
+            land(3, ManaColor::White),
+            land(4, ManaColor::White),
+            land(5, ManaColor::White),
+        ];
+        let found = plan(&cost("{2/G}{2/U}{2/R}"), &empty(), &board)
+            .expect("the Island's blue and two Plains each for green and red");
+        assert_eq!(found.taps(), 5);
+        assert!(tapped(&found).contains(&1), "the Island pays {{2/U}}");
+        assert!(
+            plan(&cost("{2/G}{2/U}{2/R}"), &empty(), &board[..4]).is_none(),
+            "an Island and three Plains pay one blue and three, not four"
+        );
+
+        // The coloured halves first: a Forest, an Island and a Mountain pay
+        // it with three taps, never with six.
+        let rainbow = [
+            land(1, ManaColor::Green),
+            land(2, ManaColor::Blue),
+            land(3, ManaColor::Red),
+            land(4, ManaColor::White),
+            land(5, ManaColor::White),
+            land(6, ManaColor::White),
+        ];
+        let found = plan(&cost("{2/G}{2/U}{2/R}"), &empty(), &rainbow).expect("three colours");
+        assert_eq!(tapped(&found), vec![1, 2, 3]);
+    }
+
+    /// The other two-way symbols are one mana each and need no reading: a
+    /// hybrid is either colour symbol by symbol (`{W/U}{W/U}` from a Plains
+    /// and an Island), and Phyrexian mana is its colour, symbol by symbol.
+    #[test]
+    fn hybrids_are_matched_symbol_by_symbol() {
+        let board = [land(1, ManaColor::White), land(2, ManaColor::Blue)];
+        assert!(plan(&cost("{W/U}{W/U}"), &empty(), &board).is_some());
+        assert!(plan(&cost("{W/U}{U/B}"), &empty(), &board).is_some());
+        let board = [land(1, ManaColor::Green), land(2, ManaColor::Red)];
+        assert!(plan(&cost("{G/P}{R/P}"), &empty(), &board).is_some());
+        assert!(plan(&cost("{G/W/P}{R/W/P}"), &empty(), &board).is_some());
     }
 
     /// Phyrexian mana is read as its colour and never as two life. Life is a
@@ -2189,6 +2860,55 @@ mod tests {
         pool.green = 1;
         let forests = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
         assert_eq!(greatest_x(&cost("{X}{G}{G}"), &pool, &forests), Some(1));
+    }
+
+    /// Restricted mana that may pay the cast counts toward its X, earmarked
+    /// for it (CR 106.6, 107.3a): Invoke the Firemind (`{X}{U}{U}{R}`) over a
+    /// floating `{U}{U}{R}`, two Islands and Vodalian Arcanist's `{C}`
+    /// reaches X = 3, the Islands alone X = 2 (Carbon b7, attempt 22, q214).
+    /// The same `{C}` floating counts where it is earmarked, and restricted
+    /// mana floating that nobody named for the cast pays nothing.
+    #[test]
+    fn greatest_x_counts_restricted_mana_earmarked_for_the_cast() {
+        let mut pool = empty();
+        pool.blue = 2;
+        pool.red = 1;
+        let firemind = cost("{X}{U}{U}{R}");
+        let islands = [land(1, ManaColor::Blue), land(2, ManaColor::Blue)];
+        let arcanist = Source::fixed(ObjectId::new(3, 0), Tap::Ability(0), ManaColor::Colorless);
+        let taps = [(arcanist.id, arcanist.tap)];
+        let mut sources = islands.to_vec();
+        sources.push(arcanist);
+        let alone = Assist::default();
+        assert_eq!(
+            greatest_x_assisted(&firemind, &pool, &islands, &alone),
+            Some(2)
+        );
+        let tapped = Earmarked {
+            floating: [0; 6],
+            taps: &taps,
+        };
+        assert_eq!(
+            greatest_x_earmarked(&firemind, &pool, tapped, &sources, &alone),
+            Some(3)
+        );
+        let mut floated = pool;
+        floated.restricted[ManaColor::Colorless.index()] = 1;
+        assert_eq!(
+            greatest_x_earmarked(&firemind, &floated, Earmarked::default(), &islands, &alone),
+            Some(2),
+            "restricted mana nobody named for the cast pays nothing"
+        );
+        let mut colourless = [0; 6];
+        colourless[ManaColor::Colorless.index()] = 1;
+        let named = Earmarked {
+            floating: colourless,
+            taps: &[],
+        };
+        assert_eq!(
+            greatest_x_earmarked(&firemind, &floated, named, &islands, &alone),
+            Some(3)
+        );
     }
 
     /// A multikicker on top of a spell: five Forests pay {G}{G} and {1}{G}

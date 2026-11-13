@@ -10,6 +10,7 @@ use baylee_view::{
 
 mod constrained_tests;
 mod controlled_tests;
+mod foresight_tests;
 /// `worth`'s takes and declines, on this module's boards: a child of
 /// it, so the helpers below serve both.
 mod worth_tests;
@@ -31,6 +32,8 @@ mod planning_tests;
 mod spell_ending_tests;
 mod stack_tests;
 mod targets_tests;
+mod team_tests;
+mod timing_tests;
 mod x_target_tests;
 
 fn obj(slot: u32) -> ObjectId {
@@ -239,6 +242,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         })
         .collect();
     PlayerView {
+        divided: Vec::new(),
         damage_sources: Vec::new(),
         target_objects: battlefield
             .iter()

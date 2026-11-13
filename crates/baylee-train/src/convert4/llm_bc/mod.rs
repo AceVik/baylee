@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 mod alignment;
+pub mod house_share;
 pub mod schema;
 #[cfg(test)]
 mod tests;

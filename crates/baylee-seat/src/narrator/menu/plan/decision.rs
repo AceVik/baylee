@@ -77,6 +77,15 @@ impl Menu {
             | (Step::Mode(color), Pending::ChooseCastMode { .. }) => {
                 Ok(decision(vec![color.clone()]))
             }
+            // A colour chosen as an ability resolves comes as the cast-mode
+            // question with colours for options (`CastModeKind::Colors`), each
+            // named by its letters: the plan's colour step is its answer
+            // (Wild Mongrel, Carbon block 3, attempt 32, q136).
+            (Step::Color(color), Pending::ChooseCastMode { options, .. })
+                if super::colours_only(options) =>
+            {
+                Ok(decision(vec![color.clone()]))
+            }
             (Step::Number(n), Pending::ChooseNumber { .. }) => Ok(Decision {
                 number: Some(n.to_string()),
                 ..decision(Vec::new())

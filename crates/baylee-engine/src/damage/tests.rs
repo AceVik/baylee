@@ -91,6 +91,140 @@ fn shield(state: &mut GameState, player: PlayerId, kind: ShieldKind) {
     });
 }
 
+/// One damage source deals 1 to each of two of A's creatures, each
+/// `(creature, shield)` of `shields` on the creature it names. Returns the
+/// first question the event asks, and the damage each creature has once
+/// the event is done if it asked nothing.
+fn two_creatures(shields: [(usize, ShieldKind); 2]) -> (Option<Pending>, [u16; 2]) {
+    let mut state = state(2);
+    let source = creature(&mut state, B, 1, 1);
+    let mine = [creature(&mut state, A, 2, 2), creature(&mut state, A, 2, 2)];
+    for (at, kind) in shields {
+        let version = state.object(mine[at]).unwrap().version;
+        state.shields.push(Shield {
+            protects: Shielded::Object(mine[at], version),
+            kind,
+            controller: A,
+        });
+    }
+    let mut work = DamageWork::new(
+        &mut state,
+        mine.iter()
+            .map(|&id| assigned(source, DamageTarget::Object(id), 1))
+            .collect(),
+    );
+    let pending = work.advance(&mut state);
+    let damage = mine.map(|id| state.object(id).unwrap().damage);
+    (pending, damage)
+}
+
+/// CR 616.1 has a creature's controller choose among the effects that
+/// try to modify how the event affects that creature. A shield on each of
+/// two creatures prevents its own creature's damage in either order, so
+/// nobody is asked; two shields on one creature compete for the same
+/// damage, and a redirection beside a shield changes what the shields
+/// see, so both of those still ask.
+#[test]
+fn an_order_is_asked_only_where_it_can_change_the_event() {
+    let (pending, damage) = two_creatures([(0, ShieldKind::Next(1)), (1, ShieldKind::Next(1))]);
+    assert!(
+        pending.is_none(),
+        "asked an order between two creatures: {pending:?}"
+    );
+    assert_eq!(damage, [0, 0], "each shield prevented its own creature's 1");
+    for (shields, what) in [
+        (
+            [(0, ShieldKind::Next(1)), (0, ShieldKind::Next(2))],
+            "two shields on one creature",
+        ),
+        (
+            [
+                (0, ShieldKind::Next(1)),
+                (
+                    1,
+                    ShieldKind::RedirectNext {
+                        remaining: 1,
+                        to: B,
+                    },
+                ),
+            ],
+            "a budgeted redirection beside a shield",
+        ),
+    ] {
+        let (pending, _) = two_creatures(shields);
+        assert!(
+            matches!(pending, Some(Pending::ChooseDamageEffect { player: A, .. })),
+            "{what}: {pending:?}"
+        );
+    }
+}
+
+/// One redirection is no reason to ask while what it sends meets nothing
+/// with a budget where it arrives (Pariah onto a creature with protection:
+/// `protection_flow_tests::a_redirection_onto_protection_asks_no_order`).
+/// Onto a shield, the order decides what the shield is spent on; two
+/// redirections, or an amount replacement beside one, change what the
+/// other effects see. Those still ask.
+#[test]
+fn a_redirection_asks_only_where_what_it_sends_meets_a_budget() {
+    let (x, y) = (
+        DamageTarget::Object(ObjectId::new(1, 0)),
+        DamageTarget::Object(ObjectId::new(2, 0)),
+    );
+    let option = |key: u32, recipient, kind, part: u32| Candidate {
+        key: EffectKey::Continuous(EffectId::new(key)),
+        recipient,
+        option: DamageEffectOption {
+            id: key,
+            source: None,
+            ability: None,
+            controller: A,
+            kind,
+            parts: vec![part],
+        },
+    };
+    let pariah = |to| {
+        option(
+            1,
+            DamageTarget::Player(A),
+            DamageEffectKind::Redirect { to },
+            1,
+        )
+    };
+    let protection = option(2, x, DamageEffectKind::Protection, 0);
+    let shield_on = |at| option(3, at, DamageEffectKind::PreventNext { remaining: 1 }, 2);
+    assert!(
+        !order_matters(&[protection.clone(), pariah(x)]),
+        "onto protection"
+    );
+    assert!(
+        !order_matters(&[pariah(x), shield_on(y)]),
+        "a shield elsewhere never meets what it sends"
+    );
+    assert!(order_matters(&[pariah(x), shield_on(x)]), "onto a shield");
+    assert!(
+        order_matters(&[
+            protection.clone(),
+            pariah(x),
+            option(
+                4,
+                DamageTarget::Player(B),
+                DamageEffectKind::Redirect { to: y },
+                3
+            ),
+        ]),
+        "two redirections"
+    );
+    assert!(
+        order_matters(&[
+            protection,
+            pariah(x),
+            option(5, y, DamageEffectKind::ReplaceAmount { amount: 2 }, 4),
+        ]),
+        "an amount replacement beside one"
+    );
+}
+
 #[test]
 fn prevention_life_results_wait_for_the_entire_simultaneous_event() {
     let mut state = state(3);

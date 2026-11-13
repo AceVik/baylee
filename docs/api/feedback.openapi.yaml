@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Baylee feedback service
-  version: 0.1.0-beta.9c
+  version: 0.2.0-beta.o1
   description: "The service that keeps what players report: gateways pass reports on with their intake tokens, clients signed in nowhere send their own, and admins read and triage them, with tokens or in the service's web UI. The UI's admin pages also reach one gateway's admin console through it, and the landing page posts its contact form and fetches its Impressum here. Every JSON answer is `Cache-Control: no-store`; a refusal is an `ErrorBody`."
   license:
     name: AGPL-3.0-only
@@ -573,113 +573,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
-  /ui/api/admin/invites:
-    get:
-      summary: The gateway's beta keys
-      description: "The gateway's `GET /admin/invites`, passed on with its status: its keys, newest first, never a key itself."
-      operationId: invites
-      tags:
-      - Console
-      security:
-      - session: []
-      responses:
-        "200":
-          description: The gateway's `GET /admin/invites` answer, as it is
-          content:
-            application/json:
-              schema: {}
-        "401":
-          description: "No live session: signed out, or the session lapsed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "502":
-          description: >-
-            The gateway refused this service's console token, did not answer within 10
-            seconds, or answered with a status or body this service does not pass on
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: >-
-            The database is unavailable, the gateway's console is shut after too many wrong
-            tokens, or the gateway's own `503`
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-    post:
-      summary: Make beta keys
-      description: >-
-        The gateway's `POST /admin/invites`, passed on with its status. Its `201`
-        carries the keys, the only time they are shown; this service writes an audit row with
-        their ids, uses and expiry, never a key or the note.
-      operationId: createInvites
-      tags:
-      - Console
-      security:
-      - session: []
-        csrf: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Order"
-        required: true
-      responses:
-        "201":
-          description: "Made, as the gateway answers: `keys` (each an `id` and its `key`), `uses`, `expires_at` and `note`"
-          content:
-            application/json:
-              schema: {}
-        "400":
-          description: Not a request for keys, or the gateway's own refusal
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: "No live session: signed out, or the session lapsed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "502":
-          description: >-
-            The gateway refused this service's console token, did not answer within 10
-            seconds, or answered with a status or body this service does not pass on
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: >-
-            The database is unavailable, the gateway's console is shut after too many wrong
-            tokens, or the gateway's own `503`
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
   /ui/api/admin/central:
     get:
       summary: The gateway's link to Baylee Central
@@ -831,71 +724,6 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "409":
           description: The gateway's operator file sets the link
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "502":
-          description: >-
-            The gateway refused this service's console token, did not answer within 10
-            seconds, or answered with a status or body this service does not pass on
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: >-
-            The database is unavailable, the gateway's console is shut after too many wrong
-            tokens, or the gateway's own `503`
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  "/ui/api/admin/invites/{id}":
-    delete:
-      summary: Revoke a beta key
-      description: >-
-        The gateway's `DELETE /admin/invites/{id}`, passed on with its status; a key
-        revoked is an audit row.
-      operationId: revokeInvite
-      tags:
-      - Console
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: The key's id
-        schema:
-          type: string
-          format: uuid
-      security:
-      - session: []
-        csrf: []
-      responses:
-        "204":
-          description: Revoked
-        "400":
-          description: Not a key's id
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: "No live session: signed out, or the session lapsed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: |-
-            - No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
-            - No gateway console is configured, or the gateway has no such key, or it is revoked already
           content:
             application/json:
               schema:
@@ -5695,7 +5523,7 @@ components:
           description: The admin who made it.
         action:
           type: string
-          description: "What: `gateway.invite.create`, `gateway.card.block`, `gateway.account.ban`, `gateway.llm.profile.write`, …."
+          description: "What: `gateway.card.block`, `gateway.account.ban`, `gateway.llm.profile.write`, …; rows from before the open beta also say `gateway.invite.create` and `gateway.invite.revoke`."
         detail:
           type:
           - string
@@ -6386,37 +6214,6 @@ components:
       - offline_now
       - window_secs
       description: "`GET /ui/api/admin/offline`'s answer."
-    Order:
-      type: object
-      properties:
-        uses:
-          type:
-          - integer
-          - "null"
-          format: int64
-          minimum: 0
-          maximum: 4294967295
-          description: How often each key may be used.
-        expires:
-          type:
-          - string
-          - "null"
-          description: "When the keys expire, from now: `30d`, `12h`, …."
-        note:
-          type:
-          - string
-          - "null"
-          description: A note kept with the keys at the gateway.
-        count:
-          type:
-          - integer
-          - "null"
-          format: int64
-          minimum: 0
-          maximum: 4294967295
-          description: How many keys to make.
-      additionalProperties: false
-      description: Keys to make, as `invite create` takes them.
     Origin:
       type: string
       enum:

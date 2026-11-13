@@ -32,6 +32,7 @@ use crate::cardplate::BadgePlace;
 use crate::images::{ArtSize, Face, ImageKey};
 use crate::interaction::CombatFocus;
 use crate::layout::{Gap, LaneKind, LanePacking, PileKind, SeatSlot, pack_gaps, pile_reach};
+use crate::suspended::time_of;
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::{SupertypeSet, TypeSet};
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, RulesFace, TargetRef};
@@ -571,9 +572,13 @@ pub struct FannedCard {
     pub art: Option<ImageKey>,
     /// Its projected name, for the badge and for a reader.
     pub name: String,
+    /// The time counters on it, where it is a suspended card
+    /// ([`crate::suspended::time_of`]): the numbers standing beside the
+    /// waiting place, the top card's first.
+    pub time: Option<u16>,
 }
 
-/// One of the four piles beside a seat's ground, as it is to be drawn.
+/// One of the piles beside a seat's ground, as it is to be drawn.
 ///
 /// Deliberately **not** a [`CardGroup`]: a pile has no interaction state, is
 /// never selected, never attacks and is not a permanent. What it has is a
@@ -596,19 +601,34 @@ pub struct ZonePile {
     /// The object the top card is, so hovering the pile previews that card
     /// through the machinery the battlefield already uses.
     pub top: Option<ObjectId>,
-    /// The cards a hover spreads out of the pile, **top of the pile first**,
+    /// The cards a hover lifts off the pile, **top of the pile first**,
     /// at most [`Self::FAN_MAX`] of them.
     ///
-    /// Empty for command slots, which never fan, and for a library. CR 401.2 in this
-    /// model: not a rule the renderer is asked to obey but a list that cannot
-    /// be filled, because `PlayerView` carries a library as a count and has
-    /// no cards in it to put here. A library still fans — [`Self::fan_len`]
-    /// says how many backs — and the backs say nothing.
+    /// Empty for command slots, which never fan, and for a library. CR 401.2
+    /// in this model: not a rule the renderer is asked to obey but a list
+    /// that cannot be filled, because `PlayerView` carries a library as a
+    /// count and has no cards in it to put here. A library fanned blank
+    /// backs until 12.11.2026, which said nothing (the owner); the number
+    /// standing beside the pile says what they tried to.
     ///
     /// Top first rather than bottom first so that a fan drawn shorter than
     /// the model offers keeps the cards that matter: the last card to die is
     /// the one a player is looking for.
     pub fan: Vec<FannedCard>,
+    /// The card the fan uncovers: the one lying under the cards a hover
+    /// lifts off, which is what the pile shows while they are held over it.
+    /// `None` where the fan is the whole pile.
+    pub rest: Option<FannedCard>,
+    /// What the commander this slot is for costs more than printed when
+    /// cast from the command zone, in generic mana: CR 903.8's tax, `{2}`
+    /// for each time it has been cast from there
+    /// ([`baylee_view::CommanderView::casts`]). `None` for every pile that
+    /// is not a commander's slot.
+    ///
+    /// It is the slot's and not the card's: it stands while the commander
+    /// is on the battlefield or anywhere else, because it is what the next
+    /// cast from here will cost, and each partner's is its own.
+    pub tax: Option<u32>,
 }
 
 impl ZonePile {
@@ -626,23 +646,9 @@ impl ZonePile {
             name: None,
             top: None,
             fan: Vec::new(),
+            rest: None,
+            tax: None,
         }
-    }
-
-    /// How many cards the fan draws — never more than the pile holds, and
-    /// never more than [`Self::FAN_MAX`].
-    ///
-    /// This is the count of *slabs*, which is why it is arithmetic on
-    /// [`Self::count`] and not `self.fan.len()`: a library has the cards and
-    /// not the faces, so the two disagree there by design.
-    #[must_use]
-    pub fn fan_len(&self) -> usize {
-        if matches!(self.kind, PileKind::Command | PileKind::Command2) {
-            return 0;
-        }
-        usize::try_from(self.count)
-            .unwrap_or(Self::FAN_MAX)
-            .min(Self::FAN_MAX)
     }
 
     /// Whether clicking this pile can open anything.
@@ -890,6 +896,10 @@ pub struct StackTarget {
     pub name: Option<String>,
     /// The target's own art, when this seat may see its face.
     pub art: Option<ImageKey>,
+    /// The share of the spell's damage this target is dealt, as the division
+    /// was announced on casting (CR 601.2d, `PlayerView::divided`); `None`
+    /// for a spell that divides nothing.
+    pub share: Option<u32>,
 }
 
 impl StackTarget {
@@ -1353,16 +1363,25 @@ impl BoardModel {
     /// the pile did not have a moment ago, and a reading that knew only the
     /// top one would shut the fan the instant the pointer slid along it.
     ///
-    /// A library therefore never opens this way. It has no cards to list, so
-    /// there is nothing here to hover, and the backs it fans are raised by
-    /// something that knows a pile is a place and not a card.
+    /// The card the fan uncovers ([`ZonePile::rest`]) answers too: it lies
+    /// under the fan's first card, and a pointer that slipped onto it would
+    /// otherwise shut the fan, which puts the first card back under the
+    /// pointer and opens it again.
+    ///
+    /// A library never opens this way. It has no cards to list, so there is
+    /// nothing here to hover.
     #[must_use]
     pub fn fanned_pile(&self, hovered: Option<ObjectId>) -> Option<(PlayerId, PileKind)> {
         let hovered = hovered?;
         self.pods.iter().find_map(|pod| {
             pod.piles
                 .iter()
-                .find(|pile| pile.fan.iter().any(|card| card.object == hovered))
+                .find(|pile| {
+                    pile.fan
+                        .iter()
+                        .chain(&pile.rest)
+                        .any(|card| card.object == hovered)
+                })
                 .map(|pile| (pod.player, pile.kind))
         })
     }
@@ -1409,7 +1428,7 @@ impl BoardModel {
             keys.extend(
                 pod.piles
                     .iter()
-                    .flat_map(|p| p.fan.iter().filter_map(|c| c.art)),
+                    .flat_map(|p| p.fan.iter().chain(&p.rest).filter_map(|c| c.art)),
             );
         }
         keys.extend(self.hand.iter().map(|h| h.art));
@@ -1782,7 +1801,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
     // seat with a single commander has.
     let commanders = seat.map_or(&[][..], |s| s.commanders.as_slice());
     let second = commanders.get(1).map(|c| c.object);
-    let command_objects = view.command.get(i).map(Vec::as_slice).unwrap_or_default();
+    let command_objects = view.command.get(i).map_or_default(Vec::as_slice);
     PileKind::ALL
         .iter()
         .copied()
@@ -1796,6 +1815,13 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             // rather than two.
             PileKind::Command => !commanders.is_empty() || !command_objects.is_empty(),
             PileKind::Command2 => second.is_some(),
+            // And a waiting place only while something waits on it. It
+            // stands in a cell nothing else uses, so its coming and going
+            // moves nothing.
+            PileKind::Waiting => view
+                .exile
+                .get(i)
+                .is_some_and(|exiled| exiled.iter().any(|o| time_of(o).is_some())),
             _ => true,
         })
         .map(|kind| {
@@ -1803,17 +1829,31 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 matches!(kind, PileKind::Command | PileKind::Command2).then(|| {
                     view.command
                         .get(i)
-                        .map(Vec::as_slice)
-                        .unwrap_or_default()
+                        .map_or_default(Vec::as_slice)
                         .iter()
                         .filter(|o| (Some(o.id) == second) == (kind == PileKind::Command2))
                         .collect()
                 });
-            let list: Option<&[PublicObject]> = match kind {
+            let exiled = || view.exile.get(i).into_iter().flatten();
+            let list: Option<Vec<&PublicObject>> = match kind {
                 PileKind::Library | PileKind::Command | PileKind::Command2 => None,
-                PileKind::Graveyard => view.graveyards.get(i).map(Vec::as_slice),
-                PileKind::Exile => view.exile.get(i).map(Vec::as_slice),
+                PileKind::Graveyard => view.graveyards.get(i).map(|pile| pile.iter().collect()),
+                // Exile is one zone drawn as two places: a suspended card
+                // lies on the waiting place and every other exiled card on
+                // the pile. Each card is drawn once; the zone's count is the
+                // two together (`ZonePile::count` is what lies *here*).
+                PileKind::Exile => Some(exiled().filter(|o| time_of(o).is_none()).collect()),
+                // The last listed lies on top, so the fewest counters go
+                // last: what comes back next is what is seen. Among equals
+                // the order they were exiled in stands (a stable sort).
+                PileKind::Waiting => {
+                    let mut waiting: Vec<&PublicObject> =
+                        exiled().filter(|o| time_of(o).is_some()).collect();
+                    waiting.sort_by_key(|o| std::cmp::Reverse(time_of(o)));
+                    Some(waiting)
+                }
             };
+            let list = list.as_deref();
             // `ZonePosition::Top` pushes, so the object listed last is the
             // one lying on top of the pile — which is the one to draw.
             let top = match &command {
@@ -1821,7 +1861,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 None if kind == PileKind::Library => {
                     view.library_tops.iter().find(|o| o.owner == player)
                 }
-                None => list.and_then(<[PublicObject]>::last),
+                None => list.and_then(<[&PublicObject]>::last).copied(),
             };
             let count = match (kind, &command) {
                 (PileKind::Library, _) => seat.map_or(0, |s| s.library_count),
@@ -1840,8 +1880,18 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                     .iter()
                     .rev()
                     .take(ZonePile::FAN_MAX)
-                    .map(fanned)
+                    .map(|o| fanned(o))
                     .collect(),
+            };
+            // The card under the fan, where the pile holds more than a fan.
+            let rest = match &command {
+                Some(_) => None,
+                None => list
+                    .unwrap_or_default()
+                    .iter()
+                    .rev()
+                    .nth(ZonePile::FAN_MAX)
+                    .map(|o| fanned(o)),
             };
             ZonePile {
                 kind,
@@ -1852,6 +1902,13 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 name: top.map(|o| o.name.to_string()),
                 top: top.map(|o| o.id),
                 fan,
+                rest,
+                tax: match kind {
+                    PileKind::Command => commanders.first(),
+                    PileKind::Command2 => commanders.get(1),
+                    _ => None,
+                }
+                .map(|commander| commander.casts.saturating_mul(2)),
             }
         })
         .collect()
@@ -1868,6 +1925,7 @@ fn fanned(object: &PublicObject) -> FannedCard {
         object: object.id,
         art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
         name: object.name.to_string(),
+        time: time_of(object),
     }
 }
 
@@ -1896,8 +1954,18 @@ fn build_stack_item(
         _ => StackKind::Spell,
     };
     let art = stack_art(lookup, o, kind, reg);
-    let mut targets: Vec<StackTarget> =
-        o.targets.iter().map(|t| stack_target(lookup, *t)).collect();
+    let mut targets: Vec<StackTarget> = o
+        .targets
+        .iter()
+        .map(|t| StackTarget {
+            share: view
+                .division(o.id)
+                .iter()
+                .find(|(divided, _)| divided == t)
+                .map(|(_, share)| *share),
+            ..stack_target(lookup, *t)
+        })
+        .collect();
     if targets.is_empty()
         && let Some(host) = o.attached_to
     {
@@ -1910,6 +1978,7 @@ fn build_stack_item(
             is_current: host_obj.is_some(),
             name: host_obj.map(|h| h.name.to_string()),
             art: host_obj.and_then(|h| art_of(h, ArtSize::Small, reg)),
+            share: None,
         });
     }
     let copy_original = (kind == StackKind::Spell)
@@ -1949,6 +2018,7 @@ fn stack_target(lookup: &Lookup<'_>, what: TargetRef) -> StackTarget {
         is_current: object.is_some_and(|o| o.is_current),
         name: object.map(|o| o.name.clone()),
         art: object.and_then(|o| o.card.map(|c| ImageKey::of(c, ArtSize::Small))),
+        share: None,
     }
 }
 

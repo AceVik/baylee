@@ -40,6 +40,8 @@ mod diagnostic;
 pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
 mod abi;
 mod fallback;
+mod grouped;
+pub use grouped::{GROUPED_DECODE_CONTRACT, GroupedUse4, Grouping4};
 #[cfg(test)]
 mod fallback_tests;
 mod identity;
@@ -55,18 +57,25 @@ use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
 mod ranked;
 pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
+mod script;
+pub use script::{Script4, ScriptAnswer4};
 pub mod search;
 mod snapshot;
 pub use snapshot::{ColdMeta4, PlayerSnapshot4};
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, CatalogRead4, DriftedRule4};
+pub mod student;
 pub mod tactician;
 mod tactics;
+mod thinking;
+#[cfg(test)]
+mod thinking_tests;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 pub use tactics::guard::{ChoiceGuard4, GuardArm, TacticalParts};
 pub use tactics::reading;
 pub use tactics::rules::{RuleGroup, TacticRules4};
+pub use thinking::{AdaptiveThinking4, THINKING_CONTRACT, ThinkingUse4};
 
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
@@ -97,6 +106,9 @@ pub(super) struct StepOutputs {
     pub(super) value: f32,
     /// Present when the graph outputs them.
     pub(super) embeddings: Option<StepEmbeddings4>,
+    /// The net's probability that its top answer is right, when the graph
+    /// states one (`think_confidence`, the deliberation block).
+    pub(super) confidence: Option<f32>,
 }
 
 /// Output tensor names produced by the Playernet v4 ONNX graph.
@@ -182,6 +194,25 @@ pub struct NetPlayer4 {
     /// `eval4 --tactician`: answers the attack, block and target questions
     /// it names; `None` everywhere else, live play included.
     tactician: Option<tactician::Tactician4>,
+    /// `--search-student`: a head that plays another answer at a macro root
+    /// where it scores it clearly above the seat's own ([`student`]).
+    search_student: Option<student::SearchStudent4>,
+    /// `--grouped-decode`: priority answers decided between pass and act by
+    /// summed probability ([`grouped`]); off unless asked.
+    grouped_decode: bool,
+    /// How often the grouping decided.
+    grouped_use: GroupedUse4,
+    /// The grouping of the latest answer, when it was a grouped priority
+    /// question; cleared before every decision step.
+    last_grouping: Option<Grouping4>,
+    /// Whether the model's graphs state a confidence in their answer.
+    states_confidence: bool,
+    /// A second, deeper pass for answers the net is unsure of; off unless asked.
+    adaptive: Option<AdaptiveThinking4>,
+    /// How often the second pass ran.
+    thinking_use: ThinkingUse4,
+    /// Deliberation steps behind the latest answer: the provenance's depth.
+    last_depth: u8,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -246,6 +277,8 @@ struct ModelFiles {
     identity: ModelIdentity,
     d_model: usize,
     thinking_steps: u8,
+    /// The graphs state a confidence ([`thinking::states_confidence`]).
+    states_confidence: bool,
 }
 
 impl ModelFiles {
@@ -296,6 +329,7 @@ impl ModelFiles {
             identity,
             d_model,
             thinking_steps,
+            states_confidence: thinking::states_confidence(&meta),
         };
         Ok((files, thinking_steps, session))
     }
@@ -437,6 +471,7 @@ impl NetPlayer4 {
             identity: m.identity.clone(),
             d_model: m.d_model,
             thinking_steps: m.thinking_steps,
+            states_confidence: m.states_confidence,
         };
         Self::with_backend(files, Backend::Shared(net.clone()))
     }
@@ -468,6 +503,14 @@ impl NetPlayer4 {
             last_menu: None,
             dirty_h_seats: 0,
             tactician: None,
+            search_student: None,
+            grouped_decode: false,
+            grouped_use: GroupedUse4::default(),
+            last_grouping: None,
+            states_confidence: files.states_confidence,
+            adaptive: None,
+            thinking_use: ThinkingUse4::default(),
+            last_depth: files.thinking_steps,
         }
     }
 
@@ -494,6 +537,7 @@ impl NetPlayer4 {
             identity,
             d_model,
             thinking_steps: 2,
+            states_confidence: false,
         };
         Self::with_backend(files, Backend::Owned(BTreeMap::new()))
     }
@@ -572,6 +616,76 @@ impl NetPlayer4 {
         self.thinking_steps = k.clamp(1, 8);
     }
 
+    /// Thinks a decision through again at `deep` steps when the first pass
+    /// (at [`Self::with_thinking_steps`]' depth, set before this) states a
+    /// confidence below `threshold`.
+    ///
+    /// # Errors
+    /// When the model states no confidence (it has no deliberation block),
+    /// or the depths and threshold are not ones [`AdaptiveThinking4::new`]
+    /// accepts.
+    pub fn with_adaptive_thinking(mut self, deep: u8, threshold: f32) -> anyhow::Result<Self> {
+        self.set_adaptive_thinking(deep, threshold)?;
+        Ok(self)
+    }
+
+    /// [`Self::with_adaptive_thinking`] in place.
+    ///
+    /// # Errors
+    /// As [`Self::with_adaptive_thinking`].
+    pub fn set_adaptive_thinking(&mut self, deep: u8, threshold: f32) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.states_confidence,
+            "adaptive thinking needs a model whose graphs state a confidence \
+             (thinking_outputs {THINKING_CONTRACT} in its metadata)"
+        );
+        let adaptive = AdaptiveThinking4::new(self.thinking_steps, deep, threshold)?;
+        let graph = self
+            .model_dir
+            .join(format!("model.k{}.onnx", depth_graph(adaptive.deep)));
+        anyhow::ensure!(
+            graph.is_file(),
+            "the deeper pass needs {}, which the export lacks",
+            graph.display()
+        );
+        self.adaptive = Some(adaptive);
+        Ok(())
+    }
+
+    /// Turns the grouped decode at priority on or off ([`grouped`]).
+    pub const fn set_grouped_decode(&mut self, on: bool) {
+        self.grouped_decode = on;
+    }
+
+    /// Whether priority answers are decoded by group.
+    #[must_use]
+    pub const fn grouped_decode(&self) -> bool {
+        self.grouped_decode
+    }
+
+    /// What the grouping found at the latest answer, when it was a priority
+    /// question with both groups on its menu and `--grouped-decode` is on.
+    #[must_use]
+    pub const fn last_grouping(&self) -> Option<Grouping4> {
+        self.last_grouping
+    }
+
+    /// How often the grouping decided so far; the counts start again.
+    pub fn take_grouped_use(&mut self) -> GroupedUse4 {
+        std::mem::take(&mut self.grouped_use)
+    }
+
+    /// The second pass this player may take, if any.
+    #[must_use]
+    pub const fn adaptive_thinking(&self) -> Option<AdaptiveThinking4> {
+        self.adaptive
+    }
+
+    /// How often this player thought deeper so far; the counts start again.
+    pub fn take_thinking_use(&mut self) -> ThinkingUse4 {
+        std::mem::take(&mut self.thinking_use)
+    }
+
     /// Resets per-game recurrent state, seat knowledge, and loop guards.
     pub fn reset_game(&mut self) {
         self.teams.clear();
@@ -584,6 +698,9 @@ impl NetPlayer4 {
         self.dirty_h_seats = 0xff;
         if let Some(menu) = &mut self.payable_menu {
             menu.reset();
+        }
+        if let Some(student) = &mut self.search_student {
+            student.reset();
         }
     }
 

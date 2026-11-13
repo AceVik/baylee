@@ -69,7 +69,7 @@
 //!   title: Baylee gateway admin console
 //!   version: '{{CARGO_PKG_VERSION}}'
 //!   description: >-
-//!     A gateway's admin console: counts, accounts, beta keys, card blocks,
+//!     A gateway's admin console: counts, accounts, card blocks,
 //!     hosted models and the terms. It listens on its own loopback address
 //!     only, never on the public port or the unix socket, and refuses a
 //!     browser's request before it reads the token (`docs/protocol.md`

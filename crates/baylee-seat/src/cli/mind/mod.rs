@@ -531,12 +531,10 @@ impl CliMind {
             .await
             .ok()
             .and_then(Result::ok)
-            .map(|status| format!(" ({status})"))
-            .unwrap_or_default();
+            .map_or_default(|status| format!(" ({status})"));
         let words = session
             .last_words()
-            .map(|words| format!(": {words}"))
-            .unwrap_or_default();
+            .map_or_default(|words| format!(": {words}"));
         session.end(Duration::ZERO);
         MindError::Unavailable(format!("the {tool} process ended{status}{words}"))
     }
@@ -766,9 +764,7 @@ impl Mind for CliMind {
 
     fn reports(&self, game: &str, seat: u8) -> Vec<Filed> {
         let state = lock(&self.seats).get(&(game.to_owned(), seat)).cloned();
-        state
-            .map(|state| lock(&state).seat.reports.take())
-            .unwrap_or_default()
+        state.map_or_default(|state| lock(&state).seat.reports.take())
     }
 
     fn disclosure(&self) -> Disclosure {

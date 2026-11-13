@@ -151,8 +151,9 @@ impl Session {
         true
     }
 
-    /// The house plays `seat` from now on, which is shown no teammate's hand
-    /// and shows its own to every teammate who asks (#265).
+    /// The house plays `seat` from now on: what its teammates showed whoever
+    /// drove it is withdrawn, and the house shows its own hand to every
+    /// teammate who asks.
     ///
     /// Withdrawn here rather than only left out of the next view: a chair
     /// that is taken over again later must not find a share waiting for it
@@ -174,6 +175,33 @@ impl Session {
         let waiting = std::mem::take(&mut self.asking[at]);
         for asker in waiting.iter() {
             self.ai_answer_hand_request(seat, asker);
+        }
+    }
+
+    /// The house asks each person on its side to be shown their hand, once,
+    /// as a teammate at the table would; the person answers it as any
+    /// request (`SeatSetting::ShareHand`, `ShareHandOnce`, `DeclineHand`).
+    ///
+    /// Only a chair the house plays at a level that plays as a team asks,
+    /// and only where the table's rule lets hands be shown at all. A house
+    /// teammate is not asked: two house chairs show each other their hands
+    /// without a request (`table::Table::show_shared_hands`).
+    pub(super) fn house_asks_its_teammates(&mut self) {
+        if self.house_rules.hand_sharing == HandSharingRule::Disabled {
+            return;
+        }
+        for i in 0..self.seats.len() {
+            if !matches!(&self.seats[i], SeatKind::Ai(agent)
+                if agent.profile().plays(AIProfile::TEAM_PLAY))
+            {
+                continue;
+            }
+            let house = PlayerId::new(seat_byte(i));
+            for person in self.teammates(house).iter() {
+                if matches!(self.seats[usize::from(person.get())], SeatKind::Human) {
+                    self.asking[usize::from(person.get())].insert(house);
+                }
+            }
         }
     }
 
@@ -580,12 +608,14 @@ impl Session {
             .collect()
     }
 
-    /// Whether a chair may be shown a teammate's hand: every chair but one
-    /// the house AI plays. A chair the house is holding for an absent player
-    /// keeps what the player was shown, and its agent is handed none of it
-    /// ([`Session::show_hands`] is only on the way to a socket).
+    /// Whether a chair may be shown a teammate's hand: every chair that reads
+    /// one (`table::reads_shared_hands`), the house too where its level plays
+    /// as a team. A frozen reference is shown none. A chair the house is
+    /// holding for an absent player keeps what the player was shown and is
+    /// played with it, since it is the player's.
     fn may_be_shown(&self, seat: PlayerId) -> bool {
-        !matches!(self.seat_kind(seat), Some(SeatKind::Ai(_)) | None)
+        self.seat_kind(seat)
+            .is_some_and(super::table::reads_shared_hands)
     }
 
     /// Whether `owner`'s hand is shown continuously to `viewer` right now.

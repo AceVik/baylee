@@ -1,18 +1,20 @@
-//! Restricted mana (CR 106.6): mana that may be spent only on what a filter
-//! names — Ancient Ziggurat's on creature spells, Mishra's Workshop's on
-//! artifact spells.
+//! Restricted mana (CR 106.6), as the frozen house reads it: mana that may be
+//! spent only on what a filter names — Ancient Ziggurat's on creature spells,
+//! Mishra's Workshop's on artifact spells.
 //!
-//! The view says how much restricted mana floats and under which colour, and
-//! never what it may pay for; `manaplan` counts none of it for that reason
-//! (its rule 2). So the restriction is read off the ability that makes the
-//! mana, **before** the tap, and a restricted source is tapped only
+//! Every other planner asks the engine what restricted mana may pay for
+//! (`LegalActions::restricted_taps`, `restricted_floating`, protocol 43;
+//! [`crate::spend`]). The house keeps this reading so `sharp-2026-11` answers
+//! as it was recorded: the view says how much restricted mana floats and under
+//! which colour, and never what it may pay for, so the restriction is read off
+//! the ability that makes the mana, **before** the tap, and a restricted
+//! source is tapped only
 //!
 //! - for a payment its restriction admits, as far as the view can tell: the
 //!   kind of payment first (`ManaUse`: a spell, an ability, either), then the
 //!   filter. An unreadable filter (a commander's types) is a
 //!   no, because mana the payment then refuses is a tap thrown away;
-//! - once per spell for the house, which plans again after each tap, and for
-//!   the client; the seat sends its taps whole, so it may spend several;
+//! - once per spell, since the house plans again after each tap;
 //! - as the last tap of the plan. After it the engine's own merge
 //!   (`casting::spendable_pool`) makes the spell castable, so the planner
 //!   never has to see the restricted half of the pool. A restricted tap sent

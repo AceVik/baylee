@@ -240,15 +240,20 @@ fn convert_stage(spec: &Spec) -> Planned {
         .iter()
         .map(|collection| path(&records(spec, collection)))
         .collect();
-    let summaries: Vec<PathBuf> = spec
+    let mut inputs: Vec<PathBuf> = spec
         .collections
         .iter()
         .map(|collection| spec.root.join(format!("collect-{}.json", collection.name)))
         .collect();
+    inputs.push(spec.manifest.clone());
+    // The collections' own manifest: a game that seated a deck outside its
+    // train split stops the conversion.
     let mut command = vec![
         path(&spec.runtime.join("convert4")),
         "--runs".into(),
         runs.join(","),
+        "--train-manifest".into(),
+        path(&spec.manifest),
         "--out".into(),
         path(&spec.root.join("dataset")),
     ];
@@ -258,7 +263,7 @@ fn convert_stage(spec: &Spec) -> Planned {
         "convert",
         CONVERT_SECONDS,
         None,
-        &summaries,
+        &inputs,
         &command,
         vec![dataset_meta(spec)],
     )
@@ -353,8 +358,7 @@ fn main() -> Result<()> {
     atomic_json(&out, &plan)?;
     let names: Vec<&str> = plan["stages"]
         .as_array()
-        .map(|stages| stages.iter().filter_map(|s| s["name"].as_str()).collect())
-        .unwrap_or_default();
+        .map_or_default(|stages| stages.iter().filter_map(|s| s["name"].as_str()).collect());
     println!(
         "{} stages ({}) in {}",
         names.len(),
@@ -427,6 +431,15 @@ mod tests {
             "/gen/records-duel,/gen/records-teams"
         );
         assert_eq!(after(convert, "--schedule-seed"), "30");
+        // The collections' manifest guards the dataset's decks.
+        let manifest = after(teams, "--decks-manifest");
+        assert_eq!(after(convert, "--train-manifest"), manifest);
+        assert!(
+            stages[2]["inputs"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(manifest))
+        );
         assert!(
             stages[2].get("gpu_lock").is_none(),
             "converting needs no GPU"

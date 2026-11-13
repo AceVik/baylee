@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Baylee gateway
-  version: 0.1.0-beta.9c
+  version: 0.2.0-beta.o1
   description: "A Baylee gateway: accounts, decks, the lobby, and the games its agents host. The gateway runs no rules; a game's engine speaks to its seats over the WebSocket routes, which this document lists but does not describe frame by frame (`docs/protocol.md`)."
   license:
     name: AGPL-3.0-only
@@ -3810,7 +3810,7 @@ paths:
         session, in one answer: the session is the guest. It lasts 29 to 30 days
         past the last call made with its token, and the guest is deleted with
         its decks and preferences when it lapses or signs out. A guest may not
-        upload pictures. On a closed beta a new guest needs a key.
+        upload pictures.
       operationId: guest
       tags:
       - Accounts
@@ -3835,15 +3835,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "403":
-          description: >-
-            This gateway takes no guests (its mode is `central`), or a closed beta's key is
-            missing or not valid
+          description: This gateway takes no guests (its mode is `central`)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "429":
-          description: Too many attempts from this address, or too many keys tried
+          description: Too many attempts from this address
           content:
             application/json:
               schema:
@@ -5830,7 +5828,7 @@ components:
           description: "Always `false`: nobody registers or signs in with a password at a gateway; accounts are Baylee Central's. Kept for clients from before, which offer a sign-up form only where it is true."
         registration:
           $ref: "#/components/schemas/Registration"
-          description: "Who may come in new (`BAYLEE_REGISTRATION`): `open` lets anybody in, `invite` a guest only with a closed beta's key, and `off` nobody new; a Central account new here follows `docs/central-login.md`."
+          description: "Who may come in new (`BAYLEE_REGISTRATION`): `open` lets anybody in and `off` nobody new; a Central account new here follows `docs/central-login.md`. A gateway from the closed beta may still say `invite`."
         guests_enabled:
           type: boolean
           description: "Whether \"play as a guest\" is offered: the mode is `guests` or `mixed`."
@@ -6510,13 +6508,14 @@ components:
           type:
           - string
           - "null"
-          description: "The house AI's difficulty for `mode: ai`; `steady` when absent, and an unknown one is refused."
+          description: "The house AI's difficulty for `mode: ai`; `steady` when absent, and an unknown one is refused. `seer` alone reads the opponent's hidden cards, which makes it unfair by design."
           enum:
           - novice
           - casual
           - steady
           - sharp
           - expert
+          - seer
           - null
         allow_spectators:
           type:
@@ -7428,14 +7427,7 @@ components:
         lang:
           type: string
           description: The language it asks in (`de`, `en`).
-        invite_key:
-          type:
-          - string
-          - "null"
-          description: >-
-            The closed-beta key a new guest needs where registration is `invite`; ignored
-            elsewhere.
-      description: "What `POST /auth/guest` takes. Every field is optional: `{}` is a guest called `Guest`."
+      description: "What `POST /auth/guest` takes. Every field is optional: `{}` is a guest called `Guest`. Unknown fields are ignored."
     GuestSignedIn:
       type: object
       properties:
@@ -7939,13 +7931,16 @@ components:
           type:
           - string
           - "null"
-          description: The AI's difficulty, for an AI chair; `null` for a person's.
+          description: >-
+            The AI's difficulty, for an AI chair; `null` for a person's. `seer` alone reads
+            the other chairs' hidden cards.
           enum:
           - novice
           - casual
           - steady
           - sharp
           - expert
+          - seer
           - null
         deck:
           type: string
@@ -9004,9 +8999,8 @@ components:
       type: string
       enum:
       - open
-      - invite
       - "off"
-      description: "Who may make an account: `open` (anybody), `invite` (somebody with a beta key; a new guest needs one too) or `off`."
+      description: "Who may come in new: `open` (anybody) or `off` (nobody). A gateway from before the open beta may still say `invite`."
     ReplayArchived:
       type: object
       properties:
@@ -9447,13 +9441,16 @@ components:
           type:
           - string
           - "null"
-          description: The difficulty an AI chair plays at. The host's.
+          description: >-
+            The difficulty an AI chair plays at. The host's. `seer` alone reads the other
+            chairs' hidden cards.
           enum:
           - novice
           - casual
           - steady
           - sharp
           - expert
+          - seer
           - null
         deck_id:
           type:

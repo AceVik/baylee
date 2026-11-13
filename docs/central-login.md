@@ -711,9 +711,9 @@ takes guests is its mode's (§"Who a gateway lets in").
 The official gateway admits a moved account as the legacy account it moved
 from, linking the two at its first admission (§"Legacy migration"), and an
 account registered at Central (no legacy account) as a new local projection,
-as a registered gateway does; Central's beta key stood in for the gateway's at
-sign-up, so only `BAYLEE_REGISTRATION=off` refuses it (baylee-central
-`docs/web-accounts.md`).
+as a registered gateway does; only `BAYLEE_REGISTRATION=off` refuses it, as
+it refuses every account new at a gateway but an admin's (`docs/protocol.md`
+§"Who may come in new").
 A moved account keeps its display name and tag at Central: the cutover's
 export carries both, the name only when it keeps `auth::valid_display_name`
 (a name from before that rule, or from `gateway-store.json`, stays behind,
@@ -745,8 +745,9 @@ version. Never combine `credential` or `heartbeat` with `bridge`: the official
 legacy bridge alone may reserve/export/close old account migrations. The reusable Central SDK
 offers registration, directory paging and versioned admin-list management; no
 registration or admin-management UI is implied by these server APIs.
-Use `BAYLEE_BIND=127.0.0.1` for local gateway fixtures; the existing default
-remains `0.0.0.0`. All test services must bind only loopback.
+Local gateway fixtures listen on `127.0.0.1`, the gateway's default since
+11.11.2026 (`BAYLEE_BIND`, `docs/dev/environment.md`); the fixtures still
+name it. All test services must bind only loopback.
 
 Deploy in order: Central with persistent OPAQUE setup and PostgreSQL 18+; the
 official gateway bridge and schema; synthetic end-to-end validation; the native

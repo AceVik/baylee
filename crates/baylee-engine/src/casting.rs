@@ -793,6 +793,26 @@ pub(crate) fn cast_is_forbidden(
         })
 }
 
+/// `obj` as the spell casting it the normal way would make, asked while it
+/// is still a card: off the stack a split card is both of its halves (CR
+/// 709.4), and its normal cast is the left half alone (CR 709.3a), so a
+/// price, a timing or a lock read off the card would be read off both.
+/// `None` for every other object, which is cast as it is.
+pub(crate) fn split_front(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+) -> Option<crate::object::GameObject> {
+    use crate::state::CardLookup;
+    if obj.zone == Zone::Stack {
+        return None;
+    }
+    let def = obj
+        .card
+        .and_then(|card| state.bases.card(card.index))
+        .filter(|def| crate::object::reads_both_halves(def))?;
+    Some(spell_as_face(state, obj, def, 0))
+}
+
 /// `obj` as the spell it would be cast as `face` of `def`: that face's
 /// characteristics and no other's, its own name among them (CR 709.3a,
 /// 715.3a).
@@ -824,7 +844,11 @@ pub(crate) fn face_is_forbidden(
     def: &baylee_cards_dsl::CardDef,
     face: usize,
 ) -> bool {
-    if usize::from(obj.face_index) == face || !state.effects.may_change_cast_timing_or_lock() {
+    // A split card off the stack is both halves at face 0 (CR 709.4), so
+    // its left half too is asked as the spell it makes.
+    let as_it_is = usize::from(obj.face_index) == face
+        && (obj.zone == Zone::Stack || !crate::object::reads_both_halves(def));
+    if as_it_is || !state.effects.may_change_cast_timing_or_lock() {
         return cast_is_forbidden(state, player, obj);
     }
     cast_is_forbidden(state, player, &spell_as_face(state, obj, def, face))
@@ -1119,7 +1143,11 @@ pub(crate) fn can_cast_form_paying(
     {
         return Err(CastError::NotInHand);
     }
-    let projected = form.map(|f| f.project(obj));
+    // The front as it is cast: a form's projection, or a split card's left
+    // half where the card is both (`split_front`).
+    let projected = form
+        .map(|f| f.project(obj))
+        .or_else(|| split_front(state, obj));
     let obj = projected.as_ref().unwrap_or(obj);
     let c = obj.characteristics();
     let printed = obj.card.and_then(|c| lookup.card(c.index));

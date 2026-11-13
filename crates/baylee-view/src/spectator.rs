@@ -69,6 +69,10 @@ pub struct SpectatorView {
     /// exact incarnation targeted ([`PlayerView::target_objects`]).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub target_objects: Vec<crate::DamageSourceView>,
+    /// How each object on the stack divides its damage, public to a
+    /// spectator as to every seat ([`PlayerView::divided`]).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub divided: Vec<crate::Division>,
 }
 
 impl SpectatorView {
@@ -127,6 +131,7 @@ impl SpectatorView {
             controls: self.controls,
             // Nobody at this view decides anything.
             foreign_targets: Vec::new(),
+            divided: self.divided,
         }
     }
 

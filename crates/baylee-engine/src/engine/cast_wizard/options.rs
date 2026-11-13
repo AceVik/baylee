@@ -34,8 +34,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return Err(EngineError::IllegalAction("casting prohibited"));
         }
-        let defer_mana =
-            pay_in_window || (commanded && self.compute_legal(player).has_mana_source());
+        let defer_mana = pay_in_window || (commanded && self.free_cast_makes_mana(player));
         let paying = if pay_in_window {
             casting::Paying::DuringTheCast
         } else {
@@ -622,13 +621,18 @@ impl<L: CardLookup> Engine<L> {
         // with an instant Adventure, cast while the stack is not empty, is
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.
-        let front = obj.characteristics();
+        // A split card's front is its left half, where the card is both
+        // (`casting::split_front`, CR 709.3a).
+        let split_front = casting::split_front(&self.state, obj);
+        let front_spell = split_front.as_ref().unwrap_or(obj);
+        let front = front_spell.characteristics();
         let front_timing =
             casting::permitted_spell_types(&self.state, player, card, front.types, 0)
                 && (commanded
                     || casting::timing_allows(&self.state, player, front.types, front.keywords))
                 && casting::spell_condition_allows(&self.state, player, card, def, 0);
-        let front_now = front_timing && !casting::cast_is_forbidden(&self.state, player, obj);
+        let front_now =
+            front_timing && !casting::cast_is_forbidden(&self.state, player, front_spell);
         options.retain(|o| match o.kind {
             CastModeKind::PlayLandFace(_) => true,
             // The lock was asked of these as what they are, a prototype or a

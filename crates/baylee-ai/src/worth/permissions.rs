@@ -124,7 +124,7 @@ impl Budget {
         } else {
             total
         };
-        manaplan::plan(&payment, &self.pool, &self.sources).is_some()
+        manaplan::plan_frozen(&payment, &self.pool, &self.sources).is_some()
     }
 }
 

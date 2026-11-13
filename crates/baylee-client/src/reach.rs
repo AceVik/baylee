@@ -152,9 +152,26 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             // life again would plan zero taps and mark a life-only card as needing
             // land taps even over off-colour lands.
             if legal.castable.contains(&id) {
-                manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
+                manasources::plan_for_spell(
+                    &cost,
+                    &pool,
+                    view,
+                    legal,
+                    id,
+                    baylee_engine::choice::CastModeKind::Normal,
+                )
+                .is_some()
             } else {
-                manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
+                manasources::plan_with_life_for_spell(
+                    &cost,
+                    &pool,
+                    view,
+                    legal,
+                    id,
+                    baylee_engine::choice::CastModeKind::Normal,
+                    life,
+                )
+                .is_some()
             }
         };
     baylee_client_core::decision::hand(view)
@@ -256,20 +273,20 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 })
                 .map(|c| c.object),
         )
-        // And the seat's own graveyard, for a card it may flash back
-        // (CR 702.34a; #242). The engine offers such a card in `castable`
-        // only once its cost is floating, exactly as it does a hand card, so
-        // until this read the graveyard, Snapcaster Mage's Opt was a card
-        // nothing could click on: it ended the turn in the graveyard beside
-        // the untapped Island that paid for it.
+        // And the seat's own graveyard, for a card it may cast from there
+        // (flashback, CR 702.34a, #242; escape, disturb, a graveyard
+        // permission). The engine offers such a card in `castable` only once
+        // its cost is floating, exactly as it does a hand card, so until this
+        // read the graveyard, Snapcaster Mage's Opt was a card nothing could
+        // click on: it ended the turn in the graveyard beside the untapped
+        // Island that paid for it.
         //
-        // Priced at the flashback cost the view names and never at the card's
-        // own. The two agree for the grants this pool has (Snapcaster, Past
-        // in Flames), and they are different numbers for a card that prints
-        // flashback (Think Twice: `{1}{U}` in hand, `{2}{U}` from the
-        // graveyard). `PublicObject::flashback` is `None` in every zone and
-        // for every card the seat may not cast that way, so the zone and the
-        // owner are asked here only because no other graveyard can answer.
+        // Priced at what the engine names for each way it may be cast from
+        // there (`LegalActions::cast_ways`), and never at the card's own
+        // cost: Think Twice is `{1}{U}` in hand and `{2}{U}` from the
+        // graveyard, and Malevolent Hermit `{1}{U}` in hand and, disturbed
+        // as Benevolent Geist, `{2}{U}` from it. The price and the taps are
+        // [`crate::mana_for`]'s, so a card lit here is one a click taps for.
         .chain(
             view.graveyards
                 .get(caster.get() as usize)
@@ -281,18 +298,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                         baylee_client_core::timing::allows(view, o.types, has_flash(card))
                     })
                 })
-                .filter(|o| {
-                    let cost = o.flashback.or_else(|| {
-                        legal
-                            .payable
-                            .contains(&o.id)
-                            .then(|| o.card.and_then(printed_face).map(|f| f.mana_cost))
-                            .flatten()
-                    });
-                    cost.is_some_and(|cost| {
-                        cost.symbols().next().is_some() && affordable(o.id, o.card, cost)
-                    })
-                })
+                .filter(|o| pile_in_reach(duel, view, legal, o.id))
                 .filter(|o| {
                     o.card
                         .is_some_and(|card| !targeting::provably_targetless(view, card))
@@ -301,9 +307,12 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         )
         // And any exile zone, for a card the engine offers to cast from exile
         // once its mana is made (`legal.payable`: an adventure's creature half,
-        // CR 716.3d, or an exile cast permission). Permission is a game-state
-        // fact `PublicObject` does not carry, so `legal.payable` is the gate:
-        // the engine has already checked the permission and target legality.
+        // CR 716.3d; a foretold card for its foretell cost, CR 702.143a; an
+        // exile cast permission). Permission is a game-state fact
+        // `PublicObject` does not carry, so `legal.payable` is the gate: the
+        // engine has already checked the permission and target legality, and
+        // it names the price (a foretold Doomskar is `{1}{W}{W}`, not its
+        // printed `{3}{W}{W}`).
         .chain(
             view.exile
                 .iter()
@@ -314,12 +323,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                         baylee_client_core::timing::allows(view, o.types, has_flash(card))
                     })
                 })
-                .filter(|o| {
-                    o.card.and_then(printed_face).is_some_and(|face| {
-                        face.mana_cost.symbols().next().is_some()
-                            && affordable(o.id, o.card, face.mana_cost)
-                    })
-                })
+                .filter(|o| pile_in_reach(duel, view, legal, o.id))
                 .filter(|o| {
                     o.card.is_some_and(|card| {
                         !targeting::provably_targetless(view, card)
@@ -331,15 +335,39 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         .collect()
 }
 
-/// Which cards a tap or two would make suspendable. Unlike casting an instant
-/// with suspend, the special action itself is always sorcery-speed (CR 702.62a).
+/// Whether a card in a graveyard or in exile has a price with mana in it
+/// (CR 202.1b) that the seat's mana pays: the price [`spell_cost`] reads and
+/// the taps [`crate::mana_for`] plans, so lighting and clicking agree.
+fn pile_in_reach(
+    duel: &Duel,
+    view: &baylee_view::PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    card: ObjectId,
+) -> bool {
+    spell_cost(view, legal, card).is_some_and(|cost| cost.symbols().next().is_some())
+        && crate::mana_for(duel, card).is_some()
+}
+
+/// Which cards a tap or two would make suspendable: the engine's own list of
+/// them (`LegalActions::unpaid_suspend`, every rule of CR 116.2f asked but the
+/// mana, the special action's sorcery timing included), whose cost the seat's
+/// untapped sources pay ([`crate::suspend_mana_for`]). The engine names each
+/// cost, so nothing here reads one off a card or guesses at the timing.
 pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
-    special_action_reach(
-        duel,
-        |legal| &legal.suspendable,
-        suspend_cost,
-        baylee_client_core::timing::sorcery_window,
-    )
+    let Some(legal) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+    else {
+        return std::collections::HashSet::new();
+    };
+    legal
+        .unpaid_suspend
+        .iter()
+        .map(|(card, _)| *card)
+        .filter(|card| !legal.suspendable.contains(card))
+        .filter(|card| crate::suspend_mana_for(duel, *card).is_some())
+        .collect()
 }
 
 /// Foretell needs only priority on its owner's turn, not a main phase or an
@@ -362,8 +390,10 @@ pub(super) fn foretell_reach(duel: &Duel) -> std::collections::HashSet<ObjectId>
     )
 }
 
-/// Shared planner for hand-based special actions. The engine's offer remains
-/// authoritative: these are only cards not already payable from floating mana.
+/// The planner of a hand special action whose cost the card states (foretell;
+/// suspend reads the engine's `unpaid_suspend` instead). The engine's offer
+/// remains authoritative: these are only cards not already payable from
+/// floating mana.
 fn special_action_reach(
     duel: &Duel,
     offered: impl for<'a> Fn(&'a baylee_engine::choice::LegalActions) -> &'a [ObjectId],
@@ -400,21 +430,6 @@ fn special_action_reach(
         })
         .map(|card| card.id)
         .collect()
-}
-
-/// What a card's suspend ability costs, or `None` when it has none.
-///
-/// Off the card and not off the view: `AbilityDef::Suspend` is printed data,
-/// and a `HandObject` carries the projected characteristics rather than the
-/// abilities. The card's own list rather than the face's, for the reason
-/// `keywords_for_face` exists — a single-faced card keeps its abilities on
-/// the `CardDef` and leaves the face's list empty.
-pub(super) fn suspend_cost(card: baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost> {
-    let def = baylee_cards::by_index(card.index)?;
-    def.abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::Suspend { cost, .. } => Some(*cost),
-        _ => None,
-    })
 }
 
 /// A commander's printed cost, before CR 903.8's tax.

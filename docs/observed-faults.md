@@ -77,7 +77,7 @@ gateway for the same reason.
 Reported: "Fetchland Effekt fügt irgend was in den Manapool statt mich ein
 passendes Land aus der Bibliothek auswählen zu lassen."
 
-The card is not the fault. `crates/cards/src/cards/flooded_strand.rs` is
+The card is not the fault. `crates/cards/sets/2002/src/ons/flooded_strand.rs` is
 an `activated!` with `CostPart::TapSelf`, `SacrificeSelf`, `PayLife(1)` and
 `Effect::SearchLibrary { finds: &[Find::BATTLEFIELD] }`. There is no mana
 ability on it.
@@ -3129,7 +3129,7 @@ the same player and the question has one answer, which is what makes today's
 code right there and is also the reason a duel need not be asked.
 
 And the card claims more than it does.
-`crates/cards/src/cards/planeswalkers/mv_3/aminatou_the_fateshifter.rs`
+`crates/cards/sets/2018/src/c18/aminatou_the_fateshifter.rs`
 carries `coverage = Coverage::Implemented` under its own header comment
 reading `// PARTIAL — +1 and −1 implemented; −6 needs directional multiplayer
 control rotation`. The two contradict each other and the header is the one
@@ -3807,3 +3807,346 @@ for is not reached. `apply_triggered_mana_bonus` reads the Lens's
 (`linked_exile_cards`) no `PlayerView` carries, so the filter answers `None`.
 Under-counting is the safe side, and the land still makes its bonus when
 tapped. Closing it needs the view to name a permanent's linked exile.
+
+## Reported by the owner, 2026-11-11: what the game offers to pay for
+
+"Bei dem Anbieten was aktuell mit Mana bezahlt werden muss kann auch
+nachgebessert werden … Mana das z.B. nur für bestimmte Kreaturtypen genutzt
+werden kann, sowie Flashback etc. wird gerne Mal nicht angeboten."
+
+The second half is fixed: a card cast from a graveyard or from exile is priced
+at the way the engine names for it (`LegalActions::cast_ways`), and an
+Adventure in hand is offered at its own price (`docs/client.md` §"A card in a
+pile is reached for too"). The first half is entry 69, fixed with protocol 43.
+
+And from a language-model seat's report the same day: the planner read every
+`{2/C}` of a cost one way, all one coloured mana or all two generic, never a
+mix, so Temur Tawnyback's `{2/G}{2/U}{2/R}` beside an Island, Obelisk of Bant
+and three Plains was never offered. Each is read on its own now (CR 107.4e,
+`manaplan::twobrid_readings`).
+
+### 69. Restricted mana is planned one tap at a time, never once it floats, and never in a payment window — FIXED
+
+The engine offers the spells: `payable` asks no mana, and `castable` merges
+the restricted mana a spell may spend once it floats
+(`casting::spendable_pool`, CR 106.6). The planners do not reach them:
+
+- The client's `reachable` plans at most one restricted tap
+  (`manasources::with_one_restricted`) and counts no restricted mana that
+  floats. Two Ancient Ziggurats never light Grizzly Bears, two Pillars of the
+  Paruns never Watchwolf, two Eldrazi Temples and four Wastes never Eldrazi
+  Devastator; a Ziggurat's mana floating beside a Forest, or Cavern of Souls'
+  green floating beside a Forest and a Mountain, light nothing.
+- The client's payment window (`Duel::payment_inputs`) plans with
+  unrestricted sources only. Cavern of Souls naming Elf lights Elvish
+  Archdruid beside a Forest and a Mountain, the click casts it, and its
+  window cannot be planned (`CardCostsUnavailable`).
+- The seat's `baylee_ai::plan_for_spell` taps as many restricted sources as
+  it takes but counts none floating; the house (`spend_on`, frozen in
+  `sharp-2026-11`) one per plan, none floating.
+
+The view says how much restricted mana floats, by colour, and never what it
+may pay for, and what a source's mana may pay for is read off the view
+(`HeuristicAgent::admits`), which judges an Adventure as its creature. The
+negative half holds (`crates/baylee-client/tests/mana/routes.rs`: no such mana
+is offered for a spell it may not pay for); closing the positive half needs
+the engine to state, per offered cast and activation, which restricted mana
+abilities and how much floating restricted mana it may spend.
+
+**Fixed** (protocol 43): the offer states it, for the asked seat's own sources
+and pool (`LegalActions::restricted_taps`, `restricted_floating`, by `Spend`;
+`engine/restricted_offer.rs`, with the payment's own reader
+`casting::provenance_allows`, asked once per class of sources alike), a
+window's offer included (`Engine::window_priority`). One planner reads it,
+`baylee_ai::spend::plan_for`, for the client's reach and payment window, the
+seat and BayleeAI's menu: every restricted tap it names is a source, the
+restricted mana floating it names is mana. The house keeps its reading
+(`sharp-2026-11`). `tests/mana/routes.rs` plays every board above to the
+stack; `engine::restricted_offer_tests` holds the statement.
+### 70. The house never taps for a card it may cast from exile, or for a disturb face — FIXED for the house from generation 10
+
+Found with fault 69, 11.11.2026. The house plans its casts over its hand, its
+commanders and the graveyard cards the view prices (`own_casts`:
+`PublicObject::flashback`, which is a flashback, an escape or a graveyard
+permission). A card the engine offers from exile once its mana is made (an
+Adventure's creature, CR 716.3d; a foretold card, CR 702.143a; a play
+permission's card) and a disturb face in the graveyard (CR 702.146a) are cast
+only when their mana already floats (`LegalActions::castable`), never tapped
+for. The engine names each such way and its price (`LegalActions::cast_ways`),
+so the reading is there; the house is frozen as `sharp-2026-11`, so the change
+goes behind a profile field the reference does not set.
+
+**Fixed** for the house from generation 10 (`AIProfile::FULL_CASTS`): every card
+the offer names from a graveyard or an exile zone is planned at each way
+`LegalActions::cast_ways` prices (`tests/ai_full_casts.rs`: a foretold
+Doomskar, a disturbed Malevolent Hermit, an adventuring Brazen Borrower).
+
+### 71. A back face cast from a graveyard is timed by its front's types in the client — KNOWN coverage gap
+
+Found with fault 69, 11.11.2026. The client's reach asks
+`timing::allows(view, o.types, …)` of a graveyard or exiled card, and those are
+the types of the face the view shows, the front. A face cast in its place has
+its own timing (CR 601.3e; `casting::face_timing_allows` on the engine's side):
+a disturb face that is an instant behind a creature front would be withheld
+outside a main phase. No disturb card in the pool has one, and the engine's
+`payable` has already asked the right face, so it under-offers and never
+over-offers.
+
+### 72. The house plans no Phyrexian mana with life — FIXED for the house from generation 10
+
+From Carbon's reports, 11.11.2026 (`hc-expert-a` game 10, question 176, and
+five more): Dismember at 20 life beside lands that make no black was never
+offered. The planners read `{B/P}` as black only (`manaplan::plan`), and life
+was the player's decision (`manaplan::plan_with_life`), which the client
+asked and the seat, BayleeAI's menu and the house did not. The engine accepts
+the cast. The seat and the menu now plan through `baylee_ai::plan_for_spell`,
+which pays a Phyrexian symbol with 2 life where no mana pays it and the seat
+keeps at least 1 life (CR 107.4f, 119.4). The house's casting path
+(`policy::spend_on`) is left as it is, frozen in `sharp-2026-11` and live,
+since it changes play; it adopts this behind a profile generation.
+
+**Fixed** for the house from generation 10 (`AIProfile::FULL_CASTS`): it plans
+through `baylee_ai::spend` with life down to six, and answers the question
+whether to pay a symbol with life no where the mana it made pays it
+(`tests/ai_full_casts.rs`: Dismember beside two Mountains, and beside a
+Mountain and two Swamps).
+
+### 73. The house pays a Port with a Port, counts one counter of a Repository, and converts nothing beside floating restricted mana — FIXED for the house from generation 10
+
+From Carbon's reports, 11.11.2026 (chunks b and c; `ladder/triage-hc-expert-bc`
+in the campaign's data). Three readings the shared planner
+(`baylee_ai::spend`: the client, the seat, BayleeAI's menu) no longer has and
+the house still does, because its path is frozen in `sharp-2026-11`, pinned
+by generation, and changes play:
+
+- **A second Rishadan Port.** `policy::plan_for_activation` pays one Port's
+  `{1}` with the other Port whenever the lands beside it make colours the hand
+  wants (`manaplan::prioritize` values a paid ability only as a tie-break), so
+  a house that would use both Ports uses one. The shared path leaves a
+  permanent whose own tapping ability waits for mana untapped where the rest
+  pays both (`spend::keepers`, `spend::plan_keeping`).
+- **Druids' Repository.** `policy::sources` reads a mana ability paid by
+  removing its own counters, with no tap, as one mana however many counters
+  there are. The shared path reads it once per activation the counters pay
+  (`spend::repeat_counter_sources`).
+- **A conversion beside restricted mana.** `manaplan::plan` plans no paid mana
+  ability (Study Hall, a filter land) while any restricted mana floats
+  (`manaplan/convert.rs`). The shared path earmarks the restricted mana the
+  engine names for one payment (`manaplan::plan_earmarked`): it pays the cost
+  and never a converter's `{1}`, and the rest is left alone.
+
+Each is one call away for the house's next generation, behind a profile field
+the reference does not set.
+
+**Fixed** for the house from generation 10 (`AIProfile::FULL_CASTS`, 12.11.2026):
+its casts, its payment windows and the mana it makes for an ability are
+planned through `baylee_ai::spend` (`policy/full_casts.rs`); the frozen
+reference and every earlier generation keep their reading.
+The three readings are the shared planner's and held by its tests
+(`spend.rs`, `paystage/tests.rs`); `baylee-gamehost` `tests/ai_full_casts.rs`
+plays the house through the engine's statement (two Ancient Ziggurats into a
+Grizzly Bears).
+
+### 74. The house never suspends — KNOWN, for the house's next generation
+
+From Carbon's reports, 12.11.2026 (self-play block 3, attempt 30, seat 1,
+q322: Ancestral Vision beside ten untapped Islands, and no suspend offered).
+The engine offered `suspendable` only once the suspend cost floated (fault
+31) and named no suspend still to be paid for, so no seat that taps first
+could suspend. Protocol 44 names one (`LegalActions::unpaid_suspend`), and the
+language-model seat, BayleeAI's menu and the client now tap for it and suspend
+(`baylee_ai::suspend_plans`, `client::mana_run::suspend_mana_for`). The house
+(`HeuristicAgent`, `policy`) answers `PlayerAction::Suspend` nowhere: it
+neither suspends a card whose cost floats nor taps for one, so Ancestral
+Vision and Profane Tutor, the pool's two suspend cards, stay in hand. Its
+path is frozen in `sharp-2026-11`, pinned by generation, and changes play, so
+the reading goes behind a profile field the reference does not set: suspend
+from `suspendable` and from `unpaid_suspend` through the same planner, as the
+seat does.
+
+### 75. The house taps the land with the scarce colour where floating mana and plain lands pay — KNOWN, for the house's next generation
+
+From Carbon's block 4 reports, 12.11.2026 (segment 2, attempt 4, seat 1,
+q247). `{3}{U}{G}` owed over a floating `{U}{G}`, beside four Forests and an
+Island, with Double Major (`{G}{U}`) in hand: the language-model seat was
+offered one plan, two Forests and the Island, which left no blue. The matching
+reaches for floating mana first, pip by pip, and Kuhn's augmenting path frees
+a unit by moving the pip that holds it on to the next unit in its order,
+whatever that unit is worth, so the floating blue and green paid generic mana
+and `{U}` moved onto the Island (CR 601.2g, 601.2h).
+
+`manaplan::plan` now follows the matching with `spare`: the dearest tapped
+permanent is traded for the cheapest untapped one ranked below it (clean
+before priced, then `Source::preserve`, then fewer colours) wherever the rest
+still pays, spending no less of the floating mana. The client, the seat,
+BayleeAI's menu and everything through `baylee_ai::spend` plan that way; the
+seat's payment window also lists the plan that leaves other mana up
+(`narrator/menu/payment.rs`).
+
+The house's path is frozen in `sharp-2026-11` and pinned by generation, and
+it taps one step at a time and plans again, so it meets floating mana before
+nearly every cast it taps for. Every `manaplan::plan` call of `baylee_ai`'s
+`policy`, `granted`, `activate/payment` and `worth/permissions` is now
+`manaplan::plan_frozen`, which is the matching without the trade: the same
+answer to whether a cost is paid, and the taps it made when it was frozen.
+The house's next generation moves to `manaplan::plan` behind a profile field
+the reference does not set (`policy::spend_on`, `pay_owed`,
+`activation_plan`).
+
+From generation 10 (`AIProfile::FULL_CASTS`) the house's taps for a cast, a
+payment window and an ability's mana are planned through `baylee_ai::spend`,
+which is `manaplan::plan` with the trade (`policy/full_casts.rs`,
+`baylee_ai::plan_for_activation`). What it still reads frozen is the X and
+kicker it aims for and whether a cast is viable at all (`aim`,
+`granted::viable_cast`), which ask only whether a cost is paid.
+
+## Found while fixing Carbon's block 5 reports, 2026-11-12
+
+Fade Away's two faults (the nonactive player asked first, a creature
+sacrificed for another skipped) are fixed in the engine
+(`docs/engine-internals.md` §"For each permanent, its controller"). Two
+neighbours of the fix were seen and are left for a round of their own.
+
+### 76. "Each player sacrifices …" asks in seat order and sacrifices one player at a time — CONFIRMED
+
+`Effect::SacrificeFilter` with `who: EachPlayer` (Innocent Blood, Tremble,
+Simplify, Abyssal Gatekeeper, Hurloon Shaman and the other edicts over every
+player) asks the players in seat order (`eval::players`), not APNAP, and
+sacrifices each pick before the next player is asked
+(`resolve/resume.rs`, `AwaitingOp::SacrificeFilter`). CR 101.4 has the
+active player choose first, then each other player in turn order, and then
+the sacrifices happen at once. Two things move: on seat 1's turn seat 0
+picks first, and a permanent that sees others die (a leaves-the-battlefield
+ability looks back in time, CR 603.10a) misses a sacrifice made after its
+own. `DestroyChosenForPlayers` and `ReturnChosenToHand`, which share the
+shape (`resolve/chosen.rs`), do the same. The fix is the count's: choose in
+APNAP order, hold, then `sacrifice_together`; it changes play wherever an
+edict meets a turn of seat 1 or a death trigger, so it needs its own
+boundary.
+
+### 77. A later player is not shown what an earlier player chose to sacrifice — KNOWN
+
+CR 101.4b: a player knows the choices the earlier players made. Fade Away's
+held picks stay on the battlefield until the last player has chosen, and
+nothing in a view or the log names them, so the next player decides without
+seeing them; the Dungeon's tax choices (`resolve/dungeon/tax.rs`) are held
+the same way. It takes information away and leaks none. Closing it needs a
+public record of a held pick (an event the log and the view read) or a mark
+on the held permanent in the view.
+
+## Found while fixing Carbon's block 6 reports, 2026-11-12
+
+### 78. The house keeps no colour for an ability on its board — KNOWN, for the house's next generation
+
+From Carbon's block 6 reports (segment 2, attempt 57, seat 1, q262):
+Sabertooth Nishoba (`{4}{W}{G}`) in hand, seven lands and Thornscape
+Apprentice on the battlefield, whose "`{R}`, `{T}`" only the Mountain pays.
+The seat's one plan tapped the Mountain and left a Forest standing, because
+`manaplan::prioritize` valued a land by the colours of the cards in hand
+alone (CR 601.2g, 601.2h). The client and the seat now hand it the mana costs
+of the abilities the engine lists as waiting only for mana as well
+(`baylee_ai::board_claims`, mana abilities aside), through
+`baylee_ai::mana_sources` and `plan_for_spell`.
+
+The house ranks by its hand alone in every generation (`policy::sources`,
+`offers`, `full_casts::mana_sources`, and `baylee_ai::plan_for_activation`,
+which generation 10 shares with the seat), so its pins stand. The house's
+next generation can pass the board's claims behind a profile field
+(`policy::sources_keeping`). Activations the seat plans
+(`plan_for_activation`) rank by the hand too, for the same reason.
+
+### 79. A split card was its left half off the stack — FIXED in the engine (the split boundary)
+
+From Carbon's block 6 reports (attempts 58, 62 and 71): after Ice was cast,
+the graveyard said "Fire" and the seat was told Fire's text alone. The
+display was the visible half; the rules were the other. The engine gave a
+split card its left half's characteristics in every zone, so Fire // Ice in a
+hand, a library, a graveyard or exile was a red card of mana value 2, where
+CR 709.4b makes it blue and red with mana value 4: Force of Will could not
+exile it as a blue card, and a mana value check counted 2.
+
+`Characteristics::of_card` now combines both halves of a split card whose
+halves are instants and sorceries (`CardDef::is_split_spell_card`, held
+against every printing's layout by `sides::tests`); a cast half is that half
+alone on the stack (CR 709.3b), and every probe of a normal cast asks the left
+half (`casting::split_front`). The object keeps the left half's name (CR
+709.4a gives the card two); the host and the seat show both ("Fire // Ice",
+both halves' text). `docs/engine-internals.md` §"A split card is both of its
+halves". Every split card's base is in the snapshot hash, so a record with
+one in any deck written before this (the split boundary, 7c879ff33) opens
+with another hash: `convert4` refuses it by name (`convert4::split_boundary`,
+`docs/trained-ai.md`: 3,960 records of `~/baylee-data/v6` replayed exactly
+before and do not after).
+
+### 80. A Room is its left half off the battlefield and the stack — KNOWN rules gap, held for a pin
+
+CR 709.4 gives every split card its halves combined in every zone but the
+stack, and a Room is a split card (CR 709.5 adds what it is on the
+battlefield). Off the battlefield the engine still reads a Room as its left
+half: Walk-In Closet // Forgotten Cellar in a hand is a green card of mana
+value 3, where both halves make it 8 (`{2}{G}` and `{3}{G}{G}`). It is left
+out of entry 79 on purpose: Walk-In Closet is in Weltenbaum, which plays
+tables 5 and 6 of the frozen reference's and the generation pins'
+(`reference_profile.rs`, `generation_pins.rs`), and the house reads a hand
+card's mana value. The fix is `CardDef::is_split_spell_card` widened to the
+Rooms (`GameState::set_doors` keeps the battlefield; `original_base` is then
+the whole card), in a change of its own that re-records those pins and says
+why.
+
+### 81. A chosen card type, a second basic land type and a chosen number are shown nowhere — KNOWN, needs the view
+
+Ward Sliver's chosen colour is now on its line (Carbon b6, attempt 63,
+q252), with a chosen opponent beside the chosen type and name the seat
+already printed. The engine also keeps a card type chosen as a permanent
+enters (Serra's Emissary: protection from it, `Rider::ChosenCardType`), a
+second chosen basic land type and a chosen number, and the view carries none
+of them, so neither the seat nor the client can show them. Each wants a
+`PublicObject` field.
+
+## Found while fixing Carbon's block 7 reports, 2026-11-12
+
+The seat's two faults are fixed. Its X question counts a restricted mana
+ability whose restriction admits the spell (segment 3, attempt 22, q214:
+Invoke the Firemind beside Vodalian Arcanist was asked X "from 0 to 2" where
+3 is paid; CR 106.6, 601.2b), read off the view
+(`baylee_ai::mana_sources_in_view_for`). An attack or block with nothing to
+declare is declared while a plan runs, where it used to stop the plan
+(attempt 8, q207; `wake::WakeFilter::judge`). The same X reading is left in
+two other places.
+
+### 82. The house aims an X with its unrestricted mana alone — KNOWN, for the house's next generation
+
+The house sizes an X spell's X over its unrestricted sources and floats the
+whole price before the cast (`policy::aim`, given the plain taps by
+`spend_on` and by generation 10's `spend_on_full` alike), and answers the X
+question from the floating pool through `manaplan::plan_frozen`, which
+counts no restricted mana (`HeuristicAgent::largest_x`). Beside Vodalian
+Arcanist it aims Invoke the Firemind at the X its lands pay, one short. Its
+path is frozen in `sharp-2026-11` and pinned by generation, and the X it
+aims changes play, so the reading goes behind a profile field the reference
+does not set: aim over the sources `baylee_ai::spend` adds for the cast (the
+engine's statement, `LegalActions::restricted_taps`), and answer X from the
+pool with the restricted mana floating that the engine names for it
+(`restricted_floating`).
+
+### 83. The client's X cap counts no restricted mana, and the seat's counts all that floats — KNOWN
+
+The desktop client caps its X question over `manasources::sources`, which
+reads no restricted tap (`Duel::x_cap`), so it asks the record's Firemind
+"up to 2" as the seat did. It keeps its last priority's offer
+(`priority_legal`), which names the restricted taps and floating mana that
+may pay the cast (`spend::sources_for`, `LegalActions::restricted_floating_for`),
+so the fix there is the engine's statement and not a reading of the view.
+
+The seat's X question carries no offer, and the view says what restricted
+mana floats by colour, never what it may pay for. The seat counts all of it
+as mana that may pay the spell: X is announced before mana abilities (CR
+601.2b, 601.2g), so that mana was made before the cast began, nearly always
+by the seat's own taps for this very spell. Mana that may not pay it (Ancient
+Ziggurat's floating beside a sorcery) makes the bound too high, and an X past
+the mana reverses the cast (CR 601.2h, 734.1), which the engine's open range
+("from 0 to 4294967295") allowed for any number. Counting it exactly needs
+the statement at the X question: the last priority's offer kept beside it,
+as the client keeps one (the seat's `Request` carries none, and
+`baylee-train` builds it too), or a `DecisionNote` field, which is a protocol
+change.

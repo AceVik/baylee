@@ -85,6 +85,10 @@ fn removal_waits_when_only_our_permanent_matches_its_colour_restriction() {
     friendly.colors = ColorSet::of(baylee_core::color::Color::White);
     let enemy = permanent(obj(3), PlayerId::new(1), 5);
     let mut v = view(0, &[20, 20], vec![friendly, enemy]);
+    // In a main phase, where an instant's removal is cast at every level
+    // (`timing`): this is about its target, not its moment.
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
     v.hand = vec![hand_card(1, "Vanishing Verse")];
     let pending = Pending::Priority {
         player: v.seat,

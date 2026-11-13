@@ -14,9 +14,10 @@ use crate::ui_button::UiButton;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::tableview::{Arrangement, TableFrame, TableView};
 use bevy::prelude::*;
+use bevy::ui::{ShadowStyle, UiTransform};
 
 use crate::ambience::Feel;
-use crate::hud::{CORNER_BUTTON, EDGE, UiFonts, btn_radius, palette, tf, tf_bold};
+use crate::hud::{CORNER_BUTTON, EDGE, UiFonts, btn_radius, motion, palette, tf, tf_bold};
 use crate::{Duel, DuelPhase};
 
 /// The window and the table the arrangements are offered for, measured once
@@ -119,7 +120,7 @@ pub fn choose(
     if measured.flash > 0.0 {
         measured.flash = (measured.flash - time.delta_secs()).max(0.0);
     }
-    let table = settings.as_deref().map(|s| s.table).unwrap_or_default();
+    let table = settings.as_deref().map_or_default(|s| s.table);
     if duel.follow != table.follow {
         duel.follow = table.follow;
         if !table.follow {
@@ -446,9 +447,9 @@ pub struct ArrangementPill;
 #[derive(Component)]
 pub struct PillName;
 
-/// The pill's letter disc.
+/// The pill's picture of its arrangement.
 #[derive(Component)]
-pub struct PillLetter;
+pub struct PillPicture;
 
 /// The veil behind an open menu: a press on it shuts the menu and reaches
 /// nothing under it.
@@ -552,9 +553,16 @@ pub fn pill_names(duel: &Duel, table: &TableView, measured: &ArrangementFrame) -
     }
 }
 
-/// The pill's ground: the dialog's, at .88 (§2.1).
+/// The pill's ground: the dialog's, opaque.
+///
+/// It was the dialog's at .88 (§2.1), which is glass over the felt and a
+/// grey smear over the sky: the pill stands in the table's cut corner, over
+/// the brightest thing on the screen, and the renderer blends in linear
+/// light, where twelve hundredths of a cloud are most of what the eye sees.
+/// The pill's quiet ink read 1.8 : 1 there. A plate this small gains nothing
+/// from being seen through.
 fn pill_ground() -> Color {
-    palette::DIALOG.with_alpha(0.88)
+    palette::DIALOG
 }
 
 /// Below this logical height the menu leaves its descriptions out: eight
@@ -616,7 +624,7 @@ pub fn sync_switcher(
         return;
     };
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let table = settings.as_ref().map(|s| s.table).unwrap_or_default();
+    let table = settings.as_ref().map_or_default(|s| s.table);
     let resolved_to = (chosen(&duel, &table, measured.seats) == Arrangement::TurntableRows)
         .then_some(duel.arrangement);
     let next = SwitcherRevision {
@@ -663,7 +671,7 @@ pub fn sync_switcher(
     }
 }
 
-/// The pill: the arrangement's disc, its name (not on a compact window),
+/// The pill: the arrangement's picture, its name (not on a compact window),
 /// and a caret.
 fn spawn_pill(
     commands: &mut Commands,
@@ -692,14 +700,21 @@ fn spawn_pill(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            hanging_shadow(0.35),
             UiButton,
             Feel::new(ground),
             GlobalZIndex(G_SWITCHER),
         ))
         .observe(pill_pressed)
         .id();
-    let disc = letter_disc(commands, fonts, arrangement, palette::DIALOG_SOFT);
-    commands.entity(disc).insert(PillLetter);
+    let disc = pictogram(
+        commands,
+        arrangement,
+        palette::DIALOG_SOFT,
+        palette::ACTIVE,
+        Vec2::new(DISC, PILL_PICTURE_H),
+    );
+    commands.entity(disc).insert(PillPicture);
     commands.entity(pill).add_child(disc);
     if !compact {
         let name = commands
@@ -724,48 +739,135 @@ fn spawn_pill(
     commands.entity(pill).add_child(caret);
 }
 
-/// An icon pictogram for each arrangement in a ring (§7.6).
-const fn arrangement_glyph(arrangement: Arrangement) -> char {
+/// One mat of a pictogram: its left, top, width and height as shares of the
+/// picture, and whether it is the player's own.
+type Mat = (f32, f32, f32, f32, bool);
+
+/// An arrangement as a picture: the table from above at four seats, each
+/// board a mat, mine at the near edge.
+///
+/// The pill and the menu's rows wore an icon in a ring (a magnifier, an eye,
+/// two people), which named an arrangement and showed nothing of it. These
+/// show what choosing one does to the table: where the boards go, which are
+/// large, which are turned. They are schematic on purpose: the same picture
+/// at three seats and at eight, as a street sign is the same for every car.
+const fn mats(arrangement: Arrangement) -> &'static [Mat] {
     match arrangement {
-        Arrangement::Ring => crate::hud::glyph::FRIENDS,
-        Arrangement::UprightRing => crate::hud::glyph::EXPAND,
-        Arrangement::Turntable => crate::hud::glyph::RESTORE,
-        Arrangement::TurntableRows => crate::hud::glyph::VIEW_ROWS,
-        Arrangement::Spotlight => crate::hud::glyph::EYE,
-        Arrangement::Pods => crate::hud::glyph::VIEW_GRID,
-        Arrangement::ArcRail => crate::hud::glyph::VIEW_BIG,
-        Arrangement::FocusRing => crate::hud::glyph::MAGNIFIER,
+        // Every seat on the ring, the flanks turned along it.
+        Arrangement::Ring => &[
+            (0.30, 0.70, 0.40, 0.26, true),
+            (0.30, 0.04, 0.40, 0.26, false),
+            (0.03, 0.20, 0.17, 0.60, false),
+            (0.80, 0.20, 0.17, 0.60, false),
+        ],
+        // The ring's places, every board upright.
+        Arrangement::UprightRing => &[
+            (0.30, 0.70, 0.40, 0.26, true),
+            (0.30, 0.04, 0.40, 0.26, false),
+            (0.02, 0.38, 0.34, 0.24, false),
+            (0.64, 0.38, 0.34, 0.24, false),
+        ],
+        // A duel in the middle, the others small on the flanks.
+        Arrangement::Turntable => &[
+            (0.24, 0.58, 0.52, 0.38, true),
+            (0.24, 0.04, 0.52, 0.38, false),
+            (0.03, 0.38, 0.15, 0.24, false),
+            (0.82, 0.38, 0.15, 0.24, false),
+        ],
+        // The others on one arc above me.
+        Arrangement::ArcRail => &[
+            (0.30, 0.68, 0.40, 0.28, true),
+            (0.02, 0.26, 0.28, 0.22, false),
+            (0.36, 0.06, 0.28, 0.22, false),
+            (0.70, 0.26, 0.28, 0.22, false),
+        ],
+        // Every opponent a pod in a row above mine.
+        Arrangement::Pods => &[
+            (0.34, 0.62, 0.32, 0.34, true),
+            (0.02, 0.06, 0.28, 0.34, false),
+            (0.36, 0.06, 0.28, 0.34, false),
+            (0.70, 0.06, 0.28, 0.34, false),
+        ],
+        // A duel and nothing else on the felt.
+        Arrangement::Spotlight => &[
+            (0.14, 0.56, 0.72, 0.40, true),
+            (0.14, 0.04, 0.72, 0.40, false),
+        ],
+        // The Turntable, its flanks in rows.
+        Arrangement::TurntableRows => &[
+            (0.24, 0.58, 0.52, 0.38, true),
+            (0.24, 0.04, 0.52, 0.38, false),
+            (0.03, 0.20, 0.15, 0.22, false),
+            (0.03, 0.56, 0.15, 0.22, false),
+            (0.82, 0.20, 0.15, 0.22, false),
+            (0.82, 0.56, 0.15, 0.22, false),
+        ],
+        // A duel in the middle, the others as peeks at the edges.
+        Arrangement::FocusRing => &[
+            (0.20, 0.56, 0.60, 0.40, true),
+            (0.20, 0.04, 0.60, 0.40, false),
+            (0.02, 0.28, 0.10, 0.44, false),
+            (0.88, 0.28, 0.10, 0.44, false),
+        ],
     }
 }
 
-fn letter_disc(
+/// The pill's picture: as wide as the disc it replaced, so the pill is as
+/// wide as the camera tests measured it ([`pill_width`]), and flatter, as a
+/// table is.
+const PILL_PICTURE_H: f32 = 14.0;
+
+/// A menu row's picture.
+const ROW_PICTURE: Vec2 = Vec2::new(36.0, 27.0);
+
+/// [`mats`] drawn `size` large: the table's edge as a hairline, the boards
+/// in `ink` at half strength and mine in `mine`.
+fn pictogram(
     commands: &mut Commands,
-    fonts: &UiFonts,
     arrangement: Arrangement,
     ink: Color,
+    mine: Color,
+    size: Vec2,
 ) -> Entity {
-    commands
+    // The mats are laid out inside the hairline.
+    let inner = size - Vec2::splat(2.0);
+    let picture = commands
         .spawn((
             Node {
-                width: px(DISC),
-                height: px(DISC),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(DISC / 2.0)),
+                width: px(size.x),
+                height: px(size.y),
                 flex_shrink: 0.0,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(3.0)),
                 ..default()
             },
-            BorderColor::all(ink),
+            BorderColor::all(ink.with_alpha(ink.alpha() * 0.6)),
             Pickable::IGNORE,
-            children![(
-                Text::new(arrangement_glyph(arrangement).to_string()),
-                crate::hud::icon_tf(fonts, 9.5),
-                TextColor(ink),
-                Pickable::IGNORE,
-            )],
         ))
-        .id()
+        .id();
+    for &(left, top, width, height, own) in mats(arrangement) {
+        let mat = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(left * inner.x),
+                    top: px(top * inner.y),
+                    width: px(width * inner.x),
+                    height: px(height * inner.y),
+                    border_radius: BorderRadius::all(px(1.0)),
+                    ..default()
+                },
+                BackgroundColor(if own {
+                    mine
+                } else {
+                    ink.with_alpha(ink.alpha() * 0.5)
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(picture).add_child(mat);
+    }
+    picture
 }
 
 /// What one drawing of the menu shows.
@@ -781,7 +883,7 @@ struct MenuLook {
     short: bool,
 }
 
-/// The menu: one row per arrangement — disc, name, what it does, the reason
+/// The menu: one row per arrangement — picture, name, what it does, the reason
 /// it is greyed or its *experimentell* tag, its digit — then *remember for
 /// this seat count* under a rule, and the note on the letters (§2.1). On a
 /// phone it is a sheet over the whole window.
@@ -838,6 +940,13 @@ fn spawn_menu(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: MenuLo
             Pickable::default(),
         ))
         .id();
+    // The phone's sheet is the whole window: it has no corner to grow out
+    // of and nothing behind it to cast a shadow on.
+    if !look.phone {
+        commands
+            .entity(panel)
+            .insert((FromThePill, hanging_shadow(1.0)));
+    }
     for (row, arrangement) in Arrangement::ALL.into_iter().enumerate() {
         let entity = arrangement_row(commands, fonts, lang, look, row, arrangement);
         commands.entity(panel).add_child(entity);
@@ -923,7 +1032,9 @@ fn arrangement_row(
         line.insert(Feel::new(ground));
     }
     let line = line.observe(row_pressed).id();
-    let disc = letter_disc(commands, fonts, arrangement, ink);
+    // A row that cannot be chosen keeps its own board as dim as the rest.
+    let mine = if live { palette::ACTIVE } else { ink };
+    let disc = pictogram(commands, arrangement, ink, mine, ROW_PICTURE);
     let mut words: Vec<Entity> = Vec::new();
     words.push(
         commands
@@ -1094,8 +1205,90 @@ fn veil_pressed(mut click: On<PointerClick>, mut duel: ResMut<Duel>) {
     duel.arrangement_menu = None;
 }
 
-/// The pill's flash after `Shift+P`: its name and disc go from the quiet
-/// ink to the full one and back over [`FLASH_SECS`]. Writes only while a
+/// The shadow of what hangs from the top edge: the pill at `lift` 0.35, the
+/// menu at 1.
+///
+/// Every other raised thing on this HUD rises from the lower edge and throws
+/// its shadow up onto the felt ([`crate::hud::upward_shadow`]). These two
+/// hang from the upper one, so theirs falls down onto the table, as a sign's
+/// does on the wall it hangs from.
+fn hanging_shadow(lift: f32) -> BoxShadow {
+    let lift = lift.clamp(0.0, 1.0);
+    BoxShadow(vec![
+        ShadowStyle {
+            color: palette::SHADOW.with_alpha(0.34),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(1.0 + 2.0 * lift),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(4.0 + 4.0 * lift),
+        },
+        ShadowStyle {
+            color: palette::SHADOW.with_alpha(0.50 * lift),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(12.0 * lift),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(30.0 * lift),
+        },
+    ])
+}
+
+/// The menu's panel off a phone: the one that grows out of the pill.
+#[derive(Component)]
+pub struct FromThePill;
+
+/// Where the menu's arrival stands: whether a panel stood last frame, and
+/// how far the one that stands has come.
+#[derive(Default)]
+pub struct MenuPop {
+    stood: bool,
+    t: f32,
+}
+
+/// The menu's arrival: the panel grows out of the pill's corner on the HUD's
+/// one curve ([`motion::opening`], [`motion::ZOOM_IN`]), its top-left corner
+/// held where the pill hangs.
+///
+/// The menu is redrawn whole whenever what it says changes (an arrow key
+/// moves its focus), so the arrival is not the panel's: it starts when a
+/// panel stands where none stood the frame before, and a panel redrawn in
+/// the middle of it is carried on from where the last one was. Nothing is
+/// written once it has arrived, and under `reduce_motion` it arrives at
+/// once.
+pub fn pop_the_menu(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut pop: Local<MenuPop>,
+    mut panels: Query<&mut UiTransform, With<FromThePill>>,
+) {
+    let Some(mut transform) = panels.iter_mut().next() else {
+        *pop = MenuPop::default();
+        return;
+    };
+    if !pop.stood {
+        *pop = MenuPop {
+            stood: true,
+            t: 0.0,
+        };
+    } else if pop.t >= 1.0 {
+        return;
+    }
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    pop.t = motion::step(pop.t, motion::ZOOM_IN, time.delta_secs(), still);
+    *transform = if pop.t >= 1.0 {
+        // Exactly at rest: the curve's end is a sum of two floats.
+        UiTransform::default()
+    } else {
+        let scale = motion::opening(pop.t);
+        UiTransform {
+            translation: motion::from_top_left(scale),
+            scale: Vec2::splat(scale),
+            ..default()
+        }
+    };
+}
+
+/// The pill's flash after `Shift+P`: its name goes from the quiet ink to
+/// the full one and back over [`FLASH_SECS`]. Writes only while a
 /// flash runs, and once more as it ends.
 pub fn flash_the_pill(
     measured: Res<ArrangementFrame>,
@@ -1186,6 +1379,7 @@ pub fn plugin(app: &mut App) {
         (
             sync_switcher,
             flash_the_pill.after(sync_switcher),
+            pop_the_menu.after(sync_switcher),
             crate::hud::peeks::sync_peeks,
             crate::hud::hand_drawer::sync_hand_tab,
         )
