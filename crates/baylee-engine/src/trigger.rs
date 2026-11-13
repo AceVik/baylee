@@ -1106,10 +1106,7 @@ fn collect_for_objects(
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
-            if state.effects.iter().any(|effect| {
-                effect.modifier == baylee_cards_dsl::Modifier::WardDoesntTrigger
-                    && crate::effects::applies_to(state, effect, obj)
-            }) {
+            if matching::ward_suppressed(state, obj) {
                 continue;
             }
             let Some(synthetic) = WARD_PAY_OR_COUNTER

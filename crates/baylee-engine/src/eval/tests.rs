@@ -491,6 +491,59 @@ fn hexproof_hides_a_creature_from_its_controllers_opponents() {
     );
 }
 
+#[test]
+fn filtered_hexproof_permission_tracks_the_source_and_preserves_shroud() {
+    use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+    use baylee_cards_dsl::{Duration, Modifier};
+    use baylee_core::ids::EffectId;
+
+    let mut state = empty_state();
+    let source = creature(&mut state, P0, KeywordSet::EMPTY);
+    let hexproof = creature(&mut state, P1, KeywordSet::HEXPROOF);
+    let shroud = creature(
+        &mut state,
+        P1,
+        KeywordSet::HEXPROOF.union(KeywordSet::SHROUD),
+    );
+    let land = land(&mut state, P1, &[]);
+    state.object_mut(land).unwrap().base_mut().keywords = KeywordSet::HEXPROOF;
+    assert!(untargetable_by(&state, hexproof, P0));
+
+    let modifier = Modifier::CanBeTargetedAsThoughNoHexproof;
+    state.effects.register(ContinuousEffect {
+        id: EffectId::new(0),
+        source: Some(source),
+        controller: P0,
+        origin: EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp: 1,
+        duration: Duration::WhileSourceOnBattlefield,
+        filter: EffectFilter::Dsl(&Filter::OPPONENT_CREATURE),
+        modifier,
+    });
+
+    assert!(targets(&state, P0, source).contains(&hexproof));
+    assert!(untargetable_by(&state, shroud, P0));
+    assert!(untargetable_by(&state, land, P0));
+    assert!(
+        state
+            .object(hexproof)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::HEXPROOF)
+    );
+    state
+        .move_object(
+            source,
+            ZoneLocation::Graveyard(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::TurnBased,
+        )
+        .expect("the source leaves the battlefield");
+    assert!(untargetable_by(&state, hexproof, P0));
+}
+
 /// Shroud (CR 702.18a) stops everyone, controller included — that is
 /// the whole difference between the two keywords.
 #[test]

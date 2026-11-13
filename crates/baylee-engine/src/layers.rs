@@ -1336,6 +1336,7 @@ fn apply(
         | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::WardDoesntTrigger
+        | Modifier::CanBeTargetedAsThoughNoHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice

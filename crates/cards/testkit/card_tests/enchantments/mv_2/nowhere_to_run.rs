@@ -86,3 +86,87 @@ fn nowhere_opens_hexproof_and_stops_ward_without_removing_either_ability() {
         "the Ward ability is suppressed, not erased"
     );
 }
+
+#[test]
+fn nowhere_stops_life_ward_without_removing_the_triggered_ability() {
+    let fleshgorger = baylee_core::generated::index::PHYREXIAN_FLESHGORGER;
+    for suppress in [false, true] {
+        let ours = if suppress { vec![nowhere()] } else { vec![] };
+        let mut e = lk::game(SEED, &ours, &[fleshgorger], &[swords_to_plowshares()], &[]);
+        let target = lk::obj(&e, P1, fleshgorger);
+        lk::float(&mut e, P0, &[(ManaColor::White, 1)]);
+        cast_with_floating(&mut e, P0, swords_to_plowshares());
+        lk::aim(&mut e, &[target], &[]);
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
+        });
+        if suppress {
+            assert_eq!(lk::zone_of(&e, target), Zone::Exile);
+            assert_eq!(e.state().players[0].life, 20);
+            assert!(
+                e.state()
+                    .object(target)
+                    .unwrap()
+                    .ability_list(e.state().bases.as_ref())
+                    .abilities
+                    .iter()
+                    .any(|ability| matches!(
+                        ability,
+                        baylee_cards_dsl::AbilityDef::Triggered {
+                            trigger: baylee_cards_dsl::Trigger::Ward,
+                            ..
+                        }
+                    ))
+            );
+        } else {
+            assert!(
+                matches!(e.pending(), Pending::YesNo { .. }),
+                "life ward triggers without Nowhere"
+            );
+            e.apply(P0, PlayerAction::YesNo(false)).unwrap();
+            lk::settle(&mut e);
+            assert_eq!(lk::zone_of(&e, target), Zone::Battlefield);
+        }
+    }
+}
+
+#[test]
+fn nowhere_opens_only_opponents_creatures_to_every_players_spells() {
+    let p2 = PlayerId::new(2);
+    let mut e = Duel::table(SEED, forest(), 3)
+        .battlefield(0, &[nowhere(), sylvan_caryatid()])
+        .battlefield(1, &[sylvan_caryatid()])
+        .hand(0, &[everybody_lives(), lightning_bolt()])
+        .hand(2, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    let ours = lk::obj(&e, P0, sylvan_caryatid());
+    let theirs = lk::obj(&e, P1, sylvan_caryatid());
+
+    lk::float(&mut e, P0, &[(ManaColor::White, 2), (ManaColor::Red, 1)]);
+    lk::cast_at(&mut e, P0, everybody_lives(), &[], &[]);
+    cast_with_floating(&mut e, P0, lightning_bolt());
+    let Pending::ChooseTargets { player_options, .. } = e.pending() else {
+        panic!("Lightning Bolt asks for a target: {:?}", e.pending())
+    };
+    assert_eq!(player_options, &[P0], "opposing players retain hexproof");
+    lk::aim(&mut e, &[], &[P0]);
+    lk::settle(&mut e);
+
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p2),
+    );
+    lk::float(&mut e, p2, &[(ManaColor::Red, 1)]);
+    cast_with_floating(&mut e, p2, lightning_bolt());
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("Lightning Bolt asks for a target: {:?}", e.pending())
+    };
+    assert_eq!(options, &[theirs], "only the opposing creature is offered");
+    lk::aim(&mut e, &[theirs], &[]);
+    lk::settle(&mut e);
+    assert_eq!(lk::damage_on(&e, theirs), 3);
+    assert_eq!(lk::damage_on(&e, ours), 0);
+    assert!(keywords(&e, theirs).contains(KeywordSet::HEXPROOF));
+}

@@ -131,12 +131,23 @@ pub(super) fn untargetable_by_source_object(
     })
 }
 
-/// A rule permission with a continuing set: new opponents' creatures are
-/// covered too, and losing the resolving source does not end the permission.
-fn ignores_opponents_hexproof(state: &GameState, you: PlayerId) -> bool {
-    state.effects.iter().any(|effect| {
-        effect.controller == you
-            && effect.modifier == baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof
+/// As-though permissions leave the keyword intact. Filtered permissions apply
+/// to every targeting player; the older permission belongs to its controller.
+fn ignores_hexproof(state: &GameState, object: &crate::object::GameObject, you: PlayerId) -> bool {
+    use baylee_cards_dsl::Modifier;
+    state.effects.iter().any(|effect| match effect.modifier {
+        Modifier::IgnoreOpponentsHexproof => {
+            effect.controller == you
+                && object
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+                && crate::effects::source_is_present(state, effect)
+        }
+        Modifier::CanBeTargetedAsThoughNoHexproof => {
+            crate::effects::applies_to(state, effect, object)
+        }
+        _ => false,
     })
 }
 
@@ -164,11 +175,7 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
     // target it — and in a game with no teams that is everyone else.
     keywords.contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
         && state.is_opponent(obj.controller, you)
-        && !(obj
-            .characteristics()
-            .types
-            .contains(baylee_core::types::TypeSet::CREATURE)
-            && ignores_opponents_hexproof(state, you))
+        && !ignores_hexproof(state, obj, you)
 }
 
 /// Whether rules-modifying effects permit this Aura to enchant the host.
