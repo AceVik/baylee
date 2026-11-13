@@ -565,8 +565,9 @@ jobs:
     # this workflow's `GITHUB_TOKEN` is read-only. Without `issues` every
     # nightly that met a warning failed on "Resource not accessible by
     # integration" (run 43354219394) instead of saying which advisory it
-    # was. The action fails the job only when reporting fails, never on an
-    # advisory. Named on the job rather than raised repository-wide;
+    # was. On a push a vulnerability fails the job (a warning is only
+    # reported); on the nightly the issue is the whole signal, and the job
+    # stays green. Named on the job rather than raised repository-wide;
     # `contents: read` is restated because a `permissions` block replaces
     # the defaults rather than adding to them.
     permissions:
