@@ -94,8 +94,17 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
     })();
 
     let errors = stop(client, fixture, &ready, &run_dir, port);
+    if !errors.is_empty() {
+        anyhow::bail!(
+            "{}; cleanup: {}",
+            result.err().map_or_else(
+                || "client scenario completed".into(),
+                |error| error.to_string()
+            ),
+            errors.join("; ")
+        );
+    }
     result?;
-    ensure!(errors.is_empty(), "{}", errors.join("; "));
     println!("Owned client exited; client port closed; backend fixture cleanup verified.");
     Ok(0)
 }

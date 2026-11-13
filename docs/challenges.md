@@ -15,10 +15,12 @@ executor build, schema and public target turn. A public room cannot set the
 private challenge policy flag through the ordinary setup protocol.
 
 `baylee-train::challenges` generates candidates from the tested working-card
-pool. Daily candidates currently use the Crossroads tactical template;
-Weekly candidates use the existing synergistic deck builder for a complete
-duel. This first template is a foundation for difficulty and variety testing,
-not a claim that one recurring position provides sufficient long-term variety.
+pool. Daily candidates rotate four Crossroads resource positions: different
+life totals, blockers, attackers and available spells change the necessary
+damage/removal combinations. The calendar rotates the template while 62 seed
+bits stay private and random. Weekly candidates use the existing synergistic
+deck builder for a complete duel, anchored around a direct-damage tool.
+Four tactical templates are the initial content set, not unlimited variety.
 
 Admission requires at least three distinct contribution signatures and both
 combat and direct-damage finishes. The classifier reads historical damage
@@ -60,6 +62,25 @@ on Sunday and admits a horizon of at most 24 days, within Central's 32-day
 inventory bound. Exhausting the candidate budget is an error; there is no
 uncertified fallback. Monitor failures and the remaining published horizon.
 
+`scripts/server/baylee-challenges.service` and `.timer` run the Rust worker
+hourly with a seven-day horizon and 32 candidates per missing slot. Provision
+the dedicated `baylee` account, install the clean release `challenge` executable
+and its matching read-only source at `/opt/baylee/challenges/current/`, and
+supply `BAYLEE_CHALLENGE_BRIDGE_TOKEN` to the service manager through the
+operator's secret manager. The unit contains no credential. Its persistent
+state is owner-only `/var/lib/baylee-challenges`; the unit is read-only elsewhere.
+Build the executable with `cargo build --release --locked -p baylee-train --bin challenge`.
+The units are templates for operator installation; they are not enabled by a
+development test or automatically deployed by this change.
+
+`challenge assess --kind weekly --seed 1000 --count 32` measures admission
+without publishing or printing proof records. The first improvement pass on
+13 November 2026 admitted 4/32 candidates in 291.7 seconds, with certified
+winning turns 11–19. This finite sample is not an availability guarantee or
+human difficulty calibration. A real publisher run before the anchor change
+exhausted 16 random candidates and correctly published no uncertified Weekly.
+Keep advance stock and alert on a failed timer or a shrinking horizon.
+
 Before publication the worker writes and synchronizes every witness and the
 immutable publication in its private state directory. A no-overwrite hard link
 exposes the completed slot file only afterwards. Restart and ambiguous network
@@ -98,6 +119,11 @@ timestamp, measured duration and record hash. Account deletion cascades through
 local delivery metadata, and delivered rows are removed.
 
 An owned background worker reconciles at most 32 pending rows every ten seconds.
+It holds a dedicated PostgreSQL transaction advisory lock scoped to database
+and schema. Only its owner admits or reconciles challenges; a second gateway
+fails closed instead of voiding games absent from its own memory. A lost lock
+connection closes admission and stops owned games. Queue rotation is separate
+from reservation age, so a batch of young reservations cannot starve results.
 Confirmed remote abandonment stops its game. A claimed game absent from the
 host after a two-minute recovery grace period becomes void without a failure
 penalty. This is crash recovery by cancellation; it is not persistent game
@@ -120,3 +146,8 @@ of that interrupted result from Sprint, all three ranking responses and permanen
 badge progress. Its isolated PostgreSQL 18.6 container and listener were removed.
 The scripted seat replayed a retained witness; this is not blind human difficulty
 calibration or a rendered-client check.
+
+The first improvement pass also passed all five generator tests (including
+all four Daily positions), the publisher tests and all 47 real PostgreSQL
+schema tests, including exclusive ownership and release. Clippy passed for
+the changed train, database, gateway and development-tool libraries/binaries.

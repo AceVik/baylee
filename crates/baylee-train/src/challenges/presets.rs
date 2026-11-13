@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, Result, ensure};
-use baylee_cards::deckgen::{Archetype, generate};
+use baylee_cards::deckgen::{Archetype, DeckBuildRequest, build_synergistic, generate};
 use baylee_cards::decks::{house_deck, preset_for};
 use baylee_cards::formats::{self, Shape};
 use baylee_core::preset::{AIProfile, GamePreset, HouseRules, SeatController};
@@ -14,12 +14,15 @@ pub(super) fn build(kind: Kind, seed: u64, working: &Working) -> Result<(GamePre
         Kind::Daily => daily(seed)?,
         Kind::Weekly => {
             let pool = crate::deckgen::pool_for_working(working, &BTreeSet::new());
-            let player = generate(
-                &pool,
+            let mut request = DeckBuildRequest::new(
                 Shape::Constructed,
                 Archetype::Aggro,
                 baylee_challenges::seed(b"player deck", seed),
-            )?;
+            );
+            // Seed a genuine direct-damage tool rather than discarding most
+            // randomly coloured decks after the expensive deck build.
+            request.anchor = baylee_cards::decks::by_name("Lightning Bolt");
+            let player = build_synergistic(&pool, &request)?;
             let opponent = generate(
                 &pool,
                 Shape::Constructed,
@@ -95,29 +98,27 @@ fn daily(seed: u64) -> Result<(GamePreset, String)> {
             .copied()
             .context("tactical printing")
     };
-    let hand = [
+    let variant = (seed.wrapping_sub(41) % 4) as usize;
+    let life = [5, 7, 8, 10][variant];
+    let creatures = [2, 3, 3, 4][variant];
+    let blockers = [1, 2, 2, 3][variant];
+    let mut names = vec![
         "Lightning Bolt",
         "Shock",
         "Giant Growth",
         "Fling",
         "Mountain",
         "Forest",
-    ]
-    .map(entry)
-    .into_iter()
-    .collect::<Result<Vec<_>>>()?;
-    let field = [
-        "Mountain",
-        "Mountain",
-        "Mountain",
-        "Forest",
-        "Forest",
-        "Grizzly Bears",
-        "Grizzly Bears",
-    ]
-    .map(entry)
-    .into_iter()
-    .collect::<Result<Vec<_>>>()?;
+    ];
+    if variant != 0 {
+        names.extend(["Lightning Bolt", "Shock"]);
+    }
+    let hand = names.into_iter().map(entry).collect::<Result<Vec<_>>>()?;
+    let field = std::iter::repeat_n("Mountain", if variant == 0 { 3 } else { 4 })
+        .chain(std::iter::repeat_n("Forest", 2))
+        .chain(std::iter::repeat_n("Grizzly Bears", creatures))
+        .map(entry)
+        .collect::<Result<Vec<_>>>()?;
     preset.seats[0].starting_hand = Some(hand);
     preset.seats[0].starting_battlefield = field;
     preset.seats[0].starting_life = Some(2);
@@ -127,9 +128,10 @@ fn daily(seed: u64) -> Result<(GamePreset, String)> {
             .deck
             .iter()
             .find(|entry| entry.card == bear)
-            .context("opponent printing")?,
+            .context("opponent printing")?;
+        blockers
     ];
     preset.seats[1].starting_hand = Some(Vec::new());
-    preset.seats[1].starting_life = Some(5);
+    preset.seats[1].starting_life = Some(life);
     Ok((preset, text.into()))
 }

@@ -129,6 +129,7 @@ struct AppState {
     sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
     challenge_starts: tokio::sync::Mutex<()>,
+    challenge_owner: std::sync::atomic::AtomicBool,
     /// Who may come in new (`BAYLEE_REGISTRATION`): anybody (`open`) or
     /// nobody (`off`).
     registration: registration::Registration,
@@ -509,6 +510,7 @@ async fn main() {
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
         challenge_starts: tokio::sync::Mutex::new(()),
+        challenge_owner: std::sync::atomic::AtomicBool::new(false),
         // Small: a receiver that falls this far behind is one whose socket is
         // not draining, and the lag is handled by sending it the current
         // listing rather than by replaying what it missed.

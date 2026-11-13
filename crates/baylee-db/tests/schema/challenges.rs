@@ -5,6 +5,19 @@ use central_api::challenges::{AttemptState, Completion};
 use sea_orm::{ActiveModelTrait, EntityTrait};
 
 #[tokio::test]
+async fn only_one_gateway_can_reconcile_games_in_a_schema() {
+    let sandbox = Sandbox::open("challenge_owner").await;
+    let owner = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
+    owner.check().await.unwrap();
+    assert!(store::Owner::acquire(&sandbox.db).await.unwrap().is_none());
+    owner.release().await.unwrap();
+    let next = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
+    next.check().await.unwrap();
+    next.release().await.unwrap();
+    sandbox.close().await;
+}
+
+#[tokio::test]
 async fn challenge_claims_launch_once_and_results_survive_retries_without_changing() {
     let sandbox = Sandbox::open("challenge_outbox").await;
     let db = &sandbox.db;

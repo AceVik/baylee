@@ -42,7 +42,7 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
         preset.seats[0].deck.iter().map(|card| card.card).collect(),
         Vec::new(),
     );
-    let mut tactic = Tactic::default();
+    let mut tactic = Tactic::new(preset, solver);
     let mut actions = Vec::new();
     let mut record = Vec::new();
     let mut trace = super::semantic::Trace::default();
@@ -121,25 +121,60 @@ pub(super) fn verify_fresh(preset: &GamePreset, run: &Run) -> Result<()> {
     Ok(())
 }
 
-#[derive(Default)]
 struct Tactic {
     next: usize,
     target: u8,
+    plan: Vec<(&'static str, u8)>,
 }
 
 impl Tactic {
+    fn new(preset: &GamePreset, solver: Solver) -> Self {
+        let mut plan = Vec::new();
+        if let Solver::Tactic(route) = solver {
+            // Only public opening information is used by this tactical probe.
+            let life = preset.seats[1].starting_life.unwrap_or(20);
+            match route {
+                0 => match life {
+                    5 => plan.extend([("Lightning Bolt", 0), ("Shock", 0)]),
+                    7 => plan.extend([("Lightning Bolt", 0), ("Shock", 0), ("Shock", 0)]),
+                    _ => {
+                        plan.extend([("Lightning Bolt", 0), ("Lightning Bolt", 0), ("Shock", 0)]);
+                        if life > 8 {
+                            plan.push(("Shock", 0));
+                        }
+                    }
+                },
+                1 => {
+                    plan.extend([("Giant Growth", 1), ("Fling", 0)]);
+                    if life > 5 {
+                        plan.push(("Lightning Bolt", 0));
+                    }
+                    if life > 8 {
+                        plan.push(("Shock", 0));
+                    }
+                }
+                _ => {
+                    for at in 0..preset.seats[1].starting_battlefield.len() {
+                        plan.push((if at < 2 { "Lightning Bolt" } else { "Shock" }, 2));
+                    }
+                    plan.push(("Giant Growth", 1));
+                }
+            }
+        }
+        Self {
+            next: 0,
+            target: 0,
+            plan,
+        }
+    }
+
     fn answer(&mut self, route: u8, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
-        let plan = match route {
-            0 => [("Lightning Bolt", 0), ("Shock", 0)],
-            1 => [("Giant Growth", 1), ("Fling", 0)],
-            _ => [("Lightning Bolt", 2), ("Giant Growth", 1)],
-        };
         match pending {
             Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
             Pending::Priority { legal, .. } if view.owed.is_none() => {
                 if view.active == view.seat
                     && view.stack.is_empty()
-                    && let Some((name, target)) = plan.get(self.next)
+                    && let Some((name, target)) = self.plan.get(self.next)
                     && let Some(card) = view.hand.iter().find(|card| {
                         card.name == *name
                             && legal

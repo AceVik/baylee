@@ -16,6 +16,7 @@ impl MigrationTrait for Migration {
                 account uuid NOT NULL REFERENCES account(id) ON DELETE CASCADE,
                 central_account uuid NOT NULL,
                 launched boolean NOT NULL DEFAULT false,
+                created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
                 touched_at timestamptz NOT NULL DEFAULT clock_timestamp(),
                 result bytea CHECK (octet_length(result) <= 4096)
             );

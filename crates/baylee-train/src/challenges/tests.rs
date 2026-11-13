@@ -19,6 +19,25 @@ fn daily_has_three_fresh_replayable_resource_routes() {
 }
 
 #[test]
+fn daily_rotates_meaningfully_different_resource_positions() {
+    let generator = Generator::from_source(&crate::working::repo_root()).unwrap();
+    let mut positions = BTreeSet::new();
+    for seed in 41..45 {
+        let result = generator
+            .generate(Kind::Daily, seed, Limits::default())
+            .unwrap();
+        assert_eq!(result.proofs.len(), 3, "seed {seed}");
+        assert!(result.proofs.iter().all(|proof| proof.turn == 1));
+        let seats = &result.package.preset.seats;
+        assert!(positions.insert((
+            seats[0].starting_battlefield.len(),
+            seats[1].starting_life,
+            seats[1].starting_battlefield.len(),
+        )));
+    }
+}
+
+#[test]
 fn unfinished_games_never_become_a_certificate() {
     assert!(
         generate(

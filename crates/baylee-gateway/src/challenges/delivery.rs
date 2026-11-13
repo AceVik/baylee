@@ -1,25 +1,67 @@
 //! Bounded retry queue. Ambiguous network responses retain the immutable outcome.
 use super::{AttemptState, Completion, HostRequest, HostResponse, Shared};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-pub(crate) struct Worker(tokio::task::JoinHandle<()>);
+pub(crate) struct Worker(tokio::task::JoinHandle<()>, Shared);
 impl Drop for Worker {
     fn drop(&mut self) {
+        self.1.challenge_owner.store(false, Ordering::Release);
         self.0.abort();
     }
 }
 
 pub(crate) fn start(state: Shared) -> Worker {
-    Worker(tokio::spawn(async move {
-        let mut every = tokio::time::interval(Duration::from_secs(10));
-        every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            every.tick().await;
-            if pass(&state).await.is_err() {
-                tracing::warn!("challenge delivery unavailable; retained for retry");
+    let retained = state.clone();
+    Worker(
+        tokio::spawn(async move {
+            let mut owner: Option<baylee_db::challenges::Owner> = None;
+            let mut every = tokio::time::interval(Duration::from_secs(10));
+            every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                every.tick().await;
+                if !state.central.get().is_some_and(|bridge| bridge.official()) {
+                    continue;
+                }
+                if let Some(lease) = &owner {
+                    if lease.check().await.is_err() {
+                        state.challenge_owner.store(false, Ordering::Release);
+                        let games: Vec<_> = state
+                            .lobby
+                            .lock()
+                            .games
+                            .iter()
+                            .filter(|(_, game)| {
+                                game.challenge.is_some() && game.state == crate::LobbyState::Playing
+                            })
+                            .map(|(id, _)| id.clone())
+                            .collect();
+                        for game in games {
+                            crate::engine::end_game(&state, &game);
+                        }
+                        owner = None;
+                        tracing::warn!(
+                            "challenge ownership lost; stopped admission and owned games"
+                        );
+                        continue;
+                    }
+                } else {
+                    owner = baylee_db::challenges::Owner::acquire(&state.db)
+                        .await
+                        .ok()
+                        .flatten();
+                    if owner.is_none() {
+                        continue;
+                    }
+                    state.challenge_owner.store(true, Ordering::Release);
+                }
+                if pass(&state).await.is_err() {
+                    tracing::warn!("challenge delivery unavailable; retained for retry");
+                }
             }
-        }
-    }))
+        }),
+        retained,
+    )
 }
 
 async fn pass(state: &Shared) -> Result<(), ()> {
@@ -49,7 +91,10 @@ async fn pass(state: &Shared) -> Result<(), ()> {
             game.state == crate::LobbyState::Playing || game.challenge_finalizing
         });
         // A just-reserved local binding may be awaiting Claim or engine launch.
-        if !active && !has_result && run.idle < 120 {
+        if !active && !has_result && run.age < 120 {
+            baylee_db::challenges::touch(&state.db, run.attempt)
+                .await
+                .map_err(|_| ())?;
             continue;
         }
         let status = bridge
@@ -93,6 +138,15 @@ async fn pass(state: &Shared) -> Result<(), ()> {
                         .await
                         .map_err(|_| ())?;
                 }
+            }
+            Err(status) if status == axum::http::StatusCode::NOT_FOUND => {
+                // No remote attempt remains (for example after account deletion).
+                if active {
+                    crate::engine::end_game(state, &game_id);
+                }
+                baylee_db::challenges::delivered(&state.db, run.attempt)
+                    .await
+                    .map_err(|_| ())?;
             }
             _ => {
                 baylee_db::challenges::touch(&state.db, run.attempt)

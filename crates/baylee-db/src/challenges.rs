@@ -3,6 +3,8 @@
 use central_api::challenges::Completion;
 use sea_orm::{ConnectionTrait, DbErr, Statement, Value};
 use uuid::Uuid;
+mod owner;
+pub use owner::Owner;
 
 /// One pending delivery or running claim, without execution secrets.
 pub struct Run {
@@ -10,8 +12,8 @@ pub struct Run {
     pub attempt: Uuid,
     /// The game proposed before claiming, retained on retry.
     pub game: Uuid,
-    /// Seconds since this row was last serviced.
-    pub idle: i64,
+    /// Seconds since reservation, independent of delivery queue rotation.
+    pub age: i64,
     /// Immutable engine outcome, once durably recorded.
     pub result: Option<Completion>,
 }
@@ -97,16 +99,29 @@ pub async fn launch_once(
 /// # Errors
 /// Database failure or corrupt stored outcome.
 pub async fn pending(db: &impl ConnectionTrait) -> Result<Vec<Run>, DbErr> {
-    db.query_all_raw(stmt(db,
-        "SELECT attempt,game,result,extract(epoch FROM clock_timestamp()-touched_at)::bigint AS idle
-         FROM challenge_run ORDER BY touched_at,attempt LIMIT 32",vec![]
-    )).await?.into_iter().map(|row| {
+    db.query_all_raw(stmt(
+        db,
+        "SELECT attempt,game,result,extract(epoch FROM clock_timestamp()-created_at)::bigint AS age
+         FROM challenge_run ORDER BY touched_at,attempt LIMIT 32",
+        vec![],
+    ))
+    .await?
+    .into_iter()
+    .map(|row| {
         let bytes: Option<Vec<u8>> = row.try_get("", "result")?;
         Ok(Run {
-            attempt: row.try_get("", "attempt")?, game: row.try_get("", "game")?, idle: row.try_get("", "idle")?,
-            result: bytes.map(|bytes| central_api::decode(&bytes).map_err(|_| DbErr::Custom("invalid challenge outcome".into()))).transpose()?,
+            attempt: row.try_get("", "attempt")?,
+            game: row.try_get("", "game")?,
+            age: row.try_get("", "age")?,
+            result: bytes
+                .map(|bytes| {
+                    central_api::decode(&bytes)
+                        .map_err(|_| DbErr::Custom("invalid challenge outcome".into()))
+                })
+                .transpose()?,
         })
-    }).collect()
+    })
+    .collect()
 }
 
 /// Move a serviced run to the end of the bounded delivery queue.

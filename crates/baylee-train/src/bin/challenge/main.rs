@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 use baylee_cards_pool as _;
+mod assess;
 mod source;
 mod stock;
 
@@ -24,6 +25,8 @@ enum Command {
     Generate(Args),
     /// Reconcile an authenticated Central calendar from durably staged proofs.
     Stock(stock::Args),
+    /// Measure candidate admission and certified turn ranges without publishing.
+    Assess(assess::Args),
 }
 
 #[derive(clap::Args)]
@@ -52,6 +55,7 @@ fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Generate(args) => generate(&args),
         Command::Stock(args) => stock::run(&args),
+        Command::Assess(args) => assess::run(&args),
     }
 }
 
@@ -78,13 +82,16 @@ fn generate(args: &Args) -> Result<()> {
     }
     let (seed, candidate) = selected.context("no candidate satisfied certification")?;
     let publication = candidate.publication(Period::containing(kind, args.at)?)?;
-    std::fs::create_dir(&args.out).context("create new evidence directory")?;
-    std::fs::write(
-        args.out.join("publication.json"),
-        central_api::encode(&publication)?,
+    stock::private_new_directory(&args.out).context("create new evidence directory")?;
+    stock::private_write(
+        &args.out.join("publication.json"),
+        &central_api::encode(&publication)?,
     )?;
     for (index, proof) in candidate.proofs.iter().enumerate() {
-        std::fs::write(args.out.join(format!("proof-{index}.jsonl")), &proof.record)?;
+        stock::private_write(
+            &args.out.join(format!("proof-{index}.jsonl")),
+            &proof.record,
+        )?;
     }
     let report = json!({
         "executor": candidate.package.executor,
@@ -97,9 +104,9 @@ fn generate(args: &Args) -> Result<()> {
         "exact_replay": true,
         "policy_resumption": true,
     });
-    std::fs::write(
-        args.out.join("report.json"),
-        serde_json::to_vec_pretty(&report)?,
+    stock::private_write(
+        &args.out.join("report.json"),
+        &serde_json::to_vec_pretty(&report)?,
     )?;
     println!(
         "Certified {}: {} proofs; evidence in {}",

@@ -31,7 +31,7 @@ pub(super) struct Args {
     #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u8).range(1..=24))]
     days: u8,
     /// Candidate budget per empty slot. Exhaustion is an error, never a fallback.
-    #[arg(long, default_value_t = 16, value_parser = clap::value_parser!(u8).range(1..=32))]
+    #[arg(long, default_value_t = 32, value_parser = clap::value_parser!(u8).range(1..=32))]
     candidates: u8,
 }
 
@@ -98,7 +98,13 @@ fn stage(
     for _ in 0..candidates {
         // Independent OS randomness; neither dates nor public task IDs reveal the shuffle.
         let random = Token::generate()?.to_secret_bytes();
-        let seed = u64::from_le_bytes(random[..8].try_into().expect("32 random bytes"));
+        let mut seed = u64::from_le_bytes(random[..8].try_into().expect("32 random bytes"));
+        if period.kind == central_api::challenges::Kind::Daily {
+            // Rotate resource positions; only two template bits are public.
+            // The remaining 62 shuffle/policy bits remain independently random.
+            let template = period.starts_at.div_euclid(86_400).rem_euclid(4) as u64;
+            seed = (seed & !3) | ((template + 41) % 4);
+        }
         let Ok(candidate) = generator.generate(period.kind, seed, Limits::default()) else {
             continue;
         };
@@ -153,10 +159,30 @@ fn private_directory(path: &Path) -> Result<()> {
         builder.mode(0o700);
     }
     builder.create(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let metadata = fs::symlink_metadata(path)?;
+        ensure!(
+            metadata.is_dir() && metadata.permissions().mode().trailing_zeros() >= 6,
+            "private evidence directory must be a real directory with owner-only access"
+        );
+    }
     Ok(())
 }
 
-fn private_write(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(super) fn private_new_directory(path: &Path) -> Result<()> {
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt as _;
+        builder.mode(0o700);
+    }
+    builder.create(path)?;
+    Ok(())
+}
+
+pub(super) fn private_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]

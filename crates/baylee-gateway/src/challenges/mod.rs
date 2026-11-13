@@ -49,10 +49,7 @@ pub(crate) async fn play(
     Path(attempt): Path<String>,
 ) -> Result<Json<crate::routes::SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account = authed(&state, &headers).await?;
-    let attempt = Uuid::parse_str(&attempt)
-        .ok()
-        .filter(|id| id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122)
-        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "invalid challenge attempt"))?;
+    let attempt = attempt_id(&attempt)?;
     if !state.game_limiter.allow(&account) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many games"));
     }
@@ -68,6 +65,7 @@ pub(crate) async fn play(
         .get()
         .filter(|bridge| bridge.official())
         .ok_or_else(|| err(StatusCode::FORBIDDEN, "challenges run on the official host"))?;
+    require_owner(&state)?;
     let bearer = crate::bearer_token(&headers)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing session"))?;
     let live = state
@@ -145,6 +143,27 @@ pub(crate) async fn play(
         &publication,
     )
     .await
+}
+
+fn attempt_id(value: &str) -> Result<Uuid, (StatusCode, Json<ErrorBody>)> {
+    Uuid::parse_str(value)
+        .ok()
+        .filter(|id| id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122)
+        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "invalid challenge attempt"))
+}
+
+fn require_owner(state: &Shared) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    if state
+        .challenge_owner
+        .load(std::sync::atomic::Ordering::Acquire)
+    {
+        Ok(())
+    } else {
+        Err(err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "official challenge host is not ready",
+        ))
+    }
 }
 
 async fn launch(
