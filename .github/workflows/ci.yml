@@ -559,13 +559,20 @@ jobs:
     if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # `audit-check` reports through a **check run**, which is a write, and
-    # this workflow's `GITHUB_TOKEN` is read-only. Named on the job rather
-    # than raised repository-wide; `contents: read` is restated because a
-    # `permissions` block replaces the defaults rather than adding to them.
+    # `audit-check` reports an advisory through a **check run** on a push
+    # and through an **issue** on the nightly (one per advisory, found again
+    # by its id in the title rather than opened twice); both are writes, and
+    # this workflow's `GITHUB_TOKEN` is read-only. Without `issues` every
+    # nightly that met a warning failed on "Resource not accessible by
+    # integration" (run 43354219394) instead of saying which advisory it
+    # was. The action fails the job only when reporting fails, never on an
+    # advisory. Named on the job rather than raised repository-wide;
+    # `contents: read` is restated because a `permissions` block replaces
+    # the defaults rather than adding to them.
     permissions:
       contents: read
       checks: write
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -575,8 +582,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           # The same advisories deny.toml ignores, with their reasons there:
           # `ttf-parser` unmaintained, reached only through winit's Wayland
-          # titlebar, no safe upgrade. audit-check reads no deny.toml, and on a
-          # warning it opens an issue this read-only token may not write, so
-          # the job went red on a notice that is not a vulnerability.
+          # titlebar, no safe upgrade. audit-check reads no deny.toml, so an
+          # advisory deny.toml has weighed would otherwise be reported again.
+          # RUSTSEC-2026-0387: crypto-bigint, scope in docs/central-login.md.
           # RUSTSEC-2026-0459: SQLite, in the lockfile only, linked by nothing.
-          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2026-0459
+          # RUSTSEC-2024-0436: `paste` unmaintained, a proc-macro only rav1d
+          # (the client's AVIF decoder) pulls, no release without it.
+          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2026-0459,RUSTSEC-2024-0436
