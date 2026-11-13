@@ -105,6 +105,10 @@ impl Service {
                     r = r.header("Authorization", format!("Bearer {t}"));
                 }
                 r.header("Content-Type", "application/json")
+                    // The server may refuse Content-Length before reading a
+                    // large body. Await that response instead of racing its
+                    // connection close with the test client's upload.
+                    .header("Expect", "100-continue")
                     .send(body.unwrap_or_default())
             };
             let mut response = response.expect("a response");
