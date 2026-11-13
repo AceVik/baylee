@@ -25,6 +25,8 @@ use baylee_core::types::SupertypeSet;
 use baylee_engine::choice::TargetPrompt;
 use baylee_engine::engine::DecisionContext;
 
+mod wishlist;
+
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
 

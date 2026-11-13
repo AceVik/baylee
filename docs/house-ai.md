@@ -456,7 +456,7 @@ abilities are its definition's (CR 111.3), which `token` names, so a Treasure
 is a mana source (#223). A face-down one has no text (CR 708.2).
 
 **What using an ability is worth is one measure, net of what it costs.**
-`worth.rs` answers three questions that used to be answered three ways:
+`worth/` answers three questions that used to be answered three ways:
 whether an activation is taken (`activate::choose`), which loyalty ability a
 deep profile uses, and which target an activation names once taken
 (`HeuristicAgent::ability_targets`, asked from `tactics::targets`). The first
@@ -1695,6 +1695,13 @@ asks `profile.plays(...)`. The generations so far:
     `novice` keeps every opening hand, the ladder's lowest card skill; a
     step for it too lifted it to 67 % against its generation-6 self and left
     it level with `casual` (51 %, `docs/proposals/house-ai-strength.md` §8).
+18. `TOKEN_AND_EXILE_CHOICES`: private exile selection values the chance of
+    gaining one castable card and selects a card with a permitted prospective
+    face. Token-counter valuation carries the preceding token count through
+    conditional clauses; graveyard copies read the selected public graveyard
+    and apply copy exceptions, including Grist's 1/1 bodies. Vivien's −2 and
+    Grist's +1 and −6 therefore use the ordinary ability valuation instead of
+    its unread-text fallback. Old generations keep their prior choices.
 
 Only a change
 that has to move the reference, such as an engine or card fix that changes

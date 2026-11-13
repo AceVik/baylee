@@ -496,7 +496,7 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Eight have an existing reader. Grist's token-with-conditional-counter
     // and graveyard-copy abilities, and Vivien's private exile/cast permission,
     // remain contextual rather than receiving an invented empty-board value.
-    assert_eq!((read, of), (3007, 3800), "activated/loyalty reader census");
+    assert_eq!((read, of), (3010, 3800), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
