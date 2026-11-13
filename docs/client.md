@@ -7319,8 +7319,13 @@ the left side."*
 - **Three edges for three states**, so they can all show at once: whose turn
   it is is an ivory line along the top (wiped in from the left in 240 ms,
   faded in 120), who the table is waiting on breathes in the border (1.6 s),
-  and the seat the camera is on has a bar along the bottom (grown from the
-  middle in 160 ms). `glow_the_players` runs them; under `reduce_motion` each
+  and the seat the reader is shown has a bar along the bottom (grown from the
+  middle in 160 ms): the seat the camera is on, which at home is the reader's
+  own, or, where an arrangement brings a seat's cards across and the camera
+  stays home (Spotlight, Turntable, Focus ring), the seat across
+  (`players::framed`; the owner asked for the Spotlight's polish on
+  12.11.2026, and nothing had said which opponent the far board was).
+  `glow_the_players` runs them; under `reduce_motion` each
   stands at its end. A changed life is lit green or red for 300 ms.
 - **No ☀ or ⌛** (the owner, 08.10.2026): the two states a colour must not
   carry alone are two lines along the **top** edge of chip, plate and peek.

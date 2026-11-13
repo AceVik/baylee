@@ -33,8 +33,10 @@
 //!
 //! Whose turn it is lights an ivory line along the **top** edge, wiped in
 //! from the left; who the table is waiting on breathes in the **border**; and
-//! the seat the camera is on has a bar along the **bottom**, grown from the
-//! middle. Three edges on purpose, so the three can show at once on the one
+//! the seat the reader is shown has a bar along the **bottom**, grown from
+//! the middle: the seat the camera is on, or the seat an arrangement has
+//! brought across ([`framed`]). Three edges on purpose, so the three can
+//! show at once on the one
 //! seat that is all of them, which is most of a player's own turn.
 //! [`glow_the_players`] runs all three, and a player who asked for less
 //! motion gets each of them standing still at its end.
@@ -1488,6 +1490,35 @@ fn text(
         .id()
 }
 
+/// Whether `player`'s chip wears the bar along its bottom: the seat the
+/// reader is shown.
+///
+/// Where the camera goes to a seat (the ring, a duel) that is the seat the
+/// camera is on, which at home is the reader's own. Where an arrangement
+/// brings a seat's cards across instead (`Arrangement::moves_cards`) the
+/// camera never leaves home, and a bar on the reader's own chip would say
+/// the one thing that cannot change: there it marks the seat that has been
+/// brought across, the board facing the reader's and drawn as large. In the
+/// Spotlight nothing else said which of three opponents that board was, at
+/// home least of all, where no seat was ever asked for (played 12.11.2026).
+/// A Turntable's side mats are on the felt too, drawn smaller and squared to
+/// the reader's chair: they are not across.
+pub(in crate::hud) fn framed(duel: &Duel, player: PlayerId) -> bool {
+    let Some(me) = duel.view.as_ref().map(|view| view.seat) else {
+        return false;
+    };
+    if duel.arrangement.moves_cards()
+        && let Some(layout) = duel.settled_layout()
+        && let Some(mine) = layout.shown(me)
+        && layout.slots.len() > 2
+    {
+        return layout.shown(player).is_some_and(|slot| {
+            (slot.scale - mine.scale).abs() < 1e-3 && (slot.facing - mine.facing).cos() < -0.5
+        });
+    }
+    duel.visiting.map_or(player == me, |focus| focus == player)
+}
+
 /// Runs the three edges and the lit life (#264): the turn's line along the
 /// top, the wait's breath in the border, the camera's bar along the bottom.
 ///
@@ -1529,10 +1560,7 @@ pub fn glow_the_players(
         let player = button.player;
         let turn = view.is_some_and(|v| v.active == player);
         let waited = view.is_some_and(|v| v.awaiting == Some(player));
-        let framed = match duel.visiting {
-            Some(focus) => focus == player,
-            None => view.is_some_and(|v| v.seat == player),
-        };
+        let framed = framed(&duel, player);
         let turn_t = approach(glow.turn, turn, TURN_IN, TURN_OUT, dt, still);
         let camera_t = approach(glow.camera, framed, CAMERA_IN, CAMERA_OUT, dt, still);
         let wait_t = approach(glow.wait, waited, WAIT_IN, WAIT_IN, dt, still);
@@ -1748,6 +1776,59 @@ mod tests {
         view.awaiting = Some(PlayerId::new(1));
         assert_eq!(shows(&view, TagKind::Priority), [1], "both on one seat");
         assert_eq!(shows(&view, TagKind::Turn), [1]);
+    }
+
+    /// The bottom bar is on the seat the reader is shown: the camera's seat
+    /// at a ring, and under the Spotlight the seat brought across, at home
+    /// and after another is asked for, never the reader's own.
+    #[test]
+    fn the_bottom_bar_marks_the_seat_the_reader_is_shown() {
+        use baylee_client_core::layout::{Arrangement, Seat, TableLayout};
+        use baylee_client_core::test_support::ViewBuilder;
+        let players: Vec<PlayerId> = (0..4u8).map(PlayerId::new).collect();
+        let seats: Vec<Seat> = players.iter().map(|p| Seat::alone(*p)).collect();
+        let marked = |duel: &Duel| -> Vec<u8> {
+            (0..4u8)
+                .filter(|p| framed(duel, PlayerId::new(*p)))
+                .collect()
+        };
+        let table = |arrangement: Arrangement, visiting: Option<PlayerId>| Duel {
+            view: Some(ViewBuilder::new(4).build()),
+            layout: Some(TableLayout::arranged(&seats, 1.78, arrangement, visiting)),
+            arrangement,
+            visiting,
+            ..Duel::default()
+        };
+        // A ring: the camera's seat, which at home is mine.
+        assert_eq!(marked(&table(Arrangement::Ring, None)), [0]);
+        assert_eq!(marked(&table(Arrangement::Ring, Some(players[3]))), [3]);
+        // The Spotlight: one seat is across, and it is the marked one.
+        let home = table(Arrangement::Spotlight, None);
+        let across = marked(&home);
+        assert_eq!(across.len(), 1, "one seat is across at home: {across:?}");
+        assert_ne!(across, [0], "my own chip says nothing I could change");
+        let on_felt: Vec<PlayerId> = home
+            .layout
+            .as_ref()
+            .map(|layout| layout.on_felt().map(|slot| slot.player).collect())
+            .unwrap_or_default();
+        assert!(
+            on_felt.contains(&PlayerId::new(across[0])),
+            "the marked seat is on the felt"
+        );
+        for asked in [1u8, 2, 3] {
+            assert_eq!(
+                marked(&table(Arrangement::Spotlight, Some(PlayerId::new(asked)))),
+                [asked],
+                "the seat asked for is the seat across"
+            );
+        }
+        // A Turntable's side mats are on the felt and are not across.
+        assert_eq!(
+            marked(&table(Arrangement::Turntable, Some(players[2]))),
+            [2]
+        );
+        assert_eq!(marked(&table(Arrangement::Turntable, None)).len(), 1);
     }
 
     #[test]
