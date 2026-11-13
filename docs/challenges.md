@@ -254,5 +254,35 @@ Ownership now uses a separate connection with the same TLS and schema options.
 A new regression requires ordinary queries to work with a one-connection request
 pool while ownership remains exclusive. All 50 PostgreSQL schema tests and all
 three Central-barrier tests passed after the fix, as did clippy for all targets
-of the database, gateway and development-tool crates. Final full gate results
-follow after rerunning.
+of the database, gateway and development-tool crates. A further full run exposed
+an unrelated feedback test upload race: the server could reject Content-Length
+before its test client finished writing. The extracted test fixture now waits for
+HTTP 100-continue or the early refusal. Server bounds and assertions are unchanged.
+
+The final full gate passed all 27,802 executed tests (61 intentionally skipped),
+workspace clippy, formatting, bench smoke, cached-card validation and API checks.
+The test phase took 899 seconds including its build; execution took 884.98 seconds
+on the shared workstation. Its owned PostgreSQL container/listener were removed.
+The development-feature matrix passed its lint, gateway `dev-table`, support,
+simulation, fork, mutate and other applicable feature steps, but its aggregate
+client test invocation failed. The runner retained only the final build-output
+tail, so the failing test names were unavailable. This result remains unresolved;
+it is not reported as a green matrix. The separately reported SDK revision guard
+failure was an obsolete expected pin: after an independent source review,
+updating that exact pin passed all five guard tests and the shipped/unified-hook
+and complete dependency-graph checks (see [Central login](central-login.md)).
+
+Following the owner's request to test only changed areas, no further broad run
+was started. Focused client checks with `dev-control,dev-reload` passed all 538
+executed lobby tests (two intentionally ignored) and all 43 Dev-Control tests.
+These validate the affected client paths but do not retroactively clear the
+unexplained aggregate failure. All owned PostgreSQL fixtures were removed.
+Independent PR review is recorded below when complete.
+
+A fresh Daily was also played blind with the ordinary player view. With two
+2/2 Bears against one blocker and five opposing life, both attacked. After the
+opponent blocked one, Giant Growth on the unblocked Bear dealt lethal damage
+on turn one. Lightning Bolt, Shock and Fling were unused. The CLI reported victory
+and exited; this confirms an accessible combat solution alongside the certified
+direct-damage routes. Four initial resource positions are a bounded starter set,
+not a claim of inexhaustible Daily content.

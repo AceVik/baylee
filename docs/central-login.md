@@ -142,6 +142,20 @@ Baylee's shipping guard still requires the exact Central Git revision and
 the same OPAQUE/VOPRF/elliptic-curve/bigint versions and reverse graph. This
 is a renewed scope review, not a claim that bigint 0.5 has been patched.
 
+The Daily/Weekly SDK pin was reviewed again on 13 November 2026, from
+`2f2bf720672cc6b26be3f93274fed7f0be5da4c8` to
+`072312d4fa23fa8a9b9ab29c45a0cc505835d803`. The crypto source diff adds only
+`proof.rs` and its module declaration: registration's owner-approved Argon2id
+proof of work over public nonce/counter inputs. The crate manifest and OPAQUE
+sources are unchanged; the production path uses existing Argon2 APIs and no
+group or bigint operation. Relevant dependency versions, checksums and callers
+are unchanged, although Central's full lockfile gained unrelated web/image crates.
+Central's source fingerprint at the new pin is
+`823835c3ae4a69df21a07a4c2975e57ee7c4bd51473d1fa28ea5437f9ffc1e10`.
+An independent agent's read-only source review found no expansion of the exception.
+The shipping guard still checks the exact Git pin and complete all-feature reverse
+graph, including inactive optional consumers; no check or advisory is waived.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
