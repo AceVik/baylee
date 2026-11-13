@@ -76,15 +76,17 @@ impl<L: CardLookup> Engine<L> {
     /// mana either floating or still to be made.
     fn announced_cost_payable(&self, paying: &CastWizard) -> bool {
         let face = self.wizard_face(paying);
-        casting::additional_payment_capacity_for(
-            &self.state,
-            paying.player,
-            paying.card,
-            face,
-            paying.cost_choice(),
-            &[],
-        )
-        .is_some()
+        self.state
+            .can_pay_life(paying.player, paying.reserved_life(face))
+            && casting::additional_payment_capacity_for(
+                &self.state,
+                paying.player,
+                paying.card,
+                face,
+                paying.cost_choice(),
+                &[],
+            )
+            .is_some()
             && (paying.makes_mana_after_choices()
                 || self.can_make_mana_for_cast(paying.player)
                 || self.wizard_pool_can_pay(paying, wizard_total_cost(face, paying)))
@@ -138,6 +140,7 @@ impl CastWizard {
             option: self.option,
             alternative_cost: self.alternative_cost,
             buyback: self.buyback.is_some(),
+            kicked: self.kicked,
         }
     }
 }

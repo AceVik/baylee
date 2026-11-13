@@ -1,19 +1,25 @@
 //! Shared non-mana spell costs for offers, choices, and payment.
 use super::{CastModeKind, CostPart, ObjectId, PlayerId, SmallVec, casting};
 
-/// The mandatory additional cost parts for `face`, plus entwine's non-mana
-/// cost parts when `option` chooses all modes (CR 702.42a).
+/// Mandatory additional parts, entwine, and the chosen kicker's non-mana parts.
 pub(crate) fn wizard_mandatory_parts(
     face: &baylee_cards_dsl::FaceDef,
-    option: Option<CastModeKind>,
+    choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &CostPart> {
-    let entwine_parts = match (option, face.entwine) {
+    let choice = choice.into();
+    let entwine_parts = match (choice.option, face.entwine) {
         (Some(CastModeKind::Modes(_)), Some(entwine)) => entwine.parts,
         _ => &[],
     };
     face.mandatory_additional_costs
         .iter()
         .chain(entwine_parts.iter())
+        .chain(
+            face.additional_costs
+                .iter()
+                .filter(move |_| choice.kicked)
+                .flat_map(|cost| cost.parts),
+        )
 }
 
 /// The non-mana parts of the alternative cost chosen for this cast.
@@ -51,6 +57,8 @@ pub(crate) struct CostChoice {
     pub alternative_cost: Option<CastModeKind>,
     /// Whether the buyback cost is paid.
     pub buyback: bool,
+    /// Kicker can accompany a face or mode without replacing that choice.
+    pub kicked: bool,
 }
 
 impl From<Option<CastModeKind>> for CostChoice {
@@ -59,6 +67,14 @@ impl From<Option<CastModeKind>> for CostChoice {
             option,
             alternative_cost: None,
             buyback: false,
+            kicked: matches!(
+                option,
+                Some(
+                    CastModeKind::Kicked
+                        | CastModeKind::LibraryTopLife { kicked: true, .. }
+                        | CastModeKind::EscapeGranted { kicked: true, .. }
+                )
+            ),
         }
     }
 }
@@ -70,15 +86,36 @@ pub(crate) fn wizard_cost_parts(
     face: &'static baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &'static CostPart> {
-    let CostChoice {
-        option,
-        alternative_cost,
-        buyback,
-    } = choice.into();
-    wizard_alternative_parts(face, alternative_cost.or(option))
+    let choice = choice.into();
+    wizard_alternative_parts(face, choice.alternative_cost.or(choice.option))
         .iter()
-        .chain(wizard_mandatory_parts(face, option))
-        .chain(wizard_buyback_parts(face, buyback))
+        .chain(wizard_mandatory_parts(face, choice))
+        .chain(wizard_buyback_parts(face, choice.buyback))
+}
+
+/// Fixed life owed by every selected non-mana cost, before payment begins.
+pub(crate) fn fixed_life_cost(
+    face: &'static baylee_cards_dsl::FaceDef,
+    choice: impl Into<CostChoice>,
+) -> i32 {
+    wizard_cost_parts(face, choice).fold(0_i32, |sum, part| match part {
+        CostPart::PayLife(life) => sum.saturating_add(i32::from(*life)),
+        _ => sum,
+    })
+}
+
+impl super::CastWizard {
+    /// Life already committed before an X or another optional cost is chosen.
+    pub(super) fn reserved_life(&self, face: &'static baylee_cards_dsl::FaceDef) -> i32 {
+        let base = match self.announced {
+            Some(CastModeKind::LibraryTopLife { life, .. }) => {
+                i32::try_from(life).unwrap_or(i32::MAX)
+            }
+            _ => 0,
+        };
+        base.saturating_add(fixed_life_cost(face, self.cost_choice()))
+            .saturating_add(super::phyrexian_life(self))
+    }
 }
 
 /// The object questions of a spell's cost, in payment order. `TapN` expands

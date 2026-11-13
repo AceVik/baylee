@@ -30,8 +30,8 @@ mod pricing;
 mod stages;
 mod transformed;
 pub(crate) use cost_parts::{
-    CostChoice, additional_card_costs_for, wizard_alternative_parts, wizard_buyback_parts,
-    wizard_cost_parts, wizard_mandatory_parts,
+    CostChoice, additional_card_costs_for, fixed_life_cost, wizard_alternative_parts,
+    wizard_buyback_parts, wizard_cost_parts, wizard_mandatory_parts,
 };
 pub(crate) use madness::madness_options;
 use pricing::FrozenReduction;
@@ -1145,8 +1145,9 @@ impl<L: CardLookup> Engine<L> {
             .as_ref()
             .unwrap_or(&self.state.players[usize::from(wizard.player.get())].mana_pool);
         let open = |settled: &[bool]| {
-            let life =
-                2 * i32::try_from(settled.iter().filter(|l| **l).count()).unwrap_or(i32::MAX);
+            let life = unsettled.reserved_life(face).saturating_add(
+                2 * i32::try_from(settled.iter().filter(|l| **l).count()).unwrap_or(i32::MAX),
+            );
             self.state.can_pay_life(wizard.player, life)
                 && (deferred
                     || if wizard.by_effect == Some(EffectCast::AnyMana) {

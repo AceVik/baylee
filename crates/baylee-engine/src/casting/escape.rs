@@ -71,9 +71,14 @@ pub(crate) fn granted_escape_options(
         if !choice.mana_ready {
             continue;
         }
-        let Some(additional_fodder) =
-            additional_payment_capacity(state, player, card, &def.faces[choice.face], &[])
-        else {
+        let Some(additional_fodder) = super::additional_payment_capacity_for(
+            state,
+            player,
+            card,
+            &def.faces[choice.face],
+            choice.cost_choice(def),
+            &[],
+        ) else {
             continue;
         };
         let fodder = fodder.saturating_add(additional_fodder);

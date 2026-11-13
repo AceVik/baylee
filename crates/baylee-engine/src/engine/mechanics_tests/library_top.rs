@@ -27,6 +27,8 @@ const KICKED: u32 = 7223;
 const MODAL: u32 = 7224;
 const MDFC: u32 = 7225;
 const OTHER_LAND: u32 = 7226;
+const LIFE_KICKER: u32 = 7227;
+const BACK_LIFE_KICKER: u32 = 7228;
 
 static GRANT_EFFECTS: &[Effect] = &[
     Effect::continuous(
@@ -68,6 +70,14 @@ static PAY_X_AND_FIXED_COST: &[CostPart] = &[CostPart::PayLife(2), CostPart::Pay
 static KICKER_COST: &[Cost] = &[Cost {
     mana: ManaCost::parse("{2}"),
     parts: &[],
+}];
+static LIFE_KICKER_COST: &[Cost] = &[Cost {
+    mana: ManaCost::ZERO,
+    parts: &[CostPart::PayLife(2)],
+}];
+static BACK_LIFE_KICKER_COST: &[Cost] = &[Cost {
+    mana: ManaCost::ZERO,
+    parts: &[CostPart::PayLife(4)],
 }];
 static MODAL_SPELL: &[AbilityDef] = &[AbilityDef::ModalSpell {
     modes: &[
@@ -195,6 +205,31 @@ fn definitions() -> Vec<&'static CardDef> {
             KeywordSet::EMPTY,
             &[],
         ),
+        card(
+            LIFE_KICKER,
+            FaceDef {
+                mandatory_additional_costs: FIXED_LIFE_COST,
+                additional_costs: LIFE_KICKER_COST,
+                ..face("Life kicker", "{B}", TypeSet::SORCERY)
+            },
+            KeywordSet::EMPTY,
+            NOTHING,
+        ),
+        Box::leak(Box::new(CardDef {
+            index: CardIndex::new(BACK_LIFE_KICKER),
+            oracle_id: "test",
+            scryfall_id: "test",
+            faces: Box::leak(Box::new([
+                land_face("Life kicker front"),
+                FaceDef {
+                    abilities: NOTHING,
+                    additional_costs: BACK_LIFE_KICKER_COST,
+                    ..face("Life kicker back", "{2}{U}", TypeSet::SORCERY)
+                },
+            ])),
+            abilities: NOTHING,
+            ..CardDef::DEFAULT
+        })),
     ]
 }
 
@@ -650,6 +685,77 @@ fn a_kicked_route_keeps_its_kicker_and_charges_only_its_additional_mana() {
     assert_eq!(spell.times_kicked, 1);
     assert_eq!(life(&engine, me()), 19);
     assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+#[test]
+fn library_life_kicker_requires_all_life_costs_together() {
+    let engine = setup(7310, &[LIFE_KICKER], 4, true);
+    let card = the(&engine, ZoneLocation::Library(me()), LIFE_KICKER);
+    let options = engine.cast_options(me(), card, false).unwrap();
+    assert!(options.iter().any(|option| matches!(
+        option.kind,
+        CastModeKind::LibraryTopLife { kicked: false, .. }
+    )));
+    assert!(
+        !options.iter().any(|option| matches!(
+            option.kind,
+            CastModeKind::LibraryTopLife { kicked: true, .. }
+        )),
+        "one life for mana value, two mandatory and two for kicker exceed four life"
+    );
+}
+
+#[test]
+fn library_life_kicker_pays_the_exact_combined_cost() {
+    use crate::event::{Cause, GameEvent, LossReason};
+
+    let mut engine = setup(7311, &[LIFE_KICKER], 5, true);
+    let card = the(&engine, ZoneLocation::Library(me()), LIFE_KICKER);
+    engine
+        .apply(me(), PlayerAction::CastSpell { card })
+        .unwrap();
+    choose_announced_route(&mut engine, |kind| {
+        matches!(kind, CastModeKind::LibraryTopLife { kicked: true, .. })
+    });
+
+    assert_eq!(life(&engine, me()), 0);
+    assert!(matches!(engine.pending(), Pending::GameOver(_)));
+    let journal = engine.state().journal.entries();
+    assert!(journal.iter().any(|entry| matches!(
+        entry.event,
+        GameEvent::SpellCast { object, player, .. } if object == card && player == me()
+    )));
+    assert!(journal.iter().any(|entry| matches!(
+        entry.event,
+        GameEvent::LifeChanged { player, new: 0, cause: Cause::Cost, .. } if player == me()
+    )));
+    assert_eq!(engine.state().players[0].loss, Some(LossReason::Life));
+}
+
+#[test]
+fn library_back_face_life_kicker_must_be_affordable() {
+    let engine = setup(7312, &[BACK_LIFE_KICKER], 3, true);
+    let card = the(&engine, ZoneLocation::Library(me()), BACK_LIFE_KICKER);
+    let options = engine.cast_options(me(), card, false).unwrap();
+    assert!(options.iter().any(|option| matches!(
+        option.kind,
+        CastModeKind::LibraryTopLife {
+            face: 1,
+            kicked: false,
+            ..
+        }
+    )));
+    assert!(
+        !options.iter().any(|option| matches!(
+            option.kind,
+            CastModeKind::LibraryTopLife {
+                face: 1,
+                kicked: true,
+                ..
+            }
+        )),
+        "the back face's four-life kicker cannot be paid with three life"
+    );
 }
 
 #[test]

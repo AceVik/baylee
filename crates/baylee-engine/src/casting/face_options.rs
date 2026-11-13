@@ -49,6 +49,17 @@ pub(crate) struct ReplacedCostOption {
 }
 
 impl ReplacedCostOption {
+    /// Keep kicker independent of the selected face and modal choice.
+    pub(crate) fn cost_choice(
+        self,
+        def: &baylee_cards_dsl::CardDef,
+    ) -> crate::engine::cast_wizard::CostChoice {
+        crate::engine::cast_wizard::CostChoice {
+            kicked: self.kicked,
+            ..Some(self.ordinary_kind(def)).into()
+        }
+    }
+
     /// The ordinary wizard choice that carries this option's face and modes.
     /// The public replacement-cost route stays in `announced` beside it.
     pub(crate) fn ordinary_kind(self, def: &baylee_cards_dsl::CardDef) -> CastModeKind {
