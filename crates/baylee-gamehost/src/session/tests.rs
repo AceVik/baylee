@@ -42,7 +42,7 @@ fn clock_answers(
 }
 use baylee_core::ids::PrintRef;
 use baylee_core::preset::{
-    AIProfile, DeckEntry, Finish, FormatId, HouseRules, PrintInfo, SeatSpec,
+    AIProfile, DeckEntry, Finish, FormatId, HouseRules, PrintInfo, SeatController, SeatSpec,
 };
 use baylee_view::LogEntry;
 
