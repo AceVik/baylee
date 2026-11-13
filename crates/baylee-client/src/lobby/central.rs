@@ -15,6 +15,7 @@ use std::sync::{
     mpsc,
 };
 
+mod challenge_session;
 pub(crate) mod pairing;
 
 pub(crate) type Job = Box<dyn FnOnce(&mut Account) + Send>;

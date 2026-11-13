@@ -53,6 +53,8 @@ pub enum Link {
     /// Sign in from baylee.app: claim the pairing the page started, with the
     /// page's secret, where nobody is signed in.
     Pair(PairLink),
+    /// Open a public challenge detail; never begin a game or reveal a hint.
+    Challenge([u8; 16]),
 }
 
 impl Link {
@@ -64,6 +66,7 @@ impl Link {
             Link::SignIn => "a sign-in link",
             Link::AddGateway(_) => "a gateway link",
             Link::Pair(_) => "a pairing link",
+            Link::Challenge(_) => "a challenge link",
         }
     }
 }
@@ -150,6 +153,19 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
             gateway_origin(&value, origins).map(Link::AddGateway)
         }
         "pair" if matches!(url.path(), "" | "/") => pair(url.query()?).map(Link::Pair),
+        "challenge" if url.query().is_none() => {
+            let id = url.path().strip_prefix('/')?;
+            if id.len() != 32
+                || !id
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return None;
+            }
+            let id = uuid::Uuid::parse_str(id).ok()?;
+            (id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122)
+                .then(|| Link::Challenge(*id.as_bytes()))
+        }
         _ => None,
     }
 }

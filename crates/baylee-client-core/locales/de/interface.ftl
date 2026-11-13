@@ -3446,3 +3446,183 @@ HandRequestedByTeammate = { $player } möchte deine Hand sehen
 HandSharingActiveWithTeammate = Hand wird mit { $player } geteilt
 HandShareAllContinuous = Hand dauerhaft mit allen Teammitgliedern teilen
 HandShareAllOnce = Aktuelle Hand allen Teammitgliedern einmalig zeigen
+
+## Global Daily and Weekly challenges
+
+# Global challenge interface.
+ChallengeNav = Aufgaben
+
+# Global challenge interface.
+ChallengeIntro = Dieselbe Tages- und Wochenaufgabe für alle, auf jedem Gate. Dein Fortschritt gehört zu deinem Central-Konto.
+
+# Global challenge interface.
+ChallengeSignIn = Melde dich bei Baylee Central an, um globale Aufgaben zu spielen und Abzeichen zu sammeln.
+
+# Global challenge interface.
+ChallengeLoading = Aufgaben werden geladen …
+
+# Global challenge interface.
+ChallengeFailed = Der Vorgang konnte nicht bestätigt werden. Aktualisiere die Ansicht oder wähle erneut Spielen, um denselben Versuch aufzunehmen.
+
+# Global challenge interface.
+ChallengeEmpty = Noch ist keine geprüfte Aufgabe verfügbar. Schau später wieder vorbei.
+
+# Global challenge interface.
+ChallengeDaily = Tagesaufgabe
+
+# Global challenge interface.
+ChallengeWeekly = Wochenaufgabe
+
+# Global challenge interface.
+ChallengeLive = Aktuell · mit Ranglistenwertung
+
+# Global challenge interface.
+ChallengeArchive = Archiv · Abschlüsse und Taktiker-Abzeichen zählen weiter
+
+# Global challenge interface.
+ChallengeWithdrawn = Zurückgezogen · kein neuer Start; erreichte Abschlüsse bleiben erhalten
+
+# Global challenge interface.
+# Arguments: start, end
+ChallengeSchedule = UTC: { $start } → { $end }
+
+# Global challenge interface.
+# Arguments: turn, minutes
+ChallengeTarget = Taktiker-Ziel: bis Spielzug { $turn } gewinnen. Plane etwa { $minutes } aktive Minuten ein.
+
+# Global challenge interface.
+ChallengeRules = Drei unabhängige Ranglisten: Fehlversuche vor dem ersten Sieg, wenigste Spielzüge und kürzeste aktive Entscheidungszeit. Hinweise schließen diese Aufgabe von den Ranglisten aus. Unterbrechungen schließen nur die Zeitwertung aus. Abzeichen verfallen nie und erfordern keine tägliche Serie.
+
+# Global challenge interface.
+ChallengePlay = Aufgabe spielen
+
+# Global challenge interface.
+ChallengeResume = Versuch fortsetzen
+
+# Global challenge interface.
+ChallengeActive = Deine laufenden Versuche
+
+# Global challenge interface.
+ChallengeLeaveTable = Verlasse deinen wartenden Tisch, bevor du eine Aufgabe startest.
+
+# Global challenge interface.
+ChallengeListed = Öffentliche Rangliste: an
+
+# Global challenge interface.
+ChallengePrivate = Öffentliche Rangliste: aus
+
+# Global challenge interface.
+ChallengeConsent = Schalte dies nur ein, wenn dein öffentlicher Name und deine Ergebnisse in den Ranglisten dieser Aufgabe erscheinen sollen. Du kannst sie jederzeit wieder verbergen.
+
+# Global challenge interface.
+ChallengeHint = Hinweis …
+
+# Global challenge interface.
+ChallengeHintConfirm = Hinweis aufdecken? Damit gilt diese Aufgabe für dein Konto dauerhaft als mit Hilfe gelöst, auch bei späteren Versuchen. Abschlüsse und Taktiker-Abzeichen bleiben möglich.
+
+# Global challenge interface.
+ChallengeAbandon = Versuch aufgeben …
+
+# Global challenge interface.
+ChallengeAbandonConfirm = Diesen Versuch aufgeben? Wenn das Spiel begonnen hat, zählt dies als Fehlversuch. Eine Verbindungsunterbrechung allein gibt den Versuch nicht auf.
+
+# Global challenge interface.
+ChallengeConfirm = Bestätigen
+
+# Global challenge interface.
+ChallengeCancel = Abbrechen
+
+# Global challenge interface.
+ChallengeDeck = Vorgegebenes Deck
+
+# Global challenge interface.
+# Arguments: starts, failures, best
+ChallengePersonal = Starts: { $starts } · Fehlversuche: { $failures } · Bester Spielzug: { $best }
+
+# Global challenge interface.
+ChallengeCompleted = Abgeschlossen · dauerhafter Fortschritt erreicht
+
+# Global challenge interface.
+ChallengeAssisted = Mit Hilfe · der Abschluss zählt weiterhin
+
+# Global challenge interface.
+ChallengeBoards = Globale Ranglisten
+
+# Global challenge interface.
+ChallengeFirst = Erster Sieg
+
+# Global challenge interface.
+ChallengeTurns = Wenigste Züge
+
+# Global challenge interface.
+ChallengeTime = Kürzeste Zeit
+
+# Global challenge interface.
+ChallengeNoScores = Auf dieser Seite gibt es noch keine gültigen öffentlichen Ergebnisse.
+
+# Global challenge interface.
+# Arguments: rank, name, turn, failures, seconds
+ChallengeStanding = { $rank }. { $name } · Zug { $turn } · Fehlversuche { $failures } · { $seconds } s
+
+# Global challenge interface.
+# Arguments: name
+ChallengeYou = { $name } (du)
+
+# Global challenge interface.
+ChallengeOlder = Ältere Aufgaben
+
+# Global challenge interface.
+ChallengeNext = Nächste Seite
+
+# Global challenge interface.
+ChallengePrevious = Vorherige Seite
+
+# Global challenge interface.
+ChallengeBadges = Deine dauerhaften Abzeichen
+
+# Global challenge interface.
+ChallengeBadgeDaily = Tagesentdecker
+
+# Global challenge interface.
+ChallengeBadgeWeekly = Wochenabenteurer
+
+# Global challenge interface.
+ChallengeBadgeTactician = Taktiker
+
+# Global challenge interface.
+ChallengeBadgeFirst = Auf Anhieb
+
+# Global challenge interface.
+ChallengeBadgeRegular = Stammgast
+
+# Global challenge interface.
+ChallengeBadgeRules = Pro Aufgabe zählt ein Abschluss für ein Abzeichen. Stammgast: drei Tagessiege oder ein Wochensieg in einer UTC-Woche; die Wochen müssen nicht aufeinanderfolgen. Auf Anhieb erfordert einen aktuellen Sieg ohne Hinweise und ohne vorherigen Fehlversuch.
+
+# Global challenge interface.
+# Arguments: count, next
+ChallengeBadgeProgress = { $count } erreicht · nächste Stufe bei { $next }
+
+# Global challenge interface.
+# Arguments: count
+ChallengeBadgeMax = { $count } erreicht · höchste Stufe
+
+# Global challenge interface.
+ChallengeBronze = Bronze
+
+# Global challenge interface.
+ChallengeSilver = Silber
+
+# Global challenge interface.
+ChallengeGold = Gold
+
+# Global challenge interface.
+ChallengePlatinum = Platin
+
+# Global challenge interface.
+ChallengeObsidian = Obsidian
+
+# Global challenge interface.
+ChallengeNotEarned = Noch nicht erreicht
+
+# Global challenge interface.
+ChallengePendingResult = Dein letztes Ergebnis wird geprüft. Aktualisiere die Ansicht, um die bestätigte Wertung und deinen Abzeichenfortschritt zu sehen.

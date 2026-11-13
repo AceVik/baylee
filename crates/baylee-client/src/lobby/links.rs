@@ -52,6 +52,28 @@ pub(super) fn follow(
             true
         }
         Link::AddGateway(url) => propose(&mut state, url),
+        Link::Challenge(id) => {
+            if state.central_ready() {
+                state.link_asked_central = false;
+                state.hub = Hub::Challenges;
+                state.ensure_central_lobby(&mailbox);
+                super::challenges::ask(
+                    &mut state,
+                    baylee_client_core::challenges::Action::Select(id),
+                );
+                true
+            } else if state.central_pending() {
+                false
+            } else if signed_out_at_the_door(&state) && !state.link_asked_central {
+                state.link_asked_central = true;
+                open_central(&mut state);
+                false
+            } else {
+                state.link_asked_central = false;
+                state.lobby.tell_refusal(Phrase::ChallengeSignIn, &[]);
+                true
+            }
+        }
         Link::Pair(link) => {
             pair(&mut state, &mailbox, link);
             true

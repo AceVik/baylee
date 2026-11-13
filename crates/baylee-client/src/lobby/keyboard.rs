@@ -142,6 +142,14 @@ pub(super) fn keyboard(
         }
         return;
     }
+    if state.hub == Hub::Challenges
+        && state.challenges.model.confirmation.is_some()
+        && codes.just_pressed(KeyCode::Escape)
+    {
+        keys.clear();
+        state.challenges.model.confirmation = None;
+        return;
+    }
     // A header popover is a menu: Esc closes it, and nothing under it
     // takes the key (`KEYBOARD.md` §2.5).
     if state.header_menu.is_some() && codes.just_pressed(KeyCode::Escape) {

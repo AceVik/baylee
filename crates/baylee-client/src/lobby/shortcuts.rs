@@ -31,7 +31,7 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         Screen::Build => Context::Builder,
         Screen::Table if state.lobby.awaiting().is_some() && !state.room_away => Context::Room,
         Screen::Table => match state.hub {
-            Hub::Play => Context::Play,
+            Hub::Play | Hub::Challenges => Context::Play,
             Hub::Decks => Context::Decks,
             Hub::Replays => Context::Replays,
         },

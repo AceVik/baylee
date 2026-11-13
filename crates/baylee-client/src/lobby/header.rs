@@ -152,13 +152,19 @@ pub(super) enum NavTab {
     Decks,
     /// Replays (desktop only).
     Replays,
+    Challenges,
 }
 
 /// The nav pills this build draws, in order: a desktop's three (Lobby,
 /// Decks, Replays), the web's and a phone's two (`replays::SHOWN`).
 /// Settings lives solely on the gear icon.
 pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
-    &[NavTab::Play, NavTab::Decks, NavTab::Replays]
+    &[
+        NavTab::Play,
+        NavTab::Decks,
+        NavTab::Challenges,
+        NavTab::Replays,
+    ]
 } else {
     &[NavTab::Play, NavTab::Decks]
 };
@@ -179,11 +185,13 @@ fn active(state: &LobbyState) -> Option<usize> {
             Hub::Play => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
+            Hub::Challenges => NavTab::Challenges,
         },
         Screen::SignIn { .. } if state.central_ready() => match state.hub {
             Hub::Play => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
+            Hub::Challenges => NavTab::Challenges,
         },
         _ => return None,
     };
@@ -423,6 +431,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             .map(|tab| match tab {
                 NavTab::Play => Phrase::ShellPlay.text(lang),
                 NavTab::Decks => Phrase::ShellDecks.text(lang),
+                NavTab::Challenges => Phrase::ChallengeNav.text(lang),
                 NavTab::Replays => {
                     baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
                 }

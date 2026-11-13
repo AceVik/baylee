@@ -82,6 +82,7 @@ impl HeaderPress {
                 let hub = match NAV.get(usize::from(n)) {
                     Some(NavTab::Decks) => Hub::Decks,
                     Some(NavTab::Replays) => Hub::Replays,
+                    Some(NavTab::Challenges) => Hub::Challenges,
                     _ => Hub::Play,
                 };
                 HubPress::Tab(hub).handle(cx);

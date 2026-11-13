@@ -13,6 +13,7 @@
 
 mod account;
 mod answer;
+mod challenge;
 mod debug;
 pub mod gateway_info;
 pub mod gateway_list;

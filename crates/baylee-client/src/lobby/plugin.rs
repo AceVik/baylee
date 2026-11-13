@@ -46,6 +46,7 @@ impl Plugin for LobbyPlugin {
             },
         );
         header::install(app);
+        challenges::install(app);
         install_builder(app);
         // A `baylee:` link the lobby follows once it can (`links`): after
         // the mailbox, before the tree, so a question it raises is drawn the

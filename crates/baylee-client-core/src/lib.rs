@@ -60,6 +60,7 @@ pub mod cardquery;
 pub mod cardrail;
 pub mod cardsearch;
 pub mod caretspot;
+pub mod challenges;
 pub mod combat;
 pub mod combat_auto;
 pub mod commanderdamage;

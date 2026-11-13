@@ -153,6 +153,9 @@ pub(super) fn table(
         Hub::Play => super::play::draw(commands, root, state, metrics, kit, scrolled_to),
         Hub::Decks => super::decks::draw(commands, root, state, prefs, metrics, kit, scrolled_to),
         Hub::Replays => super::replays::draw(commands, root, state, metrics, kit, scrolled_to),
+        Hub::Challenges => {
+            super::challenges::draw(commands, root, state, metrics, kit, scrolled_to);
+        }
     }
 }
 
@@ -240,6 +243,11 @@ impl HubPress {
                 sign_out(state, prefs, scrolled, mailbox, settings);
             }
             HubPress::Refresh => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if state.hub == Hub::Challenges {
+                    super::challenges::ask(state, baylee_client_core::challenges::Action::Refresh);
+                    return;
+                }
                 let request = state.lobby.refresh();
                 dispatch(state, mailbox, request);
             }

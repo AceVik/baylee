@@ -23,7 +23,7 @@ pub(super) fn place(state: &LobbyState) -> Option<Place> {
             Hub::Play => Some(Place::Play),
             Hub::Decks => Some(Place::Shelf),
             // No tour stands on the Replays tab.
-            Hub::Replays => None,
+            Hub::Replays | Hub::Challenges => None,
         },
         Screen::Build => Some(Place::Builder),
         Screen::Seated(_) | Screen::Replay(_) => None,

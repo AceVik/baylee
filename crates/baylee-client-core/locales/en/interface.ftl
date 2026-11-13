@@ -9951,3 +9951,183 @@ HandShareAllContinuous = Share hand with all teammates (whole game)
 
 # Show a one-time snapshot of this seat's current hand to every living teammate.
 HandShareAllOnce = Show current hand to all teammates (once)
+
+## Global Daily and Weekly challenges
+
+# Global challenge interface.
+ChallengeNav = Challenges
+
+# Global challenge interface.
+ChallengeIntro = The same Daily and Weekly for everyone, on every gate. Your progress belongs to your Central account.
+
+# Global challenge interface.
+ChallengeSignIn = Sign in to Baylee Central to play global challenges and keep your badges.
+
+# Global challenge interface.
+ChallengeLoading = Reading challenges…
+
+# Global challenge interface.
+ChallengeFailed = The operation could not be confirmed. Refresh, or retry Play to recover the same attempt.
+
+# Global challenge interface.
+ChallengeEmpty = No certified challenge is available yet. Please check again later.
+
+# Global challenge interface.
+ChallengeDaily = Daily
+
+# Global challenge interface.
+ChallengeWeekly = Weekly
+
+# Global challenge interface.
+ChallengeLive = Live · competitive scores
+
+# Global challenge interface.
+ChallengeArchive = Archive · completion and tactician badges still count
+
+# Global challenge interface.
+ChallengeWithdrawn = Withdrawn · this task cannot be started; earned completion remains
+
+# Global challenge interface.
+# Arguments: start, end
+ChallengeSchedule = UTC: { $start } → { $end }
+
+# Global challenge interface.
+# Arguments: turn, minutes
+ChallengeTarget = Tactician target: win by game turn { $turn }. Allow about { $minutes } active minutes.
+
+# Global challenge interface.
+ChallengeRules = Three independent rankings: failures before your first win, fewest game turns, and fastest active decision time. Hints exclude this task from competitive rankings. Interruptions exclude only the time ranking. Badges never expire and require no daily streak.
+
+# Global challenge interface.
+ChallengePlay = Play challenge
+
+# Global challenge interface.
+ChallengeResume = Resume attempt
+
+# Global challenge interface.
+ChallengeActive = Your ongoing attempts
+
+# Global challenge interface.
+ChallengeLeaveTable = Leave your waiting table before starting a challenge.
+
+# Global challenge interface.
+ChallengeListed = Public ranking: on
+
+# Global challenge interface.
+ChallengePrivate = Public ranking: off
+
+# Global challenge interface.
+ChallengeConsent = Only opt in if you want your public name and scores shown in this task's rankings. You can hide them again at any time.
+
+# Global challenge interface.
+ChallengeHint = Hint…
+
+# Global challenge interface.
+ChallengeHintConfirm = Reveal a hint? This permanently marks this task as assisted for your account, including later attempts. Completion and tactician badges remain available.
+
+# Global challenge interface.
+ChallengeAbandon = Abandon attempt…
+
+# Global challenge interface.
+ChallengeAbandonConfirm = Abandon this attempt? If the game has started, this counts as a failed attempt. A disconnection alone does not abandon it.
+
+# Global challenge interface.
+ChallengeConfirm = Confirm
+
+# Global challenge interface.
+ChallengeCancel = Cancel
+
+# Global challenge interface.
+ChallengeDeck = Supplied deck
+
+# Global challenge interface.
+# Arguments: starts, failures, best
+ChallengePersonal = Starts: { $starts } · Failures: { $failures } · Best game turn: { $best }
+
+# Global challenge interface.
+ChallengeCompleted = Completed · permanent progress earned
+
+# Global challenge interface.
+ChallengeAssisted = Assisted · completion still counts
+
+# Global challenge interface.
+ChallengeBoards = Global rankings
+
+# Global challenge interface.
+ChallengeFirst = First win
+
+# Global challenge interface.
+ChallengeTurns = Fewest turns
+
+# Global challenge interface.
+ChallengeTime = Fastest time
+
+# Global challenge interface.
+ChallengeNoScores = No eligible public scores on this page yet.
+
+# Global challenge interface.
+# Arguments: rank, name, turn, failures, seconds
+ChallengeStanding = { $rank }. { $name } · Turn { $turn } · Failures { $failures } · { $seconds } s
+
+# Global challenge interface.
+# Arguments: name
+ChallengeYou = { $name } (you)
+
+# Global challenge interface.
+ChallengeOlder = Older tasks
+
+# Global challenge interface.
+ChallengeNext = Next page
+
+# Global challenge interface.
+ChallengePrevious = Previous page
+
+# Global challenge interface.
+ChallengeBadges = Your permanent badges
+
+# Global challenge interface.
+ChallengeBadgeDaily = Daily explorer
+
+# Global challenge interface.
+ChallengeBadgeWeekly = Weekly adventurer
+
+# Global challenge interface.
+ChallengeBadgeTactician = Tactician
+
+# Global challenge interface.
+ChallengeBadgeFirst = First try
+
+# Global challenge interface.
+ChallengeBadgeRegular = Regular visitor
+
+# Global challenge interface.
+ChallengeBadgeRules = One completion per task advances a badge. Regular visitor: three Daily wins or one Weekly win in a UTC week; weeks need not be consecutive. First try requires an unassisted live win without a previous failure.
+
+# Global challenge interface.
+# Arguments: count, next
+ChallengeBadgeProgress = { $count } earned · next tier at { $next }
+
+# Global challenge interface.
+# Arguments: count
+ChallengeBadgeMax = { $count } earned · highest tier
+
+# Global challenge interface.
+ChallengeBronze = Bronze
+
+# Global challenge interface.
+ChallengeSilver = Silver
+
+# Global challenge interface.
+ChallengeGold = Gold
+
+# Global challenge interface.
+ChallengePlatinum = Platinum
+
+# Global challenge interface.
+ChallengeObsidian = Obsidian
+
+# Global challenge interface.
+ChallengeNotEarned = Not earned yet
+
+# Global challenge interface.
+ChallengePendingResult = Your last result is being checked. Refresh to see the confirmed score and badge progress.

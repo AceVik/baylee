@@ -1,5 +1,25 @@
-
 use super::*;
+
+#[test]
+fn challenge_link_is_only_a_canonical_v7_identity() {
+    let text = "baylee://challenge/019a774b346e70008000000000000001";
+    assert!(matches!(
+        read(text, Origins::Public),
+        Some(Link::Challenge(_))
+    ));
+    for bad in [
+        "baylee://challenge/019a774b346e40008000000000000001",
+        "baylee://challenge/019a774b346e70008000000000000001/",
+        "baylee://challenge/019A774B346E70008000000000000001",
+        "baylee://challenge/019a774b-346e-7000-8000-000000000001",
+        "baylee://challenge/019a774b346e70008000000000000001?play=true",
+        "baylee://challenge/019a774b346e70008000000000000001#hint",
+        "baylee://evil@challenge/019a774b346e70008000000000000001",
+        "baylee://challenge/%3019a774b346e70008000000000000001",
+    ] {
+        assert_eq!(read(bad, Origins::Public), None, "{bad}");
+    }
+}
 
 fn add(origin: &str) -> Link {
     Link::AddGateway(origin.into())
